@@ -63,11 +63,31 @@ shape, because a guardian row whose batch has no student cannot be
 folded into anything. **That is the correct behaviour**: the
 alternative silently deletes the row and the link with it.
 
-> So the deploy **stops at step 4** if step 2 was skipped, with the
-> data untouched. That is a good failure — recoverable, loud, and
-> before anything is altered — but only if the operator knows why.
-> Hence the ordering is written here rather than left to the runbook's
-> author to infer.
+> So the deploy **stops at step 4** if step 2 was skipped. That is a
+> good failure — recoverable, loud, and before anything is altered —
+> but only if the operator knows why. Hence the ordering is written
+> here rather than left to the runbook's author to infer.
+
+**"Nothing is altered" is a stronger claim than it looks, and it rests
+on a property worth naming.** The guard runs *after* the `ADD COLUMN`
+and `RENAME COLUMN` statements, so at the moment it raises the schema
+is already half-changed. What saves it:
+
+| Property | Source |
+|---|---|
+| PostgreSQL has **transactional DDL** | `ALTER TABLE` rolls back like any other statement |
+| Alembic wraps the upgrade in **one transaction** | `transaction_per_migration` is the default for a transactional-DDL backend |
+
+Verified against a live container: with the guard raising after both
+statements, `information_schema` shows the column list **byte-identical
+to before the attempt** — `account_id` still present, `student_account_id`
+absent.
+
+> This is why the guard may sit *after* the DDL rather than having to
+> run first. On a backend without transactional DDL — MySQL, say — the
+> same migration would leave a half-renamed table and the design's
+> recoverability claim would be false. The property is PostgreSQL's,
+> not the migration's, and `0002` depends on it.
 
 ---
 
