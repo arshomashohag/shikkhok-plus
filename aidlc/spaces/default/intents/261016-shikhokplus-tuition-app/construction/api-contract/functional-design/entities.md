@@ -172,6 +172,41 @@ contract_types:
         remembered; iteration covers the endpoint added three Bolts later.
       - This is the assertion Schemathesis cannot make: a response wrongly
         including a profile field is perfectly conformant.
+
+  - name: ForbiddenAccountIdField
+    kind: field_set
+    description: >
+      Account identifiers of any kind, which no teacher-facing response may
+      carry. ADR-001's half of the schema-wide invariant, checked by the
+      same iteration as OwnerPrivateField.
+    constraints:
+      - A teacher-facing response exposes `enrollment_id` and never
+        `student_account_id`. An account id is a GLOBAL key; an enrollment
+        id is scoped to one owner.
+      - ADR-001 chose to extend this gate rather than build a new mechanism,
+        which is why both sets ride on one iteration.
+
+  - name: LensHintOutcome
+    kind: response_contract
+    description: >
+      What the server does with a client-supplied lens hint, and what it
+      returns when the hint claims a lens the account's data cannot support.
+    fields:
+      - name: lens
+        type: string
+        required: true
+        description: >
+          The response is SELF-DESCRIBING: it names the lens that actually
+          produced it, so the client renders from the response rather than
+          from the hint it sent.
+    constraints:
+      - The hint affects navigation and UI shaping only. It is never trusted
+        for authorization.
+      - The server re-derives the lens from owned batches and enrollments on
+        every request, and refuses with authorization (403) and a dedicated
+        code when the hinted lens has no data behind it.
+      - This is error-contract surface, so U2 owns the code, the status and
+        the class. U3 owns the derivation that decides which applies.
 ```
 
 ---

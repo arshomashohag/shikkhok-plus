@@ -72,49 +72,80 @@ items 4, 5 and 6 all iterate sets that are **empty in B2**.
 ### 2.3 Resolve a resource the lens may not reach
 
 1. Resolve the lens. Scope the lookup by the value the lens carries.
-2. If the resource is not reachable **or** does not exist, return
-   **authorization (403)** — identically, with no observable difference
-   between the two cases [BR1.4].
+2. If the resource is not reachable **or** does not exist, return a
+   **byte-identical 403** in both cases [BR1.4] — same status, same `code`,
+   same `message_key`, same (absent) `details`, same headers.
+3. The `code` is a single value covering both cases [BR1.5]. No code in the
+   registry distinguishes them.
 
-> **This is the rule an implementer will try to undo**, because the upstream
-> contract argues both sides of it: the schema section specifies 403 for
-> both, and the implementer notes call it "the 404-instead-of-403 rule".
+> **The status is the incidental half of this rule; the body is the
+> substantive one.** An earlier draft settled only the status and described
+> the two cases as "identical" in prose while requiring sameness of nothing
+> else. Two 403s carrying `BATCH_NOT_FOUND` and `BATCH_NOT_YOURS` leak
+> everything the uniform status hid — and each code reads as good practice
+> on its own, which is why BR1.5 names the failure rather than trusting
+> judgement.
 >
-> The leak comes from **splitting**, not from either status. Teacher A probes
-> ids; a 403 that means "exists but not yours" is a hit, and A enumerates
-> teacher B's batches across the owner boundary. A uniform answer — either
-> one — closes it.
+> On the status itself: the upstream contract argues both sides. Line 133
+> states normatively that "404 is deliberately not in the taxonomy", and the
+> schema's Forbidden response agrees; one prose note calls it "the
+> 404-instead-of-403 rule", mis-titling the rule it points at. 403 wins on
+> two normative statements against one mis-titled cross-reference, and
+> because 404 is honest to nobody — a teacher who mistyped their **own** id
+> would be told it does not exist.
 >
-> 403 wins because the schema section is normative (it generates the document
-> the diff gate compares against), because 404 is not in the taxonomy so the
-> envelope would have nothing to carry, and because 403 is honest to a
-> teacher who mistyped their **own** id.
+> **That decision contradicts four downstream artifacts** — B2's own DoD and
+> the confidence hypotheses of B3, B7 and B9, each asserting 404 as a
+> falsification criterion. B3's is the walking skeleton's privacy
+> hypothesis, read at a human checkpoint. BR4.3 records the amendments as a
+> cross-Bolt obligation rather than a hope.
 
 ### 2.4 Assert the money contract over the schema
 
 1. Generate the OpenAPI document.
-2. For every property carrying money: assert `type: string` and the canonical
-   pattern [BR2.2].
-3. For every property named `<x>_display`: assert a sibling `<x>` exists and
-   matches the money pattern [BR2.3]. The display string itself is **not**
+2. For every property that **`$ref`s the shared `Money` component**: the
+   pattern is carried by the component and needs no per-property assertion
+   [BR2.2].
+3. Assert that **no property declares an inline money-shaped type** instead
+   of referencing the component — that is the violation worth catching.
+4. For every property named `<x>_display`: assert a sibling `<x>` exists and
+   references the component [BR2.3]. The display string is **not**
    pattern-matched — it is presentation, and its content is OQ-B1-1's.
-4. Fail the build on any violation.
+5. Fail the build on any violation.
 
-> This is the half of the money boundary an import rule cannot see. A money
-> value typed as a free-form string imports nothing and violates nothing
-> lexically; only the schema knows it was meant to be money.
+> **An earlier draft of this check was circular.** It said "every property
+> *carrying money* is a string matching the pattern" — but "carrying money"
+> is not decidable from a generated document. Selecting by the pattern
+> checks the pattern on properties chosen for having it; selecting by name
+> misses by design. And the defect this check exists to catch — a money
+> value typed as a free-form string — is precisely what a pattern-based
+> selector cannot see.
+>
+> `$ref` to the declared component is the decidable predicate, and it
+> inverts what the check asserts: not "does this match the pattern" but
+> "does this reference the single definition". That is still the half of the
+> money boundary an import rule cannot see.
 
 ### 2.5 Assert the privacy boundary over the schema
 
 1. Generate the document.
 2. For every **teacher-lens** response schema, assert no declared field is in
-   the owner-private set [BR2.4].
+   the owner-private profile set **or** is `student_account_id` or any other
+   account id [BR2.4]. **Two field sets, one mechanism.**
 3. Fail the build on any violation.
 
+> The second set is ADR-001's, and an earlier draft omitted it. An account
+> id is a **global** key; an enrollment id is scoped to one owner. A
+> teacher-facing response carrying `student_account_id` hands teacher A a
+> stable handle on a student also enrolled with teacher B — the exact
+> cross-teacher traversal ADR-001 exists to prevent, through the gate
+> ADR-001 explicitly nominated to catch it ("gains one more forbidden field
+> set rather than a new mechanism").
+>
 > Iteration, not enumeration. A per-endpoint test covers the endpoints
 > someone remembered; this covers the one added in B9 after everyone stopped
 > thinking about it. It is also the assertion a conformance tool cannot make
-> — a response wrongly carrying profile fields matches its own declaration
+> — a response wrongly carrying either set matches its own declaration
 > perfectly [BR4.2].
 
 ### 2.6 Enumerate routes and check their lenses
@@ -122,14 +153,34 @@ items 4, 5 and 6 all iterate sets that are **empty in B2**.
 1. Load the **real application object** at test collection time.
 2. For each route, walk `dependant` **recursively** — a lens may be nested
    inside a composed dependency.
-3. A dependency counts as a lens when its **return annotation** is a `Lens`
-   subtype [BR3.2]. Never when its name looks like one.
-4. A route resolving no lens fails, unless it is in `PUBLIC_ROUTES`.
+3. Resolve each return annotation with `typing.get_type_hints` against its
+   own module [BR3.2]. A union counts only when **every** member is a `Lens`
+   subtype; `Annotated` and generic aliases are unwrapped. Never match on a
+   name.
+4. A resolution failure **fails the build naming the route**. It is never
+   swallowed.
+5. A route resolving no lens fails, unless it is in `PUBLIC_ROUTES` (exactly
+   five entries) or `LENS_EXEMPT_AUTHENTICATED` (exactly one) [BR3.1].
 
-> `PUBLIC_ROUTES` is an explicit frozenset — **empty in B2** — and grows only
-> by someone editing a list in a test. That is the load-bearing half: making
-> an endpoint public becomes a deliberate, reviewable act rather than an
-> omission.
+> **Two sets, not one.** `PUBLIC_ROUTES` holds the genuinely public routes —
+> OTP issue, OTP verify, health, the external deletion route. `POST
+> /v1/auth/refresh` is **not** public: it authenticates by the refresh token
+> itself and resolves no lens, so it lives in a separate set, "so the
+> route-enumeration test does not need a hole in its main allowlist".
+>
+> An earlier draft had one open-ended allowlist "empty in B2 and growing".
+> The failure that invites is concrete: the implementer who first hits a
+> failing refresh route takes the cheapest green edit and adds it to
+> `PUBLIC_ROUTES`, where nothing then records that it must stay
+> authenticated. "Exactly five" is also the stronger control — a sixth entry
+> is a diff against a stated number.
+>
+> Step 4 matters more than it looks. Three annotation shapes defeat a naive
+> `issubclass`: string annotations (which this project's own lint rules
+> encourage), unions like `TeacherLens | GuardianLens` for the dual-lens
+> account, and `Annotated` wrappers. The damage is not the false negative —
+> it is the implementer who hits the error, wraps the call and returns
+> `True` on failure, after which every route passes and none is checked.
 
 ### 2.7 Prove each gate fires
 
@@ -249,10 +300,10 @@ Derived from `rules.md`, which is the source of truth.
 
 | Group | Covers | Rules |
 |---|---|---|
-| **BR1.x** | The error taxonomy and its envelope | BR1.1–BR1.4 |
+| **BR1.x** | The error taxonomy, its envelope, and the non-disclosure rule | BR1.1–BR1.6 |
 | **BR2.x** | The committed schema and its assertions | BR2.1–BR2.4 |
 | **BR3.x** | The route harness | BR3.1–BR3.2 |
-| **BR4.x** | Gates that would otherwise pass trivially | BR4.1–BR4.2 |
+| **BR4.x** | Gates that would otherwise pass trivially, and what this stage owes other Bolts | BR4.1–BR4.3 |
 
 ---
 

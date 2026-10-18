@@ -17900,3 +17900,697 @@
 **Duration ms**: 157
 
 ---
+
+## Review Requested
+**Timestamp**: 2026-10-18T08:21:42Z
+**Event**: REVIEW_REQUESTED
+**Stage**: functional-design
+**Reviewer**: aidlc-architecture-reviewer-agent
+**Unit**: api-contract
+**Iteration**: 1
+**Artifact Fingerprint**: sha256:90f7e967df6c3b3d3f538ae651d722962ac0cf8b3aa40c6b8eff4432917c5969
+**Request Id**: review:4d4536a017cdaf43fc9a4a066d35be22
+**Review File**: .aidlc-engine/reviews/functional-design/units/api-contract/e392ea5bc7e48568/1.4d4536a017cdaf43fc9a4a066d35be22.review.md
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-10-18T08:22:50Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: unknown
+**Agent ID**: aaff58ecde5e3f608
+**Message**: Reading contract-summary.md upstream sections
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-10-18T08:23:22Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: unknown
+**Agent ID**: ac6845003f4a78a3e
+**Message**: Writing 1.4d4536a0 review file
+
+---
+
+## Artifact Created
+**Timestamp**: 2026-10-18T08:25:21Z
+**Event**: ARTIFACT_CREATED
+**Tool**: Write
+**File**: <project-dir>/aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/.aidlc-engine/reviews/functional-design/units/api-contract/e392ea5bc7e48568/1.4d4536a017cdaf43fc9a4a066d35be22.review.md
+**Context**: .aidlc-engine > reviews > functional-design > units > api-contract > e392ea5bc7e48568 > 1.4d4536a017cdaf43fc9a4a066d35be22.review.md
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-10-18T08:25:23Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: unknown
+**Agent ID**: aee4eda37f5b872ab
+**Message**: Reporting findings via SubagentHandback
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-10-18T08:25:54Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: unknown
+**Agent ID**: ac2fad1ef39b4faa5
+**Message**: Verifying headings in review.md
+
+---
+
+## Human Turn
+**Timestamp**: 2026-10-18T08:26:05Z
+**Event**: HUMAN_TURN
+**Session**: 7a0e31c2-15ad-4a21-a1ba-834440b81bfe
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-10-18T08:26:09Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: aidlc-architecture-reviewer-agent
+**Agent ID**: a6083c7876020ca7d
+**Message**: Review complete and delivered. Verdict: **NOT-READY** — 2 Critical, 3 Major, 2 Minor.\n\nThe two Critical findings are both omissions against the approved contract rather than anything in your 403/404 r
+
+---
+
+## Human Turn
+**Timestamp**: 2026-10-18T08:26:12Z
+**Event**: HUMAN_TURN
+**Session**: 7a0e31c2-15ad-4a21-a1ba-834440b81bfe
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-10-18T08:27:34Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/rules.md
+**Context**: construction > api-contract > functional-design > rules.md
+**Summary Authorization Id**: b274daf3780e1fd743d13f9ce9d07effd19d9163e79a41da0f3d7b13d65467d8
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-10-18T08:27:48Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/rules.md
+**Context**: construction > api-contract > functional-design > rules.md
+**Summary Authorization Id**: b274daf3780e1fd743d13f9ce9d07effd19d9163e79a41da0f3d7b13d65467d8
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-10-18T08:28:13Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/rules.md
+**Context**: construction > api-contract > functional-design > rules.md
+**Summary Authorization Id**: b274daf3780e1fd743d13f9ce9d07effd19d9163e79a41da0f3d7b13d65467d8
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-10-18T08:28:29Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/rules.md
+**Context**: construction > api-contract > functional-design > rules.md
+**Summary Authorization Id**: b274daf3780e1fd743d13f9ce9d07effd19d9163e79a41da0f3d7b13d65467d8
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-10-18T08:28:49Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/rules.md
+**Context**: construction > api-contract > functional-design > rules.md
+**Summary Authorization Id**: b274daf3780e1fd743d13f9ce9d07effd19d9163e79a41da0f3d7b13d65467d8
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-10-18T08:29:03Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/rules.md
+**Context**: construction > api-contract > functional-design > rules.md
+**Summary Authorization Id**: b274daf3780e1fd743d13f9ce9d07effd19d9163e79a41da0f3d7b13d65467d8
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-10-18T08:29:23Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/rules.md
+**Context**: construction > api-contract > functional-design > rules.md
+**Summary Authorization Id**: b274daf3780e1fd743d13f9ce9d07effd19d9163e79a41da0f3d7b13d65467d8
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-10-18T08:30:28Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/functional-spec.md
+**Context**: construction > api-contract > functional-design > functional-spec.md
+**Summary Authorization Id**: b274daf3780e1fd743d13f9ce9d07effd19d9163e79a41da0f3d7b13d65467d8
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-10-18T08:30:38Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/functional-spec.md
+**Context**: construction > api-contract > functional-design > functional-spec.md
+**Summary Authorization Id**: b274daf3780e1fd743d13f9ce9d07effd19d9163e79a41da0f3d7b13d65467d8
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-10-18T08:30:47Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/functional-spec.md
+**Context**: construction > api-contract > functional-design > functional-spec.md
+**Summary Authorization Id**: b274daf3780e1fd743d13f9ce9d07effd19d9163e79a41da0f3d7b13d65467d8
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-10-18T08:30:59Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/functional-spec.md
+**Context**: construction > api-contract > functional-design > functional-spec.md
+**Summary Authorization Id**: b274daf3780e1fd743d13f9ce9d07effd19d9163e79a41da0f3d7b13d65467d8
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-10-18T08:31:07Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/functional-spec.md
+**Context**: construction > api-contract > functional-design > functional-spec.md
+**Summary Authorization Id**: b274daf3780e1fd743d13f9ce9d07effd19d9163e79a41da0f3d7b13d65467d8
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-10-18T08:31:21Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/entities.md
+**Context**: construction > api-contract > functional-design > entities.md
+**Summary Authorization Id**: b274daf3780e1fd743d13f9ce9d07effd19d9163e79a41da0f3d7b13d65467d8
+
+---
+
+## Session Compacted
+**Timestamp**: 2026-10-18T08:31:45Z
+**Event**: SESSION_COMPACTED
+**Current Stage**: functional-design
+**State Validity**: valid
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-10-18T08:33:13Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: unknown
+**Agent ID**: a0cd6493c7bb7f377
+**Message**: <analysis>\nLet me work through this conversation chronologically.\n\n**Session context**: This is a continuation of a prior session (summarized at the start). The project is ShikhokPlus, a private-tuiti
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-10-18T08:33:55Z
+**Event**: SENSOR_FIRED
+**Fire id**: 92f34527
+**Sensor ID**: claim-sources
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/rules.md
+
+---
+
+## Sensor Failed
+**Timestamp**: 2026-10-18T08:33:55Z
+**Event**: SENSOR_FAILED
+**Fire id**: 92f34527
+**Sensor ID**: claim-sources
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/rules.md
+**Detail path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/.aidlc-engine/sensors/functional-design/claim-sources-92f34527.md
+**Findings count**: 132
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-10-18T08:33:55Z
+**Event**: SENSOR_FIRED
+**Fire id**: 4aebd71f
+**Sensor ID**: required-sections
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/rules.md
+
+---
+
+## Sensor Passed
+**Timestamp**: 2026-10-18T08:33:56Z
+**Event**: SENSOR_PASSED
+**Fire id**: 4aebd71f
+**Sensor ID**: required-sections
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/rules.md
+**Duration ms**: 84
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-10-18T08:33:56Z
+**Event**: SENSOR_FIRED
+**Fire id**: b7e8f2c7
+**Sensor ID**: upstream-coverage
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/rules.md
+
+---
+
+## Sensor Passed
+**Timestamp**: 2026-10-18T08:33:56Z
+**Event**: SENSOR_PASSED
+**Fire id**: b7e8f2c7
+**Sensor ID**: upstream-coverage
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/rules.md
+**Duration ms**: 73
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-10-18T08:33:56Z
+**Event**: SENSOR_FIRED
+**Fire id**: 0b685a4a
+**Sensor ID**: claim-sources
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/functional-spec.md
+
+---
+
+## Sensor Failed
+**Timestamp**: 2026-10-18T08:33:56Z
+**Event**: SENSOR_FAILED
+**Fire id**: 0b685a4a
+**Sensor ID**: claim-sources
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/functional-spec.md
+**Detail path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/.aidlc-engine/sensors/functional-design/claim-sources-0b685a4a.md
+**Findings count**: 132
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-10-18T08:33:56Z
+**Event**: SENSOR_FIRED
+**Fire id**: e7adc0e2
+**Sensor ID**: required-sections
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/functional-spec.md
+
+---
+
+## Sensor Passed
+**Timestamp**: 2026-10-18T08:33:56Z
+**Event**: SENSOR_PASSED
+**Fire id**: e7adc0e2
+**Sensor ID**: required-sections
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/functional-spec.md
+**Duration ms**: 65
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-10-18T08:33:56Z
+**Event**: SENSOR_FIRED
+**Fire id**: c43cb08a
+**Sensor ID**: upstream-coverage
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/functional-spec.md
+
+---
+
+## Sensor Passed
+**Timestamp**: 2026-10-18T08:33:57Z
+**Event**: SENSOR_PASSED
+**Fire id**: c43cb08a
+**Sensor ID**: upstream-coverage
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/functional-spec.md
+**Duration ms**: 62
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-10-18T08:33:57Z
+**Event**: SENSOR_FIRED
+**Fire id**: 1a0ea519
+**Sensor ID**: claim-sources
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/entities.md
+
+---
+
+## Sensor Failed
+**Timestamp**: 2026-10-18T08:33:57Z
+**Event**: SENSOR_FAILED
+**Fire id**: 1a0ea519
+**Sensor ID**: claim-sources
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/entities.md
+**Detail path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/.aidlc-engine/sensors/functional-design/claim-sources-1a0ea519.md
+**Findings count**: 132
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-10-18T08:33:57Z
+**Event**: SENSOR_FIRED
+**Fire id**: 29682f58
+**Sensor ID**: required-sections
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/entities.md
+
+---
+
+## Sensor Passed
+**Timestamp**: 2026-10-18T08:33:57Z
+**Event**: SENSOR_PASSED
+**Fire id**: 29682f58
+**Sensor ID**: required-sections
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/entities.md
+**Duration ms**: 65
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-10-18T08:33:57Z
+**Event**: SENSOR_FIRED
+**Fire id**: f5a2cb4b
+**Sensor ID**: upstream-coverage
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/entities.md
+
+---
+
+## Sensor Passed
+**Timestamp**: 2026-10-18T08:33:57Z
+**Event**: SENSOR_PASSED
+**Fire id**: f5a2cb4b
+**Sensor ID**: upstream-coverage
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/entities.md
+**Duration ms**: 63
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-10-18T08:33:57Z
+**Event**: SENSOR_FIRED
+**Fire id**: 33d7d3b8
+**Sensor ID**: claim-sources
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/traceability.json
+
+---
+
+## Sensor Failed
+**Timestamp**: 2026-10-18T08:33:58Z
+**Event**: SENSOR_FAILED
+**Fire id**: 33d7d3b8
+**Sensor ID**: claim-sources
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/traceability.json
+**Detail path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/.aidlc-engine/sensors/functional-design/claim-sources-33d7d3b8.md
+**Findings count**: 132
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-10-18T08:33:58Z
+**Event**: SENSOR_FIRED
+**Fire id**: 12fe42e5
+**Sensor ID**: required-sections
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/traceability.json
+
+---
+
+## Sensor Passed
+**Timestamp**: 2026-10-18T08:33:58Z
+**Event**: SENSOR_PASSED
+**Fire id**: 12fe42e5
+**Sensor ID**: required-sections
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/traceability.json
+**Duration ms**: 64
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-10-18T08:33:58Z
+**Event**: SENSOR_FIRED
+**Fire id**: 0594e62e
+**Sensor ID**: upstream-coverage
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/traceability.json
+
+---
+
+## Sensor Passed
+**Timestamp**: 2026-10-18T08:33:58Z
+**Event**: SENSOR_PASSED
+**Fire id**: 0594e62e
+**Sensor ID**: upstream-coverage
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/traceability.json
+**Duration ms**: 63
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-10-18T08:33:58Z
+**Event**: SENSOR_FIRED
+**Fire id**: 7f67a9a1
+**Sensor ID**: traceability
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/traceability.json
+
+---
+
+## Sensor Passed
+**Timestamp**: 2026-10-18T08:33:58Z
+**Event**: SENSOR_PASSED
+**Fire id**: 7f67a9a1
+**Sensor ID**: traceability
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/traceability.json
+**Duration ms**: 122
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-10-18T08:34:33Z
+**Event**: SENSOR_FIRED
+**Fire id**: fb06d92c
+**Sensor ID**: required-sections
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/rules.md
+
+---
+
+## Sensor Passed
+**Timestamp**: 2026-10-18T08:34:33Z
+**Event**: SENSOR_PASSED
+**Fire id**: fb06d92c
+**Sensor ID**: required-sections
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/rules.md
+**Duration ms**: 64
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-10-18T08:34:33Z
+**Event**: SENSOR_FIRED
+**Fire id**: c791088e
+**Sensor ID**: upstream-coverage
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/rules.md
+
+---
+
+## Sensor Passed
+**Timestamp**: 2026-10-18T08:34:33Z
+**Event**: SENSOR_PASSED
+**Fire id**: c791088e
+**Sensor ID**: upstream-coverage
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/rules.md
+**Duration ms**: 68
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-10-18T08:34:33Z
+**Event**: SENSOR_FIRED
+**Fire id**: 56393f21
+**Sensor ID**: required-sections
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/functional-spec.md
+
+---
+
+## Sensor Passed
+**Timestamp**: 2026-10-18T08:34:33Z
+**Event**: SENSOR_PASSED
+**Fire id**: 56393f21
+**Sensor ID**: required-sections
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/functional-spec.md
+**Duration ms**: 123
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-10-18T08:34:33Z
+**Event**: SENSOR_FIRED
+**Fire id**: b8b6c9f4
+**Sensor ID**: upstream-coverage
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/functional-spec.md
+
+---
+
+## Sensor Passed
+**Timestamp**: 2026-10-18T08:34:34Z
+**Event**: SENSOR_PASSED
+**Fire id**: b8b6c9f4
+**Sensor ID**: upstream-coverage
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/functional-spec.md
+**Duration ms**: 71
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-10-18T08:34:34Z
+**Event**: SENSOR_FIRED
+**Fire id**: b7459180
+**Sensor ID**: required-sections
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/entities.md
+
+---
+
+## Sensor Passed
+**Timestamp**: 2026-10-18T08:34:34Z
+**Event**: SENSOR_PASSED
+**Fire id**: b7459180
+**Sensor ID**: required-sections
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/entities.md
+**Duration ms**: 69
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-10-18T08:34:34Z
+**Event**: SENSOR_FIRED
+**Fire id**: ba6f37e4
+**Sensor ID**: upstream-coverage
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/entities.md
+
+---
+
+## Sensor Passed
+**Timestamp**: 2026-10-18T08:34:34Z
+**Event**: SENSOR_PASSED
+**Fire id**: ba6f37e4
+**Sensor ID**: upstream-coverage
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/entities.md
+**Duration ms**: 67
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-10-18T08:34:34Z
+**Event**: SENSOR_FIRED
+**Fire id**: e111a65e
+**Sensor ID**: required-sections
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/traceability.json
+
+---
+
+## Sensor Passed
+**Timestamp**: 2026-10-18T08:34:34Z
+**Event**: SENSOR_PASSED
+**Fire id**: e111a65e
+**Sensor ID**: required-sections
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/traceability.json
+**Duration ms**: 75
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-10-18T08:34:34Z
+**Event**: SENSOR_FIRED
+**Fire id**: fc6bf1fa
+**Sensor ID**: upstream-coverage
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/traceability.json
+
+---
+
+## Sensor Passed
+**Timestamp**: 2026-10-18T08:34:34Z
+**Event**: SENSOR_PASSED
+**Fire id**: fc6bf1fa
+**Sensor ID**: upstream-coverage
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/traceability.json
+**Duration ms**: 67
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-10-18T08:34:35Z
+**Event**: SENSOR_FIRED
+**Fire id**: 4e0d6016
+**Sensor ID**: traceability
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/traceability.json
+
+---
+
+## Sensor Passed
+**Timestamp**: 2026-10-18T08:34:35Z
+**Event**: SENSOR_PASSED
+**Fire id**: 4e0d6016
+**Sensor ID**: traceability
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/functional-design/traceability.json
+**Duration ms**: 109
+
+---
