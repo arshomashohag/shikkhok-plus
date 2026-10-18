@@ -89,7 +89,7 @@
     {
       "id": "NFR6.16",
       "status": "OK",
-      "target": "reliability-design \u00a7A - RENAME, never drop-and-add. AND the FOLD: U3's guardian rows must merge into the student row before `role` is dropped, or every guardian appears on the roster as a pupil. That is a reshape, which 'renames preserve data' did not cover."
+      "target": "reliability-design \u00a7A, \u00a7A.0 - RENAME never drop-and-add, AND the FOLD of U3's guardian rows before `role` is dropped. The fold has TWO failure modes, both now guarded: a batch with two students (ambiguous) and a batch with ZERO students, which is what the approved B3 checkpoint's seed script actually leaves behind -- the UPDATE matches nothing and the DELETE destroys the guardian link. Verified: the corrected guard raises on both and passes on the foldable and no-guardian shapes."
     },
     {
       "id": "NFR6.17",

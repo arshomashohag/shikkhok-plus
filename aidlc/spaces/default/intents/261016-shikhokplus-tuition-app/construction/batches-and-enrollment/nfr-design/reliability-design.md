@@ -57,14 +57,48 @@ one.
 | Rename and lens rewrite in **one** revision [NFR6.17] | A window where authentication reads a column that is gone |
 | `role` dropped **last** | The information the fold reads |
 
-> **The fold is ambiguous when a batch has two students**, because
-> U3's guardian row names a batch and not a child — which is the same
-> ambiguity BR5.0 cites for correcting the lens query. At B5 the
-> production database holds no guardian rows at all (U3 could not
-> write `Enrollment`, and the seed script creates one `guardian` row
-> for the skeleton demo only), so the fold is exact in practice. The
-> migration **asserts** that: if it finds a batch with more than one
-> student and a guardian row, it raises rather than guessing.
+### A.0 The fold has two failure modes, and the second was found by running it
+
+**The first draft of this section was wrong about production data, and
+its guard did not cover the case that actually exists.**
+
+| Case | Fold behaviour | Guard needed |
+|---|---|---|
+| Guardian row, one student in batch | folds correctly | — |
+| Guardian row, **two** students | ambiguous: U3's row names a batch, not a child | assert |
+| Guardian row, **zero** students | **UPDATE matches nothing, DELETE removes the row** | assert |
+
+The third is not hypothetical. `app/db/seed_skeleton.py` — the script
+the **approved B3 checkpoint instructs the operator to run** — creates
+exactly one `role='guardian'` row and **no student row**. Run against
+that state, the fold silently destroys the guardian link: the UPDATE
+matches zero rows, the DELETE removes the only row, and the table ends
+empty.
+
+> My draft said "production holds no guardian rows at all". It holds
+> exactly one, put there by a script this project ships and tells
+> people to run. And the guard I wrote — assert if a batch has more
+> than one student — **does not fire**, because that batch has zero.
+
+So the migration asserts on **both** shapes before folding:
+
+```sql
+-- refuse to guess, in either direction
+SELECT 1 FROM enrollment g
+ WHERE g.role = 'guardian'
+   AND (SELECT count(*) FROM enrollment s
+         WHERE s.role = 'student' AND s.batch_id = g.batch_id) <> 1
+```
+
+Any row returned raises. **The deploy then stops before touching
+data**, which is the right failure: a migration that cannot establish
+what a guardian row refers to must not decide for itself.
+
+**The recovery path is named rather than left to the moment**: delete
+the skeleton seed's rows before deploying `0002`. That is already a
+B5 obligation — the functional spec lists removing `seed_skeleton.py`
+— and this makes the ordering explicit. Remove the data, then the
+script, then migrate.
 
 ### A.1 The migration test needs seeded rows, and must assert values
 
