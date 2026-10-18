@@ -79,6 +79,7 @@ test:
 	@# gate exists to prevent, reproduced inside the gate.
 	$(PY) -m pytest tests -q -p no:cacheprovider \
 		--cov=app.api --cov=app.audit --cov=app.auth --cov=app.authz \
+		--cov=app.batches \
 		--cov=app.config --cov=app.contract --cov=app.db --cov=app.errors \
 		--cov=app.gateway --cov=app.governance --cov=app.main \
 		--cov=app.schemas \

@@ -50,7 +50,20 @@ class StudentLens(Lens):
 class GuardianLens(Lens):
     """A guardian's view of a child's enrollments.
 
-    :ivar child_enrollment_id: The enrollment this request is scoped to
+    ``child_enrollment_id`` is **optional, and the None case is not a
+    degenerate one** [BR5.1, BR5.2]. A guardian's first authenticated
+    request has not selected a child yet -- the selection list is what
+    that request renders -- so the only authoritative value at that
+    point is the account id. The child arrives as a **path parameter**
+    on each subsequent request, never from a client-supplied hint, which
+    is what OQ-7 settles.
+
+    Resolution fills it with the first reachable enrollment so a
+    single-child guardian goes straight through, but no authorization
+    decision may read it without the route having named it.
+
+    :ivar child_enrollment_id: The enrollment this request is scoped to,
+        or None before a child has been selected
     """
 
-    child_enrollment_id: UUID
+    child_enrollment_id: UUID | None = None

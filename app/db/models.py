@@ -32,6 +32,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    Time,
     UniqueConstraint,
     text,
 )
@@ -49,12 +50,16 @@ from app.money import Money
 __all__ = [
     "Account",
     "AuthAuditLog",
+    "Batch",
+    "BatchSubject",
     "Enrollment",
+    "HiddenBatchPreference",
     "OtpRequest",
     "Owner",
     "Profile",
     "RateLimitCounter",
     "RefreshToken",
+    "ScheduleSlot",
     "VerifyAttempt",
 ]
 
@@ -430,4 +435,145 @@ class Enrollment(Base):
             unique=True,
             postgresql_where=text("student_account_id IS NOT NULL"),
         ),
+    )
+
+
+class Batch(Base):
+    """A teacher's class, carrying the fee defaults enrollments inherit.
+
+    Keyed on ``owner_id`` rather than on an account, which is the
+    indirection [AC2.1.3] that lets a batch outlive the person who
+    created it -- a subscription anchored to a person cannot be handed
+    over.
+
+    ``collection_number`` is a teacher-typed payment **destination**, not
+    money, and must never acquire a money type. ``fee_due_day`` is an
+    integer day-of-month that matches the money gates' name tokens while
+    carrying nothing of the kind, which is why BR3.3 allowlists it.
+
+    :ivar id: Surrogate key
+    :ivar owner_id: The owner whose batch this is
+    :ivar name: The teacher's name for the class
+    :ivar teacher_display_name: What students see the teacher called
+    :ivar collection_number: Where payments are sent
+    :ivar collection_channel: Which service that number belongs to
+    :ivar default_fee: The fee an enrollment inherits when it sets none
+    :ivar fee_due_day: Day of month 1-31; 29-31 clamp at generation
+    :ivar marksheet_visible: U6's toggle; U4 only creates the column
+    :ivar active: False collapses the batch to read-only history
+    :ivar created_at: When the batch was created
+    """
+
+    __tablename__ = "batch"
+
+    id: Mapped[uuid.UUID] = _uuid_column()
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("owner.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    teacher_display_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    collection_number: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    collection_channel: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    default_fee: Mapped[Money | None] = mapped_column(MoneyColumn, nullable=True)
+    fee_due_day: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    marksheet_visible: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+    __table_args__ = (Index("ix_batch_owner_id", "owner_id"),)
+
+
+class BatchSubject(Base):
+    """One subject taught in a batch.
+
+    A row rather than a column because a batch has one or more
+    [AC2.1.1], and a separate table rather than an array because U6
+    attaches exams to a subject and needs a key to reference.
+
+    :ivar id: Surrogate key
+    :ivar batch_id: The batch this subject belongs to
+    :ivar name: The subject's name
+    """
+
+    __tablename__ = "batch_subject"
+
+    id: Mapped[uuid.UUID] = _uuid_column()
+    batch_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("batch.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+
+    __table_args__ = (Index("ix_batch_subject_batch_id", "batch_id"),)
+
+
+class ScheduleSlot(Base):
+    """One weekly recurring slot. U5 generates sessions from these.
+
+    ``weekday`` is an integer with a CHECK constraint rather than a
+    string, because a string admits 'Monday', 'monday' and 'Mon' as three
+    different Mondays. The times are ``TIME`` rather than timestamps: a
+    weekly recurrence has no date until U5 instantiates it.
+
+    :ivar id: Surrogate key
+    :ivar batch_id: The batch this slot belongs to
+    :ivar weekday: 0-6, Monday through Sunday
+    :ivar start_time: When the class starts
+    :ivar end_time: When the class ends
+    """
+
+    __tablename__ = "schedule_slot"
+
+    id: Mapped[uuid.UUID] = _uuid_column()
+    batch_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("batch.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    weekday: Mapped[int] = mapped_column(Integer, nullable=False)
+    start_time: Mapped[dt.time] = mapped_column(Time, nullable=False)
+    end_time: Mapped[dt.time] = mapped_column(Time, nullable=False)
+
+
+class HiddenBatchPreference(Base):
+    """One person's choice to hide one inactive batch from their list.
+
+    **A separate table, not a column on Enrollment** [AC2.6.3]. Hiding is
+    per viewer: a student hiding a batch must not hide it from the
+    guardian or the teacher, and a column on the shared enrollment row
+    would be read by every lens that touches it.
+
+    Keyed on ``account_id`` because the preference follows the person
+    across lenses rather than the seat.
+
+    :ivar id: Surrogate key
+    :ivar account_id: Whose preference this is
+    :ivar batch_id: The batch they hid
+    :ivar hidden_at: When they hid it
+    """
+
+    __tablename__ = "hidden_batch_preference"
+
+    id: Mapped[uuid.UUID] = _uuid_column()
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("account.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    batch_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("batch.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    hidden_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+    __table_args__ = (
+        UniqueConstraint("account_id", "batch_id", name="uq_hidden_batch_preference"),
     )
