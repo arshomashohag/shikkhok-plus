@@ -5,6 +5,7 @@
 **Unit**: U2 `api-contract` — `spec`, S
 **Bolt**: B2 `b2-api-contract`
 **Depth**: Comprehensive
+**Summary confirmed**: 2026-10-18
 
 > **The asset under protection here is not data — it is a set of guarantees.**
 > U2 holds no rows, authenticates nobody and authorizes nothing. What it owns

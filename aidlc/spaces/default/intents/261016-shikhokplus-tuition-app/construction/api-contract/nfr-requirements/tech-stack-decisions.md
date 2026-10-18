@@ -5,6 +5,7 @@
 **Unit**: U2 `api-contract` — `spec`, S
 **Bolt**: B2 `b2-api-contract`
 **Depth**: Comprehensive
+**Summary confirmed**: 2026-10-18
 
 > **Almost everything here was decided at B1 and is inherited unchanged**:
 > Python 3.12, FastAPI, Pydantic v2, pytest, Ruff with its named rule sets,

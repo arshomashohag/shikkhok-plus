@@ -1,6 +1,7 @@
 {
   "stage": "nfr-requirements",
   "unit": "api-contract",
+  "confirmed": "2026-10-18",
   "note": "U2 is a spec Unit that is never deployed: no process, no endpoint, no database, no network. Most inception NFRs describe a running service and are N/A with a structural reason recorded per NFR rather than dropped, which is what distinguishes an analysis from an omission. Four bind directly (NFR9, NFR14, NFR16, NFR17) and two partially (NFR3, NFR13). The Unit's security asset is not data but a set of guarantees later Units cannot violate without failing a build - which makes the sharpest risk a gate that passes because it has nothing to examine, since all four schema assertions iterate empty sets in B2. NFR14.4 is explicitly NOT discharged here and is handed to U3 by BR4.4; claiming it would be the exact over-reach the fixture obligation exists to prevent.",
   "upstream_ids": [
     "NFR1",

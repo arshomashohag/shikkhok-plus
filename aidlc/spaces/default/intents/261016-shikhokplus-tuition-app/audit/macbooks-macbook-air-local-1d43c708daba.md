@@ -19806,3 +19806,139 @@
 **Duration ms**: 116
 
 ---
+
+## Error Logged
+**Timestamp**: 2026-10-18T08:58:21Z
+**Event**: ERROR_LOGGED
+**Tool**: aidlc-log
+**Command**: aidlc-log engine log review --stage nfr-requirements --reviewer aidlc-architecture-reviewer-agent --unit api-contract --iteration 1 --project-dir <project-dir>
+**Error**: Cannot start review for "nfr-requirements": no fresh human-backed consolidated summary confirmation is recorded. Present the summary and record it with `aidlc engine log decision --checkpoint summary-confirmation --stage nfr-requirements --unit api-contract --questions-file aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/nfr-requirements/nfr-requirements-questions.md --decision 'Does this all look correct?' --options 'Looks correct,Request changes'`, end the turn, then after the human responds run `aidlc engine log answer --checkpoint summary-confirmation --stage nfr-requirements --unit api-contract --questions-file aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/nfr-requirements/nfr-requirements-questions.md --details 'Looks correct'`.\n{"kind":"ask","ask_type":"guard-recovery","response_route":"execute-remedy","question":"NFR Requirements for api-contract can't go ahead as things stand: which way would you like to go on?","stage":"nfr-requirements","unit":"api-contract","reason_codes":["SUMMARY_RECEIPT_MISSING"],"remedies":[{"op":"redo-unit-step","action":"Redo \"nfr-requirements\" for unit \"api-contract\" only: continue with /aidlc and do that step again for unit \"api-contract\". The other units keep their finished work, reviews, Plan Approvals and checkpoint approvals.","requiresHuman":false,"executableNow":true,"interaction":"external-work"}],"agent_work":true}
+
+---
+
+## Error Logged
+**Timestamp**: 2026-10-18T08:58:26Z
+**Event**: ERROR_LOGGED
+**Tool**: aidlc-log
+**Command**: aidlc-log engine log decision --checkpoint summary-confirmation --stage nfr-requirements --unit api-contract --questions-file aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/nfr-requirements/nfr-requirements-questions.md --decision Does this all look correct? --options Looks correct,Request changes
+**Error**: Summary confirmation section in aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/nfr-requirements/nfr-requirements-questions.md must contain exactly one `[Answer]:` line with a blank value before this command runs.
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-10-18T08:58:30Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/nfr-requirements/nfr-requirements-questions.md
+**Context**: construction > api-contract > nfr-requirements > nfr-requirements-questions.md
+
+---
+
+## Decision Recorded
+**Timestamp**: 2026-10-18T08:58:34Z
+**Event**: DECISION_RECORDED
+**Stage**: nfr-requirements
+**Decision**: Does this all look correct?
+**Options**: Looks correct,Request changes
+**Checkpoint**: Consolidated Summary Confirmation
+**Questions File**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/nfr-requirements/nfr-requirements-questions.md
+**Unit**: api-contract
+
+---
+
+## Error Logged
+**Timestamp**: 2026-10-18T08:58:38Z
+**Event**: ERROR_LOGGED
+**Tool**: aidlc-log
+**Command**: aidlc-log engine log answer --checkpoint summary-confirmation --stage nfr-requirements --unit api-contract --questions-file aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/nfr-requirements/nfr-requirements-questions.md --details Looks correct
+**Error**: Summary confirmation section in aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/nfr-requirements/nfr-requirements-questions.md must contain exactly one `[Answer]:` line with Looks correct before this command runs.
+
+---
+
+## Summary Confirmation Recorded
+**Timestamp**: 2026-10-18T08:58:44Z
+**Event**: SUMMARY_CONFIRMATION_RECORDED
+**Stage**: nfr-requirements
+**Details**: Looks correct
+**Checkpoint**: Consolidated Summary Confirmation
+**Questions File**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/nfr-requirements/nfr-requirements-questions.md
+**Questions SHA-256**: a095cd7456bd437e7f60c7c66f5932a96e9118533f2c327ee88f69249d43909e
+**Hash Scope**: confirmed-content-v2
+**Unit**: api-contract
+**Person Reply**: looks correct.
+**Summary Authorization Id**: 5378fee95d383948e3e3b73aa7f4a627c0278da03f480e71f831825cfd66dce3
+
+---
+
+## Error Logged
+**Timestamp**: 2026-10-18T08:58:48Z
+**Event**: ERROR_LOGGED
+**Tool**: aidlc-log
+**Command**: aidlc-log engine log review --stage nfr-requirements --reviewer aidlc-architecture-reviewer-agent --unit api-contract --iteration 1 --project-dir <project-dir>
+**Error**: Cannot start review for "nfr-requirements": this stage's output document <project-dir>/aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/nfr-requirements/traceability.json has no recorded write. Save the document again, so its write descends from the current confirmation, then continue.\n{"kind":"ask","ask_type":"guard-recovery","response_route":"execute-remedy","question":"NFR Requirements for api-contract can't go ahead as things stand: which way would you like to go on?","stage":"nfr-requirements","unit":"api-contract","reason_codes":["SUMMARY_ARTIFACT_UNAUTHORIZED"],"remedies":[{"op":"redo-unit-step","action":"Redo \"nfr-requirements\" for unit \"api-contract\" only: continue with /aidlc and do that step again for unit \"api-contract\". The other units keep their finished work, reviews, Plan Approvals and checkpoint approvals.","requiresHuman":false,"executableNow":true,"interaction":"external-work"}],"agent_work":true}
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-10-18T08:58:58Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/nfr-requirements/traceability.json
+**Context**: construction > api-contract > nfr-requirements > traceability.json
+**Summary Authorization Id**: 5378fee95d383948e3e3b73aa7f4a627c0278da03f480e71f831825cfd66dce3
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-10-18T08:58:58Z
+**Event**: SENSOR_FIRED
+**Fire id**: d7632065
+**Sensor ID**: traceability
+**Stage slug**: nfr-requirements
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/nfr-requirements/traceability.json
+
+---
+
+## Sensor Passed
+**Timestamp**: 2026-10-18T08:58:58Z
+**Event**: SENSOR_PASSED
+**Fire id**: d7632065
+**Sensor ID**: traceability
+**Stage slug**: nfr-requirements
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/nfr-requirements/traceability.json
+**Duration ms**: 114
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-10-18T08:59:02Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/nfr-requirements/security-requirements.md
+**Context**: construction > api-contract > nfr-requirements > security-requirements.md
+**Summary Authorization Id**: 5378fee95d383948e3e3b73aa7f4a627c0278da03f480e71f831825cfd66dce3
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-10-18T08:59:06Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/nfr-requirements/tech-stack-decisions.md
+**Context**: construction > api-contract > nfr-requirements > tech-stack-decisions.md
+**Summary Authorization Id**: 5378fee95d383948e3e3b73aa7f4a627c0278da03f480e71f831825cfd66dce3
+
+---
+
+## Review Requested
+**Timestamp**: 2026-10-18T08:59:11Z
+**Event**: REVIEW_REQUESTED
+**Stage**: nfr-requirements
+**Reviewer**: aidlc-architecture-reviewer-agent
+**Unit**: api-contract
+**Iteration**: 1
+**Artifact Fingerprint**: sha256:c0e57a57bb94677c83c28ce68246008126161849f9f62abb4f9ad65fa4a9e454
+**Request Id**: review:0e5ef92b02da33dce17c54ffa8d9dc5a
+**Review File**: .aidlc-engine/reviews/nfr-requirements/units/api-contract/e392ea5bc7e48568/1.0e5ef92b02da33dce17c54ffa8d9dc5a.review.md
+
+---
