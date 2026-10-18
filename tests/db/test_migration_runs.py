@@ -25,6 +25,9 @@ OWNED_TABLES = (
 
 SHELL_TABLES = ("owner", "enrollment")
 
+#: The tables U4 adds. Listed so the from-zero run asserts they exist.
+U4_TABLES = ("batch", "batch_subject", "schedule_slot", "hidden_batch_preference")
+
 
 def test_the_migration_created_every_owned_table(restricted_session: Session) -> None:
     present = {
@@ -46,11 +49,21 @@ def test_the_two_shells_exist_and_are_empty(restricted_session: Session) -> None
         assert count == 0
 
 
+def test_the_migration_created_this_units_tables(restricted_session: Session) -> None:
+    present = {
+        row[0]
+        for row in restricted_session.execute(
+            sa.text("SELECT tablename FROM pg_tables WHERE schemaname = 'public'")
+        )
+    }
+    assert set(U4_TABLES) <= present
+
+
 def test_the_schema_is_at_the_head_revision(restricted_session: Session) -> None:
     revision = restricted_session.execute(
         sa.text("SELECT version_num FROM alembic_version")
     ).scalar_one()
-    assert revision == "0001"
+    assert revision == "0002"
 
 
 def test_the_restricted_role_exists(restricted_session: Session) -> None:

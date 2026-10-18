@@ -53,8 +53,7 @@ def student(owner_session: Session) -> uuid.UUID:
     owner_session.add(
         Enrollment(
             batch_id=uuid.uuid4(),
-            account_id=account.id,
-            role="student",
+            student_account_id=account.id,
             display_name=TEACHER_TYPED_NAME,
             created_at=dt.datetime.now(tz=dt.UTC),
         )
@@ -104,8 +103,8 @@ def test_a_join_returns_zero_profile_rows(
     rows = restricted_session.execute(
         sa.text(
             "SELECT p.self_name FROM enrollment e "
-            "JOIN profile p ON p.account_id = e.account_id "
-            "WHERE e.account_id = :id"
+            "JOIN profile p ON p.account_id = e.student_account_id "
+            "WHERE e.student_account_id = :id"
         ),
         {"id": student},
     ).all()
@@ -167,7 +166,7 @@ def test_a_teacher_reads_the_teacher_typed_name_successfully(
     # own roster read must still work [BR3.1].
     set_account_context(restricted_session, teacher)
     name = restricted_session.execute(
-        sa.text("SELECT display_name FROM enrollment WHERE account_id = :id"),
+        sa.text("SELECT display_name FROM enrollment WHERE student_account_id = :id"),
         {"id": student},
     ).scalar_one()
     assert name == TEACHER_TYPED_NAME

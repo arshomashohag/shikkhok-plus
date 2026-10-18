@@ -37,6 +37,10 @@ from typing import Literal
 
 from fastapi import FastAPI
 
+from app.contract.money_names import (
+    NON_MONEY_FIELDS,
+    is_money_name,
+)
 from app.money.wire import WIRE_PATTERN
 from app.schemas.money import MONEY_COMPONENT_NAME
 
@@ -44,23 +48,6 @@ __all__ = ["MoneyViolation", "money_schema_violations"]
 
 #: The suffix marking a presentation sibling of a canonical money field.
 DISPLAY_SUFFIX = "_display"
-
-#: Name fragments that mark a property as money-carrying. Used ONLY to
-#: catch a numeric money field, which carries no pattern to match on.
-#: Narrow and money-specific by design: a bare {"type": "number"} offers
-#: nothing else to distinguish a fee from a page count.
-MONEY_NAME_TOKENS: tuple[str, ...] = (
-    "amount",
-    "balance",
-    "fee",
-    "due",
-    "paid",
-    "price",
-    "total",
-    "outstanding",
-    "credit",
-    "charge",
-)
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,7 +140,7 @@ def _is_numeric_money_name(field: str, node: object) -> bool:
         return False
     if node.get("type") not in {"number", "integer"}:
         return False
-    return any(token in field.lower() for token in MONEY_NAME_TOKENS)
+    return is_money_name(field)
 
 
 def _is_unconstrained_money_name(field: str, node: object) -> bool:
@@ -183,19 +170,35 @@ def _is_unconstrained_money_name(field: str, node: object) -> bool:
         # Presentation, by design: its content is the rendering
         # specification settled at OQ-B1-1, not the canonical wire form.
         return False
-    return any(token in field.lower() for token in MONEY_NAME_TOKENS)
+    return is_money_name(field)
 
 
-def money_schema_violations(app: FastAPI) -> list[MoneyViolation]:
+def money_schema_violations(
+    app: FastAPI,
+    *,
+    exempt: dict[tuple[str, str], str] | None = None,
+) -> list[MoneyViolation]:
     """List every money-contract violation in the generated schema.
 
     Takes the application as an argument so the committed violation fixture
     and the real gate call one function rather than two implementations
     that drift.
 
+    **The exemption applies only to the NAME-matched checks.** A field on
+    the allowlist is exempt from ``numeric-money`` and
+    ``unconstrained-money``, which are backstops that match on a name and
+    therefore produce false positives. It is **never** exempt from
+    ``inline-money`` or ``orphan-display``, which match on the money
+    *shape* -- a field declaring the canonical pattern is money whatever
+    it is called, and no allowlist entry should be able to excuse it.
+
     :param app: The application whose generated schema is checked
+    :param exempt: ``(schema, field)`` pairs that match a money token
+        while carrying something else, mapped to the reason. Defaults to
+        :data:`NON_MONEY_FIELDS`; pass ``{}`` to check with none.
     :return: One entry per violation, empty when the schema is clean
     """
+    allowlist = NON_MONEY_FIELDS if exempt is None else exempt
     document = app.openapi()
     schemas: dict[str, dict[str, object]] = (
         document.get("components", {}).get("schemas", {}) or {}
@@ -216,12 +219,14 @@ def money_schema_violations(app: FastAPI) -> list[MoneyViolation]:
                     MoneyViolation(schema=name, field=str(field), kind="inline-money")
                 )
 
-            if _is_numeric_money_name(str(field), node):
+            exempted = (name, str(field)) in allowlist
+
+            if not exempted and _is_numeric_money_name(str(field), node):
                 violations.append(
                     MoneyViolation(schema=name, field=str(field), kind="numeric-money")
                 )
 
-            if _is_unconstrained_money_name(str(field), node):
+            if not exempted and _is_unconstrained_money_name(str(field), node):
                 violations.append(
                     MoneyViolation(
                         schema=name, field=str(field), kind="unconstrained-money"

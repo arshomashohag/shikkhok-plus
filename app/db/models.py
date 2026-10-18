@@ -25,6 +25,7 @@ import uuid
 
 from sqlalchemy import (
     Boolean,
+    Date,
     DateTime,
     ForeignKey,
     Index,
@@ -32,11 +33,18 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.db.money_type import MoneyColumn
+
+# Imported at runtime, not under TYPE_CHECKING: SQLAlchemy resolves
+# mapped annotations when the class is declared, so a guarded import
+# leaves it unable to map the column.
+from app.money import Money
 
 __all__ = [
     "Account",
@@ -355,16 +363,30 @@ class Enrollment(Base):
     split is what makes the privacy boundary structural: a teacher reads
     this column and never reaches ``Profile`` [BR3.1].
 
-    ``role`` here is **not** the account's role -- there is no such thing
-    [BR1.1]. It records whether this enrollment seats the account as the
-    student or as a guardian, which is what lets lens resolution offer a
-    student lens and a guardian lens independently.
+    **There is no ``role`` column** [BR1.1]. U3 carried one, because its
+    shell seated one account per row and needed to say which part that
+    account played. U4 puts both links on a single row instead, so the
+    seat IS the relationship: a guardian reaching this enrollment reaches
+    the child's enrollment, which ``role`` could not express.
+
+    **The two erasure markers are per LINK, not per row** [BR6.2]. One
+    flag cannot express the four states, because a guardian's erasure
+    would then permanently block a student who never claimed that seat
+    and never erased anything.
 
     :ivar id: Surrogate key
-    :ivar batch_id: The batch; U4 adds the constraint with the batch table
-    :ivar account_id: The enrolled account
-    :ivar role: ``student`` or ``guardian`` for this seat
+    :ivar batch_id: The batch this seat belongs to
+    :ivar student_account_id: The student, or NULL while the seat is
+        dormant
+    :ivar guardian_account_id: The guardian recorded for this seat, if any
     :ivar display_name: The teacher-typed name
+    :ivar guardian_phone: The teacher-typed guardian contact
+    :ivar fee_amount: This seat's fee, or NULL to inherit the batch
+        default. Zero is a real fee of zero, which is a waiver
+    :ivar joined_on: When the student joined
+    :ivar inactive_from: The date after which no cycle generates
+    :ivar student_relink_blocked_at: Set when the student erased
+    :ivar guardian_relink_blocked_at: Set when the guardian erased
     :ivar created_at: When the enrollment was recorded
     """
 
@@ -372,15 +394,40 @@ class Enrollment(Base):
 
     id: Mapped[uuid.UUID] = _uuid_column()
     batch_id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), nullable=False)
-    account_id: Mapped[uuid.UUID] = mapped_column(
+    student_account_id: Mapped[uuid.UUID | None] = mapped_column(
         PgUUID(as_uuid=True),
         ForeignKey("account.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
     )
-    role: Mapped[str] = mapped_column(String(16), nullable=False)
+    guardian_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("account.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     display_name: Mapped[str] = mapped_column(Text, nullable=False)
+    guardian_phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    fee_amount: Mapped[Money | None] = mapped_column(MoneyColumn, nullable=True)
+    joined_on: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
+    inactive_from: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
+    student_relink_blocked_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    guardian_relink_blocked_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )
 
-    __table_args__ = (Index("ix_enrollment_account_id", "account_id"),)
+    __table_args__ = (
+        Index("ix_enrollment_account_id", "student_account_id"),
+        Index("ix_enrollment_batch_id", "batch_id"),
+        Index("ix_enrollment_guardian_account_id", "guardian_account_id"),
+        Index(
+            "uq_enrollment_batch_student",
+            "batch_id",
+            "student_account_id",
+            unique=True,
+            postgresql_where=text("student_account_id IS NOT NULL"),
+        ),
+    )

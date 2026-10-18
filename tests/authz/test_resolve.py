@@ -55,17 +55,26 @@ def _grant_ownership(session: Session, account_id: uuid.UUID) -> None:
 def _enroll(session: Session, account_id: uuid.UUID, role: str) -> uuid.UUID:
     """Insert an ``Enrollment`` row seating the account in a role.
 
+    **The two roles are two COLUMNS on one row, not two rows** [BR5.0].
+    U3's shell seated one account per row and said which part it played;
+    U4 puts both links side by side, which is what lets a guardian's
+    enrollment identify the child.
+
     :param session: An arranging session
     :param account_id: The account being enrolled
     :param role: ``student`` or ``guardian``
     :return: The new enrollment's id
     """
+    links: dict[str, uuid.UUID] = (
+        {"student_account_id": account_id}
+        if role == "student"
+        else {"guardian_account_id": account_id}
+    )
     record = Enrollment(
         batch_id=uuid.uuid4(),
-        account_id=account_id,
-        role=role,
         display_name="Teacher Typed Name",
         created_at=dt.datetime.now(tz=dt.UTC),
+        **links,
     )
     session.add(record)
     session.commit()

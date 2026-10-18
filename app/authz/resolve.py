@@ -48,6 +48,14 @@ MEMO_ATTRIBUTE = "lenses"
 #:
 #: ``EXISTS`` is kept for the student row even though no id is needed,
 #: because a student lens carries only the account id.
+#:
+#: **The guardian branch reads ``guardian_account_id``, and that is the
+#: correction U4 brings** [BR5.0]. U3 resolved a guardian by looking for
+#: an enrollment whose ``account_id`` was the caller's and whose ``role``
+#: was ``guardian`` -- which identifies the guardian but cannot answer
+#: *which child*, since nothing linked that row to the student's except
+#: a shared batch. The reshape puts both links on one row, so the
+#: enrollment the guardian reaches IS the child's enrollment.
 _LENS_QUERY = sa.text(
     """
     SELECT
@@ -58,11 +66,11 @@ _LENS_QUERY = sa.text(
         ) AS owner_id,
         EXISTS (
             SELECT 1 FROM enrollment
-            WHERE account_id = :account_id AND role = 'student'
+            WHERE student_account_id = :account_id
         ) AS is_student,
         (
             SELECT id FROM enrollment
-            WHERE account_id = :account_id AND role = 'guardian'
+            WHERE guardian_account_id = :account_id
             ORDER BY created_at, id LIMIT 1
         ) AS guardian_enrollment_id
     """

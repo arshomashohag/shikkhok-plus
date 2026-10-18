@@ -13,6 +13,7 @@ from __future__ import annotations
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
+from app.contract.money_names import NON_MONEY_COLUMNS, is_money_name
 from app.governance.dispositions import DISPOSITIONS, RETENTION
 
 #: Tables the framework owns, which carry no user data.
@@ -82,20 +83,6 @@ def test_every_disposition_states_a_basis() -> None:
 # TypeDecorator the money boundary relies on.
 # ---------------------------------------------------------------------------
 
-#: Name fragments that mark a column as carrying money.
-MONEY_NAME_TOKENS = (
-    "amount",
-    "balance",
-    "fee",
-    "due",
-    "paid",
-    "price",
-    "total",
-    "outstanding",
-    "credit",
-    "charge",
-)
-
 #: The only type a money column may have. NUMERIC(12,2), never float,
 #: never double precision, never an unconstrained numeric.
 REQUIRED_MONEY_TYPE = "numeric"
@@ -120,7 +107,7 @@ def _money_columns(session: Session) -> list[sa.Row[tuple[str, str, int, int]]]:
     return [
         row
         for row in rows
-        if any(token in row[1].lower() for token in MONEY_NAME_TOKENS)
+        if is_money_name(row[1]) and (row[0], row[1]) not in NON_MONEY_COLUMNS
     ]
 
 
@@ -153,11 +140,72 @@ def test_every_money_column_is_numeric_12_2(
     )
 
 
-def test_this_unit_has_no_money_columns_at_all(
+def test_the_money_assertion_is_no_longer_vacuous(
     restricted_session: Session,
 ) -> None:
-    # U3 is authentication: no money crosses this surface. Stated as a
-    # test so the assertion above is understood to be vacuously true
-    # HERE and load-bearing from U5 onward, rather than mistaken for
-    # evidence that it has been exercised.
-    assert _money_columns(restricted_session) == []
+    # U3 asserted there were NO money columns, and recorded that the
+    # type assertion above was therefore vacuously true. U4 brings the
+    # first real ones, so the honest marker is the inverse: the gate
+    # now has something to check, and a regression that removed every
+    # money column would make it silently vacuous again.
+    found = {(row[0], row[1]) for row in _money_columns(restricted_session)}
+
+    assert ("batch", "default_fee") in found
+    assert ("enrollment", "fee_amount") in found
+
+
+# ---------------------------------------------------------------------------
+# The grant gate. A table created by a later migration inherits NOTHING
+# from 0001's `GRANT ... ON ALL TABLES`, which covered only the tables
+# that existed when it ran.
+#
+# This is not merely "the app cannot read it". An ungranted table is
+# invisible to the restricted role in `information_schema`, so every
+# gate above silently stops covering it -- the money assertion reported
+# `enrollment.fee_amount` and skipped `batch.default_fee` entirely until
+# the grant was added. A control that quietly narrows is worse than one
+# that fails.
+# ---------------------------------------------------------------------------
+
+
+def test_the_restricted_role_can_read_every_live_table(
+    restricted_session: Session,
+) -> None:
+    unreadable: list[tuple[str, str]] = []
+    for table in sorted(_live_tables(restricted_session)):
+        try:
+            restricted_session.execute(
+                sa.text(f"SELECT 1 FROM {table} LIMIT 1")  # noqa: S608  fixed literal
+            ).all()
+        except sa.exc.ProgrammingError as error:
+            restricted_session.rollback()
+            unreadable.append((table, type(error).__name__))
+
+    assert unreadable == [], (
+        f"the application role cannot read: {unreadable}. A migration "
+        "that creates a table must grant it explicitly; 0001's "
+        "GRANT ON ALL TABLES covered only what existed then."
+    )
+
+
+def test_every_owned_table_is_visible_to_the_restricted_role(
+    restricted_session: Session, owner_session: Session
+) -> None:
+    # The stronger half: compare what the OWNER sees against what the
+    # restricted role sees. A table missing from the restricted view is
+    # one every gate above has stopped checking without saying so.
+    owner_tables = {
+        row[0]
+        for row in owner_session.execute(
+            sa.text(
+                "SELECT tablename FROM pg_tables WHERE schemaname = 'public' "
+                "AND tablename <> 'alembic_version'"
+            )
+        )
+    }
+    invisible = owner_tables - _live_tables(restricted_session)
+
+    assert invisible == set(), (
+        f"invisible to the application role, and therefore to every "
+        f"governance gate in this file: {sorted(invisible)}"
+    )

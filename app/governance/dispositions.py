@@ -152,6 +152,42 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
             "resolves it against the full schema."
         ),
     ),
+    "batch": TableGovernance(
+        disposition=Disposition.RETAIN_WITH_BASIS,
+        retention=RetentionClass.LIFE_OF_ACCOUNT,
+        basis=(
+            "The teacher's own record of a class they taught. It holds no "
+            "child-identifying data at all -- names live on the "
+            "enrollment -- so retaining it after a student's erasure "
+            "discloses nothing about that student. `active = false` "
+            "retires a batch without deleting its history."
+        ),
+    ),
+    "batch_subject": TableGovernance(
+        disposition=Disposition.RETAIN_WITH_BASIS,
+        retention=RetentionClass.LIFE_OF_ACCOUNT,
+        basis=(
+            "A subject name chosen by the teacher. No personal data of "
+            "any kind, and U6 attaches exams to it."
+        ),
+    ),
+    "schedule_slot": TableGovernance(
+        disposition=Disposition.RETAIN_WITH_BASIS,
+        retention=RetentionClass.LIFE_OF_ACCOUNT,
+        basis=(
+            "A weekly recurrence the teacher set. No personal data; U5 "
+            "generates session instances from it."
+        ),
+    ),
+    "hidden_batch_preference": TableGovernance(
+        disposition=Disposition.HARD_DELETE,
+        retention=RetentionClass.LIFE_OF_ACCOUNT,
+        basis=(
+            "Purely the viewer's own interface preference, keyed on their "
+            "account and visible to nobody else -- not even the teacher. "
+            "Nobody else has a claim on it, so it goes with the account."
+        ),
+    ),
 }
 
 #: The retention half, derived so the two can never disagree.
