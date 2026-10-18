@@ -59,6 +59,11 @@
 
 
 
+
+
+
+- **Construction Verification Command**: make check && ./gradlew :android:testDebugUnitTest
+
 ## Phase Progress
 <!-- Status values: Pending, Active, Verified, Skipped -->
 
@@ -120,7 +125,7 @@ Per unit: [TBD]
 - **Current Stage**: functional-design
 - **Next Stage**: nfr-requirements
 - **Status**: Running
-- **Last Updated**: 2026-10-18T05:47:35Z
+- **Last Updated**: 2026-10-18T07:46:22Z
 
 ## Session Resume Point
 - **Last Completed Stage**: delivery-planning
