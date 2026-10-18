@@ -25,7 +25,10 @@ from app.contract.privacy import forbidden_fields
 from app.contract.routes import unlensed_routes
 from tests.contract.fixtures.leaky_app import (
     ACCOUNT_ID_LEAK_FIELD,
+    ACCOUNT_ID_LEAK_PATH,
+    DUAL_LENS_LEAK_PATH,
     PROFILE_LEAK_FIELD,
+    PROFILE_LEAK_PATH,
     build_leaky_app,
 )
 from tests.contract.fixtures.money_app import (
@@ -59,13 +62,35 @@ def test_privacy_gate_fires_on_both_forbidden_sets() -> None:
 
     :return: None
     """
-    violations = forbidden_fields(build_leaky_app())
+    violations = [
+        violation
+        for violation in forbidden_fields(build_leaky_app())
+        if violation.path in {PROFILE_LEAK_PATH, ACCOUNT_ID_LEAK_PATH}
+    ]
 
     assert len(violations) == 2, "the gate examined nothing, or only one set"
 
     by_set = {violation.field_set: violation.field for violation in violations}
     assert by_set["owner-private"] == PROFILE_LEAK_FIELD
     assert by_set["account-id"] == ACCOUNT_ID_LEAK_FIELD
+
+
+def test_privacy_gate_fires_on_a_dual_lens_route() -> None:
+    """A leak under a route reachable by two lenses is still reported.
+
+    Pins the review finding. The earlier resolver returned the first lens
+    from an unordered walk, so this route could be classified
+    guardian-facing and skip the gate -- intermittently, since set
+    iteration order varies between runs. An intermittent authorization
+    hole is worse than a consistent one: it passes CI sometimes.
+
+    :return: None
+    """
+    violations = forbidden_fields(build_leaky_app())
+    dual = [v for v in violations if v.path == DUAL_LENS_LEAK_PATH]
+
+    assert len(dual) == 1, "a dual-lensed route escaped the privacy gate"
+    assert dual[0].field_set == "owner-private"
 
 
 def test_money_gate_fires_on_an_inline_money_shape() -> None:

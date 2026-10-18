@@ -28,6 +28,8 @@ from app.contract.privacy import (
     FORBIDDEN_ACCOUNT_ID_FIELDS,
     OWNER_PRIVATE_FIELDS,
     forbidden_fields,
+    is_teacher_facing,
+    lens_types_of,
 )
 
 
@@ -298,3 +300,76 @@ def test_the_real_app_passes() -> None:
     from app.main import app as real_app
 
     assert forbidden_fields(real_app) == []
+
+
+# --------------------------------------------------------------------------
+# The dual-lens hole
+#
+# Found by review, reproduced, and fixed. An earlier version resolved a
+# route's lens by walking the dependency tree and returning the FIRST match
+# from an unordered stack-pop. On a route depending on two lenses, a
+# teacher-facing response could be classified guardian-facing and skip this
+# gate entirely -- while the route gate correctly reported the route as
+# lensed, so nothing fired at all.
+# --------------------------------------------------------------------------
+
+
+def _app_with_two_lenses(model: type[BaseModel]) -> FastAPI:
+    """Build a route depending on a teacher AND a guardian lens.
+
+    Two independent ``Depends()`` parameters, not a union: the union case
+    is handled by the resolver and is already covered elsewhere.
+
+    :param model: The response model to expose
+    :return: An application carrying exactly that route
+    """
+    app = FastAPI()
+
+    @app.get(
+        "/v1/dual",
+        response_model=model,
+        dependencies=[Depends(_teacher_lens), Depends(_guardian_lens)],
+    )
+    def _dual() -> dict[str, str]:
+        return {}
+
+    return app
+
+
+def test_every_lens_in_the_tree_is_collected() -> None:
+    """Resolution collects all lenses, not whichever is popped first.
+
+    :return: None
+    """
+    app = _app_with_two_lenses(CleanRoster)
+    route = next(r for r in app.routes if getattr(r, "path", "") == "/v1/dual")
+
+    assert {lens.__name__ for lens in lens_types_of(route)} == {
+        "TeacherLens",
+        "GuardianLens",
+    }
+
+
+def test_a_dual_lens_route_is_teacher_facing() -> None:
+    """A route a teacher can reach is teacher-facing, whatever else it is.
+
+    :return: None
+    """
+    app = _app_with_two_lenses(CleanRoster)
+    route = next(r for r in app.routes if getattr(r, "path", "") == "/v1/dual")
+
+    assert is_teacher_facing(route)
+
+
+def test_a_dual_lens_route_does_not_escape_the_privacy_gate() -> None:
+    """A leak under a dual-lensed route is still reported.
+
+    The regression this pins: the response passed with zero violations
+    while the route gate called the route properly lensed, so the leak was
+    invisible to both gates at once.
+
+    :return: None
+    """
+    violations = forbidden_fields(_app_with_two_lenses(RosterWithProfile))
+
+    assert [v.field for v in violations] == ["self_name"]

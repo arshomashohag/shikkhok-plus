@@ -21139,3 +21139,184 @@
 **Duration ms**: 100
 
 ---
+
+## Change Accepted
+**Timestamp**: 2026-10-18T10:17:02Z
+**Event**: CHANGE_ACCEPTED
+**Stage**: code-generation
+**Unit**: money-core
+**Checkpoint**: review-receipt
+**Changed**: Makefile, app/money/_ledger.py, pyproject.toml, tests/gates/test_import_gates.py, tests/money/test_ledger.py, tests/money/test_ledger_property.py, tests/named_tests.toml
+**Recorded**: sha256:39fc69947121e43e84f74711b3e525e6db9188103500d6c76ff16d4a8fcc90a0
+**Current**: sha256:f40b64600a4c57593403a8fa5633e6121a1e2a48b14bd267e36125489700029d
+**Details**: Makefile, app/money/_ledger.py, pyproject.toml, tests/gates/test_import_gates.py, tests/money/test_ledger.py, tests/money/test_ledger_property.py, tests/named_tests.toml changed after the money core Unit was reviewed; carrying on.
+
+---
+
+## Error Logged
+**Timestamp**: 2026-10-18T10:17:02Z
+**Event**: ERROR_LOGGED
+**Tool**: aidlc-log
+**Command**: aidlc-log engine log review --stage code-generation --reviewer aidlc-architecture-reviewer-agent --unit api-contract --iteration 1 --project-dir <project-dir>
+**Error**: Cannot record REVIEW_REQUESTED for "code-generation": unit "api-contract" has no valid source manifest at aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/code-generation/source-manifest.json (source-manifest.json has unknown field(s): created, modified, note). Write the manifest listing every application-source path the reviewer will inspect, then dispatch the review.
+
+---
+
+## Review Requested
+**Timestamp**: 2026-10-18T10:17:21Z
+**Event**: REVIEW_REQUESTED
+**Stage**: code-generation
+**Reviewer**: aidlc-architecture-reviewer-agent
+**Unit**: api-contract
+**Iteration**: 1
+**Artifact Fingerprint**: sha256:b276162f6ec278ae27cc1e3de291d1849745cae2e3ac60ded2fd7702f9017965
+**Request Id**: review:1dd127801799522cb004ccec22b7085f
+**Source Fingerprint**: 754ab3e68fbfed794cee29f3b8c1660eb6a41848a7bbe7d72c6c60fcf27d20cb
+**Unit Source Fingerprint**: sha256:d42f165a310cc1ce8e0771512ed800ff137c16b0b29012cacc5898b967bb65ad
+**Review File**: .aidlc-engine/reviews/code-generation/units/api-contract/e392ea5bc7e48568/1.1dd127801799522cb004ccec22b7085f.review.md
+
+---
+
+## Artifact Created
+**Timestamp**: 2026-10-18T10:17:33Z
+**Event**: ARTIFACT_CREATED
+**Tool**: Write
+**File**: <project-dir>/aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/.aidlc-engine/reviewer-dispatch.json
+**Context**: .aidlc-engine > reviewer-dispatch.json
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-10-18T10:18:40Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: unknown
+**Agent ID**: a6e636fbc21584c33
+**Message**: Reading money_schema.py gate logic
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-18T10:18:43Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: reviewer-scope
+**Authority**: instruction
+**Grant**: none
+**Actor**: subagent
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: . (unit api-contract)
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-10-18T10:19:11Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: unknown
+**Agent ID**: ac287e65babf3bbf7
+**Message**: Reading annotations.py lens resolver
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-10-18T10:19:43Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: unknown
+**Agent ID**: ad96a5152ec7736d0
+**Message**: Checking Makefile coverage exclusion rationale
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-10-18T10:20:14Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: unknown
+**Agent ID**: a5194e3f4adfdbc61
+**Message**: Reading app/contract/emit.py
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-10-18T10:20:45Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: unknown
+**Agent ID**: a950c501e32a430ae
+**Message**: Running mypy on app directory
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-10-18T10:21:17Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: unknown
+**Agent ID**: a3269e76fe0f029b6
+**Message**: Verifying security-list sort safety
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-10-18T10:21:49Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: unknown
+**Agent ID**: a9dce32af1d18e5fd
+**Message**: Reproducing dual-lens resolution bug
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-10-18T10:22:20Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: unknown
+**Agent ID**: a4ab9c9e2648c4990
+**Message**: Checking ruff's configured line-length setting
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-10-18T10:22:51Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: unknown
+**Agent ID**: a870fab3ea79ad478
+**Message**: Fetching current UTC timestamp for review
+
+---
+
+## Artifact Created
+**Timestamp**: 2026-10-18T10:23:07Z
+**Event**: ARTIFACT_CREATED
+**Tool**: Write
+**File**: <project-dir>/aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/.aidlc-engine/reviews/code-generation/units/api-contract/e392ea5bc7e48568/1.1dd127801799522cb004ccec22b7085f.review.md
+**Context**: .aidlc-engine > reviews > code-generation > units > api-contract > e392ea5bc7e48568 > 1.1dd127801799522cb004ccec22b7085f.review.md
+
+---
+
+## Human Turn
+**Timestamp**: 2026-10-18T10:23:19Z
+**Event**: HUMAN_TURN
+**Session**: 7a0e31c2-15ad-4a21-a1ba-834440b81bfe
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-10-18T10:23:21Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: aidlc-architecture-reviewer-agent
+**Agent ID**: ae05a42c6a52bff92
+**Message**: Review complete and delivered.
+
+---
+
+## Human Turn
+**Timestamp**: 2026-10-18T10:23:29Z
+**Event**: HUMAN_TURN
+**Session**: 7a0e31c2-15ad-4a21-a1ba-834440b81bfe
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-10-18T10:27:44Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/code-generation/code-summary.md
+**Context**: construction > api-contract > code-generation > code-summary.md
+
+---

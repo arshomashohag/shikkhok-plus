@@ -135,14 +135,24 @@ strict = true
 # a per-line `# type: ignore`, and a file dense with ignores is strictly
 # worse than the flag being off: the ignores silence real findings too.
 #
-# The property the flag was meant to buy -- no response field typed Any,
-# which would carry a profile value at runtime while declaring nothing in
-# the generated document -- is instead enforced where it is decidable: the
-# schema-wide privacy gate reads the generated document, where an Any-typed
-# field appears as an unconstrained schema and is reported.
+# WHAT IS AND IS NOT COMPENSATED, stated precisely because an earlier
+# version of this comment overstated it and a review caught that.
 #
-# `strict = true` still applies in full, so every function here is
-# annotated and no implicit Any flows through.
+# `strict = true` still applies in full: every function here is annotated
+# and no IMPLICIT Any flows through. That is the bulk of the value.
+#
+# The residual gap is an EXPLICIT `Any` on a response field. The privacy
+# gate catches such a field only when its NAME is in a forbidden set and
+# its route is teacher-facing -- it matches names, not unconstrained
+# schemas generically. An `Any` field with an innocuous name is not
+# reported by anything, and a reviewer reading a response model is the
+# only thing standing in front of it.
+#
+# That is a real and accepted gap, not a covered one. It is accepted
+# because the alternative -- a `# type: ignore` on every model in the
+# package -- silences findings that are not hypothetical, and because an
+# `Any` in a response model is visible in a diff in a way an unnoticed
+# ignore comment is not.
 
 # ---------------------------------------------------------------------------
 # Coverage — NFR9.13, NFR9.31a/b.

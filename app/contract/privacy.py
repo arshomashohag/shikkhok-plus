@@ -46,6 +46,8 @@ __all__ = [
     "OWNER_PRIVATE_FIELDS",
     "FieldViolation",
     "forbidden_fields",
+    "is_teacher_facing",
+    "lens_types_of",
 ]
 
 #: Fields of the owner-private ``Profile``, visible only to its own account.
@@ -169,7 +171,7 @@ def forbidden_fields(app: FastAPI) -> list[FieldViolation]:
     for route in app.routes:
         if not isinstance(route, APIRoute) or route.response_model is None:
             continue
-        if resolve_lens_type_of(route) is not TeacherLens:
+        if not is_teacher_facing(route):
             continue
 
         name = getattr(route.response_model, "__name__", "?")
@@ -193,23 +195,53 @@ def forbidden_fields(app: FastAPI) -> list[FieldViolation]:
     return violations
 
 
-def resolve_lens_type_of(route: APIRoute) -> type | None:
-    """Resolve the lens a route's dependency tree yields.
+def lens_types_of(route: APIRoute) -> set[type]:
+    """Collect **every** lens type a route's dependency tree yields.
 
-    Shares :func:`app.authz.annotations.resolve_lens_type` with the
-    route-enumeration gate: one function, two callers, because a second
-    implementation would almost certainly be the naive ``issubclass`` the
-    requirement exists to forbid.
+    **Returns a set, not the first match, and that distinction is a
+    privacy control rather than a refinement.** A route may legitimately
+    depend on two lenses as independent ``Depends()`` parameters -- a
+    teacher lens and a guardian lens, say. An earlier version walked the
+    tree and returned whichever it popped first, so a teacher-facing
+    response could be classified as guardian-facing and skip this gate
+    entirely while :func:`app.contract.routes.unlensed_routes` correctly
+    reported the route as lensed. Nothing fired. That is exactly the
+    silent-authorization-hole class the gates exist to make impossible.
+
+    The route gate is unaffected by the same traversal, because it asks
+    "is there ANY lens" -- a question the first match answers correctly.
+    This gate asks "is this teacher-facing", which it does not.
+
+    Shares :func:`app.authz.annotations.resolve_lens_type` with the route
+    gate: one function, two callers, because a second implementation would
+    almost certainly be the naive ``issubclass`` the requirement forbids.
 
     :param route: The route to inspect
-    :return: The lens type, or None when the route resolves none
+    :return: Every lens type the tree yields, empty when it yields none
     """
+    found: set[type] = set()
     stack = [route.dependant]
     while stack:
         node = stack.pop()
         if node.call is not None:
             lens = resolve_lens_type(node.call)
             if lens is not None:
-                return lens
+                found.add(lens)
         stack.extend(node.dependencies)
-    return None
+    return found
+
+
+def is_teacher_facing(route: APIRoute) -> bool:
+    """Report whether a route can produce a teacher-lens response.
+
+    True when **any** lens in the tree is a teacher lens. A route reachable
+    under both a teacher and a guardian lens is teacher-facing, because a
+    teacher can reach it -- which is the only question this gate asks.
+
+    :param route: The route to inspect
+    :return: True if any resolved lens is a teacher lens
+    """
+    return any(
+        isinstance(lens, type) and issubclass(lens, TeacherLens)
+        for lens in lens_types_of(route)
+    )

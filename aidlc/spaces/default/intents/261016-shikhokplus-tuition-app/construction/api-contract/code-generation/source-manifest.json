@@ -1,47 +1,121 @@
 {
-  "unit": "api-contract",
   "stage": "code-generation",
-  "created": [
-    ".coveragerc-backend",
-    "CONTRACT.md",
-    "app/__init__.py",
-    "app/authz/__init__.py",
-    "app/authz/annotations.py",
-    "app/authz/lenses.py",
-    "app/contract/__init__.py",
-    "app/contract/emit.py",
-    "app/contract/money_schema.py",
-    "app/contract/privacy.py",
-    "app/contract/routes.py",
-    "app/contract/serialize.py",
-    "app/errors/__init__.py",
-    "app/errors/_classes.py",
-    "app/errors/_exhaustive.py",
-    "app/errors/codes.py",
-    "app/errors/handler.py",
-    "app/main.py",
-    "app/schemas/__init__.py",
-    "app/schemas/errors.py",
-    "app/schemas/money.py",
-    "openapi.json",
-    "tests/authz/__init__.py",
-    "tests/authz/test_annotations.py",
-    "tests/contract/__init__.py",
-    "tests/contract/fixtures/__init__.py",
-    "tests/contract/fixtures/leaky_app.py",
-    "tests/contract/fixtures/money_app.py",
-    "tests/contract/fixtures/unlensed_app.py",
-    "tests/contract/test_error_contract.py",
-    "tests/contract/test_fixtures_fire.py",
-    "tests/contract/test_money_schema.py",
-    "tests/contract/test_privacy_schema.py",
-    "tests/contract/test_route_lenses.py",
-    "tests/contract/test_schema_diff.py"
-  ],
-  "modified": [
-    "Makefile",
-    "pyproject.toml",
-    "tests/gates/test_import_gates.py"
-  ],
-  "note": "Application source only; the record tree is excluded by contract. pyproject.toml gains the fastapi dependency and the app.schemas strict mypy island; Makefile gains the openapi and contract targets plus the second coverage run enforcing the 80% backend floor; tests/gates/test_import_gates.py gains a third gate of B1's shape rather than a parallel mechanism."
+  "unit": "api-contract",
+  "version": 1,
+  "writes": [
+    {
+      "path": ".coveragerc-backend"
+    },
+    {
+      "path": "CONTRACT.md"
+    },
+    {
+      "path": "Makefile"
+    },
+    {
+      "path": "app/__init__.py"
+    },
+    {
+      "path": "app/authz/__init__.py"
+    },
+    {
+      "path": "app/authz/annotations.py"
+    },
+    {
+      "path": "app/authz/lenses.py"
+    },
+    {
+      "path": "app/contract/__init__.py"
+    },
+    {
+      "path": "app/contract/emit.py"
+    },
+    {
+      "path": "app/contract/money_schema.py"
+    },
+    {
+      "path": "app/contract/privacy.py"
+    },
+    {
+      "path": "app/contract/routes.py"
+    },
+    {
+      "path": "app/contract/serialize.py"
+    },
+    {
+      "path": "app/errors/__init__.py"
+    },
+    {
+      "path": "app/errors/_classes.py"
+    },
+    {
+      "path": "app/errors/_exhaustive.py"
+    },
+    {
+      "path": "app/errors/codes.py"
+    },
+    {
+      "path": "app/errors/handler.py"
+    },
+    {
+      "path": "app/main.py"
+    },
+    {
+      "path": "app/schemas/__init__.py"
+    },
+    {
+      "path": "app/schemas/errors.py"
+    },
+    {
+      "path": "app/schemas/money.py"
+    },
+    {
+      "path": "openapi.json"
+    },
+    {
+      "path": "pyproject.toml"
+    },
+    {
+      "path": "tests/authz/__init__.py"
+    },
+    {
+      "path": "tests/authz/test_annotations.py"
+    },
+    {
+      "path": "tests/contract/__init__.py"
+    },
+    {
+      "path": "tests/contract/fixtures/__init__.py"
+    },
+    {
+      "path": "tests/contract/fixtures/leaky_app.py"
+    },
+    {
+      "path": "tests/contract/fixtures/money_app.py"
+    },
+    {
+      "path": "tests/contract/fixtures/unlensed_app.py"
+    },
+    {
+      "path": "tests/contract/test_error_contract.py"
+    },
+    {
+      "path": "tests/contract/test_fixtures_fire.py"
+    },
+    {
+      "path": "tests/contract/test_money_schema.py"
+    },
+    {
+      "path": "tests/contract/test_privacy_schema.py"
+    },
+    {
+      "path": "tests/contract/test_route_lenses.py"
+    },
+    {
+      "path": "tests/contract/test_schema_diff.py"
+    },
+    {
+      "path": "tests/gates/test_import_gates.py"
+    }
+  ]
 }

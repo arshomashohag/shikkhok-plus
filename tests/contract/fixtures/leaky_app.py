@@ -24,7 +24,7 @@ from uuid import UUID
 from fastapi import Depends, FastAPI
 from pydantic import BaseModel
 
-from app.authz.lenses import TeacherLens
+from app.authz.lenses import GuardianLens, TeacherLens
 
 #: The owner-private field this fixture leaks, and the route carrying it.
 PROFILE_LEAK_FIELD = "self_name"
@@ -33,6 +33,16 @@ PROFILE_LEAK_PATH = "/v1/fixture/roster"
 #: The account identifier this fixture leaks, and the route carrying it.
 ACCOUNT_ID_LEAK_FIELD = "student_account_id"
 ACCOUNT_ID_LEAK_PATH = "/v1/fixture/attendance"
+
+#: A leak under a route depending on TWO lenses. Added after review found
+#: that lens resolution returned the first match from an unordered walk,
+#: so a teacher-facing response could be classified guardian-facing and
+#: skip the gate entirely -- while the route gate correctly called the
+#: route lensed, leaving the leak invisible to both at once. The bug was
+#: INTERMITTENT, since set iteration order varies between runs, which is
+#: worse than a consistent failure: it would have passed CI sometimes.
+DUAL_LENS_LEAK_FIELD = "self_name"
+DUAL_LENS_LEAK_PATH = "/v1/fixture/dual-lens"
 
 
 class LeakyRoster(BaseModel):
@@ -65,6 +75,14 @@ def _teacher_lens() -> TeacherLens:
     return TeacherLens(account_id=UUID(int=1), owner_id=UUID(int=2))
 
 
+def _guardian_lens() -> GuardianLens:
+    """Stand in for U3's guardian-lens resolver.
+
+    :return: A guardian lens
+    """
+    return GuardianLens(account_id=UUID(int=1), child_enrollment_id=UUID(int=3))
+
+
 def build_leaky_app() -> FastAPI:
     """Build an application whose schema violates both forbidden sets.
 
@@ -91,6 +109,18 @@ def build_leaky_app() -> FastAPI:
     )
     def _attendance() -> dict[str, str]:
         """Return attendance that leaks a global account key.
+
+        :return: An empty payload
+        """
+        return {}
+
+    @app.get(
+        DUAL_LENS_LEAK_PATH,
+        response_model=LeakyRoster,
+        dependencies=[Depends(_teacher_lens), Depends(_guardian_lens)],
+    )
+    def _dual_lens() -> dict[str, str]:
+        """Return a leak under a route reachable by two lenses.
 
         :return: An empty payload
         """

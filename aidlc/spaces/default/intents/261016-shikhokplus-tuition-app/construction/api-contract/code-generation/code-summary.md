@@ -13,7 +13,7 @@
 
 | | |
 |---|---|
-| Tests | **295 passing** (`make check` green) |
+| Tests | **303 passing** (`make check` green) |
 | Money module coverage | **100% branch**, unchanged |
 | Backend coverage (new packages) | **94% line**, against an 80% floor now enforced |
 | Lint / format / types | Ruff and mypy clean |
@@ -46,7 +46,7 @@ drifts silently, which was a review finding at NFR Design.
 
 ---
 
-## Five things the build found that the design had wrong
+## Six things the build and review found that the design had wrong
 
 Each is recorded because the design read as correct until the code was
 written against it.
@@ -65,9 +65,13 @@ gap the design claimed was closed.**
 explicit-any regardless of how it is written — verified against a bare
 three-line subclass. The flag would mean one unavoidable `# type: ignore`
 per schema, and a file dense with ignores silences real findings too.
-`strict = true` still applies in full; the property the flag was meant to
-buy is enforced where it is decidable, in the privacy gate over the
-generated document.
+`strict = true` still applies in full, which is the bulk of the value: no
+*implicit* `Any` flows through. **An explicit `Any` on a response field is
+a residual, accepted gap** — review found an earlier version of this note
+claiming the privacy gate compensated generically, and it does not: that
+gate matches forbidden field *names* on teacher-facing routes, so an
+`Any` field with an innocuous name is reported by nothing. Recorded as an
+accepted gap rather than a covered one.
 
 **3. An `Annotated` alias does not emit a schema component.** Pydantic
 inlines it into every property, so the document would carry a copy of the
@@ -87,6 +91,23 @@ declares no routes — so `Money` and the envelope would have been missing
 from the contract, and a regression in the one definition every money
 property must reference would not have appeared in the diff. The gate
 would have passed, over nothing.
+
+**6. Lens resolution returned the first match, and review caught it.**
+`resolve_lens_type_of` walked the dependency tree and returned whichever
+lens an unordered stack-pop reached first. On a route depending on two
+lenses — a teacher lens and a guardian lens as independent `Depends()`
+parameters — a teacher-facing response could be classified
+guardian-facing and **skip the privacy gate entirely**, while the route
+gate correctly reported the route as lensed. The leak was invisible to
+both gates at once.
+
+The bug was **intermittent**: set iteration order varies between runs, so
+reverting the fix made the regression test fail twice and pass once. An
+intermittent authorization hole is worse than a consistent one, because
+it passes CI often enough to look fine. Resolution now collects *every*
+lens and asks whether **any** is a teacher lens, which is the question
+this gate actually asks. The route gate was unaffected, since "is there
+any lens" is answered correctly by the first match.
 
 ---
 
