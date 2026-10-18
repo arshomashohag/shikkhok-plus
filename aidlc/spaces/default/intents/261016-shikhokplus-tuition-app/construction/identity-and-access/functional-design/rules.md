@@ -528,6 +528,44 @@ rules:
       behaviour and extends their columns.
     source: [unit-of-work.md U3, units-generation learning]
 
+  - id: BR6.3
+    statement: >
+      B3's verification needs an Owner row and an Enrollment row that no U3
+      code may create. They are inserted by a COMMITTED SEED SCRIPT, run
+      manually against staging as a verification precondition, and never by
+      application code.
+    category: constraint
+    applies_to: The skeleton verification only
+    trigger: Preparing the B3 checkpoint
+    logic: >
+      IF the skeleton must demonstrate a teacher lens
+      THEN a seed script inserts one Owner row and one Enrollment row
+      AND that script lives beside the migration, is committed, and is
+      never imported by application code
+      ELSE no lens resolves and the verification cannot run.
+    violation_behaviour: >
+      An INSERT inside U3 to make the demo work. That is the ownership
+      transfer BR6.1 forbids, and it would arrive disguised as a fixture.
+    rationale: >
+      **The empty-shell rule solved the schema question and left the data
+      question open, and the two are not the same.** A recorded learning
+      from Units Generation already says a Unit claiming to run standalone
+      must answer the schema question explicitly rather than infer it from
+      data-emptiness. The same reasoning applies one level up: B3's own
+      confidence hypothesis requires an account that OWNS ONE BATCH and is
+      enrolled as a guardian, and U3 can create neither.
+
+      Without this rule the skeleton can prove the OTP path and the absence
+      of a lens, and nothing else — an account with no Owner and no
+      Enrollment row resolves to no lens at all, so the single most
+      structurally unusual decision in the system goes undemonstrated at
+      the one checkpoint built to demonstrate it.
+
+      A seed script rather than application code, because the alternative
+      is an INSERT inside U3 that would then need removing at B5. The
+      script is throwaway by intent and its removal is a B5 obligation.
+    source: [bolt-plan B3 confidence hypothesis, BR6.1, units-generation learning]
+
   - id: BR6.2
     statement: >
       No log line carries a phone number, an OTP, a token or a child name.
@@ -580,6 +618,7 @@ rules:
 | **BR5.5** | constraint | One-segment OTP template, app hash included |
 | **BR6.1** | constraint | Owner and Enrollment created empty, never written |
 | **BR6.2** | constraint | No phone, OTP, token or child name in any log |
+| **BR6.3** | constraint | A committed seed script supplies the rows the skeleton must demonstrate |
 
 ---
 

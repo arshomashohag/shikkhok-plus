@@ -1,7 +1,7 @@
 {
   "stage": "functional-design",
   "unit": "identity-and-access",
-  "note": "The walking skeleton. Two acceptance criteria are Deferred and neither is a gap: AC1.5.1 and AC1.5.3 are the profile EDITING screen, which U3 enables by creating Profile with its RLS policy but which is exercised at B5, where the enrollment flow provides a second actor to test the boundary against. Everything the privacy boundary itself needs - the table split, the policy, and the non-superuser test role - lands here. BR4.4, deferred to this Unit by U2, is discharged by BR2.7.",
+  "note": "The walking skeleton. Two acceptance criteria are Deferred and neither is a gap: AC1.5.1 and AC1.5.3 are the profile EDITING screen, which U3 enables by creating Profile with its RLS policy but which is exercised at B5, where the enrollment flow provides a second actor to test the boundary against. Everything the privacy boundary itself needs - the table split, the policy, and the non-superuser test role - lands here. BR4.4, deferred to this Unit by U2, is discharged by BR2.7. Added while drafting: BR6.3, because B3's confidence hypothesis needs an Owner row and an Enrollment row that no U3 code may create. A committed seed script supplies them as a verification precondition; an INSERT inside U3 would be the ownership transfer BR6.1 forbids, arriving disguised as a fixture.",
   "upstream_ids": [
     "AC1.1.1",
     "AC1.1.2",
@@ -320,6 +320,11 @@
       "id": "BR6.1",
       "status": "N/A",
       "target": "No AC covers the shell tables; it comes from unit-of-work.md and a Units Generation learning. Empty is not absent: lens resolution queries all three tables, and a query against a table that does not exist fails - this nearly shipped a skeleton that could not pass its own verification command"
+    },
+    {
+      "id": "BR6.3",
+      "status": "N/A",
+      "target": "No AC behind it; it comes from B3's own confidence hypothesis, which requires an account that OWNS ONE BATCH and is enrolled as a guardian - neither of which U3 may create. The empty-shell rule answered the SCHEMA question and left the DATA question open, and they are not the same. Without a seed script the skeleton can prove the OTP path and the ABSENCE of a lens and nothing else, so the single most structurally unusual decision in the system goes undemonstrated at the one checkpoint built to demonstrate it"
     }
   ]
 }
