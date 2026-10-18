@@ -55,15 +55,43 @@ than papered over: **a badly-named money column created by raw SQL is
 caught by neither.** The name check matches tokens like `fee` and
 `amount`; a column called `tuition` or `stipend` matches nothing.
 
-### B.2 The money gate needs a non-money allowlist [BR3.3]
+**A third mechanism is specified and also absent.** `team.md` names a
+Semgrep rule set carrying this project's own invariants — including
+"no decimal arithmetic on money outside the designated module" — and
+nothing in the repository implements it. So the gap above is real
+today and would narrow if that rule set existed. Naming it here keeps
+the gap honest rather than making the two existing mechanisms sound
+like the whole plan.
 
-Verified against a real container with U4's `batch` table applied: the
-gate reports exactly one offender, `batch.fee_due_day` — an integer
-1–31 by design that matches both `fee` and `due`.
+### B.2 The money gate will need a non-money allowlist [BR3.3]
+
+**Predicted, not verified** — and the distinction matters, because an
+earlier draft of this section claimed verification that had not
+happened.
+
+`batch.fee_due_day` is an integer 1–31 by design [AC2.1.2] whose name
+matches two of the gate's tokens, `fee` and `due`. Applied against the
+real schema it will therefore be reported as a money column that is
+not `NUMERIC(12,2)`, failing the build on a correct design.
+
+I did run this against a container — but against a `batch` table I
+created ad hoc in that probe, because **no `Batch` table exists in the
+built tree**. The only migration is B3's, and `app/db/models.py` holds
+`Owner` and `Enrollment` alone. So the prediction is well-founded
+about the token match and the column type, and the "verified against
+the real schema" claim was false. It becomes verifiable at this Unit's
+Code Generation stage and not before.
 
 **The obvious fix is the dangerous one.** Dropping a token would turn
 the build green while silently retiring the check on every genuine fee
 column in U7 and U8. A per-column allowlist keeps the tokens intact.
+
+> **This is the project's recurring defect reappearing inside the
+> document written to correct it.** §B.1 above exists because BR3.2
+> named a TypeDecorator that did not exist; §B.2 then claimed an
+> empirical check that had not been performed. The common root is
+> writing the conclusion a probe *would* support without distinguishing
+> what was actually run from what was reasoned.
 
 ---
 

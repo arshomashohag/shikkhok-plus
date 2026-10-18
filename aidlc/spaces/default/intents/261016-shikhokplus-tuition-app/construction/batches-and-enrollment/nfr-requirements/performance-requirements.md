@@ -68,7 +68,7 @@ lists**, and every later Unit copies whatever shape lands here.
 | Not specified | Why |
 |---|---|
 | A latency target for any read | No baseline exists, so any number is invented. NFR6.12 asserts a query **count**, which is stable across machines |
-| Pagination | 100 teachers with a few thousand students [NFR6] means the largest plausible roster is tens of rows. Pagination now is a contract an unpaginated client would have to be taught |
+| Pagination | **Not derivable from NFR6, and an earlier draft claimed it was.** The ceiling bounds the TOTAL; nothing caps students per batch, so one teacher could plausibly hold hundreds in one roster. Pagination is still deferred, on the weaker and honest ground that NFR6.11's constant-query-count property is what makes a large roster survivable, and a paginated contract is far easier to add than to remove. **If a pilot roster exceeds ~200, revisit before launch** |
 | A cache eviction policy | Room holds rosters, not media. The device floor is 2 GB [NFR2] and the data is kilobytes |
 | Connection pool sizing | One container on one instance; U3 set `pool_pre_ping` and nothing here changes the shape |
 

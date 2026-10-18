@@ -59,6 +59,19 @@ first child-identifying strings**, so the rule gains two entries.
 > record — but it would **not** be acceptable for attendance or marks,
 > and U5 and U6 should reach their own conclusion rather than
 > inheriting this one.
+>
+> **`guardian_phone` is the weaker case and the justification is
+> thinner**, which review caught. It is teacher-typed like
+> `display_name`, so the same "their own record" argument applies —
+> but it is also a **contact route to a third party**, and editing it
+> redirects who receives information about a child. The two are not
+> equivalent.
+>
+> V1 still does not audit it, because the alternative is per-row
+> access logging the budget cannot carry. The honest statement is that
+> this is a **cost decision, not a principled one**, and it should be
+> revisited the moment any notification is sent to that number —
+> which is U7's reminder path, not this Unit.
 
 ---
 

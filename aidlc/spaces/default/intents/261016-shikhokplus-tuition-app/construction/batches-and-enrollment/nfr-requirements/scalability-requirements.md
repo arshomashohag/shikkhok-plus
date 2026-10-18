@@ -71,7 +71,7 @@ test and stops working at two workers. The equivalent question here is
 |---|---|
 | Horizontal scaling | One container on one instance; a second would consume the budget before compute [D-29] |
 | Read replicas | A replica would be an authorization bug for the computed lens — stale ownership resolves stale permissions |
-| Roster pagination | The largest plausible roster at this ceiling is tens of rows |
+| Roster pagination | See performance §C. Nothing caps students per batch, so the "tens of rows" reasoning an earlier draft used does not follow from NFR6 |
 | A caching layer | Room is the cache, on the client, and a server-side cache of lens-scoped data is how cross-teacher leakage happens |
 
 ---

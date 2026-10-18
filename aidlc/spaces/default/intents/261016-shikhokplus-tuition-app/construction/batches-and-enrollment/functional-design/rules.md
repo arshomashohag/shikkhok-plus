@@ -220,11 +220,20 @@ rules:
       and would be covering less, which is how a control is retired
       rather than fixed.
     rationale: >
-      **Verified against a real schema rather than reasoned about.**
-      With U4's `batch` table applied, the gate reports exactly one
-      offender: `batch.fee_due_day`, an INTEGER 1–31 by design
-      [AC2.1.2], matching both `fee` and `due`. The gate fails the
-      build on a CORRECT schema.
+      **Predicted from the gate's own token list, not yet verified
+      against the real schema** — and the distinction is recorded
+      because an earlier draft of this rule claimed otherwise.
+
+      `batch.fee_due_day` is an INTEGER 1–31 by design [AC2.1.2] whose
+      name matches both `fee` and `due`. Applied to the real schema the
+      gate will therefore report it as a money column that is not
+      `NUMERIC(12,2)`, failing the build on a CORRECT design.
+
+      A probe did run against a container, but against a `batch` table
+      created ad hoc inside that probe: **no `Batch` table exists in
+      the built tree yet**. The token match and the column type are
+      certain; the gate's actual behaviour becomes checkable at Code
+      Generation and not before.
 
       A per-column allowlist keeps the token list intact and makes
       each exemption a reviewable line with a reason.
