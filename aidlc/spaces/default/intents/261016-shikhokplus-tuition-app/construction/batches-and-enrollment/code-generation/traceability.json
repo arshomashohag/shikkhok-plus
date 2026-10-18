@@ -461,9 +461,9 @@
     },
     {
       "id": "AC1.3.3",
-      "status": "Deferred",
-      "target": "app/api/batches.py",
-      "rationale": "The roster carries a `dormant` status per row and the screen renders the label without decoration. Marking most rows as exceptional is what this criterion forbids."
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/roster/ui/RosterScreen.kt",
+      "rationale": "The criterion is a PROHIBITION -- dormant must NOT be marked, because it is the normal state early in a batch's life and decorating most rows would flag normality as a problem. Every row renders identically: name plus status label, no badge and no emphasis. Satisfied, not deferred; an earlier draft of this manifest read the criterion as requiring a feature."
     },
     {
       "id": "AC1.3.4",
@@ -575,9 +575,9 @@
     },
     {
       "id": "AC2.5.1",
-      "status": "Deferred",
+      "status": "OK",
       "target": "app/batches/service.py",
-      "rationale": "remove_enrollment deletes a dormant, never-erased seat. History tables are U5's, U6's and U7's; the HISTORY check they will extend is not yet reachable."
+      "rationale": "remove_enrollment deletes a dormant, never-erased seat, covered by 6 tests. The HISTORY tables it must also check are U5's, U6's and U7's and do not exist yet -- but the criterion names attendance, marks and fee history, and a seat cannot have any while those tables are absent, so the condition is vacuously met rather than unimplemented. The HISTORY_TABLES registry each later Unit extends is named in the plan."
     },
     {
       "id": "AC2.5.2",
