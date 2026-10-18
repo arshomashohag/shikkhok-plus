@@ -588,8 +588,25 @@ rules:
       the kind of thing that gets forgotten**, so it is not left as
       one. The check is driven by a declared registry —
       `HISTORY_TABLES` in `app/enrollment/removal.py` — and a test
-      asserts that **every table carrying an `enrollment_id` foreign
-      key in the migrated schema appears in it**.
+      asserts that **every table referencing an enrollment appears in
+      it**.
+
+      **"Referencing" is the UNION of two predicates, because neither
+      alone holds.** An earlier version of this rule said "carries an
+      `enrollment_id` foreign key", and that was too strong — worked
+      against a real schema with three plausible shapes:
+
+      ==================== ======== ========== ==============
+      Table shape          FK query Name query Caught by
+      ==================== ======== ========== ==============
+      FK + `enrollment_id` yes      yes        both
+      `enrollment_id`, no FK no     yes        name only
+      FK, column named else yes     no         FK only
+      ==================== ======== ========== ==============
+
+      The second is an author omitting the constraint on a hot insert
+      path; the third is a column called `subject_enrollment`. Each
+      evades one predicate, and the union catches all three.
 
       That inverts the failure: a later Unit adding `attendance` with
       an `enrollment_id` column makes U4's test go red on the commit

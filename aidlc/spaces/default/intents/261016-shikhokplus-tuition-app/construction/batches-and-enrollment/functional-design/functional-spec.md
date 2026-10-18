@@ -246,12 +246,18 @@ Setting `inactive_from` must satisfy all three independently [BR4.1–BR4.3]:
 | **Delete `app/db/seed_skeleton.py`** | U4 (here) | U4 can create a batch for real, so the B3 throwaway is obsolete |
 
 > **The first three are enforced, not remembered** [BR6.1]. A test
-> queries the migrated schema for every table carrying an
-> `enrollment_id` foreign key and asserts each appears in the
-> `HISTORY_TABLES` registry. Verified against a real container: with
-> the registry empty it passes today, and adding an `attendance` table
-> with that foreign key makes **U4's** test fail on the commit that
-> adds it, naming the table.
+> queries the migrated schema for every table **referencing an
+> enrollment** — the UNION of "has a foreign key to `enrollment`" and
+> "has a column named `enrollment_id`" — and asserts each appears in
+> the `HISTORY_TABLES` registry.
+>
+> Verified against a real container, including the evasions: a table
+> with the column but **no** foreign key (an author omitting the
+> constraint on a hot insert path) is missed by the FK predicate, and
+> a table whose column is called `subject_enrollment` is missed by the
+> name predicate. Each alone has a plausible gap; the union caught all
+> three shapes. Adding an `attendance` table makes **U4's** test fail
+> on the commit that adds it, naming the table.
 >
 > That inversion is the point. An obligation written in prose across
 > three future Bolts is the kind that gets forgotten; this one fires
