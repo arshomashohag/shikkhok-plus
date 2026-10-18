@@ -199,6 +199,51 @@ rules:
       so the gate stops being a statement of intent.
     source: [NFR9.32, TC-7, D-20, project.md NEVER, team.md Code Style]
 
+  - id: BR3.3
+    statement: >
+      The money-column gate gains an explicit NON-MONEY allowlist.
+      `batch.fee_due_day` is the first entry. The allowlist names
+      columns, never tokens, and each entry states why.
+    category: constraint
+    applies_to: tests/db/test_governance.py
+    trigger: A column whose NAME matches a money token but which
+      carries something else
+    logic: >
+      IF a column matches MONEY_NAME_TOKENS
+      AND (table, column) is in NON_MONEY_COLUMNS
+      THEN skip it
+      ELSE require numeric(12,2).
+    violation_behaviour: >
+      Removing a token from MONEY_NAME_TOKENS to make the build pass.
+      Dropping "fee" or "due" would silently stop checking every
+      genuine fee column in U7 and U8 — the gate would still be green
+      and would be covering less, which is how a control is retired
+      rather than fixed.
+    rationale: >
+      **Verified against a real schema rather than reasoned about.**
+      With U4's `batch` table applied, the gate reports exactly one
+      offender: `batch.fee_due_day`, an INTEGER 1–31 by design
+      [AC2.1.2], matching both `fee` and `due`. The gate fails the
+      build on a CORRECT schema.
+
+      A per-column allowlist keeps the token list intact and makes
+      each exemption a reviewable line with a reason. The same
+      distinction the coverage-scope gate already uses: an explicit
+      list plus an assertion over it, so an omission fails rather than
+      silently narrowing.
+
+      **What this does NOT fix**, stated so the gate is not read as
+      stronger than it is: the check is NAME-based, so a genuine money
+      column called `tuition`, `stipend` or `discount` is missed
+      entirely. Worked those names — none matches any token. The
+      TypeDecorator BR3.2 makes a U4 deliverable is the other half,
+      and neither alone is sufficient: the decorator catches what goes
+      through the ORM, the name check catches raw SQL, and a
+      badly-named column created by raw SQL is caught by neither.
+      That residual gap is accepted and recorded rather than papered
+      over.
+    source: [NFR9.32, AC2.1.2, TC-7, project.md NEVER]
+
   # ---- BR4.x - inactive_from, which fails quietly ----
 
   - id: BR4.0
@@ -653,6 +698,7 @@ rules:
 | **BR2.2** | constraint | Two enrollments of one person stay independent |
 | **BR3.1** | constraint | Null fee means inherit; zero means waived |
 | **BR3.2** | constraint | NUMERIC(12,2) asserted on the schema; U4 **builds** the TypeDecorator |
+| **BR3.3** | constraint | A non-money allowlist, so `fee_due_day` does not retire the gate |
 | **BR4.0** | calculation | A period is a **calendar month**; `fee_due_day` sets only the due date |
 | **BR4.1** | calculation | `inactive_from`: nothing after, containing period in full |
 | **BR4.2** | constraint | Existing dues stand |
