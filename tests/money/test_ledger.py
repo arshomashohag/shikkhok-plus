@@ -237,16 +237,25 @@ class TestCarryForwardPairing:
         assert d.total_carry_forward == d.total_carried_out
         assert_identity(entries)
 
-    def test_bare_pair_does_not_cancel_without_its_charge(self) -> None:
+    def test_bare_pair_nets_to_zero_at_enrollment_level(self) -> None:
         """
-        Stated explicitly so the asymmetry above is not read as a bug: the
-        per-cycle floor means an unmatched relief is discarded, not carried
-        as a negative.
+        A carry pair in isolation nets to zero for the enrollment.
+
+        **This test asserted 500.00 before the code review**, matching the
+        old arithmetic where the total was the sum of independently-floored
+        periods: March floored to zero while April was charged 500, so the
+        relief vanished. That was the defect, not the specification.
+
+        Now the total is the floor of the sum, so the two sides of a carry
+        cancel as BR4.6 says they do — the per-period figures still show
+        March 0.00 and April 500.00, because a period cannot display a
+        negative balance.
         """
         pair = list(carry_forward(Money("500.00"), origin=MAR, receiver=APR))
         d = derive(pair)
         assert d.per_cycle[MAR] == Money("0.00")
-        assert d.total_outstanding == Money("500.00")
+        assert d.per_cycle[APR] == Money("500.00")
+        assert d.total_outstanding == Money("0.00")
         assert d.total_carry_forward == d.total_carried_out
 
     def test_negative_carry_refused(self) -> None:
@@ -279,3 +288,121 @@ class TestPerCycleAndFloors:
         assert d.available_credit == Money.ZERO
         assert d.per_cycle == {}
         assert_identity([])
+
+
+class TestSurplusReliefIsNotDiscarded:
+    """
+    Regressions for the defect found at code review.
+
+    `total_outstanding` was the SUM OF THE PER-PERIOD FLOORS, so relief that
+    exceeded one period's charges was silently discarded and the enrollment
+    showed more debt than it had. The 198-test suite passed throughout,
+    because the property test's generator could not produce these shapes.
+
+    The total is now the FLOOR OF THE SUM. Per-period figures keep their own
+    floors, since a period showing a negative balance means nothing to a
+    teacher — but the surplus those floors discard is recovered at the
+    enrollment level.
+    """
+
+    def test_late_payment_against_a_carried_period(self) -> None:
+        """
+        The one that would have been noticed in the field, eventually.
+
+        A parent pays 400 for March in April, after March's balance was
+        already carried forward. March is relieved by its `carried_out`, so
+        under the old arithmetic the 400 floored away and the student still
+        showed the full 2000 owed.
+        """
+        entries = [
+            entry(K.CHARGE, MAR, "1000.00"),
+            *carry_forward(Money("1000.00"), origin=MAR, receiver=APR),
+            entry(K.CHARGE, APR, "1000.00"),
+            entry(K.RECEIPT, MAR, "400.00"),
+        ]
+        d = derive(entries)
+        assert d.total_outstanding == Money("1600.00")
+        assert_identity(entries)
+
+    def test_waiver_exceeding_a_period_does_not_offset_another(self) -> None:
+        """
+        A waiver can only relieve what its own period owed.
+
+        **This test asserted the opposite through two review iterations**, and
+        both answers were wrong in different directions. March is paid in
+        full AND waived in full against a single 1000 charge, leaving 1000 of
+        phantom relief. An intermediate fix let that phantom cancel April's
+        genuine unpaid charge, so the books read zero owed while April owed a
+        thousand — precisely the offset BR4.4's rationale warned about.
+
+        A waiver is an accounting act, not money: waiving more than a period
+        owes creates nothing, so the surplus is discarded. Cash behaves
+        differently, which is what the late-payment test covers.
+        """
+        entries = [
+            entry(K.CHARGE, MAR, "1000.00"),
+            entry(K.RECEIPT, MAR, "1000.00"),
+            entry(K.FORGIVENESS, MAR, "1000.00"),
+            entry(K.CHARGE, APR, "1000.00"),
+        ]
+        d = derive(entries)
+        assert d.total_outstanding == Money("1000.00")
+        assert d.per_cycle[APR] == Money("1000.00")
+
+    def test_overpaid_cash_reduces_the_enrollment(self) -> None:
+        """
+        Cash is real wherever it lands. Overpaying March by 500 reduces what
+        the enrollment owes, rather than evaporating with the period.
+        """
+        entries = [
+            entry(K.CHARGE, MAR, "1000.00"),
+            entry(K.RECEIPT, MAR, "1500.00"),
+            entry(K.CHARGE, APR, "1000.00"),
+        ]
+        d = derive(entries)
+        assert d.per_cycle[MAR] == Money("0.00")
+        assert d.total_outstanding == Money("500.00")
+
+    def test_total_never_exceeds_the_sum_of_per_cycle_floors(self) -> None:
+        """
+        The relationship is an inequality, and this is its direction.
+
+        The total sums the floored per-cycle figures [BR4.4] and then returns
+        the CASH portion of any surplus, so it can be lower than that sum but
+        never higher.
+        """
+        entries = [
+            entry(K.CHARGE, MAR, "1000.00"),
+            entry(K.RECEIPT, MAR, "1500.00"),
+            entry(K.CHARGE, APR, "1000.00"),
+        ]
+        d = derive(entries)
+        assert d.total_outstanding <= Money.sum(d.per_cycle.values())
+
+
+class TestCarryCannotManufactureDebt:
+    """
+    `carry_forward` accepted any amount, unrelated to what the origin owed.
+
+    The module argues the opposite way for credit: `apply_credit` computes
+    min(available, owed) so over-application is unrepresentable. The same
+    argument applies verbatim to a carry.
+    """
+
+    def test_over_carry_refused(self) -> None:
+        with pytest.raises(MoneyValidationError):
+            carry_forward(
+                Money("1000.00"),
+                origin=MAR,
+                receiver=APR,
+                origin_balance=Money("600.00"),
+            )
+
+    def test_carry_within_balance_allowed(self) -> None:
+        out_entry, in_entry = carry_forward(
+            Money("600.00"),
+            origin=MAR,
+            receiver=APR,
+            origin_balance=Money("600.00"),
+        )
+        assert out_entry.amount == in_entry.amount == Money("600.00")

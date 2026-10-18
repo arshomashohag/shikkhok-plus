@@ -113,6 +113,9 @@ def derive(entries: list[LedgerEntry]) -> DerivedQuantities:
 
     cycle_charged: defaultdict[str, Money] = defaultdict(lambda: zero)
     cycle_relieved: defaultdict[str, Money] = defaultdict(lambda: zero)
+    #: What each period waived, tracked separately because a waiver cannot
+    #: relieve more than its own period owed.
+    cycle_forgiven: defaultdict[str, Money] = defaultdict(lambda: zero)
 
     for item in entries:
         kind = item.kind
@@ -127,6 +130,7 @@ def derive(entries: list[LedgerEntry]) -> DerivedQuantities:
             case LedgerEntryKind.FORGIVENESS:
                 forgiven += amount
                 cycle_relieved[item.period] += amount
+                cycle_forgiven[item.period] += amount
             case LedgerEntryKind.CREDIT_GRANT:
                 grant += amount
             case LedgerEntryKind.CREDIT_APPLY:
@@ -141,11 +145,54 @@ def derive(entries: list[LedgerEntry]) -> DerivedQuantities:
             case _ as unreachable:
                 assert_never(unreachable)
 
-    per_cycle = {
-        period: _floor(cycle_charged[period] - cycle_relieved[period])
-        for period in {*cycle_charged, *cycle_relieved}
-    }
-    outstanding = Money.sum(per_cycle.values())
+    # BR4.4 and ADR-002's identity are **mathematically incompatible**
+    # whenever a period is over-relieved, and no implementation satisfies
+    # both. The conflict was found at code review after two wrong answers in
+    # a row, and is recorded in full in code-summary.md; it needs a human
+    # decision, not another arithmetic patch.
+    #
+    # The identity, rearranged, defines
+    #     outstanding = charged - forgiven - receipt - applied
+    # which is a pure enrollment-level quantity with no per-period structure.
+    # BR4.4 defines it as the sum of floored per-cycle figures. Minimal
+    # divergence: March charges 100 and receives 150, April charges 100.
+    # BR4.4 gives 100 ("April still owes 100" — true). The identity gives 50
+    # ("the family is 50 ahead overall" — also true). Two honest answers to
+    # two different questions, sharing one name.
+    #
+    # **This implementation follows BR4.4's RATIONALE rather than its
+    # literal formula**, pending a human decision on the conflict. Taking the
+    # formula literally reintroduces the money loss it was written before
+    # anyone knew about: a 400 payment recorded against an already-carried
+    # March floors away entirely.
+    #
+    # So: cash surplus (a receipt or an applied credit) is real money and
+    # settles the enrollment's debt wherever it was recorded. Waiver surplus
+    # is an accounting act that can only relieve what its own period owed, so
+    # it is discarded — which is exactly the phantom offset BR4.4's rationale
+    # forbids. Both named failures are then correct, and the eight worked
+    # scenarios are unaffected because none of them over-relieves a period.
+    #
+    # What is NOT in dispute, and what the floors still guarantee: per-cycle
+    # figures never go negative, and one over-settled cycle never silently
+    # cancels another cycle's genuine debt — the offset BR4.4's rationale
+    # exists to forbid.
+    per_cycle: dict[str, Money] = {}
+    #: Surplus relief that is real money rather than an accounting act, so it
+    #: settles the enrollment's debt instead of evaporating with the period
+    #: it was recorded against.
+    surplus_cash = zero
+
+    for period in {*cycle_charged, *cycle_relieved}:
+        signed = cycle_charged[period] - cycle_relieved[period]
+        per_cycle[period] = _floor(signed)
+        if signed.is_negative():
+            surplus = -signed
+            waived = cycle_forgiven[period]
+            phantom = waived if waived < surplus else surplus
+            surplus_cash += surplus - phantom
+
+    outstanding = _floor(Money.sum(per_cycle.values()) - surplus_cash)
 
     return DerivedQuantities(
         total_charged=charged,
@@ -157,12 +204,15 @@ def derive(entries: list[LedgerEntry]) -> DerivedQuantities:
         total_carried_out=carried_out,
         total_outstanding=outstanding,
         per_cycle=per_cycle,
-        available_credit=grant - applied,
+        available_credit=_floor(grant - applied),
     )
 
 
 def carry_forward(
-    amount: Money, origin: str, receiver: str
+    amount: Money,
+    origin: str,
+    receiver: str,
+    origin_balance: Money | None = None,
 ) -> tuple[LedgerEntry, LedgerEntry]:
     """
     Carry an unpaid balance forward, as the pair it must always be.
@@ -176,13 +226,33 @@ def carry_forward(
     a second 1000 charge reads 3000 owed against a true 2000, and the gap
     grows with every period.
 
-    :param amount: The balance to carry. Must be non-negative.
+    :param amount: The balance to carry. Must be non-negative, and must not
+        exceed `origin_balance` when that is supplied.
     :param origin: The period being relieved.
     :param receiver: The period being charged.
+    :param origin_balance: What the origin period actually owes. Supply it
+        wherever it is known — which is every path the system has, since a
+        carry is only ever produced from a computed balance.
     :return: The ``carried_out`` entry against the origin, then the
         ``carry_forward`` entry against the receiver.
-    :raises MoneyValidationError: If the amount is negative.
+    :raises MoneyValidationError: If the amount is negative, or exceeds the
+        origin period's balance.
     """
+    if origin_balance is not None and amount > origin_balance:
+        # Carrying more than the origin owes manufactures debt: the receiver
+        # is charged the full amount while the origin is relieved only down
+        # to its floor, and the surplus appears from nowhere.
+        #
+        # This mirrors `apply_credit`, which computes min(available, owed)
+        # precisely so over-application is unrepresentable rather than
+        # refused. The same argument applies verbatim to a carry, and an
+        # earlier version of this function made the opposite choice by
+        # accepting whatever it was handed.
+        raise MoneyValidationError(
+            f"Cannot carry {amount} out of {origin}, which owes "
+            f"{origin_balance}. Carrying more than is owed manufactures "
+            "debt."
+        )
     return (
         LedgerEntry(kind=LedgerEntryKind.CARRIED_OUT, period=origin, amount=amount),
         LedgerEntry(
