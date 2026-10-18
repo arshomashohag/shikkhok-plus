@@ -49,6 +49,24 @@ def _student_lens() -> StudentLens:
     return StudentLens(account_id=UUID(int=1))
 
 
+class NarrowedTeacherLens(TeacherLens):
+    """A hypothetical future narrowing of the teacher lens.
+
+    Declared at module level because annotation resolution uses
+    ``typing.get_type_hints`` against the function's own module -- a
+    locally-defined class is not in that namespace, and the resolver
+    correctly raises rather than guessing.
+    """
+
+
+def _narrowed_teacher_lens() -> NarrowedTeacherLens:
+    """Stand in for a resolver returning the narrowed lens.
+
+    :return: A narrowed teacher lens
+    """
+    return NarrowedTeacherLens(account_id=UUID(int=1), owner_id=UUID(int=2))
+
+
 def _guardian_lens() -> GuardianLens:
     """Stand in for U3's guardian-lens resolver.
 
@@ -373,3 +391,28 @@ def test_a_dual_lens_route_does_not_escape_the_privacy_gate() -> None:
     violations = forbidden_fields(_app_with_two_lenses(RosterWithProfile))
 
     assert [v.field for v in violations] == ["self_name"]
+
+
+def test_a_teacher_lens_subclass_is_still_teacher_facing() -> None:
+    """Classification uses issubclass, not identity, and that matters.
+
+    A future narrowing of the teacher lens -- an owner-admin variant, say
+    -- must still be checked by this gate. Identity comparison would skip
+    it silently, which is the wrong direction to fail for a privacy
+    control: a new lens type should inherit the boundary, not escape it.
+
+    This test exists so nobody "simplifies" the check to ``is``.
+
+    :return: None
+    """
+    app = FastAPI()
+
+    @app.get(
+        "/v1/narrowed",
+        response_model=RosterWithProfile,
+        dependencies=[Depends(_narrowed_teacher_lens)],
+    )
+    def _route() -> dict[str, str]:
+        return {}
+
+    assert [v.field for v in forbidden_fields(app)] == ["self_name"]
