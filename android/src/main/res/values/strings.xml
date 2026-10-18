@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  English strings. The DEFAULT bundle, with values-bn/ beside it from
+  screen one [TC-15, D-43].
+
+  Discovering that Bangla text breaks a layout is a per-screen problem;
+  discovering it on screen one is how it is not discovered on screen
+  forty.
+
+  No user-facing string is hardcoded in a composable. The server sends a
+  message_key naming one of these; it never sends English text, which
+  the client could not localize.
+-->
+<resources>
+    <string name="app_name">ShikhokPlus</string>
+
+    <!-- OTP entry, screen one. -->
+    <string name="auth_phone_label">Mobile number</string>
+    <string name="auth_phone_hint">01XXXXXXXXX</string>
+    <string name="auth_request_code">Send code</string>
+    <string name="auth_code_label">Enter the code</string>
+    <string name="auth_code_sent">If that number is registered, a code has been sent.</string>
+    <string name="auth_verify">Sign in</string>
+    <string name="auth_resend">Send a new code</string>
+    <string name="auth_retry">Try again</string>
+
+    <!--
+      Error keys, named by the server's message_key. The server names
+      which string to show; it never sends the string itself.
+    -->
+    <string name="error_network_unreachable">Could not reach the server. Check your connection and try again.</string>
+    <string name="error_unexpected">Something went wrong. Please try again.</string>
+    <string name="auth_otp_not_valid">That code is not valid. Request a new one.</string>
+    <string name="auth_otp_temporarily_unavailable">Sign-in is temporarily unavailable. Please try again later.</string>
+    <string name="auth_token_not_valid">Your session has ended. Please sign in again.</string>
+</resources>

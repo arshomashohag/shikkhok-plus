@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Bangla strings. Present from SCREEN ONE, not retrofitted [TC-15, D-43].
+
+  Bangla renders substantially longer than English for the same content,
+  which is exactly the layout pressure this bundle exists to apply early.
+  Every string here is deliberately a realistic translation rather than a
+  placeholder, because a short placeholder would hide the problem the
+  bundle is here to surface.
+
+  Numerals stay WESTERN (0-9) throughout, matching the decision recorded
+  for money rendering: a teacher reading a code aloud from an SMS and a
+  teacher typing it into this field must see the same digits.
+-->
+<resources>
+    <string name="app_name">শিক্ষকপ্লাস</string>
+
+    <!-- OTP entry, screen one. -->
+    <string name="auth_phone_label">মোবাইল নম্বর</string>
+    <string name="auth_phone_hint">01XXXXXXXXX</string>
+    <string name="auth_request_code">কোড পাঠান</string>
+    <string name="auth_code_label">কোডটি লিখুন</string>
+    <string name="auth_code_sent">নম্বরটি নিবন্ধিত থাকলে একটি কোড পাঠানো হয়েছে।</string>
+    <string name="auth_verify">সাইন ইন করুন</string>
+    <string name="auth_resend">নতুন কোড পাঠান</string>
+    <string name="auth_retry">আবার চেষ্টা করুন</string>
+
+    <!-- Error keys, named by the server's message_key. -->
+    <string name="error_network_unreachable">সার্ভারে পৌঁছানো যায়নি। আপনার সংযোগ পরীক্ষা করে আবার চেষ্টা করুন।</string>
+    <string name="error_unexpected">কিছু একটা সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।</string>
+    <string name="auth_otp_not_valid">এই কোডটি সঠিক নয়। নতুন একটি কোড নিন।</string>
+    <string name="auth_otp_temporarily_unavailable">সাইন ইন সাময়িকভাবে বন্ধ আছে। অনুগ্রহ করে পরে আবার চেষ্টা করুন।</string>
+    <string name="auth_token_not_valid">আপনার সেশন শেষ হয়েছে। অনুগ্রহ করে আবার সাইন ইন করুন।</string>
+</resources>
