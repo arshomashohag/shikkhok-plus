@@ -48,7 +48,7 @@ What *is* contractual on those edges is the **route surface each Unit adds to th
 | C2 | **Money wire representation** | `app.money` Pydantic annotated type | every response and request schema; Kotlin `Money` serializer | In-process chokepoint + a JSON-string invariant asserted on both sides | **U1 `money-core`** (type + chokepoints); U2 asserts it schema-wide | Not versioned — permanent, TC-7/D-20 |
 | C3 | **Money import boundary** | `app.money` public surface | every backend module | Ruff banned-api + import-linter test | **U1** | Permanent |
 | C4 | **Lens as a data dependency** | `app.authz` lens resolvers | every route handler | FastAPI `Depends` returning a `Lens` subtype; route-enumeration test with `PUBLIC_ROUTES` | **U3** (resolvers) / **U2** (the enumeration harness) | Permanent |
-| C5 | **SMS gateway** | third-party BTRC-approved gateway | `SmsGateway` adapter, PU-1.4 | HTTPS, vendor-specific, wrapped in exactly one adapter | **U3 `identity-and-access`** | Vendor-owned; our adapter interface is ours |
+| C5 | **SMS gateway** | **BulkSMSBD** (`bulksmsbd.net`), selected 2026-10-18 — see §C.4 | `SmsGateway` adapter, PU-1.4 | HTTPS, vendor-specific, wrapped in exactly one adapter | **U3 `identity-and-access`** | Vendor-owned; our adapter interface is ours |
 | C6 | **FCM** | Google FCM | `PushDispatcher` adapter | FCM HTTP v1 | **U7** if built first, else U6 — the latent ownership question from `unit-of-work-dependency.md` | Vendor-owned |
 | C7 | **External account-deletion web route** | FastAPI (public, non-app surface) | a browser, no app installed; Play reviewer | HTTPS HTML form + a POST route; `PUBLIC_ROUTES` member | **U11 `privacy-and-governance`** | Separately versioned — it is not `/v1/` app surface |
 | C8 | **Governance manifest pair** | `app.governance` manifests | deletion endpoints, purge job, privacy-policy generator | In-process structured data, one source | **U11** | Permanent |
@@ -677,6 +677,163 @@ Three properties of the signature, each deliberate:
 - **Gateway request bodies are never logged at any level**, because the call carries a phone number and the OTP itself. The OTP never appears in any log line. Each send logs `(purpose, outcome, correlation_id)` and nothing else.
 - **Non-production environments hold the gateway's test or sandbox credentials**, so a staging run can never spend real money or message a real teacher. CI stubs the gateway entirely — the blocking suite needs no secret to run locally.
 
+### C.4 The selected vendor — BulkSMSBD (added 2026-10-18, closing OQ-3)
+
+**The vendor is BulkSMSBD** (`bulksmsbd.net`), selected by the human. The
+§C.1 adapter interface is unchanged — that is what being vendor-neutral
+bought — but six vendor behaviours below are **binding on the
+implementation** and two of them are not optional judgement calls. Every
+claim marked *verified* was probed directly against the live endpoint on
+2026-10-18 **using an invalid API key only**; no SMS was sent and no
+credentials were used.
+
+**The call:**
+
+```
+POST https://bulksmsbd.net/api/smsapi
+  api_key, senderid, number, message        # form/query parameters
+```
+
+**C.4.1 — Success is `response_code == 202` and nothing else.** *(verified)*
+
+An application-level failure returns **HTTP 200** with the error in the body:
+
+```
+$ curl -i ".../api/smsapi?api_key=INVALID&..."
+HTTP/1.1 200 OK
+{"response_code":1011,"success_message":"","error_message":"user id not found in this INVALID key"}
+```
+
+So `raise_for_status()` is worthless as a success check here. A non-2xx
+status means a transport problem — proxy, DNS, a typo'd path — and never an
+application rejection. **The adapter determines `SENT` solely from
+`response_code == 202`.**
+
+The field is **`response_code`** (an integer), not `code`. Named explicitly
+because the most-installed Python client for this gateway parses `code`,
+and its unit tests mock `{'code': 202}` — so the tests pass against a
+fiction while the library would treat every real response, success and
+failure alike, as unrecognised. That is precisely the defect `team.md`
+rejects: *"tests that always pass regardless of implementation are defects
+in their own right."* **Do not copy that parsing.**
+
+**C.4.2 — HTTPS is mandatory and enforced in code, not in configuration.**
+*(verified)*
+
+The certificate is valid (Let's Encrypt, TLS 1.2/1.3, hostname matches).
+But **plain HTTP serves the same API with no redirect and no HSTS**:
+
+```
+$ curl -o /dev/null -w "%{http_code} redirect='%{redirect_url}'" "http://bulksmsbd.net/api/smsapi?..."
+200 redirect=''
+```
+
+A misconfigured `http://` therefore ships **the phone number and the OTP in
+cleartext and succeeds silently** — nothing fails, warns or logs. Under
+[RC-1, RC-2, RC-3] that is a privacy failure on children's-adjacent data,
+so per `team.md`'s *"where a rule is important, it is mechanical"* the
+scheme is **not a configuration value**: the adapter asserts
+`urlparse(base_url).scheme == "https"` at construction and raises
+otherwise, never exposes a TLS-verification toggle, and carries a test
+asserting the resolved URL starts with `https://`.
+
+**C.4.3 — `error_message` echoes the API key back in plaintext.**
+*(verified)* `"user id not found in this <key> key"`. `team.md` forbids
+logging secrets and forbids logging gateway request bodies. The adapter
+therefore **logs `response_code` only, never `error_message`**, and the
+existing rule that each send logs `(purpose, outcome, correlation_id)` and
+nothing else already covers it — stated here because this is a live
+credential-leak path into the logs, not a hypothetical one.
+
+**C.4.4 — Response codes mapped onto the taxonomy.**
+
+| Code(s) | Class | Outcome |
+|---|---|---|
+| 202 | — | `SENT` |
+| 1001 | `ValidationError` | `FAILED` — the number is wrong |
+| 1003 | `ValidationError` | `FAILED` — a bug in our request |
+| 1011, 1018, 1031, 1032 | `AuthorizationError` | `FAILED` + alert — account or IP problem |
+| 1006, 1007 | `ConflictError` | `BUDGET_REFUSED` — **never** `TransientError`; retrying into an empty balance is the same error as retrying into a cost ceiling |
+| 1012 | `ValidationError` | `FAILED` — masking sender requires a Bangla body (C.4.6) |
+| 1002, 1013–1017, 1019–1021 | `FatalError` | `FAILED` + alert — vendor provisioning |
+| **1005** | — | **`UNKNOWN`**, not `TransientError` |
+| unrecognised | `FatalError` | `FAILED` + alert |
+
+**1005 ("Internal Error") is `UNKNOWN`, and so is a timeout**, because the
+gateway offers no delivery report and no message id (C.4.5): the SMS may
+have been sent and billed. The published code table is **not closed** —
+three codes appear in community sources but not the vendor's table — so an
+unrecognised code is a failure of unknown class rather than evidence the
+enumeration is complete.
+
+**C.4.5 — There is no delivery report and no message id.** *(verified
+negative: nine plausible endpoint names all 404)*
+
+`202` means **submitted to the gateway**, permanently and finally. Whether
+the handset received it is unknowable at any price on this API. This makes
+§C.3's existing design *mandatory rather than cautious*: there is no
+`delivered` state to model, the states are `submitted` / `rejected` /
+`unknown`, and user-initiated "request a new OTP" is the only recovery.
+
+`GET /api/getBalanceApi?api_key=...` exists and is the **only** observability
+hook into the gateway — worth polling and alerting on, since it catches both
+"about to run out" and, indirectly, "something is burning SMS", feeding
+[D-33]'s circuit breaker.
+
+**C.4.6 — Two open vendor questions that need answers before PU-1.**
+
+Neither is answerable from documentation; both need a direct question to
+BulkSMSBD:
+
+1. **Is there a sandbox or test mode?** None is documented and none was
+   found. `team.md` requires *"non-production environments hold the
+   gateway's test or sandbox credentials, so a staging run can never spend
+   real money or message a real teacher"* — **currently not satisfiable as
+   written.** CI is unaffected (the gateway is stubbed, by the same
+   practice). Recorded as **OQ-3a**.
+2. **Is code 1012 enforced for transactional/OTP traffic, or only
+   promotional?** A *masking* sender ID (a branded `SHIKKHOK` rather than an
+   unfamiliar number) is the better trust signal on an OTP, but 1012 says a
+   masking SMS must be in Bangla — and a Bangla body is UCS-2, so **70
+   characters per segment instead of 160**. Combined with masking's higher
+   per-SMS rate that is roughly a 3–4× cost multiplier per OTP, which is a
+   material input to [D-33]'s ceiling and [OC-4]'s budget. Recorded as
+   **OQ-3b**.
+
+**C.4.7 — The OTP message length is a tested budget constraint.**
+
+A single Bangla character forces the whole message to UCS-2, cutting
+capacity from 160 characters to **70**. Adding a brand name, an expiry
+notice, or the **11-character SMS Retriever app hash** [TC-5] can push past
+70 silently and **double the per-OTP cost with no error and no signal**.
+
+So U3 carries a test asserting the rendered OTP template, in both `bn` and
+`en`, encodes to ≤70 UCS-2 / ≤160 GSM-7 characters **including the app
+hash**. Mechanical, cheap, and it catches a 2× cost regression at commit
+time rather than on the invoice.
+
+**C.4.8 — Timeouts are explicit and retry stays forbidden.**
+
+Observed latency against auth-failing requests was ~320–380 ms, but those
+short-circuit before any carrier handoff, so a real send will be slower and
+these numbers must not be used to size a timeout. The adapter sets an
+explicit **connect timeout (~5 s)** and **read timeout (~10–15 s)** — never
+a library default and never unbounded, because an unbounded gateway call
+blocks a Uvicorn worker, and on a 2 GB Lightsail instance with few workers
+that is a self-inflicted availability incident.
+
+No automatic retry, at any layer, unchanged from §C.3. There is no
+idempotency key and no message id, so a retry risks double-sending and
+double-billing.
+
+**C.4.9 — IP whitelisting may apply.** Code 1032 ("IP not whitelisted")
+appears in community sources though not the vendor's published table. If
+enforced on our account, the Lightsail instance needs a **static egress
+IP** attached for both staging and production, and any later move to
+multiple instances or a NAT gateway would break sends with what looks like
+an auth failure. 1032 is non-retryable and alerting: retrying from the same
+IP never succeeds.
+
 ---
 
 ## D. The FCM contract
@@ -821,7 +978,9 @@ Stated plainly, because "additive-only" is a slogan in most projects and a hard 
 |---|---|---|---|
 | OQ-1 | **Does `PaymentClaim.transaction_id` survive the claimant's deletion?** It is student/guardian-authored (so FR11.1 says remove) and simultaneously the teacher's only evidence of a verified payment (so the business-record argument says retain). | **U11** disposition manifest; the privacy-policy text generated from it; **U8**'s payment-history response schema, which must know whether the field can be null post-deletion | A product and legal judgement, carried in from Domain Design. The contract can express either answer; it cannot choose |
 | OQ-2 | **FR8.3's collection-rate definition is annotated open to correction**, and AC8.3.4's rule that a credit counts in the period whose charge it settles postdates it. | **U9** analytics response schema and its field semantics; **U1**'s property test, which should be extended to cover the credit rule | A requirements question. Shipping a `collection_rate` field whose arithmetic is under revision would pin the wrong number into a client in the field |
-| OQ-3 | **SMS gateway vendor is unselected**, with delivery reliability and sandbox credentials unverified. | **U3** — the adapter interface in §C is vendor-neutral and buildable now, but the per-purpose ceiling cannot be calibrated and the staging sandbox path cannot be verified until a vendor exists | External to the workflow. The adapter boundary is designed so the choice stays cheap; it does not remove the dependency |
+| ~~OQ-3~~ | **DECIDED 2026-10-18 — the vendor is BulkSMSBD.** See §C.4, which records six binding implementation behaviours probed against the live endpoint. The §C.1 interface is unchanged, which is what vendor-neutrality bought. | — | Resolved by the human |
+| OQ-3a | **Does BulkSMSBD offer a sandbox or test mode?** None is documented and none was found. `team.md` requires non-production to hold test credentials *"so a staging run can never spend real money or message a real teacher"* — **not satisfiable as written** without one. CI is unaffected: the gateway is stubbed there by the same practice. | **U3**, and a possible correction to the practice wording | One direct question to the vendor. Absence of documentation is not proof of absence — their docs omit `response_code`, IP whitelisting and delivery reports too, all of which demonstrably exist or are referenced |
+| OQ-3b | **Is code 1012 (masking SMS must be in Bangla) enforced for transactional/OTP traffic, or only promotional?** A masking sender ID is the better trust signal on an OTP, but a Bangla body is UCS-2 — 70 characters per segment instead of 160 — which with masking's higher rate is roughly a **3–4× per-OTP cost multiplier**. | **U3**'s sender configuration and OTP template; [D-33]'s ceiling calibration; [OC-4]'s budget | A vendor question with a product consequence. If OTP is exempt, a branded sender *and* a cheap 160-character English body are both available |
 | OQ-4 | **The FCM adapter's owning Unit is latent** — U6 or U7, whichever is built first. | **U6 and U7**. Left unrecorded it becomes two adapters with two different `UNREGISTERED` behaviours | A Delivery Planning sequencing decision. Flagged, not invented: the dependency artifact deliberately declined a `U6 -> U7` edge, because that would destroy the three-way parallel set for a shared adapter |
 | OQ-5 | **The external deletion route's web surface is uncosted** [TC-19]. §B.9 specifies it as FastAPI-served HTML on the existing container, which is the only option under the USD 50/month ceiling [OC-4] — but this has not been confirmed against Play's expectations for the deletion URL. | **U11**, which is release-blocking | A hosting and compliance confirmation, not a contract decision. The contract is written assuming the same container; a separate static host would change the path, not the semantics |
 | ~~OQ-6~~ | **DECIDED** — see "The `*_display` rule" below. It was listed here as open while carrying a proposed default, which is a decision wearing a question's clothes. Leaving it open would make every money response schema in U7, U8 and U9 provisional. | — | Resolved at this stage's review |
