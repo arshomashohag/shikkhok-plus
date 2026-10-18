@@ -1,0 +1,147 @@
+{
+  "stage": "nfr-design",
+  "unit": "api-contract",
+  "note": "U2 is a spec Unit with no process, so this stage designs build-time and test-time machinery plus one piece of runtime code, not runtime infrastructure. Four of the stage's seven deliverables do not apply by its own produces_kinds gating (performance, scalability, reliability, observability design are service/ui-only; logical-components is service/ui/library-only), and security-design.md section E records WHY per category rather than leaving the analysis implicit - a circuit breaker around an error handler is incoherent, since there is nothing downstream to break. Two design choices were verified empirically rather than reasoned about: sort_keys does not order list values, so canonical serialization must sort order-insensitive lists too; and a subprocess comparison catches a set-derived ordering that a same-run comparison passes over. NFR14.4 stays deferred to U3 per BR4.4.",
+  "upstream_ids": [
+    "NFR3.1",
+    "NFR3.2",
+    "NFR9.1",
+    "NFR9.2",
+    "NFR13.1",
+    "NFR14.1",
+    "NFR14.2",
+    "NFR14.3",
+    "NFR14.4",
+    "NFR14.5",
+    "NFR14.6",
+    "NFR14.7",
+    "NFR14.8",
+    "NFR14.9",
+    "NFR14.10",
+    "NFR14.11",
+    "NFR16.1",
+    "NFR16.2",
+    "NFR16.3",
+    "NFR16.4",
+    "NFR17.1",
+    "NFR17.2",
+    "NFR17.3"
+  ],
+  "coverage": [
+    {
+      "id": "NFR3.1",
+      "status": "OK",
+      "target": "§C.2 — envelope declares additionalProperties:false, so a `message` field fails schema validation AND the diff gate. Structural rather than a convention somebody maintains"
+    },
+    {
+      "id": "NFR3.2",
+      "status": "OK",
+      "target": "§C.2 — `details` is TYPED PER CODE, never a free-form dump of request state. That typing is the mechanism: there is no field into which a phone number, OTP or token could casually be placed. Every error log carries the correlation id"
+    },
+    {
+      "id": "NFR9.1",
+      "status": "OK",
+      "target": "§B.2 — walk the generated document; assert no property declares an inline money-shaped type instead of $ref-ing the shared Money component, which alone carries the pattern and type:string"
+    },
+    {
+      "id": "NFR9.2",
+      "status": "OK",
+      "target": "§B.2 — assert no <x>_display exists without a sibling <x> that $refs the component. The display string is not pattern-matched; its content is the rendering specification closed at OQ-B1-1"
+    },
+    {
+      "id": "NFR13.1",
+      "status": "OK",
+      "target": "§C.2 — the 401/refresh-then-replay reconciliation recorded in the artifact: a different request, then exactly one replay, only on ACCESS_TOKEN_EXPIRED, any second 401 ending the session"
+    },
+    {
+      "id": "NFR14.1",
+      "status": "OK",
+      "target": "§D — four committed fixtures, each OTHERWISE-VALID and violating exactly one rule, in tests/contract/fixtures/. The otherwise-valid property is what makes NFR14.2 achievable"
+    },
+    {
+      "id": "NFR14.2",
+      "status": "OK",
+      "target": "§D — each fixture test asserts the specific error: the property path, the orphan field, two distinct errors for the two privacy field sets, the route path"
+    },
+    {
+      "id": "NFR14.3",
+      "status": "OK",
+      "target": "§C.2 — the code registry contains no pair distinguishing unreachable from absent. A RESOURCE_NOT_FOUND/RESOURCE_FORBIDDEN pair is the defect even though each code is individually reasonable"
+    },
+    {
+      "id": "NFR14.4",
+      "status": "Deferred",
+      "target": "§F — DEFERRED TO U3 per BR4.4. Both lookup branches must execute the same queries, asserted structurally and never as a wall-clock bound. U2 owns no lookup code and designing a mechanism it cannot run would be the over-reach the fixture obligation exists to prevent"
+    },
+    {
+      "id": "NFR14.5",
+      "status": "OK",
+      "target": "§B.4 — test_route_lenses.py imports the REAL app object at test collection time, so an unlensed endpoint reddens CI on the commit that adds it. Walks route.dependant recursively, since a lens may be nested in a composed dependency"
+    },
+    {
+      "id": "NFR14.6",
+      "status": "OK",
+      "target": "§B.4 — two frozensets with ASSERTED LENGTHS (5 and 1). The length assertion is the control: a sixth entry is a diff against a stated number. Separation stops the refresh route being marked public by whoever first hits the check failing"
+    },
+    {
+      "id": "NFR14.7",
+      "status": "OK",
+      "target": "§B.4 — one shared resolver in app/authz/annotations.py using typing.get_type_hints, unwrapping Annotated and generic aliases, counting a union only when every member qualifies, and RAISING on resolution failure. Shared with §B.3: one function, two callers, because a second implementation would be the naive issubclass the requirement forbids"
+    },
+    {
+      "id": "NFR14.8",
+      "status": "OK",
+      "target": "§B.3 — the lens is READ FROM THE ROUTE, never guessed from the schema name, reusing the NFR14.7 resolver. Both forbidden field sets ride one iteration. Recursion through $ref/items/allOf/anyOf carries a CYCLE GUARD, because an unguarded walk hangs CI rather than failing it and a hang is worse than a failure"
+    },
+    {
+      "id": "NFR14.9",
+      "status": "OK",
+      "target": "§B.3 — stated in the artifact that Schemathesis validates conformance and never counts as privacy coverage, since a response wrongly declaring a profile field matches its own declaration perfectly"
+    },
+    {
+      "id": "NFR14.10",
+      "status": "OK",
+      "target": "§C.2 and functional-design BR1.7 — the lens-hint contract. U2 owns the status, code and class; U3 owns the derivation deciding which branch applies"
+    },
+    {
+      "id": "NFR14.11",
+      "status": "OK",
+      "target": "§C.3 — app.schemas.* configured strict with disallow_any_explicit in this Bolt, because U2 first populates that package. Response-schema separation becomes a mypy error, catching right-lens-wrong-data, which neither §B.3 nor §B.4 can see"
+    },
+    {
+      "id": "NFR16.1",
+      "status": "OK",
+      "target": "§B.1 — generate from the live app, compare bytes against committed openapi.json, fail CI on any difference"
+    },
+    {
+      "id": "NFR16.2",
+      "status": "OK",
+      "target": "§A, §B.1 — runs under `make check`, the same command locally and in CI, requiring no secret"
+    },
+    {
+      "id": "NFR16.3",
+      "status": "OK",
+      "target": "§B.1 — canonical serialization that ALSO SORTS ORDER-INSENSITIVE LISTS (sort_keys alone orders object keys but not list values, so a `required` list built from a set survives a fully canonical dump; verified empirically), plus a SUBPROCESS regeneration comparison, which gets a fresh hash seed and is the only arrangement that can observe the failure. PYTHONHASHSEED deliberately unpinned"
+    },
+    {
+      "id": "NFR16.4",
+      "status": "OK",
+      "target": "§B.1 — `make openapi` is the only sanctioned way to update the committed document, documented beside it. The committed file is an output; hand-editing it to make a red diff green inverts the control into a rubber stamp"
+    },
+    {
+      "id": "NFR17.1",
+      "status": "OK",
+      "target": "§D — a fixture that stops failing is itself a build failure. These are the one part of U2 whose failure is the passing condition"
+    },
+    {
+      "id": "NFR17.2",
+      "status": "OK",
+      "target": "§C.1 — app/errors/ imports only stdlib, FastAPI response types and the five classes, ENFORCED by a layered-import test of the same shape as B1's working test_import_gates.py (81 passing). Catches the realistic violation: structured error logging that writes to the database, or a lookup enriching details"
+    },
+    {
+      "id": "NFR17.3",
+      "status": "OK",
+      "target": "§C.1 — totality is a TYPING property: a five-arm match ending in assert_never, which mypy proves exhaustive statically. A sixth class without a mapping is a build-time type error rather than a production 500"
+    }
+  ]
+}
