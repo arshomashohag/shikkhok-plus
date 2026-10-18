@@ -1,0 +1,243 @@
+{
+  "stage": "nfr-design",
+  "unit": "identity-and-access",
+  "note": "Thirty-nine derived requirements, each mapped to a concrete mechanism and its failure direction. Two mechanisms were corrected rather than designed right first time, and both are recorded as corrections because the wrong version of each read as MORE security-conscious: the ceiling cascade was global-first (which lets one attacker spend every teacher's allowance before their own limit trips) and the existence-oracle defence addressed hash symmetry while the known branch performed a database write the unknown branch did not. The design also records what it does NOT defend against - an attacker holding both the HMAC key and the database, timing analysis at very large sample sizes, SIM swap, a compromised host, and denial of service - so those gaps are deliberate rather than discovered.",
+  "upstream_ids": [
+    "NFR6.1",
+    "NFR6.2",
+    "NFR6.3",
+    "NFR6.4",
+    "NFR6.5",
+    "NFR6.6",
+    "NFR6.7",
+    "NFR6.8",
+    "NFR6.9",
+    "NFR6.10",
+    "NFR7.1",
+    "NFR7.2",
+    "NFR7.3",
+    "NFR7.4",
+    "NFR8.1",
+    "NFR8.2",
+    "NFR8.4",
+    "NFR8.5",
+    "NFR8.6",
+    "NFR8.7",
+    "NFR9.1",
+    "NFR9.2",
+    "NFR9.3",
+    "NFR9.4",
+    "NFR9.5",
+    "NFR9.6",
+    "NFR9.7",
+    "NFR10.1",
+    "NFR10.2",
+    "NFR10.3",
+    "NFR10.4",
+    "NFR12.1",
+    "NFR12.2",
+    "NFR13.1",
+    "NFR13.2",
+    "NFR13.3",
+    "NFR14.1",
+    "NFR14.2",
+    "NFR14.3"
+  ],
+  "coverage": [
+    {
+      "id": "NFR6.1",
+      "status": "OK",
+      "target": "performance-design §A - one SQL statement returning three EXISTS booleans. Three round trips is what makes the forbidden caching argument persuasive, so removing the premise is the design"
+    },
+    {
+      "id": "NFR6.2",
+      "status": "OK",
+      "target": "performance-design §A - indexes on owner.account_id and enrollment.account_id, verified by EXPLAIN asserting index use"
+    },
+    {
+      "id": "NFR6.3",
+      "status": "OK",
+      "target": "performance-design §C - a query-COUNT assertion, never a duration. A count is stable across CI runners; a flaky duration assertion gets deleted and takes the real check with it"
+    },
+    {
+      "id": "NFR6.4",
+      "status": "OK",
+      "target": "reliability-design §C - a health endpoint reporting connectivity and the applied Alembic revision"
+    },
+    {
+      "id": "NFR6.5",
+      "status": "OK",
+      "target": "reliability-design §D - deploys scheduled outside Bangladesh classroom hours"
+    },
+    {
+      "id": "NFR6.6",
+      "status": "OK",
+      "target": "reliability-design §D - a VERIFIED pg_dump: object existence and non-trivial size asserted after upload, because an unverified upload is not a backup either"
+    },
+    {
+      "id": "NFR6.7",
+      "status": "OK",
+      "target": "performance-design §B - the memo lives on request.state, so it is garbage-collected with the request. The location is the control"
+    },
+    {
+      "id": "NFR6.8",
+      "status": "OK",
+      "target": "reliability-design §C - the post-deploy smoke set covers the skeleton path end to end"
+    },
+    {
+      "id": "NFR6.9",
+      "status": "OK",
+      "target": "reliability-design §D - rollback is the previous immutable image tag; latest is never deployed"
+    },
+    {
+      "id": "NFR6.10",
+      "status": "OK",
+      "target": "reliability-design §D - forward-only migrations as a distinct logged step before the container serves traffic"
+    },
+    {
+      "id": "NFR7.1",
+      "status": "OK",
+      "target": "security-design §C.1 - the global_day scope, configured rather than hardcoded"
+    },
+    {
+      "id": "NFR7.2",
+      "status": "OK",
+      "target": "security-design §C.1 - the cascade is NARROWEST FIRST and a scope increments only when it passes. Corrected at review from global-first, which let one attacker spend every teacher's allowance before their own limit tripped"
+    },
+    {
+      "id": "NFR7.3",
+      "status": "OK",
+      "target": "security-design §C.1 and reliability-design §B - every outcome consumes budget, including UNKNOWN, because an UNKNOWN may have cost money"
+    },
+    {
+      "id": "NFR7.4",
+      "status": "OK",
+      "target": "observability-design §B - the ceiling alert, verified in staging before the auth slice reaches production"
+    },
+    {
+      "id": "NFR8.1",
+      "status": "OK",
+      "target": "observability-design §A - the append-only log with a closed five-value event enum"
+    },
+    {
+      "id": "NFR8.2",
+      "status": "OK",
+      "target": "observability-design §A - NO FREE-FORM FIELD EXISTS. A test asserts the dataclass has no str field other than correlation_id, so redaction is a mechanism rather than a rule"
+    },
+    {
+      "id": "NFR8.4",
+      "status": "OK",
+      "target": "observability-design §B - getBalanceApi polling, the only hook the gateway offers"
+    },
+    {
+      "id": "NFR8.5",
+      "status": "OK",
+      "target": "observability-design §B - the production-session log, with the person and the stated reason"
+    },
+    {
+      "id": "NFR8.6",
+      "status": "OK",
+      "target": "observability-design §C - every log line and audit row carries the correlation id"
+    },
+    {
+      "id": "NFR8.7",
+      "status": "OK",
+      "target": "observability-design §A and §D - enforced by the absent field and by a call-level test over gateway/"
+    },
+    {
+      "id": "NFR9.1",
+      "status": "OK",
+      "target": "security-design §F - secrets from the environment; Gitleaks blocks every push with no severity threshold"
+    },
+    {
+      "id": "NFR9.2",
+      "status": "OK",
+      "target": "security-design §F and observability-design §D - error_message is never logged, because it echoes the API key in plaintext. Verified against the live endpoint"
+    },
+    {
+      "id": "NFR9.3",
+      "status": "OK",
+      "target": "security-design §F - the https assertion is in the constructor and raises. Not a configuration value, because plain HTTP serves the same API with no redirect and no HSTS"
+    },
+    {
+      "id": "NFR9.4",
+      "status": "OK",
+      "target": "Inherited: Ruff's S ruleset runs over this Unit's code as the SAST gate"
+    },
+    {
+      "id": "NFR9.5",
+      "status": "OK",
+      "target": "security-design §B.1 - HMAC-SHA256 under a server-held key, through ONE chokepoint. Reversed from bcrypt under measurement: bcrypt buys hours at 58ms per issue, HMAC defeats the offline attack outright at ~1us"
+    },
+    {
+      "id": "NFR9.6",
+      "status": "OK",
+      "target": "security-design §B.2 - token_hash only, through the same chokepoint shape"
+    },
+    {
+      "id": "NFR9.7",
+      "status": "OK",
+      "target": "security-design §F - the gateway request body is never logged; it carries the number and the code together"
+    },
+    {
+      "id": "NFR10.1",
+      "status": "OK",
+      "target": "scalability-design §A - counter ROWS, not a dict. A per-worker dict passes every naive test and stops enforcing with more than one worker"
+    },
+    {
+      "id": "NFR10.2",
+      "status": "OK",
+      "target": "scalability-design §B - one atomic upsert with RETURNING, compared AFTER the increment, so racing workers cannot both pass at the limit"
+    },
+    {
+      "id": "NFR10.3",
+      "status": "OK",
+      "target": "reliability-design §E - one transaction per request, committed by the endpoint"
+    },
+    {
+      "id": "NFR10.4",
+      "status": "OK",
+      "target": "reliability-design §B - a connection failure fails fast inside a request. Retrying amplifies load on a 2 GB instance; failing fast sheds it"
+    },
+    {
+      "id": "NFR12.1",
+      "status": "OK",
+      "target": "security-design §C.2 - byte-identical responses on both branches"
+    },
+    {
+      "id": "NFR12.2",
+      "status": "OK",
+      "target": "security-design §C.2 - the unknown branch performs an EQUIVALENT WRITE and rolls it back. Extended at review from hash symmetry alone: a transactional write is a far louder timing signal than a hash computation"
+    },
+    {
+      "id": "NFR13.1",
+      "status": "OK",
+      "target": "security-design §E - family invalidation as transition 3 of a five-transition state machine. The transition most likely missed, and missing it leaves the thief's token working"
+    },
+    {
+      "id": "NFR13.2",
+      "status": "OK",
+      "target": "security-design §E - enforced 15-minute expiry, and no role or lens claim in the token"
+    },
+    {
+      "id": "NFR13.3",
+      "status": "OK",
+      "target": "reliability-design §B - a gateway timeout is UNKNOWN with no retry; there is no idempotency key to deduplicate against"
+    },
+    {
+      "id": "NFR14.1",
+      "status": "OK",
+      "target": "security-design §D - the table split: Profile vs Enrollment.display_name, different writers"
+    },
+    {
+      "id": "NFR14.2",
+      "status": "OK",
+      "target": "security-design §D - the RLS policy keyed on the session account id, set inside the request transaction"
+    },
+    {
+      "id": "NFR14.3",
+      "status": "OK",
+      "target": "security-design §D.1 - the meta-test runs FIRST and asserts current_user is not a superuser. Without it the other two layers certify nothing, since a superuser bypasses RLS entirely"
+    }
+  ]
+}
