@@ -63,8 +63,21 @@ test:
 	@# app.contract.emit is excluded: it is a `python -m` entry point whose
 	@# whole body is the subprocess the determinism test invokes, so it is
 	@# exercised in a child process where this run's tracer cannot see it.
+	@#
+	@# The package list is EXPLICIT rather than `--cov=app`, so a new
+	@# package is a deliberate line here. The cost of that choice is real
+	@# and was paid at B3: five new packages existed for a whole Bolt
+	@# before this line mentioned them, and the floor passed at 95% while
+	@# measuring none of the code the Bolt had just written. A missing
+	@# entry does not fail -- it silently narrows what the floor covers,
+	@# which is the quietest way a coverage gate erodes.
+	@#
+	@# test_coverage_scope.py now asserts this list against the packages
+	@# on disk, so the next omission fails instead of passing.
 	$(PY) -m pytest tests -q -p no:cacheprovider \
-		--cov=app.authz --cov=app.contract --cov=app.errors --cov=app.schemas \
+		--cov=app.api --cov=app.audit --cov=app.auth --cov=app.authz \
+		--cov=app.contract --cov=app.db --cov=app.errors \
+		--cov=app.gateway --cov=app.governance --cov=app.schemas \
 		--cov-report=term-missing --cov-fail-under=80 \
 		--cov-config=.coveragerc-backend
 

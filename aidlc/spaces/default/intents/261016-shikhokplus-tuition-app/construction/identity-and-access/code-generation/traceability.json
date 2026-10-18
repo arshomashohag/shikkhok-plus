@@ -1,0 +1,309 @@
+{
+  "stage": "code-generation",
+  "unit": "identity-and-access",
+  "note": "Every BRx.y, NFR and story for this Unit, mapped to the file that implements or enforces it. Targets are workspace-relative paths so the mapping is checkable mechanically; `rationale` carries what the path alone does not say. Where a control was verified against the WRONG implementation it exists to catch, the rationale records which tests fired and which did not \u2014 that distinction is the evidence, because every defect listed passes a confirmatory test. The reverse section records five decisions with no upstream rule, including two test defects found and fixed during the build.",
+  "upstream_ids": [
+    "BR1.1",
+    "BR1.2",
+    "BR1.3",
+    "BR1.4",
+    "BR2.1",
+    "BR2.2",
+    "BR2.3",
+    "BR2.4",
+    "BR2.5",
+    "BR2.6",
+    "BR2.7",
+    "BR3.1",
+    "BR3.2",
+    "BR3.3",
+    "BR4.1",
+    "BR4.2",
+    "BR4.3",
+    "BR5.1",
+    "BR5.2",
+    "BR5.3",
+    "BR5.4",
+    "BR5.5",
+    "BR6.1",
+    "BR6.2",
+    "BR6.3",
+    "NFR6.1",
+    "NFR6.3",
+    "NFR8.6",
+    "NFR9.5",
+    "NFR9.32",
+    "NFR10.2",
+    "US1.1",
+    "US1.2",
+    "US1.5",
+    "US1.8",
+    "US1.9",
+    "AC9.3.1",
+    "AC9.3.3",
+    "TC-5"
+  ],
+  "coverage": [
+    {
+      "id": "BR1.1",
+      "status": "OK",
+      "target": "app/authz/resolve.py",
+      "rationale": "The lens is derived from Owner and Enrollment on every request. No role column exists on Account, asserted by test_the_lens_is_never_read_from_a_column, and no module-level cache exists, asserted by a scan that was verified to detect a dict, an lru_cache and a set."
+    },
+    {
+      "id": "BR1.2",
+      "status": "OK",
+      "target": "tests/authz/test_resolve.py",
+      "rationale": "An account gaining an Owner row has the teacher lens on its NEXT request. Verified to FAIL against an injected cross-request cache; that is its only job."
+    },
+    {
+      "id": "BR1.3",
+      "status": "OK",
+      "target": "tests/authz/test_resolve.py",
+      "rationale": "The mirror, and the more dangerous direction: losing the last Enrollment removes the student lens next request. Also verified to fail against the cache."
+    },
+    {
+      "id": "BR1.4",
+      "status": "OK",
+      "target": "tests/authz/test_memoization.py",
+      "rationale": "Two lookups in one request hit the database once; two requests hit it twice. The pair is what makes it a boundary rather than a cache."
+    },
+    {
+      "id": "BR2.1",
+      "status": "OK",
+      "target": "app/auth/ceilings.py",
+      "rationale": "Datastore-backed counters under a unique constraint with an atomic upsert. The two-worker test was verified to fail against a per-process dictionary."
+    },
+    {
+      "id": "BR2.2",
+      "status": "OK",
+      "target": "app/auth/ceilings.py",
+      "rationale": "3/hour and 5/day per number, 10/hour per IP prefix, checked BEFORE the gateway call. A breach is a ConflictError, never a TransientError."
+    },
+    {
+      "id": "BR2.3",
+      "status": "OK",
+      "target": "app/auth/otp.py",
+      "rationale": "Five-minute expiry, single use via consumed_at set in the checking transaction under FOR UPDATE, and the attempt ceiling that KILLS the code rather than only refusing the attempt."
+    },
+    {
+      "id": "BR2.4",
+      "status": "OK",
+      "target": "app/auth/hashing.py",
+      "rationale": "HMAC under a server-held key. The not-reproducible-without-the-key test was verified to fail against bare SHA-256 while the stored-differs-from-transmitted test PASSED, which is why NFR9.5 states both halves."
+    },
+    {
+      "id": "BR2.5",
+      "status": "OK",
+      "target": "app/auth/ceilings.py",
+      "rationale": "Narrowest-first, with a refused scope releasing its own increment. Both accounting tests were verified to fail against global-first ordering while every threshold test passed."
+    },
+    {
+      "id": "BR2.6",
+      "status": "OK",
+      "target": "app/auth/ceilings.py",
+      "rationale": "A breach returns a temporary-unavailability message_key. Tests assert the refusal names no limit and never says 'invalid'."
+    },
+    {
+      "id": "BR2.7",
+      "status": "OK",
+      "target": "app/auth/otp.py",
+      "rationale": "Both branches issue the SAME statements: the unknown branch performs the equivalent INSERT inside a savepoint and rolls it back. Verified against both defect shapes, including the subtle one that hashes on both branches but writes on only one."
+    },
+    {
+      "id": "BR3.1",
+      "status": "OK",
+      "target": "app/db/models.py",
+      "rationale": "Profile.self_name and Enrollment.display_name in different tables with different writers. A test asserts neither column appears in the other table."
+    },
+    {
+      "id": "BR3.2",
+      "status": "OK",
+      "target": "migrations/versions/0001_initial_identity_schema.py",
+      "rationale": "RLS ENABLED and FORCED on profile with a policy keyed on the session account. FORCE matters independently: without it the policy does not apply to the table owner, who runs the migration."
+    },
+    {
+      "id": "BR3.3",
+      "status": "OK",
+      "target": "tests/privacy/test_rls_meta.py",
+      "rationale": "The meta-test runs first, enforced by both collection ordering and a package-level gate. Verified: with a correct policy and a superuser connection, a teacher reads the profile anyway."
+    },
+    {
+      "id": "BR4.1",
+      "status": "OK",
+      "target": "app/auth/tokens.py",
+      "rationale": "Rotation with reuse detection invalidating the whole FAMILY. Verified: against an implementation invalidating only the presented token, exactly one of five transitions fails."
+    },
+    {
+      "id": "BR4.2",
+      "status": "OK",
+      "target": "app/auth/tokens.py",
+      "rationale": "Refresh tokens stored hashed through the same chokepoint as the OTP; access-token expiry compared server-side against our own clock rather than the library default."
+    },
+    {
+      "id": "BR4.3",
+      "status": "OK",
+      "target": "app/auth/tokens.py",
+      "rationale": "kid header with two valid verification keys, tested by signing under one and verifying after the active key changed."
+    },
+    {
+      "id": "BR5.1",
+      "status": "OK",
+      "target": "app/gateway/bulksmsbd.py",
+      "rationale": "response_code == 202 and nothing else. A test asserts a body carrying only `code` does NOT read as success, which is the parsing the most-installed client for this gateway uses."
+    },
+    {
+      "id": "BR5.2",
+      "status": "OK",
+      "target": "app/gateway/bulksmsbd.py",
+      "rationale": "urlparse scheme asserted at CONSTRUCTION, so a misconfigured deployment fails at startup rather than shipping the first OTP in cleartext. No TLS toggle is exposed, asserted by signature."
+    },
+    {
+      "id": "BR5.3",
+      "status": "OK",
+      "target": "app/gateway/bulksmsbd.py",
+      "rationale": "One attempt, no retry at any layer. A timeout is UNKNOWN, never FAILED. A test asserts no code maps to TransientError across the whole table."
+    },
+    {
+      "id": "BR5.4",
+      "status": "OK",
+      "target": "app/gateway/null.py",
+      "rationale": "The null adapter is the DEFAULT; a misspelt setting yields it. A partially configured real adapter refuses to start rather than falling back."
+    },
+    {
+      "id": "BR5.5",
+      "status": "OK",
+      "target": "app/gateway/template.py",
+      "rationale": "GSM-7 SEPTET counting, not len(): the extended set costs two, so a naive length check passes on a body needing two segments. The app hash is counted."
+    },
+    {
+      "id": "BR6.1",
+      "status": "OK",
+      "target": "tests/db/test_unit_boundaries.py",
+      "rationale": "Owner and Enrollment created empty and never written, asserted over this Unit's own source because the violation WORKS."
+    },
+    {
+      "id": "BR6.2",
+      "status": "OK",
+      "target": "app/audit/log.py",
+      "rationale": "No free-form string column but correlation_id, asserted structurally. The gateway's error_message is never logged, verified against an injected debug log that leaked the API key."
+    },
+    {
+      "id": "BR6.3",
+      "status": "OK",
+      "target": "app/db/seed_skeleton.py",
+      "rationale": "A committed script with a __main__ guard, never imported by application code, asserted by an AST walk over every module."
+    },
+    {
+      "id": "NFR6.1",
+      "status": "OK",
+      "target": "app/authz/resolve.py",
+      "rationale": "ONE statement carrying three booleans and both scoping ids. My first draft used follow-up selects and the query-count assertion caught it."
+    },
+    {
+      "id": "NFR6.3",
+      "status": "OK",
+      "target": "tests/authz/test_memoization.py",
+      "rationale": "A query COUNT, never a duration: a wall-clock assertion is flaky and gets deleted the third time CI fails on it."
+    },
+    {
+      "id": "NFR8.6",
+      "status": "OK",
+      "target": "app/main.py",
+      "rationale": "A correlation id per request, generated in middleware so every log line and audit row in the request can carry it."
+    },
+    {
+      "id": "NFR9.5",
+      "status": "OK",
+      "target": "app/auth/hashing.py",
+      "rationale": "HMAC rather than a work-factor hash, following the measurement that reversed this design: bcrypt buys hours against an attacker who gets there anyway; HMAC stops one holding only the database."
+    },
+    {
+      "id": "NFR9.32",
+      "status": "OK",
+      "target": "tests/db/test_governance.py",
+      "rationale": "B1's inherited money-column assertion, discharged. VACUOUS on U3 (stated as its own test) and verified to fire on double precision and on an unconstrained numeric created by hand-written SQL."
+    },
+    {
+      "id": "NFR10.2",
+      "status": "OK",
+      "target": "app/auth/ceilings.py",
+      "rationale": "The count is compared AFTER the atomic increment, so two workers racing on one window cannot both read a stale value."
+    },
+    {
+      "id": "US1.1",
+      "status": "OK",
+      "target": "tests/auth/test_endpoints.py",
+      "rationale": "A teacher signs in end to end over HTTP: issue, the rendered SMS body, verify, a working token pair."
+    },
+    {
+      "id": "US1.2",
+      "status": "OK",
+      "target": "app/auth/otp.py",
+      "rationale": "A dormant account activates on first successful verify, which is how a student or guardian claims a record a teacher created without being invited."
+    },
+    {
+      "id": "US1.5",
+      "status": "OK",
+      "target": "tests/privacy/test_profile_probes.py",
+      "rationale": "Owner-private profile, probed adversarially by three routes: direct query, join and ORM traversal."
+    },
+    {
+      "id": "US1.8",
+      "status": "OK",
+      "target": "tests/auth/test_ceilings.py",
+      "rationale": "The seven controls, each verified against the wrong implementation rather than only the right one."
+    },
+    {
+      "id": "US1.9",
+      "status": "OK",
+      "target": "tests/authz/test_resolve.py",
+      "rationale": "Role resolved per request, with the two mid-session tests that fail against a cache."
+    },
+    {
+      "id": "AC9.3.1",
+      "status": "OK",
+      "target": "android/src/main/res/values-bn/strings.xml",
+      "rationale": "Western numerals in the Bangla bundle, verified to fire on a single Bangla-Indic digit."
+    },
+    {
+      "id": "AC9.3.3",
+      "status": "OK",
+      "target": "android/src/test/kotlin/com/shikkhokplus/app/feature/auth/AuthSurfaceRulesTest.kt",
+      "rationale": "Both bundles on screen one, with every English string asserted to have a Bangla counterpart."
+    },
+    {
+      "id": "TC-5",
+      "status": "OK",
+      "target": "android/src/main/AndroidManifest.xml",
+      "rationale": "No SMS read permission, asserted by parsing uses-permission elements. The allowlist is empty at this Bolt, stated as a number so a first permission is a diff against zero."
+    }
+  ],
+  "reverse": [
+    {
+      "id": "coverage-scope-gate",
+      "status": "N/A",
+      "target": "tests/gates/test_coverage_scope.py \u2014 no upstream rule. B2's explicit --cov list did not mention B3's five new packages, so the 80% floor passed at 95% while measuring NONE of this Bolt's code. It did not fail; it silently covered less. The list is now asserted against the packages on disk, and the omission was reproduced to confirm the gate fires."
+    },
+    {
+      "id": "ad-id-test-matched-its-own-warning",
+      "status": "N/A",
+      "target": "android/src/test/.../AuthSurfaceRulesTest.kt \u2014 a test defect found in the writing. The AD_ID check matched the manifest's explanatory COMMENT, which names AD_ID in order to forbid it. A test failing on the warning against a thing, while saying nothing about the thing, is worse than none: the obvious fix is to delete the warning."
+    },
+    {
+      "id": "taxonomy-separate-from-outcome",
+      "status": "N/A",
+      "target": "app/gateway/bulksmsbd.py \u2014 _VALIDATION_CODES was declared and never read, which is dead configuration claiming more coverage than it has. taxonomy_for_code now exposes the full C.4.4 map, kept separate from outcome_for_code because the two answer different questions: what to record, versus whether a retry is allowed."
+    },
+    {
+      "id": "rls-transaction-local",
+      "status": "N/A",
+      "target": "app/authz/rls.py \u2014 set_config(..., true) scopes the account id to the TRANSACTION. A session-scoped set is connection-scoped, and connections are pooled, so the next request would inherit the previous account's id. It looks identical in every single-request test."
+    },
+    {
+      "id": "seed-script-uncovered",
+      "status": "N/A",
+      "target": "app/db/seed_skeleton.py at 0% line coverage, deliberately. BR6.3 forbids application code from importing it and a test asserts none does; covering it would mean importing it."
+    }
+  ]
+}
