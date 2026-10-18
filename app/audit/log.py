@@ -68,6 +68,26 @@ def write_audit(
     :return: None
     """
     moment = occurred_at or dt.datetime.now(tz=dt.UTC)
+
+    # THE SAVEPOINT IS LOAD-BEARING, and catching the exception alone is
+    # not enough -- which is how the first version of this function was
+    # wrong.
+    #
+    # PostgreSQL aborts the ENTIRE transaction on any failed statement.
+    # Swallowing the error leaves the caller holding an aborted
+    # transaction whose later `commit()` issues a ROLLBACK and **returns
+    # normally**. The caller sees success and loses its own writes.
+    #
+    # Measured against a live container: with the audit INSERT failing,
+    # `otp.issue` returned a code, sent it, and committed nothing -- so
+    # the user received an SMS whose code could never verify, having
+    # already consumed a ceiling slot that brings them closer to
+    # lockout. That is the fail-open guarantee INVERTED: the log did not
+    # merely fail to record the authentication, it destroyed it.
+    #
+    # A nested transaction confines the abort to the savepoint, so a
+    # rollback here leaves the caller's work intact and committable.
+    savepoint = session.begin_nested()
     try:
         session.execute(
             sa.text(
@@ -84,7 +104,9 @@ def write_audit(
                 "correlation_id": correlation_id,
             },
         )
+        savepoint.commit()
     except sa.exc.SQLAlchemyError:
+        savepoint.rollback()
         # Fails OPEN: the authentication must not fail because its
         # record did. Loud to the operator, silent to the user -- and
         # the alert on this line is what stops the log being

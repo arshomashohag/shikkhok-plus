@@ -15,10 +15,12 @@ import uuid
 
 import pytest
 import sqlalchemy as sa
+from sqlalchemy import Engine
 from sqlalchemy.orm import Session
 
 from app.audit.log import AuthEvent, write_audit
 from app.db.models import Account, AuthAuditLog
+from app.db.roles import APP_ROLE
 
 CORRELATION = "test-correlation-id"
 
@@ -185,6 +187,64 @@ def test_a_failed_audit_write_alerts_the_operator(
 
     assert any(record.levelno >= logging.CRITICAL for record in caplog.records), (
         "a failed audit write was silent: the log is now suppressible"
+    )
+
+
+def test_a_failed_audit_write_does_not_destroy_the_callers_work(
+    restricted_session: Session, owner_engine: Engine
+) -> None:
+    # THE REGRESSION. Catching the exception is NOT enough, and the
+    # first version of write_audit got this wrong.
+    #
+    # PostgreSQL aborts the whole transaction on a failed statement, so
+    # a swallowed error leaves the caller holding an aborted
+    # transaction whose commit() issues a ROLLBACK and RETURNS
+    # NORMALLY. Measured: otp.issue returned a code, the SMS went out,
+    # and the OTP row was silently lost -- a code that can never
+    # verify, after consuming a ceiling slot.
+    #
+    # Fail-open means the authentication SURVIVES its unrecorded audit,
+    # so the assertion is on the caller's row, not on the absence of a
+    # raise.
+    phone = f"+8801{uuid.uuid4().int % 10**9:09d}"
+    restricted_session.execute(
+        sa.text(
+            "INSERT INTO otp_request "
+            "(id, phone, otp_hash, purpose, issued_at, expires_at) "
+            "VALUES (:id, :phone, :hash, 'otp', :now, :now)"
+        ),
+        {
+            "id": uuid.uuid4(),
+            "phone": phone,
+            "hash": "x" * 64,
+            "now": dt.datetime.now(tz=dt.UTC),
+        },
+    )
+
+    # Break the audit write the way a real failure would: the role
+    # loses the privilege the INSERT needs.
+    with owner_engine.begin() as connection:
+        connection.execute(sa.text(f"REVOKE INSERT ON auth_audit_log FROM {APP_ROLE}"))
+    try:
+        write_audit(
+            restricted_session,
+            account_id=None,
+            event=AuthEvent.OTP_ISSUED,
+            correlation_id=CORRELATION,
+        )
+        restricted_session.commit()
+    finally:
+        with owner_engine.begin() as connection:
+            connection.execute(sa.text(f"GRANT INSERT ON auth_audit_log TO {APP_ROLE}"))
+
+    survived = restricted_session.execute(
+        sa.text("SELECT count(*) FROM otp_request WHERE phone = :phone"),
+        {"phone": phone},
+    ).scalar_one()
+    assert survived == 1, (
+        "the caller's OTP row was lost when the audit write failed. The "
+        "user would receive a code that can never verify, having "
+        "already consumed a ceiling slot."
     )
 
 
