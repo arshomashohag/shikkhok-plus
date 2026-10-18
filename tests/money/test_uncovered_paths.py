@@ -88,3 +88,33 @@ class TestComparisonWithNonMoney:
     def test_ge(self, other: object) -> None:
         with pytest.raises(TypeError):
             Money("1.00") >= other  # type: ignore[operator]
+
+
+class TestNegativeZeroIsNormalised:
+    """
+    Zero has one representation.
+
+    Decimal distinguishes -0.00 from 0.00, and the difference leaked: a rate
+    of Decimal('-0') passed the sign guard (it is not strictly negative),
+    produced Money('-0.00'), and `str()` rendered "-0.00" — a string the wire
+    chokepoint would emit and its own parser would then reject.
+    """
+
+    def test_negative_zero_rate(self) -> None:
+        result = Money("100.00").apply_rate(Decimal("-0"))
+        assert str(result) == "0.00"
+        assert result.is_zero()
+
+    def test_negative_zero_construction(self) -> None:
+        assert str(Money("-0.00")) == "0.00"
+        assert str(Money(Decimal("-0.00"))) == "0.00"
+
+    def test_negative_zero_from_subtraction(self) -> None:
+        assert str(Money("5.00") - Money("5.00")) == "0.00"
+
+    def test_normalised_zero_survives_the_wire(self) -> None:
+        from app.money.wire import parse, to_wire
+
+        emitted = to_wire(Money("100.00").apply_rate(Decimal("-0")))
+        assert emitted == "0.00"
+        assert parse(emitted) == Money.ZERO

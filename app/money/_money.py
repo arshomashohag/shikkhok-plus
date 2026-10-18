@@ -75,6 +75,13 @@ class Money:
         if not raw.is_finite():
             raise MoneyValidationError(f"{value!r} is not a finite amount.")
         quantized = raw.quantize(EXPONENT, rounding=ROUNDING)
+        # Normalise negative zero. Decimal distinguishes -0.00 from 0.00, and
+        # the difference leaks: `is_negative()` is False for -0.00, so it
+        # passes every sign guard, but `str()` renders "-0.00" — a string the
+        # wire chokepoint would emit and its own parser would then reject.
+        # Zero has one representation here.
+        if quantized.is_zero():
+            quantized = abs(quantized)
         if abs(quantized) >= MAGNITUDE_LIMIT:
             raise MoneyValidationError(
                 f"{quantized} exceeds the storage contract of ten integer "
@@ -181,7 +188,13 @@ class Money:
                 f"Cannot allocate into {parts} parts; the count must be one "
                 "or more. An empty result would lose the amount."
             )
-        total_paisa = int(self.amount.scaleb(2).to_integral_value())
+        # `to_integral_value()` with no explicit rounding consults the THREAD
+        # decimal context, not this module's declared mode — a third rounding
+        # point in a module whose premise is that it has exactly two, latent
+        # on global mutable state. It is harmless today because the amount is
+        # always pre-quantized to 2dp, so there is nothing to round; naming
+        # the mode makes that independent of a context nobody here controls.
+        total_paisa = int(self.amount.scaleb(2).to_integral_value(rounding=ROUNDING))
         sign = -1 if total_paisa < 0 else 1
         magnitude = abs(total_paisa)
         base, remainder = divmod(magnitude, parts)
