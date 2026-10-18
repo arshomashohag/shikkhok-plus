@@ -56,9 +56,18 @@ two are U11's deletion routes. The refresh route goes in
 
 1. Read the phone number **from the request body**. It is never read from
    the SIM, and the app holds no SMS read permission [AC1.1.6].
-2. Check the ceilings **in this order, before any gateway call** [BR2.2]:
-   global daily → per-IP-prefix hourly → per-number hourly → per-number
-   daily. Each is an atomic upsert-and-increment on a counter row [BR2.1].
+2. Check the ceilings **narrowest first, before any gateway call**
+   [BR2.2, BR2.5]: per-number hourly → per-number daily → per-IP-prefix
+   hourly → **global daily last**. Each is an atomic upsert-and-increment
+   on a counter row [BR2.1], and **a scope's counter increments only when
+   that scope's check passes**, so a refused request never consumes a wider
+   budget.
+
+   > **The order is the control, and an earlier draft had it backwards.**
+   > Global-first lets one attacker's requests consume the global daily
+   > counter before their own per-number limit trips — they are stopped
+   > eventually, but only after spending everyone else's allowance. The
+   > sub-ceilings exist precisely to prevent that.
 3. On any breach: return a **temporary-unavailability** message_key. Never
    "invalid number", and never the limit itself [BR2.6].
 4. Resolve the account. **Both branches continue identically** [BR2.7]:
@@ -175,6 +184,16 @@ two are U11's deletion routes. The refresh route goes in
 3. Enable row-level security on `Profile` and create the policy [BR3.2].
 4. Create the **restricted application role**, which is not the owner of
    these tables and is not a superuser.
+
+> **The skeleton needs rows this Unit may not create** [BR6.3]. B3's
+> confidence hypothesis requires an account that owns a batch and is
+> enrolled as a guardian, and BR6.1 forbids U3 from writing either table.
+> A **committed seed script**, run manually against staging as a
+> verification precondition, supplies them. It lives beside the migration
+> and is never imported by application code — the thing an implementer
+> would otherwise reach for is an INSERT inside U3 to make the demo work,
+> which is the ownership transfer BR6.1 forbids arriving disguised as a
+> fixture. Removing the script is a B5 obligation.
 
 > The test container migrates with Alembic **from zero** rather than
 > loading a schema dump, which gives the migration path continuous exercise

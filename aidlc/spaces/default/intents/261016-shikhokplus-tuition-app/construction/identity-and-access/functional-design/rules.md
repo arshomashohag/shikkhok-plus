@@ -214,16 +214,27 @@ rules:
     applies_to: The OTP issue path
     trigger: Any send
     logic: >
-      IF the global daily count >= the ceiling
-      THEN refuse every send and alert
-      ELSE check the sub-ceilings first.
+      Check the NARROWEST ceiling first and the global one LAST -
+      per-number hourly, then per-number daily, then per-IP-prefix hourly,
+      then global daily. Increment a scope's counter only when that scope's
+      check passes, so a refused request never consumes a wider budget.
     violation_behaviour: >
-      A global-only ceiling converts a financial attack into a total lockout
-      of every legitimate teacher for the rest of the day.
+      Checking global first, which an earlier draft of this rule specified
+      and the functional spec repeated. That order lets one attacker's
+      requests consume the GLOBAL daily counter before their own per-number
+      limit ever trips - so the attacker is stopped eventually, but only
+      after spending everyone else's allowance. The sub-ceilings exist
+      precisely to prevent that, and checking them last defeats them.
     rationale: >
       The breaker must DEGRADE rather than cliff-edge, which is what the
       sub-ceilings buy: an attacker burning one number's allowance does not
-      exhaust everyone else's.
+      exhaust everyone else's. **That property requires narrowest-first
+      evaluation**, and an earlier version of this rule argued for it in
+      prose while specifying the opposite in its logic - caught at review.
+
+      Order and accounting are one decision, not two. A narrowest-first
+      check that still increments the global counter on a refused request
+      has the same defect in a quieter form.
     source: [AC1.8.4, D-33, team.md Walking Skeleton]
 
   - id: BR2.6
@@ -269,12 +280,28 @@ rules:
       paths — never as a wall-clock bound. A millisecond assertion is flaky
       and gets deleted the third time CI fails on it.
 
-      **An honest limitation, recorded so the test is not read as stronger
-      than it is**: structural equivalence proves the expensive operation
-      ran on both paths. It does not prove indistinguishability to a patient
-      attacker with a million samples. Closing that needs constant-time
-      comparison and a fixed response deadline, which is disproportionate
-      here.
+      **The hash is the SMALLER asymmetry, and an earlier version of this
+      rule discussed only that one** - caught at review. The known-number
+      branch performs a transactional INSERT of an OtpRequest row; the
+      unknown branch performs none. A database write involves lock
+      acquisition and a WAL flush, which is a far larger and more reliable
+      timing signal than a hash computation. A test asserting only that
+      hashing is symmetric would leave the louder channel wide open while
+      reading as though the oracle were closed.
+
+      So the requirement is the WRITE, not just the hash: **the unknown
+      branch performs an equivalent write and rolls it back**, inside the
+      same transaction shape the known branch uses. That is checkable -
+      assert both branches issue the same statements - and it closes the
+      asymmetry that actually dominates.
+
+      **What remains unclosed, stated so the test is not read as stronger
+      than it is**: equivalent work is not constant time. A patient attacker
+      with a very large sample could still find residual variance. Closing
+      that needs a fixed response deadline - returning only after a wall
+      clock elapses regardless of path - which is implementable but
+      disproportionate here, and would itself become a latency floor on
+      every OTP request.
     source: [AC1.8.7, NFR14.4, BR4.4, desc §12f]
 
   # ---- BR3.x - The privacy boundary ----
