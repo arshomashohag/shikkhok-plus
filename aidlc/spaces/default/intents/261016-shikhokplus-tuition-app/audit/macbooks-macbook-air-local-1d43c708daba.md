@@ -21547,3 +21547,206 @@
 **Review Record Digest**: sha256:a05b497b8c1e7dbd6e3ea04ec7fa843b4aead31d05e6221e89d97ae863bfaea8
 
 ---
+
+## Unit Started
+**Timestamp**: 2026-10-18T10:34:01Z
+**Event**: UNIT_STARTED
+**Stage**: code-generation
+**Unit**: api-contract
+**Run floor**: WORKFLOW_STARTED:2026-10-16T18:39:09Z#1
+
+---
+
+## Unit Completed
+**Timestamp**: 2026-10-18T10:34:01Z
+**Event**: UNIT_COMPLETED
+**Stage**: code-generation
+**Unit**: api-contract
+**Run floor**: WORKFLOW_STARTED:2026-10-16T18:39:09Z#1
+
+---
+
+## Human Turn
+**Timestamp**: 2026-10-18T10:38:35Z
+**Event**: HUMAN_TURN
+**Session**: 7a0e31c2-15ad-4a21-a1ba-834440b81bfe
+
+---
+
+## Error Logged
+**Timestamp**: 2026-10-18T10:38:41Z
+**Event**: ERROR_LOGGED
+**Tool**: aidlc-bolt
+**Command**: aidlc-bolt engine bolt checkpoint --unit api-contract --verified --approved --project-dir <project-dir>
+**Error**: --verified expects a value, got another flag: "--approved". Did you forget the value?
+
+---
+
+## Error Logged
+**Timestamp**: 2026-10-18T10:38:44Z
+**Event**: ERROR_LOGGED
+**Tool**: aidlc-bolt
+**Command**: aidlc-bolt engine bolt checkpoint --help
+**Error**: --help expects a value, got end of arguments.
+
+---
+
+## Change Accepted
+**Timestamp**: 2026-10-18T10:39:08Z
+**Event**: CHANGE_ACCEPTED
+**Stage**: functional-design
+**Unit**: api-contract
+**Checkpoint**: review-receipt
+**Changed**: (paths unavailable)
+**Recorded**: sha256:01b21750ee1ae39c29fac6af5311dd778107727cbad5b77e3b1e1efb47aa6856
+**Current**: sha256:5bb2c638586004cc55773d71759eced0bc140ed995d0b6a55082aa4a167e0e86
+**Details**: The api contract Unit's Functional Design documents changed after they were reviewed; carrying on.
+
+---
+
+## Change Accepted
+**Timestamp**: 2026-10-18T10:39:08Z
+**Event**: CHANGE_ACCEPTED
+**Stage**: nfr-requirements
+**Unit**: api-contract
+**Checkpoint**: review-receipt
+**Changed**: (paths unavailable)
+**Recorded**: sha256:c0e57a57bb94677c83c28ce68246008126161849f9f62abb4f9ad65fa4a9e454
+**Current**: sha256:9f5ad7c8d88d3b8539ca76ab8eacce994592fec23adcb7d33104f044588e926e
+**Details**: The api contract Unit's NFR Requirements documents changed after they were reviewed; carrying on.
+
+---
+
+## Change Accepted
+**Timestamp**: 2026-10-18T10:39:08Z
+**Event**: CHANGE_ACCEPTED
+**Stage**: nfr-design
+**Unit**: api-contract
+**Checkpoint**: review-receipt
+**Changed**: (paths unavailable)
+**Recorded**: sha256:fcf2567217ce35c7dec027bf0c725bce6e04dbd15a4d834a176d2e499f8e4ebe
+**Current**: sha256:6917f35d68d6e13a7079a993dea2da39d40c8eb7f30b58460859d6e844707ff7
+**Details**: The api contract Unit's NFR Design documents changed after they were reviewed; carrying on.
+
+---
+
+## Change Accepted
+**Timestamp**: 2026-10-18T10:39:08Z
+**Event**: CHANGE_ACCEPTED
+**Stage**: code-generation
+**Unit**: api-contract
+**Checkpoint**: review-receipt
+**Changed**: (paths unavailable)
+**Recorded**: sha256:6c5730768404a96a6db208f000c59dd0bfa35b2b53a65edc7d6834fa667ff5a4
+**Current**: sha256:2fd1cd97feb96e2b54be3ff9af7631fb4f488095e2f1c193aa57dd66e1b66cab
+**Details**: The api contract Unit's Code Generation documents changed after they were reviewed; carrying on.
+
+---
+
+## Change Accepted
+**Timestamp**: 2026-10-18T10:39:08Z
+**Event**: CHANGE_ACCEPTED
+**Stage**: code-generation
+**Unit**: api-contract
+**Checkpoint**: review-receipt
+**Changed**: tests/contract/test_privacy_schema.py
+**Recorded**: sha256:2f7266a350b60694a91405af5e5c2017f09cd4570d01cf91d89278261aac7aa6
+**Current**: sha256:76411a11715372d8d20a0279c7a61097c9c5b1b9d15b2e5afd4acf9b1480ca17
+**Details**: tests/contract/test_privacy_schema.py changed after the api contract Unit was reviewed; carrying on.
+
+---
+
+## Checkpoint Verification Recorded
+**Timestamp**: 2026-10-18T10:39:42Z
+**Event**: CHECKPOINT_VERIFICATION_RECORDED
+**Unit**: api-contract
+**Kind**: unit
+**Stage**: code-generation
+**Stages**: functional-design, nfr-requirements, nfr-design, infrastructure-design, code-generation
+**Verification Id**: ab9f3cc3-8626-4afb-8971-acedbac1ff7a
+**Fingerprint**: sha256:a630408167e55a665c026fbc2afabc0eafdbd5c6e94e4802556ad2b8e5e94655
+**Command SHA-256**: 352596dd72a85e430deecbf457803bcda0968f7f707f56d9dd5e206cc86f4fd8
+**Exit Code**: 0
+**Verified**: true
+**Run floor**: WORKFLOW_STARTED:2026-10-16T18:39:09Z#1
+
+---
+
+## Error Logged
+**Timestamp**: 2026-10-18T10:39:51Z
+**Event**: ERROR_LOGGED
+**Tool**: aidlc-bolt
+**Command**: aidlc-bolt engine bolt checkpoint --unit api-contract --action approve --user-input approved
+**Error**: checkpoint-approval requires the person's reply to this question, and no such question is open for this session. Re-ask with aidlc bolt checkpoint --action ask --unit "<unit>" --kind <unit|skeleton> or aidlc bolt swarm-checkpoint --action ask --batch <number> --units "<units>", then wait for Approve or Request Changes.
+
+---
+
+## Error Logged
+**Timestamp**: 2026-10-18T10:40:04Z
+**Event**: ERROR_LOGGED
+**Tool**: aidlc-bolt
+**Command**: aidlc-bolt engine bolt checkpoint --unit api-contract --action approve --user-input approved
+**Error**: checkpoint-approval requires the person's reply to this question, and no such question is open for this session. Re-ask with aidlc bolt checkpoint --action ask --unit "<unit>" --kind <unit|skeleton> or aidlc bolt swarm-checkpoint --action ask --batch <number> --units "<units>", then wait for Approve or Request Changes.
+
+---
+
+## Decision Recorded
+**Timestamp**: 2026-10-18T10:40:09Z
+**Event**: DECISION_RECORDED
+**Checkpoint**: Construction Unit Approval
+**Unit**: api-contract
+**Kind**: unit
+**Stage**: code-generation
+**Fingerprint**: sha256:a630408167e55a665c026fbc2afabc0eafdbd5c6e94e4802556ad2b8e5e94655
+**Session**: 7a0e31c2-15ad-4a21-a1ba-834440b81bfe
+**Options**: Approve,Request Changes
+**Asked Evidence**: {"functional-design":["sha256:01b21750ee1ae39c29fac6af5311dd778107727cbad5b77e3b1e1efb47aa6856",null],"nfr-requirements":["sha256:c0e57a57bb94677c83c28ce68246008126161849f9f62abb4f9ad65fa4a9e454",null],"nfr-design":["sha256:fcf2567217ce35c7dec027bf0c725bce6e04dbd15a4d834a176d2e499f8e4ebe",null],"code-generation":["sha256:6c5730768404a96a6db208f000c59dd0bfa35b2b53a65edc7d6834fa667ff5a4","sha256:2f7266a350b60694a91405af5e5c2017f09cd4570d01cf91d89278261aac7aa6"]}
+**Run floors**: {"functional-design":"WORKFLOW_STARTED:2026-10-16T18:39:09Z#1","nfr-requirements":"WORKFLOW_STARTED:2026-10-16T18:39:09Z#1","nfr-design":"WORKFLOW_STARTED:2026-10-16T18:39:09Z#1","infrastructure-design":"WORKFLOW_STARTED:2026-10-16T18:39:09Z#1","code-generation":"WORKFLOW_STARTED:2026-10-16T18:39:09Z#1"}
+
+---
+
+## Error Logged
+**Timestamp**: 2026-10-18T10:40:17Z
+**Event**: ERROR_LOGGED
+**Tool**: aidlc-bolt
+**Command**: aidlc-bolt engine bolt checkpoint --unit api-contract --kind unit --action approve --user-input approved
+**Error**: checkpoint-approval requires the person's reply to this question, and none is on record yet. Show it if you have not, end the turn, and record the choice they make.
+
+---
+
+## Error Logged
+**Timestamp**: 2026-10-18T10:40:22Z
+**Event**: ERROR_LOGGED
+**Tool**: aidlc-bolt
+**Command**: aidlc-bolt engine bolt checkpoint --unit api-contract --kind unit --action approve --user-input approved
+**Error**: checkpoint-approval requires the person's reply to this question, and none is on record yet. Show it if you have not, end the turn, and record the choice they make.
+
+---
+
+## Human Turn
+**Timestamp**: 2026-10-18T10:41:57Z
+**Event**: HUMAN_TURN
+**Session**: 7a0e31c2-15ad-4a21-a1ba-834440b81bfe
+
+---
+
+## Gate Approved
+**Timestamp**: 2026-10-18T10:42:05Z
+**Event**: GATE_APPROVED
+**Unit**: api-contract
+**Stage**: code-generation
+**Stages**: functional-design, nfr-requirements, nfr-design, infrastructure-design, code-generation
+**Gate Stages**: functional-design, nfr-requirements, nfr-design, infrastructure-design, code-generation
+**Gate Scope**: unit-end
+**Checkpoint**: construction-unit
+**Fingerprint**: sha256:a630408167e55a665c026fbc2afabc0eafdbd5c6e94e4802556ad2b8e5e94655
+**Run floor**: WORKFLOW_STARTED:2026-10-16T18:39:09Z#1
+**Run floors**: {"functional-design":"WORKFLOW_STARTED:2026-10-16T18:39:09Z#1","nfr-requirements":"WORKFLOW_STARTED:2026-10-16T18:39:09Z#1","nfr-design":"WORKFLOW_STARTED:2026-10-16T18:39:09Z#1","infrastructure-design":"WORKFLOW_STARTED:2026-10-16T18:39:09Z#1","code-generation":"WORKFLOW_STARTED:2026-10-16T18:39:09Z#1"}
+**Verification Command SHA-256**: 352596dd72a85e430deecbf457803bcda0968f7f707f56d9dd5e206cc86f4fd8
+**Verification Id**: ab9f3cc3-8626-4afb-8971-acedbac1ff7a
+**Approved Evidence**: {"functional-design":["sha256:01b21750ee1ae39c29fac6af5311dd778107727cbad5b77e3b1e1efb47aa6856",null],"nfr-requirements":["sha256:c0e57a57bb94677c83c28ce68246008126161849f9f62abb4f9ad65fa4a9e454",null],"nfr-design":["sha256:fcf2567217ce35c7dec027bf0c725bce6e04dbd15a4d834a176d2e499f8e4ebe",null],"code-generation":["sha256:6c5730768404a96a6db208f000c59dd0bfa35b2b53a65edc7d6834fa667ff5a4","sha256:2f7266a350b60694a91405af5e5c2017f09cd4570d01cf91d89278261aac7aa6"]}
+**Session**: 7a0e31c2-15ad-4a21-a1ba-834440b81bfe
+**User Input**: Approve
+**Person Reply**: approved
+
+---
