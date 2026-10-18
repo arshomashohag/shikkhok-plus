@@ -21320,3 +21320,230 @@
 **Context**: construction > api-contract > code-generation > code-summary.md
 
 ---
+
+## Review Completed
+**Timestamp**: 2026-10-18T10:28:06Z
+**Event**: REVIEW_COMPLETED
+**Stage**: code-generation
+**Reviewer**: aidlc-architecture-reviewer-agent
+**Unit**: api-contract
+**Iteration**: 1
+**Verdict**: NOT-READY
+**Request Fingerprint**: sha256:b276162f6ec278ae27cc1e3de291d1849745cae2e3ac60ded2fd7702f9017965
+**Artifact Fingerprint**: sha256:b276162f6ec278ae27cc1e3de291d1849745cae2e3ac60ded2fd7702f9017965
+**Request Id**: review:1dd127801799522cb004ccec22b7085f
+**Request Source Fingerprint**: 754ab3e68fbfed794cee29f3b8c1660eb6a41848a7bbe7d72c6c60fcf27d20cb
+**Source Fingerprint**: 754ab3e68fbfed794cee29f3b8c1660eb6a41848a7bbe7d72c6c60fcf27d20cb
+**Unit Source Fingerprint**: sha256:d42f165a310cc1ce8e0771512ed800ff137c16b0b29012cacc5898b967bb65ad
+**Review Record**: .aidlc-engine/reviews/code-generation/units/api-contract/e392ea5bc7e48568/1.json
+**Review Record Digest**: sha256:694705fd08160594b2e5f643629dd6ec72e446e6bbeec1badb4d2d2c0955c6fa
+
+---
+
+## Change Accepted
+**Timestamp**: 2026-10-18T10:28:07Z
+**Event**: CHANGE_ACCEPTED
+**Stage**: code-generation
+**Unit**: money-core
+**Checkpoint**: review-receipt
+**Changed**: Makefile, app/money/_ledger.py, pyproject.toml, tests/gates/test_import_gates.py, tests/money/test_ledger.py, tests/money/test_ledger_property.py, tests/named_tests.toml
+**Recorded**: sha256:39fc69947121e43e84f74711b3e525e6db9188103500d6c76ff16d4a8fcc90a0
+**Current**: sha256:7f737284572dbe93521f5e371c2bb067434ff410d42921bfd684ef94556bb8a9
+**Details**: Makefile, app/money/_ledger.py, pyproject.toml, tests/gates/test_import_gates.py, tests/money/test_ledger.py, tests/money/test_ledger_property.py, tests/named_tests.toml changed after the money core Unit was reviewed; carrying on.
+
+---
+
+## Review Requested
+**Timestamp**: 2026-10-18T10:28:07Z
+**Event**: REVIEW_REQUESTED
+**Stage**: code-generation
+**Reviewer**: aidlc-architecture-reviewer-agent
+**Unit**: api-contract
+**Iteration**: 2
+**Artifact Fingerprint**: sha256:6c5730768404a96a6db208f000c59dd0bfa35b2b53a65edc7d6834fa667ff5a4
+**Request Id**: review:4ba5383c9cb6e2fcc0153a7fa908b7f3
+**Source Fingerprint**: 35f109a68129635fdfa29c54063f3dbf73b12a5a5af920853d2ce5f402548a28
+**Unit Source Fingerprint**: sha256:2f7266a350b60694a91405af5e5c2017f09cd4570d01cf91d89278261aac7aa6
+**Review File**: .aidlc-engine/reviews/code-generation/units/api-contract/e392ea5bc7e48568/2.4ba5383c9cb6e2fcc0153a7fa908b7f3.review.md
+
+---
+
+## Artifact Created
+**Timestamp**: 2026-10-18T10:28:24Z
+**Event**: ARTIFACT_CREATED
+**Tool**: Write
+**File**: <project-dir>/aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/.aidlc-engine/reviewer-dispatch.json
+**Context**: .aidlc-engine > reviewer-dispatch.json
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-18T10:29:05Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: reviewer-scope
+**Authority**: grant
+**Grant**: dispatch-stamp
+**Actor**: subagent
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: . (unit api-contract)
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-18T10:29:09Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: reviewer-scope
+**Authority**: grant
+**Grant**: dispatch-stamp
+**Actor**: subagent
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: . (unit api-contract)
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-10-18T10:29:21Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: unknown
+**Agent ID**: ad5d1122e653891cd
+**Message**: Reading leaky_app.py fixture
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-10-18T10:29:52Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: unknown
+**Agent ID**: a1134ce4b1b7eb59a
+**Message**: Checking pytest and package installs
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-10-18T10:30:24Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: unknown
+**Agent ID**: af603f9675f940af2
+**Message**: Comparing coverage config files
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-10-18T10:30:55Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: unknown
+**Agent ID**: a8783507c72bbc03b
+**Message**: Rerunning make check command
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-10-18T10:31:26Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: unknown
+**Agent ID**: a19e9b8277930a6da
+**Message**: Checking code-summary.md test counts
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-10-18T10:31:58Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: unknown
+**Agent ID**: a1bdd74f22f90f967
+**Message**: Comparing commit timestamps for drift
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-18T10:32:16Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: reviewer-scope
+**Authority**: instruction
+**Grant**: none
+**Actor**: subagent
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: . (unit api-contract)
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-10-18T10:32:29Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: unknown
+**Agent ID**: ad3c3c56248c882e6
+**Message**: Testing privacy gate for flakiness
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-10-18T10:33:01Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: unknown
+**Agent ID**: a0b1a80a8fe6c7548
+**Message**: Creating review directory for api-contract
+
+---
+
+## Artifact Created
+**Timestamp**: 2026-10-18T10:33:03Z
+**Event**: ARTIFACT_CREATED
+**Tool**: Write
+**File**: <project-dir>/aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/.aidlc-engine/reviews/code-generation/units/api-contract/e392ea5bc7e48568/2.4ba5383c9cb6e2fcc0153a7fa908b7f3.review.md
+**Context**: .aidlc-engine > reviews > code-generation > units > api-contract > e392ea5bc7e48568 > 2.4ba5383c9cb6e2fcc0153a7fa908b7f3.review.md
+
+---
+
+## Human Turn
+**Timestamp**: 2026-10-18T10:33:15Z
+**Event**: HUMAN_TURN
+**Session**: 7a0e31c2-15ad-4a21-a1ba-834440b81bfe
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-10-18T10:33:17Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: aidlc-architecture-reviewer-agent
+**Agent ID**: aee81ee1945e60a5e
+**Message**: Review complete and delivered to the orchestrator.
+
+---
+
+## Human Turn
+**Timestamp**: 2026-10-18T10:33:29Z
+**Event**: HUMAN_TURN
+**Session**: 7a0e31c2-15ad-4a21-a1ba-834440b81bfe
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-10-18T10:33:35Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/api-contract/code-generation/code-summary.md
+**Context**: construction > api-contract > code-generation > code-summary.md
+
+---
+
+## Review Completed
+**Timestamp**: 2026-10-18T10:33:39Z
+**Event**: REVIEW_COMPLETED
+**Stage**: code-generation
+**Reviewer**: aidlc-architecture-reviewer-agent
+**Unit**: api-contract
+**Iteration**: 2
+**Verdict**: READY
+**Request Fingerprint**: sha256:6c5730768404a96a6db208f000c59dd0bfa35b2b53a65edc7d6834fa667ff5a4
+**Artifact Fingerprint**: sha256:6c5730768404a96a6db208f000c59dd0bfa35b2b53a65edc7d6834fa667ff5a4
+**Request Id**: review:4ba5383c9cb6e2fcc0153a7fa908b7f3
+**Request Source Fingerprint**: 35f109a68129635fdfa29c54063f3dbf73b12a5a5af920853d2ce5f402548a28
+**Source Fingerprint**: 35f109a68129635fdfa29c54063f3dbf73b12a5a5af920853d2ce5f402548a28
+**Unit Source Fingerprint**: sha256:2f7266a350b60694a91405af5e5c2017f09cd4570d01cf91d89278261aac7aa6
+**Review Record**: .aidlc-engine/reviews/code-generation/units/api-contract/e392ea5bc7e48568/2.json
+**Review Record Digest**: sha256:a05b497b8c1e7dbd6e3ea04ec7fa843b4aead31d05e6221e89d97ae863bfaea8
+
+---

@@ -13,7 +13,7 @@
 
 | | |
 |---|---|
-| Tests | **303 passing** (`make check` green) |
+| Tests | **304 passing** (`make check` green) |
 | Money module coverage | **100% branch**, unchanged |
 | Backend coverage (new packages) | **94% line**, against an 80% floor now enforced |
 | Lint / format / types | Ruff and mypy clean |
