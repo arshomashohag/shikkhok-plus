@@ -1,16 +1,26 @@
 """The application object.
 
-**This Unit registers no routes.** U2 owns the contract and the gates that
-check it; the Units that own the features add the endpoints. The app exists
-here so the route-enumeration gate has a real object to walk at test
-collection time, and so the committed OpenAPI document has something to be
-generated from.
+U2 created this with **no routes**: it owned the contract and the gates
+that check it, and the Units owning the features add the endpoints. U3 is
+the first such Unit, and it adds four -- three auth routes and the health
+check.
+
+**One transaction per request**, opened by the middleware and committed
+by the endpoint. A repository method that committed on its own would make
+a partial write possible across the pair of statements the OTP path
+depends on being atomic.
 """
 
 from __future__ import annotations
 
-from fastapi import FastAPI
+import uuid
+from collections.abc import Awaitable, Callable
 
+from fastapi import FastAPI, Request, Response
+from sqlalchemy import Engine
+from sqlalchemy.orm import sessionmaker
+
+from app.db.session import build_engine
 from app.errors import register_error_handler
 
 __all__ = ["app", "create_app"]
@@ -19,7 +29,7 @@ __all__ = ["app", "create_app"]
 def create_app() -> FastAPI:
     """Build the application.
 
-    :return: The configured application, with no routes in this Unit
+    :return: The configured application with this Unit's routes
     """
     app = FastAPI(
         title="ShikhokPlus API",
@@ -31,19 +41,94 @@ def create_app() -> FastAPI:
         ),
     )
     register_error_handler(app)
+    _register_request_scope(app)
+    _register_routes(app)
     _publish_shared_components(app)
     return app
+
+
+def _register_routes(app: FastAPI) -> None:
+    """Attach this Unit's routers.
+
+    :param app: The application being built
+    :return: None
+    """
+    from app.api.auth import router as auth_router
+    from app.api.health import router as health_router
+
+    app.include_router(auth_router)
+    app.include_router(health_router)
+
+
+def _register_request_scope(app: FastAPI) -> None:
+    """Open one session and one correlation id per request.
+
+    The correlation id is generated here so **every** log line and audit
+    row in the request can carry it, including ones written before any
+    handler runs [NFR8.6].
+
+    :param app: The application being built
+    :return: None
+    """
+
+    @app.middleware("http")
+    async def request_scope(
+        request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        """Bind a session and a correlation id to this request.
+
+        :param request: The incoming request
+        :param call_next: The rest of the stack
+        :return: The response
+        """
+        request.state.correlation_id = request.headers.get("X-Correlation-Id") or str(
+            uuid.uuid4()
+        )
+
+        engine = _engine_for(app)
+        factory = sessionmaker(bind=engine, expire_on_commit=False)
+        session = factory()
+        request.state.session = session
+        try:
+            response = await call_next(request)
+            session.commit()
+            return response
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
+
+
+def _engine_for(app: FastAPI) -> Engine:
+    """Return the application's engine, building it once.
+
+    :param app: The application
+    :return: The engine
+    """
+    engine: Engine | None = getattr(app.state, "engine", None)
+    if engine is None:
+        engine = build_engine()
+        app.state.engine = engine
+    return engine
 
 
 def _publish_shared_components(app: FastAPI) -> None:
     """Place the shared components in the generated document.
 
-    FastAPI emits a component only when some route references it, and this
-    Unit declares no routes. Without this, ``Money`` and the error envelope
-    would be **absent from the committed contract** -- so a regression in
-    the one definition every money property must reference, or in the
-    envelope every error response carries, would not appear in the diff
-    the reviewer reads. The gate would still pass, over nothing.
+    FastAPI emits a component only when some route references it, and
+    **no money crosses this Unit's surface** -- U3 is authentication, so
+    its four routes reference neither ``Money`` nor, on their success
+    paths, the error envelope.
+
+    Without this, both would be **absent from the committed contract**,
+    so a regression in the one definition every money property must
+    reference, or in the envelope every error response carries, would not
+    appear in the diff the reviewer reads. The gate would still pass,
+    over nothing.
+
+    This stays until a Unit whose routes genuinely reference them lands,
+    at which point it becomes a no-op rather than a lie.
 
     :param app: The application whose schema is being built
     :return: None

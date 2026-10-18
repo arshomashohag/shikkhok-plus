@@ -59,11 +59,197 @@
         "title": "ErrorEnvelope",
         "type": "object"
       },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HealthResponse": {
+        "additionalProperties": false,
+        "description": "What the smoke set reads.\n\n:ivar status: ``ok`` when the process is serving\n:ivar database: ``ok`` or ``fail``\n:ivar migration_revision: The applied Alembic revision, or None",
+        "properties": {
+          "database": {
+            "enum": [
+              "fail",
+              "ok"
+            ],
+            "title": "Database",
+            "type": "string"
+          },
+          "migration_revision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Migration Revision"
+          },
+          "status": {
+            "const": "ok",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "database",
+          "migration_revision",
+          "status"
+        ],
+        "title": "HealthResponse",
+        "type": "object"
+      },
+      "IssueRequest": {
+        "additionalProperties": false,
+        "description": "Ask for a code to be sent to a number.\n\nThe number is **typed by the user** and never read from the SIM\n[AC1.1.6]: there is no device-side source for this field.\n\n:ivar phone: The destination number in international form",
+        "properties": {
+          "phone": {
+            "maxLength": 20,
+            "minLength": 8,
+            "title": "Phone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "phone"
+        ],
+        "title": "IssueRequest",
+        "type": "object"
+      },
+      "IssueResponse": {
+        "additionalProperties": false,
+        "description": "The response to an issue request, for **any** number.\n\nOne field, and it is a fixed string. Anything varying between the\nknown and unknown branches -- a count, a timestamp, a message -- is\nthe existence oracle re-entering through the schema.\n\n:ivar status: Always ``requested``",
+        "properties": {
+          "status": {
+            "default": "requested",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "title": "IssueResponse",
+        "type": "object"
+      },
       "Money": {
         "description": "A BDT amount in canonical form: exactly two decimal places, no thousands separator, no currency symbol, no sign. Always a JSON string, never a JSON number.",
         "pattern": "^[0-9]+\\.[0-9]{2}$",
         "title": "Money",
         "type": "string"
+      },
+      "RefreshRequest": {
+        "additionalProperties": false,
+        "description": "Present a refresh token for rotation.\n\n:ivar refresh_token: The opaque token previously issued",
+        "properties": {
+          "refresh_token": {
+            "maxLength": 512,
+            "minLength": 16,
+            "title": "Refresh Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "refresh_token"
+        ],
+        "title": "RefreshRequest",
+        "type": "object"
+      },
+      "TokenResponse": {
+        "additionalProperties": false,
+        "description": "A freshly issued token pair.\n\n**No lens and no role here either.** The response says nothing about\nwhat the account may do; that is resolved per request from the data\n[BR1.1].\n\n:ivar access_token: The short-lived bearer token\n:ivar refresh_token: The long-lived rotation token\n:ivar expires_in: Access-token lifetime in seconds",
+        "properties": {
+          "access_token": {
+            "title": "Access Token",
+            "type": "string"
+          },
+          "expires_in": {
+            "title": "Expires In",
+            "type": "integer"
+          },
+          "refresh_token": {
+            "title": "Refresh Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "access_token",
+          "expires_in",
+          "refresh_token"
+        ],
+        "title": "TokenResponse",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
+      "VerifyRequest": {
+        "additionalProperties": false,
+        "description": "Present a code for verification.\n\n:ivar phone: The number the code was issued for\n:ivar code: The six-digit code",
+        "properties": {
+          "code": {
+            "maxLength": 10,
+            "minLength": 4,
+            "title": "Code",
+            "type": "string"
+          },
+          "phone": {
+            "maxLength": 20,
+            "minLength": 8,
+            "title": "Phone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "phone"
+        ],
+        "title": "VerifyRequest",
+        "type": "object"
       }
     }
   },
@@ -73,5 +259,172 @@
     "version": "1.0.0"
   },
   "openapi": "3.1.0",
-  "paths": {}
+  "paths": {
+    "/health": {
+      "get": {
+        "description": "Report liveness, database connectivity and schema revision.\n\n:param session: The request-scoped session\n:return: The health report",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/v1/auth/otp": {
+      "post": {
+        "description": "Issue a code, returning the same response for any number.\n\n:param body: The request body\n:param request: The incoming request\n:param session: The request-scoped session\n:param gateway: The configured SMS gateway\n:return: The contentless acknowledgement",
+        "operationId": "issue_code_v1_auth_otp_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IssueRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssueResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Issue Code",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/refresh": {
+      "post": {
+        "description": "Rotate a refresh token, invalidating the family on reuse.\n\nAuthenticated but **lens-exempt**: the caller has a token and no\nlens has been resolved yet, which is exactly why\n``LENS_EXEMPT_AUTHENTICATED`` exists as a separate set.\n\n:param body: The request body\n:param request: The incoming request\n:param session: The request-scoped session\n:param authorization: The bearer header, unused but required present\n:return: The replacement pair",
+        "operationId": "refresh_tokens_v1_auth_refresh_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Refresh Tokens",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/verify": {
+      "post": {
+        "description": "Verify a code and issue a token pair.\n\n:param body: The request body\n:param request: The incoming request\n:param session: The request-scoped session\n:return: The new token pair",
+        "operationId": "verify_code_v1_auth_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Verify Code",
+        "tags": [
+          "auth"
+        ]
+      }
+    }
+  }
 }
