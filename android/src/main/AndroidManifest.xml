@@ -1,13 +1,45 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Deliberately minimal.
+  Deliberately minimal, and the permission list is still EMPTY at B3.
 
   The merged-manifest permission allowlist arrives with the packaging Bolt
   and asserts an exact approved permission set plus the ABSENCE of
   com.google.android.gms.permission.AD_ID — the declaration a transitive ads
   or analytics SDK adds silently via manifest merger.
 
-  Nothing here requests a permission. INTERNET arrives with the Bolt that
-  first makes a network call.
+  Nothing here requests a permission, and a unit test asserts that by
+  parsing uses-permission elements rather than matching text — so this
+  comment, which names AD_ID in order to forbid it, does not itself trip
+  the check. An earlier version of that test matched the comment and
+  failed on the warning while saying nothing about the thing.
+
+  INTERNET arrives with the Bolt that first makes a network call; the
+  screen below renders its offline state until then. There is no
+  android:usesCleartextTraffic and none is wanted: the backend is
+  https-only and the gateway adapter refuses a non-https URL in code.
 -->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" />
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+      allowBackup is FALSE deliberately. Auto Backup would copy app data
+      to the user's Google Drive, which for this product means
+      children's-adjacent data leaving the controlled store under
+      RC-1/RC-2/RC-3 with no disclosure covering it. Turning it off is
+      cheaper and more honest than explaining it on the Data Safety form.
+    -->
+    <application
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:allowBackup="false">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
