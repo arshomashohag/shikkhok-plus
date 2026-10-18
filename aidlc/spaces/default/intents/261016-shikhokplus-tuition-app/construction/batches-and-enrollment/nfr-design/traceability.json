@@ -1,0 +1,225 @@
+{
+  "stage": "nfr-design",
+  "unit": "batches-and-enrollment",
+  "note": "Every requirement from this Unit's nfr-requirements stage mapped to the design artifact and section that realises it. Where a design decision was reached by working a case against real PostgreSQL rather than by reasoning, the rationale says so and gives the result -- and where an earlier draft was WRONG, it says that too, because the corrected reasoning is the part a later reader needs. Three such corrections are recorded: the query-count bound, the migration test's vacuity, and the fold U3's guardian rows need before `role` can be dropped.",
+  "upstream_ids": [
+    "NFR6.1",
+    "NFR6.3",
+    "NFR4.1",
+    "NFR4.2",
+    "NFR6.11",
+    "NFR6.12",
+    "NFR6.13",
+    "NFR6.14",
+    "NFR6.15",
+    "NFR6.16",
+    "NFR6.17",
+    "NFR6.18",
+    "NFR8.8",
+    "NFR8.9",
+    "NFR8.10",
+    "NFR8.11",
+    "NFR8.12",
+    "NFR8.13",
+    "NFR10.5",
+    "NFR10.6",
+    "NFR10.7",
+    "NFR10.8",
+    "NFR10.9",
+    "NFR10.10",
+    "NFR10.11",
+    "NFR10.12",
+    "NFR14.12",
+    "NFR14.13",
+    "NFR14.14",
+    "NFR14.15",
+    "NFR14.16",
+    "NFR14.17",
+    "NFR14.18",
+    "NFR14.19",
+    "NFR14.20",
+    "NFR14.21"
+  ],
+  "coverage": [
+    {
+      "id": "NFR6.1",
+      "status": "OK",
+      "target": "performance-design \u00a7B - INHERITED from U3 and first genuinely exercised here. U3's one-query lens resolution ran on routes that needed no lens; every U4 teacher route resolves one, so the single-statement shape now carries real traffic. The rename moves its index from account_id to student_account_id, which performance-design \u00a7B lists."
+    },
+    {
+      "id": "NFR6.3",
+      "status": "OK",
+      "target": "performance-design \u00a7A - INHERITED from U3: assert a query COUNT, never a duration. U4 extends the principle to list endpoints, where the property is CONSTANT IN N rather than a fixed number -- a literal count would reject selectinload."
+    },
+    {
+      "id": "NFR4.1",
+      "status": "OK",
+      "target": "performance-design \u00a7C - fetched_at is RENDERED, not merely stored. A stale read is V1's only offline state and hiding it is a lie of omission."
+    },
+    {
+      "id": "NFR4.2",
+      "status": "OK",
+      "target": "logical-components \u00a7C, performance-design \u00a7C - Room entities mirror the DTO plus fetched_at; a derived field is a business rule on the client."
+    },
+    {
+      "id": "NFR6.11",
+      "status": "OK",
+      "target": "performance-design \u00a7A - the count is CONSTANT IN N, not minimal. An `== 1` assertion would reject selectinload, which is correct and often preferable."
+    },
+    {
+      "id": "NFR6.12",
+      "status": "OK",
+      "target": "performance-design \u00a7A - two fixture sizes compared, both above one AND both below the batching chunk boundary. The second constraint was inverted in a draft and is now stated as a rule."
+    },
+    {
+      "id": "NFR6.13",
+      "status": "OK",
+      "target": "performance-design \u00a7A, \u00a7B - the guardian child list has the same constant-count property and a new index; U3 had no guardian column to index."
+    },
+    {
+      "id": "NFR6.14",
+      "status": "OK",
+      "target": "performance-design \u00a7B - four indexes for four reads. U3 created one because it had one query."
+    },
+    {
+      "id": "NFR6.15",
+      "status": "OK",
+      "target": "reliability-design \u00a7A - forward-only, no failover to fall back on."
+    },
+    {
+      "id": "NFR6.16",
+      "status": "OK",
+      "target": "reliability-design \u00a7A - RENAME, never drop-and-add. AND the FOLD: U3's guardian rows must merge into the student row before `role` is dropped, or every guardian appears on the roster as a pupil. That is a reshape, which 'renames preserve data' did not cover."
+    },
+    {
+      "id": "NFR6.17",
+      "status": "OK",
+      "target": "reliability-design \u00a7A - the lens rewrite ships in the same revision; separating them breaks authentication for everyone in the window."
+    },
+    {
+      "id": "NFR6.18",
+      "status": "OK",
+      "target": "reliability-design \u00a7A.1 - seeded rows AND a value assertion. Verified: empty table makes the shapes indistinguishable, and a row COUNT passes against both. Only the link survives or does not."
+    },
+    {
+      "id": "NFR8.8",
+      "status": "OK",
+      "target": "observability-design \u00a7A - display_name and guardian_phone are the first child-identifying strings in the system."
+    },
+    {
+      "id": "NFR8.9",
+      "status": "OK",
+      "target": "observability-design \u00a7A - enrollment_id only; it is already the teacher-facing key so this costs nothing."
+    },
+    {
+      "id": "NFR8.10",
+      "status": "OK",
+      "target": "observability-design \u00a7A - a reason CLASS, never the history found."
+    },
+    {
+      "id": "NFR8.11",
+      "status": "OK",
+      "target": "observability-design \u00a7B - nothing alerts, stated as a decision with its three reasons rather than as an omission."
+    },
+    {
+      "id": "NFR8.12",
+      "status": "OK",
+      "target": "observability-design \u00a7C - U4 writes no AuthAuditLog row; the closed enum is what keeps that log about authentication."
+    },
+    {
+      "id": "NFR8.13",
+      "status": "OK",
+      "target": "observability-design \u00a7C.1 - recorded as a COST decision, not a principled one, with a concrete revisit trigger: the first time U7 sends to guardian_phone."
+    },
+    {
+      "id": "NFR10.5",
+      "status": "OK",
+      "target": "scalability-design \u00a7B - phone lookup under U3's existing unique index."
+    },
+    {
+      "id": "NFR10.6",
+      "status": "OK",
+      "target": "reliability-design \u00a7B - batch plus subjects plus slots in one transaction."
+    },
+    {
+      "id": "NFR10.7",
+      "status": "OK",
+      "target": "scalability-design \u00a7B - Owner created lazily; most accounts never own a batch."
+    },
+    {
+      "id": "NFR10.8",
+      "status": "OK",
+      "target": "scalability-design \u00a7A - a unique index, verified against real PostgreSQL across seven cases."
+    },
+    {
+      "id": "NFR10.9",
+      "status": "OK",
+      "target": "scalability-design \u00a7A - PARTIAL on student_account_id IS NOT NULL. Without it the second dormant seat in a batch is refused, which is the normal early state."
+    },
+    {
+      "id": "NFR10.10",
+      "status": "OK",
+      "target": "reliability-design \u00a7B."
+    },
+    {
+      "id": "NFR10.11",
+      "status": "OK",
+      "target": "reliability-design \u00a7B - one row, asserted by count."
+    },
+    {
+      "id": "NFR10.12",
+      "status": "OK",
+      "target": "reliability-design \u00a7B - asserted at STATEMENT level, because there are no fee tables yet and a row-level assertion would pass vacuously."
+    },
+    {
+      "id": "NFR14.12",
+      "status": "OK",
+      "target": "security-design \u00a7A - owner_id comes from the lens object; there is no parameter to forge and no default to forget."
+    },
+    {
+      "id": "NFR14.13",
+      "status": "OK",
+      "target": "security-design \u00a7A - 404 on another owner's batch."
+    },
+    {
+      "id": "NFR14.14",
+      "status": "OK",
+      "target": "security-design \u00a7A - the two-teacher test, which B3 could not write because it had one party."
+    },
+    {
+      "id": "NFR14.15",
+      "status": "OK",
+      "target": "security-design \u00a7A - reachability through guardian_account_id, never through the child."
+    },
+    {
+      "id": "NFR14.16",
+      "status": "OK",
+      "target": "security-design \u00a7C - a test asserts no U4 module references Profile. The likely violation is a READ fallback, not a write."
+    },
+    {
+      "id": "NFR14.17",
+      "status": "OK",
+      "target": "security-design \u00a7C, Governance manifest - display_name and guardian_phone survive deletion; the teacher wrote them."
+    },
+    {
+      "id": "NFR14.18",
+      "status": "OK",
+      "target": "security-design \u00a7A, logical-components - Owner.state/plan/plan_valid_to only."
+    },
+    {
+      "id": "NFR14.19",
+      "status": "OK",
+      "target": "security-design \u00a7B, logical-components \u00a7A.2 - resolution fails CLOSED; failing open reattaches an erased student silently."
+    },
+    {
+      "id": "NFR14.20",
+      "status": "OK",
+      "target": "security-design \u00a7B - per-link markers, with the four states worked. Diverges from the catalogue and says so."
+    },
+    {
+      "id": "NFR14.21",
+      "status": "OK",
+      "target": "security-design \u00a7B.1 - two conditions. After erasure the first is true again, so a null-only test deletes the erased row and destroys the marker."
+    }
+  ]
+}
