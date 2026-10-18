@@ -40,6 +40,7 @@ from fastapi.routing import APIRoute
 
 from app.authz.annotations import resolve_lens_type
 from app.authz.lenses import TeacherLens
+from app.contract.routes import _api_routes
 
 __all__ = [
     "FORBIDDEN_ACCOUNT_ID_FIELDS",
@@ -168,8 +169,17 @@ def forbidden_fields(app: FastAPI) -> list[FieldViolation]:
 
     violations: list[FieldViolation] = []
 
-    for route in app.routes:
-        if not isinstance(route, APIRoute) or route.response_model is None:
+    # _api_routes, never app.routes. In this FastAPI version an included
+    # router appears as an opaque wrapper, so `isinstance(route,
+    # APIRoute)` over app.routes matches NOTHING -- and this gate, which
+    # enforces project.md's NEVER rule that no teacher-lens response
+    # carries a profile field, reported clean while checking zero routes.
+    #
+    # The route gate had the identical defect and was fixed first. This
+    # one was found by asking what else enumerated routes the same way,
+    # which is the sweep that should have followed that fix immediately.
+    for route in _api_routes(app):
+        if route.response_model is None:
             continue
         if not is_teacher_facing(route):
             continue
