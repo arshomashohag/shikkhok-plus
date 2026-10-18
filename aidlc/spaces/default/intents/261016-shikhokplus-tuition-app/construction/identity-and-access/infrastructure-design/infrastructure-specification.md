@@ -175,3 +175,11 @@ budget; the mechanism is designed and tested at a test-configured
 threshold. [assumption] Whether IP whitelisting is enforced on this account
 is a vendor question (§D.1); the design works either way, and a static IP
 is attached regardless because it costs nothing while attached.
+
+> **Where that value is actually set, added after review.** Three
+> documents each called this "a value set at deployment" and none named
+> who sets it or what catches its absence — so between them the
+> obligation existed nowhere. It is now recorded once, as
+> `cicd-pipeline.md §F` item 3, and enforced by `app/config.py`, which
+> refuses to start a production process with the variable unset rather
+> than letting the test default become the money ceiling.

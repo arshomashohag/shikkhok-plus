@@ -158,6 +158,29 @@ The returned count is compared **after** the increment, so two workers
 racing on the same window cannot both read a stale value and both pass at
 the limit [NFR10.2].
 
+**The release path is the other half, and this section originally said
+nothing about it.** Because a scope increments *before* its own check
+can refuse, a refusal must give that increment back — otherwise a
+refused request still consumes the budget it was refused for, which is
+the same defect as global-first ordering in a quieter form.
+
+That release is a separate, non-atomic `UPDATE ... count - 1`, and the
+asymmetry is deliberate rather than overlooked:
+
+- The **increment** must be atomic, because two workers racing at the
+  boundary would otherwise both be admitted. That is a limit failing
+  open, and it spends money.
+- The **release** cannot over-admit. It only ever returns budget for a
+  request that was already refused, so a lost decrement is conservative
+  — the ceiling admits *fewer* sends than it should, never more.
+
+The guarantee is asserted rather than argued: a barrier-released
+8-thread test on a real PostgreSQL checks that admissions never exceed
+the limit and that no counter goes negative. Against a read-then-write
+counter, **all 8 racing requests were admitted against a limit of 3**,
+which is what establishes the atomic upsert as load-bearing rather than
+defensive.
+
 ### C.2 The existence oracle — symmetric work, including the write
 
 ```python
@@ -328,6 +351,49 @@ dataclass has no `str` field other than `correlation_id`.
 > `account_id` is nullable deliberately. An OTP issued for an unknown
 > number has no account, and writing a placeholder would reintroduce the
 > existence oracle the issue path exists to close.
+
+### G.1 Failing open needs a SAVEPOINT, not a try/except
+
+**Added after the code was built, because the mechanism this section
+originally implied does not work.** The stated requirement — the audit
+log must not fail the authentication it was recording — reads as though
+catching the exception were sufficient. It is not.
+
+PostgreSQL aborts the **entire transaction** on any failed statement.
+A swallowed error therefore leaves the caller holding an aborted
+transaction whose later `commit()` issues a ROLLBACK and **returns
+normally**. The caller sees success and loses its own writes.
+
+Measured against a live container through the real issue path: a code
+was returned, the SMS went out, and the `OtpRequest` row was silently
+lost — a code that could never verify, after consuming a ceiling slot
+that moves the user closer to lockout. **The audit log did not fail to
+record the authentication; it destroyed it.**
+
+So the write runs inside a **nested transaction**, and a failure rolls
+back only that savepoint:
+
+```python
+savepoint = session.begin_nested()
+try:
+    session.execute(INSERT ...)
+    savepoint.commit()
+except SQLAlchemyError:
+    savepoint.rollback()
+    log.critical("audit write failed", extra={"correlation_id": ...})
+```
+
+Two consequences worth stating:
+
+- **The security-critical case is token reuse**, not the OTP path.
+  Reuse detection invalidates the whole token family and *then* audits,
+  so without the savepoint a failed audit write rolled the invalidation
+  back too — leaving a stolen token live at exactly the moment the
+  mechanism exists to kill it.
+- **The test must assert the OUTCOME**, not the absence of an
+  exception. A test that monkeypatches the session never touches a real
+  connection and never poisons a transaction, so it proves the `except`
+  clause runs and nothing more. It passes against both implementations.
 
 ---
 

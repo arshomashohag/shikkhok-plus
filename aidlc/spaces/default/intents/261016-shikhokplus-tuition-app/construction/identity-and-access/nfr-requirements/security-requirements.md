@@ -274,3 +274,11 @@ the USD 50/month budget — commercial information this stage does not hold.
 The requirement is that the ceiling exists, is configured rather than
 hardcoded, and is derived from the budget. Tests exercise the mechanism at
 a test-configured threshold, so the value does not block this Unit.
+
+> **Where that value is actually set, added after review.** Three
+> documents each called this "a value set at deployment" and none named
+> who sets it or what catches its absence — so between them the
+> obligation existed nowhere. It is now recorded once, as
+> `cicd-pipeline.md §F` item 3, and enforced by `app/config.py`, which
+> refuses to start a production process with the variable unset rather
+> than letting the test default become the money ceiling.

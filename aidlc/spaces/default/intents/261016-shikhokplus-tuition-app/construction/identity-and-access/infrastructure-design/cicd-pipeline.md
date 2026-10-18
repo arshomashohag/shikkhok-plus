@@ -202,10 +202,30 @@ than at B1 or B2.
    the JWT key, there is no two-key grace period: rotating it invalidates
    every in-flight code, so it is generated once and recorded in the
    runbook at provisioning time.
+3. **`SHIKKHOKPLUS_GLOBAL_DAILY_SMS` must be set before the first
+   production deploy.** Added after review, which found that three
+   documents independently called this number "a value set at
+   deployment" while **none of them said who sets it, when, or what
+   catches its absence**. The value derives from BulkSMSBD's per-SMS
+   rate against the monthly budget.
+
+   Unset, the code's **test default** silently becomes the production
+   money ceiling. Too high is a budget risk; too low locks every
+   legitimate teacher out for the rest of the day — and the second
+   failure is indistinguishable from an attack in the alert channel.
+
+   **This one is now mechanical rather than remembered**, which is what
+   the other two items still are not: `app/config.py` refuses to start a
+   production process with this variable unset, and reports it alongside
+   every other missing production value so one deploy surfaces them all.
+   The same check covers the SMS Retriever app hash, where an empty
+   value renders a *valid* SMS that simply never triggers autofill.
 
 ---
 
 ## Assumptions & Open Questions
 
-**None.** [assumption] Both items in §F are operational steps with named
-owners rather than open questions.
+**None.** [assumption] Items 1 and 2 in §F are operational steps with
+named owners rather than open questions. Item 3 was an operational step
+and is now a startup assertion — the difference being that the first two
+still fail at first use, while the third fails on the deploy.
