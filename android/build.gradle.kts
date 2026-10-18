@@ -1,0 +1,65 @@
+plugins {
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.serialization)
+}
+
+android {
+    // Permanent once published. [TC-2, D-38]
+    namespace = "com.shikkhokplus.app"
+
+    // API 36 (Android 16), rechecked at release. [TC-1, D-39]
+    compileSdk = 36
+
+    defaultConfig {
+        applicationId = "com.shikkhokplus.app"
+        minSdk = 24
+        targetSdk = 36
+        versionCode = 1
+        versionName = "0.1.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    // Package layout, not module layout: `core/*` and `feature/*` inside the
+    // single module. See settings.gradle.kts.
+    sourceSets {
+        getByName("main") {
+            kotlin.srcDirs("src/main/kotlin")
+        }
+        getByName("test") {
+            kotlin.srcDirs("src/test/kotlin")
+        }
+    }
+
+    buildTypes {
+        release {
+            // R8 and the release-build gates arrive with the packaging Bolt,
+            // which is the first thing that needs them.
+            isMinifyEnabled = false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    testOptions {
+        unitTests {
+            isReturnDefaultValues = true
+        }
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+    }
+}
+
+dependencies {
+    implementation(libs.kotlinx.serialization.json)
+
+    testImplementation(libs.kotlin.test)
+    testImplementation(libs.kotlin.test.junit)
+}

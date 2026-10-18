@@ -1,0 +1,18 @@
+# Version catalogue. Every dependency version lives here, in one reviewable
+# place, which is also what makes the lockfile and checksum verification
+# meaningful: a version bump is a diff in this file.
+
+[versions]
+agp = "8.7.3"
+kotlin = "2.0.21"
+kotlinxSerialization = "1.7.3"
+
+[libraries]
+kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
+kotlin-test = { group = "org.jetbrains.kotlin", name = "kotlin-test", version.ref = "kotlin" }
+kotlin-test-junit = { group = "org.jetbrains.kotlin", name = "kotlin-test-junit", version.ref = "kotlin" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }

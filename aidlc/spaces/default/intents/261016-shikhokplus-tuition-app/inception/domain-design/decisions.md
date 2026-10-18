@@ -86,7 +86,7 @@ in the kind.**
 receiving cycle and a `carried_out` on the originating one. A one-sided
 `carry_forward` double-counts the debt: it appears in the old cycle's
 outstanding and again in the new cycle's carried-in, so an enrollment carrying
-1000 into a second 1000 charge reads 2500 owed instead of 1500. At the
+1000 into a second 1000 charge reads 3000 owed instead of the true 2000. At the
 enrollment level the two kinds are equal and cancel, which is what makes
 carry-forward an internal transfer rather than a new charge.
 A correction appends a compensating entry and marks the original superseded —

@@ -1,0 +1,85 @@
+name: check
+
+# The same gate that runs locally. CI invokes `make check`, not a
+# reimplementation of it: a gate reproducible only by pushing is a gate that
+# gets bypassed, and a CI pipeline that has drifted from the local one is
+# exactly that.
+#
+# Note what is absent: any secret. The whole per-push blocking suite runs on
+# a fresh clone with no credential. The first scheduled exception is the
+# packaging Bolt's bytecode scan, which needs a signing keystore — and it
+# belongs in the release gate rather than here, for this reason.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      # Step 1. Blocks absolutely, no severity threshold: binary, near-zero
+      # false positive, always actionable by whoever just pushed.
+      - name: Secrets scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      # Step 2. Lockfile verification, Python side.
+      - name: Install
+        run: python -m pip install -e ".[dev,api]"
+
+      # Steps 3-10. One command, identical to the local one.
+      - name: make check
+        run: make check
+
+  android-unit:
+    name: android-unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Split from the backend job so a Kotlin build never gates a backend
+    # change, and so the minute budget stays attributable per surface.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # Step 11. Compiles core/model inside the :app module and runs the
+      # money serialization test as a LOCAL JVM unit test.
+      #
+      # This needs the Android SDK — core/model lives inside an Android
+      # application module, by the settled one-module decision — but no
+      # emulator, no signing and no credential. The SDK is a toolchain, not
+      # a secret.
+      - name: Kotlin money boundary
+        run: ./gradlew :android:testDebugUnitTest --no-daemon
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-unit-results
+          path: android/build/test-results/testDebugUnitTest/
+          if-no-files-found: warn

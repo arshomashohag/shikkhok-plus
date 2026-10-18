@@ -23,3 +23,24 @@ aidlc/spaces/*/intents/*/.aidlc-*
 aidlc/diagnostics/
 .claude/settings.local.json
 # END AI-DLC:gitignore
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+.venv/
+
+# --- Gradle / Android ---
+# local.properties holds a machine-specific SDK path and is never committed.
+local.properties
+.gradle/
+build/
+*.apk
+*.aab
+*.keystore
+*.jks

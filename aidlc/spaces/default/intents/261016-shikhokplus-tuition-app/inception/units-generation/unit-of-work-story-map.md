@@ -47,7 +47,7 @@
 | US4.3 | U6 | `u6-exams-and-marksheets` | Mark entry with four result states |
 | US4.4 | U6 | `u6-exams-and-marksheets` | Batch-scoped marksheet and guardian progress view |
 | US5.1 | U7 | `u7-fee-cycles-and-ledger` | Fee-cycle generation, idempotent by constraint |
-| US5.2 | U7 | `u7-fee-cycles-and-ledger` | Carry-forward and the ledger quantities (arithmetic in U1) |
+| US5.2 | U7, U1 | `u7-fee-cycles-and-ledger`, `u1-money-core` | Carry-forward and the ledger quantities. Split deliberately: U1 owns the arithmetic — the Money type, the rounding mode and the ledger identity — and U7 owns the entries and their persistence. The note said so before; naming U1 in the Unit column is what makes it traceable. |
 | US5.3 | U7 | `u7-fee-cycles-and-ledger` | Server-computed fee status |
 | US5.4 | U7 | `u7-fee-cycles-and-ledger` | Student and guardian fee views |
 | US6.1 | U8 | `u8-payment-claims-and-verification` | Payment claim submission, identical in both lenses |
@@ -93,7 +93,7 @@ obligation.
 
 ### U1 `money-core`
 
-**Direct stories**: *(cross-cutting and obligations only)*
+**Direct stories**: US5.2 (the arithmetic half — carry-forward and the derived ledger quantities)
 
 **Implementation order within the Unit**: The type, its rounding mode and both chokepoints, then the import-boundary checks, then the property test. Buildable with no database present.
 

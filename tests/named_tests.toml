@@ -1,0 +1,197 @@
+# The named-test manifest.
+#
+# 100% branch coverage says the branches executed. It cannot say the RIGHT
+# TESTS EXIST — a missing named test whose branches another test already
+# covers is invisible to it. The multi-period carry test is the worked
+# example: its branches are all exercised by the single-carry test, so
+# deleting it would not move the coverage number at all.
+#
+# Every entry carries its ACCEPTANCE CRITERION, not just a name. A manifest
+# can verify that a test exists and runs; it cannot verify that the test
+# asserts anything worthwhile. Naming the criterion is what makes a
+# trivially-asserting test visible to a reader as a mismatch — no mechanism
+# detects that automatically, and `team.md` already rejects always-passing
+# tests in review.
+#
+# test_named_test_manifest.py asserts every entry below resolves to a test
+# that exists and runs.
+
+[[test]]
+id = "test_float_construction_refused"
+file = "tests/money/test_construction.py"
+criterion = "Money(0.1) raises; the refusal is on the TYPE, not the value"
+rule = "BR1.1"
+
+[[test]]
+id = "test_integral_float_also_refused"
+file = "tests/money/test_construction.py"
+criterion = "Money(1000.0) is refused identically to Money(0.1), so the rule is not value-dependent"
+rule = "BR1.1"
+
+[[test]]
+id = "test_equal_values_hash_equally"
+file = "tests/money/test_construction.py"
+criterion = "Money('1.5') and Money('1.50') are equal AND hash equally, so a set holds one"
+rule = "BR1.3"
+
+[[test]]
+id = "test_eleven_integer_digits_refused"
+file = "tests/money/test_construction.py"
+criterion = "10000000000.00 raises; the value is rejected, never truncated"
+rule = "BR1.7"
+
+[[test]]
+id = "test_rounds_half_up_not_banker"
+file = "tests/money/test_arithmetic.py"
+criterion = "333.33 at rate 0.5 gives 166.67, not the 166.66 banker's rounding would give"
+rule = "BR3.1"
+
+[[test]]
+id = "test_half_up"
+file = "tests/money/test_arithmetic.py"
+criterion = "All five sampled halves; three of the five diverge from banker's rounding"
+rule = "BR3.1"
+
+[[test]]
+id = "test_negative_rate_refused"
+file = "tests/money/test_arithmetic.py"
+criterion = "A negative rate raises rather than manufacturing a negative amount"
+rule = "BR2.10"
+
+[[test]]
+id = "test_rate_above_one_permitted"
+file = "tests/money/test_arithmetic.py"
+criterion = "Rate 1.5 succeeds; a late fee is a rate above one"
+rule = "BR2.10"
+
+[[test]]
+id = "test_exact_sum_positive"
+file = "tests/money/test_arithmetic.py"
+criterion = "All four tabled splits sum exactly, including 0.05/3 and 0.01/2 where naive rounding loses a paisa"
+rule = "BR2.3"
+
+[[test]]
+id = "test_negative_magnitude_then_sign"
+file = "tests/money/test_arithmetic.py"
+criterion = "-0.05 into 3 gives EXACTLY [-0.02, -0.02, -0.01] in order; both candidate implementations sum correctly, so asserting the sum alone certifies nothing"
+rule = "BR2.9"
+
+[[test]]
+id = "test_below_one_part_refused"
+file = "tests/money/test_arithmetic.py"
+criterion = "allocate(0) and allocate(-1) raise; never an empty list"
+rule = "BR2.8"
+
+[[test]]
+id = "test_negative_amount_refused"
+file = "tests/money/test_ledger.py"
+criterion = "A negative ledger entry amount raises; the sign belongs to the kind"
+rule = "BR4.1"
+
+[[test]]
+id = "test_scenario_s1_paid_in_full"
+file = "tests/money/test_ledger.py"
+criterion = "A charge fully matched by a receipt leaves outstanding 0.00 and credit 0.00, with the identity balancing"
+rule = "BR4.3"
+
+[[test]]
+id = "test_scenario_s2_partial_payment"
+file = "tests/money/test_ledger.py"
+criterion = "A 1000 charge against a 600 receipt leaves exactly 400.00 outstanding in that cycle"
+rule = "BR4.3"
+
+[[test]]
+id = "test_scenario_s3_shortfall_waived"
+file = "tests/money/test_ledger.py"
+criterion = "Forgiven 400.00 leaves the identity on the forgiven term, separately from cash in"
+rule = "BR4.3"
+
+[[test]]
+id = "test_scenario_s4_single_carry"
+file = "tests/money/test_ledger.py"
+criterion = "Two 1000 charges with one carried read 2000, not 3000"
+rule = "BR4.6"
+
+[[test]]
+id = "test_scenario_s5_multi_period_carry"
+file = "tests/money/test_ledger.py"
+criterion = "A THREE-period carry reads 3000, not 4000. A single carry passes against a double-counting model, so two periods is not enough"
+rule = "BR4.6"
+
+[[test]]
+id = "test_scenario_s6_overpayment_makes_credit"
+file = "tests/money/test_ledger.py"
+criterion = "Credit 200.00; both sides of the identity are legitimately negative. This is the case that refuted the first correction attempt"
+rule = "BR4.3"
+
+[[test]]
+id = "test_scenario_s7_credit_applied_later"
+file = "tests/money/test_ledger.py"
+criterion = "April settles fully: 1000 - 800 - 200 = 0. Without the credit-applied term it reads 200 outstanding on a settled cycle"
+rule = "BR4.7"
+
+[[test]]
+id = "test_scenario_s8_credit_exceeds_charge"
+file = "tests/money/test_ledger.py"
+criterion = "1500 available against 1000 owed applies 1000 and RETAINS 500; a floor would have discarded it and broken the identity"
+rule = "BR4.5"
+
+[[test]]
+id = "test_produces_both_sides"
+file = "tests/money/test_ledger.py"
+criterion = "One call yields a carried_out and a carry_forward of equal amount; no one-sided path exists"
+rule = "BR4.6"
+
+[[test]]
+id = "test_every_kind_has_a_handwritten_expectation"
+file = "tests/money/test_ledger_property.py"
+criterion = "A kind added to the enumeration without a hand-written expected effect fails immediately"
+rule = "NFR9.25"
+
+[[test]]
+id = "test_identity_and_side_conditions_over_realistic_histories"
+file = "tests/money/test_ledger_property.py"
+criterion = "2000 randomized well-formed histories satisfy the identity and all three side conditions"
+rule = "BR4.8"
+
+[[test]]
+id = "test_order_does_not_change_the_balance"
+file = "tests/money/test_ledger_property.py"
+criterion = "Replaying entries in reverse gives the same balance; a ledger is facts, not commands"
+rule = "BR4.3"
+
+[[test]]
+id = "test_json_number_rejected"
+file = "tests/money/test_wire.py"
+criterion = "A JSON number raises rather than being coerced; the lenient-decoder case"
+rule = "BR5.2"
+
+[[test]]
+id = "test_negative_refused"
+file = "tests/money/test_wire.py"
+criterion = "Serializing a negative raises; the canonical pattern admits no sign"
+rule = "BR5.7"
+
+[[test]]
+id = "test_fixture_is_refused"
+file = "tests/gates/test_import_gates.py"
+criterion = "Gate 1 fires on a module importing persistence into app/money"
+rule = "NFR9.6"
+
+[[test]]
+id = "test_fixture_is_refused_by_the_real_linter"
+file = "tests/gates/test_import_gates.py"
+criterion = "Gate 2 fires when the project's ACTUAL Ruff config runs against a raw-decimal import"
+rule = "NFR9.6"
+
+[[test]]
+id = "test_config_resolves_to_a_real_package"
+file = "tests/gates/test_import_gates.py"
+criterion = "Gate 1's walked path is a real non-empty package, so a rename cannot leave it passing vacuously"
+rule = "NFR9.29"
+
+[[test]]
+id = "test_config_scope_is_exactly_the_money_module"
+file = "tests/gates/test_import_gates.py"
+criterion = "Gate 2's exception resolves to exactly app/money/**, never a parent"
+rule = "NFR9.29"

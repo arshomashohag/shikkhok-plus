@@ -1,0 +1,250 @@
+{
+  "stage": "nfr-requirements",
+  "unit": "money-core",
+  "note": "U1 is a stateless library: no process, no endpoint, no database, no network, no stored data. Most inception NFRs describe a running service and are marked N/A with that structural reason stated per row, rather than omitted. Three bind directly (NFR9, NFR17, NFR10 in the narrow mapping sense) and one binds indirectly (NFR7, via dependency weight).",
+  "upstream_ids": [
+    "NFR1",
+    "NFR2",
+    "NFR3",
+    "NFR4",
+    "NFR5",
+    "NFR5.1",
+    "NFR6",
+    "NFR7",
+    "NFR8",
+    "NFR9",
+    "NFR10",
+    "NFR11",
+    "NFR12",
+    "NFR12.1",
+    "NFR13",
+    "NFR14",
+    "NFR15",
+    "NFR16",
+    "NFR17"
+  ],
+  "coverage": [
+    {
+      "id": "NFR9",
+      "status": "OK",
+      "target": "NFR9.1, NFR9.2, NFR9.3, NFR9.8, NFR9.9, NFR9.10, NFR9.11"
+    },
+    {
+      "id": "NFR17",
+      "status": "OK",
+      "target": "NFR9.12, NFR9.13, NFR9.14, NFR9.15"
+    },
+    {
+      "id": "NFR10",
+      "status": "OK",
+      "target": "NFR9.10 — this Unit owns the single storage-type mapping to NUMERIC(12,2) that targets the encrypted column; the encryption itself is infrastructure and belongs to the hosting decision, not to this Unit"
+    },
+    {
+      "id": "NFR7",
+      "status": "OK",
+      "target": "NFR9.16 — binds indirectly: the near-empty dependency surface is what keeps this Unit from adding runtime weight to a single 2 GB instance under the USD 50/month ceiling"
+    },
+    {
+      "id": "NFR1",
+      "status": "N/A",
+      "target": "Android SDK level. This Unit contributes a Kotlin value class to the shared model package but sets no SDK target; U10 release-packaging owns the build configuration"
+    },
+    {
+      "id": "NFR2",
+      "status": "N/A",
+      "target": "Device floor and AAB download size. A value class and its serializer add negligible size and no runtime requirement; the size gate belongs to U10"
+    },
+    {
+      "id": "NFR3",
+      "status": "OK",
+      "target": "NFR9.22, NFR9.23, NFR9.24 — corrected at review from N/A. The earlier N/A reason (owns no screen, no string resource, no layout) was true but dodged NFR3's substance: BR5.4 and contract-summary §B.5 put ALL locale digit rendering and separator placement in THIS Unit and forbid the client from formatting, so the Bangla-digits half of NFR3 is this Unit's obligation and nobody else's. The screen-and-layout half remains every screen-bearing Unit's. The rendering itself is unspecified upstream and is recorded as OQ-B1-1"
+    },
+    {
+      "id": "NFR4",
+      "status": "N/A",
+      "target": "Offline reads. No cache, no persistence, no staleness concept in this Unit"
+    },
+    {
+      "id": "NFR5",
+      "status": "N/A",
+      "target": "Offline writes. This Unit performs no write of any kind; U5 owns the queued mid-class path"
+    },
+    {
+      "id": "NFR5.1",
+      "status": "N/A",
+      "target": "Queue semantics and the four states. No queue in this Unit; U5 owns it"
+    },
+    {
+      "id": "NFR6",
+      "status": "N/A",
+      "target": "Scale ceiling of 100 teachers and a few thousand students. A pure function has no scale dimension; the fold's linear complexity is recorded in the Functional Design rather than as an NFR target, and ADR-002's escalation trigger belongs to U7 which owns the query"
+    },
+    {
+      "id": "NFR8",
+      "status": "N/A",
+      "target": "Data residency. No data stored and no region selected by this Unit"
+    },
+    {
+      "id": "NFR11",
+      "status": "N/A",
+      "target": "Device identifiers. This Unit reads no device state and transmits nothing; the forbidden-identifier gates are U10's, applied to the merged manifest and the minified release build"
+    },
+    {
+      "id": "NFR12",
+      "status": "N/A",
+      "target": "OTP abuse controls. No authentication surface in this Unit; U3 owns all seven controls"
+    },
+    {
+      "id": "NFR12.1",
+      "status": "N/A",
+      "target": "Per-purpose SMS budget. No gateway adapter in this Unit; U3 owns it"
+    },
+    {
+      "id": "NFR13",
+      "status": "N/A",
+      "target": "Token lifetimes and refresh rotation. No tokens in this Unit; U3 owns the token lifecycle"
+    },
+    {
+      "id": "NFR14",
+      "status": "N/A",
+      "target": "Privacy boundary in three layers. This Unit owns no table, no row-level security policy and no response schema carrying profile fields. It cannot leak personal data because it never receives any — it sees an amount and an entry kind, never a name or an identifier. U3 and U11 own the boundary; U2 owns the schema-wide invariant"
+    },
+    {
+      "id": "NFR15",
+      "status": "N/A",
+      "target": "Accessibility and back-stack behaviour. No UI surface in this Unit"
+    },
+    {
+      "id": "NFR16",
+      "status": "N/A",
+      "target": "API versioning and additive change. This Unit defines the money field's wire form but owns no endpoint and no version policy; U2 owns the contract and its diff gate"
+    }
+  ],
+  "reverse": [
+    {
+      "id": "NFR9.1",
+      "status": "OK",
+      "target": "NFR9 — construction from a float raises"
+    },
+    {
+      "id": "NFR9.2",
+      "status": "OK",
+      "target": "NFR9 — raw decimal construction from a float forbidden module-wide, closing the gap a float ban alone leaves"
+    },
+    {
+      "id": "NFR9.3",
+      "status": "OK",
+      "target": "NFR9 — no float or integer conversion defined on the type"
+    },
+    {
+      "id": "NFR9.4",
+      "status": "OK",
+      "target": "NFR9, project.md ALWAYS confine money arithmetic to a single module — layered-import test"
+    },
+    {
+      "id": "NFR9.5",
+      "status": "OK",
+      "target": "NFR9, project.md ALWAYS confine money arithmetic — banned-import check on raw decimal outside the module"
+    },
+    {
+      "id": "NFR9.6",
+      "status": "OK",
+      "target": "project.md ALWAYS enforce the boundary with a check present from the first commit rather than added after a violation"
+    },
+    {
+      "id": "NFR9.7",
+      "status": "OK",
+      "target": "NFR9, project.md NEVER float/double in any language — client value class plus package-wide float ban"
+    },
+    {
+      "id": "NFR9.8",
+      "status": "OK",
+      "target": "NFR9 — JSON string on the wire through one chokepoint"
+    },
+    {
+      "id": "NFR9.9",
+      "status": "OK",
+      "target": "NFR9 — client rejects a JSON number loudly, asserted both directions"
+    },
+    {
+      "id": "NFR9.10",
+      "status": "OK",
+      "target": "NFR9, NFR10 — single storage-type mapping to NUMERIC(12,2)"
+    },
+    {
+      "id": "NFR9.11",
+      "status": "OK",
+      "target": "NFR9 — a negative value cannot cross the API boundary; the canonical pattern admits no sign"
+    },
+    {
+      "id": "NFR9.12",
+      "status": "OK",
+      "target": "NFR17, team.md Testing Posture — property-based test over randomized histories, because the identity was wrong twice against its own worked examples"
+    },
+    {
+      "id": "NFR9.13",
+      "status": "OK",
+      "target": "NFR17, project.md NEVER weaken a coverage floor — 100% branch coverage as a build gate"
+    },
+    {
+      "id": "NFR9.14",
+      "status": "OK",
+      "target": "NFR17, team.md Testing Posture — named tests per operation and per boundary case, not reducible to a percentage"
+    },
+    {
+      "id": "NFR9.15",
+      "status": "OK",
+      "target": "NFR17 — where an operation admits more than one answer satisfying its own property test, the design fixes the answer; BR2.9 is the worked instance"
+    },
+    {
+      "id": "NFR9.16",
+      "status": "OK",
+      "target": "NFR7, B1 DoD buildable-before-any-endpoint — bounded dependency surface"
+    },
+    {
+      "id": "NFR9.17",
+      "status": "OK",
+      "target": "team.md SDK admission note practice, applied to this module's dependencies"
+    },
+    {
+      "id": "NFR9.18",
+      "status": "OK",
+      "target": "team.md Deployment scanning posture, inherited unchanged with no exception"
+    },
+    {
+      "id": "NFR9.19",
+      "status": "OK",
+      "target": "NFR9, ADR-002 — the seven ledger kinds as an executably closed set; an unrecognised kind raises rather than being silently excluded from the fold"
+    },
+    {
+      "id": "NFR9.20",
+      "status": "OK",
+      "target": "NFR17 — the property test derives generated kinds from the enumeration, so a kind added later appears in histories automatically and fails the identity on the commit that adds it"
+    },
+    {
+      "id": "NFR9.21",
+      "status": "OK",
+      "target": "ADR-002, BR4.8 — adding a kind requires naming its side of the identity and re-running the randomized verification"
+    },
+    {
+      "id": "NFR9.22",
+      "status": "OK",
+      "target": "NFR3, BR5.4 — the formatting output specified per locale: digit set, grouping interval, separators"
+    },
+    {
+      "id": "NFR9.23",
+      "status": "OK",
+      "target": "NFR3, team.md Bangla layout obligation needs a concrete verifier — exact-output test per locale including a grouped amount"
+    },
+    {
+      "id": "NFR9.24",
+      "status": "OK",
+      "target": "NFR3 — Bangla rendering asserted to differ from the canonical Latin form; this is the check that makes a pass-through implementation fail"
+    },
+    {
+      "id": "NFR9.25",
+      "status": "OK",
+      "target": "NFR17, ADR-002 — the property test carries a hand-written expected effect per kind rather than reading identity_side from the same source the fold reads. NFR9.20 catches an omitted kind; this catches a mis-sided one, where test and implementation would otherwise agree by construction while every affected enrollment is wrong"
+    }
+  ]
+}

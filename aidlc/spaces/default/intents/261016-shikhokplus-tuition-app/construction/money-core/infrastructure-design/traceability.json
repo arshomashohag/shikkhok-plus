@@ -1,0 +1,266 @@
+{
+  "stage": "infrastructure-design",
+  "unit": "money-core",
+  "review_iterations": 2,
+  "note": "U1 is a library and provisions no infrastructure, so the per-kind applicability produces cicd-pipeline.md and this file only. Every NFR9.x from NFR Design is enumerated. Those with a distinct pipeline element are OK against the step that runs them; those enforced wholly inside the module are N/A with the step that exercises them named, rather than omitted. Two were GAP through this stage and are now CLOSED: NFR9.30 could not execute in B1 (no table, no endpoint) and NFR9.32 was the cross-Bolt DoD amendment that would give it an owner. They were deliberately left GAP rather than marked N/A, because marking them N/A would have made the sensor pass while asserting something false - they were not inapplicable to this Unit, they were unowned - and amending another Bolt's definition of done was a delivery-planning decision outside this stage's scope. The human took that decision at Code Generation on 2026-10-18: bolt-plan.md B2's DoD now carries the OpenAPI money-pattern assertion and B3's the column type-and-precision assertion, so both rows are now OK. Separately, NFR9.7 and NFR9.9 were corrected from N/A to OK at review: both had been deferred to B4's Android job, which concealed a real gap behind rows that read as settled, when U1's own catalogue entry and B1's DoD both require the Kotlin money type and its loud-failure serializer to ship in this Bolt. Step 11 now covers them. One further correction at iteration 2: a per-push no-credential invariant had been written as 'NFR9.33' and added to upstream_ids, inventing a requirement no upstream artifact contains. It is a stage-originated decision and now sits in the reverse array with the others.",
+  "upstream_ids": [
+    "NFR9.1",
+    "NFR9.2",
+    "NFR9.3",
+    "NFR9.4",
+    "NFR9.5",
+    "NFR9.6",
+    "NFR9.7",
+    "NFR9.8",
+    "NFR9.9",
+    "NFR9.10",
+    "NFR9.11",
+    "NFR9.12",
+    "NFR9.13",
+    "NFR9.14",
+    "NFR9.15",
+    "NFR9.16",
+    "NFR9.17",
+    "NFR9.18",
+    "NFR9.19",
+    "NFR9.20",
+    "NFR9.21",
+    "NFR9.22",
+    "NFR9.23",
+    "NFR9.24",
+    "NFR9.25",
+    "NFR9.26",
+    "NFR9.27",
+    "NFR9.28",
+    "NFR9.29",
+    "NFR9.30",
+    "NFR9.31",
+    "NFR9.31a",
+    "NFR9.31b",
+    "NFR9.32"
+  ],
+  "coverage": [
+    {
+      "id": "NFR9.1",
+      "status": "N/A",
+      "target": "The float refusal is a property of the type's construction; this stage runs the test that asserts it (pipeline step 5) but adds no pipeline mechanism of its own"
+    },
+    {
+      "id": "NFR9.2",
+      "status": "N/A",
+      "target": "Lint rule inside step 3; the rule is NFR9.5's mechanism and is covered there. No separate pipeline element"
+    },
+    {
+      "id": "NFR9.3",
+      "status": "N/A",
+      "target": "Absence of a conversion on the type surface. Nothing for a pipeline to run"
+    },
+    {
+      "id": "NFR9.4",
+      "status": "OK",
+      "target": "cicd-pipeline B step 6 - Gate 1 runs in the test step, after unit tests so a plain test failure surfaces first"
+    },
+    {
+      "id": "NFR9.5",
+      "status": "OK",
+      "target": "cicd-pipeline B step 3 - Gate 2 runs inside lint, which is where a banned-import rule belongs and keeps it in the pre-commit path too"
+    },
+    {
+      "id": "NFR9.6",
+      "status": "OK",
+      "target": "cicd-pipeline B step 6 - both violation fixtures run alongside the gates they exercise"
+    },
+    {
+      "id": "NFR9.7",
+      "status": "OK",
+      "target": "cicd-pipeline B step 11 - the android-unit job compiles core/model inside the :app module, so a float assignable to the money type fails at compile time, and runs the package-scoped float ban. CORRECTED at review: an earlier row deferred this to B4, concealing a real gap behind a row that read as settled, when U1's own catalogue entry says the Kotlin value class ships in the app"
+    },
+    {
+      "id": "NFR9.8",
+      "status": "N/A",
+      "target": "API chokepoint shape. Its pipeline element is NFR9.30's OpenAPI assertion, covered there"
+    },
+    {
+      "id": "NFR9.9",
+      "status": "OK",
+      "target": "cicd-pipeline B step 11 - a local JVM unit test (testDebugUnitTest) asserts a JSON string decodes and a JSON number fails loudly. CORRECTED at review: this IS B1's DoD requirement, not B4's. Deferring it would have let a lenient decoder merge and stay green for three Bolts, on the surface with the least review depth"
+    },
+    {
+      "id": "NFR9.10",
+      "status": "N/A",
+      "target": "Storage chokepoint shape. Its pipeline element is NFR9.30's column assertion, covered there"
+    },
+    {
+      "id": "NFR9.11",
+      "status": "N/A",
+      "target": "Negative serialization refusal: a unit test inside step 5, no distinct pipeline element"
+    },
+    {
+      "id": "NFR9.12",
+      "status": "OK",
+      "target": "cicd-pipeline B step 10 - property test last, being slowest and most often under active iteration"
+    },
+    {
+      "id": "NFR9.13",
+      "status": "OK",
+      "target": "cicd-pipeline B step 5 - coverage enforced in the test step; a shortfall blocks the same way a failure does"
+    },
+    {
+      "id": "NFR9.14",
+      "status": "OK",
+      "target": "cicd-pipeline B step 7 - named-test manifest check"
+    },
+    {
+      "id": "NFR9.15",
+      "status": "N/A",
+      "target": "Design obligation to fix an answer the property test cannot settle. Its pipeline element is the manifest check at step 7, covered by NFR9.14"
+    },
+    {
+      "id": "NFR9.16",
+      "status": "N/A",
+      "target": "Dependency bound, enforced by Gate 1 at step 6 and by lockfile verification at step 2; both covered under NFR9.4 and NFR9.18"
+    },
+    {
+      "id": "NFR9.17",
+      "status": "N/A",
+      "target": "An admission note is a review artifact, not a pipeline step. Recorded at PR time"
+    },
+    {
+      "id": "NFR9.18",
+      "status": "OK",
+      "target": "cicd-pipeline B steps 1-2 and E - secrets scan and lockfile verification block absolutely on every push with no severity threshold; CVEs annotate per-push and block at the release gate, which is the two-speed split team.md requires"
+    },
+    {
+      "id": "NFR9.19",
+      "status": "N/A",
+      "target": "Closure by absence of a default: a code-shape property verified by the type checker at step 4 and the property test at step 10"
+    },
+    {
+      "id": "NFR9.20",
+      "status": "N/A",
+      "target": "Generator derivation lives inside the property test; step 10 runs it"
+    },
+    {
+      "id": "NFR9.21",
+      "status": "N/A",
+      "target": "A process obligation on whoever adds a kind. Its mechanism is NFR9.25's independent expectation, exercised at step 10"
+    },
+    {
+      "id": "NFR9.22",
+      "status": "N/A",
+      "target": "The rendering specification's data shape. Its pipeline element is the completeness check at step 8, covered by NFR9.26"
+    },
+    {
+      "id": "NFR9.23",
+      "status": "N/A",
+      "target": "Exact-output test per locale: a unit test inside step 5 once OQ-B1-1 closes"
+    },
+    {
+      "id": "NFR9.24",
+      "status": "N/A",
+      "target": "Loud failure on a missing locale row - a runtime property of the operation, with step 8 as the build-time counterpart covered by NFR9.26"
+    },
+    {
+      "id": "NFR9.25",
+      "status": "N/A",
+      "target": "Hand-written per-kind expectation: a test fixture exercised at step 10"
+    },
+    {
+      "id": "NFR9.26",
+      "status": "OK",
+      "target": "cicd-pipeline B step 8 - locale completeness. Recorded in F.2 that this step CANNOT pass while OQ-B1-1 leaves a supported locale without a rendering specification"
+    },
+    {
+      "id": "NFR9.27",
+      "status": "N/A",
+      "target": "Assertion rather than raise: a code-shape decision with no pipeline element"
+    },
+    {
+      "id": "NFR9.28",
+      "status": "N/A",
+      "target": "Statically-verified exhaustiveness: enforced at step 4, and its coverage-configuration entry is read at step 5"
+    },
+    {
+      "id": "NFR9.29",
+      "status": "OK",
+      "target": "cicd-pipeline B step 6 - both gate-configuration assertions run with the gates, so a scope that stops covering the tree fails on the commit that narrows it"
+    },
+    {
+      "id": "NFR9.30",
+      "status": "OK",
+      "target": "security-design A.3 and Part B step 9 - database column type/precision assertion and OpenAPI money-pattern assertion, covering the three bypass paths no import rule can see. Authored in B1; executed from B3 and B2, whose DoDs now own them (NFR9.32 closed 2026-10-18)"
+    },
+    {
+      "id": "NFR9.31",
+      "status": "N/A",
+      "target": "Superseded at NFR Design review by NFR9.31a and NFR9.31b; the latter carries the pipeline element"
+    },
+    {
+      "id": "NFR9.31a",
+      "status": "N/A",
+      "target": "A scoping rule for the coverage configuration. NFR9.31b is the check that enforces it, covered at step 9"
+    },
+    {
+      "id": "NFR9.31b",
+      "status": "OK",
+      "target": "cicd-pipeline B step 9 - coverage-scope check: a module importing the money type that is neither in the covered set nor on the reviewed allowlist fails the build on the commit that adds it"
+    },
+    {
+      "id": "NFR9.32",
+      "status": "OK",
+      "target": "CLOSED 2026-10-18 at Code Generation: bolt-plan.md B2's DoD now carries the OpenAPI money-pattern assertion and B3's carries the column type-and-precision assertion. Both were authored at B1's NFR Design, which cannot run them (no endpoint, no table). Until the amendment both Bolts would have passed their stated definition of done while the checks never existed"
+    }
+  ],
+  "reverse": [
+    {
+      "id": "no-credential-in-the-per-push-suite",
+      "status": "N/A",
+      "target": "cicd-pipeline A - every step in the per-push blocking suite must run on a fresh clone with no credential; a step needing one belongs in the release gate. A stage-originated decision, NOT an upstream requirement: it was briefly written as 'NFR9.33' and placed in upstream_ids, which invented a requirement no upstream artifact contains - the NFR9 series ends at NFR9.32. Recorded here because the reverse array is where this file already carries stage-originated decisions. The invariant is about credentials rather than toolchains: step 11's Android SDK and B3's Docker daemon are prerequisites, not secrets; B4's DEX scan needs a signing keystore and is therefore the first and only scheduled exception"
+    },
+    {
+      "id": "pipeline-is-the-project-skeleton",
+      "status": "N/A",
+      "target": "A scoping decision with no single upstream requirement: team.md sequences the whole toolchain at skeleton time and B1 is skeleton time, so this document specifies the project's backend pipeline with B1's steps filled in. Scoping it to U1 alone would describe something that does not exist and leave B2 reinventing the foundation"
+    },
+    {
+      "id": "single-entrypoint-no-secret",
+      "status": "N/A",
+      "target": "From team.md Testing Posture rather than a numbered NFR: one make check target identical locally and in CI, because a gate reproducible only by pushing gets bypassed. The corollary that the blocking suite needs no secret is absolute for B1 and is a property later Bolts must defend"
+    },
+    {
+      "id": "post-merge-run-on-main",
+      "status": "N/A",
+      "target": "From team.md Way of Working: with squash-merge and one reviewer, the post-merge run is the only thing that catches a PR green against an older main. Branch protection requires the CI check but no approvals, since a required approval from the sole author is theatre"
+    },
+    {
+      "id": "dependency-cache-only",
+      "status": "N/A",
+      "target": "A pipeline decision: cache dependencies keyed on the lockfile hash, nothing else. Test-result and incremental-lint caching save seconds at this scale and introduce a stale cache masking a real failure, which is the defect class this Unit's control set exists to prevent"
+    },
+    {
+      "id": "commit-sha-image-tagging",
+      "status": "N/A",
+      "target": "From team.md Deployment: images tagged with the commit SHA and latest never deployed. B1 builds no image, but the convention is set here because it is a supply-chain control making a deployed artifact identifiable, and retrofitting it after images exist is harder than declaring it now"
+    },
+    {
+      "id": "no-infrastructure-no-monitoring",
+      "status": "N/A",
+      "target": "cicd-pipeline G - a library has no compute, network, storage, environment, database, cache, queue, CDN, DNS or load balancer, and no runtime signal to monitor: its correctness is established before release rather than observed at runtime. The absences are enumerated individually so a reader finds the reason rather than an absence to interpret"
+    },
+    {
+      "id": "signing-keystore-as-fourth-named-secret",
+      "status": "N/A",
+      "target": "cicd-pipeline A - B4's DEX scan is pinned to the R8-minified release build, which needs a signing keystore. team.md names only three secrets (gateway credentials, JWT signing key, database URL). Settled here rather than discovered at B4: it is a fourth named secret with the same rotation-runbook treatment, and the scan sits in the release gate rather than the per-push suite"
+    },
+    {
+      "id": "ci-minute-budget-thresholds",
+      "status": "N/A",
+      "target": "cicd-pipeline E - replaces an unmechanised 'checked rather than assumed' obligation with 60% review and 80% migrate-to-CodeBuild thresholds against the 2,000 min free tier, checked monthly. A hard stop at 2,000 means no CI at all until the month rolls over, on a project where CI is the only gate"
+    },
+    {
+      "id": "gradle-dependency-verification",
+      "status": "N/A",
+      "target": "cicd-pipeline B step 2 and E - step 11 introduces a Gradle build, so lockfile and checksum verification must cover both surfaces. team.md names dependencyVerification as the only control detecting a tampered or substituted Gradle artifact; verifying only the Python lockfile would leave the Kotlin surface, which carries the client half of the money boundary from B1 onward, with no supply-chain control at all"
+    }
+  ]
+}

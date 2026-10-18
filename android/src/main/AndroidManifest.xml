@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Deliberately minimal.
+
+  The merged-manifest permission allowlist arrives with the packaging Bolt
+  and asserts an exact approved permission set plus the ABSENCE of
+  com.google.android.gms.permission.AD_ID — the declaration a transitive ads
+  or analytics SDK adds silently via manifest merger.
+
+  Nothing here requests a permission. INTERNET arrives with the Bolt that
+  first makes a network call.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" />

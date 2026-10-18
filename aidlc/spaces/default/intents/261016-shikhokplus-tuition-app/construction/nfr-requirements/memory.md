@@ -1,0 +1,18 @@
+<!-- INVARIANT: examples are single-line HTML comments so a fresh template parses to total=0 (MEMORY_EMPTY). Do NOT un-comment or split across lines. t100 guards this. -->
+> This file is kept up to date automatically while the stage runs. Add observations at the review step, not by editing here directly.
+
+## Interpretations
+<!-- example: 2026-05-29T10:14:32Z — chose REST over GraphQL; the consuming team only needs CRUD, revisit if subscriptions land -->
+- 2026-10-18T03:50:00Z — A reviewer's adjacent observation about a frozen upstream artifact is worth acting on, not filing: rules.md carried a summary row saying two error classes after the decision changed to one, and the summary row is what a reader skims.
+- 2026-10-18T03:50:00Z — An NFR marked N/A because the Unit owns no screen can still bind through a contract that assigns the Unit the rendering: NFR3 was wrongly N/A because BR5.4 puts all money digit rendering in this module and forbids the client from doing it.
+
+## Deviations
+<!-- example: 2026-05-29T10:14:32Z — skipped the optional caching layer the stage prose suggested; the dataset is small enough that it adds risk -->
+
+## Tradeoffs
+<!-- example: 2026-05-29T10:14:32Z — picked TDD over BDD this run; the team is unit-first and the domain is well-understood -->
+- 2026-10-18T03:50:00Z — Specified the formatting operation's obligations and tests while leaving the Bangla rendering itself an open question, because the digit set and grouping interval are Bangladeshi product judgements and a wrong glyph table in a requirements document is worse than a named gap.
+
+## Open questions
+<!-- example: 2026-05-29T10:14:32Z — confirm the retention window with compliance before the next stage hardens the schema -->
+- 2026-10-18T03:50:00Z — OQ-B1-1: the Bangla money rendering is unspecified in every upstream artifact — digit set, grouping interval, separators, currency symbol — and blocks B1's formatting operation plus the display sibling consumed by B6, B7 and B10.
