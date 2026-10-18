@@ -44,6 +44,24 @@ test and stops working at two workers. The equivalent question here is
 > `UNIQUE (batch_id, student_account_id)` looks correct and refuses
 > the second dormant enrollment in a batch, which is the normal state
 > early in a batch's life.
+>
+> **Verified against real PostgreSQL**, all seven cases, rather than
+> reasoned about:
+>
+> | Case | Result |
+> |---|---|
+> | Second and third dormant seat in one batch | admitted |
+> | Same account twice in one batch | **refused** |
+> | Same account in two batches of one teacher [AC2.2.3] | admitted |
+> | Re-enrolling an **erased** account into the same batch | admitted |
+>
+> The last is the one worth stating. It is **correct**: the catalogue
+> says a teacher may enroll that number again, creating a new
+> enrollment with no link to the old. The constraint permits it
+> because the erased row's account column is NULL, while the erased
+> row itself stays blocked from *automatic* reattachment. A deliberate
+> teacher action and a silent re-link are different things, and this
+> shape distinguishes them without any extra code.
 
 ---
 
