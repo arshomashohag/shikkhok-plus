@@ -20,7 +20,13 @@ are the one part of this Unit whose *failure* is the passing condition.
 
 from __future__ import annotations
 
+from app.contract.privacy import forbidden_fields
 from app.contract.routes import unlensed_routes
+from tests.contract.fixtures.leaky_app import (
+    ACCOUNT_ID_LEAK_FIELD,
+    PROFILE_LEAK_FIELD,
+    build_leaky_app,
+)
 from tests.contract.fixtures.unlensed_app import UNLENSED_PATH, build_unlensed_app
 
 
@@ -34,3 +40,22 @@ def test_route_gate_fires_on_the_unlensed_fixture() -> None:
     assert len(violations) == 1, "the gate examined nothing"
     assert violations[0].path == UNLENSED_PATH
     assert violations[0].method == "GET"
+
+
+def test_privacy_gate_fires_on_both_forbidden_sets() -> None:
+    """The privacy gate reports TWO violations, one per forbidden set.
+
+    Asserting two rather than "at least one" is the point. The gate carries
+    both sets on a single iteration, so a fixture tripping only the
+    owner-private set would leave ADR-001's account-id half entirely
+    unexercised while the gate still reported green.
+
+    :return: None
+    """
+    violations = forbidden_fields(build_leaky_app())
+
+    assert len(violations) == 2, "the gate examined nothing, or only one set"
+
+    by_set = {violation.field_set: violation.field for violation in violations}
+    assert by_set["owner-private"] == PROFILE_LEAK_FIELD
+    assert by_set["account-id"] == ACCOUNT_ID_LEAK_FIELD
