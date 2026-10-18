@@ -1,0 +1,161 @@
+{
+  "stage": "functional-design",
+  "unit": "api-contract",
+  "note": "U2 is a spec Unit: not deployed, owning a committed contract and four CI gates. Both of its stories are cross-cutting, so several acceptance criteria belong to the Units that own the screens and the writes. Those are marked Deferred with the Unit that owns them named, rather than claimed. AC10.1.4 is the criterion behind BR1.4: it requires that a refusal not disclose whether the resource exists, without naming a status - which is what settles the contradiction between contract-summary's schema section (403 for both) and its implementer notes (the 404-instead-of-403 wording).",
+  "upstream_ids": [
+    "AC9.2.1",
+    "AC9.2.2",
+    "AC9.2.3",
+    "AC9.2.4",
+    "AC9.2.5",
+    "AC10.1.1",
+    "AC10.1.2",
+    "AC10.1.3",
+    "AC10.1.4",
+    "AC10.1.5",
+    "AC10.1.6",
+    "AC10.1.7",
+    "AC10.1.8",
+    "NFR14",
+    "NFR16"
+  ],
+  "coverage": [
+    {
+      "id": "AC9.2.3",
+      "status": "OK",
+      "target": "BR1.1, BR1.2"
+    },
+    {
+      "id": "AC10.1.1",
+      "status": "OK",
+      "target": "BR1.4, BR3.1"
+    },
+    {
+      "id": "AC10.1.2",
+      "status": "OK",
+      "target": "BR1.4, BR3.1"
+    },
+    {
+      "id": "AC10.1.3",
+      "status": "OK",
+      "target": "BR1.4, BR3.1"
+    },
+    {
+      "id": "AC10.1.4",
+      "status": "OK",
+      "target": "BR1.2, BR1.4"
+    },
+    {
+      "id": "AC10.1.5",
+      "status": "OK",
+      "target": "BR2.4"
+    },
+    {
+      "id": "AC10.1.7",
+      "status": "OK",
+      "target": "BR3.1, BR3.2"
+    },
+    {
+      "id": "NFR14",
+      "status": "OK",
+      "target": "BR2.4"
+    },
+    {
+      "id": "NFR16",
+      "status": "OK",
+      "target": "BR2.1"
+    },
+    {
+      "id": "AC9.2.1",
+      "status": "Deferred",
+      "target": "BR1.1"
+    },
+    {
+      "id": "AC9.2.2",
+      "status": "Deferred",
+      "target": "BR1.1"
+    },
+    {
+      "id": "AC9.2.4",
+      "status": "Deferred",
+      "target": "BR1.1"
+    },
+    {
+      "id": "AC9.2.5",
+      "status": "Deferred",
+      "target": "BR1.1"
+    },
+    {
+      "id": "AC10.1.6",
+      "status": "Deferred",
+      "target": "BR3.1"
+    },
+    {
+      "id": "AC10.1.8",
+      "status": "Deferred",
+      "target": "BR3.1"
+    }
+  ],
+  "reverse": [
+    {
+      "id": "BR1.1",
+      "status": "OK",
+      "target": "AC9.2.3 - the five closed classes are what let a client tell a connectivity failure from a server rejection. Also the base every Deferred AC9.2.x criterion builds on: those need a screen and a write, which a spec Unit has neither of"
+    },
+    {
+      "id": "BR1.2",
+      "status": "OK",
+      "target": "AC9.2.3, AC10.1.4 - retryable derived from the class at the single handler, so the client is told rather than inferring from a status"
+    },
+    {
+      "id": "BR1.3",
+      "status": "N/A",
+      "target": "No acceptance criterion states the no-English-message rule; it comes from contract-summary and TC-15/D-43. A server-authored string cannot be localized, which in a Bangla-first UI guarantees untranslated English in front of a teacher"
+    },
+    {
+      "id": "BR1.4",
+      "status": "OK",
+      "target": "AC10.1.1, AC10.1.2, AC10.1.3, AC10.1.4 - the uniform-status rule. AC10.1.4 requires only that a refusal not disclose existence, which both a uniform 403 and a uniform 404 satisfy; the schema section is normative and 404 is not in the taxonomy, so 403 for both"
+    },
+    {
+      "id": "BR2.1",
+      "status": "OK",
+      "target": "NFR16 - committed schema equals generated, so a contract change is a reviewable diff and an installed client is never generated from fiction"
+    },
+    {
+      "id": "BR2.2",
+      "status": "N/A",
+      "target": "No AC covers the schema-level money pattern; it originates at U1's NFR9.30, authored there and added to B2's DoD because B1 has no endpoint to run it against. It is the half of the money boundary an import rule cannot see"
+    },
+    {
+      "id": "BR2.3",
+      "status": "N/A",
+      "target": "The *_display pairing rule comes from contract-summary's OQ-6 resolution rather than an AC. Recorded in the schema so the diff gate catches a field gaining or losing its sibling"
+    },
+    {
+      "id": "BR2.4",
+      "status": "OK",
+      "target": "AC10.1.5, NFR14 - asserted across the whole generated schema rather than per endpoint, which is what covers routes added in later Bolts"
+    },
+    {
+      "id": "BR3.1",
+      "status": "OK",
+      "target": "AC10.1.7 - every route resolves a lens bar an explicit allowlist. Also the mechanism the Deferred AC10.1.6 and AC10.1.8 criteria will be checked through once U3 resolves lenses"
+    },
+    {
+      "id": "BR3.2",
+      "status": "OK",
+      "target": "AC10.1.7 - matching on the return annotation rather than the name is what keeps the check alive through a rename, and the recursive walk is what finds a lens nested in a composed dependency"
+    },
+    {
+      "id": "BR4.1",
+      "status": "N/A",
+      "target": "A policy with no AC behind it, and the most important rule in this Unit. B2 has no routes and no money endpoint, so BR2.2, BR2.3, BR2.4 and BR3.1 all iterate empty sets and pass trivially. Without a committed failing fixture per gate, B2 records four green checks that have never looked at anything"
+    },
+    {
+      "id": "BR4.2",
+      "status": "N/A",
+      "target": "From team.md Testing Posture rather than an AC: a conformance tool validates conformance and never counts as privacy coverage, because a response wrongly carrying profile fields matches its own declaration perfectly. Stated in writing so the distinction is not lost"
+    }
+  ]
+}
