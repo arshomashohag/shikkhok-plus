@@ -56,3 +56,25 @@ class HttpRosterRepository(
             AuthResult.TransportFailure
         }
 }
+
+/**
+ * The real batches repository, over HTTP.
+ *
+ * @property client The configured HTTP client
+ */
+class HttpBatchesRepository(
+    private val client: HttpClient,
+) : com.shikkhokplus.app.feature.batches.BatchesRepository {
+
+    override suspend fun batches(): AuthResult<List<BatchDto>> =
+        try {
+            val response: HttpResponse = client.get("/v1/batches")
+            if (response.status.isSuccess()) {
+                AuthResult.Ok(response.body())
+            } else {
+                AuthResult.Refused(decodeEnvelope(response))
+            }
+        } catch (_: Exception) {
+            AuthResult.TransportFailure
+        }
+}

@@ -64,6 +64,12 @@ class RosterViewModel(
     val state: StateFlow<RosterUiState> = _state.asStateFlow()
 
     private var lastBatchId: String? = null
+
+    // The roster endpoint does not return the batch name, and the
+    // teacher already knows which class they tapped -- so the caller
+    // supplies it rather than the client asking the server something it
+    // was just told.
+    private var lastBatchName: String = ""
     private var pendingRemoval: String? = null
 
     /**
@@ -71,8 +77,9 @@ class RosterViewModel(
      *
      * @param batchId The batch whose roster to read
      */
-    fun load(batchId: String) {
+    fun load(batchId: String, batchName: String = "") {
         lastBatchId = batchId
+        lastBatchName = batchName
         pendingRemoval = null
         _state.value = RosterUiState.Loading
         viewModelScope.launch {
@@ -80,7 +87,7 @@ class RosterViewModel(
                 when (val result = repository.roster(batchId)) {
                     is AuthResult.Ok ->
                         RosterStateMapper.afterLoad(
-                            batchName = result.value.batchName,
+                            batchName = result.value.batchName.ifBlank { lastBatchName },
                             rows = result.value.rows,
                             fetchedAtLabel = result.value.fetchedAtLabel,
                         )
@@ -125,6 +132,6 @@ class RosterViewModel(
             remove(removal)
             return
         }
-        lastBatchId?.let { load(it) }
+        lastBatchId?.let { load(it, lastBatchName) }
     }
 }

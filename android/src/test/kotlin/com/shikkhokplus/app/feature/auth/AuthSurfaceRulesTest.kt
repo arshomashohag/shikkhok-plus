@@ -120,8 +120,13 @@ class AuthSurfaceRulesTest {
 
     @Test
     fun `every english string has a bangla counterpart`() {
+        // MATCHES <plurals> as well as <string>. The original matched
+        // only <string>, so the first plural resource -- the student
+        // count on the batch list -- would have gone untranslated with
+        // nothing reporting it. Android falls back to English silently,
+        // which is precisely the failure this test exists to catch.
         val names = { file: File ->
-            Regex("""<string name="([^"]+)"""")
+            Regex("""<(?:string|plurals)\s+name="([^"]+)"""")
                 .findAll(file.readText())
                 .map { it.groupValues[1] }
                 .toSet()
@@ -134,6 +139,10 @@ class AuthSurfaceRulesTest {
             english - bangla,
             "untranslated strings would render in English in a Bangla UI",
         )
+
+        // Guards the check: a regex that matched nothing would make the
+        // assertion above vacuously true.
+        assertTrue(english.size >= 20, "found only ${english.size} keys")
     }
 
     @Test

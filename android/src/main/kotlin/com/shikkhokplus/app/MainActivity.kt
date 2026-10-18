@@ -2,6 +2,7 @@ package com.shikkhokplus.app
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,16 +12,26 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.shikkhokplus.app.core.network.ApiClient
 import com.shikkhokplus.app.core.network.HttpAuthRepository
+import com.shikkhokplus.app.core.network.HttpBatchesRepository
+import com.shikkhokplus.app.core.network.HttpRosterRepository
 import com.shikkhokplus.app.core.network.TokenStore
 import com.shikkhokplus.app.feature.auth.AuthUiState
 import com.shikkhokplus.app.feature.auth.AuthViewModel
 import com.shikkhokplus.app.feature.auth.ui.AuthScreen
+import com.shikkhokplus.app.feature.batches.BatchesUiState
+import com.shikkhokplus.app.feature.batches.BatchesViewModel
+import com.shikkhokplus.app.feature.batches.ui.BatchesScreen
+import com.shikkhokplus.app.feature.roster.RosterViewModel
+import com.shikkhokplus.app.feature.roster.ui.RosterScreen
 
 /**
  * The single Activity. Screen one is OTP entry.
@@ -98,7 +109,12 @@ private fun SignInRoute() {
     val state by model.state.collectAsState()
 
     if (state is AuthUiState.SignedIn) {
-        SignedInNotice()
+        // The client is rebuilt so it picks up the token the verify
+        // just stored. ApiClient reads the store per request, so this
+        // is belt and braces rather than strictly required -- but the
+        // store instance must be the SAME one, which is why it is
+        // remembered above rather than created here.
+        SignedInRoute(tokens)
         return
     }
 
@@ -111,22 +127,59 @@ private fun SignInRoute() {
 }
 
 /**
- * The end of the device leg.
+ * What a signed-in teacher sees: their classes, and one class's roster.
  *
- * **Deliberately minimal.** What it proves is that a Compose screen
- * reached a real FastAPI endpoint against a real database through a
- * real OTP — which is the walking skeleton's whole claim. The batch and
- * roster screens follow; putting them here before the sign-in path is
- * verified on a device would confuse two things that can fail
- * independently.
+ * **Navigation is a single nullable id**, not a navigation library.
+ * There are two screens; a graph, a back stack and a dependency to
+ * carry them would be machinery in place of an `if`. It is replaced
+ * the moment a third screen needs a real back stack, and saying that
+ * here is cheaper than pretending the current shape scales.
+ *
+ * @param tokens The store holding this session's access token
  */
 @androidx.compose.runtime.Composable
-private fun SignedInNotice() {
-    Column(Modifier.fillMaxWidth().padding(24.dp)) {
-        Text("Signed in", style = MaterialTheme.typography.titleMedium)
-        Text(
-            "The code was verified by the server and a session exists.",
-            Modifier.padding(top = 8.dp),
+private fun SignedInRoute(tokens: TokenStore) {
+    val client = remember { ApiClient.build(BuildConfig.API_BASE_URL, tokenStore = tokens) }
+    // The NAME travels with the id, because the roster endpoint does
+    // not return it -- the teacher already knows which class they
+    // tapped, and a round trip to re-learn it would be the client
+    // asking the server something it was just told.
+    var openBatch by remember { mutableStateOf<Pair<String, String>?>(null) }
+
+    val batchesModel: BatchesViewModel =
+        viewModel { BatchesViewModel(HttpBatchesRepository(client)) }
+    val batchesState by batchesModel.state.collectAsState()
+
+    LaunchedEffect(Unit) { batchesModel.load() }
+
+    val opened = openBatch
+    if (opened == null) {
+        BatchesScreen(
+            state = batchesState,
+            onOpen = { id ->
+                val name =
+                    (batchesState as? BatchesUiState.Loaded)
+                        ?.rows
+                        ?.firstOrNull { it.id == id }
+                        ?.name
+                        .orEmpty()
+                openBatch = id to name
+            },
+            onRetry = batchesModel::retry,
         )
+        return
     }
+
+    // Keyed on the batch id so opening a different class builds a new
+    // ViewModel rather than showing the previous roster while the new
+    // one loads.
+    val rosterModel: RosterViewModel =
+        viewModel(key = opened.first) { RosterViewModel(HttpRosterRepository(client)) }
+    val rosterState by rosterModel.state.collectAsState()
+
+    LaunchedEffect(opened.first) { rosterModel.load(opened.first, opened.second) }
+
+    BackHandler { openBatch = null }
+
+    RosterScreen(state = rosterState, onRetry = rosterModel::retry)
 }

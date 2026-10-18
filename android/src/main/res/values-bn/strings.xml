@@ -49,4 +49,12 @@
     <string name="guardian_children_empty">এখনও কোনো সন্তান যুক্ত হয়নি। প্রথমে একজন শিক্ষককে আপনার নম্বর যোগ করতে হবে।</string>
     <string name="guardian_child_attribution">%1$s, শিক্ষক %2$s</string>
     <string name="staging_outbox_empty">এই নম্বরের জন্য কোনো স্টেজিং বার্তা নেই।</string>
+
+    <!-- The batch list (B5a: the device walkthrough). -->
+    <string name="batches_title">আপনার ক্লাসসমূহ</string>
+    <string name="batches_empty">এখনও কোনো ক্লাস নেই। শুরু করতে একটি তৈরি করুন।</string>
+    <plurals name="batches_student_count">
+        <item quantity="one">%1$d জন শিক্ষার্থী</item>
+        <item quantity="other">%1$d জন শিক্ষার্থী</item>
+    </plurals>
 </resources>

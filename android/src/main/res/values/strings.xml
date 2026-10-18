@@ -51,4 +51,12 @@
     <string name="guardian_children_empty">No children yet. A teacher needs to record your number first.</string>
     <string name="guardian_child_attribution">%1$s, taught by %2$s</string>
     <string name="staging_outbox_empty">No staging message for that number.</string>
+
+    <!-- The batch list (B5a: the device walkthrough). -->
+    <string name="batches_title">Your classes</string>
+    <string name="batches_empty">No classes yet. Create one to get started.</string>
+    <plurals name="batches_student_count">
+        <item quantity="one">%1$d student</item>
+        <item quantity="other">%1$d students</item>
+    </plurals>
 </resources>
