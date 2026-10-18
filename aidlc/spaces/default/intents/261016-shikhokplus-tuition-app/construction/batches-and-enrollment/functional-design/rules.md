@@ -172,13 +172,30 @@ rules:
     applies_to: Enrollment
     trigger: Fee generation, and any read that reports future liability
     logic: >
-      IF period.start_date > enrollment.inactive_from
+      IF period.START_DATE > enrollment.inactive_from
       THEN no cycle
       ELSE a cycle at the full resolved fee, with no proration.
+
+      The comparison is against the period's START DATE — the first of
+      the calendar month — and NEVER against its due date.
     violation_behaviour: >
-      Prorating the containing period. It LOOKS fairer and it is a
-      money bug: the teacher taught that month and the requirement says
-      it charges in full unless they adjust it.
+      Two, and the second was found by working the dates rather than by
+      reading the rule:
+
+      1. Prorating the containing period. It LOOKS fairer and it is a
+         money bug: the teacher taught that month and the requirement
+         says it charges in full unless they adjust it.
+      2. **Comparing against the DUE DATE instead of the period start.**
+         Worked: `fee_due_day` 31, `inactive_from` 2026-02-15. February's
+         period starts 2026-02-01 (≤ the date, so it generates — correct
+         per AC2.4.4) but its clamped due date is 2026-02-28 (> the date,
+         so it would NOT generate — silently waiving a month the teacher
+         taught).
+
+         The misreading is plausible rather than careless: AC2.1.2's
+         clamp rule is *about* due dates, and `fee_due_day` sits on the
+         same entity as everything else here.
+    
     rationale: >
       **Three separate named tests, not one with three assertions**, so
       a failure reports which property broke. The three are: nothing

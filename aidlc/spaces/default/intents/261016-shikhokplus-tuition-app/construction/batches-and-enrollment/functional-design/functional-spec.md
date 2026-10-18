@@ -103,6 +103,16 @@ Setting `inactive_from` must satisfy all three independently [BR4.1–BR4.3]:
 | No cycle for a period starting **strictly after** the date | `test_no_cycle_generates_for_a_period_beginning_after` |
 | The period **containing** the date generates **in full** | `test_the_containing_period_charges_in_full` |
 | Other enrollments of the same account are untouched | `test_other_enrollments_are_unaffected` |
+| The comparison uses the period **start**, never the due date | `test_the_comparison_is_against_the_period_start` |
+
+> **The fourth test exists because the third property has a plausible
+> wrong reading.** Worked: `fee_due_day` 31, `inactive_from` 2026-02-15.
+> February starts 2026-02-01 and generates — correct. Its clamped due
+> date is 2026-02-28, which is *after* the inactive date, so a rule read
+> against the due date silently waives a month the teacher taught.
+>
+> That misreading is reachable rather than careless: AC2.1.2's clamp
+> rule is about due dates, and `fee_due_day` sits on the same entity.
 
 > **The middle one looks wrong and is right.** Marking a student
 > inactive on the 10th does not prorate that month. An implementer who
