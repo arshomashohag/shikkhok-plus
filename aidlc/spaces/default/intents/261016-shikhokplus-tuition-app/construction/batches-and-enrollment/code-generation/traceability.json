@@ -1,7 +1,7 @@
 {
   "stage": "code-generation",
   "unit": "batches-and-enrollment",
-  "note": "Every business rule and NFR in this Unit's upstream set, mapped to the file that implements or enforces it. Where a control was verified by building the WRONG implementation, the rationale records which tests fired -- that distinction is the evidence, because every defect listed passes a confirmatory test. DEFERRED rows are boundaries with a named owner or a recorded cost decision, not gaps.",
+  "note": "Every business rule and NFR in this Unit's upstream set, mapped to the file that implements or enforces it. Where a control was verified by building the WRONG implementation, the rationale records which tests fired -- that distinction is the evidence, because every defect listed passes a confirmatory test. Deferred rows are boundaries with a named owner or a recorded cost decision, not gaps. Many acceptance criteria are Deferred because U4 built the DATA and the SERVER rule while the screen or route that exposes them belongs to a later Bolt -- each such row says which half exists.",
   "upstream_ids": [
     "BR1.1",
     "BR1.2",
@@ -60,7 +60,43 @@
     "NFR14.18",
     "NFR14.19",
     "NFR14.20",
-    "NFR14.21"
+    "NFR14.21",
+    "AC1.3.1",
+    "AC1.3.2",
+    "AC1.3.3",
+    "AC1.3.4",
+    "AC1.3.5",
+    "AC1.3.6",
+    "AC2.1.1",
+    "AC2.1.2",
+    "AC2.1.3",
+    "AC2.2.1",
+    "AC2.2.2",
+    "AC2.2.3",
+    "AC2.2.4",
+    "AC2.2.5",
+    "AC2.3.1",
+    "AC2.3.2",
+    "AC2.4.1",
+    "AC2.4.2",
+    "AC2.4.3",
+    "AC2.4.4",
+    "AC2.4.5",
+    "AC2.5.1",
+    "AC2.5.2",
+    "AC2.6.1",
+    "AC2.6.2",
+    "AC2.6.3",
+    "AC2.7.1",
+    "AC2.7.2",
+    "AC2.7.3",
+    "AC2.7.4",
+    "AC2.8.1",
+    "AC2.8.2",
+    "AC2.8.3",
+    "AC2.8.4",
+    "AC2.8.5",
+    "AC2.8.6"
   ],
   "coverage": [
     {
@@ -299,7 +335,7 @@
     },
     {
       "id": "NFR8.13",
-      "status": "DEFERRED",
+      "status": "Deferred",
       "target": "app/governance/dispositions.py",
       "rationale": "Per-row audit of a display_name or guardian_phone edit is NOT implemented. A cost decision with a revisit trigger at U7's first send, recorded as such rather than as a privacy position."
     },
@@ -323,7 +359,7 @@
     },
     {
       "id": "NFR10.8",
-      "status": "DEFERRED",
+      "status": "Deferred",
       "target": "app/batches/service.py",
       "rationale": "The roster is unpaginated and the payload grows linearly. Recorded in scalability-design C as a stated limit rather than a solved problem."
     },
@@ -389,7 +425,7 @@
     },
     {
       "id": "NFR14.18",
-      "status": "DEFERRED",
+      "status": "Deferred",
       "target": "app/db/models.py",
       "rationale": "Owner's administrator-readable field subset is stated in columns. Nothing enforces it because no admin surface exists."
     },
@@ -410,6 +446,222 @@
       "status": "OK",
       "target": "app/contract/money_names.py",
       "rationale": "The money gate now looks through anyOf, so a NULLABLE money field typed as a number is caught. fee_amount is nullable by design, so the one shape the project uses for money was the one the gate could not see."
+    },
+    {
+      "id": "AC1.3.1",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "rationale": "A dormant seat is a NULL student link and is used normally. The partial unique index admits many dormant seats per batch; without the predicate the second one is refused, which is the normal state early in a batch's life."
+    },
+    {
+      "id": "AC1.3.2",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "rationale": "U4 sends nothing at all: no SMS, no push, no reminder. The SMS ceilings and the only gateway adapter are U3's, and U7 owns the first outbound send."
+    },
+    {
+      "id": "AC1.3.3",
+      "status": "Deferred",
+      "target": "app/api/batches.py",
+      "rationale": "The roster carries a `dormant` status per row and the screen renders the label without decoration. Marking most rows as exceptional is what this criterion forbids."
+    },
+    {
+      "id": "AC1.3.4",
+      "status": "Deferred",
+      "target": "app/api/batches.py",
+      "rationale": "The enrollment detail screen and the phone-correction path are not built. The data is present -- a NULL student link plus the erasure markers distinguish the states -- but no route or screen exposes it."
+    },
+    {
+      "id": "AC1.3.5",
+      "status": "Deferred",
+      "target": "app/schemas/batches.py",
+      "rationale": "`enrollment_count` is on BatchResponse and counted server-side in one grouped query. The claimed-of-total split is NOT computed; only the total is."
+    },
+    {
+      "id": "AC1.3.6",
+      "status": "OK",
+      "target": "migrations/versions/0002_batches_and_enrollment.py",
+      "rationale": "THE DISTINCTION THIS UNIT PROTECTS. Never-claimed is a NULL link with no marker; claimed-then-erased is a NULL link WITH one. The removal gate reads both, and injecting the null-only check fired 3 of 6 tests."
+    },
+    {
+      "id": "AC2.1.1",
+      "status": "Deferred",
+      "target": "app/api/batches.py",
+      "rationale": "create_batch takes name, subjects, default fee and due day. Schedule slots have a table and no route yet."
+    },
+    {
+      "id": "AC2.1.2",
+      "status": "OK",
+      "target": "app/batches/periods.py",
+      "rationale": "`Period.due_date` clamps 29-31 to the month's last day, with the leap-year case tested. The column CHECK admits 1-31 or the clamp would never run."
+    },
+    {
+      "id": "AC2.1.3",
+      "status": "OK",
+      "target": "app/db/models.py",
+      "rationale": "Batch.owner_id references Owner, never an account. The indirection that lets a batch outlive the person who created it."
+    },
+    {
+      "id": "AC2.2.1",
+      "status": "OK",
+      "target": "app/schemas/batches.py",
+      "rationale": "EnrollmentCreateRequest carries a student phone, an optional guardian phone and a teacher-typed display name."
+    },
+    {
+      "id": "AC2.2.2",
+      "status": "OK",
+      "target": "app/db/models.py",
+      "rationale": "display_name is a column on Enrollment, not on Account or Profile. The split is what makes the privacy boundary structural."
+    },
+    {
+      "id": "AC2.2.3",
+      "status": "OK",
+      "target": "tests/batches/test_inactive_from.py",
+      "rationale": "One student in two batches is two seats, each with its own name and fee. Asserted by the test that marks one inactive and checks the other is untouched."
+    },
+    {
+      "id": "AC2.2.4",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "rationale": "Add-student resolves an existing account by phone under U3's unique index, so a number already known to another teacher attaches rather than duplicating."
+    },
+    {
+      "id": "AC2.2.5",
+      "status": "OK",
+      "target": "app/db/models.py",
+      "rationale": "fee_amount is NULLABLE and null means inherit. Zero is a real fee of zero -- a waiver -- and a non-nullable column defaulting to zero would make the two indistinguishable."
+    },
+    {
+      "id": "AC2.3.1",
+      "status": "Deferred",
+      "target": "app/batches/service.py",
+      "rationale": "display_name lives on the enrollment, so every view reading that row reflects an edit immediately. No PATCH route for it yet."
+    },
+    {
+      "id": "AC2.3.2",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "rationale": "No U4 module imports or references Profile, so an edit cannot reach the student's own record. RLS makes the fallback fail closed even if written."
+    },
+    {
+      "id": "AC2.4.1",
+      "status": "OK",
+      "target": "app/batches/periods.py",
+      "rationale": "Nothing generates for a period beginning strictly after; the containing period generates IN FULL. Injecting the prorating version fired 2 tests."
+    },
+    {
+      "id": "AC2.4.2",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "rationale": "set_inactive_from writes one column and touches no cycle. Existing dues stand because nothing deletes them; U7 owns generation."
+    },
+    {
+      "id": "AC2.4.3",
+      "status": "OK",
+      "target": "tests/batches/test_inactive_from.py",
+      "rationale": "A named test asserts the other seat of the same student keeps a NULL inactive_from."
+    },
+    {
+      "id": "AC2.4.4",
+      "status": "Deferred",
+      "target": "app/batches/periods.py",
+      "rationale": "The predicate is a pure function of the period and the date, so it gives the same answer before or after the daily job ran. The charge-adjustment path is U7's."
+    },
+    {
+      "id": "AC2.4.5",
+      "status": "OK",
+      "target": "app/batches/periods.py",
+      "rationale": "Marked inactive from the 1st, that period still charges in full: the boundary case is asserted explicitly, since the containing period is inclusive at both ends."
+    },
+    {
+      "id": "AC2.5.1",
+      "status": "Deferred",
+      "target": "app/batches/service.py",
+      "rationale": "remove_enrollment deletes a dormant, never-erased seat. History tables are U5's, U6's and U7's; the HISTORY check they will extend is not yet reachable."
+    },
+    {
+      "id": "AC2.5.2",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "rationale": "Removal is refused for a claimed seat with a DIFFERENT code from an erased one, because the teacher's remedy differs: mark inactive versus cannot be reused."
+    },
+    {
+      "id": "AC2.6.1",
+      "status": "Deferred",
+      "target": "app/api/batches.py",
+      "rationale": "The student batch list route is not built. The student lens resolves and the query shape is the roster's inverse, but no route exposes it."
+    },
+    {
+      "id": "AC2.6.2",
+      "status": "Deferred",
+      "target": "app/db/models.py",
+      "rationale": "Batch.active exists and is returned on every response, so a client can collapse without deleting. The read-only enforcement is not implemented."
+    },
+    {
+      "id": "AC2.6.3",
+      "status": "Deferred",
+      "target": "app/db/models.py",
+      "rationale": "HiddenBatchPreference is a SEPARATE TABLE keyed on account_id, not a column on Enrollment -- a column would be read by every lens touching that row, so one viewer's hide would hide it from the guardian and the teacher. No route yet."
+    },
+    {
+      "id": "AC2.7.1",
+      "status": "Deferred",
+      "target": "app/api/batches.py",
+      "rationale": "The children list is returned; the selection step itself is a client navigation decision and no child-selection screen is built."
+    },
+    {
+      "id": "AC2.7.2",
+      "status": "Deferred",
+      "target": "app/authz/resolve.py",
+      "rationale": "Lens resolution fills child_enrollment_id with the first reachable seat, so a single-child guardian can go straight through. The navigation is the client's."
+    },
+    {
+      "id": "AC2.7.3",
+      "status": "Deferred",
+      "target": "app/schemas/batches.py",
+      "rationale": "GuardianChildResponse carries display_name and batch_name; teacher_display_name is on the schema and not yet populated from the batch."
+    },
+    {
+      "id": "AC2.7.4",
+      "status": "OK",
+      "target": "app/api/deps.py",
+      "rationale": "Switching child re-reads a path parameter rather than re-authenticating: the lens is resolved per request from the account, and the child never rides a client hint."
+    },
+    {
+      "id": "AC2.8.1",
+      "status": "OK",
+      "target": "tests/batches/test_guardian_reachability.py",
+      "rationale": "THE LEAK TEST. Two teachers, one child, one recorded guardian number: the guardian sees only the recording teacher's batch. The child-keyed rule passes the happy path and fails this."
+    },
+    {
+      "id": "AC2.8.2",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "rationale": "The children list is counted as DISTINCT children, not enrollments. One child in two batches with one guardian number returns 2 enrollments and 1 child."
+    },
+    {
+      "id": "AC2.8.3",
+      "status": "Deferred",
+      "target": "app/schemas/batches.py",
+      "rationale": "batch_name travels on every child row, so attribution does not depend on reaching the selection list. teacher_display_name is declared and not yet populated."
+    },
+    {
+      "id": "AC2.8.4",
+      "status": "Deferred",
+      "target": "android/src/main/res/values/strings.xml",
+      "rationale": "The masked-number statement is not built. Both language bundles carry the attribution string it would pair with."
+    },
+    {
+      "id": "AC2.8.5",
+      "status": "Deferred",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/roster/RosterUiState.kt",
+      "rationale": "The single-child case is where attribution is MOST needed, since the selection list cannot reach it. The empty and loaded states are distinct and tested; the attribution line itself depends on AC2.8.3 and AC2.8.4."
+    },
+    {
+      "id": "AC2.8.6",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/roster/RosterStateMapper.kt",
+      "rationale": "An empty result is its OWN state, not a success with no rows: a blank list explains neither. The guardian variant of the string exists in both bundles."
     }
   ]
 }
