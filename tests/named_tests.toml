@@ -195,3 +195,39 @@ id = "test_config_scope_is_exactly_the_money_module"
 file = "tests/gates/test_import_gates.py"
 criterion = "Gate 2's exception resolves to exactly app/money/**, never a parent"
 rule = "NFR9.29"
+
+[[test]]
+id = "test_late_payment_against_a_carried_period"
+file = "tests/money/test_ledger.py"
+criterion = "A 400 payment for March recorded after March was carried into April leaves 1600 owed, not 2000. Summing per-period floors discarded the 400 entirely"
+rule = "BR4.4"
+
+[[test]]
+id = "test_waiver_exceeding_a_period_does_not_offset_another"
+file = "tests/money/test_ledger.py"
+criterion = "March paid AND waived in full leaves 1000 phantom relief that must NOT cancel April's genuine unpaid charge; total stays 1000"
+rule = "BR4.4"
+
+[[test]]
+id = "test_overpaid_cash_reduces_the_enrollment"
+file = "tests/money/test_ledger.py"
+criterion = "Overpaying March by 500 cash reduces the enrollment to 500, because cash is real wherever it lands, unlike a waiver"
+rule = "BR4.4"
+
+[[test]]
+id = "test_over_carry_refused"
+file = "tests/money/test_ledger.py"
+criterion = "Carrying 1000 out of a period owing 600 raises, mirroring apply_credit's min(available, owed) rather than trusting the caller"
+rule = "BR4.6"
+
+[[test]]
+id = "test_negative_zero_rate"
+file = "tests/money/test_uncovered_paths.py"
+criterion = "A rate of Decimal('-0') yields '0.00', not '-0.00' — which passed every sign guard and would have been emitted on the wire"
+rule = "BR5.7"
+
+[[test]]
+id = "test_dynamic_decimal_import_is_caught"
+file = "tests/gates/test_import_gates.py"
+criterion = "importlib.import_module('decimal') is caught by Gate 2's AST walk; the real Ruff config passes it because there is no import statement"
+rule = "BR6.2"
