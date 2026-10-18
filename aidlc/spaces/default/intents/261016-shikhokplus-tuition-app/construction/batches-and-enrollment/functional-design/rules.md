@@ -538,11 +538,27 @@ rules:
       cleared BR4.1 and the privacy boundary on real rows; this branch
       was the one it could not reach.
 
-      **Scope.** The correction is a migration adding
-      `guardian_account_id` plus a rewrite of `_LENS_QUERY`'s third
-      subquery and `available_lenses`. U3's existing guardian tests
-      change with it. That is in scope for this Unit because U4 is
-      where guardian data first exists.
+      **Scope, enumerated against the built tree rather than
+      estimated.** The correction is one migration plus five code
+      sites:
+
+      | Site | Change |
+      |---|---|
+      | `migrations/` | `account_id`/`role` become `student_account_id` + `guardian_account_id`; add the catalogue's other columns |
+      | `app/db/models.py:351` | the `Enrollment` model, and its `ix_enrollment_account_id` index |
+      | `app/authz/resolve.py:61` | the student `EXISTS` subquery |
+      | `app/authz/resolve.py:65` | the guardian subquery — the actual correction, not just a rename |
+      | `tests/authz/test_resolve.py:63` | the `_enroll` helper |
+      | `tests/privacy/test_profile_probes.py:54` | one fixture |
+
+      Nothing else in the built tree references either column —
+      searched rather than assumed. The rename and the guardian-model
+      correction are **the same migration**, which is why they are
+      recorded as one piece of work: doing the rename alone would
+      leave the lens query reading a column that no longer exists.
+
+      That is in scope for this Unit because U4 is where guardian data
+      first exists.
     source: [AC2.7.1, AC2.7.3, AC2.8.2, U3 BR1.1, U3 BR6.1]
 
   - id: BR5.3
