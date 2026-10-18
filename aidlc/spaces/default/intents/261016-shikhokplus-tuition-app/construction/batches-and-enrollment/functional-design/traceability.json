@@ -81,8 +81,8 @@
     {
       "id": "AC1.3.6",
       "status": "OK",
-      "target": "BR6.2 \u2014 entities.md Enrollment",
-      "rationale": "claimed_at and deleted_at are SEPARATE columns, because one nullable timestamp cannot distinguish a mistyped number from a person who left, and the remedies are opposite."
+      "target": "BR6.2 \u2014 rules.md, entities.md Enrollment",
+      "rationale": "never-claimed vs claimed-then-erased, expressed as student_account_id IS NULL plus relink_blocked_at. An earlier draft invented a deleted_at tombstone; the real mechanism is anonymize-in-place -- U11 NULLs the account links and the row reverts to dormant."
     },
     {
       "id": "AC2.1.1",
@@ -130,7 +130,7 @@
       "id": "AC2.2.5",
       "status": "OK",
       "target": "functional-design/rules.md BR3.1",
-      "rationale": "fee_override NULLABLE: null inherits, zero is a real waiver. A NOT NULL column defaulting to 0 makes those indistinguishable."
+      "rationale": "fee_amount NULLABLE: null inherits, zero is a real waiver. A NOT NULL column defaulting to 0 makes those indistinguishable. Column named per the upstream catalogue."
     },
     {
       "id": "AC2.3.1",
@@ -362,6 +362,11 @@
       "id": "money-gate-false-positive",
       "status": "N/A",
       "target": "rules.md BR3.3 -- found by working U4's columns against the gate rather than assuming it fit. With batch applied, tests/db/test_governance.py reports exactly one offender: batch.fee_due_day, an INTEGER by design matching both 'fee' and 'due'. The obvious fix -- dropping a token -- would silently stop checking every genuine fee column in U7 and U8 while the gate stayed green. A per-column allowlist keeps the tokens intact. The residual gap is recorded: a money column named 'tuition' or 'discount' matches no token and is missed by the name check entirely."
+    },
+    {
+      "id": "entity-drift-from-catalogue",
+      "status": "N/A",
+      "target": "entities.md -- review Critical plus a mechanical check of all six entities against inception/domain-design/components.md. The reviewer caught Enrollment; the diff found Owner and Batch too. Invented: subscription_plan/subscription_status (really kind/state/plan/plan_valid_to), is_active (really active), fee_override (fee_amount), account_id (student_account_id), deleted_at on Enrollment (no such column). Dropped: relink_blocked_at, guardian_phone, joined_on, teacher_display_name, collection_number, collection_channel, marksheet_visible. relink_blocked_at is the serious one -- it is a privacy mechanism checked on U4's OWN add-student path, and without it an erased student's returning number silently reattaches to their erased history. All six entities now match the catalogue exactly, verified by diff rather than by reading."
     }
   ]
 }

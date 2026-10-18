@@ -12,7 +12,7 @@
 > Three entities carry a property in their shape rather than in the code
 > that touches them, following B3's pattern: an `Owner` indirection that
 > makes a subscription transferable, a `display_name` whose *table*
-> answers the privacy question, and a `fee_override` that is nullable so
+> answers the privacy question, and a `fee_amount` that is nullable so
 > absence means inherit rather than zero.
 
 ## Sources
@@ -40,57 +40,65 @@ entities:
 
   - name: Owner
     identifier: id
-    attributes: [id, account_id, subscription_plan, subscription_status, created_at]
+    attributes: [id, kind, account_id, state, plan, plan_valid_to, deleted_at]
     ownership: U4 owns behaviour; U3 created the table
     description: >
       A teacher's ownership of batches, and the anchor a subscription
       attaches to. Read by lens resolution since U3; written here first.
     constraints:
       - "THE INDIRECTION IS THE POINT [AC2.1.3]. A batch belongs to an Owner, never directly to an Account. Ownership can then transfer, and a subscription has something to attach to that is not a person's identity."
-      - subscription_plan and subscription_status are the ONLY fields a platform administrator may ever read [TC-14, D-6]. Nothing here identifies a student, a guardian or a child.
+      - "ATTRIBUTES ARE THE UPSTREAM CATALOGUE'S [components.md]. An earlier draft invented `subscription_plan`, `subscription_status` and `created_at`; the real columns are `kind`, `state`, `plan` and `plan_valid_to`. Note Owner DOES carry a `deleted_at` -- it is Enrollment that does not."
+      - "`state`, `plan` and `plan_valid_to` are the ONLY fields a platform administrator may ever read [TC-14, D-6]. Nothing here identifies a student, a guardian or a child."
       - One Owner per Account in V1. The column is not unique-constrained, because a second Owner is how a future handover would work and a constraint would have to be dropped under data.
 
   - name: Enrollment
     identifier: id
-    attributes: [id, batch_id, account_id, role, display_name, guardian_account_id, fee_override, inactive_from, claimed_at, deleted_at, created_at]
+    attributes: [id, batch_id, student_account_id, guardian_account_id, display_name, guardian_phone, fee_amount, joined_on, inactive_from, relink_blocked_at, created_at]
     ownership: U4 owns behaviour; U3 created the table
     description: >
-      A student's place in a batch, the teacher-typed display name, and
-      the per-enrollment fee the fee cycle charges against.
+      A student's place in a batch, the teacher-typed display name and
+      guardian contact, and the per-enrollment fee the fee cycle
+      charges against.
     constraints:
-      - "display_name is TEACHER-typed and belongs to the ENROLLMENT, not the account [AC2.2.2]. The same person in two batches has two display names, and editing one does not touch the other or their Profile [AC2.3.2]."
-      - "fee_override is NULLABLE, and null means INHERIT the batch default [AC2.2.5]. Zero is a real fee of zero, which is a waiver and not an absence. A non-nullable column defaulting to 0 would make those indistinguishable and silently charge nothing."
+      - "THE ATTRIBUTE LIST IS THE UPSTREAM CATALOGUE'S, VERBATIM [components.md]. An earlier draft of this document invented `account_id`, `fee_override`, `role` and `deleted_at`, and omitted `guardian_phone`, `joined_on` and `relink_blocked_at`. The Governance disposition manifest is written against the catalogue's column NAMES, so a divergence here makes U11's per-column dispositions unmappable onto the real schema."
+      - "relink_blocked_at IS A PRIVACY MECHANISM, NOT BOOKKEEPING, and it is checked on U4's OWN add-student path. A phone number resolves to an account on first authentication, so without it an erased student whose number returns is silently reattached to their own erased history -- defeating the erasure invisibly. Dormant-enrollment resolution SKIPS any row carrying it; the teacher may enroll that number again, which creates a NEW enrollment with no link to the old."
+      - "display_name and guardian_phone are TEACHER-typed and belong to the ENROLLMENT, not the account [AC2.2.2, ADR-003, FR2.6]. Both SURVIVE deletion of the person's account, because the teacher wrote them and they are the teacher's own contact record. The same person in two batches has two display names, and editing one does not touch the other or their Profile [AC2.3.2]."
+      - "fee_amount is NULLABLE, and null means INHERIT the batch default [AC2.2.5]. Zero is a real fee of zero, which is a waiver and not an absence. A non-nullable column defaulting to 0 would make those indistinguishable and silently charge nothing."
       - "inactive_from is a DATE, not a timestamp, and its semantics are the subtlest thing in this Unit [AC2.4.1]: no cycle generates for a period beginning STRICTLY AFTER it, while the period CONTAINING it still generates in full."
-      - "claimed_at distinguishes NEVER CLAIMED from CLAIMED AND THEN DELETED [AC1.3.6]. The first may be a mistyped number; the second is a person who left. One nullable timestamp cannot carry both, which is why deleted_at is separate."
+      - "THERE IS NO deleted_at AND NO TOMBSTONE. Deletion is anonymize-in-place: student_account_id or guardian_account_id is set to NULL and the enrollment reverts to DORMANT [FR11.1]. `student_account_id IS NULL` therefore means dormant, and relink_blocked_at distinguishes NEVER-CLAIMED (null) from CLAIMED-THEN-ERASED (set) [AC1.3.6]."
       - guardian_account_id is PER ENROLLMENT [FR2.3]. One child may have different guardians recorded by different teachers, and a guardian of one enrollment is not thereby a guardian of another.
-      - "The teacher-facing key is enrollment_id, NEVER account_id [ADR-001]. Asserted schema-wide by U2's privacy gate, which already runs."
+      - "The teacher-facing key is enrollment_id, NEVER a student account id [ADR-001]. Asserted schema-wide by U2's privacy gate, which already runs."
+      - "U3's shell declared `account_id` and `role`. Reconciling those to `student_account_id` plus `guardian_account_id` is part of this Unit's migration, alongside BR5.0's lens-query correction -- the two are the same change."
 
   # ---- Owned by this Unit ----
 
   - name: Batch
     identifier: id
-    attributes: [id, owner_id, name, default_monthly_fee, fee_due_day, is_active, created_at]
+    attributes: [id, owner_id, name, teacher_display_name, collection_number, collection_channel, default_fee, fee_due_day, marksheet_visible, active, created_at]
     description: >
       A teacher's class. Carries the fee defaults every enrollment
       inherits unless it overrides them.
     constraints:
       - "owner_id, never account_id. The indirection AC2.1.3 requires."
-      - "default_monthly_fee is NUMERIC(12,2) through U1's TypeDecorator [TC-7, D-20]. The money-column assertion B3 armed will now have something real to check — it was vacuous on U3."
-      - "fee_due_day is an INTEGER 1-31 with a CHECK constraint. 29, 30 and 31 are legal and clamp to the month's last day at generation time [AC2.1.2]; the clamp is U7's arithmetic, but the column must admit the value or the clamp never gets to run."
-      - is_active drives the read-only collapsed state [AC2.6.2]. History stays reachable; nothing is deleted.
+      - "ATTRIBUTES ARE THE UPSTREAM CATALOGUE'S [components.md]. An earlier draft said `is_active` and dropped five real columns: `teacher_display_name`, `collection_number`, `collection_channel` and `marksheet_visible`. The last is U6's toggle and the two collection fields are U8's payment destination -- U4 creates the columns, later Units give them behaviour, exactly as U3 did for this table's shells."
+      - "default_fee is a Money value: NUMERIC(12,2), never a float and never a bare Numeric [TC-7, D-20]. The money-column assertion B3 armed will now have something real to check — it was vacuous on U3."
+      - "`collection_number` is a TEACHER-TYPED PAYMENT DESTINATION, NOT MONEY [components.md]. It must not acquire a money type, and `collection_channel` names which service it belongs to."
+      - "fee_due_day is an INTEGER 1-31 with a CHECK constraint. 29, 30 and 31 are legal and clamp to the month's last day at generation time [AC2.1.2]; the clamp is U7's arithmetic, but the column must admit the value or the clamp never gets to run. BR3.3 allowlists it against the money gate, whose name tokens it matches."
+      - "`active` drives the read-only collapsed state [AC2.6.2]. History stays reachable; nothing is deleted.
 
   - name: BatchSubject
     identifier: id
-    attributes: [id, batch_id, name, created_at]
+    attributes: [id, batch_id, name]
     description: >
       One subject taught in a batch. A row rather than a column because
       a batch has one or more [AC2.1.1].
     constraints:
       - A separate table rather than an array column, because U6 attaches exams to a subject and needs a key to reference.
+      - "No created_at, matching the catalogue. It carries one on Batch and Enrollment and deliberately omits it here, so adding one would be invention rather than completeness."
 
   - name: ScheduleSlot
     identifier: id
-    attributes: [id, batch_id, weekday, start_time, end_time, created_at]
+    attributes: [id, batch_id, weekday, start_time, end_time]
     description: >
       One weekly recurring slot. U5 generates session instances from
       these; this Unit only records them.
@@ -99,7 +107,7 @@ entities:
       - "start_time and end_time are TIME, not timestamps. A weekly recurrence has no date; the date arrives when U5 instantiates it."
       - "No timezone column. Bangladesh is a single zone and a column nobody sets is a column that eventually holds something wrong."
 
-  - name: BatchVisibilityPreference
+  - name: HiddenBatchPreference
     identifier: id
     attributes: [id, account_id, batch_id, hidden_at]
     description: >
@@ -141,9 +149,9 @@ reports one failure and stops.
 | Entity | The shape | What it prevents |
 |---|---|---|
 | `Owner` | An indirection, not an account id | A subscription anchored to a person who cannot hand the batch over |
-| `Enrollment.fee_override` | Nullable | Zero (a waiver) reading as absent (inherit) |
+| `Enrollment.fee_amount` | Nullable | Zero (a waiver) reading as absent (inherit) |
 | `Enrollment.display_name` | On the enrollment | A teacher's edit reaching the student's own profile |
-| `BatchVisibilityPreference` | A table, not a column | One viewer's hide affecting every other viewer |
+| `HiddenBatchPreference` | A table, not a column | One viewer's hide affecting every other viewer |
 | `ScheduleSlot.weekday` | Integer + CHECK | Three spellings of Monday |
 
 And one in an **absence**: there is still **no role column** anywhere.

@@ -61,7 +61,7 @@ data-dependency design.
    `ScheduleSlot` rows, in one transaction.
 4. Return the batch with its subjects and slots.
 
-> **`default_monthly_fee` is the first real money column in the
+> **`default_fee` is the first real money column in the
 > schema.** B3's type-and-precision assertion was vacuously true there;
 > here it has something to check [BR3.2].
 
@@ -77,7 +77,7 @@ data-dependency design.
    enrollment** — recording a guardian here does not make them a
    guardian of any other enrollment.
 4. Insert the `Enrollment` with the teacher-typed `display_name`, the
-   optional `fee_override` (null means inherit [BR3.1]), and
+   optional `fee_amount` (null means inherit [BR3.1]), and
    `claimed_at` null.
 5. **Send nothing** [BR6.3]. No invitation, no notification.
 
@@ -89,7 +89,7 @@ data-dependency design.
 ### 2.3 Edit an enrollment — `PATCH .../enrollments/{id}`
 
 1. Scope by `owner_id`.
-2. `display_name`, `fee_override`, `guardian_account_id` and
+2. `display_name`, `fee_amount`, `guardian_account_id` and
    `inactive_from` are editable. **`Profile` is never read or written**
    [BR2.1].
 3. An edit changes **exactly one row** [BR4.3].
@@ -139,7 +139,7 @@ Setting `inactive_from` must satisfy all three independently [BR4.1–BR4.3]:
 
 1. Resolve the student lens; reachable batches are those with an
    `Enrollment` where this account is the **student**.
-2. Apply the viewer's `BatchVisibilityPreference` — hiding affects
+2. Apply the viewer's `HiddenBatchPreference` — hiding affects
    **this viewer only** [BR2.1 of entities, AC2.6.3].
 3. Inactive batches are returned but flagged read-only and collapsed
    [AC2.6.2]; history stays reachable.
@@ -209,8 +209,8 @@ Setting `inactive_from` must satisfy all three independently [BR4.1–BR4.3]:
 | Teacher's first batch | An `Owner` row is created | [BR1.1] |
 | Number already has an account | Enrollment attaches to it | [AC2.2.4] |
 | Same student, two batches | Two enrollments, independent names and fees | [BR2.2] |
-| `fee_override` set to 0 | Charges zero — a waiver, not an inherit | [BR3.1] |
-| `fee_override` null | Inherits the batch default | [BR3.1] |
+| `fee_amount` set to 0 | Charges zero — a waiver, not an inherit | [BR3.1] |
+| `fee_amount` null | Inherits the batch default | [BR3.1] |
 | `fee_due_day` 31 in February | Clamps at generation — U7's arithmetic | [AC2.1.2] |
 | Inactive from the 10th | That month charges **in full** | [AC2.4.5] |
 | Inactive, with unpaid dues | Dues stand unchanged | [BR4.2] |
@@ -228,7 +228,7 @@ Setting `inactive_from` must satisfy all three independently [BR4.1–BR4.3]:
 - **No sessions or attendance** — U5's.
 - **No exams or marks** — U6's.
 - **No fee cycles or ledger** — U7's. This Unit records the **anchor**
-  (`fee_override`, `default_monthly_fee`, `fee_due_day`, `inactive_from`)
+  (`fee_amount`, `default_fee`, `fee_due_day`, `inactive_from`)
   that U7 charges against; it computes nothing.
 - **No deletion of accounts** — U11's.
 - **No admin surface** — there is none at this budget.

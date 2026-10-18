@@ -140,15 +140,15 @@ rules:
 
   - id: BR3.1
     statement: >
-      fee_override is nullable. NULL means inherit the batch default;
+      fee_amount is nullable. NULL means inherit the batch default;
       zero means a fee of zero.
     category: constraint
     applies_to: Enrollment
     trigger: Fee resolution for any period
     logic: >
-      IF enrollment.fee_override IS NULL
-      THEN charge batch.default_monthly_fee
-      ELSE charge enrollment.fee_override, including when it is zero.
+      IF enrollment.fee_amount IS NULL
+      THEN charge batch.default_fee
+      ELSE charge enrollment.fee_amount, including when it is zero.
     violation_behaviour: >
       A NOT NULL column defaulting to 0, which makes "inherit" and
       "waived" the same value and silently charges nothing.
@@ -622,36 +622,47 @@ rules:
 
   - id: BR6.2
     statement: >
-      Never-claimed is distinguishable from claimed-and-then-deleted.
+      Never-claimed is distinguishable from claimed-then-erased, using
+      `student_account_id IS NULL` plus `relink_blocked_at`. There is
+      no `deleted_at` column and no tombstone.
     category: constraint
     applies_to: Enrollment
-    trigger: Any roster or detail read
+    trigger: Any roster read, and every dormant-enrollment resolution
     logic: >
-      IF claimed_at IS NULL AND deleted_at IS NULL THEN never claimed
-      ELSE IF claimed_at IS NOT NULL AND deleted_at IS NOT NULL THEN
-      claimed and later deleted.
+      IF student_account_id IS NULL AND relink_blocked_at IS NULL
+      THEN never claimed -- a number a teacher recorded that nobody has
+      signed in with
+      ELSE IF student_account_id IS NULL AND relink_blocked_at IS NOT
+      NULL
+      THEN claimed and later erased
+      ELSE claimed and active.
     violation_behaviour: >
-      One nullable timestamp carrying both meanings.
+      Inventing a `deleted_at` tombstone, which an earlier draft of
+      this document did. Deletion is **anonymize-in-place**: U11 sets
+      `student_account_id` or `guardian_account_id` to NULL and the
+      enrollment reverts to dormant. A tombstone column describes a
+      mechanism the project does not use, and nothing would ever set
+      it.
     rationale: >
-      The first is probably a mistyped number the teacher should fix;
-      the second is a person who left. The remedies are opposite.
+      **`relink_blocked_at` is a privacy mechanism and it is checked on
+      U4'S OWN add-student path**, which is why getting this wrong here
+      would have mattered rather than merely read oddly.
 
-      **U4 WRITES NEITHER TRANSITION, and an earlier version of this
-      rule did not say so.** Review asked what sets `deleted_at`, since
-      BR6.1's only removal is a hard DELETE gated on `claimed_at IS
-      NULL` — so no U4 operation can produce a claimed-then-deleted
-      row. Re-reading AC1.3.6, it cites **FR11.1**: "deleted" there
-      means the PERSON deleted their account, which is U11's path, not
-      a teacher removing an enrollment.
+      A phone number resolves to an account on first authentication.
+      Without the marker, an erased student whose number returns is
+      **silently reattached to their own erased history** — which
+      defeats the erasure and does so invisibly. Dormant-enrollment
+      resolution therefore SKIPS any row carrying it. The teacher may
+      enroll that number again; that creates a NEW enrollment with no
+      link to the old one. What cannot happen is the old record
+      quietly coming back.
 
-      So U4 owns the COLUMN and the READ semantics — a roster must
-      render the two states differently — while U11 owns the write.
-      That is recorded here because a column nothing in this Unit sets
-      otherwise reads as dead, and the next author deletes it.
+      The distinction AC1.3.6 asks for still holds, and the remedies
+      are still opposite: never-claimed is probably a mistyped number
+      the teacher should correct, claimed-then-erased is a person who
+      exercised a deletion right and must not be re-linked.
 
-      `claimed_at` IS written here: the verify path sets it when a
-      dormant enrollment's number first signs in.
-    source: [AC1.3.6, FR1.8, FR11.1]
+      **U4 READS this column on every add-student; U11 WRITES it.**
 
   - id: BR6.3
     statement: >
