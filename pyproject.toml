@@ -14,6 +14,10 @@ api = [
     "psycopg[binary]>=3.2",
     "pyjwt>=2.9",
     "httpx>=0.27",
+    # The ASGI server. Absent until B5a because nothing had ever RUN the
+    # app -- every test drove it through TestClient, which is exactly why
+    # the device leg stayed unverified for two Bolts.
+    "uvicorn[standard]>=0.30",
 ]
 dev = [
     "pytest>=8.3",
