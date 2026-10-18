@@ -49,8 +49,24 @@ rules:
       without rewriting every batch row.
 
       U3 created this table EMPTY and a test asserted it never wrote it
-      [U3 BR6.1]. That test must now be **narrowed to U3's own modules**
-      rather than deleted, or U4's legitimate writes will fail it.
+      [U3 BR6.1]. That test must now be **narrowed rather than
+      deleted** — deleting it retires the only check that U3 stays
+      inside its boundary.
+
+      **The narrowing is by an EXPLICIT module list, not by inference.**
+      Checked against the built tree: scoping it to "U3's packages"
+      leaves `app/db/models.py` ambiguous, because U3 created that file
+      and U4 extends it with new columns — and it is precisely where a
+      stray write would land. The list names
+      `app/auth/**`, `app/authz/**`, `app/audit/**` and
+      `app/db/{base,models,roles,session}.py`, so adding a U4 module
+      does not silently widen what the test permits.
+
+      Two other U3 tests were checked and do **not** break:
+      `test_the_two_shells_exist_and_are_empty` passes because the
+      suite truncates between tests, and
+      `test_no_application_module_imports_the_seed_script` becomes moot
+      when the script is deleted in this Bolt.
     source: [AC2.1.3, FR2.2]
 
   - id: BR1.2
@@ -143,26 +159,83 @@ rules:
 
   - id: BR3.2
     statement: >
-      Every money column this Unit creates is NUMERIC(12,2) through
-      U1's TypeDecorator, never a float and never an unconstrained
-      numeric.
+      Every money column this Unit creates is NUMERIC(12,2), asserted
+      against the MIGRATED SCHEMA. U4 also BUILDS the SQLAlchemy
+      TypeDecorator `team.md` specifies, which does not yet exist.
     category: constraint
-    applies_to: The migration
+    applies_to: The migration and app.money
     trigger: Any money column
     logic: >
       IF a column carries money
-      THEN it is declared through app.money's TypeDecorator.
+      THEN its declared type in information_schema is
+      numeric(12,2)
+      AND the ORM maps it through app.money's TypeDecorator.
     violation_behaviour: >
-      A hand-written migration declaring `numeric` without precision.
+      A hand-written migration declaring `numeric` without precision,
+      or a `Float`. Caught by the schema assertion regardless of how
+      the column was created — which is the property that matters,
+      since a TypeDecorator can be bypassed by raw SQL.
     rationale: >
-      **B3 armed this assertion and it was VACUOUS there**, because U3
-      carries no money. U4 is the first Unit with a real money column,
-      so the test stops being a statement of intent and starts
-      checking something. That transition is worth naming: a gate
-      nobody has seen fail is a gate nobody has seen work.
-    source: [NFR9.32, TC-7, D-20, project.md NEVER]
+      **An earlier version of this rule named the TypeDecorator as the
+      enforcing mechanism. It does not exist** — `app/money/` exposes
+      `Money`, the ledger and the rounding mode, and no SQLAlchemy
+      type. `team.md` describes one as a design intent; B1 never built
+      it, correctly, because B1 had no tables to map.
+
+      So the rule now says what is true: **the schema assertion is the
+      enforcement** (`tests/db/test_governance.py`, which reads
+      `information_schema.columns` and is independent of any ORM), and
+      the TypeDecorator is a DELIVERABLE of this Unit rather than a
+      mechanism it can lean on.
+
+      Both are wanted and they catch different things. The decorator
+      stops a `Float` reaching the ORM at author time; the schema
+      assertion catches a raw-SQL migration that never touches the ORM
+      at all. Naming the decorator as the enforcement while it did not
+      exist is exactly the overstatement the B3 reviews caught twice.
+
+      **B3 armed the schema assertion and it was VACUOUS there**,
+      because U3 carries no money. U4 has the first real money column,
+      so the gate stops being a statement of intent.
+    source: [NFR9.32, TC-7, D-20, project.md NEVER, team.md Code Style]
 
   # ---- BR4.x - inactive_from, which fails quietly ----
+
+  - id: BR4.0
+    statement: >
+      A period is a CALENDAR MONTH. It starts on the 1st and ends on
+      the last day of that month. `fee_due_day` sets only the DUE DATE
+      within a period; it never moves a period boundary.
+    category: calculation
+    applies_to: Every period computation in this Unit and U7
+    trigger: Any period boundary question
+    logic: >
+      period(2026, 3).start = 2026-03-01
+      period(2026, 3).end   = 2026-03-31
+      period(2026, 3).due   = min(fee_due_day, days_in(2026, 3))
+    violation_behaviour: >
+      Treating `fee_due_day` as the period boundary — a batch with
+      due day 10 having periods that run the 10th to the 9th. Every
+      batch would then have its own calendar, two enrollments of one
+      student in different batches would sit in different periods, and
+      "this month's dues" would stop being answerable across batches.
+    rationale: >
+      **Nothing upstream defines this, which review found.** Searched:
+      `domain-design/decisions.md` does not define a period start, and
+      `fee_due_day` is a per-BATCH column — so with per-batch due days
+      the boundary was genuinely ambiguous, and BR4.1 compares against
+      something that had no definition.
+
+      Settled as the calendar month because that is what makes the
+      clamp rule coherent: AC2.1.2 says a due day of 29–31 clamps to
+      "that month's last day", which presupposes the period IS the
+      month. A period running the 10th to the 9th has no "month's last
+      day" to clamp to.
+
+      Recorded as its own rule rather than a clause of BR4.1, because
+      U7 needs it for every period computation and not only for
+      `inactive_from`.
+    source: [AC2.1.2, AC2.4.1, FR5.2, bolt-plan B6]
 
   - id: BR4.1
     statement: >
@@ -270,17 +343,21 @@ rules:
       **This settles OQ-7**, which the contract stage left open for
       this Unit with the guardian screens in view.
 
-      Three reasons the path parameter wins, and the cost is real:
+      Two reasons the path parameter wins, and the cost is real.
 
-      1. **It is loggable and testable per request.** A header that
-         selects a child is invisible in a route table, so the
-         route-enumeration gate cannot see which routes are
-         child-scoped.
-      2. **The hint is non-authoritative by construction.** Putting a
+      **A third was removed as overstated**, which review caught: it
+      claimed a header is "invisible to the route-enumeration gate".
+      Checked — `app/contract/routes.py` matches on
+      `(method, route.path)` and asserts a lens dependency resolves.
+      It never inspects where an identifier travels, so the gate sees
+      neither shape and the argument was false. The two below stand on
+      their own.
+
+      1. **The hint is non-authoritative by construction.** Putting a
          privacy decision in it would require trusting a field D-2
          forbids trusting, or re-validating it anyway — in which case
          the path parameter is the same work, visible.
-      3. **Back-stack correctness is a privacy case** [AC9.4.2]. A URL
+      2. **Back-stack correctness is a privacy case** [AC9.4.2]. A URL
          that names the child makes a stale back-stack entry wrong in a
          way the server can refuse; a header makes it silently serve
          the newly selected child's data under the old screen.
@@ -365,6 +442,55 @@ rules:
       the two decisions can be changed independently.
     source: [AC2.2.3, AC2.7.1, AC2.8.2, ADR-001]
 
+  - id: BR5.0
+    statement: >
+      A guardian is recorded as `Enrollment.guardian_account_id` on the
+      CHILD's row. U3's lens query, which resolves a guardian lens from
+      a separate `role='guardian'` enrollment, is CORRECTED here.
+    category: constraint
+    applies_to: The Enrollment schema and U3's lens resolution
+    trigger: Guardian lens resolution
+    logic: >
+      IF an account is a guardian
+      THEN the evidence is one or more CHILD enrollments whose
+      guardian_account_id is that account
+      ELSE no guardian lens.
+    violation_behaviour: >
+      Keeping U3's shape, where a guardian holds their own enrollment
+      row with role='guardian'.
+    rationale: >
+      **This corrects already-built code, and the reason is worth
+      stating because the built version is not obviously wrong.**
+
+      U3 shipped
+      `SELECT id FROM enrollment WHERE account_id = :account AND
+      role = 'guardian' ORDER BY created_at, id LIMIT 1`,
+      which models a guardian as *their own* enrollment row. Both
+      shapes satisfy the no-leak criterion — worked against AC2.8.1,
+      neither leaks teacher B's batch to a guardian signed in under
+      teacher A's number.
+
+      **They diverge on "which child".** A guardian's own enrollment
+      row names a BATCH and not a student, so with two students in one
+      batch it cannot say which child it refers to. That is ambiguous
+      for AC2.7.1 (the selection list), AC2.7.3 (each child shows its
+      display name) and AC2.8.2 (the child appears once). A column on
+      the child's row is unambiguous by construction.
+
+      **Why U3 could not have caught this.** It created `Enrollment` as
+      an empty shell it was forbidden to write [U3 BR6.1], so the
+      guardian branch of its lens query had no data to resolve against
+      and no test could distinguish the two shapes. The B3 review
+      cleared BR4.1 and the privacy boundary on real rows; this branch
+      was the one it could not reach.
+
+      **Scope.** The correction is a migration adding
+      `guardian_account_id` plus a rewrite of `_LENS_QUERY`'s third
+      subquery and `available_lenses`. U3's existing guardian tests
+      change with it. That is in scope for this Unit because U4 is
+      where guardian data first exists.
+    source: [AC2.7.1, AC2.7.3, AC2.8.2, U3 BR1.1, U3 BR6.1]
+
   - id: BR5.3
     statement: >
       A guardian signing in with one number sees only the enrollments
@@ -410,10 +536,26 @@ rules:
       well as the child's data.
     rationale: >
       The check must consult tables U5, U6 and U7 own and this Unit
-      does not. At B5 those tables do not exist yet, so the check is
-      written against the tables that DO exist and extended as each
-      arrives — with the extension recorded as an obligation on each
-      later Unit rather than left to be remembered.
+      does not. At B5 those tables do not exist yet, so it is written
+      against what exists and extended as each arrives.
+
+      **An obligation written in prose across three future Bolts is
+      the kind of thing that gets forgotten**, so it is not left as
+      one. The check is driven by a declared registry —
+      `HISTORY_TABLES` in `app/enrollment/removal.py` — and a test
+      asserts that **every table carrying an `enrollment_id` foreign
+      key in the migrated schema appears in it**.
+
+      That inverts the failure: a later Unit adding `attendance` with
+      an `enrollment_id` column makes U4's test go red on the commit
+      that adds the table, naming the omission. Nobody has to read this
+      file for the obligation to be honoured, which is the only version
+      of a cross-Bolt obligation worth writing.
+
+      The registry starts empty at B5 and the test passes trivially —
+      a vacuous pass, exactly like B3's money-column assertion, and
+      recorded as such so the first real failure is understood as the
+      gate working rather than breaking.
     source: [AC2.5.1, AC2.5.2, FR2.12]
 
   - id: BR6.2
@@ -431,7 +573,23 @@ rules:
     rationale: >
       The first is probably a mistyped number the teacher should fix;
       the second is a person who left. The remedies are opposite.
-    source: [AC1.3.6, FR1.8]
+
+      **U4 WRITES NEITHER TRANSITION, and an earlier version of this
+      rule did not say so.** Review asked what sets `deleted_at`, since
+      BR6.1's only removal is a hard DELETE gated on `claimed_at IS
+      NULL` — so no U4 operation can produce a claimed-then-deleted
+      row. Re-reading AC1.3.6, it cites **FR11.1**: "deleted" there
+      means the PERSON deleted their account, which is U11's path, not
+      a teacher removing an enrollment.
+
+      So U4 owns the COLUMN and the READ semantics — a roster must
+      render the two states differently — while U11 owns the write.
+      That is recorded here because a column nothing in this Unit sets
+      otherwise reads as dead, and the next author deletes it.
+
+      `claimed_at` IS written here: the verify path sets it when a
+      dormant enrollment's number first signs in.
+    source: [AC1.3.6, FR1.8, FR11.1]
 
   - id: BR6.3
     statement: >
@@ -494,10 +652,12 @@ rules:
 | **BR2.1** | authorization | A teacher's edit never reaches the student's profile |
 | **BR2.2** | constraint | Two enrollments of one person stay independent |
 | **BR3.1** | constraint | Null fee means inherit; zero means waived |
-| **BR3.2** | constraint | Every money column is NUMERIC(12,2) — first real test |
+| **BR3.2** | constraint | NUMERIC(12,2) asserted on the schema; U4 **builds** the TypeDecorator |
+| **BR4.0** | calculation | A period is a **calendar month**; `fee_due_day` sets only the due date |
 | **BR4.1** | calculation | `inactive_from`: nothing after, containing period in full |
 | **BR4.2** | constraint | Existing dues stand |
 | **BR4.3** | constraint | One enrollment changes, not the student's others |
+| **BR5.0** | constraint | Guardian is a column on the child's row — **corrects U3's lens query** |
 | **BR5.1** | authorization | The child is a path parameter — **settles OQ-7** |
 | **BR5.2** | policy | Zero, one and many **children** — counted as children, not enrollments |
 | **BR5.4** | constraint | A route names an enrollment; the list names a child |

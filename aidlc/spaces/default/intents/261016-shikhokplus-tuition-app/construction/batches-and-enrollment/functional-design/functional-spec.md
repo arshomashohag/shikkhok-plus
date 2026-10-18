@@ -237,13 +237,29 @@ Setting `inactive_from` must satisfy all three independently [BR4.1–BR4.3]:
 
 ## 6. Obligations this Unit hands forward
 
-| Obligation | Owing Unit | Why it cannot be done here |
+| Obligation | Owing Unit | How it is enforced |
 |---|---|---|
-| Extend BR6.1's history check to attendance | U5 | The table does not exist yet |
-| Extend it to marks | U6 | Same |
-| Extend it to fee cycles | U7 | Same |
-| Apply `inactive_from` in generation | U7 | U4 records it; U7 reads it |
+| Extend BR6.1's history check to attendance | U5 | **Mechanically** — see below |
+| Extend it to marks | U6 | Mechanically |
+| Extend it to fee cycles | U7 | Mechanically |
+| Apply `inactive_from` in generation | U7 | U4's four named tests pin the semantics against a stub |
 | **Delete `app/db/seed_skeleton.py`** | U4 (here) | U4 can create a batch for real, so the B3 throwaway is obsolete |
+
+> **The first three are enforced, not remembered** [BR6.1]. A test
+> queries the migrated schema for every table carrying an
+> `enrollment_id` foreign key and asserts each appears in the
+> `HISTORY_TABLES` registry. Verified against a real container: with
+> the registry empty it passes today, and adding an `attendance` table
+> with that foreign key makes **U4's** test fail on the commit that
+> adds it, naming the table.
+>
+> That inversion is the point. An obligation written in prose across
+> three future Bolts is the kind that gets forgotten; this one fires
+> without anyone reading this file.
+>
+> It passes **vacuously** at B5 — the same shape as B3's money-column
+> assertion — and that is recorded so the first real failure reads as
+> the gate working rather than breaking.
 
 > The last one is this Bolt's own: B3's seed script existed only
 > because U3 could not create an `Owner` or `Enrollment` row. U4 can,

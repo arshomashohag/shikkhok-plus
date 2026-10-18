@@ -93,8 +93,8 @@
     {
       "id": "AC2.1.2",
       "status": "OK",
-      "target": "functional-design/rules.md BR3.2 / entities.md Batch",
-      "rationale": "fee_due_day admits 1-31 under a CHECK; the clamp itself is U7 arithmetic. The column must admit 31 or the clamp never runs."
+      "target": "BR4.0, BR3.2 \u2014 rules.md",
+      "rationale": "fee_due_day admits 1-31 under a CHECK and the clamp targets the month's last day. BR4.0 settles what nothing upstream defined: a period IS the calendar month, which is what makes 'that month's last day' meaningful at all."
     },
     {
       "id": "AC2.1.3",
@@ -207,7 +207,7 @@
     {
       "id": "AC2.7.1",
       "status": "OK",
-      "target": "BR5.2, BR5.4 \u2014 rules.md",
+      "target": "BR5.0, BR5.2, BR5.4 \u2014 rules.md",
       "rationale": "Two or more CHILDREN present the selection list -- children, not enrollments. The naive count conflates them."
     },
     {
@@ -219,8 +219,8 @@
     {
       "id": "AC2.7.3",
       "status": "OK",
-      "target": "BR5.2 \u2014 functional-spec.md \u00a72.7",
-      "rationale": "Each child shows display name and the recording teacher."
+      "target": "BR5.0, BR5.2 \u2014 rules.md",
+      "rationale": "Each child shows display name and recording teacher. Requires BR5.0: U3's shape resolves a guardian lens from the GUARDIAN's own row, which names a batch and not a student, so it cannot supply the child's display name at all."
     },
     {
       "id": "AC2.7.4",
@@ -237,7 +237,7 @@
     {
       "id": "AC2.8.2",
       "status": "OK",
-      "target": "BR5.3, BR5.2, BR5.4 \u2014 rules.md",
+      "target": "BR5.0, BR5.3, BR5.2, BR5.4 \u2014 rules.md",
       "rationale": "The child appears once. Found by working the cases: BR5.3 returns ENROLLMENTS, and AC2.2.3 permits the same student in two batches of ONE teacher, so an enrollment count shows that child twice. BR5.2 now counts DISTINCT CHILDREN and BR5.4 separates the two granularities."
     },
     {
@@ -332,6 +332,31 @@
       "id": "child-vs-enrollment-cardinality",
       "status": "N/A",
       "target": "rules.md BR5.4 -- found by working the four reachability cases rather than by reading the rule. AC2.2.3 permits the same student in two batches of ONE teacher; with one guardian number on both, counting enrollments returns 2 for one child, so the guardian sees a selection list naming the same child twice (violating AC2.8.2) and never reaches the straight-through path AC2.7.2 requires. Three granularities are in play -- child, enrollment, and BR5.1's enrollment_id route key -- and the naive implementation conflates the first two."
+    },
+    {
+      "id": "u3-lens-query-correction",
+      "status": "N/A",
+      "target": "rules.md BR5.0 -- review Critical, confirmed against app/authz/resolve.py. U3 resolves a guardian lens from a separate role='guardian' enrollment row; U4's design assumes a guardian_account_id column on the CHILD's row. Worked both models: neither leaks across teachers (AC2.8.1), but U3's shape cannot answer WHICH CHILD -- a guardian's own row names a batch, not a student, so with two students in one batch it is ambiguous for AC2.7.1, AC2.7.3 and AC2.8.2. U3 could not have caught this: it created Enrollment as an empty shell it was forbidden to write, so the guardian branch had no data to resolve against."
+    },
+    {
+      "id": "typedecorator-does-not-exist",
+      "status": "N/A",
+      "target": "rules.md BR3.2 -- review Major, confirmed. app/money exposes Money, the ledger and the rounding mode and no SQLAlchemy type. team.md describes a TypeDecorator as design intent; B1 correctly never built it, having no tables. The rule named it as the ENFORCING mechanism, which was the same overstatement the B3 reviews caught twice. The schema assertion is the enforcement; the decorator is now a U4 deliverable."
+    },
+    {
+      "id": "deleted-at-writer-is-u11",
+      "status": "N/A",
+      "target": "rules.md BR6.2 -- review Major. BR6.1's only removal is a hard DELETE gated on claimed_at IS NULL, so no U4 operation produces a claimed-then-deleted row. AC1.3.6 cites FR11.1: 'deleted' means the PERSON deleted their account, which is U11's path. U4 owns the column and the read semantics; U11 owns the write."
+    },
+    {
+      "id": "period-start-undefined-upstream",
+      "status": "N/A",
+      "target": "rules.md BR4.0 -- review Major. Searched domain-design/decisions.md: nothing defines a period's start, and fee_due_day is a per-BATCH column, so with per-batch due days the boundary was genuinely ambiguous. Settled as the calendar month because AC2.1.2's clamp to 'that month's last day' presupposes it."
+    },
+    {
+      "id": "route-gate-argument-removed",
+      "status": "N/A",
+      "target": "rules.md BR5.1 -- review Minor, confirmed against app/contract/routes.py: the gate matches on (method, route.path) and asserts a lens dependency resolves. It never inspects where an identifier travels, so the 'a header is invisible to the gate' argument was false and is removed. The other two reasons stand."
     }
   ]
 }
