@@ -37,6 +37,32 @@ error — removal is **refused**, not permitted.
 > database recovers; the cost of failing open is destroyed records that
 > no backup restores selectively.
 
+**The gate must distinguish two states that both mean "no history
+found", and that is the whole implementation:**
+
+| State | How it presents | Correct answer |
+|---|---|---|
+| Tables reachable, genuinely empty | `SELECT` returns 0 rows | delete is safe |
+| Tables unreachable | raises `SQLAlchemyError` | **refuse** |
+
+They *are* distinguishable — an exception is not an empty result — so
+the claim is achievable rather than aspirational. But the shape is
+forced:
+
+```python
+try:
+    has_history = any(_count(session, t) for t in HISTORY_TABLES)
+except SQLAlchemyError as error:
+    raise ConflictError(...) from error   # refuse; never "no history"
+```
+
+> **The failure mode is a swallowed exception** — `except: return
+> False` — which collapses "unreachable" into "empty" and deletes a
+> row carrying real history. That is the same shape as U3's audit-log
+> bug, where catching an error and carrying on destroyed the caller's
+> transaction. A test provokes a real error (revoking `SELECT`) and
+> asserts the removal is refused, rather than asserting on a mock.
+
 ### A.2 Dormant resolution fails closed
 
 If the relink markers cannot be read, the number does **not** attach to
