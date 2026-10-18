@@ -31,7 +31,42 @@ def create_app() -> FastAPI:
         ),
     )
     register_error_handler(app)
+    _publish_shared_components(app)
     return app
+
+
+def _publish_shared_components(app: FastAPI) -> None:
+    """Place the shared components in the generated document.
+
+    FastAPI emits a component only when some route references it, and this
+    Unit declares no routes. Without this, ``Money`` and the error envelope
+    would be **absent from the committed contract** -- so a regression in
+    the one definition every money property must reference, or in the
+    envelope every error response carries, would not appear in the diff
+    the reviewer reads. The gate would still pass, over nothing.
+
+    :param app: The application whose schema is being built
+    :return: None
+    """
+    from app.schemas.errors import ErrorEnvelope
+    from app.schemas.money import Money
+
+    document = app.openapi()
+    schemas = document.setdefault("components", {}).setdefault("schemas", {})
+    for model in (Money, ErrorEnvelope):
+        schemas.update(
+            model.model_json_schema(ref_template="#/components/schemas/{model}").pop(
+                "$defs", {}
+            )
+        )
+        schemas[model.__name__] = {
+            key: value
+            for key, value in model.model_json_schema(
+                ref_template="#/components/schemas/{model}"
+            ).items()
+            if key != "$defs"
+        }
+    app.openapi_schema = document
 
 
 app = create_app()

@@ -260,8 +260,7 @@ class TestGate3ErrorHandlerIsIOFree:
         try:
             imported = _imported_modules(probe)
             assert any(
-                module.startswith(HANDLER_FORBIDDEN_PREFIXES)
-                for module in imported
+                module.startswith(HANDLER_FORBIDDEN_PREFIXES) for module in imported
             ), "the gate examined nothing"
         finally:
             probe.unlink(missing_ok=True)

@@ -30,11 +30,7 @@ __all__ = ["TaxonomyClass", "status_for"]
 #: The closed union the handler must cover. A sixth class added to the
 #: taxonomy but not to this union fails ``status_for`` at type-check time.
 type TaxonomyClass = (
-    ValidationError
-    | AuthorizationError
-    | ConflictError
-    | TransientError
-    | FatalError
+    ValidationError | AuthorizationError | ConflictError | TransientError | FatalError
 )
 
 

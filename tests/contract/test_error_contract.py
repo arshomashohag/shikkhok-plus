@@ -173,9 +173,9 @@ def test_details_are_typed_and_optional() -> None:
     :return: None
     """
     assert _body(ValidationError("V", "error.v"))["details"] is None
-    assert _body(ValidationError("V", "error.v", {"field": "phone"}))[
-        "details"
-    ] == {"field": "phone"}
+    assert _body(ValidationError("V", "error.v", {"field": "phone"}))["details"] == {
+        "field": "phone"
+    }
 
 
 # --------------------------------------------------------------------------

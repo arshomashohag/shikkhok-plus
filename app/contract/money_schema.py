@@ -120,9 +120,7 @@ def money_schema_violations(app: FastAPI) -> list[MoneyViolation]:
         for field, node in properties.items():
             if _is_inline_money(node) and not _references_money(node):
                 violations.append(
-                    MoneyViolation(
-                        schema=name, field=str(field), kind="inline-money"
-                    )
+                    MoneyViolation(schema=name, field=str(field), kind="inline-money")
                 )
 
             if str(field).endswith(DISPLAY_SUFFIX):

@@ -47,14 +47,10 @@ LENS_NOT_AVAILABLE: Final = "LENS_NOT_AVAILABLE"
 LENS_HINT_REQUIRED: Final = "LENS_HINT_REQUIRED"
 
 #: Codes that mean "authenticate again" and therefore carry 401.
-AUTH_401_CODES: Final[frozenset[str]] = frozenset(
-    {ACCESS_TOKEN_EXPIRED, TOKEN_MISSING}
-)
+AUTH_401_CODES: Final[frozenset[str]] = frozenset({ACCESS_TOKEN_EXPIRED, TOKEN_MISSING})
 
 #: Codes that mean "authenticated, but no lens grants this" and carry 403.
-AUTH_403_CODES: Final[frozenset[str]] = frozenset(
-    {NOT_AVAILABLE, LENS_NOT_AVAILABLE}
-)
+AUTH_403_CODES: Final[frozenset[str]] = frozenset({NOT_AVAILABLE, LENS_NOT_AVAILABLE})
 
 
 def auth_status_for(code: str) -> Literal[401, 403]:

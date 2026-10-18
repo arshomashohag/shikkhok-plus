@@ -1,0 +1,18 @@
+# The 80% line floor for the backend outside the money module.
+#
+# A second configuration, because the two floors genuinely differ: 100%
+# branch on app/money, 80% line here. One run cannot enforce both, and an
+# unenforced floor is the one that quietly erodes.
+
+[run]
+branch = true
+omit =
+    # A `python -m` entry point whose entire body IS the subprocess the
+    # determinism test invokes. It runs in a child process where this
+    # run's tracer cannot see it, so counting it would measure the tracer
+    # rather than the code.
+    app/contract/emit.py
+
+[report]
+show_missing = true
+skip_covered = false

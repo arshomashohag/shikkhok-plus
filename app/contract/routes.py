@@ -102,9 +102,7 @@ def unlensed_routes(app: FastAPI) -> list[RouteViolation]:
             try:
                 lensed = _resolves_a_lens(route.dependant)
             except Exception as error:
-                raise type(error)(
-                    f"{method} {route.path}: {error}"
-                ) from error
+                raise type(error)(f"{method} {route.path}: {error}") from error
             if not lensed:
                 violations.append(RouteViolation(method=method, path=route.path))
 
