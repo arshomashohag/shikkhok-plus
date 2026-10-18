@@ -42,7 +42,6 @@
     <string name="roster_fetched_at">%1$s এর সংরক্ষিত তথ্য দেখানো হচ্ছে</string>
     <string name="batch_not_found">এই ক্লাসটি খুঁজে পাওয়া যায়নি।</string>
     <string name="batch_create_subject_required">অন্তত একটি বিষয় যোগ করুন।</string>
-    <string name="enrollment_not_found">এই শিক্ষার্থীকে খুঁজে পাওয়া যায়নি।</string>
     <string name="enrollment_remove_claimed">এই শিক্ষার্থী সাইন ইন করেছেন এবং তার রেকর্ড আছে। মুছে ফেলার বদলে তাকে ছেড়ে যাওয়া হিসেবে চিহ্নিত করুন।</string>
     <string name="enrollment_remove_erased">এই জায়গাটিতে কারও তথ্য মুছে ফেলার অনুরোধ রেকর্ড করা আছে। নতুন ও আলাদা রেকর্ড তৈরি করতে নম্বরটি আবার যোগ করুন।</string>
     <string name="authz_lens_not_available">এটি দেখার অনুমতি আপনার নেই।</string>

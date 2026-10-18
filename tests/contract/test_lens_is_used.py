@@ -12,10 +12,26 @@ teacher could delete or deactivate another teacher's seat by guessing a
 UUID, and the lens convention was followed everywhere else in the same
 module.
 
-So this gate asserts the second half: every handler that takes a lens
-parameter **references it in its body**. That is weaker than proving it
-is used *correctly* -- nothing static can prove that -- but it closes
-the specific gap where a lens is resolved and then ignored entirely.
+So this gate asserts two things about every handler taking a lens:
+
+1. it **references** the parameter at all, which closes the gap where a
+   lens is resolved and then ignored entirely;
+2. it **constructs no lens of its own**, which closes the next gap --
+   a handler that references its lens for a log line and then passes
+   ``TeacherLens(account_id=..., owner_id=uuid4())`` down to the
+   service. That shape passes a reference-only check, and it passes
+   every service-level regression too, because those call the service
+   directly and never go through the route.
+
+Both were demonstrated before being closed: the first by review, the
+second independently by review and by me.
+
+**What this still cannot prove is that the scope is CORRECT** -- a
+handler could pass a lens it legitimately holds to the wrong query.
+``tests/batches/test_every_write_is_scoped.py`` is the backstop for
+that, asserting every writing service function reaches its rows through
+an owned-row helper. Neither gate alone is sufficient and the pair is
+named here so nobody mistakes one for the whole control.
 """
 
 from __future__ import annotations
@@ -77,6 +93,35 @@ def test_every_handler_that_resolves_a_lens_uses_it() -> None:
     assert offenders == [], (
         "these handlers resolve a lens and never read it, so they "
         f"authorize nothing while passing the route gate: {offenders}"
+    )
+
+
+#: Lens types a handler must never construct. A handler receives its
+#: lens from the dependency; building one is forging a scope.
+LENS_CONSTRUCTORS = frozenset({"TeacherLens", "StudentLens", "GuardianLens"})
+
+
+def test_no_handler_constructs_its_own_lens() -> None:
+    offenders: list[str] = []
+
+    for path in API.rglob("*.py"):
+        tree = ast.parse(path.read_text(), filename=str(path))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.FunctionDef):
+                continue
+            if not _lens_parameter_names(node):
+                continue
+            for call in ast.walk(node):
+                if (
+                    isinstance(call, ast.Call)
+                    and isinstance(call.func, ast.Name)
+                    and call.func.id in LENS_CONSTRUCTORS
+                ):
+                    offenders.append(f"{path.name}:{node.name} builds {call.func.id}")
+
+    assert offenders == [], (
+        "a handler receives its lens from the dependency; building one "
+        f"forges the scope and defeats a reference-only check: {offenders}"
     )
 
 

@@ -44,7 +44,6 @@
     <string name="roster_fetched_at">Showing saved data from %1$s</string>
     <string name="batch_not_found">That class could not be found.</string>
     <string name="batch_create_subject_required">Add at least one subject.</string>
-    <string name="enrollment_not_found">That student could not be found.</string>
     <string name="enrollment_remove_claimed">This student has signed in and has a record. Mark them as left instead of removing them.</string>
     <string name="enrollment_remove_erased">This place records someone\'s request to erase their data. Add the number again to create a new, separate record.</string>
     <string name="authz_lens_not_available">You do not have access to this.</string>

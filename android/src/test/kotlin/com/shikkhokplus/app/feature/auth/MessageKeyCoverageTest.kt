@@ -66,7 +66,15 @@ class MessageKeyCoverageTest {
         // Guards the check itself: a reader that silently found nothing
         // would make the assertion above vacuously true, which is this
         // project's most common defect shape.
-        assertTrue(publishedKeys().size >= 9, "found ${publishedKeys().size} keys")
+        //
+        // A FLOOR, not an exact count. The number moves whenever a raise
+        // site is added or legitimately removed -- it dropped from 9 to
+        // 8 when scoping enrollment writes through the batch made
+        // `enrollment.not_found` unreachable -- and a test that must be
+        // edited on every such change gets edited without being read.
+        // Zero is what this guards against.
+        val keys = publishedKeys()
+        assertTrue(keys.size >= 5, "found ${keys.size} keys: $keys")
     }
 
     @Test

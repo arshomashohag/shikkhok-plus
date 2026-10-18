@@ -225,3 +225,78 @@ def test_the_error_envelope_names_a_message_key_not_english(
     assert body["error"]["code"] == "BATCH_NOT_FOUND"
     assert body["error"]["message_key"] == "batch.not_found"
     assert "message" not in body["error"]
+
+
+def test_another_teacher_cannot_remove_a_seat_over_http(
+    client: TestClient, owner_session: Session, teacher: TeacherFixture
+) -> None:
+    """The IDOR, asserted at the HTTP boundary [NFR14.14].
+
+    **The service-level regressions are not enough on their own.** They
+    call the service directly, so a handler that resolved its lens and
+    then passed a forged one would pass every one of them. The static
+    gate cannot see it either: that handler *references* its lens.
+
+    Only a request through the real app exercises the whole path, which
+    is why this lives here rather than beside the service tests.
+
+    :param client: The test client
+    :param owner_session: A session able to arrange fixture data
+    :param teacher: The teacher who owns the batch
+    :return: None
+    """
+    from app.db.models import Enrollment
+
+    seat = enroll(
+        owner_session,
+        batch_id=teacher.batch_id,
+        display_name="Not the attacker's student",
+        student_account_id=None,
+    )
+    attacker = make_teacher(owner_session, name="Chemistry")
+
+    response = client.delete(
+        f"/v1/enrollments/{seat}",
+        headers=_auth(client, owner_session, attacker.account_id),
+    )
+
+    assert response.status_code == 404
+    # The seat SURVIVES. A 404 alone would pass against a handler that
+    # deleted the row and then failed to find it.
+    owner_session.expire_all()
+    assert owner_session.get(Enrollment, seat) is not None
+
+
+def test_another_teacher_cannot_deactivate_a_seat_over_http(
+    client: TestClient, owner_session: Session, teacher: TeacherFixture
+) -> None:
+    """The money-adjacent half, over HTTP.
+
+    ``inactive_from`` stops future fee cycles, so writing it on another
+    teacher's seat silently stops that teacher being paid.
+
+    :param client: The test client
+    :param owner_session: A session able to arrange fixture data
+    :param teacher: The teacher who owns the batch
+    :return: None
+    """
+    from app.db.models import Enrollment
+    from tests.batches.conftest import _account
+
+    seat = enroll(
+        owner_session,
+        batch_id=teacher.batch_id,
+        display_name="Not the attacker's student",
+        student_account_id=_account(owner_session),
+    )
+    attacker = make_teacher(owner_session, name="Chemistry")
+
+    response = client.patch(
+        f"/v1/enrollments/{seat}/inactive-from",
+        headers=_auth(client, owner_session, attacker.account_id),
+        json={"inactive_from": "2026-02-15"},
+    )
+
+    assert response.status_code == 404
+    owner_session.expire_all()
+    assert owner_session.get(Enrollment, seat).inactive_from is None

@@ -27,7 +27,6 @@ object MessageKeys {
         "batch.not_found" to R.string.batch_not_found,
         "batch.create.subject_required" to
             R.string.batch_create_subject_required,
-        "enrollment.not_found" to R.string.enrollment_not_found,
         "enrollment.remove.claimed" to R.string.enrollment_remove_claimed,
         "enrollment.remove.erased" to R.string.enrollment_remove_erased,
         "authz.lens.not_available" to R.string.authz_lens_not_available,

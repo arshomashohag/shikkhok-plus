@@ -796,7 +796,7 @@
     },
     "/v1/batches": {
       "get": {
-        "description": "List this teacher's batches [AC2.6.1].\n\n:param lens: The teacher lens carrying the owner id\n:param session: The request-scoped session\n:return: One entry per batch, newest first",
+        "description": "List this teacher's own batches.\n\n**Cites no acceptance criterion deliberately.** AC2.6.1 is the\nSTUDENT's batch list -- \"given I am signed in as a student\" -- and\nthat route is not built [traceability: AC2.6.1, Deferred]. Citing it\nhere would make a Deferred row look covered, which is the failure\nthe traceability manifest exists to prevent.\n\n:param lens: The teacher lens carrying the owner id\n:param session: The request-scoped session\n:return: One entry per batch, newest first",
         "operationId": "list_batches_v1_batches_get",
         "responses": {
           "200": {
@@ -916,7 +916,7 @@
     },
     "/v1/batches/{batch_id}/roster": {
       "get": {
-        "description": "List the seats in one of this teacher's batches [AC2.6.1].\n\n:param batch_id: The batch whose roster to read\n:param lens: The teacher lens carrying the owner id\n:param session: The request-scoped session\n:return: One row per seat",
+        "description": "List the seats in one of this teacher's batches.\n\nThe roster is what AC2.2.x and AC2.4.x are observed through; it\ncarries no numbered criterion of its own, and AC2.6.1 belongs to\nthe unbuilt student-facing list.\n\n:param batch_id: The batch whose roster to read\n:param lens: The teacher lens carrying the owner id\n:param session: The request-scoped session\n:return: One row per seat",
         "operationId": "read_roster_v1_batches__batch_id__roster_get",
         "parameters": [
           {

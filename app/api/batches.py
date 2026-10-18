@@ -133,7 +133,13 @@ def list_batches(
     lens: Annotated[TeacherLens, Depends(teacher_lens)],
     session: Annotated[Session, Depends(get_session)],
 ) -> list[BatchResponse]:
-    """List this teacher's batches [AC2.6.1].
+    """List this teacher's own batches.
+
+    **Cites no acceptance criterion deliberately.** AC2.6.1 is the
+    STUDENT's batch list -- "given I am signed in as a student" -- and
+    that route is not built [traceability: AC2.6.1, Deferred]. Citing it
+    here would make a Deferred row look covered, which is the failure
+    the traceability manifest exists to prevent.
 
     :param lens: The teacher lens carrying the owner id
     :param session: The request-scoped session
@@ -163,7 +169,11 @@ def read_roster(
     lens: Annotated[TeacherLens, Depends(teacher_lens)],
     session: Annotated[Session, Depends(get_session)],
 ) -> list[RosterRowResponse]:
-    """List the seats in one of this teacher's batches [AC2.6.1].
+    """List the seats in one of this teacher's batches.
+
+    The roster is what AC2.2.x and AC2.4.x are observed through; it
+    carries no numbered criterion of its own, and AC2.6.1 belongs to
+    the unbuilt student-facing list.
 
     :param batch_id: The batch whose roster to read
     :param lens: The teacher lens carrying the owner id
