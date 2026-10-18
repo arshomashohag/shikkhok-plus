@@ -128,6 +128,25 @@ def _declared_types(node: object) -> set[str]:
             for branch in branches:
                 found |= _declared_types(branch)
 
+    # A COLLECTION of money is money. ``fee_amounts: list[float]`` emits
+    # {"type": "array", "items": {"type": "number"}}, so a check reading
+    # only the outer type sees "array" and reports nothing -- while every
+    # element is an IEEE 754 double. U7's ledger is a list of amounts, so
+    # this is the next Unit's shape rather than a hypothetical one.
+    #
+    # The container type is discarded along with the element types it
+    # carries, because an array is not itself a money shape: what matters
+    # is what is INSIDE it.
+    items = node.get("items")
+    if isinstance(items, dict):
+        found.discard("array")
+        found |= _declared_types(items)
+
+    values = node.get("additionalProperties")
+    if isinstance(values, dict):
+        found.discard("object")
+        found |= _declared_types(values)
+
     found.discard("null")
     return found
 

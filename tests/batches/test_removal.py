@@ -178,7 +178,14 @@ def test_the_refusal_names_which_condition_failed(
     with pytest.raises(EnrollmentNotRemovable) as erased_error:
         remove_enrollment(restricted_session, enrollment_id=erased_id)
 
-    assert str(claimed_error.value) != str(erased_error.value)
+    # Asserted on the CODE, not on str(error). The code is what a client
+    # switches on and what the error envelope carries; str() happens to
+    # equal it today only because TaxonomyError passes the code to
+    # Exception.__init__, which is a stringification detail this test
+    # must not depend on.
+    assert claimed_error.value.code == "ENROLLMENT_CLAIMED"
+    assert erased_error.value.code == "ENROLLMENT_ERASED"
+    assert claimed_error.value.message_key != erased_error.value.message_key
 
 
 def test_an_unknown_enrollment_is_refused(restricted_session: Session) -> None:

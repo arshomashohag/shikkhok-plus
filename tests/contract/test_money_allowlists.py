@@ -180,3 +180,62 @@ def test_the_real_application_needs_the_allowlist() -> None:
 
     without = money_schema_violations(app, exempt={})
     assert {v.field for v in without} == {"fee_due_day"}
+
+
+def test_a_list_of_money_named_numbers_is_caught() -> None:
+    """A COLLECTION of money is money.
+
+    ``fee_amounts: list[float]`` emits ``{"type": "array", "items":
+    {"type": "number"}}``, so a check reading only the outer type sees
+    ``array`` and reports nothing -- while every element is an IEEE 754
+    double on the client. U7's ledger is a list of amounts, so this is
+    the next Unit's shape rather than a hypothetical one.
+
+    :return: None
+    """
+    violations = money_schema_violations(
+        _app_with("LedgerResponse", fee_amounts=list[float]), exempt={}
+    )
+
+    assert [(v.field, v.kind) for v in violations] == [("fee_amounts", "numeric-money")]
+
+
+def test_a_dict_of_money_named_numbers_is_caught() -> None:
+    """The same hole through ``additionalProperties``.
+
+    :return: None
+    """
+    violations = money_schema_violations(
+        _app_with("TotalsResponse", fee_totals=dict[str, float]), exempt={}
+    )
+
+    assert [(v.field, v.kind) for v in violations] == [("fee_totals", "numeric-money")]
+
+
+def test_a_list_of_bare_money_strings_is_caught() -> None:
+    """An unconstrained string inside a collection escapes the same way.
+
+    :return: None
+    """
+    violations = money_schema_violations(
+        _app_with("LedgerResponse", fee_amounts=list[str]), exempt={}
+    )
+
+    assert [v.kind for v in violations] == ["unconstrained-money"]
+
+
+def test_a_list_of_non_money_strings_is_not_reported() -> None:
+    """Guards the fix against over-reaching.
+
+    ``subjects: list[str]`` is already on BatchCreateRequest and
+    BatchResponse. A fix that flagged every string array would fail the
+    real application, and the cheapest repair would be deleting the
+    check.
+
+    :return: None
+    """
+    violations = money_schema_violations(
+        _app_with("BatchResponse", subjects=list[str]), exempt={}
+    )
+
+    assert violations == []
