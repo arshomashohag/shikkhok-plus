@@ -197,21 +197,21 @@ criterion = "Gate 2's exception resolves to exactly app/money/**, never a parent
 rule = "NFR9.29"
 
 [[test]]
-id = "test_late_payment_against_a_carried_period"
+id = "test_late_payment_lands_on_the_period_holding_the_debt"
 file = "tests/money/test_ledger.py"
-criterion = "A 400 payment for March recorded after March was carried into April leaves 1600 owed, not 2000. Summing per-period floors discarded the 400 entirely"
+criterion = "A 400 late payment lands on April, which holds the carried obligation, giving 1600. Recording it against the already-relieved March is what made the money vanish"
 rule = "BR4.4"
 
 [[test]]
-id = "test_waiver_exceeding_a_period_does_not_offset_another"
+id = "test_waiver_relieves_only_its_own_period"
 file = "tests/money/test_ledger.py"
-criterion = "March paid AND waived in full leaves 1000 phantom relief that must NOT cancel April's genuine unpaid charge; total stays 1000"
+criterion = "A waiver relieves only the period it targets and never offsets another cycle's genuine debt, which is the failure BR4.4's rationale forbids"
 rule = "BR4.4"
 
 [[test]]
-id = "test_overpaid_cash_reduces_the_enrollment"
+id = "test_overpayment_held_as_credit"
 file = "tests/money/test_ledger.py"
-criterion = "Overpaying March by 500 cash reduces the enrollment to 500, because cash is real wherever it lands, unlike a waiver"
+criterion = "Paying 150 against a 100 charge writes a receipt for 100 plus a credit grant for 50; the teacher chooses whether to hold or spend it"
 rule = "BR4.4"
 
 [[test]]

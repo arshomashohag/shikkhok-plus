@@ -237,25 +237,22 @@ class TestCarryForwardPairing:
         assert d.total_carry_forward == d.total_carried_out
         assert_identity(entries)
 
-    def test_bare_pair_nets_to_zero_at_enrollment_level(self) -> None:
+    def test_bare_pair_moves_the_obligation(self) -> None:
         """
-        A carry pair in isolation nets to zero for the enrollment.
+        A carry pair in isolation MOVES an obligation rather than cancelling
+        one: March is relieved, April is charged, and the enrollment still
+        owes the same amount.
 
-        **This test asserted 500.00 before the code review**, matching the
-        old arithmetic where the total was the sum of independently-floored
-        periods: March floored to zero while April was charged 500, so the
-        relief vanished. That was the defect, not the specification.
-
-        Now the total is the floor of the sum, so the two sides of a carry
-        cancel as BR4.6 says they do — the per-period figures still show
-        March 0.00 and April 500.00, because a period cannot display a
-        negative balance.
+        A bare pair with no originating charge is not a producible history —
+        `carry_forward` now refuses to carry more than the origin owes — but
+        the arithmetic is worth pinning, because two review iterations
+        turned on misreading this case.
         """
         pair = list(carry_forward(Money("500.00"), origin=MAR, receiver=APR))
         d = derive(pair)
         assert d.per_cycle[MAR] == Money("0.00")
         assert d.per_cycle[APR] == Money("500.00")
-        assert d.total_outstanding == Money("0.00")
+        assert d.total_outstanding == Money("500.00")
         assert d.total_carry_forward == d.total_carried_out
 
     def test_negative_carry_refused(self) -> None:
@@ -290,94 +287,102 @@ class TestPerCycleAndFloors:
         assert_identity([])
 
 
-class TestSurplusReliefIsNotDiscarded:
+class TestOverpaymentIsAChoiceNotAnArtifact:
     """
-    Regressions for the defect found at code review.
+    An overpayment is a decision the teacher makes at approval time.
 
-    `total_outstanding` was the SUM OF THE PER-PERIOD FLOORS, so relief that
-    exceeded one period's charges was silently discarded and the enrollment
-    showed more debt than it had. The 198-test suite passed throughout,
-    because the property test's generator could not produce these shapes.
+    These tests exist because a code review found money vanishing, and the
+    first two attempts to fix it were both wrong — each treating "a period
+    relieved beyond its charges" as arithmetic to reconcile. It is not. The
+    seven entry kinds already carry both outcomes, and `apply_credit` caps
+    every receipt at what is owed, so a receipt larger than its period's
+    charges is never written.
 
-    The total is now the FLOOR OF THE SUM. Per-period figures keep their own
-    floors, since a period showing a negative balance means nothing to a
-    teacher — but the surplus those floors discard is recovered at the
-    enrollment level.
+    What the teacher chooses between, when a parent pays 150 against a 100
+    charge:
+
+    * **hold the excess** — a receipt for 100 plus a credit grant for 50,
+      spent later by a credit application;
+    * **settle an earlier debt** — the obligation moves first by a
+      carried-out/carry-forward pair, and the payment lands on the period
+      that now holds it.
     """
 
-    def test_late_payment_against_a_carried_period(self) -> None:
+    def test_overpayment_held_as_credit(self) -> None:
         """
-        The one that would have been noticed in the field, eventually.
+        The teacher holds the 50. April is charged in full and the credit
+        sits against the enrollment until it is spent.
+        """
+        entries = [
+            entry(K.CHARGE, MAR, "100.00"),
+            entry(K.RECEIPT, MAR, "100.00"),
+            entry(K.CREDIT_GRANT, MAR, "50.00"),
+            entry(K.CHARGE, APR, "100.00"),
+        ]
+        d = derive(entries)
+        assert d.total_outstanding == Money("100.00")
+        assert d.available_credit == Money("50.00")
+        assert_identity(entries)
 
-        A parent pays 400 for March in April, after March's balance was
-        already carried forward. March is relieved by its `carried_out`, so
-        under the old arithmetic the 400 floored away and the student still
-        showed the full 2000 owed.
+    def test_overpayment_spent_on_the_next_cycle(self) -> None:
+        """The same 50, applied to April, which then owes 50."""
+        entries = [
+            entry(K.CHARGE, MAR, "100.00"),
+            entry(K.RECEIPT, MAR, "100.00"),
+            entry(K.CREDIT_GRANT, MAR, "50.00"),
+            entry(K.CHARGE, APR, "100.00"),
+            entry(K.CREDIT_APPLY, APR, "50.00"),
+        ]
+        d = derive(entries)
+        assert d.total_outstanding == Money("50.00")
+        assert d.available_credit == Money("0.00")
+        assert_identity(entries)
+
+    def test_late_payment_lands_on_the_period_holding_the_debt(self) -> None:
+        """
+        The defect that started this, and where it actually lived.
+
+        A parent pays 400 for March in April, after March was carried
+        forward. The money vanished — but the cause was recording the
+        receipt against March, which the carry had already relieved. The
+        obligation lives in April, so the payment belongs there.
+
+        Recorded correctly, the answer is 1600 with no special-case
+        arithmetic anywhere in the fold.
         """
         entries = [
             entry(K.CHARGE, MAR, "1000.00"),
-            *carry_forward(Money("1000.00"), origin=MAR, receiver=APR),
+            *carry_forward(
+                Money("1000.00"),
+                origin=MAR,
+                receiver=APR,
+                origin_balance=Money("1000.00"),
+            ),
             entry(K.CHARGE, APR, "1000.00"),
-            entry(K.RECEIPT, MAR, "400.00"),
+            entry(K.RECEIPT, APR, "400.00"),
         ]
         d = derive(entries)
         assert d.total_outstanding == Money("1600.00")
+        assert d.per_cycle[MAR] == Money("0.00")
+        assert d.per_cycle[APR] == Money("1600.00")
         assert_identity(entries)
 
-    def test_waiver_exceeding_a_period_does_not_offset_another(self) -> None:
+    def test_waiver_relieves_only_its_own_period(self) -> None:
         """
-        A waiver can only relieve what its own period owed.
-
-        **This test asserted the opposite through two review iterations**, and
-        both answers were wrong in different directions. March is paid in
-        full AND waived in full against a single 1000 charge, leaving 1000 of
-        phantom relief. An intermediate fix let that phantom cancel April's
-        genuine unpaid charge, so the books read zero owed while April owed a
-        thousand — precisely the offset BR4.4's rationale warned about.
-
-        A waiver is an accounting act, not money: waiving more than a period
-        owes creates nothing, so the surplus is discarded. Cash behaves
-        differently, which is what the late-payment test covers.
+        A waiver is an accounting act, not money. It cannot relieve more
+        than the period it targets owed, so it never offsets another
+        cycle's genuine debt — the failure BR4.4's rationale forbids.
         """
         entries = [
             entry(K.CHARGE, MAR, "1000.00"),
-            entry(K.RECEIPT, MAR, "1000.00"),
-            entry(K.FORGIVENESS, MAR, "1000.00"),
-            entry(K.CHARGE, APR, "1000.00"),
-        ]
-        d = derive(entries)
-        assert d.total_outstanding == Money("1000.00")
-        assert d.per_cycle[APR] == Money("1000.00")
-
-    def test_overpaid_cash_reduces_the_enrollment(self) -> None:
-        """
-        Cash is real wherever it lands. Overpaying March by 500 reduces what
-        the enrollment owes, rather than evaporating with the period.
-        """
-        entries = [
-            entry(K.CHARGE, MAR, "1000.00"),
-            entry(K.RECEIPT, MAR, "1500.00"),
+            entry(K.RECEIPT, MAR, "600.00"),
+            entry(K.FORGIVENESS, MAR, "400.00"),
             entry(K.CHARGE, APR, "1000.00"),
         ]
         d = derive(entries)
         assert d.per_cycle[MAR] == Money("0.00")
-        assert d.total_outstanding == Money("500.00")
-
-    def test_total_never_exceeds_the_sum_of_per_cycle_floors(self) -> None:
-        """
-        The relationship is an inequality, and this is its direction.
-
-        The total sums the floored per-cycle figures [BR4.4] and then returns
-        the CASH portion of any surplus, so it can be lower than that sum but
-        never higher.
-        """
-        entries = [
-            entry(K.CHARGE, MAR, "1000.00"),
-            entry(K.RECEIPT, MAR, "1500.00"),
-            entry(K.CHARGE, APR, "1000.00"),
-        ]
-        d = derive(entries)
-        assert d.total_outstanding <= Money.sum(d.per_cycle.values())
+        assert d.total_outstanding == Money("1000.00")
+        assert_identity(entries)
 
 
 class TestCarryCannotManufactureDebt:

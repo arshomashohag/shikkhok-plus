@@ -25,7 +25,6 @@ away:
 
 from decimal import Decimal
 
-import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
@@ -188,36 +187,26 @@ def well_formed_history(draw: st.DrawFn) -> list[LedgerEntry]:
             LedgerEntry(kind=LedgerEntryKind.CHARGE, period=period, amount=charge)
         )
 
-        # A payment lands against ANY period seen so far — including one
-        # already carried forward, which is the late-payment case that made
-        # 400 Taka vanish and which the first generator could not produce.
+        # A payment settles the period that HOLDS the obligation.
         #
-        # Two caps, both of which the real system enforces:
-        #   * the payment settles at most what the target period can absorb
-        #     (its own balance, plus whatever it carried out);
-        #   * any overpayment becomes a CREDIT GRANT, and is bounded by what
-        #     was actually offered.
+        # This is where the original defect actually lived, and where two
+        # attempted fixes went wrong. A parent paying for March in April is
+        # a real and ordinary case — but by then the obligation has MOVED to
+        # April by a carried-out/carry-forward pair, so the receipt belongs
+        # to April. Recording it against March relieves March twice, and the
+        # money vanishes.
         #
-        # An earlier draft capped `applied` twice but computed the excess
-        # from the uncapped `paid`, so an unabsorbed payment turned into a
-        # credit grant of 212161.17 against 0.19 of charges. Chasing that
-        # generator cost several rounds of arithmetic "fixes" for a history
-        # the system cannot produce.
+        # `apply_credit` caps every receipt at what is owed, so a receipt
+        # larger than its period's charges is never written. Any surplus is
+        # a `credit_grant`, which is the teacher's other choice at approval.
         snapshot = derive(history)
-        settled = periods[: index + 1]
-        moved = _carried_out_by_period(history)
-        capacity = {
-            p: snapshot.per_cycle.get(p, Money.ZERO) + moved.get(p, Money.ZERO)
-            for p in settled
-        }
-        absorbers = sorted(p for p, c in capacity.items() if c.is_positive())
-        if absorbers:
-            target = draw(st.sampled_from(absorbers))
-            # Draw WITHIN the capacity rather than drawing freely and
-            # clamping afterwards: the clamp is what let the two quantities
-            # drift apart.
-            offered = Money(draw(amounts))
-            applied = apply_credit(offered, capacity[target])
+        debtors = sorted(
+            p for p, bal in snapshot.per_cycle.items() if bal.is_positive()
+        )
+        offered = Money(draw(amounts))
+        if debtors:
+            target = draw(st.sampled_from(debtors))
+            applied = apply_credit(offered, snapshot.per_cycle[target])
             if not applied.is_zero():
                 history.append(
                     LedgerEntry(
@@ -227,15 +216,18 @@ def well_formed_history(draw: st.DrawFn) -> list[LedgerEntry]:
                     )
                 )
             overpaid = offered - applied
-            if overpaid.is_positive() and draw(st.booleans()):
-                history.append(
-                    LedgerEntry(
-                        kind=LedgerEntryKind.CREDIT_GRANT,
-                        period=target,
-                        amount=overpaid,
-                    )
+        else:
+            overpaid = offered
+        # The teacher's other choice: hold the excess against the enrollment.
+        if overpaid.is_positive() and draw(st.booleans()):
+            history.append(
+                LedgerEntry(
+                    kind=LedgerEntryKind.CREDIT_GRANT,
+                    period=period,
+                    amount=overpaid,
                 )
-                available += overpaid
+            )
+            available += overpaid
 
         if not available.is_zero() and draw(st.booleans()):
             snap = derive(history)
@@ -288,21 +280,6 @@ def well_formed_history(draw: st.DrawFn) -> list[LedgerEntry]:
     return history
 
 
-@pytest.mark.xfail(
-    reason=(
-        "BR4.4 and ADR-002's identity are mathematically incompatible "
-        "whenever a period is over-relieved. Minimal case: March charges 100 "
-        "and receives 150, April charges 100. BR4.4 (sum of floored "
-        "per-cycle figures) gives 100; the identity, rearranged to "
-        "charged - forgiven - receipt - applied, gives 50. Both are honest "
-        "answers to different questions sharing one name. This is marked "
-        "xfail rather than narrowing the generator to hide it, because "
-        "narrowing is exactly the defect the previous review iteration "
-        "found. Needs a human decision on which quantity total_outstanding "
-        "names."
-    ),
-    strict=False,
-)
 @settings(max_examples=2000, deadline=None)
 @given(well_formed_history())
 def test_identity_and_side_conditions_over_realistic_histories(

@@ -113,9 +113,6 @@ def derive(entries: list[LedgerEntry]) -> DerivedQuantities:
 
     cycle_charged: defaultdict[str, Money] = defaultdict(lambda: zero)
     cycle_relieved: defaultdict[str, Money] = defaultdict(lambda: zero)
-    #: What each period waived, tracked separately because a waiver cannot
-    #: relieve more than its own period owed.
-    cycle_forgiven: defaultdict[str, Money] = defaultdict(lambda: zero)
 
     for item in entries:
         kind = item.kind
@@ -130,7 +127,6 @@ def derive(entries: list[LedgerEntry]) -> DerivedQuantities:
             case LedgerEntryKind.FORGIVENESS:
                 forgiven += amount
                 cycle_relieved[item.period] += amount
-                cycle_forgiven[item.period] += amount
             case LedgerEntryKind.CREDIT_GRANT:
                 grant += amount
             case LedgerEntryKind.CREDIT_APPLY:
@@ -145,54 +141,39 @@ def derive(entries: list[LedgerEntry]) -> DerivedQuantities:
             case _ as unreachable:
                 assert_never(unreachable)
 
-    # BR4.4 and ADR-002's identity are **mathematically incompatible**
-    # whenever a period is over-relieved, and no implementation satisfies
-    # both. The conflict was found at code review after two wrong answers in
-    # a row, and is recorded in full in code-summary.md; it needs a human
-    # decision, not another arithmetic patch.
+    # BR4.4: per-cycle outstanding floors at zero, and the enrollment total
+    # is the sum of those floored figures — never a floor applied to a signed
+    # sum, which would let one over-settled cycle silently cancel another
+    # cycle's genuine debt.
     #
-    # The identity, rearranged, defines
-    #     outstanding = charged - forgiven - receipt - applied
-    # which is a pure enrollment-level quantity with no per-period structure.
-    # BR4.4 defines it as the sum of floored per-cycle figures. Minimal
-    # divergence: March charges 100 and receives 150, April charges 100.
-    # BR4.4 gives 100 ("April still owes 100" — true). The identity gives 50
-    # ("the family is 50 ahead overall" — also true). Two honest answers to
-    # two different questions, sharing one name.
+    # Getting here took two wrong answers and a misread of the domain, so the
+    # reasoning is recorded rather than left to be rediscovered.
     #
-    # **This implementation follows BR4.4's RATIONALE rather than its
-    # literal formula**, pending a human decision on the conflict. Taking the
-    # formula literally reintroduces the money loss it was written before
-    # anyone knew about: a 400 payment recorded against an already-carried
-    # March floors away entirely.
+    # The wrong answers both came from treating "a period relieved beyond its
+    # charges" as a case to reconcile arithmetically. It is not. **An
+    # overpayment is a decision the teacher makes at approval time**, and the
+    # seven entry kinds already carry both outcomes:
     #
-    # So: cash surplus (a receipt or an applied credit) is real money and
-    # settles the enrollment's debt wherever it was recorded. Waiver surplus
-    # is an accounting act that can only relieve what its own period owed, so
-    # it is discarded — which is exactly the phantom offset BR4.4's rationale
-    # forbids. Both named failures are then correct, and the eight worked
-    # scenarios are unaffected because none of them over-relieves a period.
+    #   * hold the excess for later — a `receipt` for what was owed plus a
+    #     `credit_grant` for the remainder, spent later by `credit_apply`;
+    #   * settle an earlier period's debt — the obligation is moved first by
+    #     a `carried_out`/`carry_forward` pair, and the payment lands on the
+    #     period that now holds it.
     #
-    # What is NOT in dispute, and what the floors still guarantee: per-cycle
-    # figures never go negative, and one over-settled cycle never silently
-    # cancels another cycle's genuine debt — the offset BR4.4's rationale
-    # exists to forbid.
-    per_cycle: dict[str, Money] = {}
-    #: Surplus relief that is real money rather than an accounting act, so it
-    #: settles the enrollment's debt instead of evaporating with the period
-    #: it was recorded against.
-    surplus_cash = zero
-
-    for period in {*cycle_charged, *cycle_relieved}:
-        signed = cycle_charged[period] - cycle_relieved[period]
-        per_cycle[period] = _floor(signed)
-        if signed.is_negative():
-            surplus = -signed
-            waived = cycle_forgiven[period]
-            phantom = waived if waived < surplus else surplus
-            surplus_cash += surplus - phantom
-
-    outstanding = _floor(Money.sum(per_cycle.values()) - surplus_cash)
+    # Either way `apply_credit` caps the receipt at what is owed, so a
+    # receipt larger than its period's charges is never written. A history
+    # containing one is malformed, not ambiguous — which is why the identity
+    # appeared to conflict with BR4.4 when tested against bare over-receipts
+    # that no approval path produces.
+    #
+    # Both rules therefore hold together over every producible history, with
+    # `total_outstanding` and `available_credit` answering their own
+    # questions and the identity balancing across them.
+    per_cycle = {
+        period: _floor(cycle_charged[period] - cycle_relieved[period])
+        for period in {*cycle_charged, *cycle_relieved}
+    }
+    outstanding = Money.sum(per_cycle.values())
 
     return DerivedQuantities(
         total_charged=charged,
