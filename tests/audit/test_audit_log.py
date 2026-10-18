@@ -9,9 +9,11 @@ debugging in good faith.
 
 from __future__ import annotations
 
+import contextlib
 import datetime as dt
 import logging
 import uuid
+from collections.abc import Iterator
 
 import pytest
 import sqlalchemy as sa
@@ -21,6 +23,29 @@ from sqlalchemy.orm import Session
 from app.audit.log import AuthEvent, write_audit
 from app.db.models import Account, AuthAuditLog
 from app.db.roles import APP_ROLE
+
+
+@contextlib.contextmanager
+def _audit_insert_revoked(engine: Engine) -> Iterator[None]:
+    """Remove the restricted role's INSERT on the audit table.
+
+    A context manager rather than an inline try/finally, so the grant
+    comes back on ANY exit path. A leaked revoke would break every
+    later test in the session with a permission error far from its
+    cause -- and the privacy and auth suites would then fail for a
+    reason that has nothing to do with what they assert.
+
+    :param engine: An owner-privileged engine
+    :return: A context manager holding the revoke
+    """
+    with engine.begin() as connection:
+        connection.execute(sa.text(f"REVOKE INSERT ON auth_audit_log FROM {APP_ROLE}"))
+    try:
+        yield
+    finally:
+        with engine.begin() as connection:
+            connection.execute(sa.text(f"GRANT INSERT ON auth_audit_log TO {APP_ROLE}"))
+
 
 CORRELATION = "test-correlation-id"
 
@@ -222,10 +247,12 @@ def test_a_failed_audit_write_does_not_destroy_the_callers_work(
     )
 
     # Break the audit write the way a real failure would: the role
-    # loses the privilege the INSERT needs.
-    with owner_engine.begin() as connection:
-        connection.execute(sa.text(f"REVOKE INSERT ON auth_audit_log FROM {APP_ROLE}"))
-    try:
+    # loses the privilege the INSERT needs. The revoke is a FIXTURE
+    # rather than an inline try/finally, so the grant is restored even
+    # if this test is interrupted between the revoke and the try --
+    # otherwise a leaked revoke breaks every later test in the session
+    # with a confusing permission error far from its cause.
+    with _audit_insert_revoked(owner_engine):
         write_audit(
             restricted_session,
             account_id=None,
@@ -233,9 +260,6 @@ def test_a_failed_audit_write_does_not_destroy_the_callers_work(
             correlation_id=CORRELATION,
         )
         restricted_session.commit()
-    finally:
-        with owner_engine.begin() as connection:
-            connection.execute(sa.text(f"GRANT INSERT ON auth_audit_log TO {APP_ROLE}"))
 
     survived = restricted_session.execute(
         sa.text("SELECT count(*) FROM otp_request WHERE phone = :phone"),
@@ -262,3 +286,58 @@ def test_the_audit_log_is_append_only_in_practice(
         path.name for path in app_root.rglob("*.py") if pattern.search(path.read_text())
     ]
     assert offenders == []
+
+
+def test_family_invalidation_survives_a_failed_audit_write(
+    restricted_session: Session, owner_engine: Engine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The security-critical half of fail-open, and the one the savepoint
+    # fix has to hold on: reuse detection invalidates the whole token
+    # family and THEN writes REFRESH_REUSE_DETECTED. If the audit
+    # failure took the invalidation down with it, a stolen token would
+    # stay live precisely when the mechanism exists to kill it.
+    from app.auth.hashing import OTP_HMAC_KEY_ENV
+    from app.auth.tokens import (
+        JWT_ACTIVE_KID_ENV,
+        JWT_KEYS_ENV,
+        issue_pair,
+        rotate,
+    )
+    from app.errors import AuthorizationError
+
+    monkeypatch.setenv(OTP_HMAC_KEY_ENV, "test-only-hmac-key")
+    monkeypatch.setenv(JWT_KEYS_ENV, "k1:a-test-secret-padded-to-32-bytes")
+    monkeypatch.setenv(JWT_ACTIVE_KID_ENV, "k1")
+
+    record = Account(
+        phone=f"+8801{uuid.uuid4().int % 10**9:09d}",
+        created_at=dt.datetime.now(tz=dt.UTC),
+    )
+    with owner_engine.begin() as connection:
+        connection.execute(
+            sa.text(
+                "INSERT INTO account (id, phone, created_at) VALUES (:id, :phone, :now)"
+            ),
+            {
+                "id": record.id or uuid.uuid4(),
+                "phone": record.phone,
+                "now": record.created_at,
+            },
+        )
+        account_id = connection.execute(
+            sa.text("SELECT id FROM account WHERE phone = :phone"),
+            {"phone": record.phone},
+        ).scalar_one()
+
+    first = issue_pair(restricted_session, account_id, CORRELATION)
+    restricted_session.commit()
+    second = rotate(restricted_session, first.refresh_token, CORRELATION)
+
+    with _audit_insert_revoked(owner_engine):
+        with pytest.raises(AuthorizationError):
+            rotate(restricted_session, first.refresh_token, CORRELATION)
+        restricted_session.commit()
+
+    # The whole family must be dead even though its audit row was lost.
+    with pytest.raises(AuthorizationError):
+        rotate(restricted_session, second.refresh_token, CORRELATION)
