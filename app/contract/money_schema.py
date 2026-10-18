@@ -97,6 +97,58 @@ def _references_money(node: object) -> bool:
     return False
 
 
+def _declared_types(node: object) -> set[str]:
+    """Collect every JSON type a property node can take.
+
+    **Looks through ``anyOf``/``allOf``/``oneOf``, and that is the whole
+    point.** A nullable field emits ``{"anyOf": [{"type": "number"},
+    {"type": "null"}]}`` with no top-level ``type`` at all, so a check
+    reading ``node["type"]`` directly sees nothing and reports nothing.
+
+    That hole was invisible until U4: U3 carried no money, and the first
+    real money column in this project -- ``fee_amount`` -- is **nullable
+    by design**, because null means inherit the batch default while zero
+    is a waiver. So the one shape the project actually uses for money was
+    the one shape the gate could not see.
+
+    :param node: The property schema node
+    :return: Every declared type, excluding ``null``
+    """
+    if not isinstance(node, dict):
+        return set()
+
+    found: set[str] = set()
+    declared = node.get("type")
+    if isinstance(declared, str):
+        found.add(declared)
+
+    for keyword in ("anyOf", "allOf", "oneOf"):
+        branches = node.get(keyword)
+        if isinstance(branches, list):
+            for branch in branches:
+                found |= _declared_types(branch)
+
+    found.discard("null")
+    return found
+
+
+def _declares_pattern(node: object) -> bool:
+    """Report whether a node carries a pattern, through any wrapper.
+
+    :param node: The property schema node
+    :return: True if any branch declares a ``pattern``
+    """
+    if not isinstance(node, dict):
+        return False
+    if isinstance(node.get("pattern"), str):
+        return True
+    return any(
+        isinstance(node.get(keyword), list)
+        and any(_declares_pattern(branch) for branch in node[keyword])
+        for keyword in ("anyOf", "allOf", "oneOf")
+    )
+
+
 def _is_inline_money(node: object) -> bool:
     """Report whether a property declares the money *shape* inline.
 
@@ -111,7 +163,13 @@ def _is_inline_money(node: object) -> bool:
         return False
 
     pattern = node.get("pattern")
-    return isinstance(pattern, str) and pattern == WIRE_PATTERN.pattern
+    if isinstance(pattern, str) and pattern == WIRE_PATTERN.pattern:
+        return True
+    return any(
+        isinstance(node.get(keyword), list)
+        and any(_is_inline_money(branch) for branch in node[keyword])
+        for keyword in ("anyOf", "allOf", "oneOf")
+    )
 
 
 def _is_numeric_money_name(field: str, node: object) -> bool:
@@ -136,9 +194,7 @@ def _is_numeric_money_name(field: str, node: object) -> bool:
     :param node: The property schema node
     :return: True if a money-named property is typed as a number
     """
-    if not isinstance(node, dict):
-        return False
-    if node.get("type") not in {"number", "integer"}:
+    if not _declared_types(node) & {"number", "integer"}:
         return False
     return is_money_name(field)
 
@@ -160,11 +216,9 @@ def _is_unconstrained_money_name(field: str, node: object) -> bool:
     :param node: The property schema node
     :return: True if a money-named property is a bare string
     """
-    if not isinstance(node, dict):
+    if _declared_types(node) != {"string"}:
         return False
-    if node.get("type") != "string":
-        return False
-    if node.get("pattern") is not None or node.get("$ref") is not None:
+    if _declares_pattern(node) or _references_money(node):
         return False
     if field.endswith(DISPLAY_SUFFIX):
         # Presentation, by design: its content is the rendering

@@ -130,3 +130,53 @@ def test_both_gates_read_the_same_token_list() -> None:
     assert governance.is_money_name is is_money_name
     assert "fee" in MONEY_NAME_TOKENS
     assert "due" in MONEY_NAME_TOKENS
+
+
+def test_a_nullable_money_field_typed_as_a_number_is_caught() -> None:
+    """The hole U4 was the first Unit able to expose.
+
+    A nullable field emits ``{"anyOf": [{"type": "number"}, {"type":
+    "null"}]}`` with no top-level ``type``, so a check reading
+    ``node["type"]`` sees nothing. U3 carried no money at all, and this
+    project's first real money column -- ``fee_amount`` -- is **nullable
+    by design**, since null means inherit while zero is a waiver. The one
+    shape the project uses for money was the one the gate could not see.
+
+    :return: None
+    """
+    violations = money_schema_violations(
+        _app_with("LeakyResponse", fee_amount=float | None), exempt={}
+    )
+
+    assert [v.kind for v in violations] == ["numeric-money"]
+
+
+def test_a_nullable_money_field_typed_as_a_bare_string_is_caught() -> None:
+    """The same wrapper hides the unconstrained-string case too.
+
+    :return: None
+    """
+    violations = money_schema_violations(
+        _app_with("LeakyResponse", fee_amount=str | None), exempt={}
+    )
+
+    assert [v.kind for v in violations] == ["unconstrained-money"]
+
+
+def test_the_real_application_needs_the_allowlist() -> None:
+    """The allowlist is load-bearing, not decorative.
+
+    Pins BR3.3's prediction against the built application: without the
+    exemptions the gate reports ``fee_due_day`` and nothing else, and
+    both real money columns pass either way.
+
+    :return: None
+    """
+    from app.main import create_app
+
+    app = create_app()
+
+    assert money_schema_violations(app) == []
+
+    without = money_schema_violations(app, exempt={})
+    assert {v.field for v in without} == {"fee_due_day"}
