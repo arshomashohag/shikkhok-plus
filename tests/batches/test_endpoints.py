@@ -300,3 +300,71 @@ def test_another_teacher_cannot_deactivate_a_seat_over_http(
     assert response.status_code == 404
     owner_session.expire_all()
     assert owner_session.get(Enrollment, seat).inactive_from is None
+
+
+def test_the_roster_carries_the_fee_and_guardian_contact(
+    client: TestClient, owner_session: Session, teacher: TeacherFixture
+) -> None:
+    """A roster with no fees is useless to a teacher.
+
+    **No test caught this and a live run did.** The route hardcoded
+    `guardian_phone=None` and `fee_amount=None` because the service's
+    RosterRow never carried them, so the enrollment response returned
+    both and the roster returned neither. Every existing roster test
+    asserted on display_name and status, which were correct.
+
+    :param client: The test client
+    :param owner_session: A session able to arrange fixture data
+    :param teacher: The teacher who owns the batch
+    :return: None
+    """
+    from app.money import Money
+
+    enroll(
+        owner_session,
+        batch_id=teacher.batch_id,
+        display_name="Rahim",
+        student_account_id=None,
+        guardian_phone="+8801811111111",
+        fee_amount=Money("1200.00"),
+    )
+
+    response = client.get(
+        f"/v1/batches/{teacher.batch_id}/roster",
+        headers=_auth(client, owner_session, teacher.account_id),
+    )
+
+    row = response.json()[0]
+    assert row["guardian_phone"] == "+8801811111111"
+    # A STRING on the wire, never a number [TC-7, D-20].
+    assert row["fee_amount"] == "1200.00"
+    assert '"fee_amount":"1200.00"' in response.text.replace(" ", "")
+
+
+def test_a_roster_fee_of_null_means_inherit_not_zero(
+    client: TestClient, owner_session: Session, teacher: TeacherFixture
+) -> None:
+    """Null is inherit; zero is a waiver [AC2.2.5].
+
+    A response that rendered an absent fee as "0.00" would show a
+    teacher that every inheriting student pays nothing.
+
+    :param client: The test client
+    :param owner_session: A session able to arrange fixture data
+    :param teacher: The teacher who owns the batch
+    :return: None
+    """
+    enroll(
+        owner_session,
+        batch_id=teacher.batch_id,
+        display_name="Inherits",
+        student_account_id=None,
+        fee_amount=None,
+    )
+
+    response = client.get(
+        f"/v1/batches/{teacher.batch_id}/roster",
+        headers=_auth(client, owner_session, teacher.account_id),
+    )
+
+    assert response.json()[0]["fee_amount"] is None

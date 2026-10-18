@@ -60,6 +60,17 @@ ORM_WRITE_METHODS = frozenset({"add", "add_all", "delete", "merge"})
 WRITE_PERMITTED: frozenset[str] = frozenset(
     {
         "app/batches/service.py",
+        # The staging seeder. It writes `owner` because NO ENDPOINT
+        # CREATES ONE -- that belongs to the subscription surface, which
+        # no Unit has built -- and a teacher lens cannot resolve without
+        # it, so a device check is impossible without this row.
+        #
+        # Deliberately NOT the script B5 deleted. That one wrote rows
+        # the application also wrote, making it a second untested write
+        # path whose output the 0002 fold guard then refused. This one
+        # writes ONLY what the API cannot, and a test below pins that
+        # distinction so the exemption cannot quietly widen.
+        "app/db/seed_staging.py",
     }
 )
 
@@ -160,7 +171,10 @@ def test_the_ban_detects_an_orm_write_and_not_only_raw_sql() -> None:
     # ORM, so the one shape this ban actually needs to police is the one
     # a raw-SQL pattern cannot see. Before this, an ORM write from an
     # unlisted module passed the whole check.
-    permitted = APP.parent / next(iter(WRITE_PERMITTED))
+    # The ORM writer specifically. WRITE_PERMITTED is a frozenset with
+    # no order, and the staging seeder writes raw SQL -- so picking an
+    # arbitrary member made this guard pass or fail by iteration order.
+    permitted = APP.parent / "app/batches/service.py"
     assert _orm_write_offenders(permitted) != [], (
         "the allowlisted module writes through the ORM, so if this finds "
         "nothing the AST walk is not working and the ban is vacuous"
@@ -186,8 +200,16 @@ def test_the_seed_script_is_gone() -> None:
     # its rows are precisely what the 0002 migration's fold guard refuses.
     assert not (APP / "db" / "seed_skeleton.py").exists()
 
+    # `seed_staging.py` is exempted by NAME, not by weakening the
+    # match. Its docstring names the deleted script in order to explain
+    # how it differs, and a substring check read that as a dangling
+    # reference -- a false positive whose cheapest "fix" would have been
+    # deleting the explanation. Exempting one file keeps the check
+    # strict everywhere else.
     offenders = [
-        path.name for path in APP.rglob("*.py") if "seed_skeleton" in path.read_text()
+        path.name
+        for path in APP.rglob("*.py")
+        if "seed_skeleton" in path.read_text() and path.name != "seed_staging.py"
     ]
     assert offenders == [], f"dangling references to the seed script: {offenders}"
 
@@ -199,10 +221,31 @@ def test_the_write_allowlist_names_only_modules_that_exist() -> None:
     assert missing == [], f"allowlisted modules that do not exist: {missing}"
 
 
+def test_the_staging_seeder_writes_only_what_no_endpoint_can() -> None:
+    # THE DISTINCTION THAT JUSTIFIES ITS EXEMPTION. B5 deleted a seed
+    # script because it wrote rows the application also wrote, making it
+    # a second untested write path. This one is permitted only while it
+    # writes `account` and `owner` -- the two rows no endpoint creates,
+    # because there is no public sign-up and no subscription surface.
+    #
+    # The moment it writes a `batch` or an `enrollment`, it has become
+    # the thing B5 deleted and this test says so.
+    source = (APP / "db" / "seed_staging.py").read_text()
+    forbidden = ("INSERT INTO batch", "INSERT INTO enrollment")
+
+    found = [phrase for phrase in forbidden if phrase in source]
+    assert found == [], (
+        f"the staging seeder writes {found}, which the API can create "
+        "itself. A seeded batch proves the seeding works, not that the "
+        "product does -- and it reintroduces the second write path B5 "
+        "deleted."
+    )
+
+
 def test_the_allowlisted_module_is_the_only_writer() -> None:
     # Guards the check itself. If the allowlist ever grew to cover every
     # module, the ban above would pass vacuously while forbidding nothing.
-    assert len(WRITE_PERMITTED) == 1
+    assert len(WRITE_PERMITTED) == 2
 
 
 def test_the_orm_models_declare_the_shell_tables() -> None:

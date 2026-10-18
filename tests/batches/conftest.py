@@ -84,6 +84,8 @@ def enroll(
     display_name: str,
     student_account_id: uuid.UUID | None = None,
     guardian_account_id: uuid.UUID | None = None,
+    guardian_phone: str | None = None,
+    fee_amount: Money | None = None,
 ) -> uuid.UUID:
     """Create one enrollment seat in a batch.
 
@@ -92,12 +94,16 @@ def enroll(
     :param display_name: The teacher-typed name
     :param student_account_id: The student, or None for a dormant seat
     :param guardian_account_id: The guardian, if one is recorded
+    :param guardian_phone: The teacher-typed guardian contact
+    :param fee_amount: This seat's fee, or None to inherit
     :return: The new enrollment's id
     """
     record = Enrollment(
         batch_id=batch_id,
         student_account_id=student_account_id,
         guardian_account_id=guardian_account_id,
+        guardian_phone=guardian_phone,
+        fee_amount=fee_amount,
         display_name=display_name,
         created_at=dt.datetime.now(tz=dt.UTC),
     )

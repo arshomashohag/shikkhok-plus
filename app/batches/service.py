@@ -90,12 +90,17 @@ class RosterRow:
 
     :ivar enrollment_id: The teacher-facing key for this seat
     :ivar display_name: The teacher-typed name
+    :ivar guardian_phone: The teacher-typed guardian contact, if any
+    :ivar fee_amount: This seat's fee, or None when it inherits the
+        batch default. None is NOT zero: zero is a waiver [AC2.2.5]
     :ivar is_dormant: True while nobody has signed in to this seat
     :ivar inactive_from: The date after which no cycle generates
     """
 
     enrollment_id: uuid.UUID
     display_name: str
+    guardian_phone: str | None
+    fee_amount: Money | None
     is_dormant: bool
     inactive_from: dt.date | None
 
@@ -162,6 +167,8 @@ def list_roster(
         RosterRow(
             enrollment_id=row.id,
             display_name=row.display_name,
+            guardian_phone=row.guardian_phone,
+            fee_amount=row.fee_amount,
             is_dormant=row.student_account_id is None,
             inactive_from=row.inactive_from,
         )

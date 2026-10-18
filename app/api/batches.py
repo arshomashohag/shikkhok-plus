@@ -185,8 +185,8 @@ def read_roster(
         RosterRowResponse(
             enrollment_id=row.enrollment_id,
             display_name=row.display_name,
-            guardian_phone=None,
-            fee_amount=None,
+            guardian_phone=row.guardian_phone,
+            fee_amount=_to_wire(row.fee_amount),
             status=_roster_status(row),
             inactive_from=row.inactive_from,
         )
