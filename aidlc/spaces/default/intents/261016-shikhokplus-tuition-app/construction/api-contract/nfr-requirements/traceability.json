@@ -91,7 +91,7 @@
     {
       "id": "NFR14",
       "status": "OK",
-      "target": "NFR14.1 through NFR14.10 - U2 owns the third layer of the privacy boundary (teacher-facing schemas carrying no profile fields), the non-disclosure rule, the route-enumeration harness and the lens-hint contract. NFR14.4 is stated here and OWNED BY U3 per BR4.4"
+      "target": "NFR14.1 through NFR14.11 - U2 owns the third layer of the privacy boundary (teacher-facing schemas carrying no profile fields), the non-disclosure rule, the route-enumeration harness and the lens-hint contract. NFR14.4 is stated here and OWNED BY U3 per BR4.4"
     },
     {
       "id": "NFR15",
@@ -198,7 +198,7 @@
     {
       "id": "NFR16.3",
       "status": "OK",
-      "target": "NFR16 - deterministic serialization. A SECURITY requirement rather than an ergonomic one: a byte comparison over unstable output produces false failures, and a gate that cries wolf gets disabled"
+      "target": "NFR16 - deterministic serialization ACROSS PROCESSES: canonical sort_keys ordering and explicit ordering for every set-derived collection. A SECURITY requirement rather than an ergonomic one, since a byte comparison over unstable output produces false failures and a gate that cries wolf gets disabled. Corrected at review: an earlier draft proposed generating twice in ONE test run, which is worse than no check because Python seeds hash randomization once per process - two generations in one run share an ordering by construction and agree however unstable the serialization is. Measured: six processes printing one seven-element set gave six orderings. Verification uses two separate interpreter invocations; pinning PYTHONHASHSEED would hide the defect rather than catch it"
     },
     {
       "id": "NFR16.4",
@@ -219,6 +219,11 @@
       "id": "NFR17.3",
       "status": "OK",
       "target": "NFR17 - the handler is total over the taxonomy; BR1.1 closing the hierarchy at five is what makes totality checkable"
+    },
+    {
+      "id": "NFR14.11",
+      "status": "OK",
+      "target": "NFR14 - app.schemas.* configured as a strict mypy island with disallow_any_explicit, added in this Bolt because U2 first populates that package. team.md names three strict islands but B1 configured only app.money.*, correctly, since an override naming a missing module is dead configuration - which left app.schemas with no owning Bolt. Response-schema separation is a TYPING control as well as a privacy one: a teacher-lens endpoint returning a student-private response becomes a mypy error, catching right-lens-wrong-data, which neither the route harness nor the schema iteration can see. disallow_any_explicit matters specifically here because a field typed Any carries a profile field at runtime while declaring nothing in the schema - a hole straight through NFR14.8"
     }
   ]
 }

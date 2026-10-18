@@ -92,10 +92,24 @@ CI fails on any difference [BR2.1].
 command, local and in CI" rule applies: a gate reproducible only by pushing
 gets bypassed, and one that runs only locally gets skipped.
 
-**NFR16.3** — Serialization must be **deterministic** — stable key ordering,
-stable formatting. This is a security requirement rather than an ergonomic one:
-a byte comparison with unstable output produces false failures, and a gate that
-cries wolf is disabled by whoever is holding the pager.
+**NFR16.3** — Serialization must be **deterministic ACROSS PROCESSES** —
+canonical key ordering (`sort_keys`), explicit ordering for every
+set-derived collection, stable formatting. This is a security requirement
+rather than an ergonomic one: a byte comparison over unstable output produces
+false failures, and a gate that cries wolf is disabled by whoever is holding
+the pager.
+
+> **Cross-process is the operative word, and a same-run check cannot see the
+> failure.** Python seeds hash randomization once per process, so two
+> generations inside one test run share an ordering by construction and agree
+> however unstable the serialization is. Measured during this stage: six
+> interpreter processes printing one seven-element set gave **six different
+> orderings**. An OpenAPI document carries set-derived collections — `required`
+> lists most obviously — so one built from a `set` reorders between the
+> author's machine and CI, and the gate fails on a commit that changed
+> nothing. Verification therefore generates in **two separate interpreter
+> invocations**. Pinning `PYTHONHASHSEED` would hide the defect rather than
+> catch it.
 
 > **The one bypass, stated plainly because no check closes it.** An implementer
 > can regenerate the schema and commit it without reading the diff. That is not
@@ -372,7 +386,8 @@ only, and a type declaration has no branches.
 | NFR14.8 | Schema-wide iteration, both field sets | Any teacher-lens schema declares either |
 | NFR14.9 | Stated in writing in the artifact | — (a documentation obligation) |
 | NFR14.10 | Contract test over hint outcomes | A hint grants, or an unsupported hint falls back |
-| NFR16.1–3 | Schema-diff gate in CI | Committed ≠ generated, or output is unstable |
+| NFR16.1–2 | Schema-diff gate in CI | Committed ≠ generated |
+| NFR16.3 | Generation in **two separate processes**, compared | Output differs across processes (set-derived ordering) |
 | NFR16.4 | Regeneration command documented beside the file | — (a documentation obligation) |
 | NFR17.1 | The fixtures' failure is the pass condition | A fixture passes |
 | NFR17.2 | Import-boundary assertion on the handler module | The handler imports an I/O module |

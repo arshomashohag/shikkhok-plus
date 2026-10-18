@@ -10,9 +10,14 @@
 > **Almost everything here was decided at B1 and is inherited unchanged**:
 > Python 3.12, FastAPI, Pydantic v2, pytest, Ruff with its named rule sets,
 > mypy with its strict islands, `uv.lock`. Re-litigating them would be
-> ceremony. **Three decisions are genuinely U2's**, and all three are narrow
+> ceremony. **Four decisions are genuinely U2's**, and all four are narrow
 > enough to state precisely — which is the point, because each one is a place
 > where a plausible alternative quietly disables a gate.
+>
+> A.4 was found while writing this artifact rather than inherited from the
+> questions: `team.md` names three strict mypy islands, B1 could only
+> configure one, and nothing owned the second. Checking the committed
+> `pyproject.toml` rather than restating the practice is what surfaced it.
 
 ## Sources
 
@@ -34,6 +39,7 @@
 | A.1 | The committed schema is **generated output only** — no hand-authored fragment is ever merged into it | Hand-maintaining or patching the document |
 | A.2 | The diff is a **byte comparison** over deterministically serialized output | A semantic/structural differ |
 | A.3 | **Schemathesis validates conformance only** and never counts as privacy coverage | Treating a green conformance run as privacy evidence |
+| A.4 | **`app.schemas.*` becomes a strict mypy island in this Bolt**, since U2 first populates it | Leaving it to whichever Bolt notices, i.e. none |
 
 ---
 
@@ -82,16 +88,39 @@ in a pull request where the one reviewer sees it [D-26, OC-1].
 
 The cost is a real obligation rather than a free win: **serialization must be
 deterministic** (NFR16.3). Stable key ordering, stable formatting, stable
-handling of anything set-like. Python dictionaries preserve insertion order and
-FastAPI's generation is deterministic for a fixed app, but this must be
-asserted rather than assumed — **generating twice in one test run and comparing
-the two outputs** is the cheap check, and it catches the whole class before it
-reaches CI.
+handling of anything set-like.
 
-Without that, the gate produces false failures. A gate that cries wolf is
+**The determinism this needs is CROSS-PROCESS, and that distinction is the
+whole requirement.** An earlier draft of this section proposed generating the
+document twice in one test run and comparing — which is worse than no check,
+because it passes while the gate fails. Python seeds its hash randomization
+**once per process**, so two generations inside one run share an ordering by
+construction and agree no matter how unstable the serialization is. Measured:
+six separate interpreter processes printing one seven-element set produced
+**six different orderings**; the same set printed twice inside one process
+produces one.
+
+That matters because an OpenAPI document contains set-derived collections —
+`required` field lists most obviously. Any one of them built from a `set`
+reorders between the author's machine and CI, and the gate then fails on a
+commit that changed nothing.
+
+So NFR16.3 is discharged by two things, neither of them a same-run comparison:
+
+- **Canonical serialization**, not merely observed-stable serialization —
+  `sort_keys` and an explicit ordering for every collection, so determinism is
+  a property of how the document is written rather than a hope about dict
+  insertion order surviving a dependency upgrade.
+- **A cross-process check**: generate in two separate interpreter invocations
+  and compare, which is the only arrangement that can observe the failure.
+  Pinning `PYTHONHASHSEED` would hide it instead — the gate must survive the
+  randomization CI actually runs with, not be insulated from it.
+
+Without this, the gate produces false failures. A gate that cries wolf is
 disabled by whoever is holding the pager on a bad afternoon, and then nothing
 is checking the contract at all. **The determinism check is therefore part of
-the gate, not an optimization of it.**
+the gate, not an optimization of it** — which is also why getting its scope
+wrong mattered enough to correct.
 
 ---
 
@@ -128,17 +157,36 @@ discharge of a COPPA/GDPR-K obligation.
 
 **Inherited from B1 unchanged**: Python 3.12, FastAPI, Pydantic v2, pytest,
 Ruff (with `E,F,W,I,UP,B,ASYNC,S,DTZ,BLE001,RUF` and the `D` docstring rules),
-mypy with `disallow_untyped_defs` globally and strict islands on `app.money.*`,
-`app.authz.*` and `app.schemas.*`, `uv.lock`, Gitleaks as pre-commit hook and
-CI job.
+mypy with `disallow_untyped_defs` globally, `uv.lock`, Gitleaks as pre-commit
+hook and CI job.
 
-**`app.schemas.*` is a strict mypy island and that matters here**, because U2
-is the Unit that first populates it. Response-schema separation is a *typing*
-control as well as a privacy one: a lens type parameterizes which response
-models an endpoint may return, so a teacher-lens endpoint returning a
-student-private response is a **mypy error** rather than a review finding. That
-is the layer catching right-lens-wrong-data, which neither the route harness
-nor the schema iteration can see.
+**One configuration change lands in this Bolt, and it is not optional.**
+`team.md` names three strict mypy islands — `app.money.*`, `app.authz.*` and
+`app.schemas.*` — but B1 configured only `app.money.*`, correctly, because the
+other two packages did not exist and an override naming a missing module is
+dead configuration. **U2 is the Unit that first populates `app.schemas`**, so
+its override is added here:
+
+```toml
+[[tool.mypy.overrides]]
+module = "app.schemas.*"
+strict = true
+disallow_any_explicit = true
+```
+
+This matters beyond tidiness. Response-schema separation is a *typing* control
+as well as a privacy one: a lens type parameterizes which response models an
+endpoint may return, so a teacher-lens endpoint returning a student-private
+response is a **mypy error** rather than a review finding. That is the layer
+catching right-lens-wrong-data, which neither the route harness (which checks a
+lens is present, not which data it guards) nor the schema iteration (which
+checks fields, not which endpoint returns them) can see.
+
+`disallow_any_explicit` carries real weight on this package specifically: an
+`Any` in a response model is a hole straight through the privacy assertion,
+because a field typed `Any` can carry a profile field at runtime while
+declaring nothing in the schema. **`app.authz.*` stays unconfigured until U3
+creates it**, on the same reasoning that left it out of B1.
 
 **Arriving with this Bolt, by `team.md`'s explicit sequencing**: Schemathesis
 and the OpenAPI schema-diff gate. Both were deliberately held back from the
