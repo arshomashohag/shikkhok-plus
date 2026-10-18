@@ -20,6 +20,7 @@ plausibly wrong, so each is named where it is enforced:
 
 from __future__ import annotations
 
+import datetime as dt
 import uuid
 from dataclasses import dataclass
 
@@ -38,6 +39,7 @@ __all__ = [
     "list_guardian_children",
     "list_roster",
     "remove_enrollment",
+    "set_inactive_from",
 ]
 
 
@@ -223,4 +225,33 @@ def remove_enrollment(session: Session, *, enrollment_id: uuid.UUID) -> None:
         )
 
     session.delete(record)
+    session.commit()
+
+
+def set_inactive_from(
+    session: Session,
+    *,
+    enrollment_id: uuid.UUID,
+    inactive_from: dt.date | None,
+) -> None:
+    """Record, or clear, the date after which no cycle generates.
+
+    Written **per enrollment**, never per student: one person in two of
+    a teacher's batches is two seats [AC2.2.3], and leaving one class
+    does not leave the other. U7 reads this; U4 only records it.
+
+    :param session: The session to write through
+    :param enrollment_id: The seat to mark
+    :param inactive_from: The date, or None to reactivate the seat
+    :return: None
+    :raises EnrollmentNotRemovable: No such enrollment
+    """
+    record = session.get(Enrollment, enrollment_id)
+    if record is None:
+        raise EnrollmentNotRemovable(
+            code="ENROLLMENT_NOT_FOUND",
+            message_key="enrollment.not_found",
+        )
+
+    record.inactive_from = inactive_from
     session.commit()
