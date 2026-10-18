@@ -14,7 +14,7 @@
 ## Sources
 
 - [stage] `functional-design-questions.md` — all seven answers
-- [upstream] `construction/api-contract/functional-design/rules.md` — BR1.1–BR4.3
+- [upstream] `construction/api-contract/functional-design/rules.md` — BR1.1–BR4.4
 - [upstream] `construction/api-contract/functional-design/entities.md`
 - [upstream] `inception/contract-design/contract-summary.md`
 - [upstream] `inception/units-generation/unit-of-work.md` — U2 is `spec`, S
@@ -345,7 +345,7 @@ Derived from `rules.md`, which is the source of truth.
 | **BR1.x** | The error taxonomy, its envelope, the non-disclosure rule, and the lens-hint contract | BR1.1–BR1.7 |
 | **BR2.x** | The committed schema and its assertions | BR2.1–BR2.4 |
 | **BR3.x** | The route harness | BR3.1–BR3.2 |
-| **BR4.x** | Gates that would otherwise pass trivially, and what this stage owes other Bolts | BR4.1–BR4.3 |
+| **BR4.x** | Gates that would otherwise pass trivially, and what this stage owes other Bolts | BR4.1–BR4.4 |
 
 ---
 

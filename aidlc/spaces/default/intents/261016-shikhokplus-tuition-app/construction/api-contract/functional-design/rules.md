@@ -567,6 +567,51 @@ rules:
     source: >
       [bolt-plan B2/B3/B7/B9], [risk-and-sequencing-rationale B3
       checkpoint], [contract-summary line 873], [B1 NFR9.32]
+
+  - id: BR4.4
+    statement: >
+      BR1.4's structural-equivalence clause is an obligation on U3, the
+      first Unit that implements a lens-scoped lookup. U2 cannot test it
+      and does not claim to.
+    category: policy
+    applies_to: U3 `identity-and-access` (B3), and any later Unit adding a lens-scoped lookup
+    trigger: The first lens-scoped resource lookup is implemented
+    logic: >
+      IF a Unit implements a lookup that can fail as unreachable or absent
+      THEN that Unit carries a test asserting BOTH branches execute the
+      same queries - not merely that the two responses match byte for
+      byte, which a short-circuited implementation also satisfies.
+    violation_behaviour: >
+      The clause silently becomes advisory. An implementer checks
+      existence first, returns early on a miss, and ships a
+      byte-identical pair of responses whose timings differ - passing
+      every test BR4.1 requires, because none of them looks at the
+      queries.
+    rationale: >
+      **BR4.1's fixture obligation deliberately excludes BR1.4**, and
+      correctly: U2 owns no lookup code, so there is nothing here to
+      fixture. But an obligation excluded from the Unit that states it,
+      and not handed to the Unit that can discharge it, is an obligation
+      nobody holds.
+
+      That is the gap this project's own precedent exists to close. B1
+      set it at NFR9.32 and BR4.3 applies it by naming its five artifacts
+      and their owners. BR1.4's structural clause was left as prose in a
+      `violation_behaviour` field with no owner, no fixture and no test -
+      the one rule in this Unit that states a requirement and assigns it
+      to nobody.
+
+      U3 is the right owner on three counts: it owns lens resolution, it
+      is the first Unit with a lookup that can fail either way, and it is
+      the walking skeleton, so the obligation is discharged at the point
+      the human checkpoint reads the privacy claim rather than several
+      Bolts later.
+
+      The test is structural, as BR1.4 requires - assert the queries both
+      branches execute, never a wall-clock difference.
+    source: >
+      [BR1.4], [BR4.1 exclusion], [B1 NFR9.32 precedent],
+      [bolt-plan B3 - U3 owns lens resolution]
 ```
 
 ---
@@ -590,7 +635,8 @@ rules:
 | **BR3.2** | constraint | Resolve annotations properly; never swallow a resolution error |
 | **BR4.1** | policy | Every assertion ships a fixture, asserting *which* violation |
 | **BR4.2** | policy | Conformance is never privacy coverage, in writing |
-| **BR4.3** | policy | **Four downstream artifacts contradict BR1.4** and must be amended |
+| **BR4.3** | policy | **Five downstream artifacts contradicted BR1.4**; all amended, discharged |
+| **BR4.4** | policy | BR1.4's structural-equivalence clause is U3's obligation to test |
 
 **The four worth a second look:**
 
