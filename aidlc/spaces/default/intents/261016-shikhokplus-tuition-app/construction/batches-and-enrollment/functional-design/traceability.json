@@ -1,0 +1,332 @@
+{
+  "stage": "functional-design",
+  "unit": "batches-and-enrollment",
+  "note": "Every acceptance criterion U4 owns (US1.3, US2.1-US2.8) mapped to the rule or spec section that handles it, plus the cross-cutting constraints it inherits. Targets name a file and section so the mapping is checkable. Where an AC is satisfied by the SHAPE of an entity rather than by code, the rationale says which shape and what it prevents -- that is the project's standing preference for mechanism over review. The reverse section records four decisions with no upstream rule, including two obligations this Bolt discharges or hands on.",
+  "upstream_ids": [
+    "AC1.3.1",
+    "AC1.3.2",
+    "AC1.3.3",
+    "AC1.3.4",
+    "AC1.3.5",
+    "AC1.3.6",
+    "AC2.1.1",
+    "AC2.1.2",
+    "AC2.1.3",
+    "AC2.2.1",
+    "AC2.2.2",
+    "AC2.2.3",
+    "AC2.2.4",
+    "AC2.2.5",
+    "AC2.3.1",
+    "AC2.3.2",
+    "AC2.4.1",
+    "AC2.4.2",
+    "AC2.4.3",
+    "AC2.4.4",
+    "AC2.4.5",
+    "AC2.5.1",
+    "AC2.5.2",
+    "AC2.6.1",
+    "AC2.6.2",
+    "AC2.6.3",
+    "AC2.7.1",
+    "AC2.7.2",
+    "AC2.7.3",
+    "AC2.7.4",
+    "AC2.8.1",
+    "AC2.8.2",
+    "AC2.8.3",
+    "AC2.8.4",
+    "AC2.8.5",
+    "AC2.8.6",
+    "OQ-7",
+    "NFR9.32",
+    "TC-8",
+    "TC-9",
+    "TC-13",
+    "TC-14",
+    "ADR-001"
+  ],
+  "coverage": [
+    {
+      "id": "AC1.3.1",
+      "status": "OK",
+      "target": "functional-design/rules.md BR6.3",
+      "rationale": "A dormant enrollment stays usable indefinitely for attendance, marks and fees; nothing expires it."
+    },
+    {
+      "id": "AC1.3.2",
+      "status": "OK",
+      "target": "functional-design/rules.md BR6.3",
+      "rationale": "No notification, invitation or reminder is ever sent. An invitation SMS would also spend the budget U3 built ceilings to protect."
+    },
+    {
+      "id": "AC1.3.3",
+      "status": "OK",
+      "target": "functional-design/rules.md BR6.3",
+      "rationale": "No per-row roster marker: dormant is the NORMAL state early in a batch's life, and decorating most rows flags normality as exceptional."
+    },
+    {
+      "id": "AC1.3.4",
+      "status": "OK",
+      "target": "BR6.2 \u2014 functional-spec.md \u00a72.3",
+      "rationale": "The enrollment detail states whether the person has signed in, and the phone number is editable."
+    },
+    {
+      "id": "AC1.3.5",
+      "status": "OK",
+      "target": "BR6.3 \u2014 functional-spec.md \u00a72.6",
+      "rationale": "A batch-level claimed count carries the same information as per-row markers without the clutter."
+    },
+    {
+      "id": "AC1.3.6",
+      "status": "OK",
+      "target": "BR6.2 \u2014 entities.md Enrollment",
+      "rationale": "claimed_at and deleted_at are SEPARATE columns, because one nullable timestamp cannot distinguish a mistyped number from a person who left, and the remedies are opposite."
+    },
+    {
+      "id": "AC2.1.1",
+      "status": "OK",
+      "target": "BR1.1 \u2014 functional-spec.md \u00a72.1",
+      "rationale": "Name, one or more subjects, default fee, due day and weekly slots, in one transaction."
+    },
+    {
+      "id": "AC2.1.2",
+      "status": "OK",
+      "target": "functional-design/rules.md BR3.2 / entities.md Batch",
+      "rationale": "fee_due_day admits 1-31 under a CHECK; the clamp itself is U7 arithmetic. The column must admit 31 or the clamp never runs."
+    },
+    {
+      "id": "AC2.1.3",
+      "status": "OK",
+      "target": "functional-design/rules.md BR1.1",
+      "rationale": "Ownership through an Owner row. A test asserts Batch has no account_id column at all, so the shortcut is not available."
+    },
+    {
+      "id": "AC2.2.1",
+      "status": "OK",
+      "target": "BR2.2 \u2014 functional-spec.md \u00a72.2",
+      "rationale": "Student number, optional guardian number, teacher-typed display name."
+    },
+    {
+      "id": "AC2.2.2",
+      "status": "OK",
+      "target": "functional-design/rules.md BR2.1",
+      "rationale": "display_name belongs to the ENROLLMENT. A test asserts no U4 module references Profile at all."
+    },
+    {
+      "id": "AC2.2.3",
+      "status": "OK",
+      "target": "functional-design/rules.md BR2.2",
+      "rationale": "Two enrollments, each with its own display name and fee, neither reconciled against the other."
+    },
+    {
+      "id": "AC2.2.4",
+      "status": "OK",
+      "target": "BR2.2 \u2014 functional-spec.md \u00a72.2",
+      "rationale": "Attach-to-existing. Creating a second account for a known number would silently fork the person."
+    },
+    {
+      "id": "AC2.2.5",
+      "status": "OK",
+      "target": "functional-design/rules.md BR3.1",
+      "rationale": "fee_override NULLABLE: null inherits, zero is a real waiver. A NOT NULL column defaulting to 0 makes those indistinguishable."
+    },
+    {
+      "id": "AC2.3.1",
+      "status": "OK",
+      "target": "BR2.1 \u2014 functional-spec.md \u00a72.3",
+      "rationale": "An edit reflects in every teacher-facing view because they all read the same column."
+    },
+    {
+      "id": "AC2.3.2",
+      "status": "OK",
+      "target": "functional-design/rules.md BR2.1",
+      "rationale": "Profile is untouched. The likely violation is a READ fallback to Profile.self_name, which is a privacy breach wearing a convenience."
+    },
+    {
+      "id": "AC2.4.1",
+      "status": "OK",
+      "target": "functional-design/rules.md BR4.1",
+      "rationale": "Strictly-after produces no cycle; the containing period generates. Three SEPARATE named tests so a failure says which property broke."
+    },
+    {
+      "id": "AC2.4.2",
+      "status": "OK",
+      "target": "functional-design/rules.md BR4.2",
+      "rationale": "Existing dues stand. A cascade cancelling them would erase money actually owed."
+    },
+    {
+      "id": "AC2.4.3",
+      "status": "OK",
+      "target": "functional-design/rules.md BR4.3",
+      "rationale": "Exactly one row changes. The requirement says STUDENT and the operation is on an ENROLLMENT; that gap is where the bug lives."
+    },
+    {
+      "id": "AC2.4.4",
+      "status": "OK",
+      "target": "functional-design/rules.md BR4.1",
+      "rationale": "The containing period stands in full whether generated before or after the marking."
+    },
+    {
+      "id": "AC2.4.5",
+      "status": "OK",
+      "target": "BR4.1 \u2014 functional-spec.md \u00a72.4",
+      "rationale": "No proration. This is the one that LOOKS wrong and is right; prorating is a money bug no test outside this Unit would catch."
+    },
+    {
+      "id": "AC2.5.1",
+      "status": "OK",
+      "target": "functional-design/rules.md BR6.1",
+      "rationale": "Dormant and history-free deletes."
+    },
+    {
+      "id": "AC2.5.2",
+      "status": "OK",
+      "target": "functional-design/rules.md BR6.1",
+      "rationale": "Otherwise refused with the inactive path offered. A cascade would delete the TEACHER's own attendance and marks."
+    },
+    {
+      "id": "AC2.6.1",
+      "status": "OK",
+      "target": "BR5.3 \u2014 functional-spec.md \u00a72.6",
+      "rationale": "Every batch where this account is the recorded student."
+    },
+    {
+      "id": "AC2.6.2",
+      "status": "OK",
+      "target": "BR6.3 \u2014 functional-spec.md \u00a72.6",
+      "rationale": "Inactive batches are read-only and collapsed; history stays reachable."
+    },
+    {
+      "id": "AC2.6.3",
+      "status": "OK",
+      "target": "BR7.1 \u2014 entities.md BatchVisibilityPreference",
+      "rationale": "A separate TABLE keyed on account_id, not a column on Enrollment. A column would be shared by every lens that reads the row, which is the bug the shape prevents."
+    },
+    {
+      "id": "AC2.7.1",
+      "status": "OK",
+      "target": "functional-design/rules.md BR5.2",
+      "rationale": "Two or more children present the selection list."
+    },
+    {
+      "id": "AC2.7.2",
+      "status": "OK",
+      "target": "functional-design/rules.md BR5.2",
+      "rationale": "Exactly one goes straight through with no selection step."
+    },
+    {
+      "id": "AC2.7.3",
+      "status": "OK",
+      "target": "BR5.2 \u2014 functional-spec.md \u00a72.7",
+      "rationale": "Each child shows display name and the recording teacher."
+    },
+    {
+      "id": "AC2.7.4",
+      "status": "OK",
+      "target": "functional-design/rules.md BR5.1",
+      "rationale": "Switching child changes the path parameter; no re-authentication."
+    },
+    {
+      "id": "AC2.8.1",
+      "status": "OK",
+      "target": "functional-design/rules.md BR5.3",
+      "rationale": "Reachability resolves through the RECORDED GUARDIAN NUMBER, not through the child. Resolving through the child merges two teachers' records."
+    },
+    {
+      "id": "AC2.8.2",
+      "status": "OK",
+      "target": "functional-design/rules.md BR5.3",
+      "rationale": "The child appears once."
+    },
+    {
+      "id": "AC2.8.3",
+      "status": "OK",
+      "target": "BR5.2 \u2014 functional-spec.md \u00a72.7",
+      "rationale": "Every batch names its teacher, so attribution does not depend on reaching the selection list."
+    },
+    {
+      "id": "AC2.8.4",
+      "status": "OK",
+      "target": "BR5.2 \u2014 functional-spec.md \u00a72.7",
+      "rationale": "A persistent statement with the signed-in number partially masked."
+    },
+    {
+      "id": "AC2.8.5",
+      "status": "OK",
+      "target": "functional-design/rules.md BR5.2",
+      "rationale": "The single-child case STILL shows attribution -- named as the case the explanation is most needed in, because the selection list is where it would otherwise appear."
+    },
+    {
+      "id": "AC2.8.6",
+      "status": "OK",
+      "target": "functional-design/rules.md BR5.2",
+      "rationale": "Zero children gets an empty state explaining a teacher must record the number, not a blank list."
+    },
+    {
+      "id": "OQ-7",
+      "status": "OK",
+      "target": "functional-design/rules.md BR5.1",
+      "rationale": "SETTLED: the child is a PATH PARAMETER. The lens hint is non-authoritative by construction [D-2], so a privacy-relevant selection must not ride it."
+    },
+    {
+      "id": "NFR9.32",
+      "status": "OK",
+      "target": "functional-design/rules.md BR3.2",
+      "rationale": "B3 armed the money-column assertion and it was VACUOUS there. U4 has the first real money column, so the gate stops being a statement of intent."
+    },
+    {
+      "id": "TC-8",
+      "status": "OK",
+      "target": "functional-design/rules.md BR7.1",
+      "rationale": "Room is a READ cache; no write queue, because V1 accepts no write without connectivity."
+    },
+    {
+      "id": "TC-9",
+      "status": "OK",
+      "target": "functional-design/rules.md BR7.1",
+      "rationale": "Room entities derive nothing. U4 establishes the pattern later Units copy, so a defect here propagates by imitation."
+    },
+    {
+      "id": "TC-13",
+      "status": "OK",
+      "target": "functional-design/rules.md BR2.1",
+      "rationale": "U3 made the name split structural; U4 is the first Unit to WRITE display_name and so the first that can violate it by a fallback."
+    },
+    {
+      "id": "TC-14",
+      "status": "OK",
+      "target": "functional-design/rules.md BR1.2",
+      "rationale": "Administrator visibility is subscription data only. No admin surface exists in V1; the rule is recorded because the Owner table arrives here."
+    },
+    {
+      "id": "ADR-001",
+      "status": "OK",
+      "target": "BR2.2 \u2014 entities.md Enrollment",
+      "rationale": "Teacher-facing key is enrollment_id, never account_id. Already asserted schema-wide by U2's privacy gate."
+    }
+  ],
+  "reverse": [
+    {
+      "id": "owner-write-narrows-u3-test",
+      "status": "N/A",
+      "target": "U3's BR6.1 test asserts no application module writes Owner or Enrollment. U4 writes both legitimately, so that test must be NARROWED to U3's own modules rather than deleted -- deleting it would retire the only check that U3 stays within its boundary."
+    },
+    {
+      "id": "seed-script-deletion",
+      "status": "N/A",
+      "target": "app/db/seed_skeleton.py and its tests are deleted in this Bolt. B3 created it only because U3 could not create an Owner or Enrollment row; U4 can, so the throwaway is obsolete and its removal was recorded as a B5 obligation."
+    },
+    {
+      "id": "history-check-partial",
+      "status": "N/A",
+      "target": "BR6.1's removal check cannot consult attendance, marks or fee rows at B5 because those tables do not exist. Carried as a named obligation on U5, U6 and U7 rather than a comment, since a comment here is not where a later Bolt's author looks."
+    },
+    {
+      "id": "guardian-route-cost",
+      "status": "N/A",
+      "target": "BR5.1's path parameter adds a segment to every guardian route and makes the client thread the id. Accepted rather than elided: the alternative puts a privacy decision in a field the server is required to distrust."
+    }
+  ]
+}
