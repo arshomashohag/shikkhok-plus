@@ -331,7 +331,73 @@ today — and is the only thing capable of contradicting a wrong side.
 
 ### A.6 The formatting operation (T7 → NFR9.22, NFR9.23, NFR9.24)
 
-**Design the shape now; the rendering table is OQ-B1-1 and stays open.**
+> **OQ-B1-1 is CLOSED (2026-10-18).** The rendering specification is below.
+> The shape described in this section is unchanged; what was missing was the
+> data, and the data now exists. The formatting operation was deferred out
+> of B1 by the human's choice at that Bolt ("build everything except
+> formatting"), so it arrives with the first Unit that assembles a money
+> response, carrying NFR9.26 with it.
+>
+> **The rendering specification, both supported locales:**
+>
+> | Property | `bn-BD` | `en` |
+> |---|---|---|
+> | Digit set | **Western** `0123456789` | Western |
+> | Grouping interval | **2,2,3** (lakh/crore): `12,34,567` | 3,3,3 |
+> | Group separator | `,` | `,` |
+> | Decimal separator | `.` | `.` |
+> | Currency symbol | `৳` U+09F3 | `BDT ` |
+> | Symbol position | **prefix, no space**: `৳1,234` | prefix + space |
+> | Decimal places | 2 stored; **suppressed when zero** | same |
+>
+> **Two of these deliberately contradict CLDR, and the reasons are
+> recorded so nobody later "fixes" them back to the locale default:**
+>
+> - **Digits.** CLDR gives `bn` a default numbering system of `beng`
+>   (Bengali digits ০–৯), and Android's platform formatter follows it. We
+>   use Western digits anyway. Every Bangladeshi *transactional* surface
+>   checked renders money in Western digits — bKash, Nagad, Daraz,
+>   Bangladesh Bank — while Bengali digits dominate *prose*, such as
+>   newspapers. The split is by register, not by language. Our users read
+>   money in bKash daily; matching that costs them nothing, and diverging
+>   from it makes a fee figure unfamiliar at the moment trust matters most.
+>   **This was the human's decision**, taken against the alternative, and it
+>   is the one choice here that is a product call rather than a locale fact.
+> - **Symbol position.** CLDR's `bn` currency pattern is `#,##,##0.00¤` —
+>   symbol *after* the amount. Bangladeshi practice is uniformly `৳` first,
+>   no space. CLDR is wrong for purpose here; note that `bn-IN` uses the
+>   prefix, so the suffix is specific to the Bangladesh-default data.
+>
+> **Grouping is 2,2,3 and this one follows CLDR**, which matches practice:
+> Bangladesh Bank's own circulars write `BDT 5,00,000`. It only becomes
+> visible above ৳99,999 — rare for one fee, routine for the cross-batch
+> dues total [PU-7.2], which is exactly where a wrong grouping would be
+> least noticed and most embarrassing.
+>
+> **Poisha are withdrawn from circulation** — the smallest coin is ৳1 — so
+> whole-Taka display is correct. The suppression is a *display* rule only:
+> storage stays `NUMERIC(12,2)` and the `Money` type keeps 2dp, because
+> partial approval, carry-forward and waiver arithmetic can all produce a
+> non-zero paisa even when every input amount is whole.
+>
+> **A library hazard worth naming, because it will otherwise be found on a
+> device.** The three candidate toolchains disagree, and no two of them
+> fully agree: Python `babel` emits Western digits and 2,2,3 but cannot
+> produce Bengali digits for this locale at all; ICU4J is CLDR-faithful
+> (Bengali digits, 2,2,3, suffix symbol); the **desktop JDK gets the
+> grouping wrong**, emitting 3,3,3. Android has backed `java.text` with ICU
+> since API 24, so **a money-formatting test passing on desktop JVM or
+> Robolectric can still be wrong on a phone** — the same class of defect as
+> this project's SQLite-versus-real-Postgres rule, and it earns the same
+> treatment. None of the three produces our specification by default, so
+> the formatter is driven by an **explicit pattern**, never a locale
+> default, and that explicitness is itself the thing under test.
+>
+> Server-side `format(locale)` remains the single renderer [TC-9, TC-15],
+> which is what keeps this one specification authoritative instead of two
+> surfaces drifting.
+
+**The shape, unchanged.**
 
 The operation takes the locale as an argument [BR5.6] and dispatches over a
 **per-locale rendering specification held as data** — digit map, grouping
@@ -379,15 +445,23 @@ the commit that adds it.
 > file as the supported-locale definition and have both the backend check and
 > the Android build read it, so the two surfaces cannot disagree silently.
 
-**What this means for OQ-B1-1.** The deferral is no longer free. Either:
+**What this means for OQ-B1-1 — resolved, by the second path.** The deferral
+was never free, and the choice between two paths was made explicitly:
 
-- **OQ-B1-1 closes before B1's formatting operation is implemented**, which is
-  the intended path and costs only an early decision; or
+- **OQ-B1-1 closes before B1's formatting operation is implemented** — not
+  what happened; or
 - **the formatting operation is deferred out of B1 entirely**, together with
-  NFR9.26 — in which case **the B1 Definition of Done must be amended**,
-  because `bolt-plan.md` currently lists `format(locale)` among B1's
-  unconditional deliverables. A fallback that silently fails the Bolt's own
-  DoD is not a fallback.
+  NFR9.26 — **this is the path taken.** B1's Definition of Done was amended
+  at the time to drop `format(locale)`, because `bolt-plan.md` had listed it
+  among B1's unconditional deliverables and a fallback that silently fails
+  the Bolt's own DoD is not a fallback.
+
+OQ-B1-1 itself then closed on 2026-10-18 with the specification recorded at
+the head of this section. Both obligations travel with the operation to the
+first Unit that assembles a money response: the rendering specification as
+data, and **NFR9.26's build-time completeness check**, which is what keeps a
+missing locale row a build failure in that Unit rather than a server error in
+front of a teacher.
 
 > The earlier framing made deferral look costless by assuming the failure was
 > contained in B1. It was not. Naming the build-time check and the DoD
