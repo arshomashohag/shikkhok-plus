@@ -33,9 +33,9 @@
 
 | Verified | Evidence |
 |---|---|
-| **470 Python tests** | `make check` green |
-| **29 Android tests** | `./gradlew :android:testDebugUnitTest` |
-| Backend line coverage | **91.58%** against an 80% floor |
+| **472 Python tests** | `make check` green |
+| **38 Android tests** | `./gradlew :android:testDebugUnitTest` |
+| Backend line coverage | **91.60%** against an 80% floor |
 | `app.authz` branch coverage | **100%** |
 | `app.money` branch coverage | **100%**, unchanged from B1 |
 | Types | mypy clean, 52 source files |
@@ -66,6 +66,9 @@ tests fired.
 | **Log `error_message`** | The credential-leak test | — |
 | **Drop the RLS policy** | Every privacy probe | — |
 | **Run the suite as superuser** | The meta-test | **Every probe would have PASSED** |
+| **Audit write fails mid-transaction** | The new outcome test | **Both fail-open tests PASSED** |
+| **Read-then-write counter** | The real concurrency test | **The old "concurrent" test PASSED** |
+| **A domain comparison in the ViewModel** | The no-business-logic test | — |
 
 Two rows deserve emphasis:
 
@@ -76,6 +79,35 @@ Two rows deserve emphasis:
 - **The superuser row.** With a *correct* policy and a superuser
   connection, a teacher reads the profile. The suite reports a pass it
   has not earned. That is the entire reason the meta-test runs first.
+
+### B.1 The last three rows were found by the review, not by me
+
+**The method caught the defects I pointed it at, and missed one I had
+pointed it at wrongly.** That distinction is worth more than the table
+above, so it is recorded rather than smoothed over.
+
+**The audit row is the important one.** I injected the audit failure *at
+the mock level* — monkeypatching `session.execute` — which never touches
+a real connection and therefore never poisons a transaction. So my test
+proved the exception was caught and nothing more. PostgreSQL aborts the
+entire transaction on any failed statement, so the swallowed error left
+the caller holding an aborted transaction whose `commit()` issues a
+ROLLBACK and **returns normally**.
+
+Measured through the real `otp.issue` path: a code was returned, the SMS
+went out, and the OTP row was silently lost — a code that can never
+verify, after consuming a ceiling slot that moves the user closer to
+lockout. **The audit log did not fail to record the authentication; it
+destroyed it.** Fixed with a savepoint, and the regression asserts the
+caller's row survives rather than that no exception escaped.
+
+The second row is the same shape: a test *named* for concurrency ran
+sequentially. Against a read-then-write counter, all 8 racing requests
+were admitted against a limit of 3.
+
+**The lesson, stated plainly**: injecting a defect proves only as much
+as the layer you inject it at. A mock-level injection tests the
+`except` clause; only a database-level one tests the guarantee.
 
 ---
 
@@ -150,10 +182,24 @@ deployed host.
 - **No deletion** — U11's, so both paths are specified once against the
   full schema.
 - **No money** — U1 owns the type; none crosses this surface.
-- **No Compose screens yet.** The Android work here is the state
-  machine, the DTOs, the lens hint and both language bundles. The
-  composables and the SMS Retriever wiring land with the device run at
-  the checkpoint.
+- **No HTTP client on Android yet.** The Compose screen, the Activity
+  and the ViewModel are here; the repository behind them is a
+  placeholder returning a transport failure, because configuring a base
+  URL per environment belongs with the deployment Bolt.
+
+  It returns a **failure rather than a fabricated success** deliberately:
+  the screen renders its offline state, so nothing in a device run can
+  be mistaken for a working network path. A stub returning a fake token
+  would make the run demonstrate nothing while looking like it worked.
+
+  > An earlier version of this document said "No Compose screens yet"
+  > and deferred them to the checkpoint. **The review was right that
+  > this did not hold**: `team.md` requires the skeleton be demonstrated
+  > on a device, and a backend-only skeleton cannot satisfy that. The
+  > screen is now built; what remains deferred is narrower and named.
+
+- **No SMS Retriever wiring.** The screen takes a typed code. Autofill
+  is an optimization over a path that already works.
 
 ---
 
