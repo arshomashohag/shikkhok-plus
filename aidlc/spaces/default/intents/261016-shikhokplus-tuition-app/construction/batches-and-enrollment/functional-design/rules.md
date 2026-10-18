@@ -629,13 +629,21 @@ rules:
     applies_to: Enrollment
     trigger: Any roster read, and every dormant-enrollment resolution
     logic: >
-      IF student_account_id IS NULL AND relink_blocked_at IS NULL
-      THEN never claimed -- a number a teacher recorded that nobody has
-      signed in with
-      ELSE IF student_account_id IS NULL AND relink_blocked_at IS NOT
+      Per link, independently:
+
+      IF student_account_id IS NULL AND student_relink_blocked_at IS
       NULL
+      THEN the student place was never claimed -- a number a teacher
+      recorded that nobody has signed in with
+      ELSE IF student_account_id IS NULL AND student_relink_blocked_at
+      IS NOT NULL
       THEN claimed and later erased
       ELSE claimed and active.
+
+      The same three states apply to the guardian link under
+      `guardian_account_id` and `guardian_relink_blocked_at`, and the
+      two are evaluated SEPARATELY -- a row may be never-claimed on one
+      link and erased on the other.
     violation_behaviour: >
       Inventing a `deleted_at` tombstone, which an earlier draft of
       this document did. Deletion is **anonymize-in-place**: U11 sets
@@ -663,6 +671,35 @@ rules:
       exercised a deletion right and must not be re-linked.
 
       **U4 READS this column on every add-student; U11 WRITES it.**
+
+      **AN UPSTREAM GAP, FOUND BY WORKING THE STATES AND RAISED RATHER
+      THAN QUIETLY REDESIGNED.** `relink_blocked_at` is one column on a
+      row carrying TWO independently-erasable links:
+      `student_account_id` and `guardian_account_id`. The Governance
+      manifest nulls them in separate events.
+
+      Worked all four states. Three behave. The fourth does not:
+
+      > A guardian erases their account. `relink_blocked_at` is set on
+      > the enrollment. The STUDENT never claimed that row and never
+      > erased anything — and is now permanently blocked from claiming
+      > it, because dormant resolution skips any row carrying the flag.
+
+      The mirror case is the same shape: a student erases, the teacher
+      records a new guardian number on that row, and the new guardian
+      is blocked by someone else's erasure.
+
+      The upstream rationale [components.md, "U3 — re-linking after
+      erasure"] is written entirely about "an erased **student**" and
+      never considers the guardian link erasing independently. So this
+      is a gap in the decision rather than a misreading of it.
+
+      **U4 therefore records `relink_blocked_at` as PER-LINK** —
+      `student_relink_blocked_at` and `guardian_relink_blocked_at` —
+      and flags the divergence from the catalogue explicitly here, so
+      U11 implements erasure against a shape that can express what it
+      actually does. The alternative, one flag, makes one person's
+      erasure silently revoke another person's access.
 
   - id: BR6.3
     statement: >

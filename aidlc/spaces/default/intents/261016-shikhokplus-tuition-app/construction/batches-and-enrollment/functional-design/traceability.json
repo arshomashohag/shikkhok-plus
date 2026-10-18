@@ -367,6 +367,11 @@
       "id": "entity-drift-from-catalogue",
       "status": "N/A",
       "target": "entities.md -- review Critical plus a mechanical check of all six entities against inception/domain-design/components.md. The reviewer caught Enrollment; the diff found Owner and Batch too. Invented: subscription_plan/subscription_status (really kind/state/plan/plan_valid_to), is_active (really active), fee_override (fee_amount), account_id (student_account_id), deleted_at on Enrollment (no such column). Dropped: relink_blocked_at, guardian_phone, joined_on, teacher_display_name, collection_number, collection_channel, marksheet_visible. relink_blocked_at is the serious one -- it is a privacy mechanism checked on U4's OWN add-student path, and without it an erased student's returning number silently reattaches to their erased history. All six entities now match the catalogue exactly, verified by diff rather than by reading."
+    },
+    {
+      "id": "relink-blocked-must-be-per-link",
+      "status": "N/A",
+      "target": "rules.md BR6.2, entities.md Enrollment -- a DELIBERATE DIVERGENCE from the upstream catalogue, flagged rather than made silently. components.md declares a single `relink_blocked_at`, but the row carries TWO independently-erasable links and the Governance manifest nulls them in separate events. Worked all four states: a guardian erasing sets the flag, and the STUDENT -- who never claimed that row and never erased anything -- is then permanently blocked from claiming it, because dormant resolution skips any flagged row. The mirror case is a new guardian blocked by a student's earlier erasure. The upstream rationale is written entirely about 'an erased student' and never considers the guardian link erasing independently, so this is a gap in the decision rather than a misreading. U4 splits the column into student_relink_blocked_at and guardian_relink_blocked_at; re-worked, all four states behave. U11 implements erasure against this shape."
     }
   ]
 }

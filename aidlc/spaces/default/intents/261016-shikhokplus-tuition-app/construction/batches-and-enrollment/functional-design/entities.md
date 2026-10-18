@@ -53,7 +53,7 @@ entities:
 
   - name: Enrollment
     identifier: id
-    attributes: [id, batch_id, student_account_id, guardian_account_id, display_name, guardian_phone, fee_amount, joined_on, inactive_from, relink_blocked_at, created_at]
+    attributes: [id, batch_id, student_account_id, guardian_account_id, display_name, guardian_phone, fee_amount, joined_on, inactive_from, student_relink_blocked_at, guardian_relink_blocked_at, created_at]
     ownership: U4 owns behaviour; U3 created the table
     description: >
       A student's place in a batch, the teacher-typed display name and
@@ -61,6 +61,7 @@ entities:
       charges against.
     constraints:
       - "THE ATTRIBUTE LIST IS THE UPSTREAM CATALOGUE'S, VERBATIM [components.md]. An earlier draft of this document invented `account_id`, `fee_override`, `role` and `deleted_at`, and omitted `guardian_phone`, `joined_on` and `relink_blocked_at`. The Governance disposition manifest is written against the catalogue's column NAMES, so a divergence here makes U11's per-column dispositions unmappable onto the real schema."
+      - "ONE DELIBERATE DIVERGENCE FROM THE CATALOGUE, FLAGGED: the catalogue says `relink_blocked_at`, singular. A row carries TWO independently-erasable links, and the manifest nulls them in separate events -- so one flag means a guardian's erasure permanently blocks a student who never claimed that row and never erased anything. Worked all four states; three behave and that one does not. The upstream rationale is written only about an erased STUDENT. U4 splits the column PER LINK and raises the gap rather than redesigning silently."
       - "relink_blocked_at IS A PRIVACY MECHANISM, NOT BOOKKEEPING, and it is checked on U4's OWN add-student path. A phone number resolves to an account on first authentication, so without it an erased student whose number returns is silently reattached to their own erased history -- defeating the erasure invisibly. Dormant-enrollment resolution SKIPS any row carrying it; the teacher may enroll that number again, which creates a NEW enrollment with no link to the old."
       - "display_name and guardian_phone are TEACHER-typed and belong to the ENROLLMENT, not the account [AC2.2.2, ADR-003, FR2.6]. Both SURVIVE deletion of the person's account, because the teacher wrote them and they are the teacher's own contact record. The same person in two batches has two display names, and editing one does not touch the other or their Profile [AC2.3.2]."
       - "fee_amount is NULLABLE, and null means INHERIT the batch default [AC2.2.5]. Zero is a real fee of zero, which is a waiver and not an absence. A non-nullable column defaulting to 0 would make those indistinguishable and silently charge nothing."
