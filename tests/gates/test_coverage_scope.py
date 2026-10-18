@@ -37,11 +37,19 @@ DELIBERATELY_EXCLUDED: dict[str, str] = {
 
 
 def _packages_on_disk() -> set[str]:
-    """Find every importable package under ``app/``.
+    """Find every importable unit under ``app/``: packages AND modules.
 
-    :return: The package names, without the ``app.`` prefix
+    **Both, because the first version of this gate checked only
+    packages** -- it globbed ``*/__init__.py`` -- and so said nothing
+    about a top-level module. ``app/config.py`` then arrived outside
+    the floor and the gate passed, which is the exact failure this gate
+    exists to prevent, reproduced inside the gate itself.
+
+    :return: The importable names, without the ``app.`` prefix
     """
-    return {path.parent.name for path in APP.glob("*/__init__.py")}
+    packages = {path.parent.name for path in APP.glob("*/__init__.py")}
+    modules = {path.stem for path in APP.glob("*.py") if path.stem != "__init__"}
+    return packages | modules
 
 
 def _packages_in_makefile() -> set[str]:

@@ -72,12 +72,16 @@ test:
 	@# entry does not fail -- it silently narrows what the floor covers,
 	@# which is the quietest way a coverage gate erodes.
 	@#
-	@# test_coverage_scope.py now asserts this list against the packages
-	@# on disk, so the next omission fails instead of passing.
+	@# test_coverage_scope.py asserts this list against what is on disk.
+	@# It checks top-level MODULES as well as packages: its own first
+	@# version globbed only */__init__.py, so app/config.py arrived
+	@# outside the floor and the gate passed -- the very failure the
+	@# gate exists to prevent, reproduced inside the gate.
 	$(PY) -m pytest tests -q -p no:cacheprovider \
 		--cov=app.api --cov=app.audit --cov=app.auth --cov=app.authz \
-		--cov=app.contract --cov=app.db --cov=app.errors \
-		--cov=app.gateway --cov=app.governance --cov=app.schemas \
+		--cov=app.config --cov=app.contract --cov=app.db --cov=app.errors \
+		--cov=app.gateway --cov=app.governance --cov=app.main \
+		--cov=app.schemas \
 		--cov-report=term-missing --cov-fail-under=80 \
 		--cov-config=.coveragerc-backend
 

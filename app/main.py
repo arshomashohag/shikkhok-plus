@@ -20,6 +20,7 @@ from fastapi import FastAPI, Request, Response
 from sqlalchemy import Engine
 from sqlalchemy.orm import sessionmaker
 
+from app.config import check_startup_configuration
 from app.db.session import build_engine
 from app.errors import register_error_handler
 
@@ -30,7 +31,14 @@ def create_app() -> FastAPI:
     """Build the application.
 
     :return: The configured application with this Unit's routes
+    :raises ConfigurationError: A production value is missing
     """
+    # BEFORE anything is wired. A production process missing a value
+    # would otherwise serve requests while silently lacking a
+    # guarantee -- no SMS sent, or the test ceiling as the money
+    # ceiling -- and nothing would report it.
+    check_startup_configuration()
+
     app = FastAPI(
         title="ShikhokPlus API",
         version="1.0.0",
