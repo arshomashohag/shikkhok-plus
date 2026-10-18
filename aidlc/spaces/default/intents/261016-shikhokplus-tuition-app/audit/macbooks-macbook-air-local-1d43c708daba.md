@@ -25312,3 +25312,172 @@
 **Duration ms**: 108
 
 ---
+
+## Review Requested
+**Timestamp**: 2026-10-18T13:37:11Z
+**Event**: REVIEW_REQUESTED
+**Stage**: functional-design
+**Reviewer**: aidlc-architecture-reviewer-agent
+**Unit**: batches-and-enrollment
+**Iteration**: 1
+**Artifact Fingerprint**: sha256:c1bbf39dc2ee960681e29dd5a4482f01454339f172d97fbc3cf9bba4829f26a8
+**Request Id**: review:0e7f3e147745a9db55e1e7992fa2a798
+**Review File**: .aidlc-engine/reviews/functional-design/units/batches-and-enrollment/e392ea5bc7e48568/1.0e7f3e147745a9db55e1e7992fa2a798.review.md
+
+---
+
+## Artifact Created
+**Timestamp**: 2026-10-18T13:37:20Z
+**Event**: ARTIFACT_CREATED
+**Tool**: Write
+**File**: <project-dir>/aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/.aidlc-engine/reviewer-dispatch.json
+**Context**: .aidlc-engine > reviewer-dispatch.json
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-18T13:38:13Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: reviewer-scope
+**Authority**: grant
+**Grant**: dispatch-stamp
+**Actor**: subagent
+**Stage**: functional-design
+**Tool**: Bash
+**Details**: . (unit batches-and-enrollment)
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-10-18T13:38:26Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: unknown
+**Agent ID**: a5a8fc0894a2a448e
+**Message**: Reading lenses.py file
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-10-18T13:38:58Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: unknown
+**Agent ID**: ab4b6e3cea698895d
+**Message**: Grepping resolve.py for guardian query mismatch
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-18T13:39:19Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: reviewer-scope
+**Authority**: instruction
+**Grant**: none
+**Actor**: subagent
+**Stage**: functional-design
+**Tool**: Bash
+**Details**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/identity-and-access/code-generation/code-summary.md (unit batches-and-enrollment)
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-10-18T13:39:23Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/batches-and-enrollment/functional-design/rules.md
+**Context**: construction > batches-and-enrollment > functional-design > rules.md
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-18T13:39:23Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: reviewer-scope
+**Authority**: instruction
+**Grant**: none
+**Actor**: subagent
+**Stage**: functional-design
+**Tool**: Bash
+**Details**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/identity-and-access/code-generation/code-summary.md (unit batches-and-enrollment)
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-10-18T13:39:29Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: unknown
+**Agent ID**: a5d849664ed548b92
+**Message**: Checking money TypeDecorator assertion test
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-10-18T13:39:53Z
+**Event**: SENSOR_FIRED
+**Fire id**: 5d5b5a49
+**Sensor ID**: required-sections
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/batches-and-enrollment/functional-design/rules.md
+
+---
+
+## Sensor Passed
+**Timestamp**: 2026-10-18T13:39:53Z
+**Event**: SENSOR_PASSED
+**Fire id**: 5d5b5a49
+**Sensor ID**: required-sections
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/batches-and-enrollment/functional-design/rules.md
+**Duration ms**: 63
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-10-18T13:39:53Z
+**Event**: SENSOR_FIRED
+**Fire id**: 007356d4
+**Sensor ID**: required-sections
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/batches-and-enrollment/functional-design/functional-spec.md
+
+---
+
+## Sensor Passed
+**Timestamp**: 2026-10-18T13:39:53Z
+**Event**: SENSOR_PASSED
+**Fire id**: 007356d4
+**Sensor ID**: required-sections
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/batches-and-enrollment/functional-design/functional-spec.md
+**Duration ms**: 61
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-10-18T13:39:54Z
+**Event**: SENSOR_FIRED
+**Fire id**: 85d84c23
+**Sensor ID**: traceability
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/batches-and-enrollment/functional-design/traceability.json
+
+---
+
+## Sensor Passed
+**Timestamp**: 2026-10-18T13:39:54Z
+**Event**: SENSOR_PASSED
+**Fire id**: 85d84c23
+**Sensor ID**: traceability
+**Stage slug**: functional-design
+**Output path**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/batches-and-enrollment/functional-design/traceability.json
+**Duration ms**: 105
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-10-18T13:40:01Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: unknown
+**Agent ID**: ab3a663e761025adb
+**Message**: Checking soft-delete vs hard-delete semantics
+
+---

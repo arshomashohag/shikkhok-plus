@@ -136,14 +136,25 @@ Setting `inactive_from` must satisfy all three independently [BR4.1–BR4.3]:
 
 ### 2.7 Guardian child selection — `GET /v1/guardian/children`
 
-1. Reachable children are enrollments whose `guardian_account_id` is
+1. Reachable enrollments are those whose `guardian_account_id` is
    **this authenticated account** [BR5.3].
-2. Zero, one and many are three distinct outcomes [BR5.2]:
+2. **Collapse to DISTINCT CHILDREN** before counting [BR5.2]. The
+   acceptance criteria say "children"; the query returns enrollments;
+   and `AC2.2.3` permits the same student in two batches of one
+   teacher. Counting enrollments would show that child twice and skip
+   the straight-through case entirely.
+3. Zero, one and many are three distinct outcomes [BR5.2]:
    - zero → an empty state saying a teacher must record this number;
    - one → straight through, **still naming the teacher and the masked
      number**;
-   - many → the selection list, each child showing display name and
-     teacher.
+   - many → the selection list, **one entry per child**, each showing
+     display name and teacher.
+
+> **A child is not an enrollment** [BR5.4]. One selection-list entry may
+> cover several enrollments — the same child in two of one teacher's
+> batches — while each child-scoped route still names exactly one
+> `enrollment_id`. Treating "the selected child" as a single enrollment
+> silently drops the rest.
 
 ### 2.8 Child-scoped routes — `/v1/guardian/children/{enrollment_id}/...`
 

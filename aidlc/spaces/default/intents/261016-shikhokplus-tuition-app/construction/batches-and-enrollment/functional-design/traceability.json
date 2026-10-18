@@ -117,8 +117,8 @@
     {
       "id": "AC2.2.3",
       "status": "OK",
-      "target": "functional-design/rules.md BR2.2",
-      "rationale": "Two enrollments, each with its own display name and fee, neither reconciled against the other."
+      "target": "BR2.2, BR5.4 \u2014 rules.md",
+      "rationale": "Two enrollments, independent names and fees -- and BR5.4 because this AC is precisely what makes the guardian child count ambiguous."
     },
     {
       "id": "AC2.2.4",
@@ -207,14 +207,14 @@
     {
       "id": "AC2.7.1",
       "status": "OK",
-      "target": "functional-design/rules.md BR5.2",
-      "rationale": "Two or more children present the selection list."
+      "target": "BR5.2, BR5.4 \u2014 rules.md",
+      "rationale": "Two or more CHILDREN present the selection list -- children, not enrollments. The naive count conflates them."
     },
     {
       "id": "AC2.7.2",
       "status": "OK",
-      "target": "functional-design/rules.md BR5.2",
-      "rationale": "Exactly one goes straight through with no selection step."
+      "target": "BR5.2, BR5.4 \u2014 rules.md",
+      "rationale": "Exactly one CHILD goes straight through. An enrollment count would return 2 for one child in two batches and never reach this path at all."
     },
     {
       "id": "AC2.7.3",
@@ -237,8 +237,8 @@
     {
       "id": "AC2.8.2",
       "status": "OK",
-      "target": "functional-design/rules.md BR5.3",
-      "rationale": "The child appears once."
+      "target": "BR5.3, BR5.2, BR5.4 \u2014 rules.md",
+      "rationale": "The child appears once. Found by working the cases: BR5.3 returns ENROLLMENTS, and AC2.2.3 permits the same student in two batches of ONE teacher, so an enrollment count shows that child twice. BR5.2 now counts DISTINCT CHILDREN and BR5.4 separates the two granularities."
     },
     {
       "id": "AC2.8.3",
@@ -327,6 +327,11 @@
       "id": "guardian-route-cost",
       "status": "N/A",
       "target": "BR5.1's path parameter adds a segment to every guardian route and makes the client thread the id. Accepted rather than elided: the alternative puts a privacy decision in a field the server is required to distrust."
+    },
+    {
+      "id": "child-vs-enrollment-cardinality",
+      "status": "N/A",
+      "target": "rules.md BR5.4 -- found by working the four reachability cases rather than by reading the rule. AC2.2.3 permits the same student in two batches of ONE teacher; with one guardian number on both, counting enrollments returns 2 for one child, so the guardian sees a selection list naming the same child twice (violating AC2.8.2) and never reaches the straight-through path AC2.7.2 requires. Three granularities are in play -- child, enrollment, and BR5.1's enrollment_id route key -- and the naive implementation conflates the first two."
     }
   ]
 }

@@ -279,25 +279,74 @@ rules:
     statement: >
       Zero reachable children, one, and more than one are three
       distinct outcomes, and the single-child case still shows
-      attribution.
+      attribution. The count is of DISTINCT CHILDREN, never of
+      enrollments.
     category: policy
     applies_to: Guardian sign-in
     trigger: A guardian's first authenticated request
     logic: >
-      IF zero children are reachable THEN an empty state explaining a
-      teacher must record the number
-      ELSE IF exactly one THEN go straight to that child, still naming
-      the teacher and the masked number
-      ELSE present the selection list.
+      LET children = DISTINCT student_account_id over the reachable
+      enrollments
+      IF len(children) == 0 THEN an empty state explaining a teacher
+      must record the number
+      ELSE IF len(children) == 1 THEN go straight to that child, still
+      naming the teacher and the masked number
+      ELSE present the selection list, one entry per CHILD.
     violation_behaviour: >
-      Skipping attribution in the single-child case. AC2.8.5 names this
-      as the case the explanation is MOST needed in, because the
-      selection list is where attribution would otherwise have been
-      shown.
+      Two failures, and the second was found by working the cases
+      rather than by reading the rule:
+
+      1. Skipping attribution in the single-child case. AC2.8.5 names
+         this as the case the explanation is MOST needed in, because
+         the selection list is where attribution would otherwise have
+         been shown.
+      2. **Counting ENROLLMENTS rather than children.** AC2.2.3
+         explicitly permits the same student in two batches of the
+         SAME teacher, each a separate enrollment. With one guardian
+         number on both, an enrollment count returns 2 for one child —
+         so the guardian is shown a selection list naming the same
+         child twice, violating AC2.8.2, and never reaches the
+         straight-through path AC2.7.2 requires.
     rationale: >
       An empty list and "no children" are different states and a blank
       screen explains neither.
-    source: [AC2.7.1, AC2.7.2, AC2.8.5, AC2.8.6, FR2.14, FR2.15]
+
+      **The cardinality is the subtle part.** The acceptance criteria
+      say "children"; the reachability query returns ENROLLMENTS; and
+      BR5.1 keys the route on `enrollment_id`. Three different
+      granularities, and the naive implementation conflates the first
+      two. The selection list is keyed on the child and each entry
+      carries that child's enrollments, which is also what lets one
+      entry name more than one batch.
+    source: [AC2.7.1, AC2.7.2, AC2.8.2, AC2.8.5, AC2.8.6, AC2.2.3, FR2.14, FR2.15]
+
+  - id: BR5.4
+    statement: >
+      A child-scoped route names an ENROLLMENT; the selection list
+      names a CHILD. When a child has several reachable enrollments,
+      selecting that child resolves to all of them, not to one.
+    category: constraint
+    applies_to: Guardian routes and the selection list
+    trigger: A guardian selects a child
+    logic: >
+      IF a child has N reachable enrollments
+      THEN the selection list shows ONE entry
+      AND that entry's batch view covers all N
+      AND each child-scoped route still names exactly one
+      enrollment_id, validated for reachability.
+    violation_behaviour: >
+      Treating "the selected child" as a single enrollment id, which
+      silently drops the child's other batches under the same teacher.
+    rationale: >
+      BR5.1 chose `enrollment_id` as the path key for good reasons —
+      it is the teacher-facing identifier and never an account id
+      [ADR-001]. But a child is not an enrollment, and this rule is
+      what stops that choice from quietly redefining what "child"
+      means in the UI.
+
+      Recorded as its own rule rather than a clause of BR5.1, because
+      the two decisions can be changed independently.
+    source: [AC2.2.3, AC2.7.1, AC2.8.2, ADR-001]
 
   - id: BR5.3
     statement: >
@@ -433,7 +482,8 @@ rules:
 | **BR4.2** | constraint | Existing dues stand |
 | **BR4.3** | constraint | One enrollment changes, not the student's others |
 | **BR5.1** | authorization | The child is a path parameter — **settles OQ-7** |
-| **BR5.2** | policy | Zero, one and many children are three outcomes |
+| **BR5.2** | policy | Zero, one and many **children** — counted as children, not enrollments |
+| **BR5.4** | constraint | A route names an enrollment; the list names a child |
 | **BR5.3** | authorization | Two teachers' guardian records never merge |
 | **BR6.1** | constraint | Removal refused once history exists |
 | **BR6.2** | constraint | Never-claimed ≠ claimed-then-deleted |
