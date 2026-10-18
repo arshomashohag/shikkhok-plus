@@ -782,23 +782,58 @@ hook into the gateway — worth polling and alerting on, since it catches both
 
 **C.4.6 — Two open vendor questions that need answers before PU-1.**
 
-Neither is answerable from documentation; both need a direct question to
-BulkSMSBD:
+**Both answered by the human on 2026-10-18. Neither is open.**
 
-1. **Is there a sandbox or test mode?** None is documented and none was
-   found. `team.md` requires *"non-production environments hold the
-   gateway's test or sandbox credentials, so a staging run can never spend
-   real money or message a real teacher"* — **currently not satisfiable as
-   written.** CI is unaffected (the gateway is stubbed, by the same
-   practice). Recorded as **OQ-3a**.
-2. **Is code 1012 enforced for transactional/OTP traffic, or only
-   promotional?** A *masking* sender ID (a branded `SHIKKHOK` rather than an
-   unfamiliar number) is the better trust signal on an OTP, but 1012 says a
-   masking SMS must be in Bangla — and a Bangla body is UCS-2, so **70
-   characters per segment instead of 160**. Combined with masking's higher
-   per-SMS rate that is roughly a 3–4× cost multiplier per OTP, which is a
-   material input to [D-33]'s ceiling and [OC-4]'s budget. Recorded as
-   **OQ-3b**.
+**OQ-3a — there is no sandbox.** So `team.md`'s rule that *"non-production
+environments hold the gateway's test or sandbox credentials, so a staging
+run can never spend real money or message a real teacher"* **cannot hold as
+written**, because the mechanism it names does not exist. The practice is
+not weakened; it is **satisfied by a different mechanism**, and the
+distinction matters because the property it protects still holds:
+
+- **Every non-production environment runs a null adapter** behind the §C.1
+  `SmsGateway` protocol. It records the intended send — purpose, outcome,
+  correlation id, never the body — returns `SENT`, and makes no network
+  call. A staging run therefore still **cannot spend money and cannot
+  message a real person**, which is the property the practice exists to
+  guarantee.
+- **Selection is by explicit configuration, and the default is the null
+  adapter.** The real adapter is constructed only when a setting names it,
+  so a missing or misspelt value fails *toward not sending* rather than
+  toward spending real money. Same reasoning as C.4.2's scheme enforcement:
+  the dangerous value is never the default.
+- **One consequence is recorded rather than papered over.** `team.md` also
+  requires the SMS ceiling to be *"live and verified in staging before the
+  auth slice reaches production"*. Against a null adapter that verifies
+  **our ceiling logic** — which is entirely our own code, and for which a
+  stub is the correct test double — but it does **not** exercise the real
+  gateway. The gateway leg is therefore verified exactly once, at the B3
+  skeleton checkpoint, against production credentials with a single real
+  send to the developer's own number. That is the only place real money is
+  spent before launch, and it is a bounded, deliberate exception.
+- **`team.md`'s wording should be corrected** at a future learnings gate to
+  read "test credentials **or a null adapter**", since the present phrasing
+  names a mechanism this vendor does not offer. Flagged, not silently
+  reinterpreted.
+
+**OQ-3b — code 1012 does not apply to our OTP traffic.** The masking
+Bangla-body rule is not enforced for this message class, which removes the
+3–4× cost multiplier and resolves the tension favourably on both counts:
+
+- The OTP body is **English and GSM-7**, so **160 characters per segment**
+  rather than 70. C.4.7's length test still applies and still matters — the
+  SMS Retriever app hash [TC-5] still consumes 12 characters — but the
+  budget it polices is more than twice as large, and a single-segment OTP
+  is comfortable rather than tight.
+- A **masking sender ID stays available** without forcing a Bangla body, so
+  the teacher sees a branded sender rather than an unfamiliar number. That
+  is the better trust signal on an OTP, which matters for a product whose
+  first screen is a login.
+- **This does not change the Bangla-first UI** [TC-15, D-43]. The OTP *SMS*
+  is one English message from a gateway; every in-app string stays
+  localized. Stated so the two are not later conflated.
+- **[D-33]'s ceiling can now be calibrated** against the cheaper arithmetic,
+  which was the blocking reason this question existed.
 
 **C.4.7 — The OTP message length is a tested budget constraint.**
 
@@ -979,8 +1014,8 @@ Stated plainly, because "additive-only" is a slogan in most projects and a hard 
 | OQ-1 | **Does `PaymentClaim.transaction_id` survive the claimant's deletion?** It is student/guardian-authored (so FR11.1 says remove) and simultaneously the teacher's only evidence of a verified payment (so the business-record argument says retain). | **U11** disposition manifest; the privacy-policy text generated from it; **U8**'s payment-history response schema, which must know whether the field can be null post-deletion | A product and legal judgement, carried in from Domain Design. The contract can express either answer; it cannot choose |
 | OQ-2 | **FR8.3's collection-rate definition is annotated open to correction**, and AC8.3.4's rule that a credit counts in the period whose charge it settles postdates it. | **U9** analytics response schema and its field semantics; **U1**'s property test, which should be extended to cover the credit rule | A requirements question. Shipping a `collection_rate` field whose arithmetic is under revision would pin the wrong number into a client in the field |
 | ~~OQ-3~~ | **DECIDED 2026-10-18 — the vendor is BulkSMSBD.** See §C.4, which records six binding implementation behaviours probed against the live endpoint. The §C.1 interface is unchanged, which is what vendor-neutrality bought. | — | Resolved by the human |
-| OQ-3a | **Does BulkSMSBD offer a sandbox or test mode?** None is documented and none was found. `team.md` requires non-production to hold test credentials *"so a staging run can never spend real money or message a real teacher"* — **not satisfiable as written** without one. CI is unaffected: the gateway is stubbed there by the same practice. | **U3**, and a possible correction to the practice wording | One direct question to the vendor. Absence of documentation is not proof of absence — their docs omit `response_code`, IP whitelisting and delivery reports too, all of which demonstrably exist or are referenced |
-| OQ-3b | **Is code 1012 (masking SMS must be in Bangla) enforced for transactional/OTP traffic, or only promotional?** A masking sender ID is the better trust signal on an OTP, but a Bangla body is UCS-2 — 70 characters per segment instead of 160 — which with masking's higher rate is roughly a **3–4× per-OTP cost multiplier**. | **U3**'s sender configuration and OTP template; [D-33]'s ceiling calibration; [OC-4]'s budget | A vendor question with a product consequence. If OTP is exempt, a branded sender *and* a cheap 160-character English body are both available |
+| ~~OQ-3a~~ | **ANSWERED 2026-10-18 — there is no sandbox.** `team.md`'s non-production rule cannot hold as written, because the mechanism it names does not exist. Satisfied instead by a **null adapter** behind the §C.1 protocol in every non-production environment, selected by explicit configuration with the null adapter as the default, so a missing setting fails toward not sending. The gateway leg is verified exactly once, at the B3 skeleton checkpoint, with a single real send to the developer's own number. `team.md`'s wording should be corrected to "test credentials or a null adapter" at a future learnings gate. | — | Resolved by the human |
+| ~~OQ-3b~~ | **ANSWERED 2026-10-18 — 1012 does not apply to our OTP traffic.** The OTP body is English GSM-7, so **160 characters per segment rather than 70**, and a masking sender ID stays available without forcing a Bangla body. Removes the 3–4× per-OTP cost multiplier and unblocks [D-33]'s ceiling calibration. Does not change the Bangla-first UI: the OTP SMS is one English gateway message; every in-app string stays localized. | — | Resolved by the human |
 | OQ-4 | **The FCM adapter's owning Unit is latent** — U6 or U7, whichever is built first. | **U6 and U7**. Left unrecorded it becomes two adapters with two different `UNREGISTERED` behaviours | A Delivery Planning sequencing decision. Flagged, not invented: the dependency artifact deliberately declined a `U6 -> U7` edge, because that would destroy the three-way parallel set for a shared adapter |
 | OQ-5 | **The external deletion route's web surface is uncosted** [TC-19]. §B.9 specifies it as FastAPI-served HTML on the existing container, which is the only option under the USD 50/month ceiling [OC-4] — but this has not been confirmed against Play's expectations for the deletion URL. | **U11**, which is release-blocking | A hosting and compliance confirmation, not a contract decision. The contract is written assuming the same container; a separate static host would change the path, not the semantics |
 | ~~OQ-6~~ | **DECIDED** — see "The `*_display` rule" below. It was listed here as open while carrying a proposed default, which is a decision wearing a question's clothes. Leaving it open would make every money response schema in U7, U8 and U9 provisional. | — | Resolved at this stage's review |

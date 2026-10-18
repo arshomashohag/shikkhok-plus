@@ -6,7 +6,7 @@ requires-python = ">=3.12"
 dependencies = []
 
 [project.optional-dependencies]
-api = ["pydantic>=2.9", "sqlalchemy>=2.0"]
+api = ["fastapi>=0.115", "pydantic>=2.9", "sqlalchemy>=2.0"]
 dev = [
     "pytest>=8.3",
     "pytest-cov>=5.0",
@@ -103,6 +103,27 @@ check_untyped_defs = true
 
 [[tool.mypy.overrides]]
 module = "app.money.*"
+strict = true
+disallow_any_explicit = true
+
+# ---------------------------------------------------------------------------
+# NFR14.11 — the second strict island, added at B2.
+#
+# team.md names three strict islands: app.money.*, app.authz.* and
+# app.schemas.*. B1 configured only the first, correctly — an override
+# naming a module that does not exist is dead configuration — which left
+# app.schemas with no owning Bolt until U2 populated it.
+#
+# disallow_any_explicit earns its place here specifically: a response field
+# typed Any carries a profile value at runtime while declaring nothing in
+# the generated document, which is a hole straight through the schema-wide
+# privacy assertion.
+#
+# app.authz.* stays unconfigured until U3 creates its resolvers, on B1's
+# same reasoning.
+# ---------------------------------------------------------------------------
+[[tool.mypy.overrides]]
+module = "app.schemas.*"
 strict = true
 disallow_any_explicit = true
 

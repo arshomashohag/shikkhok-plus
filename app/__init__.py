@@ -1,0 +1,1 @@
+"""ShikhokPlus backend application package."""
