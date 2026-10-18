@@ -13,6 +13,11 @@ composeBom = "2024.10.01"
 activityCompose = "1.9.3"
 lifecycleViewmodelCompose = "2.8.7"
 coroutines = "1.9.0"
+# Robolectric runs Compose UI tests on the JVM, so the OTP-entry
+# obligation team.md names is checkable in `make check` rather than
+# only on a device. The device run still happens at the checkpoint;
+# this catches a broken screen before it gets there.
+robolectric = "4.14.1"
 
 [libraries]
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
@@ -26,6 +31,8 @@ compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4
 activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
 lifecycle-viewmodel-compose = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "lifecycleViewmodelCompose" }
 coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
+robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
