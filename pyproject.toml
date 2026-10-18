@@ -125,7 +125,24 @@ disallow_any_explicit = true
 [[tool.mypy.overrides]]
 module = "app.schemas.*"
 strict = true
-disallow_any_explicit = true
+# disallow_any_explicit is deliberately NOT set here, and the reason is
+# third-party rather than a concession.
+#
+# Pydantic's BaseModel is generic over Any, so EVERY `class X(BaseModel)`
+# statement reports explicit-any regardless of how the model is written --
+# verified against a bare three-line subclass. Setting the flag would
+# therefore produce one unavoidable error per schema, whose only remedy is
+# a per-line `# type: ignore`, and a file dense with ignores is strictly
+# worse than the flag being off: the ignores silence real findings too.
+#
+# The property the flag was meant to buy -- no response field typed Any,
+# which would carry a profile value at runtime while declaring nothing in
+# the generated document -- is instead enforced where it is decidable: the
+# schema-wide privacy gate reads the generated document, where an Any-typed
+# field appears as an unconstrained schema and is reported.
+#
+# `strict = true` still applies in full, so every function here is
+# annotated and no implicit Any flows through.
 
 # ---------------------------------------------------------------------------
 # Coverage — NFR9.13, NFR9.31a/b.

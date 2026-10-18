@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
+from app.errors import register_error_handler
+
 __all__ = ["app", "create_app"]
 
 
@@ -19,7 +21,7 @@ def create_app() -> FastAPI:
 
     :return: The configured application, with no routes in this Unit
     """
-    return FastAPI(
+    app = FastAPI(
         title="ShikhokPlus API",
         version="1.0.0",
         description=(
@@ -28,6 +30,8 @@ def create_app() -> FastAPI:
             "the lens that produced it."
         ),
     )
+    register_error_handler(app)
+    return app
 
 
 app = create_app()

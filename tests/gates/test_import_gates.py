@@ -40,7 +40,27 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 MONEY = ROOT / "app" / "money"
+ERRORS = ROOT / "app" / "errors"
 FIXTURES = Path(__file__).parent / "fixtures"
+
+#: Layers the error handler may never import from. [NFR17.2]
+#:
+#: The handler sits on EVERY error path in the system, so a handler that can
+#: itself fail turns a handled 403 into an unhandled 500 at exactly the
+#: moment the system is already degraded. The realistic violation is not an
+#: obvious one: structured error logging that writes to the database, or a
+#: lookup enriching `details` with a human-readable name. Both look like
+#: improvements, and both put a query on every error path.
+HANDLER_FORBIDDEN_PREFIXES = (
+    "app.api",
+    "app.db",
+    "app.repositories",
+    "httpx",
+    "requests",
+    "urllib.request",
+    "socket",
+    "sqlalchemy",
+)
 
 #: Layers the money module may never import from. [BR6.1, NFR9.4]
 FORBIDDEN_PREFIXES = (
@@ -200,6 +220,61 @@ class TestGate1Outward:
             f"Gate 1 walks {MONEY} and found only {len(modules)} modules; "
             "it may no longer point at the money package."
         )
+
+
+class TestGate3ErrorHandlerIsIOFree:
+    """The error handler must not reach any I/O layer [NFR17.2].
+
+    Extends B1's two money gates with a third of the same shape, rather
+    than creating a parallel mechanism: the reviewer already knows how to
+    read this file, which matters when there is one reviewer.
+    """
+
+    def test_real_tree_passes(self) -> None:
+        """Every module in app/errors is I/O-free, today.
+
+        :return: None
+        """
+        offenders: list[str] = []
+        for source in ERRORS.rglob("*.py"):
+            for module in _imported_modules(source):
+                if module.startswith(HANDLER_FORBIDDEN_PREFIXES):
+                    offenders.append(f"{source.name} imports {module}")
+        assert not offenders, "\n".join(offenders)
+
+    def test_the_gate_fires_on_a_violation(self) -> None:
+        """The gate demonstrably catches an I/O import.
+
+        Asserted against a synthetic source rather than by trusting the
+        clean result above: a check that has never fired is a check nobody
+        knows works.
+
+        :return: None
+        """
+        probe = FIXTURES / "_handler_io_probe.py"
+        probe.write_text(
+            '"""Probe: an error handler that reaches the database."""\n'
+            "from sqlalchemy import select\n",
+            encoding="utf-8",
+        )
+        try:
+            imported = _imported_modules(probe)
+            assert any(
+                module.startswith(HANDLER_FORBIDDEN_PREFIXES)
+                for module in imported
+            ), "the gate examined nothing"
+        finally:
+            probe.unlink(missing_ok=True)
+
+    def test_no_dynamic_imports_in_the_error_package(self) -> None:
+        """A computed import would defeat the static check above.
+
+        :return: None
+        """
+        flagged: list[str] = []
+        for source in ERRORS.rglob("*.py"):
+            flagged.extend(_dynamic_import_calls(source))
+        assert not flagged, "\n".join(flagged)
 
 
 class TestGate2Inward:

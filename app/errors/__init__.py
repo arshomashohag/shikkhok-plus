@@ -6,3 +6,24 @@ fail turns a handled refusal into an unhandled 500 at exactly the moment
 the system is already degraded. The prohibition is enforced by the layered
 import test in ``tests/gates/test_import_gates.py``, not by convention.
 """
+
+from app.errors._classes import (
+    AuthorizationError,
+    ConflictError,
+    FatalError,
+    TaxonomyError,
+    TransientError,
+    ValidationError,
+)
+from app.errors.handler import register_error_handler, to_response
+
+__all__ = [
+    "AuthorizationError",
+    "ConflictError",
+    "FatalError",
+    "TaxonomyError",
+    "TransientError",
+    "ValidationError",
+    "register_error_handler",
+    "to_response",
+]
