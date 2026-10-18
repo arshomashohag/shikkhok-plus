@@ -1,7 +1,7 @@
 {
   "stage": "functional-design",
   "unit": "api-contract",
-  "note": "U2 is a spec Unit: not deployed, owning a committed contract and four CI gates. Both of its stories are cross-cutting, so several acceptance criteria belong to the Units that own the screens and the writes. Those are marked Deferred with the Unit that owns them named, rather than claimed. AC10.1.4 is the criterion behind BR1.4: it requires that a refusal not disclose whether the resource exists, without naming a status - which settles the contradiction between contract-summary's schema section (403 for both) and its implementer notes (the 404-instead-of-403 wording). Revised at review: BR1.4 strengthened to byte-identity (a uniform status still leaks through the response body), BR2.4 carries ADR-001's account-id set as well as the profile set, BR3.1 separates the authenticated refresh route from the public allowlist, BR2.2's predicate is $ref rather than an undecidable 'carries money', and BR4.3 records the four downstream artifacts whose 404 hypotheses BR1.4 contradicts.",
+  "note": "U2 is a spec Unit: not deployed, owning a committed contract and four CI gates. Both of its stories are cross-cutting, so several acceptance criteria belong to the Units that own the screens and the writes. Those are marked Deferred with the Unit that owns them named, rather than claimed. AC10.1.4 is the criterion behind BR1.4: it requires that a refusal not disclose whether the resource exists, without naming a status - which settles the contradiction between contract-summary's schema section (403 for both) and its implementer notes (the 404-instead-of-403 wording). Revised at review: BR1.4 strengthened to byte-identity (a uniform status still leaks through the response body), BR2.4 carries ADR-001's account-id set as well as the profile set, BR3.1 separates the authenticated refresh route from the public allowlist, BR2.2's predicate is $ref rather than an undecidable 'carries money', and BR4.3 records the FIVE downstream artifacts whose 404 hypotheses BR1.4 contradicted, all since amended. Revised again at iteration 2: new BR1.7 reconciles AC10.1.6 with contract-summary B.4, which contradict each other on whether an unsupported lens hint is ignored or refused - AC10.1.6 now traces to BR1.7 rather than to rules that say nothing about hints.",
   "upstream_ids": [
     "AC9.2.1",
     "AC9.2.2",
@@ -89,7 +89,7 @@
     {
       "id": "AC10.1.6",
       "status": "OK",
-      "target": "BR1.1, BR1.5"
+      "target": "BR1.7"
     },
     {
       "id": "AC10.1.8",
@@ -121,7 +121,7 @@
     {
       "id": "BR1.4",
       "status": "OK",
-      "target": "AC10.1.1, AC10.1.2, AC10.1.3, AC10.1.4 - the non-disclosure rule, strengthened at review from uniform STATUS to BYTE-IDENTICAL response. AC10.1.4 requires that a refusal not disclose existence; a uniform 403 carrying distinct codes satisfies the status reading and leaks everything through the body"
+      "target": "AC10.1.1, AC10.1.2, AC10.1.3, AC10.1.4 - the non-disclosure rule, strengthened at review from uniform STATUS to BYTE-IDENTICAL response. AC10.1.4 requires that a refusal not disclose existence; a uniform 403 carrying distinct codes satisfies the status reading and leaks everything through the body. Iteration 2 added the structural-equivalence clause: both branches perform the same lookup work, so an existence-check short-circuit cannot restore the oracle in timing with every byte identical - the same structural (never wall-clock) assertion the OTP issue path carries"
     },
     {
       "id": "BR2.1",
@@ -174,9 +174,14 @@
       "target": "AC9.2.3 - retryable:false on a 401 reconciled with refresh-then-replay. Added at review: BR1.2 derived the value without recording what it MEANS on the one status where it reads as a contradiction, which is a whole paragraph in the upstream contract"
     },
     {
+      "id": "BR1.7",
+      "status": "OK",
+      "target": "AC10.1.6, FR1.3, FR1.4, FR1.5 - the lens-hint contract. Added at review iteration 2, which found that AC10.1.6 (the server IGNORES an unsupported hint) and contract-summary B.4 (the server REFUSES it with 403 LENS_NOT_AVAILABLE) directly contradict each other, and that this Unit had picked B.4's behaviour in entities.md while carrying no rule about hints at all. FR1.4 settles it: only lenses that have data are offered, so an unsupported hint is a stale client, a bug or a probe, and silent fallback serves all three under a lens they did not name - the AC10.1.8 failure shape. The two sources agree on the half that carries the security property (the hint grants nothing, the lens is always re-derived), which is why this is a wording conflict rather than a vulnerability"
+    },
+    {
       "id": "BR4.3",
       "status": "N/A",
-      "target": "A cross-Bolt obligation with no AC behind it. BR1.4's decision contradicts B2's own DoD and the confidence hypotheses of B3, B7 and B9, each asserting 404 as a falsification criterion - so correct implementations would fail them. B3's is the walking skeleton's privacy hypothesis, read at a human checkpoint. Recorded as an obligation per B1's NFR9.32 precedent rather than left as a hope"
+      "target": "A cross-Bolt obligation with no AC behind it, now DISCHARGED. BR1.4's decision contradicted FIVE downstream artifacts - B2's own DoD, the confidence hypotheses of B3, B7 and B9, and the B3 checkpoint criterion in risk-and-sequencing-rationale.md - each asserting 404 as a falsification criterion, so correct implementations would have failed them. B3's is the walking skeleton's privacy hypothesis, read at a human checkpoint. All five amended 2026-10-18 to require a byte-identical 403. The fifth was named by neither the draft nor the review and was found by sweeping the record for the value, which is the generalisable lesson"
     }
   ]
 }

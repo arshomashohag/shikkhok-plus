@@ -14,7 +14,7 @@
 ## Sources
 
 - [stage] `functional-design-questions.md` — all seven answers
-- [upstream] `construction/api-contract/functional-design/rules.md` — BR1.1–BR4.2
+- [upstream] `construction/api-contract/functional-design/rules.md` — BR1.1–BR4.3
 - [upstream] `construction/api-contract/functional-design/entities.md`
 - [upstream] `inception/contract-design/contract-summary.md`
 - [upstream] `inception/units-generation/unit-of-work.md` — U2 is `spec`, S
@@ -94,11 +94,15 @@ items 4, 5 and 6 all iterate sets that are **empty in B2**.
 > because 404 is honest to nobody — a teacher who mistyped their **own** id
 > would be told it does not exist.
 >
-> **That decision contradicts four downstream artifacts** — B2's own DoD and
-> the confidence hypotheses of B3, B7 and B9, each asserting 404 as a
-> falsification criterion. B3's is the walking skeleton's privacy
-> hypothesis, read at a human checkpoint. BR4.3 records the amendments as a
-> cross-Bolt obligation rather than a hope.
+> **That decision contradicted five downstream artifacts** — B2's own DoD,
+> the confidence hypotheses of B3, B7 and B9, and the B3 checkpoint
+> criterion in `risk-and-sequencing-rationale.md` — each asserting 404 as a
+> falsification criterion, so a correct implementation would have failed
+> them. B3's is the walking skeleton's privacy hypothesis, read at a human
+> checkpoint. BR4.3 records the obligation; **all five have since been
+> amended** (2026-10-18) to require a byte-identical 403. The fifth was
+> found by sweeping the record for `404` rather than working from the
+> review's list, which named four.
 
 ### 2.4 Assert the money contract over the schema
 
@@ -148,7 +152,45 @@ items 4, 5 and 6 all iterate sets that are **empty in B2**.
 > — a response wrongly carrying either set matches its own declaration
 > perfectly [BR4.2].
 
-### 2.6 Enumerate routes and check their lenses
+### 2.6 Resolve a lens hint
+
+1. Read `X-Lens-Hint` if present. It affects **navigation and UI shaping
+   only** and is never trusted for authorization.
+2. Re-derive the available lenses from owned batches and enrollments on
+   **every** request. The hint selects among lenses the account already
+   has; it never creates one.
+3. If a hint was sent and the hinted lens **has no data behind it**, refuse
+   with **403 `LENS_NOT_AVAILABLE`** [BR1.7]. Do not fall back.
+4. If no hint was sent: resolve the account's single available lens, or
+   refuse with **400 `LENS_HINT_REQUIRED`** when more than one is available
+   and the route is lens-ambiguous.
+5. Name the resolved lens in the response's `lens` field, so the response
+   is self-describing and the client renders from it rather than from the
+   hint it sent.
+
+> **Two upstream sources contradict each other here, and this Unit now
+> reconciles them rather than picking one silently.** `stories.md`
+> AC10.1.6 says the server "ignores it and resolves the lens from owned
+> batches and enrollments"; `contract-summary.md` §B.4 says it "refuses
+> with 403 `LENS_NOT_AVAILABLE`". An earlier draft of this Unit carried
+> B.4's behaviour in `entities.md` while `rules.md` said nothing about
+> hints at all — so the contradiction was resolved by accident, in the
+> artifact least likely to be read as normative.
+>
+> FR1.4 settles it: *"only the lenses that have data are offered."* An
+> unsupported hint therefore cannot come from a client that followed the
+> contract — it is a stale client, a bug, or a crafted request. Silent
+> fallback serves all three under a lens the caller did not name, which is
+> the shape of the AC10.1.8 failure this story set exists to prevent, and
+> it turns a probe into a success.
+>
+> The two readings **agree on the half carrying the security property** —
+> the hint grants nothing and the lens is always re-derived — which is why
+> this is a wording conflict rather than a vulnerability. AC10.1.6's
+> "ignores it" is true of *authorization* and was written before B.4 fixed
+> the refusal shape.
+
+### 2.7 Enumerate routes and check their lenses
 
 1. Load the **real application object** at test collection time.
 2. For each route, walk `dependant` **recursively** — a lens may be nested
@@ -182,16 +224,16 @@ items 4, 5 and 6 all iterate sets that are **empty in B2**.
 > it is the implementer who hits the error, wraps the call and returns
 > `True` on failure, after which every route passes and none is checked.
 
-### 2.7 Prove each gate fires
+### 2.8 Prove each gate fires
 
-1. For each of §2.4, §2.5, §2.6: load a committed fixture that **violates**
+1. For each of §2.4, §2.5, §2.7: load a committed fixture that **violates**
    it.
 2. Assert the gate refuses the fixture [BR4.1].
 3. A fixture that stops failing is itself a failure.
 
 ---
 
-## 3. Why §2.7 is not ceremony
+## 3. Why §2.8 is not ceremony
 
 **B2 has no routes and no money endpoint.** Run the gates as delivered and
 every one passes:
@@ -300,7 +342,7 @@ Derived from `rules.md`, which is the source of truth.
 
 | Group | Covers | Rules |
 |---|---|---|
-| **BR1.x** | The error taxonomy, its envelope, and the non-disclosure rule | BR1.1–BR1.6 |
+| **BR1.x** | The error taxonomy, its envelope, the non-disclosure rule, and the lens-hint contract | BR1.1–BR1.7 |
 | **BR2.x** | The committed schema and its assertions | BR2.1–BR2.4 |
 | **BR3.x** | The route harness | BR3.1–BR3.2 |
 | **BR4.x** | Gates that would otherwise pass trivially, and what this stage owes other Bolts | BR4.1–BR4.3 |

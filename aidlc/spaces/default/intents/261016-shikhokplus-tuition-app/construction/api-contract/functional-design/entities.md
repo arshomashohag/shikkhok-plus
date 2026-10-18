@@ -203,8 +203,14 @@ contract_types:
       - The hint affects navigation and UI shaping only. It is never trusted
         for authorization.
       - The server re-derives the lens from owned batches and enrollments on
-        every request, and refuses with authorization (403) and a dedicated
-        code when the hinted lens has no data behind it.
+        every request, and refuses with authorization (403)
+        `LENS_NOT_AVAILABLE` when the hinted lens has no data behind it.
+        Governed by BR1.7, which reconciles the two upstream sources that
+        disagree on this point - AC10.1.6 says the hint is ignored, and
+        contract-summary B.4 says it is refused.
+      - A missing hint resolves the account's single available lens, or
+        refuses with validation (400) `LENS_HINT_REQUIRED` when more than
+        one is available and the route is lens-ambiguous.
       - This is error-contract surface, so U2 owns the code, the status and
         the class. U3 owns the derivation that decides which applies.
 ```

@@ -104,11 +104,28 @@ rules:
       IF the resolved lens does not reach the named resource
       OR the named resource does not exist
       THEN return authorization (403) with an identical body in both cases,
-      carrying a single code that distinguishes neither.
+      carrying a single code that distinguishes neither,
+      AND reach that response having performed the SAME LOOKUP WORK in
+      both branches - neither branch returns before the other's query has
+      run.
     violation_behaviour: >
       Any observable difference between the two cases is an enumeration
       oracle, whether it is the status, the code, the message_key, the
       details object or a header.
+
+      A branch that SHORT-CIRCUITS is the same defect arriving by a
+      different route. An implementer who checks existence first and
+      returns immediately on a miss, skipping the ownership query, makes
+      the absent case measurably cheaper than the unreachable one - and
+      the oracle is restored in the timing, with every byte identical.
+      This mirrors the OTP issue path, which asserts the STRUCTURAL
+      property that the unknown-number branch performs the same hash
+      computation rather than returning early.
+
+      Like the OTP control, this is asserted structurally and NOT as a
+      wall-clock bound: a millisecond assertion is flaky and gets deleted
+      the third time CI fails on it. What is asserted is that both
+      branches execute the same queries, which is inspectable and stable.
     rationale: >
       **The upstream contract contradicts itself on the STATUS, and an
       earlier draft of this rule resolved only that half - which left the
@@ -185,6 +202,64 @@ rules:
       a retry but a different request followed by one replay - bounded at
       one, only on that code, with any second failure ending the session.
     source: [contract-summary B.2 and B.3, team.md Error handling]
+
+  - id: BR1.7
+    statement: >
+      A lens hint claiming a lens the account's data does not support is
+      REFUSED with 403 `LENS_NOT_AVAILABLE`, never silently ignored and
+      never resolved to a different lens. A missing hint on a
+      lens-ambiguous route is refused with 400 `LENS_HINT_REQUIRED`.
+    category: policy
+    applies_to: Every route whose response carries lens-scoped data
+    trigger: A request arrives carrying X-Lens-Hint
+    logic: >
+      IF the hinted lens has data behind it for this account
+      THEN resolve that lens and name it in the response's `lens` field
+      ELSE IF a hint was sent and the hinted lens has no data behind it
+      THEN refuse with 403 `LENS_NOT_AVAILABLE`
+      ELSE IF no hint was sent and exactly one lens is available
+      THEN resolve that lens
+      ELSE refuse with 400 `LENS_HINT_REQUIRED`.
+    violation_behaviour: >
+      An implementer who reads AC10.1.6 alone builds the silent fallback:
+      an unsupported hint quietly resolves to whatever lens the account
+      does have, and the caller is served data under a lens they did not
+      ask for. That is indistinguishable from the AC10.1.8 failure the
+      story set exists to prevent, and it converts a crafted probe into a
+      successful request.
+    rationale: >
+      TWO UPSTREAM SOURCES CONTRADICT EACH OTHER HERE, and this rule
+      records the reconciliation rather than picking one quietly.
+
+      `stories.md` AC10.1.6 says the server "ignores it and resolves the
+      lens from owned batches and enrollments". `contract-summary.md` B.4
+      says the server "refuses with 403 `LENS_NOT_AVAILABLE` if the hinted
+      lens has no data behind it [FR1.4]". Both cite the lens-is-computed
+      requirement; they differ on what happens to the hint.
+
+      FR1.4 settles it: "At login, only the lenses that have data are
+      offered." A hint for an unsupported lens therefore cannot arise from
+      a client that followed the contract - it is a stale client, a bug, or
+      a crafted request. Silent fallback serves all three the data of a
+      lens they did not name, which is the exact shape of AC10.1.8's
+      failure. Refusal makes the condition visible.
+
+      The two readings AGREE on the half that carries the security
+      property, which is why this is a wording conflict and not a
+      vulnerability: the hint is never trusted, and the lens is always
+      re-derived from owned batches and enrollments. AC10.1.6's "ignores
+      it" is a true statement about AUTHORIZATION - the hint grants
+      nothing - written before B.4 fixed the refusal shape. B.4 is the
+      later and more specific artifact and names a status, a code and a
+      citation, so it wins on the ROUTING question while AC10.1.6's
+      authorization reading stands unchanged.
+
+      U2 owns the status, the code and the class here because that is
+      error-contract surface. U3 owns the derivation that decides which
+      branch applies.
+    source: >
+      [contract-summary B.4], [stories.md AC10.1.6], [requirements FR1.3,
+      FR1.4, FR1.5], [project: never trust a client-supplied lens hint]
 
   # ---- BR2.x - The committed schema ----
 
@@ -438,11 +513,11 @@ rules:
 
   - id: BR4.3
     statement: >
-      BR1.4's uniform-403 decision contradicts four downstream artifacts,
-      and each must be amended before the Bolt that depends on it runs.
-      This is a cross-Bolt obligation, not a note.
+      BR1.4's uniform-403 decision contradicted FIVE downstream artifacts,
+      each of which has now been amended. This is a cross-Bolt obligation,
+      not a note, and it is DISCHARGED rather than outstanding.
     category: policy
-    applies_to: bolt-plan.md and contract-summary.md
+    applies_to: bolt-plan.md and risk-and-sequencing-rationale.md
     trigger: This stage's approval
     logic: >
       IF BR1.4 stands
@@ -454,8 +529,10 @@ rules:
       skeleton's privacy claim and is checked at a human checkpoint.
     rationale: >
       **An earlier draft of this Unit recorded only B2's own DoD as
-      contradicting the decision. Three more artifacts do**, and the
-      decision was therefore taken against an incomplete picture:
+      contradicting the decision. Four more artifacts did**, and the
+      decision was therefore taken against an incomplete picture. The
+      fifth was missed by review as well, and found only by sweeping the
+      record for `404` rather than working from the list:
 
       - **B2 DoD** - repeats "the 404-instead-of-403 rule".
       - **B3 confidence hypothesis** - "*receives a 404 and not a 403, and
@@ -464,10 +541,20 @@ rules:
       - **B7 confidence hypothesis** - "*a guardian receives a 404, and a
         student receives a 404*".
       - **B9 confidence hypothesis** - "*returns a 404 rather than a 403*".
+      - **`risk-and-sequencing-rationale.md`, the B3 checkpoint criterion**
+        - "*a cross-teacher request returns 404 and not 403*". Named in
+        neither draft nor review; found by grep. It is the criterion a
+        human reads at the skeleton checkpoint, so it is arguably the
+        costliest of the five to have left wrong.
 
       A confidence hypothesis is a falsification criterion. Under BR1.4 all
-      three are falsified by implementations that are correct, which is the
+      four are falsified by implementations that are correct, which is the
       worst possible shape for a check: it fails on the right answer.
+
+      **Status: all five amended 2026-10-18**, each naming a 403 whose two
+      responses are byte-identical. The generalisable lesson is that a
+      decision reversing a widely-cited value is verified by searching the
+      record for that value, not by enumerating the places one remembers.
 
       Note that B3's wording already demands **byte-indistinguishable**,
       which is BR1.4's own property and stronger than the status alone -
@@ -477,7 +564,9 @@ rules:
       B1 set this project's precedent at NFR9.32: a cross-Bolt obligation
       is recorded as an obligation with named owners, never left as a hope
       that somebody notices.
-    source: [bolt-plan B2/B3/B7/B9, contract-summary line 873, B1 NFR9.32]
+    source: >
+      [bolt-plan B2/B3/B7/B9], [risk-and-sequencing-rationale B3
+      checkpoint], [contract-summary line 873], [B1 NFR9.32]
 ```
 
 ---
@@ -492,6 +581,7 @@ rules:
 | **BR1.4** | authorization | **Byte-identical 403** for unreachable and absent — the upstream contradiction, resolved and recorded |
 | **BR1.5** | authorization | No error code distinguishes the two cases |
 | **BR1.6** | policy | `retryable: false` on 401 reconciled with refresh-then-replay |
+| **BR1.7** | policy | An unsupported lens hint is refused 403, never silently ignored |
 | **BR2.1** | constraint | Committed schema equals generated, or CI fails |
 | **BR2.2** | validation | Money properties `$ref` the shared component, never inline |
 | **BR2.3** | constraint | `*_display` never appears without its sibling |
