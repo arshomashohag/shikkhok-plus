@@ -25,9 +25,9 @@ lists**, and every later Unit copies whatever shape lands here.
 
 | ID | Requirement | Why it is this and not a latency number |
 |---|---|---|
-| **NFR6.11** | A roster read is **one query**, not one per enrollment | The N+1 shape is invisible at ten students and quadratic at a hundred |
-| **NFR6.12** | A test asserts the **query count** for a roster of N, with N > 1 | A roster of one passes against an N+1 implementation, so the fixture size is part of the requirement |
-| **NFR6.13** | The guardian child list is one query, including the teacher name each child shows [AC2.7.3] | The attribution requirement is exactly what tempts a per-child lookup |
+| **NFR6.11** | A roster read's query count is **constant in N**, not minimal | The N+1 shape is invisible at ten students and quadratic at a hundred |
+| **NFR6.12** | A test asserts the count is **the same at N=2 and N=25** | A roster of one passes against an N+1 implementation, so the fixture size is part of the requirement |
+| **NFR6.13** | The guardian child list's count is **constant in the number of children**, including the teacher name each shows [AC2.7.3] | The attribution requirement is exactly what tempts a per-child lookup. Same property as NFR6.11, for the same reason |
 | **NFR6.14** | Indexes on `Enrollment.batch_id`, `Enrollment.student_account_id` and `Enrollment.guardian_account_id` | Three different reads scope on three different columns; U3 indexed only the one it used |
 
 > **NFR6.12's fixture size is the load-bearing part.** A query-count
@@ -35,6 +35,22 @@ lists**, and every later Unit copies whatever shape lands here.
 > implementation and reports a green build. The same mistake as a
 > privacy suite run as superuser: the assertion is real, the setup
 > makes it vacuous.
+>
+> **Constant, not minimal — and the first version of NFR6.11 got this
+> wrong.** It said "one query", which rejects `selectinload`: a
+> perfectly good implementation that issues two (the roster, then one
+> batched `IN` for the children) and is often preferable to a wide
+> JOIN. Worked the counts:
+>
+> | N | N+1 | JOIN | selectinload |
+> |---|---|---|---|
+> | 1 | 2 | 1 | 2 |
+> | 2 | 3 | 1 | 2 |
+> | 25 | 26 | 1 | 2 |
+>
+> An `== 1` assertion fails a correct build; comparing the count **at
+> two different N** catches the defect and constrains nothing else.
+> That is why the requirement names a property rather than a number.
 
 ---
 
