@@ -39,6 +39,23 @@ interface RosterRepository {
      * @return Nothing on success, or why the server refused
      */
     suspend fun removeEnrollment(enrollmentId: String): AuthResult<Unit>
+
+    /**
+     * Add a student to a batch.
+     *
+     * @param batchId The batch to add to
+     * @param displayName The teacher-typed name
+     * @param guardianPhone The guardian's number, or null
+     * @param feeAmount This seat's fee as a canonical string, or null
+     *   to inherit the batch default
+     * @return Nothing on success, or why the server refused
+     */
+    suspend fun addEnrollment(
+        batchId: String,
+        displayName: String,
+        guardianPhone: String?,
+        feeAmount: String?,
+    ): AuthResult<Unit>
 }
 
 /**
@@ -111,6 +128,37 @@ class RosterViewModel(
                     pendingRemoval = null
                     lastBatchId?.let { load(it) }
                 }
+                is AuthResult.Refused ->
+                    _state.value = RosterStateMapper.afterError(result.envelope)
+                AuthResult.TransportFailure ->
+                    _state.value = RosterStateMapper.afterTransportFailure()
+            }
+        }
+    }
+
+    /**
+     * Add a student, then reload the roster.
+     *
+     * **No optimistic insert**, for the same reason removal has no
+     * local queue [TC-8, D-9].
+     *
+     * @param displayName The teacher-typed name
+     * @param guardianPhone The guardian's number, or null
+     * @param feeAmount This seat's fee, or null to inherit
+     */
+    fun addStudent(
+        displayName: String,
+        guardianPhone: String?,
+        feeAmount: String?,
+    ) {
+        val batchId = lastBatchId ?: return
+        _state.value = RosterUiState.Loading
+        viewModelScope.launch {
+            when (
+                val result =
+                    repository.addEnrollment(batchId, displayName, guardianPhone, feeAmount)
+            ) {
+                is AuthResult.Ok -> load(batchId, lastBatchName)
                 is AuthResult.Refused ->
                     _state.value = RosterStateMapper.afterError(result.envelope)
                 AuthResult.TransportFailure ->

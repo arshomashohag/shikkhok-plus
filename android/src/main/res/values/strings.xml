@@ -59,4 +59,19 @@
         <item quantity="one">%1$d student</item>
         <item quantity="other">%1$d students</item>
     </plurals>
+
+    <!-- Creating a class and adding a student. -->
+    <string name="batch_create_title">New class</string>
+    <string name="batch_create_name">Class name</string>
+    <string name="batch_create_subjects">Subjects, separated by commas</string>
+    <string name="batch_create_fee">Monthly fee (optional)</string>
+    <string name="batch_create_due_day">Due day of month (optional)</string>
+    <string name="batch_create_submit">Create class</string>
+    <string name="student_add_title">Add student</string>
+    <string name="student_add_name">Student name</string>
+    <string name="student_add_guardian">Guardian phone (optional)</string>
+    <string name="student_add_fee">Fee for this student (optional)</string>
+    <string name="student_add_submit">Add student</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="fee_inherits">Uses the class fee</string>
 </resources>

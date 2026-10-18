@@ -57,4 +57,19 @@
         <item quantity="one">%1$d জন শিক্ষার্থী</item>
         <item quantity="other">%1$d জন শিক্ষার্থী</item>
     </plurals>
+
+    <!-- Creating a class and adding a student. -->
+    <string name="batch_create_title">নতুন ক্লাস</string>
+    <string name="batch_create_name">ক্লাসের নাম</string>
+    <string name="batch_create_subjects">বিষয়, কমা দিয়ে আলাদা করুন</string>
+    <string name="batch_create_fee">মাসিক ফি (ঐচ্ছিক)</string>
+    <string name="batch_create_due_day">মাসের কত তারিখে দিতে হবে (ঐচ্ছিক)</string>
+    <string name="batch_create_submit">ক্লাস তৈরি করুন</string>
+    <string name="student_add_title">শিক্ষার্থী যোগ করুন</string>
+    <string name="student_add_name">শিক্ষার্থীর নাম</string>
+    <string name="student_add_guardian">অভিভাবকের ফোন (ঐচ্ছিক)</string>
+    <string name="student_add_fee">এই শিক্ষার্থীর ফি (ঐচ্ছিক)</string>
+    <string name="student_add_submit">যোগ করুন</string>
+    <string name="action_cancel">বাতিল</string>
+    <string name="fee_inherits">ক্লাসের ফি প্রযোজ্য</string>
 </resources>

@@ -71,6 +71,19 @@ class RosterViewModelTest {
             lastRemoved = enrollmentId
             return removeResult
         }
+
+        var addedFee: String? = "sentinel"
+        var addResult: AuthResult<Unit> = AuthResult.Ok(Unit)
+
+        override suspend fun addEnrollment(
+            batchId: String,
+            displayName: String,
+            guardianPhone: String?,
+            feeAmount: String?,
+        ): AuthResult<Unit> {
+            addedFee = feeAmount
+            return addResult
+        }
     }
 
     @Test
@@ -212,6 +225,23 @@ class RosterViewModelTest {
 
         assertEquals(1, repository.rosterCalls)
     }
+
+    @Test
+    fun `a null fee reaches the repository as null, never zero`() =
+        runTest(dispatcher) {
+            // Null means INHERIT the batch default; zero is a waiver
+            // [AC2.2.5]. Defaulting a blank field to "0.00" would
+            // silently waive every student's fee.
+            val repository = FakeRepository()
+            val viewModel = RosterViewModel(repository)
+
+            viewModel.load("b-1")
+            advanceUntilIdle()
+            viewModel.addStudent("Rahim", null, null)
+            advanceUntilIdle()
+
+            assertEquals(null, repository.addedFee)
+        }
 
     @Test
     fun `a successful removal reloads the roster`() = runTest(dispatcher) {

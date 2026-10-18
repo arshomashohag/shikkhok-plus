@@ -24,6 +24,8 @@ import com.shikkhokplus.app.core.network.HttpAuthRepository
 import com.shikkhokplus.app.core.network.HttpBatchesRepository
 import com.shikkhokplus.app.core.network.HttpRosterRepository
 import com.shikkhokplus.app.core.network.TokenStore
+import com.shikkhokplus.app.core.ui.BatchCreateForm
+import com.shikkhokplus.app.core.ui.StudentAddForm
 import com.shikkhokplus.app.feature.auth.AuthUiState
 import com.shikkhokplus.app.feature.auth.AuthViewModel
 import com.shikkhokplus.app.feature.auth.ui.AuthScreen
@@ -145,12 +147,26 @@ private fun SignedInRoute(tokens: TokenStore) {
     // tapped, and a round trip to re-learn it would be the client
     // asking the server something it was just told.
     var openBatch by remember { mutableStateOf<Pair<String, String>?>(null) }
+    var creatingBatch by remember { mutableStateOf(false) }
+    var addingStudent by remember { mutableStateOf(false) }
 
     val batchesModel: BatchesViewModel =
         viewModel { BatchesViewModel(HttpBatchesRepository(client)) }
     val batchesState by batchesModel.state.collectAsState()
 
     LaunchedEffect(Unit) { batchesModel.load() }
+
+    if (creatingBatch) {
+        BatchCreateForm(
+            onCreate = { name, subjects, fee, dueDay ->
+                batchesModel.create(name, subjects, fee, dueDay)
+                creatingBatch = false
+            },
+            onCancel = { creatingBatch = false },
+        )
+        BackHandler { creatingBatch = false }
+        return
+    }
 
     val opened = openBatch
     if (opened == null) {
@@ -166,6 +182,7 @@ private fun SignedInRoute(tokens: TokenStore) {
                 openBatch = id to name
             },
             onRetry = batchesModel::retry,
+            onCreate = { creatingBatch = true },
         )
         return
     }
@@ -179,7 +196,23 @@ private fun SignedInRoute(tokens: TokenStore) {
 
     LaunchedEffect(opened.first) { rosterModel.load(opened.first, opened.second) }
 
+    if (addingStudent) {
+        StudentAddForm(
+            onAdd = { name, guardian, fee ->
+                rosterModel.addStudent(name, guardian, fee)
+                addingStudent = false
+            },
+            onCancel = { addingStudent = false },
+        )
+        BackHandler { addingStudent = false }
+        return
+    }
+
     BackHandler { openBatch = null }
 
-    RosterScreen(state = rosterState, onRetry = rosterModel::retry)
+    RosterScreen(
+        state = rosterState,
+        onRetry = rosterModel::retry,
+        onAddStudent = { addingStudent = true },
+    )
 }

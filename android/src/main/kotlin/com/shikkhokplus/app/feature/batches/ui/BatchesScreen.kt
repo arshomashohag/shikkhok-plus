@@ -39,6 +39,9 @@ const val TAG_BATCHES_ERROR: String = "batches_error"
 /** The retry button, shown only when the server said retryable. */
 const val TAG_BATCHES_RETRY: String = "batches_retry"
 
+/** The new-class button. */
+const val TAG_BATCHES_CREATE: String = "batches_create"
+
 /**
  * The teacher's classes.
  *
@@ -49,6 +52,7 @@ const val TAG_BATCHES_RETRY: String = "batches_retry"
  * @param state What to render
  * @param onOpen Called with a batch id when a row is tapped
  * @param onRetry Called when the user asks to retry
+ * @param onCreate Called when the teacher wants a new class
  * @param modifier The layout modifier
  */
 @Composable
@@ -56,6 +60,7 @@ fun BatchesScreen(
     state: BatchesUiState,
     onOpen: (String) -> Unit,
     onRetry: () -> Unit,
+    onCreate: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -66,6 +71,10 @@ fun BatchesScreen(
             stringResource(R.string.batches_title),
             style = MaterialTheme.typography.titleLarge,
         )
+
+        Button(onClick = onCreate, modifier = Modifier.testTag(TAG_BATCHES_CREATE)) {
+            Text(stringResource(R.string.batch_create_title))
+        }
 
         when (state) {
             BatchesUiState.Idle -> Unit

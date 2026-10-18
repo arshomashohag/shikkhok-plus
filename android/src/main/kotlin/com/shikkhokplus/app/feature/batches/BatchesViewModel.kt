@@ -18,6 +18,22 @@ interface BatchesRepository {
      * @return The batches, an error envelope, or a transport failure
      */
     suspend fun batches(): AuthResult<List<BatchDto>>
+
+    /**
+     * Create a batch.
+     *
+     * @param name The teacher's name for the class
+     * @param subjects One or more subjects taught
+     * @param defaultFee The inherited fee as a canonical string, or null
+     * @param feeDueDay Day of month 1-31, or null
+     * @return The created batch, an envelope, or a transport failure
+     */
+    suspend fun createBatch(
+        name: String,
+        subjects: List<String>,
+        defaultFee: String?,
+        feeDueDay: Int?,
+    ): AuthResult<BatchDto>
 }
 
 /**
@@ -106,4 +122,36 @@ class BatchesViewModel(
 
     /** Repeat the load, and only when the user asks [TC-8, D-9]. */
     fun retry() = load()
+
+    /**
+     * Create a batch, then reload the list.
+     *
+     * **No optimistic insert.** V1 accepts no write without
+     * connectivity [TC-8, D-9]: a row added locally before the server
+     * confirmed would be a local write queue, which this product
+     * deliberately does not have. The list reloads from the server so
+     * what the teacher sees is what exists.
+     *
+     * @param name The teacher's name for the class
+     * @param subjects One or more subjects taught
+     * @param defaultFee The inherited fee as a canonical string, or null
+     * @param feeDueDay Day of month 1-31, or null
+     */
+    fun create(
+        name: String,
+        subjects: List<String>,
+        defaultFee: String?,
+        feeDueDay: Int?,
+    ) {
+        _state.value = BatchesUiState.Loading
+        viewModelScope.launch {
+            when (val result = repository.createBatch(name, subjects, defaultFee, feeDueDay)) {
+                is AuthResult.Ok -> load()
+                is AuthResult.Refused ->
+                    _state.value = BatchesStateMapper.afterError(result.envelope)
+                AuthResult.TransportFailure ->
+                    _state.value = BatchesStateMapper.afterTransportFailure()
+            }
+        }
+    }
 }

@@ -42,6 +42,22 @@ class BatchesViewModelTest {
             calls += 1
             return result
         }
+
+        var created: Triple<String, List<String>, String?>? = null
+        var createResult: AuthResult<BatchDto> =
+            AuthResult.Ok(
+                BatchDto(id = "b-new", name = "new", subjects = emptyList()),
+            )
+
+        override suspend fun createBatch(
+            name: String,
+            subjects: List<String>,
+            defaultFee: String?,
+            feeDueDay: Int?,
+        ): AuthResult<BatchDto> {
+            created = Triple(name, subjects, defaultFee)
+            return createResult
+        }
     }
 
     private fun dto(name: String, count: Int = 0) =
@@ -142,6 +158,46 @@ class BatchesViewModelTest {
 
         val state = assertIs<BatchesUiState.Failed>(model.state.value)
         assertTrue(state.retryable)
+    }
+
+    @Test
+    fun `a successful create reloads the list rather than inserting locally`() =
+        runTest(dispatcher) {
+            // NO optimistic insert. V1 accepts no write without
+            // connectivity [TC-8, D-9], so a row added locally before
+            // the server confirmed would be a local write queue -- which
+            // this product deliberately does not have.
+            val repository = Fake()
+            val model = BatchesViewModel(repository)
+
+            model.create("Class 9", listOf("Physics"), "1500.00", 10)
+            advanceUntilIdle()
+
+            assertEquals(1, repository.calls, "the list must reload from the server")
+            assertEquals("1500.00", repository.created?.third)
+        }
+
+    @Test
+    fun `a refused create surfaces and does not reload`() = runTest(dispatcher) {
+        val repository = Fake()
+        repository.createResult =
+            AuthResult.Refused(
+                ErrorEnvelope(
+                    ErrorBody(
+                        code = "BATCH_NEEDS_A_SUBJECT",
+                        retryable = false,
+                        messageKey = "batch.create.subject_required",
+                    ),
+                ),
+            )
+        val model = BatchesViewModel(repository)
+
+        model.create("Class 9", emptyList(), null, null)
+        advanceUntilIdle()
+
+        val state = assertIs<BatchesUiState.Failed>(model.state.value)
+        assertEquals("batch.create.subject_required", state.messageKey)
+        assertEquals(0, repository.calls, "a failed create must not reload")
     }
 
     @Test

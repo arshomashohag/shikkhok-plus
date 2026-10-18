@@ -43,6 +43,9 @@ const val TAG_ROSTER_ERROR: String = "roster_error"
 /** The retry button, shown only when the server said retryable. */
 const val TAG_ROSTER_RETRY: String = "roster_retry"
 
+/** The add-student button. */
+const val TAG_ROSTER_ADD: String = "roster_add"
+
 /**
  * The teacher's roster for one batch.
  *
@@ -62,6 +65,7 @@ const val TAG_ROSTER_RETRY: String = "roster_retry"
 fun RosterScreen(
     state: RosterUiState,
     onRetry: () -> Unit,
+    onAddStudent: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -76,6 +80,12 @@ fun RosterScreen(
 
             is RosterUiState.Empty -> {
                 Text(state.batchName, Modifier.testTag(TAG_ROSTER_TITLE))
+                Button(
+                    onClick = onAddStudent,
+                    modifier = Modifier.testTag(TAG_ROSTER_ADD),
+                ) {
+                    Text(stringResource(R.string.student_add_title))
+                }
                 // An empty list and "no students yet" are different
                 // states, and a blank list explains neither.
                 Text(
@@ -86,6 +96,12 @@ fun RosterScreen(
 
             is RosterUiState.Loaded -> {
                 Text(state.batchName, Modifier.testTag(TAG_ROSTER_TITLE))
+                Button(
+                    onClick = onAddStudent,
+                    modifier = Modifier.testTag(TAG_ROSTER_ADD),
+                ) {
+                    Text(stringResource(R.string.student_add_title))
+                }
                 state.fetchedAtLabel?.let { label ->
                     // The cache is a READ cache, and saying so is part of
                     // the contract: a teacher must know when they are
