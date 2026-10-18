@@ -250,19 +250,22 @@ def test_the_counter_lives_in_the_datastore(
     assert rows > 0, "no counter row: the limit is per-process [BR2.1]"
 
 
-def test_concurrent_increments_at_the_boundary_admit_exactly_one(
+def test_sequential_requests_past_the_limit_are_all_refused(
     restricted_engine: Engine,
 ) -> None:
-    # The unique constraint plus an atomic upsert is what makes this
-    # work. Two workers racing on one window must not both read a stale
-    # count and both be admitted.
+    # Renamed from "concurrent...", which it was not: it ran two
+    # checkers one after another and would have passed against an
+    # implementation with no atomicity at all. A test whose NAME claims
+    # a property it does not exercise is worse than no test, because the
+    # next reader believes the property is covered.
+    #
+    # The real concurrency assertion is the test below.
     factory = sessionmaker(bind=restricted_engine, expire_on_commit=False)
     sessions = [factory() for _ in range(2)]
     try:
         checkers = [CeilingChecker(session) for session in sessions]
-        for checker_at_limit in checkers[:1]:
-            for _ in range(PER_NUMBER_HOURLY):
-                checker_at_limit.check_and_consume(number=NUMBER, ip_prefix=IP_PREFIX)
+        for _ in range(PER_NUMBER_HOURLY):
+            checkers[0].check_and_consume(number=NUMBER, ip_prefix=IP_PREFIX)
 
         admitted = 0
         for candidate in checkers:
@@ -275,6 +278,65 @@ def test_concurrent_increments_at_the_boundary_admit_exactly_one(
     finally:
         for session in sessions:
             session.close()
+
+
+def test_genuinely_concurrent_requests_never_exceed_the_limit(
+    restricted_engine: Engine,
+) -> None:
+    # REAL THREADS against a real PostgreSQL, released together from a
+    # barrier so they contend on the same counter row at the same
+    # moment. `team.md` is explicit that a guarantee resting on a
+    # database constraint gets a CONCURRENCY test rather than a
+    # sequential one, because the sequential version passes against the
+    # broken implementation the constraint exists to prevent.
+    #
+    # The assertion is the OUTCOME, not the absence of an exception:
+    # across N racing requests, admissions never exceed the limit and
+    # the counter never goes negative.
+    import threading
+
+    factory = sessionmaker(bind=restricted_engine, expire_on_commit=False)
+    workers = 8
+    barrier = threading.Barrier(workers)
+    admitted: list[int] = []
+    lock = threading.Lock()
+
+    def attempt() -> None:
+        session = factory()
+        try:
+            barrier.wait(timeout=30)
+            CeilingChecker(session).check_and_consume(
+                number=NUMBER, ip_prefix=IP_PREFIX
+            )
+            with lock:
+                admitted.append(1)
+        except ConflictError:
+            pass
+        finally:
+            session.close()
+
+    threads = [threading.Thread(target=attempt) for _ in range(workers)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=60)
+
+    assert len(admitted) <= PER_NUMBER_HOURLY, (
+        f"{len(admitted)} of {workers} racing requests were admitted "
+        f"against a limit of {PER_NUMBER_HOURLY}: the counter is not atomic"
+    )
+
+    session = factory()
+    try:
+        lowest = session.execute(
+            sa.text("SELECT min(count) FROM rate_limit_counter")
+        ).scalar_one()
+        assert lowest >= 0, (
+            "a counter went NEGATIVE: the non-atomic release in "
+            "_release raced with a concurrent increment"
+        )
+    finally:
+        session.close()
 
 
 # ---------------------------------------------------------------------------
