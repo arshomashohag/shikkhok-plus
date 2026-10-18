@@ -31,7 +31,7 @@
 
 | # | Deliverable | Surface |
 |---|---|---|
-| 1 | Batch CRUD with subjects and schedule slots | Teacher lens |
+| 1 | Batch create, edit and list, with subjects and schedule slots | Teacher lens |
 | 2 | `Owner` row creation on first batch | Backend only |
 | 3 | Add student, with dormant-account resolution and attach-to-existing | Teacher lens |
 | 4 | Per-enrollment guardian, display name and fee override | Teacher lens |
@@ -64,6 +64,28 @@ data-dependency design.
 > **`default_fee` is the first real money column in the
 > schema.** B3's type-and-precision assertion was vacuously true there;
 > here it has something to check [BR3.2].
+
+### 2.1a Edit and list batches — `PATCH /v1/batches/{id}`, `GET /v1/batches`
+
+**Added after review**, which found §1 promising "Batch CRUD" while §2
+specified only create — and `active` described elsewhere as driving a
+read-only state, implying batches are mutable.
+
+1. Both scope by the teacher's `owner_id`; another owner's batch is
+   **404**.
+2. `PATCH` edits `name`, `default_fee`, `fee_due_day`,
+   `teacher_display_name`, `collection_number`, `collection_channel`
+   and `active`. Subjects and slots are edited through their own
+   nested routes, because a whole-collection replace silently orphans
+   the exam and session rows U5 and U6 key to them.
+3. **`marksheet_visible` is NOT editable here** — U6 owns that toggle.
+   U4 creates the column, as it does the two collection fields for U8.
+4. `GET` lists the owner's batches, inactive ones included and flagged.
+
+> **There is no batch delete, and that is deliberate rather than
+> missing.** A batch accumulates attendance, marks and fee history that
+> are the teacher's own business record. `active = false` is the
+> retirement path [AC2.6.2]; history stays reachable.
 
 ### 2.2 Add a student — `POST /v1/batches/{batch_id}/enrollments`
 
