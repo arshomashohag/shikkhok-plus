@@ -7,6 +7,7 @@
 - 2026-10-18T03:50:00Z — An NFR marked N/A because the Unit owns no screen can still bind through a contract that assigns the Unit the rendering: NFR3 was wrongly N/A because BR5.4 puts all money digit rendering in this module and forbids the client from doing it.
 
 ## Deviations
+- 2026-10-18T09:12:00Z — PROCESS DEFECT, found by the setup check, mine. Every per-unit reviewer dispatched this session (nine, from 01:58 to 08:59) was invoked without first writing `<record>/.aidlc-engine/reviewer-dispatch.json`. That record is what bounds which files a reviewer may read; without it the reviewer-scope check cannot enforce anything, so it stood down and logged a drop each time. The reviews themselves are sound — the record constrains reading, it does not validate findings — but an unscoped reviewer is free to read sibling Units' files, which is exactly what the bound exists to prevent on a privacy-boundary review. Corrected from here: write the record immediately before each per-unit dispatch, naming reviewer, stage, unit and the exempt paths (resolved consumes, stage file, Q&A file), and delete it at the verdict so a leftover does not refuse later unrelated work.
 <!-- example: 2026-05-29T10:14:32Z — skipped the optional caching layer the stage prose suggested; the dataset is small enough that it adds risk -->
 
 ## Tradeoffs
