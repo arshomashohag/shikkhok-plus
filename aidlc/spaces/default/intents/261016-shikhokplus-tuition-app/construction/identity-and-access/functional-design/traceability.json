@@ -1,0 +1,325 @@
+{
+  "stage": "functional-design",
+  "unit": "identity-and-access",
+  "note": "The walking skeleton. Two acceptance criteria are Deferred and neither is a gap: AC1.5.1 and AC1.5.3 are the profile EDITING screen, which U3 enables by creating Profile with its RLS policy but which is exercised at B5, where the enrollment flow provides a second actor to test the boundary against. Everything the privacy boundary itself needs - the table split, the policy, and the non-superuser test role - lands here. BR4.4, deferred to this Unit by U2, is discharged by BR2.7.",
+  "upstream_ids": [
+    "AC1.1.1",
+    "AC1.1.2",
+    "AC1.1.3",
+    "AC1.1.4",
+    "AC1.1.5",
+    "AC1.1.6",
+    "AC1.2.1",
+    "AC1.2.2",
+    "AC1.2.3",
+    "AC1.2.4",
+    "AC1.5.1",
+    "AC1.5.2",
+    "AC1.5.3",
+    "AC1.8.1",
+    "AC1.8.2",
+    "AC1.8.3",
+    "AC1.8.4",
+    "AC1.8.5",
+    "AC1.8.6",
+    "AC1.8.7",
+    "AC1.9.1",
+    "AC1.9.2",
+    "AC1.9.3",
+    "AC1.9.4",
+    "US1.8",
+    "NFR12",
+    "NFR13",
+    "NFR14",
+    "NFR11",
+    "BR4.4",
+    "AC1.4.1",
+    "AC1.4.2",
+    "AC1.6.1",
+    "AC1.6.2",
+    "AC1.6.3",
+    "AC9.3.1",
+    "AC9.3.2",
+    "AC9.3.3",
+    "AC9.3.4",
+    "AC9.3.5",
+    "AC9.3.6",
+    "AC10.1.1",
+    "AC10.1.2",
+    "AC10.1.3",
+    "AC10.1.4",
+    "AC10.1.5",
+    "AC10.1.6",
+    "AC10.1.7",
+    "AC10.1.8"
+  ],
+  "coverage": [
+    {
+      "id": "AC1.1.1",
+      "status": "OK",
+      "target": "BR2.2, BR5.1, BR5.3 - issue path; a real SMS through the adapter, success being response_code 202 and nothing else"
+    },
+    {
+      "id": "AC1.1.2",
+      "status": "OK",
+      "target": "BR2.3, BR4.2 - verify within 5 minutes returns a token pair; the teacher lens is then resolved per request by BR1.1 rather than carried in the token"
+    },
+    {
+      "id": "AC1.1.3",
+      "status": "OK",
+      "target": "BR2.3 - expires_at compared server-side; a client-supplied timestamp would make the window advisory"
+    },
+    {
+      "id": "AC1.1.4",
+      "status": "OK",
+      "target": "BR2.3 - the 6th attempt is refused AND the code is dead afterwards, so a correct 7th also fails. An implementation that counts without invalidating passes only the confirmatory half"
+    },
+    {
+      "id": "AC1.1.5",
+      "status": "OK",
+      "target": "BR5.3 - every non-SENT outcome surfaces as a delivery failure with a resend after cooldown, never as an incorrect code. A timeout is UNKNOWN because the SMS may have been delivered"
+    },
+    {
+      "id": "AC1.1.6",
+      "status": "OK",
+      "target": "BR6.2 and the Android surface in functional-spec §3 - the number is typed, never read from the SIM, and no SMS read permission is held"
+    },
+    {
+      "id": "AC1.2.1",
+      "status": "OK",
+      "target": "BR1.1 - a dormant record created by a teacher is claimed on first successful verify, without an invitation. Account.activated_at is the column that distinguishes dormant from signed-in; the lenses that then appear are computed by BR1.1 from the enrollments already recorded against the number"
+    },
+    {
+      "id": "AC1.2.2",
+      "status": "OK",
+      "target": "BR1.1 - both lenses are offered because both queries return rows. No stored role decides it"
+    },
+    {
+      "id": "AC1.2.3",
+      "status": "OK",
+      "target": "BR1.1 - holds for free rather than by a check: a number appearing only as a student is offered only a student lens because the guardian query returns nothing"
+    },
+    {
+      "id": "AC1.2.4",
+      "status": "OK",
+      "target": "BR1.1, BR1.4 and functional-spec §3 - the switcher sends a hint and decides nothing; the server re-derives the lens, so no re-authentication is needed"
+    },
+    {
+      "id": "AC1.5.1",
+      "status": "Deferred",
+      "target": "U3 creates Profile and its RLS policy; the profile EDITING screen belongs to the Android surface and is exercised at B5, where the enrollment flow gives it a second actor to test against"
+    },
+    {
+      "id": "AC1.5.2",
+      "status": "OK",
+      "target": "BR3.1, BR3.2 - two name columns, two writers, two tables. Which name a teacher sees is answered by which table the query reads"
+    },
+    {
+      "id": "AC1.5.3",
+      "status": "Deferred",
+      "target": "Helper text on the profile screen; same reason as AC1.5.1"
+    },
+    {
+      "id": "AC1.8.1",
+      "status": "OK",
+      "target": "BR2.2 - per-number 3/hour and 5/day, checked before the gateway call"
+    },
+    {
+      "id": "AC1.8.2",
+      "status": "OK",
+      "target": "BR2.2 - per-IP-prefix 10/hour"
+    },
+    {
+      "id": "AC1.8.3",
+      "status": "OK",
+      "target": "BR2.1 - datastore-backed counters. The test must FAIL against a per-process dictionary, which is the obvious implementation and stops working with two workers"
+    },
+    {
+      "id": "AC1.8.4",
+      "status": "OK",
+      "target": "BR2.5 - the global daily ceiling refuses and alerts"
+    },
+    {
+      "id": "AC1.8.5",
+      "status": "OK",
+      "target": "BR2.6 - degraded mode says temporarily unavailable, never invalid number, and never reveals the limit"
+    },
+    {
+      "id": "AC1.8.6",
+      "status": "OK",
+      "target": "BR2.4 - otp_hash never otp; the test reads the column and asserts it differs from what was sent"
+    },
+    {
+      "id": "AC1.8.7",
+      "status": "OK",
+      "target": "BR2.7 - byte-identical responses AND the same hashing work on both paths. This is NFR14.4, deferred here by U2's BR4.4, asserted structurally and never as a wall-clock bound"
+    },
+    {
+      "id": "AC1.9.1",
+      "status": "OK",
+      "target": "BR1.1 - computed from Owner and Enrollment at that moment; no role column on Account, which is an absence that cannot be misread"
+    },
+    {
+      "id": "AC1.9.2",
+      "status": "OK",
+      "target": "BR1.2 - a named rule rather than an incidental test, because its only purpose is to fail against the caching implementation"
+    },
+    {
+      "id": "AC1.9.3",
+      "status": "OK",
+      "target": "BR1.3 - the mirror of BR1.2 and the more dangerous direction, since it GRANTS access the data no longer supports"
+    },
+    {
+      "id": "AC1.9.4",
+      "status": "OK",
+      "target": "BR1.4 - the memo lives on the request object, so it is garbage-collected with the request. The location is the control"
+    },
+    {
+      "id": "US1.8",
+      "status": "OK",
+      "target": "BR4.1, BR4.2, BR4.3 - rotation with family invalidation, hashed storage, enforced expiry, JWT kid with two valid keys"
+    },
+    {
+      "id": "NFR12",
+      "status": "OK",
+      "target": "BR2.1 through BR2.7 - all seven abuse controls, each with an adversarial rather than confirmatory test"
+    },
+    {
+      "id": "NFR13",
+      "status": "OK",
+      "target": "BR4.1, BR4.2, BR4.3 - 15-minute access token, 30-day rotating refresh with reuse detection and family invalidation"
+    },
+    {
+      "id": "NFR14",
+      "status": "OK",
+      "target": "BR3.1, BR3.2, BR3.3 - the table split and row-level security. U2 shipped the third layer; BR3.3 is what makes the suite non-vacuous"
+    },
+    {
+      "id": "NFR11",
+      "status": "OK",
+      "target": "BR6.2 and functional-spec §3 - no device identifier is transmitted and the number is never read from the SIM"
+    },
+    {
+      "id": "BR4.4",
+      "status": "OK",
+      "target": "BR2.7 - the structural-equivalence obligation U2 deferred to this Unit is discharged here, with its limitation recorded rather than overstated"
+    },
+    {
+      "id": "AC1.4.1",
+      "status": "Deferred",
+      "target": "U4 - the enrollment flow warns before creating. This Unit supplies the fact the warning rests on, since BR1.1 can tell whether a number owns a batch, but the flow itself is U4's"
+    },
+    {
+      "id": "AC1.4.2",
+      "status": "Deferred",
+      "target": "U4 - and the second lens then appears for free under BR1.1, with no re-authentication and no stored role, which is the point"
+    },
+    {
+      "id": "AC1.6.1",
+      "status": "Deferred",
+      "target": "U11 - deletion moved out of this Unit deliberately, so the paths are specified once against the full schema rather than twice"
+    },
+    {
+      "id": "AC1.6.2",
+      "status": "Deferred",
+      "target": "U11 - same reason. Requires every table's disposition, which only exists once the schema is complete"
+    },
+    {
+      "id": "AC1.6.3",
+      "status": "Deferred",
+      "target": "U11 - idempotent re-deletion"
+    },
+    {
+      "id": "AC9.3.1",
+      "status": "OK",
+      "target": "BR5.5 and functional-spec §3 - the OTP code the app produces renders in Latin numerals. The rendering specification settled at OQ-B1-1 fixes Western digits throughout"
+    },
+    {
+      "id": "AC9.3.2",
+      "status": "Deferred",
+      "target": "U4 - server-side collation applies to lists of people, and this Unit renders no such list"
+    },
+    {
+      "id": "AC9.3.3",
+      "status": "OK",
+      "target": "BR5.5 and functional-spec §3 - OTP entry is one of the five named screens, and both language bundles ship on screen one so a Bangla layout break is found here rather than on screen forty"
+    },
+    {
+      "id": "AC9.3.4",
+      "status": "Deferred",
+      "target": "U4 - no free-text a person typed is stored by this Unit; the self-entered profile name is written through the profile screen at B5"
+    },
+    {
+      "id": "AC9.3.5",
+      "status": "Deferred",
+      "target": "U4 and U8 - numeric input fields. The OTP field accepts digits but the code is generated server-side, so no normalisation boundary exists here"
+    },
+    {
+      "id": "AC9.3.6",
+      "status": "Deferred",
+      "target": "U8 - transaction IDs belong to the payment path"
+    },
+    {
+      "id": "AC10.1.1",
+      "status": "Deferred",
+      "target": "U2 owns the schema-level assertion; this Unit's refusals carry the single non-disclosing code U2 registered"
+    },
+    {
+      "id": "AC10.1.2",
+      "status": "Deferred",
+      "target": "U4 - a guardian requesting a non-child enrollment needs the enrollment flow to exist"
+    },
+    {
+      "id": "AC10.1.3",
+      "status": "Deferred",
+      "target": "U7 - a student requesting a fee cycle needs fee cycles"
+    },
+    {
+      "id": "AC10.1.4",
+      "status": "OK",
+      "target": "BR2.7 - the refusal carries retryable:false and discloses nothing about existence, which this Unit demonstrates on the OTP issue path where both branches are byte-identical"
+    },
+    {
+      "id": "AC10.1.5",
+      "status": "Deferred",
+      "target": "U4 - teacher-lens response schemas need a roster to return. BR3.1's table split is what makes it hold when they arrive"
+    },
+    {
+      "id": "AC10.1.6",
+      "status": "OK",
+      "target": "BR1.1 and functional-spec §2.4 - an unsupported lens hint is refused rather than silently resolved to a different lens"
+    },
+    {
+      "id": "AC10.1.7",
+      "status": "OK",
+      "target": "BR1.1, BR6.2 - three of the five PUBLIC_ROUTES open here and the refresh route goes in LENS_EXEMPT_AUTHENTICATED, which is why U2 kept that set separate. Every other route this Unit adds resolves a lens through BR1.1, and U2's harness checks that against the real app object"
+    },
+    {
+      "id": "AC10.1.8",
+      "status": "OK",
+      "target": "BR1.1, BR1.4 - one account holding two lenses switches without re-authenticating, and no data resolved under one lens is served under the other because each request re-resolves"
+    }
+  ],
+  "reverse": [
+    {
+      "id": "BR5.2",
+      "status": "N/A",
+      "target": "No AC covers the transport scheme; it comes from contract-summary §C.4.2 and RC-1/RC-2/RC-3. Plain HTTP serves the same API with no redirect and no HSTS - verified against the live endpoint - so a misconfigured http:// ships the phone number AND the OTP in cleartext and succeeds silently"
+    },
+    {
+      "id": "BR5.4",
+      "status": "N/A",
+      "target": "No AC covers adapter selection; it comes from OQ-3a. BulkSMSBD has no sandbox, so team.md's non-production rule cannot hold as written and is satisfied by a null adapter that is the DEFAULT, so a missing setting fails toward not sending"
+    },
+    {
+      "id": "BR5.5",
+      "status": "OK",
+      "target": "AC9.3.1 - and a cost constraint with no AC behind it: one Bangla character would force UCS-2 and halve the segment budget. The SMS Retriever app hash consumes 12 characters of the 160, which is easy to forget until the invoice arrives"
+    },
+    {
+      "id": "BR6.1",
+      "status": "N/A",
+      "target": "No AC covers the shell tables; it comes from unit-of-work.md and a Units Generation learning. Empty is not absent: lens resolution queries all three tables, and a query against a table that does not exist fails - this nearly shipped a skeleton that could not pass its own verification command"
+    }
+  ]
+}

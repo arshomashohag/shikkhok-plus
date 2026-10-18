@@ -10,6 +10,8 @@
 - [stage] `functional-design-questions.md` — Q1 through Q7
 - [upstream] `inception/user-stories/stories.md` — US1.1, US1.2, US1.5,
   US1.8, US1.9 and their acceptance criteria
+- [upstream] `inception/units-generation/unit-of-work-story-map.md` — the
+  six stories this Unit owns: US1.1, US1.2, US1.5, US1.8, US1.9
 - [upstream] `inception/contract-design/contract-summary.md` — §B.3 the auth
   endpoints, §B.4 the lens contract, §C the SMS gateway and §C.4 BulkSMSBD
 - [upstream] `inception/domain-design/decisions.md` — ADR-001, D-2, D-33
