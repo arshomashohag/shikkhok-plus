@@ -11,6 +11,8 @@ no import check can see it -- only the generated document can.
 
 from __future__ import annotations
 
+from decimal import Decimal
+
 from fastapi import FastAPI
 from pydantic import BaseModel
 
@@ -180,3 +182,99 @@ def test_the_real_app_passes() -> None:
     from app.main import app as real_app
 
     assert money_schema_violations(real_app) == []
+
+
+# --------------------------------------------------------------------------
+# The two holes a $ref-only predicate leaves open
+#
+# Both were found by TESTING the gate rather than by reading it, and both
+# sit at the place project.md cares most about: "NEVER use float or double
+# for a money value anywhere in the stack, in any language, in storage, in
+# transit or in memory."
+# --------------------------------------------------------------------------
+
+
+class NumericMoney(BaseModel):
+    """A model whose money field crosses as a JSON number.
+
+    :ivar balance: A float, which emits {"type": "number"} and carries no
+        pattern for a pattern-matching check to find
+    """
+
+    balance: float
+
+
+class UnconstrainedMoney(BaseModel):
+    """A model whose money field crosses as a bare string.
+
+    :ivar amount: A Decimal. Pydantic serializes it as a string with NO
+        pattern, so it is precisely the free-form-string defect this gate
+        exists to catch -- and the $ref predicate alone did not see it.
+    """
+
+    amount: Decimal
+
+
+class NotMoney(BaseModel):
+    """A model whose numeric fields are not money.
+
+    :ivar page_count: A count, which must not be reported
+    :ivar note: Free text, which must not be reported
+    """
+
+    page_count: int
+    note: str
+
+
+def test_a_float_money_field_is_reported() -> None:
+    """A money-named float is caught, though it carries no pattern.
+
+    project.md forbids a float or double for a money value anywhere in the
+    stack, and a JSON number is an IEEE 754 double in most client parsers.
+    A $ref-only check is silent here.
+
+    :return: None
+    """
+    violations = money_schema_violations(_app_with(NumericMoney))
+
+    assert [(v.kind, v.field) for v in violations] == [("numeric-money", "balance")]
+
+
+def test_an_unconstrained_money_string_is_reported() -> None:
+    """A money-named bare string is caught.
+
+    This is the defect the module docstring already claimed to catch. A
+    Decimal field emits {"type": "string"} with no pattern and no $ref.
+
+    :return: None
+    """
+    violations = money_schema_violations(_app_with(UnconstrainedMoney))
+
+    assert [(v.kind, v.field) for v in violations] == [
+        ("unconstrained-money", "amount")
+    ]
+
+
+def test_non_money_fields_are_not_reported() -> None:
+    """A count and a free-text field are left alone.
+
+    The name match is narrow by necessity: a bare {"type": "number"}
+    offers nothing else to distinguish a fee from a page count. A gate
+    that reported either would be silenced the first time it fired on a
+    legitimate field.
+
+    :return: None
+    """
+    assert money_schema_violations(_app_with(NotMoney)) == []
+
+
+def test_a_display_sibling_is_not_an_unconstrained_money_string() -> None:
+    """The presentation sibling is exempt from the bare-string check.
+
+    Its content is the rendering specification settled at OQ-B1-1 --
+    Western digits, lakh/crore grouping, a prefixed symbol -- which is
+    deliberately not the canonical wire form.
+
+    :return: None
+    """
+    assert money_schema_violations(_app_with(PairedDisplay)) == []
