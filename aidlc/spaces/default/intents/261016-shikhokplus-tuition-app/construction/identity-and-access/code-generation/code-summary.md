@@ -33,12 +33,13 @@
 
 | Verified | Evidence |
 |---|---|
-| **472 Python tests** | `make check` green |
-| **38 Android tests** | `./gradlew :android:testDebugUnitTest` |
+| **477 Python tests** | `make check` green |
+| **49 Android tests** | `./gradlew :android:testDebugUnitTest`, incl. Compose UI |
 | Backend line coverage | **91.60%** against an 80% floor |
 | `app.authz` branch coverage | **100%** |
 | `app.money` branch coverage | **100%**, unchanged from B1 |
 | Types | mypy clean, 52 source files |
+| Review | **READY** at iteration 2, zero open findings |
 | Lint and format | ruff clean |
 
 The end-to-end path, asserted in one test: issue → the rendered SMS body
@@ -69,6 +70,9 @@ tests fired.
 | **Audit write fails mid-transaction** | The new outcome test | **Both fail-open tests PASSED** |
 | **Read-then-write counter** | The real concurrency test | **The old "concurrent" test PASSED** |
 | **A domain comparison in the ViewModel** | The no-business-logic test | — |
+| **A domain comparison in the composable** | The layering test | — |
+| **A retry button shown regardless of `retryable`** | The Compose UI test | **Every other screen test passed** |
+| **Family invalidation lost on a failed audit** | The new rotate regression | The OTP-row regression alone would have missed it |
 
 Two rows deserve emphasis:
 
