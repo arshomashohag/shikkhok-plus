@@ -57,10 +57,21 @@ MONEY_PATH_GLOB = "app/money/**"
 
 def _imported_modules(source: Path) -> set[str]:
     """
-    Collect every module a Python file imports.
+    Collect every module a Python file imports, statically or dynamically.
+
+    Walks the whole tree, so a deferred import inside a function is caught
+    like a top-level one. **Dynamic imports are collected too**: an earlier
+    version looked only at `import` statements, and
+    ``importlib.import_module("decimal")`` therefore defeated both gates —
+    verified against the real Ruff config, which also sees no banned import
+    because there is no import statement to see.
+
+    Only literal module names are resolvable. A fully computed name
+    (``import_module(name_from_config)``) is caught by
+    :func:`_dynamic_import_calls` instead, which flags the call itself.
 
     :param source: The file to parse.
-    :return: Dotted module names, absolute imports only.
+    :return: Dotted module names.
     """
     tree = ast.parse(source.read_text(encoding="utf-8"), filename=str(source))
     found: set[str] = set()
@@ -70,7 +81,66 @@ def _imported_modules(source: Path) -> set[str]:
         elif isinstance(node, ast.ImportFrom) and node.level == 0:
             if node.module:
                 found.add(node.module)
+        elif isinstance(node, ast.Call):
+            target = _dynamic_import_target(node)
+            if target is not None:
+                found.add(target)
     return found
+
+
+def _dynamic_import_target(node: ast.Call) -> str | None:
+    """
+    Read the module name from a dynamic-import call, when it is a literal.
+
+    :param node: A call node.
+    :return: The imported module name, or None if this is not a dynamic
+        import or its argument is not a literal string.
+    """
+    name: str | None = None
+    if isinstance(node.func, ast.Attribute) and node.func.attr == "import_module":
+        name = "import_module"
+    elif isinstance(node.func, ast.Name) and node.func.id in {
+        "import_module",
+        "__import__",
+    }:
+        name = node.func.id
+    if name is None or not node.args:
+        return None
+    first = node.args[0]
+    return (
+        first.value
+        if isinstance(first, ast.Constant) and isinstance(first.value, str)
+        else None
+    )
+
+
+def _dynamic_import_calls(source: Path) -> list[str]:
+    """
+    Find dynamic-import calls whose target cannot be read statically.
+
+    A computed module name defeats every static check by construction, so
+    the call itself is the finding: this module has no business importing
+    anything by a name assembled at runtime.
+
+    :param source: The file to parse.
+    :return: A description per unresolvable call.
+    """
+    tree = ast.parse(source.read_text(encoding="utf-8"), filename=str(source))
+    flagged: list[str] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        is_dynamic = (
+            isinstance(node.func, ast.Attribute) and node.func.attr == "import_module"
+        ) or (
+            isinstance(node.func, ast.Name)
+            and node.func.id in {"import_module", "__import__"}
+        )
+        if is_dynamic and _dynamic_import_target(node) is None:
+            flagged.append(
+                f"{source.name}:{node.lineno}: dynamic import of a computed name"
+            )
+    return flagged
 
 
 class TestGate1Outward:
@@ -103,6 +173,18 @@ class TestGate1Outward:
             "The Gate 1 fixture no longer violates Gate 1. Either the "
             "fixture was weakened or FORBIDDEN_PREFIXES was narrowed."
         )
+
+    def test_no_dynamic_imports_in_the_money_module(self) -> None:
+        """
+        A computed module name defeats every static check by construction.
+
+        This module imports a small, fixed set and has no reason to assemble
+        an import target at runtime, so the call itself is the finding.
+        """
+        flagged: list[str] = []
+        for source in MONEY.rglob("*.py"):
+            flagged.extend(_dynamic_import_calls(source))
+        assert not flagged, "\n".join(flagged)
 
     def test_config_resolves_to_a_real_package(self) -> None:
         """
@@ -167,6 +249,22 @@ class TestGate2Inward:
             "Gate 2 did not fire on a file importing raw decimal. The "
             "banned-api configuration may have been removed or widened.\n"
             f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+
+    def test_dynamic_decimal_import_is_caught(self) -> None:
+        """
+        NFR9.6 — the gap a code review found, closed and demonstrated.
+
+        `importlib.import_module("decimal")` carries no import statement, so
+        the real Ruff config passes it (verified: rc=0). Gate 2's AST walk
+        now resolves dynamic imports with a literal target, which is what
+        makes the ban hold against the obvious workaround.
+        """
+        fixture = FIXTURES / "gate2_dynamic_violation.py.txt"
+        found = _imported_modules(fixture)
+        assert "decimal" in found, (
+            "The dynamic-import bypass is no longer caught. Raw decimal "
+            "reached the module through importlib without being seen."
         )
 
     def test_config_scope_is_exactly_the_money_module(self) -> None:

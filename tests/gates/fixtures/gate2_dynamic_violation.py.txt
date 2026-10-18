@@ -1,0 +1,16 @@
+# The dynamic-import bypass, found at code review.
+#
+# Ruff's banned-api rule sees no import statement here, so `ruff check
+# --select TID251` passes this file against the real project config. That is
+# not a Ruff defect — there is genuinely no import statement to flag. It is
+# why Gate 2's own AST walk resolves dynamic imports rather than trusting the
+# linter alone.
+
+import importlib
+
+_decimal = importlib.import_module("decimal")
+
+
+def monthly_fee(annual: str):
+    """Fee arithmetic outside app/money, reached without an import."""
+    return _decimal.Decimal(annual) / _decimal.Decimal(12)
