@@ -44,3 +44,21 @@ build/
 *.aab
 *.keystore
 *.jks
+
+# Deployment secrets and data. The runbook in deploy/README.md tells the
+# operator to create a .env holding three unrecoverable secrets -- the
+# JWT signing key, the OTP HMAC key and the database password -- so this
+# block is what stops the runbook from being an instruction to commit
+# them. Gitleaks is the backstop; this is the prevention.
+.env
+.env.*
+!.env.example
+
+# Database dumps. Step 1 of every deploy writes one, and it holds
+# children's names, attendance and marks in plaintext.
+#
+# Named by PREFIX rather than `*.sql`, which would also hide a seed or
+# a fixture someone adds later -- an ignore rule that silently swallows
+# a file people expect to be tracked is its own kind of defect.
+backup-*.sql
+*.dump

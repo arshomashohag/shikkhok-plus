@@ -123,3 +123,73 @@ install:
 clean:
 	rm -rf .pytest_cache .mypy_cache .ruff_cache .coverage htmlcov
 	find . -type d -name __pycache__ -prune -exec rm -rf {} +
+
+# ---------------------------------------------------------------------------
+# Deployment.
+#
+# The ordering in `deploy-staging` is LOAD-BEARING, not procedural, and
+# it is encoded here rather than left to a runbook because B5's
+# infrastructure specification found that skipping step 2 fails the
+# deploy at step 4 with an opaque error AFTER the operator has already
+# done work.
+# ---------------------------------------------------------------------------
+
+## Bring the full stack up locally. Same image staging runs.
+up:
+	docker compose up -d --build
+	@echo ""
+	@echo "Waiting for the API to answer..."
+	@until curl -fsS http://localhost:8000/health >/dev/null 2>&1; do sleep 1; done
+	@echo "API is up. Applying migrations as a SEPARATE step:"
+	docker compose exec -T api alembic upgrade head
+	@curl -s http://localhost:8000/health
+	@echo ""
+
+## Stop the stack. Keeps the database volume.
+down:
+	docker compose down
+
+## Stop the stack AND destroy the database. Named so nobody runs it by
+## accident while reaching for `down`.
+destroy-local-data:
+	docker compose down -v
+
+## Apply migrations against whatever SHIKKHOKPLUS_DATABASE_URL names.
+## A distinct, logged step -- never a side effect of container start.
+migrate:
+	$(PY) -m alembic upgrade head
+
+## The post-deploy smoke set: the skeleton path end to end.
+##
+## This is what makes a deploy "done". A container that started is not a
+## container that serves: the health endpoint reports database
+## connectivity and the applied revision, so a schema that did not
+## migrate fails HERE rather than on a teacher's first request.
+##
+## Usage: make smoke BASE_URL=https://staging.example.com
+BASE_URL ?= http://localhost:8000
+smoke:
+	@echo "==> health"
+	@curl -fsS --max-time 10 $(BASE_URL)/health > /tmp/shikkhok-smoke.json \
+	  || (echo "SMOKE FAILED: $(BASE_URL)/health did not answer." && \
+	      echo "             The container may not be running, or the" && \
+	      echo "             URL is wrong. Nothing was deployed." && exit 1)
+	@cat /tmp/shikkhok-smoke.json
+	@echo ""
+	@$(PY) -c "import json,sys; d=json.load(open('/tmp/shikkhok-smoke.json')); \
+	  ok = d.get('database')=='ok' and d.get('migration_revision'); \
+	  print('SMOKE FAILED: database=%r revision=%r. Did the migration step run?' \
+	        % (d.get('database'), d.get('migration_revision'))) if not ok else None; \
+	  sys.exit(0 if ok else 1)"
+	@echo "==> OTP issue (null gateway in staging: no real SMS)"
+	@curl -fsS -X POST $(BASE_URL)/v1/auth/otp \
+	  -H 'Content-Type: application/json' \
+	  -d '{"phone":"+8801700000000"}' >/dev/null
+	@echo "==> unauthenticated roster read is refused"
+	@test "$$(curl -s -o /dev/null -w '%{http_code}' \
+	  $(BASE_URL)/v1/batches)" = "401" \
+	  || (echo "SMOKE FAILED: an unauthenticated read was NOT refused" && exit 1)
+	@echo ""
+	@echo "Smoke passed."
+
+.PHONY: up down destroy-local-data migrate smoke
