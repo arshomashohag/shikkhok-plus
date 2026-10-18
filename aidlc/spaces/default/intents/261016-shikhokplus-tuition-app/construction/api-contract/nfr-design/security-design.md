@@ -193,6 +193,23 @@ adds it. For each route it walks `route.dependant` recursively — a lens may be
 nested inside a composed dependency — and resolves each dependency's return
 annotation.
 
+**The enumeration itself takes the app as an argument.** This is the factoring
+that makes §D's fixtures meaningful rather than parallel:
+
+```python
+def unlensed_routes(app: FastAPI) -> list[RouteViolation]:
+    """Every route resolving no lens and not allowlisted."""
+```
+
+The real gate calls `unlensed_routes(app)`; the fixture calls
+`unlensed_routes(throwaway_app)`. **One function, two callers** — the same
+shape as the shared resolver below, and for the same reason. Without it the
+fixture exercises a *parallel* implementation that can drift from the real
+gate silently: the fixture keeps passing while the real enumeration is
+broken, which is precisely the false confidence §D exists to prevent. The same
+rule applies to §B.2 and §B.3, whose assertions take the generated **document**
+as an argument for the same reason.
+
 **One shared resolver, two callers** [Q7]. `app/authz/annotations.py` holds it;
 B.3 and B.4 both call it. A second implementation would almost certainly be the
 naive `issubclass` the requirement exists to forbid:
@@ -285,6 +302,28 @@ match error:
 Mypy proves this exhaustive statically — the same construct B1 uses for its
 ledger kinds. A sixth class without a mapping is a **build-time type error**
 rather than a production 500.
+
+> **`assert_never` proves the match total over the five classes; it proves
+> nothing about values inside a branch.** `AuthorizationError` is the one arm
+> reading its status from the instance, because the taxonomy genuinely permits
+> two — 401 for no or expired token, 403 for a valid token no lens grants. So
+> the totality argument stops at the arm boundary, and `error.status` is
+> unconstrained by it.
+>
+> **That gap is closed at the type, not at the handler.** `AuthorizationError`
+> carries `status: Literal[401, 403]`, so a third value is a type error at the
+> raise site — where the author knows which case it is — rather than a
+> surprise at the one place every error path converges. A runtime assertion in
+> the handler would be the wrong location twice over: it fires in production
+> instead of at build time, and it puts a failure path into the code whose
+> entire requirement is not to have one (NFR17.2).
+
+**Each status is paired with its code.** A 401 carries
+`ACCESS_TOKEN_EXPIRED` or `TOKEN_MISSING`; a 403 carries the single
+non-disclosing code of NFR14.3. `test_error_contract.py` asserts that pairing,
+because a 403 emitted with `ACCESS_TOKEN_EXPIRED` would tell a prober that
+their token was fine and the *resource* was the problem — the existence oracle
+re-entering through the one field NFR14.3 did not constrain.
 
 `retryable` is read from the class here and nowhere else [BR1.2]. A raise site
 has no say, which is what stops two sites of one class disagreeing.

@@ -1,7 +1,8 @@
 {
   "stage": "nfr-design",
   "unit": "api-contract",
-  "note": "U2 is a spec Unit with no process, so this stage designs build-time and test-time machinery plus one piece of runtime code, not runtime infrastructure. Four of the stage's seven deliverables do not apply by its own produces_kinds gating (performance, scalability, reliability, observability design are service/ui-only; logical-components is service/ui/library-only), and security-design.md section E records WHY per category rather than leaving the analysis implicit - a circuit breaker around an error handler is incoherent, since there is nothing downstream to break. Two design choices were verified empirically rather than reasoned about: sort_keys does not order list values, so canonical serialization must sort order-insensitive lists too; and a subprocess comparison catches a set-derived ordering that a same-run comparison passes over. NFR14.4 stays deferred to U3 per BR4.4.",
+  "confirmed": "2026-10-18",
+  "note": "U2 is a spec Unit with no process, so this stage designs build-time and test-time machinery plus one piece of runtime code, not runtime infrastructure. Four of the stage's seven deliverables do not apply by its own produces_kinds gating (performance, scalability, reliability, observability design are service/ui-only; logical-components is service/ui/library-only), and security-design.md section E records WHY per category rather than leaving the analysis implicit - a circuit breaker around an error handler is incoherent, since there is nothing downstream to break. Two design choices were verified empirically rather than reasoned about: sort_keys does not order list values, so canonical serialization must sort order-insensitive lists too; and a subprocess comparison catches a set-derived ordering that a same-run comparison passes over. NFR14.4 stays deferred to U3 per BR4.4. Revised at review: the gate enumerations are parameterized on their subject so fixtures and real gates share one implementation; and AuthorizationError's status is constrained by Literal[401, 403] at the type, since assert_never bounds the match arms and not the values within one.",
   "upstream_ids": [
     "NFR3.1",
     "NFR3.2",
@@ -56,7 +57,7 @@
     {
       "id": "NFR14.1",
       "status": "OK",
-      "target": "§D — four committed fixtures, each OTHERWISE-VALID and violating exactly one rule, in tests/contract/fixtures/. The otherwise-valid property is what makes NFR14.2 achievable"
+      "target": "§D — four committed fixtures, each OTHERWISE-VALID and violating exactly one rule, in tests/contract/fixtures/. The otherwise-valid property is what makes NFR14.2 achievable. CORRECTED at review: each gate's enumeration takes its subject (the app, or the generated document) as an ARGUMENT, so the fixture and the real gate call one function rather than two implementations that drift - without which a fixture keeps passing while the real gate is broken, the exact false confidence the fixtures exist to prevent"
     },
     {
       "id": "NFR14.2",
@@ -66,7 +67,7 @@
     {
       "id": "NFR14.3",
       "status": "OK",
-      "target": "§C.2 — the code registry contains no pair distinguishing unreachable from absent. A RESOURCE_NOT_FOUND/RESOURCE_FORBIDDEN pair is the defect even though each code is individually reasonable"
+      "target": "§C.2 — the code registry contains no pair distinguishing unreachable from absent. A RESOURCE_NOT_FOUND/RESOURCE_FORBIDDEN pair is the defect even though each code is individually reasonable. EXTENDED at review: each status is paired with its code and the pairing is asserted, because a 403 carrying ACCESS_TOKEN_EXPIRED would tell a prober their token was fine and the RESOURCE was the problem - the existence oracle re-entering through the one field this requirement did not constrain"
     },
     {
       "id": "NFR14.4",
@@ -76,7 +77,7 @@
     {
       "id": "NFR14.5",
       "status": "OK",
-      "target": "§B.4 — test_route_lenses.py imports the REAL app object at test collection time, so an unlensed endpoint reddens CI on the commit that adds it. Walks route.dependant recursively, since a lens may be nested in a composed dependency"
+      "target": "§B.4 — test_route_lenses.py imports the REAL app object at test collection time, so an unlensed endpoint reddens CI on the commit that adds it. Walks route.dependant recursively, since a lens may be nested in a composed dependency. The enumeration is `unlensed_routes(app)`, parameterized on the app so §D's fixture exercises the same code path"
     },
     {
       "id": "NFR14.6",
@@ -141,7 +142,7 @@
     {
       "id": "NFR17.3",
       "status": "OK",
-      "target": "§C.1 — totality is a TYPING property: a five-arm match ending in assert_never, which mypy proves exhaustive statically. A sixth class without a mapping is a build-time type error rather than a production 500"
+      "target": "§C.1 - totality is a TYPING property: a five-arm match ending in assert_never, which mypy proves exhaustive statically. A sixth class without a mapping is a build-time type error rather than a production 500. CORRECTED at review: assert_never proves the match total over the five classes but says NOTHING about values inside a branch, and AuthorizationError reads its status from the instance because the taxonomy permits both 401 and 403. Closed at the TYPE - status: Literal[401, 403] - so a third value is a type error at the raise site, not a runtime assertion in the one piece of code whose requirement is to have no failure path"
     }
   ]
 }
