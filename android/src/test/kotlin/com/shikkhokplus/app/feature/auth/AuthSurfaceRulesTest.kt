@@ -166,4 +166,63 @@ class AuthSurfaceRulesTest {
         assertFalse(Regex("""\bval\s+\w*[Aa]mount\w*\s*:\s*(Double|Float)\b""")
             .containsMatchIn(source))
     }
+
+    @Test
+    fun `the composable branches only on state, never on a domain value`() {
+        // team.md: "a composable that computes a fee balance is a bug".
+        // Generalised: a composable receives a UiState and renders it
+        // with NO conditional depending on a domain value [TC-9, D-31].
+        //
+        // This is the surface where such logic is hardest to see in
+        // review -- `if (balance > 0) "Due" else "Paid"` is a business
+        // rule about what counts as due, wearing presentation clothes.
+        // Asserted mechanically rather than read, because the reviewer
+        // on this surface has no declared Android experience.
+        val screen = File(
+            "src/main/kotlin/com/shikkhokplus/app/feature/auth/ui/AuthScreen.kt",
+        ).readText()
+        val body = screen.lines()
+            .filterNot { it.trimStart().startsWith("*") }
+            .filterNot { it.trimStart().startsWith("//") }
+            .joinToString("\n")
+
+        val comparisons = Regex("""\b(if|when)\s*\([^)]*(<|>|<=|>=)""")
+            .findAll(body)
+            .map { it.value }
+            .toList()
+        assertEquals(
+            emptyList(),
+            comparisons,
+            "a comparison on a domain value appeared in the composable: $comparisons",
+        )
+    }
+
+    @Test
+    fun `the composable resolves a key and never renders server text`() {
+        // Every user-facing string comes from a LOCAL resource named by
+        // the server's message_key. A server-sent `message` could not be
+        // localized and would show English in a Bangla UI [TC-15].
+        //
+        // A first version of this test matched the substring
+        // "state.message" -- which `state.messageKey` contains -- and so
+        // failed on the CORRECT code. It now asserts the positive
+        // property: the key passes through MessageKeys.resolve, and the
+        // DTO carries no plain `message` field for the screen to reach.
+        val screen = File(
+            "src/main/kotlin/com/shikkhokplus/app/feature/auth/ui/AuthScreen.kt",
+        ).readText()
+        assertTrue(
+            screen.contains("MessageKeys.resolve(state.messageKey)"),
+            "the screen must resolve the server's key to a local resource",
+        )
+
+        val dto = File(
+            "src/main/kotlin/com/shikkhokplus/app/core/network/AuthDto.kt",
+        ).readText()
+        assertFalse(
+            Regex("""val\s+message\s*:""").containsMatchIn(dto),
+            "ErrorBody grew a plain `message` field; the server names a " +
+                "string resource and never sends the text",
+        )
+    }
 }
