@@ -227,7 +227,16 @@ rules:
       build on a CORRECT schema.
 
       A per-column allowlist keeps the token list intact and makes
-      each exemption a reviewable line with a reason. The same
+      each exemption a reviewable line with a reason.
+
+      **Every column this Unit declares was checked against the tokens,
+      not just the one that failed.** `fee_due_day` is the only false
+      positive. `collection_number` and `collection_channel` — which
+      the catalogue explicitly calls teacher-typed payment
+      destinations and NOT money — match no token, so they need no
+      entry; worth recording, because a reader seeing "collection"
+      beside a fee column would reasonably wonder. Both real money
+      columns, `default_fee` and `fee_amount`, are correctly caught. The same
       distinction the coverage-scope gate already uses: an explicit
       list plus an assertion over it, so an omission fails rather than
       silently narrowing.
