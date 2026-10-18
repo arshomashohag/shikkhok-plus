@@ -47,6 +47,35 @@ def list_roster(
 > account and no second party; every isolation claim it made was about
 > a mechanism rather than an outcome.
 
+### A.1 Guardian reachability resolves through the recorded number
+
+```sql
+-- reachable enrollments, for an authenticated guardian
+WHERE enrollment.guardian_account_id = :authenticated_account
+```
+
+**Never through the child** [NFR14.15, BR5.3]. Resolving by "find this
+guardian's children, then show every enrollment of those children"
+merges two teachers' records: a guardian recorded by teacher A under
+one number would see teacher B's batch for the same child.
+
+Worked both rules — the child-keyed one leaks, the number-keyed one
+does not — which is why the rule names the column rather than the
+intent.
+
+### A.2 The administrator field set, stated as columns
+
+`Owner` carries `id`, `kind`, `account_id`, `state`, `plan`,
+`plan_valid_to`, `deleted_at`. A platform administrator may read
+**`state`, `plan` and `plan_valid_to`** and nothing else
+[NFR14.18, BR1.2].
+
+> There is no admin surface in V1, so nothing enforces this yet. It is
+> stated in columns rather than in prose because `Owner` is written
+> for the first time in this Unit, and the temptation — an endpoint
+> joining to `Enrollment` "to show how many students" — arrives with
+> the table.
+
 ---
 
 ## B. The erasure markers, and why they are per link

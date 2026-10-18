@@ -22,14 +22,17 @@ CREATE UNIQUE INDEX uq_enrollment_batch_student
     WHERE student_account_id IS NOT NULL;
 ```
 
-**Verified against real PostgreSQL**, all seven cases:
+**Verified against real PostgreSQL.** Seven inserts were run; the
+table groups them into the four behaviours that matter, which is why
+an earlier draft's "all seven cases" did not match a four-row table:
 
-| Case | Result |
-|---|---|
-| Second and third dormant seat in one batch | admitted |
-| Same account twice in one batch | **refused** |
-| Same account in two batches of one teacher [AC2.2.3] | admitted |
-| Re-enrolling an **erased** account into the same batch | admitted |
+| Behaviour | Inserts | Result |
+|---|---|---|
+| Dormant seats in one batch | 1st, 2nd, 3rd | all admitted |
+| The same account twice in one batch | 5th | **refused** |
+| The same account in two batches of one teacher [AC2.2.3] | 6th | admitted |
+| A different account in the same batch | 7th | admitted |
+| Re-enrolling an **erased** account into the same batch | follow-up | admitted |
 
 > **The last is correct, not a hole.** The catalogue says a teacher may
 > enroll that number again, creating a new enrollment with no link to
@@ -52,6 +55,7 @@ in.
 
 | Decision | Licensed by |
 |---|---|
+| Add-student resolves an existing account by **`phone`**, under U3's existing unique index [NFR10.5] | The lookup runs on every enrollment and the column is already unique, so this costs nothing new |
 | No read replica | The budget — and a replica would be an authorization bug for the computed lens, since stale ownership resolves stale permissions |
 | No server-side cache of lens-scoped data | Correctness, not cost: that is how cross-teacher leakage happens |
 | `Owner` created lazily on first batch | Most accounts are students and guardians who will never own one |

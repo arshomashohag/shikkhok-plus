@@ -50,6 +50,12 @@ first child-identifying strings in the system**: `display_name` and
 
 ## C. What is NOT recorded, and the honest reason
 
+**U4 writes no `AuthAuditLog` row** [NFR8.12]. That table's five
+events are authentication events, and its **closed enum** is the
+mechanism keeping it that way — adding an `ENROLLMENT_EDITED` value
+would make it a general-purpose log, which is precisely what the
+closed vocabulary prevents.
+
 | Not recorded | Reason |
 |---|---|
 | Who edited a `display_name`, and when | Cost. Per-row audit is unaffordable in storage at this budget |

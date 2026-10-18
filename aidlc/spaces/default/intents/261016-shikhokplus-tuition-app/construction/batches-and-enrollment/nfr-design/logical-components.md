@@ -73,6 +73,25 @@ any existing enrollment.
 > the markers exist to prevent — and it happens silently, with no error
 > anyone sees.
 
+**The same two-state problem as A.1**, and the same shape of answer:
+
+| State | How it presents | Correct answer |
+|---|---|---|
+| Markers readable, both NULL | `SELECT` returns the row | attach |
+| The row cannot be read at all | raises `SQLAlchemyError` | **do not attach** |
+
+```python
+try:
+    row = _dormant_candidate(session, phone)
+except SQLAlchemyError as error:
+    raise TransientError(...) from error   # do not attach
+```
+
+> A `TransientError` rather than a `ConflictError` here, because
+> unlike removal this operation **is** safe to retry: nothing has been
+> written, and the caller's correct behaviour is to try again rather
+> than to change their request.
+
 ---
 
 ## B. What U4 adds to U3's shape
