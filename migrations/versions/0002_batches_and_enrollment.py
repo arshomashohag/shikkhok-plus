@@ -38,6 +38,15 @@ table. Adding the constraint would therefore refuse every populated
 database and succeed only on empty ones, which is the exact shape of a
 check that passes in testing and fails on the one deploy that matters.
 
+**Synthesizing a batch per orphan was considered and rejected**, which
+is the obvious alternative and the reason this needs writing down. A
+``batch`` row requires an ``owner_id``, and a ``0001`` enrollment
+carries no owner link at all -- only ``account_id`` and ``batch_id``.
+There is no way to determine which teacher an orphan belongs to, so the
+migration would have to INVENT an ownership relationship and then make
+it referentially binding. A wrong owner is worse than no constraint:
+it is a cross-teacher authorization error written by a migration.
+
 The constraint belongs to the first migration that runs when real
 ``batch`` rows already exist. Until then the relationship is enforced by
 the services, which only ever write a ``batch_id`` they just read.
