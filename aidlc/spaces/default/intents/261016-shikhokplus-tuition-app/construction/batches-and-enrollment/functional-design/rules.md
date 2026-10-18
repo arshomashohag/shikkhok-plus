@@ -201,18 +201,30 @@ rules:
 
   - id: BR3.3
     statement: >
-      The money-column gate gains an explicit NON-MONEY allowlist.
-      `batch.fee_due_day` is the first entry. The allowlist names
-      columns, never tokens, and each entry states why.
+      TWO name-based money gates exist, and `batch.fee_due_day` trips
+      BOTH. Each gains an explicit NON-MONEY allowlist. The allowlists
+      name columns and fields, never tokens, and each entry states why.
+      The two gates' token lists are unified into one importable
+      constant so an entry cannot protect one gate while the other
+      drifts.
     category: constraint
-    applies_to: tests/db/test_governance.py
-    trigger: A column whose NAME matches a money token but which
-      carries something else
+    applies_to:
+      - tests/db/test_governance.py
+      - app/contract/money_schema.py
+    trigger: A column or response field whose NAME matches a money
+      token but which carries something else
     logic: >
-      IF a column matches MONEY_NAME_TOKENS
-      AND (table, column) is in NON_MONEY_COLUMNS
-      THEN skip it
-      ELSE require numeric(12,2).
+      Database gate:
+        IF a column matches MONEY_NAME_TOKENS
+        AND (table, column) is in NON_MONEY_COLUMNS
+        THEN skip it
+        ELSE require numeric(12,2).
+
+      Schema gate:
+        IF a property matches MONEY_NAME_TOKENS
+        AND (schema, field) is in NON_MONEY_FIELDS
+        THEN skip it
+        ELSE report numeric-money / unconstrained-money.
     violation_behaviour: >
       Removing a token from MONEY_NAME_TOKENS to make the build pass.
       Dropping "fee" or "due" would silently stop checking every
@@ -220,27 +232,45 @@ rules:
       and would be covering less, which is how a control is retired
       rather than fixed.
     rationale: >
-      **Predicted from the gate's own token list, not yet verified
-      against the real schema** — and the distinction is recorded
-      because an earlier draft of this rule claimed otherwise.
-
       `batch.fee_due_day` is an INTEGER 1–31 by design [AC2.1.2] whose
-      name matches both `fee` and `due`. Applied to the real schema the
-      gate will therefore report it as a money column that is not
-      `NUMERIC(12,2)`, failing the build on a CORRECT design.
+      name matches both `fee` and `due`. Both gates therefore report a
+      CORRECT design as a violation, and the build fails twice.
 
-      A probe did run against a container, but against a `batch` table
-      created ad hoc inside that probe: **no `Batch` table exists in
-      the built tree yet**. The token match and the column type are
-      certain; the gate's actual behaviour becomes checkable at Code
-      Generation and not before.
+      **The second gate was found by running the first one's
+      prediction against the other gate, and it is the finding that
+      matters.** An earlier draft named only the database gate. Calling
+      `money_schema_violations` on a `BatchResponse` carrying
+      `fee_due_day: int` and `collection_number: str` reports
+      `BatchResponse fee_due_day numeric-money` and nothing else —
+      `_is_numeric_money_name` matches `integer` as well as `number`.
+      So allowlisting the column in `tests/db/test_governance.py`
+      alone leaves an identical failure standing one module away,
+      which is this project's third recurring defect class.
 
-      A per-column allowlist keeps the token list intact and makes
+      **The token lists are currently duplicated**, declared
+      independently in `app/contract/money_schema.py` and
+      `tests/db/test_governance.py`. That duplication is why one
+      allowlist cannot cover both, and it means a token added to one
+      list silently fails to protect the other gate's surface. U4
+      unifies them into one importable constant and asserts the two
+      gates read the same list.
+
+      **Neither allowlist exists yet.** `money_schema_violations(app)`
+      takes the application and nothing else; the database gate's
+      `_money_columns` filters on the token list alone. Both are
+      levers U4 BUILDS, not configuration U4 extends — recorded
+      explicitly because "allowlist it" reads as though the parameter
+      were already there.
+
+      A per-column allowlist keeps the token lists intact and makes
       each exemption a reviewable line with a reason.
 
       **Every column this Unit declares was checked against the tokens,
-      not just the one that failed.** `fee_due_day` is the only false
-      positive. `collection_number` and `collection_channel` — which
+      not just the one that failed**, and against the shared token
+      list, so the sweep holds for both gates. `fee_due_day` is the
+      only false positive — confirmed empirically for the schema gate,
+      which reported it and nothing else.
+      `collection_number` and `collection_channel` — which
       the catalogue explicitly calls teacher-typed payment
       destinations and NOT money — match no token, so they need no
       entry; worth recording, because a reader seeing "collection"

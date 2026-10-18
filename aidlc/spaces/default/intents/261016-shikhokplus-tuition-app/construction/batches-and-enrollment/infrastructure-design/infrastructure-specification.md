@@ -78,10 +78,25 @@ is already half-changed. What saves it:
 | PostgreSQL has **transactional DDL** | `ALTER TABLE` rolls back like any other statement |
 | Alembic wraps the upgrade in **one transaction** | `transaction_per_migration` is the default for a transactional-DDL backend |
 
+**The mechanism, named rather than left to the reader.** Alembic wraps
+an upgrade in one transaction only when `migrations/env.py` leaves
+`transactional_ddl` at its default and brackets the run in
+`context.begin_transaction()`. Ours does both — it sets no
+`transactional_ddl=False` override — so the default applies on
+PostgreSQL and a raise inside `upgrade()` rolls the preceding
+`ALTER TABLE` statements back with it.
+
 Verified against a live container: with the guard raising after both
 statements, `information_schema` shows the column list **byte-identical
 to before the attempt** — `account_id` still present, `student_account_id`
 absent.
+
+> Naming the mechanism is the point, not decoration. An unqualified
+> "nothing is altered" is indistinguishable from an assumption that
+> happens to be right, and the one in this Unit's `nfr-requirements`
+> was not. **A change to `env.py` that disabled per-migration
+> transactions would falsify this section silently**, which is why the
+> file and the setting are named here rather than the conclusion alone.
 
 > This is why the guard may sit *after* the DDL rather than having to
 > run first. On a backend without transactional DDL — MySQL, say — the

@@ -21,7 +21,7 @@
 |---|---|
 | **A second migration run, from `0001` with rows** | The from-zero run cannot see a destructive rename [NFR6.18] |
 | The money `TypeDecorator` | First real money column; `team.md` specified it and B1 had no table to need it |
-| The non-money allowlist | `batch.fee_due_day` matches `fee` and `due` while holding an integer |
+| Two non-money allowlists, both newly built | `batch.fee_due_day` matches `fee` and `due` while holding an integer, and trips **both** money gates |
 | Query-count assertions at two roster sizes | The N+1 shape, which no existing test can see |
 
 ### A.1 The second migration run is the important one
@@ -52,7 +52,7 @@ positive:
 |---|---|---|---|
 | `batch.default_fee` | `fee` | yes | checked |
 | `enrollment.fee_amount` | `fee`, `amount` | yes | checked |
-| `batch.fee_due_day` | `fee`, `due` | **no** | **allowlist** |
+| `batch.fee_due_day` | `fee`, `due` | **no** | **allowlist, twice** |
 | `batch.collection_number` | — | no | nothing |
 
 > **The dangerous fix is the obvious one.** Dropping `fee` or `due`
@@ -60,10 +60,39 @@ positive:
 > the check on every genuine fee column in U7 and U8. A per-column
 > allowlist keeps the tokens intact, and each entry is a reviewable
 > line with a reason.
->
-> This is predicted from the token list rather than observed — **no
-> `Batch` table exists yet** — and becomes verifiable the moment the
-> migration lands.
+
+### B.1 There are two gates, and neither allowlist exists yet
+
+This is the part a reader would otherwise have to discover by failing
+the build twice.
+
+| Gate | Module | Surface | Signature today |
+|---|---|---|---|
+| Database columns | `tests/db/test_governance.py` | `information_schema` | `_money_columns(session)` — filters on the token list alone |
+| Response schemas | `app/contract/money_schema.py` | the generated OpenAPI document | `money_schema_violations(app)` — takes the app and nothing else |
+
+**Neither signature admits an exception list.** "Allowlist it" therefore
+names a lever U4 **builds**, not configuration it extends — both
+functions gain a parameter, and each gains a test asserting that an
+unlisted money-named column is still reported.
+
+**The schema gate was confirmed by running it**, since `fee_due_day`
+reaching a response model is not obvious from the column alone:
+
+```
+money_schema_violations(BatchResponse{fee_due_day: int,
+                                      collection_number: str})
+  -> BatchResponse fee_due_day numeric-money
+```
+
+`_is_numeric_money_name` matches `integer` as well as `number`, and
+`collection_number` is correctly silent.
+
+> **The token lists are duplicated.** `MONEY_NAME_TOKENS` is declared
+> independently in each module, so an allowlist added to one protects
+> only that gate and the two lists can drift apart. U4 unifies them
+> into one importable constant and asserts both gates read it — the
+> alternative is two controls that look identical and are not.
 
 ---
 
