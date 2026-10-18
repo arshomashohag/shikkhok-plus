@@ -25013,3 +25013,110 @@
 **Duration ms**: 62
 
 ---
+
+## Change Accepted
+**Timestamp**: 2026-10-18T13:16:33Z
+**Event**: CHANGE_ACCEPTED
+**Stage**: code-generation
+**Unit**: money-core
+**Checkpoint**: review-receipt
+**Changed**: android/build.gradle.kts, android/src/main/AndroidManifest.xml, app/money/_ledger.py, gradle/libs.versions.toml, tests/money/test_ledger.py, tests/money/test_ledger_property.py, tests/named_tests.toml
+**Recorded**: sha256:39fc69947121e43e84f74711b3e525e6db9188103500d6c76ff16d4a8fcc90a0
+**Current**: sha256:2c4891b8cc3e94c9e44da12e12ab051f4ae33580581a131ce7316ad283ddb7d9
+**Details**: android/build.gradle.kts, android/src/main/AndroidManifest.xml, app/money/_ledger.py, gradle/libs.versions.toml, tests/money/test_ledger.py, tests/money/test_ledger_property.py, tests/named_tests.toml changed after the money core Unit was reviewed; carrying on.
+
+---
+
+## Change Accepted
+**Timestamp**: 2026-10-18T13:16:33Z
+**Event**: CHANGE_ACCEPTED
+**Stage**: code-generation
+**Unit**: api-contract
+**Checkpoint**: review-receipt
+**Changed**: tests/contract/test_privacy_schema.py
+**Recorded**: sha256:2f7266a350b60694a91405af5e5c2017f09cd4570d01cf91d89278261aac7aa6
+**Current**: sha256:81d08d48d70e96396ee92dc6ceb1d51268a681ce0d8338e9f905ec344ef9b626
+**Details**: tests/contract/test_privacy_schema.py changed after the api contract Unit was reviewed; carrying on.
+
+---
+
+## Change Accepted
+**Timestamp**: 2026-10-18T13:16:33Z
+**Event**: CHANGE_ACCEPTED
+**Stage**: nfr-requirements
+**Unit**: identity-and-access
+**Checkpoint**: review-receipt
+**Changed**: (paths unavailable)
+**Recorded**: sha256:c78652158cb9a4ea0abf02e1611ec6718072f0c68f8869320e174036399df3c2
+**Current**: sha256:0ed29ec55674adbeaffa67e1c73162ed741203e8c8edb89643986c6135a18d9f
+**Details**: The identity and access Unit's NFR Requirements documents changed after they were reviewed; carrying on.
+
+---
+
+## Change Accepted
+**Timestamp**: 2026-10-18T13:16:33Z
+**Event**: CHANGE_ACCEPTED
+**Stage**: nfr-design
+**Unit**: identity-and-access
+**Checkpoint**: review-receipt
+**Changed**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/identity-and-access/nfr-design/security-design.md
+**Recorded**: sha256:c4d9776f3c6580cab5edae1db608b3d0073cfa6bfb370bcc2a71b57a144fff3c
+**Current**: sha256:0b873c471237646858d62ec07e0a9b4dda3eb532b3ee55ee92ef2c2f9627b8b5
+**Details**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/identity-and-access/nfr-design/security-design.md changed after the identity and access Unit was reviewed; carrying on.
+
+---
+
+## Change Accepted
+**Timestamp**: 2026-10-18T13:16:33Z
+**Event**: CHANGE_ACCEPTED
+**Stage**: infrastructure-design
+**Unit**: identity-and-access
+**Checkpoint**: review-receipt
+**Changed**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/identity-and-access/infrastructure-design/cicd-pipeline.md
+**Recorded**: sha256:81c4814d0ec2aa1f9e2ec5fa815b751efb4f80826022059b5f9b0723bbf6b70d
+**Current**: sha256:d9ccee2bc7e8206e8d7d6d469e927515815282c623370c7ae91cc747ba27a659
+**Details**: aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/identity-and-access/infrastructure-design/cicd-pipeline.md changed after the identity and access Unit was reviewed; carrying on.
+
+---
+
+## Change Accepted
+**Timestamp**: 2026-10-18T13:16:33Z
+**Event**: CHANGE_ACCEPTED
+**Stage**: code-generation
+**Unit**: identity-and-access
+**Checkpoint**: review-receipt
+**Changed**: (paths unavailable)
+**Recorded**: sha256:e5c17ca2a747061408279c79330b4e507019b4f71b1ee933e86aeb0c1394b42d
+**Current**: sha256:93ac6f018e3f5c24a3d503e4a0b416e08ed5ec0166e372fe728958eb72283a37
+**Details**: The identity and access Unit's Code Generation documents changed after they were reviewed; carrying on.
+
+---
+
+## Change Accepted
+**Timestamp**: 2026-10-18T13:16:33Z
+**Event**: CHANGE_ACCEPTED
+**Stage**: code-generation
+**Unit**: identity-and-access
+**Checkpoint**: review-receipt
+**Changed**: Makefile, android/src/test/kotlin/com/shikkhokplus/app/feature/auth/AuthSurfaceRulesTest.kt, app/main.py, tests/audit/test_audit_log.py, tests/gates/test_coverage_scope.py
+**Recorded**: sha256:df7555b2b6fba3cf8096c4b15916abbc95eb727f1d5123a4753c77716c915026
+**Current**: sha256:014a0ba4d15579d1495608366ff6c19f55cee26c89086686fc609be145c889e6
+**Details**: Makefile, android/src/test/kotlin/com/shikkhokplus/app/feature/auth/AuthSurfaceRulesTest.kt, app/main.py, tests/audit/test_audit_log.py, tests/gates/test_coverage_scope.py changed after the identity and access Unit was reviewed; carrying on.
+
+---
+
+## Checkpoint Verification Recorded
+**Timestamp**: 2026-10-18T13:17:41Z
+**Event**: CHECKPOINT_VERIFICATION_RECORDED
+**Unit**: identity-and-access
+**Kind**: unit
+**Stage**: code-generation
+**Stages**: functional-design, nfr-requirements, nfr-design, infrastructure-design, code-generation
+**Verification Id**: 81edd77e-e07d-41aa-99ea-14a8835c35b0
+**Fingerprint**: sha256:9b820d9d175d5bd57c30697a4615978d3fcfcde879ccd588a9bb3e1018889476
+**Command SHA-256**: 352596dd72a85e430deecbf457803bcda0968f7f707f56d9dd5e206cc86f4fd8
+**Exit Code**: 0
+**Verified**: true
+**Run floor**: WORKFLOW_STARTED:2026-10-16T18:39:09Z#1
+
+---
