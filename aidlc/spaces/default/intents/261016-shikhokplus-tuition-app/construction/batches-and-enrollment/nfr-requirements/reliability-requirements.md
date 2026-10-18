@@ -27,12 +27,26 @@ shipped** — and by the time it runs there may be real rows.
 | **NFR6.15** | Forward-only and backward-compatible [team.md] | No failover, no multi-AZ database. A migration that cannot be rolled forward past a mistake is not merged |
 | **NFR6.16** | Renames preserve data, never drop-and-recreate | `ALTER TABLE ... RENAME COLUMN` keeps the rows; a drop loses dormant enrollments the teacher recorded and cannot recover |
 | **NFR6.17** | The lens-query correction [BR5.0] ships in the **same** migration as the rename | Separating them leaves `_LENS_QUERY` reading a column that no longer exists — a window in which authentication is broken for everyone |
-| **NFR6.18** | A test migrates from zero **and** from the B3 head revision | From-zero is what CI runs; from-B3-head is what production does |
+| **NFR6.18** | A test migrates from the B3 head revision **with rows already present**, and asserts the **values survive** | From-zero is what CI runs; from-B3-head-with-data is what production does |
 
-> **NFR6.18 is the one a green CI would hide.** The test container
-> migrates from zero on every run, so a rename that works against an
-> empty table passes forever while the production path — altering a
-> table that already holds rows — is never exercised.
+> **NFR6.18 is the one a green CI would hide**, and the first version
+> of this requirement reproduced the defect it was written to catch.
+>
+> Verified against a live container. Two things had to be fixed:
+>
+> 1. **Seeded rows are part of the requirement.** With the table empty
+>    at `0001`, a rename and a drop-and-recreate are *indistinguishable* —
+>    so "migrate from B3 head" alone asserts nothing.
+> 2. **Counting rows is not enough.** With one dormant enrollment
+>    present, both shapes leave the table at one row. What
+>    drop-and-recreate destroys is the **link**: the account column
+>    comes back NULL. The assertion must be on the VALUE — the dormant
+>    enrollment still points at the account it pointed at before.
+>
+> That is the same "the assertion is real, the setup makes it vacuous"
+> shape as NFR6.12's fixture size and the privacy suite's superuser
+> connection. Three instances now; it is the project's most common
+> defect class.
 
 ---
 
