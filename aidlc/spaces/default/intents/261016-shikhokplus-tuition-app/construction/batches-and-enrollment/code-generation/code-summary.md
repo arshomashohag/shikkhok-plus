@@ -120,7 +120,7 @@ like a working error message and is therefore **never reported**.
 
 | Decision | Why |
 |---|---|
-| `enrollment.batch_id` gains **no** foreign key | Every row surviving from `0001` points at a batch that cannot exist yet, so the constraint would refuse every populated database and pass only on empty ones |
+| `enrollment.batch_id` gains **no** foreign key, and **U5 adds it** | Every row surviving from `0001` points at a batch that cannot exist yet. Synthesizing one would mean inventing an ownership relationship and making it referentially binding — a wrong owner is a cross-teacher authorization error written by a migration. A test in `test_migration_runs.py` fails the moment U5 adds the constraint, so the deferral has an owner and a prompt rather than being permanent |
 | `BatchNotFound` is an `AuthorizationError` with **404** | A 403 for a real batch and 404 for an invented one is an existence oracle; a 400 would call a well-formed request malformed |
 | `GuardianLens.child_enrollment_id` becomes optional | The first authenticated request has not selected a child — the selection list is what it renders |
 | The Kotlin money serializer moves to the **type** | A per-field annotation works until one DTO forgets it, and a forgotten one is invisible in review because the field still renders |
@@ -138,6 +138,18 @@ like a working error message and is therefore **never reported**.
 | An admin surface | None in V1; `Owner`'s readable field subset is stated, not enforced |
 | A Retrofit client | No HTTP client is wired on Android yet — see §F |
 | The Room cache | Deferred; see §G |
+| **The student batch list route** [AC2.6.1] | Not built. The student lens resolves and the query is the roster's inverse, but no route exposes it |
+| **The enrollment detail screen** [AC1.3.4] | Not built, so the phone-correction path has no entry point |
+| **The child-selection screen** [AC2.7.1] | The children list is returned; the selection step is client navigation |
+| **The masked-number statement** [AC2.8.4] | Not built. Both language bundles carry the string it pairs with |
+| **Batch edit, schedule slots, hide-batch** [AC2.3.1, AC2.1.1, AC2.6.3] | Columns and tables exist; no routes |
+
+> **Seventeen of 94 traceability rows are Deferred**, and the table
+> above names the ones a reader would otherwise assume were built.
+> `traceability.json` carries all of them with a reason each. An
+> earlier draft of this summary headlined only the Room cache, which
+> materially understated what is missing — review was right to press
+> on it.
 
 ---
 

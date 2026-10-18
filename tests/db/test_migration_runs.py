@@ -72,3 +72,37 @@ def test_the_restricted_role_exists(restricted_session: Session) -> None:
         {"role": APP_ROLE},
     ).scalar_one_or_none()
     assert exists == 1
+
+
+def test_the_enrollment_batch_foreign_key_is_scheduled(
+    restricted_session: Session,
+) -> None:
+    """``enrollment.batch_id`` has no FK yet, and that is scheduled.
+
+    ``0002`` could not add it: every row surviving from ``0001`` points
+    at a batch that could not exist, and synthesizing one would mean
+    inventing an ownership relationship and making it referentially
+    binding.
+
+    **This test is the schedule.** When U5's migration adds the
+    constraint it starts failing, which is the prompt to flip the
+    assertion — rather than a comment nobody re-reads. A deferral with
+    no owner is a permanent gap wearing a temporary label.
+
+    :param restricted_session: A session as the application role
+    :return: None
+    """
+    present = {
+        row[0]
+        for row in restricted_session.execute(
+            sa.text(
+                "SELECT conname FROM pg_constraint "
+                "WHERE conrelid = 'enrollment'::regclass AND contype = 'f'"
+            )
+        )
+    }
+
+    assert "fk_enrollment_batch" not in present, (
+        "the batch foreign key now exists, which is the intended end "
+        "state: invert this assertion and delete the note in 0002."
+    )

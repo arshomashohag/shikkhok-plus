@@ -47,9 +47,21 @@ migration would have to INVENT an ownership relationship and then make
 it referentially binding. A wrong owner is worse than no constraint:
 it is a cross-teacher authorization error written by a migration.
 
-The constraint belongs to the first migration that runs when real
-``batch`` rows already exist. Until then the relationship is enforced by
-the services, which only ever write a ``batch_id`` they just read.
+**The constraint is scheduled, not merely postponed**, because a
+deferral with no owner is a permanent gap wearing a temporary label.
+U5 is the first Unit to migrate against a populated ``batch`` table, so
+U5's migration adds::
+
+    op.create_foreign_key(
+        "fk_enrollment_batch", "enrollment", "batch", ["batch_id"], ["id"]
+    )
+
+It can do so unconditionally: by then every enrollment was written by
+``app.batches.service``, which only ever stores a ``batch_id`` it just
+read from an owned batch. A test asserts the constraint exists once
+that migration lands, so the schedule is checkable rather than a note.
+
+Until then the relationship is enforced by the services alone.
 
 ``downgrade()`` **raises**. It could reverse the renames, but it cannot
 reconstruct which student a deleted guardian row belonged to -- and a
