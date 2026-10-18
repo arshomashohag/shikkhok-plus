@@ -64,6 +64,19 @@ def check_startup_configuration(environment: str | None = None) -> None:
 
     problems: list[str] = []
 
+    # FIRST, because it is the only item here that hands an attacker a
+    # credential rather than degrading a feature. Everything else in
+    # this function describes a process that serves badly; this one
+    # describes a process that serves OTPs to anyone who asks.
+    if os.environ.get("SHIKKHOKPLUS_STAGING_OUTBOX") == "1":
+        problems.append(
+            "SHIKKHOKPLUS_STAGING_OUTBOX is enabled in a production "
+            "process. That route returns the most recent OTP for any "
+            "phone number to an unauthenticated caller. It exists so a "
+            "person can sign in on a staging host with no SMS "
+            "credentials, and it must never reach production."
+        )
+
     if not os.environ.get("SHIKKHOKPLUS_GLOBAL_DAILY_SMS"):
         problems.append(
             "SHIKKHOKPLUS_GLOBAL_DAILY_SMS is unset, so the code's TEST "

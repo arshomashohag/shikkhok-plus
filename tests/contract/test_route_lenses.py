@@ -61,15 +61,18 @@ def _dual_lens() -> TeacherLens | GuardianLens:
     raise NotImplementedError
 
 
-def test_public_routes_has_exactly_five_entries() -> None:
+def test_public_routes_has_exactly_six_entries() -> None:
     """``PUBLIC_ROUTES`` is a fixed set of exactly five.
 
-    The length assertion is the control: a sixth entry is a diff against a
-    stated number rather than a line appended to a growing list.
+    The length assertion is the control: a SEVENTH entry is a diff
+    against a stated number rather than a line appended to a growing
+    list. It has already done that job once -- the staging outbox route
+    broke this test on the commit that added it, which is exactly what
+    a public route deserves.
 
     :return: None
     """
-    assert len(PUBLIC_ROUTES) == 5
+    assert len(PUBLIC_ROUTES) == 6
 
 
 def test_public_routes_contains_the_contracted_entries() -> None:

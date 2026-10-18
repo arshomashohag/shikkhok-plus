@@ -8,6 +8,7 @@
     "batch.create.subject_required",
     "batch.not_found",
     "enrollment.remove.claimed",
-    "enrollment.remove.erased"
+    "enrollment.remove.erased",
+    "staging.outbox.empty"
   ]
 }

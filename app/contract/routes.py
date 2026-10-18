@@ -40,6 +40,11 @@ PUBLIC_ROUTES: frozenset[tuple[str, str]] = frozenset(
         ("GET", "/health"),
         ("GET", "/account-deletion"),
         ("POST", "/account-deletion"),
+        # Staging only, and absent entirely in production -- the router
+        # is not registered unless the environment permits it. It is
+        # public because it must work before anyone can authenticate,
+        # which is its whole purpose.
+        ("GET", "/staging/last-otp"),
     }
 )
 
@@ -114,15 +119,17 @@ def _api_routes(app: FastAPI) -> list[APIRoute]:
 
     collect(list(app.routes))
 
-    # The routers this application is built from. Imported here rather
-    # than at module scope: app.contract must not depend on app.api at
-    # import time, which would invert the dependency the layering test
-    # asserts.
-    from app.api.auth import router as auth_router
-    from app.api.batches import router as batches_router
-    from app.api.health import router as health_router
-
-    for router in (auth_router, batches_router, health_router):
+    # Every router the application included, recorded by main.py at
+    # include time. NOT a hardcoded import list, which was the first
+    # fix and was itself the vacuous-enumeration defect in a new form:
+    # a router added by a later Unit -- or registered conditionally,
+    # like the staging outbox -- would be invisible to both gates while
+    # they reported clean.
+    #
+    # main.py appends to app.state.included_routers as it includes, so
+    # the gate sees exactly what was registered rather than what
+    # somebody remembered to list here.
+    for router in getattr(app.state, "included_routers", []):
         collect(list(router.routes))
 
     return list(seen.values())

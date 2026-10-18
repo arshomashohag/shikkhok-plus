@@ -33,6 +33,10 @@ object MessageKeys {
         "roster.status.dormant" to R.string.roster_status_dormant,
         "roster.status.active" to R.string.roster_status_active,
         "roster.status.inactive" to R.string.roster_status_inactive,
+        // Staging only. The key exists in the published list, so the
+        // cross-surface gate requires a string for it even though a
+        // production build can never receive it.
+        "staging.outbox.empty" to R.string.staging_outbox_empty,
     )
 
     /**

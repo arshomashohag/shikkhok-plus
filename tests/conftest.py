@@ -193,10 +193,25 @@ def _clean_tables(request: pytest.FixtureRequest) -> Iterator[None]:
 
     engine = request.getfixturevalue("owner_engine")
     with engine.begin() as connection:
-        connection.execute(
-            sa.text(
-                "TRUNCATE account, profile, otp_request, verify_attempt, "
-                "refresh_token, rate_limit_counter, auth_audit_log, "
-                "owner, enrollment RESTART IDENTITY CASCADE"
+        # The table list is DERIVED from the schema, not maintained by
+        # hand. A hand-kept list silently stops truncating a table a
+        # later migration adds, and the leak shows up as a test that
+        # passes alone and fails in sequence -- which is how
+        # staging_sms_outbox was found leaking between tests.
+        #
+        # Deriving it is also strictly more correct: every table the
+        # schema has is one a test can write.
+        tables = [
+            row[0]
+            for row in connection.execute(
+                sa.text(
+                    "SELECT tablename FROM pg_tables "
+                    "WHERE schemaname = 'public' "
+                    "AND tablename <> 'alembic_version'"
+                )
             )
-        )
+        ]
+        if tables:
+            connection.execute(
+                sa.text(f"TRUNCATE {', '.join(tables)} RESTART IDENTITY CASCADE")
+            )

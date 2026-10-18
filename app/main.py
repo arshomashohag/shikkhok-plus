@@ -65,9 +65,26 @@ def _register_routes(app: FastAPI) -> None:
     from app.api.batches import router as batches_router
     from app.api.health import router as health_router
 
-    app.include_router(auth_router)
-    app.include_router(batches_router)
-    app.include_router(health_router)
+    # Recorded as they are included, so the contract gates enumerate
+    # what this application ACTUALLY registered. A gate reading a
+    # hardcoded list cannot see a router added later.
+    app.state.included_routers = []
+
+    for router in (auth_router, batches_router, health_router):
+        app.include_router(router)
+        app.state.included_routers.append(router)
+
+    # NOT REGISTERED unless the environment permits it. An absent route
+    # rather than a route that refuses: there is nothing to reach, no
+    # handler to misconfigure, and no 404 that might one day become a
+    # 200 through an unrelated change.
+    from app.gateway.outbox import outbox_enabled
+
+    if outbox_enabled():
+        from app.api.staging import router as staging_router
+
+        app.include_router(staging_router)
+        app.state.included_routers.append(staging_router)
 
 
 def _register_request_scope(app: FastAPI) -> None:

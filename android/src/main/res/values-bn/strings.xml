@@ -48,4 +48,5 @@
     <string name="guardian_children_title">আপনার সন্তানরা</string>
     <string name="guardian_children_empty">এখনও কোনো সন্তান যুক্ত হয়নি। প্রথমে একজন শিক্ষককে আপনার নম্বর যোগ করতে হবে।</string>
     <string name="guardian_child_attribution">%1$s, শিক্ষক %2$s</string>
+    <string name="staging_outbox_empty">এই নম্বরের জন্য কোনো স্টেজিং বার্তা নেই।</string>
 </resources>

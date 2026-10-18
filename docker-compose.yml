@@ -61,6 +61,11 @@ services:
       SHIKKHOKPLUS_SMS_SENDER_ID: ${SHIKKHOKPLUS_SMS_SENDER_ID:-}
       SHIKKHOKPLUS_SMS_ADAPTER: ${SHIKKHOKPLUS_SMS_ADAPTER:-null}
       SHIKKHOKPLUS_SMS_BASE_URL: ${SHIKKHOKPLUS_SMS_BASE_URL:-}
+      # Staging/development ONLY. Exposes the most recent OTP for a
+      # number to an unauthenticated caller, so a person can sign in
+      # on a device with no SMS credentials. A production process
+      # with this set REFUSES TO START.
+      SHIKKHOKPLUS_STAGING_OUTBOX: ${SHIKKHOKPLUS_STAGING_OUTBOX:-1}
     ports:
       - "${API_PORT:-8000}:8000"
     restart: unless-stopped

@@ -24,6 +24,7 @@ from app.auth import otp
 from app.auth.ceilings import CeilingChecker
 from app.auth.tokens import ACCESS_TOKEN_LIFETIME, issue_pair, rotate
 from app.gateway.null import build_gateway
+from app.gateway.outbox import record_outbox
 from app.gateway.sms import SmsGateway
 from app.gateway.template import render_otp_message
 from app.schemas.auth import (
@@ -111,6 +112,30 @@ def issue_code(
 
     message = render_otp_message(issued.code, os.environ.get(APP_HASH_ENV, ""))
     gateway.send(body.phone, message, correlation_id)
+
+    # Records the message a staging host did NOT text, so a person can
+    # read it and sign in on a device. A NO-OP unless the environment
+    # permits it and an operator opted in, so this call carries no
+    # environment branch of its own and production runs it to no effect.
+    #
+    # GUARDED ON account_exists, and that guard is the whole correctness
+    # of this call. The unknown-number path does equivalent work and
+    # rolls it back, so no OTP is persisted -- but it still RENDERS a
+    # message. Recording that would put an entry in the outbox for a
+    # number with no account, which is an existence oracle in a new
+    # place: exactly what the byte-identical response above protects,
+    # reintroduced one endpoint over.
+    #
+    # Found by running it, not by reading it: the outbox returned a
+    # perfectly ordinary-looking code for an unknown number, and that
+    # code could never verify.
+    if issued.account_exists:
+        record_outbox(
+            session,
+            phone=body.phone,
+            message=message,
+            correlation_id=correlation_id,
+        )
 
     # The SAME response either way. The schema has one fixed field, so
     # there is nothing here that could differ [BR2.7].

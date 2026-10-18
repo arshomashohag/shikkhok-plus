@@ -188,6 +188,21 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
             "Nobody else has a claim on it, so it goes with the account."
         ),
     ),
+    "staging_sms_outbox": TableGovernance(
+        disposition=Disposition.HARD_DELETE,
+        retention=RetentionClass.DAYS_7,
+        basis=(
+            "A staging-only record of messages the null gateway did not "
+            "send, so a person can read a code and sign in on a device "
+            "before real SMS credentials exist. It holds a phone number "
+            "and an OTP together, which is why it is read only within a "
+            "five-minute window and purged with the auth tables. "
+            "**It must never hold a row in production**: the writer is a "
+            "no-op outside a permitted environment, the route is not "
+            "registered, and the startup check refuses a production "
+            "process that forced it on."
+        ),
+    ),
 }
 
 #: The retention half, derived so the two can never disagree.
