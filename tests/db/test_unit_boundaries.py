@@ -14,6 +14,7 @@ Both are therefore checked statically, over the text and the AST.
 
 from __future__ import annotations
 
+import ast
 import pathlib
 import re
 
@@ -22,11 +23,25 @@ APP = pathlib.Path(__file__).resolve().parents[2] / "app"
 #: The two tables this Unit creates and must never write [BR6.1].
 SHELL_TABLES = ("owner", "enrollment")
 
-#: Write verbs, as they would appear in raw SQL against a shell table.
+#: Write verbs in raw SQL. Tolerates a quoted or schema-qualified name,
+#: both of which an earlier version of this pattern missed entirely.
 WRITE_PATTERN = re.compile(
-    r"\b(INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+(owner|enrollment)\b",
+    r"\b(INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+"
+    r"(?:\w+\s*\.\s*)?[\"\']?(owner|enrollment)[\"\']?\b",
     re.IGNORECASE,
 )
+
+#: ORM writes, which the raw-SQL pattern cannot see at all.
+#:
+#: **This half was missing and the gap mattered**: the allowlisted module
+#: writes through the ORM, so the only shape the ban actually needs to
+#: police was the one shape it could not detect. An ORM write from an
+#: unlisted module passed the whole check.
+#:
+#: Matched on the AST rather than by text, because ``session.add(...)``
+#: and ``session.delete(...)`` carry a constructor or a variable and a
+#: regex over either reads as a guess.
+ORM_WRITE_METHODS = frozenset({"add", "add_all", "delete", "merge"})
 
 
 #: The modules permitted to write ``owner`` or ``enrollment``.
@@ -61,15 +76,107 @@ def _application_sources() -> list[pathlib.Path]:
     ]
 
 
+def _shell_bound_names(tree: ast.Module) -> set[str]:
+    """Collect local names assigned a shell model instance.
+
+    ``session.add(record)`` carries a variable, not a constructor, so
+    matching the argument name against the model names finds nothing.
+    The binding has to be resolved first: ``record = Enrollment(...)``
+    makes ``record`` a shell name for the rest of the module.
+
+    Module-wide rather than per-scope, which over-approximates. That is
+    the right direction for a ban: a false positive is a reviewable line,
+    a false negative is a silent hole.
+
+    :param tree: The parsed module
+    :return: Every local name bound to a shell model instance
+    """
+    models = {"Owner", "Enrollment"}
+    names: set[str] = set()
+
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Assign):
+            continue
+        value = node.value
+        if not (isinstance(value, ast.Call) and isinstance(value.func, ast.Name)):
+            continue
+        if value.func.id not in models:
+            continue
+        for target in node.targets:
+            if isinstance(target, ast.Name):
+                names.add(target.id)
+    return names
+
+
+def _orm_write_offenders(path: pathlib.Path) -> list[str]:
+    """Find ORM writes of a shell model in one module.
+
+    Walks the AST for ``<session>.add(...)`` and its siblings, resolving
+    a variable argument back to its assignment. A text search cannot do
+    this at all: the table name never appears, only the mapped class --
+    and often not even that, only a local name.
+
+    :param path: The module to inspect
+    :return: One description per offending call
+    """
+    models = {"Owner", "Enrollment"}
+    tree = ast.parse(path.read_text(), filename=str(path))
+    bound = _shell_bound_names(tree)
+    found: list[str] = []
+
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+            continue
+
+        attribute = node.func.attr
+        if attribute not in ORM_WRITE_METHODS | {"insert", "update", "delete"}:
+            continue
+
+        for argument in node.args:
+            named: str | None = None
+            if isinstance(argument, ast.Call) and isinstance(argument.func, ast.Name):
+                named = argument.func.id
+            elif isinstance(argument, ast.Name):
+                named = argument.id
+            if named in models or named in bound:
+                found.append(f"{path.name}: {attribute}({named})")
+    return found
+
+
 def test_no_application_module_writes_a_shell_table() -> None:
     offenders: list[str] = []
     for path in _application_sources():
         for match in WRITE_PATTERN.finditer(path.read_text()):
             offenders.append(f"{path.name}: {match.group(0)}")
+        offenders.extend(_orm_write_offenders(path))
     assert offenders == [], (
-        "U3 creates owner and enrollment EMPTY and never writes them "
+        "Only the allowlisted module writes owner and enrollment "
         f"[BR6.1]. Found: {offenders}"
     )
+
+
+def test_the_ban_detects_an_orm_write_and_not_only_raw_sql() -> None:
+    # GUARDS THE CHECK ITSELF. The allowlisted module writes through the
+    # ORM, so the one shape this ban actually needs to police is the one
+    # a raw-SQL pattern cannot see. Before this, an ORM write from an
+    # unlisted module passed the whole check.
+    permitted = APP.parent / next(iter(WRITE_PERMITTED))
+    assert _orm_write_offenders(permitted) != [], (
+        "the allowlisted module writes through the ORM, so if this finds "
+        "nothing the AST walk is not working and the ban is vacuous"
+    )
+
+
+def test_the_raw_sql_pattern_tolerates_quoting_and_qualification() -> None:
+    # Three spellings of the same write. An earlier pattern caught only
+    # the first, so a quoted or schema-qualified name evaded it.
+    for text in (
+        "INSERT INTO enrollment (id) VALUES (1)",
+        'INSERT INTO "enrollment" (id) VALUES (1)',
+        "INSERT INTO public.enrollment (id) VALUES (1)",
+        "DELETE FROM owner WHERE id = 1",
+    ):
+        assert WRITE_PATTERN.search(text), text
 
 
 def test_the_seed_script_is_gone() -> None:
