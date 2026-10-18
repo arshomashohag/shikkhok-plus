@@ -16,6 +16,11 @@ private data class IssueBody(val phone: String)
 @Serializable
 private data class VerifyBody(val phone: String, val code: String)
 
+@Serializable
+private data class RefreshBody(
+    @kotlinx.serialization.SerialName("refresh_token") val refreshToken: String,
+)
+
 /**
  * The real auth repository, over HTTP.
  *
@@ -44,6 +49,39 @@ class HttpAuthRepository(
             call { client.post("/v1/auth/verify") { setBody(VerifyBody(phone, code)) } }
         if (result is AuthResult.Ok) {
             tokens.save(result.value.accessToken, result.value.refreshToken)
+        }
+        return result
+    }
+
+    /**
+     * Exchange a stored refresh token for a fresh pair.
+     *
+     * **This is what makes "remember the device" real.** Persisting a
+     * token nothing redeems would change nothing: the app would hold a
+     * credential and still ask for an OTP.
+     *
+     * **A refusal CLEARS the store**, which is the security-critical
+     * half. The server invalidates the whole token family on reuse
+     * detection, so a refused refresh means the credential is dead —
+     * and retrying with it would be presenting a token the server has
+     * already decided was stolen. A transport failure clears nothing:
+     * no response arrived, so the token's status is unknown and
+     * discarding a valid session because the wifi dropped would force
+     * an OTP for no reason.
+     *
+     * @return The new pair, a refusal, or a transport failure
+     */
+    suspend fun refresh(): AuthResult<TokenResponse> {
+        val stored = tokens.refreshToken() ?: return AuthResult.TransportFailure
+
+        val result: AuthResult<TokenResponse> =
+            call { client.post("/v1/auth/refresh") { setBody(RefreshBody(stored)) } }
+
+        when (result) {
+            is AuthResult.Ok ->
+                tokens.save(result.value.accessToken, result.value.refreshToken)
+            is AuthResult.Refused -> tokens.clear()
+            AuthResult.TransportFailure -> Unit
         }
         return result
     }

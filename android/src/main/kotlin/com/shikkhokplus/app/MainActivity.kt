@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.shikkhokplus.app.core.network.ApiClient
+import com.shikkhokplus.app.core.network.EncryptedTokenStore
 import com.shikkhokplus.app.core.network.HttpAuthRepository
 import com.shikkhokplus.app.core.network.HttpBatchesRepository
 import com.shikkhokplus.app.core.network.HttpRosterRepository
@@ -95,10 +96,13 @@ private fun UnconfiguredNotice() {
  */
 @androidx.compose.runtime.Composable
 private fun SignInRoute() {
-    // Remembered so the token store and the client survive
-    // recomposition: rebuilding them per frame would discard the
-    // session on every state change.
-    val tokens = remember { TokenStore.InMemory() }
+    // ENCRYPTED and persisted, so the device is remembered across
+    // restarts and a returning teacher skips the OTP screen entirely.
+    // Remembered so the store and client survive recomposition:
+    // rebuilding them per frame would discard the session on every
+    // state change.
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val tokens = remember { EncryptedTokenStore.create(context) }
     val repository =
         remember {
             HttpAuthRepository(
@@ -109,6 +113,12 @@ private fun SignInRoute() {
 
     val model: AuthViewModel = viewModel { AuthViewModel(repository) }
     val state by model.state.collectAsState()
+
+    // Try the stored token BEFORE the teacher is asked for anything.
+    // Keyed on Unit so it runs once per composition rather than on
+    // every state change -- a refresh per recomposition would rotate
+    // the token repeatedly and trip the server's reuse detection.
+    LaunchedEffect(Unit) { model.resumeSession(repository::refresh) }
 
     if (state is AuthUiState.SignedIn) {
         // The client is rebuilt so it picks up the token the verify

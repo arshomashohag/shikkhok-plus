@@ -221,4 +221,80 @@ class HttpRepositoryTest {
 
         assertIs<AuthResult.Ok<*>>(HttpRosterRepository(client(engine)).roster("b-1"))
     }
+
+    @Test
+    fun `a stored refresh token is exchanged for a fresh pair`() = runTest {
+        // THE POINT OF PERSISTING ONE. A token nothing redeems would
+        // leave the app holding a credential and still asking for an OTP.
+        val tokens = TokenStore.InMemory().apply { save("old-access", "old-refresh") }
+        val engine =
+            engineReturning(
+                HttpStatusCode.OK,
+                """{"access_token":"new-access","refresh_token":"new-refresh",
+                   "expires_in":900}""",
+            )
+        val repository = HttpAuthRepository(client(engine, tokens), tokens)
+
+        val result = repository.refresh()
+
+        assertIs<AuthResult.Ok<TokenResponse>>(result)
+        assertEquals("new-access", tokens.accessToken())
+        assertEquals("new-refresh", tokens.refreshToken())
+    }
+
+    @Test
+    fun `a refused refresh CLEARS the stored tokens`() = runTest {
+        // The security-critical half. The server invalidates the whole
+        // token family on reuse detection, so a refusal means the
+        // credential is dead -- and keeping it would mean presenting a
+        // token the server has already decided was stolen.
+        val tokens = TokenStore.InMemory().apply { save("access", "replayed") }
+        val engine =
+            engineReturning(
+                HttpStatusCode.Unauthorized,
+                """{"error":{"code":"TOKEN_NOT_VALID","retryable":false,
+                   "message_key":"auth.token.not_valid"}}""",
+            )
+        val repository = HttpAuthRepository(client(engine, tokens), tokens)
+
+        repository.refresh()
+
+        assertNull(tokens.accessToken())
+        assertNull(tokens.refreshToken())
+    }
+
+    @Test
+    fun `a transport failure during refresh keeps the tokens`() = runTest {
+        // No response arrived, so the token's status is UNKNOWN.
+        // Discarding a valid session because the wifi dropped would
+        // force an OTP for no reason -- and on a per-SMS-billed gateway
+        // that is a cost, not just an annoyance.
+        val tokens = TokenStore.InMemory().apply { save("access", "refresh") }
+        val engine = MockEngine { throw java.io.IOException("no route") }
+        val repository = HttpAuthRepository(client(engine, tokens), tokens)
+
+        repository.refresh()
+
+        assertEquals("refresh", tokens.refreshToken())
+    }
+
+    @Test
+    fun `refreshing with no stored token does not call the server`() = runTest {
+        // A first launch has nothing to redeem. Posting an empty token
+        // would be a wasted round trip and a 401 in the server's audit
+        // log for every cold start.
+        var called = false
+        val engine =
+            MockEngine {
+                called = true
+                respond("", HttpStatusCode.OK, jsonHeaders())
+            }
+        val tokens = TokenStore.InMemory()
+        val repository = HttpAuthRepository(client(engine, tokens), tokens)
+
+        val result = repository.refresh()
+
+        assertIs<AuthResult.TransportFailure>(result)
+        assertEquals(false, called)
+    }
 }

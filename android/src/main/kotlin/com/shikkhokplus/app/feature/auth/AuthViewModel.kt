@@ -81,6 +81,28 @@ class AuthViewModel(
     private var lastAction: (() -> Unit)? = null
 
     /**
+     * Try a stored session before showing the OTP screen.
+     *
+     * **"Remember the device" is this call**, not the storage. A
+     * persisted token nothing redeems would leave the app holding a
+     * credential and still asking for a code.
+     *
+     * A failure here is deliberately SILENT: the teacher sees the
+     * normal sign-in screen, which is where they were going anyway. An
+     * error about a refresh they never asked for would be noise about
+     * machinery they do not know exists.
+     *
+     * @param refresh Exchanges the stored token for a fresh pair
+     */
+    fun resumeSession(refresh: suspend () -> AuthResult<TokenResponse>) {
+        viewModelScope.launch {
+            if (refresh() is AuthResult.Ok) {
+                _state.value = AuthUiState.SignedIn
+            }
+        }
+    }
+
+    /**
      * Request a code for a number the user typed.
      *
      * @param phone The number, never read from the SIM [AC1.1.6]
