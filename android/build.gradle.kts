@@ -33,7 +33,28 @@ android {
     }
 
     buildTypes {
+        debug {
+            // The emulator reaches the host machine at 10.0.2.2. A
+            // physical phone on the same wifi needs the machine's LAN
+            // address instead -- override with
+            // `-PapiBaseUrl=http://192.168.x.x:8000` or point it at
+            // staging once TLS is up.
+            buildConfigField(
+                "String",
+                "API_BASE_URL",
+                "\"${project.findProperty("apiBaseUrl") ?: "http://10.0.2.2:8000"}\"",
+            )
+        }
         release {
+            // No default. A release build must be told which backend it
+            // talks to, because every possible default is wrong: a
+            // developer's machine shipped to a phone, or a production
+            // host reached from a test build.
+            buildConfigField(
+                "String",
+                "API_BASE_URL",
+                "\"${project.findProperty("apiBaseUrl") ?: ""}\"",
+            )
             // R8 and the release-build gates arrive with the packaging Bolt,
             // which is the first thing that needs them.
             isMinifyEnabled = false
@@ -47,6 +68,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     testOptions {
@@ -65,6 +87,10 @@ kotlin {
 
 dependencies {
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.okhttp)
+    implementation(libs.ktor.client.content.negotiation)
+    implementation(libs.ktor.serialization.kotlinx.json)
 
     // Compose. The BOM pins every artifact from one version, so a
     // mismatched pair cannot arrive through a transitive bump.
@@ -78,6 +104,7 @@ dependencies {
     testImplementation(libs.kotlin.test)
     testImplementation(libs.kotlin.test.junit)
     testImplementation(libs.coroutines.test)
+    testImplementation(libs.ktor.client.mock)
     // Compose UI tests on the JVM: team.md names the OTP entry path as
     // an obligation, and a device-only test would run once at the
     // checkpoint rather than on every commit.

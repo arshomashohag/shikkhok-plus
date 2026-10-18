@@ -18,8 +18,21 @@ coroutines = "1.9.0"
 # only on a device. The device run still happens at the checkpoint;
 # this catches a broken screen before it gets there.
 robolectric = "4.14.1"
+# Ktor rather than Retrofit, and the reason is this toolchain rather
+# than a preference. Retrofit needs no processor itself, but the
+# idiomatic pairing is kotlinx-serialization's converter plus Moshi or
+# KSP-generated adapters -- and KSP could not parse eight untouched
+# files on this Kotlin/AGP combination (code-summary.md B5 SS G). Ktor
+# is pure Kotlin, uses the serialization plugin already present, and
+# adds no processor at all.
+ktor = "2.3.12"
 
 [libraries]
+ktor-client-core = { group = "io.ktor", name = "ktor-client-core", version.ref = "ktor" }
+ktor-client-okhttp = { group = "io.ktor", name = "ktor-client-okhttp", version.ref = "ktor" }
+ktor-client-content-negotiation = { group = "io.ktor", name = "ktor-client-content-negotiation", version.ref = "ktor" }
+ktor-serialization-kotlinx-json = { group = "io.ktor", name = "ktor-serialization-kotlinx-json", version.ref = "ktor" }
+ktor-client-mock = { group = "io.ktor", name = "ktor-client-mock", version.ref = "ktor" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 kotlin-test = { group = "org.jetbrains.kotlin", name = "kotlin-test", version.ref = "kotlin" }
 kotlin-test-junit = { group = "org.jetbrains.kotlin", name = "kotlin-test-junit", version.ref = "kotlin" }

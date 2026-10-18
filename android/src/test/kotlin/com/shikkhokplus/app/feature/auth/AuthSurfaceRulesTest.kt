@@ -68,11 +68,22 @@ class AuthSurfaceRulesTest {
     }
 
     @Test
-    fun `the permission allowlist is empty at this bolt`() {
-        // Stated as a number so a FIRST permission is a diff against
-        // zero rather than a line appended to a growing list. INTERNET
-        // arrives with the Bolt that first makes a real network call.
-        assertEquals(emptyList(), declaredPermissions())
+    fun `the permission allowlist holds exactly INTERNET`() {
+        // An EXACT set, not a floor. B3 asserted zero so the first
+        // permission would be a diff against a stated number rather
+        // than a line appended to a growing list -- and that is exactly
+        // how this test fired when INTERNET was added, on the commit
+        // that added it.
+        //
+        // INTERNET arrived with the Bolt that makes the first real
+        // network call, which is what B3's own comment anticipated.
+        // Every further permission must break this assertion the same
+        // way: a permission is a Families-policy decision, never a
+        // convenience.
+        assertEquals(
+            listOf("android.permission.INTERNET"),
+            declaredPermissions(),
+        )
     }
 
     @Test

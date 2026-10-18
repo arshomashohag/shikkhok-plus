@@ -13,12 +13,17 @@
   the check. An earlier version of that test matched the comment and
   failed on the warning while saying nothing about the thing.
 
-  INTERNET arrives with the Bolt that first makes a network call; the
-  screen below renders its offline state until then. There is no
-  android:usesCleartextTraffic and none is wanted: the backend is
-  https-only and the gateway adapter refuses a non-https URL in code.
+  INTERNET arrived with this Bolt, which makes the first network call.
+  It is the ONLY permission here and the allowlist asserts that exact
+  set.
+
+  There is still no android:usesCleartextTraffic and none is wanted:
+  the backend is https-only, ApiClient refuses a non-https base URL in
+  code, and the one exemption is a loopback host for local development.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <!--
       allowBackup is FALSE deliberately. Auto Backup would copy app data
