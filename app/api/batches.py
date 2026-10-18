@@ -241,7 +241,10 @@ def set_inactive_from(
     :return: None
     """
     service.set_inactive_from(
-        session, enrollment_id=enrollment_id, inactive_from=body.inactive_from
+        session,
+        lens=lens,
+        enrollment_id=enrollment_id,
+        inactive_from=body.inactive_from,
     )
 
 
@@ -258,7 +261,7 @@ def remove_enrollment(
     :param session: The request-scoped session
     :return: None
     """
-    service.remove_enrollment(session, enrollment_id=enrollment_id)
+    service.remove_enrollment(session, lens=lens, enrollment_id=enrollment_id)
 
 
 @router.get("/guardian/children", response_model=list[GuardianChildResponse])

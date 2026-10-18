@@ -202,7 +202,51 @@ def list_guardian_children(
     ]
 
 
-def remove_enrollment(session: Session, *, enrollment_id: uuid.UUID) -> None:
+def _owned_enrollment(
+    session: Session, *, lens: TeacherLens, enrollment_id: uuid.UUID
+) -> Enrollment:
+    """Load a seat in one of this lens's batches, or refuse.
+
+    **An enrollment is reached through its batch, never by id alone.**
+    ``session.get(Enrollment, id)`` loads any row in the database, so a
+    write scoped on the id alone is reachable by any authenticated
+    teacher who guesses a UUID -- and it looks correct, because the
+    handler above it resolved a lens.
+
+    The refusal is a :class:`BatchNotFound` and not an enrollment-shaped
+    error, deliberately: telling the caller the enrollment exists but
+    belongs to someone else is the same existence oracle a 403 would be
+    [NFR14.13].
+
+    :param session: The session to query through
+    :param lens: The teacher lens carrying the owner id
+    :param enrollment_id: The seat being reached
+    :return: The enrollment
+    :raises BatchNotFound: No such seat, or its batch is another owner's
+    """
+    record = session.execute(
+        sa.select(Enrollment)
+        .join(Batch, Batch.id == Enrollment.batch_id)
+        .where(
+            Enrollment.id == enrollment_id,
+            # owner_id from the LENS. The join is what makes the scope
+            # unforgeable: there is no enrollment-level owner column, so
+            # a query that skips the batch cannot be scoped at all.
+            Batch.owner_id == lens.owner_id,
+        )
+    ).scalar_one_or_none()
+
+    if record is None:
+        raise BatchNotFound(
+            code="BATCH_NOT_FOUND",
+            message_key="batch.not_found",
+        )
+    return record
+
+
+def remove_enrollment(
+    session: Session, *, lens: TeacherLens, enrollment_id: uuid.UUID
+) -> None:
     """Delete a seat, if it is both dormant and never erased.
 
     **Two conditions, and the second is the one that gets forgotten.**
@@ -212,16 +256,13 @@ def remove_enrollment(session: Session, *, enrollment_id: uuid.UUID) -> None:
     is the harm the marker exists to prevent [BR6.2, §B.1].
 
     :param session: The session to write through
+    :param lens: The teacher lens carrying the owner id
     :param enrollment_id: The seat to remove
     :return: None
+    :raises BatchNotFound: The seat is not this lens's to write
     :raises EnrollmentNotRemovable: The seat is claimed or was erased
     """
-    record = session.get(Enrollment, enrollment_id)
-    if record is None:
-        raise EnrollmentNotRemovable(
-            code="ENROLLMENT_NOT_FOUND",
-            message_key="enrollment.not_found",
-        )
+    record = _owned_enrollment(session, lens=lens, enrollment_id=enrollment_id)
 
     if record.student_account_id is not None:
         raise EnrollmentNotRemovable(
@@ -249,6 +290,7 @@ def remove_enrollment(session: Session, *, enrollment_id: uuid.UUID) -> None:
 def set_inactive_from(
     session: Session,
     *,
+    lens: TeacherLens,
     enrollment_id: uuid.UUID,
     inactive_from: dt.date | None,
 ) -> None:
@@ -259,17 +301,13 @@ def set_inactive_from(
     does not leave the other. U7 reads this; U4 only records it.
 
     :param session: The session to write through
+    :param lens: The teacher lens carrying the owner id
     :param enrollment_id: The seat to mark
     :param inactive_from: The date, or None to reactivate the seat
     :return: None
-    :raises EnrollmentNotRemovable: No such enrollment
+    :raises BatchNotFound: The seat is not this lens's to write
     """
-    record = session.get(Enrollment, enrollment_id)
-    if record is None:
-        raise EnrollmentNotRemovable(
-            code="ENROLLMENT_NOT_FOUND",
-            message_key="enrollment.not_found",
-        )
+    record = _owned_enrollment(session, lens=lens, enrollment_id=enrollment_id)
 
     record.inactive_from = inactive_from
     session.commit()

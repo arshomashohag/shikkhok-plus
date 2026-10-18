@@ -234,3 +234,50 @@ def test_the_real_app_has_no_unlensed_routes() -> None:
     :return: None
     """
     assert unlensed_routes(real_app) == []
+
+
+# ---------------------------------------------------------------------------
+# THE GUARD THIS GATE DID NOT HAVE.
+#
+# `app.routes` does not always hold APIRoute objects: in this FastAPI
+# version an included router appears as an opaque _IncludedRouter, so
+# `isinstance(route, APIRoute)` matched NOTHING and this gate -- the one
+# control guaranteeing no endpoint ships unlensed -- passed against zero
+# routes. It reported a clean application because it was looking at an
+# empty list.
+#
+# A gate that quietly stops covering anything is worse than one that
+# fails, and nothing here would have noticed. These two tests make the
+# count itself an assertion.
+# ---------------------------------------------------------------------------
+
+
+def test_the_gate_sees_every_route_the_openapi_document_has() -> None:
+    from app.contract.routes import _api_routes
+
+    document = real_app.openapi()
+    documented = {
+        (method.upper(), path)
+        for path, operations in document["paths"].items()
+        for method in operations
+    }
+    enumerated = {
+        (method, route.path)
+        for route in _api_routes(real_app)
+        for method in sorted(route.methods or set())
+    }
+
+    missing = documented - enumerated
+    assert missing == set(), (
+        f"the gate cannot see these routes, so it does not check them: "
+        f"{sorted(missing)}"
+    )
+
+
+def test_the_gate_sees_a_non_trivial_number_of_routes() -> None:
+    from app.contract.routes import _api_routes
+
+    # A floor, not an exact count: the exact number changes with every
+    # Unit, and a test that has to be edited on every change gets edited
+    # without being read. Zero and "a handful" are what matter.
+    assert len(_api_routes(real_app)) >= 10

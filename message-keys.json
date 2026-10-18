@@ -7,7 +7,6 @@
     "authz.lens.not_available",
     "batch.create.subject_required",
     "batch.not_found",
-    "enrollment.not_found",
     "enrollment.remove.claimed",
     "enrollment.remove.erased"
   ]

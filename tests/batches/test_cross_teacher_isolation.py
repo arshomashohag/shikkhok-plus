@@ -123,3 +123,122 @@ def test_the_roster_is_scoped_by_the_lens_not_by_a_parameter(
     # The intruder's own lens, pointed at someone else's batch.
     with pytest.raises(BatchNotFound):
         list_roster(restricted_session, lens=_lens(intruder), batch_id=teacher.batch_id)
+
+
+# ---------------------------------------------------------------------------
+# THE WRITES. Review found a real IDOR here: remove_enrollment and
+# set_inactive_from took no lens at all, so any authenticated teacher
+# could delete or deactivate another teacher's seat by guessing a UUID.
+#
+# It slipped past every existing control. The route-enumeration gate
+# checks that a lens DEPENDENCY exists on the route -- and it did; the
+# handler resolved a TeacherLens and then discarded it. The isolation
+# tests above cover reads only. The lens-as-data-dependency convention
+# was followed everywhere in this module except these two functions.
+#
+# So the reads below are not enough: every WRITE needs its own probe.
+# ---------------------------------------------------------------------------
+
+
+def test_a_teacher_cannot_remove_another_teachers_enrollment(
+    restricted_session: Session, owner_session: Session
+) -> None:
+    """The IDOR, as a standing regression.
+
+    :param restricted_session: A session as the application role
+    :param owner_session: A session able to arrange fixture data
+    :return: None
+    """
+    from app.batches.service import remove_enrollment
+    from app.db.models import Enrollment
+
+    victim = make_teacher(owner_session, name="Physics")
+    attacker = make_teacher(owner_session, name="Chemistry")
+    seat = enroll(
+        owner_session,
+        batch_id=victim.batch_id,
+        display_name="Not the attacker's student",
+        student_account_id=None,
+    )
+
+    with pytest.raises(BatchNotFound):
+        remove_enrollment(restricted_session, lens=_lens(attacker), enrollment_id=seat)
+
+    # The seat SURVIVES. Asserting the exception alone would pass against
+    # an implementation that raised after deleting.
+    restricted_session.expire_all()
+    assert restricted_session.get(Enrollment, seat) is not None
+
+
+def test_a_teacher_cannot_deactivate_another_teachers_enrollment(
+    restricted_session: Session, owner_session: Session
+) -> None:
+    """The same hole on the other write, which is money-adjacent.
+
+    ``inactive_from`` stops future fee cycles [AC2.4.1], so writing it
+    on someone else's seat silently stops that teacher being paid.
+
+    :param restricted_session: A session as the application role
+    :param owner_session: A session able to arrange fixture data
+    :return: None
+    """
+    import datetime as dt
+
+    from app.batches.service import set_inactive_from
+    from app.db.models import Enrollment
+    from tests.batches.conftest import _account
+
+    victim = make_teacher(owner_session, name="Physics")
+    attacker = make_teacher(owner_session, name="Chemistry")
+    seat = enroll(
+        owner_session,
+        batch_id=victim.batch_id,
+        display_name="Not the attacker's student",
+        student_account_id=_account(owner_session),
+    )
+
+    with pytest.raises(BatchNotFound):
+        set_inactive_from(
+            restricted_session,
+            lens=_lens(attacker),
+            enrollment_id=seat,
+            inactive_from=dt.date(2026, 2, 15),
+        )
+
+    restricted_session.expire_all()
+    assert restricted_session.get(Enrollment, seat).inactive_from is None
+
+
+def test_an_absent_seat_and_another_owners_seat_are_refused_identically(
+    restricted_session: Session, owner_session: Session
+) -> None:
+    """A write must not become an existence oracle either [NFR14.13].
+
+    :param restricted_session: A session as the application role
+    :param owner_session: A session able to arrange fixture data
+    :return: None
+    """
+    import uuid as uuid_module
+
+    from app.batches.service import remove_enrollment
+
+    victim = make_teacher(owner_session, name="Physics")
+    attacker = make_teacher(owner_session, name="Chemistry")
+    seat = enroll(
+        owner_session,
+        batch_id=victim.batch_id,
+        display_name="Real but not theirs",
+        student_account_id=None,
+    )
+
+    with pytest.raises(BatchNotFound) as real:
+        remove_enrollment(restricted_session, lens=_lens(attacker), enrollment_id=seat)
+    with pytest.raises(BatchNotFound) as invented:
+        remove_enrollment(
+            restricted_session,
+            lens=_lens(attacker),
+            enrollment_id=uuid_module.uuid4(),
+        )
+
+    assert real.value.code == invented.value.code
+    assert real.value.message_key == invented.value.message_key

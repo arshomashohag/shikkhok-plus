@@ -23,6 +23,7 @@ import datetime as dt
 import pytest
 from sqlalchemy.orm import Session
 
+from app.authz.lenses import TeacherLens
 from app.batches.periods import Period, generates_for_period
 
 
@@ -168,6 +169,7 @@ def test_marking_one_seat_inactive_leaves_the_others_alone(
 
     set_inactive_from(
         restricted_session,
+        lens=TeacherLens(account_id=physics.account_id, owner_id=physics.owner_id),
         enrollment_id=leaving,
         inactive_from=dt.date(2026, 2, 15),
     )
@@ -201,10 +203,16 @@ def test_clearing_the_date_reactivates_the_seat(
         student_account_id=student,
     )
 
+    lens = TeacherLens(account_id=teacher.account_id, owner_id=teacher.owner_id)
     set_inactive_from(
-        restricted_session, enrollment_id=seat, inactive_from=dt.date(2026, 2, 15)
+        restricted_session,
+        lens=lens,
+        enrollment_id=seat,
+        inactive_from=dt.date(2026, 2, 15),
     )
-    set_inactive_from(restricted_session, enrollment_id=seat, inactive_from=None)
+    set_inactive_from(
+        restricted_session, lens=lens, enrollment_id=seat, inactive_from=None
+    )
 
     restricted_session.expire_all()
     assert restricted_session.get(Enrollment, seat).inactive_from is None

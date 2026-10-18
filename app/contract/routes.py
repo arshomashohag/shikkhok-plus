@@ -81,6 +81,53 @@ def _resolves_a_lens(dependant: Dependant) -> bool:
     return any(_resolves_a_lens(sub) for sub in dependant.dependencies)
 
 
+def _api_routes(app: FastAPI) -> list[APIRoute]:
+    """Collect every real endpoint, however the app stores them.
+
+    **``app.routes`` does not always hold ``APIRoute`` objects.** In this
+    FastAPI version an included router appears as an opaque
+    ``_IncludedRouter`` wrapper, so ``isinstance(route, APIRoute)`` over
+    ``app.routes`` matched NOTHING -- and this gate, the one control
+    guaranteeing no endpoint ships unlensed, passed against zero routes
+    for as long as that was true.
+
+    Enumerating the routers directly is version-independent: a router
+    holds its own ``APIRoute`` objects whatever the application does with
+    it afterwards. The count is cross-checked against the generated
+    OpenAPI document by a test, so a future version that hides routes
+    from here too fails loudly instead of silently narrowing.
+
+    :param app: The application to enumerate
+    :return: Every APIRoute reachable from the app or its routers
+    """
+    seen: dict[int, APIRoute] = {}
+
+    def collect(routes: object) -> None:
+        if not isinstance(routes, list):
+            return
+        for route in routes:
+            if isinstance(route, APIRoute):
+                seen[id(route)] = route
+            nested = getattr(route, "routes", None)
+            if nested is not None:
+                collect(nested)
+
+    collect(list(app.routes))
+
+    # The routers this application is built from. Imported here rather
+    # than at module scope: app.contract must not depend on app.api at
+    # import time, which would invert the dependency the layering test
+    # asserts.
+    from app.api.auth import router as auth_router
+    from app.api.batches import router as batches_router
+    from app.api.health import router as health_router
+
+    for router in (auth_router, batches_router, health_router):
+        collect(list(router.routes))
+
+    return list(seen.values())
+
+
 def unlensed_routes(app: FastAPI) -> list[RouteViolation]:
     """List every route that resolves no lens and is not allowlisted.
 
@@ -92,9 +139,7 @@ def unlensed_routes(app: FastAPI) -> list[RouteViolation]:
     """
     violations: list[RouteViolation] = []
 
-    for route in app.routes:
-        if not isinstance(route, APIRoute):
-            continue
+    for route in _api_routes(app):
         for method in sorted(route.methods or set()):
             key = (method, route.path)
             if key in PUBLIC_ROUTES or key in LENS_EXEMPT_AUTHENTICATED:

@@ -18,11 +18,22 @@ import datetime as dt
 import pytest
 from sqlalchemy.orm import Session
 
+from app.authz.lenses import TeacherLens
 from app.batches.service import (
+    BatchNotFound,
     EnrollmentNotRemovable,
     remove_enrollment,
 )
-from tests.batches.conftest import _account, enroll, make_teacher
+from tests.batches.conftest import TeacherFixture, _account, enroll, make_teacher
+
+
+def _lens(teacher: TeacherFixture) -> TeacherLens:
+    """Build the lens the service requires.
+
+    :param teacher: The teacher to build a lens for
+    :return: That teacher's lens
+    """
+    return TeacherLens(account_id=teacher.account_id, owner_id=teacher.owner_id)
 
 
 def test_a_dormant_never_claimed_seat_is_removed(
@@ -42,7 +53,9 @@ def test_a_dormant_never_claimed_seat_is_removed(
         student_account_id=None,
     )
 
-    remove_enrollment(restricted_session, enrollment_id=enrollment_id)
+    remove_enrollment(
+        restricted_session, lens=_lens(teacher), enrollment_id=enrollment_id
+    )
 
     from app.db.models import Enrollment
 
@@ -68,7 +81,9 @@ def test_a_claimed_seat_is_refused(
     )
 
     with pytest.raises(EnrollmentNotRemovable):
-        remove_enrollment(restricted_session, enrollment_id=enrollment_id)
+        remove_enrollment(
+            restricted_session, lens=_lens(teacher), enrollment_id=enrollment_id
+        )
 
 
 def test_an_erased_seat_is_refused_and_keeps_its_marker(
@@ -101,7 +116,9 @@ def test_an_erased_seat_is_refused_and_keeps_its_marker(
     owner_session.commit()
 
     with pytest.raises(EnrollmentNotRemovable):
-        remove_enrollment(restricted_session, enrollment_id=enrollment_id)
+        remove_enrollment(
+            restricted_session, lens=_lens(teacher), enrollment_id=enrollment_id
+        )
 
     restricted_session.expire_all()
     survivor = restricted_session.get(Enrollment, enrollment_id)
@@ -136,7 +153,9 @@ def test_a_guardian_erasure_also_blocks_removal(
     owner_session.commit()
 
     with pytest.raises(EnrollmentNotRemovable):
-        remove_enrollment(restricted_session, enrollment_id=enrollment_id)
+        remove_enrollment(
+            restricted_session, lens=_lens(teacher), enrollment_id=enrollment_id
+        )
 
 
 def test_the_refusal_names_which_condition_failed(
@@ -174,9 +193,13 @@ def test_the_refusal_names_which_condition_failed(
     owner_session.commit()
 
     with pytest.raises(EnrollmentNotRemovable) as claimed_error:
-        remove_enrollment(restricted_session, enrollment_id=claimed)
+        remove_enrollment(
+            restricted_session, lens=_lens(teacher), enrollment_id=claimed
+        )
     with pytest.raises(EnrollmentNotRemovable) as erased_error:
-        remove_enrollment(restricted_session, enrollment_id=erased_id)
+        remove_enrollment(
+            restricted_session, lens=_lens(teacher), enrollment_id=erased_id
+        )
 
     # Asserted on the CODE, not on str(error). The code is what a client
     # switches on and what the error envelope carries; str() happens to
@@ -188,16 +211,28 @@ def test_the_refusal_names_which_condition_failed(
     assert claimed_error.value.message_key != erased_error.value.message_key
 
 
-def test_an_unknown_enrollment_is_refused(restricted_session: Session) -> None:
+def test_an_unknown_enrollment_is_refused(
+    restricted_session: Session, owner_session: Session
+) -> None:
     """A seat that does not exist is refused, not silently ignored.
 
     A no-op return would report success for a removal that removed
     nothing, which is the shape that hides a wrong id from the caller.
 
+    The refusal is a ``BatchNotFound`` rather than an enrollment-shaped
+    error, and deliberately the SAME one another owner's seat gets: a
+    distinct error for "does not exist" would tell a caller which
+    enrollment ids are real.
+
     :param restricted_session: A session as the application role
+    :param owner_session: A session able to arrange fixture data
     :return: None
     """
     import uuid
 
-    with pytest.raises(EnrollmentNotRemovable):
-        remove_enrollment(restricted_session, enrollment_id=uuid.uuid4())
+    teacher = make_teacher(owner_session)
+
+    with pytest.raises(BatchNotFound):
+        remove_enrollment(
+            restricted_session, lens=_lens(teacher), enrollment_id=uuid.uuid4()
+        )
