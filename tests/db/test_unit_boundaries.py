@@ -14,7 +14,6 @@ Both are therefore checked statically, over the text and the AST.
 
 from __future__ import annotations
 
-import ast
 import pathlib
 import re
 
@@ -30,13 +29,36 @@ WRITE_PATTERN = re.compile(
 )
 
 
+#: The modules permitted to write ``owner`` or ``enrollment``.
+#:
+#: **U3 banned every write; U4 legitimises exactly one module.** The ban
+#: existed because U3 created both tables EMPTY and the seed script was
+#: the only thing allowed to fill them [BR6.1, BR6.3]. U4 owns these
+#: tables' behaviour, so a blanket ban would now forbid the Unit's whole
+#: purpose -- and deleting the test instead would retire a control that
+#: still has work to do.
+#:
+#: An ALLOWLIST rather than a deletion, and an explicit one rather than a
+#: directory prefix: adding a module here is a reviewable line, while
+#: `app/batches/**` would silently permit every file a later Unit drops
+#: into that package.
+WRITE_PERMITTED: frozenset[str] = frozenset(
+    {
+        "app/batches/service.py",
+    }
+)
+
+
 def _application_sources() -> list[pathlib.Path]:
-    """Collect every application module except the seed script itself.
+    """Collect every application module not permitted to write a shell.
 
     :return: The paths to check
     """
-    seed = APP / "db" / "seed_skeleton.py"
-    return [path for path in APP.rglob("*.py") if path != seed]
+    return [
+        path
+        for path in APP.rglob("*.py")
+        if str(path.relative_to(APP.parent)) not in WRITE_PERMITTED
+    ]
 
 
 def test_no_application_module_writes_a_shell_table() -> None:
@@ -50,35 +72,41 @@ def test_no_application_module_writes_a_shell_table() -> None:
     )
 
 
-def test_no_application_module_imports_the_seed_script() -> None:
-    offenders: list[str] = []
-    for path in _application_sources():
-        tree = ast.parse(path.read_text(), filename=str(path))
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Import):
-                names = [alias.name for alias in node.names]
-            elif isinstance(node, ast.ImportFrom):
-                names = [node.module or ""]
-            else:
-                continue
-            if any("seed_skeleton" in name for name in names):
-                offenders.append(path.name)
-    assert offenders == [], (
-        "The seed script is a manual verification precondition, never "
-        f"imported by application code [BR6.3]. Found: {offenders}"
-    )
+def test_the_seed_script_is_gone() -> None:
+    # U4 makes it obsolete: the batch and enrollment routes create these
+    # rows through the real API. Keeping it would leave a second, untested
+    # write path into the tables whose shape this Unit just changed -- and
+    # its rows are precisely what the 0002 migration's fold guard refuses.
+    assert not (APP / "db" / "seed_skeleton.py").exists()
+
+    offenders = [
+        path.name for path in APP.rglob("*.py") if "seed_skeleton" in path.read_text()
+    ]
+    assert offenders == [], f"dangling references to the seed script: {offenders}"
 
 
-def test_the_seed_script_is_guarded_by_a_main_block() -> None:
-    # A module that does its work on import is importable-by-accident,
-    # which is exactly what BR6.3 is trying to prevent.
-    source = (APP / "db" / "seed_skeleton.py").read_text()
-    assert '__name__ == "__main__"' in source
+def test_the_write_allowlist_names_only_modules_that_exist() -> None:
+    # A stale entry permits nothing and misleads the next reader into
+    # thinking a module is exempt when it is not even there.
+    missing = [name for name in WRITE_PERMITTED if not (APP.parent / name).exists()]
+    assert missing == [], f"allowlisted modules that do not exist: {missing}"
+
+
+def test_the_allowlisted_module_is_the_only_writer() -> None:
+    # Guards the check itself. If the allowlist ever grew to cover every
+    # module, the ban above would pass vacuously while forbidding nothing.
+    assert len(WRITE_PERMITTED) == 1
 
 
 def test_the_orm_models_declare_the_shell_tables() -> None:
     # Empty is not absent: the shells must be declared, or lens resolution
     # queries a table that does not exist and fails.
+    #
+    # The models are imported HERE rather than relying on another module
+    # having done it. Declarative registration is an import side effect,
+    # so without this the metadata is empty in an isolated run and the
+    # assertion passes or fails by test ORDER.
+    from app.db import models as _models  # noqa: F401
     from app.db.base import Base
 
     for table in SHELL_TABLES:

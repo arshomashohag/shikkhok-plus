@@ -1,0 +1,415 @@
+{
+  "stage": "code-generation",
+  "unit": "batches-and-enrollment",
+  "note": "Every business rule and NFR in this Unit's upstream set, mapped to the file that implements or enforces it. Where a control was verified by building the WRONG implementation, the rationale records which tests fired -- that distinction is the evidence, because every defect listed passes a confirmatory test. DEFERRED rows are boundaries with a named owner or a recorded cost decision, not gaps.",
+  "upstream_ids": [
+    "BR1.1",
+    "BR1.2",
+    "BR2.1",
+    "BR2.2",
+    "BR3.1",
+    "BR3.2",
+    "BR3.3",
+    "BR4.0",
+    "BR4.1",
+    "BR4.2",
+    "BR4.3",
+    "BR5.0",
+    "BR5.1",
+    "BR5.2",
+    "BR5.3",
+    "BR5.4",
+    "BR6.1",
+    "BR6.2",
+    "BR6.3",
+    "BR7.1",
+    "NFR4.1",
+    "NFR4.2",
+    "NFR6.1",
+    "NFR6.3",
+    "NFR6.11",
+    "NFR6.12",
+    "NFR6.13",
+    "NFR6.14",
+    "NFR6.15",
+    "NFR6.16",
+    "NFR6.17",
+    "NFR6.18",
+    "NFR8.1",
+    "NFR8.7",
+    "NFR8.8",
+    "NFR8.9",
+    "NFR8.10",
+    "NFR8.11",
+    "NFR8.12",
+    "NFR8.13",
+    "NFR10.5",
+    "NFR10.6",
+    "NFR10.7",
+    "NFR10.8",
+    "NFR10.9",
+    "NFR10.10",
+    "NFR10.11",
+    "NFR10.12",
+    "NFR14.12",
+    "NFR14.13",
+    "NFR14.14",
+    "NFR14.15",
+    "NFR14.16",
+    "NFR14.17",
+    "NFR14.18",
+    "NFR14.19",
+    "NFR14.20",
+    "NFR14.21"
+  ],
+  "coverage": [
+    {
+      "id": "BR1.1",
+      "status": "OK",
+      "target": "app/authz/resolve.py",
+      "rationale": "No role column anywhere; the lens is computed per request. 0002 DROPS the role column U3 carried, so the shape can no longer express a stored role."
+    },
+    {
+      "id": "BR1.2",
+      "status": "OK",
+      "target": "app/db/models.py",
+      "rationale": "Owner carries the subscription fields an administrator may read. No admin surface exists in V1, so nothing enforces the field subset yet -- recorded in security-design A.2 rather than claimed as enforced."
+    },
+    {
+      "id": "BR2.1",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "rationale": "create_batch takes owner_id from the LENS, never a parameter. Verified by injecting an unscoped query: 3 of 4 isolation tests fired."
+    },
+    {
+      "id": "BR2.2",
+      "status": "OK",
+      "target": "migrations/versions/0002_batches_and_enrollment.py",
+      "rationale": "The partial unique index on (batch_id, student_account_id) WHERE NOT NULL. Without the predicate the second dormant seat in a batch is refused, which is the normal state early in a batch's life."
+    },
+    {
+      "id": "BR3.1",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "rationale": "RosterRow carries display_name from the enrollment and never reaches Profile. The privacy suite's no-Profile-import probe covers the module."
+    },
+    {
+      "id": "BR3.2",
+      "status": "OK",
+      "target": "migrations/versions/0002_batches_and_enrollment.py",
+      "rationale": "RLS stays enabled and FORCED on profile from 0001; 0002 adds no table holding self-authored data."
+    },
+    {
+      "id": "BR3.3",
+      "status": "OK",
+      "target": "app/contract/money_names.py",
+      "rationale": "BOTH gates gained an allowlist and the token lists were unified. Step 7's observation confirmed the prediction exactly: the database gate reports batch.fee_due_day and nothing else. Step 10's tests distinguish an allowlist from a disabled gate -- an unlisted money-named integer is still reported."
+    },
+    {
+      "id": "BR4.0",
+      "status": "OK",
+      "target": "app/batches/periods.py",
+      "rationale": "A period is the calendar month; fee_due_day sets only the due date. Verified by injecting a due-date comparison: 3 tests fired, including the one written for it."
+    },
+    {
+      "id": "BR4.1",
+      "status": "OK",
+      "target": "app/batches/periods.py",
+      "rationale": "generates_for_period: nothing strictly after, the containing period IN FULL. Injecting the prorating version fired 2 tests."
+    },
+    {
+      "id": "BR4.2",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "rationale": "set_inactive_from writes per enrollment. A test asserts the other seat of the same student is untouched."
+    },
+    {
+      "id": "BR4.3",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "rationale": "Clearing the date reactivates the seat, so a teacher who marked the wrong one can undo it."
+    },
+    {
+      "id": "BR5.0",
+      "status": "OK",
+      "target": "app/authz/resolve.py",
+      "rationale": "THE CORRECTION THIS UNIT BRINGS. The guardian subquery reads guardian_account_id, so the enrollment a guardian reaches IS the child's -- the question U3's role column could not answer."
+    },
+    {
+      "id": "BR5.1",
+      "status": "OK",
+      "target": "app/api/batches.py",
+      "rationale": "The guardian routes key on the enrollment, and GuardianLens.child_enrollment_id is optional because the first request has not selected a child yet. The child arrives as a path parameter, never a client hint."
+    },
+    {
+      "id": "BR5.2",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "rationale": "list_guardian_children returns seats; a test asserts DISTINCT children, since one child in two batches is two enrollments and one child."
+    },
+    {
+      "id": "BR5.3",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "rationale": "Resolved through guardian_account_id, never through the child. Injecting the child-keyed rule passed 3 of 4 tests and failed exactly the one built to catch it."
+    },
+    {
+      "id": "BR5.4",
+      "status": "OK",
+      "target": "app/api/batches.py",
+      "rationale": "Attribution travels with every child row: batch_name is on the response and the string resource pairs it with the teacher."
+    },
+    {
+      "id": "BR6.1",
+      "status": "OK",
+      "target": "tests/db/test_unit_boundaries.py",
+      "rationale": "Inverted rather than deleted. U3 banned every write to owner and enrollment; U4 owns them, so one module is allowlisted explicitly and a test asserts the allowlist holds exactly one entry."
+    },
+    {
+      "id": "BR6.2",
+      "status": "OK",
+      "target": "migrations/versions/0002_batches_and_enrollment.py",
+      "rationale": "Per-LINK erasure markers. Removal tests BOTH conditions; injecting the null-only check fired 3 of 6 removal tests."
+    },
+    {
+      "id": "BR6.3",
+      "status": "OK",
+      "target": "tests/db/test_unit_boundaries.py",
+      "rationale": "The seed script is DELETED and a test asserts no dangling reference. Its rows are precisely what 0002's fold guard refuses."
+    },
+    {
+      "id": "BR7.1",
+      "status": "OK",
+      "target": "app/schemas/batches.py",
+      "rationale": "Money crosses as a JSON string on both surfaces, asserted on the RAW response text rather than the parsed body."
+    },
+    {
+      "id": "NFR4.1",
+      "status": "OK",
+      "target": "app/api/batches.py",
+      "rationale": "Responses carry server-computed decisions: status is an enum, not a date for the client to compare."
+    },
+    {
+      "id": "NFR4.2",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/roster/RosterStateMapper.kt",
+      "rationale": "An unknown status fails loudly rather than defaulting, so a server that added a fourth value cannot render every new seat under a fallback label."
+    },
+    {
+      "id": "NFR6.1",
+      "status": "OK",
+      "target": "app/authz/resolve.py",
+      "rationale": "Lens resolution stays ONE query after the correction, held by the existing query-count assertion."
+    },
+    {
+      "id": "NFR6.3",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "rationale": "list_batches counts seats in one grouped query rather than one per batch."
+    },
+    {
+      "id": "NFR6.11",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "rationale": "The roster's query count is constant in N. Verified by injecting N+1: 4 queries for 2 seats and 27 for 25."
+    },
+    {
+      "id": "NFR6.12",
+      "status": "OK",
+      "target": "tests/batches/test_query_count.py",
+      "rationale": "The property is constant-in-N, not minimal: a literal count gets raised rather than investigated the first time a correct change moves it."
+    },
+    {
+      "id": "NFR6.13",
+      "status": "OK",
+      "target": "tests/batches/test_query_count.py",
+      "rationale": "Both fixture sizes sit below SQLAlchemy's 500-row chunk boundary, or a correct implementation would fail the test."
+    },
+    {
+      "id": "NFR6.14",
+      "status": "OK",
+      "target": "migrations/versions/0002_batches_and_enrollment.py",
+      "rationale": "Four indexes created and asserted present by name."
+    },
+    {
+      "id": "NFR6.15",
+      "status": "OK",
+      "target": "migrations/versions/0002_batches_and_enrollment.py",
+      "rationale": "The fold guard refuses a batch with a student count other than one, naming the batch and the count."
+    },
+    {
+      "id": "NFR6.16",
+      "status": "OK",
+      "target": "tests/db/test_migration_rollback_is_total.py",
+      "rationale": "VERIFIED, not reasoned: after a refusal information_schema is byte-identical and alembic_version still reads 0001. env.py sets no transactional_ddl override, so the Alembic default applies."
+    },
+    {
+      "id": "NFR6.17",
+      "status": "OK",
+      "target": "migrations/versions/0002_batches_and_enrollment.py",
+      "rationale": "downgrade() raises and names the dump. It could reverse the renames but cannot reconstruct which student a deleted guardian row belonged to."
+    },
+    {
+      "id": "NFR6.18",
+      "status": "OK",
+      "target": "tests/db/test_migration_from_head.py",
+      "rationale": "The from-head test SEEDS a claimed enrollment and asserts the VALUE survives. An empty table makes a rename and a drop-and-recreate indistinguishable, and a row count passes against both."
+    },
+    {
+      "id": "NFR8.1",
+      "status": "OK",
+      "target": "app/errors/_classes.py",
+      "rationale": "The closed taxonomy still holds; BatchNotFound chooses AuthorizationError with 404 rather than adding a sixth class."
+    },
+    {
+      "id": "NFR8.7",
+      "status": "OK",
+      "target": "app/api/batches.py",
+      "rationale": "One error envelope, carrying code, retryable and message_key."
+    },
+    {
+      "id": "NFR8.8",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "rationale": "No display_name or guardian_phone reaches a log line; enrollments are identified by id."
+    },
+    {
+      "id": "NFR8.9",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "rationale": "Enrollments are identified by enrollment_id only."
+    },
+    {
+      "id": "NFR8.10",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "rationale": "A refused removal distinguishes claimed from erased by CODE, since the teacher's remedy differs."
+    },
+    {
+      "id": "NFR8.11",
+      "status": "OK",
+      "target": "app/api/batches.py",
+      "rationale": "No new alert: no U4 operation costs money, loses data irrecoverably, or indicates an attack."
+    },
+    {
+      "id": "NFR8.12",
+      "status": "OK",
+      "target": "app/governance/dispositions.py",
+      "rationale": "No AuthAuditLog row is written; its closed enum is the mechanism keeping it an authentication log."
+    },
+    {
+      "id": "NFR8.13",
+      "status": "DEFERRED",
+      "target": "app/governance/dispositions.py",
+      "rationale": "Per-row audit of a display_name or guardian_phone edit is NOT implemented. A cost decision with a revisit trigger at U7's first send, recorded as such rather than as a privacy position."
+    },
+    {
+      "id": "NFR10.5",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "rationale": "Add-student resolves an existing account by phone under U3's existing unique index."
+    },
+    {
+      "id": "NFR10.6",
+      "status": "OK",
+      "target": "app/db/models.py",
+      "rationale": "No server-side cache of lens-scoped data; request-scoped memoization only."
+    },
+    {
+      "id": "NFR10.7",
+      "status": "OK",
+      "target": "app/db/models.py",
+      "rationale": "Owner is created lazily; most accounts never own a batch."
+    },
+    {
+      "id": "NFR10.8",
+      "status": "DEFERRED",
+      "target": "app/batches/service.py",
+      "rationale": "The roster is unpaginated and the payload grows linearly. Recorded in scalability-design C as a stated limit rather than a solved problem."
+    },
+    {
+      "id": "NFR10.9",
+      "status": "OK",
+      "target": "migrations/versions/0002_batches_and_enrollment.py",
+      "rationale": "One Postgres instance; no read replica, which would also be an authorization bug for a computed lens."
+    },
+    {
+      "id": "NFR10.10",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "rationale": "Batch listing orders newest first and counts seats in one query."
+    },
+    {
+      "id": "NFR10.11",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/roster/RosterUiState.kt",
+      "rationale": "The cache is a read cache and says when it is stale; a Compose test asserts the notice appears only for cached data."
+    },
+    {
+      "id": "NFR10.12",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "rationale": "No N+1 in the guardian children query: one join rather than a per-child lookup."
+    },
+    {
+      "id": "NFR14.12",
+      "status": "OK",
+      "target": "app/api/deps.py",
+      "rationale": "Every route resolves a lens through a dependency returning the scoping value. U4 is the first Unit with an authenticated lensed route, so this is where the Bearer header is first read."
+    },
+    {
+      "id": "NFR14.13",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "rationale": "404 for another owner's batch, identical to an invented id. A 403 for one and 404 for the other is an existence oracle; AuthorizationError's Literal widened to include 404 with the reasoning recorded."
+    },
+    {
+      "id": "NFR14.14",
+      "status": "OK",
+      "target": "tests/batches/test_cross_teacher_isolation.py",
+      "rationale": "THE TEST B3 COULD NOT WRITE. The fixture enrolls the SAME account with two teachers, so a query scoped on the student rather than the owner returns both rows to both and still passes any single-teacher test."
+    },
+    {
+      "id": "NFR14.15",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "rationale": "Guardian reachability through guardian_account_id. The child-keyed rule leaks across teachers and passes the happy path."
+    },
+    {
+      "id": "NFR14.16",
+      "status": "OK",
+      "target": "app/db/models.py",
+      "rationale": "The teacher-facing key is enrollment_id; no response carries a student account id."
+    },
+    {
+      "id": "NFR14.17",
+      "status": "OK",
+      "target": "app/api/batches.py",
+      "rationale": "No client-supplied lens hint is trusted: the lens is resolved server-side per request."
+    },
+    {
+      "id": "NFR14.18",
+      "status": "DEFERRED",
+      "target": "app/db/models.py",
+      "rationale": "Owner's administrator-readable field subset is stated in columns. Nothing enforces it because no admin surface exists."
+    },
+    {
+      "id": "NFR14.19",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "rationale": "No U4 module imports or references Profile; RLS makes the fallback fail closed even if written."
+    },
+    {
+      "id": "NFR14.20",
+      "status": "OK",
+      "target": "migrations/versions/0002_batches_and_enrollment.py",
+      "rationale": "New tables are GRANTed to the restricted role explicitly. 0001's GRANT ON ALL TABLES covered only what existed then, so without this the app could not read its own tables -- and they were invisible to the governance gates."
+    },
+    {
+      "id": "NFR14.21",
+      "status": "OK",
+      "target": "app/contract/money_names.py",
+      "rationale": "The money gate now looks through anyOf, so a NULLABLE money field typed as a number is caught. fee_amount is nullable by design, so the one shape the project uses for money was the one the gate could not see."
+    }
+  ]
+}
