@@ -1,0 +1,14 @@
+{
+  "_comment": "Every message_key the backend can emit. The server names which string to show and never sends the string itself, so each key needs a string resource on every client. Generated and asserted by tests/contract/test_message_keys.py.",
+  "keys": [
+    "auth.otp.not_valid",
+    "auth.otp.temporarily_unavailable",
+    "auth.token.not_valid",
+    "authz.lens.not_available",
+    "batch.create.subject_required",
+    "batch.not_found",
+    "enrollment.not_found",
+    "enrollment.remove.claimed",
+    "enrollment.remove.erased"
+  ]
+}

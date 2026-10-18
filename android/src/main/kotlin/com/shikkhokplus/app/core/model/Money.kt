@@ -18,9 +18,17 @@ import java.math.RoundingMode
  *
  * Always exactly two decimal places, matching the server's canonical form.
  *
+ * **The serializer is attached to the TYPE, not to each field**, which is
+ * the same chokepoint principle the backend's column type uses. A
+ * per-field `@Serializable(with = ...)` works until one DTO forgets it,
+ * and a forgotten annotation is invisible in review because the field
+ * still renders — it just renders a number. Attaching it here means a
+ * money field cannot be declared without it.
+ *
  * @property amount The exact value, scaled to two decimal places.
  */
 @JvmInline
+@kotlinx.serialization.Serializable(with = MoneySerializer::class)
 value class Money(val amount: BigDecimal) {
 
     init {

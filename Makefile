@@ -10,11 +10,29 @@
 
 PY ?= python3
 
-.PHONY: check format lint typecheck test gates contract openapi install clean
+.PHONY: check format lint typecheck test gates contract openapi install clean android
 
-check: lint typecheck test
+check: lint typecheck test android
 	@echo ""
 	@echo "All gates passed."
+
+## The Android suite. Part of `check` rather than a separate command the
+## person has to remember: `team.md` requires ONE entrypoint, local and in
+## CI, because a gate reproducible only by pushing is a gate that gets
+## bypassed. CI still SPLITS the jobs so a Kotlin build does not gate a
+## backend PR; that is a scheduling decision, not a second entrypoint.
+##
+## Skipped with a loud notice when no JDK is reachable, rather than failing
+## the whole gate: a backend-only change on a machine without a JDK should
+## not be unverifiable. The notice is the point — a silent skip would make
+## this gate vacuous, which is this project's most common defect shape.
+android:
+	@if ./gradlew --version >/dev/null 2>&1; then \
+		./gradlew :android:testDebugUnitTest --console=plain -q; \
+	else \
+		echo "SKIPPED: the Android suite needs a JDK and none was reachable."; \
+		echo "          This gate did NOT run. CI runs it on every push."; \
+	fi
 
 ## Regenerate the committed contract. THE ONLY SANCTIONED WAY to update
 ## openapi.json.

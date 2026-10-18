@@ -33,4 +33,22 @@
     <string name="auth_otp_not_valid">That code is not valid. Request a new one.</string>
     <string name="auth_otp_temporarily_unavailable">Sign-in is temporarily unavailable. Please try again later.</string>
     <string name="auth_token_not_valid">Your session has ended. Please sign in again.</string>
+
+    <!-- Roster, batches and guardian children (U4). -->
+    <string name="roster_title">Students</string>
+    <string name="roster_empty">No students yet. Add the first one to get started.</string>
+    <string name="roster_retry">Try again</string>
+    <string name="roster_status_dormant">Not signed in yet</string>
+    <string name="roster_status_active">Active</string>
+    <string name="roster_status_inactive">Left</string>
+    <string name="roster_fetched_at">Showing saved data from %1$s</string>
+    <string name="batch_not_found">That class could not be found.</string>
+    <string name="batch_create_subject_required">Add at least one subject.</string>
+    <string name="enrollment_not_found">That student could not be found.</string>
+    <string name="enrollment_remove_claimed">This student has signed in and has a record. Mark them as left instead of removing them.</string>
+    <string name="enrollment_remove_erased">This place records someone\'s request to erase their data. Add the number again to create a new, separate record.</string>
+    <string name="authz_lens_not_available">You do not have access to this.</string>
+    <string name="guardian_children_title">Your children</string>
+    <string name="guardian_children_empty">No children yet. A teacher needs to record your number first.</string>
+    <string name="guardian_child_attribution">%1$s, taught by %2$s</string>
 </resources>

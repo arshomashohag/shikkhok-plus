@@ -23,6 +23,17 @@ object MessageKeys {
         "auth.otp.temporarily_unavailable" to
             R.string.auth_otp_temporarily_unavailable,
         "auth.token.not_valid" to R.string.auth_token_not_valid,
+        // U4: batches, enrollment seats and the guardian's children.
+        "batch.not_found" to R.string.batch_not_found,
+        "batch.create.subject_required" to
+            R.string.batch_create_subject_required,
+        "enrollment.not_found" to R.string.enrollment_not_found,
+        "enrollment.remove.claimed" to R.string.enrollment_remove_claimed,
+        "enrollment.remove.erased" to R.string.enrollment_remove_erased,
+        "authz.lens.not_available" to R.string.authz_lens_not_available,
+        "roster.status.dormant" to R.string.roster_status_dormant,
+        "roster.status.active" to R.string.roster_status_active,
+        "roster.status.inactive" to R.string.roster_status_inactive,
     )
 
     /**
