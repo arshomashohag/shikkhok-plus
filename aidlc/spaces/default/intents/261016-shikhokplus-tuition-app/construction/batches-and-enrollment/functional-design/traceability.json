@@ -201,7 +201,7 @@
     {
       "id": "AC2.6.3",
       "status": "OK",
-      "target": "BR7.1 \u2014 entities.md BatchVisibilityPreference",
+      "target": "BR7.1 \u2014 entities.md HiddenBatchPreference",
       "rationale": "A separate TABLE keyed on account_id, not a column on Enrollment. A column would be shared by every lens that reads the row, which is the bug the shape prevents."
     },
     {
@@ -346,7 +346,7 @@
     {
       "id": "deleted-at-writer-is-u11",
       "status": "N/A",
-      "target": "rules.md BR6.2 -- review Major. BR6.1's only removal is a hard DELETE gated on claimed_at IS NULL, so no U4 operation produces a claimed-then-deleted row. AC1.3.6 cites FR11.1: 'deleted' means the PERSON deleted their account, which is U11's path. U4 owns the column and the read semantics; U11 owns the write."
+      "target": "rules.md BR6.2 -- review Major. BR6.1's only removal is a hard DELETE gated on a dormant student seat, so no U4 operation produces a claimed-then-deleted row. AC1.3.6 cites FR11.1: 'deleted' means the PERSON deleted their account, which is U11's path. U4 owns the column and the read semantics; U11 owns the write."
     },
     {
       "id": "period-start-undefined-upstream",

@@ -596,10 +596,21 @@ rules:
     applies_to: Enrollment removal
     trigger: A delete request
     logic: >
-      IF claimed_at IS NULL AND no attendance, mark or fee row
-      references this enrollment
+      IF student_account_id IS NULL
+      AND student_relink_blocked_at IS NULL
+      AND no attendance, mark or fee row references this enrollment
       THEN delete
       ELSE refuse with a ConflictError naming the inactive path.
+
+      **The STUDENT seat is what this rule tests.** A guardian link is
+      not a claim on the enrollment; a row whose guardian signed in but
+      whose student never did is still a dormant student place.
+
+      Both student conditions are needed, not just the first. After an
+      erasure `student_account_id` is NULL again, so the null test
+      alone would permit deleting a row that CARRIES ERASED HISTORY —
+      the one case where the teacher's own attendance and marks are
+      most likely to exist.
     violation_behaviour: >
       A cascade delete. It would remove the teacher's own attendance
       and marks records, which are the teacher's business record as
@@ -734,9 +745,13 @@ rules:
     applies_to: Dormant enrollments
     trigger: Any notification dispatch or roster render
     logic: >
-      IF an enrollment has claimed_at IS NULL
-      THEN send nothing to its number
+      IF an enrollment has student_account_id IS NULL
+      THEN send nothing to the student number
       AND render no per-row marker.
+
+      Evaluated PER LINK: a row may be dormant on the student seat and
+      claimed on the guardian seat, and the guardian is contactable
+      while the student is not.
     violation_behaviour: >
       An invitation SMS. It would spend money on the control U3 built
       ceilings for, and contact a person who never asked to be

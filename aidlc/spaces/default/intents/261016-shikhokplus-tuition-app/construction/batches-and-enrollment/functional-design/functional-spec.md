@@ -98,9 +98,10 @@ read-only state, implying batches are mutable.
 3. Same for the guardian number, when supplied. The guardian is **per
    enrollment** — recording a guardian here does not make them a
    guardian of any other enrollment.
-4. Insert the `Enrollment` with the teacher-typed `display_name`, the
-   optional `fee_amount` (null means inherit [BR3.1]), and
-   `claimed_at` null.
+4. Insert the `Enrollment` with the teacher-typed `display_name` and
+   `guardian_phone`, the optional `fee_amount` (null means inherit
+   [BR3.1]), and `student_account_id` set only if the number resolved
+   to an existing account — a dormant seat leaves it **NULL**.
 5. **Send nothing** [BR6.3]. No invitation, no notification.
 
 > **Step 2 is where the permanent-account design pays off and where it
@@ -147,8 +148,11 @@ Setting `inactive_from` must satisfy all three independently [BR4.1–BR4.3]:
 
 ### 2.5 Remove an enrollment — `DELETE .../enrollments/{id}`
 
-1. Refuse unless `claimed_at` is null **and** no history references it
-   [BR6.1].
+1. Refuse unless the **student seat** is dormant and was never erased
+   — `student_account_id IS NULL AND student_relink_blocked_at IS
+   NULL` — **and** no history references it [BR6.1]. The null test
+   alone is insufficient: an erased seat is also null, and that is the
+   case most likely to carry the teacher's own attendance and marks.
 2. On refusal, return a `ConflictError` naming the inactive path.
 
 > **The history check is incomplete at B5 and that is recorded rather
@@ -237,7 +241,8 @@ Setting `inactive_from` must satisfy all three independently [BR4.1–BR4.3]:
 | Inactive from the 10th | That month charges **in full** | [AC2.4.5] |
 | Inactive, with unpaid dues | Dues stand unchanged | [BR4.2] |
 | Remove a claimed enrollment | Refused; inactive offered instead | [BR6.1] |
-| Remove a dormant, history-free enrollment | Deleted | [AC2.5.1] |
+| Remove an **erased** enrollment | Refused — `student_relink_blocked_at` is set | [BR6.1] |
+| Remove a dormant, never-erased, history-free enrollment | Deleted | [AC2.5.1] |
 | Guardian with zero children | Empty state explaining why | [BR5.2] |
 | Guardian with one child | Straight through, attribution still shown | [AC2.8.5] |
 | Same child, two teachers, two numbers | Only the signed-in number's batches | [BR5.3] |
