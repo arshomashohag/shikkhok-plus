@@ -48,7 +48,7 @@ separately mandated.
 - E. Student performance trends — exam marks over time, per batch or per student
 - X. Other (please specify — or "A only", the smallest useful version)
 
-[Answer]:
+[Answer]: A, B, C. Also quick view of immediate next exam with remaining time
 
 ---
 
@@ -59,13 +59,13 @@ thresholds were not. Requirements must be verifiable, and these three currently
 cannot be: "reduce overdue balances" has no pass or fail. Each needs a number
 and a timeframe, or an explicit decision that it stays directional for now.
 
-- A. Teacher retention: ___ teachers still active 3 months after onboarding (give a number)
-- B. Guardian engagement: ___% of guardians open the app at least monthly (give a percentage)
-- C. Collection improvement: ___% reduction in overdue balances versus the paper baseline (give a percentage)
+- A. Teacher retention: 100 teachers still active 3 months after onboarding (give a number)
+- B. Guardian engagement: 90% of guardians open the app at least monthly (give a percentage)
+- C. Collection improvement: 90% reduction in overdue balances versus the paper baseline (give a percentage)
 - D. All three stay directional for V1 — closed testing with 12 teachers is too small a sample for a percentage to mean anything, so judge by qualitative feedback and set targets after launch
 - X. Other (please specify — give whichever numbers you have and mark the rest directional)
 
-[Answer]:
+[Answer]: D
 
 ---
 
@@ -87,7 +87,7 @@ actually behave.
 - D. The teacher is prompted to choose at the moment they mark the student inactive, per student
 - X. Other (please specify)
 
-[Answer]:
+[Answer]: A
 
 ---
 
@@ -107,7 +107,7 @@ can fix their own error.
 - D. Marks and fee cycles are freely editable; payment approvals are append-only because they are the dispute surface
 - X. Other (please specify)
 
-[Answer]:
+[Answer]: B
 
 ---
 
@@ -125,7 +125,7 @@ creates an enrollment that will never activate.
 - D. Removal always allowed and it hard-deletes everything
 - X. Other (please specify)
 
-[Answer]:
+[Answer]:B
 
 ---
 
@@ -142,7 +142,7 @@ same child.
 - C. Each guardian sees only their own teacher's batches, but the child's name and the existence of other batches is visible
 - X. Other (please specify)
 
-[Answer]:
+[Answer]: X - It's the phone number that distinguish the guardian. The child batches are keyed by the guardian's phone number. If teacher A records phone PN1 and teacher B records PN2, guardian needs to login using PN1 to see teacher A's batch for his child and PN2 to see B's.
 
 ---
 
@@ -159,7 +159,7 @@ gains a student lens. Whether it should is a product question.
 - D. Allowed, except a teacher cannot enroll their own number in their own batch
 - X. Other (please specify)
 
-[Answer]:
+[Answer]: A, B
 
 ---
 
@@ -176,7 +176,7 @@ whose subscription lapses (deferred, but the data question is now).
 - D. Marks and attendance stay; fee history stays; announcements and schedules disappear once the batch is inactive
 - X. Other (please specify)
 
-[Answer]:
+[Answer]: C
 
 ---
 
@@ -199,7 +199,7 @@ visible to the whole batch, confusing them is visible to everyone.
 - E. Only a mark or nothing is needed; a blank is sufficient for every case
 - X. Other (please specify)
 
-[Answer]:
+[Answer]: A, B, C
 
 ---
 
@@ -219,7 +219,7 @@ a compliance question as well as a product one.
 - C. Teacher chooses per batch, alongside the existing visibility toggle
 - X. Other (please specify)
 
-[Answer]:
+[Answer]: B
 
 ---
 
@@ -237,7 +237,10 @@ verifiable at all.
 - D. A target, but set it after the first Android slice exists and can be measured
 - X. Other (please specify)
 
-[Answer]:
+[Answer]: C — SUPERSEDED by Q14.3. "No numeric target" was kept, and the
+follow-up established that there is no verifier either, so the mid-class speed
+statement is dropped as a requirement rather than carried as an unverifiable
+one. See Q14.3.
 
 ---
 
@@ -253,7 +256,7 @@ an OTP cannot use the product at all.
 - D. Nothing specific — a failed send is a generic error and the user tries again later
 - X. Other (please specify)
 
-[Answer]:
+[Answer]: B
 
 ---
 
@@ -271,6 +274,156 @@ enrollment and the wrong fee cycle.
 - D. No special handling — the teacher catches it at verification and rejects it
 - X. Other (please specify)
 
-[Answer]:
+[Answer]: B
 
 ---
+
+## Q14. Contradiction resolution (follow-ups to Q4, Q10 and Q11)
+
+Three answers conflicted with the brief or with the affirmed practices. Raised
+rather than implemented.
+
+**Q14.1 — corrections and the payment audit trail (follow-up to Q4)**
+
+Q4 chose edits that overwrite the record with the previous value in an audit log
+the teacher cannot see. That conflicts with §6, which requires logging who
+approved a payment and when *because that screen generates disputes* — a log
+neither party can see cannot settle a dispute — and with the affirmed practice
+naming payment approval the dispute surface.
+
+- A. Split it: marks and fee cycles editable, payment approvals append-only
+- B. Keep overwrite, but make the history visible to both parties
+- C. Keep exactly as answered, with a hidden audit log
+- D. Append-only everywhere
+- X. Other (please specify)
+
+[Answer]: B. Edits overwrite the current value, as Q4 chose, but the previous
+value and the identity of whoever changed it are **visible to both the teacher
+and the affected student or guardian** — not a hidden log. This keeps the
+single-current-value model while making the trail usable for the dispute
+resolution §6 exists to support. Supersedes Q4's hidden-log element; the
+overwrite semantics stand.
+
+**Q14.2 — marksheet anonymisation (follow-up to Q10)**
+
+Q10 chose the viewer's own row named and all others anonymised. §10 makes
+`marksheet_visible` a per-batch toggle defaulting ON and states that showing
+every student's marks to the whole batch is normal and motivating in this
+market, so this reverses a stated product decision.
+
+- A. Yes — anonymise, overriding the brief
+- B. Teacher chooses per batch, extending the existing toggle to three states
+- C. Revert to the brief — names and marks
+- X. Other (please specify)
+
+[Answer]: A. Anonymise, deliberately overriding §10. Students and guardians see
+their own row named and every other row's marks without an attached identity.
+The peer-comparison motivation the brief describes is knowingly traded for
+reduced children's-data exposure under the mixed-audience Families declaration
+[intent: Q17]. `marksheet_visible` continues to control whether the anonymised
+marksheet is shown at all.
+
+**Q14.3 — the mid-class speed requirement (follow-up to Q11)**
+
+Q11 chose no numeric target. The affirmed practices state that PU-3.6's
+obligation is either a Macrobenchmark on a low-end device profile or an explicit
+manual pilot check, and that discharging a performance requirement with a
+correctness test is not acceptable. With neither a target nor an instrument,
+§11's clearest performance statement had no verifier.
+
+- A. Explicit manual pilot check, no number
+- B. Set a number after the first Android slice exists and can be measured
+- C. No target and no verifier — drop the requirement
+- D. Other (please specify)
+
+[Answer]: C. The mid-class speed statement is **dropped as a requirement** and
+becomes design guidance only. It carries no acceptance criterion, no numeric
+target and no verifier, and PU-3.6 has no performance obligation in V1. This is
+a deliberate removal of a brief statement rather than an oversight: §11 says a
+teacher needing more than a few seconds per class will abandon the app, and that
+risk is accepted without a mechanism to detect it before pilot feedback does.
+
+---
+
+## Consolidated Summary Confirmation
+
+Does this all look correct before I generate the requirements artifact?
+
+- Analytics dashboard shows the monthly earnings total, an earnings trend across
+  months, and the collection rate — plus a quick view of the next exam with the
+  remaining time until it.
+- All three success metrics stay directional for V1, with numeric targets set
+  after launch, because closed testing with 12 teachers cannot support a
+  percentage.
+- When a student goes inactive mid-period, the already-generated cycle stands in
+  full and the teacher adjusts it manually through the ledger's
+  charge-adjustment path.
+- Corrections overwrite the current value, and the previous value together with
+  the identity of whoever changed it is visible to both the teacher and the
+  affected student or guardian — not a hidden log.
+- A teacher may remove an enrollment only while it is dormant and has no
+  attendance, marks or fee history; otherwise marking inactive is the only exit.
+- Where two teachers record different guardian numbers for one child, the phone
+  number is the key: the guardian logs in with the number teacher A recorded to
+  see teacher A's batch, and with the number teacher B recorded to see teacher
+  B's. Scoping is per enrollment, keyed by the recorded number.
+- A teacher may enter a phone number that already owns batches, with a warning
+  shown before confirming.
+- An inactive batch becomes read-only and collapsed by default for students and
+  guardians, with all history still reachable.
+- Exam marks distinguish three states beyond a numeric mark: Absent, not yet
+  entered, and joined after the exam.
+- The batch marksheet shows the viewer's own row named and every other row
+  anonymised. This deliberately overrides §10, trading the peer-comparison
+  motivation the brief describes for reduced children's-data exposure under the
+  mixed-audience Families declaration.
+- The mid-class speed statement is dropped as a requirement. It carries no
+  numeric target, no acceptance criterion and no verifier, and becomes design
+  guidance only.
+- A failed OTP delivery is shown as a delivery failure rather than a wrong code,
+  with a resend the user can trigger once the cooldown expires and the rate
+  limits still applying.
+- The payment form shows the child's name alongside the batch name, and
+  submission shows a confirmation naming both.
+- Two consequences recorded as accepted risks rather than resolved: §11's
+  abandonment risk now has no detection mechanism before pilot feedback, since
+  the speed requirement was dropped; and showing the child's name on the payment
+  form makes a wrong-child payment visible rather than unreachable, so a
+  guardian moving quickly can still submit against the wrong child and the
+  teacher catches it at verification.
+
+[Answer]: Looks correct
+
+---
+
+## Q15. Guardian child selection (reviewer finding, after the summary)
+
+The product-lead review found that guardian child selection — PU-2.12, a Must
+Have in the intent backlog and named in §8 as where the guardian app begins —
+had no requirement at all. It was dropped during generation: Q6's answer changed
+the guardian model to phone-number scoping, and the consequence for child
+selection was never re-derived. Confirmed by grep: no occurrence outside two
+incidental mentions.
+
+**Q15.1 — behaviour when only one child is reachable**
+
+- A. Always show child selection, even for one child
+- B. Skip it when exactly one child is reachable
+- C. A persistent switcher in the header rather than a gating step
+- X. Other (please specify)
+
+[Answer]: B. With exactly one child reachable from the authenticated number, the
+guardian app opens directly on that child's batch list. With two or more, it
+opens on child selection. Recorded at [FR2.15].
+
+**Q15.2 — whether the child list identifies the recording teacher**
+
+- A. Yes — show the teacher's name against each child
+- B. No — child display names only
+- C. Only where a child appears under more than one teacher
+- X. Other (please specify)
+
+[Answer]: A. Each child in the selection list shows the display name and the
+teacher who recorded them. Recorded at [FR2.16]. This also partly addresses
+assumption A3: a guardian can now see whose records they are viewing, though
+nothing yet explains why another teacher's batches are absent.
