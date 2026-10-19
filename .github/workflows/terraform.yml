@@ -51,6 +51,20 @@ jobs:
     name: plan
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # **Not on an apply dispatch.** Both jobs share one concurrency
+    # group, but `cancel-in-progress: false` queues rather than
+    # cancels -- and that queueing applies BETWEEN workflow runs, not
+    # between two jobs of the SAME run. So dispatching `apply` started
+    # plan and apply together and they raced for the S3 state lock,
+    # with whichever lost reporting a lock error rather than anything
+    # describing the real cause.
+    #
+    # Nothing is lost by skipping it: the apply job plans to a file
+    # and prints that plan to the job summary as its own step, before
+    # the step that applies it. The diff still reaches a human, and
+    # it is now the diff that was actually applied rather than a
+    # separate one computed moments earlier.
+    if: github.event_name != 'workflow_dispatch' || inputs.action == 'plan'
     # Plan needs read access to AWS, so it needs the role -- but not
     # the apply environment's approval. A plan that required approval
     # would mean nobody sees the diff until after someone approves it.
@@ -249,20 +263,48 @@ jobs:
           terraform init -input=false \
             -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
 
-      - name: Apply
+      # **Planned to a FILE, then that exact file is applied.** Not
+      # `apply -auto-approve`, which plans internally and prints the
+      # diff interleaved with the changes it is already making -- so
+      # the record of what was about to happen and the record of what
+      # did happen are the same scrolling log.
+      #
+      # Re-planned here rather than reusing a PR's saved plan: that
+      # one may be hours old and miss what merged after it, so it
+      # would act on a world that no longer exists.
+      - name: Plan
+        id: plan
         working-directory: infra
         env:
           TF_VAR_domain_name: ${{ vars.TF_DOMAIN_NAME }}
           TF_VAR_environment: ${{ vars.TF_ENVIRONMENT || 'staging' }}
         run: |
-          # Re-plans rather than applying the PR's saved plan. A plan
-          # from a pull request may be hours old and may not include
-          # what merged after it -- applying it would act on a world
-          # that no longer exists.
+          terraform plan -input=false -no-color -out=tfplan | tee plan.txt
+
+      # The diff, in the job summary, BEFORE the apply step runs.
+      # Without this the only account of what changed is buried in a
+      # log that also contains the change itself.
+      - name: What is about to be applied
+        run: |
+          {
+            echo "### Plan"
+            echo ""
+            echo '```terraform'
+            head -c 60000 infra/plan.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Apply
+        working-directory: infra
+        run: |
+          # The saved plan file, so what is applied is exactly what
+          # was printed above -- no second planning pass that could
+          # differ. No -var flags: a saved plan carries its own
+          # variables, and passing them again is an error.
           #
           # ACM validation takes 5-30 minutes on a first apply and
           # CloudFront another 10-15. That is why the timeout is 45.
-          terraform apply -input=false -auto-approve
+          terraform apply -input=false tfplan
 
       - name: Outputs
         working-directory: infra
