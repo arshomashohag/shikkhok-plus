@@ -89,6 +89,47 @@ resource "aws_iam_role_policy_attachment" "ssm" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
+# Pulling the application image. **Two statements, because ECR's
+# auth action cannot be scoped to a repository**:
+# GetAuthorizationToken is account-level by design, so restricting it
+# to a resource produces a policy that silently denies every pull.
+# The layer-reading actions ARE scoped, and those are the ones that
+# decide which images this host can actually read.
+#
+# **The count tests whether the OBJECT is null, not a value inside
+# it.** Terraform knows at plan time whether the caller passed an
+# object at all, even when the arn inside it is
+# `(known after apply)`. `var.image_repository.arn == null` would NOT
+# work -- that reads an unknown value, and count must be known at
+# plan time. The distinction is the whole reason this is one object
+# rather than separate arn and url inputs.
+resource "aws_iam_role_policy" "ecr_pull" {
+  count = var.image_repository == null ? 0 : 1
+
+  name = "ecr-pull"
+  role = aws_iam_role.instance.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = "ecr:GetAuthorizationToken"
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:BatchGetImage",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchCheckLayerAvailability",
+        ]
+        Resource = var.image_repository.arn
+      },
+    ]
+  })
+}
+
 resource "aws_iam_instance_profile" "instance" {
   name = "${var.name_prefix}-instance"
   path = "/shikkhokplus/"
@@ -165,6 +206,12 @@ resource "aws_instance" "app" {
 
   user_data = templatefile("${path.module}/user_data.sh.tftpl", {
     origin_secret = random_password.origin_secret.result
+    # Empty for a host with no registry access, which keeps the
+    # template valid rather than failing on an unset variable.
+    # Empty for a host with no registry, which keeps the template
+    # valid rather than failing on an unset variable.
+    ecr_repository_url = try(var.image_repository.url, "")
+    ecr_registry       = try(split("/", var.image_repository.url)[0], "")
   })
   # Changing user_data does NOT replace the instance. It runs once at
   # first boot; replacing a running host to re-run a provisioning

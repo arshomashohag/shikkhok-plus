@@ -10,10 +10,21 @@ name: check
 # packaging Bolt's bytecode scan, which needs a signing keystore — and it
 # belongs in the release gate rather than here, for this reason.
 
+# **No `push` trigger: nothing runs on merge.**
+#
+# This drops the post-merge run on main, and team.md calls that run
+# "the only thing that catches a stale-base merge" -- a PR green
+# against an older main can merge and break it. That risk is real and
+# is accepted here, with one cheaper control available in its place:
+# GitHub's "Require branches to be up to date before merging", under
+# branch protection, forces the rebase BEFORE the merge rather than
+# detecting the breakage after it. Turning that on closes the same
+# hole at the gate.
+#
+# Without it, a broken main is found by the next PR's run rather than
+# by a run of its own.
 on:
   pull_request:
-  push:
-    branches: [main]
   # Manual, for re-running the gate against a branch without pushing an
   # empty commit to trigger it -- which is what people do otherwise, and
   # it pollutes the history of the branch under review.

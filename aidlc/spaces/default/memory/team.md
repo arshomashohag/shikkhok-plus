@@ -331,8 +331,14 @@ Supporting bullets, which do not replace the two fields above:
   dependencies are cached, the backend path stays under about ten minutes or it
   will be skipped, and the per-month minute budget is stated and monitored
   against [OC-4].
-- **A green `main`, not just a green PR.** With squash-merge and one reviewer, the
-  post-merge run on `main` is the only thing that catches a stale-base merge.
+- **A green `main`, not just a green PR.** With squash-merge and one reviewer, a
+  PR green against an older `main` can merge and break it. This was originally
+  discharged by a post-merge run on `main`; that run was removed on 2026-10-19
+  at the user's instruction ("don't run actions on merge"), and the obligation
+  moves to GitHub's **"Require branches to be up to date before merging"** under
+  branch protection, which forces the rebase before the merge rather than
+  detecting the breakage after it. If that setting is off, this obligation has
+  no verifier and a broken `main` is found by the next PR's run.
 - A red suite blocks the merge. Coverage below floor blocks. Schema drift blocks.
   Tests that always pass regardless of implementation are defects in their own
   right and are rejected in review.
@@ -351,7 +357,13 @@ Supporting bullets, which do not replace the two fields above:
 
 ## Deployment
 
-We **deploy on merge to staging**; production deploys are a separate, explicitly
+We **deploy to staging on an explicit dispatch**, not on merge. The original
+practice said "deploy on merge to staging"; that was never what the workflow
+did, and as of 2026-10-19 no workflow runs on merge at all, at the user's
+instruction. A deploy is an action someone takes, with the ref and whether
+to migrate chosen at the time.
+
+Production deploys are a separate, explicitly
 triggered step. With a solo build the `org.md` default of "tech lead plus
 product owner sign-off" has no meaning — the same person holds both roles — so
 the gate is not an approval quorum but a **checklist the person completes**:

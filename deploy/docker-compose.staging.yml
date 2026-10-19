@@ -1,0 +1,74 @@
+# The staging host's compose file.
+#
+# **Separate from the repo-root docker-compose.yml, and the difference
+# is not cosmetic.** That file builds from source and publishes
+# Postgres on a host port so `make check` and a local psql can reach
+# it. Both are wrong here: the host must run the artifact CI tested,
+# not a rebuild of it, and a published database port on a box with a
+# public IP is a database on the internet.
+#
+# Deployed by `.github/workflows/deploy-staging.yml` over SSM. The
+# image tag is pinned to a commit SHA by that workflow -- `latest` is
+# never deployed, so the running artifact is always identifiable
+# [team.md Deployment].
+
+name: shikkhokplus
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: shikkhok
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: shikkhokplus
+    # **No `ports:`.** The API reaches it over the compose network by
+    # service name. Publishing 5432 here would expose it on the
+    # instance's public IP, where the security group's 0.0.0.0/0 rule
+    # covers 80 and 443 only -- so the port would be closed by luck
+    # rather than by design, and one widened rule away from open.
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shikkhok -d shikkhokplus"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+    restart: unless-stopped
+
+  api:
+    # **Pulled, never built.** The tag is written by the deploy
+    # workflow. A host-side `--build` would run a different build from
+    # the one CI tested, on a 2GB box, during a deploy.
+    image: ${API_IMAGE:?API_IMAGE is required, e.g. <acct>.dkr.ecr.<region>.amazonaws.com/shikkhokplus-backend:<sha>}
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SHIKKHOKPLUS_DATABASE_URL: >-
+        postgresql+psycopg://shikkhok:${POSTGRES_PASSWORD}@db:5432/shikkhokplus
+      SHIKKHOKPLUS_ENVIRONMENT: ${SHIKKHOKPLUS_ENVIRONMENT:-staging}
+      SHIKKHOKPLUS_OTP_HMAC_KEY: ${SHIKKHOKPLUS_OTP_HMAC_KEY:?required}
+      SHIKKHOKPLUS_JWT_KEYS: ${SHIKKHOKPLUS_JWT_KEYS:?required}
+      SHIKKHOKPLUS_JWT_ACTIVE_KID: ${SHIKKHOKPLUS_JWT_ACTIVE_KID:-k1}
+      SHIKKHOKPLUS_SMS_APP_HASH: ${SHIKKHOKPLUS_SMS_APP_HASH:-AAAAAAAAAAA}
+      SHIKKHOKPLUS_GLOBAL_DAILY_SMS: ${SHIKKHOKPLUS_GLOBAL_DAILY_SMS:-50}
+      SHIKKHOKPLUS_SMS_API_KEY: ${SHIKKHOKPLUS_SMS_API_KEY:-}
+      SHIKKHOKPLUS_SMS_SENDER_ID: ${SHIKKHOKPLUS_SMS_SENDER_ID:-}
+      SHIKKHOKPLUS_SMS_ADAPTER: ${SHIKKHOKPLUS_SMS_ADAPTER:-null}
+      SHIKKHOKPLUS_SMS_BASE_URL: ${SHIKKHOKPLUS_SMS_BASE_URL:-}
+      SHIKKHOKPLUS_STAGING_OUTBOX: ${SHIKKHOKPLUS_STAGING_OUTBOX:-0}
+    ports:
+      # **Bound to localhost.** nginx is the only thing that talks to
+      # it, and it does so over the loopback. Without the 127.0.0.1
+      # prefix Docker publishes on 0.0.0.0 and -- because Docker writes
+      # its own iptables rules ahead of the host firewall -- the API
+      # would be reachable on the public IP at :8000, bypassing nginx
+      # and therefore bypassing the CloudFront origin-secret check
+      # entirely. That is the single most likely way this deployment
+      # would accidentally expose an unauthenticated surface.
+      - "127.0.0.1:8000:8000"
+    restart: unless-stopped
+
+volumes:
+  pgdata:

@@ -55,14 +55,23 @@ output "origin_secret" {
 }
 
 output "monthly_cost_estimate" {
-  description = "Published list prices, ap-south-1, USD/month."
-  value = {
-    app_instance     = 12.00
-    staging_instance = var.enable_staging_instance ? 12.00 : 0.00
-    route53_zone     = 0.50
-    cloudfront       = 0.00
-    acm              = 0.00
-    rds              = var.enable_rds ? 17.36 : 0.00
-    total            = 12.50 + (var.enable_staging_instance ? 12.00 : 0.00) + (var.enable_rds ? 17.36 : 0.00)
-  }
+  description = <<-EOT
+    Published list prices, us-east-1, USD/month. Queried from the AWS
+    Price List API on 2026-10-19, not estimated.
+
+    Shares one model with the budget precondition in main.tf, so the
+    guard and the report cannot disagree -- they did before, by USD
+    4.67 on the instance alone.
+  EOT
+  value = merge(local.cost_breakdown, {
+    total = local.monthly_cost
+  })
+}
+
+output "image_repository" {
+  description = <<-EOT
+    Where the deploy workflow pushes and the host pulls. The tag is a
+    commit SHA; `latest` is never deployed.
+  EOT
+  value       = module.registry.repository_url
 }

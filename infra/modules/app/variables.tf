@@ -33,3 +33,26 @@ variable "root_volume_gb" {
   type        = number
   default     = 30
 }
+
+variable "image_repository" {
+  description = <<-EOT
+    The ECR repository this host pulls its application image from,
+    as `{ arn, url }`. Supplied by the root module from
+    `module.registry`, since sibling modules cannot reference each
+    other directly.
+
+    Null means this host runs no application -- it still boots, still
+    has SSM, and simply has no pull permission and no registry in its
+    docker config.
+
+    **One object rather than three separate inputs**, because the arn
+    and the url are not independent: a host given one without the
+    other either has permission it cannot use or a registry it cannot
+    read. The object makes that combination unrepresentable.
+  EOT
+  type = object({
+    arn = string
+    url = string
+  })
+  default = null
+}
