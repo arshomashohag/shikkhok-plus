@@ -14,6 +14,10 @@ on:
   pull_request:
   push:
     branches: [main]
+  # Manual, for re-running the gate against a branch without pushing an
+  # empty commit to trigger it -- which is what people do otherwise, and
+  # it pollutes the history of the branch under review.
+  workflow_dispatch:
 
 permissions:
   contents: read

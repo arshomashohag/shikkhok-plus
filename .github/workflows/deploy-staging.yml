@@ -12,10 +12,22 @@ name: deploy-staging
 on:
   workflow_dispatch:
     inputs:
-      confirm:
-        description: 'Type "deploy" to confirm'
-        required: true
+      ref:
+        description: "Branch or tag to deploy"
+        required: false
         type: string
+        default: main
+      run_migrations:
+        description: "Apply Alembic migrations as part of this deploy"
+        required: false
+        type: boolean
+        default: true
+
+# **No typed confirmation.** The `staging` environment below already
+# gates this on an approval, and a second ceremony guarding the same
+# door teaches people to type the word without reading the sentence.
+# The inputs above ask something USEFUL instead: what to deploy, and
+# whether the schema changes.
 
 permissions:
   contents: read
@@ -33,13 +45,23 @@ jobs:
     timeout-minutes: 20
     environment: staging
     steps:
-      - name: Confirm
-        if: inputs.confirm != 'deploy'
-        run: |
-          echo "::error::Type 'deploy' to confirm. Nothing was deployed."
-          exit 1
-
       - uses: actions/checkout@v4
+        with:
+          # The dispatched ref, so a hotfix branch can be deployed
+          # without merging it first.
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: What this run will do
+        run: |
+          {
+            echo "### Deploying"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| ref | \`${{ inputs.ref || github.ref_name }}\` |"
+            echo "| commit | \`${GITHUB_SHA:0:12}\` |"
+            echo "| migrations | ${{ inputs.run_migrations }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # The secrets are REQUIRED here, and checked before anything runs.
       # A deploy that starts, migrates, and then discovers it has no SMS
@@ -119,14 +141,41 @@ jobs:
             echo "SHIKKHOKPLUS_STAGING_OUTBOX=0"
           } > .env
 
-      # Deployment to the host is not wired yet: there is no Lightsail
-      # instance. This workflow currently verifies the configuration and
-      # builds the image, which is the half that can be automated without
-      # one. The SSH step goes here once deploy/README.md has been run.
+      # Deployment to the host is not wired yet: the EC2 instance does
+      # not exist until `terraform apply` has run. This workflow
+      # verifies the configuration and builds the image, which is the
+      # half that can be automated without one.
+      #
+      # The delivery step goes here, and it will be SSM rather than
+      # SSH -- there is no inbound port 22 by design.
       - name: Build the image
-        run: docker build -t shikkhokplus-backend:${{ github.sha }} .
-
-      - name: Note what is not yet automated
+        # arm64, because the host is Graviton (t4g.small). An x86 image
+        # fails at `docker run` with an exec format error that does not
+        # mention architecture.
         run: |
-          echo "::notice::Image built. Host deployment is manual until a"
-          echo "::notice::Lightsail instance exists -- see deploy/README.md."
+          docker build --platform linux/arm64 \
+            -t shikkhokplus-backend:${{ github.sha }} .
+
+      # `run_migrations` is read HERE rather than ignored. An input that
+      # does nothing is worse than no input: it reads as a control, so
+      # somebody eventually sets it to false and believes the schema was
+      # left alone.
+      - name: What is still manual
+        env:
+          RUN_MIGRATIONS: ${{ inputs.run_migrations }}
+        run: |
+          {
+            echo ""
+            echo "**Image built. Host delivery is still manual.**"
+            echo ""
+            echo "The EC2 instance exists only after \`terraform apply\`."
+            echo "Until the delivery step lands here, follow"
+            echo "\`deploy/README.md\` over SSM:"
+            echo ""
+            echo '    aws ssm start-session --target <app_instance_id>'
+            if [ "$RUN_MIGRATIONS" != "true" ]; then
+              echo ""
+              echo "> \`run_migrations\` was **false**: skip the Alembic"
+              echo "> step in that ordering and leave the schema as it is."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

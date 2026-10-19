@@ -187,6 +187,28 @@ jobs:
               });
             }
 
+      # A MANUALLY dispatched plan has no PR to comment on, so without
+      # this its output is buried in the job log -- which makes the
+      # `plan` dispatch option look like it does nothing.
+      - name: Plan in the job summary
+        if: github.event_name == 'workflow_dispatch' && always()
+        run: |
+          # Guarded: `always()` means this also runs when the plan step
+          # failed, and `head` on a missing file would then replace the
+          # real error with a confusing one of its own.
+          if [ ! -f infra/plan.txt ]; then
+            echo "Terraform plan produced no output -- see the step above." \
+              >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          {
+            echo "### Terraform plan"
+            echo ""
+            echo '```terraform'
+            head -c 60000 infra/plan.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       # The plan FILE, not the text. Apply re-plans rather than
       # consuming this, so it is here for a human to inspect when a
       # plan surprises them.
