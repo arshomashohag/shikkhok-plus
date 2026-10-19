@@ -1,0 +1,273 @@
+name: release-android
+
+# The Android release build, triggered by pushing a version tag.
+#
+#     git tag v0.2.0 && git push origin v0.2.0
+#
+# **The tag IS the version.** Deriving versionName from it means the
+# git history, the AAB and the Play listing cannot disagree -- a
+# dispatch input can be typed wrong, and a wrong versionCode is not
+# reversible for that code because Play permanently reserves it.
+#
+# What this produces, as downloadable artifacts:
+#   * the signed AAB to upload to Play
+#   * a mapping.txt for deobfuscating release crashes
+#   * draft release notes, for editing before publishing
+#   * an SBOM [team.md: one per release build]
+#
+# **It does not upload to Play.** The artifact is reviewed by a human
+# before it reaches even the internal track, because Play's Families
+# declarations are answered from what is IN the build and a wrong
+# answer is a policy violation rather than a bug.
+
+on:
+  push:
+    tags:
+      - "v*"
+  # For rehearsing the gates against a branch without burning a tag --
+  # a version number spent on a failed build is spent permanently.
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to build, e.g. 0.2.0 (dry run, not released)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-android-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: build and verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # The keystore lives here. Without the environment's protection a
+    # workflow edit on any branch could exfiltrate the upload key.
+    environment: android-release
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history: the release notes are generated from the
+          # commits since the previous tag, and a shallow clone has
+          # neither the tags nor the commits.
+          fetch-depth: 0
+
+      - name: Resolve the version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            name="${GITHUB_REF_NAME#v}"
+            dry=false
+          else
+            name="${{ inputs.version }}"
+            dry=true
+          fi
+
+          # Semver, loosely: Play accepts any string, but a versionName
+          # that does not sort is a support problem later.
+          if ! echo "$name" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.]+)?$'; then
+            echo "::error::Version '$name' is not MAJOR.MINOR.PATCH."
+            exit 1
+          fi
+
+          # **versionCode from the run number, never from the tag.**
+          # Play requires it to increase strictly and permanently
+          # reserves every code used. Deriving it from a monotonic
+          # counter means a re-release of the same versionName (a
+          # rejected upload, a fixed build) gets a fresh code
+          # automatically, which is the case that otherwise wastes a
+          # version number.
+          code="${{ github.run_number }}"
+
+          echo "name=$name"  >> "$GITHUB_OUTPUT"
+          echo "code=$code"  >> "$GITHUB_OUTPUT"
+          echo "dry=$dry"    >> "$GITHUB_OUTPUT"
+
+          {
+            echo "### Release $name"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| versionName | \`$name\` |"
+            echo "| versionCode | \`$code\` |"
+            echo "| dry run | $dry |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail early when the release is not configured
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          API_BASE_URL: ${{ vars.ANDROID_API_BASE_URL }}
+        run: |
+          missing=()
+          [ -n "$KEYSTORE" ]       || missing+=("secret ANDROID_KEYSTORE_BASE64")
+          [ -n "$STORE_PASSWORD" ] || missing+=("secret ANDROID_KEYSTORE_PASSWORD")
+          [ -n "$KEY_ALIAS" ]      || missing+=("secret ANDROID_KEY_ALIAS")
+          [ -n "$KEY_PASSWORD" ]   || missing+=("secret ANDROID_KEY_PASSWORD")
+          [ -n "$API_BASE_URL" ]   || missing+=("variable ANDROID_API_BASE_URL")
+
+          if [ ${#missing[@]} -ne 0 ]; then
+            echo "::error::Not configured: ${missing[*]}"
+            echo "See docs in android/RELEASE.md for generating the upload key."
+            exit 1
+          fi
+
+          # **https, asserted here.** The release build talks to the
+          # real backend over the public internet carrying phone
+          # numbers and OTPs. A plain-http base URL would ship them in
+          # cleartext and the app would work perfectly, so nothing
+          # else would report it.
+          case "$API_BASE_URL" in
+            https://*) ;;
+            *) echo "::error::ANDROID_API_BASE_URL must be https, got '$API_BASE_URL'"
+               exit 1 ;;
+          esac
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # The same gate `check.yml` runs. A release that skipped the
+      # tests would be the one release where skipping them mattered.
+      - name: Unit tests
+        run: ./gradlew :android:testDebugUnitTest --no-daemon
+
+      - name: Write the keystore
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          # Outside the workspace, so no later step can archive it
+          # into an artifact by accident.
+          umask 077
+          echo "$KEYSTORE" | base64 -d > "$RUNNER_TEMP/upload.jks"
+          # Asserted, because a corrupt base64 secret otherwise
+          # surfaces as an opaque Gradle signing error.
+          keytool -list -keystore "$RUNNER_TEMP/upload.jks" \
+            -storepass "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" \
+            > /dev/null
+          echo "Keystore decoded and readable."
+
+      - name: Build the bundle
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/upload.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          # bundleRelease is finalizedBy the two gates, so a forbidden
+          # permission or device identifier fails THIS step.
+          ./gradlew :android:bundleRelease --no-daemon \
+            -PversionName="${{ steps.version.outputs.name }}" \
+            -PversionCode="${{ steps.version.outputs.code }}" \
+            -PapiBaseUrl="${{ vars.ANDROID_API_BASE_URL }}"
+
+      - name: Remove the keystore
+        if: always()
+        run: shred -u "$RUNNER_TEMP/upload.jks" 2>/dev/null || rm -f "$RUNNER_TEMP/upload.jks"
+
+      # **Asserted, not assumed.** Gradle succeeds on an unsigned
+      # bundle, and Play rejects it only at upload -- after the
+      # version number is spent.
+      - name: The bundle is signed
+        run: |
+          aab=android/build/outputs/bundle/release/android-release.aab
+          [ -f "$aab" ] || { echo "::error::No AAB at $aab"; exit 1; }
+
+          if ! unzip -l "$aab" | grep -q "META-INF/.*\.RSA\|META-INF/.*\.EC"; then
+            echo "::error::The bundle carries no signature block."
+            echo "Gradle produced an UNSIGNED bundle, which Play refuses"
+            echo "at upload. Check that ANDROID_KEYSTORE_PATH reached the"
+            echo "build -- an absent keystore makes signing a no-op."
+            exit 1
+          fi
+          echo "Signature block present."
+
+      - name: SBOM
+        # team.md: one per release build, so "is this CVE in the AAB on
+        # the store" is answerable in a minute rather than a day. Not a
+        # merge gate.
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/anchore/syft/main/install.sh \
+            | sh -s -- -b "$RUNNER_TEMP/bin"
+          "$RUNNER_TEMP/bin/syft" scan \
+            "android/build/outputs/bundle/release/android-release.aab" \
+            -o spdx-json > "android-sbom-${{ steps.version.outputs.name }}.json" \
+            || echo "::warning::SBOM generation failed; not blocking the release."
+
+      - name: Draft the release notes
+        run: |
+          python3 scripts/release_notes.py \
+            --version "${{ steps.version.outputs.name }}" \
+            --play-notes play-release-notes.txt
+
+          {
+            echo ""
+            echo "### Draft release notes"
+            echo ""
+            echo "Generated from commit subjects, which are written for"
+            echo "developers. **Edit before publishing** -- \"count cannot"
+            echo "derive from an unknown ARN\" is accurate and meaningless"
+            echo "to a teacher."
+            echo ""
+            echo '```'
+            cat play-release-notes.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ steps.version.outputs.name }}
+          path: |
+            android/build/outputs/bundle/release/android-release.aab
+            android/build/outputs/mapping/release/mapping.txt
+            play-release-notes.txt
+            CHANGELOG.md
+            android-sbom-*.json
+          if-no-files-found: error
+          retention-days: 90
+
+      # A GitHub Release, for the real thing only. A dry run that
+      # created one would make a rehearsal look like a shipped version.
+      - name: GitHub release
+        if: steps.version.outputs.dry == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 scripts/release_notes.py \
+            --version "${{ steps.version.outputs.name }}" --print-only \
+            > release-body.md
+
+          gh release create "${{ github.ref_name }}" \
+            --title "${{ steps.version.outputs.name }}" \
+            --notes-file release-body.md \
+            --draft \
+            android/build/outputs/bundle/release/android-release.aab \
+            play-release-notes.txt
+
+          echo "Draft release created. Review and publish it."
+
+      - name: What to do next
+        run: |
+          {
+            echo ""
+            echo "### Upload to Play"
+            echo ""
+            echo "1. Download the \`release-${{ steps.version.outputs.name }}\` artifact"
+            echo "2. Play Console -> Testing -> Internal testing -> Create release"
+            echo "3. Upload \`android-release.aab\`"
+            echo "4. Upload \`mapping.txt\` under app bundle -> deobfuscation file"
+            echo "5. Paste the EDITED release notes"
+            echo ""
+            echo "The Data Safety form is answered from what is in this"
+            echo "build. The manifest and DEX gates passed, so no device"
+            echo "or advertising identifier is present."
+          } >> "$GITHUB_STEP_SUMMARY"

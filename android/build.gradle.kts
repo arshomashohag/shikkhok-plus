@@ -16,8 +16,15 @@ android {
         applicationId = "com.shikkhokplus.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        // **Supplied by the release pipeline**, defaulting to the
+        // dev values. Play REJECTS an upload whose versionCode is not
+        // strictly greater than every previous one, and that is not
+        // reversible for that code -- so CI derives it from the run
+        // number rather than leaving it to be remembered.
+        versionCode = (project.findProperty("versionCode") as String?)
+            ?.toInt() ?: 1
+        versionName = (project.findProperty("versionName") as String?)
+            ?: "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -29,6 +36,26 @@ android {
         }
         getByName("test") {
             kotlin.srcDirs("src/test/kotlin")
+        }
+    }
+
+    signingConfigs {
+        create("release") {
+            // **Read from the environment, never from a file in the
+            // repository** [project.md: NEVER hardcode a credential].
+            // CI writes the keystore to a temp path from a base64
+            // secret and removes it afterwards.
+            //
+            // All four absent means an UNSIGNED build, which is
+            // correct for a local `assembleRelease` -- it must not
+            // silently produce something that looks uploadable.
+            val storePath = System.getenv("ANDROID_KEYSTORE_PATH")
+            if (storePath != null) {
+                storeFile = file(storePath)
+                storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+            }
         }
     }
 
@@ -55,9 +82,27 @@ android {
                 "API_BASE_URL",
                 "\"${project.findProperty("apiBaseUrl") ?: ""}\"",
             )
-            // R8 and the release-build gates arrive with the packaging Bolt,
-            // which is the first thing that needs them.
-            isMinifyEnabled = false
+            // **R8 is on, and the DEX gate is why.** It scans the
+            // MINIFIED build: a debug build can differ in which
+            // dependencies are present, and the release AAB is what
+            // ships. Minifying also shrinks the bundle, but that is
+            // the side effect rather than the reason.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
+
+            // Only when the environment supplied a keystore. Without
+            // it the build is unsigned and Play refuses it, which is
+            // the correct failure -- better than a locally-signed
+            // artifact that cannot be updated later.
+            signingConfig = if (System.getenv("ANDROID_KEYSTORE_PATH") != null) {
+                signingConfigs.getByName("release")
+            } else {
+                null
+            }
         }
     }
 
@@ -116,4 +161,31 @@ dependencies {
 
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.compose.ui.test.junit4)
+}
+
+// The two release-build gates team.md requires: the merged-manifest
+// permission allowlist and the minified-DEX identifier scan.
+apply(from = "release-gates.gradle.kts")
+
+// **Wired to the build, not left to be remembered.** A gate somebody
+// has to invoke is a gate that gets skipped on the release that
+// mattered.
+//
+// `tasks.matching` rather than `tasks.named` inside `afterEvaluate`:
+// the AGP tasks are registered lazily, so naming them directly fails
+// with "Task with name 'bundleRelease' not found" depending on when
+// evaluation runs. Matching reacts whenever the task appears.
+tasks.matching { it.name == "verifyReleasePermissions" }.configureEach {
+    dependsOn("processReleaseManifest")
+}
+tasks.matching { it.name == "bundleRelease" }.configureEach {
+    finalizedBy("verifyReleasePermissions", "verifyReleaseDex")
+}
+
+// **The DEX gate must run AFTER the bundle is written, not merely
+// after bundleRelease is requested.** `finalizedBy` alone let it open
+// a stale or partial archive and report "no .dex entries" -- which
+// its own guard caught, correctly refusing to pass on an empty scan.
+tasks.matching { it.name == "verifyReleaseDex" }.configureEach {
+    mustRunAfter("bundleRelease", "packageRelease")
 }
