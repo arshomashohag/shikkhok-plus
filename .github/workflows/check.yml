@@ -33,9 +33,41 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          # **Full history, for Gitleaks.** The default is a shallow
+          # clone of depth 1, and Gitleaks scans the range
+          # `<before>^..<after>` for a push -- so it asks for a parent
+          # the runner never fetched and fails with "ambiguous
+          # argument ... unknown revision", having scanned 0 bytes.
+          #
+          # The failure mode is the dangerous one: it reports "no leaks
+          # found in partial scan" on the way out. A secrets scan that
+          # exits non-zero having scanned nothing is at least loud; one
+          # that said "no leaks" and passed would be a control that had
+          # silently stopped working.
+          fetch-depth: 0
 
       # Step 1. Blocks absolutely, no severity threshold: binary, near-zero
       # false positive, always actionable by whoever just pushed.
+      # Guards the guard. Gitleaks needs real history to diff a push
+      # range, and in a shallow clone it logs "no leaks found in
+      # partial scan" having read 0 bytes. It exits non-zero today, so
+      # the breakage is loud -- but a scanner whose clean verdict can
+      # come from an empty scan is one commit of upstream behaviour
+      # away from passing while checking nothing.
+      #
+      # This asserts the precondition rather than trusting it.
+      - name: History is deep enough to scan
+        run: |
+          count=$(git rev-list --count HEAD)
+          if [ "$count" -lt 2 ]; then
+            echo "::error::Only $count commit(s) in this clone."
+            echo "The secrets scan needs full history -- check that"
+            echo "actions/checkout still sets fetch-depth: 0."
+            exit 1
+          fi
+          echo "$count commits available to scan."
+
       - name: Secrets scan
         uses: gitleaks/gitleaks-action@v2
         env:
