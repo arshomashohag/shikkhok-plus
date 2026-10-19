@@ -44,15 +44,40 @@ locals {
 # raise the ceiling deliberately -- rather than discovering it on a
 # bill. Set `acknowledged_monthly_budget` higher to proceed anyway.
 locals {
+  # **One cost model, used by BOTH the precondition below and the
+  # monthly_cost_estimate output.** They were two separate numbers
+  # that disagreed -- the precondition said USD 16.67 for the
+  # instance and the output said USD 12.00, both labelled ap-south-1
+  # while the stack now runs in us-east-1. A budget guard computing
+  # from a number nobody checks is decoration.
+  #
+  # Queried from the AWS Price List API for us-east-1, 2026-10-19:
+  #   t4g.small on-demand   USD 0.0168/hr x 730 = USD 12.26
+  #   gp3 storage           USD 0.08/GB-month x 30GB = USD 2.40
+  #   Elastic IP            USD 0.00 while ATTACHED (0.005/hr if not)
+  #   Route53 hosted zone   USD 0.50
+  #   CloudFront, ACM       USD 0.00 at this volume / always
+  cost_instance = 12.26
+  cost_storage  = var.root_volume_gb * 0.08
+  cost_host     = local.cost_instance + local.cost_storage
+
+  cost_breakdown = {
+    app_instance     = local.cost_host
+    staging_instance = var.enable_staging_instance ? local.cost_host : 0.00
+    route53_zone     = 0.50
+    ecr              = 0.10
+    cloudfront       = 0.00
+    acm              = 0.00
+    elastic_ip       = 0.00
+    rds              = var.enable_rds ? 17.36 : 0.00
+  }
+
   monthly_cost = (
-    16.67 +
-    # The project's own hosted zone. Small, and counted: the Phase 2
-    # total was already USD 50.20 against a USD 50 ceiling, so an
-    # uncounted 50 cents is the difference between a precondition
-    # that holds and one that is quietly wrong.
-    0.50 +
-    (var.enable_staging_instance ? 16.17 : 0.00) +
-    (var.enable_rds ? 17.36 : 0.00)
+    local.cost_breakdown.app_instance +
+    local.cost_breakdown.staging_instance +
+    local.cost_breakdown.route53_zone +
+    local.cost_breakdown.ecr +
+    local.cost_breakdown.rds
   )
 }
 
@@ -88,6 +113,7 @@ module "registry" {
 module "app" {
   source = "./modules/app"
 
+  enable_ecr_pull    = true
   ecr_repository_arn = module.registry.repository_arn
   ecr_repository_url = module.registry.repository_url
 

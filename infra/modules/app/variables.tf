@@ -34,6 +34,19 @@ variable "root_volume_gb" {
   default     = 30
 }
 
+variable "enable_ecr_pull" {
+  description = <<-EOT
+    Whether this host may pull from the image repository.
+
+    A separate flag rather than deriving it from
+    `ecr_repository_arn != null`, because a derived count fails the
+    plan: the ARN is unknown until the repository is created, and
+    `count` must be known at plan time.
+  EOT
+  type        = bool
+  default     = false
+}
+
 variable "ecr_repository_arn" {
   description = <<-EOT
     The image repository this host may pull from. Null grants no ECR

@@ -95,8 +95,15 @@ resource "aws_iam_role_policy_attachment" "ssm" {
 # to a resource produces a policy that silently denies every pull.
 # The layer-reading actions ARE scoped, and those are the ones that
 # decide which images this host can actually read.
+#
+# **`count` keys off a static bool, not off the ARN.** Deriving it as
+# `var.ecr_repository_arn == null ? 0 : 1` fails the plan with
+# "Invalid count argument": the ARN comes from a repository that does
+# not exist yet on a first apply, so its value is unknown at plan
+# time and count must be known then. The caller states the intent
+# instead, which it knows statically.
 resource "aws_iam_role_policy" "ecr_pull" {
-  count = var.ecr_repository_arn == null ? 0 : 1
+  count = var.enable_ecr_pull ? 1 : 0
 
   name = "ecr-pull"
   role = aws_iam_role.instance.id
