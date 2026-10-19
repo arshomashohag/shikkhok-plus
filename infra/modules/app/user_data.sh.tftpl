@@ -113,4 +113,59 @@ if ! ss -tln | grep -q ':443 '; then
   exit 1
 fi
 
+# ---------------------------------------------------------------------
+# The application's home on this host
+# ---------------------------------------------------------------------
+#
+# Created at boot so the deploy step has somewhere to write. A deploy
+# that has to mkdir its own directory is a deploy that runs as root
+# for no reason.
+install -d -o ubuntu -g ubuntu -m 0750 /srv/shikkhokplus
+
+# The AWS CLI, for `ecr get-login-password`. Ubuntu's apt version is
+# v1 and too old for some ECR flows, so the official v2 bundle is
+# installed instead -- arm64, matching the host.
+if ! command -v aws >/dev/null 2>&1; then
+  curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" \
+    -o /tmp/awscliv2.zip
+  apt-get install -y --no-install-recommends unzip
+  unzip -q /tmp/awscliv2.zip -d /tmp
+  /tmp/aws/install
+  rm -rf /tmp/aws /tmp/awscliv2.zip
+fi
+
+# **A credential helper rather than a stored login.** `docker login`
+# writes a token to ~/.docker/config.json that expires in 12 hours,
+# so a host that reboots after that cannot pull and the failure looks
+# like a registry outage. The helper fetches a fresh token per pull,
+# using the instance profile -- nothing is stored and nothing expires.
+cat > /usr/local/bin/docker-credential-ecr-login <<'HELPER'
+#!/bin/bash
+# Minimal ECR credential helper. Docker calls this with "get" on
+# stdin carrying the registry host.
+set -euo pipefail
+[ "$1" = "get" ] || exit 0
+host=$(cat)
+region=$(echo "$host" | sed -n 's/.*\.dkr\.ecr\.\([a-z0-9-]*\)\.amazonaws\.com.*/\1/p')
+[ -n "$region" ] || exit 1
+token=$(aws ecr get-login-password --region "$region")
+printf '{"ServerURL":"%s","Username":"AWS","Secret":"%s"}' "$host" "$token"
+HELPER
+chmod 0755 /usr/local/bin/docker-credential-ecr-login
+
+install -d -o ubuntu -g ubuntu -m 0700 /home/ubuntu/.docker
+cat > /home/ubuntu/.docker/config.json <<DOCKERCFG
+{
+  "credHelpers": {
+    "${ecr_registry}": "ecr-login"
+  }
+}
+DOCKERCFG
+chown ubuntu:ubuntu /home/ubuntu/.docker/config.json
+
+# Recorded for the deploy step, so it does not have to reconstruct
+# the registry hostname from an account id and a region.
+echo "${ecr_repository_url}" > /srv/shikkhokplus/image-repository
+chown ubuntu:ubuntu /srv/shikkhokplus/image-repository
+
 echo "provisioned" > /var/log/shikkhokplus-provision.log

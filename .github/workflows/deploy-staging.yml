@@ -31,6 +31,15 @@ on:
 
 permissions:
   contents: read
+  # For the OIDC token used to push to ECR and run the SSM
+  # delivery. No long-lived AWS key exists anywhere.
+  id-token: write
+
+env:
+  # Referenced by configure-aws-credentials below. Must match the
+  # region terraform.yml applies to, or the deploy resolves an
+  # instance and a repository that do not exist.
+  AWS_REGION: us-east-1
 
 concurrency:
   # One deploy at a time. Two overlapping runs would race the migration
@@ -119,6 +128,7 @@ jobs:
           SMS_BASE_URL: ${{ vars.SHIKKHOKPLUS_SMS_BASE_URL }}
           SMS_APP_HASH: ${{ vars.SHIKKHOKPLUS_SMS_APP_HASH }}
           DAILY_SMS: ${{ vars.SHIKKHOKPLUS_GLOBAL_DAILY_SMS }}
+          STAGING_OUTBOX: ${{ vars.SHIKKHOKPLUS_STAGING_OUTBOX }}
         run: |
           # Written with restrictive permissions BEFORE any value goes
           # in, so the file is never briefly world-readable.
@@ -135,97 +145,180 @@ jobs:
             echo "SHIKKHOKPLUS_SMS_BASE_URL=${SMS_BASE_URL}"
             echo "SHIKKHOKPLUS_SMS_API_KEY=${SMS_API_KEY}"
             echo "SHIKKHOKPLUS_SMS_SENDER_ID=${SMS_SENDER_ID}"
-            # The staging outbox is OFF once real SMS works. Codes
-            # arrive on the phone, so a route that hands them to an
-            # unauthenticated caller has no remaining purpose.
-            echo "SHIKKHOKPLUS_STAGING_OUTBOX=0"
+            # **The staging outbox, off by default.** It exposes the
+            # most recent OTP for a number to an UNAUTHENTICATED
+            # caller, so anyone who can reach the API can sign in as
+            # anyone. That is acceptable only while there is no real
+            # user and no real data.
+            #
+            # Set the SHIKKHOKPLUS_STAGING_OUTBOX variable to 1 to
+            # turn it on -- which is what lets the Android app sign
+            # in before the SMS gateway credentials are live. Turn it
+            # back off the moment real codes arrive: a production
+            # process with this set refuses to start, and staging has
+            # no such guard.
+            echo "SHIKKHOKPLUS_STAGING_OUTBOX=${STAGING_OUTBOX:-0}"
           } > .env
 
-      # Deployment to the host is not wired yet: the EC2 instance does
-      # not exist until `terraform apply` has run. This workflow
-      # verifies the configuration and builds the image, which is the
-      # half that can be automated without one.
-      #
-      # The delivery step goes here, and it will be SSM rather than
-      # SSH -- there is no inbound port 22 by design.
       # **QEMU, because the runner is x86 and the host is arm64.**
       # Without this, `docker build --platform linux/arm64` pulls the
       # arm64 base image and then tries to execute /bin/sh from it
       # natively -- which fails with `exec format error` on the first
       # RUN, naming neither the platform nor the cause.
-      #
-      # Note the symmetry with the comment below: an x86 image fails
-      # that way at `docker run` on the host, and an arm64 image fails
-      # that way at `docker build` here. Same error, opposite ends.
       - uses: docker/setup-qemu-action@v3
         with:
           platforms: arm64
 
       - uses: docker/setup-buildx-action@v3
 
-      - name: Build the image
-        # arm64, because the host is Graviton (t4g.small). An x86 image
-        # fails at `docker run` with an exec format error that does not
-        # mention architecture.
-        #
-        # Emulated arm64 is SLOW -- the compile stage runs instruction
-        # by instruction through QEMU. The cache is what keeps this
-        # tolerable on the second and later runs.
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: deploy-staging-${{ github.run_id }}
+
+      - uses: aws-actions/amazon-ecr-login@v2
+        id: ecr
+
+      - name: Resolve the target host and repository
+        id: target
+        run: |
+          # Read from Terraform's own outputs rather than a variable
+          # somebody has to keep in step. A hardcoded instance id
+          # silently targets a destroyed host after a rebuild.
+          repo=$(aws ecr describe-repositories \
+            --repository-names "shikkhokplus-${{ vars.TF_ENVIRONMENT || 'staging' }}-backend" \
+            --query 'repositories[0].repositoryUri' --output text)
+
+          instance=$(aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=shikkhokplus-${{ vars.TF_ENVIRONMENT || 'staging' }}-app" \
+                      "Name=instance-state-name,Values=running" \
+            --query 'Reservations[0].Instances[0].InstanceId' --output text)
+
+          if [ -z "$instance" ] || [ "$instance" = "None" ]; then
+            echo "::error::No running app instance found. Has terraform applied?"
+            exit 1
+          fi
+
+          echo "repository=$repo"   >> "$GITHUB_OUTPUT"
+          echo "instance=$instance" >> "$GITHUB_OUTPUT"
+          echo "Repository: $repo"
+          echo "Instance:   $instance"
+
+      - name: Build and push
         uses: docker/build-push-action@v6
         with:
           context: .
           platforms: linux/arm64
-          tags: shikkhokplus-backend:${{ github.sha }}
-          # Not pushed anywhere yet: there is no registry and no host
-          # until `terraform apply` has run. Loading it into the local
-          # daemon is what makes the build a real verification rather
-          # than a dry run.
-          load: true
+          # The commit SHA, never `latest` [team.md Deployment]. The
+          # repository is IMMUTABLE, so this tag is the artifact and a
+          # rollback is a redeploy rather than a rebuild.
+          tags: ${{ steps.target.outputs.repository }}:${{ github.sha }}
+          push: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # The build above proves the image assembles. This proves it can
-      # actually EXECUTE on the target architecture, which is a
-      # different claim -- a mis-tagged or multi-arch-confused image
-      # builds cleanly and then dies on first boot.
-      - name: The image runs, and is arm64
-        run: |
-          # `2>/dev/null` and `tail -1` because docker writes platform
-          # mismatch warnings to this same stream. Without them the
-          # captured value can be "WARNING: ...\nx86_64" rather than
-          # "x86_64" -- which still fails the comparison below, but by
-          # accident rather than by design, and would just as easily
-          # break a correct build on a noisier day.
-          arch=$(docker run --rm --entrypoint uname \
-            shikkhokplus-backend:${{ github.sha }} -m 2>/dev/null | tail -1)
-          echo "Image architecture: $arch"
-          if [ "$arch" != "aarch64" ]; then
-            echo "::error::Built '$arch', but the host is Graviton (aarch64)."
-            echo "This image would fail at docker run with an exec format error."
-            exit 1
-          fi
-          echo "Runs on the target architecture."
-
-      # `run_migrations` is read HERE rather than ignored. An input that
-      # does nothing is worse than no input: it reads as a control, so
-      # somebody eventually sets it to false and believes the schema was
-      # left alone.
-      - name: What is still manual
+      # **Delivered over SSM, because there is no inbound port 22.**
+      # The commands run as root on the host; the compose project runs
+      # as ubuntu.
+      - name: Deliver to the host
+        id: deliver
         env:
+          INSTANCE: ${{ steps.target.outputs.instance }}
+          IMAGE: ${{ steps.target.outputs.repository }}:${{ github.sha }}
           RUN_MIGRATIONS: ${{ inputs.run_migrations }}
         run: |
+          # The compose file and the env file are sent as base64, so
+          # no secret value ever appears in an SSM command document --
+          # those are readable in the console and retained for 30
+          # days.
+          compose_b64=$(base64 -w0 deploy/docker-compose.staging.yml)
+          env_b64=$(base64 -w0 .env)
+
+          cmd=$(aws ssm send-command \
+            --instance-ids "$INSTANCE" \
+            --document-name AWS-RunShellScript \
+            --comment "deploy ${GITHUB_SHA:0:12}" \
+            --parameters "commands=[
+              \"set -euo pipefail\",
+              \"cd /srv/shikkhokplus\",
+              \"echo '$compose_b64' | base64 -d > docker-compose.yml\",
+              \"umask 077; echo '$env_b64' | base64 -d > .env\",
+              \"echo 'API_IMAGE=$IMAGE' >> .env\",
+              \"chown ubuntu:ubuntu docker-compose.yml .env\",
+              \"sudo -u ubuntu docker compose pull\",
+              \"sudo -u ubuntu docker compose up -d --remove-orphans\",
+              \"$([ \"$RUN_MIGRATIONS\" = true ] && echo 'sudo -u ubuntu docker compose run --rm api alembic upgrade head' || echo 'echo skipping migrations')\",
+              \"sudo -u ubuntu docker compose ps\"
+            ]" \
+            --query 'Command.CommandId' --output text)
+
+          echo "Command: $cmd"
+
+          # Poll rather than sleep: a fixed sleep either wastes time
+          # or reports a result that has not happened yet.
+          for _ in $(seq 1 60); do
+            status=$(aws ssm get-command-invocation \
+              --command-id "$cmd" --instance-id "$INSTANCE" \
+              --query Status --output text 2>/dev/null || echo Pending)
+            case "$status" in
+              Success) break ;;
+              Failed|Cancelled|TimedOut) break ;;
+            esac
+            sleep 5
+          done
+
+          aws ssm get-command-invocation --command-id "$cmd" \
+            --instance-id "$INSTANCE" \
+            --query 'StandardOutputContent' --output text || true
+          aws ssm get-command-invocation --command-id "$cmd" \
+            --instance-id "$INSTANCE" \
+            --query 'StandardErrorContent' --output text || true
+
+          [ "$status" = "Success" ] || {
+            echo "::error::Delivery failed with status $status"
+            exit 1
+          }
+
+      # **The deploy is not done until the API answers.** A container
+      # that starts and then exits reports a successful `up -d`, so
+      # this asserts the outcome rather than the command.
+      - name: The API responds
+        env:
+          INSTANCE: ${{ steps.target.outputs.instance }}
+        run: |
+          cmd=$(aws ssm send-command --instance-ids "$INSTANCE" \
+            --document-name AWS-RunShellScript \
+            --parameters 'commands=["sleep 5","curl -fsS -m 10 http://127.0.0.1:8000/health || (echo UNHEALTHY; docker logs --tail 50 $(docker ps -aqf name=api) 2>&1; exit 1)"]' \
+            --query 'Command.CommandId' --output text)
+
+          for _ in $(seq 1 24); do
+            status=$(aws ssm get-command-invocation --command-id "$cmd" \
+              --instance-id "$INSTANCE" --query Status --output text \
+              2>/dev/null || echo Pending)
+            case "$status" in Success|Failed|TimedOut) break ;; esac
+            sleep 5
+          done
+
+          aws ssm get-command-invocation --command-id "$cmd" \
+            --instance-id "$INSTANCE" --query 'StandardOutputContent' \
+            --output text || true
+
+          if [ "$status" != "Success" ]; then
+            aws ssm get-command-invocation --command-id "$cmd" \
+              --instance-id "$INSTANCE" --query 'StandardErrorContent' \
+              --output text || true
+            echo "::error::The API did not become healthy."
+            exit 1
+          fi
+
           {
+            echo "### Deployed"
             echo ""
-            echo "**Image built. Host delivery is still manual.**"
-            echo ""
-            echo "The EC2 instance exists only after \`terraform apply\`."
-            echo "Until the delivery step lands here, follow"
-            echo "\`deploy/README.md\` over SSM:"
-            echo ""
-            echo '    aws ssm start-session --target <app_instance_id>'
-            if [ "$RUN_MIGRATIONS" != "true" ]; then
-              echo ""
-              echo "> \`run_migrations\` was **false**: skip the Alembic"
-              echo "> step in that ordering and leave the schema as it is."
-            fi
+            echo "| | |"
+            echo "|---|---|"
+            echo "| image | \`${{ steps.target.outputs.repository }}:${{ github.sha }}\` |"
+            echo "| instance | \`${{ steps.target.outputs.instance }}\` |"
+            echo "| migrations | ${{ inputs.run_migrations }} |"
+            echo "| health | passing |"
           } >> "$GITHUB_STEP_SUMMARY"

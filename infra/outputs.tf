@@ -66,3 +66,11 @@ output "monthly_cost_estimate" {
     total            = 12.50 + (var.enable_staging_instance ? 12.00 : 0.00) + (var.enable_rds ? 17.36 : 0.00)
   }
 }
+
+output "image_repository" {
+  description = <<-EOT
+    Where the deploy workflow pushes and the host pulls. The tag is a
+    commit SHA; `latest` is never deployed.
+  EOT
+  value       = module.registry.repository_url
+}

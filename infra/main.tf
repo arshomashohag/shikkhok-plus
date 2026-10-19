@@ -79,8 +79,17 @@ module "network" {
   name_prefix = local.name_prefix
 }
 
+module "registry" {
+  source = "./modules/registry"
+
+  name_prefix = local.name_prefix
+}
+
 module "app" {
   source = "./modules/app"
+
+  ecr_repository_arn = module.registry.repository_arn
+  ecr_repository_url = module.registry.repository_url
 
   name_prefix    = local.name_prefix
   vpc_id         = module.network.vpc_id

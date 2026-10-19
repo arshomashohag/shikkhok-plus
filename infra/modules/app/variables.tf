@@ -33,3 +33,23 @@ variable "root_volume_gb" {
   type        = number
   default     = 30
 }
+
+variable "ecr_repository_arn" {
+  description = <<-EOT
+    The image repository this host may pull from. Null grants no ECR
+    access at all, which is correct for a host that does not run the
+    application.
+  EOT
+  type        = string
+  default     = null
+}
+
+variable "ecr_repository_url" {
+  description = <<-EOT
+    The repository URL, passed to the host so its compose file can
+    reference the image without the deploy step having to compose the
+    registry hostname itself.
+  EOT
+  type        = string
+  default     = null
+}
