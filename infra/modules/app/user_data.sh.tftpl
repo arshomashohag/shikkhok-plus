@@ -10,8 +10,15 @@ apt-get update
 # certificate, so the origin needs only a self-signed one for the
 # CloudFront-to-origin hop. A Let's Encrypt renewal nobody checks is a
 # certificate that expires on a Sunday.
+# **ssl-cert is NOT optional.** It is what generates
+# /etc/ssl/certs/ssl-cert-snakeoil.pem, which the TLS server block
+# below references. Without it nginx fails its config test with
+# `cannot load certificate ... No such file or directory`, falls back
+# to its packaged default, and serves port 80 only -- while the
+# instance still reports a successful boot. CloudFront is configured
+# https-only, so every request through the CDN then 502s.
 apt-get install -y --no-install-recommends \
-  docker.io docker-compose-v2 nginx
+  docker.io docker-compose-v2 nginx ssl-cert
 
 usermod -aG docker ubuntu
 systemctl enable --now docker
@@ -77,6 +84,33 @@ server {
 NGINX
 
 ln -sf /etc/nginx/sites-available/shikkhokplus /etc/nginx/sites-enabled/default
-nginx -t && systemctl reload nginx
+
+# **Generated explicitly rather than trusted to the package.** The
+# ssl-cert package normally creates the snakeoil pair on install, but
+# that depends on its postinst running to completion -- and if it does
+# not, the failure is the silent one above. make-ssl-cert is
+# idempotent, so running it costs nothing when the file already
+# exists and saves the boot when it does not.
+make-ssl-cert generate-default-snakeoil --force-overwrite
+
+# **`nginx -t || exit 1`, not `nginx -t && reload`.** With `&&` a
+# failed test skipped the reload and the script still exited 0, so
+# the instance reported a successful provision while serving nothing
+# on 443. That is exactly how this bug reached a running host.
+if ! nginx -t; then
+  echo "FAILED: nginx config test" > /var/log/shikkhokplus-provision.log
+  exit 1
+fi
+
+systemctl restart nginx
+
+# Assert the outcome, not the command. A successful reload does not
+# prove a listener exists -- nginx can reload into a config that
+# binds nothing. This is the check that would have caught it.
+sleep 2
+if ! ss -tln | grep -q ':443 '; then
+  echo "FAILED: nothing listening on 443" > /var/log/shikkhokplus-provision.log
+  exit 1
+fi
 
 echo "provisioned" > /var/log/shikkhokplus-provision.log

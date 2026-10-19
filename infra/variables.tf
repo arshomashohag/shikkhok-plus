@@ -6,9 +6,22 @@
 # managed database is a default that bills.
 
 variable "region" {
-  description = "AWS region. Mumbai is nearest to Bangladesh [TC-17]."
+  description = <<-EOT
+    AWS region.
+
+    **us-east-1 by user decision (2026-10-19), not by latency.**
+    ap-south-1 (Mumbai) is nearest to Bangladesh and was the original
+    choice for [TC-17], the mid-class responsiveness requirement;
+    us-east-1 adds roughly 200-250ms round trip for users there.
+
+    That cost is accepted deliberately. Recorded here rather than
+    left implicit so [TC-17] is re-measured against the real region
+    rather than against the one the requirement assumed, and so a
+    later reader does not "fix" this back to Mumbai believing it a
+    mistake.
+  EOT
   type        = string
-  default     = "ap-south-1"
+  default     = "us-east-1"
 }
 
 variable "environment" {
@@ -112,13 +125,26 @@ variable "acknowledged_monthly_budget" {
 
 variable "enable_staging_instance" {
   description = <<-EOT
-    A second host for staging. team.md requires one, because staging
-    is where a migration is rehearsed before it touches real teacher
-    and child data, and there is no multi-AZ database to fail over to
-    if it goes wrong. Costs ~USD 16.17/month.
+    A SECOND host, for rehearsing migrations before they touch real
+    data. Not the staging API itself -- the primary host already is
+    staging, which the naming makes confusing: module.app is named
+    `shikkhokplus-$${var.environment}-app` and this one is named
+    `shikkhokplus-rehearsal-app`.
+
+    **Off by user decision (2026-10-19).** team.md requires a
+    rehearsal host and gives the reason: it is where an Alembic
+    migration is rehearsed before touching real teacher and child
+    data, and there is no multi-AZ database to fail over to if one
+    goes wrong. Turning it off means a migration's first contact with
+    a real database is in the environment that holds the data.
+
+    Acceptable now, with no real data and no users. It stops being
+    acceptable before closed testing [OC-5], which is when real
+    children's records arrive -- so this is a deferral, not a
+    cancellation. Saves ~USD 16.17/month.
   EOT
   type        = bool
-  default     = true
+  default     = false
 }
 
 # ---------------------------------------------------------------------
