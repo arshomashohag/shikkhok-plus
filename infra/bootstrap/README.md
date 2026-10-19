@@ -44,19 +44,23 @@ infrastructure.
 
 ## The IAM scope, stated honestly
 
-The role gets **service-level** permissions (`lightsail:*`,
-`cloudfront:*`, `acm:*`, `route53:*`, `rds:*`), not per-action
-least-privilege. That is a trade, not an oversight.
+The role gets **service-level** permissions (`ec2:*`, `cloudfront:*`,
+`acm:*`, `route53:*`, `rds:*`, `ssm:*`), not per-action
+least-privilege. That is a trade, not an oversight: enumerating every
+action across six services produces a policy that breaks on the next
+provider upgrade and gets widened under deadline pressure — ending at
+the `*` it was meant to avoid, a day later.
 
-Enumerating every action Terraform needs across five services produces
-a policy that breaks on the next provider upgrade and gets widened
-under deadline pressure — which ends at the `*` it was meant to avoid,
-having cost a day first.
+**It also holds real IAM write permissions**, and an earlier version
+of this document claimed it did not. SSM needs an instance profile,
+which means creating a role and attaching a policy. There is no way
+around that, and pretending otherwise would only mean the apply fails.
 
-What makes it defensible: the role is assumable **only** from this
-repository, on main or through an environment with manual approval, and
-it holds **no IAM write permissions at all**. It cannot grant itself
-anything.
+What bounds it: the IAM actions are restricted **by path** to
+`/shikkhokplus/*`, so the CI role cannot touch an unrelated role and
+**cannot modify itself** — it lives at the IAM root path. And the role
+is assumable only from this repository, on main or through an
+environment with manual approval.
 
 ## Running it
 
@@ -73,21 +77,16 @@ Then do what the `next_steps` output says:
 GitHub → Settings → Secrets and variables → Actions
 
 Variables:
-  AWS_ROLE_ARN          (from the output)
-  TF_STATE_BUCKET       (from the output)
-  TF_DOMAIN_NAME        your domain, e.g. shikkhokplus.com
-  TF_SSH_KEY_PAIR_NAME  the Lightsail key pair name
-  TF_ENVIRONMENT        staging
-
-Secrets:
-  TF_OPERATOR_IP_CIDR   your IP as a /32, for SSH
+  AWS_ROLE_ARN      (from the output)
+  TF_STATE_BUCKET   (from the output)
+  TF_DOMAIN_NAME    your domain, e.g. shikkhokplus.com
+  TF_ENVIRONMENT    staging
 ```
 
-> `TF_OPERATOR_IP_CIDR` is a **secret** rather than a variable because
-> it is your home or office address. Everything else is a variable:
-> variables are readable in logs, secrets are masked, and marking
-> something secret that appears in plan output anyway only produces
-> `***` where a reviewer needed to see a value.
+**No secrets at all.** There is no SSH key and no operator IP, because
+there is no SSH — Session Manager replaced both. Everything the
+workflow needs is a variable, and variables are readable in logs,
+which is correct for values that appear in plan output anyway.
 
 Then move the main module's state to S3:
 
@@ -107,7 +106,7 @@ Both in Settings → Environments:
 | `terraform-apply` | **you, required** | This is the gate. Without a required reviewer, dispatching apply runs it immediately and the manual step is a button rather than a decision |
 
 **The approval requirement is the whole point of the apply job.** A
-Terraform run can replace the Lightsail instance, and in Phase 1 that
+Terraform run can replace the app instance, and in Phase 1 that
 destroys the containerised Postgres with it — a database whose only
 backup is `pg_dump`.
 

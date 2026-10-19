@@ -1,7 +1,10 @@
 # Infrastructure
 
-Terraform for the Phase 1 backend. **USD 24.50/month** against the USD
+Terraform for the Phase 1 backend. **USD 32.84/month** against the USD
 50 ceiling [OC-4], with the Phase 2 path to RDS written and disabled.
+
+**No SSH anywhere.** Access is SSM Session Manager:
+`aws ssm start-session --target $(terraform output -raw app_instance_id)`
 
 ```
                     ┌──────────────┐
@@ -15,7 +18,8 @@ Terraform for the Phase 1 backend. **USD 24.50/month** against the USD
                            │  X-Origin-Secret header
                     ┌──────▼───────┐
                     │   nginx      │  403 without the secret
-                    │  Lightsail   │  2 GB, static IP
+                    │  EC2 t4g.small│ 2 GB arm64, Elastic IP
+                    │  NO PORT 22  │  SSM Session Manager
                     │  ┌────────┐  │
                     │  │ API    │  │  uvicorn, 2 workers
                     │  │ Postgres│ │  bound to 127.0.0.1
@@ -49,29 +53,48 @@ Port 443 is open to the internet, but a direct request is refused by
 our own host before it reaches the application. Rotate with
 `terraform taint module.app.random_password.origin_secret`.
 
-### 3. Postgres is on the app host, not RDS — in Phase 1
+### 3. There is no SSH, and that replaced an IP allowlist
+
+The first version restricted port 22 to an operator IP held as a CI
+secret. **That was wrong.** A home IP is dynamic, so recovering access
+after a router restart meant editing a secret, dispatching a workflow,
+waiting for approval and waiting for an apply — and that friction is
+exactly what makes somebody widen the rule to `0.0.0.0/0` once "just to
+get in", after which it stays.
+
+Session Manager removes the question: no inbound port, no key pair, no
+address to track. `team.md` asks for production access to be "named,
+logged and bounded"; CloudTrail records who opened a session, which
+nothing previously enforced.
+
+Moving to EC2 for SSM cost USD 8.34/month over Lightsail — and bought
+something the old design could not have at any price. See below.
+
+### 4. Postgres is on the app host, not RDS — in Phase 1
 
 You asked for RDS in a public subnet with ingress only from Lightsail.
-That is **not expressible as stated**: RDS security groups reference
-CIDRs or other security groups, and Lightsail instances live outside
-your VPC with no security group to name.
+**That was not expressible as stated**: Lightsail instances live
+outside your VPC and have no security group for a database to name, so
+the options were a public endpoint allowing one `/32` — routing
+children-identifying traffic out of AWS and back over the internet — or
+VPC peering, which grants a whole range rather than one instance.
 
-The three real options, and why this one:
+**Moving to EC2 fixed that too.** The app host now has a real security
+group, so Phase 2's rule is exact:
 
-| | Exposure | Traffic path | Cost |
-|---|---|---|---|
-| **Postgres on the host** | none | localhost | $24.50 |
-| RDS private + peering | none | private | $41.86 |
-| RDS public + /32 | public endpoint | **leaves AWS, re-enters** | $41.86 |
+```hcl
+security_groups = [var.app_security_group_id]   # not a CIDR guess
+```
 
-A public-subnet RDS reachable from one IP is **weaker than keeping the
-database on the box**, and the traffic carries children's names,
-attendance and marks. `project.md` mandates encryption at rest; it does
-not require a publicly resolvable endpoint.
+Phase 1 still keeps Postgres on the box: a database bound to
+`127.0.0.1` is exposed to nothing, and the reason to pay for RDS is
+automated backups and PITR, which is a Phase 2 concern.
 
-`modules/database` is written and disabled. Phase 2 is
-`enable_rds = true` plus Lightsail VPC peering — and it provisions a
-**private** subnet, never a public one.
+> **Phase 2 has a budget collision, found by computing it.** Staging
+> plus RDS is **USD 50.20** against the USD 50 ceiling. A `precondition`
+> blocks the apply rather than letting a bill discover it — Phase 2
+> means retiring the rehearsal host or raising
+> `acknowledged_monthly_budget` deliberately.
 
 ---
 
@@ -81,14 +104,10 @@ not require a publicly resolvable endpoint.
 Terraform creates state and credentials):
 
 ```bash
-# A key pair. Terraform does not create one: that would put the
-# private key in state, and state is a file on disk.
-aws lightsail create-key-pair --key-pair-name shikkhokplus \
-  --query 'privateKeyBase64' --output text > ~/.ssh/shikkhokplus.pem
-chmod 600 ~/.ssh/shikkhokplus.pem
-
-cd bootstrap && terraform init && terraform apply
+cd infra/bootstrap && terraform init && terraform apply
 ```
+
+No key pair to create: there is no SSH.
 
 See [bootstrap/README.md](bootstrap/README.md) for the variables and
 environments to configure afterwards.
@@ -138,8 +157,17 @@ Terraform provisions the **machine** and never the **release** —
 every release require a new instance.
 
 ```bash
-ssh -i ~/.ssh/shikkhokplus.pem ubuntu@<app_static_ip>
+aws ssm start-session --target <app_instance_id>
+sudo su - ubuntu
 # then the six-step ordering in ../deploy/README.md
+```
+
+**The image must be built for arm64.** t4g is Graviton, and an x86
+image fails at `docker run` with an exec format error that does not
+mention architecture:
+
+```bash
+docker build --platform linux/arm64 -t shikkhokplus-backend .
 ```
 
 ## State
@@ -171,6 +199,8 @@ who can edit a workflow file.
 | Not here | Why |
 |---|---|
 | **ALB** | A third of the budget before any compute, for 100 teachers on one instance [D-29] |
+| **SSH, bastion, key pairs** | Session Manager replaces all three, and leaves no inbound port to misconfigure |
+| **NAT gateway** | USD 32/month — more than both instances — to avoid public IPs on hosts whose inbound is closed anyway |
 | **Auto-scaling group** | One instance is the design; a group of one implies a capability we do not have |
 | **WAF** | USD 5/month plus per-rule charges, for an API authenticated on 10 of 11 routes, where the OTP ceilings already live in the application |
 | **Multi-AZ RDS** | Doubles the database cost for a failover this scale does not justify |
@@ -180,10 +210,11 @@ who can edit a workflow file.
 
 Each step is additive — none requires re-architecting what is here:
 
-1. **Bigger instance.** `instance_bundle = "medium_3_0"` (4 GB,
-   USD 24). One variable.
-2. **RDS.** `enable_rds = true` plus VPC peering. The app's database
-   URL changes; nothing else does.
+1. **Bigger instance.** `instance_type = "t4g.medium"` (4 GB, USD 27).
+   One variable.
+2. **RDS.** `enable_rds = true`. The ingress rule already references
+   the app's security group, so nothing about the network changes —
+   only the app's database URL.
 3. **A second app instance + ALB.** The application is already
    stateless — sessions are JWTs and rate limits are datastore-backed
    precisely so a second worker, or a second host, changes nothing.

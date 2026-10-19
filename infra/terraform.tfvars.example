@@ -8,14 +8,10 @@ domain_name = "example.com"
 # api.example.com
 api_subdomain = "api"
 
-# An EXISTING Lightsail key pair. Terraform does not create one:
-# creating it would put the private key in state, and state is a file.
-#   aws lightsail create-key-pair --key-pair-name shikkhokplus
-ssh_key_pair_name = "shikkhokplus"
-
-# Your IP as a /32, for SSH. NOT 0.0.0.0/0 -- the variable refuses it.
-#   curl -s https://checkip.amazonaws.com
-operator_ip_cidr = "203.0.113.4/32"
+# **No SSH key and no operator IP.** Access is SSM Session Manager:
+#   aws ssm start-session --target $(terraform output -raw app_instance_id)
+# There is no inbound port 22, no key pair to lose, and no address to
+# keep current when your ISP rotates it.
 
 # staging or production.
 environment = "staging"
@@ -25,6 +21,9 @@ environment = "staging"
 enable_staging_instance = true
 
 # --- Phase 2. Leave false. ---
-# Turning this on provisions RDS in a PRIVATE subnet (+USD 17.36/month)
-# and requires Lightsail VPC peering to be enabled first.
+# RDS with ingress from the app's SECURITY GROUP (+USD 17.36/month).
+#
+# NOTE: staging + RDS is USD 50.20, which trips the budget
+# precondition at the USD 50 ceiling. Phase 2 means retiring the
+# rehearsal host or raising acknowledged_monthly_budget deliberately.
 enable_rds = false

@@ -21,18 +21,25 @@ variable "allocated_storage" {
   default     = 20
 }
 
-variable "lightsail_vpc_cidr" {
+variable "vpc_id" {
+  description = "The VPC the database lives in."
+  type        = string
+  default     = ""
+}
+
+variable "subnet_ids" {
+  description = "Two subnets in different AZs. RDS requires two even Single-AZ."
+  type        = list(string)
+  default     = []
+}
+
+variable "app_security_group_id" {
   description = <<-EOT
-    The Lightsail managed VPC's CIDR, after peering is enabled. Find it
-    with `aws lightsail get-active-names` and the VPC peering page.
-    Refusing 0.0.0.0/0 below is the point of this variable existing
-    rather than being inlined.
+    The app host's security group, and the ONLY source permitted to
+    reach port 5432. An exact reference rather than a CIDR: it follows
+    the instance if its address changes and cannot be wider than the
+    hosts in that group.
   EOT
   type        = string
-  default     = "172.26.0.0/16"
-
-  validation {
-    condition     = var.lightsail_vpc_cidr != "0.0.0.0/0"
-    error_message = "Refusing 0.0.0.0/0 for a database holding children's data."
-  }
+  default     = ""
 }

@@ -51,8 +51,8 @@ resource "aws_s3_bucket" "state" {
   # The state holds the CDN origin secret and, in Phase 2, the database
   # password in plaintext. Deleting it is not a recoverable mistake:
   # without state, Terraform no longer knows which resources it owns
-  # and a subsequent apply would try to CREATE a Lightsail instance
-  # that already exists.
+  # and a subsequent apply would try to CREATE an instance that
+  # already exists.
   lifecycle {
     prevent_destroy = true
   }
@@ -178,15 +178,21 @@ resource "aws_iam_role_policy" "ci_state" {
 #
 # **Scoped by SERVICE, not least-privilege per action**, and that is a
 # deliberate trade stated rather than hidden. Enumerating every action
-# Terraform needs across Lightsail, CloudFront, ACM, Route53 and RDS
+# Terraform needs across EC2, CloudFront, ACM, Route53, RDS and SSM
 # produces a policy that breaks on the next provider upgrade and gets
 # widened under deadline pressure — which ends at the `*` this was
 # meant to avoid, having cost a day.
 #
-# What makes the service scope defensible: the role is assumable ONLY
-# from this repository on main or through an environment with manual
-# approval, and it holds no IAM write permissions at all. It cannot
-# grant itself anything.
+# **It DOES hold IAM write permissions, and an earlier version of this
+# comment claimed otherwise.** SSM needs an instance profile, which
+# means creating a role and attaching a policy; there is no way around
+# that, and pretending there is would only mean the apply fails.
+#
+# What bounds it instead: the IAM actions are restricted by PATH to
+# /shikkhokplus/, so the CI role cannot touch an unrelated role and
+# cannot modify ITSELF — it lives at the IAM root path. And the role is
+# assumable only from this repository, on main or through an
+# environment with manual approval.
 resource "aws_iam_role_policy" "ci_infrastructure" {
   name = "terraform-infrastructure"
   role = aws_iam_role.ci.id
@@ -198,21 +204,56 @@ resource "aws_iam_role_policy" "ci_infrastructure" {
         Sid    = "Infrastructure"
         Effect = "Allow"
         Action = [
-          "lightsail:*",
+          # EC2 covers the instances, VPC, subnets, security groups,
+          # Elastic IPs and EBS volumes -- they are all one API.
+          "ec2:*",
           "cloudfront:*",
           "acm:*",
           "route53:*",
           "rds:*",
-          "ec2:Describe*",
+          # SSM, for Session Manager. The instance PROFILE grants the
+          # agent's side; this is what lets Terraform read and manage
+          # the association.
+          "ssm:*",
           "tag:GetResources",
         ]
         Resource = "*"
       },
       {
-        # Terraform reads the role it is running as, to populate
-        # data.aws_caller_identity. Read-only, and explicitly NOT
-        # iam:CreateRole, PutRolePolicy or AttachRolePolicy: the CI
-        # role must not be able to widen itself.
+        # **The instance profile EC2 needs for SSM.** Terraform must
+        # create a role and attach AmazonSSMManagedInstanceCore to it,
+        # which means real IAM write permissions -- there is no way
+        # around that and pretending otherwise would just mean the
+        # apply fails.
+        #
+        # Bounded by PATH instead: these actions work only on roles
+        # under /shikkhokplus/, so the CI role cannot touch an
+        # unrelated role and cannot modify ITSELF (which lives at the
+        # IAM root path).
+        Sid    = "InstanceProfilesForSSM"
+        Effect = "Allow"
+        Action = [
+          "iam:CreateRole",
+          "iam:DeleteRole",
+          "iam:GetRole",
+          "iam:PassRole",
+          "iam:TagRole",
+          "iam:AttachRolePolicy",
+          "iam:DetachRolePolicy",
+          "iam:ListAttachedRolePolicies",
+          "iam:ListRolePolicies",
+          "iam:CreateInstanceProfile",
+          "iam:DeleteInstanceProfile",
+          "iam:GetInstanceProfile",
+          "iam:AddRoleToInstanceProfile",
+          "iam:RemoveRoleFromInstanceProfile",
+        ]
+        Resource = [
+          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/shikkhokplus/*",
+          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:instance-profile/shikkhokplus/*",
+        ]
+      },
+      {
         Sid    = "ReadOwnIdentity"
         Effect = "Allow"
         Action = [

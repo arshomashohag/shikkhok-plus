@@ -9,13 +9,34 @@ output "cloudfront_domain" {
 }
 
 output "app_static_ip" {
-  description = "SSH here to deploy. Also the address to allowlist at the SMS gateway."
+  description = <<-EOT
+    The Elastic IP. CloudFront's origin, and the address to allowlist
+    at the SMS gateway. **Not an SSH target**: there is no SSH.
+  EOT
   value       = module.app.static_ip
 }
 
+output "app_instance_id" {
+  description = <<-EOT
+    How you get a shell:
+
+      aws ssm start-session --target <this>
+
+    No key, no port, no IP to allowlist. CloudTrail records who opened
+    the session, which is what team.md's "named, logged and bounded"
+    rule asks for.
+  EOT
+  value       = module.app.instance_id
+}
+
 output "staging_static_ip" {
-  description = "The rehearsal host, when enabled."
+  description = "The rehearsal host's Elastic IP, when enabled."
   value       = var.enable_staging_instance ? module.staging_app[0].static_ip : null
+}
+
+output "staging_instance_id" {
+  description = "The rehearsal host, for `aws ssm start-session --target`."
+  value       = var.enable_staging_instance ? module.staging_app[0].instance_id : null
 }
 
 output "origin_secret_command" {

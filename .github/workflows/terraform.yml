@@ -8,10 +8,10 @@ name: terraform
 # never expires, cannot be rotated without a human remembering, and is
 # usable by anyone who can edit a workflow file.
 #
-# **Apply is manual, deliberately.** A merge that replaced the
-# Lightsail instance would destroy the containerised Postgres with it,
-# and in Phase 1 that database has pg_dump and no automated backups.
-# The plan tells you before the apply asks.
+# **Apply is manual, deliberately.** A merge that replaced the app
+# instance would destroy the containerised Postgres with it, and in
+# Phase 1 that database has pg_dump and no automated backups. The plan
+# tells you before the apply asks.
 
 on:
   pull_request:
@@ -109,8 +109,6 @@ jobs:
         working-directory: infra
         env:
           TF_VAR_domain_name: ${{ vars.TF_DOMAIN_NAME }}
-          TF_VAR_ssh_key_pair_name: ${{ vars.TF_SSH_KEY_PAIR_NAME }}
-          TF_VAR_operator_ip_cidr: ${{ secrets.TF_OPERATOR_IP_CIDR }}
           TF_VAR_environment: ${{ vars.TF_ENVIRONMENT || 'staging' }}
         run: |
           set +e
@@ -233,8 +231,6 @@ jobs:
         working-directory: infra
         env:
           TF_VAR_domain_name: ${{ vars.TF_DOMAIN_NAME }}
-          TF_VAR_ssh_key_pair_name: ${{ vars.TF_SSH_KEY_PAIR_NAME }}
-          TF_VAR_operator_ip_cidr: ${{ secrets.TF_OPERATOR_IP_CIDR }}
           TF_VAR_environment: ${{ vars.TF_ENVIRONMENT || 'staging' }}
         run: |
           # Re-plans rather than applying the PR's saved plan. A plan

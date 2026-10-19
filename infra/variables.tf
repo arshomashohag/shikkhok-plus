@@ -38,53 +38,69 @@ variable "api_subdomain" {
   default     = "api"
 }
 
-variable "instance_bundle" {
+variable "instance_type" {
   description = <<-EOT
-    The Lightsail bundle. `small_2_0` is 2 GB RAM at USD 12/month, and
-    that figure is LOAD-BEARING rather than a default: it is the size
+    t4g.small: 2 GB on Graviton, ~USD 13.43/month on demand. The 2 GB
+    figure is LOAD-BEARING rather than a default -- it is the size
     every performance decision in this project assumed [team.md], and
-    it is why lens resolution memoizes per request instead of caching
-    across them. Changing it is a performance-model change.
+    why lens resolution memoizes per request instead of caching across
+    them.
+
+    arm64: the backend image must be built for it, or `docker run`
+    fails with an exec format error that does not mention
+    architecture.
   EOT
   type        = string
-  default     = "small_2_0"
+  default     = "t4g.small"
 }
 
-variable "ssh_key_pair_name" {
+variable "root_volume_gb" {
   description = <<-EOT
-    An EXISTING Lightsail key pair name. Terraform does not create one:
-    creating a key pair puts the private key in state, and state is a
-    file on disk. Create it once in the console and name it here.
+    Root volume size in GB. Holds the containerised PostgreSQL in
+    Phase 1, which is why 30 rather than the 8 GB default: a database
+    that fills its disk stops accepting writes, and recovering that on
+    a live host is worse than paying USD 2 more a month.
   EOT
-  type        = string
+  type        = number
+  default     = 30
 }
 
-variable "operator_ip_cidr" {
+# **There is deliberately no operator IP variable, and no SSH key.**
+#
+# The earlier design restricted port 22 to an operator IP held as a CI
+# secret. A home IP is dynamic, so recovering access after a router
+# restart meant editing a secret, dispatching a workflow, waiting for
+# approval and waiting for an apply -- and that friction is precisely
+# what makes somebody widen the rule to 0.0.0.0/0 once "just to get
+# in", after which it stays.
+#
+# SSM Session Manager removes the question entirely: no inbound port,
+# no key pair, no address to track. Access is an IAM-authenticated API
+# call, and CloudTrail records who opened a session -- which is what
+# team.md's "named, logged and bounded" rule asks for and nothing
+# previously enforced.
+#
+#   aws ssm start-session --target $(terraform output -raw app_instance_id)
+
+variable "acknowledged_monthly_budget" {
   description = <<-EOT
-    Your IP as a /32, for SSH. **Not 0.0.0.0/0**, and the validation
-    below refuses that: an SSH port open to the internet on a host
-    holding children's data is the single cheapest mistake to make
-    here. Find yours with `curl -s https://checkip.amazonaws.com`.
+    The ceiling an apply may not silently cross. project.md: always
+    keep infrastructure spend under USD 50/month [OC-4].
+
+    A PRECONDITION rather than a comment, because the arithmetic
+    caught a real overrun: staging plus RDS is USD 50.20. Raising this
+    is a deliberate act with a diff, which is the point.
   EOT
-  type        = string
-
-  validation {
-    condition     = var.operator_ip_cidr != "0.0.0.0/0"
-    error_message = "Refusing 0.0.0.0/0 for SSH. Use your own IP as a /32."
-  }
-
-  validation {
-    condition     = can(cidrhost(var.operator_ip_cidr, 0))
-    error_message = "operator_ip_cidr must be valid CIDR, e.g. 203.0.113.4/32."
-  }
+  type        = number
+  default     = 50.00
 }
 
 variable "enable_staging_instance" {
   description = <<-EOT
-    A second Lightsail host for staging. team.md requires one, because
-    staging is where a migration is rehearsed before it touches real
-    teacher and child data and there is no multi-AZ database to fail
-    over to. Costs USD 12/month.
+    A second host for staging. team.md requires one, because staging
+    is where a migration is rehearsed before it touches real teacher
+    and child data, and there is no multi-AZ database to fail over to
+    if it goes wrong. Costs ~USD 16.17/month.
   EOT
   type        = bool
   default     = true
@@ -103,17 +119,17 @@ variable "enable_rds" {
   description = <<-EOT
     Provision RDS PostgreSQL instead of the containerised database.
 
-    **Phase 1 runs Postgres on the Lightsail host**, and that is a
-    privacy decision as much as a cost one: RDS security groups cannot
-    name a Lightsail instance, because Lightsail lives outside your
-    VPC. "Ingress only from Lightsail" is therefore expressible only
-    as a public /32 allowlist -- which routes children-identifying
-    traffic over the public internet -- or as VPC peering. A database
-    on localhost is exposed to nothing at all.
+    **Phase 1 runs Postgres in a container on the app host**, bound to
+    127.0.0.1 and exposed to nothing. Turn this on in Phase 2, when
+    automated backups and point-in-time recovery outweigh ~USD
+    17/month.
 
-    Turn this on in Phase 2, when automated backups and
-    point-in-time recovery outweigh USD 17/month. The module places it
-    in a PRIVATE subnet reached by VPC peering, never a public one.
+    Moving to EC2 made this clean: the database's ingress rule
+    references the app's SECURITY GROUP, so "only the app host" is
+    exact rather than a CIDR guess. On Lightsail that was impossible
+    -- instances live outside your VPC and have no group to name --
+    which is why the original "RDS in a public subnet with ingress
+    only from Lightsail" could not be built as asked.
   EOT
   type        = bool
   default     = false

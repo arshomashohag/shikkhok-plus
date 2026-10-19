@@ -3,26 +3,25 @@
 # This module exists so Phase 2 is a variable flip rather than an
 # architecture change. It provisions nothing until `enable_rds = true`.
 #
-# **The instance is in a PRIVATE subnet, never a public one**, and that
-# is the correction to the obvious design. RDS security groups cannot
-# name a Lightsail instance, because Lightsail lives outside your VPC
-# in an AWS-managed one. "Ingress only from Lightsail" is therefore
-# expressible three ways and only two are safe:
+# **Ingress is a SECURITY GROUP reference, not a CIDR**, and that is
+# what moving the app host from Lightsail to EC2 bought.
 #
-#   * a public endpoint allowing the Lightsail static IP as a /32 --
-#     instance-scoped, but every query carrying children's names,
-#     attendance and marks LEAVES AWS and re-enters over the public
-#     internet. Encrypted in transit, but needlessly exposed, and the
-#     endpoint is publicly resolvable.
-#   * VPC peering to a private subnet -- coarser than per-instance
-#     (the Lightsail side can route to the whole VPC) but the traffic
-#     never leaves AWS's private network and the endpoint has no
-#     public address at all.
-#   * not having a separate database, which is Phase 1.
+# The earlier design could not express "only the app host" at all.
+# Lightsail instances live outside your VPC and have no security group
+# for a database to name, so the options were a public endpoint
+# allowing one /32 -- routing children-identifying traffic out of AWS
+# and back over the internet -- or VPC peering, which grants the whole
+# peered range rather than one instance.
 #
-# This module takes the second. `project.md` mandates encryption at
-# rest for children's data; it does not require the endpoint be
-# reachable from the internet, and nothing is gained by making it so.
+# With the app in our own VPC the rule is exact:
+# `source_security_group_id = <the app's group>`. No CIDR to maintain,
+# no range wider than intended, and it follows the instance if its IP
+# changes.
+#
+# `publicly_accessible = false`: the endpoint resolves only inside the
+# VPC. The subnets are public (they route to an internet gateway) but
+# the database has no public address and no ingress from anywhere but
+# the app's security group.
 
 terraform {
   required_providers {
@@ -37,25 +36,13 @@ terraform {
   }
 }
 
-data "aws_vpc" "default" {
-  count   = var.enabled ? 1 : 0
-  default = true
-}
-
-data "aws_subnets" "default" {
-  count = var.enabled ? 1 : 0
-
-  filter {
-    name   = "vpc-id"
-    values = [data.aws_vpc.default[0].id]
-  }
-}
-
 resource "aws_db_subnet_group" "main" {
   count = var.enabled ? 1 : 0
 
-  name       = "${var.name_prefix}-db"
-  subnet_ids = data.aws_subnets.default[0].ids
+  name = "${var.name_prefix}-db"
+  # Two AZs, which RDS requires even for a Single-AZ instance. The
+  # network module creates both for this reason.
+  subnet_ids = var.subnet_ids
 
   tags = { Role = "database" }
 }
@@ -64,18 +51,18 @@ resource "aws_security_group" "database" {
   count = var.enabled ? 1 : 0
 
   name        = "${var.name_prefix}-db"
-  description = "PostgreSQL, reachable only from the peered Lightsail VPC"
-  vpc_id      = data.aws_vpc.default[0].id
+  description = "PostgreSQL, reachable only from the app security group"
+  vpc_id      = var.vpc_id
 
   ingress {
-    description = "PostgreSQL from the Lightsail VPC peering range only"
+    description = "PostgreSQL from the app host's security group ONLY"
     from_port   = 5432
     to_port     = 5432
     protocol    = "tcp"
-    # The Lightsail managed VPC's CIDR, supplied by the caller after
-    # peering is enabled. NOT 0.0.0.0/0 and not a public IP: the
-    # variable's validation refuses both.
-    cidr_blocks = [var.lightsail_vpc_cidr]
+    # EXACT. Not a CIDR, not a range -- the app's security group. This
+    # follows the instance if its address changes and cannot be wider
+    # than the hosts in that group.
+    security_groups = [var.app_security_group_id]
   }
 
   # No egress rule is declared, so Terraform's default applies: none.

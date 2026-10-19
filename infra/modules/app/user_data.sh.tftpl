@@ -6,11 +6,22 @@ set -euo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
+# certbot is ABSENT: CloudFront terminates public TLS with an ACM
+# certificate, so the origin needs only a self-signed one for the
+# CloudFront-to-origin hop. A Let's Encrypt renewal nobody checks is a
+# certificate that expires on a Sunday.
 apt-get install -y --no-install-recommends \
-  docker.io docker-compose-v2 nginx certbot python3-certbot-nginx
+  docker.io docker-compose-v2 nginx
 
 usermod -aG docker ubuntu
 systemctl enable --now docker
+
+# The SSM agent, which is what replaces SSH. Ubuntu 24.04 ships it as
+# a snap and it is pre-installed on Canonical's AMIs -- enabling it
+# explicitly is cheap and makes a missing agent a boot-time failure
+# rather than a mystery when the first session is attempted.
+snap install amazon-ssm-agent --classic 2>/dev/null || true
+snap start amazon-ssm-agent 2>/dev/null || systemctl enable --now snap.amazon-ssm-agent.amazon-ssm-agent.service
 
 # The origin secret. Readable only by root, because any process that
 # can read it can forge a request that looks like it came through the
