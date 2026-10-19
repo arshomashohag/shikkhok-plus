@@ -406,3 +406,59 @@ resource "aws_iam_role_policy" "ci_infrastructure" {
     ]
   })
 }
+
+# ---------------------------------------------------------------------
+# The project's DNS zone, and its delegation from the parent
+# ---------------------------------------------------------------------
+#
+# **Here rather than in the main module, because the main module looks
+# a zone up and never creates one** -- a zone created for a domain
+# whose nameservers point elsewhere resolves for nobody and bills
+# USD 0.50/month regardless. The delegation has to be in place before
+# that lookup can succeed, which makes this a bootstrap concern.
+#
+# **A dedicated zone, not the existing staging one.** That zone already
+# serves another project: api.staging.nirmatabd.com is an alias to a
+# live CloudFront distribution, alongside app., m., downloads.,
+# origin. and the DKIM/DMARC records for the domain's email. The CDN
+# module sets `allow_overwrite = true` -- correct for ACM validation
+# records, and fatal here, because claiming api.staging would have
+# silently repointed a running application's API with the plan showing
+# only a create.
+#
+# USD 0.50/month for a hosted zone against the USD 50 ceiling, and it
+# buys complete separation from a project we do not own.
+
+resource "aws_route53_zone" "project" {
+  count = var.create_dns_zone ? 1 : 0
+
+  name    = var.project_domain
+  comment = "ShikhokPlus. Delegated from ${var.parent_domain}."
+
+  tags = { Project = "shikkhokplus" }
+}
+
+# The delegation itself. Without this the zone exists and resolves for
+# nobody: ACM validation then hangs for its full 30-minute timeout and
+# fails with a message about validation timing out rather than about
+# delegation, which is a slow and confusing way to discover it.
+data "aws_route53_zone" "parent" {
+  count = var.create_dns_zone ? 1 : 0
+
+  name         = var.parent_domain
+  private_zone = false
+}
+
+resource "aws_route53_record" "delegation" {
+  count = var.create_dns_zone ? 1 : 0
+
+  zone_id = data.aws_route53_zone.parent[0].zone_id
+  name    = var.project_domain
+  type    = "NS"
+  ttl     = 172800
+  records = aws_route53_zone.project[0].name_servers
+
+  # No allow_overwrite. If something already holds this name the apply
+  # should FAIL rather than quietly take it -- which is the mistake
+  # this whole block exists to avoid making elsewhere.
+}

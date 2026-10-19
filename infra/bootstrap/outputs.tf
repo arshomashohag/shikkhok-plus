@@ -30,3 +30,26 @@ output "next_steps" {
     is never needed again.
   EOT
 }
+
+output "project_domain" {
+  description = <<-EOT
+    Set this as the TF_DOMAIN_NAME GitHub variable. The API is then
+    served at `api.<this>`.
+  EOT
+  value       = var.create_dns_zone ? var.project_domain : null
+}
+
+output "project_zone_nameservers" {
+  description = <<-EOT
+    The new zone's nameservers. The NS delegation in the parent zone
+    is created here too, so there is nothing to copy by hand -- this
+    is for verifying the delegation resolves:
+
+      dig +short NS <project_domain> @8.8.8.8
+  EOT
+  value = (
+    var.create_dns_zone
+    ? aws_route53_zone.project[0].name_servers
+    : null
+  )
+}

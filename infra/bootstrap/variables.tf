@@ -134,3 +134,39 @@ variable "github_subject_has_numeric_ids" {
   type        = bool
   default     = true
 }
+
+variable "create_dns_zone" {
+  description = <<-EOT
+    Create the project's own hosted zone and delegate it from the
+    parent domain.
+
+    On by default because the main module LOOKS UP its zone and never
+    creates one, so the zone must exist first. Set false if you manage
+    DNS elsewhere or the zone already exists.
+  EOT
+  type        = bool
+  default     = true
+}
+
+variable "project_domain" {
+  description = <<-EOT
+    The zone this project owns. Becomes TF_DOMAIN_NAME, and the API
+    is served at `api.<this>`.
+
+    Deliberately NOT staging.nirmatabd.com: that zone already serves
+    another project at api., app., m., downloads. and origin., and the
+    CDN module's `allow_overwrite` would have taken api. from it
+    without the plan showing a destroy.
+  EOT
+  type        = string
+  default     = "shikkhokplus.nirmatabd.com"
+}
+
+variable "parent_domain" {
+  description = <<-EOT
+    The zone holding the NS delegation for `project_domain`. Must
+    already exist in this account.
+  EOT
+  type        = string
+  default     = "nirmatabd.com"
+}
