@@ -13,7 +13,7 @@
 #
 #   1. terraform init
 #   2. terraform plan -var recover_existing=true
-#        -> "3 to import, 0 to add, 0 to change, 0 to destroy"
+#        -> "2 to import, 0 to add, 0 to change, 0 to destroy"
 #      ANY "to add" or "to destroy" means the names below do not match
 #      what is actually in the account. STOP and read them.
 #   3. terraform apply -var recover_existing=true
@@ -35,9 +35,8 @@ import {
   id = "shikkhokplus-github-actions"
 }
 
-import {
-  for_each = var.recover_existing ? toset(["x"]) : toset([])
-
-  to = aws_iam_openid_connect_provider.github
-  id = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/token.actions.githubusercontent.com"
-}
+# **No import block for the OIDC provider.** This module references an
+# existing one by data source rather than owning it -- see main.tf. In
+# an account where this module DID create it
+# (create_github_oidc_provider = true), add one here; in this account
+# six other roles depend on it and ownership would be a hazard.

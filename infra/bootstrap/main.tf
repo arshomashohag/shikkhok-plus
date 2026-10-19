@@ -136,13 +136,40 @@ resource "aws_s3_bucket_public_access_block" "state" {
 # GitHub OIDC
 # ---------------------------------------------------------------------
 
-# The thumbprint is no longer verified by AWS for this provider, but
-# the argument remains required. Any valid-looking value is accepted;
-# this is GitHub's long-published one.
+# **An account can hold only ONE provider per URL, and this account
+# already has it** -- created 2026-04-02, with six other roles already
+# trusting it (GitHubDeployRole-staging, ism_ci_cd, portfolio-deploy,
+# securemsg-dev-gha-deploy, shop360-prod-deploy,
+# shop360-staging-deploy).
+#
+# So it is REFERENCED, never managed here. Importing it would put a
+# resource six unrelated projects depend on under this module's
+# control, and a `terraform destroy` would then break all of them --
+# a blast radius far outside what this module should own.
+#
+# `create_github_oidc_provider = true` creates one for a fresh account
+# that has none. Terraform cannot conditionally import, so the choice
+# is explicit rather than inferred.
+data "aws_iam_openid_connect_provider" "github" {
+  count = var.create_github_oidc_provider ? 0 : 1
+  url   = "https://token.actions.githubusercontent.com"
+}
+
 resource "aws_iam_openid_connect_provider" "github" {
-  url             = "https://token.actions.githubusercontent.com"
-  client_id_list  = ["sts.amazonaws.com"]
+  count = var.create_github_oidc_provider ? 1 : 0
+
+  url            = "https://token.actions.githubusercontent.com"
+  client_id_list = ["sts.amazonaws.com"]
+  # No longer verified by AWS, but the argument remains required.
   thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
+}
+
+locals {
+  github_oidc_arn = (
+    var.create_github_oidc_provider
+    ? aws_iam_openid_connect_provider.github[0].arn
+    : data.aws_iam_openid_connect_provider.github[0].arn
+  )
 }
 
 data "aws_iam_policy_document" "ci_assume" {
@@ -152,7 +179,7 @@ data "aws_iam_policy_document" "ci_assume" {
 
     principals {
       type        = "Federated"
-      identifiers = [aws_iam_openid_connect_provider.github.arn]
+      identifiers = [local.github_oidc_arn]
     }
 
     condition {

@@ -13,8 +13,20 @@ to break it: three resources that never change.
 | Resource | Why |
 |---|---|
 | S3 state bucket | Versioned, encrypted, all public access blocked |
-| GitHub OIDC provider | So Actions can get a token without a stored key |
-| IAM role `shikkhokplus-github-actions` | What that token assumes |
+| IAM role `shikkhokplus-github-actions` | What the OIDC token assumes |
+| Its two inline policies | State access, and the infrastructure scope |
+
+**The GitHub OIDC provider is referenced, not created.** An AWS account
+can hold only one provider per URL, and most accounts that have ever
+run a GitHub deploy already have it. Owning a shared resource means a
+`terraform destroy` here would break every other project trusting it.
+
+Set `create_github_oidc_provider = true` only for an account with
+none:
+
+```bash
+aws iam list-open-id-connect-providers
+```
 
 Its own state stays **local**, and that is fine: it describes three
 resources that never change. Securing a second bucket to hold the
@@ -30,6 +42,11 @@ An access key in GitHub secrets never expires, cannot be rotated
 without a human remembering to, and is usable by anyone who can edit a
 workflow file. OIDC issues a **one-hour token per run**, scoped to this
 repository.
+
+That sharing is not hypothetical. In the account this was first
+applied to, the provider already existed and **six unrelated roles
+depended on it** — importing it would have put their deploys one
+`terraform destroy` away from breaking.
 
 The security boundary is one string — the `sub` condition in the trust
 policy. The OIDC provider trusts *GitHub*, not your repo, so without

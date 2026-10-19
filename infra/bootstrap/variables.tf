@@ -71,3 +71,20 @@ variable "recover_existing" {
   type        = bool
   default     = false
 }
+
+variable "create_github_oidc_provider" {
+  description = <<-EOT
+    Create the GitHub OIDC provider, or reference an existing one.
+
+    **An AWS account can hold only one provider per URL.** Most
+    accounts that have ever run a GitHub deploy already have it, and
+    other roles will be trusting it -- so the default REFERENCES it.
+    Owning a shared resource means a `terraform destroy` here breaks
+    every project that depends on it.
+
+    Set true only for an account that has none:
+      aws iam list-open-id-connect-providers
+  EOT
+  type        = bool
+  default     = false
+}
