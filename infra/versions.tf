@@ -7,7 +7,11 @@
 # scan a version range rather than the build.
 
 terraform {
-  required_version = "~> 1.9"
+  # >= 1.10, not ~> 1.9. The backend below uses `use_lockfile`, which
+  # 1.9 does not have -- and a runner pinned to 1.9 would fail at init
+  # with a message about an unexpected attribute rather than about the
+  # version. Stating the real floor turns that into a clear refusal.
+  required_version = ">= 1.10, < 2.0"
 
   required_providers {
     aws = {
@@ -16,20 +20,28 @@ terraform {
     }
   }
 
-  # State is LOCAL by default, and that is a deliberate Phase 1 choice
-  # rather than an oversight -- see infra/README.md. A solo operator
-  # with one workstation does not need S3 plus DynamoDB locking, and an
-  # unused state bucket is a thing to secure for no benefit.
+  # **Remote state, because CI applies.** Local state in a runner is
+  # discarded when the job ends, so the next run would not know which
+  # resources exist and would try to create a Lightsail instance that
+  # is already there.
   #
-  # Uncomment when a second person or a CI runner applies:
+  # The bucket is created by infra/bootstrap, which is the one thing
+  # run from a laptop -- state and credentials cannot bootstrap
+  # themselves.
   #
-  # backend "s3" {
-  #   bucket       = "shikkhokplus-tfstate"
-  #   key          = "phase1/terraform.tfstate"
-  #   region       = "ap-south-1"
-  #   encrypt      = true
-  #   use_lockfile = true
-  # }
+  # `use_lockfile` is S3-native locking (Terraform 1.10+), which
+  # replaces the DynamoDB table older setups needed. One fewer resource
+  # to provision, pay for and secure.
+  #
+  # The bucket name is supplied by `-backend-config` rather than
+  # hardcoded, because S3 names are globally unique across all of AWS
+  # and a fork of this repository cannot use the same one.
+  backend "s3" {
+    key          = "phase1/terraform.tfstate"
+    region       = "ap-south-1"
+    encrypt      = true
+    use_lockfile = true
+  }
 }
 
 provider "aws" {

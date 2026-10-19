@@ -72,8 +72,14 @@ backup-*.sql
 #
 # .terraform/ is provider binaries: large, machine-specific, and
 # reconstructed by `terraform init`.
-infra/.terraform/
-infra/.terraform.lock.hcl.bak
+#
+# UNANCHORED, so it matches infra/.terraform/ AND
+# infra/bootstrap/.terraform/. The first version was path-anchored to
+# infra/ and would have committed the bootstrap module's provider
+# binaries -- hundreds of megabytes, found by testing the path rather
+# than by reading the pattern.
+**/.terraform/
+*.terraform.lock.hcl.bak
 *.tfstate
 *.tfstate.*
 *.tfplan

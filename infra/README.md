@@ -75,57 +75,96 @@ not require a publicly resolvable endpoint.
 
 ---
 
-## First run
+## Terraform runs in GitHub Actions, not on your laptop
+
+**Once**, to break the chicken-and-egg (CI needs state and credentials;
+Terraform creates state and credentials):
 
 ```bash
-# 1. A key pair, once. Terraform does not create one: that would put
-#    the private key in state, and state is a file on disk.
+# A key pair. Terraform does not create one: that would put the
+# private key in state, and state is a file on disk.
 aws lightsail create-key-pair --key-pair-name shikkhokplus \
   --query 'privateKeyBase64' --output text > ~/.ssh/shikkhokplus.pem
 chmod 600 ~/.ssh/shikkhokplus.pem
 
-# 2. Your variables.
-cp terraform.tfvars.example terraform.tfvars
-curl -s https://checkip.amazonaws.com   # your IP, for operator_ip_cidr
-
-# 3. Read the plan before applying it.
-terraform init
-terraform plan
-
-terraform apply
+cd bootstrap && terraform init && terraform apply
 ```
+
+See [bootstrap/README.md](bootstrap/README.md) for the variables and
+environments to configure afterwards.
+
+**Every time after that:**
+
+1. Edit `infra/**` on a branch, open a PR
+2. The plan appears as a PR comment
+3. Merge
+4. Actions → terraform → Run workflow → **apply** → approve
 
 **ACM validation takes 5–30 minutes** on the first apply, and
-CloudFront takes another 10–15 to deploy. The apply blocks on both.
-That is not a hang.
+CloudFront another 10–15. The job's 45-minute timeout exists for that.
+It is not a hang.
 
-## After apply
+### Why apply is manual
+
+A Terraform run can replace the Lightsail instance, and in Phase 1 that
+**destroys the containerised Postgres with it** — a database whose only
+backup is `pg_dump`. Auto-applying on merge would make a routine merge
+capable of losing teacher data.
+
+## Reading the outputs
+
+The apply job writes `api_url`, `app_static_ip` and
+`cloudfront_domain` to its **job summary**. That is the normal way to
+read them.
+
+The **origin secret is deliberately not printed there** — a CI log
+persists for 90 days, and that value lets anyone bypass the CDN. To
+read it you need the state, which means authenticating locally:
 
 ```bash
-terraform output api_url              # build the Android client against this
-terraform output app_static_ip        # ssh here to deploy
-terraform output -raw origin_secret   # when nginx needs it again
-terraform output monthly_cost_estimate
+cd infra
+terraform init -backend-config="bucket=<the state bucket>"
+terraform output -raw origin_secret
 ```
 
-Then deploy the application itself — Terraform provisions the machine
-and never the release:
+That is a deliberate speed bump rather than an oversight: the secret is
+already on the origin host, written by `user_data`, so you only need it
+if you are reconstructing nginx by hand.
+
+## Deploying the application
+
+Terraform provisions the **machine** and never the **release** —
+`user_data` runs once at first boot, so using it to deploy would make
+every release require a new instance.
 
 ```bash
-ssh -i ~/.ssh/shikkhokplus.pem ubuntu@$(terraform output -raw app_static_ip)
+ssh -i ~/.ssh/shikkhokplus.pem ubuntu@<app_static_ip>
 # then the six-step ordering in ../deploy/README.md
 ```
 
 ## State
 
-**Local, deliberately.** A solo operator with one workstation does not
-need S3 plus DynamoDB locking, and an unused state bucket is a thing to
-secure for no benefit. Uncomment the `backend "s3"` block in
-`versions.tf` when a second person or a CI runner applies.
+**S3, created by `bootstrap/`.** Versioned, encrypted, all public
+access blocked. Local state cannot work for CI: a runner's filesystem
+is discarded when the job ends, so the next run would not know which
+resources exist and would try to create a Lightsail instance that is
+already there.
+
+Locking is `use_lockfile` — S3-native, Terraform 1.10+. That replaces
+the DynamoDB table older setups needed: one fewer resource to
+provision, pay for and secure.
 
 **State holds the origin secret and, in Phase 2, the database password
-in plaintext.** It is gitignored — verified, not assumed. If you move
-to S3, enable encryption and versioning on the bucket.
+in plaintext.** The local-state patterns remain gitignored — verified
+with `git check-ignore`, not assumed — in case anyone runs Terraform
+locally by accident.
+
+## Authentication
+
+**OIDC, no stored AWS keys.** A one-hour token per run, scoped to this
+repository and branch. An access key in GitHub secrets never expires,
+cannot be rotated without a human remembering, and is usable by anyone
+who can edit a workflow file.
 
 ## What is deliberately absent
 
