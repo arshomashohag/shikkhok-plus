@@ -40,13 +40,55 @@ provider "aws" {
 }
 
 data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
+
+locals {
+  # **Account-suffixed, because S3 bucket names are globally unique
+  # across every AWS account on earth.** A plain "shikkhokplus-tfstate"
+  # is very likely already taken by somebody else entirely, and the
+  # failure is `BucketAlreadyExists` -- which reads like a bug in this
+  # module rather than a namespace collision with a stranger.
+  #
+  # An explicit state_bucket_name still wins, for the case where you
+  # want a name you chose.
+  state_bucket = coalesce(
+    var.state_bucket_name,
+    "shikkhokplus-tfstate-${data.aws_caller_identity.current.account_id}",
+  )
+}
+
+# **A precondition, not a comment.** Running this against the wrong
+# account creates an OIDC provider and a role somewhere unintended, and
+# the first sign would be a CI run failing to assume a role that exists
+# in a different account.
+#
+# Leave expected_account_id null to skip the check; set it once you
+# know the number and the mistake becomes impossible.
+resource "terraform_data" "account_guard" {
+  input = data.aws_caller_identity.current.account_id
+
+  lifecycle {
+    precondition {
+      condition = (
+        var.expected_account_id == null ||
+        var.expected_account_id == data.aws_caller_identity.current.account_id
+      )
+      error_message = <<-EOT
+        Credentials are for account ${data.aws_caller_identity.current.account_id}
+        but expected_account_id is ${coalesce(var.expected_account_id, "unset")}.
+
+        Nothing was created. Check `aws sts get-caller-identity`.
+      EOT
+    }
+  }
+}
 
 # ---------------------------------------------------------------------
 # State
 # ---------------------------------------------------------------------
 
 resource "aws_s3_bucket" "state" {
-  bucket = var.state_bucket_name
+  bucket = local.state_bucket
 
   # The state holds the CDN origin secret and, in Phase 2, the database
   # password in plaintext. Deleting it is not a recoverable mistake:

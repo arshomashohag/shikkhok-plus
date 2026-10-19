@@ -1,0 +1,22 @@
+# Copy to terraform.tfvars and fill in. The real file is gitignored.
+
+# Your AWS account id. Leaving it null skips the check -- but setting
+# it makes "applied to the wrong account" impossible rather than
+# merely unlikely, and the symptom of that mistake is a CI run failing
+# to assume a role that exists, in a different account.
+#
+#   aws sts get-caller-identity --query Account --output text
+expected_account_id = "123456789012"
+
+# owner/repo exactly as GitHub spells it. **This string is the whole
+# security boundary**: the OIDC provider trusts GitHub, not your
+# repository, so a wrong value lets another repo assume the role.
+github_repository = "arshomashohag/shikkhok-plus"
+
+# Leave unset to get shikkhokplus-tfstate-<account-id>. S3 names are
+# globally unique across every AWS account, which is why the default
+# is suffixed.
+# state_bucket_name = "my-chosen-name"
+
+# Only for recovering a lost terraform.tfstate. See README.
+# recover_existing = false

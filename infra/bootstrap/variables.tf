@@ -6,13 +6,36 @@ variable "region" {
 
 variable "state_bucket_name" {
   description = <<-EOT
-    The Terraform state bucket. Globally unique across all of AWS, so
-    a plain "shikkhokplus-tfstate" may already be taken by somebody
-    else entirely -- append your account id if apply reports a name
-    conflict.
+    The Terraform state bucket, or null to derive one.
+
+    S3 names are globally unique across EVERY AWS account, so the
+    derived default appends your account id:
+    `shikkhokplus-tfstate-<account>`. Without that, a plain
+    `shikkhokplus-tfstate` is very likely taken by a stranger and the
+    failure reads like a bug here rather than a namespace collision.
   EOT
   type        = string
-  default     = "shikkhokplus-tfstate"
+  default     = null
+}
+
+variable "expected_account_id" {
+  description = <<-EOT
+    The AWS account this is meant to run against. Null skips the check.
+
+    Set it once you know the number: running the bootstrap against the
+    wrong account creates an OIDC provider and a role somewhere
+    unintended, and the first symptom is a CI run failing to assume a
+    role that exists -- in a different account.
+
+      aws sts get-caller-identity --query Account --output text
+    EOT
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.expected_account_id == null || can(regex("^[0-9]{12}$", var.expected_account_id))
+    error_message = "An AWS account id is exactly 12 digits."
+  }
 }
 
 variable "github_repository" {
@@ -34,4 +57,17 @@ variable "github_repository" {
     condition     = !can(regex("\\*", var.github_repository))
     error_message = "Refusing a wildcard: any repository could then assume this role."
   }
+}
+
+variable "recover_existing" {
+  description = <<-EOT
+    Rebuild state for resources that already exist, after a lost
+    terraform.tfstate.
+
+    Normally false. Set it true ONLY to recover, read the plan (it
+    must say 3 to import and nothing to add or destroy), apply, then
+    set it back.
+  EOT
+  type        = bool
+  default     = false
 }

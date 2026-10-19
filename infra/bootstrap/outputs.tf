@@ -1,5 +1,10 @@
+output "account_id" {
+  description = "The account this was applied to. Check it is the one you meant."
+  value       = data.aws_caller_identity.current.account_id
+}
+
 output "state_bucket" {
-  description = "Put this in the backend block in ../versions.tf."
+  description = "Pass to ../ as -backend-config=\"bucket=<this>\"."
   value       = aws_s3_bucket.state.id
 }
 
