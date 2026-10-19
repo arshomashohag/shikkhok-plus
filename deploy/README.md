@@ -122,8 +122,10 @@ chmod 600 .env
 docker compose exec -T db pg_dump -U shikkhok shikkhokplus \
   > "backup-$(date +%Y%m%d-%H%M%S).sql" || true
 
-# 2. Build and start.
-docker compose up -d --build
+# 2. Pull and start. NOT --build: the host runs the artifact CI
+#    tested and pushed, never a rebuild of it. API_IMAGE is written
+#    into .env by the deploy workflow.
+docker compose pull && docker compose up -d
 
 # 3. Migrate as a DISTINCT step, never on container start.
 docker compose exec -T api alembic upgrade head
@@ -153,11 +155,28 @@ reaches the rate limiter rather than nginx's.
 
 ---
 
+> **This manual path is the fallback, not the normal one.** A deploy
+> is `Actions -> deploy-staging -> Run workflow`: it builds, pushes a
+> SHA-tagged image to ECR, delivers over SSM and polls `/health`.
+> Follow the steps here only when that workflow cannot run.
+
 ## Rolling back
 
 ```bash
-git checkout <previous-sha> && docker compose up -d --build
+# Point .env at the previous image and restart. The ECR repository
+# is IMMUTABLE, so a SHA is the artifact -- this redeploys exactly
+# what ran before, rather than rebuilding it.
+sed -i "s|^API_IMAGE=.*|API_IMAGE=<repo>:<previous-sha>|" .env
+docker compose pull && docker compose up -d
 ```
+
+Or simply dispatch `deploy-staging` with the earlier ref, which does
+the same thing and records it.
+
+**Never `--build` here.** A rebuild from an old commit resolves base
+images and transitive dependencies afresh, so it produces a DIFFERENT
+artifact from the one that ran -- which is the opposite of what a
+rollback is for.
 
 **Not `alembic downgrade`.** Migration `0002` raises on downgrade: it
 can reverse its renames but cannot reconstruct which student a deleted

@@ -186,9 +186,23 @@ jobs:
           # Read from Terraform's own outputs rather than a variable
           # somebody has to keep in step. A hardcoded instance id
           # silently targets a destroyed host after a rebuild.
+          # **Read, never created.** The repository is terraform's
+          # (infra/modules/registry), applied by the terraform
+          # workflow. If this workflow created it, two workflows
+          # would own one resource and terraform would fight the
+          # deploy over it on every apply.
+          #
+          # So a missing repository means terraform has not run --
+          # and AWS's own RepositoryNotFoundException does not say
+          # that, which is why this names it.
           repo=$(aws ecr describe-repositories \
             --repository-names "shikkhokplus-${{ vars.TF_ENVIRONMENT || 'staging' }}-backend" \
-            --query 'repositories[0].repositoryUri' --output text)
+            --query 'repositories[0].repositoryUri' --output text 2>/dev/null) || {
+            echo "::error::No ECR repository for this environment."
+            echo "The registry is created by terraform, not by this"
+            echo "workflow. Run: Actions -> terraform -> apply."
+            exit 1
+          }
 
           instance=$(aws ec2 describe-instances \
             --filters "Name=tag:Name,Values=shikkhokplus-${{ vars.TF_ENVIRONMENT || 'staging' }}-app" \
