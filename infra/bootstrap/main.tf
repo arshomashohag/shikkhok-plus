@@ -192,17 +192,53 @@ data "aws_iam_policy_document" "ci_assume" {
     # this condition ANY GitHub repository in the world could assume
     # this role — the OIDC provider trusts GitHub, not your repo.
     #
-    # Scoped to this repository AND to either the default branch or a
-    # named environment. A pull request from a fork runs with
-    # `pull_request` in the subject and matches neither, which is what
-    # stops a drive-by PR from applying infrastructure.
+    # Scoped to this repository AND to either the default branch or
+    # one of the two environments BY NAME. A pull request from a fork
+    # runs with `pull_request` in the subject and matches none of
+    # them, which is what stops a drive-by PR applying infrastructure.
+    #
+    # **The environments are named rather than wildcarded**, and that
+    # is the load-bearing part. `environment:*` reads like "our
+    # environments" but means "any string somebody puts after
+    # `environment:` in a workflow file" — so anyone able to push a
+    # branch could add `environment: whatever` and assume this role,
+    # walking straight around the main-branch restriction above. The
+    # named form costs one line per environment and closes that.
+    #
+    # Adding an environment therefore means adding it here. That is a
+    # feature: a new environment is a new way into this account, and
+    # it should take a bootstrap change rather than a workflow edit.
+    #
+    # **No `@` anywhere, and no wildcard inside owner or repo.** The
+    # real claim is `repo:<owner>/<repo>:ref:refs/heads/<branch>`, and
+    # GitHub names cannot contain `@`. A pattern like
+    # `repo:owner@*/repo@*:...` requires a literal `@` that no genuine
+    # token carries, so under StringLike it matches NOTHING and every
+    # run fails at role assumption. Keep these exact.
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values = [
-        "repo:${var.github_repository}:ref:refs/heads/main",
-        "repo:${var.github_repository}:environment:*",
-      ]
+      values = concat(
+        [
+          "repo:${var.github_repository}:ref:refs/heads/main",
+          "repo:${var.github_repository}:environment:terraform-plan",
+          "repo:${var.github_repository}:environment:terraform-apply",
+        ],
+        # `deploy-staging.yml` runs in the `staging` environment and
+        # does NOT assume this role today -- it only builds an image.
+        # When the SSM delivery step lands it will need AWS access,
+        # and it will fail at role assumption until this is enabled.
+        #
+        # That failure is deliberate. Under the old `environment:*`
+        # the deploy job would have quietly inherited the full
+        # infrastructure policy -- ec2:*, rds:*, route53:*, IAM writes
+        # -- to push one container. A deploy credential should be its
+        # own narrow role, so turning this on is a decision to make
+        # with that in view, not a line to flip past.
+        var.trust_staging_environment
+        ? ["repo:${var.github_repository}:environment:staging"]
+        : [],
+      )
     }
   }
 }

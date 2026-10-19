@@ -55,12 +55,43 @@ is scoped to:
 
 ```
 repo:arshomashohag/shikkhok-plus:ref:refs/heads/main
-repo:arshomashohag/shikkhok-plus:environment:*
+repo:arshomashohag/shikkhok-plus:environment:terraform-plan
+repo:arshomashohag/shikkhok-plus:environment:terraform-apply
 ```
 
 A pull request from a fork carries `pull_request` in its subject and
-matches neither. That is what stops a drive-by PR applying
+matches none of them. That is what stops a drive-by PR applying
 infrastructure.
+
+**The environments are named, not wildcarded.** `environment:*` looks
+like it means "our environments"; it means any string somebody writes
+after `environment:` in a workflow file. Anyone able to push a branch
+could add `environment: whatever` and assume this role, going around
+the main-branch restriction entirely. Adding an environment is adding
+a way into the account, so it takes a change here rather than a
+workflow edit.
+
+`deploy-staging.yml` runs in `staging`, which is **not** on that list.
+It does not assume this role today. When its SSM delivery step lands
+it will need AWS access, and the right answer is a separate deploy
+role scoped to SSM and ECR — not widening this one, which carries
+`ec2:*`, `rds:*`, `route53:*` and IAM writes. `trust_staging_environment`
+exists as the expedient alternative and is off by default.
+
+### On wildcards in the owner or repo
+
+A real subject is `repo:<owner>/<repo>:ref:refs/heads/<branch>`, and
+GitHub names cannot contain `@`. A pattern of the form
+
+```
+repo:owner@*/repo@*:ref:refs/heads/main
+```
+
+requires a literal `@` that no genuine token carries, so under
+`StringLike` it matches **nothing** and every run fails at role
+assumption. If you meet one of these in another account, it is not a
+working policy being copied — it is a policy that has never been
+exercised, or whose access comes from somewhere else.
 
 ## The IAM scope, stated honestly
 
