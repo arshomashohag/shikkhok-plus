@@ -96,14 +96,15 @@ resource "aws_iam_role_policy_attachment" "ssm" {
 # The layer-reading actions ARE scoped, and those are the ones that
 # decide which images this host can actually read.
 #
-# **`count` keys off a static bool, not off the ARN.** Deriving it as
-# `var.ecr_repository_arn == null ? 0 : 1` fails the plan with
-# "Invalid count argument": the ARN comes from a repository that does
-# not exist yet on a first apply, so its value is unknown at plan
-# time and count must be known then. The caller states the intent
-# instead, which it knows statically.
+# **The count tests whether the OBJECT is null, not a value inside
+# it.** Terraform knows at plan time whether the caller passed an
+# object at all, even when the arn inside it is
+# `(known after apply)`. `var.image_repository.arn == null` would NOT
+# work -- that reads an unknown value, and count must be known at
+# plan time. The distinction is the whole reason this is one object
+# rather than separate arn and url inputs.
 resource "aws_iam_role_policy" "ecr_pull" {
-  count = var.enable_ecr_pull ? 1 : 0
+  count = var.image_repository == null ? 0 : 1
 
   name = "ecr-pull"
   role = aws_iam_role.instance.id
@@ -123,7 +124,7 @@ resource "aws_iam_role_policy" "ecr_pull" {
           "ecr:GetDownloadUrlForLayer",
           "ecr:BatchCheckLayerAvailability",
         ]
-        Resource = var.ecr_repository_arn
+        Resource = var.image_repository.arn
       },
     ]
   })
@@ -207,12 +208,10 @@ resource "aws_instance" "app" {
     origin_secret = random_password.origin_secret.result
     # Empty for a host with no registry access, which keeps the
     # template valid rather than failing on an unset variable.
-    ecr_repository_url = coalesce(var.ecr_repository_url, "")
-    ecr_registry = (
-      var.ecr_repository_url == null
-      ? ""
-      : split("/", var.ecr_repository_url)[0]
-    )
+    # Empty for a host with no registry, which keeps the template
+    # valid rather than failing on an unset variable.
+    ecr_repository_url = try(var.image_repository.url, "")
+    ecr_registry       = try(split("/", var.image_repository.url)[0], "")
   })
   # Changing user_data does NOT replace the instance. It runs once at
   # first boot; replacing a running host to re-run a provisioning

@@ -110,12 +110,21 @@ module "registry" {
   name_prefix = local.name_prefix
 }
 
+locals {
+  # Built once and passed to every host, so a second host cannot
+  # silently end up without pull access -- which is what happened to
+  # the rehearsal host when these were three separate arguments it
+  # simply did not pass.
+  image_repository = {
+    arn = module.registry.repository_arn
+    url = module.registry.repository_url
+  }
+}
+
 module "app" {
   source = "./modules/app"
 
-  enable_ecr_pull    = true
-  ecr_repository_arn = module.registry.repository_arn
-  ecr_repository_url = module.registry.repository_url
+  image_repository = local.image_repository
 
   name_prefix    = local.name_prefix
   vpc_id         = module.network.vpc_id
@@ -130,6 +139,13 @@ module "app" {
 module "staging_app" {
   source = "./modules/app"
   count  = var.enable_staging_instance ? 1 : 0
+
+  # **The same repository as the primary host.** Without this the
+  # rehearsal host boots with nginx up and no API, unable to pull --
+  # exactly the silent half-working state that cost an afternoon to
+  # diagnose on the primary host. A rehearsal host that cannot run
+  # the image cannot rehearse anything.
+  image_repository = local.image_repository
 
   name_prefix    = "shikkhokplus-rehearsal"
   vpc_id         = module.network.vpc_id

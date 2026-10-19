@@ -34,35 +34,25 @@ variable "root_volume_gb" {
   default     = 30
 }
 
-variable "enable_ecr_pull" {
+variable "image_repository" {
   description = <<-EOT
-    Whether this host may pull from the image repository.
+    The ECR repository this host pulls its application image from,
+    as `{ arn, url }`. Supplied by the root module from
+    `module.registry`, since sibling modules cannot reference each
+    other directly.
 
-    A separate flag rather than deriving it from
-    `ecr_repository_arn != null`, because a derived count fails the
-    plan: the ARN is unknown until the repository is created, and
-    `count` must be known at plan time.
-  EOT
-  type        = bool
-  default     = false
-}
+    Null means this host runs no application -- it still boots, still
+    has SSM, and simply has no pull permission and no registry in its
+    docker config.
 
-variable "ecr_repository_arn" {
-  description = <<-EOT
-    The image repository this host may pull from. Null grants no ECR
-    access at all, which is correct for a host that does not run the
-    application.
+    **One object rather than three separate inputs**, because the arn
+    and the url are not independent: a host given one without the
+    other either has permission it cannot use or a registry it cannot
+    read. The object makes that combination unrepresentable.
   EOT
-  type        = string
-  default     = null
-}
-
-variable "ecr_repository_url" {
-  description = <<-EOT
-    The repository URL, passed to the host so its compose file can
-    reference the image without the deploy step having to compose the
-    registry hostname itself.
-  EOT
-  type        = string
-  default     = null
+  type = object({
+    arn = string
+    url = string
+  })
+  default = null
 }
