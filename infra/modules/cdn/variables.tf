@@ -36,3 +36,18 @@ variable "origin_secret" {
   type        = string
   sensitive   = true
 }
+
+variable "origin_subdomain" {
+  description = <<-EOT
+    Host part of the record naming the origin, e.g. "origin" for
+    origin.shikkhokplus.nirmatabd.com.
+
+    Exists because CloudFront refuses an IP as an origin
+    (`InvalidArgument: The parameter origin name cannot be an IP
+    address`). It also decouples the distribution from the host's
+    address: repointing this record moves the origin without a
+    distribution update.
+  EOT
+  type        = string
+  default     = "origin"
+}
