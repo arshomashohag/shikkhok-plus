@@ -28,6 +28,9 @@
 locals {
   name_prefix = "shikkhokplus-${var.environment}"
 
+  # The zone this project owns, e.g. shikkhokplus.nirmatabd.com.
+  # The API is served at `${var.api_subdomain}.${this}`.
+  project_domain = "${var.project_subdomain}.${var.apex_domain}"
 }
 
 # **The budget is a precondition, checked before anything is created.**
@@ -43,6 +46,11 @@ locals {
 locals {
   monthly_cost = (
     16.67 +
+    # The project's own hosted zone. Small, and counted: the Phase 2
+    # total was already USD 50.20 against a USD 50 ceiling, so an
+    # uncounted 50 cents is the difference between a precondition
+    # that holds and one that is quietly wrong.
+    0.50 +
     (var.enable_staging_instance ? 16.17 : 0.00) +
     (var.enable_rds ? 17.36 : 0.00)
   )
@@ -104,7 +112,8 @@ module "cdn" {
   }
 
   name_prefix   = local.name_prefix
-  domain_name   = var.domain_name
+  domain_name   = local.project_domain
+  zone_id       = aws_route53_zone.project.zone_id
   api_subdomain = var.api_subdomain
   origin_ip     = module.app.static_ip
   origin_secret = module.app.origin_secret
@@ -124,4 +133,52 @@ module "database" {
   # reference, so "ingress only from the app" could only ever be a
   # CIDR guess or a VPC peering range. Now it is exact.
   app_security_group_id = module.app.security_group_id
+}
+
+# ---------------------------------------------------------------------
+# DNS: this project's own zone, delegated from the apex
+# ---------------------------------------------------------------------
+#
+# **Here rather than in bootstrap, so the zone and the certificate
+# that validates against it live in one module.** ACM validation
+# writes CNAME records into this zone, and splitting the two meant a
+# bootstrap apply had to precede every certificate change.
+#
+# **A dedicated subdomain rather than the apex.** The apex zone
+# already serves other projects, and the CDN module sets
+# `allow_overwrite = true` -- correct for ACM validation records it
+# was added for, and fatal for an API A record, because the plan then
+# shows a create rather than a destroy. Claiming a name another
+# project holds would have silently repointed a running application
+# with nothing in the plan to show it.
+#
+# USD 0.50/month for the hosted zone. Counted in the budget below.
+
+resource "aws_route53_zone" "project" {
+  name    = local.project_domain
+  comment = "ShikhokPlus. Delegated from ${var.apex_domain}."
+}
+
+# The apex zone, looked up rather than created: it already exists and
+# belongs to other projects too. Nothing here modifies it except the
+# single NS record below.
+data "aws_route53_zone" "apex" {
+  name         = var.apex_domain
+  private_zone = false
+}
+
+# The delegation. Without it the zone exists and resolves for nobody:
+# ACM validation then hangs for its full timeout and fails with a
+# message about validation timing out rather than about delegation,
+# which is a slow and confusing way to find this.
+resource "aws_route53_record" "delegation" {
+  zone_id = data.aws_route53_zone.apex.zone_id
+  name    = local.project_domain
+  type    = "NS"
+  ttl     = 172800
+  records = aws_route53_zone.project.name_servers
+
+  # No allow_overwrite. If something already holds this name the
+  # apply must FAIL rather than quietly take it -- which is the exact
+  # mistake the comment above describes avoiding.
 }
