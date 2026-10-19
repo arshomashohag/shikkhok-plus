@@ -148,13 +148,63 @@ jobs:
       #
       # The delivery step goes here, and it will be SSM rather than
       # SSH -- there is no inbound port 22 by design.
+      # **QEMU, because the runner is x86 and the host is arm64.**
+      # Without this, `docker build --platform linux/arm64` pulls the
+      # arm64 base image and then tries to execute /bin/sh from it
+      # natively -- which fails with `exec format error` on the first
+      # RUN, naming neither the platform nor the cause.
+      #
+      # Note the symmetry with the comment below: an x86 image fails
+      # that way at `docker run` on the host, and an arm64 image fails
+      # that way at `docker build` here. Same error, opposite ends.
+      - uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - uses: docker/setup-buildx-action@v3
+
       - name: Build the image
         # arm64, because the host is Graviton (t4g.small). An x86 image
         # fails at `docker run` with an exec format error that does not
         # mention architecture.
+        #
+        # Emulated arm64 is SLOW -- the compile stage runs instruction
+        # by instruction through QEMU. The cache is what keeps this
+        # tolerable on the second and later runs.
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/arm64
+          tags: shikkhokplus-backend:${{ github.sha }}
+          # Not pushed anywhere yet: there is no registry and no host
+          # until `terraform apply` has run. Loading it into the local
+          # daemon is what makes the build a real verification rather
+          # than a dry run.
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # The build above proves the image assembles. This proves it can
+      # actually EXECUTE on the target architecture, which is a
+      # different claim -- a mis-tagged or multi-arch-confused image
+      # builds cleanly and then dies on first boot.
+      - name: The image runs, and is arm64
         run: |
-          docker build --platform linux/arm64 \
-            -t shikkhokplus-backend:${{ github.sha }} .
+          # `2>/dev/null` and `tail -1` because docker writes platform
+          # mismatch warnings to this same stream. Without them the
+          # captured value can be "WARNING: ...\nx86_64" rather than
+          # "x86_64" -- which still fails the comparison below, but by
+          # accident rather than by design, and would just as easily
+          # break a correct build on a noisier day.
+          arch=$(docker run --rm --entrypoint uname \
+            shikkhokplus-backend:${{ github.sha }} -m 2>/dev/null | tail -1)
+          echo "Image architecture: $arch"
+          if [ "$arch" != "aarch64" ]; then
+            echo "::error::Built '$arch', but the host is Graviton (aarch64)."
+            echo "This image would fail at docker run with an exec format error."
+            exit 1
+          fi
+          echo "Runs on the target architecture."
 
       # `run_migrations` is read HERE rather than ignored. An input that
       # does nothing is worse than no input: it reads as a control, so
