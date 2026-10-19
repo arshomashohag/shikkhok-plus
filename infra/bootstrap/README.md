@@ -169,9 +169,20 @@ GitHub → Settings → Secrets and variables → Actions
 Variables:
   AWS_ROLE_ARN      (from the output)
   TF_STATE_BUCKET   (from the output)
-  TF_DOMAIN_NAME    your domain, e.g. shikkhokplus.com
+  APEX_DOMAIN       the PARENT zone, e.g. nirmatabd.com
   TF_ENVIRONMENT    staging
 ```
+
+**`APEX_DOMAIN` is the parent, not the hostname the API answers on.**
+The main module creates its own zone beneath it and delegates it, so
+`nirmatabd.com` yields the zone `shikkhokplus.nirmatabd.com` and the
+API at `api.shikkhokplus.nirmatabd.com`. The parent zone is looked up
+and never modified except for that one NS record — it serves other
+projects too, and claiming a name from one of them is exactly what
+the dedicated zone avoids.
+
+Change `project_subdomain` if you want a different label under the
+apex.
 
 **No secrets at all.** There is no SSH key and no operator IP, because
 there is no SSH — Session Manager replaced both. Everything the

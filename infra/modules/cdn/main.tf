@@ -31,13 +31,11 @@ terraform {
   }
 }
 
-# The zone is LOOKED UP, never created. Creating one for a domain whose
-# nameservers point elsewhere produces a zone that resolves for nobody
-# and bills USD 0.50/month regardless.
-data "aws_route53_zone" "primary" {
-  name         = var.domain_name
-  private_zone = false
-}
+# **The zone is PASSED IN, not looked up.** The caller creates it, and
+# a data-source lookup here would race that creation: on a first apply
+# the zone does not exist yet when the lookup runs, and Terraform
+# fails with "no matching Route53Zone found" rather than ordering
+# itself. Taking the id as an input makes the dependency explicit.
 
 locals {
   api_fqdn = "${var.api_subdomain}.${var.domain_name}"
@@ -71,7 +69,7 @@ resource "aws_route53_record" "acm_validation" {
     }
   }
 
-  zone_id         = data.aws_route53_zone.primary.zone_id
+  zone_id         = var.zone_id
   name            = each.value.name
   type            = each.value.type
   records         = [each.value.record]
@@ -182,7 +180,7 @@ data "aws_cloudfront_origin_request_policy" "all_viewer" {
 # at the zone apex if the API ever moves there, and does not add a
 # lookup hop.
 resource "aws_route53_record" "api" {
-  zone_id = data.aws_route53_zone.primary.zone_id
+  zone_id = var.zone_id
   name    = local.api_fqdn
   type    = "A"
 
@@ -194,7 +192,7 @@ resource "aws_route53_record" "api" {
 }
 
 resource "aws_route53_record" "api_ipv6" {
-  zone_id = data.aws_route53_zone.primary.zone_id
+  zone_id = var.zone_id
   name    = local.api_fqdn
   type    = "AAAA"
 

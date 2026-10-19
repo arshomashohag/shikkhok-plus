@@ -386,6 +386,24 @@ resource "aws_iam_role_policy" "ci_infrastructure" {
           "iam:GetInstanceProfile",
           "iam:AddRoleToInstanceProfile",
           "iam:RemoveRoleFromInstanceProfile",
+
+          # **The tag actions, as a complete set for both resource
+          # types.** The provider's `default_tags` tags everything it
+          # creates, so a missing tag permission fails the CREATE --
+          # which is how this was found: CreateInstanceProfile
+          # returned AccessDenied on iam:TagInstanceProfile, naming
+          # an action nobody had thought to grant.
+          #
+          # All six rather than the one that failed. Granting only
+          # TagInstanceProfile would let the create succeed and then
+          # fail on the NEXT apply, when Terraform reads tags back to
+          # detect drift -- a second identical debugging session for
+          # the same root cause, one apply later.
+          "iam:TagInstanceProfile",
+          "iam:UntagInstanceProfile",
+          "iam:ListInstanceProfileTags",
+          "iam:UntagRole",
+          "iam:ListRoleTags",
         ]
         Resource = [
           "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/shikkhokplus/*",

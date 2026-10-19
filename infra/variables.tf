@@ -22,14 +22,29 @@ variable "environment" {
   }
 }
 
-variable "domain_name" {
+variable "apex_domain" {
   description = <<-EOT
     The apex domain whose Route53 zone already exists, e.g.
-    "shikkhokplus.com". The zone is LOOKED UP, never created: creating
-    one for a domain whose nameservers point elsewhere produces a zone
-    that resolves for nobody and bills USD 0.50/month regardless.
+    "nirmatabd.com". Looked up, never created, and never modified
+    except for this project's one NS delegation record -- it serves
+    other projects too.
   EOT
   type        = string
+}
+
+variable "project_subdomain" {
+  description = <<-EOT
+    The label this project's own zone takes under the apex. With
+    apex_domain = "nirmatabd.com" and this = "shikkhokplus", the zone
+    is shikkhokplus.nirmatabd.com and the API is
+    api.shikkhokplus.nirmatabd.com.
+
+    A dedicated zone rather than records in the apex: the apex serves
+    other projects, and the CDN module's `allow_overwrite` would take
+    a name from one of them with the plan showing only a create.
+  EOT
+  type        = string
+  default     = "shikkhokplus"
 }
 
 variable "api_subdomain" {

@@ -8,6 +8,15 @@ variable "domain_name" {
   type        = string
 }
 
+variable "zone_id" {
+  description = <<-EOT
+    The Route53 zone holding the API record and the ACM validation
+    records. Passed in rather than looked up: on a first apply the
+    zone is created in the same run, and a lookup would race it.
+  EOT
+  type        = string
+}
+
 variable "api_subdomain" {
   description = "Host part of the API record."
   type        = string
