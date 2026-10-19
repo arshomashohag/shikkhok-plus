@@ -1,0 +1,71 @@
+#!/bin/bash
+# First-boot provisioning. Runs ONCE, so it installs the machine and
+# never deploys the application -- a deploy that required a new
+# instance would make every release a migration.
+set -euo pipefail
+
+export DEBIAN_FRONTEND=noninteractive
+apt-get update
+apt-get install -y --no-install-recommends \
+  docker.io docker-compose-v2 nginx certbot python3-certbot-nginx
+
+usermod -aG docker ubuntu
+systemctl enable --now docker
+
+# The origin secret. Readable only by root, because any process that
+# can read it can forge a request that looks like it came through the
+# CDN.
+install -m 600 /dev/null /etc/nginx/origin_secret.conf
+cat > /etc/nginx/origin_secret.conf <<'NGINX'
+# CloudFront sets this header on every origin request. A request
+# arriving without it did not come through the CDN -- so it bypassed
+# TLS policy enforcement, Shield Standard, and any WAF added later.
+#
+# 403 rather than 404: there is no information to protect here. The
+# host's existence is public (it has a static IP), and a 404 would
+# imply the path is wrong rather than the route.
+if ($http_x_origin_secret != "${origin_secret}") {
+    return 403;
+}
+NGINX
+
+cat > /etc/nginx/sites-available/shikkhokplus <<'NGINX'
+server {
+    listen 80 default_server;
+    server_name _;
+    # Answer rather than hang. A timeout reads as an outage.
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl default_server;
+    server_name _;
+
+    # A self-signed certificate is sufficient and correct here.
+    # CloudFront terminates the PUBLIC TLS session with an ACM
+    # certificate; this one secures only the CloudFront-to-origin hop,
+    # and CloudFront does not validate an origin certificate's chain
+    # when the origin protocol policy is https-only.
+    ssl_certificate     /etc/ssl/certs/ssl-cert-snakeoil.pem;
+    ssl_certificate_key /etc/ssl/private/ssl-cert-snakeoil.key;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+
+    include /etc/nginx/origin_secret.conf;
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host              $host;
+        # The REAL client IP, not CloudFront's. The OTP rate limiter
+        # counts per IP, so without this every request would look like
+        # one caller and a per-IP limit would become a global one.
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_read_timeout 30s;
+    }
+}
+NGINX
+
+ln -sf /etc/nginx/sites-available/shikkhokplus /etc/nginx/sites-enabled/default
+nginx -t && systemctl reload nginx
+
+echo "provisioned" > /var/log/shikkhokplus-provision.log

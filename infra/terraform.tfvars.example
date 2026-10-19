@@ -1,0 +1,30 @@
+# Copy to terraform.tfvars and fill in. The real file is gitignored.
+
+# The apex domain whose Route53 hosted zone ALREADY EXISTS. Terraform
+# looks it up and will fail loudly if it does not -- which is better
+# than creating a zone that resolves for nobody and bills regardless.
+domain_name = "example.com"
+
+# api.example.com
+api_subdomain = "api"
+
+# An EXISTING Lightsail key pair. Terraform does not create one:
+# creating it would put the private key in state, and state is a file.
+#   aws lightsail create-key-pair --key-pair-name shikkhokplus
+ssh_key_pair_name = "shikkhokplus"
+
+# Your IP as a /32, for SSH. NOT 0.0.0.0/0 -- the variable refuses it.
+#   curl -s https://checkip.amazonaws.com
+operator_ip_cidr = "203.0.113.4/32"
+
+# staging or production.
+environment = "staging"
+
+# A second host for rehearsing migrations. USD 12/month.
+# team.md requires one: there is no multi-AZ database to fail over to.
+enable_staging_instance = true
+
+# --- Phase 2. Leave false. ---
+# Turning this on provisions RDS in a PRIVATE subnet (+USD 17.36/month)
+# and requires Lightsail VPC peering to be enabled first.
+enable_rds = false
