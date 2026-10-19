@@ -105,3 +105,32 @@ variable "trust_staging_environment" {
   type        = bool
   default     = false
 }
+
+variable "github_subject_has_numeric_ids" {
+  description = <<-EOT
+    Whether this account's GitHub OIDC subjects carry numeric ids,
+    as `repo:<owner>@<id>/<repo>@<id>:...` rather than the documented
+    default `repo:<owner>/<repo>:...`.
+
+    True here, verified against CloudTrail: every successful
+    AssumeRoleWithWebIdentity in this account, across four repos and
+    both `ref:` and `environment:` subjects, carries that format. A
+    trust policy written in the default shape matches nothing and
+    fails every run at role assumption.
+
+    This is GitHub's OIDC subject customization. It is a property of
+    the ORGANISATION, not of this repository, so it is a variable
+    rather than a hardcoded choice -- a different account forking
+    this module will likely need it false.
+
+    To check your own: run any workflow that assumes a role, then
+    read the subject from CloudTrail --
+
+      aws cloudtrail lookup-events \
+        --lookup-attributes AttributeKey=EventName,\
+    AttributeValue=AssumeRoleWithWebIdentity \
+        --max-results 5 --query 'Events[].CloudTrailEvent' --output text
+  EOT
+  type        = bool
+  default     = true
+}
