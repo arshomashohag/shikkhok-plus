@@ -1,0 +1,283 @@
+name: terraform
+
+# Infrastructure, planned on every PR and applied only when you press
+# the button.
+#
+# **No long-lived AWS keys.** Authentication is OIDC: a one-hour token
+# issued per run, scoped to this repository. A key in GitHub secrets
+# never expires, cannot be rotated without a human remembering, and is
+# usable by anyone who can edit a workflow file.
+#
+# **Apply is manual, deliberately.** A merge that replaced the app
+# instance would destroy the containerised Postgres with it, and in
+# Phase 1 that database has pg_dump and no automated backups. The plan
+# tells you before the apply asks.
+
+on:
+  pull_request:
+    paths:
+      - "infra/**"
+      - ".github/workflows/terraform.yml"
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "What to run"
+        required: true
+        type: choice
+        options: [plan, apply]
+        default: plan
+
+permissions:
+  contents: read
+  # For the OIDC token. Without this the role assumption fails with a
+  # message about credentials rather than about permissions.
+  id-token: write
+  # For the plan comment on a PR.
+  pull-requests: write
+
+concurrency:
+  # One Terraform run at a time, and NEVER cancel one in flight.
+  # Cancelling mid-apply leaves a lock held and a half-applied change,
+  # which is worse than queueing.
+  group: terraform
+  cancel-in-progress: false
+
+env:
+  TF_VERSION: "1.10.5"
+  AWS_REGION: ap-south-1
+
+jobs:
+  plan:
+    name: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Plan needs read access to AWS, so it needs the role -- but not
+    # the apply environment's approval. A plan that required approval
+    # would mean nobody sees the diff until after someone approves it.
+    environment: terraform-plan
+    outputs:
+      summary: ${{ steps.plan.outputs.summary }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fail early when the repository is not configured
+        env:
+          ROLE: ${{ vars.AWS_ROLE_ARN }}
+          BUCKET: ${{ vars.TF_STATE_BUCKET }}
+        run: |
+          missing=()
+          [ -n "$ROLE" ]   || missing+=("variable AWS_ROLE_ARN")
+          [ -n "$BUCKET" ] || missing+=("variable TF_STATE_BUCKET")
+          if [ ${#missing[@]} -ne 0 ]; then
+            echo "::error::Not configured: ${missing[*]}"
+            echo "Run infra/bootstrap once from a laptop -- it prints both values."
+            exit 1
+          fi
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: terraform-plan-${{ github.run_id }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          # The wrapper rewrites stdout, which mangles the plan text we
+          # post as a comment.
+          terraform_wrapper: false
+
+      - name: Init
+        working-directory: infra
+        run: |
+          terraform init -input=false \
+            -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+
+      # Formatting and validation BEFORE plan: both are free, both fail
+      # in seconds, and neither needs AWS. A plan that fails on a typo
+      # after thirty seconds of API calls wastes the reviewer's time.
+      - name: Format check
+        working-directory: infra
+        run: terraform fmt -check -recursive
+
+      - name: Validate
+        working-directory: infra
+        run: terraform validate
+
+      - name: Plan
+        id: plan
+        working-directory: infra
+        env:
+          TF_VAR_domain_name: ${{ vars.TF_DOMAIN_NAME }}
+          TF_VAR_environment: ${{ vars.TF_ENVIRONMENT || 'staging' }}
+        run: |
+          set +e
+          terraform plan -input=false -no-color -out=tfplan 2>&1 | tee plan.txt
+          code=${PIPESTATUS[0]}
+          set -e
+
+          # Truncate for the comment. GitHub rejects a body over 65536
+          # characters, and a rejected comment means the reviewer sees
+          # NOTHING -- worse than a truncated plan with a pointer to
+          # the full log.
+          {
+            echo 'summary<<PLANEOF'
+            head -c 60000 plan.txt
+            if [ "$(wc -c < plan.txt)" -gt 60000 ]; then
+              echo ""
+              echo "... truncated. Full output in the job log."
+            fi
+            echo 'PLANEOF'
+          } >> "$GITHUB_OUTPUT"
+
+          exit $code
+
+      - name: Comment the plan on the PR
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // NOTE on exposure: Terraform redacts values marked
+            // `sensitive` -- the origin secret and the database
+            // password print as (sensitive value). It does NOT redact
+            // resource names, the static IP or the domain. On a PUBLIC
+            // repository those are visible to everyone; switch this
+            // step to an artifact upload if that matters.
+            const plan = `${{ steps.plan.outputs.summary }}`;
+            const body = [
+              '### Terraform plan',
+              '',
+              '<details><summary>Show plan</summary>',
+              '',
+              '```terraform',
+              plan,
+              '```',
+              '',
+              '</details>',
+              '',
+              '_Apply is manual: Actions → terraform → Run workflow → apply._',
+            ].join('\n');
+
+            // Replace our previous comment rather than adding another.
+            // Five pushes should not mean five stale plans to scroll
+            // past, each looking equally current.
+            const marker = '### Terraform plan';
+            const existing = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const mine = existing.data.find(
+              c => c.user.type === 'Bot' && c.body.startsWith(marker)
+            );
+
+            if (mine) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: mine.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+      # A MANUALLY dispatched plan has no PR to comment on, so without
+      # this its output is buried in the job log -- which makes the
+      # `plan` dispatch option look like it does nothing.
+      - name: Plan in the job summary
+        if: github.event_name == 'workflow_dispatch' && always()
+        run: |
+          # Guarded: `always()` means this also runs when the plan step
+          # failed, and `head` on a missing file would then replace the
+          # real error with a confusing one of its own.
+          if [ ! -f infra/plan.txt ]; then
+            echo "Terraform plan produced no output -- see the step above." \
+              >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          {
+            echo "### Terraform plan"
+            echo ""
+            echo '```terraform'
+            head -c 60000 infra/plan.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # The plan FILE, not the text. Apply re-plans rather than
+      # consuming this, so it is here for a human to inspect when a
+      # plan surprises them.
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tfplan-${{ github.run_id }}
+          path: infra/tfplan
+          retention-days: 5
+
+  apply:
+    name: apply
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    if: github.event_name == 'workflow_dispatch' && inputs.action == 'apply'
+    # **The approval gate.** Configure terraform-apply in Settings →
+    # Environments with yourself as a required reviewer. Without that,
+    # this job runs the moment it is dispatched and the manual step is
+    # only a button, not a decision.
+    environment: terraform-apply
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: terraform-apply-${{ github.run_id }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Init
+        working-directory: infra
+        run: |
+          terraform init -input=false \
+            -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+
+      - name: Apply
+        working-directory: infra
+        env:
+          TF_VAR_domain_name: ${{ vars.TF_DOMAIN_NAME }}
+          TF_VAR_environment: ${{ vars.TF_ENVIRONMENT || 'staging' }}
+        run: |
+          # Re-plans rather than applying the PR's saved plan. A plan
+          # from a pull request may be hours old and may not include
+          # what merged after it -- applying it would act on a world
+          # that no longer exists.
+          #
+          # ACM validation takes 5-30 minutes on a first apply and
+          # CloudFront another 10-15. That is why the timeout is 45.
+          terraform apply -input=false -auto-approve
+
+      - name: Outputs
+        working-directory: infra
+        run: |
+          # Non-sensitive only. `terraform output` would print the
+          # origin secret into a log that persists for 90 days.
+          {
+            echo "### Applied"
+            echo ""
+            echo "| output | value |"
+            echo "|---|---|"
+            echo "| api_url | $(terraform output -raw api_url) |"
+            echo "| app_static_ip | $(terraform output -raw app_static_ip) |"
+            echo "| cloudfront_domain | $(terraform output -raw cloudfront_domain) |"
+            echo ""
+            echo "The origin secret is NOT printed here. Read it with"
+            echo '`terraform output -raw origin_secret` locally when nginx needs it.'
+          } >> "$GITHUB_STEP_SUMMARY"

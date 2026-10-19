@@ -1,0 +1,171 @@
+{
+  "stage": "infrastructure-design",
+  "unit": "identity-and-access",
+  "note": "The first Unit with real infrastructure: B1 shipped a library and B2 a contract, neither needing a database, a host or a secret. Two decisions are load-bearing rather than conventional. The restricted non-superuser database role is not hygiene - a superuser bypasses row-level security entirely, so without it the RLS policy on Profile is decorative and the privacy suite passes whether the policy is correct, broken or absent. And the audit-write alert closes a hole the design deliberately opened: the audit log fails OPEN so it cannot fail the authentication it records, which makes it suppressible - the alert is what makes that failure silent to the user and loud to the operator. B1's deferred money column assertion is discharged here, since B3 is the first Bolt with a schema and its DoD already lists it.",
+  "upstream_ids": [
+    "NFR6.4",
+    "NFR6.5",
+    "NFR6.6",
+    "NFR6.8",
+    "NFR6.9",
+    "NFR6.10",
+    "NFR7.4",
+    "NFR8.1",
+    "NFR8.4",
+    "NFR8.5",
+    "NFR9.1",
+    "NFR10",
+    "NFR10.1",
+    "NFR14.3",
+    "NFR17",
+    "BR3.3",
+    "BR5.4",
+    "BR6.3",
+    "NFR9.32",
+    "NFR6.1",
+    "NFR6.2",
+    "NFR6.3",
+    "NFR6.7",
+    "NFR10.2",
+    "NFR10.3",
+    "NFR10.4",
+    "NFR13.3"
+  ],
+  "coverage": [
+    {
+      "id": "NFR6.4",
+      "status": "OK",
+      "target": "monitoring-design §C - the health endpoint, deliberately thin because it is one of the five PUBLIC_ROUTES and every field added is information disclosed"
+    },
+    {
+      "id": "NFR6.5",
+      "status": "OK",
+      "target": "cicd-pipeline §C.3 - production deploys scheduled outside Bangladesh classroom hours"
+    },
+    {
+      "id": "NFR6.6",
+      "status": "OK",
+      "target": "cicd-pipeline §C.1 step 3 - pg_dump BEFORE the migration, with existence and non-trivial size asserted after upload. A failed backup alerts"
+    },
+    {
+      "id": "NFR6.8",
+      "status": "OK",
+      "target": "cicd-pipeline §C.1 step 6 - the smoke set covers health, OTP issue, verify and lens resolution"
+    },
+    {
+      "id": "NFR6.9",
+      "status": "OK",
+      "target": "cicd-pipeline §C.1 step 1 and step 7 - images tagged with the commit SHA, never latest; rollback is redeploying the previous tag"
+    },
+    {
+      "id": "NFR6.10",
+      "status": "OK",
+      "target": "cicd-pipeline §C.1 step 4 and §C.2 - a distinct logged step before the container serves traffic, forward-only because the migration is what rollback cannot undo"
+    },
+    {
+      "id": "NFR7.4",
+      "status": "OK",
+      "target": "monitoring-design §A - the ceiling alert, verified in staging against the null adapter. cicd-pipeline §D states plainly that this verifies OUR ceiling logic and not the real gateway"
+    },
+    {
+      "id": "NFR8.1",
+      "status": "OK",
+      "target": "monitoring-design §B - the auth audit log retained 12 months, long enough to answer a parent complaint"
+    },
+    {
+      "id": "NFR8.4",
+      "status": "OK",
+      "target": "monitoring-design §A - getBalanceApi polling, which gives lead time rather than notice after the fact"
+    },
+    {
+      "id": "NFR8.5",
+      "status": "OK",
+      "target": "infrastructure-specification §B.1 - production access via a third named role, with every interactive session logged with the person and the stated reason"
+    },
+    {
+      "id": "NFR9.1",
+      "status": "OK",
+      "target": "infrastructure-specification §C - four secrets, none in the repository or the image; SSM SecureString at Phase 2 because paying for unwired rotation is a control that does not earn its place"
+    },
+    {
+      "id": "NFR10",
+      "status": "OK",
+      "target": "infrastructure-specification §B - encryption at rest is required and disqualifies any tier without it"
+    },
+    {
+      "id": "NFR10.1",
+      "status": "OK",
+      "target": "infrastructure-specification §B and cicd-pipeline §A.1 - a real PostgreSQL 16 service container, because the counters are rows rather than process state"
+    },
+    {
+      "id": "NFR14.3",
+      "status": "OK",
+      "target": "infrastructure-specification §B.1 and cicd-pipeline §A.2 - the restricted non-superuser role, and the meta-test ORDERED BEFORE the privacy suite. Without the ordering the suite certifies nothing"
+    },
+    {
+      "id": "NFR17",
+      "status": "OK",
+      "target": "cicd-pipeline §A - the backend job gains the service container, Alembic from zero, and the privacy suite; the coverage floors from B1 and B2 still apply"
+    },
+    {
+      "id": "BR3.3",
+      "status": "OK",
+      "target": "cicd-pipeline §A.2 - the RLS meta-test runs first, as step 3 of four"
+    },
+    {
+      "id": "BR5.4",
+      "status": "OK",
+      "target": "infrastructure-specification §D and cicd-pipeline §D - the null adapter is the DEFAULT, so a missing setting fails toward not sending"
+    },
+    {
+      "id": "BR6.3",
+      "status": "Deferred",
+      "target": "Code Generation - the seed script is committed beside the migration and run manually as a verification precondition. Infrastructure provisions the database it runs against; the script itself is code"
+    },
+    {
+      "id": "NFR9.32",
+      "status": "OK",
+      "target": "cicd-pipeline §A.3 - the money column type-and-precision assertion B1 authored and could not run. B3's DoD already lists it, so the obligation B1 recorded is discharged here rather than lost"
+    },
+    {
+      "id": "NFR6.1",
+      "status": "N/A",
+      "target": "Lens query shape - designed at NFR Design, no infrastructure consequence beyond the database existing"
+    },
+    {
+      "id": "NFR6.2",
+      "status": "OK",
+      "target": "infrastructure-specification §B - the indexes are created by the Alembic migration this stage provisions the database for"
+    },
+    {
+      "id": "NFR6.3",
+      "status": "N/A",
+      "target": "A query-count assertion is a test, not infrastructure"
+    },
+    {
+      "id": "NFR6.7",
+      "status": "N/A",
+      "target": "Request-scoped memoization is application code with no provisioning consequence"
+    },
+    {
+      "id": "NFR10.2",
+      "status": "OK",
+      "target": "infrastructure-specification §B - the atomic upsert needs PostgreSQL's ON CONFLICT, which is why the service container is real PostgreSQL 16 rather than SQLite"
+    },
+    {
+      "id": "NFR10.3",
+      "status": "N/A",
+      "target": "One transaction per request is application structure"
+    },
+    {
+      "id": "NFR10.4",
+      "status": "OK",
+      "target": "infrastructure-specification §E - no connection retry, which is a sizing decision: a 2 GB instance under connection pressure gets worse if every request retries"
+    },
+    {
+      "id": "NFR13.3",
+      "status": "OK",
+      "target": "cicd-pipeline §D - the gateway adapter per environment, with the null adapter as the default so a timeout in staging cannot spend money"
+    }
+  ]
+}

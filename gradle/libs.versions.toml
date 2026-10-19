@@ -1,0 +1,61 @@
+# Version catalogue. Every dependency version lives here, in one reviewable
+# place, which is also what makes the lockfile and checksum verification
+# meaningful: a version bump is a diff in this file.
+
+[versions]
+agp = "8.7.3"
+kotlin = "2.0.21"
+kotlinxSerialization = "1.7.3"
+# Compose arrives at B3 because the walking skeleton must be demonstrated
+# on a device: team.md requires a Compose screen calling a real endpoint,
+# and a backend-only skeleton cannot satisfy that.
+composeBom = "2024.10.01"
+activityCompose = "1.9.3"
+lifecycleViewmodelCompose = "2.8.7"
+coroutines = "1.9.0"
+# Robolectric runs Compose UI tests on the JVM, so the OTP-entry
+# obligation team.md names is checkable in `make check` rather than
+# only on a device. The device run still happens at the checkpoint;
+# this catches a broken screen before it gets there.
+robolectric = "4.14.1"
+# Ktor rather than Retrofit, and the reason is this toolchain rather
+# than a preference. Retrofit needs no processor itself, but the
+# idiomatic pairing is kotlinx-serialization's converter plus Moshi or
+# KSP-generated adapters -- and KSP could not parse eight untouched
+# files on this Kotlin/AGP combination (code-summary.md B5 SS G). Ktor
+# is pure Kotlin, uses the serialization plugin already present, and
+# adds no processor at all.
+ktor = "2.3.12"
+# EncryptedSharedPreferences, for the 30-day refresh token. The
+# alternative -- plain SharedPreferences -- leaves a long-lived
+# credential readable via adb on a rooted phone, and the TokenStore
+# docstring warns specifically against reaching for it because it was
+# convenient.
+securityCrypto = "1.1.0-alpha06"
+
+[libraries]
+security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "securityCrypto" }
+ktor-client-core = { group = "io.ktor", name = "ktor-client-core", version.ref = "ktor" }
+ktor-client-okhttp = { group = "io.ktor", name = "ktor-client-okhttp", version.ref = "ktor" }
+ktor-client-content-negotiation = { group = "io.ktor", name = "ktor-client-content-negotiation", version.ref = "ktor" }
+ktor-serialization-kotlinx-json = { group = "io.ktor", name = "ktor-serialization-kotlinx-json", version.ref = "ktor" }
+ktor-client-mock = { group = "io.ktor", name = "ktor-client-mock", version.ref = "ktor" }
+kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
+kotlin-test = { group = "org.jetbrains.kotlin", name = "kotlin-test", version.ref = "kotlin" }
+kotlin-test-junit = { group = "org.jetbrains.kotlin", name = "kotlin-test-junit", version.ref = "kotlin" }
+compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
+compose-ui = { group = "androidx.compose.ui", name = "ui" }
+compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
+compose-material3 = { group = "androidx.compose.material3", name = "material3" }
+compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
+activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
+lifecycle-viewmodel-compose = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "lifecycleViewmodelCompose" }
+coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
+robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }

@@ -1,0 +1,41 @@
+# Everything the image does not need. A smaller build context is faster,
+# but the real reason is that a context carrying .git, a keystore or a
+# local.properties is a context that can leak one into a layer.
+
+.git
+.github
+.gradle
+.kotlin
+.mypy_cache
+.pytest_cache
+.ruff_cache
+.hypothesis
+.coverage
+__pycache__
+*.pyc
+*.pyo
+
+# The Android surface is not in this image.
+android
+gradle
+gradlew
+gradlew.bat
+gradle.properties
+local.properties
+build
+
+# Workflow artifacts and docs.
+aidlc
+claude
+claude_design
+.claude
+.mcp.json
+
+# Tests do not ship. They are run by `make check`, not by the container.
+tests
+
+# Local environment files, which is where a real credential would be.
+.env
+.env.*
+*.keystore
+*.jks

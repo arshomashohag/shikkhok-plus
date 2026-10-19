@@ -1,0 +1,115 @@
+{
+  "stage": "code-generation",
+  "unit": "money-core",
+  "version": 1,
+  "writes": [
+    {
+      "path": ".github/workflows/check.yml"
+    },
+    {
+      "path": "Makefile"
+    },
+    {
+      "path": "android/build.gradle.kts"
+    },
+    {
+      "path": "android/src/main/AndroidManifest.xml"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/core/model/Money.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/core/model/MoneySerializer.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/core/model/MoneySerializerTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/core/model/NoFloatingPointTest.kt"
+    },
+    {
+      "path": "app/money/__init__.py"
+    },
+    {
+      "path": "app/money/_errors.py"
+    },
+    {
+      "path": "app/money/_kinds.py"
+    },
+    {
+      "path": "app/money/_ledger.py"
+    },
+    {
+      "path": "app/money/_money.py"
+    },
+    {
+      "path": "app/money/_rounding.py"
+    },
+    {
+      "path": "app/money/wire.py"
+    },
+    {
+      "path": "gradle/libs.versions.toml"
+    },
+    {
+      "path": "gradle/wrapper/gradle-wrapper.properties"
+    },
+    {
+      "path": "gradlew"
+    },
+    {
+      "path": "gradlew.bat"
+    },
+    {
+      "path": "pyproject.toml"
+    },
+    {
+      "path": "settings.gradle.kts"
+    },
+    {
+      "path": "tests/__init__.py"
+    },
+    {
+      "path": "tests/gates/__init__.py"
+    },
+    {
+      "path": "tests/gates/fixtures/gate1_violation.py.txt"
+    },
+    {
+      "path": "tests/gates/fixtures/gate2_dynamic_violation.py.txt"
+    },
+    {
+      "path": "tests/gates/fixtures/gate2_violation.py.txt"
+    },
+    {
+      "path": "tests/gates/test_import_gates.py"
+    },
+    {
+      "path": "tests/money/__init__.py"
+    },
+    {
+      "path": "tests/money/test_arithmetic.py"
+    },
+    {
+      "path": "tests/money/test_construction.py"
+    },
+    {
+      "path": "tests/money/test_ledger.py"
+    },
+    {
+      "path": "tests/money/test_ledger_property.py"
+    },
+    {
+      "path": "tests/money/test_uncovered_paths.py"
+    },
+    {
+      "path": "tests/money/test_wire.py"
+    },
+    {
+      "path": "tests/named_tests.toml"
+    },
+    {
+      "path": "tests/test_named_test_manifest.py"
+    }
+  ]
+}

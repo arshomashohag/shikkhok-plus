@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Bangla strings. Present from SCREEN ONE, not retrofitted [TC-15, D-43].
+
+  Bangla renders substantially longer than English for the same content,
+  which is exactly the layout pressure this bundle exists to apply early.
+  Every string here is deliberately a realistic translation rather than a
+  placeholder, because a short placeholder would hide the problem the
+  bundle is here to surface.
+
+  Numerals stay WESTERN (0-9) throughout, matching the decision recorded
+  for money rendering: a teacher reading a code aloud from an SMS and a
+  teacher typing it into this field must see the same digits.
+-->
+<resources>
+    <string name="app_name">শিক্ষকপ্লাস</string>
+
+    <!-- OTP entry, screen one. -->
+    <string name="auth_phone_label">মোবাইল নম্বর</string>
+    <string name="auth_phone_hint">01XXXXXXXXX</string>
+    <string name="auth_request_code">কোড পাঠান</string>
+    <string name="auth_code_label">কোডটি লিখুন</string>
+    <string name="auth_code_sent">নম্বরটি নিবন্ধিত থাকলে একটি কোড পাঠানো হয়েছে।</string>
+    <string name="auth_verify">সাইন ইন করুন</string>
+    <string name="auth_resend">নতুন কোড পাঠান</string>
+    <string name="auth_retry">আবার চেষ্টা করুন</string>
+
+    <!-- Error keys, named by the server's message_key. -->
+    <string name="error_network_unreachable">সার্ভারে পৌঁছানো যায়নি। আপনার সংযোগ পরীক্ষা করে আবার চেষ্টা করুন।</string>
+    <string name="error_unexpected">কিছু একটা সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।</string>
+    <string name="auth_otp_not_valid">এই কোডটি সঠিক নয়। নতুন একটি কোড নিন।</string>
+    <string name="auth_otp_temporarily_unavailable">সাইন ইন সাময়িকভাবে বন্ধ আছে। অনুগ্রহ করে পরে আবার চেষ্টা করুন।</string>
+    <string name="auth_token_not_valid">আপনার সেশন শেষ হয়েছে। অনুগ্রহ করে আবার সাইন ইন করুন।</string>
+
+    <!-- Roster, batches and guardian children (U4). -->
+    <string name="roster_title">শিক্ষার্থীরা</string>
+    <string name="roster_empty">এখনও কোনো শিক্ষার্থী নেই। শুরু করতে প্রথমজনকে যোগ করুন।</string>
+    <string name="roster_retry">আবার চেষ্টা করুন</string>
+    <string name="roster_status_dormant">এখনও সাইন ইন করেননি</string>
+    <string name="roster_status_active">চলমান</string>
+    <string name="roster_status_inactive">ছেড়ে গেছেন</string>
+    <string name="roster_fetched_at">%1$s এর সংরক্ষিত তথ্য দেখানো হচ্ছে</string>
+    <string name="batch_not_found">এই ক্লাসটি খুঁজে পাওয়া যায়নি।</string>
+    <string name="batch_create_subject_required">অন্তত একটি বিষয় যোগ করুন।</string>
+    <string name="enrollment_remove_claimed">এই শিক্ষার্থী সাইন ইন করেছেন এবং তার রেকর্ড আছে। মুছে ফেলার বদলে তাকে ছেড়ে যাওয়া হিসেবে চিহ্নিত করুন।</string>
+    <string name="enrollment_remove_erased">এই জায়গাটিতে কারও তথ্য মুছে ফেলার অনুরোধ রেকর্ড করা আছে। নতুন ও আলাদা রেকর্ড তৈরি করতে নম্বরটি আবার যোগ করুন।</string>
+    <string name="authz_lens_not_available">এটি দেখার অনুমতি আপনার নেই।</string>
+    <string name="guardian_children_title">আপনার সন্তানরা</string>
+    <string name="guardian_children_empty">এখনও কোনো সন্তান যুক্ত হয়নি। প্রথমে একজন শিক্ষককে আপনার নম্বর যোগ করতে হবে।</string>
+    <string name="guardian_child_attribution">%1$s, শিক্ষক %2$s</string>
+    <string name="staging_outbox_empty">এই নম্বরের জন্য কোনো স্টেজিং বার্তা নেই।</string>
+
+    <!-- The batch list (B5a: the device walkthrough). -->
+    <string name="batches_title">আপনার ক্লাসসমূহ</string>
+    <string name="batches_empty">এখনও কোনো ক্লাস নেই। শুরু করতে একটি তৈরি করুন।</string>
+    <plurals name="batches_student_count">
+        <item quantity="one">%1$d জন শিক্ষার্থী</item>
+        <item quantity="other">%1$d জন শিক্ষার্থী</item>
+    </plurals>
+
+    <!-- Creating a class and adding a student. -->
+    <string name="batch_create_title">নতুন ক্লাস</string>
+    <string name="batch_create_name">ক্লাসের নাম</string>
+    <string name="batch_create_subjects">বিষয়, কমা দিয়ে আলাদা করুন</string>
+    <string name="batch_create_fee">মাসিক ফি (ঐচ্ছিক)</string>
+    <string name="batch_create_due_day">মাসের কত তারিখে দিতে হবে (ঐচ্ছিক)</string>
+    <string name="batch_create_submit">ক্লাস তৈরি করুন</string>
+    <string name="student_add_title">শিক্ষার্থী যোগ করুন</string>
+    <string name="student_add_name">শিক্ষার্থীর নাম</string>
+    <string name="student_add_guardian">অভিভাবকের ফোন (ঐচ্ছিক)</string>
+    <string name="student_add_fee">এই শিক্ষার্থীর ফি (ঐচ্ছিক)</string>
+    <string name="student_add_submit">যোগ করুন</string>
+    <string name="action_cancel">বাতিল</string>
+    <string name="fee_inherits">ক্লাসের ফি প্রযোজ্য</string>
+</resources>

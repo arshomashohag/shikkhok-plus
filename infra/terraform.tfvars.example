@@ -1,0 +1,29 @@
+# Copy to terraform.tfvars and fill in. The real file is gitignored.
+
+# The apex domain whose Route53 hosted zone ALREADY EXISTS. Terraform
+# looks it up and will fail loudly if it does not -- which is better
+# than creating a zone that resolves for nobody and bills regardless.
+domain_name = "example.com"
+
+# api.example.com
+api_subdomain = "api"
+
+# **No SSH key and no operator IP.** Access is SSM Session Manager:
+#   aws ssm start-session --target $(terraform output -raw app_instance_id)
+# There is no inbound port 22, no key pair to lose, and no address to
+# keep current when your ISP rotates it.
+
+# staging or production.
+environment = "staging"
+
+# A second host for rehearsing migrations. USD 12/month.
+# team.md requires one: there is no multi-AZ database to fail over to.
+enable_staging_instance = true
+
+# --- Phase 2. Leave false. ---
+# RDS with ingress from the app's SECURITY GROUP (+USD 17.36/month).
+#
+# NOTE: staging + RDS is USD 50.20, which trips the budget
+# precondition at the USD 50 ceiling. Phase 2 means retiring the
+# rehearsal host or raising acknowledged_monthly_budget deliberately.
+enable_rds = false

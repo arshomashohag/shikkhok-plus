@@ -1,0 +1,503 @@
+{
+  "stage": "code-generation",
+  "unit": "money-core",
+  "note": "Every acceptance criterion, NFR9.x and BRx.y for this Unit, mapped to the file that implements or enforces it. Targets are workspace-relative paths so the mapping is checkable mechanically; the `rationale` field carries what the path alone does not say. Deferred rows are decisions, not gaps: the formatting operation and its three NFRs were deferred out of B1 by human decision at this stage's entry (OQ-B1-1 unanswered, B1's DoD amended to match); AC5.2.2 and NFR9.10 need persistence, which a library Unit does not have. Each names where it lands.",
+  "upstream_ids": [
+    "AC5.2.1",
+    "AC5.2.2",
+    "NFR9.1",
+    "NFR9.2",
+    "NFR9.3",
+    "NFR9.4",
+    "NFR9.5",
+    "NFR9.6",
+    "NFR9.7",
+    "NFR9.8",
+    "NFR9.9",
+    "NFR9.10",
+    "NFR9.11",
+    "NFR9.12",
+    "NFR9.13",
+    "NFR9.14",
+    "NFR9.15",
+    "NFR9.16",
+    "NFR9.17",
+    "NFR9.18",
+    "NFR9.19",
+    "NFR9.20",
+    "NFR9.21",
+    "NFR9.22",
+    "NFR9.23",
+    "NFR9.24",
+    "NFR9.25",
+    "BR1.1",
+    "BR1.2",
+    "BR1.3",
+    "BR1.4",
+    "BR1.5",
+    "BR1.6",
+    "BR1.7",
+    "BR1.8",
+    "BR2.1",
+    "BR2.2",
+    "BR2.3",
+    "BR2.4",
+    "BR2.5",
+    "BR2.6",
+    "BR2.7",
+    "BR2.8",
+    "BR2.9",
+    "BR2.10",
+    "BR3.1",
+    "BR3.2",
+    "BR4.1",
+    "BR4.2",
+    "BR4.3",
+    "BR4.4",
+    "BR4.5",
+    "BR4.6",
+    "BR4.7",
+    "BR4.8",
+    "BR5.1",
+    "BR5.2",
+    "BR5.3",
+    "BR5.4",
+    "BR5.5",
+    "BR5.6",
+    "BR5.7",
+    "BR6.1",
+    "BR6.2",
+    "BR6.3",
+    "BR6.4"
+  ],
+  "coverage": [
+    {
+      "id": "AC5.2.1",
+      "status": "OK",
+      "target": "tests/money/test_ledger.py",
+      "rationale": "Carry-forward and the derived ledger quantities: the eight worked scenarios plus the three-period carry, all asserting the identity"
+    },
+    {
+      "id": "AC5.2.2",
+      "status": "Deferred",
+      "target": "aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/money-core/code-generation/code-summary.md",
+      "rationale": "Correction history is a property of persisted entries and their supersession. This Unit persists nothing; it lands with the Unit that owns the ledger table. Marked Deferred at Functional Design and unchanged here"
+    },
+    {
+      "id": "NFR9.1",
+      "status": "OK",
+      "target": "app/money/_money.py",
+      "rationale": "Construction from a binary float raises, checked on the TYPE so an integral float is refused identically"
+    },
+    {
+      "id": "NFR9.2",
+      "status": "OK",
+      "target": "pyproject.toml",
+      "rationale": "Ruff rule sets ban the float-literal decimal construction; the variable-valued case falls through to NFR9.1"
+    },
+    {
+      "id": "NFR9.3",
+      "status": "OK",
+      "target": "app/money/_money.py",
+      "rationale": "No __float__ and no __int__ defined; absence is the mechanism"
+    },
+    {
+      "id": "NFR9.4",
+      "status": "OK",
+      "target": "tests/gates/test_import_gates.py",
+      "rationale": "Gate 1: walks the money package's own imports and fails on any edge into api/db/repositories/authz/schemas"
+    },
+    {
+      "id": "NFR9.5",
+      "status": "OK",
+      "target": "pyproject.toml",
+      "rationale": "Gate 2: flake8-tidy-imports banned-api on decimal, with app/money/** re-permitted by explicit exception"
+    },
+    {
+      "id": "NFR9.6",
+      "status": "OK",
+      "target": "tests/gates/fixtures/gate2_violation.py.txt",
+      "rationale": "Committed violation fixtures for both gates, each asserted to fail, running in CI on every push"
+    },
+    {
+      "id": "NFR9.7",
+      "status": "OK",
+      "target": "android/src/test/kotlin/com/shikkhokplus/app/core/model/NoFloatingPointTest.kt",
+      "rationale": "Kotlin value class plus the package-wide float ban, verified by adding a toDouble() escape hatch and observing the failure"
+    },
+    {
+      "id": "NFR9.8",
+      "status": "OK",
+      "target": "app/money/wire.py",
+      "rationale": "One chokepoint emitting the canonical JSON string; never a JSON number"
+    },
+    {
+      "id": "NFR9.9",
+      "status": "OK",
+      "target": "android/src/test/kotlin/com/shikkhokplus/app/core/model/MoneySerializerTest.kt",
+      "rationale": "Client rejects a JSON number loudly, asserted both directions. Verified against a deliberately lenient decoder"
+    },
+    {
+      "id": "NFR9.10",
+      "status": "Deferred",
+      "target": "aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/money-core/code-generation/code-summary.md",
+      "rationale": "The storage chokepoint (TypeDecorator to NUMERIC(12,2)) needs a model and a table, neither of which a library Unit has. Lands with the Unit that owns the first migration; its column assertion is now on that Bolt's DoD"
+    },
+    {
+      "id": "NFR9.11",
+      "status": "OK",
+      "target": "app/money/wire.py",
+      "rationale": "Serializing a negative raises; the canonical pattern admits no sign"
+    },
+    {
+      "id": "NFR9.12",
+      "status": "OK",
+      "target": "tests/money/test_ledger_property.py",
+      "rationale": "Property-based test over 2000 randomized well-formed histories, generators derived from the kind enumeration"
+    },
+    {
+      "id": "NFR9.13",
+      "status": "OK",
+      "target": "pyproject.toml",
+      "rationale": "100% branch coverage on app/money, build-gated, with one named configuration exclusion and no inline pragmas"
+    },
+    {
+      "id": "NFR9.14",
+      "status": "OK",
+      "target": "tests/named_tests.toml",
+      "rationale": "Named-test manifest: 30 entries, each stating its acceptance criterion and the rule it enforces"
+    },
+    {
+      "id": "NFR9.15",
+      "status": "OK",
+      "target": "tests/money/test_arithmetic.py",
+      "rationale": "Where an operation admits more than one answer satisfying its own property test, the design fixes it: test_negative_magnitude_then_sign asserts the specific parts in order"
+    },
+    {
+      "id": "NFR9.16",
+      "status": "OK",
+      "target": "pyproject.toml",
+      "rationale": "Runtime dependency surface is empty: the money module imports only decimal and its own siblings"
+    },
+    {
+      "id": "NFR9.17",
+      "status": "OK",
+      "target": "aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/money-core/code-generation/code-summary.md",
+      "rationale": "Admission note per new dependency. No runtime dependency was added by this Unit, so the obligation is recorded rather than exercised"
+    },
+    {
+      "id": "NFR9.18",
+      "status": "OK",
+      "target": ".github/workflows/check.yml",
+      "rationale": "Secrets scan blocks every push with no severity threshold; dependency CVEs annotate per-push and block at the release gate"
+    },
+    {
+      "id": "NFR9.19",
+      "status": "OK",
+      "target": "app/money/_ledger.py",
+      "rationale": "Closure by the ABSENCE of a default: a total match with no else arm, so an unrecognised kind cannot pass through"
+    },
+    {
+      "id": "NFR9.20",
+      "status": "OK",
+      "target": "tests/money/test_ledger_property.py",
+      "rationale": "Generators derive their kind set from the enumeration, so a kind added later appears in histories automatically"
+    },
+    {
+      "id": "NFR9.21",
+      "status": "OK",
+      "target": "tests/money/test_ledger_property.py",
+      "rationale": "test_every_kind_has_a_handwritten_expectation fails immediately when a kind is added without naming its effect"
+    },
+    {
+      "id": "NFR9.22",
+      "status": "Deferred",
+      "target": "aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/money-core/code-generation/code-summary.md",
+      "rationale": "The per-locale rendering specification. Deferred with the formatting operation by human decision; OQ-B1-1 is unanswered"
+    },
+    {
+      "id": "NFR9.23",
+      "status": "Deferred",
+      "target": "aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/money-core/code-generation/code-summary.md",
+      "rationale": "Exact-output test per locale. Nothing to assert until the rendering specification exists"
+    },
+    {
+      "id": "NFR9.24",
+      "status": "Deferred",
+      "target": "aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/money-core/code-generation/code-summary.md",
+      "rationale": "Bangla rendering asserted to differ from the canonical Latin form. Deferred with the operation it checks"
+    },
+    {
+      "id": "NFR9.25",
+      "status": "OK",
+      "target": "tests/money/test_ledger_property.py",
+      "rationale": "EXPECTED_EFFECT is hand-written per kind, independent of the IDENTITY_SIDE map the fold reads. Verified: mis-siding a kind was caught by the worked scenario, not by the type checker"
+    },
+    {
+      "id": "BR1.1",
+      "status": "OK",
+      "target": "app/money/_money.py",
+      "rationale": "app/money/_money.py __init__ refuses float and bool by TYPE; tests/money/test_construction.py TestFloatRefusal (4 tests incl. the integral-float case)"
+    },
+    {
+      "id": "BR1.2",
+      "status": "OK",
+      "target": "app/money/_money.py",
+      "rationale": "app/money/_money.py accepts Decimal, int, str only; malformed input raises. tests/money/test_construction.py TestAcceptedInputs"
+    },
+    {
+      "id": "BR1.3",
+      "status": "OK",
+      "target": "app/money/_rounding.py",
+      "rationale": "app/money/_rounding.py EXPONENT; quantize at construction. tests/money/test_construction.py TestQuantization, incl. equal-values-hash-equally"
+    },
+    {
+      "id": "BR1.4",
+      "status": "OK",
+      "target": "app/money/_money.py",
+      "rationale": "app/money/_money.py module docstring and type: BDT implicit, no currency attribute anywhere"
+    },
+    {
+      "id": "BR1.5",
+      "status": "OK",
+      "target": "app/money/_money.py",
+      "rationale": "frozen slots dataclass; tests/money/test_construction.py test_immutable"
+    },
+    {
+      "id": "BR1.6",
+      "status": "OK",
+      "target": "app/money/_money.py",
+      "rationale": "No __float__/__int__ defined. tests/money/test_construction.py test_no_float_conversion, test_no_int_conversion"
+    },
+    {
+      "id": "BR1.7",
+      "status": "OK",
+      "target": "app/money/_rounding.py",
+      "rationale": "app/money/_rounding.py MAGNITUDE_LIMIT; refused not truncated. tests/money/test_construction.py TestOverflow incl. the negative case"
+    },
+    {
+      "id": "BR1.8",
+      "status": "OK",
+      "target": "app/money/_errors.py",
+      "rationale": "app/money/_errors.py MoneyValidationError, the only class, with the structural argument for why three taxonomy classes are unreachable here"
+    },
+    {
+      "id": "BR2.1",
+      "status": "OK",
+      "target": "app/money/_money.py",
+      "rationale": "__add__/__sub__ return NotImplemented for non-Money. tests/money/test_arithmetic.py TestAddSubtract"
+    },
+    {
+      "id": "BR2.2",
+      "status": "OK",
+      "target": "app/money/_money.py",
+      "rationale": "apply_rate is a named method; no __mul__ exists. tests/money/test_arithmetic.py TestApplyRate"
+    },
+    {
+      "id": "BR2.3",
+      "status": "OK",
+      "target": "app/money/_money.py",
+      "rationale": "allocate distributes the remainder across leading parts. tests/money/test_arithmetic.py test_exact_sum_positive, all four tabled rows"
+    },
+    {
+      "id": "BR2.4",
+      "status": "OK",
+      "target": "app/money/_money.py",
+      "rationale": "Money.ZERO as a ClassVar. tests/money/test_arithmetic.py test_zero_constant"
+    },
+    {
+      "id": "BR2.5",
+      "status": "OK",
+      "target": "app/money/_money.py",
+      "rationale": "Money.sum with a zero identity. tests/money/test_arithmetic.py test_sum_empty_is_zero"
+    },
+    {
+      "id": "BR2.6",
+      "status": "OK",
+      "target": "app/money/_money.py",
+      "rationale": "is_zero/is_positive/is_negative and four type-safe comparisons. tests/money/test_arithmetic.py TestComparison, tests/money/test_uncovered_paths.py TestComparisonWithNonMoney"
+    },
+    {
+      "id": "BR2.7",
+      "status": "OK",
+      "target": "app/money/_money.py",
+      "rationale": "Negatives permitted by the type, constrained per context. tests/money/test_arithmetic.py test_subtract_can_go_negative"
+    },
+    {
+      "id": "BR2.8",
+      "status": "OK",
+      "target": "app/money/_money.py",
+      "rationale": "allocate refuses parts < 1. tests/money/test_arithmetic.py test_below_one_part_refused for n in 0, -1, -5"
+    },
+    {
+      "id": "BR2.9",
+      "status": "OK",
+      "target": "app/money/_money.py",
+      "rationale": "Magnitude-then-sign in allocate. tests/money/test_arithmetic.py test_negative_magnitude_then_sign asserts the SPECIFIC PARTS in order, because both candidate implementations sum correctly"
+    },
+    {
+      "id": "BR2.10",
+      "status": "OK",
+      "target": "app/money/_money.py",
+      "rationale": "apply_rate refuses float and negative rates, permits zero and above one. tests/money/test_arithmetic.py TestApplyRate, tests/money/test_uncovered_paths.py TestRateTypeRefusal"
+    },
+    {
+      "id": "BR3.1",
+      "status": "OK",
+      "target": "app/money/_rounding.py",
+      "rationale": "app/money/_rounding.py ROUNDING declared once. tests/money/test_arithmetic.py TestRoundingAtTheHalf: all five sampled halves, three of which diverge from banker's rounding"
+    },
+    {
+      "id": "BR3.2",
+      "status": "OK",
+      "target": "app/money/_money.py",
+      "rationale": "Exactly two rounding points: construction and apply_rate. No other operation quantizes. tests/money/test_arithmetic.py TestApplyRate"
+    },
+    {
+      "id": "BR4.1",
+      "status": "OK",
+      "target": "app/money/_ledger.py",
+      "rationale": "app/money/_ledger.py LedgerEntry.__post_init__ refuses a negative amount; app/money/_kinds.py records that the sign belongs to the kind. tests/money/test_ledger.py test_negative_amount_refused"
+    },
+    {
+      "id": "BR4.2",
+      "status": "OK",
+      "target": "app/money/_ledger.py",
+      "rationale": "app/money/_ledger.py derive() folds every quantity; DerivedQuantities holds no stored total"
+    },
+    {
+      "id": "BR4.3",
+      "status": "OK",
+      "target": "app/money/_ledger.py",
+      "rationale": "The identity asserted in all eight worked scenarios (tests/money/test_ledger.py assert_identity) and over 2000 randomized well-formed histories (tests/money/test_ledger_property.py)"
+    },
+    {
+      "id": "BR4.4",
+      "status": "OK",
+      "target": "app/money/_ledger.py",
+      "rationale": "app/money/_ledger.py _floor applied per cycle and to the total. tests/money/test_ledger.py TestPerCycleAndFloors"
+    },
+    {
+      "id": "BR4.5",
+      "status": "OK",
+      "target": "app/money/_ledger.py",
+      "rationale": "app/money/_ledger.py apply_credit computes min(available, owed), so over-application is unrepresentable rather than refused. tests/money/test_ledger.py test_scenario_s8_credit_exceeds_charge"
+    },
+    {
+      "id": "BR4.6",
+      "status": "OK",
+      "target": "app/money/_ledger.py",
+      "rationale": "app/money/_ledger.py carry_forward returns BOTH entries from one call; no one-sided path exists. tests/money/test_ledger.py test_produces_both_sides and test_scenario_s5_multi_period_carry (three periods, reads 3000 not 4000)"
+    },
+    {
+      "id": "BR4.7",
+      "status": "OK",
+      "target": "app/money/_ledger.py",
+      "rationale": "Credit attributed to the settling period, not the arrival period. tests/money/test_ledger.py test_scenario_s7_credit_applied_later"
+    },
+    {
+      "id": "BR4.8",
+      "status": "OK",
+      "target": "tests/money/test_ledger_property.py",
+      "rationale": "tests/money/test_ledger_property.py: Hypothesis over 2000 well-formed histories, generators derived from the kind enumeration, with hand-written per-kind expectations independent of IDENTITY_SIDE"
+    },
+    {
+      "id": "BR5.1",
+      "status": "OK",
+      "target": "app/money/wire.py",
+      "rationale": "app/money/wire.py to_wire: two decimals, no symbol, no separator, Latin digits. tests/money/test_wire.py TestEmit"
+    },
+    {
+      "id": "BR5.2",
+      "status": "OK",
+      "target": "app/money/wire.py",
+      "rationale": "app/money/wire.py parse rejects a JSON number loudly; android MoneySerializer inspects isString rather than .content. tests/money/test_wire.py test_json_number_rejected, MoneySerializerTest.fails loudly on a json number"
+    },
+    {
+      "id": "BR5.3",
+      "status": "OK",
+      "target": "app/money/wire.py",
+      "rationale": "app/money/wire.py is the single API chokepoint, documented as such with the argument against per-field serializers. The SQLAlchemy TypeDecorator is deferred with the persistence Bolt, which owns the first table"
+    },
+    {
+      "id": "BR5.4",
+      "status": "Deferred",
+      "target": "aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/money-core/code-generation/code-summary.md",
+      "rationale": "Locale formatting deferred out of B1 by human decision at this stage entry: the Bangla rendering is unspecified (OQ-B1-1). bolt-plan.md B1 DoD amended to match. Becomes blocking at B6."
+    },
+    {
+      "id": "BR5.5",
+      "status": "Deferred",
+      "target": "aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/money-core/code-generation/code-summary.md",
+      "rationale": "The client never compares a money value. Needs a screen and a response schema; lands with the first UI-bearing Bolt."
+    },
+    {
+      "id": "BR5.6",
+      "status": "Deferred",
+      "target": "aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/construction/money-core/nfr-design/security-design.md",
+      "rationale": "Locale as an explicit argument. Deferred with BR5.4 since the operation it constrains is not built; the constraint is recorded in security-design A.6 so it binds whoever implements it."
+    },
+    {
+      "id": "BR5.7",
+      "status": "OK",
+      "target": "app/money/wire.py",
+      "rationale": "app/money/wire.py to_wire refuses a negative; the canonical pattern admits no sign. tests/money/test_wire.py test_negative_refused, and MoneySerializerTest.fails on a signed string on the client side"
+    },
+    {
+      "id": "BR6.1",
+      "status": "OK",
+      "target": "tests/gates/test_import_gates.py",
+      "rationale": "tests/gates/test_import_gates.py TestGate1Outward: real-tree walk, violation fixture, and a configuration assertion that the walked path is a real non-empty package"
+    },
+    {
+      "id": "BR6.2",
+      "status": "OK",
+      "target": "pyproject.toml",
+      "rationale": "pyproject.toml flake8-tidy-imports banned-api on decimal; tests/gates/test_import_gates.py TestGate2Inward runs the PROJECT'S ACTUAL Ruff config against a violating file and asserts non-zero exit"
+    },
+    {
+      "id": "BR6.3",
+      "status": "OK",
+      "target": "tests/gates/test_import_gates.py",
+      "rationale": "Both gates present from this first commit with their fixtures, not added after a violation. tests/gates/test_import_gates.py module docstring and the four fixture/config tests"
+    },
+    {
+      "id": "BR6.4",
+      "status": "OK",
+      "target": "android/src/test/kotlin/com/shikkhokplus/app/core/model/NoFloatingPointTest.kt",
+      "rationale": "android core/model/Money.kt is a @JvmInline value class over BigDecimal; NoFloatingPointTest.kt enforces the package-wide float ban as a backstop, verified by adding a toDouble() escape hatch and observing the failure"
+    }
+  ],
+  "reverse": [
+    {
+      "id": "kotlin-under-android-not-app",
+      "status": "N/A",
+      "target": "A layout correction with no upstream rule: the plan placed Kotlin under app/, which collides with the Python package of the same name — app/ would have held both app.money and an Android module whose conventional Gradle name is also app. Kotlin lives under android/ instead. The published package namespace com.shikkhokplus.app is UNCHANGED, being permanent once published [TC-2, D-38]"
+    },
+    {
+      "id": "coverage-exclusion-is-configuration-not-pragma",
+      "status": "N/A",
+      "target": "pyproject.toml exclude_also names assert_never by pattern. The one sanctioned unreachable line, justified by VERIFYING the stronger check: adding an eighth ledger kind without extending the fold fails mypy at exactly that line. Demonstrated, not asserted"
+    },
+    {
+      "id": "property-test-independence-verified",
+      "status": "N/A",
+      "target": "Mis-siding a kind (treating a waiver as cash received) was caught by the worked scenario, NOT by mypy. Confirms the layering the design argued: static checks catch omission, hand-written expectations catch mis-siding, neither substitutes for the other"
+    },
+    {
+      "id": "hypothesis-refuted-an-overstated-property",
+      "status": "N/A",
+      "target": "An earlier version of the property test asserted the identity over ARBITRARY entry sequences. Hypothesis shrank a counterexample to one entry — a receipt of 0.01 against no charge, giving -0.01 left and 0.00 right. The per-cycle floor is correct; the claim was too strong. The identity is a property of histories the system can produce, and the test now says so"
+    },
+    {
+      "id": "named-test-manifest",
+      "status": "N/A",
+      "target": "tests/named_tests.toml plus tests/test_named_test_manifest.py: 30 entries, each naming its acceptance criterion and the rule it enforces, with a CI check that every entry resolves to a test that exists. Closes the gap coverage cannot see — a missing named test whose branches another test already covers"
+    },
+    {
+      "id": "lockfiles-not-yet-generated",
+      "status": "N/A",
+      "target": "B1's DoD requires uv.lock and Gradle dependency locking with dependencyVerification checksums. Neither is generated here: uv is not installed in this environment, and both are Build and Test's scope. The CI workflow already assumes them. Recorded rather than silently omitted"
+    }
+  ]
+}

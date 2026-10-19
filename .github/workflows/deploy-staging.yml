@@ -1,0 +1,181 @@
+name: deploy-staging
+
+# **Separate from `check.yml`, and the separation is the point.** The
+# per-push gate runs on a fresh clone with NO credential, which is what
+# makes it reproducible locally — `team.md` records that as load-bearing,
+# because a gate reproducible only by pushing is a gate that gets
+# bypassed. Putting SMS credentials in that workflow would end it.
+#
+# This workflow carries the credentials, runs on demand, and never gates
+# a pull request.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch or tag to deploy"
+        required: false
+        type: string
+        default: main
+      run_migrations:
+        description: "Apply Alembic migrations as part of this deploy"
+        required: false
+        type: boolean
+        default: true
+
+# **No typed confirmation.** The `staging` environment below already
+# gates this on an approval, and a second ceremony guarding the same
+# door teaches people to type the word without reading the sentence.
+# The inputs above ask something USEFUL instead: what to deploy, and
+# whether the schema changes.
+
+permissions:
+  contents: read
+
+concurrency:
+  # One deploy at a time. Two overlapping runs would race the migration
+  # step against each other, and Alembic is not a locking mechanism.
+  group: deploy-staging
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: deploy to staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The dispatched ref, so a hotfix branch can be deployed
+          # without merging it first.
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: What this run will do
+        run: |
+          {
+            echo "### Deploying"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| ref | \`${{ inputs.ref || github.ref_name }}\` |"
+            echo "| commit | \`${GITHUB_SHA:0:12}\` |"
+            echo "| migrations | ${{ inputs.run_migrations }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # The secrets are REQUIRED here, and checked before anything runs.
+      # A deploy that starts, migrates, and then discovers it has no SMS
+      # key has already changed the schema.
+      - name: Verify the required configuration is present
+        env:
+          SMS_API_KEY: ${{ secrets.SHIKKHOKPLUS_SMS_API_KEY }}
+          SMS_SENDER_ID: ${{ secrets.SHIKKHOKPLUS_SMS_SENDER_ID }}
+          OTP_HMAC_KEY: ${{ secrets.SHIKKHOKPLUS_OTP_HMAC_KEY }}
+          JWT_KEYS: ${{ secrets.SHIKKHOKPLUS_JWT_KEYS }}
+          SMS_BASE_URL: ${{ vars.SHIKKHOKPLUS_SMS_BASE_URL }}
+          SMS_APP_HASH: ${{ vars.SHIKKHOKPLUS_SMS_APP_HASH }}
+        run: |
+          missing=()
+          [ -n "$SMS_API_KEY" ]   || missing+=("secret SHIKKHOKPLUS_SMS_API_KEY")
+          [ -n "$SMS_SENDER_ID" ] || missing+=("secret SHIKKHOKPLUS_SMS_SENDER_ID")
+          [ -n "$OTP_HMAC_KEY" ]  || missing+=("secret SHIKKHOKPLUS_OTP_HMAC_KEY")
+          [ -n "$JWT_KEYS" ]      || missing+=("secret SHIKKHOKPLUS_JWT_KEYS")
+          [ -n "$SMS_BASE_URL" ]  || missing+=("variable SHIKKHOKPLUS_SMS_BASE_URL")
+          [ -n "$SMS_APP_HASH" ]  || missing+=("variable SHIKKHOKPLUS_SMS_APP_HASH")
+
+          if [ ${#missing[@]} -ne 0 ]; then
+            echo "::error::Not configured: ${missing[*]}"
+            echo "Set secrets and variables under Settings -> Environments -> staging."
+            exit 1
+          fi
+
+          # https is enforced in the adapter too, but failing HERE names
+          # the problem. Plain http serves the same API with no redirect
+          # and no HSTS, so a misconfigured URL ships the phone number
+          # and the OTP in cleartext and succeeds silently.
+          case "$SMS_BASE_URL" in
+            https://*) ;;
+            *) echo "::error::SHIKKHOKPLUS_SMS_BASE_URL must be https, got '$SMS_BASE_URL'"
+               exit 1 ;;
+          esac
+
+          # The SMS Retriever hash is exactly 11 characters. A wrong one
+          # renders a valid SMS that never triggers autofill, and nothing
+          # reports it.
+          if [ "${#SMS_APP_HASH}" -ne 11 ]; then
+            echo "::error::SHIKKHOKPLUS_SMS_APP_HASH must be 11 characters, got ${#SMS_APP_HASH}"
+            exit 1
+          fi
+
+          echo "Configuration present."
+
+      - name: Write the environment file
+        env:
+          SMS_API_KEY: ${{ secrets.SHIKKHOKPLUS_SMS_API_KEY }}
+          SMS_SENDER_ID: ${{ secrets.SHIKKHOKPLUS_SMS_SENDER_ID }}
+          OTP_HMAC_KEY: ${{ secrets.SHIKKHOKPLUS_OTP_HMAC_KEY }}
+          JWT_KEYS: ${{ secrets.SHIKKHOKPLUS_JWT_KEYS }}
+          DB_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          SMS_BASE_URL: ${{ vars.SHIKKHOKPLUS_SMS_BASE_URL }}
+          SMS_APP_HASH: ${{ vars.SHIKKHOKPLUS_SMS_APP_HASH }}
+          DAILY_SMS: ${{ vars.SHIKKHOKPLUS_GLOBAL_DAILY_SMS }}
+        run: |
+          # Written with restrictive permissions BEFORE any value goes
+          # in, so the file is never briefly world-readable.
+          umask 077
+          {
+            echo "SHIKKHOKPLUS_ENVIRONMENT=staging"
+            echo "POSTGRES_PASSWORD=${DB_PASSWORD}"
+            echo "SHIKKHOKPLUS_OTP_HMAC_KEY=${OTP_HMAC_KEY}"
+            echo "SHIKKHOKPLUS_JWT_KEYS=${JWT_KEYS}"
+            echo "SHIKKHOKPLUS_JWT_ACTIVE_KID=k1"
+            echo "SHIKKHOKPLUS_SMS_APP_HASH=${SMS_APP_HASH}"
+            echo "SHIKKHOKPLUS_GLOBAL_DAILY_SMS=${DAILY_SMS:-50}"
+            echo "SHIKKHOKPLUS_SMS_ADAPTER=bulksmsbd"
+            echo "SHIKKHOKPLUS_SMS_BASE_URL=${SMS_BASE_URL}"
+            echo "SHIKKHOKPLUS_SMS_API_KEY=${SMS_API_KEY}"
+            echo "SHIKKHOKPLUS_SMS_SENDER_ID=${SMS_SENDER_ID}"
+            # The staging outbox is OFF once real SMS works. Codes
+            # arrive on the phone, so a route that hands them to an
+            # unauthenticated caller has no remaining purpose.
+            echo "SHIKKHOKPLUS_STAGING_OUTBOX=0"
+          } > .env
+
+      # Deployment to the host is not wired yet: the EC2 instance does
+      # not exist until `terraform apply` has run. This workflow
+      # verifies the configuration and builds the image, which is the
+      # half that can be automated without one.
+      #
+      # The delivery step goes here, and it will be SSM rather than
+      # SSH -- there is no inbound port 22 by design.
+      - name: Build the image
+        # arm64, because the host is Graviton (t4g.small). An x86 image
+        # fails at `docker run` with an exec format error that does not
+        # mention architecture.
+        run: |
+          docker build --platform linux/arm64 \
+            -t shikkhokplus-backend:${{ github.sha }} .
+
+      # `run_migrations` is read HERE rather than ignored. An input that
+      # does nothing is worse than no input: it reads as a control, so
+      # somebody eventually sets it to false and believes the schema was
+      # left alone.
+      - name: What is still manual
+        env:
+          RUN_MIGRATIONS: ${{ inputs.run_migrations }}
+        run: |
+          {
+            echo ""
+            echo "**Image built. Host delivery is still manual.**"
+            echo ""
+            echo "The EC2 instance exists only after \`terraform apply\`."
+            echo "Until the delivery step lands here, follow"
+            echo "\`deploy/README.md\` over SSM:"
+            echo ""
+            echo '    aws ssm start-session --target <app_instance_id>'
+            if [ "$RUN_MIGRATIONS" != "true" ]; then
+              echo ""
+              echo "> \`run_migrations\` was **false**: skip the Alembic"
+              echo "> step in that ordering and leave the schema as it is."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

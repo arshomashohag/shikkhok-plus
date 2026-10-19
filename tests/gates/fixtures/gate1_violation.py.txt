@@ -1,0 +1,21 @@
+# A deliberate violation of Gate 1, kept as .txt so it is not importable,
+# not collected by pytest, and not linted as source.
+#
+# test_import_gates.py reads this file and asserts the gate refuses it. A
+# gate nobody has watched fail is a gate nobody knows works.
+#
+# The violation: the money module reaching outward into persistence. This is
+# the PLAUSIBLE breach — not arithmetic in a view, but somebody giving this
+# module a database session "just to look up the batch default fee". That one
+# reasonable-looking change destroys the testability story, the strict-typing
+# story and the 100% coverage target together.
+
+from app.db.session import Session  # the forbidden edge
+
+from ._money import Money
+
+
+def default_fee_for(batch_id: str, session: Session) -> Money:
+    """Exactly the convenience that would end the boundary."""
+    row = session.get_batch(batch_id)
+    return Money(row.default_fee)

@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  English strings. The DEFAULT bundle, with values-bn/ beside it from
+  screen one [TC-15, D-43].
+
+  Discovering that Bangla text breaks a layout is a per-screen problem;
+  discovering it on screen one is how it is not discovered on screen
+  forty.
+
+  No user-facing string is hardcoded in a composable. The server sends a
+  message_key naming one of these; it never sends English text, which
+  the client could not localize.
+-->
+<resources>
+    <string name="app_name">ShikhokPlus</string>
+
+    <!-- OTP entry, screen one. -->
+    <string name="auth_phone_label">Mobile number</string>
+    <string name="auth_phone_hint">01XXXXXXXXX</string>
+    <string name="auth_request_code">Send code</string>
+    <string name="auth_code_label">Enter the code</string>
+    <string name="auth_code_sent">If that number is registered, a code has been sent.</string>
+    <string name="auth_verify">Sign in</string>
+    <string name="auth_resend">Send a new code</string>
+    <string name="auth_retry">Try again</string>
+
+    <!--
+      Error keys, named by the server's message_key. The server names
+      which string to show; it never sends the string itself.
+    -->
+    <string name="error_network_unreachable">Could not reach the server. Check your connection and try again.</string>
+    <string name="error_unexpected">Something went wrong. Please try again.</string>
+    <string name="auth_otp_not_valid">That code is not valid. Request a new one.</string>
+    <string name="auth_otp_temporarily_unavailable">Sign-in is temporarily unavailable. Please try again later.</string>
+    <string name="auth_token_not_valid">Your session has ended. Please sign in again.</string>
+
+    <!-- Roster, batches and guardian children (U4). -->
+    <string name="roster_title">Students</string>
+    <string name="roster_empty">No students yet. Add the first one to get started.</string>
+    <string name="roster_retry">Try again</string>
+    <string name="roster_status_dormant">Not signed in yet</string>
+    <string name="roster_status_active">Active</string>
+    <string name="roster_status_inactive">Left</string>
+    <string name="roster_fetched_at">Showing saved data from %1$s</string>
+    <string name="batch_not_found">That class could not be found.</string>
+    <string name="batch_create_subject_required">Add at least one subject.</string>
+    <string name="enrollment_remove_claimed">This student has signed in and has a record. Mark them as left instead of removing them.</string>
+    <string name="enrollment_remove_erased">This place records someone\'s request to erase their data. Add the number again to create a new, separate record.</string>
+    <string name="authz_lens_not_available">You do not have access to this.</string>
+    <string name="guardian_children_title">Your children</string>
+    <string name="guardian_children_empty">No children yet. A teacher needs to record your number first.</string>
+    <string name="guardian_child_attribution">%1$s, taught by %2$s</string>
+    <string name="staging_outbox_empty">No staging message for that number.</string>
+
+    <!-- The batch list (B5a: the device walkthrough). -->
+    <string name="batches_title">Your classes</string>
+    <string name="batches_empty">No classes yet. Create one to get started.</string>
+    <plurals name="batches_student_count">
+        <item quantity="one">%1$d student</item>
+        <item quantity="other">%1$d students</item>
+    </plurals>
+
+    <!-- Creating a class and adding a student. -->
+    <string name="batch_create_title">New class</string>
+    <string name="batch_create_name">Class name</string>
+    <string name="batch_create_subjects">Subjects, separated by commas</string>
+    <string name="batch_create_fee">Monthly fee (optional)</string>
+    <string name="batch_create_due_day">Due day of month (optional)</string>
+    <string name="batch_create_submit">Create class</string>
+    <string name="student_add_title">Add student</string>
+    <string name="student_add_name">Student name</string>
+    <string name="student_add_guardian">Guardian phone (optional)</string>
+    <string name="student_add_fee">Fee for this student (optional)</string>
+    <string name="student_add_submit">Add student</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="fee_inherits">Uses the class fee</string>
+</resources>

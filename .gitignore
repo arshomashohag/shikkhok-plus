@@ -23,3 +23,68 @@ aidlc/spaces/*/intents/*/.aidlc-*
 aidlc/diagnostics/
 .claude/settings.local.json
 # END AI-DLC:gitignore
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+.venv/
+
+# --- Gradle / Android ---
+# local.properties holds a machine-specific SDK path and is never committed.
+local.properties
+.gradle/
+build/
+*.apk
+*.aab
+*.keystore
+*.jks
+
+# Deployment secrets and data. The runbook in deploy/README.md tells the
+# operator to create a .env holding three unrecoverable secrets -- the
+# JWT signing key, the OTP HMAC key and the database password -- so this
+# block is what stops the runbook from being an instruction to commit
+# them. Gitleaks is the backstop; this is the prevention.
+.env
+.env.*
+!.env.example
+
+# Database dumps. Step 1 of every deploy writes one, and it holds
+# children's names, attendance and marks in plaintext.
+#
+# Named by PREFIX rather than `*.sql`, which would also hide a seed or
+# a fixture someone adds later -- an ignore rule that silently swallows
+# a file people expect to be tracked is its own kind of defect.
+backup-*.sql
+*.dump
+
+# Terraform.
+#
+# **State holds every generated secret in PLAINTEXT** -- the CDN origin
+# secret and, in Phase 2, the database password. Committing it would
+# put a CDN-bypass credential and a database password in git history,
+# where removing them means rewriting history rather than rotating.
+#
+# .terraform/ is provider binaries: large, machine-specific, and
+# reconstructed by `terraform init`.
+#
+# UNANCHORED, so it matches infra/.terraform/ AND
+# infra/bootstrap/.terraform/. The first version was path-anchored to
+# infra/ and would have committed the bootstrap module's provider
+# binaries -- hundreds of megabytes, found by testing the path rather
+# than by reading the pattern.
+**/.terraform/
+*.terraform.lock.hcl.bak
+*.tfstate
+*.tfstate.*
+*.tfplan
+# Per-environment variable files hold the operator's IP and may hold a
+# domain. The committed .example is the template.
+*.auto.tfvars
+terraform.tfvars
+!*.tfvars.example

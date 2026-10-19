@@ -1,0 +1,111 @@
+{
+  "stage": "nfr-requirements",
+  "unit": "identity-and-access",
+  "note": "The first Unit where the full NFR set binds: U1 was a library and U2 a spec Unit, so most inception NFRs were N/A with a structural reason. Here a process, a database, a network boundary and a screen arrive at once. Two requirements changed under scrutiny and both are recorded as corrections: the OTP hash reversed from a password hash to HMAC when measured (bcrypt buys hours at 58ms per issue; HMAC under a server-held key defeats the offline attack outright at ~1us), and the ceiling check order was corrected at review from global-first to narrowest-first, since global-first lets one attacker spend every teacher's allowance before their own limit trips. No latency target and no availability SLO are stated, deliberately - nothing has been measured and one instance has no failover, so an invented number would be weakened on first contact rather than investigated.",
+  "upstream_ids": [
+    "NFR1",
+    "NFR2",
+    "NFR3",
+    "NFR4",
+    "NFR5",
+    "NFR6",
+    "NFR7",
+    "NFR8",
+    "NFR9",
+    "NFR10",
+    "NFR11",
+    "NFR12",
+    "NFR13",
+    "NFR14",
+    "NFR15",
+    "NFR16",
+    "NFR17"
+  ],
+  "coverage": [
+    {
+      "id": "NFR1",
+      "status": "N/A",
+      "target": "Android target and compile SDK - owned by U10 release-packaging. This Unit ships Compose screens but not the build configuration"
+    },
+    {
+      "id": "NFR2",
+      "status": "N/A",
+      "target": "Device floor and AAB size - owned by U10"
+    },
+    {
+      "id": "NFR3",
+      "status": "OK",
+      "target": "observability NFR8.7 and functional-spec §3 - both language bundles ship on screen one, so a Bangla layout break is found here rather than on screen forty. OTP entry is one of the five named screens"
+    },
+    {
+      "id": "NFR4",
+      "status": "N/A",
+      "target": "Offline reads - Room is a read cache owned by the feature Units; U3 has no cached domain list"
+    },
+    {
+      "id": "NFR5",
+      "status": "N/A",
+      "target": "Offline writes - permitted for the mid-class path only, which is U5's"
+    },
+    {
+      "id": "NFR6",
+      "status": "OK",
+      "target": "performance NFR6.1-NFR6.3, NFR6.7 and scalability NFR10.1-NFR10.2 - 100 teachers is not a throughput problem; the binding constraint is the worker count, which makes the datastore-backed counter a correctness requirement"
+    },
+    {
+      "id": "NFR7",
+      "status": "OK",
+      "target": "security NFR7.1-NFR7.4 - the SMS ceiling with sub-ceilings beneath it, every outcome consuming budget, and an alert verified in staging. This is where an attacker spends the project's money directly"
+    },
+    {
+      "id": "NFR8",
+      "status": "N/A",
+      "target": "Data residency - no requirement; nearest region is an Infrastructure Design concern"
+    },
+    {
+      "id": "NFR9",
+      "status": "N/A",
+      "target": "Money representation - no money crosses this Unit's surface. U1 owns the type and U2 the schema assertion"
+    },
+    {
+      "id": "NFR10",
+      "status": "Deferred",
+      "target": "Children's data encrypted at rest - a hosting-tier property owned by Infrastructure Design. This Unit's schema is what will be encrypted"
+    },
+    {
+      "id": "NFR11",
+      "status": "OK",
+      "target": "security T3 and functional-spec §3 - no device identifier is transmitted, and the phone number is typed rather than read from the SIM"
+    },
+    {
+      "id": "NFR12",
+      "status": "OK",
+      "target": "The seven abuse controls as BR2.1-BR2.7, plus security T6 and T7. The ceiling order was corrected at review from global-first to narrowest-first, and the existence-oracle defence extended from hash symmetry to write symmetry"
+    },
+    {
+      "id": "NFR13",
+      "status": "OK",
+      "target": "security NFR13.1-NFR13.2 and reliability NFR13.3 - family invalidation on reuse, enforced 15-minute expiry, no role or lens claim in the token, and a gateway timeout recorded as UNKNOWN"
+    },
+    {
+      "id": "NFR14",
+      "status": "OK",
+      "target": "security NFR14.1-NFR14.3 - the table split, row-level security, and the non-superuser meta-test without which the other two certify nothing"
+    },
+    {
+      "id": "NFR15",
+      "status": "Deferred",
+      "target": "Accessibility and back-stack behaviour - the Android surface here is OTP entry and the lens switcher; the back-stack privacy case AC9.4.2 arrives with the guardian child switch at B5"
+    },
+    {
+      "id": "NFR16",
+      "status": "OK",
+      "target": "Inherited from U2: this Unit adds three routes to the committed contract, and the schema-diff gate catches any drift"
+    },
+    {
+      "id": "NFR17",
+      "status": "OK",
+      "target": "Backend coverage floor applies. The authorization layer is measured as BRANCH coverage rather than line, because lens resolution is pure branching and line coverage on it is close to meaningless"
+    }
+  ]
+}

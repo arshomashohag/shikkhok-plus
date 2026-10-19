@@ -1,0 +1,74 @@
+# Local and staging parity.
+#
+# **The point is that staging differs from this file by CONFIGURATION
+# and DATA, not by shape.** team.md accepts that staging is not a
+# performance-faithful copy of production, but requires it be faithful
+# about schema, migration path and authorization behaviour -- because
+# those are what a deploy can break irreversibly.
+#
+# **Migrations run as their own step**, never on container start. That
+# is `make deploy-migrate` or the deploy workflow's step 4, and it is
+# separate so the operator can stop between the backup and the schema
+# change [team.md Deployment].
+
+name: shikkhokplus
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: shikkhok
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-dev-only}
+      POSTGRES_DB: shikkhokplus
+    ports:
+      # Exposed so `make check`'s testcontainers and a local psql can
+      # reach it. Staging does NOT expose this port publicly.
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # `pg_isready` alone returns true before the server accepts
+      # connections for the application database, which is how a
+      # dependent service starts against a server that then refuses it.
+      test: ["CMD-SHELL", "pg_isready -U shikkhok -d shikkhokplus"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+
+  api:
+    build:
+      context: .
+      target: runtime
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SHIKKHOKPLUS_DATABASE_URL: >-
+        postgresql+psycopg://shikkhok:${POSTGRES_PASSWORD:-local-dev-only}@db:5432/shikkhokplus
+      SHIKKHOKPLUS_ENVIRONMENT: ${SHIKKHOKPLUS_ENVIRONMENT:-development}
+      # The startup check refuses a PRODUCTION process missing any of
+      # these. Development defaults exist so a fresh clone runs; the
+      # check is what stops those defaults reaching staging.
+      SHIKKHOKPLUS_OTP_HMAC_KEY: ${SHIKKHOKPLUS_OTP_HMAC_KEY:-local-dev-only-hmac-key}
+      SHIKKHOKPLUS_JWT_KEYS: ${SHIKKHOKPLUS_JWT_KEYS:-k1:local-dev-only-signing-key-32-chars}
+      SHIKKHOKPLUS_JWT_ACTIVE_KID: ${SHIKKHOKPLUS_JWT_ACTIVE_KID:-k1}
+      SHIKKHOKPLUS_SMS_APP_HASH: ${SHIKKHOKPLUS_SMS_APP_HASH:-AAAAAAAAAAA}
+      SHIKKHOKPLUS_GLOBAL_DAILY_SMS: ${SHIKKHOKPLUS_GLOBAL_DAILY_SMS:-50}
+      # Absent by default, which selects the null gateway: a local run
+      # NEVER sends a real SMS or spends real money.
+      SHIKKHOKPLUS_SMS_API_KEY: ${SHIKKHOKPLUS_SMS_API_KEY:-}
+      SHIKKHOKPLUS_SMS_SENDER_ID: ${SHIKKHOKPLUS_SMS_SENDER_ID:-}
+      SHIKKHOKPLUS_SMS_ADAPTER: ${SHIKKHOKPLUS_SMS_ADAPTER:-null}
+      SHIKKHOKPLUS_SMS_BASE_URL: ${SHIKKHOKPLUS_SMS_BASE_URL:-}
+      # Staging/development ONLY. Exposes the most recent OTP for a
+      # number to an unauthenticated caller, so a person can sign in
+      # on a device with no SMS credentials. A production process
+      # with this set REFUSES TO START.
+      SHIKKHOKPLUS_STAGING_OUTBOX: ${SHIKKHOKPLUS_STAGING_OUTBOX:-1}
+    ports:
+      - "${API_PORT:-8000}:8000"
+    restart: unless-stopped
+
+volumes:
+  pgdata:

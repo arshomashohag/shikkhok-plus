@@ -1,0 +1,166 @@
+{
+  "stage": "code-generation",
+  "unit": "batches-and-enrollment",
+  "version": 1,
+  "writes": [
+    {
+      "path": "Makefile"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/core/model/Money.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/core/network/RosterDto.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/auth/MessageKeys.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/roster/RosterStateMapper.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/roster/RosterUiState.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/roster/RosterViewModel.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/roster/ui/RosterScreen.kt"
+    },
+    {
+      "path": "android/src/main/res/values-bn/strings.xml"
+    },
+    {
+      "path": "android/src/main/res/values/strings.xml"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/auth/MessageKeyCoverageTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/roster/RosterScreenTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/roster/RosterStateMapperTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/roster/RosterViewModelTest.kt"
+    },
+    {
+      "path": "app/api/batches.py"
+    },
+    {
+      "path": "app/api/deps.py"
+    },
+    {
+      "path": "app/authz/lenses.py"
+    },
+    {
+      "path": "app/authz/resolve.py"
+    },
+    {
+      "path": "app/batches/__init__.py"
+    },
+    {
+      "path": "app/batches/periods.py"
+    },
+    {
+      "path": "app/batches/service.py"
+    },
+    {
+      "path": "app/contract/money_names.py"
+    },
+    {
+      "path": "app/contract/money_schema.py"
+    },
+    {
+      "path": "app/db/models.py"
+    },
+    {
+      "path": "app/db/money_type.py"
+    },
+    {
+      "path": "app/db/seed_skeleton.py"
+    },
+    {
+      "path": "app/errors/_classes.py"
+    },
+    {
+      "path": "app/governance/dispositions.py"
+    },
+    {
+      "path": "app/main.py"
+    },
+    {
+      "path": "app/schemas/batches.py"
+    },
+    {
+      "path": "message-keys.json"
+    },
+    {
+      "path": "migrations/versions/0002_batches_and_enrollment.py"
+    },
+    {
+      "path": "openapi.json"
+    },
+    {
+      "path": "tests/auth/test_endpoints.py"
+    },
+    {
+      "path": "tests/authz/test_resolve.py"
+    },
+    {
+      "path": "tests/batches/__init__.py"
+    },
+    {
+      "path": "tests/batches/conftest.py"
+    },
+    {
+      "path": "tests/batches/test_cross_teacher_isolation.py"
+    },
+    {
+      "path": "tests/batches/test_endpoints.py"
+    },
+    {
+      "path": "tests/batches/test_guardian_reachability.py"
+    },
+    {
+      "path": "tests/batches/test_inactive_from.py"
+    },
+    {
+      "path": "tests/batches/test_query_count.py"
+    },
+    {
+      "path": "tests/batches/test_removal.py"
+    },
+    {
+      "path": "tests/contract/test_message_keys.py"
+    },
+    {
+      "path": "tests/contract/test_money_allowlists.py"
+    },
+    {
+      "path": "tests/db/migration_support.py"
+    },
+    {
+      "path": "tests/db/test_governance.py"
+    },
+    {
+      "path": "tests/db/test_migration_fold_guard.py"
+    },
+    {
+      "path": "tests/db/test_migration_from_head.py"
+    },
+    {
+      "path": "tests/db/test_migration_rollback_is_total.py"
+    },
+    {
+      "path": "tests/db/test_migration_runs.py"
+    },
+    {
+      "path": "tests/db/test_money_type.py"
+    },
+    {
+      "path": "tests/privacy/test_profile_probes.py"
+    }
+  ]
+}

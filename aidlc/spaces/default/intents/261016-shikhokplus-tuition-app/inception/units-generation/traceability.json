@@ -1,0 +1,335 @@
+{
+  "stage": "units-generation",
+  "_note": "Story-to-Unit coverage. Confirmed at the units-generation summary checkpoint.",
+  "upstream_ids": [
+    "US1.1",
+    "US1.2",
+    "US1.3",
+    "US1.4",
+    "US1.5",
+    "US1.6",
+    "US1.7",
+    "US1.8",
+    "US1.9",
+    "US2.1",
+    "US2.2",
+    "US2.3",
+    "US2.4",
+    "US2.5",
+    "US2.6",
+    "US2.7",
+    "US2.8",
+    "US3.0",
+    "US3.1",
+    "US3.2",
+    "US3.3",
+    "US3.4",
+    "US3.5",
+    "US4.1",
+    "US4.2",
+    "US4.3",
+    "US4.4",
+    "US5.1",
+    "US5.2",
+    "US5.3",
+    "US5.4",
+    "US6.1",
+    "US6.2",
+    "US6.3",
+    "US6.4",
+    "US7.1",
+    "US8.1",
+    "US8.2",
+    "US8.3",
+    "US8.4",
+    "US9.1",
+    "US9.2",
+    "US9.3",
+    "US9.4",
+    "US10.1"
+  ],
+  "coverage": [
+    {
+      "id": "US1.1",
+      "status": "OK",
+      "target": "U3 (u3-identity-and-access)"
+    },
+    {
+      "id": "US1.2",
+      "status": "OK",
+      "target": "U3 (u3-identity-and-access)"
+    },
+    {
+      "id": "US1.3",
+      "status": "OK",
+      "target": "U4 (u4-batches-and-enrollment)"
+    },
+    {
+      "id": "US1.4",
+      "status": "OK",
+      "target": "U3 (u3-identity-and-access)"
+    },
+    {
+      "id": "US1.5",
+      "status": "OK",
+      "target": "U3 (u3-identity-and-access)"
+    },
+    {
+      "id": "US1.6",
+      "status": "OK",
+      "target": "U11 (u11-privacy-and-governance)"
+    },
+    {
+      "id": "US1.7",
+      "status": "OK",
+      "target": "U11 (u11-privacy-and-governance)"
+    },
+    {
+      "id": "US1.8",
+      "status": "OK",
+      "target": "U3 (u3-identity-and-access)"
+    },
+    {
+      "id": "US1.9",
+      "status": "OK",
+      "target": "U3 (u3-identity-and-access)"
+    },
+    {
+      "id": "US2.1",
+      "status": "OK",
+      "target": "U4 (u4-batches-and-enrollment)"
+    },
+    {
+      "id": "US2.2",
+      "status": "OK",
+      "target": "U4 (u4-batches-and-enrollment)"
+    },
+    {
+      "id": "US2.3",
+      "status": "OK",
+      "target": "U4 (u4-batches-and-enrollment)"
+    },
+    {
+      "id": "US2.4",
+      "status": "OK",
+      "target": "U4 (u4-batches-and-enrollment)"
+    },
+    {
+      "id": "US2.5",
+      "status": "OK",
+      "target": "U4 (u4-batches-and-enrollment)"
+    },
+    {
+      "id": "US2.6",
+      "status": "OK",
+      "target": "U4 (u4-batches-and-enrollment)"
+    },
+    {
+      "id": "US2.7",
+      "status": "OK",
+      "target": "U4 (u4-batches-and-enrollment)"
+    },
+    {
+      "id": "US2.8",
+      "status": "OK",
+      "target": "U4 (u4-batches-and-enrollment)"
+    },
+    {
+      "id": "US3.0",
+      "status": "OK",
+      "target": "U5 (u5-sessions-and-attendance)"
+    },
+    {
+      "id": "US3.1",
+      "status": "OK",
+      "target": "U5 (u5-sessions-and-attendance)"
+    },
+    {
+      "id": "US3.2",
+      "status": "OK",
+      "target": "U5 (u5-sessions-and-attendance)"
+    },
+    {
+      "id": "US3.3",
+      "status": "OK",
+      "target": "U5 (u5-sessions-and-attendance)"
+    },
+    {
+      "id": "US3.4",
+      "status": "OK",
+      "target": "U5 (u5-sessions-and-attendance)"
+    },
+    {
+      "id": "US3.5",
+      "status": "OK",
+      "target": "U5 (u5-sessions-and-attendance)"
+    },
+    {
+      "id": "US4.1",
+      "status": "OK",
+      "target": "U6 (u6-exams-and-marksheets)"
+    },
+    {
+      "id": "US4.2",
+      "status": "OK",
+      "target": "U6 (u6-exams-and-marksheets)"
+    },
+    {
+      "id": "US4.3",
+      "status": "OK",
+      "target": "U6 (u6-exams-and-marksheets)"
+    },
+    {
+      "id": "US4.4",
+      "status": "OK",
+      "target": "U6 (u6-exams-and-marksheets)"
+    },
+    {
+      "id": "US5.1",
+      "status": "OK",
+      "target": "U7 (u7-fee-cycles-and-ledger)"
+    },
+    {
+      "id": "US5.2",
+      "status": "OK",
+      "target": "U7 (u7-fee-cycles-and-ledger)"
+    },
+    {
+      "id": "US5.3",
+      "status": "OK",
+      "target": "U7 (u7-fee-cycles-and-ledger)"
+    },
+    {
+      "id": "US5.4",
+      "status": "OK",
+      "target": "U7 (u7-fee-cycles-and-ledger)"
+    },
+    {
+      "id": "US6.1",
+      "status": "OK",
+      "target": "U8 (u8-payment-claims-and-verification)"
+    },
+    {
+      "id": "US6.2",
+      "status": "OK",
+      "target": "U8 (u8-payment-claims-and-verification)"
+    },
+    {
+      "id": "US6.3",
+      "status": "OK",
+      "target": "U8 (u8-payment-claims-and-verification)"
+    },
+    {
+      "id": "US6.4",
+      "status": "OK",
+      "target": "U8 (u8-payment-claims-and-verification)"
+    },
+    {
+      "id": "US7.1",
+      "status": "OK",
+      "target": "U9 (u9-teacher-insights)"
+    },
+    {
+      "id": "US8.1",
+      "status": "OK",
+      "target": "U9 (u9-teacher-insights)"
+    },
+    {
+      "id": "US8.2",
+      "status": "OK",
+      "target": "U9 (u9-teacher-insights)"
+    },
+    {
+      "id": "US8.3",
+      "status": "OK",
+      "target": "U9 (u9-teacher-insights)"
+    },
+    {
+      "id": "US8.4",
+      "status": "OK",
+      "target": "U9 (u9-teacher-insights)"
+    },
+    {
+      "id": "US9.1",
+      "status": "OK",
+      "target": "U7 (u7-fee-cycles-and-ledger)"
+    },
+    {
+      "id": "US9.2",
+      "status": "OK",
+      "target": "U2, U5, and every write-bearing Unit \u2014 The error taxonomy and the server-supplied `retryable` envelope field are U2 \u2014 `retryable` is not a per-feature choice. The queued three-state case is U5. Preserving typed input on a failed write is a standing obligation on every Unit that writes."
+    },
+    {
+      "id": "US9.3",
+      "status": "OK",
+      "target": "U3, then every screen-bearing Unit \u2014 Server-side collation and Latin-numeral rendering are established in U3. Both bundles present, no hardcoded strings, and the longest-Bangla-string layout check are standing per-Unit obligations."
+    },
+    {
+      "id": "US9.4",
+      "status": "OK",
+      "target": "U11, and every screen-bearing Unit \u2014 AC9.4.3's deletion-confirmation copy is U11, because it must agree with the disposition manifest. No colour-only status and correct back-stack behaviour are per-Unit obligations \u2014 AC9.4.2 is a privacy case, not a navigation nicety."
+    },
+    {
+      "id": "US10.1",
+      "status": "OK",
+      "target": "U2, U3, and every route-adding Unit \u2014 U2 owns the schema-wide no-profile-field invariant and the route-enumeration harness, so they cover routes added later. U3 owns lens resolution and the RLS context. Each feature Unit owns the IDOR probes against its own routes."
+    }
+  ],
+  "reverse": [
+    {
+      "id": "U1",
+      "status": "OK",
+      "target": "US5.2 (arithmetic), plus the Money type every money-carrying Unit depends on and the ledger property test"
+    },
+    {
+      "id": "U2",
+      "status": "OK",
+      "target": "US9.2 (error taxonomy and the retryable envelope), US10.1 (schema-wide privacy invariant and route enumeration)"
+    },
+    {
+      "id": "U3",
+      "status": "OK",
+      "target": "US1.1, US1.2, US1.4, US1.5, US1.8, US1.9, US9.3 (collation and numerals), US10.1 (lens resolution and RLS context)"
+    },
+    {
+      "id": "U4",
+      "status": "OK",
+      "target": "US1.3, US2.1-US2.8"
+    },
+    {
+      "id": "U5",
+      "status": "OK",
+      "target": "US3.0-US3.5, US9.2 (the queued three-state case)"
+    },
+    {
+      "id": "U6",
+      "status": "OK",
+      "target": "US4.1-US4.4, US9.1 (the marks-entered trigger)"
+    },
+    {
+      "id": "U7",
+      "status": "OK",
+      "target": "US5.1-US5.4, US9.1 (fee-due reminder and the FCM adapter)"
+    },
+    {
+      "id": "U8",
+      "status": "OK",
+      "target": "US6.1-US6.4"
+    },
+    {
+      "id": "U9",
+      "status": "OK",
+      "target": "US7.1, US8.1-US8.4"
+    },
+    {
+      "id": "U10",
+      "status": "OK",
+      "target": "No direct story. Owns release packaging, the manifest allowlist, the DEX scan and the measurable device gates"
+    },
+    {
+      "id": "U11",
+      "status": "OK",
+      "target": "US1.6, US1.7, US9.4 (deletion-confirmation copy)"
+    }
+  ]
+}

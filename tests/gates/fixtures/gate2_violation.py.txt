@@ -1,0 +1,15 @@
+# A deliberate violation of Gate 2, kept as .txt so the ordinary lint run
+# does not fail on it. test_import_gates.py runs the linter against a
+# materialised copy and asserts a non-zero result.
+#
+# The violation: money arithmetic outside app/money, reached by importing
+# raw Decimal. This is the load-bearing gate — arithmetic out here needs
+# either a Decimal or a float, and the float is already forbidden
+# project-wide, so banning this import closes both doors.
+
+from decimal import Decimal  # the banned import
+
+
+def monthly_fee(annual: str) -> Decimal:
+    """Fee arithmetic in a route handler, rounding however it likes."""
+    return Decimal(annual) / Decimal(12)

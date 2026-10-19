@@ -1,0 +1,245 @@
+{
+  "stage": "nfr-design",
+  "unit": "money-core",
+  "note": "Every NFR9.x from this Unit's NFR Requirements mapped to the concrete mechanism that enforces it. For a library Unit every mechanism is build-time or test-time; none is runtime infrastructure. NFR9.22-NFR9.24 are marked OK because the design exists and its failure mode is chosen, but they are conditional on OQ-B1-1 closing before the formatting operation is implemented - recorded in the target rather than left implicit. Six requirements (NFR9.26-NFR9.31) originate at this stage rather than in NFR Requirements: each closes a gap the design review found in a mechanism, and each is recorded as an upstream id here so the next stage inherits it.",
+  "upstream_ids": [
+    "NFR9.1",
+    "NFR9.2",
+    "NFR9.3",
+    "NFR9.4",
+    "NFR9.5",
+    "NFR9.6",
+    "NFR9.7",
+    "NFR9.8",
+    "NFR9.9",
+    "NFR9.10",
+    "NFR9.11",
+    "NFR9.12",
+    "NFR9.13",
+    "NFR9.14",
+    "NFR9.15",
+    "NFR9.16",
+    "NFR9.17",
+    "NFR9.18",
+    "NFR9.19",
+    "NFR9.20",
+    "NFR9.21",
+    "NFR9.22",
+    "NFR9.23",
+    "NFR9.24",
+    "NFR9.25",
+    "NFR9.26",
+    "NFR9.27",
+    "NFR9.28",
+    "NFR9.29",
+    "NFR9.30",
+    "NFR9.31",
+    "NFR9.31a",
+    "NFR9.31b",
+    "NFR9.32"
+  ],
+  "coverage": [
+    {
+      "id": "NFR9.1",
+      "status": "OK",
+      "target": "security-design A.1 layer 1 - construction inspects the candidate's TYPE, not its value, so an integral float is refused identically; unit test asserts the raise"
+    },
+    {
+      "id": "NFR9.2",
+      "status": "OK",
+      "target": "security-design A.1 layer 2 - lint rule banning raw decimal construction from a float literal; the variable-valued case falls through to layer 1"
+    },
+    {
+      "id": "NFR9.3",
+      "status": "OK",
+      "target": "security-design A.1 layer 3 - no float or integer conversion defined on the type surface; absence is the mechanism"
+    },
+    {
+      "id": "NFR9.4",
+      "status": "OK",
+      "target": "security-design A.2 Gate 1 (outward) - a test walking the module's own import graph, failing the build on any edge into API, persistence, repository, authorization or schema layers"
+    },
+    {
+      "id": "NFR9.5",
+      "status": "OK",
+      "target": "security-design A.2 Gate 2 (inward) - banned-import lint rule on raw decimal outside the module, with the module re-permitted by explicit per-path exception. The load-bearing half"
+    },
+    {
+      "id": "NFR9.6",
+      "status": "OK",
+      "target": "security-design A.2 fixtures - each gate ships a committed violating artefact asserted to fail, outside the linted paths, invoked by the asserting test. Insufficient alone: NFR9.29 adds the per-gate configuration assertion, since a fixture stays green through a renamed path or a widened exception"
+    },
+    {
+      "id": "NFR9.7",
+      "status": "OK",
+      "target": "security-design A.3 client side - value class makes a float assignment a compile error; package-wide float ban as a backstop needing no semantic judgement"
+    },
+    {
+      "id": "NFR9.8",
+      "status": "OK",
+      "target": "security-design A.3 - one annotated type reused by every schema, rejected per-field serializers because a forgotten serializer is invisible in review. Backed by NFR9.30's OpenAPI assertion, since a str-typed money field needs no banned import"
+    },
+    {
+      "id": "NFR9.9",
+      "status": "OK",
+      "target": "security-design A.3 client side - string-only serializer rejecting a JSON number; serialization test asserts both directions"
+    },
+    {
+      "id": "NFR9.10",
+      "status": "OK",
+      "target": "security-design A.3 - one type decorator mapping to NUMERIC(12,2). Corrected at review: the 'needs an import Gate 2 refuses' inference holds only for ORM-declared decimal columns, so NFR9.30's database schema assertion covers the raw-SQL and string-declaration paths"
+    },
+    {
+      "id": "NFR9.11",
+      "status": "OK",
+      "target": "security-design A.3 - serializing a negative raises; a consistency check on the sign rules, since the canonical pattern admits no sign"
+    },
+    {
+      "id": "NFR9.12",
+      "status": "OK",
+      "target": "security-design Part B step 10 - property test over randomized histories, last in the pipeline because it is slowest and most often under iteration"
+    },
+    {
+      "id": "NFR9.13",
+      "status": "OK",
+      "target": "security-design A.4 - branch coverage scoped to this package, failing below 100%, no exclusion pragmas. Two additions at review: NFR9.28's statically-verified exhaustiveness as the one sanctioned unreachable line, and NFR9.31 closing the relocation escape"
+    },
+    {
+      "id": "NFR9.14",
+      "status": "OK",
+      "target": "security-design A.4 - named-test manifest with a CI check (pipeline step 7) asserting every entry resolves to a test that exists and runs, each entry stating its acceptance criterion"
+    },
+    {
+      "id": "NFR9.15",
+      "status": "OK",
+      "target": "security-design A.4 and A.5 - the manifest carries the per-entry criterion; BR2.9's magnitude-then-sign rule is the worked instance of fixing an answer the property test alone cannot settle"
+    },
+    {
+      "id": "NFR9.16",
+      "status": "OK",
+      "target": "security-design A.7 - the dependency bound is enforced by Gate 1 rather than by policy: a dependency dragging in I/O needs an import the gate refuses"
+    },
+    {
+      "id": "NFR9.17",
+      "status": "OK",
+      "target": "security-design A.7 - admission note per new dependency, recording what the gates' findings resolved to"
+    },
+    {
+      "id": "NFR9.18",
+      "status": "OK",
+      "target": "security-design A.7 and Part B steps 1-2 - secrets scan and lockfile verification block absolutely with no severity threshold, established in B1 as skeleton-time tooling"
+    },
+    {
+      "id": "NFR9.19",
+      "status": "OK",
+      "target": "security-design A.5 - closure is the ABSENCE of a default: a total mapping from kind to effect, no else-pass, no lookup-with-default. Corrected at review: the unrecognised-kind check is an ASSERTION backed by static exhaustiveness (NFR9.27, NFR9.28), not a raise - a raise would contradict 5.6's closed refusal table and misclassify a code defect as bad input"
+    },
+    {
+      "id": "NFR9.20",
+      "status": "OK",
+      "target": "security-design A.5 - property test generators derive their kind set from the enumeration, so a kind added later appears in histories automatically. Catches an OMITTED kind only; NFR9.25 is the other half"
+    },
+    {
+      "id": "NFR9.21",
+      "status": "OK",
+      "target": "security-design A.5 - adding a kind requires naming its identity side and re-running the randomized verification; the mechanism behind the process obligation is NFR9.25's independent expectation"
+    },
+    {
+      "id": "NFR9.22",
+      "status": "OK",
+      "target": "security-design A.6 - per-locale rendering specification held as DATA (digit map, grouping interval, separators) rather than branching code. CONDITIONAL on OQ-B1-1: the shape is designed, the table is not yet specified"
+    },
+    {
+      "id": "NFR9.23",
+      "status": "OK",
+      "target": "security-design A.6 - exact-output test per locale, reading as a row beside its specification so table and tests are reviewable against each other. CONDITIONAL on OQ-B1-1: nothing to assert until the specification exists"
+    },
+    {
+      "id": "NFR9.24",
+      "status": "OK",
+      "target": "security-design A.6 - a missing locale row fails rather than falling back to Latin digits, which defeats the pass-through implementation. Corrected at review: this alone does NOT make shipping without the Bangla row safe, because format() is called by response assembly in U7/U8/U9, so the failure lands in a production request handler. NFR9.26 moves detection to B1's build"
+    },
+    {
+      "id": "NFR9.25",
+      "status": "OK",
+      "target": "security-design A.5 - hand-written expected effect per kind, independent of the identity_side field the fold reads. The only thing capable of contradicting a mis-sided kind; without it test and implementation agree by construction"
+    },
+    {
+      "id": "NFR9.26",
+      "status": "OK",
+      "target": "security-design A.6 — build-time assertion that every supported locale has a rendering specification row. Scope stated honestly at review: asserts self-consistency, not completeness against the app's Android resource qualifiers, since no file is designated as the supported-locale definition. Adequate for the V1 two-locale case"
+    },
+    {
+      "id": "NFR9.27",
+      "status": "OK",
+      "target": "BR1.8, functional-spec 5.6 — the unrecognised-kind check is an ASSERTION, not a raise. Added at review: an earlier draft said it raises, which contradicted 5.6's closed eight-path table and would have mapped a developer's code defect to a 400/422 validation failure"
+    },
+    {
+      "id": "NFR9.28",
+      "status": "OK",
+      "target": "security-design A.5 — CORRECTED at review iteration 2. 'Statically verified, therefore excluded' does not work mechanically: the type checker and the coverage tool share no channel, so the gate could not pass and the wording would have become cover for the next unreachable branch. The construct must emit no coverable branch; where the language cannot express that, one bounded exclusion named in the coverage CONFIGURATION file by path and symbol, never an inline pragma"
+    },
+    {
+      "id": "NFR9.29",
+      "status": "OK",
+      "target": "NFR9.6 — each gate asserts its own CONFIGURATION, not only that the checker fires. Added at review: a fixture invoked against the checker stays green through a renamed module path, a widened re-permitting exception, or lint file-selection missing a package — the exact neutering scenario the fixtures exist to prevent"
+    },
+    {
+      "id": "NFR9.30",
+      "status": "OK",
+      "target": "security-design A.3 and Part B step 9 — database column type/precision assertion and OpenAPI money-pattern assertion, covering the three bypass paths no import rule can see. Authored in B1; first executed from B3 and B2. Requires NFR9.32 to have an owner"
+    },
+    {
+      "id": "NFR9.31",
+      "status": "OK",
+      "target": "security-design A.4 item 4 — CORRECTED at review iteration 2. The earlier claim that Gate 2 prevents relocation was wrong: only apply_rate takes a Decimal, so the fold over Money values relocates to a sibling module with no decimal import and passes Gate 2 untouched. Superseded by NFR9.31a and NFR9.31b, which scope coverage by behaviour rather than by path"
+    },
+    {
+      "id": "NFR9.31a",
+      "status": "OK",
+      "target": "NFR9.13 — coverage scoped by what a module DOES, not where it lives: any module importing the money type and branching over money values is inside the 100% obligation"
+    },
+    {
+      "id": "NFR9.31b",
+      "status": "OK",
+      "target": "NFR9.13 — CI assertion that every module importing app.money is in the covered set or on an explicit reviewed allowlist of pure pass-through consumers. The load-bearing half: a silent relocation becomes impossible, while adding to the allowlist is a deliberate reviewable act"
+    },
+    {
+      "id": "NFR9.32",
+      "status": "OK",
+      "target": "NFR9.30 — cross-Bolt obligation: the OpenAPI assertion must be added to B2's DoD and the column type/precision assertion to B3's. Neither currently lists them, so without this both Bolts pass their stated DoD while the checks never exist"
+    }
+  ],
+  "reverse": [
+    {
+      "id": "two-gate-direction-split",
+      "status": "N/A",
+      "target": "A design property with no single upstream NFR: NFR9.4 and NFR9.5 each name a check, but that they must point in OPPOSITE directions - one stopping the module importing I/O, one stopping the rest of the backend doing money arithmetic - is a design conclusion. Neither gate catches the other's case"
+    },
+    {
+      "id": "fixture-placement-outside-linted-paths",
+      "status": "N/A",
+      "target": "Implementation consequence of NFR9.6 with no upstream of its own: a fixture that violates a lint rule cannot sit in the linted tree without breaking the ordinary lint run, so it lives outside those paths and is invoked by the asserting test"
+    },
+    {
+      "id": "no-coverage-exclusion-pragmas",
+      "status": "N/A",
+      "target": "Strengthens NFR9.13 beyond what it states. The requirement sets the floor; banning inline exclusions closes the standard way a 100% target is quietly defeated, which no upstream NFR anticipated"
+    },
+    {
+      "id": "ci-order-cheapest-first",
+      "status": "N/A",
+      "target": "Pipeline sequencing with no upstream NFR: ordering by cost so a cheap failure never waits behind an expensive one, and placing the property test last because it is slowest and most often under active iteration"
+    },
+    {
+      "id": "single-entrypoint-local-and-ci",
+      "status": "N/A",
+      "target": "From team.md Deployment rather than a numbered NFR: a gate reproducible only by pushing is a gate that gets bypassed, which matters more for a solo build than for a team"
+    },
+    {
+      "id": "blast-radius-justifies-control-sizing",
+      "status": "N/A",
+      "target": "logical-components B - not a requirement but the reasoning that makes the control set proportionate: a large blast radius with a SILENT failure mode means redundancy buys nothing and the whole investment goes into pre-release detection"
+    }
+  ]
+}

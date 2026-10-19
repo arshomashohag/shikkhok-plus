@@ -1,0 +1,229 @@
+{
+  "stage": "nfr-requirements",
+  "unit": "api-contract",
+  "confirmed": "2026-10-18",
+  "note": "U2 is a spec Unit that is never deployed: no process, no endpoint, no database, no network. Most inception NFRs describe a running service and are N/A with a structural reason recorded per NFR rather than dropped, which is what distinguishes an analysis from an omission. Four bind directly (NFR9, NFR14, NFR16, NFR17) and two partially (NFR3, NFR13). The Unit's security asset is not data but a set of guarantees later Units cannot violate without failing a build - which makes the sharpest risk a gate that passes because it has nothing to examine, since all four schema assertions iterate empty sets in B2. NFR14.4 is explicitly NOT discharged here and is handed to U3 by BR4.4; claiming it would be the exact over-reach the fixture obligation exists to prevent.",
+  "upstream_ids": [
+    "NFR1",
+    "NFR2",
+    "NFR3",
+    "NFR4",
+    "NFR5",
+    "NFR6",
+    "NFR7",
+    "NFR8",
+    "NFR9",
+    "NFR10",
+    "NFR11",
+    "NFR12",
+    "NFR13",
+    "NFR14",
+    "NFR15",
+    "NFR16",
+    "NFR17"
+  ],
+  "coverage": [
+    {
+      "id": "NFR1",
+      "status": "N/A",
+      "target": "Android target and compile SDK - no Android surface in this Unit; owned by U10 release-packaging"
+    },
+    {
+      "id": "NFR2",
+      "status": "N/A",
+      "target": "Device floor and AAB download size - this Unit ships no code to a device"
+    },
+    {
+      "id": "NFR3",
+      "status": "OK",
+      "target": "NFR3.1, NFR3.2 - binds PARTIALLY. U2 renders nothing, but message_key rather than message [BR1.3] is precisely what makes NFR3 achievable for errors: a server-authored English string cannot be localized, so an error contract emitting one would make NFR3 unreachable whatever the Android Bolts did. NFR3.2 keeps phone numbers, OTPs and tokens out of logs, which is a compliance rule under RC-1/RC-2/RC-3 rather than hygiene"
+    },
+    {
+      "id": "NFR4",
+      "status": "N/A",
+      "target": "Offline reads - no client and no cache in this Unit"
+    },
+    {
+      "id": "NFR5",
+      "status": "N/A",
+      "target": "Offline writes - no write path in this Unit"
+    },
+    {
+      "id": "NFR6",
+      "status": "N/A",
+      "target": "Scale ceiling - no process; nothing here scales"
+    },
+    {
+      "id": "NFR7",
+      "status": "N/A",
+      "target": "Infrastructure cost - adds no running infrastructure. Recorded rather than dropped because it constrains one decision: U2 adds a test-time dependency (Schemathesis) and no production package, so the deployed image does not grow"
+    },
+    {
+      "id": "NFR8",
+      "status": "N/A",
+      "target": "Data residency - this Unit stores nothing"
+    },
+    {
+      "id": "NFR9",
+      "status": "OK",
+      "target": "NFR9.1, NFR9.2 - U1 owns the Money type; U2 owns the SCHEMA-level assertion, which is the half an import rule cannot see (a money value typed as a free-form string). The predicate is $ref to the shared Money component, not 'carries money', which is undecidable from a generated document"
+    },
+    {
+      "id": "NFR10",
+      "status": "N/A",
+      "target": "Children's data encrypted at rest - this Unit persists nothing; owned by infrastructure design"
+    },
+    {
+      "id": "NFR11",
+      "status": "N/A",
+      "target": "Device identifiers - no device surface; enforced by U10's manifest allowlist and DEX scan"
+    },
+    {
+      "id": "NFR12",
+      "status": "N/A",
+      "target": "OTP abuse controls - owned entirely by U3 identity-and-access"
+    },
+    {
+      "id": "NFR13",
+      "status": "OK",
+      "target": "NFR13.1 - binds PARTIALLY. U2 owns neither token lifetimes nor rotation, but BR1.6 reconciles retryable:false on a 401 with refresh-then-replay, and BR3.1 records the refresh route as authenticated-but-lens-exempt. Both halves of that reconciliation produce a defect when read alone"
+    },
+    {
+      "id": "NFR14",
+      "status": "OK",
+      "target": "NFR14.1 through NFR14.11 - U2 owns the third layer of the privacy boundary (teacher-facing schemas carrying no profile fields), the non-disclosure rule, the route-enumeration harness and the lens-hint contract. NFR14.4 is stated here and OWNED BY U3 per BR4.4"
+    },
+    {
+      "id": "NFR15",
+      "status": "N/A",
+      "target": "Accessibility and back-stack behaviour - this Unit renders nothing"
+    },
+    {
+      "id": "NFR16",
+      "status": "OK",
+      "target": "NFR16.1 through NFR16.4 - U2's own requirement more than anyone's: the committed schema and its diff gate are the only mechanism that detects a breaking change before it ships to an installed client that cannot be forced to update"
+    },
+    {
+      "id": "NFR17",
+      "status": "OK",
+      "target": "NFR17.1, NFR17.2, NFR17.3 - the 80% line floor applies to the five exception classes and the handler. The meaningful target is not a percentage but the four violation fixtures: a gate's correctness is shown by its firing on a known violation. NFR17's authorization-layer BRANCH coverage lands on U3, which owns lens resolution; U2 owns the Lens types only and a type declaration has no branches"
+    }
+  ],
+  "reverse": [
+    {
+      "id": "NFR3.1",
+      "status": "OK",
+      "target": "NFR3 - no English message at any level; message_key names a client string resource, with additionalProperties:false making it structural [BR1.3]"
+    },
+    {
+      "id": "NFR3.2",
+      "status": "OK",
+      "target": "NFR3, RC-1, RC-2, RC-3 - no error log carries a phone number, OTP or token; every error log carries the correlation id. details is typed per code, never a free-form dump of request state"
+    },
+    {
+      "id": "NFR9.1",
+      "status": "OK",
+      "target": "NFR9 - every money property $refs the shared Money component carrying ^[0-9]+\\.[0-9]{2}$ [BR2.2]"
+    },
+    {
+      "id": "NFR9.2",
+      "status": "OK",
+      "target": "NFR9 - a *_display field never appears without its canonical sibling [BR2.3]. Structural, and independent of the rendering content OQ-B1-1 fixed"
+    },
+    {
+      "id": "NFR13.1",
+      "status": "OK",
+      "target": "NFR13 - retryable:false on 401 reconciled with a bounded refresh-then-replay: a different request then one replay, only on ACCESS_TOKEN_EXPIRED, any second 401 ending the session [BR1.6]"
+    },
+    {
+      "id": "NFR14.1",
+      "status": "OK",
+      "target": "NFR14 - four committed violation fixtures, one per gate [BR4.1]. The central control of this Unit: every schema assertion iterates an EMPTY SET in B2, so four green checks that never examined anything is the realistic failure mode, and it manufactures documented confidence"
+    },
+    {
+      "id": "NFR14.2",
+      "status": "OK",
+      "target": "NFR14 - each fixture asserts WHICH violation was reported. A fixture failing for a cheaper reason certifies nothing while looking like a working test"
+    },
+    {
+      "id": "NFR14.3",
+      "status": "OK",
+      "target": "NFR14, AC10.1.1-AC10.1.4 - byte-identical refusal for unreachable and absent [BR1.4], with no code distinguishing them [BR1.5]"
+    },
+    {
+      "id": "NFR14.4",
+      "status": "Deferred",
+      "target": "NFR14 - DEFERRED TO U3 by BR4.4. Both branches must perform the same lookup work, asserted structurally and never as a wall-clock bound. U2 owns no lookup code and cannot test this; U3 owns lens resolution, is the first Unit with a lookup that can fail either way, and is the walking skeleton, so the obligation lands where the human checkpoint reads the privacy claim"
+    },
+    {
+      "id": "NFR14.5",
+      "status": "OK",
+      "target": "NFR14, AC10.1.7 - every route resolves a lens, checked against the real app object at collection time so a new unlensed endpoint reddens CI on its own commit [BR3.1]"
+    },
+    {
+      "id": "NFR14.6",
+      "status": "OK",
+      "target": "NFR14 - two FIXED allowlists with stated lengths: PUBLIC_ROUTES exactly five, LENS_EXEMPT_AUTHENTICATED exactly one [BR3.1]. Separation stops the refresh route being marked public by whoever first hits the check failing"
+    },
+    {
+      "id": "NFR14.7",
+      "status": "OK",
+      "target": "NFR14, AC10.1.7 - return-annotation resolution via typing.get_type_hints, unions counted only when every member qualifies, resolution failure never swallowed [BR3.2]. The damage is not the false negative but the blanket except TypeError: return True"
+    },
+    {
+      "id": "NFR14.8",
+      "status": "OK",
+      "target": "NFR14, AC10.1.5, ADR-001 - schema-wide iteration carrying BOTH forbidden field sets: owner-private profile fields and account ids [BR2.4]"
+    },
+    {
+      "id": "NFR14.9",
+      "status": "OK",
+      "target": "NFR14 - Schemathesis never counts as privacy coverage [BR4.2]. A DOCUMENTATION obligation, marked as such rather than dressed up as a check, because the failure it prevents is a misunderstanding"
+    },
+    {
+      "id": "NFR14.10",
+      "status": "OK",
+      "target": "NFR14, AC10.1.6, FR1.3, FR1.4 - the lens hint affects navigation only; an unsupported hint is refused 403 LENS_NOT_AVAILABLE rather than silently falling back [BR1.7]"
+    },
+    {
+      "id": "NFR16.1",
+      "status": "OK",
+      "target": "NFR16 - committed schema equals generated, or CI fails [BR2.1]"
+    },
+    {
+      "id": "NFR16.2",
+      "status": "OK",
+      "target": "NFR16, team.md one-command rule - the comparison runs in CI, not only locally"
+    },
+    {
+      "id": "NFR16.3",
+      "status": "OK",
+      "target": "NFR16 - deterministic serialization ACROSS PROCESSES: canonical sort_keys ordering and explicit ordering for every set-derived collection. A SECURITY requirement rather than an ergonomic one, since a byte comparison over unstable output produces false failures and a gate that cries wolf gets disabled. Corrected at review: an earlier draft proposed generating twice in ONE test run, which is worse than no check because Python seeds hash randomization once per process - two generations in one run share an ordering by construction and agree however unstable the serialization is. Measured: six processes printing one seven-element set gave six orderings. Verification uses two separate interpreter invocations; pinning PYTHONHASHSEED would hide the defect rather than catch it"
+    },
+    {
+      "id": "NFR16.4",
+      "status": "OK",
+      "target": "NFR16 - the regeneration command documented beside the committed file. A DOCUMENTATION obligation countering the gate's likely misuse: hand-editing the committed output, which looks like fixing the gate and inverts it into a rubber stamp"
+    },
+    {
+      "id": "NFR17.1",
+      "status": "OK",
+      "target": "NFR17 - a fixture that stops failing is itself a build failure. Inverts the usual reading: these are the one part of U2 whose failure is the passing condition"
+    },
+    {
+      "id": "NFR17.2",
+      "status": "OK",
+      "target": "NFR17 - the error handler performs no I/O. It sits on every error path, so a handler that can fail turns a handled 403 into an unhandled 500 exactly when the system is already degraded"
+    },
+    {
+      "id": "NFR17.3",
+      "status": "OK",
+      "target": "NFR17 - the handler is total over the taxonomy; BR1.1 closing the hierarchy at five is what makes totality checkable"
+    },
+    {
+      "id": "NFR14.11",
+      "status": "OK",
+      "target": "NFR14 - app.schemas.* configured as a strict mypy island with disallow_any_explicit, added in this Bolt because U2 first populates that package. team.md names three strict islands but B1 configured only app.money.*, correctly, since an override naming a missing module is dead configuration - which left app.schemas with no owning Bolt. Response-schema separation is a TYPING control as well as a privacy one: a teacher-lens endpoint returning a student-private response becomes a mypy error, catching right-lens-wrong-data, which neither the route harness nor the schema iteration can see. disallow_any_explicit matters specifically here because a field typed Any carries a profile field at runtime while declaring nothing in the schema - a hole straight through NFR14.8"
+    }
+  ]
+}

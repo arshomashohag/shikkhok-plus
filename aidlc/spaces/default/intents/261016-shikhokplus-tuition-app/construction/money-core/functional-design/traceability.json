@@ -1,0 +1,320 @@
+{
+  "stage": "functional-design",
+  "unit": "money-core",
+  "note": "AC5.2.2 is Deferred to U7, not covered here: correction history is a property of persisted ledger entries and their supersession, and this Unit persists nothing. Recorded at functional-design-questions.md Q8.",
+  "upstream_ids": [
+    "AC5.2.1",
+    "AC5.2.2",
+    "AC6.3.3",
+    "AC6.3.7",
+    "AC6.3.8",
+    "AC8.3.4",
+    "ADR-002",
+    "FR5.1",
+    "FR5.2",
+    "FR5.7",
+    "FR5.9",
+    "NFR9",
+    "US5.2",
+    "project.md ALWAYS confine money arithmetic to a single module",
+    "project.md ALWAYS money as fixed-point decimal, JSON string",
+    "project.md NEVER float/double for money",
+    "project.md NEVER let the client compute a fee balance",
+    "team.md Code Style: Money as a type",
+    "team.md Testing Posture: money-module obligations"
+  ],
+  "coverage": [
+    {
+      "id": "AC5.2.1",
+      "status": "OK",
+      "target": "BR4.1, BR4.2, BR4.3, BR4.4, BR4.5, BR4.6, BR4.7, BR4.8 \u2014 the balance recalculation and the separately-derived quantities. This Unit owns the arithmetic that makes the recalculation correct; U7 owns the adjustment entry that triggers it."
+    },
+    {
+      "id": "AC5.2.2",
+      "status": "Deferred",
+      "target": "u7-fee-cycles-and-ledger \u2014 correction history (previous value, actor, visibility) is a property of the ledger entries and their supersession, not of the Money type. This Unit persists nothing and holds no history, so it cannot carry this AC."
+    },
+    {
+      "id": "AC6.3.3",
+      "status": "OK",
+      "target": "BR4.6 and functional-spec 5.5 \u2014 the shortfall is charged minus approved, and carries forward two-sided or is forgiven"
+    },
+    {
+      "id": "AC6.3.7",
+      "status": "OK",
+      "target": "BR2.7, BR4.4, BR4.7 \u2014 an approval exceeding the charge becomes a credit, never a negative outstanding"
+    },
+    {
+      "id": "AC6.3.8",
+      "status": "OK",
+      "target": "BR4.5, BR4.7 \u2014 credit applied automatically against the next cycle at min(available_credit, charge), remainder carried on"
+    },
+    {
+      "id": "AC8.3.4",
+      "status": "OK",
+      "target": "BR4.7 \u2014 a credit counts as received in the period whose charge it settles. Carried as a known-unsettled input: FR8.3's collection-rate definition remains open to correction and this Unit's property test is where the extension lands"
+    },
+    {
+      "id": "ADR-002",
+      "status": "OK",
+      "target": "BR4.1 through BR4.8 \u2014 the append-only ledger, the seven kinds, the verified identity, two-sided carry-forward, enrollment-level credit and the verify-before-recording rule"
+    },
+    {
+      "id": "FR5.1",
+      "status": "OK",
+      "target": "BR4.1, BR4.2, BR4.3, BR4.6 \u2014 the five quantities, the seven kinds, the derived-not-stored rule and two-sided carry-forward"
+    },
+    {
+      "id": "FR5.2",
+      "status": "OK",
+      "target": "Calendar-month periods with the short-month clamp are U7's; this Unit holds no calendar knowledge. Its only period-adjacent rule is BR4.7's credit attribution to the period whose charge it settles"
+    },
+    {
+      "id": "FR5.7",
+      "status": "OK",
+      "target": "BR1.1, BR5.1 \u2014 fixed-point decimal in BDT, crossing the API as a string"
+    },
+    {
+      "id": "FR5.9",
+      "status": "OK",
+      "target": "BR2.7, BR4.3, BR4.4, BR4.5, BR4.7 \u2014 credit on overpayment, outstanding never negative, cash in is receipts plus credit grants"
+    },
+    {
+      "id": "NFR9",
+      "status": "OK",
+      "target": "BR1.1, BR1.3, BR1.4, BR5.1, BR5.3 \u2014 fixed-point decimal, BDT only, JSON string in transit, never float"
+    },
+    {
+      "id": "US5.2",
+      "status": "OK",
+      "target": "Assigned to U7. The story-map records the arithmetic as U1's and the cycle behaviour as U7's; BR4.3 through BR4.7 are the arithmetic half"
+    },
+    {
+      "id": "project.md ALWAYS confine money arithmetic to a single module",
+      "status": "OK",
+      "target": "BR3.1, BR5.3, BR6.1, BR6.2, BR6.3"
+    },
+    {
+      "id": "project.md ALWAYS money as fixed-point decimal, JSON string",
+      "status": "OK",
+      "target": "BR1.3, BR5.1, BR5.3"
+    },
+    {
+      "id": "project.md NEVER float/double for money",
+      "status": "OK",
+      "target": "BR1.1, BR1.2, BR1.6, BR5.1, BR6.4"
+    },
+    {
+      "id": "project.md NEVER let the client compute a fee balance",
+      "status": "OK",
+      "target": "BR5.4, BR5.5"
+    },
+    {
+      "id": "team.md Code Style: Money as a type",
+      "status": "OK",
+      "target": "BR1.1 through BR3.2, BR5.3, BR6.1 through BR6.4 \u2014 this section is effectively this Unit's specification"
+    },
+    {
+      "id": "team.md Testing Posture: money-module obligations",
+      "status": "OK",
+      "target": "BR4.8, BR5.2 \u2014 the property test on the identity, the named test per state transition, the documented boundary case per money input, and the loud-failure decode test"
+    }
+  ],
+  "reverse": [
+    {
+      "id": "BR1.1",
+      "status": "OK",
+      "target": "NFR9, FR5.7, project.md NEVER float/double for money; team.md Code Style: construction from a float raises"
+    },
+    {
+      "id": "BR1.2",
+      "status": "OK",
+      "target": "team.md Code Style: Decimal(<float>) construction banned, closing the gap a float ban alone leaves"
+    },
+    {
+      "id": "BR1.3",
+      "status": "OK",
+      "target": "NFR9; team.md Code Style: quantized to 2dp at construction for equality/hash/serialization consistency"
+    },
+    {
+      "id": "BR1.4",
+      "status": "OK",
+      "target": "No acceptance criterion states BDT implicitness; it is a representation decision from NFR9 and contract-summary B.5, recorded so a future reader finds it rather than inferring an omission"
+    },
+    {
+      "id": "BR1.5",
+      "status": "OK",
+      "target": "Immutability is a value-object property from team.md Code Style and the domain-design Money component, with no AC of its own"
+    },
+    {
+      "id": "BR1.6",
+      "status": "OK",
+      "target": "contract-summary E.1: no float(), no int(); project.md NEVER float/double"
+    },
+    {
+      "id": "BR1.7",
+      "status": "OK",
+      "target": "contract-summary B.5 NUMERIC(12,2) storage contract: twelve total digits, two decimal places, leaving ten integer digits"
+    },
+    {
+      "id": "BR1.8",
+      "status": "OK",
+      "target": "team.md Error handling closed exception hierarchy; functional-design-questions.md Q7 as corrected at design review. U1 raises exactly one class on every path, because a stateless I/O-free module makes conflict, transient and fatal structurally unreachable; U2 owns the envelope, codes and HTTP mapping"
+    },
+    {
+      "id": "BR2.1",
+      "status": "OK",
+      "target": "team.md Code Style: __add__/__sub__ accept only Money; contract-summary E.1"
+    },
+    {
+      "id": "BR2.2",
+      "status": "OK",
+      "target": "team.md Code Style: multiplication is apply_rate, not __mul__, no anonymous rounding"
+    },
+    {
+      "id": "BR2.3",
+      "status": "OK",
+      "target": "team.md Code Style: division not exposed; allocate(n) sums exactly by remainder distribution"
+    },
+    {
+      "id": "BR2.4",
+      "status": "OK",
+      "target": "team.md Code Style: Money.ZERO exists; comparing Money to int is a type error"
+    },
+    {
+      "id": "BR2.5",
+      "status": "OK",
+      "target": "team.md Code Style: Money.sum with zero identity; FR7.2 cross-batch dues total"
+    },
+    {
+      "id": "BR2.6",
+      "status": "OK",
+      "target": "team.md Code Style: is_zero()/is_positive() keep sign convention on the type"
+    },
+    {
+      "id": "BR2.7",
+      "status": "OK",
+      "target": "ADR-002 sign discipline; FR5.9 outstanding never negative; AC6.3.7"
+    },
+    {
+      "id": "BR2.8",
+      "status": "OK",
+      "target": "team.md Code Style: allocate(n) returning a list whose sum is exactly the original. A count below one is a caller defect, not an empty result"
+    },
+    {
+      "id": "BR2.9",
+      "status": "OK",
+      "target": "Disambiguates BR2.3 for negative amounts permitted by BR2.7. BR2.3's exact-sum property passes under every reading of a negative split, so it cannot settle this on its own"
+    },
+    {
+      "id": "BR2.10",
+      "status": "OK",
+      "target": "team.md Code Style apply_rate as the named multiplication; extends BR1.1's float refusal to the rate argument and BR4.1's compensating-entry rule to sign reduction"
+    },
+    {
+      "id": "BR3.1",
+      "status": "OK",
+      "target": "team.md Code Style: ROUND_HALF_UP declared once, explicitly not ROUND_HALF_EVEN"
+    },
+    {
+      "id": "BR3.2",
+      "status": "OK",
+      "target": "A structural consequence of BR2.2 and BR1.3 rather than a separately-sourced requirement; stated so the set of rounding sites stays enumerable"
+    },
+    {
+      "id": "BR4.1",
+      "status": "OK",
+      "target": "ADR-002: amounts always non-negative, the sign lives in the kind; FR5.1"
+    },
+    {
+      "id": "BR4.2",
+      "status": "OK",
+      "target": "ADR-002: append-only entries with every quantity derived, no money columns on FeeCycle; FR5.1"
+    },
+    {
+      "id": "BR4.3",
+      "status": "OK",
+      "target": "ADR-002 verified identity; FR5.1 five quantities; FR5.9 cash in is receipts plus credit grants; team.md ledger invariant correction"
+    },
+    {
+      "id": "BR4.4",
+      "status": "OK",
+      "target": "ADR-002 per-cycle formula with credit_applied term; FR5.9 outstanding never negative; AC6.3.7"
+    },
+    {
+      "id": "BR4.5",
+      "status": "OK",
+      "target": "ADR-002 available_credit >= 0 by construction via min(available_credit, charge); FR5.9; AC6.3.8"
+    },
+    {
+      "id": "BR4.6",
+      "status": "OK",
+      "target": "ADR-002 two-sided carry-forward; FR5.1 carry recorded two-sided; team.md Corrections on multi-period carry"
+    },
+    {
+      "id": "BR4.7",
+      "status": "OK",
+      "target": "ADR-002 credit belongs to the enrollment; FR5.9; AC6.3.7; AC6.3.8; AC8.3.4 period attribution"
+    },
+    {
+      "id": "BR4.8",
+      "status": "OK",
+      "target": "ADR-002 Verified-not-asserted; team.md Corrections: a money invariant is verified before recorded satisfied; team.md Testing Posture property test"
+    },
+    {
+      "id": "BR5.1",
+      "status": "OK",
+      "target": "NFR9 JSON string in transit; FR5.7; contract-summary B.5 canonical form; project.md ALWAYS money as JSON string"
+    },
+    {
+      "id": "BR5.2",
+      "status": "OK",
+      "target": "contract-summary B.5 client rejects a JSON number loudly; team.md Testing Posture negative serialization test obligation"
+    },
+    {
+      "id": "BR5.3",
+      "status": "OK",
+      "target": "contract-summary E.1 single Pydantic annotated type and single storage TypeDecorator to NUMERIC(12,2); project.md ALWAYS confine money arithmetic to a single module"
+    },
+    {
+      "id": "BR5.4",
+      "status": "OK",
+      "target": "contract-summary B.5 amount plus amount_display; TC-15 Bangla locale; TC-9/D-31 server decides"
+    },
+    {
+      "id": "BR5.5",
+      "status": "OK",
+      "target": "TC-9, D-31; contract-summary B.5 server sends fee_status; project.md NEVER let the client compute a fee balance"
+    },
+    {
+      "id": "BR5.6",
+      "status": "OK",
+      "target": "bolt-plan.md B1 DoD 'buildable and fully testable before any endpoint exists'; BR6.1 no-settings-import boundary; TC-15/D-43 Bangla locale"
+    },
+    {
+      "id": "BR5.7",
+      "status": "OK",
+      "target": "contract-summary B.5 money pattern ^[0-9]+\\.[0-9]{2}$ admits no sign; consistency check against BR4.4 and BR4.5 non-negativity"
+    },
+    {
+      "id": "BR6.1",
+      "status": "OK",
+      "target": "team.md Code Style layered-import test: app.money imports nothing from api/db/repositories/authz/schemas; contract-summary E.1"
+    },
+    {
+      "id": "BR6.2",
+      "status": "OK",
+      "target": "team.md Code Style import-direction check banning raw decimal outside the module; project.md ALWAYS enforce the boundary with an import-boundary check"
+    },
+    {
+      "id": "BR6.3",
+      "status": "OK",
+      "target": "A delivery-timing policy from the bolt-plan B1 DoD and project.md, not a behavioural AC"
+    },
+    {
+      "id": "BR6.4",
+      "status": "OK",
+      "target": "contract-summary E.1 Kotlin value class with string-only serializer; team.md Code Style package-wide Double/Float ban in core/model; project.md NEVER float/double in any language"
+    }
+  ]
+}

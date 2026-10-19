@@ -1,0 +1,266 @@
+{
+  "stage": "infrastructure-design",
+  "unit": "batches-and-enrollment",
+  "note": "U4 provisions nothing new -- B3 brought the database, host, secrets and deployed environment. What it brings is the first migration that alters live data, so this stage is about the DEPLOY rather than the kit. The reverse rows record three operational decisions with no upstream requirement, including a deploy-stopping guard that is correct behaviour rather than a defect.",
+  "upstream_ids": [
+    "NFR6.15",
+    "NFR6.16",
+    "NFR6.17",
+    "NFR6.18",
+    "NFR8.11",
+    "NFR8.13",
+    "NFR9",
+    "NFR10",
+    "NFR7",
+    "NFR17",
+    "NFR4.1",
+    "NFR4.2",
+    "NFR6.11",
+    "NFR6.12",
+    "NFR6.13",
+    "NFR6.14",
+    "NFR10.5",
+    "NFR10.6",
+    "NFR10.7",
+    "NFR10.8",
+    "NFR10.9",
+    "NFR10.10",
+    "NFR10.11",
+    "NFR10.12",
+    "NFR14.12",
+    "NFR14.13",
+    "NFR14.14",
+    "NFR14.15",
+    "NFR14.16",
+    "NFR14.17",
+    "NFR14.18",
+    "NFR14.19",
+    "NFR14.20",
+    "NFR14.21",
+    "NFR8.8",
+    "NFR8.9",
+    "NFR8.10",
+    "NFR8.12",
+    "NFR6.1",
+    "NFR6.3"
+  ],
+  "coverage": [
+    {
+      "id": "NFR6.15",
+      "status": "OK",
+      "target": "infrastructure-specification \u00a7B - forward-only, applied as a distinct logged step before the container serves."
+    },
+    {
+      "id": "NFR6.16",
+      "status": "OK",
+      "target": "infrastructure-specification \u00a7B.1, cicd \u00a7A.1 - the fold guard refuses rather than guessing, and the deploy ORDERING puts seed-row deletion before the migration."
+    },
+    {
+      "id": "NFR6.17",
+      "status": "OK",
+      "target": "infrastructure-specification \u00a7B step 5 - the rewritten lens query ships in the same image as the migration."
+    },
+    {
+      "id": "NFR6.18",
+      "status": "OK",
+      "target": "cicd \u00a7A.1 - a second migration run from 0001 WITH a seeded row, asserting the link survives. Steps 2 and 4 are the requirement; step 1 alone is vacuous."
+    },
+    {
+      "id": "NFR8.11",
+      "status": "OK",
+      "target": "monitoring \u00a7A - no new alert, with the three rejected candidates named and why each would dilute U3's six."
+    },
+    {
+      "id": "NFR8.13",
+      "status": "OK",
+      "target": "monitoring \u00a7D - no per-row audit, and guardian_phone recorded as the weaker case with its revisit trigger."
+    },
+    {
+      "id": "NFR9",
+      "status": "OK",
+      "target": "cicd \u00a7B - the money gate gets its first real column here, and its first false positive. The allowlist keeps the tokens intact; dropping one would retire the check for U7 and U8 while staying green."
+    },
+    {
+      "id": "NFR10",
+      "status": "OK",
+      "target": "monitoring \u00a7C - encryption at rest unchanged; retention extended for U4's tables with no new purge job."
+    },
+    {
+      "id": "NFR7",
+      "status": "OK",
+      "target": "infrastructure-specification \u00a7A - no new instance, service or secret. Budget position unchanged at roughly USD 25 against the USD 50 ceiling."
+    },
+    {
+      "id": "NFR17",
+      "status": "OK",
+      "target": "cicd \u00a7A - U4's packages join the explicit --cov list, which the coverage-scope gate asserts against the packages on disk."
+    },
+    {
+      "id": "NFR4.1",
+      "status": "N/A",
+      "target": "Staleness rendering is a CLIENT concern; no infrastructure provisions it."
+    },
+    {
+      "id": "NFR4.2",
+      "status": "N/A",
+      "target": "Room entity shape is a client-code decision, not infrastructure."
+    },
+    {
+      "id": "NFR6.11",
+      "status": "N/A",
+      "target": "Query shape is a code decision; cicd \u00a7A runs the assertion but provisions nothing."
+    },
+    {
+      "id": "NFR6.12",
+      "status": "OK",
+      "target": "cicd \u00a7A - the two-roster-size query-count assertion joins the backend job."
+    },
+    {
+      "id": "NFR6.13",
+      "status": "N/A",
+      "target": "Same as NFR6.11 - a code shape, asserted in CI but not provisioned."
+    },
+    {
+      "id": "NFR6.14",
+      "status": "OK",
+      "target": "infrastructure-specification \u00a7B - the indexes ship in migration 0002, applied as a distinct logged step."
+    },
+    {
+      "id": "NFR10.5",
+      "status": "N/A",
+      "target": "The phone lookup uses U3's existing unique index; no new infrastructure."
+    },
+    {
+      "id": "NFR10.6",
+      "status": "N/A",
+      "target": "Transaction scope is a code decision."
+    },
+    {
+      "id": "NFR10.7",
+      "status": "N/A",
+      "target": "Lazy Owner creation is a code decision."
+    },
+    {
+      "id": "NFR10.8",
+      "status": "OK",
+      "target": "infrastructure-specification \u00a7B - the partial unique index ships in 0002."
+    },
+    {
+      "id": "NFR10.9",
+      "status": "OK",
+      "target": "cicd \u00a7B, infrastructure-specification \u00a7B - the PARTIAL predicate is part of the shipped index."
+    },
+    {
+      "id": "NFR10.10",
+      "status": "N/A",
+      "target": "Transactional batch creation is a code decision."
+    },
+    {
+      "id": "NFR10.11",
+      "status": "N/A",
+      "target": "Single-row update is a code decision, asserted in the suite."
+    },
+    {
+      "id": "NFR10.12",
+      "status": "N/A",
+      "target": "Statement-level assertion is a test decision; cicd \u00a7A runs it."
+    },
+    {
+      "id": "NFR14.12",
+      "status": "N/A",
+      "target": "Lens-carried scoping is a code decision."
+    },
+    {
+      "id": "NFR14.13",
+      "status": "N/A",
+      "target": "The 404 rule is U2's shipped error contract."
+    },
+    {
+      "id": "NFR14.14",
+      "status": "OK",
+      "target": "cicd \u00a7A - the two-teacher isolation test joins the blocking suite, which still needs no secret."
+    },
+    {
+      "id": "NFR14.15",
+      "status": "N/A",
+      "target": "Guardian reachability is a query shape, not infrastructure."
+    },
+    {
+      "id": "NFR14.16",
+      "status": "OK",
+      "target": "cicd \u00a7A - the no-Profile-reference assertion runs in the backend job."
+    },
+    {
+      "id": "NFR14.17",
+      "status": "N/A",
+      "target": "Column survival is the Governance manifest's disposition, executed by U11."
+    },
+    {
+      "id": "NFR14.18",
+      "status": "N/A",
+      "target": "No admin surface exists to provision."
+    },
+    {
+      "id": "NFR14.19",
+      "status": "OK",
+      "target": "infrastructure-specification \u00a7B.1 - the deploy ORDERING protects the markers: seed rows go before the migration, which refuses to run while they exist."
+    },
+    {
+      "id": "NFR14.20",
+      "status": "OK",
+      "target": "infrastructure-specification \u00a7B - the per-link marker columns ship in 0002."
+    },
+    {
+      "id": "NFR14.21",
+      "status": "N/A",
+      "target": "The two-condition removal check is a code decision."
+    },
+    {
+      "id": "NFR8.8",
+      "status": "N/A",
+      "target": "Log content is a code decision; no log pipeline is provisioned."
+    },
+    {
+      "id": "NFR8.9",
+      "status": "N/A",
+      "target": "Same."
+    },
+    {
+      "id": "NFR8.10",
+      "status": "N/A",
+      "target": "Same."
+    },
+    {
+      "id": "NFR8.12",
+      "status": "N/A",
+      "target": "U4 writes no audit row; nothing to provision."
+    },
+    {
+      "id": "NFR6.1",
+      "status": "N/A",
+      "target": "Inherited from U3; no infrastructure change."
+    },
+    {
+      "id": "NFR6.3",
+      "status": "N/A",
+      "target": "Inherited from U3; the count assertion runs in CI."
+    }
+  ],
+  "reverse": [
+    {
+      "id": "fold-guard-stops-the-deploy",
+      "status": "N/A",
+      "target": "infrastructure-specification \u00a7B.1 - the 0002 migration refuses to run against the skeleton seed's shape. That is a DEPLOY-STOPPING failure by design: recoverable, loud, and before any data is altered. Recorded as an ordering in the deploy steps rather than left to the runbook, because the operator cannot infer from 'migration failed' that the remedy is deleting seed ROWS before the script."
+    },
+    {
+      "id": "downgrade-must-raise",
+      "status": "N/A",
+      "target": "infrastructure-specification \u00a7C.1 - downgrade() CANNOT reverse the fold: two rows collapsed into one and which row the guardian came from is gone. A downgrade that appears to work while losing guardian links would be reached for exactly when care matters most, so it raises and names the dump instead."
+    },
+    {
+      "id": "b3-device-leg-still-unverified",
+      "status": "N/A",
+      "target": "cicd \u00a7E item 3 - no real SMS has been sent and the seed script has never run against a real host. Recorded here because obligation 1 reads differently depending on whether it happened, and nothing in the record says it did."
+    }
+  ]
+}

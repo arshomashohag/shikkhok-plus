@@ -1,0 +1,123 @@
+{
+  "stage": "nfr-requirements",
+  "unit": "batches-and-enrollment",
+  "note": "Every upstream NFR mapped to how U4 satisfies it or why it does not apply. N/A rows name the owning Unit rather than saying 'not applicable', so a reader can follow the obligation. The OK rows for NFR9 and NFR14 carry the most weight: U4 has the first real money column, which turns B3's schema assertion from a statement of intent into a check, and it is the first Unit with two teachers for data to leak between.",
+  "upstream_ids": [
+    "NFR1",
+    "NFR2",
+    "NFR3",
+    "NFR4",
+    "NFR5",
+    "NFR5.1",
+    "NFR6",
+    "NFR7",
+    "NFR8",
+    "NFR9",
+    "NFR10",
+    "NFR11",
+    "NFR12",
+    "NFR12.1",
+    "NFR13",
+    "NFR14",
+    "NFR15",
+    "NFR16",
+    "NFR17"
+  ],
+  "coverage": [
+    {
+      "id": "NFR1",
+      "status": "N/A",
+      "target": "Android target and compile SDK - U10 release-packaging. U4 ships Compose screens, not build configuration."
+    },
+    {
+      "id": "NFR2",
+      "status": "N/A",
+      "target": "Device floor and AAB size - U10. U4's Room cache holds kilobytes of roster rows and does not move the number."
+    },
+    {
+      "id": "NFR3",
+      "status": "OK",
+      "target": "Languages - every new U4 string lands in both bundles, under the per-string test B3 established. The roster and child-selection screens are the first lists, where Bangla length pressure is greatest."
+    },
+    {
+      "id": "NFR4",
+      "status": "OK",
+      "target": "Offline reads - NFR4.1 and NFR4.2. Rosters cache in Room and render WITH their fetched_at; staleness is shown rather than hidden, because a stale read is V1's only offline state."
+    },
+    {
+      "id": "NFR5",
+      "status": "N/A",
+      "target": "Offline writes - U5 owns the mid-class queue. V1 accepts no write without connectivity here [TC-8], so U4 has no queue to model."
+    },
+    {
+      "id": "NFR5.1",
+      "status": "N/A",
+      "target": "Queue semantics - U5's four states. U4 has no queued write."
+    },
+    {
+      "id": "NFR6",
+      "status": "OK",
+      "target": "Scale ceiling - NFR6.11 through NFR6.14 and NFR10.5 through NFR10.9. The ceiling is what licenses no pagination and no replica, so it is restated rather than assumed."
+    },
+    {
+      "id": "NFR7",
+      "status": "OK",
+      "target": "Infrastructure cost - U4 adds no infrastructure. Recorded because the cost ceiling is what forbids the read replica NFR10's section C rejects."
+    },
+    {
+      "id": "NFR8",
+      "status": "N/A",
+      "target": "Data residency - none required; unchanged by this Unit."
+    },
+    {
+      "id": "NFR9",
+      "status": "OK",
+      "target": "Money representation - BR3.2 and BR3.3. U4 has the FIRST real money column, so B3's schema assertion stops being vacuous. A.6 builds the TypeDecorator team.md specifies and B1 correctly never built."
+    },
+    {
+      "id": "NFR10",
+      "status": "OK",
+      "target": "Children's data at rest - satisfied by the storage tier, unchanged. NFR14 section D records why field-level encryption on display_name is NOT added: it would make the roster unsearchable for no additional protection."
+    },
+    {
+      "id": "NFR11",
+      "status": "OK",
+      "target": "Device identifiers - none introduced. B3's source-level scan already covers every Kotlin file U4 adds."
+    },
+    {
+      "id": "NFR12",
+      "status": "N/A",
+      "target": "OTP abuse controls - U3's. U4 sends no SMS; BR6.3 forbids notifying a dormant enrollment at all."
+    },
+    {
+      "id": "NFR12.1",
+      "status": "N/A",
+      "target": "Per-purpose SMS budget - U3's gateway. U4 has no send path."
+    },
+    {
+      "id": "NFR13",
+      "status": "N/A",
+      "target": "Token lifetimes - U3's. U4 consumes the lens the token resolves to and issues nothing."
+    },
+    {
+      "id": "NFR14",
+      "status": "OK",
+      "target": "Privacy boundary - NFR14.12 through NFR14.21. THE UNIT'S CENTRE OF GRAVITY: first Bolt with two teachers to leak between, first writer of display_name, and the erasure markers whose per-link split was found by working the four states."
+    },
+    {
+      "id": "NFR15",
+      "status": "OK",
+      "target": "Accessibility and back-stack - the child switcher changes a path parameter [BR5.1], which is what makes a stale back-stack entry refusable by the server rather than silently serving the newly selected child."
+    },
+    {
+      "id": "NFR16",
+      "status": "OK",
+      "target": "API versioning - every U4 route is additive under /v1/. The column RENAME is internal and changes no wire field."
+    },
+    {
+      "id": "NFR17",
+      "status": "OK",
+      "target": "Backend coverage - U4's packages join the explicit --cov list, which B3's coverage-scope gate now asserts against the packages on disk in both directions."
+    }
+  ]
+}

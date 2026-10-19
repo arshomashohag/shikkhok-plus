@@ -1,0 +1,370 @@
+{
+  "stage": "code-generation",
+  "unit": "api-contract",
+  "note": "26 of 26 plan steps; 295 tests; make check green. Nine entries are Deferred and none is a gap: five need a screen or a write that a spec Unit has neither of, and four need lens resolution against real data, which is U3's by design (BR4.4). U2 ships the codes, statuses and classes those four depend on. Five design errors were found by building against the design; see code-summary.md.",
+  "upstream_ids": [
+    "AC9.2.1",
+    "AC9.2.2",
+    "AC9.2.3",
+    "AC9.2.4",
+    "AC9.2.5",
+    "AC10.1.1",
+    "AC10.1.2",
+    "AC10.1.3",
+    "AC10.1.4",
+    "AC10.1.5",
+    "AC10.1.6",
+    "AC10.1.7",
+    "AC10.1.8",
+    "BR1.1",
+    "BR1.2",
+    "BR1.3",
+    "BR1.4",
+    "BR1.5",
+    "BR1.6",
+    "BR1.7",
+    "BR2.1",
+    "BR2.2",
+    "BR2.3",
+    "BR2.4",
+    "BR3.1",
+    "BR3.2",
+    "BR4.1",
+    "BR4.2",
+    "BR4.3",
+    "BR4.4",
+    "NFR3.1",
+    "NFR3.2",
+    "NFR9.1",
+    "NFR9.2",
+    "NFR13.1",
+    "NFR14.1",
+    "NFR14.2",
+    "NFR14.3",
+    "NFR14.4",
+    "NFR14.5",
+    "NFR14.6",
+    "NFR14.7",
+    "NFR14.8",
+    "NFR14.9",
+    "NFR14.10",
+    "NFR14.11",
+    "NFR16.1",
+    "NFR16.2",
+    "NFR16.3",
+    "NFR16.4",
+    "NFR17.1",
+    "NFR17.2",
+    "NFR17.3"
+  ],
+  "coverage": [
+    {
+      "id": "AC9.2.1",
+      "status": "Deferred",
+      "target": "Needs a screen and a write; U2 is a spec Unit with neither. The five classes it builds on are shipped"
+    },
+    {
+      "id": "AC9.2.2",
+      "status": "Deferred",
+      "target": "Needs a screen and a write"
+    },
+    {
+      "id": "AC9.2.3",
+      "status": "OK",
+      "target": "app/errors/handler.py",
+      "note": "Five closed classes, retryable derived at the single handler"
+    },
+    {
+      "id": "AC9.2.4",
+      "status": "Deferred",
+      "target": "Needs a screen and a write"
+    },
+    {
+      "id": "AC9.2.5",
+      "status": "Deferred",
+      "target": "Needs a screen and a write"
+    },
+    {
+      "id": "AC10.1.1",
+      "status": "OK",
+      "target": "app/errors/codes.py",
+      "note": "One NOT_AVAILABLE code; no oracle-shaped pair registered"
+    },
+    {
+      "id": "AC10.1.2",
+      "status": "OK",
+      "target": "app/errors/codes.py",
+      "note": "Same single code covers a guardian's non-child enrollment"
+    },
+    {
+      "id": "AC10.1.3",
+      "status": "OK",
+      "target": "app/errors/codes.py",
+      "note": "Same single code covers a student's non-own fee cycle"
+    },
+    {
+      "id": "AC10.1.4",
+      "status": "OK",
+      "target": "tests/contract/test_error_contract.py",
+      "note": "retryable false, and no code distinguishes unreachable from absent"
+    },
+    {
+      "id": "AC10.1.5",
+      "status": "OK",
+      "target": "app/contract/privacy.py",
+      "note": "Schema-wide iteration; no teacher-lens response declares an owner-private field"
+    },
+    {
+      "id": "AC10.1.6",
+      "status": "OK",
+      "target": "app/errors/codes.py",
+      "note": "LENS_NOT_AVAILABLE and LENS_HINT_REQUIRED registered; U3 owns the derivation"
+    },
+    {
+      "id": "AC10.1.7",
+      "status": "OK",
+      "target": "app/contract/routes.py",
+      "note": "Every route resolves a lens; two fixed allowlists with asserted lengths"
+    },
+    {
+      "id": "AC10.1.8",
+      "status": "Deferred",
+      "target": "Lens switching inside a session needs resolution against real data; U3"
+    },
+    {
+      "id": "BR1.1",
+      "status": "OK",
+      "target": "app/errors/_classes.py",
+      "note": "The hierarchy closed at five classes"
+    },
+    {
+      "id": "BR1.2",
+      "status": "OK",
+      "target": "app/errors/handler.py",
+      "note": "retryable read from the class at the handler, never at a raise site"
+    },
+    {
+      "id": "BR1.3",
+      "status": "OK",
+      "target": "app/schemas/errors.py",
+      "note": "extra='forbid' makes the absence of a message field structural"
+    },
+    {
+      "id": "BR1.4",
+      "status": "Deferred",
+      "target": "Byte-identical refusal needs a lookup; U3. U2 ships the single code that makes it possible"
+    },
+    {
+      "id": "BR1.5",
+      "status": "OK",
+      "target": "app/errors/codes.py",
+      "note": "No code in the registry distinguishes the two cases; asserted"
+    },
+    {
+      "id": "BR1.6",
+      "status": "OK",
+      "target": "tests/contract/test_error_contract.py",
+      "note": "The 401 reconciliation recorded in the test docstring so it survives a refactor"
+    },
+    {
+      "id": "BR1.7",
+      "status": "Deferred",
+      "target": "The lens-hint contract needs resolution; U3. U2 ships both codes and their statuses"
+    },
+    {
+      "id": "BR2.1",
+      "status": "OK",
+      "target": "tests/contract/test_schema_diff.py",
+      "note": "Committed equals generated, byte for byte; verified against a hand-edit"
+    },
+    {
+      "id": "BR2.2",
+      "status": "OK",
+      "target": "app/contract/money_schema.py",
+      "note": "The $ref predicate, not an undecidable 'carries money'"
+    },
+    {
+      "id": "BR2.3",
+      "status": "OK",
+      "target": "app/contract/money_schema.py",
+      "note": "Orphan *_display reported; the display string is not pattern-matched"
+    },
+    {
+      "id": "BR2.4",
+      "status": "OK",
+      "target": "app/contract/privacy.py",
+      "note": "Both forbidden field sets on one iteration"
+    },
+    {
+      "id": "BR3.1",
+      "status": "OK",
+      "target": "app/contract/routes.py",
+      "note": "PUBLIC_ROUTES (5) and LENS_EXEMPT_AUTHENTICATED (1), separate, lengths asserted"
+    },
+    {
+      "id": "BR3.2",
+      "status": "OK",
+      "target": "app/authz/annotations.py",
+      "note": "get_type_hints; unions only when every member qualifies; failure raises"
+    },
+    {
+      "id": "BR4.1",
+      "status": "OK",
+      "target": "tests/contract/test_fixtures_fire.py",
+      "note": "Four fixtures, each asserting which violation fired"
+    },
+    {
+      "id": "BR4.2",
+      "status": "OK",
+      "target": "app/contract/privacy.py",
+      "note": "Schemathesis never counts as privacy coverage, stated in the module docstring"
+    },
+    {
+      "id": "BR4.3",
+      "status": "OK",
+      "target": "aidlc/spaces/default/intents/261016-shikhokplus-tuition-app/inception/delivery-planning/bolt-plan.md",
+      "note": "All five downstream 404 assertions amended; discharged"
+    },
+    {
+      "id": "BR4.4",
+      "status": "Deferred",
+      "target": "The structural-equivalence obligation is U3's by design, not a gap"
+    },
+    {
+      "id": "NFR3.1",
+      "status": "OK",
+      "target": "app/schemas/errors.py",
+      "note": "extra='forbid': a message field fails validation and the diff gate"
+    },
+    {
+      "id": "NFR3.2",
+      "status": "OK",
+      "target": "app/schemas/errors.py",
+      "note": "details is dict[str,str], typed per code, never a free-form dump"
+    },
+    {
+      "id": "NFR9.1",
+      "status": "OK",
+      "target": "app/contract/money_schema.py",
+      "note": "Inline money shape referencing no component is reported by property"
+    },
+    {
+      "id": "NFR9.2",
+      "status": "OK",
+      "target": "app/contract/money_schema.py",
+      "note": "Orphan *_display reported; the display string is not pattern-matched"
+    },
+    {
+      "id": "NFR13.1",
+      "status": "OK",
+      "target": "tests/contract/test_error_contract.py",
+      "note": "The 401/refresh reconciliation, recorded in the test's own docstring"
+    },
+    {
+      "id": "NFR14.1",
+      "status": "OK",
+      "target": "tests/contract/test_fixtures_fire.py",
+      "note": "Four committed fixtures, one per gate"
+    },
+    {
+      "id": "NFR14.2",
+      "status": "OK",
+      "target": "tests/contract/test_fixtures_fire.py",
+      "note": "Each assertion names the specific violation reported"
+    },
+    {
+      "id": "NFR14.3",
+      "status": "OK",
+      "target": "app/errors/codes.py",
+      "note": "One code for both cases; no oracle-shaped pair; status paired with code"
+    },
+    {
+      "id": "NFR14.4",
+      "status": "Deferred",
+      "target": "U3 per BR4.4: U2 owns no lookup code"
+    },
+    {
+      "id": "NFR14.5",
+      "status": "OK",
+      "target": "app/contract/routes.py",
+      "note": "Real app walked at collection time, route.dependant recursively"
+    },
+    {
+      "id": "NFR14.6",
+      "status": "OK",
+      "target": "app/contract/routes.py",
+      "note": "Two separate frozensets with asserted lengths and disjointness"
+    },
+    {
+      "id": "NFR14.7",
+      "status": "OK",
+      "target": "app/authz/annotations.py",
+      "note": "get_type_hints; unions all-or-nothing; resolution failure raises"
+    },
+    {
+      "id": "NFR14.8",
+      "status": "OK",
+      "target": "app/contract/privacy.py",
+      "note": "Lens read from the route; both sets; cycle-guarded recursion"
+    },
+    {
+      "id": "NFR14.9",
+      "status": "OK",
+      "target": "app/contract/privacy.py",
+      "note": "Schemathesis never counts as privacy coverage, in the module docstring"
+    },
+    {
+      "id": "NFR14.10",
+      "status": "Deferred",
+      "target": "U3 owns the lens-hint derivation; U2 ships both codes and statuses"
+    },
+    {
+      "id": "NFR14.11",
+      "status": "OK",
+      "target": "pyproject.toml",
+      "note": "app.schemas.* strict island; disallow_any_explicit deliberately off, reason inline"
+    },
+    {
+      "id": "NFR16.1",
+      "status": "OK",
+      "target": "openapi.json",
+      "note": "The committed contract; byte comparison verified against a hand-edit"
+    },
+    {
+      "id": "NFR16.2",
+      "status": "OK",
+      "target": "Makefile",
+      "note": "make check runs tests/contract; no secret, same command local and in CI"
+    },
+    {
+      "id": "NFR16.3",
+      "status": "OK",
+      "target": "app/contract/serialize.py",
+      "note": "Order-insensitive lists sorted as well as keys; subprocess comparison"
+    },
+    {
+      "id": "NFR16.4",
+      "status": "OK",
+      "target": "CONTRACT.md",
+      "note": "make openapi is the only sanctioned change path, with the reason beside the file"
+    },
+    {
+      "id": "NFR17.1",
+      "status": "OK",
+      "target": "tests/contract/test_fixtures_fire.py",
+      "note": "'the gate examined nothing' as each failure message"
+    },
+    {
+      "id": "NFR17.2",
+      "status": "OK",
+      "target": "tests/gates/test_import_gates.py",
+      "note": "Third gate of B1's shape: app/errors imports no I/O layer"
+    },
+    {
+      "id": "NFR17.3",
+      "status": "OK",
+      "target": "app/errors/_exhaustive.py",
+      "note": "Static closed union plus a runtime subclass-set test; two mechanisms"
+    }
+  ]
+}
