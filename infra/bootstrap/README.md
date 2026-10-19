@@ -54,9 +54,9 @@ that condition **any repository on GitHub could assume this role**. It
 is scoped to:
 
 ```
-repo:arshomashohag/shikkhok-plus:ref:refs/heads/main
-repo:arshomashohag/shikkhok-plus:environment:terraform-plan
-repo:arshomashohag/shikkhok-plus:environment:terraform-apply
+repo:arshomashohag@*/shikkhok-plus@*:ref:refs/heads/main
+repo:arshomashohag@*/shikkhok-plus@*:environment:terraform-plan
+repo:arshomashohag@*/shikkhok-plus@*:environment:terraform-apply
 ```
 
 A pull request from a fork carries `pull_request` in its subject and
@@ -78,20 +78,43 @@ role scoped to SSM and ECR — not widening this one, which carries
 `ec2:*`, `rds:*`, `route53:*` and IAM writes. `trust_staging_environment`
 exists as the expedient alternative and is off by default.
 
-### On wildcards in the owner or repo
+### Why the `@*` segments are there
 
-A real subject is `repo:<owner>/<repo>:ref:refs/heads/<branch>`, and
-GitHub names cannot contain `@`. A pattern of the form
+This account has **GitHub's OIDC subject customization** enabled, so a
+real subject is
 
 ```
-repo:owner@*/repo@*:ref:refs/heads/main
+repo:arshomashohag@20051700/shop-360@1310170125:ref:refs/heads/main
 ```
 
-requires a literal `@` that no genuine token carries, so under
-`StringLike` it matches **nothing** and every run fails at role
-assumption. If you meet one of these in another account, it is not a
-working policy being copied — it is a policy that has never been
-exercised, or whose access comes from somewhere else.
+with a GitHub-assigned numeric id after the owner *and* after the
+repository — not the documented default `repo:<owner>/<repo>:...`.
+
+A trust policy written in the default shape matches **nothing** here
+and fails every run at role assumption. That is not a hypothetical: it
+is how this role was broken, and it is subtle because the error says
+"not authorized to perform sts:AssumeRoleWithWebIdentity", which reads
+like a permissions problem rather than a string that cannot match.
+
+Verified against CloudTrail — every successful
+`AssumeRoleWithWebIdentity` in this account, across four repositories
+and both `ref:` and `environment:` subjects, carries this format.
+
+**The ids are wildcarded rather than pinned** because GitHub assigns
+them and a change would silently break the trust policy. The wildcards
+do not widen access: the names in front of each `@` are exact, so
+`shikkhok-plus@*` does not match `shikkhok-plus-evil@...` — the `@`
+must come directly after the name.
+
+If you fork this module into an account **without** that customization,
+set `github_subject_has_numeric_ids = false`. To check which you have,
+run any workflow that assumes a role and read the subject back:
+
+```bash
+aws cloudtrail lookup-events \
+  --lookup-attributes AttributeKey=EventName,AttributeValue=AssumeRoleWithWebIdentity \
+  --max-results 5 --query 'Events[].CloudTrailEvent' --output text
+```
 
 ## The IAM scope, stated honestly
 

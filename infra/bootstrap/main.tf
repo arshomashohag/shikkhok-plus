@@ -170,6 +170,26 @@ locals {
     ? aws_iam_openid_connect_provider.github[0].arn
     : data.aws_iam_openid_connect_provider.github[0].arn
   )
+
+  # The `repo:...` portion every trusted subject starts with, built
+  # once so the three (or four) subject patterns below cannot drift
+  # apart -- which is precisely how this broke before: the ref
+  # pattern was corrected to the account's real claim format while
+  # the two environment patterns were left in the documented default
+  # shape, so main worked and every environment job failed.
+  #
+  # See the long note on the `sub` condition for why the `@*`
+  # segments are here. In short: this account has GitHub's OIDC
+  # subject customization enabled, so owner and repo each carry a
+  # GitHub-assigned numeric id.
+  subject_prefix = (
+    var.github_subject_has_numeric_ids
+    ? "repo:${local.github_owner}@*/${local.github_repo}@*"
+    : "repo:${var.github_repository}"
+  )
+
+  github_owner = split("/", var.github_repository)[0]
+  github_repo  = split("/", var.github_repository)[1]
 }
 
 data "aws_iam_policy_document" "ci_assume" {
@@ -209,20 +229,34 @@ data "aws_iam_policy_document" "ci_assume" {
     # feature: a new environment is a new way into this account, and
     # it should take a bootstrap change rather than a workflow edit.
     #
-    # **No `@` anywhere, and no wildcard inside owner or repo.** The
-    # real claim is `repo:<owner>/<repo>:ref:refs/heads/<branch>`, and
-    # GitHub names cannot contain `@`. A pattern like
-    # `repo:owner@*/repo@*:...` requires a literal `@` that no genuine
-    # token carries, so under StringLike it matches NOTHING and every
-    # run fails at role assumption. Keep these exact.
+    # **The `@*` segments are required, not a typo.** This account has
+    # GitHub's OIDC customization enabled, so the subject carries a
+    # numeric id after the owner AND after the repository:
+    #
+    #   repo:arshomashohag@20051700/shop-360@1310170125:ref:refs/heads/main
+    #
+    # not the documented default `repo:<owner>/<repo>:...`. A policy
+    # written in the default shape matches NOTHING here and every run
+    # fails at role assumption -- which is exactly what happened.
+    # Verified against CloudTrail: every successful
+    # AssumeRoleWithWebIdentity in this account, across four repos and
+    # both `ref:` and `environment:` subjects, carries this format.
+    #
+    # The ids are wildcarded rather than pinned because they are
+    # GitHub-assigned and would silently break the trust policy if
+    # they ever changed. `*` after a literal `@` still cannot match a
+    # different owner or repository, because the names in front of it
+    # are exact -- `shikkhok-plus@*` does not match
+    # `shikkhok-plus-evil@...`, since the `@` must come directly after
+    # the name.
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
       values = concat(
         [
-          "repo:${var.github_repository}:ref:refs/heads/main",
-          "repo:${var.github_repository}:environment:terraform-plan",
-          "repo:${var.github_repository}:environment:terraform-apply",
+          "${local.subject_prefix}:ref:refs/heads/main",
+          "${local.subject_prefix}:environment:terraform-plan",
+          "${local.subject_prefix}:environment:terraform-apply",
         ],
         # `deploy-staging.yml` runs in the `staging` environment and
         # does NOT assume this role today -- it only builds an image.
@@ -236,7 +270,7 @@ data "aws_iam_policy_document" "ci_assume" {
         # own narrow role, so turning this on is a decision to make
         # with that in view, not a line to flip past.
         var.trust_staging_environment
-        ? ["repo:${var.github_repository}:environment:staging"]
+        ? ["${local.subject_prefix}:environment:staging"]
         : [],
       )
     }
