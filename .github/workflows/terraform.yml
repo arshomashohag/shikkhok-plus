@@ -24,8 +24,15 @@ on:
         description: "What to run"
         required: true
         type: choice
-        options: [plan, apply]
+        options: [plan, apply, destroy]
         default: plan
+      include_dns:
+        description: >-
+          destroy only: also destroy the Route53 zone and its
+          delegation. Leave OFF for a region move.
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -64,6 +71,9 @@ jobs:
     # the step that applies it. The diff still reaches a human, and
     # it is now the diff that was actually applied rather than a
     # separate one computed moments earlier.
+    # Covers destroy as well as apply: any dispatch that is not
+    # `plan` skips this job, so only one Terraform process ever
+    # holds the state lock.
     if: github.event_name != 'workflow_dispatch' || inputs.action == 'plan'
     # Plan needs read access to AWS, so it needs the role -- but not
     # the apply environment's approval. A plan that required approval
@@ -363,4 +373,147 @@ jobs:
             echo ""
             echo "The origin secret is NOT printed here. Read it with"
             echo '`terraform output -raw origin_secret` locally when nginx needs it.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  destroy:
+    name: destroy
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    if: github.event_name == 'workflow_dispatch' && inputs.action == 'destroy'
+    # The same approval gate as apply. Note what that does NOT give
+    # you: the approval prompt is identical for both, so it confirms
+    # that SOMEONE pressed a button, not that they meant destroy
+    # rather than apply. The printed plan below is the real check --
+    # read it before approving.
+    environment: terraform-apply
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fail early when the repository is not configured
+        env:
+          ROLE: ${{ vars.AWS_ROLE_ARN }}
+          BUCKET: ${{ vars.TF_STATE_BUCKET }}
+          APEX: ${{ vars.APEX_DOMAIN }}
+        run: |
+          missing=()
+          [ -n "$ROLE" ]   || missing+=("variable AWS_ROLE_ARN")
+          [ -n "$BUCKET" ] || missing+=("variable TF_STATE_BUCKET")
+          [ -n "$APEX" ]   || missing+=("variable APEX_DOMAIN")
+          if [ ${#missing[@]} -ne 0 ]; then
+            echo "::error::Not configured: ${missing[*]}"
+            exit 1
+          fi
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: terraform-destroy-${{ github.run_id }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Init
+        working-directory: infra
+        run: |
+          terraform init -input=false \
+            -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+
+      # **Targeted by default, and the default is the safe one.**
+      #
+      # A bare destroy takes the Route53 zone and its delegation with
+      # it -- they live in the root module, so they are in scope even
+      # though DNS is not regional. Verified against real state: bare
+      # plans 37 destroys including the zone, targeted plans 34 and
+      # leaves it alone.
+      #
+      # Losing the zone means a new one with DIFFERENT nameservers,
+      # so the delegation must be recreated and public DNS
+      # propagation starts from zero -- on top of the ACM
+      # revalidation already owed. For a region move that is pure
+      # loss, which is why REGION-MIGRATION.md says to target.
+      - name: Plan the destroy
+        id: plan
+        working-directory: infra
+        env:
+          TF_VAR_apex_domain: ${{ vars.APEX_DOMAIN }}
+          TF_VAR_environment: ${{ vars.TF_ENVIRONMENT || 'staging' }}
+          INCLUDE_DNS: ${{ inputs.include_dns }}
+        run: |
+          targets=""
+          if [ "$INCLUDE_DNS" != "true" ]; then
+            targets="-target=module.app -target=module.staging_app"
+            targets="$targets -target=module.network -target=module.cdn"
+            echo "Targeted: the DNS zone and delegation are NOT in scope."
+          else
+            echo "::warning::include_dns is ON -- the Route53 zone and its"
+            echo "::warning::delegation WILL be destroyed. New nameservers"
+            echo "::warning::and full DNS re-propagation follow."
+          fi
+
+          # shellcheck disable=SC2086
+          terraform plan -destroy -input=false -no-color $targets \
+            -out=tfplan | tee plan.txt
+
+      # **The real gate.** The environment approval cannot tell you
+      # what is about to be destroyed; this can. Read it.
+      - name: What is about to be DESTROYED
+        run: |
+          {
+            echo "### Destroy plan"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| DNS zone in scope | \`${{ inputs.include_dns }}\` |"
+            echo "| resources |" \
+              "\`$(grep -c 'will be destroyed' infra/plan.txt || echo 0)\` |"
+            echo ""
+            echo '```terraform'
+            head -c 60000 infra/plan.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # A guard the approval cannot provide: refuse to destroy the
+      # zone unless it was explicitly asked for. A -target typo is
+      # silent -- Terraform warns about an unmatched target and
+      # carries on with a WIDER plan than intended, which is exactly
+      # how an unintended zone deletion would happen.
+      - name: The zone is not in scope unless asked for
+        if: inputs.include_dns != true
+        run: |
+          if grep -qE '^\s*# aws_route53_(zone|record)\.' infra/plan.txt; then
+            echo "::error::The plan includes Route53 resources, but"
+            echo "::error::include_dns is off. The -target flags did not"
+            echo "::error::take. Refusing to destroy DNS by accident."
+            grep -E '^\s*# aws_route53_' infra/plan.txt || true
+            exit 1
+          fi
+          echo "Confirmed: no Route53 zone or delegation in the plan."
+
+      - name: Destroy
+        working-directory: infra
+        run: terraform apply -input=false tfplan
+
+      - name: What is left
+        if: always()
+        working-directory: infra
+        run: |
+          {
+            echo ""
+            echo "**Remaining in state:**"
+            echo ""
+            echo '```'
+            terraform state list 2>/dev/null | head -40 || echo "(empty)"
+            echo '```'
+            echo ""
+            echo "State is not AWS. Confirm the region is actually empty:"
+            echo ""
+            echo '    aws ec2 describe-instances --region <region> \'
+            echo "      --query 'Reservations[].Instances[?State.Name!=\`terminated\`].InstanceId'"
+            echo '    aws ec2 describe-addresses --region <region>'
+            echo ""
+            echo "An unattached Elastic IP bills MORE than an attached"
+            echo "one, so a leftover EIP is the costliest thing to miss."
           } >> "$GITHUB_STEP_SUMMARY"
