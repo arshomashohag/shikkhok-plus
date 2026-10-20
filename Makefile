@@ -193,3 +193,142 @@ smoke:
 	@echo "Smoke passed."
 
 .PHONY: up down destroy-local-data migrate smoke
+
+# ---------------------------------------------------------------------
+# The Android upload key
+# ---------------------------------------------------------------------
+
+## Where the keystore lives. OUTSIDE the repository by default: a .jks
+## committed by accident means rotating through Play support, and no
+## .gitignore rule catches a file you did not expect to create.
+KEYSTORE ?= $(HOME)/.shikkhokplus/upload.jks
+KEY_ALIAS ?= upload
+
+## Generate the Play upload key. Run ONCE, ever.
+##
+## **Losing this is not a normal mistake.** With Play App Signing,
+## Google holds the real signing key and this is only the upload key,
+## so loss is recoverable through Play support -- but only if you still
+## have the app. Keep the file and the password somewhere durable
+## before you need them.
+##
+## Refuses to overwrite an existing keystore. Regenerating one after a
+## release means Play rejects every future upload for that app, which
+## is not recoverable by any command here.
+##
+## Usage: make android-key
+##        make android-key KEYSTORE=/path/to/upload.jks
+android-key:
+	@test ! -f "$(KEYSTORE)" || (\
+	  echo "REFUSING: $(KEYSTORE) already exists."; \
+	  echo ""; \
+	  echo "Overwriting a keystore after a release means Play rejects"; \
+	  echo "every future upload for this app, permanently. If you are"; \
+	  echo "certain this one was never used, move it aside yourself:"; \
+	  echo "  mv $(KEYSTORE) $(KEYSTORE).old"; \
+	  exit 1)
+	@mkdir -p "$$(dirname "$(KEYSTORE)")"
+	@chmod 700 "$$(dirname "$(KEYSTORE)")"
+	@echo "==> Generating the upload key at $(KEYSTORE)"
+	@echo ""
+	@echo "    Keystore password: choose a strong one and SAVE IT NOW."
+	@echo "    Name (CN):         ShikhokPlus"
+	@echo "    Country code:      BD"
+	@echo "    Key password:      press Enter to reuse the keystore one."
+	@echo ""
+	@keytool -genkeypair -v \
+	  -keystore "$(KEYSTORE)" \
+	  -alias "$(KEY_ALIAS)" \
+	  -keyalg RSA -keysize 4096 \
+	  -validity 10000
+	@chmod 600 "$(KEYSTORE)"
+	@echo ""
+	@echo "Done. Now run:  make android-key-secrets"
+
+## Print the four GitHub secrets and one variable, ready to paste.
+##
+## **This prints a signing key to your terminal.** That is the point --
+## GitHub needs it pasted in -- but it means the value lands in your
+## scrollback and possibly your shell history file. Clear the scrollback
+## afterwards if that matters to you.
+##
+## The password is NOT printed: make cannot read it back out of the
+## keystore, and echoing a password you typed would put it somewhere it
+## does not need to be.
+##
+## Usage: make android-key-secrets
+android-key-secrets:
+	@test -f "$(KEYSTORE)" || (\
+	  echo "No keystore at $(KEYSTORE)."; \
+	  echo "Run 'make android-key' first, or set KEYSTORE=<path>."; \
+	  exit 1)
+	@echo "==> Verifying the keystore decodes cleanly"
+	@# base64 -> decode -> keytool, because a corrupt secret otherwise
+	@# surfaces in CI as an opaque Gradle signing error rather than as
+	@# "the secret is wrong".
+	@base64 -i "$(KEYSTORE)" | tr -d '\n' | base64 -d > /tmp/shikkhok-rt.jks
+	@cmp -s "$(KEYSTORE)" /tmp/shikkhok-rt.jks \
+	  && echo "    round-trip OK" \
+	  || (echo "    ROUND-TRIP FAILED -- do not paste this."; \
+	      rm -f /tmp/shikkhok-rt.jks; exit 1)
+	@rm -f /tmp/shikkhok-rt.jks
+	@echo ""
+	@echo "GitHub -> Settings -> Environments -> android-release"
+	@echo ""
+	@echo "The ENVIRONMENT matters: without it, a workflow edit on any"
+	@echo "branch could read this key."
+	@echo ""
+	@echo "--- Environment secrets -------------------------------------"
+	@echo ""
+	@echo "ANDROID_KEY_ALIAS"
+	@echo "$(KEY_ALIAS)"
+	@echo ""
+	@echo "ANDROID_KEYSTORE_PASSWORD"
+	@echo "  <the password you typed during 'make android-key'>"
+	@echo ""
+	@echo "ANDROID_KEY_PASSWORD"
+	@echo "  <same, if you pressed Enter at the key password prompt>"
+	@echo ""
+	@echo "ANDROID_KEYSTORE_BASE64"
+	@base64 -i "$(KEYSTORE)" | tr -d '\n'
+	@echo ""
+	@echo ""
+	@echo "--- Environment variable ------------------------------------"
+	@echo ""
+	@echo "ANDROID_API_BASE_URL"
+	@echo "https://api.shikkhokplus.nirmatabd.com"
+	@echo ""
+	@echo "-------------------------------------------------------------"
+	@echo ""
+	@echo "The base URL is a VARIABLE, not a secret: it appears in build"
+	@echo "output and logs anyway, so hiding it would be theatre."
+	@echo ""
+	@echo "Then rehearse before spending a version number:"
+	@echo "  Actions -> release-android -> Run workflow -> version: 0.2.0"
+
+## Copy just the base64 keystore to the clipboard, on macOS.
+## The value is long enough that selecting it from scrollback is where
+## a truncated paste comes from -- and a truncated secret fails in CI
+## as an opaque signing error.
+android-key-copy:
+	@test -f "$(KEYSTORE)" || (echo "No keystore at $(KEYSTORE)."; exit 1)
+	@base64 -i "$(KEYSTORE)" | tr -d '\n' | pbcopy
+	@echo "ANDROID_KEYSTORE_BASE64 is on the clipboard."
+	@echo "Paste it into GitHub before copying anything else."
+
+## The key's fingerprints and expiry.
+##
+## Prompts for the keystore password. keytool prints its own warning
+## block ABOVE that prompt, so the password line scrolls out of sight
+## and the command looks hung -- the echo below says so first.
+android-key-info:
+	@test -f "$(KEYSTORE)" || (echo "No keystore at $(KEYSTORE)."; exit 1)
+	@echo "==> keytool will ask for the keystore password."
+	@echo "    Its warning block prints first; type the password anyway."
+	@echo ""
+	@keytool -list -v -keystore "$(KEYSTORE)" -alias "$(KEY_ALIAS)" 2>/dev/null \
+	  | grep -E "Alias name|Valid from|SHA1:|SHA256:" || true
+	@echo ""
+	@echo "Valid-until must be past 2033 or Play refuses the key."
+
+.PHONY: android-key android-key-secrets android-key-copy android-key-info
