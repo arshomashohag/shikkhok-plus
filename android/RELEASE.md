@@ -48,13 +48,31 @@ Prints everything to paste, after verifying the base64 round-trips —
 a corrupt secret otherwise surfaces in CI as an opaque Gradle signing
 error rather than as "the secret is wrong".
 
-| Name | Kind |
-|---|---|
-| `ANDROID_KEYSTORE_BASE64` | secret |
-| `ANDROID_KEYSTORE_PASSWORD` | secret |
-| `ANDROID_KEY_ALIAS` | secret |
-| `ANDROID_KEY_PASSWORD` | secret |
-| `ANDROID_API_BASE_URL` | variable |
+| Name | Kind | Where |
+|---|---|---|
+| `ANDROID_KEYSTORE_BASE64` | secret | `android-release` environment |
+| `ANDROID_KEYSTORE_PASSWORD` | secret | `android-release` environment |
+| `ANDROID_KEY_ALIAS` | secret | `android-release` environment |
+| `ANDROID_KEY_PASSWORD` | secret | `android-release` environment |
+| `ANDROID_API_BASE_URL` | variable | `android-release` environment |
+
+**All five in the environment, not at repository scope.** A repository
+variable would work today — `vars.*` resolves environment, then
+repository, then organization — but the fallback is the problem rather
+than the convenience.
+
+The base URL is compiled into the APK as `BuildConfig.API_BASE_URL`,
+so a wrong one produces an app that works perfectly against the wrong
+backend, and nothing reports it. Scoped to the environment, adding a
+`production` environment later means naming its backend explicitly or
+failing the preflight. At repository scope, production would silently
+inherit staging's URL and ship.
+
+The secrets belong there for a different reason: the environment is
+what stops a workflow edit on any branch from reading the upload key.
+
+The resolved URL is echoed in the build log and the run summary, since
+it is the only moment it can be checked before the AAB exists.
 
 The base64 value is long, and selecting it from scrollback is where a
 truncated paste comes from:
