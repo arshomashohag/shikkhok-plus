@@ -354,6 +354,19 @@ resource "aws_iam_role_policy" "ci_infrastructure" {
           # agent's side; this is what lets Terraform read and manage
           # the association.
           "ssm:*",
+          # ECR, for the image repository and its lifecycle policy.
+          # Service-level like the rest, for the reason the README
+          # gives: enumerating CreateRepository, PutLifecyclePolicy,
+          # TagResource, PutImageScanningConfiguration and the
+          # describes produces a list that breaks on the next
+          # provider upgrade and gets widened under deadline
+          # pressure.
+          #
+          # Note this is TERRAFORM's grant, not the host's. The
+          # instance profile holds a far narrower ECR policy -- the
+          # auth token plus layer reads, scoped to one repository --
+          # because the host only ever pulls.
+          "ecr:*",
           "tag:GetResources",
         ]
         Resource = "*"
