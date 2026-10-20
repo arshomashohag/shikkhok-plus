@@ -417,6 +417,32 @@ resource "aws_iam_role_policy" "ci_infrastructure" {
           "iam:ListInstanceProfileTags",
           "iam:UntagRole",
           "iam:ListRoleTags",
+
+          # **The inline-policy set, and the reverse lookup.**
+          # `aws_iam_role_policy.ecr_pull` is an INLINE policy, which
+          # the granted actions above do not cover at all -- they
+          # handle attached managed policies (AttachRolePolicy) and
+          # the role itself, which are different APIs.
+          "iam:PutRolePolicy",
+          "iam:GetRolePolicy",
+          "iam:DeleteRolePolicy",
+
+          # ListInstanceProfilesForRole is what DeleteRole calls
+          # first: the provider must detach a role from every profile
+          # holding it before the role can go. That is the action the
+          # destroy failed on, and it is a REVERSE lookup -- from the
+          # role to its profiles -- which none of the profile-side
+          # grants above provide.
+          "iam:ListInstanceProfilesForRole",
+
+          # Modifying an existing role in place rather than replacing
+          # it. Without these a changed assume-role policy or
+          # description forces a destroy-and-recreate, and that is a
+          # worse failure than an explicit AccessDenied because it
+          # succeeds.
+          "iam:UpdateRole",
+          "iam:UpdateAssumeRolePolicy",
+          "iam:UpdateRoleDescription",
         ]
         Resource = [
           "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/shikkhokplus/*",
