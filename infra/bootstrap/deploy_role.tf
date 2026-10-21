@@ -112,12 +112,24 @@ resource "aws_iam_role_policy" "deploy" {
         }
       },
       {
-        # Finding the host. Describe actions cannot be resource
-        # scoped on either service.
-        Sid    = "FindTheHost"
+        # **The rollout, not just finding the host.** An earlier
+        # version granted only the Describe actions, because that is
+        # what I simulated -- StartInstanceRefresh was never checked,
+        # so the gap survived the check that was meant to catch it.
+        #
+        # Resource "*" because autoscaling does not support resource
+        # scoping on StartInstanceRefresh in a way that survives the
+        # group's name_prefix suffix: the ARN carries a generated id
+        # the policy cannot know in advance. The role is already
+        # bounded by being assumable only from this repository's
+        # staging environment.
+        Sid    = "RollTheInstance"
         Effect = "Allow"
         Action = [
           "autoscaling:DescribeAutoScalingGroups",
+          "autoscaling:StartInstanceRefresh",
+          "autoscaling:DescribeInstanceRefreshes",
+          "autoscaling:CancelInstanceRefresh",
           "ec2:DescribeInstances",
         ]
         Resource = "*"
