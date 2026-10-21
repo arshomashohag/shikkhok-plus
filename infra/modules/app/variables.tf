@@ -86,3 +86,20 @@ variable "image_repository" {
   })
   default = null
 }
+
+variable "database_endpoint" {
+  description = <<-EOT
+    The RDS endpoint, host:port. Null runs a containerised Postgres
+    on the instance instead -- which does NOT survive an instance
+    refresh, so it is for local-shaped environments only.
+  EOT
+  type        = string
+  default     = null
+}
+
+variable "database_password" {
+  description = "The RDS password. Null alongside a null endpoint."
+  type        = string
+  default     = null
+  sensitive   = true
+}

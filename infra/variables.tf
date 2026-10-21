@@ -158,22 +158,21 @@ variable "enable_staging_instance" {
 
 variable "enable_rds" {
   description = <<-EOT
-    Provision RDS PostgreSQL instead of the containerised database.
+    PostgreSQL on RDS rather than a container on the app host.
 
-    **Phase 1 runs Postgres in a container on the app host**, bound to
-    127.0.0.1 and exposed to nothing. Turn this on in Phase 2, when
-    automated backups and point-in-time recovery outweigh ~USD
-    17/month.
+    **On, and this is what makes the deploy pipeline safe.** The
+    pipeline refreshes the ASG on every deploy, which terminates the
+    instance -- and the container's volume lived on a root EBS volume
+    with delete_on_termination = true. Every deploy would have wiped
+    the database.
 
-    Moving to EC2 made this clean: the database's ingress rule
-    references the app's SECURITY GROUP, so "only the app host" is
-    exact rather than a CIDR guess. On Lightsail that was impossible
-    -- instances live outside your VPC and have no group to name --
-    which is why the original "RDS in a public subnet with ingress
-    only from Lightsail" could not be built as asked.
+    With RDS the data is not on the instance at all, so a refresh
+    replaces compute and leaves the database untouched. Roughly USD
+    17.36/month, taking the total to about USD 32.62 against the USD
+    50 ceiling [OC-4].
   EOT
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "rds_instance_class" {

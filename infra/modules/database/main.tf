@@ -55,7 +55,7 @@ resource "aws_security_group" "database" {
   vpc_id      = var.vpc_id
 
   ingress {
-    description = "PostgreSQL from the app host's security group ONLY"
+    description = "PostgreSQL from the app security group ONLY"
     from_port   = 5432
     to_port     = 5432
     protocol    = "tcp"
