@@ -87,6 +87,12 @@ resource "aws_iam_role_policy" "deploy" {
           "ecr:BatchGetImage",
           "ecr:CompleteLayerUpload",
           "ecr:DescribeRepositories",
+          # Checking whether this commit was already built, so a
+          # redeploy skips the push rather than failing against
+          # the IMMUTABLE tag. Without it the check errors, takes
+          # the else branch, and pushes anyway -- which is the
+          # failure it exists to prevent.
+          "ecr:DescribeImages",
           "ecr:GetDownloadUrlForLayer",
           "ecr:InitiateLayerUpload",
           "ecr:PutImage",

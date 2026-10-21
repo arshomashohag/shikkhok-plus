@@ -51,15 +51,35 @@ resource "aws_ecr_lifecycle_policy" "backend" {
   repository = aws_ecr_repository.backend.name
 
   policy = jsonencode({
-    rules = [{
-      rulePriority = 1
-      description  = "Keep the last 10 images; a rollback never needs more"
-      selection = {
-        tagStatus   = "any"
-        countType   = "imageCountMoreThan"
-        countNumber = 10
-      }
-      action = { type = "expire" }
-    }]
+    rules = [
+      {
+        # **Untagged first, and aggressively.** A failed or
+        # interrupted push leaves untagged layers behind -- this
+        # repository held three of them against one real image after a
+        # few failed deploys. Under a single `tagStatus = "any"` rule
+        # they consume the retention budget, so enough failures would
+        # expire the TAGGED images a rollback needs.
+        rulePriority = 1
+        description  = "Discard untagged layers from failed pushes after a day"
+        selection = {
+          tagStatus   = "untagged"
+          countType   = "sinceImagePushed"
+          countUnit   = "days"
+          countNumber = 1
+        }
+        action = { type = "expire" }
+      },
+      {
+        rulePriority = 2
+        description  = "Keep the last 10 tagged images; a rollback never needs more"
+        selection = {
+          tagStatus      = "tagged"
+          tagPatternList = ["*"]
+          countType      = "imageCountMoreThan"
+          countNumber    = 10
+        }
+        action = { type = "expire" }
+      },
+    ]
   })
 }
