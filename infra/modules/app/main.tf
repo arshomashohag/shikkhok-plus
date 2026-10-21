@@ -192,58 +192,190 @@ resource "aws_vpc_security_group_egress_rule" "all" {
 # The instance
 # ---------------------------------------------------------------------
 
-resource "aws_instance" "app" {
-  ami           = data.aws_ami.ubuntu_arm64.id
+# ---------------------------------------------------------------------
+# The launch template and the group of one
+# ---------------------------------------------------------------------
+#
+# **An ASG with desired_capacity 1, not an auto-scaler.** Nothing here
+# scales: min, max and desired are all one. The group exists for a
+# single property -- an instance that dies is replaced without a human
+# -- and `main.tf` is explicit that one instance is the design.
+#
+# **No load balancer.** An ALB is roughly USD 16/month against a USD 50
+# ceiling, for 100 teachers on one host. The instance registers its own
+# DNS at boot instead, so CloudFront follows the replacement within one
+# 60-second TTL.
+#
+# **No Elastic IP.** A replaced instance gets a new address, and
+# re-attaching an EIP needs a lifecycle hook that can fail halfway and
+# leave a running instance unreachable. Self-registration has nothing
+# to re-attach.
+
+resource "aws_launch_template" "app" {
+  name_prefix   = "${var.name_prefix}-"
+  image_id      = data.aws_ami.ubuntu_arm64.id
   instance_type = var.instance_type
-  subnet_id     = var.subnet_id
 
   vpc_security_group_ids = [aws_security_group.app.id]
-  iam_instance_profile   = aws_iam_instance_profile.instance.name
+
+  iam_instance_profile {
+    name = aws_iam_instance_profile.instance.name
+  }
 
   # **No key_name.** A key pair would be a way in that bypasses IAM
-  # and CloudTrail, which is the thing Session Manager exists to
-  # replace.
+  # and CloudTrail, which is what Session Manager exists to replace.
 
-  user_data = templatefile("${path.module}/user_data.sh.tftpl", {
-    origin_secret = random_password.origin_secret.result
-    # Empty for a host with no registry access, which keeps the
-    # template valid rather than failing on an unset variable.
-    # Empty for a host with no registry, which keeps the template
-    # valid rather than failing on an unset variable.
+  user_data = base64encode(templatefile("${path.module}/user_data.sh.tftpl", {
+    origin_secret      = random_password.origin_secret.result
     ecr_repository_url = try(var.image_repository.url, "")
     ecr_registry       = try(split("/", var.image_repository.url)[0], "")
-  })
-  # Changing user_data does NOT replace the instance. It runs once at
-  # first boot; replacing a running host to re-run a provisioning
-  # script would destroy the containerised database with it.
-  user_data_replace_on_change = false
+    name_prefix        = var.name_prefix
+    aws_region         = var.aws_region
+    dns_zone_id        = var.dns_zone_id
+    origin_fqdn        = var.origin_fqdn
+    # Read from git at apply time, so a replaced instance does not
+    # depend on a previous deploy having written this file to a disk
+    # that no longer exists.
+    compose_file = file("${path.root}/../deploy/docker-compose.staging.yml")
+  }))
 
-  root_block_device {
-    volume_size = var.root_volume_gb
-    volume_type = "gp3"
-    # The database lives on this volume. project.md mandates
-    # encryption at rest for children's data, and an unencrypted root
-    # volume would hold it in plaintext.
-    encrypted = true
+  block_device_mappings {
+    device_name = "/dev/sda1"
+
+    ebs {
+      volume_size = var.root_volume_gb
+      volume_type = "gp3"
+      # project.md mandates encryption at rest for children's data,
+      # and in Phase 1 the database lives on this volume.
+      encrypted             = true
+      delete_on_termination = true
+    }
   }
 
   metadata_options {
     # IMDSv2 required. v1 is reachable by any SSRF in the application
-    # and hands out the instance's IAM credentials; v2's token
-    # requirement makes that a much harder attack.
+    # and hands out the instance's IAM credentials.
+    #
+    # The hop limit is 2, not 1: a request from inside a Docker
+    # container traverses one extra network hop, and at 1 the
+    # container cannot reach IMDS at all. The boot script runs on the
+    # host, but the application does not.
     http_tokens                 = "required"
     http_endpoint               = "enabled"
-    http_put_response_hop_limit = 1
+    http_put_response_hop_limit = 2
   }
 
-  tags = { Name = "${var.name_prefix}-app" }
+  tag_specifications {
+    resource_type = "instance"
+    tags          = { Name = "${var.name_prefix}-app" }
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
-# An Elastic IP, so the address survives a stop/start. CloudFront
-# points here, and the SMS gateway may need it allowlisted.
-resource "aws_eip" "app" {
-  instance = aws_instance.app.id
-  domain   = "vpc"
+resource "aws_autoscaling_group" "app" {
+  name_prefix         = "${var.name_prefix}-"
+  vpc_zone_identifier = var.subnet_ids
 
-  tags = { Name = "${var.name_prefix}-app-ip" }
+  # **Pinned at one, deliberately.** Not a scaling range that happens
+  # to start at one: min and max are both one, so no policy and no
+  # accidental edit can produce two hosts. Two would each run their
+  # own containerised Postgres and each register the same DNS name.
+  min_size         = 1
+  max_size         = 1
+  desired_capacity = 1
+
+  # EC2 health only. An ELB health check would need an ELB; the
+  # instance's own boot script already fails loudly when the app does
+  # not answer, and CloudFront surfaces an origin that stops
+  # responding.
+  health_check_type         = "EC2"
+  health_check_grace_period = 300
+
+  launch_template {
+    id      = aws_launch_template.app.id
+    version = "$Latest"
+  }
+
+  instance_refresh {
+    # A user_data change replaces the instance, which in Phase 1
+    # destroys the containerised database with it. Manual, so that is
+    # always a decision rather than a side effect of an apply.
+    strategy = "Rolling"
+    preferences {
+      min_healthy_percentage = 0
+    }
+    triggers = []
+  }
+
+  tag {
+    key                 = "Name"
+    value               = "${var.name_prefix}-app"
+    propagate_at_launch = true
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+# The instance id, for SSM. Looked up rather than held, because the
+# ASG replaces instances and a stored id goes stale.
+data "aws_instances" "app" {
+  instance_tags = { Name = "${var.name_prefix}-app" }
+
+  instance_state_names = ["running"]
+
+  depends_on = [aws_autoscaling_group.app]
+}
+
+# Reading the deployment state at boot, and writing the instance's own
+# DNS record. Both are scoped: one parameter, one zone.
+resource "aws_iam_role_policy" "self_registration" {
+  name = "self-registration"
+  role = aws_iam_role.instance.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = ["ssm:GetParameter"]
+        Resource = [
+          aws_ssm_parameter.image_tag.arn,
+          aws_ssm_parameter.runtime_env.arn,
+        ]
+      },
+      {
+        # Decrypting the SecureString. The account default key, so no
+        # key policy to manage; scoped by the ViaService condition so
+        # this role cannot decrypt anything but SSM parameters.
+        Effect   = "Allow"
+        Action   = ["kms:Decrypt"]
+        Resource = "*"
+        Condition = {
+          StringEquals = {
+            "kms:ViaService" = "ssm.${var.aws_region}.amazonaws.com"
+          }
+        }
+      },
+      {
+        # **Scoped to this zone, and this zone only.** A host that can
+        # write any Route53 record is a host that can repoint someone
+        # else's domain if it is ever compromised.
+        Effect   = "Allow"
+        Action   = ["route53:ChangeResourceRecordSets"]
+        Resource = "arn:aws:route53:::hostedzone/${var.dns_zone_id}"
+      },
+      {
+        # Read-only, and unscopable: Route53 does not support resource
+        # scoping on these, so they are account-level by design.
+        Effect   = "Allow"
+        Action   = ["route53:GetChange", "route53:ListResourceRecordSets"]
+        Resource = "*"
+      },
+    ]
+  })
 }

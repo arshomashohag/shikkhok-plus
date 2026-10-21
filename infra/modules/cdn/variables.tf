@@ -22,10 +22,6 @@ variable "api_subdomain" {
   type        = string
 }
 
-variable "origin_ip" {
-  description = "The Lightsail static IP CloudFront points at."
-  type        = string
-}
 
 variable "origin_secret" {
   description = <<-EOT

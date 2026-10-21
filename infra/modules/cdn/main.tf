@@ -93,27 +93,16 @@ resource "aws_acm_certificate_validation" "api" {
 # The secret CloudFront sends to the origin. Managed as its own
 # resource so the header name is in one place and the value comes from
 # the app module -- the origin and the CDN cannot disagree about it.
-# **The origin's own name.** CloudFront cannot take an IP, and this
-# record is also what lets the origin move: repointing one A record
-# changes where the CDN fetches from, with no distribution update and
-# none of the 10-15 minutes that takes to propagate.
+# **The origin record is NOT here any more.** The instance writes it
+# itself at boot, because an ASG replacement gets a new public IP and
+# a Terraform-managed A record would be stale until the next apply.
 #
-# It is a PUBLIC record, which deserves saying plainly: anyone can
-# resolve it and reach the host directly, bypassing the CDN. That is
-# true of the IP regardless -- the record does not create the exposure,
-# it only names it. What actually enforces "through the CDN only" is
-# the shared-secret header below, checked by nginx, because
-# CloudFront's 214 origin-facing CIDRs cannot be expressed as a
-# security-group allowlist.
-resource "aws_route53_record" "origin" {
-  zone_id = var.zone_id
-  name    = local.origin_fqdn
-  type    = "A"
-  # 60s, so repointing the origin after an instance replacement takes
-  # a minute rather than an hour.
-  ttl     = 60
-  records = [var.origin_ip]
-}
+# Terraform owning it would be worse than useless: every apply would
+# reset the record to whatever address it last knew, fighting the
+# instance that just registered the correct one.
+#
+# The distribution still points at the NAME, which is stable; only the
+# address behind it moves.
 
 resource "aws_cloudfront_distribution" "api" {
   enabled         = true
@@ -129,11 +118,10 @@ resource "aws_cloudfront_distribution" "api" {
   price_class = "PriceClass_All"
 
   origin {
-    # The RECORD, never var.origin_ip: CloudFront rejects an IP here.
-    # The dependency is explicit so the record exists first -- using
-    # local.origin_fqdn directly would let the distribution be created
-    # before the name resolves.
-    domain_name = aws_route53_record.origin.fqdn
+    # The NAME, never an IP: CloudFront rejects an IP as an origin.
+    # Taken from the local rather than a resource attribute, since
+    # the record is written by the instance and not by Terraform.
+    domain_name = local.origin_fqdn
     origin_id   = "lightsail-origin"
 
     custom_origin_config {

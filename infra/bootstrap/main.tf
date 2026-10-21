@@ -367,6 +367,14 @@ resource "aws_iam_role_policy" "ci_infrastructure" {
           # auth token plus layer reads, scoped to one repository --
           # because the host only ever pulls.
           "ecr:*",
+          # Auto Scaling, for the group of one that replaces a failed
+          # app host. Service-level like the rest.
+          #
+          # The service-linked role AWSServiceRoleForAutoScaling
+          # already exists in this account, verified before granting,
+          # so iam:CreateServiceLinkedRole is deliberately NOT here --
+          # a fresh account would need it added once.
+          "autoscaling:*",
           "tag:GetResources",
         ]
         Resource = "*"

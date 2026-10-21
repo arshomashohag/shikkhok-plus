@@ -3,14 +3,44 @@ variable "name_prefix" {
   type        = string
 }
 
+variable "aws_region" {
+  description = "Region, for the SSM endpoint the boot script calls."
+  type        = string
+}
+
+variable "dns_zone_id" {
+  description = <<-EOT
+    The zone this instance writes its own A record into at boot.
+    Scoped: the instance role can change records in this zone and no
+    other.
+  EOT
+  type        = string
+}
+
+variable "origin_fqdn" {
+  description = <<-EOT
+    The name this instance registers itself as, e.g.
+    origin.shikkhokplus.nirmatabd.com. CloudFront's origin.
+
+    **Terraform does not own this record.** The instance writes it, so
+    a replacement repoints it without an apply. A Terraform-managed
+    record would be stale the moment the ASG replaced the box.
+  EOT
+  type        = string
+}
+
 variable "vpc_id" {
   description = "The VPC to place the instance in."
   type        = string
 }
 
-variable "subnet_id" {
-  description = "The public subnet for the instance."
-  type        = string
+variable "subnet_ids" {
+  description = <<-EOT
+    Subnets the ASG may launch into. Plural, and across AZs: a group
+    of one that can only launch in a single AZ cannot replace its
+    instance when that AZ is the thing that failed.
+  EOT
+  type        = list(string)
 }
 
 variable "instance_type" {

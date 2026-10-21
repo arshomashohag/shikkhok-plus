@@ -204,13 +204,22 @@ jobs:
             exit 1
           }
 
-          instance=$(aws ec2 describe-instances \
-            --filters "Name=tag:Name,Values=shikkhokplus-${{ vars.TF_ENVIRONMENT || 'staging' }}-app" \
-                      "Name=instance-state-name,Values=running" \
-            --query 'Reservations[0].Instances[0].InstanceId' --output text)
+          # **Resolved through the ASG, not by tag.** A tag filter can
+          # return an instance the group is already terminating during
+          # a replacement, and the deploy would then write to a host
+          # about to disappear. Asking the group for its InService
+          # members returns only what is actually serving.
+          asg="shikkhokplus-${{ vars.TF_ENVIRONMENT || 'staging' }}"
+          instance=$(aws autoscaling describe-auto-scaling-groups \
+            --query "AutoScalingGroups[?starts_with(AutoScalingGroupName, '$asg')] | [0].Instances[?LifecycleState=='InService'] | [0].InstanceId" \
+            --output text)
 
           if [ -z "$instance" ] || [ "$instance" = "None" ]; then
-            echo "::error::No running app instance found. Has terraform applied?"
+            echo "::error::No InService instance in the auto-scaling group."
+            echo "Either terraform has not applied, or the group is"
+            echo "mid-replacement. Check:"
+            echo "  aws autoscaling describe-auto-scaling-groups \\"
+            echo "    --query \"AutoScalingGroups[?starts_with(AutoScalingGroupName,'$asg')]\""
             exit 1
           fi
 
@@ -235,6 +244,31 @@ jobs:
       # **Delivered over SSM, because there is no inbound port 22.**
       # The commands run as root on the host; the compose project runs
       # as ubuntu.
+      # **Written BEFORE the delivery, not after.** A replaced
+      # instance reads these at boot to bring itself up without
+      # waiting for a human. Writing them after delivery would leave
+      # a window where the host runs a version the parameters do not
+      # name -- so a replacement during that window would come back
+      # on the PREVIOUS image.
+      - name: Record the deployment state
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+          ENVIRONMENT: ${{ vars.TF_ENVIRONMENT || 'staging' }}
+        run: |
+          aws ssm put-parameter \
+            --name "/shikkhokplus/shikkhokplus-$ENVIRONMENT/image-tag" \
+            --value "$IMAGE_TAG" --type String --overwrite >/dev/null
+
+          # SecureString: this is the database password, the JWT
+          # signing key and the SMS credentials. KMS-encrypted at
+          # rest with the account default key.
+          aws ssm put-parameter \
+            --name "/shikkhokplus/shikkhokplus-$ENVIRONMENT/runtime-env" \
+            --value "file://.env" --type SecureString --overwrite >/dev/null
+
+          echo "Deployment state recorded. A replaced instance will"
+          echo "come back on $IMAGE_TAG without a redeploy."
+
       - name: Deliver to the host
         id: deliver
         env:

@@ -8,13 +8,6 @@ output "cloudfront_domain" {
   value       = module.cdn.distribution_domain
 }
 
-output "app_static_ip" {
-  description = <<-EOT
-    The Elastic IP. CloudFront's origin, and the address to allowlist
-    at the SMS gateway. **Not an SSH target**: there is no SSH.
-  EOT
-  value       = module.app.static_ip
-}
 
 output "app_instance_id" {
   description = <<-EOT
@@ -29,10 +22,6 @@ output "app_instance_id" {
   value       = module.app.instance_id
 }
 
-output "staging_static_ip" {
-  description = "The rehearsal host's Elastic IP, when enabled."
-  value       = var.enable_staging_instance ? module.staging_app[0].static_ip : null
-}
 
 output "staging_instance_id" {
   description = "The rehearsal host, for `aws ssm start-session --target`."
@@ -74,4 +63,29 @@ output "image_repository" {
     commit SHA; `latest` is never deployed.
   EOT
   value       = module.registry.repository_url
+}
+
+output "app_origin_fqdn" {
+  description = <<-EOT
+    The name the app host registers itself as, and CloudFront's
+    origin.
+
+    **There is no static IP output any more.** The ASG replaces
+    instances and each one registers its own address, so no fixed
+    address exists to publish.
+  EOT
+  value       = module.app.origin_fqdn
+}
+
+output "app_autoscaling_group" {
+  description = "For `aws autoscaling start-instance-refresh --auto-scaling-group-name <this>`."
+  value       = module.app.autoscaling_group_name
+}
+
+output "deployment_parameters" {
+  description = "SSM parameters the deploy writes and a replaced instance reads at boot."
+  value = {
+    image_tag   = module.app.image_tag_parameter
+    runtime_env = module.app.runtime_env_parameter
+  }
 }
