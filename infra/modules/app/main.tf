@@ -237,6 +237,18 @@ resource "aws_launch_template" "app" {
     # depend on a previous deploy having written this file to a disk
     # that no longer exists.
     compose_file = file("${path.root}/../deploy/docker-compose.staging.yml")
+
+    # **The connection string is built HERE, not on the host.** The
+    # endpoint and password come from the database module, so the
+    # instance never has to assemble them from parts it might get
+    # wrong -- and the password reaches the host only through
+    # user_data, which is itself only readable from IMDS with a valid
+    # IMDSv2 token.
+    database_url = (
+      var.database_endpoint == null
+      ? ""
+      : "postgresql+psycopg://shikkhok:${var.database_password}@${var.database_endpoint}/shikkhokplus"
+    )
   }))
 
   block_device_mappings {

@@ -134,6 +134,12 @@ module "app" {
   dns_zone_id = aws_route53_zone.project.zone_id
   origin_fqdn = "${var.origin_subdomain}.${local.project_domain}"
 
+  # Null when RDS is off, which makes the host fall back to a
+  # containerised Postgres -- the Phase 1 shape, kept working rather
+  # than deleted, so enable_rds stays a genuine switch.
+  database_endpoint = module.database.endpoint
+  database_password = module.database.password
+
   name_prefix    = local.name_prefix
   vpc_id         = module.network.vpc_id
   subnet_ids     = module.network.public_subnet_ids

@@ -1,0 +1,454 @@
+name: deploy
+
+# **One pipeline: infrastructure and application, per environment.**
+#
+# The split into terraform.yml and deploy-staging.yml meant a deploy
+# needed two dispatches in the right order, and the ordering was
+# invisible until something failed with a message about a missing
+# repository. One workflow, one dispatch, one environment choice.
+#
+# **Terraform runs only when infra changed.** A routine deploy skips
+# it and needs no approval; a deploy that would change infrastructure
+# stops for one. An approval clicked ten times a day stops being a
+# decision, which is exactly when it fails to catch the one that
+# mattered.
+#
+# **The ASG refreshes on every deploy**, replacing the instance so it
+# re-runs user_data: pull the image, migrate, serve. That is only safe
+# because the database is RDS -- a containerised Postgres lived on a
+# root volume with delete_on_termination = true, so this design would
+# have wiped the database on every run.
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Which environment"
+        required: true
+        type: choice
+        options: [staging, production]
+        default: staging
+      ref:
+        description: "Branch or tag to deploy"
+        required: false
+        type: string
+      skip_migrations:
+        description: "Skip Alembic (the instance still migrates at boot)"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  # Per environment, so a staging deploy never queues behind a
+  # production one. Never cancelled mid-run: an interrupted apply
+  # leaves a held lock and a half-applied change.
+  group: deploy-${{ inputs.environment }}
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  # ---------------------------------------------------------------
+  # 1. What are we deploying, and does infrastructure need to change?
+  # ---------------------------------------------------------------
+  plan:
+    name: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: ${{ inputs.environment }}
+    outputs:
+      infra_changed: ${{ steps.infra.outputs.changed }}
+      repository: ${{ steps.resolve.outputs.repository }}
+      asg: ${{ steps.resolve.outputs.asg }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+          # Full history, so the infra-change comparison below has
+          # something to compare against.
+          fetch-depth: 0
+
+      - name: Fail early when the environment is not configured
+        env:
+          DEPLOY_ROLE: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          INFRA_ROLE: ${{ vars.AWS_ROLE_ARN }}
+          BUCKET: ${{ vars.TF_STATE_BUCKET }}
+          APEX: ${{ vars.APEX_DOMAIN }}
+          OTP_HMAC_KEY: ${{ secrets.SHIKKHOKPLUS_OTP_HMAC_KEY }}
+          JWT_KEYS: ${{ secrets.SHIKKHOKPLUS_JWT_KEYS }}
+        run: |
+          missing=()
+          [ -n "$DEPLOY_ROLE" ]  || missing+=("variable AWS_DEPLOY_ROLE_ARN")
+          [ -n "$INFRA_ROLE" ]   || missing+=("variable AWS_ROLE_ARN")
+          [ -n "$BUCKET" ]       || missing+=("variable TF_STATE_BUCKET")
+          [ -n "$APEX" ]         || missing+=("variable APEX_DOMAIN")
+          [ -n "$OTP_HMAC_KEY" ] || missing+=("secret SHIKKHOKPLUS_OTP_HMAC_KEY")
+          [ -n "$JWT_KEYS" ]     || missing+=("secret SHIKKHOKPLUS_JWT_KEYS")
+
+          if [ ${#missing[@]} -ne 0 ]; then
+            echo "::error::Not configured for '${{ inputs.environment }}': ${missing[*]}"
+            echo "Set these under Settings -> Environments -> ${{ inputs.environment }}."
+            echo "The two role ARNs come from the infra/bootstrap output and"
+            echo "are NOT the same role: AWS_ROLE_ARN applies infrastructure,"
+            echo "AWS_DEPLOY_ROLE_ARN pushes images and refreshes the ASG."
+            exit 1
+          fi
+
+      # **Compared against the last successful deploy of THIS
+      # environment**, not against the previous commit. Two deploys
+      # of the same commit to different environments must each apply
+      # their own infrastructure, and a commit that changed infra
+      # three deploys ago must not be forgotten because the most
+      # recent commit touched only Python.
+      - name: Has infrastructure changed?
+        id: infra
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          last=$(gh api \
+            "repos/${{ github.repository }}/deployments?environment=${{ inputs.environment }}&per_page=1" \
+            --jq '.[0].sha' 2>/dev/null || echo "")
+
+          if [ -z "$last" ] || [ "$last" = "null" ]; then
+            echo "No previous deployment of ${{ inputs.environment }}."
+            echo "Treating infrastructure as changed -- a first deploy"
+            echo "must create it."
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if ! git cat-file -e "$last^{commit}" 2>/dev/null; then
+            echo "::warning::Last deployed commit $last is not in this"
+            echo "::warning::history. Cannot compare, so assuming changed."
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if git diff --quiet "$last" HEAD -- infra/ deploy/docker-compose.staging.yml; then
+            echo "Infrastructure unchanged since $last."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Infrastructure changed since $last:"
+            git diff --name-only "$last" HEAD -- infra/ deploy/docker-compose.staging.yml
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: deploy-plan-${{ github.run_id }}
+
+      - name: Resolve the registry and the group
+        id: resolve
+        run: |
+          prefix="shikkhokplus-${{ inputs.environment }}"
+          echo "repository=${{ secrets.AWS_ACCOUNT_ID || '' }}" >/dev/null
+
+          repo=$(aws ecr describe-repositories \
+            --repository-names "$prefix-backend" \
+            --query 'repositories[0].repositoryUri' --output text 2>/dev/null) || repo=""
+
+          echo "repository=$repo" >> "$GITHUB_OUTPUT"
+          echo "asg=$prefix" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "### Deploying to ${{ inputs.environment }}"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| ref | \`${{ inputs.ref || github.ref_name }}\` |"
+            echo "| commit | \`${GITHUB_SHA:0:12}\` |"
+            echo "| infra changes | ${{ steps.infra.outputs.changed }} |"
+            echo "| registry | \`${repo:-(not created yet)}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ---------------------------------------------------------------
+  # 2. Infrastructure, ONLY when it changed. This is the gated job.
+  # ---------------------------------------------------------------
+  infrastructure:
+    name: infrastructure
+    needs: plan
+    if: needs.plan.outputs.infra_changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    # **The approval, and only here.** A routine deploy never reaches
+    # this job, so the gate stays a decision rather than a reflex.
+    environment: ${{ inputs.environment }}-infra
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          # The INFRASTRUCTURE role, which can create and destroy.
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: deploy-infra-${{ github.run_id }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.10.5"
+          terraform_wrapper: false
+
+      - name: Init
+        working-directory: infra
+        run: |
+          terraform init -input=false \
+            -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
+            -backend-config="key=${{ inputs.environment }}/terraform.tfstate"
+
+      - name: Plan
+        working-directory: infra
+        env:
+          TF_VAR_apex_domain: ${{ vars.APEX_DOMAIN }}
+          TF_VAR_environment: ${{ inputs.environment }}
+        run: terraform plan -input=false -no-color -out=tfplan | tee plan.txt
+
+      - name: What is about to be applied
+        run: |
+          {
+            echo "### Terraform plan"
+            echo ""
+            echo '```terraform'
+            head -c 60000 infra/plan.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Apply
+        working-directory: infra
+        # The saved plan, so what is applied is exactly what printed
+        # above. A saved plan carries its own variables and rejects
+        # -var, so none are passed here.
+        run: terraform apply -input=false tfplan
+
+  # ---------------------------------------------------------------
+  # 3. Build, push, and roll the instance. Every deploy.
+  # ---------------------------------------------------------------
+  release:
+    name: build and release
+    needs: [plan, infrastructure]
+    # `always()` because `infrastructure` is skipped on a routine
+    # deploy, and a skipped dependency would otherwise skip this too.
+    # The explicit failure check is what keeps a failed apply from
+    # being followed by a deploy onto half-applied infrastructure.
+    if: always() && needs.plan.result == 'success' && needs.infrastructure.result != 'failure'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: What identity is being presented
+        run: |
+          token=$(curl -fsS \
+            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" \
+            | python3 -c 'import sys,json; print(json.load(sys.stdin)["value"])')
+          payload=$(echo "$token" | cut -d. -f2)
+          python3 -c "
+          import base64, json, sys
+          s = sys.argv[1]; s += '=' * (-len(s) % 4)
+          d = json.loads(base64.urlsafe_b64decode(s))
+          for k in ('sub','aud','repository','ref','environment','event_name'):
+              print(f'  {k:12} {d.get(k, \"(absent)\")}')
+          " "$payload"
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: deploy-release-${{ github.run_id }}
+
+      - uses: aws-actions/amazon-ecr-login@v2
+
+      - uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Resolve the registry
+        id: ecr
+        run: |
+          repo=$(aws ecr describe-repositories \
+            --repository-names "shikkhokplus-${{ inputs.environment }}-backend" \
+            --query 'repositories[0].repositoryUri' --output text 2>/dev/null) || {
+            echo "::error::No ECR repository for ${{ inputs.environment }}."
+            echo "It is created by the infrastructure job. If that job was"
+            echo "skipped, infrastructure has never been applied for this"
+            echo "environment -- change something under infra/ or apply once"
+            echo "manually."
+            exit 1
+          }
+          echo "repository=$repo" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/arm64
+          # The commit SHA, never `latest`. The repository is
+          # IMMUTABLE, so the tag IS the artifact and a rollback is a
+          # redeploy rather than a rebuild.
+          tags: ${{ steps.ecr.outputs.repository }}:${{ github.sha }}
+          push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # **Written BEFORE the refresh.** A replaced instance reads
+      # these at boot. Writing them after would leave a window in
+      # which a replacement comes back on the PREVIOUS image.
+      - name: Record the deployment state
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+          OTP_HMAC_KEY: ${{ secrets.SHIKKHOKPLUS_OTP_HMAC_KEY }}
+          JWT_KEYS: ${{ secrets.SHIKKHOKPLUS_JWT_KEYS }}
+          SMS_API_KEY: ${{ secrets.SHIKKHOKPLUS_SMS_API_KEY }}
+          SMS_SENDER_ID: ${{ secrets.SHIKKHOKPLUS_SMS_SENDER_ID }}
+          SMS_BASE_URL: ${{ vars.SHIKKHOKPLUS_SMS_BASE_URL }}
+          SMS_APP_HASH: ${{ vars.SHIKKHOKPLUS_SMS_APP_HASH }}
+          DAILY_SMS: ${{ vars.SHIKKHOKPLUS_GLOBAL_DAILY_SMS }}
+          STAGING_OUTBOX: ${{ vars.SHIKKHOKPLUS_STAGING_OUTBOX }}
+        run: |
+          umask 077
+          {
+            echo "SHIKKHOKPLUS_ENVIRONMENT=${ENVIRONMENT}"
+            echo "SHIKKHOKPLUS_OTP_HMAC_KEY=${OTP_HMAC_KEY}"
+            echo "SHIKKHOKPLUS_JWT_KEYS=${JWT_KEYS}"
+            echo "SHIKKHOKPLUS_JWT_ACTIVE_KID=k1"
+            echo "SHIKKHOKPLUS_SMS_APP_HASH=${SMS_APP_HASH:-AAAAAAAAAAA}"
+            echo "SHIKKHOKPLUS_GLOBAL_DAILY_SMS=${DAILY_SMS:-50}"
+            echo "SHIKKHOKPLUS_SMS_ADAPTER=${SMS_API_KEY:+bulksmsbd}"
+            echo "SHIKKHOKPLUS_SMS_BASE_URL=${SMS_BASE_URL}"
+            echo "SHIKKHOKPLUS_SMS_API_KEY=${SMS_API_KEY}"
+            echo "SHIKKHOKPLUS_SMS_SENDER_ID=${SMS_SENDER_ID}"
+            # Exposes the most recent OTP to an UNAUTHENTICATED
+            # caller, so anyone who can reach the API can sign in as
+            # anyone. Off unless explicitly enabled, and a production
+            # process with it set refuses to start.
+            echo "SHIKKHOKPLUS_STAGING_OUTBOX=${STAGING_OUTBOX:-0}"
+          } > runtime.env
+
+          aws ssm put-parameter \
+            --name "/shikkhokplus/shikkhokplus-${ENVIRONMENT}/image-tag" \
+            --value "${{ github.sha }}" --type String --overwrite >/dev/null
+
+          aws ssm put-parameter \
+            --name "/shikkhokplus/shikkhokplus-${ENVIRONMENT}/runtime-env" \
+            --value "file://runtime.env" --type SecureString --overwrite >/dev/null
+
+          rm -f runtime.env
+          echo "Deployment state recorded for ${ENVIRONMENT}."
+
+      # **The rollout: replace the instance so it re-runs user_data.**
+      #
+      # Not `docker compose pull` over SSM. A refresh exercises the
+      # same path a replacement takes after a failure, so the
+      # self-healing boot is tested on every deploy rather than only
+      # on the day it matters.
+      #
+      # Safe only because the database is RDS. With Postgres in a
+      # container this would reset it on every deploy.
+      - name: Roll the instance
+        id: refresh
+        env:
+          ASG_PREFIX: shikkhokplus-${{ inputs.environment }}
+        run: |
+          asg=$(aws autoscaling describe-auto-scaling-groups \
+            --query "AutoScalingGroups[?starts_with(AutoScalingGroupName,'$ASG_PREFIX')] | [0].AutoScalingGroupName" \
+            --output text)
+
+          if [ -z "$asg" ] || [ "$asg" = "None" ]; then
+            echo "::error::No auto-scaling group matching $ASG_PREFIX."
+            exit 1
+          fi
+          echo "Group: $asg"
+
+          # min_healthy 0, because the group holds ONE instance: at
+          # any higher percentage the refresh waits forever for a
+          # healthy spare that the group is not allowed to launch.
+          # A short outage is the accepted trade [D-29].
+          id=$(aws autoscaling start-instance-refresh \
+            --auto-scaling-group-name "$asg" \
+            --preferences '{"MinHealthyPercentage":0,"InstanceWarmup":120}' \
+            --query 'InstanceRefreshId' --output text)
+
+          echo "Refresh: $id"
+          echo "asg=$asg" >> "$GITHUB_OUTPUT"
+
+          for _ in $(seq 1 60); do
+            status=$(aws autoscaling describe-instance-refreshes \
+              --auto-scaling-group-name "$asg" \
+              --instance-refresh-ids "$id" \
+              --query 'InstanceRefreshes[0].Status' --output text)
+            case "$status" in
+              Successful) echo "Refresh complete."; break ;;
+              Failed|Cancelled)
+                echo "::error::Instance refresh $status."
+                aws autoscaling describe-instance-refreshes \
+                  --auto-scaling-group-name "$asg" \
+                  --instance-refresh-ids "$id" \
+                  --query 'InstanceRefreshes[0].StatusReason' --output text
+                exit 1 ;;
+            esac
+            sleep 20
+          done
+
+          [ "$status" = "Successful" ] || {
+            echo "::error::Refresh did not finish within 20 minutes."
+            exit 1
+          }
+
+      # **The deploy is not done until the API answers.** A refresh
+      # reports Successful on an instance that passed its EC2 health
+      # check, which says nothing about whether the application
+      # started or the migration applied.
+      - name: The API responds
+        env:
+          ASG: ${{ steps.refresh.outputs.asg }}
+        run: |
+          instance=$(aws autoscaling describe-auto-scaling-groups \
+            --auto-scaling-group-names "$ASG" \
+            --query "AutoScalingGroups[0].Instances[?LifecycleState=='InService'] | [0].InstanceId" \
+            --output text)
+
+          cmd=$(aws ssm send-command --instance-ids "$instance" \
+            --document-name AWS-RunShellScript \
+            --parameters 'commands=["cat /var/log/shikkhokplus-provision.log","echo ---","curl -fsS -m 10 http://127.0.0.1:8000/health"]' \
+            --query 'Command.CommandId' --output text)
+
+          for _ in $(seq 1 24); do
+            status=$(aws ssm get-command-invocation --command-id "$cmd" \
+              --instance-id "$instance" --query Status --output text \
+              2>/dev/null || echo Pending)
+            case "$status" in Success|Failed|TimedOut) break ;; esac
+            sleep 5
+          done
+
+          out=$(aws ssm get-command-invocation --command-id "$cmd" \
+            --instance-id "$instance" --query 'StandardOutputContent' \
+            --output text 2>/dev/null || true)
+          echo "$out"
+
+          {
+            echo ""
+            echo "### Boot log"
+            echo '```'
+            echo "$out"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$status" != "Success" ]; then
+            echo "::error::The API did not answer on the new instance."
+            exit 1
+          fi
+          echo "Deployed and healthy."

@@ -263,30 +263,53 @@ fi
 umask 077
 printf '%s\n' "$RUNTIME_ENV" > .env
 echo "API_IMAGE=${ecr_repository_url}:$IMAGE_TAG" >> .env
+echo "SHIKKHOKPLUS_DATABASE_URL=${database_url}" >> .env
 chown ubuntu:ubuntu .env
 
-# The compose file ships in the AMI-independent way: baked into this
-# script at apply time from the file in git, so a replacement does not
-# depend on a previous deploy having written it.
 cat > docker-compose.yml <<'COMPOSEEOF'
 ${compose_file}
 COMPOSEEOF
 chown ubuntu:ubuntu docker-compose.yml
 
 sudo -u ubuntu docker compose pull
+
+# **Migrations as a distinct, logged step, before anything serves.**
+#
+# team.md: "Alembic runs as a distinct, logged step before the new
+# container serves traffic, never as a side effect of application
+# start." A container that migrates on start migrates once per
+# replica and gives the operator no place to stop between the backup
+# and the schema change.
+#
+# `run --rm` rather than `exec`: there is no running container yet,
+# and this must complete before one exists.
+echo "Running migrations..." >> /var/log/shikkhokplus-provision.log
+if ! sudo -u ubuntu docker compose run --rm api alembic upgrade head \
+     >> /var/log/shikkhokplus-provision.log 2>&1; then
+  echo "FAILED: alembic upgrade head" >> /var/log/shikkhokplus-provision.log
+  # **Exit non-zero and serve nothing.** An instance that starts the
+  # API against a schema the migration could not apply is worse than
+  # an instance that does not start: it answers requests wrongly.
+  exit 1
+fi
+
 sudo -u ubuntu docker compose up -d --remove-orphans
 
 # **Assert the outcome, not the command.** `up -d` succeeds on a
-# container that starts and immediately exits, so a boot that reports
+# container that starts and immediately exits, so a boot reporting
 # success here would hide exactly the failure this script exists to
-# prevent.
-sleep 10
-if curl -fsS -m 10 http://127.0.0.1:8000/health >/dev/null 2>&1; then
-  echo "provisioned (running $IMAGE_TAG, healthy)" \
-    > /var/log/shikkhokplus-provision.log
-else
-  echo "FAILED: $IMAGE_TAG started but /health did not answer" \
-    > /var/log/shikkhokplus-provision.log
-  docker compose logs --tail 50 >> /var/log/shikkhokplus-provision.log 2>&1
-  exit 1
-fi
+# catch.
+for _ in $(seq 1 12); do
+  if curl -fsS -m 5 http://127.0.0.1:8000/health >/dev/null 2>&1; then
+    echo "provisioned (running $IMAGE_TAG, migrated, healthy)" \
+      >> /var/log/shikkhokplus-provision.log
+    exit 0
+  fi
+  sleep 5
+done
+
+echo "FAILED: $IMAGE_TAG started but /health did not answer in 60s" \
+  >> /var/log/shikkhokplus-provision.log
+sudo -u ubuntu docker compose logs --tail 50 \
+  >> /var/log/shikkhokplus-provision.log 2>&1
+exit 1
