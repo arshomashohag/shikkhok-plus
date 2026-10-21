@@ -130,9 +130,10 @@ module "app" {
   # boot, which is why no Elastic IP and no Terraform-owned record
   # exist. CloudFront points at the name; the address behind it moves
   # with every replacement.
-  aws_region  = var.region
-  dns_zone_id = aws_route53_zone.project.zone_id
-  origin_fqdn = "${var.origin_subdomain}.${local.project_domain}"
+  aws_region    = var.region
+  config_bucket = var.state_bucket
+  dns_zone_id   = aws_route53_zone.project.zone_id
+  origin_fqdn   = "${var.origin_subdomain}.${local.project_domain}"
 
   # Null when RDS is off, which makes the host fall back to a
   # containerised Postgres -- the Phase 1 shape, kept working rather
@@ -165,9 +166,10 @@ module "staging_app" {
   # themselves at boot, and two instances writing one A record would
   # overwrite each other on every replacement -- CloudFront would then
   # reach whichever booted last.
-  aws_region  = var.region
-  dns_zone_id = aws_route53_zone.project.zone_id
-  origin_fqdn = "rehearsal-${var.origin_subdomain}.${local.project_domain}"
+  aws_region    = var.region
+  config_bucket = var.state_bucket
+  dns_zone_id   = aws_route53_zone.project.zone_id
+  origin_fqdn   = "rehearsal-${var.origin_subdomain}.${local.project_domain}"
 
   name_prefix    = "shikkhokplus-rehearsal"
   vpc_id         = module.network.vpc_id

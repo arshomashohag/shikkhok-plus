@@ -299,9 +299,14 @@ echo "API_IMAGE=${ecr_repository_url}:$IMAGE_TAG" >> .env
 echo "SHIKKHOKPLUS_DATABASE_URL=${database_url}" >> .env
 chown ubuntu:ubuntu .env
 
-cat > docker-compose.yml <<'COMPOSEEOF'
-${compose_file}
-COMPOSEEOF
+# Fetched rather than inlined: the script plus the compose file
+# crossed EC2's 16KB user_data limit.
+if ! aws s3 cp "s3://${config_bucket}/${name_prefix}/docker-compose.yml" \
+     docker-compose.yml --region "${aws_region}" >/dev/null 2>&1; then
+  echo "FAILED: could not fetch docker-compose.yml from S3" \
+    > /var/log/shikkhokplus-provision.log
+  exit 1
+fi
 chown ubuntu:ubuntu docker-compose.yml
 
 sudo -u ubuntu docker compose pull

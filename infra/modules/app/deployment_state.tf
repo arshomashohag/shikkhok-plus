@@ -58,3 +58,28 @@ resource "aws_ssm_parameter" "runtime_env" {
     ignore_changes = [value]
   }
 }
+
+# **The compose file as an S3 object, not baked into user_data.**
+#
+# It used to be inlined with `file()`, which worked until the script
+# plus the compose file crossed EC2's hard 16KB user_data limit and
+# every apply failed with `InvalidUserData.Malformed`. Stripping
+# comments brought it back under, but left only ~2.5KB spare -- the
+# compose file merely doubling would have broken it again, and the
+# next person would have had to rediscover why.
+#
+# S3 removes the constraint rather than postponing it. The instance
+# reads it with the role it already carries, so no new credential
+# exists.
+resource "aws_s3_object" "compose" {
+  bucket = var.config_bucket
+  key    = "${var.name_prefix}/docker-compose.yml"
+  source = "${path.root}/../deploy/docker-compose.staging.yml"
+
+  # Without this the object is only replaced when the KEY changes, so
+  # editing the compose file would upload nothing and a replaced
+  # instance would fetch the old one.
+  etag = filemd5("${path.root}/../deploy/docker-compose.staging.yml")
+
+  content_type = "text/yaml"
+}

@@ -103,3 +103,13 @@ variable "database_password" {
   default     = null
   sensitive   = true
 }
+
+variable "config_bucket" {
+  description = <<-EOT
+    Bucket holding the host's compose file. The Terraform state
+    bucket is reused: it already exists, is versioned and is
+    encrypted, and adding a second bucket for one small object would
+    be machinery for its own sake.
+  EOT
+  type        = string
+}
