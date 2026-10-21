@@ -7,11 +7,15 @@ name: deploy
 # invisible until something failed with a message about a missing
 # repository. One workflow, one dispatch, one environment choice.
 #
-# **Terraform runs only when infra changed.** A routine deploy skips
-# it and needs no approval; a deploy that would change infrastructure
-# stops for one. An approval clicked ten times a day stops being a
-# decision, which is exactly when it fails to catch the one that
-# mattered.
+# **Terraform runs on every deploy.** An earlier version tried to skip
+# it when no file under infra/ had changed, which was a worse
+# reimplementation of what `terraform plan` already does: a path
+# comparison sees a file, not the world. Someone changing a security
+# group in the console, or an AMI data source resolving a newer image,
+# is drift that a path check calls "unchanged" and a plan catches.
+#
+# So the apply always runs and Terraform decides whether anything
+# needs doing. A no-op apply costs about thirty seconds.
 #
 # **The ASG refreshes on every deploy**, replacing the instance so it
 # re-runs user_data: pull the image, migrate, serve. That is only safe
@@ -54,7 +58,7 @@ env:
 
 jobs:
   # ---------------------------------------------------------------
-  # 1. What are we deploying, and does infrastructure need to change?
+  # 1. Is this environment configured, and where does the image go?
   # ---------------------------------------------------------------
   plan:
     name: plan
@@ -62,16 +66,12 @@ jobs:
     timeout-minutes: 15
     environment: ${{ inputs.environment }}
     outputs:
-      infra_changed: ${{ steps.infra.outputs.changed }}
       repository: ${{ steps.resolve.outputs.repository }}
       asg: ${{ steps.resolve.outputs.asg }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref || github.ref }}
-          # Full history, so the infra-change comparison below has
-          # something to compare against.
-          fetch-depth: 0
 
       - name: Fail early when the environment is not configured
         env:
@@ -105,57 +105,10 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: deploy-plan-${{ github.run_id }}
 
-      # **Compared against a marker THIS pipeline writes, not against
-      # GitHub's deployments API.**
-      #
-      # The first version read the deployments API and was always
-      # wrong: GitHub creates a deployment record the moment a job
-      # declares `environment:`, and this job does. So the step read
-      # back its own run as "the last deployment", found the SHA
-      # identical to HEAD, and concluded infrastructure never
-      # changed. The infrastructure job was skipped on every deploy,
-      # including the first.
-      #
-      # A marker written only AFTER a successful apply cannot have
-      # that failure: nothing writes it but the apply.
-      - name: Has infrastructure changed?
-        id: infra
-        env:
-          ENVIRONMENT: ${{ inputs.environment }}
-        run: |
-          last=$(aws ssm get-parameter \
-            --name "/shikkhokplus/shikkhokplus-$ENVIRONMENT/infra-applied-sha" \
-            --query 'Parameter.Value' --output text 2>/dev/null || echo "")
-
-          if [ -z "$last" ] || [ "$last" = "none" ]; then
-            echo "No infrastructure has been applied for $ENVIRONMENT."
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          if ! git cat-file -e "$last^{commit}" 2>/dev/null; then
-            echo "::warning::Last applied commit $last is not in this"
-            echo "::warning::history, so it cannot be compared against."
-            echo "::warning::Treating infrastructure as changed."
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          if git diff --quiet "$last" HEAD -- infra/ deploy/docker-compose.staging.yml; then
-            echo "Infrastructure unchanged since $last."
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "Infrastructure changed since $last:"
-            git diff --name-only "$last" HEAD -- infra/ deploy/docker-compose.staging.yml
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Resolve the registry and the group
         id: resolve
         run: |
           prefix="shikkhokplus-${{ inputs.environment }}"
-          echo "repository=${{ secrets.AWS_ACCOUNT_ID || '' }}" >/dev/null
-
           repo=$(aws ecr describe-repositories \
             --repository-names "$prefix-backend" \
             --query 'repositories[0].repositoryUri' --output text 2>/dev/null) || repo=""
@@ -170,21 +123,29 @@ jobs:
             echo "|---|---|"
             echo "| ref | \`${{ inputs.ref || github.ref_name }}\` |"
             echo "| commit | \`${GITHUB_SHA:0:12}\` |"
-            echo "| infra changes | ${{ steps.infra.outputs.changed }} |"
             echo "| registry | \`${repo:-(not created yet)}\` |"
           } >> "$GITHUB_STEP_SUMMARY"
 
   # ---------------------------------------------------------------
-  # 2. Infrastructure, ONLY when it changed. This is the gated job.
+  # 2. Infrastructure. Always runs; Terraform decides what to do.
   # ---------------------------------------------------------------
   infrastructure:
     name: infrastructure
     needs: plan
-    if: needs.plan.outputs.infra_changed == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    # **The approval, and only here.** A routine deploy never reaches
-    # this job, so the gate stays a decision rather than a reflex.
+    # **`<env>-infra`, and the reviewer differs by environment.**
+    #
+    # Terraform now runs on every deploy, so a required reviewer here
+    # would stop every deploy -- and an approval clicked on every
+    # staging deploy becomes a reflex, which is when it stops
+    # catching the one that mattered.
+    #
+    # So: `staging-infra` has NO reviewer and staging runs end to
+    # end; `production-infra` has a required reviewer and a
+    # production apply always stops for a human to read the plan
+    # printed in the step before it. Same workflow, different
+    # ceremony, set in Settings -> Environments rather than in YAML.
     environment: ${{ inputs.environment }}-infra
     steps:
       - uses: actions/checkout@v4
@@ -234,34 +195,19 @@ jobs:
         # -var, so none are passed here.
         run: terraform apply -input=false tfplan
 
-      # **Written only on success**, which is the whole mechanism: the
-      # next deploy compares against this to decide whether to apply,
-      # and a marker written before or regardless of the outcome would
-      # let a failed apply be reported as applied.
-      #
-      # Not GitHub's deployments API, which records a deployment the
-      # moment a job declares `environment:` -- so reading it back
-      # returns the run doing the reading.
-      - name: Record what was applied
-        env:
-          ENVIRONMENT: ${{ inputs.environment }}
-        run: |
-          aws ssm put-parameter \
-            --name "/shikkhokplus/shikkhokplus-$ENVIRONMENT/infra-applied-sha" \
-            --value "${{ github.sha }}" --type String --overwrite >/dev/null
-          echo "Infrastructure at ${GITHUB_SHA:0:12} recorded for $ENVIRONMENT."
-
   # ---------------------------------------------------------------
   # 3. Build, push, and roll the instance. Every deploy.
   # ---------------------------------------------------------------
   release:
     name: build and release
     needs: [plan, infrastructure]
-    # `always()` because `infrastructure` is skipped on a routine
-    # deploy, and a skipped dependency would otherwise skip this too.
-    # The explicit failure check is what keeps a failed apply from
-    # being followed by a deploy onto half-applied infrastructure.
-    if: always() && needs.plan.result == 'success' && needs.infrastructure.result != 'failure'
+    # No `always()` and no result checks: `needs` alone now expresses
+    # it, because infrastructure runs on every deploy and a failed
+    # dependency skips this job by default.
+    #
+    # The earlier version tolerated a SKIPPED infrastructure job,
+    # which it no longer can be -- and that tolerance was load-bearing
+    # only for the change-detection this replaced.
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: ${{ inputs.environment }}

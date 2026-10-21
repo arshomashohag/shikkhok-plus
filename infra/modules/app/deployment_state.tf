@@ -58,27 +58,3 @@ resource "aws_ssm_parameter" "runtime_env" {
     ignore_changes = [value]
   }
 }
-
-# **The marker the pipeline compares against to decide whether to
-# apply infrastructure.**
-#
-# Written by the apply job, on success only. Read by the plan job.
-#
-# It exists here rather than being created on first write so the read
-# has something to find: a missing parameter and a parameter holding
-# "none" both mean "nothing applied yet", and having the resource
-# declared means `terraform destroy` removes it too rather than
-# leaving a marker claiming infrastructure that no longer exists.
-resource "aws_ssm_parameter" "infra_applied_sha" {
-  name  = "/shikkhokplus/${var.name_prefix}/infra-applied-sha"
-  type  = "String"
-  value = "none"
-
-  description = "Commit whose infra/ was last applied. Written by the deploy pipeline."
-
-  lifecycle {
-    # The pipeline owns this value. An apply that reset it would make
-    # the next deploy re-apply infrastructure it had already applied.
-    ignore_changes = [value]
-  }
-}
