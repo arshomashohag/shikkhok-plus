@@ -176,7 +176,6 @@ jobs:
         env:
           TF_VAR_apex_domain: ${{ vars.APEX_DOMAIN }}
           TF_VAR_environment: ${{ inputs.environment }}
-          TF_VAR_state_bucket: ${{ vars.TF_STATE_BUCKET }}
         run: terraform plan -input=false -no-color -out=tfplan | tee plan.txt
 
       - name: What is about to be applied

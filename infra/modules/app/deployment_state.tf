@@ -59,26 +59,62 @@ resource "aws_ssm_parameter" "runtime_env" {
   }
 }
 
-# **The compose file as an S3 object, not baked into user_data.**
+# **A config bucket of its own, in the app's region.**
 #
-# It used to be inlined with `file()`, which worked until the script
-# plus the compose file crossed EC2's hard 16KB user_data limit and
-# every apply failed with `InvalidUserData.Malformed`. Stripping
-# comments brought it back under, but left only ~2.5KB spare -- the
-# compose file merely doubling would have broken it again, and the
-# next person would have had to rediscover why.
+# The compose file used to be inlined with `file()`, which worked
+# until the script plus the compose file crossed EC2's hard 16KB
+# user_data limit.
 #
-# S3 removes the constraint rather than postponing it. The instance
-# reads it with the role it already carries, so no new credential
-# exists.
+# The first fix reused the Terraform state bucket -- and failed, with
+# `AuthorizationHeaderMalformed: the region 'us-east-1' is wrong;
+# expecting 'ap-south-1'`. That bucket was created by bootstrap,
+# whose region default is still Mumbai, and S3 requires a request
+# signed for the bucket's own region. Terraform's S3 BACKEND
+# discovers that automatically; `aws_s3_object` goes through the
+# provider, which does not.
+#
+# A dedicated bucket removes the coupling rather than relocating it:
+# the app's config lives in the app's region, created and destroyed
+# with everything else this module owns, and no longer depends on
+# where bootstrap happened to run.
+resource "aws_s3_bucket" "config" {
+  bucket = "${var.name_prefix}-config-${var.account_id}"
+
+  # Account-suffixed because S3 names are globally unique across
+  # every AWS account, and an unsuffixed name is very likely taken.
+  tags = { Role = "host-config" }
+}
+
+resource "aws_s3_bucket_public_access_block" "config" {
+  bucket = aws_s3_bucket.config.id
+
+  # All four. The compose file names no secret -- those are in the
+  # SecureString -- but a publicly listable bucket advertises the
+  # shape of the deployment for nothing.
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "config" {
+  bucket = aws_s3_bucket.config.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
 resource "aws_s3_object" "compose" {
-  bucket = var.config_bucket
-  key    = "${var.name_prefix}/docker-compose.yml"
+  bucket = aws_s3_bucket.config.id
+  key    = "docker-compose.yml"
   source = "${path.root}/../deploy/docker-compose.staging.yml"
 
-  # Without this the object is only replaced when the KEY changes, so
+  # Without this the object is replaced only when the KEY changes, so
   # editing the compose file would upload nothing and a replaced
-  # instance would fetch the old one.
+  # instance would fetch the previous one.
   etag = filemd5("${path.root}/../deploy/docker-compose.staging.yml")
 
   content_type = "text/yaml"

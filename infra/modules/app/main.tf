@@ -267,7 +267,7 @@ resource "aws_launch_template" "app" {
       # Read from git at apply time, so a replaced instance does not
       # depend on a previous deploy having written this file to a disk
       # that no longer exists.
-      config_bucket = var.config_bucket
+      config_bucket = aws_s3_bucket.config.id
 
       # **The connection string is built HERE, not on the host.** The
       # endpoint and password come from the database module, so the
@@ -399,7 +399,7 @@ resource "aws_iam_role_policy" "self_registration" {
         # host's own prefix.
         Effect   = "Allow"
         Action   = ["s3:GetObject"]
-        Resource = "arn:aws:s3:::${var.config_bucket}/${var.name_prefix}/*"
+        Resource = "${aws_s3_bucket.config.arn}/*"
       },
       {
         # Decrypting the SecureString. The account default key, so no
