@@ -168,4 +168,125 @@ chown ubuntu:ubuntu /home/ubuntu/.docker/config.json
 echo "${ecr_repository_url}" > /srv/shikkhokplus/image-repository
 chown ubuntu:ubuntu /srv/shikkhokplus/image-repository
 
-echo "provisioned" > /var/log/shikkhokplus-provision.log
+# ---------------------------------------------------------------------
+# Self-registration: this instance announces its own address
+# ---------------------------------------------------------------------
+#
+# **Replaces the Elastic IP.** An ASG instance gets a new public IP on
+# every replacement, so a Terraform-managed A record would be stale the
+# moment the box is replaced -- and re-attaching an EIP needs a
+# lifecycle hook that can fail halfway, leaving an instance running and
+# unreachable.
+#
+# Writing the record from the instance inverts that: whatever comes up
+# is what CloudFront reaches, within one TTL, with nothing to
+# re-attach. Terraform deliberately does NOT own this record.
+
+TOKEN=$(curl -fsS -X PUT "http://169.254.169.254/latest/api/token" \
+  -H "X-aws-ec2-metadata-token-ttl-seconds: 300")
+PUBLIC_IP=$(curl -fsS -H "X-aws-ec2-metadata-token: $TOKEN" \
+  http://169.254.169.254/latest/meta-data/public-ipv4)
+
+if [ -z "$PUBLIC_IP" ]; then
+  echo "FAILED: no public IPv4 from IMDS" > /var/log/shikkhokplus-provision.log
+  exit 1
+fi
+
+cat > /tmp/dns-register.json <<DNSJSON
+{
+  "Comment": "Self-registration at boot",
+  "Changes": [{
+    "Action": "UPSERT",
+    "ResourceRecordSet": {
+      "Name": "${origin_fqdn}",
+      "Type": "A",
+      "TTL": 60,
+      "ResourceRecords": [{"Value": "$PUBLIC_IP"}]
+    }
+  }]
+}
+DNSJSON
+
+aws route53 change-resource-record-sets \
+  --hosted-zone-id "${dns_zone_id}" \
+  --change-batch file:///tmp/dns-register.json \
+  --region us-east-1 >/dev/null || {
+    echo "FAILED: DNS self-registration" > /var/log/shikkhokplus-provision.log
+    exit 1
+  }
+rm -f /tmp/dns-register.json
+echo "Registered ${origin_fqdn} -> $PUBLIC_IP"
+
+# ---------------------------------------------------------------------
+# Self-healing: bring the application up without waiting for a deploy
+# ---------------------------------------------------------------------
+#
+# **This is what makes a replaced instance useful.** Without it the box
+# boots healthy, nginx answers, and the API is simply absent until
+# somebody notices and dispatches a deploy.
+#
+# The tag comes from SSM rather than from Terraform, because Terraform
+# must not own which version runs -- an apply would otherwise change
+# the deployed application.
+
+IMAGE_TAG=$(aws ssm get-parameter \
+  --name "/shikkhokplus/${name_prefix}/image-tag" \
+  --query 'Parameter.Value' --output text \
+  --region "${aws_region}" 2>/dev/null || echo "none")
+
+if [ "$IMAGE_TAG" = "none" ] || [ -z "${ecr_repository_url}" ]; then
+  # A first-ever boot, before any deploy has run. Correct and
+  # expected: nginx serves, the API is absent, and the next deploy
+  # fills it in. NOT an error.
+  echo "provisioned (no image deployed yet)" \
+    > /var/log/shikkhokplus-provision.log
+  exit 0
+fi
+
+# **The compose file comes from git, the secrets from SSM.** Neither
+# survives instance replacement on the root volume, so a self-healing
+# boot reconstructs both rather than waiting for a human to notice the
+# API is missing.
+cd /srv/shikkhokplus
+
+RUNTIME_ENV=$(aws ssm get-parameter \
+  --name "/shikkhokplus/${name_prefix}/runtime-env" \
+  --with-decryption --query 'Parameter.Value' --output text \
+  --region "${aws_region}" 2>/dev/null || echo "")
+
+if [ -z "$RUNTIME_ENV" ] || [ "$RUNTIME_ENV" = "SHIKKHOKPLUS_ENVIRONMENT=unset" ]; then
+  echo "provisioned (image $IMAGE_TAG known, no runtime env yet)" \
+    > /var/log/shikkhokplus-provision.log
+  exit 0
+fi
+
+umask 077
+printf '%s\n' "$RUNTIME_ENV" > .env
+echo "API_IMAGE=${ecr_repository_url}:$IMAGE_TAG" >> .env
+chown ubuntu:ubuntu .env
+
+# The compose file ships in the AMI-independent way: baked into this
+# script at apply time from the file in git, so a replacement does not
+# depend on a previous deploy having written it.
+cat > docker-compose.yml <<'COMPOSEEOF'
+${compose_file}
+COMPOSEEOF
+chown ubuntu:ubuntu docker-compose.yml
+
+sudo -u ubuntu docker compose pull
+sudo -u ubuntu docker compose up -d --remove-orphans
+
+# **Assert the outcome, not the command.** `up -d` succeeds on a
+# container that starts and immediately exits, so a boot that reports
+# success here would hide exactly the failure this script exists to
+# prevent.
+sleep 10
+if curl -fsS -m 10 http://127.0.0.1:8000/health >/dev/null 2>&1; then
+  echo "provisioned (running $IMAGE_TAG, healthy)" \
+    > /var/log/shikkhokplus-provision.log
+else
+  echo "FAILED: $IMAGE_TAG started but /health did not answer" \
+    > /var/log/shikkhokplus-provision.log
+  docker compose logs --tail 50 >> /var/log/shikkhokplus-provision.log 2>&1
+  exit 1
+fi

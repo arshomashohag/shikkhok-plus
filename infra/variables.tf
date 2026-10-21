@@ -187,3 +187,17 @@ variable "rds_allocated_storage" {
   type        = number
   default     = 20
 }
+
+variable "origin_subdomain" {
+  description = <<-EOT
+    Host part of the record naming the origin, e.g. "origin" for
+    origin.shikkhokplus.nirmatabd.com.
+
+    CloudFront refuses an IP as an origin, so the origin needs a name.
+    The INSTANCE writes this record at boot rather than Terraform,
+    because an ASG replacement gets a new address and a
+    Terraform-managed record would be stale until the next apply.
+  EOT
+  type        = string
+  default     = "origin"
+}
