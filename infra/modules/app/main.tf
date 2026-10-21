@@ -159,8 +159,19 @@ resource "aws_security_group" "app" {
 # current in a security group fails silently when AWS adds one. That
 # reasoning was right about the ranges and wrong about the options:
 # AWS publishes them AS a managed prefix list, which a rule
-# references by id and AWS keeps current. It counts as one rule, and
-# it is free.
+# references by id and AWS keeps current. It is free.
+#
+# **It does NOT count as one rule.** A prefix list consumes its ENTRY
+# COUNT against the security group's rule quota -- 49 entries for the
+# IPv4 list here, against a default limit of 60. An earlier version
+# added the IPv6 list beside it (38 more) and the apply failed with
+# RulesPerSecurityGroupLimitExceeded: 87 rules into a 60 quota.
+#
+# **Only the IPv4 list, because the origin has no IPv6 address.** The
+# instance registers an A record and no AAAA, so CloudFront cannot
+# reach it over IPv6 whatever the distribution's viewer-facing
+# `is_ipv6_enabled` says -- that setting governs the VIEWER hop, not
+# the origin hop. The IPv6 rule was 38 rules of pure waste.
 #
 # So the shared-secret header nginx checks is now the SECOND layer
 # rather than the only one. A direct request to the instance's
@@ -170,29 +181,11 @@ data "aws_ec2_managed_prefix_list" "cloudfront" {
   name = "com.amazonaws.global.cloudfront.origin-facing"
 }
 
-data "aws_ec2_managed_prefix_list" "cloudfront_ipv6" {
-  name = "com.amazonaws.global.ipv6.cloudfront.origin-facing"
-}
-
 resource "aws_vpc_security_group_ingress_rule" "https" {
   security_group_id = aws_security_group.app.id
   description       = "HTTPS from CloudFront only"
 
   prefix_list_id = data.aws_ec2_managed_prefix_list.cloudfront.id
-  from_port      = 443
-  to_port        = 443
-  ip_protocol    = "tcp"
-}
-
-resource "aws_vpc_security_group_ingress_rule" "https_ipv6" {
-  security_group_id = aws_security_group.app.id
-  description       = "HTTPS from CloudFront over IPv6"
-
-  # The distribution answers viewers over IPv6 and may reach the
-  # origin the same way. Without this, those requests are refused by
-  # the security group and the failure looks intermittent -- some
-  # viewers served, some not, depending on their network.
-  prefix_list_id = data.aws_ec2_managed_prefix_list.cloudfront_ipv6.id
   from_port      = 443
   to_port        = 443
   ip_protocol    = "tcp"
