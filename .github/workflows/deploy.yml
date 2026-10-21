@@ -260,7 +260,38 @@ jobs:
           }
           echo "repository=$repo" >> "$GITHUB_OUTPUT"
 
+      # **Is this commit already built?**
+      #
+      # The tag is the commit SHA and the repository is IMMUTABLE, so
+      # re-deploying a commit -- which is what every retry after a
+      # later failure is -- tried to push a tag that already exists
+      # and failed with "cannot be overwritten".
+      #
+      # That is the repository behaving correctly: a SHA tag IS the
+      # artifact, which is what makes a rollback a redeploy rather
+      # than a rebuild. The bug was the pipeline assuming every run
+      # pushes something new.
+      #
+      # Skipping the push is also the RIGHT answer rather than a
+      # workaround: the image for this commit already exists and is
+      # byte-identical to what another build would produce, so
+      # rebuilding it would spend five minutes to arrive at the same
+      # digest.
+      - name: Is this commit already built?
+        id: exists
+        run: |
+          if aws ecr describe-images \
+               --repository-name "shikkhokplus-${{ inputs.environment }}-backend" \
+               --image-ids imageTag="${{ github.sha }}" >/dev/null 2>&1; then
+            echo "Image for ${GITHUB_SHA:0:12} already in the registry."
+            echo "Skipping the build; the existing image is the artifact."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Build and push
+        if: steps.exists.outputs.skip != 'true'
         uses: docker/build-push-action@v6
         with:
           context: .
