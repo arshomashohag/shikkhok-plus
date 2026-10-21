@@ -77,6 +77,7 @@ jobs:
       # key has already changed the schema.
       - name: Verify the required configuration is present
         env:
+          DEPLOY_ROLE: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           SMS_API_KEY: ${{ secrets.SHIKKHOKPLUS_SMS_API_KEY }}
           SMS_SENDER_ID: ${{ secrets.SHIKKHOKPLUS_SMS_SENDER_ID }}
           OTP_HMAC_KEY: ${{ secrets.SHIKKHOKPLUS_OTP_HMAC_KEY }}
@@ -85,6 +86,7 @@ jobs:
           SMS_APP_HASH: ${{ vars.SHIKKHOKPLUS_SMS_APP_HASH }}
         run: |
           missing=()
+          [ -n "$DEPLOY_ROLE" ]   || missing+=("variable AWS_DEPLOY_ROLE_ARN")
           [ -n "$SMS_API_KEY" ]   || missing+=("secret SHIKKHOKPLUS_SMS_API_KEY")
           [ -n "$SMS_SENDER_ID" ] || missing+=("secret SHIKKHOKPLUS_SMS_SENDER_ID")
           [ -n "$OTP_HMAC_KEY" ]  || missing+=("secret SHIKKHOKPLUS_OTP_HMAC_KEY")
@@ -95,6 +97,8 @@ jobs:
           if [ ${#missing[@]} -ne 0 ]; then
             echo "::error::Not configured: ${missing[*]}"
             echo "Set secrets and variables under Settings -> Environments -> staging."
+            echo "AWS_DEPLOY_ROLE_ARN comes from the bootstrap output"
+            echo "deploy_role_arn -- it is NOT the same as AWS_ROLE_ARN."
             exit 1
           fi
 
@@ -171,9 +175,67 @@ jobs:
 
       - uses: docker/setup-buildx-action@v3
 
+      # **Prints the subject BEFORE the assumption is attempted.**
+      #
+      # AWS's error -- "Not authorized to perform
+      # sts:AssumeRoleWithWebIdentity" -- names neither the subject
+      # presented nor the subjects trusted, so it reads as a
+      # permissions problem when it is almost always a string that
+      # does not match. This makes the one fact needed to diagnose it
+      # visible in the log.
+      #
+      # The token is requested with the sts audience and decoded
+      # locally; nothing is sent anywhere. Only the claims used for
+      # trust are printed -- never the token itself, which is a
+      # bearer credential.
+      - name: What identity is being presented
+        run: |
+          token=$(curl -fsS \
+            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" \
+            | python3 -c 'import sys,json; print(json.load(sys.stdin)["value"])')
+
+          # The payload is the middle segment, base64url with the
+          # padding stripped -- which python3's urlsafe_b64decode
+          # rejects, hence the manual re-padding.
+          payload=$(echo "$token" | cut -d. -f2)
+          claims=$(python3 -c "
+          import base64, json, sys
+          s = sys.argv[1]
+          s += '=' * (-len(s) % 4)
+          d = json.loads(base64.urlsafe_b64decode(s))
+          for k in ('sub', 'aud', 'repository', 'ref', 'environment', 'event_name'):
+              print(f'  {k:12} {d.get(k, \"(absent)\")}')
+          " "$payload")
+
+          {
+            echo "### OIDC identity"
+            echo ""
+            echo "Claims this run presents:"
+            echo '```'
+            echo "$claims"
+            echo '```'
+            echo ""
+            echo "The \`sub\` must match a StringLike entry in the role's"
+            echo "trust policy. Read the role's with:"
+            echo ""
+            echo '```'
+            echo "aws iam get-role --role-name <role> \\"
+            echo "  --query 'Role.AssumeRolePolicyDocument.Statement[0].Condition'"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo "OIDC claims presented by this run:"
+          echo "$claims"
+
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          # **The DEPLOY role, not the infrastructure one.** That role
+          # carries ec2:*, rds:*, route53:* and IAM writes; this
+          # workflow pushes an image and runs one command. Falls back
+          # to AWS_ROLE_ARN only so an un-migrated repository fails
+          # with the preflight's message rather than an empty input.
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN || vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: deploy-staging-${{ github.run_id }}
 
