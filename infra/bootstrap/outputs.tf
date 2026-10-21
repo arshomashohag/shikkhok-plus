@@ -32,3 +32,15 @@ output "next_steps" {
 }
 
 
+
+output "deploy_role_arn" {
+  description = <<-EOT
+    Set as the AWS_DEPLOY_ROLE_ARN variable in the `staging`
+    environment.
+
+    Separate from AWS_ROLE_ARN deliberately: that role can destroy
+    the infrastructure, this one can push an image and run one
+    command on a shikkhokplus-tagged host.
+  EOT
+  value       = aws_iam_role.deploy.arn
+}
