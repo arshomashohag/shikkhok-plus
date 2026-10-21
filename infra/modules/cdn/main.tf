@@ -122,7 +122,7 @@ resource "aws_cloudfront_distribution" "api" {
     # Taken from the local rather than a resource attribute, since
     # the record is written by the instance and not by Terraform.
     domain_name = local.origin_fqdn
-    origin_id   = "lightsail-origin"
+    origin_id   = "shikkhokplus-origin"
 
     custom_origin_config {
       http_port  = 80
@@ -146,7 +146,7 @@ resource "aws_cloudfront_distribution" "api" {
   }
 
   default_cache_behavior {
-    target_origin_id       = "lightsail-origin"
+    target_origin_id       = "shikkhokplus-origin"
     viewer_protocol_policy = "redirect-to-https"
 
     allowed_methods = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]

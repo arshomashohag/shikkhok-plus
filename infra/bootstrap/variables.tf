@@ -89,23 +89,6 @@ variable "create_github_oidc_provider" {
   default     = false
 }
 
-variable "trust_staging_environment" {
-  description = <<-EOT
-    Let the `staging` environment assume the CI role.
-
-    Off, and the default is the point. `deploy-staging.yml` does not
-    assume this role yet; when its SSM delivery step lands it will,
-    and the honest fix is a separate deploy role scoped to SSM and
-    ECR rather than widening this one -- which carries ec2:*, rds:*,
-    route53:* and IAM writes.
-
-    Turning this on is the expedient path. It works, and it hands a
-    container push the same permissions as a `terraform destroy`.
-  EOT
-  type        = bool
-  default     = false
-}
-
 variable "github_subject_has_numeric_ids" {
   description = <<-EOT
     Whether this account's GitHub OIDC subjects carry numeric ids,

@@ -34,13 +34,20 @@ data "aws_iam_policy_document" "deploy_assume" {
       values   = ["sts.amazonaws.com"]
     }
 
-    # Only the `staging` environment, and only from this repository.
+    # The deploy environments only, and only from this repository.
     # Not `ref:refs/heads/main`: a deploy is an environment-gated
     # action, so a push to main must not be able to assume this.
+    #
+    # Named rather than wildcarded, for the same reason as the infra
+    # role: `environment:*` would let any invented environment name
+    # assume this.
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["${local.subject_prefix}:environment:staging"]
+      values = [
+        "${local.subject_prefix}:environment:staging",
+        "${local.subject_prefix}:environment:production",
+      ]
     }
   }
 }
