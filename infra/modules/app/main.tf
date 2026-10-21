@@ -246,31 +246,43 @@ resource "aws_launch_template" "app" {
   # **No key_name.** A key pair would be a way in that bypasses IAM
   # and CloudTrail, which is what Session Manager exists to replace.
 
-  user_data = base64encode(templatefile("${path.module}/user_data.sh.tftpl", {
-    origin_secret      = random_password.origin_secret.result
-    ecr_repository_url = try(var.image_repository.url, "")
-    ecr_registry       = try(split("/", var.image_repository.url)[0], "")
-    name_prefix        = var.name_prefix
-    aws_region         = var.aws_region
-    dns_zone_id        = var.dns_zone_id
-    origin_fqdn        = var.origin_fqdn
-    # Read from git at apply time, so a replaced instance does not
-    # depend on a previous deploy having written this file to a disk
-    # that no longer exists.
-    compose_file = file("${path.root}/../deploy/docker-compose.staging.yml")
+  # **Comments stripped at render, kept in the file.** They were 54%
+  # of the script -- 7.6KB of explanation shipped to every instance,
+  # against a hard 16KB user_data limit the apply had already hit.
+  # The reasoning belongs in the repository, not in the launch
+  # template.
+  #
+  # Whole-line comments only, and never the shebang: an inline `#`
+  # may be inside a string, and a heredoc body is content rather than
+  # script.
+  user_data = base64encode(join("\n", [
+    for line in split("\n", templatefile("${path.module}/user_data.sh.tftpl", {
+      origin_secret      = random_password.origin_secret.result
+      ecr_repository_url = try(var.image_repository.url, "")
+      ecr_registry       = try(split("/", var.image_repository.url)[0], "")
+      name_prefix        = var.name_prefix
+      aws_region         = var.aws_region
+      dns_zone_id        = var.dns_zone_id
+      origin_fqdn        = var.origin_fqdn
+      # Read from git at apply time, so a replaced instance does not
+      # depend on a previous deploy having written this file to a disk
+      # that no longer exists.
+      config_bucket = var.config_bucket
 
-    # **The connection string is built HERE, not on the host.** The
-    # endpoint and password come from the database module, so the
-    # instance never has to assemble them from parts it might get
-    # wrong -- and the password reaches the host only through
-    # user_data, which is itself only readable from IMDS with a valid
-    # IMDSv2 token.
-    database_url = (
-      var.database_endpoint == null
-      ? ""
-      : "postgresql+psycopg://shikkhok:${var.database_password}@${var.database_endpoint}/shikkhokplus"
-    )
-  }))
+      # **The connection string is built HERE, not on the host.** The
+      # endpoint and password come from the database module, so the
+      # instance never has to assemble them from parts it might get
+      # wrong -- and the password reaches the host only through
+      # user_data, which is itself only readable from IMDS with a valid
+      # IMDSv2 token.
+      database_url = (
+        var.database_endpoint == null
+        ? ""
+        : "postgresql+psycopg://shikkhok:${var.database_password}@${var.database_endpoint}/shikkhokplus"
+      )
+    }))
+    : line if !startswith(trimspace(line), "#") || startswith(trimspace(line), "#!")
+  ]))
 
   block_device_mappings {
     device_name = "/dev/sda1"
@@ -380,6 +392,14 @@ resource "aws_iam_role_policy" "self_registration" {
           aws_ssm_parameter.image_tag.arn,
           aws_ssm_parameter.runtime_env.arn,
         ]
+      },
+      {
+        # The compose file, which used to be baked into user_data
+        # until the script crossed EC2's 16KB limit. Scoped to this
+        # host's own prefix.
+        Effect   = "Allow"
+        Action   = ["s3:GetObject"]
+        Resource = "arn:aws:s3:::${var.config_bucket}/${var.name_prefix}/*"
       },
       {
         # Decrypting the SecureString. The account default key, so no

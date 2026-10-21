@@ -200,3 +200,15 @@ variable "origin_subdomain" {
   type        = string
   default     = "origin"
 }
+
+variable "state_bucket" {
+  description = <<-EOT
+    The Terraform state bucket, reused to hold the host's compose
+    file. It already exists, is versioned and is encrypted; a second
+    bucket for one small object would be machinery for its own sake.
+
+    Supplied by the pipeline, which already knows it as
+    TF_STATE_BUCKET.
+  EOT
+  type        = string
+}
