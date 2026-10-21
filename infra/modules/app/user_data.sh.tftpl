@@ -301,7 +301,7 @@ chown ubuntu:ubuntu .env
 
 # Fetched rather than inlined: the script plus the compose file
 # crossed EC2's 16KB user_data limit.
-if ! aws s3 cp "s3://${config_bucket}/${name_prefix}/docker-compose.yml" \
+if ! aws s3 cp "s3://${config_bucket}/docker-compose.yml" \
      docker-compose.yml --region "${aws_region}" >/dev/null 2>&1; then
   echo "FAILED: could not fetch docker-compose.yml from S3" \
     > /var/log/shikkhokplus-provision.log
