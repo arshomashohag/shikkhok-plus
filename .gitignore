@@ -88,3 +88,9 @@ backup-*.sql
 *.auto.tfvars
 terraform.tfvars
 !*.tfvars.example
+
+*play_console*
+
+# macOS. Created by Finder in any directory it opens, so it turns up
+# inside asset folders rather than only at the root.
+.DS_Store

@@ -129,6 +129,20 @@ jobs:
                exit 1 ;;
           esac
 
+          # **Printed, because this value is baked into the APK and
+          # cannot be checked afterwards.** `vars.*` resolves
+          # environment -> repository -> organization, so a variable
+          # set at the wrong scope still works, silently, and builds
+          # an app pointing at the wrong backend. The release notes
+          # say nothing about it and the app behaves perfectly.
+          #
+          # Echoing it means the one chance to notice is in the log,
+          # before the AAB exists.
+          echo "Backend: $API_BASE_URL"
+          {
+            echo "| backend | \`$API_BASE_URL\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin

@@ -74,15 +74,30 @@ class Change:
 
 
 def previous_tag() -> str | None:
-    """Find the most recent release tag.
+    """Find the release tag before the current commit.
 
-    :return: The tag name, or None when no release has been tagged
+    **Excludes a tag pointing at HEAD itself.** The release workflow
+    runs on a tag push, so plain ``git describe`` returns the tag
+    being released -- and the range ``v1.0.0..HEAD`` is then empty by
+    definition, which failed the first real release.
+
+    :return: The tag name, or None when this is the first release
     """
-    result = subprocess.run(
-        ["git", "describe", "--tags", "--abbrev=0", "--match", "v*"],
+    head_tags = subprocess.run(
+        ["git", "tag", "--points-at", "HEAD", "--list", "v*"],
         capture_output=True,
         text=True,
         check=False,
+    ).stdout.split()
+
+    command = ["git", "describe", "--tags", "--abbrev=0", "--match", "v*"]
+    # Describe from the parent when HEAD is itself tagged, so the tag
+    # being released is not reported as the one preceding it.
+    if head_tags:
+        command.append("HEAD^")
+
+    result = subprocess.run(
+        command, capture_output=True, text=True, check=False
     )
     return result.stdout.strip() or None
 
@@ -220,11 +235,16 @@ def main() -> int:
     tag = previous_tag()
     subjects = commits_since(tag)
     if not subjects:
+        # **Not an error.** A release with no commits since the last
+        # one is unusual but legitimate -- a re-tag after a failed
+        # run, or a release built from an unchanged tree. Failing here
+        # would block it for no reason, and the notes below say
+        # plainly that nothing changed.
         print(
-            f"No commits since {tag or 'the start of history'}.",
+            f"No commits since {tag or 'the start of history'}; "
+            "writing an empty section.",
             file=sys.stderr,
         )
-        return 1
 
     changes = parse(subjects)
     section = changelog_section(args.version, changes)

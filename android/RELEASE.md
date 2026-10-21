@@ -12,38 +12,78 @@ which builds, runs both gates, signs, and attaches everything to a
 
 ### 1. The upload key
 
-**Generate it once and never lose it.** With Play App Signing, Google
-holds the real signing key and this is only the *upload* key — losing
-it is recoverable through Play support, which is the entire reason to
-use App Signing rather than managing the signing key yourself.
-
 ```bash
-keytool -genkeypair -v \
-  -keystore upload.jks \
-  -alias upload \
-  -keyalg RSA -keysize 4096 -validity 10000
+make android-key
 ```
 
-Store `upload.jks` somewhere durable and outside the repository. Then:
+Generates it at `~/.shikkhokplus/upload.jks` — outside the repository,
+because no `.gitignore` rule catches a `.jks` you did not expect to
+create, and a committed signing key means rotating through Play
+support.
+
+It asks for a keystore password (**save it now**), a name, and a
+country code. Press Enter at the key-password prompt to reuse the
+keystore password.
+
+The target refuses to overwrite an existing keystore. Regenerating one
+after a release means Play rejects every future upload for this app,
+permanently, and no command here can undo that.
+
+**Losing this is not a normal mistake.** With Play App Signing, Google
+holds the real signing key and this is only the *upload* key, so loss
+is recoverable through Play support. Keep the file and the password
+somewhere durable before you need them.
 
 ```bash
-base64 -i upload.jks | pbcopy
+make android-key-info     # fingerprints and expiry
 ```
 
 ### 2. Secrets, under Settings → Environments → `android-release`
 
-| Name | Value |
-|---|---|
-| `ANDROID_KEYSTORE_BASE64` | the clipboard contents from above |
-| `ANDROID_KEYSTORE_PASSWORD` | the store password you chose |
-| `ANDROID_KEY_ALIAS` | `upload` |
-| `ANDROID_KEY_PASSWORD` | the key password you chose |
+```bash
+make android-key-secrets
+```
 
-And one variable:
+Prints everything to paste, after verifying the base64 round-trips —
+a corrupt secret otherwise surfaces in CI as an opaque Gradle signing
+error rather than as "the secret is wrong".
 
-| Name | Value |
-|---|---|
-| `ANDROID_API_BASE_URL` | `https://api.shikkhokplus.nirmatabd.com` |
+| Name | Kind | Where |
+|---|---|---|
+| `ANDROID_KEYSTORE_BASE64` | secret | `android-release` environment |
+| `ANDROID_KEYSTORE_PASSWORD` | secret | `android-release` environment |
+| `ANDROID_KEY_ALIAS` | secret | `android-release` environment |
+| `ANDROID_KEY_PASSWORD` | secret | `android-release` environment |
+| `ANDROID_API_BASE_URL` | variable | `android-release` environment |
+
+**All five in the environment, not at repository scope.** A repository
+variable would work today — `vars.*` resolves environment, then
+repository, then organization — but the fallback is the problem rather
+than the convenience.
+
+The base URL is compiled into the APK as `BuildConfig.API_BASE_URL`,
+so a wrong one produces an app that works perfectly against the wrong
+backend, and nothing reports it. Scoped to the environment, adding a
+`production` environment later means naming its backend explicitly or
+failing the preflight. At repository scope, production would silently
+inherit staging's URL and ship.
+
+The secrets belong there for a different reason: the environment is
+what stops a workflow edit on any branch from reading the upload key.
+
+The resolved URL is echoed in the build log and the run summary, since
+it is the only moment it can be checked before the AAB exists.
+
+The base64 value is long, and selecting it from scrollback is where a
+truncated paste comes from:
+
+```bash
+make android-key-copy     # macOS: straight to the clipboard
+```
+
+The password is not printed. `make` cannot read it back out of the
+keystore, and echoing one you typed would put it somewhere it does not
+need to be.
 
 The workflow refuses a non-https base URL. A release build talks to
 the real backend over the public internet carrying phone numbers and
