@@ -125,6 +125,14 @@ install -d -o ubuntu -g ubuntu -m 0750 /srv/shikkhokplus
 # The AWS CLI, for `ecr get-login-password`. Ubuntu's apt version is
 # v1 and too old for some ECR flows, so the official v2 bundle is
 # installed instead -- arm64, matching the host.
+# **PATH is set explicitly.** cloud-init runs this as root with a
+# minimal environment, and the CLI v2 installer puts `aws` in
+# /usr/local/bin -- which is not reliably on root's PATH here. Without
+# this the install succeeds and the next `aws` call fails with
+# "command not found", which under `set -e` aborts the boot at a step
+# that looks unrelated.
+export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
+
 if ! command -v aws >/dev/null 2>&1; then
   curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" \
     -o /tmp/awscliv2.zip
@@ -132,6 +140,18 @@ if ! command -v aws >/dev/null 2>&1; then
   unzip -q /tmp/awscliv2.zip -d /tmp
   /tmp/aws/install
   rm -rf /tmp/aws /tmp/awscliv2.zip
+fi
+
+# **Asserted, because every step after this needs it.** An install
+# that half-succeeded leaves a boot that fails three steps later with
+# a message about DNS or SSM rather than about the CLI.
+if ! aws --version >/dev/null 2>&1; then
+  {
+    echo "FAILED: the AWS CLI is not usable after install"
+    echo "  which aws: $(command -v aws || echo 'not found')"
+    echo "  PATH: $PATH"
+  } > /var/log/shikkhokplus-provision.log
+  exit 1
 fi
 
 # **A credential helper rather than a stored login.** `docker login`
@@ -207,13 +227,26 @@ cat > /tmp/dns-register.json <<DNSJSON
 }
 DNSJSON
 
-aws route53 change-resource-record-sets \
-  --hosted-zone-id "${dns_zone_id}" \
-  --change-batch file:///tmp/dns-register.json \
-  --region us-east-1 >/dev/null || {
-    echo "FAILED: DNS self-registration" > /var/log/shikkhokplus-provision.log
-    exit 1
-  }
+# **The error is captured, not discarded.** An earlier version piped
+# stdout to /dev/null and wrote only "FAILED: DNS self-registration",
+# which threw away the one thing needed to diagnose it -- AWS reports
+# the reason on stderr, and the handler lost that too. The boot log
+# then said a step failed and nothing about why.
+if ! dns_error=$(aws route53 change-resource-record-sets \
+    --hosted-zone-id "${dns_zone_id}" \
+    --change-batch file:///tmp/dns-register.json \
+    --region us-east-1 2>&1); then
+  {
+    echo "FAILED: DNS self-registration"
+    echo "  zone:  ${dns_zone_id}"
+    echo "  name:  ${origin_fqdn}"
+    echo "  value: $PUBLIC_IP"
+    echo "  aws cli: $(command -v aws || echo 'NOT INSTALLED')"
+    echo "  error:"
+    echo "$dns_error" | sed 's/^/    /'
+  } > /var/log/shikkhokplus-provision.log
+  exit 1
+fi
 rm -f /tmp/dns-register.json
 echo "Registered ${origin_fqdn} -> $PUBLIC_IP"
 
