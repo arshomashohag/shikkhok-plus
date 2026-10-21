@@ -152,29 +152,57 @@ resource "aws_security_group" "app" {
 # whole point: there is no SSH rule to misconfigure, widen or forget to
 # close, because there is no SSH.
 
+# **The CloudFront origin-facing prefix list, maintained by AWS.**
+#
+# An earlier version left 443 open to 0.0.0.0/0, reasoning that
+# CloudFront publishes 214 origin-facing ranges and keeping that list
+# current in a security group fails silently when AWS adds one. That
+# reasoning was right about the ranges and wrong about the options:
+# AWS publishes them AS a managed prefix list, which a rule
+# references by id and AWS keeps current. It counts as one rule, and
+# it is free.
+#
+# So the shared-secret header nginx checks is now the SECOND layer
+# rather than the only one. A direct request to the instance's
+# address is refused by the security group and never reaches nginx at
+# all.
+data "aws_ec2_managed_prefix_list" "cloudfront" {
+  name = "com.amazonaws.global.cloudfront.origin-facing"
+}
+
+data "aws_ec2_managed_prefix_list" "cloudfront_ipv6" {
+  name = "com.amazonaws.global.ipv6.cloudfront.origin-facing"
+}
+
 resource "aws_vpc_security_group_ingress_rule" "https" {
   security_group_id = aws_security_group.app.id
-  description       = "HTTPS from CloudFront; the origin secret is the real gate"
+  description       = "HTTPS from CloudFront only"
 
-  # Open, because CloudFront publishes 214 origin-facing ranges and
-  # keeping that list current in a security group is a maintenance
-  # burden that fails silently when AWS adds a range. nginx rejects
-  # anything without the shared secret header.
-  cidr_ipv4   = "0.0.0.0/0"
-  from_port   = 443
-  to_port     = 443
-  ip_protocol = "tcp"
+  prefix_list_id = data.aws_ec2_managed_prefix_list.cloudfront.id
+  from_port      = 443
+  to_port        = 443
+  ip_protocol    = "tcp"
 }
 
-resource "aws_vpc_security_group_ingress_rule" "http" {
+resource "aws_vpc_security_group_ingress_rule" "https_ipv6" {
   security_group_id = aws_security_group.app.id
-  description       = "HTTP, redirected to HTTPS. A timeout reads as an outage"
+  description       = "HTTPS from CloudFront over IPv6"
 
-  cidr_ipv4   = "0.0.0.0/0"
-  from_port   = 80
-  to_port     = 80
-  ip_protocol = "tcp"
+  # The distribution answers viewers over IPv6 and may reach the
+  # origin the same way. Without this, those requests are refused by
+  # the security group and the failure looks intermittent -- some
+  # viewers served, some not, depending on their network.
+  prefix_list_id = data.aws_ec2_managed_prefix_list.cloudfront_ipv6.id
+  from_port      = 443
+  to_port        = 443
+  ip_protocol    = "tcp"
 }
+
+# **No port 80 rule.** It existed so a plain-http request got a
+# redirect rather than a timeout, which reads as an outage. But
+# CloudFront talks to this origin over https only, so the rule served
+# nobody except someone hitting the instance address directly -- and
+# that is exactly what this change closes.
 
 # Outbound: everything. The host needs it for the SMS gateway, package
 # updates, and -- critically -- for the SSM agent, which reaches AWS
