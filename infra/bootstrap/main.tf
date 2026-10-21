@@ -252,27 +252,26 @@ data "aws_iam_policy_document" "ci_assume" {
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values = concat(
-        [
-          "${local.subject_prefix}:ref:refs/heads/main",
-          "${local.subject_prefix}:environment:terraform-plan",
-          "${local.subject_prefix}:environment:terraform-apply",
-        ],
-        # `deploy-staging.yml` runs in the `staging` environment and
-        # does NOT assume this role today -- it only builds an image.
-        # When the SSM delivery step lands it will need AWS access,
-        # and it will fail at role assumption until this is enabled.
+      values = [
+        # **`<env>-infra`, matching the environments the deploy
+        # pipeline actually uses.** These were `terraform-plan` and
+        # `terraform-apply`, named for a workflow that no longer
+        # exists -- so after the pipelines were unified this role
+        # trusted two environments nothing runs in, and the
+        # infrastructure job failed at role assumption.
         #
-        # That failure is deliberate. Under the old `environment:*`
-        # the deploy job would have quietly inherited the full
-        # infrastructure policy -- ec2:*, rds:*, route53:*, IAM writes
-        # -- to push one container. A deploy credential should be its
-        # own narrow role, so turning this on is a decision to make
-        # with that in view, not a line to flip past.
-        var.trust_staging_environment
-        ? ["${local.subject_prefix}:environment:staging"]
-        : [],
-      )
+        # Named rather than `environment:*`: a wildcard means any
+        # string somebody writes after `environment:` in a workflow
+        # file, so anyone able to push a branch could add
+        # `environment: whatever` and assume the role that can
+        # destroy this infrastructure.
+        "${local.subject_prefix}:environment:staging-infra",
+        "${local.subject_prefix}:environment:production-infra",
+
+        # Kept so a `terraform apply` can still be run from main if
+        # the pipeline is ever unavailable.
+        "${local.subject_prefix}:ref:refs/heads/main",
+      ]
     }
   }
 }
