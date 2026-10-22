@@ -3,48 +3,74 @@
 **Stage**: delivery-planning (2.9)
 **Phase**: Inception
 **Depth**: Comprehensive
+**Revision**: re-run 2026-10-22. Supersedes the 2026-10-18 map; four of its
+seven rows have since resolved, and the rest are re-pointed at the deliverable
+units that now carry them.
 
 > Everything outside this build that can hold it up: who owns it, how long it
-> takes, which Bolt it blocks, and what happens if it slips.
+> takes, which deliverable unit it blocks, and what happens if it slips.
+>
+> A **deliverable unit** (D1–D6) groups one or more Bolts — one build pass over
+> a piece of work, ending in something that runs — by what a person can do when
+> the group ships. `bolt-plan.md` defines them.
 
 ## Sources
 
 - [upstream] `inception/contract-design/contract-summary.md` — OQ-1..OQ-5, OQ-7
 - [upstream] `inception/units-generation/unit-of-work.md`
 - [team] the affirmed Deployment practice and its budget ceiling
+- [code] the built state on disk, read 2026-10-22
 
 ---
 
-## D. External dependencies
+## A. Resolved since the last revision
+
+Kept rather than deleted, so a reader does not re-open a settled question.
+
+| Dependency | Resolution |
+|---|---|
+| **SMS gateway vendor** (OQ-3) | **Resolved 2026-10-18: BulkSMSBD**, and now implemented — `app/gateway/bulksmsbd.py`, with a null adapter and an outbox alongside it. `contract-summary.md` §C.4 records six binding behaviours probed against the live endpoint. |
+| **Hosting** | **Resolved and deployed.** `infra/` carries the full Terraform estate; the deployment pipeline builds, provisions and deploys per environment. This went further than the original Lightsail plan. |
+| **FCM project setup** | Not yet needed. It blocks D3, which owns the adapter, rather than anything earlier. Self-service, hours. The real obligation is unchanged: the Firebase dependency is checked against the forbidden-identifier set *before* it is added, and the manifest allowlist and DEX scan are the mechanism. Both of those gates are **built** (`android/release-gates.gradle.kts`), so this control is live. |
+| **Play Console listing assets** | Produced — icon, feature graphic, phone and tablet screenshots, and an explainer video, under `store_listing/`. |
+
+**Still open from that row, and still unanswered:** OQ-3a (does BulkSMSBD offer a
+sandbox? `team.md`'s non-production practice is not satisfiable as written
+without one, though CI is unaffected because the gateway is stubbed there) and
+OQ-3b (is the Bangla-body rule enforced for OTP traffic? a 3–4× per-OTP cost
+multiplier if so, feeding [D-33]'s ceiling). Neither blocks a build.
+
+---
+
+## B. Open dependencies
 
 | Dependency | Owner | Lead time | Blocks | Fallback if it slips |
 |---|---|---|---|---|
-| ~~**SMS gateway vendor selection** (OQ-3)~~ — **RESOLVED 2026-10-18: the vendor is BulkSMSBD.** Option (a) below was taken: the choice was made before Construction reached B3, so the skeleton's verification command can be satisfied as `team.md` writes it — an SMS through the real gateway. `contract-summary.md` §C.4 records six binding implementation behaviours, each probed against the live endpoint with an invalid key only. **Two narrower questions remain open and neither blocks B3's build:** OQ-3a (is there a sandbox? — `team.md`'s non-production practice is not satisfiable as written without one, though CI is unaffected since the gateway is stubbed there) and OQ-3b (is the Bangla-body rule enforced for OTP traffic? — a 3–4× per-OTP cost multiplier if so, which feeds [D-33]'s ceiling). The per-purpose ceiling can now be calibrated against real pricing. |
-| **Play Console account** — creation, identity verification, and the account-type question (a personal account created after 13 Nov 2023 requires 12 testers opted in continuously for 14 days before production access; the pilot group was described as smaller than that) | The human. | Account creation and identity verification: **days to a few weeks**, variable by jurisdiction and document turnaround — Google does not publish a committed SLA and I will not state one. The **12-tester/14-day closed-testing window is 14 continuous days minimum**, and that clock cannot start before an AAB is uploadable. | **B4** (first upload to the internal track) and, decisively, **B11** and the release itself. | This is the single strongest argument for B4 at position 4: it starts the Play clock roughly six Bolts earlier than a terminal U10 would. If the account type turns out to be the post-2023 personal type and 12 testers cannot be found, the fallback is an organisation account — which is a *different, longer* verification path (D-U-N-S number and business verification), so discovering this late is materially worse than discovering it now. **I recommend resolving the account-type question before Construction starts, not at B4.** |
-| **Teacher onboarding mechanism for closed testing** — no admin surface exists in V1 and none is budgeted | The human. | Unknown; depends on the chosen mechanism. | The closed-testing pilot, not any Bolt. | The mechanism is almost certainly direct `psql` against production under the named-non-superuser + logged-session rule `team.md` already mandates. That is acceptable but it must be *decided and runbooked* rather than improvised on the day, because the alternative is an ad-hoc production session against children's data. Note the standing prohibition: no production query result containing child-identifying data goes into a local file, a chat, or an AI tool context. |
-| **Lightsail staging + production hosts**, `ap-southeast-1` or `ap-south-1`, with storage encryption (RC-8 disqualifies any tier without it) | The human (AWS account, payment method). | **Hours.** Lightsail instance provisioning is minutes; the AWS account and payment method are the real gate, and if an account already exists this is effectively zero. | **B3** — the skeleton is bound to "running against the real Phase 1 Lightsail host." | None needed; this is the lowest-risk external dependency. Budget check: staging + production takes Phase 1 from ~USD 13 to ~USD 25/month against the USD 50 ceiling, already accepted in `team.md`. |
-| **FCM project setup** — Firebase project, server credentials, Android app registration | The human, but low-friction. | **Hours.** Self-service. | **B6**, which owns the adapter. | Push is best-effort by design and never fails its caller, so B6's non-push DoD is unaffected. The real obligation here is not the setup but the **SDK admission note** [project.md]: the Firebase dependency must be checked against the forbidden-identifier set before it is added, and B4's manifest allowlist and DEX scan are the mechanism — another reason B4 precedes B6. |
-| **OQ-1 — does `PaymentClaim.transaction_id` survive the claimant's deletion?** | The human (product and legal judgement). | Unknown; a decision, not a procurement. | **B11**'s manifest and generated policy text, and **B7**'s payment-history response schema, which must know whether the field can be null post-deletion. | B7 ships the field as nullable regardless, which is the answer-agnostic choice and costs nothing. But B11 cannot generate policy text against an undecided row. **Must be closed before B11 starts; ideally before B7, so the schema is not revisited.** |
-| **OQ-5 — the external deletion route's web surface, unconfirmed against Play's expectations for a deletion URL** | The human (hosting and compliance confirmation). | Unknown. Confirmable by reading Play's current account-deletion-URL requirements, which is cheap. | **B11**, which is release-blocking. | The contract assumes FastAPI-served HTML on the existing container, which is the only option under the USD 50/month ceiling. A separate static host would change the path, not the semantics — so the fallback is cheap *if discovered early* and a release blocker if discovered at B11. **Recommend confirming during B4, when Play Console access first exists.** |
-| **OQ-2 — FR8.3's collection-rate definition, open to correction, with AC8.3.4's credit rule postdating it** | The human. | Unknown. | **B10**. | B10 is position 10, which buys the maximum possible interval. If it is still open at B10, ship B10 without the `collection_rate` field rather than with provisional arithmetic — the field can be added additively under the `/v1/` policy, whereas a wrong number pinned into a client in the field cannot be withdrawn. |
+| **Play Console account type** — a personal account created after 13 Nov 2023 requires 12 testers opted in continuously for 14 days before production access; the pilot group was described as smaller than that | The human. | Account creation and identity verification: **days to a few weeks**, variable by jurisdiction and document turnaround. Google publishes no committed SLA and none is invented here. The **12-tester/14-day window is 14 continuous days minimum**, and that clock cannot start before an AAB is uploadable. | **D6** and the release itself. The first internal-track upload is no longer gated on a packaging unit — the release gates are built and an installable APK exists — so this is now purely an account question. | If it is the post-2023 personal type and twelve testers cannot be found, the fallback is an organisation account, which is a **different and longer** verification path (D-U-N-S number, business verification). **This is now the most schedule-dangerous open item in the plan**, because the original mitigation — starting the Play clock early via a packaging Bolt at position 4 — did not happen: packaging shipped its gates without an upload. Recommend resolving the account type now, independently of any unit. |
+| **OQ-1 — does `PaymentClaim.transaction_id` survive the claimant's deletion?** | The human (product and legal judgement). | Unknown; a decision, not a procurement. | **D6**'s manifest and generated policy text, and **D3**'s payment-history response schema, which must know whether the field can be null post-deletion. | D3 ships the field as nullable regardless — the answer-agnostic choice, and it costs nothing. D6 cannot generate policy text against an undecided row. **Must close before D6; ideally before D3, so the schema is not revisited.** |
+| **OQ-5 — the external deletion route's web surface, unconfirmed against Play's expectations for a deletion URL** | The human (hosting and compliance confirmation). | Unknown, and cheap to confirm by reading Play's current account-deletion-URL requirements. | **D6**, which is release-blocking. | The contract assumes FastAPI-served HTML on the existing container. A separate static host would change the path, not the semantics — cheap *if discovered early*, a release blocker if discovered at D6. **Recommend confirming as soon as Play Console access exists.** |
+| **OQ-2 — FR8.3's collection-rate definition, open to correction, with AC8.3.4's credit rule postdating it** | The human. | Unknown. | **D5**. | D5 sits fifth of six, which buys the maximum remaining interval. If still open when D5 arrives, ship D5 **without** the `collection_rate` field rather than with provisional arithmetic: a field is additive under the `/v1/` policy, a wrong number pinned into an installed client cannot be withdrawn. |
+| **Teacher onboarding mechanism for closed testing** — no admin surface exists in V1 and none is budgeted | The human. | Unknown; depends on the mechanism. | The closed-testing pilot, not any unit. | **Materially cheaper than it was.** D1 builds account creation, so a teacher can now sign themselves up rather than being inserted by hand — which was the whole reason this row existed. What remains is only whether pilot teachers self-serve or are invited, and direct `psql` under the named-non-superuser and logged-session rule stays the fallback. The standing prohibition holds: no production query result containing child-identifying data goes into a local file, a chat, or an AI tool context. |
+
+---
+
+## C. New dependencies introduced by this revision
+
+| Dependency | Owner | Blocks | Note |
+|---|---|---|---|
+| **The Macrobenchmark harness and low-end-device profile** | This build; not external. | **D4**'s PU-3.6 obligation, while scheduled in **D5**. | Listed here because it behaves exactly like an external dependency: a prerequisite that a blocked unit cannot satisfy for itself. It is the one genuine sequencing defect in this plan and `risk-and-sequencing-rationale.md` §D.1 names the three ways out. Not an external procurement — just work that must move. |
 
 ---
 
 ## Assumptions & Open Questions
 
-Three of these want resolving **before Construction starts**, not when the
-blocking Bolt arrives:
+Two items want resolving **now**, independently of the unit that blocks on them:
 
-1. **The SMS vendor**, because without one the walking-skeleton checkpoint
-   cannot be satisfied as the affirmed practice words it — "an SMS arrives
-   through the real gateway." Starting selection as a B1/B2-parallel activity
-   costs only an early decision.
-2. **The Play account type**, because if it is the post-2023 personal type and
-   twelve testers cannot be found, the fallback is an organisation account with
-   a longer verification path. Discovering that at B4 is materially worse than
-   discovering it now.
-3. **OQ-5**, confirmable cheaply by reading Play's current account-deletion-URL
-   requirements — and a release blocker if it surfaces at B11.
+1. **The Play account type.** The original plan's mitigation was to start the
+   Play clock six Bolts early; that did not happen, so the full 14-day window
+   now sits on the critical path to release with nothing absorbing it.
+2. **OQ-5**, confirmable in minutes by reading Play's current requirements, and
+   a release blocker if it surfaces at D6.
 
 Lead times are stated as **unknown** where they are genuinely unknown. No figure
 here is invented to make a schedule look firmer than it is.
