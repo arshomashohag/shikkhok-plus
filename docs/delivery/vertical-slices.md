@@ -142,6 +142,87 @@ Neither field O1 collects has anywhere to go:
   account. Where a self-signed-up student's own name lives is a real
   modelling question rather than a column to add casually.
 
+## Decided 2026-10-22: free to use, and lenses chosen at login
+
+Two changes, recorded together because they arrived together.
+
+### The app charges nobody
+
+No teacher, student or guardian pays ShikhokPlus. **This removes the
+platform subscription, not the fee system** — teachers still record
+and collect tuition from their own students, which is the product's
+core feature and all of `T4`, `T5` and `S3`.
+
+Nothing to delete in code: "subscription" appears only in a comment
+explaining why `Owner` exists as an indirection, and no billing was
+ever built. One affirmed rule in `project.md` still mentions it —
+*"visibility is limited to subscriber information — teacher name,
+plan and payment status"* [TC-14, D-6]. That rule is a practices-gate
+artifact and is **not edited here**; it needs the learnings ritual,
+and the correction is narrow: an administrator sees teacher name
+only, since plan and payment status no longer exist.
+
+### Every lens at login, data per lens on demand
+
+Sign in → the app learns which lenses the account has → the person
+picks one → that lens's data is fetched → every screen offers a
+switcher.
+
+This replaces the implicit "you are a teacher" the app assumes today,
+and it is what finally serves the `FR1.4` account that is a teacher
+in one place and a guardian in another.
+
+**Measured before being adopted**, at 50,000 accounts and 200,000
+enrollments — 500× the 100-teacher target:
+
+| Query | Time | Buffers | Plan |
+|---|---|---|---|
+| Lens resolution, as built | 0.23 ms | 17 | 3 index scans, no seq scan |
+| Fetch-everything summary | **0.20 ms** | **14** | all index-ONLY scans |
+| The busiest account in the set | 0.10 ms | — | index-only |
+
+The summary is *cheaper* than the existing lens query: it reads the
+same three indexes and never touches the heap.
+
+**Why it stays flat as data grows**, which is the requirement rather
+than the measurement: every lookup is `WHERE <column> = :account_id`
+against a B-tree, so it is O(log n) in the table and O(1) in the
+rows that belong to this account. Going from 200k to 20M enrollments
+adds about two tree levels, not 100× the work. The cost tracks how
+much data is *yours*, never how much exists.
+
+What would break that is a query with no `account_id` in its
+predicate. None exists, and the route-enumeration test is what keeps
+it so: every endpoint must resolve a lens, and the lens *carries* the
+scoping id, so such a query cannot be written without deleting the
+dependency first.
+
+### What this does NOT add
+
+- **No cached summary table and no denormalised counts.** They cost
+  more to maintain than the indexes cost to read, and they
+  reintroduce the staleness `BR1.1` exists to prevent.
+- **No eager per-lens data at login.** Loading every batch's roster
+  up front is the one thing in this design that *would* grow with the
+  data. The summary carries counts; a lens's rows arrive when it is
+  chosen.
+
+### The slice
+
+`GET /v1/me` returns every lens the account has, with a count each:
+
+```
+{"lenses": [
+   {"kind": "teacher",  "batches": 6},
+   {"kind": "student",  "enrollments": 4},
+   {"kind": "guardian", "children": 4}
+]}
+```
+
+One statement, the same three indexes. The app renders the picker
+from it, and a single-lens account skips the picker entirely rather
+than being shown a list of one.
+
 ## The re-scoped sequence
 
 Each slice below is independently installable and demonstrable on a
