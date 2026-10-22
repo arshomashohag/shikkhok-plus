@@ -74,4 +74,16 @@
     <string name="student_add_submit">Add student</string>
     <string name="action_cancel">Cancel</string>
     <string name="fee_inherits">Uses the class fee</string>
+
+    <!-- Batch list, from the design system's T6 artboard. The empty
+         state explains what a batch IS, because a teacher seeing this
+         screen for the first time has not met the word yet. -->
+    <string name="batches_empty_title">No batches yet</string>
+    <string name="batches_empty_body">A batch is one group you teach together: a subject, its class days and a monthly fee.</string>
+    <string name="batches_create_first">Create first batch</string>
+    <string name="batches_error_title">Couldn\'t load your batches</string>
+    <string name="batches_count">%1$d batches · %2$d students</string>
+    <string name="batches_loading_label">Loading…</string>
+    <string name="batches_fee_per_month">%1$s/mo</string>
+    <string name="auth_code_auto_checks">It checks by itself after the sixth digit. There\'s no button to press.</string>
 </resources>

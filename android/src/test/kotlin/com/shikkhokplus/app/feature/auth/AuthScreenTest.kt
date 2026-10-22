@@ -6,13 +6,12 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import com.shikkhokplus.app.feature.auth.ui.AuthScreen
-import com.shikkhokplus.app.feature.auth.ui.TAG_CODE_FIELD
+import com.shikkhokplus.app.core.designsystem.TAG_OTP_FIELD as TAG_CODE_FIELD
 import com.shikkhokplus.app.feature.auth.ui.TAG_ERROR
 import com.shikkhokplus.app.feature.auth.ui.TAG_PHONE_FIELD
 import com.shikkhokplus.app.feature.auth.ui.TAG_REQUEST_CODE
 import com.shikkhokplus.app.feature.auth.ui.TAG_RETRY
 import com.shikkhokplus.app.feature.auth.ui.TAG_SENDING
-import com.shikkhokplus.app.feature.auth.ui.TAG_VERIFY
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -86,18 +85,38 @@ class AuthScreenTest {
     fun `awaiting a code shows the code field`() {
         render(AuthUiState.AwaitingCode)
         compose.onNodeWithTag(TAG_CODE_FIELD).assertIsDisplayed()
-        compose.onNodeWithTag(TAG_VERIFY).assertIsDisplayed()
     }
 
     @Test
-    fun `submitting a code passes it through`() {
+    fun `the sixth digit submits the code with no button press`() {
+        // **Stronger than the assertion it replaces.** The old test
+        // typed six digits and clicked a Verify button, which proved
+        // the button was wired. This proves the behaviour the design
+        // actually specifies: the check fires on the sixth digit and
+        // there is no button to press. A regression that reintroduced
+        // a required tap would fail here, where before it would have
+        // passed.
         var submitted: String? = null
         render(AuthUiState.AwaitingCode, onSubmitCode = { submitted = it })
 
         compose.onNodeWithTag(TAG_CODE_FIELD).performTextInput("123456")
-        compose.onNodeWithTag(TAG_VERIFY).performClick()
 
         assertEquals("123456", submitted)
+    }
+
+    @Test
+    fun `five digits do not submit`() {
+        // The other half of the same rule, and the half that catches a
+        // formatter which fired on every keystroke: an incomplete code
+        // must not be sent, or the server counts failed attempts
+        // against a user who is still typing — and five of those burn
+        // the attempt ceiling [BR2.3].
+        var submitted: String? = null
+        render(AuthUiState.AwaitingCode, onSubmitCode = { submitted = it })
+
+        compose.onNodeWithTag(TAG_CODE_FIELD).performTextInput("12345")
+
+        assertEquals(null, submitted)
     }
 
     @Test

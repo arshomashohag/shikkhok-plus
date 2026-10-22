@@ -72,4 +72,14 @@
     <string name="student_add_submit">যোগ করুন</string>
     <string name="action_cancel">বাতিল</string>
     <string name="fee_inherits">ক্লাসের ফি প্রযোজ্য</string>
+
+    <!-- ব্যাচ তালিকা -->
+    <string name="batches_empty_title">এখনও কোনও ব্যাচ নেই</string>
+    <string name="batches_empty_body">ব্যাচ হল একসঙ্গে পড়ানো একটি দল: একটি বিষয়, ক্লাসের দিন এবং মাসিক ফি।</string>
+    <string name="batches_create_first">প্রথম ব্যাচ তৈরি করুন</string>
+    <string name="batches_error_title">ব্যাচ তালিকা লোড করা যায়নি</string>
+    <string name="batches_count">%1$d ব্যাচ · %2$d জন শিক্ষার্থী</string>
+    <string name="batches_loading_label">লোড হচ্ছে…</string>
+    <string name="batches_fee_per_month">%1$s/মাস</string>
+    <string name="auth_code_auto_checks">ছয়টি সংখ্যা দেওয়ার পর নিজেই যাচাই হবে। কোনও বাটন চাপতে হবে না।</string>
 </resources>
