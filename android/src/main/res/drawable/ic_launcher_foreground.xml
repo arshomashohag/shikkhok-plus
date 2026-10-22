@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The ShikhokPlus mark: a teacher and a student behind an open book,
+  with a tick that rises into an arrow.
+
+  **108dp canvas, 66dp safe zone.** The adaptive-icon spec crops this
+  to whatever shape the launcher wants, so everything load-bearing sits
+  inside the middle 66dp. The design's own artboard records that safe
+  zone, which is why the figures are drawn where they are.
+
+  **Drawn as vectors, not exported as PNGs.** One file covers every
+  density, there is nothing to regenerate when a size is added, and it
+  stays legible at the 48dp launcher size where a downscaled bitmap
+  goes muddy.
+
+  **The book is a gap in the background colour, not a line.** That is
+  the design's construction: the white strokes carve the book out of
+  the figures rather than drawing over them, which is what keeps the
+  shape readable when the icon is small.
+
+  Colours are literal rather than theme references: a launcher icon is
+  composited by the system, outside any Compose theme.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- The teacher: primary blue, drawn white here because the
+         background tile is already blue. -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M40,33 m-9,0 a9,9 0 1,0 18,0 a9,9 0 1,0 -18,0" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M28,84 V56 a12,12 0 0 1 24,0 v28 Z" />
+
+    <!-- The student: the lighter step of the same blue. -->
+    <path
+        android:fillColor="#A9C7FF"
+        android:pathData="M64,42 m-7,0 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0" />
+    <path
+        android:fillColor="#A9C7FF"
+        android:pathData="M54,84 V63 a10,10 0 0 1 20,0 v21 Z" />
+
+    <!-- The open book, carved out in the tile's own blue. -->
+    <path
+        android:strokeColor="#1D4F91"
+        android:strokeWidth="2.4"
+        android:strokeLineJoin="round"
+        android:pathData="M40,63 c6,0 10,2 13,5 v16 c-3,-3 -7,-4 -13,-4 Z" />
+    <path
+        android:strokeColor="#1D4F91"
+        android:strokeWidth="2.4"
+        android:strokeLineJoin="round"
+        android:pathData="M66,63 c-6,0 -10,2 -13,5 v16 c3,-3 7,-4 13,-4 Z" />
+
+    <!-- The tick-arrow, knocked out of the figures first so it reads
+         as a single continuous stroke passing in front of them. -->
+    <path
+        android:strokeColor="#1D4F91"
+        android:strokeWidth="8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M46,72 L53,80 L79,41.5" />
+    <path
+        android:fillColor="#1D4F91"
+        android:strokeColor="#1D4F91"
+        android:strokeWidth="4"
+        android:strokeLineJoin="round"
+        android:pathData="M85.6,31.8 L84.7,42.1 L76.4,36.5 Z" />
+
+    <!-- The stroke itself, in the student's blue: progress belongs to
+         the learner. -->
+    <path
+        android:strokeColor="#A9C7FF"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M46,72 L53,80 L79,41.5" />
+    <path
+        android:fillColor="#A9C7FF"
+        android:strokeColor="#A9C7FF"
+        android:strokeWidth="1.5"
+        android:strokeLineJoin="round"
+        android:pathData="M85.6,31.8 L84.7,42.1 L76.4,36.5 Z" />
+</vector>

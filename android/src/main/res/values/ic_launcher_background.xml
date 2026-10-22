@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      The icon tile. Primary blue #1D4F91, the same action blue the
+      app uses, so the launcher icon and the first screen agree.
+      
+      A colour rather than a drawable: the system can then letterbox or
+      mask it to any launcher shape without resampling an image.
+    -->
+    <color name="ic_launcher_background">#1D4F91</color>
+
+</resources>

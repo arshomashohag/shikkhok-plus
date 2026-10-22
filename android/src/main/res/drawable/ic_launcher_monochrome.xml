@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The themed-icon layer, for Android 13 and up.
+  
+  **One colour, no fills of its own.** The system tints this layer to
+  match the user's wallpaper palette, so every path has to be solid
+  white and the shapes have to read without the two-tone distinction
+  the full-colour icon uses. The book outline is therefore dropped: as
+  a knocked-out gap it would vanish once everything is one colour.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M40,33 m-9,0 a9,9 0 1,0 18,0 a9,9 0 1,0 -18,0" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M28,84 V56 a12,12 0 0 1 24,0 v28 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M64,42 m-7,0 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,84 V63 a10,10 0 0 1 20,0 v21 Z" />
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M46,72 L53,80 L79,41.5" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M85.6,31.8 L84.7,42.1 L76.4,36.5 Z" />
+</vector>

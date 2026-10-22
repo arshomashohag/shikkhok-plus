@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      `@mipmap/ic_launcher` for API 24-25.
+
+      **This has to exist or the name is undefined below 26.** The
+      adaptive icon lives in `mipmap-anydpi-v26`, which by definition
+      does not apply to Nougat — and the APK was built with ONLY that
+      qualifier, so those devices resolved nothing and fell back to
+      Android's default robot. Checked by listing the APK's resources
+      rather than by reading the manifest.
+
+      An `<item type="mipmap">` alias, not a `<bitmap>` wrapper: a
+      BitmapDrawable cannot take a vector source, and that wrapper
+      merged and built cleanly while producing nothing.
+
+      minSdk is 24 and this audience is exactly the budget phone most
+      likely still on Nougat, so the fallback is not hypothetical.
+    -->
+    <item name="ic_launcher" type="mipmap">@drawable/ic_launcher_legacy</item>
+    <item name="ic_launcher_round" type="mipmap">@drawable/ic_launcher_legacy</item>
+</resources>

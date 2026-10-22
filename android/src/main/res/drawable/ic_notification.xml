@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The status-bar icon. 24dp, white only.
+
+  **The book is left out deliberately.** At 24dp the book is a 1px gap
+  and it closes up — so this variant keeps only the two figures and the
+  tick-arrow, drawn heavier. The design's own artboard specifies this
+  simplification rather than leaving it to whoever exports the asset.
+
+  Android ignores colour in a status-bar icon and uses the alpha
+  channel alone, so every path is opaque white.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="70"
+    android:viewportHeight="70"
+    android:tint="#FFFFFF">
+
+    <group android:translateX="-22" android:translateY="-18">
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M40,33 m-10,0 a10,10 0 1,0 20,0 a10,10 0 1,0 -20,0" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M27,86 V56 a13,13 0 0 1 26,0 v30 Z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M65,42 m-8,0 a8,8 0 1,0 16,0 a8,8 0 1,0 -16,0" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M54,86 V63 a11,11 0 0 1 22,0 v23 Z" />
+        <path
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="6"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M46,72 L53,80 L79,41.5" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M87,30 L86,44 L75,36 Z" />
+    </group>
+</vector>
