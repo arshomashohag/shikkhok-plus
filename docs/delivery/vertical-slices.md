@@ -99,6 +99,37 @@ monitor that, it's up to the user"* — is exactly the resulting
 behaviour: pick Teacher, get an `Owner` row, be a teacher. Nothing
 verifies the claim and nothing is meant to.
 
+### Settled: no role column (2026-10-22)
+
+The question was raised directly — *"we need the role per account,
+otherwise how can we set the access limitation?"* — and the answer is
+that the limitation already exists and the role already is stored, as
+an `owner` **row** rather than a string.
+
+Confirmed by test rather than by argument
+(`tests/batches/test_role_restricts_writes.py`,
+`tests/authz/test_dual_role_cost.py`):
+
+- a student is refused create-batch, add-enrollment, roster read and
+  the teacher batch list — the last as a 403 rather than an empty
+  list, because an empty list tells a non-teacher they are a teacher
+  with no classes;
+- one account resolves teacher, student and guardian together, in one
+  statement, and each lens scopes correctly;
+- teacher access appears when an `owner` row appears, with nothing
+  written to the account.
+
+**The decision: keep this model.** Two reasons recorded, so the
+question does not get reopened from first principles:
+
+1. The `owner` row is the *same fact* the teacher-scoped queries join
+   on. "May this account create a batch" and "whose batches are
+   these" are therefore answered by one thing that cannot disagree
+   with itself. A role string is a second copy of that fact.
+2. `FR1.4`'s dual-role account — a tutor whose own child is tutored
+   elsewhere — carries three lenses at once. A single role column has
+   to pick one and is wrong for every request about the others.
+
 ### Schema gaps this opens
 
 Neither field O1 collects has anywhere to go:
