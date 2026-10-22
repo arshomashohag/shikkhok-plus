@@ -55,6 +55,13 @@ PUBLIC_ROUTES: frozenset[tuple[str, str]] = frozenset(
 LENS_EXEMPT_AUTHENTICATED: frozenset[tuple[str, str]] = frozenset(
     {
         ("POST", "/v1/auth/refresh"),
+        # The route that REPORTS the lenses, so it cannot require one:
+        # an account would have to already know what it was in order to
+        # ask what it is. Every value it returns is derived from the
+        # authenticated account id and it reads nothing another account
+        # could own, which is what makes the exemption safe rather than
+        # merely necessary.
+        ("GET", "/v1/me"),
     }
 )
 

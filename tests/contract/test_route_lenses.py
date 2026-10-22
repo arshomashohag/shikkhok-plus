@@ -87,18 +87,36 @@ def test_public_routes_contains_the_contracted_entries() -> None:
     assert ("POST", "/account-deletion") in PUBLIC_ROUTES
 
 
-def test_lens_exempt_set_has_exactly_one_entry() -> None:
-    """``LENS_EXEMPT_AUTHENTICATED`` holds the refresh route alone.
+def test_lens_exempt_set_holds_exactly_the_two_known_routes() -> None:
+    """``LENS_EXEMPT_AUTHENTICATED`` holds refresh and ``/v1/me``.
 
     Kept separate from ``PUBLIC_ROUTES`` for a concrete reason: with one
     combined list, whoever first hits a failing refresh route takes the
     cheapest green edit and adds it to the public set, after which nothing
     records that the route must stay authenticated.
 
+    **The count is the control and it has now fired twice**: once for the
+    staging outbox against ``PUBLIC_ROUTES``, and once here when
+    ``/v1/me`` was added. Both times it forced the entry to be justified
+    rather than appended. A third entry should be as hard to add as these
+    two were.
+
+    Each exemption needs a reason that is a property of the route, not a
+    convenience:
+
+    - refresh presents a refresh token, not an access token, so there is
+      no authenticated account to resolve a lens from yet;
+    - ``/v1/me`` is the route that REPORTS the lenses, so requiring one
+      would mean an account had to know what it was before it could ask.
+
     :return: None
     """
-    assert len(LENS_EXEMPT_AUTHENTICATED) == 1
-    assert ("POST", "/v1/auth/refresh") in LENS_EXEMPT_AUTHENTICATED
+    assert LENS_EXEMPT_AUTHENTICATED == frozenset(
+        {
+            ("POST", "/v1/auth/refresh"),
+            ("GET", "/v1/me"),
+        }
+    )
 
 
 def test_the_two_allowlists_are_disjoint() -> None:

@@ -64,13 +64,14 @@ def _register_routes(app: FastAPI) -> None:
     from app.api.auth import router as auth_router
     from app.api.batches import router as batches_router
     from app.api.health import router as health_router
+    from app.api.me import router as me_router
 
     # Recorded as they are included, so the contract gates enumerate
     # what this application ACTUALLY registered. A gate reading a
     # hardcoded list cannot see a router added later.
     app.state.included_routers = []
 
-    for router in (auth_router, batches_router, health_router):
+    for router in (auth_router, batches_router, health_router, me_router):
         app.include_router(router)
         app.state.included_routers.append(router)
 

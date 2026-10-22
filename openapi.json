@@ -446,6 +446,39 @@
         "title": "IssueResponse",
         "type": "object"
       },
+      "LensEntry": {
+        "description": "One lens the account can choose.\n\n:ivar kind: Which lens: teacher, student or guardian\n:ivar count: How much sits behind it",
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "count",
+          "kind"
+        ],
+        "title": "LensEntry",
+        "type": "object"
+      },
+      "MeResponse": {
+        "description": "Everything this account can be.\n\n**No role, and no default lens.** The list says what is available;\nwhich one the person wants is their choice, and a server-chosen\ndefault would be a stored role by another name. A single-entry\nlist is the app's cue to skip the picker.\n\n:ivar lenses: Every available lens, teacher first",
+        "properties": {
+          "lenses": {
+            "items": {
+              "$ref": "#/components/schemas/LensEntry"
+            },
+            "title": "Lenses",
+            "type": "array"
+          }
+        },
+        "title": "MeResponse",
+        "type": "object"
+      },
       "Money": {
         "description": "A BDT amount in canonical form: exactly two decimal places, no thousands separator, no currency symbol, no sign. Always a JSON string, never a JSON number.",
         "pattern": "^[0-9]+\\.[0-9]{2}$",
@@ -1069,6 +1102,28 @@
         "summary": "List Children",
         "tags": [
           "batches"
+        ]
+      }
+    },
+    "/v1/me": {
+      "get": {
+        "description": "List every lens this account has.\n\n:param account_id: The authenticated account\n:param session: The session to query through\n:return: The available lenses, each with its count",
+        "operationId": "read_me_v1_me_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Read Me",
+        "tags": [
+          "me"
         ]
       }
     }
