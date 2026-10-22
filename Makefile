@@ -332,3 +332,141 @@ android-key-info:
 	@echo "Valid-until must be past 2033 or Play refuses the key."
 
 .PHONY: android-key android-key-secrets android-key-copy android-key-info
+
+# ---------------------------------------------------------------------
+# An APK for a real phone
+# ---------------------------------------------------------------------
+
+## Which backend the APK talks to.
+##
+## **The default is staging, not localhost.** `10.0.2.2` is the
+## emulator's route to this machine and means nothing on a phone: an
+## APK built with it fails every request with a connection error, which
+## reads as a broken app rather than a wrong address.
+##
+## Override for a backend running on this laptop, using the machine's
+## LAN address — the phone must be on the same wifi:
+##   make apk API=http://192.168.1.5:8000
+API ?= https://api.shikkhokplus.nirmatabd.com
+
+## Build a debug APK to sideload.
+##
+## Signed with Android's debug key, so it installs with no keystore and
+## no password. **Not the artifact you ship**: R8 is off, so this build
+## cannot surface a minification bug, and `make android-release-apk`
+## exists for that.
+##
+## Usage: make apk
+##        make apk API=http://192.168.1.5:8000
+apk:
+	@case "$(API)" in \
+	  http://*|https://*) ;; \
+	  *) echo "API must start with http:// or https:// — got '$(API)'"; exit 1 ;; \
+	esac
+	@echo "==> Building a debug APK against $(API)"
+	@./gradlew :android:assembleDebug --no-daemon -PapiBaseUrl="$(API)"
+	@echo ""
+	@# **Asserted, because an unsigned APK will not install** and the
+	@# phone's refusal says only "app not installed", which sends you
+	@# looking at the phone rather than at the build.
+	@#
+	@# `apksigner`, not a META-INF grep: a debug APK is signed with
+	@# APK Signature Scheme v2, which stores the signature OUTSIDE the
+	@# zip entries, so a correctly signed APK has zero META-INF/*.RSA
+	@# files. (An AAB is the opposite case and does carry them — which
+	@# is why the release workflow greps and this does not.)
+	@apksigner=$$(find $$ANDROID_HOME/build-tools \
+	    /opt/homebrew/share/android-commandlinetools/build-tools \
+	    $$HOME/Library/Android/sdk/build-tools \
+	    -name apksigner 2>/dev/null | sort -r | head -1); \
+	if [ -n "$$apksigner" ]; then \
+	  "$$apksigner" verify android/build/outputs/apk/debug/android-debug.apk \
+	    2>/dev/null \
+	    && echo "Signed with the debug key." \
+	    || { echo "NOT SIGNED — this will not install."; exit 1; }; \
+	else \
+	  echo "(apksigner not found; signature not checked)"; \
+	fi
+	@echo ""
+	@ls -lh android/build/outputs/apk/debug/android-debug.apk | awk '{print "APK: " $$9 "  (" $$5 ")"}'
+	@echo ""
+	@echo "Install over USB:   make apk-install"
+	@echo "Or copy that file to the phone and open it."
+	@echo ""
+	@echo "A sideloaded APK needs \"Install unknown apps\" allowed for"
+	@echo "whichever app opens it — Files, Drive or your browser."
+
+## Build and push to a USB-connected phone.
+##
+## `-r` reinstalls over an existing copy and keeps its data, so a
+## second run does not make you sign in again.
+##
+## Usage: make apk-install
+apk-install: apk
+	@command -v adb >/dev/null 2>&1 || { \
+	  echo "adb is not on PATH."; \
+	  echo "Install platform-tools, or copy the APK to the phone by hand."; \
+	  exit 1; }
+	@test -n "$$(adb devices | sed -n '2,$$p' | grep -w device)" || { \
+	  echo "No phone detected by adb."; \
+	  echo ""; \
+	  echo "On the phone: Settings -> About -> tap Build number seven"; \
+	  echo "times, then Developer options -> USB debugging. Reconnect"; \
+	  echo "and accept the prompt on the phone's screen."; \
+	  exit 1; }
+	@echo "==> Installing"
+	@adb install -r android/build/outputs/apk/debug/android-debug.apk
+	@echo ""
+	@echo "Installed. Launching."
+	@adb shell monkey -p com.shikkhokplus.app -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1 || true
+
+## Follow the app's log from a connected phone.
+##
+## Filtered to this app's own process, because an unfiltered logcat on
+## a real phone is unreadable.
+##
+## Usage: make apk-log
+apk-log:
+	@command -v adb >/dev/null 2>&1 || { echo "adb is not on PATH."; exit 1; }
+	@pid=$$(adb shell pidof com.shikkhokplus.app 2>/dev/null | tr -d '\r'); \
+	if [ -z "$$pid" ]; then \
+	  echo "The app is not running. Start it on the phone, then re-run."; \
+	  exit 1; \
+	fi; \
+	echo "==> Logs for pid $$pid. Ctrl-C to stop."; \
+	adb logcat --pid="$$pid"
+
+## Build a RELEASE APK, signed with the upload key.
+##
+## **Use this to check what you actually ship.** R8 is on, so it
+## catches the class of bug a debug build hides — a stripped
+## serializer, a missing keep rule — and those surface only here.
+##
+## Needs the keystore password. A crash trace is obfuscated: read it
+## with android/build/outputs/mapping/release/mapping.txt.
+##
+## Usage: make android-release-apk
+android-release-apk:
+	@test -f "$(KEYSTORE)" || { \
+	  echo "No keystore at $(KEYSTORE). Run 'make android-key' first."; \
+	  exit 1; }
+	@case "$(API)" in \
+	  https://*) ;; \
+	  *) echo "A release build must use https — got '$(API)'."; \
+	     echo "It carries phone numbers and OTPs over the public internet."; \
+	     exit 1 ;; \
+	esac
+	@printf "Keystore password: "; \
+	stty -echo; read pw; stty echo; echo ""; \
+	ANDROID_KEYSTORE_PATH="$(KEYSTORE)" \
+	ANDROID_KEYSTORE_PASSWORD="$$pw" \
+	ANDROID_KEY_ALIAS="$(KEY_ALIAS)" \
+	ANDROID_KEY_PASSWORD="$$pw" \
+	./gradlew :android:assembleRelease --no-daemon \
+	  -PapiBaseUrl="$(API)" \
+	  -PversionName="$${VERSION:-0.0.0-local}" \
+	  -PversionCode="$${CODE:-1}"
+	@echo ""
+	@ls -lh android/build/outputs/apk/release/*.apk 2>/dev/null | awk '{print "APK: " $$9 "  (" $$5 ")"}'
+
+.PHONY: apk apk-install apk-log android-release-apk
