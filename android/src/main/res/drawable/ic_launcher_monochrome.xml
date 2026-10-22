@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   The themed-icon layer, for Android 13 and up.
-  
+
   **One colour, no fills of its own.** The system tints this layer to
   match the user's wallpaper palette, so every path has to be solid
   white and the shapes have to read without the two-tone distinction

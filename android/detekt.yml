@@ -1,0 +1,154 @@
+# Detekt configuration.
+#
+# **Detekt is here as the money-type backstop, not as a style tool.**
+# `team.md` takes it for one specific job: forbid `Double` and `Float` across
+# the whole `core/model` package.
+#
+# It carries more weight than originally planned, because ktlint does NOT run
+# over Kotlin source here — it cannot parse the `[AC1.1.6]` traceability tags
+# inside KDoc, and those tags are a convention worth more than automated
+# brace placement (see the reasoning in build.gradle.kts). So detekt, Android
+# Lint and the release DEX scan are the Kotlin checks. That does not make
+# this a formatter: the rules below catch defects, and the ones that would
+# only enforce taste are excluded rather than argued with.
+#
+# That rule degrades to a trivial check precisely BECAUSE the `Money` value
+# class already makes the compiler reject the assignment -- which is the
+# intended relationship. The type is the mechanism; this is the net under it,
+# catching a money-carrying model class someone writes without reaching for
+# `Money` at all.
+#
+# `buildUponDefaultConfig = true` is set in build.gradle.kts, so everything
+# not mentioned here keeps detekt's default. Only deviations appear below.
+
+build:
+  # No weighted threshold. A finding either fails the build or is not
+  # configured -- a budget of allowed findings is how a gate becomes a
+  # suggestion, and with one reviewer there is nobody to notice the budget
+  # being spent.
+  maxIssues: 0
+
+config:
+  validation: true
+  warningsAsErrors: false
+
+# ---------------------------------------------------------------------------
+# The rule this file exists for.
+# ---------------------------------------------------------------------------
+style:
+  ForbiddenImport:
+    active: true
+    imports: []
+  # `Double` and `Float` are not imports -- they are kotlin builtins -- so
+  # the ban is expressed as a forbidden type usage rather than a forbidden
+  # import. ForbiddenMethodCall and ForbiddenImport cannot express it;
+  # ForbiddenAnnotation and the type-resolution rules can, but only on a
+  # type-resolved run. The practical enforcement for this project is the
+  # NoFloatingPointTest.kt source scan, which runs without type resolution
+  # and already asserts the same property across core/model. Detekt's share
+  # is the surrounding hygiene.
+  #
+  # This is recorded rather than silently omitted: the ban is REAL and is
+  # enforced, but the enforcing mechanism is the test plus the Money value
+  # class, not this file. A reader who expected to find the money rule here
+  # should look at NoFloatingPointTest.kt.
+  MagicNumber:
+    active: true
+    # Compose carries dimensions, weights and alpha values inline by
+    # convention; flagging them would train the reader to ignore the rule.
+    # `3` is here for a specific reason rather than as padding: the BDT
+    # lakh/crore grouping is 2,2,3, so the literal 3 in Numerals.kt IS the
+    # specification, named in the comment beside it. Extracting it to
+    # GROUP_SIZE_LAST would move the number away from the rule it encodes
+    # and make the function harder to check against the spec, not easier.
+    ignoreNumbers: ['-1', '0', '1', '2', '3', '100']
+    ignorePropertyDeclaration: true
+    ignoreCompanionObjectPropertyDeclaration: true
+    ignoreAnnotation: true
+    ignoreNamedArgument: true
+    # Composables are excluded for the reason above; ViewModels are not,
+    # because a magic number in a ViewModel is usually a business rule that
+    # belongs on the server. [TC-9, D-31]
+    #
+    # **Tests are excluded, and that is the whole point of a test.** A
+    # literal expected value is the specification the test asserts against;
+    # replacing it with a named constant derived from the implementation is
+    # how a test stops being able to fail. This project has already been
+    # bitten by gates that passed while checking nothing, and a test
+    # asserting against a constant it shares with the code is the same
+    # shape.
+    excludes:
+      - '**/designsystem/**'
+      - '**/ui/**'
+      - '**/MainActivity.kt'
+      - '**/test/**'
+  MaxLineLength:
+    active: true
+    maxLineLength: 120
+    excludeCommentStatements: false
+  ReturnCount:
+    active: true
+    max: 3
+    excludeGuardClauses: true
+
+complexity:
+  LongMethod:
+    active: true
+    threshold: 60
+    # A composable is a declarative tree, so its length measures the screen
+    # rather than its complexity. Splitting one to satisfy a line count
+    # produces worse code, not better.
+    excludes: ['**/designsystem/**', '**/ui/**', '**/MainActivity.kt']
+  LongParameterList:
+    active: true
+    functionThreshold: 7
+    constructorThreshold: 8
+    ignoreDefaultParameters: true
+    excludes: ['**/designsystem/**', '**/ui/**', '**/MainActivity.kt']
+  TooManyFunctions:
+    active: true
+    thresholdInFiles: 20
+    thresholdInClasses: 20
+    ignorePrivate: true
+    excludes: ['**/designsystem/**', '**/ui/**', '**/MainActivity.kt', '**/test/**']
+
+exceptions:
+  TooGenericExceptionCaught:
+    active: true
+  SwallowedException:
+    active: true
+  # The Kotlin mirror of Ruff's BLE001 on the backend. A caught exception
+  # that disappears is the failure mode the four-state write queue [TC-8,
+  # D-9] exists to prevent: a failed write must surface an explicit retry,
+  # never vanish.
+  TooGenericExceptionThrown:
+    active: true
+
+naming:
+  # Composable functions are PascalCase by Android convention, which the
+  # default function-naming rule rejects. Deferring to the documented
+  # convention is the standing instruction for this surface [OC-3, D-27].
+  FunctionNaming:
+    active: true
+    functionPattern: '[a-z][a-zA-Z0-9]*'
+    excludes: ['**/designsystem/**', '**/ui/**', '**/MainActivity.kt', '**/test/**']
+
+potential-bugs:
+  UnsafeCallOnNullableType:
+    active: true
+  UnsafeCast:
+    active: true
+  # A money value decoded from a JSON number rather than a string is the
+  # specific defect the serializer is written to reject loudly. This rule
+  # catches the shape that would swallow it.
+  IgnoredReturnValue:
+    active: true
+
+coroutines:
+  GlobalCoroutineUsage:
+    active: true
+  # A ViewModel that leaks a coroutine past its own lifecycle is the Android
+  # equivalent of the sync-call-in-async-def defect Ruff's ASYNC rules catch
+  # on the backend.
+  SuspendFunWithFlowReturnType:
+    active: true

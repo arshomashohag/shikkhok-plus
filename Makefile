@@ -10,11 +10,75 @@
 
 PY ?= python3
 
-.PHONY: check format lint typecheck test gates contract openapi install clean android
+.PHONY: check format lint typecheck test gates contract openapi install clean android lock audit android-quality
 
-check: lint typecheck test android
+check: lint typecheck test android android-quality
 	@echo ""
 	@echo "All gates passed."
+
+## Regenerate the Python lockfile. THE ONLY SANCTIONED WAY to update
+## requirements.txt.
+##
+## Like openapi.json, that file is an OUTPUT, and the CI check compares it
+## against a fresh compile — so hand-editing it to turn a red check green
+## inverts the control. Unlike openapi.json, getting this wrong has a supply
+## chain consequence rather than only a contract one.
+##
+## `--generate-hashes` is the point. Without it the file pins versions but
+## not ARTIFACTS, and a version pin does not detect a substituted wheel.
+## Compiled against Python 3.12 deliberately: that is what CI and the
+## container run, and a lockfile compiled on a different minor version can
+## resolve different markers.
+## `--allow-unsafe` is required, not optional, and the name is misleading.
+## It pins `pip` and `setuptools`, which pip-tools excludes by default —
+## and with `--require-hashes` pip REFUSES an install where any requirement
+## lacks a hash, so omitting it produces a lockfile that cannot be
+## installed. Verified by installing into a clean venv rather than by
+## reading the flag's documentation.
+lock:
+	@echo "==> compiling requirements.txt (hashes: this downloads every wheel)"
+	$(PY) -m piptools compile --extra dev --extra api --generate-hashes \
+		--allow-unsafe --output-file requirements.txt pyproject.toml
+	@echo "    done — now read the diff."
+
+## Dependency CVEs, locally. Annotating, same as the per-push CI step.
+## The BLOCKING check is at the release gate, where each Critical and High
+## is fixed or carries a dated row in .security-exceptions.md.
+audit:
+	@echo "==> dependency CVEs (annotating)"
+	@$(PY) -m pip_audit --requirement requirements.txt --desc \
+		--progress-spinner off \
+		|| echo "    findings above do not block; they block the release gate."
+
+## The Kotlin quality toolchain: format, static analysis, lint, coverage
+## ratchet. Part of `check` for the same reason the Android suite is —
+## team.md requires ONE entrypoint, local and in CI.
+##
+## Skipped with a loud notice when no JDK is reachable, matching the
+## `android` target. The notice is the point: a silent skip would make this
+## gate vacuous, which is this project's most common defect shape.
+## **`set -e` is load-bearing, not decoration.** Inside a shell `if`, only
+## the LAST command's exit status reaches make — so without it, a spotless,
+## detekt or lint failure is silently discarded and the recipe reports
+## success. That was true of the first version of this target and `make
+## check` printed "All gates passed" over a failing build, which is this
+## project's most-documented defect shape reproduced inside a gate written
+## to prevent it. Caught by running it; a reader would not have seen it.
+##
+## One `gradlew` invocation for all four tasks rather than four: Gradle
+## configures the project once, which is most of the wall-clock cost, and a
+## single non-zero exit covers every task.
+android-quality:
+	@if ./gradlew --version >/dev/null 2>&1; then \
+		set -e; \
+		echo "==> kotlin quality: format, static analysis, lint, coverage"; \
+		./gradlew :android:spotlessCheck :android:detekt \
+		          :android:lintDebug :android:verifyCoverageRatchet \
+		          --console=plain -q; \
+	else \
+		echo "SKIPPED: the Kotlin quality gates need a JDK and none was reachable."; \
+		echo "          These gates did NOT run. CI runs them on every push."; \
+	fi
 
 ## The Android suite. Part of `check` rather than a separate command the
 ## person has to remember: `team.md` requires ONE entrypoint, local and in
@@ -116,6 +180,12 @@ contract:
 format:
 	$(PY) -m ruff format app tests
 	$(PY) -m ruff check app tests --fix
+	@if ./gradlew --version >/dev/null 2>&1; then \
+		echo "==> kotlin format"; \
+		./gradlew :android:spotlessApply --console=plain -q; \
+	else \
+		echo "SKIPPED: Kotlin formatting needs a JDK and none was reachable."; \
+	fi
 
 install:
 	$(PY) -m pip install -e ".[dev]"

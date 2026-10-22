@@ -86,6 +86,22 @@ def test_public_routes_contains_the_contracted_entries() -> None:
     assert ("GET", "/account-deletion") in PUBLIC_ROUTES
     assert ("POST", "/account-deletion") in PUBLIC_ROUTES
 
+    # **The count, asserted.** The docstring on PUBLIC_ROUTES claimed
+    # "exactly five, and the count is asserted" while holding six entries
+    # and asserting no count at all -- the membership checks above pass
+    # whatever else the set contains. Added 2026-10-22.
+    #
+    # This is the half that matters: membership proves the known routes are
+    # present, and only the count catches a SEVENTH being appended. Adding a
+    # public route should mean editing this number, which is a reviewable,
+    # deliberate act rather than one more line in a growing list.
+    assert len(PUBLIC_ROUTES) == 6, (
+        f"PUBLIC_ROUTES holds {len(PUBLIC_ROUTES)} entries, not 6: "
+        f"{sorted(PUBLIC_ROUTES)}. A public route is reachable with no "
+        f"authentication at all. If the addition is intended, change the "
+        f"number here and in the docstring in the same commit."
+    )
+
 
 def test_lens_exempt_set_holds_exactly_the_two_known_routes() -> None:
     """``LENS_EXEMPT_AUTHENTICATED`` holds refresh and ``/v1/me``.

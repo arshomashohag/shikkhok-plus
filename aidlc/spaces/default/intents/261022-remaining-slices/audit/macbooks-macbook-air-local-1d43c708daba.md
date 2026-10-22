@@ -1382,3 +1382,117 @@
 **Agent**: aidlc-product-agent
 
 ---
+
+## Decision Recorded
+**Timestamp**: 2026-10-22T17:10:43Z
+**Event**: DECISION_RECORDED
+**Stage**: requirements-analysis
+**Decision**: Requirements are already written, traced and gated in the first record (102 entries, no gaps), and the six units are defined against them. Run Requirements Analysis anyway, skip it as settled, or do the toolchain work first?
+**Options**: Run Requirements Analysis,Skip it as settled,Do the toolchain work first
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-10-22T17:13:54Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: unknown
+**Agent ID**: a96ed4e161ebe9da8
+**Message**: Goal: refine the remaining ShikhokPlus work into deliverable units. That's done and approved: nine outstanding Bolts are now six units (D1–D6), plus a codebase scan and a practices reconciliation. Nex
+
+---
+
+## Human Turn
+**Timestamp**: 2026-10-22T17:17:19Z
+**Event**: HUMAN_TURN
+**Session**: 154ab218-cc38-4bed-9e6d-b85c0aae087e
+
+---
+
+## Question Answered
+**Timestamp**: 2026-10-22T17:17:24Z
+**Event**: QUESTION_ANSWERED
+**Stage**: requirements-analysis
+**Details**: Do the toolchain work first
+**Person Reply**: do the third one then
+
+---
+
+## Workflow Parked
+**Timestamp**: 2026-10-22T17:17:28Z
+**Event**: WORKFLOW_PARKED
+**Stage**: requirements-analysis
+
+---
+
+## Human Turn
+**Timestamp**: 2026-10-22T17:20:12Z
+**Event**: HUMAN_TURN
+**Session**: 154ab218-cc38-4bed-9e6d-b85c0aae087e
+**Picked**: ["requirements.txt with hashes, via pip-tools","pip-audit + Dependabot (Recommended)","A documented per-screen manual check"]
+
+---
+
+## Question Replied
+**Timestamp**: 2026-10-22T17:20:12Z
+**Event**: QUESTION_REPLIED
+**Session**: 154ab218-cc38-4bed-9e6d-b85c0aae087e
+**Question**: Your practice names `uv.lock` (or a requirements.txt compiled by `uv pip compile`) for Python. `uv` isn't installed on this machine. How should I lock the Python side?
+**Reply**: requirements.txt with hashes, via pip-tools
+
+---
+
+## Question Replied
+**Timestamp**: 2026-10-22T17:20:12Z
+**Event**: QUESTION_REPLIED
+**Session**: 154ab218-cc38-4bed-9e6d-b85c0aae087e
+**Question**: For CVE scanning on the per-push half, which tool?
+**Reply**: pip-audit + Dependabot (Recommended)
+
+---
+
+## Question Replied
+**Timestamp**: 2026-10-22T17:20:12Z
+**Event**: QUESTION_REPLIED
+**Session**: 154ab218-cc38-4bed-9e6d-b85c0aae087e
+**Question**: The Bangla layout obligation has no verifier. Your practice names two options and says one must exist.
+**Reply**: A documented per-screen manual check
+
+---
+
+## Human Turn
+**Timestamp**: 2026-10-22T17:41:29Z
+**Event**: HUMAN_TURN
+**Session**: 154ab218-cc38-4bed-9e6d-b85c0aae087e
+
+---
+
+## Human Turn
+**Timestamp**: 2026-10-22T17:44:47Z
+**Event**: HUMAN_TURN
+**Session**: 154ab218-cc38-4bed-9e6d-b85c0aae087e
+
+---
+
+## Human Turn
+**Timestamp**: 2026-10-22T17:44:52Z
+**Event**: HUMAN_TURN
+**Session**: 154ab218-cc38-4bed-9e6d-b85c0aae087e
+
+---
+
+## Human Turn
+**Timestamp**: 2026-10-22T17:48:00Z
+**Event**: HUMAN_TURN
+**Session**: 154ab218-cc38-4bed-9e6d-b85c0aae087e
+**Picked**: ["Keep the tags, drop ktlint (Recommended)"]
+
+---
+
+## Question Replied
+**Timestamp**: 2026-10-22T17:48:00Z
+**Event**: QUESTION_REPLIED
+**Session**: 154ab218-cc38-4bed-9e6d-b85c0aae087e
+**Question**: ktlint can't parse your traceability tags inside KDoc comments — `/** Typed by the user. Never read from the SIM [AC1.1.6]. */` makes its parser report "closing bracket expected", because it reads `[...]` as a Kotlin reference link. The code compiles fine; this is a formatter limitation. There are 52 such tags across 21 Kotlin files, and they're a core convention linking code to requirements. How do you want to handle it?
+**Reply**: Keep the tags, drop ktlint (Recommended)
+
+---

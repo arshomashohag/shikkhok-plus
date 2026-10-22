@@ -40,6 +40,8 @@ htmlcov/
 local.properties
 .gradle/
 build/
+# Kotlin compiler scratch (errors/, sessions/). Build output, not source.
+.kotlin/
 *.apk
 *.aab
 *.keystore

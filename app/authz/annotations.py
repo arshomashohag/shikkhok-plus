@@ -76,8 +76,24 @@ def _is_lens(annotation: object) -> bool:
     return isinstance(annotation, type) and issubclass(annotation, Lens)
 
 
-def resolve_lens_type(obj: Callable[..., Any]) -> type[Lens] | None:
+def resolve_lens_type(  # type: ignore[explicit-any]
+    obj: Callable[..., Any],
+) -> type[Lens] | None:
     """Resolve a callable's return annotation to a lens type.
+
+    The ``Any`` is irreducible and is the subject of this function rather
+    than a concession. This inspects an ARBITRARY callable's return
+    annotation — that is the whole job — so the parameter must accept a
+    callable returning anything at all. Narrowing it to ``Callable[...,
+    Lens]`` would accept only what the route-enumeration test is trying to
+    discover, which inverts the check: the test exists precisely to find
+    the endpoint whose dependency does NOT return a lens.
+
+    Kept as a single targeted ignore under ``app.authz``'s
+    ``disallow_any_explicit`` rather than switching the flag off for the
+    package. One visible ignore with its reasoning is a smaller hole than a
+    silently relaxed island, and ``warn_unused_ignores`` will report this
+    line if the constraint ever stops applying.
 
     :param obj: The callable whose return annotation is inspected
     :return: The lens type, or None when the annotation is not a lens

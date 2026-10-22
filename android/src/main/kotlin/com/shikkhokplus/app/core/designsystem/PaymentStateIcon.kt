@@ -99,7 +99,11 @@ internal fun PaymentStateIcon(
                     strokeWidth = stroke.width,
                     cap = StrokeCap.Round,
                 )
-                drawCircle(tint, radius = w * 0.0625f, center = androidx.compose.ui.geometry.Offset(w / 2f, h * 0.6875f))
+                drawCircle(
+                    tint,
+                    radius = w * 0.0625f,
+                    center = androidx.compose.ui.geometry.Offset(w / 2f, h * 0.6875f),
+                )
             }
 
             // A clock: submitted, waiting on someone.

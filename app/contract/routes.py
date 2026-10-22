@@ -30,9 +30,26 @@ __all__ = [
     "unlensed_routes",
 ]
 
-#: Routes reachable with no authentication at all. Exactly five, and the
-#: count is asserted: a sixth entry is a diff against a stated number rather
-#: than a line appended to a growing list.
+#: Routes reachable with no authentication at all. **Exactly six**, and the
+#: count IS asserted: a seventh entry is a diff against a stated number
+#: rather than a line appended to a growing list.
+#:
+#: The number read "five" over a six-entry set until 2026-10-22 — the two
+#: deletion routes were added without it, so the stated count and the
+#: asserted count had diverged and nothing noticed, because nothing asserted
+#: the count at all. Corrected along with the assertion that now makes the
+#: claim real [practices 2026-10-22: a comment may not state a number that
+#: nothing checks].
+#:
+#: **Two of these have no handler yet.** `/account-deletion`, GET and POST,
+#: is pre-declared D6 scope: both account-deletion paths are release-blocking
+#: V1 deliverables [TC-19, RC-4, RC-5] and neither exists. Allowlisting them
+#: ahead of the handlers is deliberate and is not a hole — an allowlist entry
+#: grants nothing on its own, since the route-enumeration gate walks
+#: REGISTERED routes and an unregistered path is unreachable. What it buys is
+#: that D6 lands handlers against entries already under review, rather than
+#: editing the public-route allowlist in the same commit that adds a public
+#: route.
 PUBLIC_ROUTES: frozenset[tuple[str, str]] = frozenset(
     {
         ("POST", "/v1/auth/otp"),

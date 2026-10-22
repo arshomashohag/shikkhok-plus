@@ -29,6 +29,17 @@ dev = [
     # never SQLite: row-level security, NUMERIC(12,2) and ON CONFLICT DO
     # NOTHING are the behaviours under test and SQLite emulates none of them.
     "testcontainers[postgres]>=4.8",
+    # The lockfile toolchain, added 2026-10-22. `uv` is what team.md names
+    # first and pip-tools is the parenthetical it already allows; pip-tools
+    # is taken because it needs no new runtime on the machine or in CI, and
+    # `pip install --require-hashes` is the control either way.
+    #
+    # Declared as a dependency rather than assumed present: `make lock` and
+    # the CI currency check both invoke it, and a tool a gate depends on
+    # that nobody declares is the gate's own supply-chain hole.
+    "pip-tools>=7.4",
+    # The CVE scanner. Annotating per push, blocking at the release gate.
+    "pip-audit>=2.7",
 ]
 
 [build-system]
@@ -169,6 +180,34 @@ strict = true
 # package -- silences findings that are not hypothetical, and because an
 # `Any` in a response model is visible in a diff in a way an unnoticed
 # ignore comment is not.
+
+# ---------------------------------------------------------------------------
+# The third strict island, added 2026-10-22.
+#
+# **This is the override the two comments above were waiting for.** B1 and
+# B2 each deferred app.authz.* on the same correct reasoning -- an override
+# naming a module that does not exist is dead configuration -- and U3 then
+# shipped the resolvers without anyone adding it. Three Units later the
+# island was still a declaration in team.md with no configuration behind it,
+# which the 2026-10-22 practices reconciliation found.
+#
+# It earns strictness more than either of the other two. This package
+# decides, per request, whether a caller may see a child's data: it computes
+# the lens from Owner and Enrollment with no role column [BR1.1], and
+# TeacherLens carries the owner_id that scopes every teacher-facing query.
+# An implicit Any flowing into that computation is an authorization decision
+# made on an unchecked value.
+#
+# disallow_any_explicit IS set here, unlike app.schemas.*. The Pydantic
+# constraint that forced it off there does not apply: this package depends
+# on repository PROTOCOLS and the SQLAlchemy session, not on BaseModel, so
+# there is no generic-over-Any base class forcing an unavoidable error per
+# declaration.
+# ---------------------------------------------------------------------------
+[[tool.mypy.overrides]]
+module = "app.authz.*"
+strict = true
+disallow_any_explicit = true
 
 # ---------------------------------------------------------------------------
 # Coverage — NFR9.13, NFR9.31a/b.

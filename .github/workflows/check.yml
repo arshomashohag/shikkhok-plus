@@ -90,8 +90,62 @@ jobs:
           cache: pip
 
       # Step 2. Lockfile verification, Python side.
-      - name: Install
-        run: python -m pip install -e ".[dev,api]"
+      #
+      # **This step was previously a label with no control behind it**: it
+      # was named "Lockfile verification" and ran a bare `pip install -e`,
+      # an unpinned resolve. Corrected 2026-10-22. A CI step may not be
+      # labelled as a verification check unless it performs one -- a label
+      # describing a control that is not there is worse than no label,
+      # because the next reader is the same person with nobody to
+      # contradict them.
+      #
+      # `--require-hashes` is the control. Every pin in requirements.txt
+      # carries a sha256, and pip refuses the install if any artifact does
+      # not match -- which is what detects a substituted or tampered wheel.
+      # It also refuses if ANY requirement lacks a hash, so the file cannot
+      # silently become partially unpinned.
+      - name: Install from the lockfile
+        run: |
+          python -m pip install --require-hashes -r requirements.txt
+          python -m pip install -e . --no-deps
+
+      # **The lockfile must match pyproject.toml.** Without this, a
+      # dependency added to pyproject and not recompiled installs nothing
+      # and fails confusingly later, or worse, resolves from a stale pin.
+      - name: Lockfile is current
+        run: |
+          python -m pip install pip-tools
+          python -m piptools compile --quiet --extra dev --extra api \
+            --generate-hashes --allow-unsafe \
+            --output-file /tmp/requirements.check.txt pyproject.toml
+          if ! diff -q \
+              <(grep -v '^#' requirements.txt | grep -v '^$') \
+              <(grep -v '^#' /tmp/requirements.check.txt | grep -v '^$') \
+              >/dev/null; then
+            echo "::error::requirements.txt does not match pyproject.toml."
+            echo "Regenerate it:  make lock"
+            diff <(grep -v '^#' requirements.txt | grep -v '^$') \
+                 <(grep -v '^#' /tmp/requirements.check.txt | grep -v '^$') \
+                 || true
+            exit 1
+          fi
+          echo "Lockfile is current."
+
+      # Step 2b. Dependency CVEs — the ANNOTATING half of the two-speed
+      # model. This does not block: `continue-on-error` is deliberate and
+      # is the affirmed practice. A solo developer who hits an unfixable
+      # transitive Critical mid-unit, with no triage path and no second
+      # reviewer, bypasses a hard gate once -- and after one bypass it is
+      # decoration. The BLOCKING half lives at the release gate, where
+      # each Critical and High is fixed or carries a dated row in
+      # .security-exceptions.md.
+      - name: Dependency CVEs (annotating, non-blocking)
+        continue-on-error: true
+        run: |
+          python -m pip install pip-audit
+          pip-audit --requirement requirements.txt \
+                    --desc --strict --progress-spinner off \
+            || echo "::warning::pip-audit reported findings. These do not block this push; they block the release gate."
 
       # Steps 3-10. One command, identical to the local one.
       - name: make check
@@ -122,6 +176,55 @@ jobs:
       # a secret.
       - name: Kotlin money boundary
         run: ./gradlew :android:testDebugUnitTest --no-daemon
+
+      # Steps 12-15, added 2026-10-22. The Kotlin quality toolchain.
+      #
+      # **Why these are here rather than only at the release gate.** The
+      # gates in release-gates.gradle.kts are this project's strongest
+      # checks and they run on `bundleRelease` — so until today a
+      # `TelephonyManager` call could sit on `main` through every pull
+      # request and be found on the build that was about to ship. These
+      # four run per push, so a violation fails on the commit that
+      # introduces it.
+      #
+      # Ordered cheapest-first, matching the Makefile's own principle: a
+      # formatting failure should not wait behind a lint run.
+
+      # Step 12. Formatting. ktlint via spotless, covering Kotlin, the
+      # Gradle files and the XML — `strings.xml` carries the Bangla bundle.
+      - name: Kotlin format
+        run: ./gradlew :android:spotlessCheck --no-daemon
+
+      # Step 13. Static analysis, as the money-type backstop.
+      - name: Kotlin static analysis
+        run: ./gradlew :android:detekt --no-daemon
+
+      # Step 14. Android Lint, where HardwareIds is fatal. This is the
+      # per-commit complement to the release DEX scan: Lint reads OUR
+      # source and catches an identifier read as it is written; the DEX
+      # scan reads the shipped bytecode and catches one that arrived
+      # inside a dependency. Both are needed and they catch different
+      # things.
+      - name: Android Lint
+        run: ./gradlew :android:lintDebug --no-daemon
+
+      # Step 15. The coverage ratchet. No percentage target — the affirmed
+      # practice is explicit that gating this surface on a number produces
+      # tests written to raise the number. What is enforced is that the
+      # figure does not DROP, now that three Android Bolts have merged.
+      - name: Kotlin coverage ratchet
+        run: ./gradlew :android:verifyCoverageRatchet --no-daemon
+
+      - name: Upload lint and coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-quality-reports
+          path: |
+            android/build/reports/lint-results-debug.html
+            android/build/reports/detekt/
+            android/build/reports/jacoco/
+          if-no-files-found: warn
 
       - name: Upload test results
         if: always()

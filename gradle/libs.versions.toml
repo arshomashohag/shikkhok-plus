@@ -32,6 +32,15 @@ ktor = "2.3.12"
 # docstring warns specifically against reaching for it because it was
 # convenient.
 securityCrypto = "1.1.0-alpha06"
+# The quality toolchain, arriving 2026-10-22 rather than with the packaging
+# Bolt that first named it. `team.md` deferred these to "the Bolt that first
+# needs them", which names no Bolt -- and a formatter is first needed by the
+# first Kotlin file, so three Android Bolts merged without one. Installed now,
+# before D1, because `spotlessApply` reformats 32 files today and many more
+# after six units of screens.
+spotless = "6.25.0"
+ktlint = "1.5.0"
+detekt = "1.23.7"
 
 [libraries]
 security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "securityCrypto" }
@@ -59,3 +68,13 @@ android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+# Spotless RUNS ktlint; they are not alternatives. Spotless is taken for the
+# uniform `spotlessApply`/`spotlessCheck` pair and because it also covers the
+# XML -- `strings.xml` carries the Bangla bundle -- and the Gradle files,
+# which ktlint alone does not. [team: Code Style]
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
+# Detekt is a SEPARATE decision from the formatter and is taken as the
+# money-type backstop: a package-scoped ban on Double and Float in
+# core/model, which degrades to a trivial check precisely because the Money
+# value class already makes the compiler reject the assignment. [TC-7, D-20]
+detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }

@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Android Lint configuration.
+
+  **`HardwareIds` raised to fatal is the reason this file exists.**
+  `team.md` names it as a complement to the two release gates, not as the
+  gate itself: Lint analyses sources and may not reach into every
+  third-party AAR, so an SDK that reads `ANDROID_ID` from inside a compiled
+  dependency is invisible to it. That case belongs to the minified-release
+  DEX scan, which reads the bytecode that actually ships.
+
+  What Lint adds is TIMING. The DEX scan runs on `bundleRelease`; this runs
+  on every `check`. A hardware identifier read written in our own source
+  fails on the commit that writes it rather than on the build that was about
+  to ship. The two controls catch different things at different moments, and
+  the project needs both.
+
+  [TC-3] [TC-4] [TC-5] [TC-6] [D-35] [D-37] [RC-1]
+-->
+<lint>
+
+    <!--
+      Fatal, not error: `fatal` is the severity that fails a release build
+      as well as `lint`, and this is the project's single most consequential
+      Android prohibition. Transmitting a device or advertising identifier
+      is forbidden outright, and removing an SDK after the Families-policy
+      declaration is far more costly than never adding it.
+    -->
+    <issue id="HardwareIds" severity="fatal" />
+
+    <!--
+      The permission surface. The merged-manifest allowlist in
+      release-gates.gradle.kts asserts an exact approved set and the absence
+      of AD_ID; these two catch the same class earlier, in source.
+    -->
+    <issue id="MissingPermission" severity="error" />
+    <issue id="ProtectedPermissions" severity="error" />
+
+    <!--
+      Security defaults. A cleartext request would carry a phone number or
+      an OTP over the public internet [RC-1, RC-2, RC-3], and the release
+      build is already refused a non-https base URL by the Makefile.
+    -->
+    <issue id="UnsafeProtectedBroadcastReceiver" severity="error" />
+    <issue id="ExportedActivity" severity="error" />
+    <issue id="ExportedContentProvider" severity="error" />
+    <issue id="ExportedReceiver" severity="error" />
+    <issue id="ExportedService" severity="error" />
+    <issue id="UnsafeIntentLaunch" severity="error" />
+    <issue id="TrustAllX509TrustManager" severity="fatal" />
+
+    <!--
+      Accessibility. AC9.4.2 is a PRIVACY case wearing navigation clothing:
+      Back must never land in another lens's or another child's data. Lint
+      cannot check that, but it can check the content descriptions and touch
+      targets that the same standing obligation names [PU-8.4, TC-18].
+    -->
+    <issue id="ContentDescription" severity="error" />
+    <issue id="ClickableViewAccessibility" severity="error" />
+
+    <!--
+      Localization. Both bundles are complete at 53 strings each and must
+      stay that way: a string added to one and not the other ships an
+      English fragment into a Bangla screen [TC-15, D-43]. This is the one
+      part of the Bangla obligation a tool can check; the layout half is a
+      per-screen manual check, recorded in docs/delivery/bangla-layout-check.md.
+    -->
+    <issue id="MissingTranslation" severity="fatal" />
+    <issue id="ExtraTranslation" severity="error" />
+    <issue id="HardcodedText" severity="error" />
+
+    <!--
+      Not relevant to a single-module V1 app, and noisy.
+    -->
+    <issue id="GradleDependency" severity="ignore" />
+    <issue id="AndroidGradlePluginVersion" severity="ignore" />
+    <issue id="NewerVersionAvailable" severity="ignore" />
+
+    <!--
+      ReferenceType, scoped to ONE file and not switched off globally.
+
+      `ic_launcher_alias.xml` declares `<item type="mipmap">` entries whose
+      value is `@drawable/ic_launcher_legacy`, and Lint expects a
+      `@mipmap/` value. The mismatch is the point: the legacy icon is a
+      VECTOR, a BitmapDrawable wrapper cannot take a vector source, and an
+      alias is the documented way to expose a drawable under a mipmap name.
+
+      This is not a suppression of an inconvenient finding. The file it
+      exempts exists because an earlier build shipped only
+      `mipmap-anydpi-v26`, so every device below API 26 resolved nothing
+      and fell back to Android's default robot icon, confirmed by listing
+      the built APK's resources rather than by reading the manifest. minSdk
+      is 24, and this product's audience is exactly the budget phone most
+      likely still on Nougat.
+
+      Scoped by path so the check stays live everywhere else.
+    -->
+    <issue id="ReferenceType">
+        <ignore path="src/main/res/values/ic_launcher_alias.xml" />
+    </issue>
+
+    <!--
+      Deliberately NOT ignored despite being noisy on a young codebase:
+      UnusedResources. An unused drawable or string is usually a screen that
+      was planned and not built, which on this project is information rather
+      than lint noise.
+    -->
+
+</lint>
