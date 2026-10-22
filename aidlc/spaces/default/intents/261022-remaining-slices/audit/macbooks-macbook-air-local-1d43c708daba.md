@@ -968,3 +968,417 @@
 **Agent**: aidlc-pipeline-deploy-agent
 
 ---
+
+## Human Turn
+**Timestamp**: 2026-10-22T16:54:42Z
+**Event**: HUMAN_TURN
+**Session**: 154ab218-cc38-4bed-9e6d-b85c0aae087e
+**Picked**: ["Run it, focused on the gaps (Recommended)"]
+
+---
+
+## Question Replied
+**Timestamp**: 2026-10-22T16:54:43Z
+**Event**: QUESTION_REPLIED
+**Session**: 154ab218-cc38-4bed-9e6d-b85c0aae087e
+**Question**: Practices Discovery is next. Your practices are already affirmed from the first record and loaded here, so re-deriving them would mostly repeat settled work — but the scan found three affirmed practices the code doesn't actually implement (lockfiles, CVE scanning, the Android toolchain). How should I handle this stage?
+**Reply**: Run it, focused on the gaps (Recommended)
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-10-22T16:56:05Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: unknown
+**Agent ID**: aff2d1e5004455343
+**Message**: Reading dependencies.md evidence
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-10-22T16:56:37Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: unknown
+**Agent ID**: af20e7ab4172d4758
+**Message**: Creating practices-discovery output directory
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-10-22T17:00:39Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: unknown
+**Agent ID**: ae07442f6488f9d98
+**Message**: Retrying blocked write to team-practices.md
+
+---
+
+## Artifact Created
+**Timestamp**: 2026-10-22T17:03:03Z
+**Event**: ARTIFACT_CREATED
+**Tool**: Write
+**File**: <project-dir>/aidlc/spaces/default/intents/261022-remaining-slices/inception/practices-discovery/team-practices.md
+**Context**: inception > practices-discovery > team-practices.md
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-10-22T17:03:10Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: unknown
+**Agent ID**: a092b7d9512c40944
+**Message**: Writing discovered-rules.md constraints
+
+---
+
+## Artifact Created
+**Timestamp**: 2026-10-22T17:03:19Z
+**Event**: ARTIFACT_CREATED
+**Tool**: Write
+**File**: <project-dir>/aidlc/spaces/default/intents/261022-remaining-slices/inception/practices-discovery/discovered-rules.md
+**Context**: inception > practices-discovery > discovered-rules.md
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-10-22T17:03:47Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: unknown
+**Agent ID**: a0e2ac79a6bcd4e50
+**Message**: Drafting evidence.md provenance section# Operation Phase Guardrails\n\nThese rules apply to every stage whose `phase: operation` declaration\nimports them as the matching phase rule.\n\n## Infrastructure S
+
+---
+
+## Artifact Created
+**Timestamp**: 2026-10-22T17:05:11Z
+**Event**: ARTIFACT_CREATED
+**Tool**: Write
+**File**: <project-dir>/aidlc/spaces/default/intents/261022-remaining-slices/inception/practices-discovery/evidence.md
+**Context**: inception > practices-discovery > evidence.md
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-10-22T17:05:19Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: unknown
+**Agent ID**: a944e8946db46a1ff
+**Message**: Stamping practices-discovery-timestamp.md
+
+---
+
+## Artifact Created
+**Timestamp**: 2026-10-22T17:05:20Z
+**Event**: ARTIFACT_CREATED
+**Tool**: Write
+**File**: <project-dir>/aidlc/spaces/default/intents/261022-remaining-slices/inception/practices-discovery/practices-discovery-timestamp.md
+**Context**: inception > practices-discovery > practices-discovery-timestamp.md
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-10-22T17:05:51Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: unknown
+**Agent ID**: ad93a342d3eb870cd
+**Message**: Verifying headings in team-practices.md
+
+---
+
+## Human Turn
+**Timestamp**: 2026-10-22T17:05:57Z
+**Event**: HUMAN_TURN
+**Session**: 154ab218-cc38-4bed-9e6d-b85c0aae087e
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-10-22T17:06:04Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: aidlc-pipeline-deploy-agent
+**Agent ID**: ab82d9213927d8d94
+**Message**: Report delivered. Summary of what I did:\n\n**Four artifacts written** to `aidlc/spaces/default/intents/261022-remaining-slices/inception/practices-discovery/` — `team-practices.md`, `discovered-rules.m
+
+---
+
+## Human Turn
+**Timestamp**: 2026-10-22T17:06:11Z
+**Event**: HUMAN_TURN
+**Session**: 154ab218-cc38-4bed-9e6d-b85c0aae087e
+
+---
+
+## Decision Recorded
+**Timestamp**: 2026-10-22T17:06:33Z
+**Event**: DECISION_RECORDED
+**Stage**: practices-discovery
+**Decision**: Anything to add before I close this stage?
+**Options**: Nothing to add,Add a note
+
+---
+
+## Human Turn
+**Timestamp**: 2026-10-22T17:08:55Z
+**Event**: HUMAN_TURN
+**Session**: 154ab218-cc38-4bed-9e6d-b85c0aae087e
+**Picked**: ["Nothing to add"]
+
+---
+
+## Question Replied
+**Timestamp**: 2026-10-22T17:08:56Z
+**Event**: QUESTION_REPLIED
+**Session**: 154ab218-cc38-4bed-9e6d-b85c0aae087e
+**Question**: Anything to add before I close this stage? Six new rules will be promoted into your team memory on approval — each tied to a verified finding, and the 31 existing rules stay untouched.
+**Reply**: Nothing to add
+
+---
+
+## Question Answered
+**Timestamp**: 2026-10-22T17:09:00Z
+**Event**: QUESTION_ANSWERED
+**Stage**: practices-discovery
+**Details**: Nothing to add
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-10-22T17:09:04Z
+**Event**: SENSOR_FIRED
+**Fire id**: 2da2fbf2
+**Sensor ID**: required-sections
+**Stage slug**: practices-discovery
+**Output path**: aidlc/spaces/default/intents/261022-remaining-slices/inception/practices-discovery/team-practices.md
+
+---
+
+## Sensor Passed
+**Timestamp**: 2026-10-22T17:09:04Z
+**Event**: SENSOR_PASSED
+**Fire id**: 2da2fbf2
+**Sensor ID**: required-sections
+**Stage slug**: practices-discovery
+**Output path**: aidlc/spaces/default/intents/261022-remaining-slices/inception/practices-discovery/team-practices.md
+**Duration ms**: 62
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-10-22T17:09:04Z
+**Event**: SENSOR_FIRED
+**Fire id**: de730130
+**Sensor ID**: required-sections
+**Stage slug**: practices-discovery
+**Output path**: aidlc/spaces/default/intents/261022-remaining-slices/inception/practices-discovery/discovered-rules.md
+
+---
+
+## Sensor Passed
+**Timestamp**: 2026-10-22T17:09:05Z
+**Event**: SENSOR_PASSED
+**Fire id**: de730130
+**Sensor ID**: required-sections
+**Stage slug**: practices-discovery
+**Output path**: aidlc/spaces/default/intents/261022-remaining-slices/inception/practices-discovery/discovered-rules.md
+**Duration ms**: 61
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-10-22T17:09:05Z
+**Event**: SENSOR_FIRED
+**Fire id**: 4086218b
+**Sensor ID**: required-sections
+**Stage slug**: practices-discovery
+**Output path**: aidlc/spaces/default/intents/261022-remaining-slices/inception/practices-discovery/evidence.md
+
+---
+
+## Sensor Passed
+**Timestamp**: 2026-10-22T17:09:05Z
+**Event**: SENSOR_PASSED
+**Fire id**: 4086218b
+**Sensor ID**: required-sections
+**Stage slug**: practices-discovery
+**Output path**: aidlc/spaces/default/intents/261022-remaining-slices/inception/practices-discovery/evidence.md
+**Duration ms**: 62
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-10-22T17:09:05Z
+**Event**: SENSOR_FIRED
+**Fire id**: f9bcb514
+**Sensor ID**: required-sections
+**Stage slug**: practices-discovery
+**Output path**: aidlc/spaces/default/intents/261022-remaining-slices/inception/practices-discovery/practices-discovery-timestamp.md
+
+---
+
+## Sensor Passed
+**Timestamp**: 2026-10-22T17:09:05Z
+**Event**: SENSOR_PASSED
+**Fire id**: f9bcb514
+**Sensor ID**: required-sections
+**Stage slug**: practices-discovery
+**Output path**: aidlc/spaces/default/intents/261022-remaining-slices/inception/practices-discovery/practices-discovery-timestamp.md
+**Duration ms**: 61
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-10-22T17:09:05Z
+**Event**: SENSOR_FIRED
+**Fire id**: df89b635
+**Sensor ID**: upstream-coverage
+**Stage slug**: practices-discovery
+**Output path**: aidlc/spaces/default/intents/261022-remaining-slices/inception/practices-discovery/team-practices.md
+
+---
+
+## Sensor Failed
+**Timestamp**: 2026-10-22T17:09:05Z
+**Event**: SENSOR_FAILED
+**Fire id**: df89b635
+**Sensor ID**: upstream-coverage
+**Stage slug**: practices-discovery
+**Output path**: aidlc/spaces/default/intents/261022-remaining-slices/inception/practices-discovery/team-practices.md
+**Detail path**: aidlc/spaces/default/intents/261022-remaining-slices/.aidlc-engine/sensors/practices-discovery/upstream-coverage-df89b635.md
+**Findings count**: 1
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-10-22T17:09:05Z
+**Event**: SENSOR_FIRED
+**Fire id**: fb75d9dc
+**Sensor ID**: upstream-coverage
+**Stage slug**: practices-discovery
+**Output path**: aidlc/spaces/default/intents/261022-remaining-slices/inception/practices-discovery/discovered-rules.md
+
+---
+
+## Sensor Failed
+**Timestamp**: 2026-10-22T17:09:05Z
+**Event**: SENSOR_FAILED
+**Fire id**: fb75d9dc
+**Sensor ID**: upstream-coverage
+**Stage slug**: practices-discovery
+**Output path**: aidlc/spaces/default/intents/261022-remaining-slices/inception/practices-discovery/discovered-rules.md
+**Detail path**: aidlc/spaces/default/intents/261022-remaining-slices/.aidlc-engine/sensors/practices-discovery/upstream-coverage-fb75d9dc.md
+**Findings count**: 1
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-10-22T17:09:06Z
+**Event**: SENSOR_FIRED
+**Fire id**: 9dd68050
+**Sensor ID**: upstream-coverage
+**Stage slug**: practices-discovery
+**Output path**: aidlc/spaces/default/intents/261022-remaining-slices/inception/practices-discovery/evidence.md
+
+---
+
+## Sensor Failed
+**Timestamp**: 2026-10-22T17:09:06Z
+**Event**: SENSOR_FAILED
+**Fire id**: 9dd68050
+**Sensor ID**: upstream-coverage
+**Stage slug**: practices-discovery
+**Output path**: aidlc/spaces/default/intents/261022-remaining-slices/inception/practices-discovery/evidence.md
+**Detail path**: aidlc/spaces/default/intents/261022-remaining-slices/.aidlc-engine/sensors/practices-discovery/upstream-coverage-9dd68050.md
+**Findings count**: 1
+
+---
+
+## Sensor Fired
+**Timestamp**: 2026-10-22T17:09:06Z
+**Event**: SENSOR_FIRED
+**Fire id**: cdec9cf8
+**Sensor ID**: upstream-coverage
+**Stage slug**: practices-discovery
+**Output path**: aidlc/spaces/default/intents/261022-remaining-slices/inception/practices-discovery/practices-discovery-timestamp.md
+
+---
+
+## Sensor Failed
+**Timestamp**: 2026-10-22T17:09:06Z
+**Event**: SENSOR_FAILED
+**Fire id**: cdec9cf8
+**Sensor ID**: upstream-coverage
+**Stage slug**: practices-discovery
+**Output path**: aidlc/spaces/default/intents/261022-remaining-slices/inception/practices-discovery/practices-discovery-timestamp.md
+**Detail path**: aidlc/spaces/default/intents/261022-remaining-slices/.aidlc-engine/sensors/practices-discovery/upstream-coverage-cdec9cf8.md
+**Findings count**: 1
+
+---
+
+## Stage Awaiting Approval
+**Timestamp**: 2026-10-22T17:09:06Z
+**Event**: STAGE_AWAITING_APPROVAL
+**Stage**: practices-discovery
+
+---
+
+## Human Turn
+**Timestamp**: 2026-10-22T17:09:46Z
+**Event**: HUMAN_TURN
+**Session**: 154ab218-cc38-4bed-9e6d-b85c0aae087e
+**Picked**: ["Approve"]
+
+---
+
+## Question Replied
+**Timestamp**: 2026-10-22T17:09:46Z
+**Event**: QUESTION_REPLIED
+**Session**: 154ab218-cc38-4bed-9e6d-b85c0aae087e
+**Question**: Practices Discovery is ready. Approving promotes six new rules into your team memory and records the toolchain work as landing before D1.
+**Reply**: Approve
+
+---
+
+## Practices Affirmed
+**Timestamp**: 2026-10-22T17:09:56Z
+**Event**: PRACTICES_AFFIRMED
+**Affirming User**: shohag
+**Sections Written**: Way of Working, Walking Skeleton, Testing Posture, Deployment, Code Style
+**Mandated Rules Appended**: 4
+**Forbidden Rules Appended**: 2
+
+---
+
+## Gate Approved
+**Timestamp**: 2026-10-22T17:10:09Z
+**Event**: GATE_APPROVED
+**Stage**: practices-discovery
+**User Input**: Approve
+**Person Reply**: Approve
+
+---
+
+## Stage Completion
+**Timestamp**: 2026-10-22T17:10:09Z
+**Event**: STAGE_COMPLETED
+**Stage**: practices-discovery
+**Validation Basis**: {"graphContract":"sha256:886af627a0fea6d271a662e4a54b4c5993ecee715d6144d46d4a58c2bc3d19bb","inputs":[{"artifact":"architecture","contentHash":"sha256:ebbdc4bc0cf88e6cf507d90155297e21e62cefbe3b8d1927484428bf6e4356ba","instanceCount":1,"presentCount":1,"producer":"reverse-engineering","required":false,"structureHash":"sha256:7937774a5e6a70f63b7ba0a76ac23b34a67cb969a2d9c2638cc272853c078519"},{"artifact":"business-overview","contentHash":"sha256:472e22bbdd48e034376b98c6538d61f23003d0040e7b4ea80a1ad0243bada674","instanceCount":1,"presentCount":1,"producer":"reverse-engineering","required":false,"structureHash":"sha256:58617a70e4b73bbee793ca4f86674179471a4bc67fd82e19d2eba414444b244c"},{"artifact":"code-quality-assessment","contentHash":"sha256:7794dbc7ef38411f945f9fb91c2e6eea2c414b7dbc72e49cc1d6c10a96a2938e","instanceCount":1,"presentCount":1,"producer":"reverse-engineering","required":false,"structureHash":"sha256:5e64a08e23c860b95c310b6f02474e491aeafdd0d2c061367eae9041e22dfbec"},{"artifact":"code-structure","contentHash":"sha256:f9bdb9bb59efd81c9ce0bdbd1a7605d90ac3d5e6343abbfea383d23a09ecb59d","instanceCount":1,"presentCount":1,"producer":"reverse-engineering","required":false,"structureHash":"sha256:64feb585dc651cc57aa39eb4c768974206b84faef36acd5eca4b466785ef2043"},{"artifact":"dependencies","contentHash":"sha256:ae3dac7b351a9b3d17b3ba8f169dff4a845da872606284c25ed1db5b8f5d266a","instanceCount":1,"presentCount":1,"producer":"reverse-engineering","required":false,"structureHash":"sha256:6de4e211e6f59631090b3089a74db591d75c6a033de84ee4264f10b976b2dc87"},{"artifact":"technology-stack","contentHash":"sha256:7d03a299276b7514c036c173022c6cb394eb982b7b323de24a878181eb4caa37","instanceCount":1,"presentCount":1,"producer":"reverse-engineering","required":false,"structureHash":"sha256:80d1c4fc34adb718ba33530c4203ce06460d8ba5c1c7d4d4f94baa70408ae4e8"}],"outputs":[{"artifact":"discovered-rules","contentHash":"sha256:be1f956cf2e3e4c778f8b506eca32a97ed42c5f007e4f142e1ec62aad7ba38fb","instanceCount":1,"presentCount":1,"producer":"practices-discovery","required":true,"structureHash":"sha256:184b76bfe52cabf1d82a32d19085e008a87cbaf2462f74f76b16baa5882c30b5"},{"artifact":"evidence","contentHash":"sha256:9a73c17dbe57122e98ab7b301fe83d804f32ba613bc934058ddbe75672d6e7d8","instanceCount":1,"presentCount":1,"producer":"practices-discovery","required":true,"structureHash":"sha256:37722a30f50de6a9ddd3a585cf4c019fd61d5edaaecb79a2306416af3021c7ff"},{"artifact":"practices-discovery-timestamp","contentHash":"sha256:e97df3c4ee3f70198095fa46578b9a12b77949e04ef8d3b60a21165fd7616eea","instanceCount":1,"presentCount":1,"producer":"practices-discovery","required":true,"structureHash":"sha256:b9c61d78680a8219869206ad7feaa1093a2086da3f68df6903ac2d2188062697"},{"artifact":"team-practices","contentHash":"sha256:94804c3f2c6ed8eab1b6d488e1e1ff65e8169eefa247f1a8c5901c9d47462d92","instanceCount":1,"presentCount":1,"producer":"practices-discovery","required":true,"structureHash":"sha256:f068b288a5c59643776e5082b79fa6c44b7f27c1aa61a7d1396115f6bbb18a4a"}],"projectType":"brownfield","schema":3}
+**Details**: Stage Practices Discovery approved by gate
+**Tokens In**: 82
+**Tokens Out**: 38788
+**Cache Read**: 10729088
+**Cache Write**: 236793
+**Cost USD**: 7.90
+**By Model**: opus-5=7.90
+**By Agent**: main=4.15; aidlc-pipeline-deploy-agent=3.76
+**Tokens By Model**: opus-5=82/38.8k/10.7M/236.8k
+**Tokens By Agent**: main=40/9.4k/7.4M/23.4k; aidlc-pipeline-deploy-agent=42/29.4k/3.4M/213.4k
+
+---
+
+## Stage Start
+**Timestamp**: 2026-10-22T17:10:09Z
+**Event**: STAGE_STARTED
+**Stage**: requirements-analysis
+**Agent**: aidlc-product-agent
+
+---
