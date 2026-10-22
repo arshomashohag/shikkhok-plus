@@ -1,0 +1,261 @@
+{
+  "stage": "user-stories",
+  "upstream_ids": [
+    "FR0.1",
+    "FR0.2",
+    "FR1.7a",
+    "FR1.7b",
+    "FR1.7c",
+    "FR1.7d",
+    "FR1.7e",
+    "FR1.7f",
+    "FR1.9a",
+    "FR1.9b",
+    "FR1.9c",
+    "FR1.9c.1",
+    "FR1.9c.2",
+    "FR1.9d",
+    "FR1.9d.1",
+    "FR1.9e",
+    "FR1.9f",
+    "FR1.9f.1",
+    "FR1.9f.2",
+    "FR1.9f.3",
+    "FR1.9g",
+    "FR1.9h",
+    "FR1.9i",
+    "FR1.4a",
+    "FR1.8a",
+    "FR1.16",
+    "FR1.17",
+    "FR11.1a",
+    "NFR20",
+    "NFR21",
+    "NFR22",
+    "NFR23"
+  ],
+  "coverage": [
+    {
+      "id": "FR0.1",
+      "status": "N/A",
+      "target": "A delivery standard governing when a unit is done, not a behaviour a person performs. Enforced at each unit's completion checkpoint rather than by a story."
+    },
+    {
+      "id": "FR0.2",
+      "status": "N/A",
+      "target": "A delivery standard governing when a unit is done, not a behaviour a person performs. US1.17 was drafted for it and withdrawn at review: its personas did not want it, its criteria were about a committed file, and one defined done-ness. Treated exactly as FR0.1. Enforced by the committed check file, which already treats a missing row as an incomplete unit."
+    },
+    {
+      "id": "FR1.7a",
+      "status": "OK",
+      "target": "US1.11 (AC1.11.1, AC1.11.2, AC1.11.3)"
+    },
+    {
+      "id": "FR1.7b",
+      "status": "OK",
+      "target": "US1.11 (AC1.11.5)"
+    },
+    {
+      "id": "FR1.7c",
+      "status": "OK",
+      "target": "US1.11 (AC1.11.4)"
+    },
+    {
+      "id": "FR1.7d",
+      "status": "OK",
+      "target": "US1.16 (AC1.16.1, AC1.16.2)"
+    },
+    {
+      "id": "FR1.7e",
+      "status": "OK",
+      "target": "US1.16 (AC1.16.3)"
+    },
+    {
+      "id": "FR1.7f",
+      "status": "OK",
+      "target": "US1.12 (AC1.12.1, AC1.12.2), US1.16 (AC1.16.4)"
+    },
+    {
+      "id": "FR1.9a",
+      "status": "OK",
+      "target": "US1.2 amended (AC1.2.1a), US1.10 (AC1.10.4), US1.12 (AC1.12.3)"
+    },
+    {
+      "id": "FR1.9b",
+      "status": "OK",
+      "target": "US1.10 (AC1.10.5, AC1.10.6, AC1.10.7), US1.14 (AC1.14.1a)"
+    },
+    {
+      "id": "FR1.9c",
+      "status": "OK",
+      "target": "US1.13 (AC1.13.4)"
+    },
+    {
+      "id": "FR1.9c.1",
+      "status": "OK",
+      "target": "US1.13 (AC1.13.1, AC1.13.2)"
+    },
+    {
+      "id": "FR1.9c.2",
+      "status": "OK",
+      "target": "US1.13 (AC1.13.3)"
+    },
+    {
+      "id": "FR1.9d",
+      "status": "OK",
+      "target": "US1.10 (AC1.10.1, AC1.10.2)"
+    },
+    {
+      "id": "FR1.9d.1",
+      "status": "Deferred",
+      "target": "functional-design — the invitation lens is a mechanism, and the stories assert the behaviour it must produce rather than the lens itself [Q5]. US1.10 (AC1.10.1, AC1.10.2) pin the reachability boundary the lens has to enforce."
+    },
+    {
+      "id": "FR1.9e",
+      "status": "OK",
+      "target": "US1.15 (AC1.15.1)"
+    },
+    {
+      "id": "FR1.9f",
+      "status": "OK",
+      "target": "US1.14 (AC1.14.4)"
+    },
+    {
+      "id": "FR1.9f.1",
+      "status": "OK",
+      "target": "US1.14 (AC1.14.1, AC1.14.1a)"
+    },
+    {
+      "id": "FR1.9f.2",
+      "status": "OK",
+      "target": "US1.14 (AC1.14.2, AC1.14.2a)"
+    },
+    {
+      "id": "FR1.9f.3",
+      "status": "OK",
+      "target": "US1.14 (AC1.14.3)"
+    },
+    {
+      "id": "FR1.9g",
+      "status": "OK",
+      "target": "US1.10 (AC1.10.3)"
+    },
+    {
+      "id": "FR1.9h",
+      "status": "OK",
+      "target": "US1.3 amended (AC1.3.3a, AC1.3.4a, AC1.3.5a, AC1.3.6a), US1.10 (AC1.10.7), US1.15 (AC1.15.2, AC1.15.3, AC1.15.4)"
+    },
+    {
+      "id": "FR1.9i",
+      "status": "OK",
+      "target": "US2.5 amended (AC2.5.1a)"
+    },
+    {
+      "id": "FR1.4a",
+      "status": "OK",
+      "target": "US1.2 amended (AC1.2.2a, AC1.2.3a), US1.11 (AC1.11.2, AC1.11.3)"
+    },
+    {
+      "id": "FR1.8a",
+      "status": "OK",
+      "target": "US1.2 amended (AC1.2.1a)"
+    },
+    {
+      "id": "FR1.16",
+      "status": "OK",
+      "target": "US1.10 (AC1.10.5)"
+    },
+    {
+      "id": "FR1.17",
+      "status": "Deferred",
+      "target": "domain-design — the address and display-name columns need a disposition per deleting actor and a retention class before storage. A schema and governance obligation rather than a user-visible behaviour; D6 asserts the dispositions."
+    },
+    {
+      "id": "FR11.1a",
+      "status": "OK",
+      "target": "US1.6 amended (AC1.6.2a)"
+    },
+    {
+      "id": "NFR20",
+      "status": "Deferred",
+      "target": "nfr-requirements — a measured performance property of lens resolution, already verified at 500x the target scale. No user-visible behaviour to assert in a story."
+    },
+    {
+      "id": "NFR21",
+      "status": "Deferred",
+      "target": "nfr-design — a prohibition on cached summary tables and denormalised counts. An architectural constraint, not a behaviour."
+    },
+    {
+      "id": "NFR22",
+      "status": "Deferred",
+      "target": "nfr-design — no eager per-lens data at login. An architectural constraint."
+    },
+    {
+      "id": "NFR23",
+      "status": "N/A",
+      "target": "A testing-cadence rule: acceptance transitions are written test-first because they are authorization decisions. It governs how US1.10 and US1.13 are built, not what they assert."
+    }
+  ],
+  "reverse": [
+    {
+      "id": "US1.2 (amended)",
+      "status": "OK",
+      "target": "FR1.9a, FR1.4a, FR1.8a — title, narrative and three criteria amended. The prior story's premise, 'without anyone inviting me', is inverted by the acceptance model."
+    },
+    {
+      "id": "US1.3 (amended)",
+      "status": "OK",
+      "target": "FR1.9h — AC1.3.2a and AC1.3.3a supersede criteria that promised no invitation is ever sent and that a seat's state is deliberately not shown on the roster."
+    },
+    {
+      "id": "US1.6 (amended)",
+      "status": "OK",
+      "target": "FR11.1a — AC1.6.2a supersedes an unconditional revert-to-dormant on deletion, which silently cleared a decline."
+    },
+    {
+      "id": "US1.10",
+      "status": "OK",
+      "target": "FR1.9a, FR1.9d, FR1.9g, FR1.16 — the accept-or-decline decision, and the bounded pending view."
+    },
+    {
+      "id": "US1.11",
+      "status": "OK",
+      "target": "FR1.7a, FR1.7b, FR1.7c — account creation, which no prior story covered because no prior requirement permitted it."
+    },
+    {
+      "id": "US1.12",
+      "status": "OK",
+      "target": "FR1.7f, FR1.9a — signup on a number a teacher already added, with the lookup naming neither teacher nor batch."
+    },
+    {
+      "id": "US1.13",
+      "status": "OK",
+      "target": "FR1.9c, FR1.9c.1, FR1.9c.2 — reversibility by the person who declined, and by nobody else."
+    },
+    {
+      "id": "US1.14",
+      "status": "OK",
+      "target": "FR1.9f.1, FR1.9f.2, FR1.9f.3 — declining stops generation and voids what accrued, as an append-only reversal."
+    },
+    {
+      "id": "US1.15",
+      "status": "OK",
+      "target": "FR1.9e, FR1.9h — a seat nobody accepts, and the roster states that make a mistyped number visible."
+    },
+    {
+      "id": "US1.16",
+      "status": "OK",
+      "target": "FR1.7d, FR1.7e, FR1.7f — signup's own abuse ceilings, and the assertion that the OTP path stays byte-identical after signup exists."
+    },
+    {
+      "id": "US2.5 (amended)",
+      "status": "OK",
+      "target": "FR2.12, FR1.9i — AC2.5.1a supersedes a criterion permitting removal only while dormant, which once dormant collapsed into pending forbade removing any seat a teacher creates, blocking the recovery path from a mistyped number."
+    },
+    {
+      "id": "US1.17 (withdrawn)",
+      "status": "N/A",
+      "target": "Drafted for FR0.2 and withdrawn at review as a delivery standard rather than a user story, consistent with FR0.1's treatment. The obligation stands in the requirement and the committed check file."
+    }
+  ]
+}
