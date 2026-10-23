@@ -20,7 +20,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -55,6 +54,9 @@ const val TAG_BATCHES_RETRY: String = "batches_retry"
 
 /** The new-class button. */
 const val TAG_BATCHES_CREATE: String = "batches_create"
+
+/** The accepted-of-total count on one batch card. */
+const val TAG_BATCH_ACCEPTED_COUNT: String = "batch_accepted_count"
 
 /**
  * The teacher's classes.
@@ -233,17 +235,25 @@ private fun BatchRowView(row: BatchRow, onOpen: (String) -> Unit) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // A PLURAL resource, not a format string. Bangla and
-            // English agree on the plural rule here, but a format
-            // string would have made "1 students" permanent in both.
+            // **"9 of 12 accepted", both numbers from the SERVER**
+            // [BR1.2, BR1.3, AC1.3.5a]. This composable formats two
+            // integers it was handed; it does not count rows, and it
+            // does not decide what counts as accepted — a client tally
+            // would be wrong the moment the roster paginates [TC-9].
+            //
+            // Latin digits via `Numerals.count`, because this is the
+            // app's own output rather than text a person typed. It is
+            // the one count in the product with no other formatter
+            // between the server and the screen [NFR3.3].
             Text(
-                text = pluralStringResource(
-                    R.plurals.batches_student_count,
-                    row.enrollmentCount,
-                    row.enrollmentCount,
+                text = stringResource(
+                    R.string.roster_accepted_count,
+                    Numerals.count(row.acceptedCount),
+                    Numerals.count(row.enrollmentCount),
                 ),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.testTag(TAG_BATCH_ACCEPTED_COUNT),
             )
             if (row.defaultFee != null) {
                 Text(

@@ -13,7 +13,16 @@ import com.shikkhokplus.app.core.model.Money
  * @property name The teacher's name for the class
  * @property subjects The subjects taught
  * @property defaultFee The fee an enrollment inherits, or null
- * @property enrollmentCount How many seats, counted SERVER-side
+ * @property enrollmentCount How many seats, counted SERVER-side. The
+ *   **denominator** of "9 of 12 accepted", counting every seat the
+ *   teacher created including declined ones [BR1.4]
+ * @property acceptedCount How many of those seats at least one link has
+ *   accepted, counted SERVER-side [BR1.2, BR1.3].
+ *
+ *   **Read, never derived.** The client holds no definition of what
+ *   counts as accepted, and a client tally would be wrong the moment
+ *   the roster paginates [TC-9, NFR20.9]. The screen formats these two
+ *   numbers; it does not compute either.
  * @property active False means read-only history
  */
 data class BatchRow(
@@ -22,6 +31,7 @@ data class BatchRow(
     val subjects: List<String>,
     val defaultFee: Money?,
     val enrollmentCount: Int,
+    val acceptedCount: Int,
     val active: Boolean,
 )
 

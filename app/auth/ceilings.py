@@ -47,6 +47,8 @@ __all__ = [
     "PER_IP_HOURLY",
     "PER_NUMBER_DAILY",
     "PER_NUMBER_HOURLY",
+    "SIGNUP_PER_IP_HOURLY",
+    "SIGNUP_PER_NUMBER_DAILY",
     "CeilingBreach",
     "CeilingChecker",
     "ScopeKind",
@@ -73,6 +75,19 @@ GLOBAL_DAILY: Final = int(os.environ.get("SHIKKHOKPLUS_GLOBAL_DAILY_SMS", "500")
 #: The sentinel the global scope counts against.
 GLOBAL_SCOPE_VALUE: Final = "global"
 
+#: A 4th signup attempt on one number inside a day is refused [BR2.1].
+#: Lower than the OTP path's daily allowance, because a person signs up
+#: for a number ONCE: repeated attempts on one number are a typo or an
+#: attack, never ordinary use.
+SIGNUP_PER_NUMBER_DAILY: Final = 3
+
+#: An 11th signup from one IP prefix inside an hour is refused [BR2.1].
+#: Matched to the OTP path's per-IP allowance rather than chosen
+#: independently: both bound the same shared-NAT population, and a
+#: tighter signup limit would lock out a school's wifi before it
+#: slowed anyone down.
+SIGNUP_PER_IP_HOURLY: Final = 10
+
 _HOUR = dt.timedelta(hours=1)
 _DAY = dt.timedelta(days=1)
 
@@ -92,16 +107,37 @@ _UPSERT = sa.text(
 
 
 class ScopeKind(enum.Enum):
-    """The four counter scopes, in narrowest-to-widest order.
+    """The counter scopes, each cascade in narrowest-to-widest order.
 
-    The declaration order **is** the evaluation order, so the cascade
+    The declaration order **is** the evaluation order, so a cascade
     cannot drift from the rule by someone reordering a dictionary.
+
+    **The signup members are separate counters, not extra conditions
+    on the OTP ones** [BR2.1, NFR12.3]. Signup and OTP have OPPOSITE
+    disclosure properties by design -- the OTP response is
+    byte-identical whether or not a number is known, while the
+    already-added lookup discloses that a seat exists because that is
+    its purpose -- and conflating their controls is how one inherits
+    the other's assumptions. A signup refusal never consumes an OTP
+    allowance, and the reverse.
+
+    They count against distinct ``scope_kind`` values, so the shared
+    ``rate_limit_counter`` table holds two independent cascades without
+    either reading the other's rows.
     """
 
     NUMBER_HOURLY = "number_hour"
     NUMBER_DAILY = "number_day"
     IP_HOURLY = "ip_hour"
     GLOBAL_DAILY = "global_day"
+    # Abbreviated to fit `rate_limit_counter.scope_kind`, which is
+    # `String(16)`. `signup_number_day` is seventeen characters and
+    # PostgreSQL refuses it outright -- loudly, at the first signup,
+    # which is the right failure. Widening the column would be a
+    # migration against a table two cascades write concurrently, to buy
+    # one character of readability.
+    SIGNUP_NUMBER_DAILY = "su_number_day"
+    SIGNUP_IP_HOURLY = "su_ip_hour"
 
 
 @dataclass(frozen=True, slots=True)
@@ -131,18 +167,47 @@ class CeilingBreach(ConflictError):
     and "invalid number" tells a legitimate teacher their account is
     broken while telling an attacker which numbers exist [BR2.6].
 
+    **The message key follows the cascade, the code does not.** Both
+    cascades answer the same contentless ``TEMPORARILY_UNAVAILABLE``,
+    so a client switching on the code treats them identically; what
+    differs is the string the person reads, because a signup refusal
+    shown on the signup screen saying "we could not send your code"
+    describes a step that never happened. Neither key names the limit
+    or implies the number is invalid [BR2.6].
+
     :ivar scope: Which ceiling refused, for the operator's logs only
     """
 
+    #: The scopes whose refusal is a SIGNUP refusal rather than a send
+    #: refusal. Derived from the scope rather than passed by the caller,
+    #: so a future call site cannot pair a cascade with the wrong text.
+    _SIGNUP_SCOPES: Final = frozenset(
+        {ScopeKind.SIGNUP_NUMBER_DAILY, ScopeKind.SIGNUP_IP_HOURLY}
+    )
+
     def __init__(self, scope: ScopeKind) -> None:
-        """Refuse a send without disclosing why.
+        """Refuse without disclosing why.
+
+        Each branch writes its key as a literal at a ``message_key=``
+        site, rather than selecting one in an expression. That is for
+        the key SCANNER, which matches that literal form across the
+        whole backend: a key assembled in a conditional expression is
+        invisible to it, so the published list silently stops covering
+        it and the app renders a generic fallback that looks like a
+        working error message.
 
         :param scope: The scope that refused
         """
-        super().__init__(
-            code="TEMPORARILY_UNAVAILABLE",
-            message_key="auth.otp.temporarily_unavailable",
-        )
+        if scope in self._SIGNUP_SCOPES:
+            super().__init__(
+                code="TEMPORARILY_UNAVAILABLE",
+                message_key="signup.temporarily_unavailable",
+            )
+        else:
+            super().__init__(
+                code="TEMPORARILY_UNAVAILABLE",
+                message_key="auth.otp.temporarily_unavailable",
+            )
         self.scope = scope
 
 
@@ -203,9 +268,55 @@ class CeilingChecker:
         :return: None
         :raises CeilingBreach: A ceiling refused this send
         """
+        self._consume(self._scopes(number, ip_prefix), now)
+
+    def check_and_consume_signup(
+        self,
+        number: str,
+        ip_prefix: str,
+        now: dt.datetime | None = None,
+    ) -> None:
+        """Consume one signup's budget, refusing at the narrowest breach.
+
+        **A second cascade over the same mechanism, never extra
+        conditions on the first** [BR2.1, NFR12.3]. It shares the
+        narrowest-first order, the release-on-refusal accounting and
+        the datastore-backed counters, and shares no counter ROW: its
+        scopes are distinct ``ScopeKind`` members, so a signup refusal
+        never consumes an OTP allowance and the reverse.
+
+        Called **before** the account is created, for the same reason
+        the OTP cascade is called before the gateway: a ceiling checked
+        afterwards has already spent what it exists to protect.
+
+        :param number: The number being signed up
+        :param ip_prefix: The caller's IP prefix
+        :param now: The moment to count against, or None for the clock
+        :return: None
+        :raises CeilingBreach: A ceiling refused this signup
+        """
+        self._consume(self._signup_scopes(number, ip_prefix), now)
+
+    def _consume(
+        self,
+        cascade: list[tuple[_Scope, str]],
+        now: dt.datetime | None = None,
+    ) -> None:
+        """Walk one cascade, refusing and releasing at the first breach.
+
+        **One implementation for both cascades, deliberately.** The
+        order-and-accounting rule is the control, and a second copy of
+        it is how the two stop agreeing -- with the copy that drifts
+        being whichever one is read less often.
+
+        :param cascade: The scopes to consume, narrowest first
+        :param now: The moment to count against, or None for the clock
+        :return: None
+        :raises CeilingBreach: A scope refused
+        """
         moment = now or dt.datetime.now(tz=dt.UTC)
 
-        for scope, value in self._scopes(number, ip_prefix):
+        for scope, value in cascade:
             window = _window_start(moment, scope.window)
             count = self.session.execute(
                 _UPSERT,
@@ -258,5 +369,47 @@ class CeilingChecker:
             (
                 _Scope(ScopeKind.GLOBAL_DAILY, GLOBAL_DAILY, _DAY),
                 GLOBAL_SCOPE_VALUE,
+            ),
+        ]
+
+    @staticmethod
+    def _signup_scopes(number: str, ip_prefix: str) -> list[tuple[_Scope, str]]:
+        """Build the signup cascade, narrowest first.
+
+        **Narrowest first, like its sibling, and for the reason the
+        module docstring records**: global-first lets one attacker
+        exhaust every legitimate user's allowance before their own
+        limit trips, and it *still looks like* defence in depth --
+        which is exactly why a second cascade is where that mistake
+        would return [NFR12.4].
+
+        **No global scope here, and that is a decision.** Signup's cost
+        to the project is the OTP it triggers, and that send passes
+        through the OTP cascade's own global daily ceiling immediately
+        afterwards. A second global counter would bound the same spend
+        twice at two thresholds, so the tighter one would silently
+        become the real limit and the looser one would read as a
+        control while governing nothing.
+
+        :param number: The number being signed up
+        :param ip_prefix: The caller's IP prefix
+        :return: Each scope paired with the value it counts against
+        """
+        return [
+            (
+                _Scope(
+                    ScopeKind.SIGNUP_NUMBER_DAILY,
+                    SIGNUP_PER_NUMBER_DAILY,
+                    _DAY,
+                ),
+                number,
+            ),
+            (
+                _Scope(
+                    ScopeKind.SIGNUP_IP_HOURLY,
+                    SIGNUP_PER_IP_HOURLY,
+                    _HOUR,
+                ),
+                ip_prefix,
             ),
         ]

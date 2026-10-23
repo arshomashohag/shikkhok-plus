@@ -191,7 +191,7 @@ def test_health_reports_the_migration_revision(client: TestClient) -> None:
     body = response.json()
     assert body["status"] == "ok"
     assert body["database"] == "ok"
-    assert body["migration_revision"] == "0003"
+    assert body["migration_revision"] == "0004"
 
 
 def test_health_discloses_nothing_beyond_its_three_fields(

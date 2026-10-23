@@ -18,11 +18,47 @@ So two mechanisms, because they fail differently:
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+
 import pytest
 import sqlalchemy as sa
+from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
+from app.auth.hashing import OTP_HMAC_KEY_ENV
+from app.auth.tokens import JWT_ACTIVE_KID_ENV, JWT_KEYS_ENV
+
 META_MODULE = "test_rls_meta"
+
+
+@pytest.fixture
+def client(
+    restricted_engine: Engine, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[TestClient]:
+    """Build a client whose app uses the RESTRICTED test engine.
+
+    **Restricted and not owner, which is the whole point here.** A
+    probe suite driven through an application connected as the table
+    owner passes identically whether the row policy is correct, broken
+    or absent [pg-rls] -- and because it takes ``restricted_engine``,
+    the autouse gate below re-checks that before every test in this
+    package.
+
+    :param restricted_engine: The non-superuser engine
+    :param monkeypatch: The patcher
+    :return: A context manager yielding the client
+    """
+    monkeypatch.setenv(OTP_HMAC_KEY_ENV, "test-only-hmac-key")
+    monkeypatch.setenv(JWT_KEYS_ENV, "k1:test-signing-key-padded-to-thirty-two")
+    monkeypatch.setenv(JWT_ACTIVE_KID_ENV, "k1")
+    monkeypatch.setenv("SHIKKHOKPLUS_SMS_APP_HASH", "AAAAAAAAAAA")
+
+    from app.main import create_app
+
+    app = create_app()
+    app.state.engine = restricted_engine
+    with TestClient(app) as test_client:
+        yield test_client
 
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:

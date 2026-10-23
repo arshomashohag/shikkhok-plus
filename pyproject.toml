@@ -210,6 +210,35 @@ strict = true
 disallow_any_explicit = true
 
 # ---------------------------------------------------------------------------
+# The fourth strict island, added at D1.
+#
+# team.md names three — app.money.*, app.authz.* and app.schemas.* — and
+# this is a deliberate addition rather than one of those three arriving
+# late. app.accounts is the package that CREATES an identity and the only
+# one permitted to write the per-link decision columns, so the two things it
+# decides are "does this person exist" and "has this person agreed". An
+# implicit Any flowing through either is the same class of defect the
+# app.authz island exists to catch, one step earlier in the sequence: by the
+# time a lens is resolved, the decision it reads was already written here.
+#
+# disallow_any_explicit IS set, as on app.authz.*: this package depends on
+# the SQLAlchemy session and the ORM models, not on BaseModel, so the
+# Pydantic generic-over-Any constraint that forced the flag off for
+# app.schemas.* does not apply. The request and response models this
+# package's routes use live in app.schemas and are checked there.
+#
+# Named now rather than deferred because the modules exist now. B1 recorded
+# the opposite reasoning for a good reason — an override naming a module
+# that does not exist is dead configuration — and the follow-up it implied
+# was then missed for a whole Unit, which is the failure this entry avoids
+# by being written in the same commit as the package.
+# ---------------------------------------------------------------------------
+[[tool.mypy.overrides]]
+module = "app.accounts.*"
+strict = true
+disallow_any_explicit = true
+
+# ---------------------------------------------------------------------------
 # Coverage — NFR9.13, NFR9.31a/b.
 #
 # 100% BRANCH coverage, scoped by behaviour rather than by path: any module

@@ -36,6 +36,7 @@ from sqlalchemy import (
     UniqueConstraint,
     text,
 )
+from sqlalchemy.dialects.postgresql import ENUM as PgEnum
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -47,7 +48,24 @@ from app.db.money_type import MoneyColumn
 # leaves it unable to map the column.
 from app.money import Money
 
+#: The three representable per-link decisions, in state-machine order.
+#: A link starts ``pending``, its holder may move it to ``accepted`` or
+#: ``declined``, and a declined link may later become ``accepted``.
+#: Nothing returns a link to ``pending`` [BR6.1].
+DECISION_VALUES: tuple[str, ...] = ("pending", "accepted", "declined")
+
+#: The database enum backing both decision columns, named so the model
+#: and migration ``0004`` cannot drift. ``create_type=False`` because
+#: the migration owns the type's lifecycle; a model that also tried to
+#: create it would fail against a migrated database.
+_DECISION = PgEnum(
+    *DECISION_VALUES,
+    name="enrollment_decision",
+    create_type=False,
+)
+
 __all__ = [
+    "DECISION_VALUES",
     "Account",
     "AuthAuditLog",
     "Batch",
@@ -123,6 +141,12 @@ class Profile(Base):
     :ivar account_id: The owning account, and the policy's key
     :ivar self_name: The name the person chose for themselves
     :ivar photo_ref: An opaque reference to a self-supplied photo
+    :ivar address: Collected at signup, and the single most consequential
+        disclosure available in this product. Nullable because the
+        already-added path reaches signup with no address yet. **Adding
+        the column did not enrol it in the privacy gate**: the
+        owner-private field set is matched by NAME and maintained by
+        hand, so ``address`` joins it in this same Unit [BR3.4]
     """
 
     __tablename__ = "profile"
@@ -134,6 +158,7 @@ class Profile(Base):
     )
     self_name: Mapped[str | None] = mapped_column(Text, nullable=True)
     photo_ref: Mapped[str | None] = mapped_column(Text, nullable=True)
+    address: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class OtpRequest(Base):
@@ -288,7 +313,7 @@ class RateLimitCounter(Base):
 
 
 class AuthAuditLog(Base):
-    """Append-only. Five event types, and no content.
+    """Append-only. A closed set of event types, and no content.
 
     **No OTP, no token, no phone number, no child name.** An audit log that
     leaks what it audits is a common and self-defeating mistake, so the
@@ -301,7 +326,7 @@ class AuthAuditLog(Base):
 
     :ivar id: Surrogate key
     :ivar account_id: Null when the number had no account
-    :ivar event: One of the five values in the closed enum
+    :ivar event: One value from the closed ``AuthEvent`` enum
     :ivar occurred_at: When the event happened
     :ivar correlation_id: Ties the row to a request, carrying no content
     """
@@ -390,6 +415,8 @@ class Enrollment(Base):
         default. Zero is a real fee of zero, which is a waiver
     :ivar joined_on: When the student joined
     :ivar inactive_from: The date after which no cycle generates
+    :ivar student_decision: Whether the student link's holder accepted
+    :ivar guardian_decision: Whether the guardian link's holder accepted
     :ivar student_relink_blocked_at: Set when the student erased
     :ivar guardian_relink_blocked_at: Set when the guardian erased
     :ivar created_at: When the enrollment was recorded
@@ -414,6 +441,13 @@ class Enrollment(Base):
     fee_amount: Mapped[Money | None] = mapped_column(MoneyColumn, nullable=True)
     joined_on: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
     inactive_from: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
+    # NO default, in Python or in the database [ADR-013]. Every insert
+    # path must STATE the seat's initial state: a default is how a
+    # future insert skips the decision silently, and the decision is
+    # the only thing standing between a mistyped digit and a stranger
+    # holding a lens over a child's records.
+    student_decision: Mapped[str] = mapped_column(_DECISION, nullable=False)
+    guardian_decision: Mapped[str] = mapped_column(_DECISION, nullable=False)
     student_relink_blocked_at: Mapped[dt.datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

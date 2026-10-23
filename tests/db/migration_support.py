@@ -25,6 +25,7 @@ __all__ = [
     "MigrationFailed",
     "insert_account",
     "insert_enrollment",
+    "stage_at",
     "stage_at_0001",
     "upgrade_to_head",
 ]
@@ -53,10 +54,20 @@ def _alembic_config(url: str) -> object:
 
 
 @contextmanager
-def stage_at_0001(postgres_url: str) -> Iterator[Engine]:
-    """Create a throwaway database migrated to ``0001`` and yield it.
+def stage_at(postgres_url: str, revision: str) -> Iterator[Engine]:
+    """Create a throwaway database migrated to one revision and yield it.
+
+    **Which revision a test stages at is part of what it asserts.**
+    ``0001`` is the right floor for the reshape, whose subject is rows
+    written before ``enrollment`` had two links. A test about ``0004``'s
+    backfill of a DORMANT seat cannot use it, because ``0001`` makes
+    ``account_id`` NOT NULL and dormancy only becomes expressible after
+    ``0002`` -- seeding a linked row and nulling it afterwards would be
+    arranging through the post-migration schema rather than the one the
+    deploy meets.
 
     :param postgres_url: The owner connection URL of the container
+    :param revision: The revision to migrate the new database to
     :return: A context manager yielding an engine on the new database
     """
     from alembic import command
@@ -75,7 +86,7 @@ def stage_at_0001(postgres_url: str) -> Iterator[Engine]:
     )
     engine = sa.create_engine(staged_url, future=True)
     try:
-        command.upgrade(_alembic_config(staged_url), "0001")
+        command.upgrade(_alembic_config(staged_url), revision)
         yield engine
     finally:
         engine.dispose()
@@ -89,6 +100,17 @@ def stage_at_0001(postgres_url: str) -> Iterator[Engine]:
             )
             connection.execute(sa.text(f'DROP DATABASE IF EXISTS "{name}"'))
         admin.dispose()
+
+
+@contextmanager
+def stage_at_0001(postgres_url: str) -> Iterator[Engine]:
+    """Create a throwaway database migrated to ``0001`` and yield it.
+
+    :param postgres_url: The owner connection URL of the container
+    :return: A context manager yielding an engine on the new database
+    """
+    with stage_at(postgres_url, "0001") as engine:
+        yield engine
 
 
 def upgrade_to_head(engine: Engine) -> None:

@@ -30,8 +30,8 @@ __all__ = [
     "unlensed_routes",
 ]
 
-#: Routes reachable with no authentication at all. **Exactly six**, and the
-#: count IS asserted: a seventh entry is a diff against a stated number
+#: Routes reachable with no authentication at all. **Exactly eight**, and
+#: the count IS asserted: a ninth entry is a diff against a stated number
 #: rather than a line appended to a growing list.
 #:
 #: The number read "five" over a six-entry set until 2026-10-22 — the two
@@ -39,7 +39,16 @@ __all__ = [
 #: asserted count had diverged and nothing noticed, because nothing asserted
 #: the count at all. Corrected along with the assertion that now makes the
 #: claim real [practices 2026-10-22: a comment may not state a number that
-#: nothing checks].
+#: nothing checks]. D1 adds two and moves the number with them.
+#:
+#: **D1's two are the product's first unauthenticated WRITE and its first
+#: deliberate disclosure** [BR2.1, BR2.3]. `POST /v1/accounts` must be
+#: public because there is no session to authenticate with before an
+#: account exists, and the already-added lookup must be public because it
+#: is called while the signup form renders. Both are bounded by signup's
+#: OWN ceilings, counted separately from the OTP path's, and neither
+#: reaches a batch, a fee, a mark or an attendance record
+#: [logical-components § 4].
 #:
 #: **Two of these have no handler yet.** `/account-deletion`, GET and POST,
 #: is pre-declared D6 scope: both account-deletion paths are release-blocking
@@ -54,6 +63,8 @@ PUBLIC_ROUTES: frozenset[tuple[str, str]] = frozenset(
     {
         ("POST", "/v1/auth/otp"),
         ("POST", "/v1/auth/verify"),
+        ("POST", "/v1/accounts"),
+        ("GET", "/v1/accounts/already-added"),
         ("GET", "/health"),
         ("GET", "/account-deletion"),
         ("POST", "/account-deletion"),
@@ -79,6 +90,15 @@ LENS_EXEMPT_AUTHENTICATED: frozenset[tuple[str, str]] = frozenset(
         # could own, which is what makes the exemption safe rather than
         # merely necessary.
         ("GET", "/v1/me"),
+        # The route that REPORTS which invitation lenses exist, exempt
+        # on exactly GET /v1/me's reasoning: requiring one would mean a
+        # person had to already know which seats they were offered in
+        # order to ask. Every row it returns is resolved from the
+        # authenticated account id by `available_invitations`, and the
+        # four per-seat routes beneath it DO each resolve an
+        # InvitationLens -- so the exemption covers the listing alone
+        # and not anything it links to.
+        ("GET", "/v1/invitations"),
     }
 )
 

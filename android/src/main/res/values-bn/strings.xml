@@ -36,13 +36,13 @@
     <string name="roster_title">শিক্ষার্থীরা</string>
     <string name="roster_empty">এখনও কোনো শিক্ষার্থী নেই। শুরু করতে প্রথমজনকে যোগ করুন।</string>
     <string name="roster_retry">আবার চেষ্টা করুন</string>
-    <string name="roster_status_dormant">এখনও সাইন ইন করেননি</string>
+    <string name="roster_status_dormant">এখনও গ্রহণ করেননি</string>
     <string name="roster_status_active">চলমান</string>
     <string name="roster_status_inactive">ছেড়ে গেছেন</string>
     <string name="roster_fetched_at">%1$s এর সংরক্ষিত তথ্য দেখানো হচ্ছে</string>
     <string name="batch_not_found">এই ক্লাসটি খুঁজে পাওয়া যায়নি।</string>
     <string name="batch_create_subject_required">অন্তত একটি বিষয় যোগ করুন।</string>
-    <string name="enrollment_remove_claimed">এই শিক্ষার্থী সাইন ইন করেছেন এবং তার রেকর্ড আছে। মুছে ফেলার বদলে তাকে ছেড়ে যাওয়া হিসেবে চিহ্নিত করুন।</string>
+    <string name="enrollment_remove_claimed">এই শিক্ষার্থী তার জায়গা গ্রহণ করেছেন এবং তার রেকর্ড আছে। মুছে ফেলার বদলে তাকে ছেড়ে যাওয়া হিসেবে চিহ্নিত করুন।</string>
     <string name="enrollment_remove_erased">এই জায়গাটিতে কারও তথ্য মুছে ফেলার অনুরোধ রেকর্ড করা আছে। নতুন ও আলাদা রেকর্ড তৈরি করতে নম্বরটি আবার যোগ করুন।</string>
     <string name="authz_lens_not_available">এটি দেখার অনুমতি আপনার নেই।</string>
     <string name="guardian_children_title">আপনার সন্তানরা</string>
@@ -82,4 +82,94 @@
     <string name="batches_loading_label">লোড হচ্ছে…</string>
     <string name="batches_fee_per_month">%1$s/মাস</string>
     <string name="auth_code_auto_checks">ছয়টি সংখ্যা দেওয়ার পর নিজেই যাচাই হবে। কোনও বাটন চাপতে হবে না।</string>
+
+    <!-- D1: সাইন-আপ (O1)। শিক্ষক বা ব্যাচের নাম কখনও দেখানো হয় না। -->
+    <string name="signup_title">আপনার অ্যাকাউন্ট তৈরি করুন</string>
+    <string name="signup_phone_label">মোবাইল নম্বর</string>
+    <string name="signup_name_label">আপনার নাম</string>
+    <string name="signup_address_label">ঠিকানা (ঐচ্ছিক)</string>
+    <string name="signup_role_label">আমি একজন</string>
+    <string name="signup_role_teacher">শিক্ষক</string>
+    <string name="signup_role_student">শিক্ষার্থী</string>
+    <string name="signup_role_guardian">অভিভাবক</string>
+    <string name="signup_submit">%1$s নম্বরে কোড পাঠান</string>
+    <string name="signup_already_added_notice">একজন শিক্ষক ইতিমধ্যে এই নম্বরটি যোগ করেছেন। নিচে আপনার নাম দেখে নিন, প্রয়োজনে ঠিক করুন।</string>
+    <string name="signup_role_locked_note">আপনাকে যোগ করার সময় আপনার ভূমিকা নির্ধারিত হয়েছে।</string>
+    <string name="signup_checking_number">দেখা হচ্ছে…</string>
+    <string name="signup_submitting">আপনার অ্যাকাউন্ট তৈরি হচ্ছে…</string>
+    <string name="signup_code_sent">আমরা %1$s নম্বরে একটি কোড পাঠিয়েছি।</string>
+    <string name="signup_go_to_login">বরং লগ ইন করুন</string>
+    <string name="signup_phone_invalid">সঠিক মোবাইল নম্বর দিন।</string>
+    <string name="signup_name_required">অনুগ্রহ করে আপনার নাম লিখুন।</string>
+    <string name="signup_number_already_registered">এই নম্বরে ইতিমধ্যে একটি অ্যাকাউন্ট আছে। বরং লগ ইন করুন।</string>
+    <string name="signup_temporarily_unavailable">সাইন-আপ এখন সাময়িকভাবে বন্ধ আছে। অনুগ্রহ করে পরে চেষ্টা করুন।</string>
+
+    <!-- D1: আমন্ত্রণ (O4)। প্রত্যাখ্যান করা জায়গা তালিকায় থেকে যায়। -->
+    <string name="invitations_title">আপনার আমন্ত্রণ</string>
+    <string name="invitations_empty_title">উত্তর দেওয়ার কিছু নেই</string>
+    <string name="invitations_empty_body">কোনও শিক্ষক আপনার নম্বর কোনও ক্লাসে যোগ করলে তা এখানে দেখা যাবে, আপনি গ্রহণ বা প্রত্যাখ্যান করতে পারবেন।</string>
+    <string name="invitations_error_title">আপনার আমন্ত্রণ লোড করা যায়নি</string>
+    <string name="invitation_fee_per_month">%1$s/মাস</string>
+    <string name="invitation_subject_label">বিষয়</string>
+    <string name="invitation_state_pending">আপনার উত্তরের অপেক্ষায়</string>
+    <string name="invitation_state_declined">আপনি এটি প্রত্যাখ্যান করেছেন</string>
+    <string name="invitation_accept">গ্রহণ করুন</string>
+    <string name="invitation_decline">প্রত্যাখ্যান করুন</string>
+    <string name="invitation_accepted_confirmation">আপনি %1$s-এ যোগ দিয়েছেন।</string>
+
+    <!-- দুটি আলাদা প্রত্যাখ্যান বার্তা: অভিভাবকের প্রত্যাখ্যানে
+         শিক্ষার্থীর ফি বন্ধ হয় না। -->
+    <string name="decline_student_title">এই জায়গা প্রত্যাখ্যান করবেন?</string>
+    <string name="decline_student_body">আপনি %1$s-এ যোগ দেবেন না এবং এর জন্য আপনার কাছে আর কোনও ফি নেওয়া হবে না। মত বদলালে পরে গ্রহণ করতে পারবেন।</string>
+    <string name="decline_guardian_title">এই শিক্ষার্থীকে অনুসরণ করা বন্ধ করবেন?</string>
+    <string name="decline_guardian_body">আপনি %1$s-এর জন্য এই শিক্ষার্থীর রেকর্ড আর দেখতে পাবেন না। তার জায়গা ও ফি অপরিবর্তিত থাকবে। মত বদলালে পরে গ্রহণ করতে পারবেন।</string>
+    <string name="decline_confirm">প্রত্যাখ্যান করুন</string>
+
+    <!-- D1: প্রোফাইল (O5), শুধু সম্পাদনার অংশ। -->
+    <string name="profile_title">আপনার প্রোফাইল</string>
+    <string name="profile_name_label">আপনার নাম</string>
+    <string name="profile_address_label">ঠিকানা</string>
+    <string name="profile_edit">সম্পাদনা</string>
+    <string name="profile_save">সংরক্ষণ</string>
+    <string name="profile_saving">সংরক্ষণ হচ্ছে…</string>
+    <string name="profile_saved">সংরক্ষিত হয়েছে।</string>
+    <string name="profile_teacher_name_note">এটি বদলালে আপনার শিক্ষকেরা যে নাম দেখেন তা বদলায় না। প্রত্যেক শিক্ষক আপনার জন্য তার টাইপ করা নামই দেখেন।</string>
+
+    <!-- ===================================================== D2 ===== -->
+
+    <!-- গৃহীত আসনের সংখ্যা। দুটি সংখ্যাই সার্ভার থেকে আসে। -->
+    <string name="roster_accepted_count">%2$s-এর মধ্যে %1$s জন গ্রহণ করেছে</string>
+
+    <string name="roster_link_student">শিক্ষার্থী</string>
+    <string name="roster_link_guardian">অভিভাবক</string>
+    <string name="roster_link_pending">এখনও উত্তর দেয়নি</string>
+    <string name="roster_link_accepted">যোগ দিয়েছে</string>
+    <string name="roster_link_declined">প্রত্যাখ্যান করেছে</string>
+    <string name="roster_link_absent">কোনও অভিভাবক নেই</string>
+    <string name="roster_declined_mark">প্রত্যাখ্যাত — নম্বরটি দেখে নিন</string>
+    <string name="roster_declined_no_number">প্রত্যাখ্যাত আসন (কোনো নম্বর রাখা হয়নি)</string>
+
+    <string name="roster_remove">সরান</string>
+    <string name="roster_remove_confirm_title">এই জায়গাটি সরাবেন?</string>
+    <string name="roster_remove_confirm_body">%1$s-কে এই ক্লাস থেকে সরানো হবে। কেউ এই জায়গা গ্রহণ করেনি, তাই কারও কোনও রেকর্ড নষ্ট হবে না।</string>
+    <string name="roster_remove_confirm">সরান</string>
+    <string name="roster_remove_refused_title">এই জায়গাটি সরানো যাবে না</string>
+    <string name="roster_remove_claimed_remedy">কেউ এই জায়গা গ্রহণ করেছে, তাই রেকর্ডটি থেকে যাবে। বদলে আপনি এটি নিষ্ক্রিয় চিহ্নিত করতে পারেন — ভবিষ্যতের ফি বন্ধ হবে এবং পুরনো হিসাব থেকে যাবে।</string>
+    <string name="roster_remove_erased_remedy">এই জায়গার অ্যাকাউন্টটি মুছে ফেলা হয়েছে। জায়গাটি যেমন আছে তেমনই থাকবে এবং আর ব্যবহার করা যাবে না।</string>
+    <string name="roster_mark_inactive">নিষ্ক্রিয় চিহ্নিত করুন</string>
+    <string name="action_close">বন্ধ করুন</string>
+
+    <string name="batch_create_submitting">তৈরি হচ্ছে…</string>
+    <string name="batch_create_created">ক্লাস তৈরি হয়েছে।</string>
+    <string name="student_add_submitting">যোগ হচ্ছে…</string>
+    <string name="student_add_added">শিক্ষার্থী যোগ হয়েছে।</string>
+    <string name="student_add_guardian_hint">ঐচ্ছিক। অভিভাবক গ্রহণ করলে এই শিক্ষার্থীর রেকর্ড দেখতে পাবেন।</string>
+
+    <!-- G1: অভিভাবকের শিক্ষার্থীরা। শিক্ষার্থী বদলালে দৃশ্যটি
+         প্রতিস্থাপিত হয়, স্তূপীকৃত হয় না। -->
+    <string name="guardian_home_title">আপনার শিক্ষার্থীরা</string>
+    <string name="guardian_switch_label">দেখাচ্ছে</string>
+    <string name="guardian_child_in_batch">%1$s · %2$s</string>
+    <string name="guardian_empty_title">এখনও দেখানোর কিছু নেই</string>
+    <string name="guardian_empty_body">কোনও শিক্ষক আপনাকে অভিভাবক হিসেবে যুক্ত করলে এবং আপনি গ্রহণ করলে সেই শিক্ষার্থী এখানে দেখা যাবে।</string>
 </resources>

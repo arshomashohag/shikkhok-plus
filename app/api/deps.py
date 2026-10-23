@@ -22,12 +22,20 @@ from fastapi import Depends, Request
 from sqlalchemy.orm import Session
 
 from app.auth.tokens import verify_access_token
-from app.authz.lenses import GuardianLens, Lens, StudentLens, TeacherLens
+from app.authz.invitations import available_invitations
+from app.authz.lenses import (
+    GuardianLens,
+    InvitationLens,
+    Lens,
+    StudentLens,
+    TeacherLens,
+)
 from app.authz.resolve import LensResolver
 from app.errors import AuthorizationError
 
 __all__ = [
     "guardian_lens",
+    "invitation_lens",
     "student_lens",
     "teacher_lens",
 ]
@@ -182,5 +190,46 @@ def guardian_lens(
             return lens
     raise AuthorizationError(
         code="NO_GUARDIAN_LENS",
+        message_key="authz.lens.not_available",
+    )
+
+
+def invitation_lens(
+    enrollment_id: uuid.UUID,
+    session: Annotated[Session, Depends(get_session)],
+    account_id: Annotated[uuid.UUID, Depends(authenticated_account)],
+) -> InvitationLens:
+    """Resolve the invitation lens for one seat named in the path.
+
+    **Not memoized and not taken from the request's resolved lenses**,
+    which is the one place this dependency differs from the other three
+    [ADR-011, NFR20.3]. The role lenses come from the per-request
+    ``_LENS_QUERY``; an invitation grant is a SET resolved by its own
+    statement on this route alone, so there is nothing on
+    ``request.state`` to read and nothing the hot path pays for.
+
+    The seat arrives as a **path parameter** and the grant is checked
+    against it, never the other way round: the handler cannot reach a
+    second seat because the lens it is handed carries exactly one.
+
+    The refusal does not distinguish "no such seat" from "not yours",
+    for the same reason a teacher reading another's batch gets a
+    not-found [NFR14.13] -- except that this one answers 403, because
+    an invitation route is reached from a list the person was already
+    shown, so there is no id for them to enumerate that they were not
+    handed.
+
+    :param enrollment_id: The seat, from the route path
+    :param session: The session to query through
+    :param account_id: The authenticated account
+    :return: The invitation lens for that one seat
+    :raises AuthorizationError: No unaccepted link on that seat names
+        this account
+    """
+    for lens in available_invitations(session, account_id):
+        if lens.enrollment_id == enrollment_id:
+            return lens
+    raise AuthorizationError(
+        code="NO_INVITATION_LENS",
         message_key="authz.lens.not_available",
     )

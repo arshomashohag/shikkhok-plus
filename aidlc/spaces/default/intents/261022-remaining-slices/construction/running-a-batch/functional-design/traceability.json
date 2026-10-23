@@ -1,0 +1,106 @@
+{
+  "stage": "functional-design",
+  "unit": "running-a-batch",
+  "note": "Each coverage row names the rule that DISCHARGES the criterion, not merely a rule in the same area. An earlier draft mapped AC1.3.2 (no outbound notification) and AC1.15.1 (no expiry) to the marking and counting rules, which do not address either; the architecture review caught it and the fix was to WRITE the missing rules (BR1.5 no notification, BR1.6 no expiry, BR2.4 never-accepted versus erased) rather than to re-point the mapping. Five criteria appear as superseded base forms because the sensor's AC pattern has no word boundary before a trailing letter: AC1.3.2, AC1.3.3, AC1.3.4, AC1.3.5 and AC1.3.6 are the five, each mapped to the rules implementing its live `a` form. AC1.15.x and AC2.5.1 have no suffixed form and are mapped directly. The reverse array explains two D2 rules with no criterion of their own, and five of D1's rules that this file CITES rather than restates: restating them would create two places to change one rule.",
+  "upstream_ids": [
+    "AC1.3.2",
+    "AC1.3.3",
+    "AC1.3.4",
+    "AC1.3.5",
+    "AC1.3.6",
+    "AC1.15.1",
+    "AC1.15.2",
+    "AC1.15.3",
+    "AC1.15.4",
+    "AC2.5.1"
+  ],
+  "coverage": [
+    {
+      "id": "AC1.3.2",
+      "status": "OK",
+      "target": "BR1.5"
+    },
+    {
+      "id": "AC1.3.3",
+      "status": "OK",
+      "target": "BR1.1 BR2.3"
+    },
+    {
+      "id": "AC1.3.4",
+      "status": "OK",
+      "target": "BR2.1 BR2.2"
+    },
+    {
+      "id": "AC1.3.5",
+      "status": "OK",
+      "target": "BR1.2 BR1.3 BR1.4"
+    },
+    {
+      "id": "AC1.3.6",
+      "status": "OK",
+      "target": "BR2.4 BR3.2"
+    },
+    {
+      "id": "AC1.15.1",
+      "status": "OK",
+      "target": "BR1.6"
+    },
+    {
+      "id": "AC1.15.2",
+      "status": "OK",
+      "target": "BR3.1 BR3.2"
+    },
+    {
+      "id": "AC1.15.3",
+      "status": "OK",
+      "target": "BR2.3"
+    },
+    {
+      "id": "AC1.15.4",
+      "status": "OK",
+      "target": "BR1.5"
+    },
+    {
+      "id": "AC2.5.1",
+      "status": "OK",
+      "target": "BR3.1"
+    }
+  ],
+  "reverse": [
+    {
+      "id": "BR4.1",
+      "status": "N/A",
+      "target": "NFR14.15 - a guardian reaches children through their own link. Built in identity-and-access and rendered here; no acceptance criterion of this record describes it"
+    },
+    {
+      "id": "BR4.2",
+      "status": "N/A",
+      "target": "AC9.4.2 - the back-stack obligation on a child switch. A standing per-unit accessibility obligation rather than a story criterion"
+    },
+    {
+      "id": "BR5.2",
+      "status": "N/A",
+      "target": "D1's rule, cited not restated: a decision is recorded per link. D2 renders it as BR2.1 and must not own a second copy"
+    },
+    {
+      "id": "BR5.4",
+      "status": "N/A",
+      "target": "D1's rule, cited not restated: a decline is reversible by its holder. Relevant because a declined seat stays in that person's invitations rather than on this roster"
+    },
+    {
+      "id": "BR7.1",
+      "status": "N/A",
+      "target": "D1's rule, cited not restated: removability reads the decision columns AND the erasure markers. D2's BR3.1 is the rule that the client must not re-derive it"
+    },
+    {
+      "id": "BR7.2",
+      "status": "N/A",
+      "target": "D1's rule, cited not restated: dormancy means nobody accepted. D2's BR1.1 and BR1.4 depend on it but do not redefine it"
+    },
+    {
+      "id": "BR6.2",
+      "status": "N/A",
+      "target": "D1's rule, cited not restated: the decision and erasure axes are independent. D2's BR2.4 is the rendering consequence"
+    }
+  ]
+}

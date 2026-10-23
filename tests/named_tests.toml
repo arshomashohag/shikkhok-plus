@@ -231,3 +231,106 @@ id = "test_dynamic_decimal_import_is_caught"
 file = "tests/gates/test_import_gates.py"
 criterion = "importlib.import_module('decimal') is caught by Gate 2's AST walk; the real Ruff config passes it because there is no import statement"
 rule = "BR6.2"
+
+# ---------------------------------------------------------------------------
+# D1 `signing-up-and-joining`. Seven entries, and the reason they are named
+# rather than left to a coverage number is sharper here than anywhere else in
+# this manifest: the authorization layer is measured as BRANCH coverage, and
+# every one of these predicates is a branch that several other tests already
+# execute incidentally. Deleting any of these tests would not move a number.
+# ---------------------------------------------------------------------------
+
+[[test]]
+id = "test_links_that_only_name_an_account_grant_no_role_lens"
+file = "tests/authz/test_acceptance_predicate.py"
+criterion = "An account named on BOTH links of a pending seat resolves neither a student nor a guardian lens; this failed against the merged _LENS_QUERY, which granted on the link alone"
+rule = "BR1.1"
+
+[[test]]
+id = "test_the_summary_counts_agree_with_the_grant"
+file = "tests/authz/test_acceptance_predicate.py"
+criterion = "lens_summary reports zero student seats and zero guardian children for the same unaccepted links; a separate statement in a separate module, so fixing the resolver alone is a silent half-fix"
+rule = "BR1.2"
+
+[[test]]
+id = "test_one_account_on_both_links_decides_once_for_both"
+file = "tests/authz/test_decision_transitions.py"
+criterion = "One accept moves BOTH columns when one account holds both links, and only its own when the links name different people; BR5.2 and BR5.3 read as a contradiction and an implementation satisfying either alone fails half this file"
+rule = "BR5.3"
+
+[[test]]
+id = "test_no_decision_service_resets_a_link_to_pending"
+file = "tests/authz/test_decision_transitions.py"
+criterion = "Every D1 write path exercised against a declined link leaves it declined or accepted, never pending; the absence BR5.4's durability depends on, which no diff shows"
+rule = "BR6.1"
+
+[[test]]
+id = "test_pending_and_declined_links_grant_an_invitation_lens"
+file = "tests/authz/test_invitation_lens.py"
+criterion = "A pending AND a declined seat both resolve invitation lenses, returned as a SET across two batches; restricting the grant to pending would make BR5.4's reversal unreachable"
+rule = "BR1.3"
+
+[[test]]
+id = "test_a_seat_stays_removable_after_the_named_person_signs_up"
+file = "tests/batches/test_removability_after_signup.py"
+criterion = "A teacher removes a seat whose named person has signed up and accepted nothing; this failed against merged code and is the mistyped-number recovery path the unit exists to open"
+rule = "BR7.1"
+
+[[test]]
+id = "test_the_roster_shows_an_accepted_seat_as_claimed"
+file = "tests/batches/test_removability_after_signup.py"
+criterion = "A seat whose GUARDIAN link accepted while the student link is pending reads as claimed; an implementation reading only student_decision passes every other test in that file"
+rule = "BR7.2"
+
+[[test]]
+id = "test_reading_a_seat_removed_mid_request_raises_rather_than_rendering"
+file = "tests/authz/test_invitation_lens.py"
+criterion = "A seat removed between resolving the lens and reading it raises rather than returning a blank invitation; a teacher may legitimately remove an unaccepted seat, so the window is real"
+rule = "BR7.1"
+
+[[test]]
+id = "test_signing_up_leaves_an_existing_seat_pending"
+file = "tests/accounts/test_lookup.py"
+criterion = "After signup links the account to an existing seat, BOTH decision columns are still pending and the guardian link names the new account; the single most important ABSENCE in this unit, which no diff shows"
+rule = "BR5.1"
+
+# ---------------------------------------------------------------------
+# D2 `running-a-batch`. Three obligations, and the third is the one that
+# must not become a review note: no server-side control can observe it.
+# ---------------------------------------------------------------------
+
+[[test]]
+id = "test_one_accepted_link_makes_the_seat_accepted"
+file = "tests/batches/test_accepted_count.py"
+criterion = "A split seat — student accepted, guardian declined — counts as accepted; an implementation requiring BOTH links, or reading only student_decision, gets a different answer here and the same answer everywhere else"
+rule = "BR1.2"
+
+[[test]]
+id = "test_the_denominator_includes_declined_seats"
+file = "tests/batches/test_accepted_count.py"
+criterion = "Nine accepted of twelve where one of the three others DECLINED; an implementation filtering declined seats from the total reports nine of eleven, and the teacher cannot tell a decline from a removal"
+rule = "BR1.4"
+
+[[test]]
+id = "test_the_two_refusals_carry_different_codes_and_message_keys"
+file = "tests/batches/test_removal_refusals.py"
+criterion = "Claimed and erased differ on BOTH halves a screen reads — the code it switches on and the message key it renders; a pair agreeing on either collapses two remedies into one screen and leaves a teacher trying the one that cannot work"
+rule = "BR3.2"
+
+[[test]]
+id = "test_removability_agrees_with_what_removal_actually_does"
+file = "tests/batches/test_roster_states.py"
+criterion = "The row's is_removable equals whether remove_enrollment actually succeeds, across claimed, erased and removable seats; the erased seat's two decisions both read pending, so every client-side derivation would offer an action the server then refuses"
+rule = "BR3.1"
+
+[[test]]
+id = "test_a_recorded_guardian_who_has_not_answered_is_pending_not_absent"
+file = "tests/batches/test_roster_states.py"
+criterion = "A guardian the teacher recorded who has not signed up yet reads pending, not absent; keying absence on guardian_account_id rather than the typed number would drop every unregistered guardian out of the outstanding figure"
+rule = "BR2.2"
+
+[[test]]
+id = "BACK AFTER A CHILD SWITCH does not reach the previous child"
+file = "android/src/test/kotlin/com/shikkhokplus/app/feature/guardian/GuardianHomeScreenTest.kt"
+criterion = "After switching child and then pressing Back, the previous child is still not the one displayed; no server-side control can observe this failure because both requests are legitimately authorized and neither response is anomalous, so this test is the only mechanism"
+rule = "BR4.2"

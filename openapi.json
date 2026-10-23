@@ -1,6 +1,48 @@
 {
   "components": {
     "schemas": {
+      "AlreadyAddedResponse": {
+        "additionalProperties": false,
+        "description": "What the lookup may say about a number [BR2.3, BR4.5].\n\n**Three fields, and the absences are the requirement.** No teacher\nname, no teacher id, no batch name, no batch subject, no fee, no\nenrollment id. With any of those this becomes an oracle for who\nteaches whom, readable by anyone who can type a phone number\n[AC1.12.2].\n\n:ivar already_added: Whether a teacher recorded this number\n:ivar display_name: The teacher-typed name to pre-fill as\n    correctable, or None\n:ivar role: The role to lock the form to, or None",
+        "properties": {
+          "already_added": {
+            "title": "Already Added",
+            "type": "boolean"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "enum": [
+                  "guardian",
+                  "student",
+                  "teacher"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          }
+        },
+        "required": [
+          "already_added"
+        ],
+        "title": "AlreadyAddedResponse",
+        "type": "object"
+      },
       "BatchCreateRequest": {
         "additionalProperties": false,
         "description": "Create a batch [AC2.1.1, AC2.1.2].\n\n:ivar name: The teacher's name for the class\n:ivar subjects: One or more subjects taught\n:ivar teacher_display_name: What students see the teacher called\n:ivar default_fee: The fee an enrollment inherits when it sets none\n:ivar fee_due_day: Day of month 1-31; 29-31 clamp at generation\n:ivar collection_number: Where payments are sent\n:ivar collection_channel: Which service that number belongs to",
@@ -87,8 +129,12 @@
         "type": "object"
       },
       "BatchResponse": {
-        "description": "A batch as its owner sees it.\n\n:ivar id: The batch\n:ivar name: The teacher's name for the class\n:ivar subjects: The subjects taught\n:ivar teacher_display_name: What students see the teacher called\n:ivar default_fee: The inherited fee\n:ivar fee_due_day: Day of month 1-31\n:ivar collection_number: Where payments are sent\n:ivar collection_channel: Which service that number belongs to\n:ivar marksheet_visible: U6's toggle\n:ivar active: False means read-only history\n:ivar enrollment_count: How many seats, computed server-side",
+        "description": "A batch as its owner sees it.\n\n:ivar id: The batch\n:ivar name: The teacher's name for the class\n:ivar subjects: The subjects taught\n:ivar teacher_display_name: What students see the teacher called\n:ivar default_fee: The inherited fee\n:ivar fee_due_day: Day of month 1-31\n:ivar collection_number: Where payments are sent\n:ivar collection_channel: Which service that number belongs to\n:ivar marksheet_visible: U6's toggle\n:ivar active: False means read-only history\n:ivar enrollment_count: How many seats, computed server-side. The\n    **denominator** of \"9 of 12 accepted\", and it counts every seat\n    the teacher created including declined ones [BR1.4]\n:ivar accepted_count: How many of those seats at least one link has\n    accepted [BR1.2], computed server-side and **never counted by\n    the client** [BR1.3, TC-9]. A client counting rows is a client\n    deciding what counts as accepted, and it is wrong the moment the\n    roster paginates because it can only count the rows it holds",
         "properties": {
+          "accepted_count": {
+            "title": "Accepted Count",
+            "type": "integer"
+          },
           "active": {
             "title": "Active",
             "type": "boolean"
@@ -173,6 +219,7 @@
           }
         },
         "required": [
+          "accepted_count",
           "active",
           "collection_channel",
           "collection_number",
@@ -186,6 +233,31 @@
           "teacher_display_name"
         ],
         "title": "BatchResponse",
+        "type": "object"
+      },
+      "DecisionResponse": {
+        "additionalProperties": false,
+        "description": "The seat's state after this holder decided [BR5.2].\n\nReports **this holder's own** decision. The other link's state is\ndeliberately absent: it belongs to another person, and a seat whose\nstudent and guardian are different people shows each state only to\nits own holder. The teacher's roster is where both appear side by\nside, and that screen is D2's [AC1.10.7].\n\n:ivar enrollment_id: The seat decided on\n:ivar decision: This holder's decision after the write",
+        "properties": {
+          "decision": {
+            "enum": [
+              "accepted",
+              "declined"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "enrollment_id": {
+            "format": "uuid",
+            "title": "Enrollment Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision",
+          "enrollment_id"
+        ],
+        "title": "DecisionResponse",
         "type": "object"
       },
       "EnrollmentCreateRequest": {
@@ -416,6 +488,54 @@
         "title": "InactiveFromRequest",
         "type": "object"
       },
+      "InvitationResponse": {
+        "additionalProperties": false,
+        "description": "One unaccepted seat, in exactly the width BR1.4 permits.\n\nBatch name, subject and fee amount -- all teacher-authored, so this\nread crosses no privacy boundary -- plus the seat's own id, which\nthe accept and decline routes are keyed on, and this holder's own\ndecision so the screen can offer the right action without deciding\nwhat ``declined`` means for itself [TC-9].\n\n**There is no attendance, no mark, no other enrollment and no\nfurther batch field**, and no write action but accept and decline\non the link that names the holder [AC1.10.2].\n\n:ivar enrollment_id: The seat, which the decision routes are keyed on\n:ivar batch_name: The class being joined\n:ivar subject: The subjects taught, as the teacher named them\n:ivar fee_amount: This seat's fee, or None when it inherits the\n    batch default. None is NOT zero: zero is a waiver\n:ivar decision: This holder's own decision, ``pending`` or\n    ``declined``",
+        "properties": {
+          "batch_name": {
+            "title": "Batch Name",
+            "type": "string"
+          },
+          "decision": {
+            "enum": [
+              "declined",
+              "pending"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "enrollment_id": {
+            "format": "uuid",
+            "title": "Enrollment Id",
+            "type": "string"
+          },
+          "fee_amount": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "subject": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Subject",
+            "type": "array"
+          }
+        },
+        "required": [
+          "batch_name",
+          "decision",
+          "enrollment_id",
+          "subject"
+        ],
+        "title": "InvitationResponse",
+        "type": "object"
+      },
       "IssueRequest": {
         "additionalProperties": false,
         "description": "Ask for a code to be sent to a number.\n\nThe number is **typed by the user** and never read from the SIM\n[AC1.1.6]: there is no device-side source for this field.\n\n:ivar phone: The destination number in international form",
@@ -503,7 +623,7 @@
         "type": "object"
       },
       "RosterRowResponse": {
-        "description": "One seat as a teacher sees it.\n\n``status`` is a **server-computed decision**, not an input to one\n[TC-9]: the client switches on this enum and never compares a date\nor an amount of its own.\n\n:ivar enrollment_id: The teacher-facing key for this seat\n:ivar display_name: The teacher-typed name\n:ivar guardian_phone: The teacher-typed guardian contact\n:ivar fee_amount: This seat's fee, or null when it inherits\n:ivar status: ``dormant``, ``active`` or ``inactive``\n:ivar inactive_from: The recorded date, if any",
+        "description": "One seat as a teacher sees it.\n\n``status`` is a **server-computed decision**, not an input to one\n[TC-9]: the client switches on this enum and never compares a date\nor an amount of its own.\n\n:ivar enrollment_id: The teacher-facing key for this seat\n:ivar display_name: The teacher-typed name\n:ivar guardian_phone: The teacher-typed guardian contact\n:ivar fee_amount: This seat's fee, or null when it inherits\n:ivar status: ``dormant``, ``active`` or ``inactive``.\n\n    **Unchanged, and the two new fields sit beside it rather than\n    replacing it.** Acceptance is a different axis from activity:\n    an inactive seat keeps whatever decisions its links carry,\n    because leaving a batch is not un-accepting it. Folding the two\n    together would produce a product of two axes and a value set\n    nobody can switch on exhaustively\n:ivar student_state: The student link's own decision --\n    ``pending``, ``accepted`` or ``declined`` [BR2.1]\n:ivar guardian_state: The guardian link's own decision, plus\n    ``absent`` when no guardian was recorded [BR2.2]. ``absent`` is\n    a fourth VALUE and not a null, because a decision nobody was\n    asked for is not an outstanding one\n:ivar is_removable: Whether removal would succeed [BR3.1].\n\n    **A decision the client reads and never derives** [NFR14.31].\n    Removal tests two conditions -- no link accepted, and no erasure\n    marker set -- and this row carries only the first. A client\n    inferring removability from the link states it displays would\n    offer the action on an erased seat, which is a wrong answer\n    presented as an available action rather than a style violation\n:ivar inactive_from: The recorded date, if any",
         "properties": {
           "display_name": {
             "title": "Display Name",
@@ -535,6 +655,10 @@
             ],
             "title": "Guardian Phone"
           },
+          "guardian_state": {
+            "title": "Guardian State",
+            "type": "string"
+          },
           "inactive_from": {
             "anyOf": [
               {
@@ -547,8 +671,16 @@
             ],
             "title": "Inactive From"
           },
+          "is_removable": {
+            "title": "Is Removable",
+            "type": "boolean"
+          },
           "status": {
             "title": "Status",
+            "type": "string"
+          },
+          "student_state": {
+            "title": "Student State",
             "type": "string"
           }
         },
@@ -557,10 +689,80 @@
           "enrollment_id",
           "fee_amount",
           "guardian_phone",
+          "guardian_state",
           "inactive_from",
-          "status"
+          "is_removable",
+          "status",
+          "student_state"
         ],
         "title": "RosterRowResponse",
+        "type": "object"
+      },
+      "SignupRequest": {
+        "additionalProperties": false,
+        "description": "Create an account for a number nobody has registered.\n\nThe number is **typed by the person** and never read from the SIM\n[TC-4, D-35]: there is no device-side source for this field, here\nor anywhere in this product.\n\n:ivar phone: The number this identity is keyed on\n:ivar role: The claimed role; nothing verifies it [BR4.2]\n:ivar self_name: The name the person chose for themselves. Lands on\n    ``Profile.self_name`` and never on an ``Enrollment.display_name``\n    [BR3.1]\n:ivar address: Owner-private, and optional because the\n    already-added path reaches signup with no address yet",
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "phone": {
+            "maxLength": 20,
+            "minLength": 8,
+            "title": "Phone",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "guardian",
+              "student",
+              "teacher"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "self_name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Self Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "phone",
+          "role",
+          "self_name"
+        ],
+        "title": "SignupRequest",
+        "type": "object"
+      },
+      "SignupResponse": {
+        "additionalProperties": false,
+        "description": "The account exists and a code is on its way [BR4.3].\n\n**No token and no lens.** The account is created before the code is\nsent, and the person is authenticated by the existing OTP flow,\nunchanged [BR2.2]. Returning a token here would make signup a\nsecond authentication path with none of the seven controls the\nfirst one carries.\n\n:ivar account_id: The new account\n:ivar code_sent_to: The number the code was sent to, echoed so the\n    screen can name its destination [BR4.3, AC1.11.4]",
+        "properties": {
+          "account_id": {
+            "format": "uuid",
+            "title": "Account Id",
+            "type": "string"
+          },
+          "code_sent_to": {
+            "title": "Code Sent To",
+            "type": "string"
+          }
+        },
+        "required": [
+          "account_id",
+          "code_sent_to"
+        ],
+        "title": "SignupResponse",
         "type": "object"
       },
       "TokenResponse": {
@@ -680,6 +882,91 @@
         "summary": "Health",
         "tags": [
           "health"
+        ]
+      }
+    },
+    "/v1/accounts": {
+      "post": {
+        "description": "Create an account, then send the verification code [BR4.3].\n\n**The ordering is the requirement, not an implementation detail**\n[AC1.11.4]. The account exists before the code is sent, so a person\nwho verifies always has something to verify into; sending first\nwould mean a code arriving for an account that may never be\ncreated.\n\nThe ceiling is consumed **before** the account is created, for the\nreason the OTP path checks before its gateway call: a ceiling\nchecked afterwards has already spent what it exists to protect.\n\nPublic by design, and in ``PUBLIC_ROUTES``: there is no session to\nauthenticate with before an account exists.\n\n:param body: The signup request\n:param request: The incoming request\n:param session: The request-scoped session\n:param gateway: The configured SMS gateway\n:return: The new account and the number its code went to\n:raises CeilingBreach: A signup ceiling refused this request\n:raises DuplicateNumber: The number already has an account",
+        "operationId": "sign_up_v1_accounts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignupResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sign Up",
+        "tags": [
+          "accounts"
+        ]
+      }
+    },
+    "/v1/accounts/already-added": {
+      "get": {
+        "description": "Report whether a teacher recorded this number, and nothing more.\n\n**This route discloses that a seat exists, deliberately**\n[BR2.3, AC1.12.2]. That is its purpose, and it is why BR2.2's\nbyte-identical requirement applies to the OTP endpoint and not to\nthis one. What is bounded is the WIDTH -- never the teacher, never\nthe batch -- and the rate, through signup's own ceilings.\n\nPublic, and in ``PUBLIC_ROUTES``: it is called while the signup\nform renders, before any account exists.\n\n:param phone: The number typed into the form\n:param request: The incoming request\n:param session: The request-scoped session\n:return: Existence, the name to pre-fill and the role to lock\n:raises CeilingBreach: A signup ceiling refused this request",
+        "operationId": "lookup_already_added_v1_accounts_already_added_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "phone",
+            "required": true,
+            "schema": {
+              "title": "Phone",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlreadyAddedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Lookup Already Added",
+        "tags": [
+          "accounts"
         ]
       }
     },
@@ -1102,6 +1389,164 @@
         "summary": "List Children",
         "tags": [
           "batches"
+        ]
+      }
+    },
+    "/v1/invitations": {
+      "get": {
+        "description": "List every unaccepted seat this account holds [BR1.3, BR5.5].\n\n**Lens-exempt for the same reason ``GET /v1/me`` is**, and recorded\nin ``LENS_EXEMPT_AUTHENTICATED`` rather than left to infer: this is\nthe route that REPORTS which invitation lenses exist, so requiring\none would mean a person had to already know which seats they were\noffered in order to ask. Every row it returns is derived from the\nauthenticated account id and it reads nothing another account could\nown.\n\nA **declined** seat stays in this list with its state, because its\nholder may change their mind [BR5.4, AC1.13.1]. A seat whose links\nthis account holds BOTH appears once [BR5.3].\n\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:return: One entry per unaccepted seat, oldest first",
+        "operationId": "list_invitations_v1_invitations_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/InvitationResponse"
+                  },
+                  "title": "Response List Invitations V1 Invitations Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Invitations",
+        "tags": [
+          "accounts"
+        ]
+      }
+    },
+    "/v1/invitations/{enrollment_id}": {
+      "get": {
+        "description": "Read one unaccepted seat, at BR1.4's width.\n\n:param lens: The invitation lens carrying the one reachable seat\n:param session: The request-scoped session\n:return: Batch name, subject, fee and this holder's own state",
+        "operationId": "read_one_invitation_v1_invitations__enrollment_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enrollment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enrollment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read One Invitation",
+        "tags": [
+          "accounts"
+        ]
+      }
+    },
+    "/v1/invitations/{enrollment_id}/accept": {
+      "post": {
+        "description": "Accept this seat, from ``pending`` or from ``declined``.\n\nOne route for both, because accepting after a decline is the same\noperation and not a second one [BR5.4, AC1.13.2]: the lens becomes\navailable exactly as if the person had accepted first time.\n\n:param lens: The invitation lens carrying the one reachable seat\n:param session: The request-scoped session\n:return: The seat and this holder's decision",
+        "operationId": "accept_invitation_v1_invitations__enrollment_id__accept_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enrollment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enrollment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecisionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Accept Invitation",
+        "tags": [
+          "accounts"
+        ]
+      }
+    },
+    "/v1/invitations/{enrollment_id}/decline": {
+      "post": {
+        "description": "Decline this seat, withdrawing only this holder's own lens.\n\n**A guardian's decline does not stop the student's fee** [BR5.2,\nAC1.14.1a]. The seat leaves this person's enrollments and stays\namong their invitations, with an accept action [BR5.5].\n\n:param lens: The invitation lens carrying the one reachable seat\n:param session: The request-scoped session\n:return: The seat and this holder's decision",
+        "operationId": "decline_invitation_v1_invitations__enrollment_id__decline_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enrollment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enrollment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecisionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decline Invitation",
+        "tags": [
+          "accounts"
         ]
       }
     },

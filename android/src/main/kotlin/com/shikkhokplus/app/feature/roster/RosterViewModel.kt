@@ -15,11 +15,23 @@ import kotlinx.coroutines.launch
  * @property batchName Which class this is
  * @property rows The seats, in the order the server returned them
  * @property fetchedAtLabel When this came from cache, or null when live
+ * @property acceptedCount How many seats at least one link accepted, as
+ *   the SERVER counted them [BR1.2, BR1.3], or null when this read did
+ *   not carry the batch summary.
+ *
+ *   Carried here rather than counted from [rows], which is the whole
+ *   point: a client tally is the client deciding what counts as
+ *   accepted, and it is wrong the moment the roster paginates
+ *   [NFR20.9].
+ * @property seatCount The denominator, counting every seat the teacher
+ *   created including declined ones [BR1.4]
  */
 data class RosterPayload(
     val batchName: String,
     val rows: List<RosterRowDto>,
     val fetchedAtLabel: String? = null,
+    val acceptedCount: Int? = null,
+    val seatCount: Int? = null,
 )
 
 /** What the roster repository must provide. */
@@ -89,6 +101,10 @@ class RosterViewModel(
     private var lastBatchName: String = ""
     private var pendingRemoval: String? = null
 
+    // The row a removal is in flight for, so `retry` can repeat it as a
+    // removal carrying its remedy rather than as a bare id.
+    private var removingRow: RosterRow? = null
+
     /**
      * Load a batch's roster.
      *
@@ -107,6 +123,16 @@ class RosterViewModel(
                             batchName = result.value.batchName.ifBlank { lastBatchName },
                             rows = result.value.rows,
                             fetchedAtLabel = result.value.fetchedAtLabel,
+                            // Both from the server or neither: a
+                            // numerator formatted against a
+                            // denominator the client supplied would be
+                            // a count nobody computed [BR1.3].
+                            accepted =
+                                result.value.acceptedCount?.let { taken ->
+                                    result.value.seatCount?.let { total ->
+                                        AcceptedCount(taken, total)
+                                    }
+                                },
                         )
                     is AuthResult.Refused -> RosterStateMapper.afterError(result.envelope)
                     AuthResult.TransportFailure -> RosterStateMapper.afterTransportFailure()
@@ -115,21 +141,51 @@ class RosterViewModel(
     }
 
     /**
+     * Ask the teacher to confirm, naming the seat [W4].
+     *
+     * @param row The seat the teacher chose to remove
+     */
+    fun confirmRemoval(row: RosterRow) {
+        removingRow = row
+        _state.value = RosterStateMapper.beforeRemoval(row)
+    }
+
+    /** Abandon a removal and return to the roster. */
+    fun cancelRemoval() {
+        removingRow = null
+        pendingRemoval = null
+        lastBatchId?.let { load(it, lastBatchName) }
+    }
+
+    /** Dismiss a refusal and return to the roster. */
+    fun dismissRefusal() = cancelRemoval()
+
+    /**
      * Remove a seat, reloading the roster when the server accepts.
      *
-     * @param enrollmentId The seat to remove
+     * **A refusal carries its remedy** [BR3.2]. The server returns two
+     * codes because the remedies differ, and routing both through
+     * `afterError` would render one message for both -- leaving a
+     * teacher trying the remedy that cannot work. That is the gap this
+     * unit closes, and it is why the refusal path is separate from the
+     * generic one.
+     *
+     * @param row The seat to remove
      */
-    fun remove(enrollmentId: String) {
-        pendingRemoval = enrollmentId
+    fun remove(row: RosterRow) {
+        removingRow = row
+        pendingRemoval = row.enrollmentId
         _state.value = RosterUiState.Loading
         viewModelScope.launch {
-            when (val result = repository.removeEnrollment(enrollmentId)) {
+            when (val result = repository.removeEnrollment(row.enrollmentId)) {
                 is AuthResult.Ok -> {
                     pendingRemoval = null
-                    lastBatchId?.let { load(it) }
+                    removingRow = null
+                    lastBatchId?.let { load(it, lastBatchName) }
                 }
                 is AuthResult.Refused ->
-                    _state.value = RosterStateMapper.afterError(result.envelope)
+                    _state.value =
+                        RosterStateMapper.afterRemovalRefused(row, result.envelope)
                 AuthResult.TransportFailure ->
                     _state.value = RosterStateMapper.afterTransportFailure()
             }
@@ -175,7 +231,7 @@ class RosterViewModel(
      * intent and leave the seat in place with no error on screen.
      */
     fun retry() {
-        val removal = pendingRemoval
+        val removal = removingRow
         if (removal != null) {
             remove(removal)
             return

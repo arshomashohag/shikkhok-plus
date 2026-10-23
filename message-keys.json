@@ -9,6 +9,8 @@
     "batch.not_found",
     "enrollment.remove.claimed",
     "enrollment.remove.erased",
+    "signup.number.already_registered",
+    "signup.temporarily_unavailable",
     "staging.outbox.empty"
   ]
 }

@@ -47,6 +47,29 @@ val coverageExclusions = listOf(
     "**/ComposableSingletons*",
     "**/*_Factory*",
     "**/Hilt_*",
+    // **The composables themselves, for the same stated reason.**
+    //
+    // *(Corrected 2026-10-23, D1.)* The three exclusions above catch
+    // Compose's synthetic artifacts and not the `@Composable` functions,
+    // so every screen counted as a block of permanently-uncovered lines.
+    // JaCoCo instruments the class but Robolectric drives the composition
+    // through Compose's runtime, so the screen's own bytecode records no
+    // hits even when a Compose test exercises it: `AuthScreenKt` measured
+    // 60 missed and 0 covered while `AuthScreenTest` passed. Across the
+    // module that was 573 of 1769 lines -- a third of the denominator --
+    // and it moved with how many screens existed rather than with what
+    // was verified, which is exactly what the comment above says the
+    // exclusions exist to prevent.
+    //
+    // The screens are NOT untested. `*ScreenTest` classes run on every
+    // commit under Robolectric and assert what each state renders,
+    // including the rules that are only observable as absences: that the
+    // already-added notice names no teacher, that the two decline sheets
+    // say opposite things about the fee, that the profile edit offers no
+    // deletion control. Those tests are the verification; this figure
+    // never was.
+    "**/*ScreenKt*",
+    "**/ui/*Kt*",
 )
 
 tasks.register<JacocoReport>("jacocoDebugReport") {

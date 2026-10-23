@@ -61,6 +61,7 @@ def _register_routes(app: FastAPI) -> None:
     :param app: The application being built
     :return: None
     """
+    from app.api.accounts import router as accounts_router
     from app.api.auth import router as auth_router
     from app.api.batches import router as batches_router
     from app.api.health import router as health_router
@@ -71,7 +72,13 @@ def _register_routes(app: FastAPI) -> None:
     # hardcoded list cannot see a router added later.
     app.state.included_routers = []
 
-    for router in (auth_router, batches_router, health_router, me_router):
+    for router in (
+        accounts_router,
+        auth_router,
+        batches_router,
+        health_router,
+        me_router,
+    ):
         app.include_router(router)
         app.state.included_routers.append(router)
 

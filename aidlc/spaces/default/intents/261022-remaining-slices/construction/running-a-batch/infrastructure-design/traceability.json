@@ -1,0 +1,145 @@
+{
+  "stage": "infrastructure-design",
+  "unit": "running-a-batch",
+  "note": "D2 provisions nothing and migrates nothing, so most upstream NFRx.y are application-level with no infrastructure expression and are recorded N/A with the reason rather than claimed as covered. The OK rows are the ones infrastructure or the pipeline genuinely carries: the test targets, the per-screen check, the one metric, and NFR14.30 - which appears as an OK row precisely because what monitoring carries for it is the explicit statement that NOTHING can observe it. NFR14.15 and NFR21.1 are citations of prior rules, not IDs defined here. The reverse array lists D1 requirements this unit CITES rather than owns, including three that are cited specifically to record that they do NOT apply to a unit with no migration - which is worth stating, because 'does not apply to D2' is not 'closed'.",
+  "upstream_ids": [
+    "NFR2.3",
+    "NFR2.4",
+    "NFR3.3",
+    "NFR14.15",
+    "NFR14.26",
+    "NFR14.27",
+    "NFR14.28",
+    "NFR14.29",
+    "NFR14.30",
+    "NFR14.31",
+    "NFR20.7",
+    "NFR20.8",
+    "NFR20.9",
+    "NFR20.10",
+    "NFR20.11",
+    "NFR21.1",
+    "NFR23.4",
+    "NFR23.5",
+    "NFR23.6"
+  ],
+  "coverage": [
+    {
+      "id": "NFR2.3",
+      "status": "N/A",
+      "target": "The device floor is a client property with no infrastructure expression; D2 adds no dependency"
+    },
+    {
+      "id": "NFR2.4",
+      "status": "OK",
+      "target": "Download size is measured at the release gate; D2 adds code and strings only and changes no pipeline step (cicd-pipeline What D2 does not add)"
+    },
+    {
+      "id": "NFR3.3",
+      "status": "OK",
+      "target": "The count's Bangla form is a per-screen check obligation, carried as six rows rather than a pipeline gate (cicd-pipeline Where D2's work lands)"
+    },
+    {
+      "id": "NFR14.15",
+      "status": "N/A",
+      "target": "Cited from the prior record: guardian reach. An application query property, not provisioned infrastructure"
+    },
+    {
+      "id": "NFR14.26",
+      "status": "N/A",
+      "target": "The two new fields are decision enums; a response-schema property with no infrastructure artifact"
+    },
+    {
+      "id": "NFR14.27",
+      "status": "N/A",
+      "target": "The teacher-lens schema invariant runs as a test inside make check, already covered by the NFR23.x rows"
+    },
+    {
+      "id": "NFR14.28",
+      "status": "OK",
+      "target": "The declined-row label is asserted by an Android rendering test inside make check (cicd-pipeline What make check runs for D2)"
+    },
+    {
+      "id": "NFR14.29",
+      "status": "N/A",
+      "target": "Guardian reach is application code, unchanged by this unit"
+    },
+    {
+      "id": "NFR14.30",
+      "status": "OK",
+      "target": "Named in monitoring-design as the one failure mode with NO observable signal: both requests are legitimately authorized, so there is nothing to alert on, log or count (monitoring-design The failure mode nothing can observe)"
+    },
+    {
+      "id": "NFR14.31",
+      "status": "N/A",
+      "target": "Removability is decided in remove_enrollment; application code"
+    },
+    {
+      "id": "NFR20.7",
+      "status": "N/A",
+      "target": "The conditional aggregate is application code in list_batches, not an infrastructure artifact"
+    },
+    {
+      "id": "NFR20.8",
+      "status": "N/A",
+      "target": "Same statement, same reason"
+    },
+    {
+      "id": "NFR20.9",
+      "status": "OK",
+      "target": "The decline-rate metric and the teacher-facing count are the same server-side derivation, so the operational view and the product view cannot disagree (monitoring-design The one metric worth naming)"
+    },
+    {
+      "id": "NFR20.10",
+      "status": "N/A",
+      "target": "Columns of rows already read; no index, no infrastructure"
+    },
+    {
+      "id": "NFR20.11",
+      "status": "N/A",
+      "target": "No pagination in V1; a design decision with no infrastructure expression"
+    },
+    {
+      "id": "NFR21.1",
+      "status": "N/A",
+      "target": "D1's no-cache rule, cited not restated. No cache tier is provisioned, which is what makes it unviolatable by configuration"
+    },
+    {
+      "id": "NFR23.4",
+      "status": "OK",
+      "target": "The count is written from the criterion first and lands in make check's test target (cicd-pipeline)"
+    },
+    {
+      "id": "NFR23.5",
+      "status": "OK",
+      "target": "The two refusals are distinct outcomes in the test inventory (cicd-pipeline)"
+    },
+    {
+      "id": "NFR23.6",
+      "status": "OK",
+      "target": "The Back-after-switch test lands in the android target; monitoring cannot cover it (cicd-pipeline, monitoring-design)"
+    }
+  ],
+  "reverse": [
+    {
+      "id": "NFR7.5",
+      "status": "N/A",
+      "target": "D1's rule, cited not restated: the unit adds no infrastructure. D2 inherits it and the monitoring design cites it for the absent metrics backend"
+    },
+    {
+      "id": "NFR19.2",
+      "status": "N/A",
+      "target": "D1's conditional-backfill requirement. Cited to record that it does NOT apply to D2, which has no migration (infrastructure-specification section 4)"
+    },
+    {
+      "id": "NFR19.3",
+      "status": "N/A",
+      "target": "D1's pre-migration backup assertion. Cited as an open gap that remains D1's and does not apply to a unit with no migration (infrastructure-specification section 5)"
+    },
+    {
+      "id": "NFR19.4",
+      "status": "N/A",
+      "target": "D1's staging rehearsal requirement. Same: cited to keep the open gap visible across units without D2 claiming it"
+    }
+  ]
+}

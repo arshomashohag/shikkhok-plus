@@ -60,6 +60,18 @@ class HttpRosterRepository(
                         batchName = "",
                         rows = response.body(),
                         fetchedAtLabel = null,
+                        // The COUNTS are not on the roster response
+                        // either: they belong to `BatchResponse`, which
+                        // the batch list already carries [BR1.2]. Null
+                        // rather than a tally over `rows` -- counting
+                        // them here is exactly the client-side
+                        // derivation BR1.3 forbids, and it would be
+                        // wrong the moment the roster paginates. The
+                        // caller that holds the batch summary supplies
+                        // them; a caller that does not renders no
+                        // count rather than an invented one.
+                        acceptedCount = null,
+                        seatCount = null,
                     ),
                 )
             } else {

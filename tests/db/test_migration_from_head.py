@@ -123,7 +123,11 @@ def test_a_dormant_enrollment_survives_with_a_null_link(staged: Engine) -> None:
 
 
 def test_the_head_revision_advanced(staged: Engine) -> None:
-    """Head is ``0002`` after the upgrade.
+    """Head is ``0004`` after the upgrade.
+
+    The literal is updated by every Unit that adds a migration, which
+    is the point: a head assertion that drifted silently would stop
+    telling anyone which revision the suite actually ran against.
 
     :param staged: The engine staged at ``0001``
     :return: None
@@ -135,7 +139,7 @@ def test_the_head_revision_advanced(staged: Engine) -> None:
             sa.text("SELECT version_num FROM alembic_version")
         ).scalar_one()
 
-    assert revision == "0003"
+    assert revision == "0004"
 
 
 def test_the_role_column_is_gone(staged: Engine) -> None:

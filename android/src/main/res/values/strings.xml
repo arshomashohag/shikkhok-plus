@@ -38,13 +38,13 @@
     <string name="roster_title">Students</string>
     <string name="roster_empty">No students yet. Add the first one to get started.</string>
     <string name="roster_retry">Try again</string>
-    <string name="roster_status_dormant">Not signed in yet</string>
+    <string name="roster_status_dormant">Hasn\'t accepted yet</string>
     <string name="roster_status_active">Active</string>
     <string name="roster_status_inactive">Left</string>
     <string name="roster_fetched_at">Showing saved data from %1$s</string>
     <string name="batch_not_found">That class could not be found.</string>
     <string name="batch_create_subject_required">Add at least one subject.</string>
-    <string name="enrollment_remove_claimed">This student has signed in and has a record. Mark them as left instead of removing them.</string>
+    <string name="enrollment_remove_claimed">This student has accepted their place and has a record. Mark them as left instead of removing them.</string>
     <string name="enrollment_remove_erased">This place records someone\'s request to erase their data. Add the number again to create a new, separate record.</string>
     <string name="authz_lens_not_available">You do not have access to this.</string>
     <string name="guardian_children_title">Your children</string>
@@ -86,4 +86,125 @@
     <string name="batches_loading_label">Loading…</string>
     <string name="batches_fee_per_month">%1$s/mo</string>
     <string name="auth_code_auto_checks">It checks by itself after the sixth digit. There\'s no button to press.</string>
+
+    <!-- D1: signup (O1). The already-added notice names NEITHER the
+         teacher NOR the batch [BR2.3, AC1.12.2] — saying "your teacher
+         Mr Karim added you to Physics" would make this screen an oracle
+         for who teaches whom. -->
+    <string name="signup_title">Create your account</string>
+    <string name="signup_phone_label">Mobile number</string>
+    <string name="signup_name_label">Your name</string>
+    <string name="signup_address_label">Address (optional)</string>
+    <string name="signup_role_label">I am a</string>
+    <string name="signup_role_teacher">Teacher</string>
+    <string name="signup_role_student">Student</string>
+    <string name="signup_role_guardian">Guardian</string>
+    <string name="signup_submit">Send code to %1$s</string>
+    <string name="signup_already_added_notice">A teacher has already added this number. Check your name below and correct it if needed.</string>
+    <string name="signup_role_locked_note">Your role was set when you were added.</string>
+    <string name="signup_checking_number">Checking…</string>
+    <string name="signup_submitting">Creating your account…</string>
+    <string name="signup_code_sent">We sent a code to %1$s.</string>
+    <string name="signup_go_to_login">Log in instead</string>
+    <string name="signup_phone_invalid">Enter a valid mobile number.</string>
+    <string name="signup_name_required">Please enter your name.</string>
+    <string name="signup_number_already_registered">This number already has an account. Log in instead.</string>
+    <string name="signup_temporarily_unavailable">Sign-up is temporarily unavailable. Please try again later.</string>
+
+    <!-- D1: invitations (O4). Accepting is what grants access; signing
+         up does not [BR5.1]. A declined seat STAYS listed with an
+         accept action, because a decline is reversible by its holder
+         and by nobody else [BR5.4, AC1.13.1]. -->
+    <string name="invitations_title">Your invitations</string>
+    <string name="invitations_empty_title">Nothing to answer</string>
+    <string name="invitations_empty_body">When a teacher adds your number to a class, it will appear here for you to accept or decline.</string>
+    <string name="invitations_error_title">Couldn\'t load your invitations</string>
+    <string name="invitation_fee_per_month">%1$s/mo</string>
+    <string name="invitation_subject_label">Subject</string>
+    <string name="invitation_state_pending">Waiting for your answer</string>
+    <string name="invitation_state_declined">You declined this</string>
+    <string name="invitation_accept">Accept</string>
+    <string name="invitation_decline">Decline</string>
+    <string name="invitation_accepted_confirmation">You have joined %1$s.</string>
+
+    <!-- The TWO decline sheets. One copy shown to both roles told a
+         guardian a debt was cancelled when it was not: a guardian's
+         decline leaves the student's fee entirely intact and withdraws
+         only the guardian's own access [BR5.2, AC1.14.1a]. -->
+    <string name="decline_student_title">Decline this place?</string>
+    <string name="decline_student_body">You won\'t join %1$s and no further fees will be charged to you for it. You can accept later if you change your mind.</string>
+    <string name="decline_guardian_title">Stop following this student?</string>
+    <string name="decline_guardian_body">You won\'t see this student\'s records for %1$s. Their place and their fees are unchanged. You can accept later if you change your mind.</string>
+    <string name="decline_confirm">Decline</string>
+
+    <!-- D1: profile (O5), the EDIT half only. The deletion states on
+         this screen are D6's. -->
+    <string name="profile_title">Your profile</string>
+    <string name="profile_name_label">Your name</string>
+    <string name="profile_address_label">Address</string>
+    <string name="profile_edit">Edit</string>
+    <string name="profile_save">Save</string>
+    <string name="profile_saving">Saving…</string>
+    <string name="profile_saved">Saved.</string>
+    <string name="profile_teacher_name_note">Changing this does not change the name your teachers see. Each teacher sees the name they typed for you.</string>
+
+    <!-- ===================================================== D2 ===== -->
+
+    <!-- The accepted count [AC1.3.5a, BR1.2]. BOTH numbers come from
+         the server; this string only formats them. It is the one count
+         in the product with NO locale helper, so it is the first row
+         to check in the Bangla layout table [NFR3.3]. -->
+    <string name="roster_accepted_count">%1$s of %2$s accepted</string>
+
+    <!-- Per-link state on a roster row [BR2.1]. A seat shows BOTH,
+         separately, and appears once: a student who accepted beside a
+         guardian who declined is a real seat and neither single value
+         describes it. -->
+    <string name="roster_link_student">Student</string>
+    <string name="roster_link_guardian">Guardian</string>
+    <string name="roster_link_pending">Not answered yet</string>
+    <string name="roster_link_accepted">Joined</string>
+    <string name="roster_link_declined">Declined</string>
+    <!-- `absent` is a fourth VALUE, not a null: a seat with no guardian
+         recorded was never asked, so it is not outstanding [BR2.2]. -->
+    <string name="roster_link_absent">No guardian recorded</string>
+    <!-- Marked per row because declined is ABNORMAL and usually means a
+         mistyped number. Pending is not marked: it is the normal state
+         of a new seat [BR1.1, AC1.3.3a]. -->
+    <string name="roster_declined_mark">Declined — check the number</string>
+    <string name="roster_declined_no_number">Declined seat (no number recorded)</string>
+
+    <!-- Removing a seat [W4]. The confirmation NAMES what is being
+         removed rather than asking about nothing in particular. -->
+    <string name="roster_remove">Remove</string>
+    <string name="roster_remove_confirm_title">Remove this place?</string>
+    <string name="roster_remove_confirm_body">%1$s will be removed from this class. Nothing they have recorded is affected, because nobody has accepted this place.</string>
+    <string name="roster_remove_confirm">Remove</string>
+    <!-- TWO refusals, TWO remedies [BR3.2]. One message for both would
+         leave a teacher trying the one that cannot work. Neither
+         offers a retry: both are conflicts, so repeating the request
+         unchanged cannot succeed. -->
+    <string name="roster_remove_refused_title">This place can\'t be removed</string>
+    <string name="roster_remove_claimed_remedy">Someone has accepted this place, so the record stands. You can mark it inactive instead, which stops future fees and keeps the history.</string>
+    <string name="roster_remove_erased_remedy">The account on this place was deleted. The place has to stay as it is and can\'t be reused.</string>
+    <string name="roster_mark_inactive">Mark inactive</string>
+    <string name="action_close">Close</string>
+
+    <!-- Create a batch (US2.1) and add a student (T8, US2.2). Client
+         validation is FORMAT only; whether a number is already on this
+         batch is a SERVER decision and arrives as a failure state. -->
+    <string name="batch_create_submitting">Creating…</string>
+    <string name="batch_create_created">Class created.</string>
+    <string name="student_add_submitting">Adding…</string>
+    <string name="student_add_added">Student added.</string>
+    <string name="student_add_guardian_hint">Optional. The guardian sees this student\'s records once they accept.</string>
+
+    <!-- G1: the guardian's children [US2.6, BR4.2]. A switch REPLACES
+         the view; Back must not reach the previous child's data
+         [AC9.4.2, NFR14.30]. -->
+    <string name="guardian_home_title">Your students</string>
+    <string name="guardian_switch_label">Showing</string>
+    <string name="guardian_child_in_batch">%1$s · %2$s</string>
+    <string name="guardian_empty_title">Nothing to show yet</string>
+    <string name="guardian_empty_body">When a teacher records you as a guardian and you accept, that student appears here.</string>
 </resources>

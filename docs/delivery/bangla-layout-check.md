@@ -80,6 +80,61 @@ rather than editing the old one.
 | — | Auth: OTP entry | `O3` | *not yet checked* | | |
 | — | Batch list | `T6` | *not yet checked* | | |
 | — | Roster | `T7` | *not yet checked* | | |
+| D1 | Signup | `O1` | *not yet checked* | `signup_already_added_notice` (88) | |
+| D1 | Invitations | `O4` | *not yet checked* | `invitations_empty_body` (104) | |
+| D1 | Decline sheet — student | `O4` | *not yet checked* | `decline_student_body` (106) | |
+| D1 | Decline sheet — guardian | `O4` | *not yet checked* | `decline_guardian_body` (125) | |
+| D1 | Profile (edit half) | `O5` | *not yet checked* | `profile_teacher_name_note` (105) | |
+| D2 | Batch list (with the count) | `T6` | *not yet checked* | `roster_accepted_count` (33) | |
+| D2 | Roster (per-link states, declined mark) | `T7` | *not yet checked* | `roster_declined_mark` (31) | |
+| D2 | Add student | `T8` | *not yet checked* | `student_add_guardian_hint` (61) | |
+| D2 | Create batch | — | *not yet checked* | `batch_create_created` (18) | |
+| D2 | Remove seat (confirm + two refusals) | — | *not yet checked* | `roster_remove_claimed_remedy` (145) | |
+| D2 | Guardian child home | `G1` | *not yet checked* | `guardian_empty_body` (96) | |
+
+**D2's six rows are open for the same reason D1's five are**, and they
+are added here with the exact string each check must use so the gap is a
+visible line in a committed file rather than an omission.
+
+**Two of D2's rows deserve naming before anyone runs them.**
+
+`roster_remove_claimed_remedy` at **145 characters is now the longest
+string in the whole bundle**, displacing `decline_guardian_body` (125).
+Re-derived at the time of writing rather than taken from the reference
+list. It is a three-clause sentence sitting in a refusal panel beside a
+title and two buttons, which is where wrapping and glyph-clipping
+failures are most likely. **It is the first D2 row to check.**
+
+The batch-list and roster rows carry a failure mode the other rows do
+not: **`roster_accepted_count` is the one count in the product with no
+locale helper between the server and the screen** [NFR3.3]. Money goes
+through `Numerals.money`, marks through `Numerals.marks`; this string
+formats two bare integers through `Numerals.count`, which renders them
+Latin by the project's own numeral rule. What the check must confirm is
+that "9 of 12 accepted" reads correctly in Bangla with **Latin digits
+inside Bangla text**, which is the intended and slightly unusual
+result — and that the sentence does not wrap badly when both numbers
+reach three digits. A checker who "fixes" this by converting the digits
+would be breaking the rule, not the layout.
+
+**D1's five rows are open, and that is the accurate record.** The
+obligation this table exists to carry is a check **on a device in Bangla
+locale** [team: Testing Posture], and code generation cannot perform one:
+nothing automated discharges it, which is the sentence this project
+requires to be written rather than implied [project.md, learned
+2026-10-23]. The rows are added now, with the exact string each check must
+use, so the gap is a visible line in a committed file rather than an
+omission — which is what the table was created to make impossible.
+
+**D1's strings are now the four longest in the whole bundle**, re-derived
+at the time of writing rather than taken from the reference list below.
+`decline_guardian_body` at 125 characters is the longest string in the
+app, and it sits in a bottom sheet beside a title and two buttons — the
+tightest vertical space in the product. That is where the wrapping and
+glyph-clipping failures are most likely, and it is the first row to check.
+
+The five rows are a D1 obligation that is **not discharged**; see the
+Gaps section of this unit's `code-summary.md`.
 
 The four rows above are the screens that **already shipped** without this
 check existing. They are listed as outstanding rather than assumed good:

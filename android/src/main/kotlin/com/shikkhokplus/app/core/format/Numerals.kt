@@ -104,6 +104,24 @@ object Numerals {
     }
 
     /**
+     * Render a count the app computed.
+     *
+     * **Latin, like every other number the app produces**, and that is
+     * the whole of it: this is the app's own output rather than text a
+     * person typed, so it does not follow the device's numeral
+     * preference. Stated as a call rather than left implicit because
+     * the accepted count ("9 of 12 accepted") is the one figure in the
+     * product with no other formatter between the server and the
+     * screen [NFR3.3] -- a call site passing an `Int` straight into a
+     * format string would leave the rule invisible exactly where it is
+     * easiest to get wrong under a Bangla locale.
+     *
+     * @param value The count
+     * @return The count in Latin digits
+     */
+    fun count(value: Int): String = value.toString()
+
+    /**
      * Render a mark out of a total.
      *
      * A half mark is kept, a trailing zero is not: `47.5 / 50` and

@@ -55,6 +55,12 @@ def student(owner_session: Session) -> uuid.UUID:
             batch_id=uuid.uuid4(),
             student_account_id=account.id,
             display_name=TEACHER_TYPED_NAME,
+            # Stated, never defaulted [ADR-013]. Accepted, because this
+            # probe is about a student who is USING their seat: an
+            # unaccepted one would resolve no lens and the probe would
+            # pass for the wrong reason.
+            student_decision="accepted",
+            guardian_decision="pending",
             created_at=dt.datetime.now(tz=dt.UTC),
         )
     )
@@ -187,11 +193,43 @@ def test_the_two_names_live_in_different_tables() -> None:
 
 
 def test_the_profile_table_carries_no_teacher_typed_field() -> None:
+    # An EXACT set, not a subset. A column added here is owner-private
+    # by virtue of the table it sits on, so a new one has to be noticed
+    # and enrolled in OWNER_PRIVATE_FIELDS in the same Unit that adds
+    # it [BR3.4] -- which is what this assertion forces someone to do,
+    # and what the companion test below then checks.
     assert set(Profile.__table__.columns.keys()) == {
         "account_id",
         "self_name",
         "photo_ref",
+        "address",
     }
+
+
+def test_every_profile_column_is_in_the_owner_private_field_set() -> None:
+    """The membership BR3.2's structural gate silently depends on.
+
+    ``OWNER_PRIVATE_FIELDS`` is matched by FIELD NAME and maintained by
+    hand, so it is **not** derived from ``Profile``'s columns: adding a
+    column does not enrol it, and an unenrolled field leaves the
+    schema-wide invariant passing over a field it cannot see [BR3.4].
+
+    That is the design's single manual step, and this is its test. It
+    is written as a derivation rather than as ``'address' in ...``,
+    because the next column added will have a different name.
+
+    ``account_id`` is excluded: it is in
+    ``FORBIDDEN_ACCOUNT_ID_FIELDS`` instead, under ADR-001's half of
+    the invariant, and both sets are matched by the same walk.
+
+    :return: None
+    """
+    from app.contract.privacy import OWNER_PRIVATE_FIELDS
+
+    personal = set(Profile.__table__.columns.keys()) - {"account_id"}
+    assert personal <= OWNER_PRIVATE_FIELDS, (
+        f"not enrolled in the privacy gate: {personal - OWNER_PRIVATE_FIELDS}"
+    )
 
 
 def test_row_level_security_is_not_enabled_on_enrollment(
