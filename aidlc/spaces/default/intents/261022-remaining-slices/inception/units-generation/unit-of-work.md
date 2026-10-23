@@ -151,12 +151,17 @@ restart; the refuse-on-conflict rule and its resolution screen, where re-apply
 carries a fresh `client_mutation_id`. Exams, mark entry with correction
 history, the anonymised marksheet, the `marksheet_visible` toggle.
 
-**The Macrobenchmark harness moves here, to the start of this unit.** D4's
-mid-class latency obligation [PU-3.6, TC-17] is dischargeable only by a
-Macrobenchmark on a low-end device profile, and the affirmed testing posture is
-explicit that a Compose correctness test does not discharge it. The harness sat
-in D5, after the unit that needs it; the dependency artifact closes that rather
-than flagging it a third time.
+**PU-3.6 carries an explicit manual pilot check, not a Macrobenchmark**
+[human, 2026-10-23]. The affirmed posture offered two acceptable verifiers and
+the human chose the manual one, which keeps D4 focused on the offline queue and
+the conflict screen — the genuinely novel work — rather than adding a
+benchmarking harness to a unit already sized XL.
+
+**The obligation is not weakened, only differently verified.** D4's Definition
+of Done includes a named manual check: marking a full batch's attendance on a
+low-end device during the pilot, timed, with the result recorded. What remains
+forbidden is discharging it with a Compose correctness test, which asserts
+behaviour and not latency. No Macrobenchmark harness is built in V1.
 
 ### D5 `knowing-how-it-is-going` — `service`, M
 
@@ -164,9 +169,9 @@ Cross-batch dues driven by outstanding balance and not active status; monthly
 earnings and trend; next upcoming exam. Carries OQ-2: the `collection_rate`
 field does not ship until its arithmetic is settled. Plus the outstanding half
 of release packaging — the 15 MB download-size assertion, Syft and the ZAP
-baseline. **Not the Macrobenchmark harness**, which moves to D4's start: what
-stays here genuinely belongs at the end, because each item measures a
-nearly-finished app.
+baseline. Each measures a nearly-finished app, which is why they belong here.
+**No Macrobenchmark harness**: PU-3.6 takes a manual pilot check instead
+[human, 2026-10-23].
 
 ### D6 `releasing-safely` — `spec`, L — terminal and release-blocking
 
@@ -201,9 +206,9 @@ Not units, because they apply to every unit that adds a screen or a table.
 - **D1 is `service` rather than `ui`** despite shipping four screens, because
   its schema and authorization changes are the substance and the screens follow
   them. D2 is the reverse and is typed `ui`.
-- **Carried from Delivery Planning**: the Macrobenchmark harness sits in D5
-  while the obligation it discharges is D4's. Recorded in the dependency
-  artifact rather than resolved here.
+- **Closed by the human, 2026-10-23**: no Macrobenchmark harness in V1. The
+  D5-versus-D4 ordering problem dissolves with it, and PU-3.6 carries a named
+  manual pilot check in D4's Definition of Done instead.
 
 ---
 
@@ -215,7 +220,7 @@ settle.
 
 | Finding | What was wrong | Closed by |
 |---|---|---|
-| **No unit carried a short ID or directory name** | Units were identified three ways at once and `D1` resolved to no declared unit, so no downstream tool could join a story-map row to a filesystem path. | A unit-identity table in the story map: `D1` / `signing-up-and-joining` / `d1-signing-up-and-joining` |
+| **No unit carried a short ID or directory name** | Units were identified three ways at once and `D1` resolved to no declared unit, so no downstream tool could join a story-map row to a filesystem path. | A unit-identity table in the story map: `D1` / `signing-up-and-joining` / `d1-signing-up-and-joining`. **The directory half of that was wrong and was corrected on 2026-10-23** — see below. |
 | **Traceability failed with 34 findings** | Every coverage target was prose rather than a declared unit name, and the story map carried no story-to-unit mapping the parser could read — its tables had Story and What-it-is columns and never named the unit on the row. The one mechanism that proves no story was dropped was proving nothing. | Rewritten to the `Story / Unit ID / Unit / Directory / Note` shape. **All three sensors now pass.** |
 | **D6 was missing two obligations** | The acceptance columns' disposition-and-retention entry, and the two external open questions the approved plan made start conditions for that unit. | Added below |
 | **`US1.8` was in `upstream_ids` unexplained** | It is the prior record's story, cited only in an INVEST note. | A row saying so |
@@ -229,6 +234,27 @@ carries a learning about exactly that, from the contract-design stage on
 2026-10-18. Reading `.claude/tools/aidlc-sensor-traceability.ts` took one
 minute and ended it.
 
+### The directory name, corrected at Functional Design
+
+*(2026-10-23.)* The identity table gave the directory as
+`d1-signing-up-and-joining`, and Construction rejected it on its first unit.
+The traceability sensor reads the directory segment of the artifact path and
+matches it against the names declared in the YAML block of
+`unit-of-work-dependency.md` — the block Construction walks. A prefixed
+directory matches nothing there, so the per-unit artifacts resolved to no
+declared unit.
+
+**The directory is the declared name, unprefixed.** The `D`-number remains the
+ordering label people say, and remains correct in the **Bolt slug**
+(`d1-signing-up-and-joining`), which names a branch and a squash commit rather
+than a path and where the ordering genuinely helps.
+
+Worth recording plainly: this stage added the identity table precisely because
+a unit was identified three ways at once, and then gave one of the three a
+fourth spelling. A table that reconciles names is only as good as its agreement
+with the tool that consumes them, and nothing checked that agreement until a
+sensor did.
+
 ### D6's added obligations
 
 - **Disposition and retention for `student_decision` and `guardian_decision`.**
@@ -241,15 +267,16 @@ minute and ended it.
   survive the claimant's deletion?) ideally closes before D3, so the
   payment-history schema is not revisited.
 
-### Still open, and yours
+### Put back to the human, and answered
 
 **I moved the Macrobenchmark harness from D5 to the start of D4 on my own
-judgement, and the review is right that it was not mine to close.** The
-approved plan framed it as a live two-way choice: the harness at D4's start,
-**or** PU-3.6 carries an explicit manual pilot check instead, with both
-acceptable. I argued one side only, and adding a benchmarking harness to a
-unit already sized XL is a cost that wants a person's agreement.
+judgement, and the review was right that it was not mine to close.** The
+approved plan framed it as a live two-way choice — the harness at D4's start,
+**or** an explicit manual pilot check — with both acceptable. I argued one
+side only, and adding a benchmarking harness to a unit already sized XL is a
+cost that wants a person's agreement.
 
-The move stands in these artifacts as the working assumption, flagged here
-rather than buried. If the manual pilot check is preferred, D4 loses the
-harness and PU-3.6 gains a named manual verifier.
+**Asked at this gate and answered on 2026-10-23: the manual pilot check.** D4
+loses the harness and PU-3.6 gains a named manual verifier. What the overstep
+cost was one question; what it would have cost unflagged is a unit's worth of
+tooling nobody chose.

@@ -19,14 +19,26 @@
 
 ## Unit identity
 
+> **The directory is the declared name, with no `D`-number prefix.**
+> *(Corrected 2026-10-23, at Functional Design.)* This table first gave
+> `d1-signing-up-and-joining` and the Construction tooling rejected it: the
+> traceability sensor reads the directory segment of the artifact path and
+> matches it against the names declared in `unit-of-work-dependency.md`'s
+> YAML block, which Construction walks. That block is the authority, so a
+> prefixed directory is simply a fourth spelling of a unit that already had
+> three — the defect this table was added to close.
+>
+> The `D`-number stays as the **ordering** label and is what humans say. It
+> is not part of any path.
+
 | Unit ID | Name | Directory |
 |---|---|---|
-| D1 | `signing-up-and-joining` | `d1-signing-up-and-joining` |
-| D2 | `running-a-batch` | `d2-running-a-batch` |
-| D3 | `collecting-fees` | `d3-collecting-fees` |
-| D4 | `teaching-and-recording` | `d4-teaching-and-recording` |
-| D5 | `knowing-how-it-is-going` | `d5-knowing-how-it-is-going` |
-| D6 | `releasing-safely` | `d6-releasing-safely` |
+| D1 | `signing-up-and-joining` | `signing-up-and-joining` |
+| D2 | `running-a-batch` | `running-a-batch` |
+| D3 | `collecting-fees` | `collecting-fees` |
+| D4 | `teaching-and-recording` | `teaching-and-recording` |
+| D5 | `knowing-how-it-is-going` | `knowing-how-it-is-going` |
+| D6 | `releasing-safely` | `releasing-safely` |
 
 ---
 
@@ -34,56 +46,56 @@
 
 | Story | Unit ID | Unit | Directory | Note |
 |---|---|---|---|---|
-| US1.2 | D1 | signing-up-and-joining | d1-signing-up-and-joining | Amended: the lenses offered depend on acceptance, not on signing in |
-| US1.5 | D1 | signing-up-and-joining | d1-signing-up-and-joining | Profile edit, the `O5` screen |
-| US1.10 | D1 | signing-up-and-joining | d1-signing-up-and-joining | Accepting or declining a seat |
-| US1.11 | D1 | signing-up-and-joining | d1-signing-up-and-joining | Signing up without a teacher — the root capability |
-| US1.12 | D1 | signing-up-and-joining | d1-signing-up-and-joining | Signing up on a number a teacher already added |
-| US1.13 | D1 | signing-up-and-joining | d1-signing-up-and-joining | Changing my mind after declining |
-| US1.16 | D1 | signing-up-and-joining | d1-signing-up-and-joining | Signup's own abuse ceilings |
-| US1.3 | D2 | running-a-batch | d2-running-a-batch | Amended: the roster shows a seat's state |
-| US1.15 | D2 | running-a-batch | d2-running-a-batch | A seat nobody accepts |
-| US2.5 | D2 | running-a-batch | d2-running-a-batch | Amended: a seat nobody accepted can still be removed |
-| US2.1 | D2 | running-a-batch | d2-running-a-batch | Create a batch |
-| US2.2 | D2 | running-a-batch | d2-running-a-batch | Add a student by phone number |
-| US2.3 | D2 | running-a-batch | d2-running-a-batch | The roster |
-| US2.4 | D2 | running-a-batch | d2-running-a-batch | Batch settings and schedule |
-| US2.6 | D2 | running-a-batch | d2-running-a-batch | Guardian child home and switcher — settles OQ-7 |
-| US1.14 | D3 | collecting-fees | d3-collecting-fees | Declining stops the money. **Wholly D3** — see below |
-| US5.1 | D3 | collecting-fees | d3-collecting-fees | Fee cycle generation |
-| US5.2 | D3 | collecting-fees | d3-collecting-fees | Carry-forward, two-sided |
-| US5.3 | D3 | collecting-fees | d3-collecting-fees | Waiver |
-| US5.4 | D3 | collecting-fees | d3-collecting-fees | The daily self-healing job |
-| US5.5 | D3 | collecting-fees | d3-collecting-fees | Credit grant and apply |
-| US5.6 | D3 | collecting-fees | d3-collecting-fees | The server-computed fee status enum |
-| US5.7 | D3 | collecting-fees | d3-collecting-fees | Student and guardian fee views |
-| US6.1 | D3 | collecting-fees | d3-collecting-fees | Submit a payment claim |
-| US6.2 | D3 | collecting-fees | d3-collecting-fees | The pending-verification list |
-| US6.3 | D3 | collecting-fees | d3-collecting-fees | Teacher verifies a claimed payment |
-| US6.4 | D3 | collecting-fees | d3-collecting-fees | Guardian sees what happened to their payment |
-| US3.1 | D4 | teaching-and-recording | d4-teaching-and-recording | Sessions from weekly recurrence |
-| US3.2 | D4 | teaching-and-recording | d4-teaching-and-recording | Record a class — the mid-class path |
-| US3.3 | D4 | teaching-and-recording | d4-teaching-and-recording | The topic log |
-| US3.4 | D4 | teaching-and-recording | d4-teaching-and-recording | Reschedule and cancel |
-| US3.5 | D4 | teaching-and-recording | d4-teaching-and-recording | Announcements |
-| US3.6 | D4 | teaching-and-recording | d4-teaching-and-recording | Attendance visible to student and guardian |
-| US4.1 | D4 | teaching-and-recording | d4-teaching-and-recording | Exam creation |
-| US4.2 | D4 | teaching-and-recording | d4-teaching-and-recording | Mark entry with the four result states |
-| US4.3 | D4 | teaching-and-recording | d4-teaching-and-recording | Correction history via `superseded_by_id` |
-| US4.4 | D4 | teaching-and-recording | d4-teaching-and-recording | The anonymised batch marksheet |
-| US4.5 | D4 | teaching-and-recording | d4-teaching-and-recording | The `marksheet_visible` toggle |
-| US4.6 | D4 | teaching-and-recording | d4-teaching-and-recording | Exam dates |
-| US4.7 | D4 | teaching-and-recording | d4-teaching-and-recording | Guardian progress over time |
-| US7.1 | D5 | knowing-how-it-is-going | d5-knowing-how-it-is-going | Cross-batch dues, driven by balance not status |
-| US8.1 | D5 | knowing-how-it-is-going | d5-knowing-how-it-is-going | This month's earnings |
-| US8.2 | D5 | knowing-how-it-is-going | d5-knowing-how-it-is-going | Earnings over time |
-| US8.3 | D5 | knowing-how-it-is-going | d5-knowing-how-it-is-going | Collection rate — ships without the field while OQ-2 is open |
-| US8.4 | D5 | knowing-how-it-is-going | d5-knowing-how-it-is-going | The next upcoming exam |
-| US1.6 | D6 | releasing-safely | d6-releasing-safely | Amended: deletion does not clear a decline |
-| US1.7 | D6 | releasing-safely | d6-releasing-safely | The external deletion route |
-| US10.1 | D6 | releasing-safely | d6-releasing-safely | The system refuses a request for someone else's data |
-| US1.8 | D1 | signing-up-and-joining | d1-signing-up-and-joining | **Already delivered** by the merged identity-and-access unit. Listed against D1 because D1 extends the same abuse-control surface with signup's own ceilings (US1.16), and the OTP controls must still hold afterwards — the byte-identical assertion is part of D1's tests |
-| US1.17 | D1 | signing-up-and-joining | d1-signing-up-and-joining | **Withdrawn** at the User Stories review as a delivery standard rather than a story. Listed against D1 because D1 is the first unit the obligation binds: its four screens each need a row in docs/delivery/bangla-layout-check.md before the unit completes [FR0.2] |
+| US1.2 | D1 | signing-up-and-joining | signing-up-and-joining | Amended: the lenses offered depend on acceptance, not on signing in |
+| US1.5 | D1 | signing-up-and-joining | signing-up-and-joining | Profile edit, the `O5` screen |
+| US1.10 | D1 | signing-up-and-joining | signing-up-and-joining | Accepting or declining a seat |
+| US1.11 | D1 | signing-up-and-joining | signing-up-and-joining | Signing up without a teacher — the root capability |
+| US1.12 | D1 | signing-up-and-joining | signing-up-and-joining | Signing up on a number a teacher already added |
+| US1.13 | D1 | signing-up-and-joining | signing-up-and-joining | Changing my mind after declining |
+| US1.16 | D1 | signing-up-and-joining | signing-up-and-joining | Signup's own abuse ceilings |
+| US1.3 | D2 | running-a-batch | running-a-batch | Amended: the roster shows a seat's state |
+| US1.15 | D2 | running-a-batch | running-a-batch | A seat nobody accepts |
+| US2.5 | D2 | running-a-batch | running-a-batch | Amended: a seat nobody accepted can still be removed |
+| US2.1 | D2 | running-a-batch | running-a-batch | Create a batch |
+| US2.2 | D2 | running-a-batch | running-a-batch | Add a student by phone number |
+| US2.3 | D2 | running-a-batch | running-a-batch | The roster |
+| US2.4 | D2 | running-a-batch | running-a-batch | Batch settings and schedule |
+| US2.6 | D2 | running-a-batch | running-a-batch | Guardian child home and switcher — settles OQ-7 |
+| US1.14 | D3 | collecting-fees | collecting-fees | Declining stops the money. **Wholly D3** — see below |
+| US5.1 | D3 | collecting-fees | collecting-fees | Fee cycle generation |
+| US5.2 | D3 | collecting-fees | collecting-fees | Carry-forward, two-sided |
+| US5.3 | D3 | collecting-fees | collecting-fees | Waiver |
+| US5.4 | D3 | collecting-fees | collecting-fees | The daily self-healing job |
+| US5.5 | D3 | collecting-fees | collecting-fees | Credit grant and apply |
+| US5.6 | D3 | collecting-fees | collecting-fees | The server-computed fee status enum |
+| US5.7 | D3 | collecting-fees | collecting-fees | Student and guardian fee views |
+| US6.1 | D3 | collecting-fees | collecting-fees | Submit a payment claim |
+| US6.2 | D3 | collecting-fees | collecting-fees | The pending-verification list |
+| US6.3 | D3 | collecting-fees | collecting-fees | Teacher verifies a claimed payment |
+| US6.4 | D3 | collecting-fees | collecting-fees | Guardian sees what happened to their payment |
+| US3.1 | D4 | teaching-and-recording | teaching-and-recording | Sessions from weekly recurrence |
+| US3.2 | D4 | teaching-and-recording | teaching-and-recording | Record a class — the mid-class path |
+| US3.3 | D4 | teaching-and-recording | teaching-and-recording | The topic log |
+| US3.4 | D4 | teaching-and-recording | teaching-and-recording | Reschedule and cancel |
+| US3.5 | D4 | teaching-and-recording | teaching-and-recording | Announcements |
+| US3.6 | D4 | teaching-and-recording | teaching-and-recording | Attendance visible to student and guardian |
+| US4.1 | D4 | teaching-and-recording | teaching-and-recording | Exam creation |
+| US4.2 | D4 | teaching-and-recording | teaching-and-recording | Mark entry with the four result states |
+| US4.3 | D4 | teaching-and-recording | teaching-and-recording | Correction history via `superseded_by_id` |
+| US4.4 | D4 | teaching-and-recording | teaching-and-recording | The anonymised batch marksheet |
+| US4.5 | D4 | teaching-and-recording | teaching-and-recording | The `marksheet_visible` toggle |
+| US4.6 | D4 | teaching-and-recording | teaching-and-recording | Exam dates |
+| US4.7 | D4 | teaching-and-recording | teaching-and-recording | Guardian progress over time |
+| US7.1 | D5 | knowing-how-it-is-going | knowing-how-it-is-going | Cross-batch dues, driven by balance not status |
+| US8.1 | D5 | knowing-how-it-is-going | knowing-how-it-is-going | This month's earnings |
+| US8.2 | D5 | knowing-how-it-is-going | knowing-how-it-is-going | Earnings over time |
+| US8.3 | D5 | knowing-how-it-is-going | knowing-how-it-is-going | Collection rate — ships without the field while OQ-2 is open |
+| US8.4 | D5 | knowing-how-it-is-going | knowing-how-it-is-going | The next upcoming exam |
+| US1.6 | D6 | releasing-safely | releasing-safely | Amended: deletion does not clear a decline |
+| US1.7 | D6 | releasing-safely | releasing-safely | The external deletion route |
+| US10.1 | D6 | releasing-safely | releasing-safely | The system refuses a request for someone else's data |
+| US1.8 | D1 | signing-up-and-joining | signing-up-and-joining | **Already delivered** by the merged identity-and-access unit. Listed against D1 because D1 extends the same abuse-control surface with signup's own ceilings (US1.16), and the OTP controls must still hold afterwards — the byte-identical assertion is part of D1's tests |
+| US1.17 | D1 | signing-up-and-joining | signing-up-and-joining | **Withdrawn** at the User Stories review as a delivery standard rather than a story. Listed against D1 because D1 is the first unit the obligation binds: its four screens each need a row in docs/delivery/bangla-layout-check.md before the unit completes [FR0.2] |
 
 ---
 

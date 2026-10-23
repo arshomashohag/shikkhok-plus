@@ -113,3 +113,4 @@
 
 <!-- Project-specific corrections from human feedback. -->
 <!-- Format: NEVER/ALWAYS [behavior] (learned [date]) -->
+- When a two-way choice is settled by picking the option with no automated verifier, write that sentence in the artifact rather than describing only what the manual check is. Here PU-3.6's latency obligation moved from a Macrobenchmark to a timed manual pilot check, and the honest record is both halves: the named verifier, and the plain statement that nothing automated discharges it. A manual verifier described without that sentence reads, to the next person, as a verifier. (learned 2026-10-23) <!-- cid:261022-remaining-slices:delivery-planning:5fa2cff6686c93ea8090b3ae705d9c720441bc90f75dae09acdaa874b0756011 -->

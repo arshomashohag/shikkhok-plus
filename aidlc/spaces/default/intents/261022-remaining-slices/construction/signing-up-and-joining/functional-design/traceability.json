@@ -1,0 +1,209 @@
+{
+  "stage": "functional-design",
+  "unit": "signing-up-and-joining",
+  "note": "AC1.2.1/.2/.3 are the SUPERSEDED forms, retained here because they appear in stories.md's Supersedes column and are therefore derived as upstream. The live criteria are AC1.2.1a/.2a/.3a, which carry the acceptance condition. Both are mapped to the same rules, because the superseded ones are satisfied by the amended behaviour: a lens is offered once accepted.",
+  "upstream_ids": [
+    "AC1.2.1",
+    "AC1.2.2",
+    "AC1.2.3",
+    "AC1.2.4",
+    "AC1.10.1",
+    "AC1.10.2",
+    "AC1.10.3",
+    "AC1.10.4",
+    "AC1.10.5",
+    "AC1.10.6",
+    "AC1.10.7",
+    "AC1.11.1",
+    "AC1.11.2",
+    "AC1.11.3",
+    "AC1.11.4",
+    "AC1.11.5",
+    "AC1.12.1",
+    "AC1.12.2",
+    "AC1.12.3",
+    "AC1.12.4",
+    "AC1.13.1",
+    "AC1.13.2",
+    "AC1.13.3",
+    "AC1.13.4",
+    "AC1.16.1",
+    "AC1.16.2",
+    "AC1.16.3",
+    "AC1.16.4"
+  ],
+  "coverage": [
+    {
+      "id": "AC1.2.1",
+      "status": "OK",
+      "target": "BR1.1 BR1.3 BR5.1"
+    },
+    {
+      "id": "AC1.2.2",
+      "status": "OK",
+      "target": "BR1.1 BR1.2"
+    },
+    {
+      "id": "AC1.2.3",
+      "status": "OK",
+      "target": "BR1.1 BR1.2 BR1.3"
+    },
+    {
+      "id": "AC1.2.4",
+      "status": "OK",
+      "target": "BR1.2"
+    },
+    {
+      "id": "AC1.10.1",
+      "status": "OK",
+      "target": "BR1.4"
+    },
+    {
+      "id": "AC1.10.2",
+      "status": "OK",
+      "target": "BR1.4"
+    },
+    {
+      "id": "AC1.10.3",
+      "status": "OK",
+      "target": "BR1.1 BR1.5"
+    },
+    {
+      "id": "AC1.10.4",
+      "status": "OK",
+      "target": "BR1.1 BR5.5"
+    },
+    {
+      "id": "AC1.10.5",
+      "status": "OK",
+      "target": "BR5.3"
+    },
+    {
+      "id": "AC1.10.6",
+      "status": "OK",
+      "target": "BR5.2"
+    },
+    {
+      "id": "AC1.10.7",
+      "status": "OK",
+      "target": "BR5.2"
+    },
+    {
+      "id": "AC1.11.1",
+      "status": "OK",
+      "target": "BR4.1 BR3.3"
+    },
+    {
+      "id": "AC1.11.2",
+      "status": "OK",
+      "target": "BR4.1"
+    },
+    {
+      "id": "AC1.11.3",
+      "status": "OK",
+      "target": "BR1.1 BR1.2"
+    },
+    {
+      "id": "AC1.11.4",
+      "status": "OK",
+      "target": "BR4.3"
+    },
+    {
+      "id": "AC1.11.5",
+      "status": "OK",
+      "target": "BR4.2"
+    },
+    {
+      "id": "AC1.12.1",
+      "status": "OK",
+      "target": "BR4.5"
+    },
+    {
+      "id": "AC1.12.2",
+      "status": "OK",
+      "target": "BR2.3"
+    },
+    {
+      "id": "AC1.12.3",
+      "status": "OK",
+      "target": "BR5.1"
+    },
+    {
+      "id": "AC1.12.4",
+      "status": "OK",
+      "target": "BR4.4"
+    },
+    {
+      "id": "AC1.13.1",
+      "status": "OK",
+      "target": "BR5.4 BR5.5"
+    },
+    {
+      "id": "AC1.13.2",
+      "status": "OK",
+      "target": "BR5.4 BR1.1"
+    },
+    {
+      "id": "AC1.13.3",
+      "status": "OK",
+      "target": "BR5.4 BR6.1"
+    },
+    {
+      "id": "AC1.13.4",
+      "status": "OK",
+      "target": "BR5.4"
+    },
+    {
+      "id": "AC1.16.1",
+      "status": "OK",
+      "target": "BR2.1"
+    },
+    {
+      "id": "AC1.16.2",
+      "status": "OK",
+      "target": "BR2.1"
+    },
+    {
+      "id": "AC1.16.3",
+      "status": "OK",
+      "target": "BR2.2"
+    },
+    {
+      "id": "AC1.16.4",
+      "status": "OK",
+      "target": "BR2.3"
+    }
+  ],
+  "reverse": [
+    {
+      "id": "BR3.1",
+      "status": "N/A",
+      "target": "US1.5 of the prior record (AC1.5.1-AC1.5.3), which the story map assigns to D1 but whose ACs live in 261016-shikhokplus-tuition-app/inception/user-stories/stories.md and are therefore not derivable as upstream here"
+    },
+    {
+      "id": "BR3.2",
+      "status": "N/A",
+      "target": "FR1.17 - the address is personal data on the owner-private profile. A privacy-boundary rule with no acceptance criterion of its own; its verifier is the schema-wide invariant test"
+    },
+    {
+      "id": "BR3.3",
+      "status": "N/A",
+      "target": "ADR-010 - Account and Profile created in one transaction. A structural consequence of placing signup data on Profile, not a behaviour any criterion describes"
+    },
+    {
+      "id": "BR6.2",
+      "status": "N/A",
+      "target": "ADR-009 - accepted plus a set erasure marker grants no lens. The erasure half belongs to D6; D1 states the composition rule so the two per-link pairs are not read as one"
+    },
+    {
+      "id": "BR7.1",
+      "status": "N/A",
+      "target": "AC2.5.1a of US2.5, which the story map assigns to D2. The SCREEN is D2's; the write-path predicate is D1's, because D1's migration is what makes the built remove_enrollment check wrong. Found by the architecture review at iteration 1"
+    },
+    {
+      "id": "BR7.2",
+      "status": "N/A",
+      "target": "FR1.9h and AC1.10.7, whose per-link roster rendering is D2's. D1 keeps the single is_dormant flag truthful in the interim, because D1's migration is what makes its derivation wrong"
+    }
+  ]
+}

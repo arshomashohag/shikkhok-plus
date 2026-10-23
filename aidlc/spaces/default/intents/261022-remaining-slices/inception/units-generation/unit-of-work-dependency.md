@@ -97,20 +97,19 @@ sits in **D5**, after D4.
 
 So the graph says D4 before D5, and the obligation says the harness before D4.
 
-**The resolution, decided here rather than deferred again:** the Macrobenchmark
-harness moves to **the start of D4**. Three reasons, in descending strength:
+**The resolution, taken by the human on 2026-10-23: no harness.** PU-3.6
+carries an explicit named manual pilot check instead — timing a full batch's
+attendance on a low-end device during the pilot, with the result recorded.
 
-1. D4 is the unit that cannot complete without it, so it belongs to the unit
-   that needs it rather than the unit that happens to carry the rest of
-   packaging.
-2. It was already deferred once on exactly this reasoning, and deferring again
-   would be the pattern the 2026-10-18 learning names.
-3. What stays in D5 — the 15 MB assertion, Syft, the ZAP baseline — genuinely
-   belongs at the end, because each measures a nearly-finished app.
+This stage first closed it the other way, moving the harness to D4's start,
+and that was an overstep: the approved plan framed it as a live two-way choice
+and said both were acceptable, and adding a benchmarking harness to an XL unit
+is a cost that wants a person's agreement rather than an agent's reasoning.
 
-This does not change an edge. D4 still precedes D5. It moves a deliverable
-between units, and it is recorded here because the graph could not have shown
-the problem.
+**The prerequisite therefore dissolves rather than being scheduled.** With no
+harness, nothing D4 needs lives in D5, and the inversion the graph could not
+express stops existing. What remains non-negotiable is that a Compose
+correctness test does not discharge a performance obligation.
 
 ---
 
@@ -135,6 +134,6 @@ acyclic. The longest chain is D1 → D2 → D3 → D5 → D6, five units.
 - **Assumed**: D3 before D4, as Delivery Planning chose, because the fee model
   is known to be in revision [D-18] and pinning its arithmetic early is what
   makes the revision cheap. The graph permits either order.
-- **Settled here**: the Macrobenchmark harness moves to the start of D4. The
-  approved plan recorded it as D5 with the ordering flagged as open; this
-  stage closes it rather than passing it on a third time.
+- **Settled by the human, 2026-10-23**: no Macrobenchmark harness in V1.
+  PU-3.6 takes a named manual pilot check, and the ordering problem dissolves
+  with the harness.
