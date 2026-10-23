@@ -1,0 +1,214 @@
+{
+  "stage": "code-generation",
+  "unit": "signing-up-and-joining",
+  "version": 1,
+  "writes": [
+    {
+      "path": "Makefile"
+    },
+    {
+      "path": "android/coverage-floor.txt"
+    },
+    {
+      "path": "android/coverage.gradle.kts"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/core/model/Acceptance.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/core/network/AccountsDto.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/auth/MessageKeys.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/auth/SignupStateMapper.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/auth/SignupUiState.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/auth/ui/SignupScreen.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/invitations/InvitationsStateMapper.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/invitations/InvitationsUiState.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/invitations/ui/InvitationsScreen.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/profile/ProfileUiState.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/profile/ui/ProfileScreen.kt"
+    },
+    {
+      "path": "android/src/main/res/values-bn/strings.xml"
+    },
+    {
+      "path": "android/src/main/res/values/strings.xml"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/core/model/AcceptanceTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/core/network/AccountsDtoTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/auth/SignupScreenTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/auth/SignupStateMapperTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/invitations/InvitationsScreenTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/invitations/InvitationsStateMapperTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/profile/ProfileScreenTest.kt"
+    },
+    {
+      "path": "app/accounts/__init__.py"
+    },
+    {
+      "path": "app/accounts/decisions.py"
+    },
+    {
+      "path": "app/accounts/service.py"
+    },
+    {
+      "path": "app/api/accounts.py"
+    },
+    {
+      "path": "app/api/deps.py"
+    },
+    {
+      "path": "app/audit/log.py"
+    },
+    {
+      "path": "app/auth/ceilings.py"
+    },
+    {
+      "path": "app/authz/invitations.py"
+    },
+    {
+      "path": "app/authz/lenses.py"
+    },
+    {
+      "path": "app/authz/resolve.py"
+    },
+    {
+      "path": "app/authz/summary.py"
+    },
+    {
+      "path": "app/batches/service.py"
+    },
+    {
+      "path": "app/contract/privacy.py"
+    },
+    {
+      "path": "app/contract/routes.py"
+    },
+    {
+      "path": "app/db/models.py"
+    },
+    {
+      "path": "app/main.py"
+    },
+    {
+      "path": "app/schemas/accounts.py"
+    },
+    {
+      "path": "docs/delivery/bangla-layout-check.md"
+    },
+    {
+      "path": "message-keys.json"
+    },
+    {
+      "path": "migrations/versions/0004_acceptance_and_address.py"
+    },
+    {
+      "path": "openapi.json"
+    },
+    {
+      "path": "pyproject.toml"
+    },
+    {
+      "path": "tests/accounts/__init__.py"
+    },
+    {
+      "path": "tests/accounts/conftest.py"
+    },
+    {
+      "path": "tests/accounts/test_ceilings.py"
+    },
+    {
+      "path": "tests/accounts/test_decisions_api.py"
+    },
+    {
+      "path": "tests/accounts/test_lookup.py"
+    },
+    {
+      "path": "tests/accounts/test_signup.py"
+    },
+    {
+      "path": "tests/audit/test_audit_log.py"
+    },
+    {
+      "path": "tests/auth/test_endpoints.py"
+    },
+    {
+      "path": "tests/authz/test_acceptance_predicate.py"
+    },
+    {
+      "path": "tests/authz/test_decision_transitions.py"
+    },
+    {
+      "path": "tests/authz/test_invitation_lens.py"
+    },
+    {
+      "path": "tests/authz/test_resolve.py"
+    },
+    {
+      "path": "tests/batches/conftest.py"
+    },
+    {
+      "path": "tests/batches/test_removability_after_signup.py"
+    },
+    {
+      "path": "tests/contract/test_route_lenses.py"
+    },
+    {
+      "path": "tests/db/migration_support.py"
+    },
+    {
+      "path": "tests/db/test_migration_0004.py"
+    },
+    {
+      "path": "tests/db/test_migration_from_head.py"
+    },
+    {
+      "path": "tests/db/test_migration_runs.py"
+    },
+    {
+      "path": "tests/db/test_unit_boundaries.py"
+    },
+    {
+      "path": "tests/named_tests.toml"
+    },
+    {
+      "path": "tests/privacy/conftest.py"
+    },
+    {
+      "path": "tests/privacy/test_address_boundary.py"
+    },
+    {
+      "path": "tests/privacy/test_profile_probes.py"
+    }
+  ]
+}

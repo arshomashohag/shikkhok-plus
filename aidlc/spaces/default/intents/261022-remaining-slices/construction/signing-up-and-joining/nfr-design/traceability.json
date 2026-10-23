@@ -1,0 +1,303 @@
+{
+  "stage": "nfr-design",
+  "unit": "signing-up-and-joining",
+  "note": "upstream_ids are the NFRx.y IDs the traceability sensor derives from this unit's performance, security, scalability and reliability requirements. The sensor does not read observability-requirements.md, so NFR24.x, NFR25.x and NFR26.x are not derived as upstream even though this stage designs them; NFR25.3 appears because reliability-requirements.md cites it. Those blocks are designed in observability-design.md and were declared in the nfr-requirements reverse array. NFR6.1 and NFR12.1 are citations of the prior record's rules, not IDs defined here.",
+  "upstream_ids": [
+    "NFR2.1",
+    "NFR2.2",
+    "NFR6.1",
+    "NFR6.20",
+    "NFR6.21",
+    "NFR6.22",
+    "NFR6.23",
+    "NFR6.24",
+    "NFR6.25",
+    "NFR7.5",
+    "NFR10.13",
+    "NFR10.14",
+    "NFR11.1",
+    "NFR12.1",
+    "NFR12.3",
+    "NFR12.4",
+    "NFR12.5",
+    "NFR12.6",
+    "NFR12.7",
+    "NFR12.8",
+    "NFR12.9",
+    "NFR12.10",
+    "NFR12.11",
+    "NFR13.4",
+    "NFR14.22",
+    "NFR14.23",
+    "NFR14.24",
+    "NFR14.25",
+    "NFR18.1",
+    "NFR18.2",
+    "NFR19.1",
+    "NFR19.2",
+    "NFR19.3",
+    "NFR19.4",
+    "NFR19.5",
+    "NFR19.6",
+    "NFR19.7",
+    "NFR20.1",
+    "NFR20.2",
+    "NFR20.3",
+    "NFR20.4",
+    "NFR20.5",
+    "NFR20.6",
+    "NFR21.1",
+    "NFR22.1",
+    "NFR23.1",
+    "NFR23.2",
+    "NFR23.3",
+    "NFR25.3"
+  ],
+  "coverage": [
+    {
+      "id": "NFR2.1",
+      "status": "OK",
+      "target": "No new client dependency; D1's screens use the existing Compose stack (performance-design section 6)"
+    },
+    {
+      "id": "NFR2.2",
+      "status": "OK",
+      "target": "Code and strings only; the 15 MB assertion is measured at the release gate, owned by D5/D6 (performance-design section 6)"
+    },
+    {
+      "id": "NFR6.1",
+      "status": "OK",
+      "target": "Cited from the prior record: the one-statement lens resolution shape D1 preserves (performance-design section 1)"
+    },
+    {
+      "id": "NFR6.20",
+      "status": "OK",
+      "target": "No scaling change; fixed host, two workers, no partitioning or replica (scalability-design section 1)"
+    },
+    {
+      "id": "NFR6.21",
+      "status": "OK",
+      "target": "The signup ceiling cascade is the capacity control, which is why its counters must be datastore-backed (scalability-design section 2)"
+    },
+    {
+      "id": "NFR6.22",
+      "status": "OK",
+      "target": "Named as a handed-forward gap: the 48-hour disposition exists, no job enforces it; D1 adds none (scalability-design section 2, logical-components section 6)"
+    },
+    {
+      "id": "NFR6.23",
+      "status": "OK",
+      "target": "Database uniqueness on Account.phone rather than an application check (scalability-design section 3)"
+    },
+    {
+      "id": "NFR6.24",
+      "status": "OK",
+      "target": "The decision transition is idempotent in its target state, a state-machine property rather than a lock (scalability-design section 3)"
+    },
+    {
+      "id": "NFR6.25",
+      "status": "OK",
+      "target": "Upsert increments then compares, so two workers cannot both read a passing count (scalability-design section 3)"
+    },
+    {
+      "id": "NFR7.5",
+      "status": "OK",
+      "target": "No service, no datastore, no scheduled job; the hand-off table in logical-components section 6 states it explicitly"
+    },
+    {
+      "id": "NFR10.13",
+      "status": "OK",
+      "target": "The two new columns sit on tables already covered by storage encryption (security-design section 5)"
+    },
+    {
+      "id": "NFR10.14",
+      "status": "OK",
+      "target": "Row-level security on profile, inherited unchanged: layer two of the three-layer table in security-design section 1, and the attachment point in logical-components section 2"
+    },
+    {
+      "id": "NFR11.1",
+      "status": "OK",
+      "target": "No new SDK; the manifest allowlist and release DEX scan already fail the build (security-design section 5)"
+    },
+    {
+      "id": "NFR12.1",
+      "status": "OK",
+      "target": "Cited from the prior record: the per-purpose SMS budget, which signup does not extend since the message it causes is an OTP"
+    },
+    {
+      "id": "NFR12.3",
+      "status": "OK",
+      "target": "New ScopeKind members plus a second cascade builder, narrowest-first (security-design section 2)"
+    },
+    {
+      "id": "NFR12.4",
+      "status": "OK",
+      "target": "Declaration order is evaluation order; the check runs before the transaction so a refusal writes nothing (security-design section 2)"
+    },
+    {
+      "id": "NFR12.5",
+      "status": "OK",
+      "target": "Counters stay in the datastore; the in-process alternative is listed as a temptation D1 refuses (scalability-design section 1)"
+    },
+    {
+      "id": "NFR12.6",
+      "status": "OK",
+      "target": "A ceiling breach is a ConflictError, so nothing in the stack treats it as retryable (reliability-design section 1)"
+    },
+    {
+      "id": "NFR12.7",
+      "status": "OK",
+      "target": "Named members added to the closed AuthEvent enum, never a detail column (observability-design section 1, security-design section 3)"
+    },
+    {
+      "id": "NFR12.8",
+      "status": "OK",
+      "target": "No log line or audit row carries a phone number, OTP, token, address or self-authored name; the row dataclass has no free-form string but correlation_id (observability-design section 4)"
+    },
+    {
+      "id": "NFR12.9",
+      "status": "OK",
+      "target": "Account creation added as a named member of the closed AuthEvent vocabulary, earning its place on the same abuse profile as OTP issue (observability-design section 1)"
+    },
+    {
+      "id": "NFR12.10",
+      "status": "OK",
+      "target": "A ceiling breach records its scope KIND and never its scope value, which is a phone number or IP prefix (observability-design section 1)"
+    },
+    {
+      "id": "NFR12.11",
+      "status": "OK",
+      "target": "The savepoint buys the silence to the user and the critical log makes that silence acceptable; one decision, not two (observability-design section 1)"
+    },
+    {
+      "id": "NFR13.4",
+      "status": "OK",
+      "target": "Signup returns no access or refresh token; the existing OTP path stays the one route to a session, so token rotation and reuse detection are built on one entry point (security-design section 4, Signup issues no session)"
+    },
+    {
+      "id": "NFR14.22",
+      "status": "OK",
+      "target": "The OTP route is untouched and its existing adversarial test re-runs (security-design section 2)"
+    },
+    {
+      "id": "NFR14.23",
+      "status": "OK",
+      "target": "The lookup is bounded in width and in rate; the opposite-properties table in security-design section 2"
+    },
+    {
+      "id": "NFR14.24",
+      "status": "OK",
+      "target": "InvitationLens as a fourth type rather than a resolver branch; an empty list rather than a 403 (security-design sections 1 and 4)"
+    },
+    {
+      "id": "NFR14.25",
+      "status": "OK",
+      "target": "Three-layer privacy boundary with address joining the hand-maintained field-name set (security-design section 1, logical-components section 2)"
+    },
+    {
+      "id": "NFR18.1",
+      "status": "OK",
+      "target": "No availability target of D1's own; the Phase 1 single-host recreate posture is inherited (reliability-design section 5)"
+    },
+    {
+      "id": "NFR18.2",
+      "status": "OK",
+      "target": "Deploy scheduling follows the existing practice, since the same deploy carries everything else (reliability-design section 5)"
+    },
+    {
+      "id": "NFR19.1",
+      "status": "OK",
+      "target": "Additive columns make the previous image run against the new schema; Alembic runs as a distinct logged step (reliability-design section 4)"
+    },
+    {
+      "id": "NFR19.2",
+      "status": "OK",
+      "target": "The conditional backfill, with the withdrawn-lens failure mode stated (reliability-design section 4)"
+    },
+    {
+      "id": "NFR19.3",
+      "status": "OK",
+      "target": "Verified pg_dump to S3 with object existence and size asserted (reliability-design section 4)"
+    },
+    {
+      "id": "NFR19.4",
+      "status": "OK",
+      "target": "Rehearsed on staging against realistic data (reliability-design section 4)"
+    },
+    {
+      "id": "NFR19.5",
+      "status": "OK",
+      "target": "One transaction over account, profile and the conditional owner row (reliability-design section 3)"
+    },
+    {
+      "id": "NFR19.6",
+      "status": "OK",
+      "target": "Retryability read off the error class in one place; the gateway failure deliberately leaves the account created (reliability-design sections 2 and 3)"
+    },
+    {
+      "id": "NFR19.7",
+      "status": "OK",
+      "target": "No write path resets a decision; the transition table in reliability-design section 3"
+    },
+    {
+      "id": "NFR20.1",
+      "status": "OK",
+      "target": "Both predicates sit on columns the query already locates, so no join and no round trip are added (performance-design section 1)"
+    },
+    {
+      "id": "NFR20.2",
+      "status": "OK",
+      "target": "The access path is preserved, which is why the requirement is a property rather than a millisecond figure (performance-design section 1)"
+    },
+    {
+      "id": "NFR20.3",
+      "status": "OK",
+      "target": "The invitation grant gets its own statement on its own route, because a grant is a set and a scalar returns one (performance-design section 2)"
+    },
+    {
+      "id": "NFR20.4",
+      "status": "OK",
+      "target": "Once-per-account write with no latency budget beyond ordinary handling (performance-design section 4)"
+    },
+    {
+      "id": "NFR20.5",
+      "status": "OK",
+      "target": "A single indexed read on a unique column; the constraint reports duplicates rather than a separate lookup (performance-design section 4)"
+    },
+    {
+      "id": "NFR20.6",
+      "status": "OK",
+      "target": "The OTP trigger sits outside the transaction, so a slow gateway delays the code and not the account (performance-design section 4)"
+    },
+    {
+      "id": "NFR21.1",
+      "status": "OK",
+      "target": "No cache of any kind; the permitted request-scoped memo is distinguished by where the value lives (performance-design section 3)"
+    },
+    {
+      "id": "NFR22.1",
+      "status": "OK",
+      "target": "GET /v1/me stays counts-only; D1 changes what the counts mean and not their shape, refusing the per-lens eager fetch acceptance makes tempting (performance-design section 1, GET /v1/me stays counts-only)"
+    },
+    {
+      "id": "NFR23.1",
+      "status": "OK",
+      "target": "Acceptance transitions written test-first per the affirmed predicate (security-design section 6)"
+    },
+    {
+      "id": "NFR23.2",
+      "status": "OK",
+      "target": "The adversarial test must fail against today's code before the predicate lands (security-design section 6)"
+    },
+    {
+      "id": "NFR23.3",
+      "status": "OK",
+      "target": "The authorization layer is measured as branch coverage (security-design section 6)"
+    },
+    {
+      "id": "NFR25.3",
+      "status": "OK",
+      "target": "The audit write fails open behind a savepoint, which is why its failure must alert (reliability-design section 5, observability-design section 1)"
+    }
+  ]
+}

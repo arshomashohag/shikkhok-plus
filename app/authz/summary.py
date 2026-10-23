@@ -47,6 +47,19 @@ __all__ = ["LensSummary", "lens_summary"]
 #: holds. An account with an owner row and no batches is still a
 #: teacher -- a new teacher before their first class -- so the lens is
 #: present with a count of zero rather than absent.
+#:
+#: **The student and guardian counts carry ``decision = 'accepted'``,
+#: the SAME predicate the resolver grants on** [BR1.2, ADR-014]. This
+#: is a separate statement in a separate module from
+#: ``app/authz/resolve.py``, reading the same columns, and neither
+#: reads the other -- so changing one alone is a silent half-fix with
+#: two symmetrical failures: a picker offering a lens that resolves to
+#: nothing, or one hiding a lens that works. The rule is stated as its
+#: own [BR1.2] rather than as a clause of [BR1.1] for exactly that
+#: reason.
+#:
+#: The teacher count is deliberately unchanged: ownership is a row's
+#: existence and carries no decision.
 _SUMMARY_QUERY = sa.text(
     """
     SELECT
@@ -63,10 +76,12 @@ _SUMMARY_QUERY = sa.text(
         (
             SELECT count(*) FROM enrollment
             WHERE student_account_id = :account_id
+              AND student_decision = 'accepted'
         ) AS student_enrollments,
         (
             SELECT count(*) FROM enrollment
             WHERE guardian_account_id = :account_id
+              AND guardian_decision = 'accepted'
         ) AS guardian_children
     """
 )

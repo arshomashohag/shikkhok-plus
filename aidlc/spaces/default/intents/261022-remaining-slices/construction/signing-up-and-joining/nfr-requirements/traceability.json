@@ -1,0 +1,145 @@
+{
+  "stage": "nfr-requirements",
+  "unit": "signing-up-and-joining",
+  "note": "upstream_ids are the NFRs this record adds (NFR20-NFR23); the product's base NFRs NFR1-NFR17 live in the prior record 261016-shikhokplus-tuition-app and are not derivable from this record's requirements.md. NFRx.y IDs are GLOBAL across units, not unit-scoped like BRx.y, so this unit's derived IDs start above the high-water mark each base had reached in the four merged units (NFR6 from .20, NFR7 from .5, NFR10 from .13, NFR12 from .3, NFR13 from .4, NFR14 from .22). A first draft numbered from .1 per base and collided with seventeen existing IDs carrying unrelated meanings; the architecture review caught it and the numbering was corrected before approval. A bare NFR6.1 or NFR12.1 in these artifacts is a citation of the prior record's rule, not a definition here. Five derived blocks have no base NFR in any record and are unit-invented: NFR18.x availability, NFR19.x migration and transactional safety, NFR24.x logging, NFR25.x alerting, NFR26.x SLI/SLO. They are declared in the reverse array with the source that motivates each, because the product's inception NFRs stop at NFR23 and no upstream ID would carry them; declaring them is what keeps them from reading as requirements nobody traced.",
+  "upstream_ids": [
+    "NFR20",
+    "NFR21",
+    "NFR22",
+    "NFR23"
+  ],
+  "coverage": [
+    {
+      "id": "NFR20",
+      "status": "OK",
+      "target": "NFR20.1, NFR20.2, NFR20.3, NFR20.4, NFR20.5, NFR20.6"
+    },
+    {
+      "id": "NFR21",
+      "status": "OK",
+      "target": "NFR21.1"
+    },
+    {
+      "id": "NFR22",
+      "status": "OK",
+      "target": "NFR22.1, NFR20.3"
+    },
+    {
+      "id": "NFR23",
+      "status": "OK",
+      "target": "NFR23.1, NFR23.2, NFR23.3"
+    }
+  ],
+  "reverse": [
+    {
+      "id": "NFR18.1",
+      "status": "N/A",
+      "target": "team Deployment practice - D1 states no availability target of its own and inherits the product's Phase 1 posture. No inception NFR covers availability; NFR18 has no base entry in either record"
+    },
+    {
+      "id": "NFR18.2",
+      "status": "N/A",
+      "target": "team Deployment practice - production deploys scheduled outside Bangladesh classroom hours. A standing operational practice rather than a requirement of this unit"
+    },
+    {
+      "id": "NFR19.1",
+      "status": "N/A",
+      "target": "team Deployment practice - forward-only backward-compatible migration run as a distinct logged step. No inception NFR covers migration mechanics"
+    },
+    {
+      "id": "NFR19.2",
+      "status": "N/A",
+      "target": "ADR-013 and functional-spec.md section 5 - the conditional backfill. Anchored in a domain-design decision rather than an NFR"
+    },
+    {
+      "id": "NFR19.3",
+      "status": "N/A",
+      "target": "team Deployment practice - a verified pg_dump to S3 precedes any production migration, with object existence and size asserted"
+    },
+    {
+      "id": "NFR19.4",
+      "status": "N/A",
+      "target": "team Deployment practice - staging exists in Phase 1 so a migration is rehearsed before it touches real teacher and child data"
+    },
+    {
+      "id": "NFR19.5",
+      "status": "N/A",
+      "target": "BR3.3 and BR4.1 - account, profile and the optional owner row in one transaction. A functional rule given a reliability target here"
+    },
+    {
+      "id": "NFR19.6",
+      "status": "N/A",
+      "target": "BR4.3 - the account is created before the code is sent, so a gateway failure leaves a real account rather than a failure to exist"
+    },
+    {
+      "id": "NFR19.7",
+      "status": "N/A",
+      "target": "BR6.1 - no D1 write path resets a decision column. A functional rule restated as a transactional obligation"
+    },
+    {
+      "id": "NFR24.1",
+      "status": "N/A",
+      "target": "team Deployment practice - no log line carries a phone number, OTP, token, address or self-authored name. Extends an existing rule to the two new personal fields"
+    },
+    {
+      "id": "NFR24.2",
+      "status": "N/A",
+      "target": "app/audit/log.py - the correlation id ties a row to a request without carrying its contents"
+    },
+    {
+      "id": "NFR24.3",
+      "status": "N/A",
+      "target": "team Deployment practice - gateway request bodies are never logged at any level, because the OTP is in the body"
+    },
+    {
+      "id": "NFR24.4",
+      "status": "N/A",
+      "target": "team Deployment practice - exception tracebacks are never returned to a client. Signup is unauthenticated, so its tracebacks would reach the public"
+    },
+    {
+      "id": "NFR25.1",
+      "status": "N/A",
+      "target": "app/auth/ceilings.py fire_ceiling_alert - the global daily ceiling alerts because it is money and the signal of an active attack"
+    },
+    {
+      "id": "NFR25.2",
+      "status": "N/A",
+      "target": "app/auth/ceilings.py - narrow ceilings deliberately do NOT alert, because they fire constantly once the product has users and would train the operator to ignore the channel"
+    },
+    {
+      "id": "NFR25.3",
+      "status": "N/A",
+      "target": "app/audit/log.py - the fail-open audit component is suppressible by causing write failures, so the failure must alert"
+    },
+    {
+      "id": "NFR25.4",
+      "status": "N/A",
+      "target": "team Deployment practice - a failed pre-migration backup alerts, since an unverified upload is not a backup"
+    },
+    {
+      "id": "NFR25.5",
+      "status": "N/A",
+      "target": "BR2.1 and BR4.4 - signup attempts countable by outcome with refusals distinguishable by cause. A dashboard obligation with no inception anchor"
+    },
+    {
+      "id": "NFR25.6",
+      "status": "N/A",
+      "target": "BR5.2 - the decline rate is the product's feedback on teacher data-entry quality, which is the exposure this unit exists to close"
+    },
+    {
+      "id": "NFR25.7",
+      "status": "N/A",
+      "target": "FR1.9e - a seat pending indefinitely is expected, so a rising pending population rather than its existence is the signal"
+    },
+    {
+      "id": "NFR26.1",
+      "status": "N/A",
+      "target": "OC-5 - signup success rate measured through the closed-testing pilot with no V1 target, because a percentage set now would be derived from nothing"
+    },
+    {
+      "id": "NFR26.2",
+      "status": "N/A",
+      "target": "BR1.1 - accounts holding only unaccepted links that resolve a role lens, target zero, discharged by the adversarial test rather than by a monitor"
+    }
+  ]
+}

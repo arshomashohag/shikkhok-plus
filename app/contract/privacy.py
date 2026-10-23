@@ -53,10 +53,26 @@ __all__ = [
 
 #: Fields of the owner-private ``Profile``, visible only to its own account.
 #: Taken from the domain component catalogue rather than invented here.
+#:
+#: **Hand-maintained and matched by FIELD NAME, which is this gate's one
+#: manual step** [BR3.4]. The set is deliberately NOT derived from
+#: ``Profile``'s columns: deriving it would make the gate depend on the
+#: ORM being imported here, and on a column never being renamed between
+#: the model and a response schema that mirrors it. The cost of the
+#: choice is that adding a column does not enrol it, so an unenrolled
+#: field leaves the invariant passing over a field it cannot see.
+#:
+#: ``address`` joined in D1, in the same Unit that added the column, and
+#: ``tests/privacy/test_profile_probes.py`` asserts the membership of
+#: every ``Profile`` column rather than of that one name -- so the next
+#: column added fails the suite instead of slipping past it. A child's
+#: home address is the single most consequential disclosure available
+#: in this product [TC-13].
 OWNER_PRIVATE_FIELDS: Final[frozenset[str]] = frozenset(
     {
         "self_name",
         "photo_ref",
+        "address",
     }
 )
 

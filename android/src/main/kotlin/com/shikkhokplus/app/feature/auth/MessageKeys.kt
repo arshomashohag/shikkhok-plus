@@ -33,6 +33,13 @@ object MessageKeys {
         "roster.status.dormant" to R.string.roster_status_dormant,
         "roster.status.active" to R.string.roster_status_active,
         "roster.status.inactive" to R.string.roster_status_inactive,
+        // D1: signup and the acceptance decisions. Both are published
+        // by the backend, so the cross-surface gate requires a string
+        // for each before this app can build.
+        "signup.number.already_registered" to
+            R.string.signup_number_already_registered,
+        "signup.temporarily_unavailable" to
+            R.string.signup_temporarily_unavailable,
         // Staging only. The key exists in the published list, so the
         // cross-surface gate requires a string for it even though a
         // production build can never receive it.

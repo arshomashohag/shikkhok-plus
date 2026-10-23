@@ -6,21 +6,22 @@
 **Record**: 261022-remaining-slices
 
 > Rule IDs are **unit-scoped**, as in every prior unit of this project: `BR1.1`
-> here is D1's first authorization rule and is a different rule from `BR1.1` in
-> `identity-and-access`. Group meanings are kept stable across units — group 1
-> authorization, group 2 abuse control, group 3 privacy, group 4 signup, group
-> 5 acceptance, group 6 erasure, group 7 what the new columns change in code
-> that already exists — so a reader moving between units reads the same axis
-> under the same number.
+> here is D1's first authorization rule, a different rule from `BR1.1` in
+> `identity-and-access`. Group meanings stay stable across units — 1
+> authorization, 2 abuse control, 3 privacy, 4 signup, 5 acceptance, 6 erasure,
+> 7 what the new columns change in merged code — so a reader moving between
+> units reads the same axis under the same number.
 
 ## Sources
 
-- [upstream] `inception/requirements-analysis/requirements.md` — FR1.7, FR1.9,
-  FR1.16, FR1.17
+- [upstream] `inception/requirements-analysis/requirements.md` — FR1.7a–f,
+  FR1.9a–i, FR1.16, FR1.17, FR11.1a
 - [upstream] `inception/user-stories/stories.md` — US1.10–US1.16, and US1.5
   from the prior record
 - [upstream] `inception/units-generation/unit-of-work.md` — D1's scope
 - [prior] `inception/domain-design/decisions.md` — ADR-009 through ADR-014
+- [code] `app/authz/resolve.py`, `app/authz/summary.py`,
+  `app/batches/service.py`, `app/contract/privacy.py`, read 2026-10-23
 
 ---
 
@@ -47,11 +48,11 @@ rules:
       legitimately holds, or is refused if it holds none for the route.
     source: FR1.9a
     notes: >
-      This is the rule the whole re-cut exists to install. Before it, naming
-      an account on a link WAS the grant, so a mistyped digit handed a
-      stranger a guardian lens. It is enforced inside the granting query
-      rather than above it [ADR-014], because a check above a query is a check
-      a future query can bypass.
+      The rule the whole re-cut exists to install. Before it, NAMING an
+      account on a link was the grant, so a mistyped digit handed a stranger
+      a guardian lens over a child's records. Enforced INSIDE the granting
+      query rather than above it [ADR-014], because a check above a query is
+      one a future query can bypass.
 
   - id: BR1.2
     statement: >
@@ -59,7 +60,7 @@ rules:
       links, by the same predicate as the grant itself.
     category: authorization
     applies_to: Lens summary, GET /v1/me
-    trigger: Rendering the lens picker or any count of a person's seats.
+    trigger: Rendering the lens picker, or any count of a person's seats.
     logic: >
       IF counting a person's student seats or guardian children
       THEN count only links naming this account whose decision is `accepted`.
@@ -68,11 +69,10 @@ rules:
       resolves to nothing, or hides one that works.
     source: FR1.4a
     notes: >
-      Stated as its own rule rather than folded into BR1.1 because it is a
-      SEPARATE statement in a different module, and a change to one alone is
-      a silent half-fix [ADR-014]. The summary is what renders the picker;
-      the resolver is what grants. Both read the same columns and neither
-      reads the other.
+      Its own rule rather than a clause of BR1.1 because it lives in a
+      SEPARATE statement in a different module, and changing one alone is a
+      silent half-fix [ADR-014]. The summary renders the picker; the resolver
+      grants. Both read the same columns and neither reads the other.
 
   - id: BR1.3
     statement: >
@@ -89,15 +89,16 @@ rules:
     source: FR1.9d, FR1.9d.1
     notes: >
       `declined` is included deliberately: BR5.4 makes a decline reversible by
-      its holder, which requires the holder to still reach the seat.
-      Resolved by its own statement rather than a fourth branch of the
-      hot-path query, because an invitation grant is a SET and that query
-      returns scalars [ADR-011].
+      its holder, which requires the holder to still reach the seat. Resolved
+      by its OWN statement rather than a fourth branch of the hot-path query,
+      because an invitation grant is a SET and that query returns scalars
+      [ADR-011].
 
   - id: BR1.4
     statement: >
       An invitation lens grants read of exactly three fields of its seat —
-      batch name, subject, fee amount — and no write action.
+      batch name, subject, fee amount — and no write action but accept and
+      decline on the link that names the holder.
     category: authorization
     applies_to: InvitationLens, invitation response
     trigger: Reading a pending or declined seat.
@@ -111,12 +112,13 @@ rules:
       not agreed to be in the batch.
     source: FR1.9d
     notes: >
-      A response-schema obligation, not a filter: the invitation response
-      carries only those fields, so there is nothing to leak.
+      A response-SCHEMA obligation, not a filter: the invitation response
+      carries only those three fields, so there is nothing to leak. All three
+      are teacher-authored, so the pending read crosses no privacy boundary.
 
   - id: BR1.5
     statement: >
-      Accepting grants the seat's full history from creation, not from the
+      Accepting grants the seat's full history from its creation, not from the
       moment of acceptance.
     category: authorization
     applies_to: Enrollment, post-acceptance reads
@@ -127,7 +129,7 @@ rules:
       recorded before the decision changed to `accepted`.
     violation_behaviour: >
       A person sees a partial record of their own enrollment and cannot
-      reconcile a balance.
+      reconcile a balance against what their teacher sees.
     source: FR1.9g
 
   # ---- Group 2: abuse control. ----
@@ -140,16 +142,17 @@ rules:
     applies_to: Signup
     trigger: Each signup request.
     logic: >
-      IF signup requests from one number exceed the per-number ceiling
+      IF signup requests for one number exceed the per-number ceiling
       OR signup requests from one IP exceed the per-IP ceiling
       THEN refuse further requests.
-    violation_behaviour: Refused as a conflict, not as a transient error.
+    violation_behaviour: >
+      Refused as a conflict, not as a transient error — a ceiling breach is
+      not retryable [team: Error handling].
     source: FR1.7d
     notes: >
-      Separate from the OTP controls rather than extra conditions on them,
-      because signup and OTP have OPPOSITE disclosure properties by design
-      and conflating their controls is how one inherits the other's
-      assumptions.
+      Separate controls rather than extra conditions on the OTP ones, because
+      signup and OTP have OPPOSITE disclosure properties by design, and
+      conflating the controls is how one inherits the other's assumptions.
 
   - id: BR2.2
     statement: >
@@ -163,8 +166,8 @@ rules:
       THEN the response body, status and timing characteristics do not vary
       with whether an account exists.
     violation_behaviour: >
-      The endpoint becomes a number-enumeration oracle, which is the property
-      the existing seven OTP controls were built to deny.
+      The endpoint becomes a number-enumeration oracle — the property the
+      seven existing OTP controls were built to deny.
     source: FR1.7e
     notes: >
       A regression rule, not a new capability: signup must not weaken what
@@ -180,16 +183,16 @@ rules:
       IF a number has a seat a teacher created
       THEN return only that a seat exists, the teacher-typed name to
       pre-fill, and the role to lock
-      AND never the teacher's identity nor the batch's name or subject.
+      AND never the teacher's identity, nor the batch's name or subject.
     violation_behaviour: >
       The lookup becomes an oracle for who teaches whom, readable by anyone
       who can type a phone number.
     source: FR1.7f
     notes: >
       This lookup deliberately DOES disclose that a seat exists — that is its
-      purpose, and it is why BR2.2 is a separate rule rather than one applied
-      to both. What is bounded is the WIDTH of the disclosure, not its
-      existence.
+      whole purpose, and it is why BR2.2 is a separate rule rather than one
+      applied to both. What is bounded here is the WIDTH of the disclosure,
+      not its existence.
 
   # ---- Group 3: privacy. ----
 
@@ -205,12 +208,13 @@ rules:
       THEN write Profile.self_name
       AND leave every Enrollment.display_name untouched.
     violation_behaviour: >
-      A teacher's roster changes under them from a person's private edit,
-      and the two names stop answering different questions.
+      A teacher's roster changes under them from a person's private edit, and
+      the two names stop answering different questions.
     source: FR1.12, FR1.17
     notes: >
       No third name exists [ADR-010]. "Which name does a teacher see" stays
-      answered by WHICH TABLE the query reads rather than by a filter.
+      answered by WHICH TABLE the query reads, rather than by a filter
+      somebody applies.
 
   - id: BR3.2
     statement: >
@@ -227,10 +231,10 @@ rules:
       disclosure available in this product.
     source: FR1.17, TC-13
     notes: >
-      Enforced structurally: the address is on `Profile`, which carries the
-      row-level-security policy keyed on the session account. The
-      schema-wide invariant test covers it without a new per-endpoint test
-      [ADR-010].
+      Enforced structurally rather than per endpoint: the address sits on
+      `Profile`, which carries the row-level-security policy keyed on the
+      session account, and the schema-wide invariant test already iterates
+      every teacher-lens response schema [ADR-010].
 
   - id: BR3.3
     statement: >
@@ -247,6 +251,37 @@ rules:
       future reader will make now that Profile is no longer optional.
     source: ADR-010
 
+  - id: BR3.4
+    statement: >
+      `address` is added to the owner-private field set in the same unit that
+      adds the column.
+    category: constraint
+    applies_to: Profile.address, the teacher-lens schema invariant
+    trigger: Adding any column to Profile.
+    logic: >
+      IF a column is added to Profile
+      THEN its field name is added to the owner-private set the schema-wide
+      invariant matches on
+      AND a test asserts that membership.
+    violation_behaviour: >
+      The structural gate BR3.2 relies on does not see the new field, so the
+      invariant passes while a future teacher-facing schema carrying
+      `address` goes unflagged — a child's home address, on the highest-stakes
+      disclosure axis in the product.
+    source: FR1.17, TC-13
+    notes: >
+      **BR3.2's mechanism is correct and does not enforce itself.**
+      `OWNER_PRIVATE_FIELDS` (`app/contract/privacy.py:56`) is a
+      hand-maintained frozenset — currently `{self_name, photo_ref}` — matched
+      by FIELD NAME against every teacher-lens response schema. It is not
+      derived from `Profile`'s columns, so adding a column does not enrol it.
+
+      This is the same failure as BR7.1 and BR7.2 on a different axis: a
+      merged mechanism whose meaning depends on a list nobody updated. The
+      sweep in this file was applied faithfully to the two link columns and
+      not to this unit's own new Profile column, which the architecture review
+      found at iteration 1.
+
   # ---- Group 4: signup. ----
 
   - id: BR4.1
@@ -260,10 +295,12 @@ rules:
       IF the chosen role is Teacher THEN create an Owner row
       ELSE create none.
     violation_behaviour: >
-      Either a teacher with no batch list, or a student holding a teacher
-      lens.
+      Either a teacher who reaches no batch list, or a student holding a
+      teacher lens.
     source: FR1.7a
-    notes: Presence of the row IS the teacher claim; there is no role column.
+    notes: >
+      The row's presence IS the teacher claim; no role is recorded on the
+      account.
 
   - id: BR4.2
     statement: >
@@ -276,9 +313,9 @@ rules:
     violation_behaviour: Not applicable; this rule permits rather than forbids.
     source: FR1.7b
     notes: >
-      Recorded as a rule because it is a deliberate decision that looks like
-      an omission. Claiming Teacher gains nobody anything they could not have
-      by creating a batch, and nothing a teacher sees is another person's
+      Recorded as a rule because it is a deliberate decision that reads as an
+      omission. Claiming Teacher gains nobody anything they could not have by
+      creating a batch, and nothing a teacher sees is another person's
       private data.
 
   - id: BR4.3
@@ -311,7 +348,7 @@ rules:
     violation_behaviour: A duplicate identity for one person.
     source: AC1.12.4
     notes: >
-      A uniqueness answer rather than a lookup: Account.phone is unique, so
+      A uniqueness answer rather than a lookup: `Account.phone` is unique, so
       the refusal is the constraint reporting itself.
 
   - id: BR4.5
@@ -325,7 +362,8 @@ rules:
       IF the number has a seat a teacher created
       THEN pre-fill the name from the teacher's entry, marked correctable
       AND lock the role to the one the seat carries
-      AND state that a teacher has added this number, naming neither.
+      AND state that a teacher has added this number, naming neither teacher
+      nor batch.
     violation_behaviour: >
       A person retypes what their teacher recorded, or picks a role that
       contradicts their seat.
@@ -339,18 +377,19 @@ rules:
       `pending` when that number signs up.
     category: policy
     applies_to: Signup, Enrollment decision columns
-    trigger: Account creation on a number with existing seats.
+    trigger: Account creation on a number that already has seats.
     logic: >
       IF an account is created for a number that has seats
       THEN link the account to those seats
-      AND leave every decision column unchanged.
+      AND leave every decision column exactly as it was.
     violation_behaviour: >
       The superseded model returns: signing in becomes the act that grants
       the lens, and the unconsented-guardian exposure reopens.
     source: FR1.9a
     notes: >
-      The single most important negative in this unit. Stated as a rule
-      because the absence of an action is not visible in a diff.
+      The single most important NEGATIVE in this unit. Stated as a rule
+      because the absence of an action is not visible in a diff, and because
+      this same step is what makes BR7.1 and BR7.2 necessary.
 
   - id: BR5.2
     statement: >
@@ -368,9 +407,9 @@ rules:
       enrolls a guardian who never agreed.
     source: FR1.9b
     notes: >
-      Where the student and guardian are DIFFERENT people, each decision is
-      independent and the teacher's roster shows both states separately
-      rather than collapsed into one.
+      Where the student and the guardian are DIFFERENT people, each decision
+      is independent and the teacher's roster shows both states separately
+      rather than collapsed into one seat state.
 
   - id: BR5.3
     statement: >
@@ -388,9 +427,9 @@ rules:
       remains pending as guardian for themselves.
     source: FR1.16
     notes: >
-      Does not contradict BR5.2. BR5.2 makes a decision per link; this rule
-      says that when one person holds both links, one ACTION carries both
-      decisions. The data stays per-link.
+      Does NOT contradict BR5.2. BR5.2 governs the DATA — a decision per
+      link; this rule governs the ACTION — one action may carry both
+      decisions when one person holds both links. The storage stays per-link.
 
   - id: BR5.4
     statement: >
@@ -411,11 +450,13 @@ rules:
     notes: >
       The asymmetry IS the rule: durable against the teacher, reversible by
       me. A declined seat therefore stays listed, with an accept action, for
-      its holder.
+      its holder. The transition is `declined` -> `accepted`, never a reset
+      to `pending`, so it does not conflict with BR6.1.
 
   - id: BR5.5
     statement: >
-      A declined seat does not appear among the person's enrollments.
+      A declined seat does not appear among the person's enrollments, and does
+      remain among their invitations.
     category: policy
     applies_to: Enrollment lists
     trigger: Listing a person's seats.
@@ -425,12 +466,12 @@ rules:
       AND NOT among their enrollments.
     violation_behaviour: >
       A refused seat reads as a joined one, and declining achieves nothing
-      visible.
+      visible — or the seat vanishes entirely and BR5.4's reversal is
+      unreachable.
     source: FR1.9a
     notes: >
-      Both halves matter: out of the enrollments (BR1.1 already denies the
-      lens) and still in the invitations, because BR5.4 requires the holder
-      to be able to reach it.
+      Both halves matter. Out of the enrollments: BR1.1 already denies the
+      lens. Still in the invitations: BR5.4 requires the holder to reach it.
 
   # ---- Group 6: erasure interaction. ----
 
@@ -445,12 +486,13 @@ rules:
       THEN it may move a decision only by its holder's accept or decline
       AND never reset one to `pending`.
     violation_behaviour: >
-      A decline is silently undone, which is the specific harm BR5.4's
-      asymmetry exists to prevent.
+      A decline is silently undone — the specific harm BR5.4's asymmetry
+      exists to prevent.
     source: FR11.1a
     notes: >
-      Deletion is D6's. D1 owns only the half of that contract that it could
-      otherwise break: the decision survives.
+      Deletion is D6's, and FR11.1a is where the obligation lives. D1 owns
+      only the half it could otherwise break on its own: the decision
+      survives every write D1 makes.
 
   - id: BR6.2
     statement: >
@@ -462,13 +504,15 @@ rules:
     logic: >
       IF a link's decision is `accepted`
       AND that link's erasure marker is set
-      THEN grant no lens, because the account it named no longer exists.
-    violation_behaviour: An erased person's seat still resolves.
+      THEN grant no lens, because the account that link named no longer
+      exists.
+    violation_behaviour: An erased person's seat still resolves a lens.
     source: ADR-009
     notes: >
       The decision column is not an authorization input on its own. The two
-      per-link pairs are independent facts and both are read.
-  # ---- Group 7: what the new columns change in code that already exists. ----
+      per-link pairs are independent facts and BOTH are read on every grant.
+
+  # ---- Group 7: what the new columns change in merged code. ----
 
   - id: BR7.1
     statement: >
@@ -481,23 +525,25 @@ rules:
       IF no link on this seat carries decision `accepted`
       AND no erasure marker is set
       THEN the seat is removable
-      ELSE refuse, with the existing distinct reasons for claimed and erased.
+      ELSE refuse, keeping the existing distinct reasons for claimed and for
+      erased.
     violation_behaviour: >
       A teacher cannot remove a seat created on a mistyped number once that
-      stranger signs up — the exact recovery path this unit exists to protect.
+      stranger signs up — the exact recovery path this unit exists to open.
     source: AC2.5.1a
     notes: >
-      **This rule exists because D1's migration breaks a merged behaviour, and
-      the review caught that the first draft did not say so.** The built
-      `remove_enrollment` refuses when `student_account_id IS NOT NULL`, which
-      under the superseded model meant "claimed". After D1, signing up links
-      the account while the decision stays `pending` [BR5.1], so that test
-      starts reporting claimed for a seat nobody has accepted.
+      **D1's migration breaks a merged, routed write path, and this rule is
+      what stops it shipping that way.** `remove_enrollment`
+      (defined at `app/batches/service.py:254`; the predicate at line 274)
+      refuses when `student_account_id IS NOT
+      NULL`, which under the superseded model meant "claimed". After BR5.1,
+      signing up links the account while the decision stays `pending`, so
+      that check starts reporting claimed for a seat nobody has accepted.
 
-      The predicate must therefore change in the SAME unit that changes what
-      the column means. D2 owns the roster SCREEN that shows the states
+      The predicate must change in the SAME unit that changes what the column
+      means. D2 owns the roster SCREEN that shows the per-link states
       [AC1.10.7]; D1 owns not leaving a merged write path wrong in the
-      meantime.
+      interval between them.
 
   - id: BR7.2
     statement: >
@@ -512,14 +558,14 @@ rules:
       ELSE it is claimed by whichever links accepted.
     violation_behaviour: >
       The roster shows a seat as claimed the moment a stranger signs up on a
-      mistyped number, which is both false and the opposite of the signal the
+      mistyped number — both false, and the opposite of the signal the
       teacher needs to spot the error.
     source: FR1.9h
     notes: >
-      The built roster computes `is_dormant = student_account_id is None`.
-      D1 makes that computation wrong rather than merely incomplete, so the
-      derivation moves here with the columns. D2 renders the per-link detail;
-      D1 keeps the single flag truthful in the interim.
+      The built roster computes `is_dormant = student_account_id is None`
+      (`app/batches/service.py:172`). D1 makes that derivation WRONG rather
+      than merely incomplete, so it moves here with the columns. D2 renders
+      the per-link detail; D1 keeps the single flag truthful meanwhile.
 ```
 
 ---
@@ -531,7 +577,7 @@ rules:
 | BR1.1 | authorization | A lens needs `accepted`, checked inside the granting query |
 | BR1.2 | authorization | The picker's counts use the same predicate as the grant |
 | BR1.3 | authorization | `pending` or `declined` grants an invitation lens for that one seat |
-| BR1.4 | authorization | An invitation shows three fields and no write action |
+| BR1.4 | authorization | An invitation shows three fields and no other write action |
 | BR1.5 | authorization | Accepting reveals the seat's whole history, not just what follows |
 | BR2.1 | constraint | Signup has its own per-number and per-IP ceilings |
 | BR2.2 | constraint | The OTP response stays byte-identical, known number or not |
@@ -539,6 +585,7 @@ rules:
 | BR3.1 | policy | Signup's name is the private one; the teacher's typed name is untouched |
 | BR3.2 | authorization | The address is owner-private and unreachable by a teacher |
 | BR3.3 | constraint | Account and Profile are created together or not at all |
+| BR3.4 | constraint | `address` joins the owner-private field set in the unit that adds it |
 | BR4.1 | constraint | `Owner` is created for Teacher and only Teacher |
 | BR4.2 | policy | Nothing verifies a role claim |
 | BR4.3 | constraint | Account first, then the code, and the button names the number |
@@ -557,47 +604,58 @@ rules:
 ## The three rules this unit would be worthless without
 
 **BR1.1 and BR1.2 together.** Either alone is a half-fix: lenses correct and
-picker counts wrong, or the reverse. They live in different modules and must
+picker counts wrong, or the reverse. They live in different modules and have to
 change together.
 
-**BR5.1.** The absence of an action, which no diff shows. If signing up
-quietly accepts, every other rule here is decoration.
+**BR5.1.** The absence of an action, which no diff shows. If signing up quietly
+accepts, every other rule here is decoration.
 
-## The rules the review added, and why they were missing
+## The sweep: every merged reader D1's columns affect
 
-**BR7.1 and BR7.2 exist because D1's migration changes what a column already
-in use *means*.** `student_account_id` meant "claimed" to every reader written
-before acceptance existed. After D1 it means "has an account", and claimed is
-a different column.
+D1's migration changes what `student_account_id` and `guardian_account_id`
+*mean* to code written before acceptance existed, and it adds a `Profile`
+column that a hand-maintained allowlist does not know about. This project
+recorded on 2026-10-22 that **adding a column is not adding a behaviour, and
+the queries that must start reading it have to be named.** This is that
+naming, from a direct read of `app/` on 2026-10-23 rather than from the two
+queries an ADR had already named.
 
-The first draft of this file named the two queries ADR-014 names and stopped
-there, which is the exact failure this project recorded on 2026-10-22:
-*adding a column is not adding a behaviour; name the queries that must start
-reading it.* Having recorded it, I repeated it. The sweep below is what the
-rule asks for, and it belongs in the artifact rather than in a reviewer's
-memory.
-
-| Reader | Reads | After D1 | Owner |
-|---|---|---|---|
-| `_LENS_QUERY` | both link columns | **wrong** — grants on a pending link | BR1.1, D1 |
-| `_SUMMARY_QUERY` | both link columns | **wrong** — counts pending seats | BR1.2, D1 |
-| `remove_enrollment` | `student_account_id` | **wrong** — blocks removing a mistyped seat the moment that stranger signs up | BR7.1, D1 |
-| roster `is_dormant` | `student_account_id` | **wrong** — shows claimed when nobody accepted | BR7.2, D1 |
-| `list_guardian_children` | `guardian_account_id` | safe, but only because `GuardianLens` stops being granted (BR1.1). Defended by the lens, not by itself | noted |
-| `create_enrollment` | writes both | must state the initial decision, since there is no column default | ADR-013 |
-| `privacy.py` field list | names both as never-exposed | unaffected | — |
+| Reader | File | Reads | After D1 | Owner |
+|---|---|---|---|---|
+| `_LENS_QUERY` | `app/authz/resolve.py:69,73` | both link columns | **wrong** — grants on a pending link | BR1.1, D1 |
+| `_SUMMARY_QUERY` | `app/authz/summary.py:65,69` | both link columns | **wrong** — counts pending seats | BR1.2, D1 |
+| `remove_enrollment` | `app/batches/service.py:254`, predicate at 274 | `student_account_id` | **wrong** — blocks removing a mistyped seat the moment that stranger signs up | BR7.1, D1 |
+| roster `is_dormant` | `app/batches/service.py:172` | `student_account_id` | **wrong** — shows claimed when nobody accepted | BR7.2, D1 |
+| `list_guardian_children` | `app/batches/service.py:179` | `guardian_account_id` | safe, but **only because** `GuardianLens` stops being granted (BR1.1). Defended by the lens, not by itself | noted |
+| `add_enrollment` | `app/batches/service.py:438` | writes both | must state the initial decision, since there is no column default | ADR-013 |
+| `FORBIDDEN_ACCOUNT_ID_FIELDS` | `app/contract/privacy.py:64` | names both as never-exposed | unaffected — it forbids the columns by name, and D1 changes their meaning, not their exposure | — |
+| `OWNER_PRIVATE_FIELDS` | `app/contract/privacy.py:56` | `{self_name, photo_ref}` | **wrong** — a hand-maintained set matched by FIELD NAME, so `address` is absent and BR3.2's structural gate does not see it | BR3.4, D1 |
 
 **`remove_enrollment` is the one that would have shipped as a real defect.**
-The others are wrong in ways someone notices; this one silently removes the
+The others are wrong in ways somebody notices. This one silently closes the
 recovery path for a mistyped number — the single scenario the unit was created
-to handle — and it is a merged, routed write path, not a screen.
+to handle — in a merged, routed write path rather than on a screen.
+
+**`list_guardian_children` is worth its row even though it needs no change.**
+It is safe only transitively: the lens it requires stops being granted, so it
+never runs for an unaccepted seat. A reader who later removes the lens
+requirement, or calls it from somewhere else, inherits a query with no
+predicate of its own. Recorded so that is a decision rather than a discovery.
+
+**`OWNER_PRIVATE_FIELDS` was the row this sweep missed**, and the architecture
+review found it at iteration 1. The first table covered the two link columns
+thoroughly and stopped at the columns the unit was *about*, when the sweep's
+own question — what merged mechanism depends on a list of names that nobody
+updated? — applies identically to `Profile.address`. The same methodology, not
+applied to the unit's own second change, on the one axis this product treats
+as highest-stakes. BR3.4 closes it.
 
 ## Assumptions & Open Questions
 
-- **Assumed**: the ceilings in BR2.1 take the same shape as the OTP path's
-  existing ones. The numbers are Code Generation's to set from the existing
-  configuration; the rule fixes that they are separate, not what they are.
+- **Assumed**: BR2.1's ceilings take the same shape as the OTP path's existing
+  ones. The numbers are Code Generation's to set from the existing
+  configuration; the rule fixes that they are *separate*, not what they are.
 - **Open, and D3's**: every money consequence of a decline. BR5.5 removes a
   declined seat from the enrollments; whether a fee cycle stops generating,
-  and what happens to dues already accrued, is US1.14 and there is no ledger
-  until D3 builds one.
+  and what happens to dues already accrued, is US1.14, and there is no ledger
+  table until D3 builds one.

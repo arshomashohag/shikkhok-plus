@@ -5,19 +5,20 @@
 **Unit**: D1 `signing-up-and-joining`
 **Record**: 261022-remaining-slices
 
-> **Three of these four entities already exist.** D1 adds two columns to
-> `Enrollment` and one to `Profile`, and creates no table. They are stated in
-> full because the design is about what those columns mean beside the ones
-> already there, which cannot be read from a diff.
+> **D1 creates no table.** It adds two columns to `Enrollment`, one to
+> `Profile`, and nothing else. The four entities are stated in full anyway,
+> because the design is about what the new columns mean *beside* the ones
+> already on those rows — and that cannot be read from a diff.
 
 ## Sources
 
 - [upstream] `inception/units-generation/unit-of-work.md` — D1's schema scope
 - [upstream] `inception/domain-design/components.md` — the component catalogue
-- [upstream] `inception/requirements-analysis/requirements.md` — FR1.7, FR1.9,
-  FR1.17
+- [upstream] `inception/requirements-analysis/requirements.md` — FR1.7a,
+  FR1.9a–FR1.9i, FR1.16, FR1.17
 - [upstream] `inception/user-stories/stories.md` — US1.10 through US1.16
 - [prior] `inception/domain-design/decisions.md` — ADR-009, ADR-010, ADR-013
+- [code] `app/db/models.py`, read 2026-10-23
 
 ---
 
@@ -27,7 +28,7 @@ entities:
   - name: Account
     description: >
       A person's identity, keyed by mobile number. Carries no name and no
-      personal data: those live on Profile, which is the only table whose
+      personal data: those live on Profile, the only table whose
       row-level-security policy enforces owner-privacy.
     status: exists
     changed_by_this_unit: false
@@ -42,8 +43,8 @@ entities:
         unique: true
         max_length: 20
         constraints:
-          - One account per number. This is what makes AC1.12.4 a uniqueness
-            answer rather than a lookup.
+          - One account per number. This uniqueness is what makes AC1.12.4 a
+            constraint reporting itself rather than a lookup someone writes.
       - name: created_at
         type: timestamp
         required: true
@@ -54,13 +55,15 @@ entities:
       - name: deleted_at
         type: timestamp
         required: false
-        description: D6 owns deletion; D1 only must not clear a decision.
+        description: >
+          D6 owns both deletion paths. D1's only obligation here is negative:
+          nothing it does may clear a decision column [BR6.1].
 
   - name: Profile
     description: >
-      The private, self-authored side of a person. Protected by a row-level
-      security policy keyed on the session account id, which is why signup's
-      personal data lands here and not on Account [ADR-010].
+      The private, self-authored side of a person, behind a row-level-security
+      policy keyed on the session account id. Signup's personal data lands
+      here and not on Account for exactly that reason [ADR-010].
     status: exists
     changed_by_this_unit: true
     attributes:
@@ -73,8 +76,8 @@ entities:
         type: text
         required: false
         description: >
-          Self-authored. A teacher never sees it [BR3.1]. Signup's full name
-          populates THIS field rather than adding a third name [ADR-010].
+          Self-authored, and a teacher never sees it [BR3.1]. Signup's full
+          name populates THIS field; no third name column is added [ADR-010].
       - name: photo_ref
         type: text
         required: false
@@ -84,17 +87,26 @@ entities:
         added_by_this_unit: true
         description: >
           Collected at signup [FR1.17]. Nullable because the already-added
-          path can reach signup with the name filled and the address not.
+          path can reach signup with the name pre-filled and no address yet.
+          A single free-text field, as O1 draws it: Bangladesh addresses do
+          not decompose cleanly into line/city/postcode.
+
+          Adding the column does NOT enrol it in the privacy gate: the
+          owner-private field set is matched by NAME and maintained by hand,
+          so `address` joins it in this same unit [BR3.4].
     constraints:
-      - A Profile row now exists from signup rather than from first edit, so
-        Profile is no longer optional. Signup creates Account and Profile in
-        one transaction, because a failure between them would leave an account
-        violating that assumption [ADR-010].
+      - >
+        A Profile row now exists from signup rather than from a first edit,
+        so Profile stops being optional. Signup creates Account and Profile
+        in ONE transaction, because a failure between them would leave an
+        account violating the assumption every later reader will make
+        [BR3.3, ADR-010].
 
   - name: Owner
     description: >
-      Marks an account as a teacher. Its presence IS the teacher claim; there
-      is no role column anywhere [BR1.1].
+      Marks an account as a teacher. The row's EXISTENCE is the teacher
+      claim; there is no role column anywhere in this product [BR1.1 of
+      identity-and-access].
     status: exists
     changed_by_this_unit: false
     attributes:
@@ -111,14 +123,14 @@ entities:
         type: timestamp
         required: true
     constraints:
-      - Created at signup ONLY when the person chose Teacher [AC1.11.1].
-        Nothing verifies the claim [AC1.11.5].
+      - Created at signup ONLY when the person chose Teacher [BR4.1].
+      - Nothing verifies the claim [BR4.2].
 
   - name: Enrollment
     description: >
-      A seat in a batch. One row carries BOTH links — the student and the
-      guardian — because the seat IS the relationship. There is no role
-      column [BR1.1].
+      A seat in a batch. ONE row carries BOTH links — student and guardian —
+      because the seat IS the relationship. After D1 it carries two
+      independent per-link pairs: a decision and an erasure marker.
     status: exists
     changed_by_this_unit: true
     attributes:
@@ -135,8 +147,10 @@ entities:
         required: false
         references: Account.id
         description: >
-          NULL while nobody has signed up on that number. NOT an acceptance
-          signal: a named account may still be pending [AC1.12.3].
+          NULL while nobody has signed up on that number. After D1 this is
+          NOT an acceptance signal and NOT a claimed signal: a named account
+          may still be pending [BR5.1]. Four merged readers treat it as one
+          or the other; see the sweep in rules.md.
       - name: guardian_account_id
         type: uuid
         required: false
@@ -146,7 +160,7 @@ entities:
         required: true
         description: >
           Teacher-typed. What teachers see, and what survives a decline
-          [ADR-012].
+          [ADR-012]. Never written by a profile edit [BR3.1].
       - name: guardian_phone
         type: string
         required: false
@@ -168,8 +182,8 @@ entities:
         default: none
         description: >
           NO column-level default, deliberately: every insert path must state
-          the seat's initial state, because a default would let a future
-          insert skip the decision silently [ADR-013].
+          the seat's initial state, because a default lets a future insert
+          skip the decision silently [ADR-013].
       - name: guardian_decision
         type: enum
         required: true
@@ -179,7 +193,9 @@ entities:
       - name: student_relink_blocked_at
         type: timestamp
         required: false
-        description: Set when the student erased. Independent of the decision.
+        description: >
+          Set when the student erased. A SEPARATE axis from the decision,
+          and both are read [BR6.2].
       - name: guardian_relink_blocked_at
         type: timestamp
         required: false
@@ -188,39 +204,38 @@ entities:
         required: true
     constraints:
       - >
-        The decision columns and the erasure markers are two INDEPENDENT facts
-        per link, and both are read [ADR-009]. `accepted` plus a set erasure
-        marker does not grant a lens, because the account it named no longer
-        exists.
+        The decision columns and the erasure markers are two INDEPENDENT
+        facts per link, and lens resolution reads both [BR6.2]. `accepted`
+        beside a set erasure marker grants nothing, because the account that
+        link named no longer exists.
       - >
-        A decision is per LINK, not per row. One person's decision never
-        speaks for the other [AC1.10.6], even when both links name the same
-        account — in which case both columns move together on one action
-        [AC1.10.5].
+        A decision is per LINK, never per row. One person's decision never
+        speaks for the other [BR5.2] — except where both links name the SAME
+        account, in which case one action moves both columns [BR5.3].
       - >
-        Backfill is CONDITIONAL, not a default: `accepted` where the link
-        already names an account, `pending` otherwise. A plain default would
-        withdraw a working lens from every student already signed in
-        [ADR-013].
+        Backfill is CONDITIONAL, not a column default: `accepted` where the
+        link already names an account, `pending` otherwise. A plain default
+        would withdraw a working lens from every student already signed in
+        [ADR-013]; see functional-spec.md § 5.
 
 relationships:
   - from: Account
     to: Profile
     cardinality: one-to-one
     direction: Profile.account_id -> Account.id
-    note: Created together at signup, in one transaction.
+    note: Created together at signup, in one transaction [BR3.3].
   - from: Account
     to: Owner
     cardinality: one-to-zero-or-one
     direction: Owner.account_id -> Account.id
-    note: Present only for a teacher.
+    note: Present only for a teacher [BR4.1].
   - from: Account
     to: Enrollment
     cardinality: one-to-many
     direction: Enrollment.student_account_id -> Account.id
     note: >
-      The student link. A row here does NOT imply a lens; the decision column
-      does [ADR-014].
+      The student link. A row here does NOT imply a lens; the decision
+      column does [BR1.1, ADR-014].
   - from: Account
     to: Enrollment
     cardinality: one-to-many
@@ -230,7 +245,10 @@ relationships:
     to: Enrollment
     cardinality: one-to-many
     direction: Enrollment.batch_id -> Batch.id
-    note: Batch is owned by a merged unit and is unchanged here.
+    note: >
+      Batch is owned by a merged unit and is unchanged here. D1 READS a
+      batch's name, subject and fee to render an invitation [BR1.4] and
+      writes nothing to it.
 ```
 
 ---
@@ -242,32 +260,50 @@ structural half of the privacy boundary: there is no personal field on it to
 leak.
 
 **`Profile`** is everything personal a person writes about themselves, behind
-a row-level-security policy. D1 adds `address` here rather than on `Account`
-because that policy already exists and a second mechanism would be a filter
-someone remembers to apply.
+a row-level-security policy. D1 puts `address` here rather than on `Account`
+because that policy already exists, and a second mechanism would be a filter
+someone has to remember to apply.
 
 **`Owner`** is the teacher claim, expressed as a row's existence rather than a
-value. Signup creates it only for Teacher.
+value. Signup creates it for Teacher and for nobody else.
 
 **`Enrollment`** is where the unit's real change lands. It already carried two
-per-link erasure markers; D1 adds two per-link decision columns beside them.
-A reader seeing four per-link fields on one row should know that the two pairs
+per-link erasure markers; D1 adds two per-link decision columns beside them. A
+reader who finds four per-link fields on one row should know the two pairs
 answer different questions — *did this person refuse the seat* and *did this
-person erase themselves* — and that both are read.
+person erase themselves* — and that both are read on every grant.
+
+## The column whose meaning changes
+
+`student_account_id` is unchanged in shape and changed in meaning, and that is
+the riskiest thing in this unit's schema.
+
+Before D1 it answered **"has this seat been claimed?"**, because under the
+superseded model signing in *was* acceptance. After D1 it answers only **"has
+someone signed up on this number?"** — a weaker fact — and *claimed* moves to
+`student_decision = 'accepted'`.
+
+Nothing in a migration makes the merged readers notice. `rules.md` carries the
+sweep of all seven readers of the two link columns, with what each must do;
+two of them are write paths D1 must fix in the same unit that changes the
+meaning [BR7.1, BR7.2].
 
 ## What D1 does not add
 
-No new table. No `role` column, here or anywhere [BR1.1]. No third name: the
-signup name is `profile.self_name`, and the teacher-typed
+No new table. No `role` column, here or anywhere. No third name: the signup
+name **is** `profile.self_name`, and the teacher-typed
 `enrollment.display_name` is untouched by it [ADR-010]. No timestamp recording
 *when* a decision was made — nothing in V1 reads it, and the auth audit log
-carries the events if a dispute needs reconstructing [ADR-009].
+carries the events if a dispute ever needs reconstructing [ADR-009]. No reason
+for a decline, and no decision history.
 
 ## Assumptions & Open Questions
 
-- **Assumed**: `Batch` is unchanged by this unit. D1 reads a batch's name,
-  subject and fee to render an invitation and writes nothing to it.
-- **Assumed**: the enum is a database enum type rather than a check-constrained
-  string. Either satisfies the design; the choice is Code Generation's, and the
-  constraint that matters is that the three values are the only representable
-  ones.
+- **Assumed**: `Batch` is unchanged by this unit, which the read-only use
+  above states explicitly.
+- **Assumed**: the decision columns are a database enum type rather than a
+  check-constrained string. Either satisfies this design and the choice is
+  Code Generation's; what the design fixes is that the three values are the
+  only representable ones. Noted because this would be the schema's first
+  enum, and the two forms differ in how a fourth value is later added
+  [components.md].
