@@ -15,8 +15,8 @@
 - **Practices Affirmed Timestamp**: 2026-10-22T17:09:56Z
 
 ## Scope Configuration
-- **Stages to Execute**: 0.1, 0.2, 0.3, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6
-- **Stages to Skip**: 1.1 (intent-capture), 1.2 (market-research), 1.3 (feasibility), 1.4 (scope-definition), 1.5 (team-formation), 1.6 (rough-mockups), 1.7 (approval-handoff), 3.7 (ci-pipeline), 4.1 (deployment-pipeline), 4.2 (environment-provisioning), 4.3 (deployment-execution), 4.4 (observability-setup), 4.5 (incident-response), 4.6 (performance-validation), 4.7 (feedback-optimization)
+- **Stages to Execute**: 0.1, 0.2, 0.3, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.9, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6
+- **Stages to Skip**: 1.1 (intent-capture), 1.2 (market-research), 1.3 (feasibility), 1.4 (scope-definition), 1.5 (team-formation), 1.6 (rough-mockups), 1.7 (approval-handoff), 3.7 (ci-pipeline), 4.1 (deployment-pipeline), 4.2 (environment-provisioning), 4.3 (deployment-execution), 4.4 (observability-setup), 4.5 (incident-response), 4.6 (performance-validation), 4.7 (feedback-optimization), 2.8 (contract-design)
 - **Depth**: Standard
 - **Test Strategy**: Standard
 - **Review Override**: 
@@ -34,9 +34,9 @@
 - **Build System**: python (pyproject.toml)
 
 ## Execution Plan Summary
-- **Total Stages**: 18
-- **Completed**: 8
-- **In Progress**: domain-design
+- **Total Stages**: 17
+- **Completed**: 9
+- **In Progress**: units-generation
 
 ## Runtime State
 - **Revision Count**: 0
@@ -78,9 +78,9 @@
 - [x] requirements-analysis — EXECUTE
 - [x] user-stories — EXECUTE
 - [x] refined-mockups — EXECUTE
-- [-] domain-design — EXECUTE
-- [ ] units-generation — EXECUTE
-- [ ] contract-design — EXECUTE
+- [x] domain-design — EXECUTE
+- [-] units-generation — EXECUTE
+- [ ] contract-design — SKIP
 - [ ] delivery-planning — EXECUTE
 
 ### CONSTRUCTION PHASE
@@ -104,12 +104,12 @@ Per unit: [TBD]
 
 ## Current Status
 - **Lifecycle Phase**: INCEPTION
-- **Current Stage**: domain-design
-- **Next Stage**: units-generation
+- **Current Stage**: units-generation
+- **Next Stage**: delivery-planning
 - **Status**: Running
-- **Last Updated**: 2026-10-22T20:36:18Z
+- **Last Updated**: 2026-10-23T00:31:12Z
 
 ## Session Resume Point
-- **Last Completed Stage**: refined-mockups
-- **Next Action**: Execute Domain Design
+- **Last Completed Stage**: domain-design
+- **Next Action**: Execute Units Generation
 - **Pending Artifacts**: none
