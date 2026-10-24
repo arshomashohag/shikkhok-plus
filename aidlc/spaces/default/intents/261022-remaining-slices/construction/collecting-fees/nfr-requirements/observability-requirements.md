@@ -94,6 +94,16 @@ that nobody has been billed since March. The alert must therefore fire on
 **absence of success**, not on presence of failure. A run-failure alert alone
 monitors a job that is running.
 
+**There is a second route to the same silence, and it is the likelier one.**
+The instance is replaced on every deploy — `deploy.yml` refreshes the ASG so
+the new instance re-runs `user_data` — so a cron entry added by hand over SSM
+survives until the next deploy and no longer. Nothing fails; the timer simply
+stops existing, and the self-healing job that would have caught up is the
+thing that is no longer running. This is why the scheduling mechanism must be
+provisioned by `user_data.sh.tftpl` rather than by an operator action
+[tech-stack-decisions § 2], and why this alert is the backstop for an
+infrastructure mistake as much as for an application one.
+
 **NFR25.10 is a deliberate non-alert, on D1's reasoning.** The per-enrollment
 commit granularity exists so one bad row does not abort a run; paging on one
 bad row would convert that resilience into noise, and noise in the same

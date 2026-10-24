@@ -1,0 +1,688 @@
+{
+  "stage": "infrastructure-design",
+  "unit": "collecting-fees",
+  "note": "D3 adds one thing to the infrastructure - a scheduling mechanism - and the choice between host cron and in-process is the human's, so this stage designs for both and picks neither. The OK rows are the ones infrastructure, monitoring or the pipeline genuinely carries. The large N/A set is deliberate: most of D3's 113 upstream NFRx.y are application-level - money representation, ledger integrity, query shapes, error classes, authorization - and marking them OK against an infrastructure document would be a decorative mapping. Three OK rows are honest about carrying a NEGATIVE result rather than a provisioned resource: NFR25.9 is OK because monitoring-design S2 records that nothing reads log.critical and gives costed options, NFR25.12 because its alert routes to a backup step that does not exist, and NFR26.4/NFR26.5 because the design records them as a test and a constraint specifically so they are not re-invented as dashboards. NFR19.27 and NFR19.28 are OK as tracked-and-assigned rather than built: both are inherited gaps that escalate at D3 and are named with owners and a computed cost in specification S7. Findings this stage adds beyond the requirement set: the fifth table (job_heartbeat) that no requirement names and the existing governance test will fail on; the budget guard's USD 50.20 literal that matches no configuration the code produces; and the disagreement between the enable_rds default and the example file.",
+  "upstream_ids": [
+    "NFR10.15",
+    "NFR10.16",
+    "NFR10.17",
+    "NFR11.2",
+    "NFR13.5",
+    "NFR14.15",
+    "NFR14.27",
+    "NFR14.29",
+    "NFR14.32",
+    "NFR14.33",
+    "NFR14.34",
+    "NFR14.35",
+    "NFR14.36",
+    "NFR14.37",
+    "NFR14.38",
+    "NFR14.39",
+    "NFR14.40",
+    "NFR14.41",
+    "NFR14.42",
+    "NFR14.43",
+    "NFR14.44",
+    "NFR14.45",
+    "NFR14.46",
+    "NFR14.47",
+    "NFR18.3",
+    "NFR18.4",
+    "NFR18.5",
+    "NFR19.10",
+    "NFR19.11",
+    "NFR19.12",
+    "NFR19.13",
+    "NFR19.14",
+    "NFR19.15",
+    "NFR19.16",
+    "NFR19.17",
+    "NFR19.18",
+    "NFR19.19",
+    "NFR19.20",
+    "NFR19.21",
+    "NFR19.22",
+    "NFR19.23",
+    "NFR19.24",
+    "NFR19.25",
+    "NFR19.26",
+    "NFR19.27",
+    "NFR19.28",
+    "NFR19.8",
+    "NFR19.9",
+    "NFR2.5",
+    "NFR20.10",
+    "NFR20.11",
+    "NFR20.12",
+    "NFR20.13",
+    "NFR20.14",
+    "NFR20.15",
+    "NFR20.16",
+    "NFR20.17",
+    "NFR20.18",
+    "NFR20.19",
+    "NFR20.20",
+    "NFR20.21",
+    "NFR20.22",
+    "NFR20.23",
+    "NFR21.1",
+    "NFR23.10",
+    "NFR23.7",
+    "NFR23.8",
+    "NFR23.9",
+    "NFR24.10",
+    "NFR24.11",
+    "NFR24.12",
+    "NFR24.5",
+    "NFR24.6",
+    "NFR24.7",
+    "NFR24.8",
+    "NFR24.9",
+    "NFR25.10",
+    "NFR25.11",
+    "NFR25.12",
+    "NFR25.13",
+    "NFR25.14",
+    "NFR25.15",
+    "NFR25.16",
+    "NFR25.17",
+    "NFR25.8",
+    "NFR25.9",
+    "NFR26.3",
+    "NFR26.4",
+    "NFR26.5",
+    "NFR26.6",
+    "NFR3.4",
+    "NFR6.21",
+    "NFR6.26",
+    "NFR6.27",
+    "NFR6.28",
+    "NFR6.29",
+    "NFR6.30",
+    "NFR6.31",
+    "NFR6.32",
+    "NFR6.33",
+    "NFR6.34",
+    "NFR6.35",
+    "NFR6.36",
+    "NFR6.37",
+    "NFR6.38",
+    "NFR6.39",
+    "NFR7.6",
+    "NFR9.1",
+    "NFR9.34",
+    "NFR9.35",
+    "NFR9.36",
+    "NFR9.37",
+    "NFR9.38"
+  ],
+  "coverage": [
+    {
+      "id": "NFR2.5",
+      "status": "N/A",
+      "target": "A client-side responsiveness property; no infrastructure expression"
+    },
+    {
+      "id": "NFR3.4",
+      "status": "N/A",
+      "target": "A client-side responsiveness property; no infrastructure expression"
+    },
+    {
+      "id": "NFR6.21",
+      "status": "N/A",
+      "target": "A scale/growth property of the existing single host and database; D3 adds no scaling mechanism and no capacity change"
+    },
+    {
+      "id": "NFR6.26",
+      "status": "N/A",
+      "target": "A scale/growth property of the existing single host and database; D3 adds no scaling mechanism and no capacity change"
+    },
+    {
+      "id": "NFR6.27",
+      "status": "N/A",
+      "target": "A scale/growth property of the existing single host and database; D3 adds no scaling mechanism and no capacity change"
+    },
+    {
+      "id": "NFR6.28",
+      "status": "OK",
+      "target": "monitoring-design.md S7 - ledger retained in full; retention table"
+    },
+    {
+      "id": "NFR6.29",
+      "status": "Deferred",
+      "target": "reminder_event growth is within the existing database; retention and purge are D6's"
+    },
+    {
+      "id": "NFR6.30",
+      "status": "OK",
+      "target": "infrastructure-specification.md S3.5 - the unique constraint, not the schedule, prevents double-billing"
+    },
+    {
+      "id": "NFR6.31",
+      "status": "N/A",
+      "target": "A scale/growth property of the existing single host and database; D3 adds no scaling mechanism and no capacity change"
+    },
+    {
+      "id": "NFR6.32",
+      "status": "N/A",
+      "target": "A scale/growth property of the existing single host and database; D3 adds no scaling mechanism and no capacity change"
+    },
+    {
+      "id": "NFR6.33",
+      "status": "N/A",
+      "target": "A scale/growth property of the existing single host and database; D3 adds no scaling mechanism and no capacity change"
+    },
+    {
+      "id": "NFR6.34",
+      "status": "N/A",
+      "target": "A scale/growth property of the existing single host and database; D3 adds no scaling mechanism and no capacity change"
+    },
+    {
+      "id": "NFR6.35",
+      "status": "N/A",
+      "target": "A scale/growth property of the existing single host and database; D3 adds no scaling mechanism and no capacity change"
+    },
+    {
+      "id": "NFR6.36",
+      "status": "N/A",
+      "target": "A scale/growth property of the existing single host and database; D3 adds no scaling mechanism and no capacity change"
+    },
+    {
+      "id": "NFR6.37",
+      "status": "N/A",
+      "target": "A scale/growth property of the existing single host and database; D3 adds no scaling mechanism and no capacity change"
+    },
+    {
+      "id": "NFR6.38",
+      "status": "OK",
+      "target": "infrastructure-specification.md S3 - the first scheduled job and the scheduling mechanism it needs"
+    },
+    {
+      "id": "NFR6.39",
+      "status": "N/A",
+      "target": "A scale/growth property of the existing single host and database; D3 adds no scaling mechanism and no capacity change"
+    },
+    {
+      "id": "NFR7.6",
+      "status": "OK",
+      "target": "infrastructure-specification.md S2, S6 - both scheduler options add USD 0.00; no metrics or log backend"
+    },
+    {
+      "id": "NFR9.1",
+      "status": "N/A",
+      "target": "A money representation and ledger-integrity rule enforced in code, the value type and table constraints; no infrastructure expression"
+    },
+    {
+      "id": "NFR9.34",
+      "status": "N/A",
+      "target": "A money representation and ledger-integrity rule enforced in code, the value type and table constraints; no infrastructure expression"
+    },
+    {
+      "id": "NFR9.35",
+      "status": "N/A",
+      "target": "A money representation and ledger-integrity rule enforced in code, the value type and table constraints; no infrastructure expression"
+    },
+    {
+      "id": "NFR9.36",
+      "status": "N/A",
+      "target": "A money representation and ledger-integrity rule enforced in code, the value type and table constraints; no infrastructure expression"
+    },
+    {
+      "id": "NFR9.37",
+      "status": "N/A",
+      "target": "A money representation and ledger-integrity rule enforced in code, the value type and table constraints; no infrastructure expression"
+    },
+    {
+      "id": "NFR9.38",
+      "status": "N/A",
+      "target": "A money representation and ledger-integrity rule enforced in code, the value type and table constraints; no infrastructure expression"
+    },
+    {
+      "id": "NFR10.15",
+      "status": "OK",
+      "target": "infrastructure-specification.md S4.2 - governance rows; the fifth table finding"
+    },
+    {
+      "id": "NFR10.16",
+      "status": "OK",
+      "target": "infrastructure-specification.md S1 - encrypted at rest, a hosting property of the existing database"
+    },
+    {
+      "id": "NFR10.17",
+      "status": "Deferred",
+      "target": "transaction_id nullability is answer-agnostic; OQ-1 and the purge are D6's"
+    },
+    {
+      "id": "NFR11.2",
+      "status": "N/A",
+      "target": "A client and adapter behaviour rule; no resource provisioned for it"
+    },
+    {
+      "id": "NFR13.5",
+      "status": "N/A",
+      "target": "D3 adds no credential of its own beyond the FCM key, whose path is specification S5"
+    },
+    {
+      "id": "NFR14.15",
+      "status": "N/A",
+      "target": "An authorization, refusal-shape or row-level-security rule enforced in application code and queries; no infrastructure expression"
+    },
+    {
+      "id": "NFR14.27",
+      "status": "N/A",
+      "target": "An authorization, refusal-shape or row-level-security rule enforced in application code and queries; no infrastructure expression"
+    },
+    {
+      "id": "NFR14.29",
+      "status": "N/A",
+      "target": "An authorization, refusal-shape or row-level-security rule enforced in application code and queries; no infrastructure expression"
+    },
+    {
+      "id": "NFR14.32",
+      "status": "N/A",
+      "target": "An authorization, refusal-shape or row-level-security rule enforced in application code and queries; no infrastructure expression"
+    },
+    {
+      "id": "NFR14.33",
+      "status": "N/A",
+      "target": "An authorization, refusal-shape or row-level-security rule enforced in application code and queries; no infrastructure expression"
+    },
+    {
+      "id": "NFR14.34",
+      "status": "N/A",
+      "target": "An authorization, refusal-shape or row-level-security rule enforced in application code and queries; no infrastructure expression"
+    },
+    {
+      "id": "NFR14.35",
+      "status": "N/A",
+      "target": "An authorization, refusal-shape or row-level-security rule enforced in application code and queries; no infrastructure expression"
+    },
+    {
+      "id": "NFR14.36",
+      "status": "OK",
+      "target": "infrastructure-specification.md S4.2 - the four-tables framing this finding corrects"
+    },
+    {
+      "id": "NFR14.37",
+      "status": "N/A",
+      "target": "An authorization, refusal-shape or row-level-security rule enforced in application code and queries; no infrastructure expression"
+    },
+    {
+      "id": "NFR14.38",
+      "status": "N/A",
+      "target": "An authorization, refusal-shape or row-level-security rule enforced in application code and queries; no infrastructure expression"
+    },
+    {
+      "id": "NFR14.39",
+      "status": "N/A",
+      "target": "An authorization, refusal-shape or row-level-security rule enforced in application code and queries; no infrastructure expression"
+    },
+    {
+      "id": "NFR14.40",
+      "status": "N/A",
+      "target": "An authorization, refusal-shape or row-level-security rule enforced in application code and queries; no infrastructure expression"
+    },
+    {
+      "id": "NFR14.41",
+      "status": "N/A",
+      "target": "An authorization, refusal-shape or row-level-security rule enforced in application code and queries; no infrastructure expression"
+    },
+    {
+      "id": "NFR14.42",
+      "status": "N/A",
+      "target": "An authorization, refusal-shape or row-level-security rule enforced in application code and queries; no infrastructure expression"
+    },
+    {
+      "id": "NFR14.43",
+      "status": "N/A",
+      "target": "An authorization, refusal-shape or row-level-security rule enforced in application code and queries; no infrastructure expression"
+    },
+    {
+      "id": "NFR14.44",
+      "status": "N/A",
+      "target": "An authorization, refusal-shape or row-level-security rule enforced in application code and queries; no infrastructure expression"
+    },
+    {
+      "id": "NFR14.45",
+      "status": "N/A",
+      "target": "An authorization, refusal-shape or row-level-security rule enforced in application code and queries; no infrastructure expression"
+    },
+    {
+      "id": "NFR14.46",
+      "status": "N/A",
+      "target": "An authorization, refusal-shape or row-level-security rule enforced in application code and queries; no infrastructure expression"
+    },
+    {
+      "id": "NFR14.47",
+      "status": "N/A",
+      "target": "An authorization, refusal-shape or row-level-security rule enforced in application code and queries; no infrastructure expression"
+    },
+    {
+      "id": "NFR18.3",
+      "status": "N/A",
+      "target": "An availability posture of the existing single host; D3 states no target of its own"
+    },
+    {
+      "id": "NFR18.4",
+      "status": "N/A",
+      "target": "An availability posture of the existing single host; D3 states no target of its own"
+    },
+    {
+      "id": "NFR18.5",
+      "status": "OK",
+      "target": "cicd-pipeline.md S4.4 - deploy scheduled outside the generation window; verifier named as the dispatcher"
+    },
+    {
+      "id": "NFR19.8",
+      "status": "N/A",
+      "target": "A job failure-mode, transactional-pairing or error-class rule inside the application; no resource provisioned for it"
+    },
+    {
+      "id": "NFR19.9",
+      "status": "OK",
+      "target": "infrastructure-specification.md S3.5 - ON CONFLICT DO NOTHING as the double-fire safety net"
+    },
+    {
+      "id": "NFR19.10",
+      "status": "N/A",
+      "target": "A job failure-mode, transactional-pairing or error-class rule inside the application; no resource provisioned for it"
+    },
+    {
+      "id": "NFR19.11",
+      "status": "N/A",
+      "target": "A job failure-mode, transactional-pairing or error-class rule inside the application; no resource provisioned for it"
+    },
+    {
+      "id": "NFR19.12",
+      "status": "N/A",
+      "target": "A job failure-mode, transactional-pairing or error-class rule inside the application; no resource provisioned for it"
+    },
+    {
+      "id": "NFR19.13",
+      "status": "N/A",
+      "target": "A job failure-mode, transactional-pairing or error-class rule inside the application; no resource provisioned for it"
+    },
+    {
+      "id": "NFR19.14",
+      "status": "N/A",
+      "target": "A job failure-mode, transactional-pairing or error-class rule inside the application; no resource provisioned for it"
+    },
+    {
+      "id": "NFR19.15",
+      "status": "N/A",
+      "target": "A job failure-mode, transactional-pairing or error-class rule inside the application; no resource provisioned for it"
+    },
+    {
+      "id": "NFR19.16",
+      "status": "N/A",
+      "target": "A job failure-mode, transactional-pairing or error-class rule inside the application; no resource provisioned for it"
+    },
+    {
+      "id": "NFR19.17",
+      "status": "N/A",
+      "target": "A job failure-mode, transactional-pairing or error-class rule inside the application; no resource provisioned for it"
+    },
+    {
+      "id": "NFR19.18",
+      "status": "N/A",
+      "target": "A job failure-mode, transactional-pairing or error-class rule inside the application; no resource provisioned for it"
+    },
+    {
+      "id": "NFR19.19",
+      "status": "N/A",
+      "target": "A job failure-mode, transactional-pairing or error-class rule inside the application; no resource provisioned for it"
+    },
+    {
+      "id": "NFR19.20",
+      "status": "N/A",
+      "target": "A job failure-mode, transactional-pairing or error-class rule inside the application; no resource provisioned for it"
+    },
+    {
+      "id": "NFR19.21",
+      "status": "N/A",
+      "target": "A job failure-mode, transactional-pairing or error-class rule inside the application; no resource provisioned for it"
+    },
+    {
+      "id": "NFR19.22",
+      "status": "N/A",
+      "target": "A job failure-mode, transactional-pairing or error-class rule inside the application; no resource provisioned for it"
+    },
+    {
+      "id": "NFR19.23",
+      "status": "N/A",
+      "target": "A job failure-mode, transactional-pairing or error-class rule inside the application; no resource provisioned for it"
+    },
+    {
+      "id": "NFR19.24",
+      "status": "OK",
+      "target": "infrastructure-specification.md S5 - adapter placement and credential path"
+    },
+    {
+      "id": "NFR19.25",
+      "status": "N/A",
+      "target": "A job failure-mode, transactional-pairing or error-class rule inside the application; no resource provisioned for it"
+    },
+    {
+      "id": "NFR19.26",
+      "status": "OK",
+      "target": "infrastructure-specification.md S4.1; cicd-pipeline.md S4 - distinct logged step, built"
+    },
+    {
+      "id": "NFR19.27",
+      "status": "OK",
+      "target": "infrastructure-specification.md S7; cicd-pipeline.md S5 - GAP-shaped but tracked: assigned to D3 before production"
+    },
+    {
+      "id": "NFR19.28",
+      "status": "OK",
+      "target": "infrastructure-specification.md S7; cicd-pipeline.md S5 - staging rehearsal, with the computed cost of enabling it"
+    },
+    {
+      "id": "NFR20.10",
+      "status": "N/A",
+      "target": "A query-shape, index or client performance property; no infrastructure resource and no sizing change"
+    },
+    {
+      "id": "NFR20.11",
+      "status": "N/A",
+      "target": "A query-shape, index or client performance property; no infrastructure resource and no sizing change"
+    },
+    {
+      "id": "NFR20.12",
+      "status": "N/A",
+      "target": "A query-shape, index or client performance property; no infrastructure resource and no sizing change"
+    },
+    {
+      "id": "NFR20.13",
+      "status": "N/A",
+      "target": "A query-shape, index or client performance property; no infrastructure resource and no sizing change"
+    },
+    {
+      "id": "NFR20.14",
+      "status": "N/A",
+      "target": "A query-shape, index or client performance property; no infrastructure resource and no sizing change"
+    },
+    {
+      "id": "NFR20.15",
+      "status": "N/A",
+      "target": "A query-shape, index or client performance property; no infrastructure resource and no sizing change"
+    },
+    {
+      "id": "NFR20.16",
+      "status": "N/A",
+      "target": "A query-shape, index or client performance property; no infrastructure resource and no sizing change"
+    },
+    {
+      "id": "NFR20.17",
+      "status": "N/A",
+      "target": "A query-shape, index or client performance property; no infrastructure resource and no sizing change"
+    },
+    {
+      "id": "NFR20.18",
+      "status": "N/A",
+      "target": "A query-shape, index or client performance property; no infrastructure resource and no sizing change"
+    },
+    {
+      "id": "NFR20.19",
+      "status": "N/A",
+      "target": "A query-shape, index or client performance property; no infrastructure resource and no sizing change"
+    },
+    {
+      "id": "NFR20.20",
+      "status": "N/A",
+      "target": "A query-shape, index or client performance property; no infrastructure resource and no sizing change"
+    },
+    {
+      "id": "NFR20.21",
+      "status": "N/A",
+      "target": "A query-shape, index or client performance property; no infrastructure resource and no sizing change"
+    },
+    {
+      "id": "NFR20.22",
+      "status": "OK",
+      "target": "cicd-pipeline.md S4.4 - job and deploy both outside classroom hours"
+    },
+    {
+      "id": "NFR20.23",
+      "status": "N/A",
+      "target": "A query-shape, index or client performance property; no infrastructure resource and no sizing change"
+    },
+    {
+      "id": "NFR23.7",
+      "status": "N/A",
+      "target": "A test-posture obligation discharged by the suite that make check already runs"
+    },
+    {
+      "id": "NFR23.8",
+      "status": "OK",
+      "target": "cicd-pipeline.md S1 - money coverage floor in make check, never weakened"
+    },
+    {
+      "id": "NFR23.9",
+      "status": "N/A",
+      "target": "A test-posture obligation discharged by the suite that make check already runs"
+    },
+    {
+      "id": "NFR23.10",
+      "status": "N/A",
+      "target": "A test-posture obligation discharged by the suite that make check already runs"
+    },
+    {
+      "id": "NFR24.5",
+      "status": "OK",
+      "target": "monitoring-design.md S6 - transaction_id in the never-log set"
+    },
+    {
+      "id": "NFR24.6",
+      "status": "OK",
+      "target": "monitoring-design.md S6 - no amount beside an identifiable enrollment"
+    },
+    {
+      "id": "NFR24.7",
+      "status": "OK",
+      "target": "monitoring-design.md S6 - the collection number never logged"
+    },
+    {
+      "id": "NFR24.8",
+      "status": "OK",
+      "target": "monitoring-design.md S6 - correlation id, no traceback to a client"
+    },
+    {
+      "id": "NFR24.9",
+      "status": "N/A",
+      "target": "Satisfied by an append-only table rather than by logging infrastructure; monitoring-design S6 covers the never-log rules"
+    },
+    {
+      "id": "NFR24.10",
+      "status": "N/A",
+      "target": "Satisfied by an append-only table rather than by logging infrastructure; monitoring-design S6 covers the never-log rules"
+    },
+    {
+      "id": "NFR24.11",
+      "status": "N/A",
+      "target": "Satisfied by an append-only table rather than by logging infrastructure; monitoring-design S6 covers the never-log rules"
+    },
+    {
+      "id": "NFR24.12",
+      "status": "OK",
+      "target": "monitoring-design.md S3 - push outcomes recorded as reminder_event rows"
+    },
+    {
+      "id": "NFR25.8",
+      "status": "OK",
+      "target": "monitoring-design.md S4 - run-failure alert, with the delivery caveat"
+    },
+    {
+      "id": "NFR25.9",
+      "status": "OK",
+      "target": "monitoring-design.md S2, S4 - the absence-of-success alert and the finding that nothing reads it"
+    },
+    {
+      "id": "NFR25.10",
+      "status": "OK",
+      "target": "monitoring-design.md S4 - deliberate non-alert, counted on the heartbeat row"
+    },
+    {
+      "id": "NFR25.11",
+      "status": "OK",
+      "target": "monitoring-design.md S4 - push failure recorded, not alerted"
+    },
+    {
+      "id": "NFR25.12",
+      "status": "OK",
+      "target": "monitoring-design.md S4 - backup alert; recorded as routing to nothing because the backup step is absent"
+    },
+    {
+      "id": "NFR25.13",
+      "status": "OK",
+      "target": "monitoring-design.md S3, S3.1 - three heartbeat counts, with the per-scheduler reading"
+    },
+    {
+      "id": "NFR25.14",
+      "status": "OK",
+      "target": "monitoring-design.md S3 - total charged per run as an unattached aggregate"
+    },
+    {
+      "id": "NFR25.15",
+      "status": "OK",
+      "target": "monitoring-design.md S3 - claims by status, a query not a metric"
+    },
+    {
+      "id": "NFR25.16",
+      "status": "OK",
+      "target": "monitoring-design.md S3 - verification corrections"
+    },
+    {
+      "id": "NFR25.17",
+      "status": "OK",
+      "target": "monitoring-design.md S3 - push outcomes including UNREGISTERED"
+    },
+    {
+      "id": "NFR26.3",
+      "status": "OK",
+      "target": "monitoring-design.md S5 - generation freshness SLI, 48h"
+    },
+    {
+      "id": "NFR26.4",
+      "status": "OK",
+      "target": "monitoring-design.md S5 - a property test, explicitly not a monitor"
+    },
+    {
+      "id": "NFR26.5",
+      "status": "OK",
+      "target": "monitoring-design.md S5 - a constraint, explicitly not a monitor"
+    },
+    {
+      "id": "NFR26.6",
+      "status": "OK",
+      "target": "monitoring-design.md S5 - no V1 target, measured through the pilot"
+    },
+    {
+      "id": "NFR21.1",
+      "status": "N/A",
+      "target": "inherited — cited, not defined, by this unit",
+      "note": "D1's no-cross-request-cache rule, cited as [D1 NFR21.1] in nfr-design/performance-design.md:186 where D3 records that it seeks no exception. Infrastructure adds no cache, no replica and no shared store, so there is nothing here to discharge."
+    }
+  ]
+}

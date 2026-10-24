@@ -481,6 +481,35 @@ problem to state a disposition for, and D3's obligation is the standing one:
 a governance row per new table, verified by the schema-iterating test, which
 fails on a live table with no disposition and retention class.
 
+### A fifth table: `job_heartbeat`
+
+**D3 creates five tables, not four, and this one is easy to miss because it
+arrived from a different stage.** `FeeCycle`, `LedgerEntry`, `PaymentClaim`
+and `ReminderEvent` are specified above. `job_heartbeat` is specified in
+`nfr-design/observability-design.md` § 1.1 as the mechanism behind the
+absence-of-success alert [NFR25.9]: one row per job name, upserted by the job
+itself after its last enrollment-period commits, holding `last_success_at`
+and the three per-run counts.
+
+It is a table rather than a file or a counter in a worker **because the
+instance is replaced on every deploy** — the exact event the alert exists to
+survive.
+
+**It needs a disposition and a retention class like any other live table.**
+`tests/db/test_governance.py` iterates `pg_tables` and asserts both, in both
+directions, so a fifth table with neither is a red `make check` rather than a
+documentation gap. Its content makes both easy and neither is a judgement
+call of the kind `ledger_entry`'s is:
+
+| field | value | why |
+|---|---|---|
+| Disposition | hard delete | Operational telemetry about a job. It names no person, holds no identifier, and references no enrollment |
+| Retention | bounded, small | One row per job name forever. It does not grow with users, students or time |
+
+**It is deliberately out of the privacy boundary**, which is why this is a
+footnote rather than a decision: it is the only D3 table that is not
+enrollment-scoped and carries nothing a person wrote.
+
 **`PaymentClaim` holds both the claim and its verification** rather than
 splitting them across two tables. One claim has at most one verification, the
 verification is a decision about that claim, and FR9.2 requires the previous
@@ -575,14 +604,17 @@ superseded by exactly one other. An `Account` both submits and verifies claims.
   survive the claimant's account deletion? D3 ships it nullable, which is
   answer-agnostic. The delivery plan wants it closed before D6 and ideally
   before D3 so this schema is not revisited.
-- **OQ-4 is answered, and it assigns the adapter to TWO units.** It is at
+- **OQ-4 is posed in one document and decided in another, and the adapter is
+  shared with D4.** It is **asked** at
   `261016-shikhokplus-tuition-app/inception/contract-design/contract-summary.md`
-  § G: "The FCM adapter's owning Unit is latent — U6 or U7, whichever is built
-  first", blocking **U6 and U7**, because the dependency artifact deliberately
-  declined a `U6 -> U7` edge rather than destroy a three-way parallel set for a
-  shared adapter. U7 `fee-cycles-and-ledger` is D3's ancestor; U6
-  `exams-and-marksheets` maps forward to **D4 `teaching-and-recording`**. D3 is
-  built first, so D3 owns the adapter and **D4 consumes the same one rather
-  than building its own** — the failure OQ-4 names is two adapters with two
-  different `UNREGISTERED` behaviours. `ReminderEvent` is designed from
-  FR10.1–FR10.4, which remain the behavioural source.
+  § G, where the owning Unit is left "latent — U6 or U7, whichever is built
+  first", a Delivery Planning sequencing decision deliberately left open
+  because the dependency artifact declined a `U6 -> U7` edge rather than lose
+  a parallel set. It is **answered** by this record's
+  `inception/units-generation/unit-of-work.md:134`, whose D3 scope line reads
+  "Owns the FCM adapter per OQ-4". U7 `fee-cycles-and-ledger` is D3's
+  ancestor; U6 `exams-and-marksheets` maps forward to **D4
+  `teaching-and-recording`** — so D3 owns the adapter and **D4 consumes the
+  same one rather than building its own**. The failure OQ-4 names is two
+  adapters with two different `UNREGISTERED` behaviours. `ReminderEvent` is
+  designed from FR10.1–FR10.4, which remain the behavioural source.

@@ -1,0 +1,864 @@
+{
+  "stage": "nfr-design",
+  "unit": "collecting-fees",
+  "note": "upstream_ids are the 105 NFRx.y DEFINED by this unit's five nfr-requirements files, enumerated mechanically rather than transcribed. Every id was checked to appear in the prose of the design document its target names, not merely somewhere in the stage directory: comparing ID sets is the weaker property that let five wrong citations survive a previous stage of this record. D3 MINTS NO NEW ID. A bare NFR20.10, NFR20.11, NFR21.1 or NFR14.15 appearing in a design body is a CITATION of a prior unit's requirement, never a definition here. The BRx.y rows under `business_rules` are the functional-design rules whose mechanism this stage designs; they are cited, not defined. Three designs carry this unit: the collection-number allowlist (NFR14.32), which is NEW WORK because the built schema-wide invariant is one-directional and silent on a teacher-authored field flowing downward; the absence-of-success alert (NFR25.9), designed as a job-written heartbeat row plus a separately-triggered freshness query, which must detect both a scheduler never wired and a cron entry wiped by a deploy; and the refusal-code classification (security-design section 4), which marks each D3 refusal pre-authorization (shared NOT_AVAILABLE) or post-authorization (descriptive), because the built registry test asserts the absence of an oracle-shaped PAIR and cannot catch a new individually-disclosing code.",
+  "upstream_ids": [
+    "NFR10.15",
+    "NFR10.16",
+    "NFR10.17",
+    "NFR11.2",
+    "NFR13.5",
+    "NFR14.15",
+    "NFR14.27",
+    "NFR14.29",
+    "NFR14.32",
+    "NFR14.33",
+    "NFR14.34",
+    "NFR14.35",
+    "NFR14.36",
+    "NFR14.37",
+    "NFR14.38",
+    "NFR14.39",
+    "NFR14.40",
+    "NFR14.41",
+    "NFR14.42",
+    "NFR14.43",
+    "NFR14.44",
+    "NFR14.45",
+    "NFR14.46",
+    "NFR14.47",
+    "NFR18.3",
+    "NFR18.4",
+    "NFR18.5",
+    "NFR19.10",
+    "NFR19.11",
+    "NFR19.12",
+    "NFR19.13",
+    "NFR19.14",
+    "NFR19.15",
+    "NFR19.16",
+    "NFR19.17",
+    "NFR19.18",
+    "NFR19.19",
+    "NFR19.20",
+    "NFR19.21",
+    "NFR19.22",
+    "NFR19.23",
+    "NFR19.24",
+    "NFR19.25",
+    "NFR19.26",
+    "NFR19.27",
+    "NFR19.28",
+    "NFR19.8",
+    "NFR19.9",
+    "NFR2.5",
+    "NFR20.10",
+    "NFR20.11",
+    "NFR20.12",
+    "NFR20.13",
+    "NFR20.14",
+    "NFR20.15",
+    "NFR20.16",
+    "NFR20.17",
+    "NFR20.18",
+    "NFR20.19",
+    "NFR20.20",
+    "NFR20.21",
+    "NFR20.22",
+    "NFR20.23",
+    "NFR23.10",
+    "NFR23.7",
+    "NFR23.8",
+    "NFR23.9",
+    "NFR24.10",
+    "NFR24.11",
+    "NFR24.12",
+    "NFR24.5",
+    "NFR24.6",
+    "NFR24.7",
+    "NFR24.8",
+    "NFR24.9",
+    "NFR25.10",
+    "NFR25.11",
+    "NFR25.12",
+    "NFR25.13",
+    "NFR25.14",
+    "NFR25.15",
+    "NFR25.16",
+    "NFR25.17",
+    "NFR25.8",
+    "NFR25.9",
+    "NFR26.3",
+    "NFR26.4",
+    "NFR26.5",
+    "NFR26.6",
+    "NFR3.4",
+    "NFR6.21",
+    "NFR6.26",
+    "NFR6.27",
+    "NFR6.28",
+    "NFR6.29",
+    "NFR6.30",
+    "NFR6.31",
+    "NFR6.32",
+    "NFR6.33",
+    "NFR6.34",
+    "NFR6.35",
+    "NFR6.36",
+    "NFR6.37",
+    "NFR6.38",
+    "NFR6.39",
+    "NFR7.6",
+    "NFR9.1",
+    "NFR9.34",
+    "NFR9.35",
+    "NFR9.36",
+    "NFR9.37",
+    "NFR9.38"
+  ],
+  "coverage": [
+    {
+      "id": "NFR2.5",
+      "status": "OK",
+      "target": "performance-design.md section 7 — new feature packages and no new dependency, so the minSdk 24 / 2 GB floor is unchanged"
+    },
+    {
+      "id": "NFR3.4",
+      "status": "OK",
+      "target": "performance-design.md section 7 — Money.format emits Latin digits, agreeing with Numerals.kt rather than deciding independently; locale governs grouping and the currency mark"
+    },
+    {
+      "id": "NFR6.26",
+      "status": "OK",
+      "target": "scalability-design.md section 1 — the ceiling does not move: 100 teachers, two workers, one host, no replica"
+    },
+    {
+      "id": "NFR6.27",
+      "status": "OK",
+      "target": "scalability-design.md section 5 — one row per generating enrollment per month; 36,000/year at 3,000 enrollments"
+    },
+    {
+      "id": "NFR6.28",
+      "status": "OK",
+      "target": "scalability-design.md section 5 — unbounded growth is a recorded acceptance with its reason, not an omission; the ledger is retained in full by design"
+    },
+    {
+      "id": "NFR6.29",
+      "status": "OK",
+      "target": "scalability-design.md section 5 — claim and reminder growth are person- and teacher-driven, both below the ledger's rate"
+    },
+    {
+      "id": "NFR6.30",
+      "status": "OK",
+      "target": "scalability-design.md section 2.1 — the unique constraint with ON CONFLICT DO NOTHING is the lock; no application-level guard anywhere in the design"
+    },
+    {
+      "id": "NFR6.31",
+      "status": "OK",
+      "target": "scalability-design.md section 2.2 — the charge is appended if and only if the insert created a row; the row's creation is the idempotency token"
+    },
+    {
+      "id": "NFR6.32",
+      "status": "OK",
+      "target": "scalability-design.md section 3 — real threads from a threading.Barrier(8) against real PostgreSQL, modelled on tests/auth/test_ceilings.py:283"
+    },
+    {
+      "id": "NFR6.33",
+      "status": "OK",
+      "target": "scalability-design.md section 3 — the assertion is the outcome (one row, one period's charge), never an internal call count"
+    },
+    {
+      "id": "NFR6.34",
+      "status": "OK",
+      "target": "scalability-design.md section 4 — a separate across-days test injecting the date, plus the gap and heal-once cases concurrency cannot reach"
+    },
+    {
+      "id": "NFR6.35",
+      "status": "OK",
+      "target": "scalability-design.md section 2.3 — a conditional UPDATE on status='pending'; zero rows updated raises ConflictError rather than writing a second decision"
+    },
+    {
+      "id": "NFR6.36",
+      "status": "OK",
+      "target": "scalability-design.md section 2.2 — credit computed after the charge, same transaction; computed before it, min(available, 0) is a silent no-op"
+    },
+    {
+      "id": "NFR6.37",
+      "status": "OK",
+      "target": "scalability-design.md section 2.2 — the insert-conflict gate serialises workers, plus the added rule that one enrollment's periods generate sequentially within a worker"
+    },
+    {
+      "id": "NFR6.38",
+      "status": "OK",
+      "target": "logical-components.md section 1 — the product's first scheduled job, as an entry point into Fees rather than a new component"
+    },
+    {
+      "id": "NFR6.39",
+      "status": "OK",
+      "target": "scalability-design.md section 6 — no leader election, no distributed lock, no advisory lock; the constraint is the lock"
+    },
+    {
+      "id": "NFR7.6",
+      "status": "OK",
+      "target": "scalability-design.md section 6 — both candidate schedulers run on the existing host; no managed scheduler, no second compute target, no new IAM"
+    },
+    {
+      "id": "NFR9.34",
+      "status": "OK",
+      "target": "security-design.md section 5 — the existing annotated Pydantic Money type on every D3 schema; the Kotlin value class reads only a string and fails loudly on a number"
+    },
+    {
+      "id": "NFR9.35",
+      "status": "OK",
+      "target": "security-design.md section 5 — the existing SQLAlchemy TypeDecorator; both import-boundary mechanisms already cover D3's new modules because they are stated over paths"
+    },
+    {
+      "id": "NFR9.36",
+      "status": "OK",
+      "target": "security-design.md section 5 — CHECK (amount >= 0) on ledger_entry, because a repair script is a realistic writer that never passes through the value type"
+    },
+    {
+      "id": "NFR9.37",
+      "status": "OK",
+      "target": "security-design.md section 5 — a narrowed role grant: SELECT, INSERT, and column-level UPDATE on superseded_by_id only; no DELETE. The cost of coexisting with 0001's blanket grant is named"
+    },
+    {
+      "id": "NFR9.38",
+      "status": "OK",
+      "target": "security-design.md section 5 — carry_forward() already returns the pair; both entries join one session and commit together, never one flushed early"
+    },
+    {
+      "id": "NFR10.15",
+      "status": "OK",
+      "target": "security-design.md section 8 — a disposition and retention class per new table, already mechanical via the schema-iterating test; logical-components.md section 1 adds job_heartbeat as a fifth"
+    },
+    {
+      "id": "NFR10.16",
+      "status": "OK",
+      "target": "security-design.md section 8 — encryption at rest is a hosting property; D3 adds no tier that lacks it"
+    },
+    {
+      "id": "NFR10.17",
+      "status": "OK",
+      "target": "security-design.md section 8 — transaction_id ships nullable, which is answer-agnostic for OQ-1"
+    },
+    {
+      "id": "NFR11.2",
+      "status": "OK",
+      "target": "security-design.md section 9 — app-instance-scoped installation ids only; the verifier is an assertion at the adapter boundary that the stored column holds an FCM token and nothing else"
+    },
+    {
+      "id": "NFR13.5",
+      "status": "OK",
+      "target": "security-design.md section 9 — no new token, session or credential; PUBLIC_ROUTES untouched. logical-components.md section 3 records FCM credentials as the one new external secret"
+    },
+    {
+      "id": "NFR14.32",
+      "status": "OK",
+      "target": "security-design.md section 1 — a schema-wide ALLOWLIST asserting exactly one response carries collection_number. NEW WORK: the built denylist invariant is one-directional and silent here"
+    },
+    {
+      "id": "NFR14.33",
+      "status": "OK",
+      "target": "security-design.md section 1 — absence from every listing falls out of the one-element set equality rather than needing its own test"
+    },
+    {
+      "id": "NFR14.34",
+      "status": "OK",
+      "target": "security-design.md section 1 — the destination is an optional object, absent rather than present-with-null, so a client has nothing to render a placeholder into"
+    },
+    {
+      "id": "NFR14.35",
+      "status": "OK",
+      "target": "security-design.md section 1 — channels are a server-supplied list rendered as labels, deliberately not a Kotlin sealed type, which would make a new channel need a client release"
+    },
+    {
+      "id": "NFR14.36",
+      "status": "OK",
+      "target": "security-design.md section 2 — lens-scoped queries plus adversarial probes, not RLS policies; a USING clause would duplicate the three-branch join outside app.authz's coverage and strict island"
+    },
+    {
+      "id": "NFR14.37",
+      "status": "OK",
+      "target": "security-design.md section 2 — the revisit trigger is named: any D3 table gaining an account-scoped column identifying a reader directly"
+    },
+    {
+      "id": "NFR14.38",
+      "status": "OK",
+      "target": "security-design.md section 3.1 — teacher A against teacher B's batch fee view, using a real id that is not the caller's rather than an invented one"
+    },
+    {
+      "id": "NFR14.39",
+      "status": "OK",
+      "target": "security-design.md section 3.1 — a guardian against a non-child's enrollment"
+    },
+    {
+      "id": "NFR14.40",
+      "status": "OK",
+      "target": "security-design.md section 3.1 — a student against a fee cycle not their own; the third probe shape, exercisable here for the first time because the table did not exist"
+    },
+    {
+      "id": "NFR14.41",
+      "status": "OK",
+      "target": "security-design.md section 3.3 — the suite runs as shikkhok_app under the built superuser meta-test, which binds even though D3 adds no policy because it guards the suite rather than a table"
+    },
+    {
+      "id": "NFR14.42",
+      "status": "OK",
+      "target": "security-design.md section 6 — the route resolves a TeacherLens whose owner_id must match the claim's batch; the refusal uses the shared code of section 4"
+    },
+    {
+      "id": "NFR14.43",
+      "status": "OK",
+      "target": "security-design.md section 6 and reliability-design.md section 3 — verified_by and verified_at on the claim, with the decision and every entry it produces in one transaction"
+    },
+    {
+      "id": "NFR14.44",
+      "status": "OK",
+      "target": "security-design.md section 6 — previous_decision is carried on the CLAIMANT's response as well as the teacher's, asserted on both; the natural implementation omits the claimant's"
+    },
+    {
+      "id": "NFR14.45",
+      "status": "OK",
+      "target": "security-design.md section 6 — ConflictError, not a second decision; the conditional-update mechanism is in scalability-design.md section 2.3"
+    },
+    {
+      "id": "NFR14.46",
+      "status": "OK",
+      "target": "security-design.md section 7 — a declined guardian link withdraws that lens and leaves the student's obligation intact"
+    },
+    {
+      "id": "NFR14.47",
+      "status": "OK",
+      "target": "security-design.md section 7 — per-role string keys so one shared key cannot serve both; the Bangla copy itself has no automated verifier and that is stated"
+    },
+    {
+      "id": "NFR18.3",
+      "status": "OK",
+      "target": "reliability-design.md section 1 — D3 states no availability target of its own and inherits the product's"
+    },
+    {
+      "id": "NFR18.4",
+      "status": "OK",
+      "target": "reliability-design.md section 1 — the job's requirement is daily, not continuous, and must not inherit the API's posture"
+    },
+    {
+      "id": "NFR18.5",
+      "status": "OK",
+      "target": "reliability-design.md section 1 — deploys avoid the generation window; stated plainly that the verifier is the person dispatching, with nothing automated preventing a collision"
+    },
+    {
+      "id": "NFR19.8",
+      "status": "OK",
+      "target": "reliability-design.md section 2 — one transaction per (enrollment, period), never one over the run"
+    },
+    {
+      "id": "NFR19.9",
+      "status": "OK",
+      "target": "reliability-design.md section 2 — the conflict is the success path; no 'has this run?' check anywhere in the design"
+    },
+    {
+      "id": "NFR19.10",
+      "status": "OK",
+      "target": "reliability-design.md section 2 — every period from the first generating one through the current, which is what makes a gap heal rather than leave a permanent hole"
+    },
+    {
+      "id": "NFR19.11",
+      "status": "OK",
+      "target": "reliability-design.md section 2 — the clamp is a pure function of (anchor, period) and fee_due_day is never written; the computed table includes the separating 2027-03 row and the 2028-02 leap row"
+    },
+    {
+      "id": "NFR19.12",
+      "status": "OK",
+      "target": "reliability-design.md section 3 — the carry pair in one transaction, so sum(carry_forward) == sum(carried_out) holds structurally"
+    },
+    {
+      "id": "NFR19.13",
+      "status": "OK",
+      "target": "reliability-design.md section 3 — the claim decision and every ledger entry it produces commit together"
+    },
+    {
+      "id": "NFR19.14",
+      "status": "OK",
+      "target": "reliability-design.md section 3 — over-approval's receipt and credit_grant commit together"
+    },
+    {
+      "id": "NFR19.15",
+      "status": "OK",
+      "target": "reliability-design.md section 3 — the charge and any credit_apply, in that order, in one transaction"
+    },
+    {
+      "id": "NFR19.16",
+      "status": "OK",
+      "target": "reliability-design.md section 3 — a decline's reversal is an appended forgiveness per outstanding cycle; deleting would make the balance correct and the history false"
+    },
+    {
+      "id": "NFR19.17",
+      "status": "OK",
+      "target": "reliability-design.md section 4 — every D3 route declares its error responses, turning the published-but-unreferenced envelope stopgap into a no-op; the schema-diff gate is the verifier"
+    },
+    {
+      "id": "NFR19.18",
+      "status": "OK",
+      "target": "reliability-design.md section 4 — code, server-provided retryable, and message_key rather than message"
+    },
+    {
+      "id": "NFR19.19",
+      "status": "OK",
+      "target": "reliability-design.md section 5 — a push failure never fails the operation that triggered it and is logged rather than surfaced"
+    },
+    {
+      "id": "NFR19.20",
+      "status": "OK",
+      "target": "reliability-design.md section 5 — the event is committed BEFORE dispatch and its outcome updated after, so a crash between the two cannot lose the record of a send"
+    },
+    {
+      "id": "NFR19.21",
+      "status": "OK",
+      "target": "reliability-design.md section 5 — dispatch happens after the transaction commits, outside it"
+    },
+    {
+      "id": "NFR19.22",
+      "status": "OK",
+      "target": "reliability-design.md section 5 — UNREGISTERED deletes the stored token and is not an error; treating it as one is how a dead-token table grows for ever"
+    },
+    {
+      "id": "NFR19.23",
+      "status": "OK",
+      "target": "reliability-design.md section 5 — no retry queue in V1; a reminder is re-sendable by a person"
+    },
+    {
+      "id": "NFR19.24",
+      "status": "OK",
+      "target": "reliability-design.md section 5 and logical-components.md section 5 — the adapter is shared infrastructure beside the SMS gateway client, with a NEW import-boundary check that no feature package defines an FCM client"
+    },
+    {
+      "id": "NFR19.25",
+      "status": "OK",
+      "target": "reliability-design.md section 7 — no offline path; NFR5 permits offline writes for D4's mid-class path only, and a queued payment claim is a claim that may or may not exist"
+    },
+    {
+      "id": "NFR19.26",
+      "status": "OK",
+      "target": "reliability-design.md section 8 — forward-only and backward-compatible, as a distinct logged step; deploy.yml already runs Alembic this way"
+    },
+    {
+      "id": "NFR19.27",
+      "status": "OK",
+      "target": "reliability-design.md section 8 — a verified pg_dump to S3 with existence and non-trivial size asserted after upload"
+    },
+    {
+      "id": "NFR19.28",
+      "status": "OK",
+      "target": "reliability-design.md section 8 — rehearsed on staging; also the migration ordering note placing the narrowed grant in the same migration as the CREATE TABLE"
+    },
+    {
+      "id": "NFR20.12",
+      "status": "OK",
+      "target": "performance-design.md section 1 — D3 adds no code inside app/money/ but Money.format, which has no loop over entries"
+    },
+    {
+      "id": "NFR20.13",
+      "status": "OK",
+      "target": "performance-design.md section 1 — stated as a PROHIBITION: callers read DerivedQuantities.per_cycle, never a second fold and never a GROUP BY period"
+    },
+    {
+      "id": "NFR20.14",
+      "status": "OK",
+      "target": "performance-design.md section 2.1 — computed: 60 x 240 = 14,400 rows in one result set, two linear passes, which is the cost accepted"
+    },
+    {
+      "id": "NFR20.15",
+      "status": "OK",
+      "target": "performance-design.md section 5 — the materialized rollup stays available but unbuilt; append-only is what keeps it safe to add later"
+    },
+    {
+      "id": "NFR20.16",
+      "status": "OK",
+      "target": "performance-design.md section 2.1 — three statements constant in roster size, with the fold per enrollment in Python rather than a SQL GROUP BY"
+    },
+    {
+      "id": "NFR20.17",
+      "status": "OK",
+      "target": "performance-design.md section 2.3 — the roster's per-seat outstanding reuses the grouped fetch; the SQL aggregate is rejected because BR3.5 floors per period before summing, which is not a SUM"
+    },
+    {
+      "id": "NFR20.18",
+      "status": "OK",
+      "target": "performance-design.md section 3 — a statement-count assertion over before_cursor_execute, with TWO roster sizes asserting the same count; no latency target, stated plainly"
+    },
+    {
+      "id": "NFR20.19",
+      "status": "OK",
+      "target": "performance-design.md section 4 — four indexes named with their access paths, plus the two deliberately absent and why"
+    },
+    {
+      "id": "NFR20.20",
+      "status": "OK",
+      "target": "performance-design.md section 6 — commit per enrollment-period, so a failure costs that one unit"
+    },
+    {
+      "id": "NFR20.21",
+      "status": "OK",
+      "target": "performance-design.md section 6 — about 3,000 insert attempts on a normal day, nearly all conflicting; a three-day gap spans zero or one period boundary"
+    },
+    {
+      "id": "NFR20.22",
+      "status": "OK",
+      "target": "performance-design.md section 6 and reliability-design.md section 6 — a scheduling-time property held under either scheduler choice"
+    },
+    {
+      "id": "NFR20.23",
+      "status": "OK",
+      "target": "performance-design.md section 7 — the client switches on the server-computed status enum, never on the amount; stated plainly that no build gate enforces this because detekt is absent"
+    },
+    {
+      "id": "NFR23.7",
+      "status": "OK",
+      "target": "security-design.md section 10 — the affirmed test-first predicate holds across almost the whole unit, including the lens-scoping and the refusal classification"
+    },
+    {
+      "id": "NFR23.8",
+      "status": "OK",
+      "target": "security-design.md section 10 — fail_under = 100 unchanged; D3 adds persistence around the module and one pure formatter inside it"
+    },
+    {
+      "id": "NFR23.9",
+      "status": "OK",
+      "target": "security-design.md section 10 — computed: charge 1000, claim 1500, approved 600 gives 400.00 correct against 900.00 wrong; the formulas coincide at claim = charge"
+    },
+    {
+      "id": "NFR23.10",
+      "status": "OK",
+      "target": "security-design.md section 10 — a named test per claim-status and cycle-generation transition, with a documented boundary case per money input"
+    },
+    {
+      "id": "NFR24.5",
+      "status": "OK",
+      "target": "observability-design.md section 2 — transaction_id joins the never-log set; security-design.md section 4 additionally keeps it out of refusal codes, details payloads and message keys"
+    },
+    {
+      "id": "NFR24.6",
+      "status": "OK",
+      "target": "observability-design.md section 2 — no amount tied to an identifiable enrollment; the job logs a correlation id and an enrollment id and no amount"
+    },
+    {
+      "id": "NFR24.7",
+      "status": "OK",
+      "target": "observability-design.md section 2 — the collection number never reaches a log line, its log-store audience being wider than the one BR6.4 bounds it to"
+    },
+    {
+      "id": "NFR24.8",
+      "status": "OK",
+      "target": "observability-design.md section 2 — correlation id on every error log, no tracebacks to a client"
+    },
+    {
+      "id": "NFR24.9",
+      "status": "OK",
+      "target": "observability-design.md section 3 — every money movement is a row, not a log line; no parallel money log"
+    },
+    {
+      "id": "NFR24.10",
+      "status": "OK",
+      "target": "observability-design.md section 3 — created_by_account_id is NULL for job-created entries, because a synthetic system account makes an audit query return a lie that reads as an answer"
+    },
+    {
+      "id": "NFR24.11",
+      "status": "OK",
+      "target": "observability-design.md section 3 — superseded_by_id is a DISPLAY concern and never a filter in the fold; a correction that excluded rows would end append-only in effect"
+    },
+    {
+      "id": "NFR24.12",
+      "status": "OK",
+      "target": "observability-design.md section 3 — every send attempt recorded including failures; the state is the latest event per (enrollment, period)"
+    },
+    {
+      "id": "NFR25.8",
+      "status": "OK",
+      "target": "observability-design.md section 4 — a run that fails to complete alerts via log.critical, the product's existing alert channel"
+    },
+    {
+      "id": "NFR25.9",
+      "status": "OK",
+      "target": "observability-design.md section 1 — a job-written job_heartbeat row, a freshness query whose NO-ROW branch also alerts, and a separately-triggered check command; both silences named, the cron-wipe one as the likelier"
+    },
+    {
+      "id": "NFR25.10",
+      "status": "OK",
+      "target": "observability-design.md section 4 — a deliberate non-alert: paging on one bad row would convert the per-enrollment commit resilience into noise in the channel NFR25.9 needs"
+    },
+    {
+      "id": "NFR25.11",
+      "status": "OK",
+      "target": "observability-design.md section 4 — a push failure is an event outcome, not a page"
+    },
+    {
+      "id": "NFR25.12",
+      "status": "OK",
+      "target": "observability-design.md section 4 — a failed pre-migration backup alerts; an unverified upload is not a backup"
+    },
+    {
+      "id": "NFR25.13",
+      "status": "OK",
+      "target": "observability-design.md section 5 — the three per-run counts are columns of the heartbeat row; the sustained-non-zero reading differs under in-process scheduling and that is named"
+    },
+    {
+      "id": "NFR25.14",
+      "status": "OK",
+      "target": "observability-design.md section 5 — total charged per run as an aggregate with no enrollment attached; the one monitor that would catch every student charged the same wrong amount"
+    },
+    {
+      "id": "NFR25.15",
+      "status": "OK",
+      "target": "observability-design.md section 5 — a GROUP BY status over payment_claim rather than an emitted metric"
+    },
+    {
+      "id": "NFR25.16",
+      "status": "OK",
+      "target": "observability-design.md section 5 — a count of rows with a non-null previous_decision; a usability finding rather than a defect report"
+    },
+    {
+      "id": "NFR25.17",
+      "status": "OK",
+      "target": "observability-design.md section 5 — push outcomes by outcome including UNREGISTERED, the one that is not a failure"
+    },
+    {
+      "id": "NFR26.3",
+      "status": "OK",
+      "target": "observability-design.md section 1.6 — under 48 hours, derived as two missed daily runs; the alert threshold is the target rather than a second number"
+    },
+    {
+      "id": "NFR26.4",
+      "status": "OK",
+      "target": "observability-design.md section 6 — an SLI with a target and a TEST rather than a monitor; a production threshold would be an admission the invariant might not hold"
+    },
+    {
+      "id": "NFR26.5",
+      "status": "OK",
+      "target": "observability-design.md section 6 — enforced by the unique constraint, so a monitor would watch for something the constraint makes impossible"
+    },
+    {
+      "id": "NFR26.6",
+      "status": "OK",
+      "target": "observability-design.md section 6 — no target set in V1; measured through the pilot, and no SLO percentage is invented"
+    },
+    {
+      "id": "NFR9.1",
+      "status": "N/A",
+      "target": "inherited — cited, not defined, by this unit",
+      "note": "Inherited from the prior record (identity-and-access): no secret in the repository or the image. Cited by this unit's security-requirements.md as a standing constraint; D3 adds no secret and no new configuration surface, so there is nothing for this design to discharge."
+    },
+    {
+      "id": "NFR6.21",
+      "status": "N/A",
+      "target": "inherited — cited, not defined, by this unit",
+      "note": "Inherited from D1. Cited by this unit's scalability-requirements.md as the standing capacity frame D3 designs within; the ceiling is restated in scalability-design.md section 1 rather than re-decided here."
+    },
+    {
+      "id": "NFR14.15",
+      "status": "N/A",
+      "target": "inherited — cited, not defined, by this unit",
+      "note": "Inherited from D1's abuse-control axis. Cited by this unit's security-requirements.md; D3 adds no unauthenticated route, so the requirement is unchanged and undischargeable by this design."
+    },
+    {
+      "id": "NFR14.27",
+      "status": "N/A",
+      "target": "inherited — cited, not defined, by this unit",
+      "note": "Inherited from D1's abuse-control axis, cited alongside NFR14.15 for the same reason: D3 introduces no new unauthenticated surface."
+    },
+    {
+      "id": "NFR14.29",
+      "status": "N/A",
+      "target": "inherited — cited, not defined, by this unit",
+      "note": "Inherited from D1: guardians reach children through their own link, never by finding the child first. D3 does not re-decide it; security-design.md carries the adversarial probe (a guardian requesting a non-child's enrollment) that holds it at D3's new tables."
+    },
+    {
+      "id": "NFR20.10",
+      "status": "N/A",
+      "target": "inherited — cited, not defined, by this unit",
+      "note": "Inherited from D2. Cited by this unit's performance-requirements.md as the established query-shape rule; performance-design.md applies it to D3's reads rather than restating it."
+    },
+    {
+      "id": "NFR20.11",
+      "status": "N/A",
+      "target": "inherited — cited, not defined, by this unit",
+      "note": "Inherited from D2, cited with NFR20.10 for the same reason."
+    }
+  ],
+  "business_rules": [
+    {
+      "id": "BR1.3",
+      "status": "OK",
+      "target": "scalability-design.md section 2.1 — the unique constraint is the idempotency mechanism and the conflict is the success path"
+    },
+    {
+      "id": "BR1.4",
+      "status": "OK",
+      "target": "reliability-design.md section 2 — the daily run self-heals; observability-design.md section 1 adds the alert for the case where it stops running at all"
+    },
+    {
+      "id": "BR1.6",
+      "status": "OK",
+      "target": "reliability-design.md section 3 — a declined student link reverses accrued cycles by appended forgiveness entries, never by deletion"
+    },
+    {
+      "id": "BR1.7",
+      "status": "OK",
+      "target": "security-design.md section 7 — a declined guardian link changes nothing about the money and withdraws only that lens"
+    },
+    {
+      "id": "BR2.2",
+      "status": "OK",
+      "target": "reliability-design.md section 2 — the non-degrading clamp, with the computed table whose 2027-03 row separates the two designs"
+    },
+    {
+      "id": "BR2.4",
+      "status": "OK",
+      "target": "observability-design.md section 5 — NFR25.14's aggregate is the only monitor that would catch a fee-resolution failure where every row is internally consistent"
+    },
+    {
+      "id": "BR3.1",
+      "status": "OK",
+      "target": "reliability-design.md section 3 — the carry pair in one transaction"
+    },
+    {
+      "id": "BR3.3",
+      "status": "OK",
+      "target": "security-design.md section 5 and reliability-design.md section 8 — append-only enforced by grant and CHECK; a rollback's remedy is a compensating entry, never a delete"
+    },
+    {
+      "id": "BR3.4",
+      "status": "OK",
+      "target": "security-design.md section 5 — CHECK (amount >= 0), because the sign lives in the kind and a repair script never passes through the value type"
+    },
+    {
+      "id": "BR3.5",
+      "status": "OK",
+      "target": "performance-design.md section 2.3 — the per-period floor is why a SQL SUM aggregate is rejected for the roster's outstanding"
+    },
+    {
+      "id": "BR4.1",
+      "status": "OK",
+      "target": "scalability-design.md section 2.2 — credit is enrollment-scoped, which is why two workers on two periods of one enrollment need the sequential rule"
+    },
+    {
+      "id": "BR4.5",
+      "status": "OK",
+      "target": "scalability-design.md section 2.2 and reliability-design.md section 3 — charge then credit, same transaction"
+    },
+    {
+      "id": "BR5.1",
+      "status": "OK",
+      "target": "security-design.md section 4 — 'no open cycle' is a descriptive code, safe only because the route is scoped to the caller's own enrollment first"
+    },
+    {
+      "id": "BR5.3",
+      "status": "OK",
+      "target": "security-design.md section 10 — the shortfall is charged minus approved; the separating case is computed"
+    },
+    {
+      "id": "BR5.5",
+      "status": "OK",
+      "target": "reliability-design.md section 3 — verification and its entries commit together"
+    },
+    {
+      "id": "BR5.7",
+      "status": "OK",
+      "target": "security-design.md section 6 — correction history carried on both parties' responses, not the teacher's alone"
+    },
+    {
+      "id": "BR6.1",
+      "status": "OK",
+      "target": "performance-design.md section 7 — the client switches on the server-computed status enum"
+    },
+    {
+      "id": "BR6.2",
+      "status": "OK",
+      "target": "security-design.md section 5 — money crosses as a JSON string, asserted both sides"
+    },
+    {
+      "id": "BR6.4",
+      "status": "OK",
+      "target": "security-design.md section 1 — the one-route allowlist; this is the rule whose mechanism is NEW WORK because the built invariant runs the other way"
+    },
+    {
+      "id": "BR6.5",
+      "status": "OK",
+      "target": "security-design.md section 1 — a server-supplied channel list, deliberately not a client sealed type"
+    },
+    {
+      "id": "BR6.6",
+      "status": "OK",
+      "target": "performance-design.md section 7 — Money.format agrees with Numerals.kt rather than deciding independently"
+    },
+    {
+      "id": "BR7.1",
+      "status": "OK",
+      "target": "observability-design.md section 3 — a reminder is an event; performance-design.md section 4 indexes (enrollment_id, period) for the latest-event lookup"
+    },
+    {
+      "id": "BR7.2",
+      "status": "OK",
+      "target": "reliability-design.md section 5 — delivery never fails the trigger, and the event is written regardless of outcome"
+    }
+  ],
+  "reverse": [
+    {
+      "id": "NFR21.1",
+      "status": "N/A",
+      "target": "performance-design.md section 5 — D1's no-cache rule, cited not restated. D3 is where the temptation is strongest, because a fee view changes monthly and a stale balance tells a person they owe the wrong amount"
+    },
+    {
+      "id": "NFR20.11",
+      "status": "N/A",
+      "target": "performance-design.md Assumptions — D2's no-pagination requirement, cited. The absence stays safe because every figure is the server's"
+    },
+    {
+      "id": "NFR5",
+      "status": "N/A",
+      "target": "reliability-design.md section 7 — the prior record's offline-write permission, cited to establish that it covers D4's mid-class path only and not D3"
+    },
+    {
+      "id": "OQ-1",
+      "status": "Deferred",
+      "target": "security-design.md section 8 — whether PaymentClaim.transaction_id survives the claimant's deletion. Answered in D6; D3 ships the column nullable so the answer is not foreclosed"
+    },
+    {
+      "id": "OQ-4",
+      "status": "OK",
+      "target": "reliability-design.md section 5 — posed as open in 261016-shikhokplus-tuition-app/inception/contract-design/contract-summary.md section G; DECIDED by this record inception/units-generation/unit-of-work.md:134, which assigns the FCM adapter to D3. D4 consumes the same one"
+    }
+  ],
+  "open": [
+    {
+      "id": "scheduler-choice",
+      "status": "Deferred",
+      "target": "reliability-design.md section 6 — the human's choice between cron-in-user_data and in-process. Every requirement holds under either; the one element that differs (NFR25.13's interpretation) is named"
+    },
+    {
+      "id": "freshness-check-trigger",
+      "status": "Deferred",
+      "target": "observability-design.md section 1.4 — the check must not share a failure mode with the job it checks, which constrains the choice without making it. This is the one genuine gap in the alert chain and it is named rather than papered over"
+    },
+    {
+      "id": "alert-delivery-unproven",
+      "status": "GAP",
+      "target": "observability-design.md section 7 — nothing automated proves the alert reaches a person. A once-performed staging rehearsal is the only verifier, and until it is performed the most important alert in the unit is unproven"
+    },
+    {
+      "id": "log-content-unverified",
+      "status": "GAP",
+      "target": "observability-design.md section 2 — I searched tests/ for a scanner asserting the absence of a transaction id, amount or collection number in emitted log lines and found none. NFR24.5-24.7 are review-enforced for D3's new call sites, which is weaker than the audit row's structural guarantee"
+    },
+    {
+      "id": "client-arithmetic-ungated",
+      "status": "GAP",
+      "target": "performance-design.md section 7 — no build gate asserts the absence of a client-side money comparison, because detekt is absent from this project. The verifier is a ViewModel mapping test plus review, on the surface the team names as thinnest-reviewed"
+    },
+    {
+      "id": "four-governance-dispositions",
+      "status": "Deferred",
+      "target": "security-design.md section 8 — the dispositions for the four new tables are a domain and legal judgement, mechanically forced by the schema-iterating test so they cannot ship unanswered. ledger_entry's is the genuine one"
+    }
+  ]
+}

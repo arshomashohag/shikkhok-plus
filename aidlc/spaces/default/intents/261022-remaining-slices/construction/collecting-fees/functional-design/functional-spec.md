@@ -584,19 +584,21 @@ floor is never weakened to make a step pass.
   answer-agnostic — if the answer is no, D6 nulls it in place rather than
   migrating. The delivery plan wants it closed before D6 and ideally before D3
   so this schema is not revisited.
-- **OQ-4 is answered, and it assigns the adapter to TWO units.** It is at
+- **OQ-4 is posed in one document and decided in another, and the adapter is
+  shared with D4.** It is **asked** at
   `261016-shikhokplus-tuition-app/inception/contract-design/contract-summary.md`
-  § G: "The FCM adapter's owning Unit is latent — U6 or U7, whichever is built
-  first", blocking **U6 and U7**, because the dependency artifact deliberately
-  declined a `U6 -> U7` edge rather than destroy a three-way parallel set for a
-  shared adapter. U7 `fee-cycles-and-ledger` is D3's ancestor; U6
-  `exams-and-marksheets` maps forward to **D4 `teaching-and-recording`**. D3 is
-  built first, so D3 owns the adapter and **D4 consumes the same one rather
-  than building its own** — the failure OQ-4 names is two adapters with two
-  different `UNREGISTERED` behaviours, which is exactly what a second adapter
-  in D4 would produce. `ReminderEvent` and the notification behaviour are
-  designed from FR10.1–FR10.4, which remain the behavioural source and are
-  unaffected by this correction.
+  § G, where the owning Unit is left "latent — U6 or U7, whichever is built
+  first", a Delivery Planning sequencing decision deliberately left open
+  because the dependency artifact declined a `U6 -> U7` edge rather than lose
+  a parallel set. It is **answered** by this record's
+  `inception/units-generation/unit-of-work.md:134`, whose D3 scope line reads
+  "Owns the FCM adapter per OQ-4". U7 `fee-cycles-and-ledger` is D3's
+  ancestor; U6 `exams-and-marksheets` maps forward to **D4
+  `teaching-and-recording`** — so D3 owns the adapter and **D4 consumes the
+  same one rather than building its own**, which is exactly the two-adapter
+  outcome OQ-4 exists to prevent. `ReminderEvent` and the notification
+  behaviour are designed from FR10.1–FR10.4, which remain the behavioural
+  source and are unaffected.
 - **AC1.14.2a is superseded and this unit does not try to satisfy it.** It
   assigned D1 "the minimum ledger needed to append a reversal". The story map
   established that no ledger table existed for D1 to write to, so the criterion

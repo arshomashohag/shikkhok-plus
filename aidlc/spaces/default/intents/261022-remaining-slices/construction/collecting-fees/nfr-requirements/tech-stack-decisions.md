@@ -87,6 +87,34 @@ in-process option for having nothing outside the container. The reliability
 and observability requirements hold either way — NFR6.39, NFR25.9 and
 NFR26.3 are stated against the job, not against its scheduler.
 
+### The deploy model constrains the cron option, and the constraint is not optional
+
+**The instance is replaced on every deploy.** `deploy.yml`'s rollout step
+refreshes the ASG so the new instance re-runs `user_data`, deliberately —
+"a refresh exercises the same path a replacement takes after a failure, so
+the self-healing boot is tested on every deploy rather than only on the day
+it matters." `infra/modules/app/main.tf:331-333` pins the group at
+`min_size = max_size = desired_capacity = 1`.
+
+So **"a host-level cron entry" means an entry installed by
+`user_data.sh.tftpl`, not one added by a person over SSM.** A hand-added
+entry is wiped by the next routine deploy, and because generation
+self-heals, nothing looks wrong until nobody has been billed since the
+deploy. That is NFR25.9's failure mode reached by a second route, and it is
+the route a reasonable operator would take by default. If the cron option is
+chosen, the entry is Terraform-managed infrastructure and the requirement is
+not satisfied by an operator action.
+
+**The absence of double-firing risk depends on `desired_capacity = 1`.** At
+one instance neither option can fire twice. If that capacity is ever raised,
+both options fire once per instance, and the only thing between that and
+double-billing is the `(enrollment_id, period)` unique constraint with
+`ON CONFLICT DO NOTHING`. That is the correct safety net and it is why the
+guarantee is specified against the constraint rather than against the
+scheduler's uniqueness [NFR19.8] — but it should be a stated property rather
+than a happy accident, because a capacity change is an infrastructure edit
+that would not otherwise prompt anyone to think about billing.
+
 ---
 
 ## 3. The FCM adapter — owned here, shared with D4
