@@ -172,4 +172,71 @@
     <string name="guardian_child_in_batch">%1$s · %2$s</string>
     <string name="guardian_empty_title">এখনও দেখানোর কিছু নেই</string>
     <string name="guardian_empty_body">কোনও শিক্ষক আপনাকে অভিভাবক হিসেবে যুক্ত করলে এবং আপনি গ্রহণ করলে সেই শিক্ষার্থী এখানে দেখা যাবে।</string>
+
+    <!-- D3: ফি, দাবি ও যাচাই।
+
+         প্রতিটি টাকার অঙ্ক Numerals.money দিয়ে দেখানো হয়, যা এই
+         লোকেলেও ল্যাটিন অঙ্ক দেয় [BR6.6] — সার্ভারের Money.format
+         একই নিয়ম মানে, তাই একই অঙ্ক দুই জায়গায় দুই রকম দেখাবে না।
+
+         চারটি ফি-অবস্থা সার্ভার ঠিক করে [BR6.1]। সম্পূর্ণ মকুব করা
+         চক্রের বাকি শূন্য, কিন্তু সেটি "পরিশোধিত" নয় — তাই ক্লায়েন্ট
+         নিজে দুটি অবস্থার মধ্যে বেছে নেয় না। -->
+    <string name="fees_empty">এখনও কোনও ফি ধার্য হয়নি।</string>
+    <string name="fees_total_outstanding">বাকি: %1$s</string>
+    <string name="fees_outstanding_total">বাকি %1$s</string>
+    <string name="fees_outstanding_of_charged">%2$s-এর মধ্যে %1$s বাকি</string>
+    <string name="fees_due_on">শেষ তারিখ %1$s</string>
+    <string name="fees_status_paid">পরিশোধিত</string>
+    <string name="fees_status_partly_paid">আংশিক পরিশোধিত</string>
+    <string name="fees_status_unpaid">অপরিশোধিত</string>
+    <string name="fees_status_waived">মকুব</string>
+    <string name="batch_fees_empty">কোনও শিক্ষার্থীর কিছু বাকি নেই।</string>
+    <string name="fees_remind">মনে করিয়ে দিন</string>
+    <string name="fees_never_reminded">কখনও মনে করিয়ে দেওয়া হয়নি</string>
+
+    <!-- পেমেন্ট ফর্ম। শিক্ষার্থী ও অভিভাবকের জন্য একই [AC6.2.1];
+         শুধু লেন্স আলাদা, আর লেন্স সার্ভার ঠিক করে।
+
+         শিক্ষক কোনও নম্বর না দিলে গন্তব্যের ধাপটি দেখানোই হয় না
+         [NFR14.34] — ফাঁকা ঘর নয়, এই বার্তাটি দেখানো হয়। -->
+    <string name="payment_confirm_child">%1$s · %2$s</string>
+    <string name="payment_send_to">%1$s নম্বরে টাকা পাঠান</string>
+    <string name="payment_ask_teacher">আপনার শিক্ষক কোনও পেমেন্ট নম্বর দেননি। কীভাবে টাকা দেবেন তা তাঁর কাছে জেনে নিয়ে এখানে লিখুন।</string>
+    <string name="payment_amount_label">প্রদত্ত পরিমাণ</string>
+    <string name="payment_reference_label">লেনদেন নম্বর</string>
+    <string name="payment_submit">এই পেমেন্ট জানান</string>
+
+    <!-- জানানো পেমেন্টের ফল। প্রত্যাখ্যান যিনি জানিয়েছেন তাঁর কাছে
+         পৌঁছাতেই হবে [BR5.6], আর সংশোধিত সিদ্ধান্ত শিক্ষকের পাশাপাশি
+         শিক্ষার্থী ও অভিভাবকের কাছেও [BR5.7]। -->
+    <string name="claims_empty">আপনি এখনও কোনও পেমেন্ট জানাননি।</string>
+    <string name="claim_claimed_amount">%2$s-এ %1$s</string>
+    <string name="claim_approved_amount">গৃহীত: %1$s</string>
+    <string name="fees_claim_pending">শিক্ষকের সিদ্ধান্তের অপেক্ষায়</string>
+    <string name="fees_claim_approved_full">সম্পূর্ণ গৃহীত</string>
+    <string name="fees_claim_approved_partial">আংশিক গৃহীত</string>
+    <string name="fees_claim_rejected">গৃহীত হয়নি</string>
+    <string name="fees_claim_corrected">আপনার শিক্ষক এই সিদ্ধান্ত বদলেছেন।</string>
+    <string name="fees_disposition_carried">বাকিটা পরের মাসে যুক্ত হবে</string>
+    <string name="fees_disposition_waived">বাকিটা মকুব করা হয়েছে</string>
+
+    <!-- D3-এর সার্ভার বার্তা-কী। অ্যাপ বিল্ড হওয়ার আগেই প্রতিটির
+         জন্য এখানে একটি স্ট্রিং থাকতে হবে। -->
+    <string name="fees_not_available">এটি পাওয়া যাচ্ছে না।</string>
+    <string name="fees_resolution_not_set">এই ক্লাসের জন্য কোনও ফি ঠিক করা হয়নি।</string>
+    <string name="fees_claim_no_open_cycle">এই মুহূর্তে পরিশোধ করার মতো কিছু বাকি নেই।</string>
+    <string name="fees_claim_amount_not_positive">শূন্যের চেয়ে বেশি পরিমাণ লিখুন।</string>
+    <string name="fees_claim_channel_unknown">কীভাবে টাকা দিয়েছেন তা বেছে নিন।</string>
+    <string name="fees_claim_not_found">ওই পেমেন্টের রেকর্ড পাওয়া যাচ্ছে না।</string>
+    <string name="fees_verification_amount_negative">শূন্য বা তার বেশি পরিমাণ লিখুন।</string>
+    <string name="fees_verification_disposition_required">বাকিটা পরের মাসে যাবে নাকি মকুব হবে তা বেছে নিন।</string>
+    <string name="fees_verification_disposition_not_applicable">কিছুই বাকি নেই, তাই পরে নেওয়ার বা মকুবের কিছু নেই।</string>
+    <string name="fees_verification_disposition_unknown">ওই পছন্দটি চেনা যাচ্ছে না।</string>
+    <string name="fees_verification_already_decided">এই পেমেন্ট নিয়ে ইতিমধ্যে সিদ্ধান্ত নেওয়া হয়েছে। রিফ্রেশ করে দেখুন।</string>
+
+    <!-- পুশ রিমাইন্ডার। সার্ভার শুধু কী পাঠায়, লেখা নয়
+         [TC-15, D-43]। -->
+    <string name="fees_reminder_title">ফি-র কথা মনে করিয়ে দেওয়া</string>
+    <string name="fees_reminder_body">একটি ফি বাকি রয়েছে।</string>
 </resources>

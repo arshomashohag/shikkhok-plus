@@ -16,7 +16,13 @@ case.
 
 from ._errors import MoneyValidationError
 from ._kinds import LedgerEntryKind
-from ._ledger import DerivedQuantities, LedgerEntry, carry_forward, derive
+from ._ledger import (
+    DerivedQuantities,
+    LedgerEntry,
+    apply_credit,
+    carry_forward,
+    derive,
+)
 from ._money import Money
 from ._rounding import EXPONENT, MAX_INTEGER_DIGITS, ROUNDING
 
@@ -29,6 +35,14 @@ __all__ = [
     "LedgerEntryKind",
     "Money",
     "MoneyValidationError",
+    # Exported at D3, which is the first caller. It was private only
+    # because nothing outside this package had yet needed to decide how
+    # much credit to spend; the function was always part of the
+    # arithmetic surface, and a consumer reaching into ``_ledger`` for
+    # it would be exactly the breach the public surface exists to make
+    # visible. The amount is still COMPUTED here rather than supplied,
+    # which is the property BR4.4 rests on.
+    "apply_credit",
     "carry_forward",
     "derive",
 ]

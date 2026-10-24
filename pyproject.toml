@@ -91,6 +91,21 @@ convention = "pep257"
 # B015 permits a bare comparison inside `pytest.raises`, which is exactly how
 # an operator's refusal is provoked.
 "tests/**" = ["S101", "D100", "D101", "D102", "D103", "D104", "D205", "D200", "B015"]
+# An FCM registration token is NOT a credential and S106's heuristic
+# matches it on the name alone. It is a per-install address for a
+# delivery channel -- system-rotated, revocable, and naming no hardware,
+# which is exactly why the adapter is permitted at all on a
+# Families-track app [NFR11.2]. Scoped to the one file that passes
+# literal tokens to the adapter under test rather than to tests/**,
+# so a genuine hardcoded secret elsewhere in the suite still fails.
+"tests/notifications/test_fcm.py" = ["S106"]
+# B008 forbids a call in a default argument, and `Depends(...)` in a
+# signature IS FastAPI's documented dependency syntax. The app's own
+# routes use `Annotated[T, Depends(f)]` and need no exemption; these
+# are throwaway violation-fixture apps, built inside a test function to
+# prove the gate can fire, where the Annotated form adds noise around
+# the three lines that matter.
+"tests/contract/test_collection_number.py" = ["B008"]
 # Deliberately empty: the money module takes NO rule exemptions. Its
 # permission to import `decimal` comes from being the module the ban carves
 # out, not from an ignore — asserted by test_gate2_config_scope.
@@ -235,6 +250,39 @@ disallow_any_explicit = true
 # ---------------------------------------------------------------------------
 [[tool.mypy.overrides]]
 module = "app.accounts.*"
+strict = true
+disallow_any_explicit = true
+
+# ---------------------------------------------------------------------------
+# The fifth strict island, added at D3.
+#
+# **This package decides what a family owes.** It computes the charge, the
+# carry, the credit application and the shortfall, and it writes the rows
+# every balance is folded from. An implicit Any flowing through any of that
+# is a money error made on an unchecked value -- the same class of defect
+# the app.authz island exists to catch, over the other thing in this product
+# that must never be wrong.
+#
+# It earns the flag for a second reason the other islands do not have: the
+# arithmetic itself lives in app.money at 100% branch coverage, so this
+# package is almost entirely the GLUE between that module and the database.
+# Glue is exactly where an unchecked value crosses a boundary, and the
+# boundary here is a Money leaving a NUMERIC(12,2) column.
+#
+# disallow_any_explicit IS set, as on app.authz.* and app.accounts.*. The
+# Pydantic constraint that forced it off for app.schemas.* does not apply:
+# this package depends on the session and the ORM models, not on BaseModel,
+# and the request and response models its routes use live in app.schemas
+# and are checked there.
+#
+# Named in the same commit as the package, which is the practice B1 and B2
+# each recorded correctly and the follow-up that was then missed for a whole
+# Unit -- an override naming a module that does not exist is dead
+# configuration, and one naming a module that does is overdue the moment the
+# module lands.
+# ---------------------------------------------------------------------------
+[[tool.mypy.overrides]]
+module = "app.fees.*"
 strict = true
 disallow_any_explicit = true
 

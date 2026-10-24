@@ -1,0 +1,1318 @@
+{
+  "stage": "code-generation",
+  "unit": "collecting-fees",
+  "note": "upstream_ids are this unit's acceptance criteria (AC1.14.x from THIS record, AC5.x and AC6.x from the prior one), its BRx.y from functional-design/rules.md, and every NFRx.y its four nfr-requirements files mention. EVERY declared id is mapped. Seven NFRs are inherited CITATIONS rather than ids D3 defines -- NFR6.21, NFR9.1, NFR14.15, NFR14.27, NFR14.29, NFR20.10, NFR20.11 -- which those files state themselves; they are classified N/A with that reason rather than dropped, so a reader sees why each is present. Statuses are exactly OK, GAP, Deferred and N/A; every target is one workspace-relative path checked to exist; every OK row names a BRx.y from this unit's rules.md; no id was minted. The story map's US5.5, US5.6 and US5.7 correspond to no story in either record, so that work is traced to the criteria that genuinely cover it.",
+  "upstream_ids": [
+    "AC1.14.1",
+    "AC1.14.1a",
+    "AC1.14.2",
+    "AC1.14.2a",
+    "AC1.14.3",
+    "AC1.14.4",
+    "AC5.1.1",
+    "AC5.1.2",
+    "AC5.1.3",
+    "AC5.1.4",
+    "AC5.1.5",
+    "AC5.1.6",
+    "AC5.2.1",
+    "AC5.2.2",
+    "AC5.3.1",
+    "AC5.3.2",
+    "AC5.4.1",
+    "AC5.4.2",
+    "AC6.1.1",
+    "AC6.1.2",
+    "AC6.1.3",
+    "AC6.1.4",
+    "AC6.1.5",
+    "AC6.1.6",
+    "AC6.1.7",
+    "AC6.2.1",
+    "AC6.3.1",
+    "AC6.3.2",
+    "AC6.3.3",
+    "AC6.3.4",
+    "AC6.3.5",
+    "AC6.3.6",
+    "AC6.3.7",
+    "AC6.3.8",
+    "AC6.4.1",
+    "AC6.4.2",
+    "AC6.4.3",
+    "BR1.1",
+    "BR1.2",
+    "BR1.3",
+    "BR1.4",
+    "BR1.5",
+    "BR1.6",
+    "BR1.7",
+    "BR1.8",
+    "BR1.9",
+    "BR2.1",
+    "BR2.2",
+    "BR2.3",
+    "BR2.4",
+    "BR3.1",
+    "BR3.2",
+    "BR3.3",
+    "BR3.4",
+    "BR3.5",
+    "BR4.1",
+    "BR4.2",
+    "BR4.3",
+    "BR4.4",
+    "BR4.5",
+    "BR5.1",
+    "BR5.2",
+    "BR5.3",
+    "BR5.4",
+    "BR5.5",
+    "BR5.6",
+    "BR5.7",
+    "BR6.1",
+    "BR6.2",
+    "BR6.3",
+    "BR6.4",
+    "BR6.5",
+    "BR6.6",
+    "BR7.1",
+    "BR7.2",
+    "NFR10.15",
+    "NFR10.16",
+    "NFR10.17",
+    "NFR11.2",
+    "NFR13.5",
+    "NFR14.15",
+    "NFR14.27",
+    "NFR14.29",
+    "NFR14.32",
+    "NFR14.33",
+    "NFR14.34",
+    "NFR14.35",
+    "NFR14.36",
+    "NFR14.37",
+    "NFR14.38",
+    "NFR14.39",
+    "NFR14.40",
+    "NFR14.41",
+    "NFR14.42",
+    "NFR14.43",
+    "NFR14.44",
+    "NFR14.45",
+    "NFR14.46",
+    "NFR14.47",
+    "NFR18.3",
+    "NFR18.4",
+    "NFR18.5",
+    "NFR19.10",
+    "NFR19.11",
+    "NFR19.12",
+    "NFR19.13",
+    "NFR19.14",
+    "NFR19.15",
+    "NFR19.16",
+    "NFR19.17",
+    "NFR19.18",
+    "NFR19.19",
+    "NFR19.20",
+    "NFR19.21",
+    "NFR19.22",
+    "NFR19.23",
+    "NFR19.24",
+    "NFR19.25",
+    "NFR19.26",
+    "NFR19.27",
+    "NFR19.28",
+    "NFR19.8",
+    "NFR19.9",
+    "NFR2.5",
+    "NFR20.10",
+    "NFR20.11",
+    "NFR20.12",
+    "NFR20.13",
+    "NFR20.14",
+    "NFR20.15",
+    "NFR20.16",
+    "NFR20.17",
+    "NFR20.18",
+    "NFR20.19",
+    "NFR20.20",
+    "NFR20.21",
+    "NFR20.22",
+    "NFR20.23",
+    "NFR23.10",
+    "NFR23.7",
+    "NFR23.8",
+    "NFR23.9",
+    "NFR24.10",
+    "NFR24.11",
+    "NFR24.12",
+    "NFR24.5",
+    "NFR24.6",
+    "NFR24.7",
+    "NFR24.8",
+    "NFR24.9",
+    "NFR25.10",
+    "NFR25.11",
+    "NFR25.12",
+    "NFR25.13",
+    "NFR25.14",
+    "NFR25.15",
+    "NFR25.16",
+    "NFR25.17",
+    "NFR25.8",
+    "NFR25.9",
+    "NFR26.3",
+    "NFR26.4",
+    "NFR26.5",
+    "NFR26.6",
+    "NFR3.4",
+    "NFR6.21",
+    "NFR6.26",
+    "NFR6.27",
+    "NFR6.28",
+    "NFR6.29",
+    "NFR6.30",
+    "NFR6.31",
+    "NFR6.32",
+    "NFR6.33",
+    "NFR6.34",
+    "NFR6.35",
+    "NFR6.36",
+    "NFR6.37",
+    "NFR6.38",
+    "NFR6.39",
+    "NFR7.6",
+    "NFR9.1",
+    "NFR9.34",
+    "NFR9.35",
+    "NFR9.36",
+    "NFR9.37",
+    "NFR9.38"
+  ],
+  "coverage": [
+    {
+      "id": "BR1.1",
+      "status": "OK",
+      "target": "app/fees/generation.py",
+      "note": "generate_due_cycles inserts one cycle per generating enrollment-period and appends one charge at the resolved fee. tests/fees/test_generation.py"
+    },
+    {
+      "id": "BR1.2",
+      "status": "OK",
+      "target": "migrations/versions/0005_fee_system.py",
+      "note": "fee_cycle has five columns and none is money; the column SET is asserted, not claimed. tests/db/test_migration_runs.py::test_fee_cycle_carries_no_money_column"
+    },
+    {
+      "id": "BR1.3",
+      "status": "OK",
+      "target": "app/fees/generation.py",
+      "note": "ON CONFLICT DO NOTHING on uq_fee_cycle_enrollment_period, with the charge appended only on a created row. Asserted CONCURRENTLY: tests/fees/test_generation_races.py"
+    },
+    {
+      "id": "BR1.4",
+      "status": "OK",
+      "target": "app/fees/periods.py",
+      "note": "periods_from_through is inclusive at both ends, so a missed day heals. tests/fees/test_generation_across_days.py covers the case concurrency cannot reach"
+    },
+    {
+      "id": "BR1.5",
+      "status": "OK",
+      "target": "app/fees/generation.py",
+      "note": "_generates compares inactive_from against the period's first day, so the containing period generates IN FULL. tests/fees/test_inactive_from.py"
+    },
+    {
+      "id": "BR1.6",
+      "status": "OK",
+      "target": "app/fees/ledger_writer.py",
+      "note": "void_accrued_cycles appends a forgiveness for each outstanding period and re-reads the student decision itself. tests/fees/test_decline_semantics.py"
+    },
+    {
+      "id": "BR1.7",
+      "status": "OK",
+      "target": "app/fees/generation.py",
+      "note": "_candidates filters on student_decision alone; the guardian column is deliberately absent from the predicate. Tested from BOTH roles"
+    },
+    {
+      "id": "BR1.8",
+      "status": "OK",
+      "target": "app/fees/ledger_writer.py",
+      "note": "Acceptance writes nothing, so the forgiveness stands and the voided period stays at zero. test_un_declining_resumes_without_resurrecting_voided_cycles"
+    },
+    {
+      "id": "BR1.9",
+      "status": "OK",
+      "target": "app/fees/generation.py",
+      "note": "The filter is != 'declined', so a pending seat generates. test_a_pending_seat_generates"
+    },
+    {
+      "id": "BR2.1",
+      "status": "OK",
+      "target": "app/fees/periods.py",
+      "note": "Period is YYYY-MM, fixed width and lexically chronological; no calendar import reaches app/money, which the built AST gate still asserts"
+    },
+    {
+      "id": "BR2.2",
+      "status": "OK",
+      "target": "app/fees/periods.py",
+      "note": "due_date_for computes min(anchor, days_in_month) and writes nothing back. The 2027-03-31 case is what separates it from a degrading clamp"
+    },
+    {
+      "id": "BR2.3",
+      "status": "OK",
+      "target": "app/fees/periods.py",
+      "note": "A NULL anchor yields the month's last day. ASSUMPTION flagged upstream and still the human's to confirm; recorded in code-summary.md"
+    },
+    {
+      "id": "BR2.4",
+      "status": "OK",
+      "target": "app/fees/resolution.py",
+      "note": "resolve_fee tests IS NOT NULL, never falsiness, so a 0.00 seat fee is charged as zero rather than replaced by the batch default"
+    },
+    {
+      "id": "BR3.1",
+      "status": "OK",
+      "target": "app/fees/ledger_writer.py",
+      "note": "append_carry_pair takes both entries from app.money.carry_forward and flushes them together. 1000 into a second 1000 charge reads 2000.00"
+    },
+    {
+      "id": "BR3.2",
+      "status": "OK",
+      "target": "app/fees/ledger_writer.py",
+      "note": "The origin balance is read and always supplied, so the module's own refusal fires. test_a_carry_exceeding_the_origins_balance_is_refused"
+    },
+    {
+      "id": "BR3.3",
+      "status": "OK",
+      "target": "app/fees/verification.py",
+      "note": "_reverse_prior_entries appends a compensating entry and sets superseded_by_id; no amount, kind, period or enrollment is updated"
+    },
+    {
+      "id": "BR3.4",
+      "status": "OK",
+      "target": "migrations/versions/0005_fee_system.py",
+      "note": "CHECK (amount >= 0) on ledger_entry, because the fold never sees a row a migration or a repair script inserted"
+    },
+    {
+      "id": "BR3.5",
+      "status": "OK",
+      "target": "app/fees/balances.py",
+      "note": "derive_for_enrollment hands every row to app.money.derive, whose per-cycle figures are floored before they are summed"
+    },
+    {
+      "id": "BR4.1",
+      "status": "OK",
+      "target": "app/fees/balances.py",
+      "note": "Credit is derived across every period of the enrollment, so a grant in January is spendable in February. test_credit_granted_in_one_period_is_spent_in_another"
+    },
+    {
+      "id": "BR4.2",
+      "status": "OK",
+      "target": "app/fees/verification.py",
+      "note": "The receipt is capped at what the cycle owed and the excess becomes a credit_grant; cash in is receipt PLUS grant"
+    },
+    {
+      "id": "BR4.3",
+      "status": "OK",
+      "target": "app/fees/generation.py",
+      "note": "apply_available_credit runs inside the generation transaction. test_generation_applies_available_credit_in_the_same_transaction"
+    },
+    {
+      "id": "BR4.4",
+      "status": "OK",
+      "target": "app/fees/ledger_writer.py",
+      "note": "The applied amount comes from app.money.apply_credit as min(available, owed); no caller may pass one"
+    },
+    {
+      "id": "BR4.5",
+      "status": "OK",
+      "target": "app/fees/generation.py",
+      "note": "The charge is appended first and the application second, in one transaction; the entry ORDER is asserted"
+    },
+    {
+      "id": "BR5.1",
+      "status": "OK",
+      "target": "app/fees/claims.py",
+      "note": "submit_claim resolves to oldest_unpaid_period and stores it, or raises NoOpenCycle without creating a cycle"
+    },
+    {
+      "id": "BR5.2",
+      "status": "OK",
+      "target": "app/fees/claims.py",
+      "note": "Zero and negative are refused before the row is added; an over-claim is recorded as pending"
+    },
+    {
+      "id": "BR5.3",
+      "status": "OK",
+      "target": "app/fees/verification.py",
+      "note": "The shortfall is charged - approved, with the claimed amount entering nothing. The 1000/1500/600 case gives 400.00"
+    },
+    {
+      "id": "BR5.4",
+      "status": "OK",
+      "target": "app/fees/verification.py",
+      "note": "A disposition is required where a shortfall exists and refused where none does; there is no default"
+    },
+    {
+      "id": "BR5.5",
+      "status": "OK",
+      "target": "app/fees/verification.py",
+      "note": "One commit covers the claim's decision and every entry it produced. test_the_decision_and_its_entries_are_one_transaction"
+    },
+    {
+      "id": "BR5.6",
+      "status": "OK",
+      "target": "app/fees/verification.py",
+      "note": "reject_claim appends no entry and leaves the balance; the outcome reaches the submitter through ClaimResponse"
+    },
+    {
+      "id": "BR5.7",
+      "status": "OK",
+      "target": "app/fees/verification.py",
+      "note": "_previous_decision retains the prior decision with its actor and timestamp, and claim_detail returns it under the student and guardian lens as well as the teacher's"
+    },
+    {
+      "id": "BR6.1",
+      "status": "OK",
+      "target": "app/fees/status.py",
+      "note": "fee_status returns one of four values computed from the ledger; the waived case is what a two-value client-side test cannot express"
+    },
+    {
+      "id": "BR6.2",
+      "status": "OK",
+      "target": "app/schemas/fees.py",
+      "note": "Every money property is the shared Money component, a JSON string. The Kotlin side rejects a JSON number loudly: FeeDtoTest"
+    },
+    {
+      "id": "BR6.3",
+      "status": "OK",
+      "target": "app/fees/verification.py",
+      "note": "The status is set server-side to approved_full or approved_partial from the computed shortfall, never from the claimed amount"
+    },
+    {
+      "id": "BR6.4",
+      "status": "OK",
+      "target": "app/contract/collection_number.py",
+      "note": "An allowlist EQUALITY over the generated document, plus runtime probes in tests/fees/test_fee_privacy.py. The downward route is asserted to resolve no teacher lens"
+    },
+    {
+      "id": "BR6.5",
+      "status": "OK",
+      "target": "app/fees/claims.py",
+      "note": "CHANNELS is server data returned in the destination response; the Kotlin side renders a list and ships no enumeration"
+    },
+    {
+      "id": "BR6.6",
+      "status": "OK",
+      "target": "app/money/_money.py",
+      "note": "Money.format emits Latin digits under every locale and groups by lakh, agreeing with the client's Numerals. tests/money/test_format.py"
+    },
+    {
+      "id": "BR7.1",
+      "status": "OK",
+      "target": "app/fees/reminders.py",
+      "note": "ReminderEvent is append-only and latest_reminder derives the state from the newest row per (enrollment, period)"
+    },
+    {
+      "id": "BR7.2",
+      "status": "OK",
+      "target": "app/notifications/fcm.py",
+      "note": "Best-effort, post-commit, failure logged and recorded but not surfaced; UNREGISTERED is a first-class outcome rather than an error"
+    },
+    {
+      "id": "AC1.14.1",
+      "status": "OK",
+      "target": "app/fees/generation.py",
+      "note": "BR1.6. A declined student link stops generation from that point"
+    },
+    {
+      "id": "AC1.14.1a",
+      "status": "OK",
+      "target": "app/fees/ledger_writer.py",
+      "note": "BR1.7. A declined GUARDIAN link stops nothing and writes no reversal; the function re-reads the student decision and returns empty"
+    },
+    {
+      "id": "AC1.14.2",
+      "status": "OK",
+      "target": "app/fees/ledger_writer.py",
+      "note": "BR1.6. Accrued cycles are voided by a forgiveness entry, never by deleting a row"
+    },
+    {
+      "id": "AC1.14.2a",
+      "status": "N/A",
+      "target": "app/fees/ledger_writer.py",
+      "note": "Superseded upstream: it assigned D1 'the minimum ledger needed', and no ledger table existed for D1 to write to. US1.14 belongs wholly to D3 and the behaviour is delivered here"
+    },
+    {
+      "id": "AC1.14.3",
+      "status": "OK",
+      "target": "app/fees/generation.py",
+      "note": "BR1.8. Un-declining resumes from the acceptance date and resurrects no voided cycle"
+    },
+    {
+      "id": "AC1.14.4",
+      "status": "OK",
+      "target": "app/fees/generation.py",
+      "note": "BR1.9. A pending seat generates"
+    },
+    {
+      "id": "AC5.1.1",
+      "status": "OK",
+      "target": "app/fees/generation.py",
+      "note": "BR1.1. One cycle per enrollment per calendar-month period at the resolved fee"
+    },
+    {
+      "id": "AC5.1.2",
+      "status": "OK",
+      "target": "tests/fees/test_generation_races.py",
+      "note": "BR1.3. Barrier-released threads against real PostgreSQL; the assertion is the outcome, not the absence of an exception"
+    },
+    {
+      "id": "AC5.1.3",
+      "status": "OK",
+      "target": "tests/fees/test_generation_across_days.py",
+      "note": "BR1.4. Day N, N+1, N+1 again leave an identical row set and ledger total"
+    },
+    {
+      "id": "AC5.1.4",
+      "status": "OK",
+      "target": "app/fees/generation.py",
+      "note": "BR1.5. The period containing inactive_from generates in full and the next does not"
+    },
+    {
+      "id": "AC5.1.5",
+      "status": "OK",
+      "target": "app/fees/periods.py",
+      "note": "BR2.2. The due date is computed per period from the stored anchor, clamped and non-degrading"
+    },
+    {
+      "id": "AC5.1.6",
+      "status": "OK",
+      "target": "app/fees/generation.py",
+      "note": "BR1.3. A conflict is the success path: the run continues and appends nothing"
+    },
+    {
+      "id": "AC5.2.1",
+      "status": "OK",
+      "target": "app/fees/ledger_writer.py",
+      "note": "BR3.1. An unpaid balance carries forward as a two-sided pair in one transaction"
+    },
+    {
+      "id": "AC5.2.2",
+      "status": "OK",
+      "target": "app/fees/balances.py",
+      "note": "BR3.5. The carried balance is visible in the receiving period's figure, derived rather than stored"
+    },
+    {
+      "id": "AC5.3.1",
+      "status": "OK",
+      "target": "app/fees/status.py",
+      "note": "BR6.1. The student's current amount and its server-computed status"
+    },
+    {
+      "id": "AC5.3.2",
+      "status": "OK",
+      "target": "app/fees/views.py",
+      "note": "BR6.1. enrollment_fee_history returns every past period with its status and amount"
+    },
+    {
+      "id": "AC5.4.1",
+      "status": "OK",
+      "target": "app/api/fees.py",
+      "note": "BR6.4. GET /v1/children/{enrollment_id}/fees gives a guardian the next due date and amount, keyed on a PATH parameter"
+    },
+    {
+      "id": "AC5.4.2",
+      "status": "OK",
+      "target": "app/fees/views.py",
+      "note": "BR6.1. Every past cycle's status under the guardian lens"
+    },
+    {
+      "id": "AC6.1.1",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/fees/ui/PaymentFormScreen.kt",
+      "note": "BR6.5. The payment form, reached from the fee view"
+    },
+    {
+      "id": "AC6.1.2",
+      "status": "Deferred",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/fees/ui/PaymentFormScreen.kt",
+      "note": "The form NAMES the child and batch it is for, and the batch SELECTOR that lists several children belongs to the navigation D5 assembles; the screen takes both names as parameters"
+    },
+    {
+      "id": "AC6.1.3",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/fees/ui/PaymentFormScreen.kt",
+      "note": "BR5.1. The confirmation names both the child and the batch before anything is recorded"
+    },
+    {
+      "id": "AC6.1.4",
+      "status": "OK",
+      "target": "app/schemas/fees.py",
+      "note": "BR6.2. ClaimSubmitRequest carries the amount, the channel and the reference"
+    },
+    {
+      "id": "AC6.1.5",
+      "status": "OK",
+      "target": "app/fees/claims.py",
+      "note": "BR5.1. No open cycle refuses with a stated reason and creates no cycle"
+    },
+    {
+      "id": "AC6.1.6",
+      "status": "OK",
+      "target": "app/fees/claims.py",
+      "note": "BR5.2. Zero or negative is refused before the claim is recorded"
+    },
+    {
+      "id": "AC6.1.7",
+      "status": "OK",
+      "target": "app/fees/claims.py",
+      "note": "BR5.2. An amount exceeding the balance is accepted as pending"
+    },
+    {
+      "id": "AC6.2.1",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/fees/ui/PaymentFormScreen.kt",
+      "note": "BR6.4. One form for both roles; nothing in the file branches on who is looking, and the lens is resolved server-side"
+    },
+    {
+      "id": "AC6.3.1",
+      "status": "OK",
+      "target": "app/fees/views.py",
+      "note": "BR6.1. batch_fee_overview gives the teacher their batch's fee positions; claim_detail reads one claim"
+    },
+    {
+      "id": "AC6.3.2",
+      "status": "OK",
+      "target": "app/fees/verification.py",
+      "note": "BR5.3. Approving the claimed amount records it as received"
+    },
+    {
+      "id": "AC6.3.3",
+      "status": "OK",
+      "target": "app/fees/verification.py",
+      "note": "BR5.3. A lesser approval computes the shortfall as charged - approved and requires the disposition"
+    },
+    {
+      "id": "AC6.3.4",
+      "status": "OK",
+      "target": "app/fees/verification.py",
+      "note": "BR5.6. A rejection records nothing and is returned to the submitter"
+    },
+    {
+      "id": "AC6.3.5",
+      "status": "OK",
+      "target": "app/fees/verification.py",
+      "note": "BR5.5. Every verification stores its verifier and timestamp"
+    },
+    {
+      "id": "AC6.3.6",
+      "status": "OK",
+      "target": "app/fees/verification.py",
+      "note": "BR5.7. A correction retains the previous decision and compensates the prior entries"
+    },
+    {
+      "id": "AC6.3.7",
+      "status": "OK",
+      "target": "app/fees/verification.py",
+      "note": "BR4.2. Over-approval becomes credit and never a negative balance"
+    },
+    {
+      "id": "AC6.3.8",
+      "status": "OK",
+      "target": "app/fees/generation.py",
+      "note": "BR4.3. Credit is applied automatically at the next generation"
+    },
+    {
+      "id": "AC6.4.1",
+      "status": "OK",
+      "target": "app/schemas/fees.py",
+      "note": "BR6.3. ClaimResponse carries the four server-set statuses"
+    },
+    {
+      "id": "AC6.4.2",
+      "status": "OK",
+      "target": "app/db/models.py",
+      "note": "BR5.5. LedgerEntryRow.payment_claim_id ties the entries a verification produced to that claim"
+    },
+    {
+      "id": "AC6.4.3",
+      "status": "OK",
+      "target": "app/fees/views.py",
+      "note": "BR5.7. claim_detail returns previous_decision under the student and guardian lens, not only the teacher's"
+    },
+    {
+      "id": "NFR11.2",
+      "status": "OK",
+      "target": "app/notifications/fcm.py",
+      "note": "BR7.2. No device or advertising identifier; an FCM registration token is a per-install delivery credential and names no hardware"
+    },
+    {
+      "id": "NFR14.32",
+      "status": "OK",
+      "target": "app/contract/collection_number.py",
+      "note": "BR6.4. The allowlist equality over the generated document"
+    },
+    {
+      "id": "NFR14.33",
+      "status": "OK",
+      "target": "tests/fees/test_fee_privacy.py",
+      "note": "BR6.4. Never in a listing: asserted on the overview and the history, and it falls out of the allowlist equality as well"
+    },
+    {
+      "id": "NFR14.34",
+      "status": "OK",
+      "target": "app/fees/views.py",
+      "note": "BR6.4. payment_destination returns None rather than an object with a null, so the step is omitted"
+    },
+    {
+      "id": "NFR14.35",
+      "status": "OK",
+      "target": "app/fees/claims.py",
+      "note": "BR6.5. The channel set is server-supplied in the same response"
+    },
+    {
+      "id": "NFR14.36",
+      "status": "OK",
+      "target": "app/fees/views.py",
+      "note": "BR6.4. No RLS policy on D3's tables; lens-scoped queries plus adversarial probes, with the reason recorded in the module docstring"
+    },
+    {
+      "id": "NFR14.37",
+      "status": "N/A",
+      "target": "app/fees/views.py",
+      "note": "The revisit trigger is named rather than met: no D3 table gained an account-scoped column identifying a reader directly"
+    },
+    {
+      "id": "NFR14.38",
+      "status": "OK",
+      "target": "tests/fees/test_fee_privacy.py",
+      "note": "BR6.4. Teacher A against teacher B's batch fees, refused with the shared code"
+    },
+    {
+      "id": "NFR14.39",
+      "status": "OK",
+      "target": "tests/fees/test_fee_privacy.py",
+      "note": "BR6.4. A guardian against a non-child's enrollment"
+    },
+    {
+      "id": "NFR14.40",
+      "status": "OK",
+      "target": "tests/fees/test_fee_privacy.py",
+      "note": "BR6.4. A student against a fee cycle and a claim not their own"
+    },
+    {
+      "id": "NFR14.41",
+      "status": "OK",
+      "target": "tests/conftest.py",
+      "note": "BR6.4. The suite runs as the restricted non-superuser role, with the built meta-check still asserting it"
+    },
+    {
+      "id": "NFR18.4",
+      "status": "OK",
+      "target": "app/fees/commands.py",
+      "note": "BR1.4. The job's requirement is daily rather than continuous; a missed run is recovered by the next one"
+    },
+    {
+      "id": "NFR19.8",
+      "status": "OK",
+      "target": "app/fees/generation.py",
+      "note": "BR1.3. Per-enrollment-period commits, with a failure logged, counted and swallowed so the run continues"
+    },
+    {
+      "id": "NFR19.9",
+      "status": "OK",
+      "target": "app/fees/generation.py",
+      "note": "BR1.3. A second run conflicts and appends nothing"
+    },
+    {
+      "id": "NFR19.10",
+      "status": "OK",
+      "target": "app/fees/generation.py",
+      "note": "BR1.4. Enrollment-periods already committed stay committed when a run fails mid-way"
+    },
+    {
+      "id": "NFR19.19",
+      "status": "OK",
+      "target": "app/fees/reminders.py",
+      "note": "BR7.2. A push failure never fails the triggering operation"
+    },
+    {
+      "id": "NFR19.20",
+      "status": "OK",
+      "target": "app/db/models.py",
+      "note": "BR7.2. ReminderEvent.outcome records a failed send rather than swallowing it"
+    },
+    {
+      "id": "NFR19.21",
+      "status": "OK",
+      "target": "app/fees/reminders.py",
+      "note": "BR7.2. The event commits before the dispatch, which happens outside that transaction"
+    },
+    {
+      "id": "NFR19.22",
+      "status": "OK",
+      "target": "app/notifications/fcm.py",
+      "note": "BR7.2. UNREGISTERED is a first-class outcome, not an error"
+    },
+    {
+      "id": "NFR19.23",
+      "status": "OK",
+      "target": "app/notifications/fcm.py",
+      "note": "BR7.2. No retry queue in V1; a reminder is re-sendable by a person"
+    },
+    {
+      "id": "NFR19.24",
+      "status": "OK",
+      "target": "tests/notifications/test_boundary.py",
+      "note": "BR7.2. An AST gate: no module under a feature package defines a push client, with a planted violation proving it fires"
+    },
+    {
+      "id": "NFR24.5",
+      "status": "OK",
+      "target": "app/fees/generation.py",
+      "note": "BR6.2. No transaction id reaches a log line; the generation logs carry an enrollment id and a period only"
+    },
+    {
+      "id": "NFR24.6",
+      "status": "OK",
+      "target": "app/fees/generation.py",
+      "note": "BR6.2. No money amount is logged beside an enrollment id"
+    },
+    {
+      "id": "NFR24.7",
+      "status": "OK",
+      "target": "app/fees/views.py",
+      "note": "BR6.4. The collection number is returned to an entitled reader and logged nowhere"
+    },
+    {
+      "id": "NFR25.9",
+      "status": "OK",
+      "target": "app/fees/commands.py",
+      "note": "BR1.4. The heartbeat plus check_generation_freshness, written as 'alert unless a row exists and is fresh' so the no-row case alerts"
+    },
+    {
+      "id": "NFR25.13",
+      "status": "OK",
+      "target": "app/fees/generation.py",
+      "note": "BR1.4. The three per-run counts ride along to the heartbeat row"
+    },
+    {
+      "id": "NFR26.3",
+      "status": "OK",
+      "target": "app/fees/commands.py",
+      "note": "BR1.4. 48 hours, derived as two missed daily runs; the boundary is asserted"
+    },
+    {
+      "id": "NFR25.10",
+      "status": "GAP",
+      "target": "app/fees/commands.py",
+      "note": "BR1.4. The verdict is right over all three branches and emits log.critical. Nothing automated proves it REACHES a person: that is a staging rehearsal, not yet performed"
+    },
+    {
+      "id": "NFR6.39",
+      "status": "Deferred",
+      "target": "infra/modules/app/user_data.sh.tftpl",
+      "note": "The job is scheduled and correct under double-firing. No load test establishes its runtime at scale; the plan builds no performance harness and D5 owns Macrobenchmark"
+    },
+    {
+      "id": "NFR20.13",
+      "status": "Deferred",
+      "target": "app/fees/balances.py",
+      "note": "The fold is one linear pass over one enrollment's rows and the index exists. No measured latency figure is recorded, so the budget is designed for rather than demonstrated"
+    },
+    {
+      "id": "NFR23.9",
+      "status": "Deferred",
+      "target": "docs/delivery/bangla-layout-check.md",
+      "note": "Four rows added with their computed longest Bangla string. The check itself is on a device and nothing automated discharges it"
+    },
+    {
+      "id": "NFR6.21",
+      "status": "N/A",
+      "target": "aidlc/spaces/default/intents/261022-remaining-slices/construction/collecting-fees/nfr-requirements/scalability-requirements.md",
+      "note": "BR1.1. Inherited CITATION, not an id D3 defines; the nfr-requirements file says so itself; D1 owns it"
+    },
+    {
+      "id": "NFR9.1",
+      "status": "N/A",
+      "target": "aidlc/spaces/default/intents/261022-remaining-slices/construction/collecting-fees/nfr-requirements/security-requirements.md",
+      "note": "BR6.2. Inherited CITATION, not an id D3 defines; the nfr-requirements file says so itself; it is 'no secret in the repository', owned by identity-and-access"
+    },
+    {
+      "id": "NFR14.15",
+      "status": "N/A",
+      "target": "aidlc/spaces/default/intents/261022-remaining-slices/construction/collecting-fees/nfr-requirements/security-requirements.md",
+      "note": "BR6.4. Inherited CITATION, not an id D3 defines; the nfr-requirements file says so itself; the abuse-control axis is D1's and D3 adds no unauthenticated route"
+    },
+    {
+      "id": "NFR14.27",
+      "status": "N/A",
+      "target": "aidlc/spaces/default/intents/261022-remaining-slices/construction/collecting-fees/nfr-requirements/security-requirements.md",
+      "note": "BR6.4. Inherited CITATION, not an id D3 defines; the nfr-requirements file says so itself; same axis as NFR14.15"
+    },
+    {
+      "id": "NFR14.29",
+      "status": "N/A",
+      "target": "aidlc/spaces/default/intents/261022-remaining-slices/construction/collecting-fees/nfr-requirements/security-requirements.md",
+      "note": "BR6.4. Inherited CITATION, not an id D3 defines; the nfr-requirements file says so itself; cited BY NFR14.39, which D3 does discharge"
+    },
+    {
+      "id": "NFR20.10",
+      "status": "N/A",
+      "target": "aidlc/spaces/default/intents/261022-remaining-slices/construction/collecting-fees/nfr-requirements/performance-requirements.md",
+      "note": "BR6.1. Inherited CITATION, not an id D3 defines; the nfr-requirements file says so itself; D2's roster query-count requirement"
+    },
+    {
+      "id": "NFR20.11",
+      "status": "N/A",
+      "target": "aidlc/spaces/default/intents/261022-remaining-slices/construction/collecting-fees/nfr-requirements/performance-requirements.md",
+      "note": "BR6.1. Inherited CITATION, not an id D3 defines; the nfr-requirements file says so itself; D2's, cited by NFR20.17"
+    },
+    {
+      "id": "NFR6.26",
+      "status": "OK",
+      "target": "migrations/versions/0005_fee_system.py",
+      "note": "BR1.1. D3 adds five tables at the existing ceiling and raises no scale target of its own"
+    },
+    {
+      "id": "NFR6.27",
+      "status": "OK",
+      "target": "app/fees/generation.py",
+      "note": "BR1.1. One cycle row per generating enrollment per month; the rate is bounded by enrollments, not by traffic"
+    },
+    {
+      "id": "NFR6.28",
+      "status": "OK",
+      "target": "migrations/versions/0005_fee_system.py",
+      "note": "BR1.2. ledger_entry grows unbounded by design and every read is enrollment-filtered through ix_ledger_entry_enrollment_period"
+    },
+    {
+      "id": "NFR6.29",
+      "status": "OK",
+      "target": "migrations/versions/0005_fee_system.py",
+      "note": "BR7.1. payment_claim is person-driven and reminder_event teacher-driven, both below the ledger's rate"
+    },
+    {
+      "id": "NFR6.30",
+      "status": "OK",
+      "target": "app/fees/generation.py",
+      "note": "BR1.3. ON CONFLICT DO NOTHING on the unique constraint; there is no application-level has-this-run guard anywhere in the module"
+    },
+    {
+      "id": "NFR6.31",
+      "status": "OK",
+      "target": "app/fees/generation.py",
+      "note": "BR1.3. _insert_cycle returns whether RETURNING yielded a row, and the charge is appended only on that branch"
+    },
+    {
+      "id": "NFR6.32",
+      "status": "OK",
+      "target": "tests/fees/test_generation_races.py",
+      "note": "BR1.3. Eight real threads released from a threading.Barrier, contending on the same (enrollment_id, period)"
+    },
+    {
+      "id": "NFR6.33",
+      "status": "OK",
+      "target": "tests/fees/test_generation_races.py",
+      "note": "BR1.3. The assertion is one row per period and one period's charged total, not an internal call count"
+    },
+    {
+      "id": "NFR6.34",
+      "status": "OK",
+      "target": "tests/fees/test_generation_across_days.py",
+      "note": "BR1.4. Day N, N+1, N+1 again, asserting the row set and ledger total are identical after the second and third"
+    },
+    {
+      "id": "NFR6.35",
+      "status": "OK",
+      "target": "app/fees/verification.py",
+      "note": "BR5.7. _claim_the_decision takes a row lock and refuses a second decision; proven by removing the lock, which admits 8 of 8 racing verifications"
+    },
+    {
+      "id": "NFR6.36",
+      "status": "OK",
+      "target": "app/fees/generation.py",
+      "note": "BR4.5. apply_available_credit is called after append_entry inside the same per-enrollment-period transaction"
+    },
+    {
+      "id": "NFR6.37",
+      "status": "OK",
+      "target": "app/fees/generation.py",
+      "note": "BR4.4. Guarded by NFR6.30: only the worker whose insert created the row reaches the credit application at all"
+    },
+    {
+      "id": "NFR6.38",
+      "status": "OK",
+      "target": "infra/modules/app/user_data.sh.tftpl",
+      "note": "BR1.4. The product's first scheduled job, provisioned by Terraform rather than added by hand over SSM"
+    },
+    {
+      "id": "NFR7.6",
+      "status": "OK",
+      "target": "infra/modules/app/user_data.sh.tftpl",
+      "note": "BR1.4. A cron entry and a systemd unit on the existing host; no new service and no recurring cost"
+    },
+    {
+      "id": "NFR2.5",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/fees/FeeUiState.kt",
+      "note": "BR6.1. New feature packages and no new dependency, so the device floor is unchanged"
+    },
+    {
+      "id": "NFR3.4",
+      "status": "OK",
+      "target": "app/money/_money.py",
+      "note": "BR6.6. Money.format emits Latin digits under every locale, agreeing with the client's Numerals rather than deciding independently"
+    },
+    {
+      "id": "NFR20.12",
+      "status": "OK",
+      "target": "app/fees/balances.py",
+      "note": "BR1.2. D3 calls derive() and adds no nested iteration or second pass inside it; the module is unchanged"
+    },
+    {
+      "id": "NFR20.14",
+      "status": "OK",
+      "target": "migrations/versions/0005_fee_system.py",
+      "note": "BR1.2. No compaction, snapshot or closing-balance mechanism ships; unbounded growth is accepted and the arithmetic is recorded"
+    },
+    {
+      "id": "NFR20.15",
+      "status": "N/A",
+      "target": "app/fees/balances.py",
+      "note": "BR1.2. A contingency rather than a deliverable: the mitigation if the fold bites is ADR-002's materialized rollup, and nothing in D3 forecloses it because the ledger is append-only"
+    },
+    {
+      "id": "NFR20.16",
+      "status": "OK",
+      "target": "app/fees/views.py",
+      "note": "BR6.1. batch_fee_overview issues a CONSTANT number of statements: two batch-wide reads, then the fold per enrollment in Python"
+    },
+    {
+      "id": "NFR20.17",
+      "status": "OK",
+      "target": "app/fees/views.py",
+      "note": "BR6.1. Per-seat outstanding adds no statement per row. The first implementation was N+1 at three statements per seat and was rewritten"
+    },
+    {
+      "id": "NFR20.18",
+      "status": "OK",
+      "target": "tests/fees/test_query_count.py",
+      "note": "BR6.1. The verifier is a statement-count assertion comparing N=2 against N=25, not a latency figure"
+    },
+    {
+      "id": "NFR20.19",
+      "status": "OK",
+      "target": "migrations/versions/0005_fee_system.py",
+      "note": "BR1.3. ix_ledger_entry_enrollment_period plus the unique constraint's own index on fee_cycle"
+    },
+    {
+      "id": "NFR20.20",
+      "status": "OK",
+      "target": "app/fees/generation.py",
+      "note": "BR1.4. _generate_one commits one enrollment-period and swallows its failure, so one bad row cannot abort the run"
+    },
+    {
+      "id": "NFR20.21",
+      "status": "OK",
+      "target": "app/fees/generation.py",
+      "note": "BR1.4. Cost is candidate enrollments times periods considered, and the period range is bounded by how long the job has been failing"
+    },
+    {
+      "id": "NFR20.22",
+      "status": "OK",
+      "target": "infra/modules/app/user_data.sh.tftpl",
+      "note": "BR1.4. The cron entry fires at 02:00 UTC, which is 08:00 in Dhaka -- outside classroom hours on the host the app serves from"
+    },
+    {
+      "id": "NFR20.23",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/fees/FeeStateMapper.kt",
+      "note": "BR6.1. The client performs no money arithmetic and derives no status; the Kotlin Money type exposes no comparison, so it cannot"
+    },
+    {
+      "id": "NFR18.3",
+      "status": "N/A",
+      "target": "app/fees/commands.py",
+      "note": "BR1.4. D3 states no availability target of its own and inherits the product's; there is nothing for this unit to discharge"
+    },
+    {
+      "id": "NFR18.5",
+      "status": "Deferred",
+      "target": "infra/modules/app/user_data.sh.tftpl",
+      "note": "BR1.4. The generation window is fixed at 02:00 UTC so a deploy CAN avoid it, but nothing automated prevents one landing inside it. The verifier is the person dispatching the deploy"
+    },
+    {
+      "id": "NFR19.11",
+      "status": "OK",
+      "target": "app/fees/periods.py",
+      "note": "BR2.2. due_date_for writes nothing back, so a re-run cannot change an answer already given. Anchor 31 gives 2027-03-31"
+    },
+    {
+      "id": "NFR19.12",
+      "status": "OK",
+      "target": "app/fees/ledger_writer.py",
+      "note": "BR3.1. append_carry_pair flushes both halves together, so a caller committing once writes both or neither"
+    },
+    {
+      "id": "NFR19.13",
+      "status": "OK",
+      "target": "app/fees/verification.py",
+      "note": "BR5.5. One commit covers the claim decision and every entry"
+    },
+    {
+      "id": "NFR19.14",
+      "status": "OK",
+      "target": "app/fees/verification.py",
+      "note": "BR4.2. The receipt and the credit_grant are appended in the same transaction as the decision"
+    },
+    {
+      "id": "NFR19.15",
+      "status": "OK",
+      "target": "app/fees/generation.py",
+      "note": "BR4.5. Charge then credit_apply, in that order, in one transaction"
+    },
+    {
+      "id": "NFR19.16",
+      "status": "OK",
+      "target": "app/fees/ledger_writer.py",
+      "note": "BR1.6. void_accrued_cycles appends a forgiveness per outstanding cycle; nothing is deleted and the original charge stays"
+    },
+    {
+      "id": "NFR19.17",
+      "status": "OK",
+      "target": "app/api/fees.py",
+      "note": "BR6.2. All nine routes declare their error responses against ErrorEnvelope, which closes the published-but-unreferenced stopgap"
+    },
+    {
+      "id": "NFR19.18",
+      "status": "OK",
+      "target": "app/schemas/errors.py",
+      "note": "BR6.2. The built envelope carries code, a server-provided retryable and message_key; D3 adds no second shape"
+    },
+    {
+      "id": "NFR19.25",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/fees/FeeUiState.kt",
+      "note": "BR6.1. No offline path: there is no local write queue and a failure is a Failed state carrying the server's retryable flag"
+    },
+    {
+      "id": "NFR19.26",
+      "status": "OK",
+      "target": "migrations/versions/0005_fee_system.py",
+      "note": "BR1.2. Forward-only and backward-compatible: it only creates, alters no existing table and destroys nothing"
+    },
+    {
+      "id": "NFR19.27",
+      "status": "N/A",
+      "target": "infra/modules/app/user_data.sh.tftpl",
+      "note": "BR1.2. The pre-migration pg_dump is a deployment practice the deploy workflow owns; D3 adds a migration, not a backup step"
+    },
+    {
+      "id": "NFR19.28",
+      "status": "Deferred",
+      "target": "migrations/versions/0005_fee_system.py",
+      "note": "BR1.2. Rehearsing on staging is an act, not an artifact. The migration runs from zero in CI on every push, which is evidence it APPLIES but not that it was rehearsed against real data"
+    },
+    {
+      "id": "NFR9.34",
+      "status": "OK",
+      "target": "app/schemas/fees.py",
+      "note": "BR6.2. Every money property is the shared Money component; the Kotlin serializer rejects a JSON number loudly"
+    },
+    {
+      "id": "NFR9.35",
+      "status": "OK",
+      "target": "migrations/versions/0005_fee_system.py",
+      "note": "BR6.2. NUMERIC(12,2) on every money column, through the existing TypeDecorator; the two import gates are unchanged and still pass"
+    },
+    {
+      "id": "NFR9.36",
+      "status": "OK",
+      "target": "migrations/versions/0005_fee_system.py",
+      "note": "BR3.4. CHECK (amount >= 0) on ledger_entry, plus the value type's own refusal"
+    },
+    {
+      "id": "NFR9.37",
+      "status": "OK",
+      "target": "app/fees/ledger_writer.py",
+      "note": "BR3.3. No UPDATE or DELETE on amount, kind, period or enrollment_id; supersede writes only superseded_by_id"
+    },
+    {
+      "id": "NFR9.38",
+      "status": "OK",
+      "target": "app/fees/ledger_writer.py",
+      "note": "BR3.1. The pair comes from one call to app.money.carry_forward and is flushed together"
+    },
+    {
+      "id": "NFR14.42",
+      "status": "OK",
+      "target": "app/fees/views.py",
+      "note": "BR5.5. assert_claim_is_verifiable joins through the batch's owner, so only the owning teacher reaches a claim"
+    },
+    {
+      "id": "NFR14.43",
+      "status": "OK",
+      "target": "app/fees/verification.py",
+      "note": "BR5.5. verified_by_account_id and verified_at are written in the same commit as the entries"
+    },
+    {
+      "id": "NFR14.44",
+      "status": "OK",
+      "target": "app/fees/views.py",
+      "note": "BR5.7. claim_detail returns previous_decision under the student and guardian lens as well as the teacher's"
+    },
+    {
+      "id": "NFR14.45",
+      "status": "OK",
+      "target": "tests/fees/test_verification_races.py",
+      "note": "BR5.7. ConflictError on a concurrent repeat, while a DECLARED correction still passes -- a guard refusing every decided claim would settle the race and break FR9.2"
+    },
+    {
+      "id": "NFR14.46",
+      "status": "OK",
+      "target": "app/fees/ledger_writer.py",
+      "note": "BR1.7. The guardian's read access is withdrawn by _readable_enrollment while void_accrued_cycles leaves the obligation intact"
+    },
+    {
+      "id": "NFR14.47",
+      "status": "OK",
+      "target": "tests/fees/test_decline_semantics.py",
+      "note": "BR1.7. Tested from BOTH roles, and the Kotlin decline copy is D1's surface rather than one D3 adds"
+    },
+    {
+      "id": "NFR10.15",
+      "status": "OK",
+      "target": "app/governance/dispositions.py",
+      "note": "BR1.2. All FIVE new tables carry a disposition and a retention class; job_heartbeat is the one easy to miss and is included"
+    },
+    {
+      "id": "NFR10.16",
+      "status": "N/A",
+      "target": "app/governance/dispositions.py",
+      "note": "BR1.2. Storage encryption is a hosting property rather than a per-table one, and D3 adds no tier that lacks it"
+    },
+    {
+      "id": "NFR10.17",
+      "status": "OK",
+      "target": "migrations/versions/0005_fee_system.py",
+      "note": "BR5.1. transaction_id ships nullable, so OQ-1's answer is not foreclosed either way"
+    },
+    {
+      "id": "NFR13.5",
+      "status": "OK",
+      "target": "app/api/fees.py",
+      "note": "BR6.4. D3's routes authenticate through the built session; no new token, session, credential or secret is introduced"
+    },
+    {
+      "id": "NFR24.8",
+      "status": "OK",
+      "target": "app/fees/generation.py",
+      "note": "BR6.2. The log lines carry an enrollment id and a period and nothing identifying; no traceback is returned to a client"
+    },
+    {
+      "id": "NFR24.9",
+      "status": "OK",
+      "target": "app/fees/ledger_writer.py",
+      "note": "BR3.3. Every money movement is a row with created_by_account_id and created_at; there is no parallel money log"
+    },
+    {
+      "id": "NFR24.10",
+      "status": "OK",
+      "target": "app/fees/ledger_writer.py",
+      "note": "BR3.3. created_by_account_id defaults to None, and the generation path passes none -- the honest value, because nobody caused it"
+    },
+    {
+      "id": "NFR24.11",
+      "status": "OK",
+      "target": "app/fees/verification.py",
+      "note": "BR5.7. The prior decision is retained with its actor and timestamp, and the compensating entries carry their own"
+    },
+    {
+      "id": "NFR24.12",
+      "status": "OK",
+      "target": "app/fees/reminders.py",
+      "note": "BR7.1. Every attempt is a row carrying channel, time, actor and outcome, including failures and the no-device case"
+    },
+    {
+      "id": "NFR25.8",
+      "status": "Deferred",
+      "target": "app/fees/commands.py",
+      "note": "BR1.4. A failed run is counted in periods_failed and logged, and the heartbeat records it. No alert fires on run FAILURE as distinct from absence; NFR25.9's staleness check is what ships"
+    },
+    {
+      "id": "NFR25.11",
+      "status": "OK",
+      "target": "app/fees/reminders.py",
+      "note": "BR7.2. A push failure is recorded as an event outcome and raises no alert, which is the stated requirement"
+    },
+    {
+      "id": "NFR25.12",
+      "status": "N/A",
+      "target": "infra/modules/app/user_data.sh.tftpl",
+      "note": "BR1.2. The pre-migration backup and its alert are a deployment concern the deploy workflow owns, not a D3 deliverable"
+    },
+    {
+      "id": "NFR25.14",
+      "status": "OK",
+      "target": "app/db/models.py",
+      "note": "BR1.1. cycles_created on job_heartbeat is the per-run aggregate with no enrollment attached, queryable without a metrics backend"
+    },
+    {
+      "id": "NFR25.15",
+      "status": "OK",
+      "target": "migrations/versions/0005_fee_system.py",
+      "note": "BR6.3. payment_claim.status is indexed, so claims are countable by outcome without a metrics backend"
+    },
+    {
+      "id": "NFR25.16",
+      "status": "OK",
+      "target": "app/db/models.py",
+      "note": "BR5.7. previous_decision is non-null exactly on a corrected claim, so corrections are countable by a predicate on the column"
+    },
+    {
+      "id": "NFR25.17",
+      "status": "OK",
+      "target": "app/db/models.py",
+      "note": "BR7.2. reminder_event.outcome is countable. UNREGISTERED is stored as failed, which conflates it with a transport failure -- the adapter distinguishes them but the row does not"
+    },
+    {
+      "id": "NFR26.4",
+      "status": "OK",
+      "target": "tests/money/test_ledger_property.py",
+      "note": "BR3.5. The identity is asserted by the built property-based test over randomized histories; it is not monitored in production"
+    },
+    {
+      "id": "NFR26.5",
+      "status": "OK",
+      "target": "migrations/versions/0005_fee_system.py",
+      "note": "BR1.3. Exactly one row per (enrollment_id, period), guaranteed by the unique constraint, so there is nothing for a monitor to watch"
+    },
+    {
+      "id": "NFR26.6",
+      "status": "Deferred",
+      "target": "app/db/models.py",
+      "note": "BR6.3. No target is set in V1 by the requirement itself; the submission success rate is measured through the pilot"
+    },
+    {
+      "id": "NFR23.7",
+      "status": "OK",
+      "target": "tests/named_tests.toml",
+      "note": "BR5.3. 31 RED-first obligations, each named in the manifest with the wrong implementation it separates from the right one"
+    },
+    {
+      "id": "NFR23.8",
+      "status": "OK",
+      "target": "pyproject.toml",
+      "note": "BR6.2. fail_under = 100 is unchanged and the module measures 100.00% branch, including the Money.format D3 added"
+    },
+    {
+      "id": "NFR23.10",
+      "status": "OK",
+      "target": "tests/named_tests.toml",
+      "note": "BR5.3. A named test per fee-cycle and payment state transition, with boundary cases for period ends, zero, and an approved amount exceeding the claimed one"
+    }
+  ]
+}

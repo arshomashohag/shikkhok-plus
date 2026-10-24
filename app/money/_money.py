@@ -297,6 +297,47 @@ class Money:
 
     # -- representation ------------------------------------------------
 
+    def format(self, locale: str = "en") -> str:
+        """
+        Render the amount for a person to read.
+
+        **The digits are Latin 0-9 even under a Bangla locale** [BR6.6].
+        That is a reconciliation rather than a fresh decision: the client
+        already settled the rule in ``core/format/Numerals.kt`` --
+        *numbers the app shows are Latin; text people typed is shown
+        exactly as typed* -- because money, marks, dates and counts are
+        the app's own output while a topic reading ``অধ্যায় ৩`` keeps its
+        digits because a person wrote it. Had this gone the other way,
+        the same amount would render in two different digit sets
+        depending on which surface drew it.
+
+        So `locale` governs the grouping and the currency mark, never
+        the digit set. Grouping is **by lakh** under every locale this
+        product has -- ``125400`` reads as ``1,25,400`` and not
+        ``125,400``, which a Bangladeshi reader parses as a different
+        magnitude.
+
+        Paisa are stored and not shown, rounded with this module's one
+        declared mode so a displayed total and a computed one cannot
+        disagree by a rounding convention. This agrees with the client's
+        ``Numerals.money``, which does the same.
+
+        This is **presentation, not arithmetic**: it produces a string
+        and nothing in the system reads one back. The wire form is
+        :func:`app.money.wire.to_wire`, which is a different value for a
+        different purpose.
+
+        :param locale: The locale whose currency mark to use. ``bn``
+            and ``en`` both group by lakh and both emit Latin digits;
+            they differ only in the mark.
+        :return: The amount as ``৳1,25,400``.
+        """
+        whole = self.amount.quantize(Decimal("1"), rounding=ROUNDING)
+        grouped = _group_by_lakh(str(abs(whole)))
+        mark = "৳" if locale.startswith("bn") else "BDT "
+        sign = "-" if whole < 0 else ""
+        return f"{sign}{mark}{grouped}"
+
     def __repr__(self) -> str:
         """
         Render for a developer, round-trippably.
@@ -317,6 +358,33 @@ class Money:
         :return: The canonical two-decimal string.
         """
         return str(self.amount)
+
+
+#: How many digits sit in the final group before lakh grouping starts.
+_FINAL_GROUP = 3
+
+
+def _group_by_lakh(digits: str) -> str:
+    """
+    Group digits the way a Bangladeshi reader parses them.
+
+    Three from the right, then twos: ``125400`` becomes ``1,25,400``.
+    Western grouping gives ``125,400``, which reads as a different
+    magnitude to the person checking it.
+
+    Mirrors ``Numerals.groupByLakh`` on the client deliberately: the two
+    surfaces render the same amount, and a different grouping on each
+    would be the same defect as a different digit set.
+
+    :param digits: The unsigned digits.
+    :return: The grouped digits.
+    """
+    if len(digits) <= _FINAL_GROUP:
+        return digits
+    last = digits[-_FINAL_GROUP:]
+    rest = digits[:-_FINAL_GROUP]
+    leading = [rest[max(index - 2, 0) : index] for index in range(len(rest), 0, -2)]
+    return ",".join([*reversed(leading), last])
 
 
 # Assigned after the class body because the value is an instance of the

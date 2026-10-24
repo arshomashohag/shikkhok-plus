@@ -133,64 +133,64 @@ that predicate holds for most of the work, which is the opposite of D2.
 
 ### Phase A — Runner, schema, governance
 
-- [ ] **Step 1.** Verify the runner and record the unit-scoped commands in
+- [x] **Step 1.** Verify the runner and record the unit-scoped commands in
       `unit-test-instructions.md`. Confirm `docker info` is reachable; D3's
       tests are overwhelmingly integration tests. No code changes.
 
-- [ ] **Step 2.** `migrations/versions/0005_fee_system.py`: create
+- [x] **Step 2.** `migrations/versions/0005_fee_system.py`: create
       `fee_cycle`, `ledger_entry`, `payment_claim`, `reminder_event` and
       `job_heartbeat`. `fee_cycle` carries **no money column** [BR1.2] and a
       unique constraint on `(enrollment_id, period)` [BR1.3]. `ledger_entry`
       amounts are `NUMERIC(12,2)` with a `CHECK (amount >= 0)` [BR3.4].
       Forward-only and backward-compatible.
 
-- [ ] **Step 3.** `app/governance/dispositions.py`: a disposition and a
+- [x] **Step 3.** `app/governance/dispositions.py`: a disposition and a
       retention class for **all five** tables. `job_heartbeat` is hard delete,
       bounded [entities.md].
       *`tests/db/test_governance.py` iterates live `pg_tables` in both
       directions, so a missing row here is a red `make check`, not a note.*
 
-- [ ] **Step 4.** `app/db/models.py`: the five ORM models, money columns
+- [x] **Step 4.** `app/db/models.py`: the five ORM models, money columns
       through the existing `Money` `TypeDecorator`. `LedgerEntry.period` is a
       plain string, **not** a foreign key to `fee_cycle` — a `carry_forward`
       lands on a period whose cycle row may not exist yet [entities.md].
 
-- [ ] **Step 5.** Run the migration tests and the governance tests. **Both
+- [x] **Step 5.** Run the migration tests and the governance tests. **Both
       must pass before Phase B.**
 
 ### Phase B — The calendar, test-first
 
-- [ ] **Step 6. RED — periods and the clamp.** `tests/fees/test_periods.py`:
+- [x] **Step 6. RED — periods and the clamp.** `tests/fees/test_periods.py`:
       `YYYY-MM` round-trips; `min(day, days_in_month)`; the stored anchor is
       **not** rewritten; anchor 31 gives 2027-01-31, 2027-02-28, 2027-03-31,
       and 2028-02-29 in a leap year; a NULL anchor means the last day.
       *(BR2.1, BR2.2, BR2.3)*
 
-- [ ] **Step 7.** `app/fees/periods.py`: the period type and `due_date_for`.
+- [x] **Step 7.** `app/fees/periods.py`: the period type and `due_date_for`.
       **No calendar knowledge enters `app/money/`** — `period` is opaque
       there [BR2.1].
 
-- [ ] **Step 8. RED — fee resolution.** `tests/fees/test_resolution.py`: the
+- [x] **Step 8. RED — fee resolution.** `tests/fees/test_resolution.py`: the
       enrollment fee when not NULL, else the batch default; **zero is a real
       fee and not "unset"**; both NULL refuses rather than charging zero.
       *(BR2.4)*
 
-- [ ] **Step 9.** `app/fees/resolution.py`: `resolve_fee`. Returns `Money`.
+- [x] **Step 9.** `app/fees/resolution.py`: `resolve_fee`. Returns `Money`.
 
-- [ ] **Step 10.** Run Steps 6 and 8. **They must now pass.**
+- [x] **Step 10.** Run Steps 6 and 8. **They must now pass.**
 
 ### Phase C — Generation, test-first
 
-- [ ] **Step 11. RED — generation charges the resolved fee.**
+- [x] **Step 11. RED — generation charges the resolved fee.**
       `tests/fees/test_generation.py`: one `charge` entry per enrollment per
       period at the resolved amount; the cycle row carries no money.
       *(BR1.1, BR1.2)*
 
-- [ ] **Step 12. RED — idempotency is the constraint.** A second generation
+- [x] **Step 12. RED — idempotency is the constraint.** A second generation
       for the same `(enrollment_id, period)` conflicts and is a **success**,
       appending no second charge. *(BR1.3)*
 
-- [ ] **Step 13. RED — concurrency.** `tests/fees/test_generation_races.py`:
+- [x] **Step 13. RED — concurrency.** `tests/fees/test_generation_races.py`:
       real threads released from a `threading.Barrier`, against real
       PostgreSQL, asserting the **outcome** — after N overlapping generations
       exactly one row per `(enrollment_id, period)` and the ledger total
@@ -199,17 +199,17 @@ that predicate holds for most of the work, which is the opposite of D2.
       inside the function violates the standing rule and must not be copied.
       *(BR1.3, NFR19.8)*
 
-- [ ] **Step 14. RED — self-healing across days.**
+- [x] **Step 14. RED — self-healing across days.**
       `tests/fees/test_generation_across_days.py`: a missed day catches up on
       the next run, and a re-run on a later day appends nothing. **Time is
       injected, not raced** — this is the case Step 13 cannot reach.
       *(BR1.4)*
 
-- [ ] **Step 15. RED — `inactive_from` generates the containing period in
+- [x] **Step 15. RED — `inactive_from` generates the containing period in
       full.** A seat inactive mid-month is charged for that month and not the
       next. *(BR1.5)*
 
-- [ ] **Step 16. RED — decline semantics, both directions.** A declined
+- [x] **Step 16. RED — decline semantics, both directions.** A declined
       **student** link stops generation and reverses accrued cycles; a
       declined **guardian** link does **neither**. A pending seat generates.
       Un-declining resumes without resurrecting voided cycles.
@@ -217,114 +217,114 @@ that predicate holds for most of the work, which is the opposite of D2.
       *The asymmetry has already produced one defect in this project on the
       presentation side; it is tested from both roles here.*
 
-- [ ] **Step 17.** `app/fees/generation.py`: `generate_for_period`, using
+- [x] **Step 17.** `app/fees/generation.py`: `generate_for_period`, using
       `ON CONFLICT DO NOTHING` and per-enrollment commits so one bad row does
       not abort a run [NFR19.8]. **No application-level "has this run?"
       guard.**
 
-- [ ] **Step 18.** Run Steps 11–16. **All must now pass.**
+- [x] **Step 18.** Run Steps 11–16. **All must now pass.**
 
 ### Phase D — Carry-forward and credit, test-first
 
-- [ ] **Step 19. RED — a carry is a pair in one transaction.** A
+- [x] **Step 19. RED — a carry is a pair in one transaction.** A
       `carry_forward` on the receiving period and a `carried_out` on the
       origin, committed together; a one-sided carry is impossible through the
       API. Worked case: carrying 1000 into a second 1000 charge reads
       **2000** owed, not 3000. *(BR3.1)*
 
-- [ ] **Step 20. RED — a carry never exceeds what the origin owes.**
+- [x] **Step 20. RED — a carry never exceeds what the origin owes.**
       *(BR3.2)*
 
-- [ ] **Step 21. RED — credit.** Over-approval becomes `credit_grant`, never
+- [x] **Step 21. RED — credit.** Over-approval becomes `credit_grant`, never
       a negative balance; credit belongs to the **enrollment**; the next
       generation applies `min(available, owed)` in the **same transaction as
       the charge**. Worked case: a 1000 charge with 200 credit leaves
       **800**. *(BR4.1–BR4.5)*
 
-- [ ] **Step 22.** `app/fees/ledger_writer.py`: the persistence operations.
+- [x] **Step 22.** `app/fees/ledger_writer.py`: the persistence operations.
       **Calls `app/money/`'s `carry_forward` and `apply_credit`; implements
       neither.**
 
-- [ ] **Step 23.** Run Steps 19–21. **All must now pass.**
+- [x] **Step 23.** Run Steps 19–21. **All must now pass.**
 
 ### Phase E — Claims and verification, test-first
 
-- [ ] **Step 24. RED — claim resolution and validation.** A claim resolves to
+- [x] **Step 24. RED — claim resolution and validation.** A claim resolves to
       the **oldest unpaid cycle** or is refused; zero and negative refused;
       an over-claim accepted. *(BR5.1, BR5.2)*
 
-- [ ] **Step 25. RED — the shortfall is `charged − approved`.** The
+- [x] **Step 25. RED — the shortfall is `charged − approved`.** The
       separating case: 1000 charged, 1500 claimed, 600 approved gives **400**,
       not 900. Measuring against the claim would let a payer change what they
       owe by changing what they assert. *(BR5.3)*
 
-- [ ] **Step 26. RED — a shortfall requires an explicit carry-or-waive
+- [x] **Step 26. RED — a shortfall requires an explicit carry-or-waive
       choice**, and verification plus its entries commit together.
       *(BR5.4, BR5.5)*
 
-- [ ] **Step 27. RED — rejection and correction.** Rejection records no
+- [x] **Step 27. RED — rejection and correction.** Rejection records no
       ledger entry and is visible to the submitter; a corrected verification
       is visible to both parties with its previous decision retained.
       *(BR5.6, BR5.7, BR3.3)*
 
-- [ ] **Step 28.** `app/fees/claims.py` and `app/fees/verification.py`.
+- [x] **Step 28.** `app/fees/claims.py` and `app/fees/verification.py`.
 
-- [ ] **Step 29.** Run Steps 24–27. **All must now pass.**
+- [x] **Step 29.** Run Steps 24–27. **All must now pass.**
 
 ### Phase F — API, authorization and the status enum
 
-- [ ] **Step 30. RED — lens scoping on the new tables.** Adversarial probes
+- [x] **Step 30. RED — lens scoping on the new tables.** Adversarial probes
       as the restricted non-superuser role: teacher A against teacher B's fee
       cycle; a guardian against a non-child's; a student against a claim not
       theirs. Every pre-authorization refusal is the shared `NOT_AVAILABLE`.
       *(NFR14.36–.39, BR6.4)*
 
-- [ ] **Step 31. RED — the collection number is bounded downward.** Visible
+- [x] **Step 31. RED — the collection number is bounded downward.** Visible
       only to a student or guardian lens on that batch; absent from every
       other response, every listing and every search. **This is the direction
       the built schema-wide invariant does not check.** *(BR6.4, NFR14.32)*
 
-- [ ] **Step 32.** `app/schemas/fees.py`: response schemas. Money as a JSON
+- [x] **Step 32.** `app/schemas/fees.py`: response schemas. Money as a JSON
       **string** [BR6.2]; the server-computed fee status enum [BR6.1]; the
       four claim statuses [BR6.3]; the server-supplied channel set [BR6.5].
 
-- [ ] **Step 33.** `app/api/fees.py`: the routes, each naming its lens. The
+- [x] **Step 33.** `app/api/fees.py`: the routes, each naming its lens. The
       route-enumeration test must pass unchanged.
 
-- [ ] **Step 34.** Extend the registry test to
+- [x] **Step 34.** Extend the registry test to
       `AUTH_403_CODES - ALLOWED_NON_RESOURCE == {NOT_AVAILABLE}`. **Not a
       whole-set equality** — `AUTH_403_CODES` holds two members today and
       `LENS_NOT_AVAILABLE` is not an oracle, so an equality would fail
       against a correct registry. *(security-design § 4)*
 
-- [ ] **Step 35.** `Money.format(locale)`: **Latin digits**, agreeing with
+- [x] **Step 35.** `Money.format(locale)`: **Latin digits**, agreeing with
       `Numerals.kt` rather than deciding independently. *(BR6.6)*
 
-- [ ] **Step 36.** Run Steps 30–31. **Both must now pass.**
+- [x] **Step 36.** Run Steps 30–31. **Both must now pass.**
 
 ### Phase G — Reminders and the FCM adapter
 
-- [ ] **Step 37.** `app/notifications/fcm.py`: the adapter, **beside the SMS
+- [x] **Step 37.** `app/notifications/fcm.py`: the adapter, **beside the SMS
       gateway client and not inside `app/fees/`**. An adapter living in the
       fee feature is one D4 copies, producing the two-adapter outcome OQ-4
       exists to prevent. Best-effort, post-commit, failure logged and not
       surfaced, `UNREGISTERED` deletes the token, no device identifier.
       *(BR7.2, NFR11.2, NFR19.24)*
 
-- [ ] **Step 38.** An import-boundary check: **no module under a feature
+- [x] **Step 38.** An import-boundary check: **no module under a feature
       package may define an FCM client.** Same shape as the money module's.
       Without it, OQ-4's failure mode is prevented only by D4's author
       remembering. *(NFR19.24)*
 
-- [ ] **Step 39.** `ReminderEvent`: an append-only event; state is the latest
+- [x] **Step 39.** `ReminderEvent`: an append-only event; state is the latest
       per period. *(BR7.1)*
 
 ### Phase H — The scheduler and the heartbeat
 
-- [ ] **Step 40.** `app/fees/commands.py`: `generate-fee-cycles` as a
+- [x] **Step 40.** `app/fees/commands.py`: `generate-fee-cycles` as a
       runnable entry point taking no arguments and safe to run at any time.
 
-- [ ] **Step 41.** The `job_heartbeat` write: an upsert on `job_name`, in its
+- [x] **Step 41.** The `job_heartbeat` write: an upsert on `job_name`, in its
       **own transaction after the run's last enrollment-period has
       committed** — never inside one, because a run that generated 2,900 of
       3,000 did succeed at the 2,900.
@@ -335,11 +335,11 @@ that predicate holds for most of the work, which is the opposite of D2.
       correct operation and train the operator to mute the alert.
       *(NFR25.9, observability-design § 1.1a)*
 
-- [ ] **Step 42.** `app/fees/commands.py`: `check-generation-freshness`,
+- [x] **Step 42.** `app/fees/commands.py`: `check-generation-freshness`,
       emitting `log.critical` when there is no row or the row is older than
       48 hours. *(NFR25.9)*
 
-- [ ] **Step 43.** `infra/modules/app/user_data.sh.tftpl`: the cron entry,
+- [x] **Step 43.** `infra/modules/app/user_data.sh.tftpl`: the cron entry,
       invoking `docker compose run --rm api generate-fee-cycles` — the same
       shape as the Alembic step at line 325. **Provisioned by Terraform, never
       added by hand over SSM**: the ASG replaces the instance on every deploy,
@@ -348,46 +348,46 @@ that predicate holds for most of the work, which is the opposite of D2.
       **The freshness check is a separate entry and must not be cron**, or
       both die together. *(infrastructure-specification § 3)*
 
-- [ ] **Step 44.** An integration test that the command runs end to end and
+- [x] **Step 44.** An integration test that the command runs end to end and
       stamps the heartbeat, including the zero-cycles case.
 
 ### Phase I — Android
 
-- [ ] **Step 45.** `core/network`: fee DTOs. Money decodes from a JSON
+- [x] **Step 45.** `core/network`: fee DTOs. Money decodes from a JSON
       **string** and **fails loudly on a JSON number**.
 
-- [ ] **Step 46.** `feature/fees`: `FeeStateMapper` as a pure object in
+- [x] **Step 46.** `feature/fees`: `FeeStateMapper` as a pure object in
       `RosterStateMapper`'s shape; the status enum maps **exhaustively or
       fails**, matching `STATUS_KEYS`.
 
-- [ ] **Step 47.** `FeeUiState` and the fee screens. Every decision is a
+- [x] **Step 47.** `FeeUiState` and the fee screens. Every decision is a
       mapper field; **no composable compares a domain value** — no
       `if (balance > 0) "Due"`, which is a business rule in presentation's
       clothes.
 
-- [ ] **Step 48.** Mapper and screen tests, and the money serialization test.
+- [x] **Step 48.** Mapper and screen tests, and the money serialization test.
 
-- [ ] **Step 49.** Strings for every new screen in **both** `values/` and
+- [x] **Step 49.** Strings for every new screen in **both** `values/` and
       `values-bn/`; `message-keys.json` and `MessageKeys.kt` kept in step.
 
 ### Phase J — Contract, documentation, traceability
 
-- [ ] **Step 50.** Regenerate and commit `openapi.json`; the schema-diff gate
+- [x] **Step 50.** Regenerate and commit `openapi.json`; the schema-diff gate
       must pass. Add the declared error responses, which closes the
       published-envelope-referenced-by-no-operation gap D2 recorded.
 
-- [ ] **Step 51.** Named-manifest entries in `tests/named_tests.toml` for
+- [x] **Step 51.** Named-manifest entries in `tests/named_tests.toml` for
       every RED-first obligation, each with its criterion and rule id.
 
-- [ ] **Step 52.** Four rows in `docs/delivery/bangla-layout-check.md`, one
+- [x] **Step 52.** Four rows in `docs/delivery/bangla-layout-check.md`, one
       per new screen, each naming its longest string.
 
-- [ ] **Step 53.** `ruff format`, `ruff check`, `mypy app` clean. Sphinx
+- [x] **Step 53.** `ruff format`, `ruff check`, `mypy app` clean. Sphinx
       docstrings on every new module, class and function. **`app.fees.*`
       joins the strict-mypy islands**, and the long-deferred `app.authz.*`
       override lands with it.
 
-- [ ] **Step 54.** Write `code-summary.md`, `traceability.json` and
+- [x] **Step 54.** Write `code-summary.md`, `traceability.json` and
       `source-manifest.json`. Run the full `make check`.
 
 **At Step 54, read the money module's coverage**: it must still be 100.00%

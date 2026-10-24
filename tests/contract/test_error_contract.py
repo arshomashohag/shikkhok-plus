@@ -29,6 +29,7 @@ from app.errors.codes import (
     ACCESS_TOKEN_EXPIRED,
     AUTH_401_CODES,
     AUTH_403_CODES,
+    LENS_NOT_AVAILABLE,
     NOT_AVAILABLE,
     TOKEN_MISSING,
     auth_status_for,
@@ -198,6 +199,47 @@ def test_one_code_covers_both_unreachable_and_absent() -> None:
         if "NOT_FOUND" in code or "NOT_YOURS" in code or "FORBIDDEN" in code
     }
     assert not oracle_shaped, f"existence-oracle codes registered: {oracle_shaped}"
+
+
+#: The 403 codes that are NOT about reaching a resource. Today exactly
+#: one: ``LENS_NOT_AVAILABLE`` says the ACCOUNT holds no such lens at
+#: all, which is a fact about the caller rather than about a thing they
+#: asked for, so it discloses nothing about which ids exist.
+ALLOWED_NON_RESOURCE = frozenset({LENS_NOT_AVAILABLE})
+
+
+def test_exactly_one_resource_refusal_code_is_registered() -> None:
+    """Every resource-level 403 is the one shared code [D3, § 4].
+
+    **Deliberately a set DIFFERENCE and not a whole-set equality.**
+    ``AUTH_403_CODES`` holds two members today and ``LENS_NOT_AVAILABLE``
+    is not an oracle, so an equality against ``{NOT_AVAILABLE}`` would
+    fail against a perfectly correct registry -- and the fix a future
+    reader would reach for is deleting the assertion.
+
+    What the property actually says is narrower and is the thing worth
+    holding: once the non-resource members are set aside, the resource
+    refusals are **exactly one code**. A second resource-flavoured 403 --
+    ``FEE_CYCLE_NOT_FOUND`` beside ``NOT_AVAILABLE`` -- fails this,
+    which is the whole point: D3 adds fee cycles, claims and payment
+    destinations, every one of them a new thing somebody could be
+    tempted to mint a dedicated refusal for.
+
+    :return: None
+    """
+    assert AUTH_403_CODES - ALLOWED_NON_RESOURCE == {NOT_AVAILABLE}
+
+
+def test_the_non_resource_allowlist_is_not_vacuous() -> None:
+    """Each allowlisted code is really registered.
+
+    Without this, a rename would silently empty the allowlist and the
+    assertion above would start passing for the wrong reason -- the
+    narrowing-control failure this project has already found twice.
+
+    :return: None
+    """
+    assert ALLOWED_NON_RESOURCE <= AUTH_403_CODES
 
 
 def test_a_403_never_carries_a_401_only_code() -> None:

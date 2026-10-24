@@ -207,4 +207,77 @@
     <string name="guardian_child_in_batch">%1$s · %2$s</string>
     <string name="guardian_empty_title">Nothing to show yet</string>
     <string name="guardian_empty_body">When a teacher records you as a guardian and you accept, that student appears here.</string>
+
+    <!-- D3: fees, claims and verification.
+
+         Every amount placeholder is filled by Numerals.money, which
+         emits Latin digits under this locale and under Bangla alike
+         [BR6.6] - the server's Money.format agrees, so one amount
+         cannot render in two digit sets depending on which surface
+         drew it.
+
+         The four fee statuses are SERVER-decided [BR6.1]. There is
+         deliberately no "due" or "paid" string chosen by the client:
+         a fully waived cycle has a zero balance and is not paid, and
+         a two-value client-side test cannot say so. -->
+    <string name="fees_empty">No fee has been charged yet.</string>
+    <string name="fees_total_outstanding">Outstanding: %1$s</string>
+    <string name="fees_outstanding_total">Owes %1$s</string>
+    <string name="fees_outstanding_of_charged">%1$s of %2$s outstanding</string>
+    <string name="fees_due_on">Due %1$s</string>
+    <string name="fees_status_paid">Paid</string>
+    <string name="fees_status_partly_paid">Partly paid</string>
+    <string name="fees_status_unpaid">Unpaid</string>
+    <string name="fees_status_waived">Waived</string>
+    <string name="batch_fees_empty">No student owes anything.</string>
+    <string name="fees_remind">Send a reminder</string>
+    <string name="fees_never_reminded">Never reminded</string>
+
+    <!-- The payment form. Identical for a student and a guardian
+         [AC6.2.1]; only the lens differs, and the lens is resolved
+         server-side.
+
+         payment_ask_teacher is shown INSTEAD of the destination step
+         where the teacher set no collection number [NFR14.34], rather
+         than beside a blank field. -->
+    <string name="payment_confirm_child">%1$s · %2$s</string>
+    <string name="payment_send_to">Send the payment to %1$s</string>
+    <string name="payment_ask_teacher">Your teacher has not set a payment number. Ask them how to pay, then record it here.</string>
+    <string name="payment_amount_label">Amount paid</string>
+    <string name="payment_reference_label">Transaction reference</string>
+    <string name="payment_submit">Record this payment</string>
+
+    <!-- What happened to a reported payment. The rejection must reach
+         the submitter [BR5.6], and a corrected verification must reach
+         the student and guardian as well as the teacher [BR5.7]. -->
+    <string name="claims_empty">You have not reported a payment yet.</string>
+    <string name="claim_claimed_amount">%1$s by %2$s</string>
+    <string name="claim_approved_amount">Accepted: %1$s</string>
+    <string name="fees_claim_pending">Waiting for your teacher</string>
+    <string name="fees_claim_approved_full">Accepted in full</string>
+    <string name="fees_claim_approved_partial">Accepted in part</string>
+    <string name="fees_claim_rejected">Not accepted</string>
+    <string name="fees_claim_corrected">Your teacher changed this decision.</string>
+    <string name="fees_disposition_carried">The rest carries to next month</string>
+    <string name="fees_disposition_waived">The rest was waived</string>
+
+    <!-- Server message keys D3 adds. Each must exist here before the
+         app builds: the cross-surface gate publishes the backend's
+         keys and asserts a string for every one. -->
+    <string name="fees_not_available">That is not available.</string>
+    <string name="fees_resolution_not_set">No fee has been set for this class.</string>
+    <string name="fees_claim_no_open_cycle">There is nothing outstanding to pay right now.</string>
+    <string name="fees_claim_amount_not_positive">Enter an amount greater than zero.</string>
+    <string name="fees_claim_channel_unknown">Choose how you paid.</string>
+    <string name="fees_claim_not_found">That payment record is not available.</string>
+    <string name="fees_verification_amount_negative">Enter an amount of zero or more.</string>
+    <string name="fees_verification_disposition_required">Choose whether the rest carries forward or is waived.</string>
+    <string name="fees_verification_disposition_not_applicable">Nothing is left over, so there is nothing to carry or waive.</string>
+    <string name="fees_verification_disposition_unknown">That choice is not recognised.</string>
+    <string name="fees_verification_already_decided">Someone has already recorded a decision on this payment. Refresh to see it.</string>
+
+    <!-- The push reminder itself. The server names these keys and
+         never sends the text [TC-15, D-43]. -->
+    <string name="fees_reminder_title">Fee reminder</string>
+    <string name="fees_reminder_body">A fee is outstanding.</string>
 </resources>

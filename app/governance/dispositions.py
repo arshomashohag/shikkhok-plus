@@ -188,6 +188,76 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
             "Nobody else has a claim on it, so it goes with the account."
         ),
     ),
+    # -- D3's five tables -------------------------------------------
+    #
+    # Four of them cascade from `enrollment`, which is the table whose
+    # own disposition U11 resolves against the full schema. They are
+    # declared here against the same tension and deliberately do NOT
+    # pre-empt it: a fee a teacher charged is the teacher's business
+    # record and a child's personal data at the same time.
+    "fee_cycle": TableGovernance(
+        disposition=Disposition.RETAIN_WITH_BASIS,
+        retention=RetentionClass.LIFE_OF_ACCOUNT,
+        basis=(
+            "The record that a fee was owed for a period. It carries no "
+            "money column and no personal data at all -- five columns, "
+            "of which only the enrollment reference reaches a person -- "
+            "so retaining it after an erasure discloses nothing about "
+            "that person while leaving the teacher's record of what was "
+            "charged intact. The ledger it indexes is the thing with a "
+            "financial-record basis."
+        ),
+    ),
+    "ledger_entry": TableGovernance(
+        disposition=Disposition.RETAIN_WITH_BASIS,
+        retention=RetentionClass.LIFE_OF_ACCOUNT,
+        basis=(
+            "A financial record of money a teacher charged and a family "
+            "paid, and the one table in this product where a deletion "
+            "would destroy a shared account of a transaction rather than "
+            "a person's own data. It is append-only by rule, so a "
+            "correction compensates rather than overwrites. It carries "
+            "no name, no phone number and no transaction reference -- "
+            "only an enrollment, a period, a kind and an amount."
+        ),
+    ),
+    "payment_claim": TableGovernance(
+        disposition=Disposition.RETAIN_WITH_BASIS,
+        retention=RetentionClass.LIFE_OF_ACCOUNT,
+        basis=(
+            "The claimant's assertion that they paid, and the teacher's "
+            "decision about it -- a shared record of a dispute, which is "
+            "the one thing the payment feature exists to provide. It is "
+            "the only D3 table holding something the CLAIMANT authored: "
+            "`transaction_id`, a handle on a real payment at a real "
+            "provider. Whether that reference survives the claimant's "
+            "deletion is OQ-1 and is the human's; the column is nullable "
+            "either way, so D6 nulls it in place rather than migrating."
+        ),
+    ),
+    "reminder_event": TableGovernance(
+        disposition=Disposition.HARD_DELETE,
+        retention=RetentionClass.MONTHS_12,
+        basis=(
+            "A record that the teacher nudged someone about a fee, "
+            "carrying a channel and an outcome and nothing a person "
+            "wrote. Nobody has a claim on it once the enrollment is "
+            "gone, and unlike the ledger it evidences no transaction, so "
+            "it is removed outright rather than retained."
+        ),
+    ),
+    "job_heartbeat": TableGovernance(
+        disposition=Disposition.HARD_DELETE,
+        retention=RetentionClass.LIFE_OF_ACCOUNT,
+        basis=(
+            "Operational telemetry about a scheduled job: when it last "
+            "succeeded and three per-run counts. It names no person, "
+            "holds no identifier and references no enrollment, so it "
+            "falls outside the privacy boundary entirely -- the only D3 "
+            "table that does. One row per job name forever, so it is "
+            "bounded and small and does not grow with users or time."
+        ),
+    ),
     "staging_sms_outbox": TableGovernance(
         disposition=Disposition.HARD_DELETE,
         retention=RetentionClass.DAYS_7,

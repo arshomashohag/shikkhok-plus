@@ -91,6 +91,54 @@ rather than editing the old one.
 | D2 | Create batch | — | *not yet checked* | `batch_create_created` (18) | |
 | D2 | Remove seat (confirm + two refusals) | — | *not yet checked* | `roster_remove_claimed_remedy` (145) | |
 | D2 | Guardian child home | `G1` | *not yet checked* | `guardian_empty_body` (96) | |
+| D3 | Fee history (student and guardian) | `G3` | *not yet checked* | `fees_empty` (25) | |
+| D3 | Batch fees (what each student owes) | `T5`, `S2` | *not yet checked* | `batch_fees_empty` (31) | |
+| D3 | Payment form | `S3` | *not yet checked* | `payment_ask_teacher` (93) | |
+| D3 | Claim outcomes (incl. the correction notice) | `T4`, `G3` | *not yet checked* | `fees_claim_corrected` (34) | |
+
+**D3's four rows are open for the same reason the eleven above are, and
+two of them carry a check the others do not.**
+
+The lengths were **computed from `values-bn/strings.xml` at the time of
+writing**, not taken from the reference list below and not estimated.
+This project's memory records a stage whose table asserted figures were
+measured when they were not, so the method is stated rather than
+implied.
+
+**The payment form is the row to check first.** `payment_ask_teacher`
+at 93 characters is the copy shown *instead of* the destination step
+where a teacher set no collection number [NFR14.34], so it lands in the
+space a number and a channel list would otherwise occupy — the most
+variable vertical space on any D3 screen. A checker should confirm it
+does not push the amount field below the fold on a small device.
+
+**Two D3 rows need a check nothing else in this table has needed: the
+digits inside them must stay Latin.** Every amount on these screens is
+rendered through `Numerals.money`, and the server's `Money.format`
+agrees [BR6.6] — so `৳1,25,400` is the intended result in Bangla, with
+Bengali text around Latin digits and a Bengali taka sign. Three specific
+things to confirm, each of which a well-meaning fix would break:
+
+- `fees_outstanding_of_charged` renders **two** amounts in one sentence
+  (`%2$s-এর মধ্যে %1$s বাকি`), with the placeholders in the opposite
+  order to the English. A reversed pair would read as the wrong figure
+  owed, not as a layout fault, and nothing automated would catch it.
+- `claim_claimed_amount` likewise reorders its two placeholders
+  (`%2$s-এ %1$s`), putting the channel before the amount.
+- Lakh grouping (`1,25,400`, not `125,400`) must survive, because
+  Western grouping reads as a different magnitude to a Bangladeshi
+  reader.
+
+**A checker who "corrects" any of those three is breaking the rule
+rather than the layout**, which is the same warning the accepted-count
+row below carries.
+
+**Nothing automated discharges these four rows.** The obligation is a
+check on a device in Bangla locale [team: Testing Posture], there is
+still no screenshot harness in the project, and code generation cannot
+perform one. Stated plainly because a manual verifier described without
+that sentence reads, to the next person, as a verifier [project.md,
+learned 2026-10-23].
 
 **D2's six rows are open for the same reason D1's five are**, and they
 are added here with the exact string each check must use so the gap is a

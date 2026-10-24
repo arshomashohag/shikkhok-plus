@@ -44,6 +44,50 @@ object MessageKeys {
         // cross-surface gate requires a string for it even though a
         // production build can never receive it.
         "staging.outbox.empty" to R.string.staging_outbox_empty,
+        // D3: fees, claims and verification. Every key the backend
+        // publishes needs a string here before this app builds, which
+        // is what keeps a new raise site from shipping a backend that
+        // is correct beside an app rendering a generic fallback -- a
+        // failure that looks like a working error message and is
+        // therefore never reported.
+        "fees.not_available" to R.string.fees_not_available,
+        "fees.resolution.not_set" to R.string.fees_resolution_not_set,
+        "fees.claim.no_open_cycle" to R.string.fees_claim_no_open_cycle,
+        "fees.claim.amount_not_positive" to
+            R.string.fees_claim_amount_not_positive,
+        "fees.claim.channel_unknown" to R.string.fees_claim_channel_unknown,
+        "fees.claim.not_found" to R.string.fees_claim_not_found,
+        "fees.verification.amount_negative" to
+            R.string.fees_verification_amount_negative,
+        "fees.verification.disposition_required" to
+            R.string.fees_verification_disposition_required,
+        "fees.verification.disposition_not_applicable" to
+            R.string.fees_verification_disposition_not_applicable,
+        "fees.verification.disposition_unknown" to
+            R.string.fees_verification_disposition_unknown,
+        "fees.verification.already_decided" to
+            R.string.fees_verification_already_decided,
+        // The four server-decided fee statuses [BR6.1]. The mapper
+        // names these keys and the screen renders them; a fifth
+        // status fails the mapper rather than rendering as a default.
+        "fees.status.paid" to R.string.fees_status_paid,
+        "fees.status.partly_paid" to R.string.fees_status_partly_paid,
+        "fees.status.unpaid" to R.string.fees_status_unpaid,
+        "fees.status.waived" to R.string.fees_status_waived,
+        // The four claim statuses [BR6.3] and the two dispositions.
+        "fees.claim.pending" to R.string.fees_claim_pending,
+        "fees.claim.approved_full" to R.string.fees_claim_approved_full,
+        "fees.claim.approved_partial" to R.string.fees_claim_approved_partial,
+        "fees.claim.rejected" to R.string.fees_claim_rejected,
+        "fees.claim.corrected" to R.string.fees_claim_corrected,
+        "fees.disposition.carried" to R.string.fees_disposition_carried,
+        "fees.disposition.waived" to R.string.fees_disposition_waived,
+        // The destination copy shown where no number is set.
+        "fees.destination.ask_teacher" to R.string.payment_ask_teacher,
+        // The push reminder's own keys. The server names them and
+        // never sends the text [TC-15, D-43].
+        "fees.reminder.title" to R.string.fees_reminder_title,
+        "fees.reminder.body" to R.string.fees_reminder_body,
     )
 
     /**

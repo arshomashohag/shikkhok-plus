@@ -24,7 +24,9 @@ import datetime as dt
 import uuid
 
 from sqlalchemy import (
+    JSON,
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
     ForeignKey,
@@ -64,19 +66,91 @@ _DECISION = PgEnum(
     create_type=False,
 )
 
+#: The seven ledger kinds, closed [ADR-002]. Spelled here as strings
+#: rather than imported from :class:`app.money.LedgerEntryKind` because
+#: this is the DATABASE type's value list and migration ``0005`` owns the
+#: type's lifecycle; the two are asserted equal by a test rather than
+#: collapsed into one declaration, so a kind added to the enumeration
+#: without a migration fails loudly instead of silently diverging.
+LEDGER_KIND_VALUES: tuple[str, ...] = (
+    "charge",
+    "receipt",
+    "carry_forward",
+    "carried_out",
+    "forgiveness",
+    "credit_grant",
+    "credit_apply",
+)
+
+_LEDGER_KIND = PgEnum(
+    *LEDGER_KIND_VALUES,
+    name="ledger_entry_kind",
+    create_type=False,
+)
+
+#: What a claimant is shown [BR6.3]. Server-set at verification.
+CLAIM_STATUS_VALUES: tuple[str, ...] = (
+    "pending",
+    "approved_full",
+    "approved_partial",
+    "rejected",
+)
+
+_CLAIM_STATUS = PgEnum(
+    *CLAIM_STATUS_VALUES,
+    name="payment_claim_status",
+    create_type=False,
+)
+
+#: The teacher's choice on approving less than was CHARGED [BR5.4].
+#: Two values and no third: a default would silently choose for the
+#: teacher and the two have opposite consequences for the student.
+DISPOSITION_VALUES: tuple[str, ...] = ("carried", "waived")
+
+_DISPOSITION = PgEnum(
+    *DISPOSITION_VALUES,
+    name="shortfall_disposition",
+    create_type=False,
+)
+
+#: A reminder's delivery outcome [BR7.2]. ``pending`` exists because the
+#: event commits BEFORE the push is dispatched: writing it afterwards
+#: loses the record of a send that happened if the process dies between
+#: the two, and a flag cannot express a failed send at all.
+REMINDER_OUTCOME_VALUES: tuple[str, ...] = ("pending", "sent", "failed")
+
+_REMINDER_OUTCOME = PgEnum(
+    *REMINDER_OUTCOME_VALUES,
+    name="reminder_outcome",
+    create_type=False,
+)
+
+#: The one job name the heartbeat carries in V1 [NFR25.9].
+FEE_GENERATION_JOB = "fee_cycle_generation"
+
 __all__ = [
+    "CLAIM_STATUS_VALUES",
     "DECISION_VALUES",
+    "DISPOSITION_VALUES",
+    "FEE_GENERATION_JOB",
+    "LEDGER_KIND_VALUES",
+    "REMINDER_OUTCOME_VALUES",
     "Account",
     "AuthAuditLog",
     "Batch",
     "BatchSubject",
     "Enrollment",
+    "FeeCycle",
     "HiddenBatchPreference",
+    "JobHeartbeat",
+    "LedgerEntryRow",
     "OtpRequest",
     "Owner",
+    "PaymentClaim",
     "Profile",
     "RateLimitCounter",
     "RefreshToken",
+    "ReminderEvent",
     "ScheduleSlot",
     "VerifyAttempt",
 ]
@@ -611,3 +685,341 @@ class HiddenBatchPreference(Base):
     __table_args__ = (
         UniqueConstraint("account_id", "batch_id", name="uq_hidden_batch_preference"),
     )
+
+
+class FeeCycle(Base):
+    """One enrollment's obligation for one period.
+
+    **Deliberately thin, and the thinness is the design** [BR1.2]. Five
+    columns and not one of them is money -- not charged, not paid, not
+    outstanding, not a status. Every such quantity is derived by folding
+    :class:`LedgerEntryRow` rows through ``app.money.derive``. A money
+    column here would be a second source of truth that drifts from the
+    entries producing it, silently and in the direction of whichever
+    write path forgot to update it.
+
+    The column set is asserted by a test rather than claimed in this
+    docstring, on the project's standing rule that where a comment states
+    a fact the fact is a claim and something must check it.
+
+    **The unique constraint is the whole idempotency mechanism**
+    [BR1.3, FR5.4]. Generation inserts with ``ON CONFLICT DO NOTHING``
+    and the conflict is the SUCCESS path, never an error. This follows
+    :class:`RateLimitCounter`'s built precedent: the second worker
+    conflicts instead of reading a stale value. An application-level
+    "has this already run?" guard passes a sequential test and
+    double-charges under the two workers Phase 1 has.
+
+    :ivar id: Surrogate key
+    :ivar enrollment_id: The seat this obligation belongs to
+    :ivar period: The calendar month as ``YYYY-MM``
+    :ivar due_date: The computed due date after the short-month clamp,
+        stored so a later change to the batch anchor does not move a due
+        date a student has already been shown
+    :ivar created_at: When the cycle was generated
+    """
+
+    __tablename__ = "fee_cycle"
+
+    id: Mapped[uuid.UUID] = _uuid_column()
+    enrollment_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("enrollment.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    period: Mapped[str] = mapped_column(String(7), nullable=False)
+    due_date: Mapped[dt.date] = mapped_column(Date, nullable=False)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "enrollment_id",
+            "period",
+            name="uq_fee_cycle_enrollment_period",
+        ),
+        Index("ix_fee_cycle_enrollment_id", "enrollment_id"),
+    )
+
+
+class PaymentClaim(Base):
+    """A claim that money was paid out of band, and its verification.
+
+    One table rather than two, because one claim has at most one
+    verification and the verification is a decision *about* that claim.
+    FR9.2 requires the previous decision to be retained and visible,
+    which is a column on the thing corrected rather than a second row.
+
+    **A claim is an ASSERTION and a charge is the OBLIGATION.** That
+    distinction is why the shortfall is measured against what the cycle
+    CHARGED and never against what was claimed [BR5.3]: measuring against
+    the claim would let a payer change what they owe by changing what
+    they assert.
+
+    ``claimed_amount`` is **not capped** at the outstanding balance
+    [BR5.2]. Money may genuinely have been overpaid out of band, and
+    blocking an over-claim at submission makes a real overpayment
+    unreportable -- leaving a phone call as the only route, which is the
+    thing this feature exists to remove.
+
+    :ivar id: Surrogate key
+    :ivar enrollment_id: The seat the claim is against
+    :ivar period: The period the claim resolved to at submission --
+        the oldest unpaid cycle, resolved once and stored
+    :ivar claimed_amount: What the claimant says they paid
+    :ivar channel: Which service the money moved through
+    :ivar transaction_id: The reference the claimant quotes; nullable
+        regardless of how OQ-1 is answered
+    :ivar submitted_by_account_id: Who submitted it
+    :ivar submitted_at: When it was submitted
+    :ivar status: The server-set outcome the claimant is shown
+    :ivar approved_amount: What the teacher accepted; null while pending
+    :ivar shortfall_disposition: Carried or waived, required when the
+        approval is below the charge and null when it is not
+    :ivar verified_by_account_id: Who decided
+    :ivar verified_at: When they decided
+    :ivar previous_decision: The prior decision, retained on a correction
+        and visible to the teacher AND to the student and guardian
+    """
+
+    __tablename__ = "payment_claim"
+
+    id: Mapped[uuid.UUID] = _uuid_column()
+    enrollment_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("enrollment.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    period: Mapped[str] = mapped_column(String(7), nullable=False)
+    claimed_amount: Mapped[Money] = mapped_column(MoneyColumn, nullable=False)
+    channel: Mapped[str] = mapped_column(String(32), nullable=False)
+    transaction_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    submitted_by_account_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("account.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    submitted_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    # NO default, in Python or in the database, on the same reasoning as
+    # the decision columns: every insert path states the claim's initial
+    # status rather than inheriting one.
+    status: Mapped[str] = mapped_column(_CLAIM_STATUS, nullable=False)
+    approved_amount: Mapped[Money | None] = mapped_column(MoneyColumn, nullable=True)
+    shortfall_disposition: Mapped[str | None] = mapped_column(
+        _DISPOSITION, nullable=True
+    )
+    verified_by_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("account.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    verified_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    previous_decision: Mapped[dict[str, object] | None] = mapped_column(
+        JSON, nullable=True
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "claimed_amount > 0",
+            name="ck_payment_claim_claimed_amount_positive",
+        ),
+        CheckConstraint(
+            "approved_amount IS NULL OR approved_amount >= 0",
+            name="ck_payment_claim_approved_amount_non_negative",
+        ),
+        Index("ix_payment_claim_enrollment_id", "enrollment_id"),
+        Index("ix_payment_claim_status", "status"),
+    )
+
+
+class LedgerEntryRow(Base):
+    """One append-only movement of money against an enrollment.
+
+    **The persisted counterpart of ``app.money.LedgerEntry``**, which is
+    a value *shape* owning no table, no row, no identifier and no
+    supersession. Named ``LedgerEntryRow`` rather than ``LedgerEntry``
+    precisely so the two cannot be confused at a call site: one is what
+    an entry MEANS arithmetically, the other is where it lives.
+
+    ``period`` is a **plain string, not a foreign key** to
+    :class:`FeeCycle`, and the reason is a real case. A
+    ``carry_forward`` lands on the receiving period, and at the moment a
+    teacher approves a short January payment the February cycle row does
+    not exist yet. Keying the entry to a cycle row would force generation
+    to run before a carry could be written, which inverts the
+    dependency -- and ``period`` is the opaque key the money module folds
+    on, with no calendar knowledge of its own.
+
+    ``amount`` is **always non-negative; the sign lives in the kind**
+    [BR3.4]. The value type refuses a negative already; the table carries
+    its own ``CHECK`` because the fold never sees a row a migration or a
+    repair script inserted.
+
+    ``superseded_by_id`` **drives what a teacher SEES, not what the
+    balance IS** [BR3.3]. The fold sums every row including superseded
+    ones and their compensations, because a compensating pair sums to
+    zero.
+
+    :ivar id: Surrogate key
+    :ivar enrollment_id: The ledger balances at enrollment level, which
+        is why credit belongs here and not to a cycle
+    :ivar period: The period this entry sits in, as ``YYYY-MM``
+    :ivar kind: One of the seven, closed
+    :ivar amount: A non-negative amount
+    :ivar payment_claim_id: The verification that produced this entry,
+        so a guardian can be shown what happened to their payment
+    :ivar superseded_by_id: The compensating entry, on a correction
+    :ivar created_by_account_id: Who caused this entry; NULL for the
+        generation job, which is the honest value -- nobody did
+    :ivar created_at: When the entry was appended
+    """
+
+    __tablename__ = "ledger_entry"
+
+    id: Mapped[uuid.UUID] = _uuid_column()
+    enrollment_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("enrollment.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    period: Mapped[str] = mapped_column(String(7), nullable=False)
+    kind: Mapped[str] = mapped_column(_LEDGER_KIND, nullable=False)
+    amount: Mapped[Money] = mapped_column(MoneyColumn, nullable=False)
+    payment_claim_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("payment_claim.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    superseded_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("ledger_entry.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    created_by_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("account.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+    __table_args__ = (
+        CheckConstraint("amount >= 0", name="ck_ledger_entry_amount_non_negative"),
+        Index("ix_ledger_entry_enrollment_id", "enrollment_id"),
+        Index("ix_ledger_entry_enrollment_period", "enrollment_id", "period"),
+        Index("ix_ledger_entry_payment_claim_id", "payment_claim_id"),
+    )
+
+
+class ReminderEvent(Base):
+    """One fee reminder, recorded as an event and not as a flag.
+
+    **An event, because a boolean cannot express channel, a failed send,
+    or a second reminder** [BR7.1, FR10.3], and would force a migration
+    the moment a second channel arrives. The teacher-facing "reminded 3
+    days ago" / "Never reminded" state is derived as the latest event per
+    ``(enrollment, period)``.
+
+    ``outcome`` carries ``pending`` as well as ``sent`` and ``failed``
+    because the row is committed BEFORE the push is dispatched
+    [reliability-design § 5]. The order is the opposite of the intuitive
+    one deliberately: writing the event after a successful dispatch loses
+    the record of a send that happened if the process dies in between.
+
+    A failed send is **recorded, not swallowed** [BR7.2]. Best-effort
+    delivery is the project's stated exception to "silent failures are
+    not acceptable", and that exception covers not SURFACING the failure;
+    it does not cover failing to record it, which is why ``outcome`` is a
+    column.
+
+    :ivar id: Surrogate key
+    :ivar enrollment_id: The seat the reminder was about
+    :ivar period: The period being chased, as ``YYYY-MM``
+    :ivar channel: V1 ships ``push`` only; the column exists so a second
+        channel is data rather than a migration
+    :ivar sent_at: When the reminder was dispatched
+    :ivar sent_by_account_id: The teacher who sent it
+    :ivar outcome: ``pending`` before dispatch, then ``sent`` or
+        ``failed``
+    """
+
+    __tablename__ = "reminder_event"
+
+    id: Mapped[uuid.UUID] = _uuid_column()
+    enrollment_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("enrollment.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    period: Mapped[str] = mapped_column(String(7), nullable=False)
+    channel: Mapped[str] = mapped_column(String(32), nullable=False)
+    sent_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    sent_by_account_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("account.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    outcome: Mapped[str] = mapped_column(_REMINDER_OUTCOME, nullable=False)
+
+    __table_args__ = (
+        Index("ix_reminder_event_enrollment_period", "enrollment_id", "period"),
+    )
+
+
+class JobHeartbeat(Base):
+    """When a scheduled job last succeeded, and what it did.
+
+    **The mechanism behind the absence-of-success alert** [NFR25.9], and
+    the most important row in the unit. D3 is the first thing in this
+    product that acts without a user, and the failure that matters is not
+    a job that fails loudly -- it is a job that *stops existing*.
+    Self-healing is what makes that silence invisible: the system looks
+    healthy right up to the moment somebody notices nobody has been
+    billed since March.
+
+    Four properties, each answering a way this could be built uselessly:
+
+    * **Written by the job, not by the scheduler.** A scheduler firing a
+      command that immediately crashes would still stamp a timer-level
+      heartbeat. This row means *the work ran*.
+    * **One row, updated in place.** The question is "when did this last
+      succeed", which is a single value; an append-only run log would
+      answer the same question and grow unboundedly.
+    * **The counts ride along**, because they are in hand at the moment
+      the row is written and are queryable without a metrics backend.
+    * **A table, not a file and not process memory.** The instance is
+      replaced on every deploy -- the exact event the alert exists to
+      detect.
+
+    **A run that finds nothing due still writes the row**, with
+    ``cycles_created = 0`` [observability-design § 1.1a]. Generation is
+    monthly, so most days legitimately create nothing; stamping only on
+    ``> 0`` would leave the row stale for weeks during correct operation,
+    fire the 48-hour alert constantly, and get it muted -- reaching the
+    alert's own failure mode by the opposite route. The write is
+    unconditional on OUTCOME and conditional only on COMPLETION.
+
+    :ivar job_name: The job this row describes, and the primary key
+    :ivar last_success_at: When the job last completed
+    :ivar cycles_created: Cycles inserted on that run
+    :ivar cycles_skipped: Cycles that conflicted and did nothing
+    :ivar periods_failed: Enrollment-periods that raised and were skipped
+    """
+
+    __tablename__ = "job_heartbeat"
+
+    job_name: Mapped[str] = mapped_column(Text, primary_key=True)
+    last_success_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    cycles_created: Mapped[int] = mapped_column(Integer, nullable=False)
+    cycles_skipped: Mapped[int] = mapped_column(Integer, nullable=False)
+    periods_failed: Mapped[int] = mapped_column(Integer, nullable=False)

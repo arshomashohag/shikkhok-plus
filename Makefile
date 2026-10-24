@@ -164,7 +164,9 @@ test:
 		--cov=app.api --cov=app.audit --cov=app.auth --cov=app.authz \
 		--cov=app.batches \
 		--cov=app.config --cov=app.contract --cov=app.db --cov=app.errors \
+		--cov=app.fees \
 		--cov=app.gateway --cov=app.governance --cov=app.main \
+		--cov=app.notifications \
 		--cov=app.schemas \
 		--cov-report=term-missing --cov-fail-under=80 \
 		--cov-config=.coveragerc-backend

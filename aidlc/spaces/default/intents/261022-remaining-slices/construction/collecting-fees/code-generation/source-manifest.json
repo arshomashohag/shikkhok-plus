@@ -1,0 +1,226 @@
+{
+  "stage": "code-generation",
+  "unit": "collecting-fees",
+  "version": 1,
+  "writes": [
+    {
+      "path": "Makefile"
+    },
+    {
+      "path": "android/coverage-floor.txt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/core/network/FeeDto.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/auth/MessageKeys.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/fees/FeeStateMapper.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/fees/FeeUiState.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/fees/ui/BatchFeesScreen.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/fees/ui/ClaimStatusScreen.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/fees/ui/FeeHistoryScreen.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/fees/ui/PaymentFormScreen.kt"
+    },
+    {
+      "path": "android/src/main/res/values-bn/strings.xml"
+    },
+    {
+      "path": "android/src/main/res/values/strings.xml"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/fees/FeeDtoTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/fees/FeeScreenTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/fees/FeeStateMapperTest.kt"
+    },
+    {
+      "path": "app/api/fees.py"
+    },
+    {
+      "path": "app/contract/collection_number.py"
+    },
+    {
+      "path": "app/contract/money_names.py"
+    },
+    {
+      "path": "app/db/models.py"
+    },
+    {
+      "path": "app/fees/__init__.py"
+    },
+    {
+      "path": "app/fees/balances.py"
+    },
+    {
+      "path": "app/fees/claims.py"
+    },
+    {
+      "path": "app/fees/commands.py"
+    },
+    {
+      "path": "app/fees/generation.py"
+    },
+    {
+      "path": "app/fees/ledger_writer.py"
+    },
+    {
+      "path": "app/fees/periods.py"
+    },
+    {
+      "path": "app/fees/reminders.py"
+    },
+    {
+      "path": "app/fees/resolution.py"
+    },
+    {
+      "path": "app/fees/status.py"
+    },
+    {
+      "path": "app/fees/verification.py"
+    },
+    {
+      "path": "app/fees/views.py"
+    },
+    {
+      "path": "app/governance/dispositions.py"
+    },
+    {
+      "path": "app/main.py"
+    },
+    {
+      "path": "app/money/__init__.py"
+    },
+    {
+      "path": "app/money/_money.py"
+    },
+    {
+      "path": "app/notifications/__init__.py"
+    },
+    {
+      "path": "app/notifications/fcm.py"
+    },
+    {
+      "path": "app/schemas/fees.py"
+    },
+    {
+      "path": "docs/delivery/bangla-layout-check.md"
+    },
+    {
+      "path": "message-keys.json"
+    },
+    {
+      "path": "migrations/versions/0005_fee_system.py"
+    },
+    {
+      "path": "openapi.json"
+    },
+    {
+      "path": "pyproject.toml"
+    },
+    {
+      "path": "tests/auth/test_endpoints.py"
+    },
+    {
+      "path": "tests/contract/test_collection_number.py"
+    },
+    {
+      "path": "tests/contract/test_error_contract.py"
+    },
+    {
+      "path": "tests/contract/test_money_allowlists.py"
+    },
+    {
+      "path": "tests/db/test_migration_from_head.py"
+    },
+    {
+      "path": "tests/db/test_migration_runs.py"
+    },
+    {
+      "path": "tests/fees/conftest.py"
+    },
+    {
+      "path": "tests/fees/test_carry.py"
+    },
+    {
+      "path": "tests/fees/test_claims.py"
+    },
+    {
+      "path": "tests/fees/test_commands.py"
+    },
+    {
+      "path": "tests/fees/test_credit.py"
+    },
+    {
+      "path": "tests/fees/test_decline_semantics.py"
+    },
+    {
+      "path": "tests/fees/test_fee_privacy.py"
+    },
+    {
+      "path": "tests/fees/test_generation.py"
+    },
+    {
+      "path": "tests/fees/test_generation_across_days.py"
+    },
+    {
+      "path": "tests/fees/test_generation_races.py"
+    },
+    {
+      "path": "tests/fees/test_inactive_from.py"
+    },
+    {
+      "path": "tests/fees/test_periods.py"
+    },
+    {
+      "path": "tests/fees/test_query_count.py"
+    },
+    {
+      "path": "tests/fees/test_resolution.py"
+    },
+    {
+      "path": "tests/fees/test_status_enum.py"
+    },
+    {
+      "path": "tests/fees/test_verification.py"
+    },
+    {
+      "path": "tests/fees/test_verification_races.py"
+    },
+    {
+      "path": "tests/money/test_format.py"
+    },
+    {
+      "path": "tests/named_tests.toml"
+    },
+    {
+      "path": "tests/notifications/__init__.py"
+    },
+    {
+      "path": "tests/notifications/conftest.py"
+    },
+    {
+      "path": "tests/notifications/test_boundary.py"
+    },
+    {
+      "path": "tests/notifications/test_fcm.py"
+    },
+    {
+      "path": "tests/fees/test_verification_api.py"
+    }
+  ]
+}

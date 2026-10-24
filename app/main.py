@@ -64,6 +64,7 @@ def _register_routes(app: FastAPI) -> None:
     from app.api.accounts import router as accounts_router
     from app.api.auth import router as auth_router
     from app.api.batches import router as batches_router
+    from app.api.fees import router as fees_router
     from app.api.health import router as health_router
     from app.api.me import router as me_router
 
@@ -76,6 +77,7 @@ def _register_routes(app: FastAPI) -> None:
         accounts_router,
         auth_router,
         batches_router,
+        fees_router,
         health_router,
         me_router,
     ):
@@ -164,6 +166,21 @@ def _publish_shared_components(app: FastAPI) -> None:
 
     This stays until a Unit whose routes genuinely reference them lands,
     at which point it becomes a no-op rather than a lie.
+
+    **That Unit is D3, and this is now a no-op** [functional-spec § 8].
+    U4 made ``Money`` referenced by real response properties, and D3's
+    nine fee routes declare their 400, 401, 403 and 409 responses
+    against ``ErrorEnvelope`` — so both components would be emitted
+    whether or not this function ran.
+
+    It is **kept rather than deleted**, and the reason is the one this
+    docstring already gave: a Unit whose routes stopped referencing
+    either would silently drop it from the committed contract, and the
+    diff gate would pass over the absence. ``test_the_injection_is_now
+    _redundant`` asserts the no-op is real rather than claimed, so the
+    sentence above cannot quietly become false again — which is this
+    project's rule that a comment stating a fact needs something
+    checking it.
 
     :param app: The application whose schema is being built
     :return: None

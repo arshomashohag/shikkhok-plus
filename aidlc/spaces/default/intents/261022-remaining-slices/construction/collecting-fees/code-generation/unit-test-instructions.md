@@ -39,6 +39,18 @@ behaviour are the things under test, and SQLite emulates none of them. Without
 Docker the whole suite skips and still exits zero, so a green run would mean
 the money paths were never checked.
 
+### Verified at the start of the build, 2026-10-24
+
+| Check | Result |
+|---|---|
+| `docker info` | **reachable** — the integration suite will really run |
+| Baseline backend suite | **730 passed** |
+| Baseline money-module branch coverage | **100.00%**, `fail_under = 100` holding |
+| `tests/fees`, `tests/notifications` | did not exist; both are created by this unit |
+
+Recorded because the alternative — a green run on a machine without Docker —
+is indistinguishable from a passing suite in the exit status alone.
+
 ---
 
 ## Framework and configuration

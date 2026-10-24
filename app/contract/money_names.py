@@ -59,6 +59,16 @@ NON_MONEY_COLUMNS: Final[dict[tuple[str, str], str]] = {
         "time, which is U7's arithmetic -- the column must admit them or "
         "the clamp never runs. Matches both 'fee' and 'due'."
     ),
+    ("fee_cycle", "due_date"): (
+        "A DATE, not an amount [BR2.2]. It is the computed due date "
+        "after the short-month clamp, stored rather than recomputed so a "
+        "later change to the batch's anchor day does not retroactively "
+        "move a due date a student has already been shown. Matches both "
+        "'fee' (from the table name's column prefix) and 'due'. The "
+        "table it sits on carries NO money column of any kind, which is "
+        "itself asserted by a test over the column set, so there is no "
+        "money value on fee_cycle for this exemption to hide."
+    ),
 }
 
 #: Response-schema properties that match a money token and carry
@@ -74,6 +84,21 @@ NON_MONEY_FIELDS: Final[dict[tuple[str, str], str]] = {
     ),
     ("BatchUpdateRequest", "fee_due_day"): (
         "The same value on the edit path [AC2.3.1]."
+    ),
+    ("FeeCycleResponse", "due_date"): (
+        "A DATE crossing the wire, not an amount [BR2.2]. It is the "
+        "computed due date after the short-month clamp. The schema it "
+        "sits on carries two genuine money properties -- `charged` and "
+        "`outstanding` -- and BOTH reference the shared Money "
+        "component, so this exemption narrows the gate by exactly one "
+        "field that was never money. Matches both 'fee' and 'due'."
+    ),
+    ("RosterFeeRowResponse", "due_date"): (
+        "The same computed date on the teacher's roster view. Named "
+        "separately because the gate matches (schema, field) pairs, so "
+        "an exemption can never widen beyond the one property it was "
+        "reasoned about -- and this schema's `outstanding` is real "
+        "money and still checked."
     ),
 }
 
