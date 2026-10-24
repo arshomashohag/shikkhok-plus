@@ -425,8 +425,20 @@ resource "aws_iam_role_policy" "self_registration" {
       {
         # Read-only, and unscopable: Route53 does not support resource
         # scoping on these, so they are account-level by design.
-        Effect   = "Allow"
-        Action   = ["route53:GetChange", "route53:ListResourceRecordSets"]
+        #
+        # `ListHostedZones` is here for certbot's DNS-01 challenge,
+        # which looks the zone up by name before it can write the
+        # `_acme-challenge` record. Without it the plugin fails at
+        # `AccessDenied ... ListHostedZones` before reaching the write
+        # that IS zone-scoped above, so the narrow write permission
+        # alone does not make DNS-01 work. Listing zones discloses
+        # zone names and nothing within them.
+        Effect = "Allow"
+        Action = [
+          "route53:GetChange",
+          "route53:ListResourceRecordSets",
+          "route53:ListHostedZones",
+        ]
         Resource = "*"
       },
     ]
