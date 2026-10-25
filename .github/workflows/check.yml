@@ -179,9 +179,31 @@ jobs:
           fi
           echo "Docker $(docker info --format '{{.ServerVersion}}') available."
 
-      # Steps 3-10. One command, identical to the local one.
-      - name: make check
-        run: make check
+      # Steps 3-10. The Python half of `make check`.
+      #
+      # **Not bare `make check`, and the reason is the job split above.**
+      # `check: lint typecheck test android android-quality` — so a bare
+      # `make check` here runs the ENTIRE Android build a second time,
+      # duplicating everything the `android-unit` job is running in
+      # parallel, from a cold cache with no `setup-java` and no
+      # `setup-gradle` in this job.
+      #
+      # That is what cancelled run 40202019691 on 2026-10-25: pytest
+      # passed at 92.55% coverage with ~9.5 of the 10 minutes gone,
+      # Gradle then started from scratch, and the job was terminated 38
+      # seconds later still downloading a toolchain. The tell was two
+      # orphaned `java` processes killed at `Complete job` in a job that
+      # installs no JDK.
+      #
+      # Splitting the jobs was pointless while this line reunited them:
+      # a Kotlin failure here would still have failed the backend job,
+      # which is exactly what the split exists to prevent.
+      #
+      # `make check` stays whole for LOCAL use, where one command
+      # covering both surfaces is the point and there is no parallel job
+      # to duplicate.
+      - name: make check (python half)
+        run: make lint typecheck test
 
   android-unit:
     name: android-unit
