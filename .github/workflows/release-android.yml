@@ -223,17 +223,41 @@ jobs:
           # is what this step refuses to accept for the bundle, for the
           # same reason. An unsigned APK installs nowhere and the failure
           # would surface on a pilot teacher's phone rather than here.
+          #
+          # **apksigner, NOT the META-INF scan used for the AAB above.**
+          # That scan looks for a v1 (JAR) signature block. The AAB is a
+          # JAR and carries one; an APK at `minSdk 24` does not, because
+          # AGP disables v1 from 24 and signs with v2/v3, which live in
+          # the APK Signing Block between the entries and the central
+          # directory -- somewhere `unzip -l` cannot see.
+          #
+          # Found the hard way: run 40210575959 failed here on a
+          # correctly signed APK. The first version of this check was a
+          # copy of the AAB's and could never have passed, which is the
+          # worse failure of the two it was trying to prevent.
           apk=$(find android/build/outputs/apk/release -name '*.apk' | head -1)
           [ -n "$apk" ] || { echo "::error::No APK under android/build/outputs/apk/release"; exit 1; }
 
-          if ! unzip -l "$apk" | grep -q "META-INF/.*\.RSA\|META-INF/.*\.EC"; then
-            echo "::error::The APK carries no signature block."
-            echo "Gradle produced an UNSIGNED APK, which installs on no"
-            echo "device. Check that ANDROID_KEYSTORE_PATH reached the"
-            echo "build -- an absent keystore makes signing a no-op."
+          # apksigner ships in build-tools; take the highest version
+          # present rather than pinning one the runner image may drop.
+          # ANDROID_HOME and ANDROID_SDK_ROOT are both conventional and
+          # the ubuntu image has set each at different times, so try
+          # both rather than depending on which one is current.
+          sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          [ -n "$sdk" ] || { echo "::error::Neither ANDROID_HOME nor ANDROID_SDK_ROOT is set"; exit 1; }
+
+          apksigner=$(find "$sdk/build-tools" -name apksigner -type f \
+            | sort -V | tail -1)
+          [ -n "$apksigner" ] || { echo "::error::apksigner not found under $sdk/build-tools"; exit 1; }
+
+          if ! "$apksigner" verify "$apk"; then
+            echo "::error::The APK is not validly signed."
+            echo "apksigner rejected it, so it installs on no device."
+            echo "Check that ANDROID_KEYSTORE_PATH reached the build --"
+            echo "an absent keystore makes signing a no-op."
             exit 1
           fi
-          echo "APK signature block present: $(basename "$apk")"
+          echo "APK signature verified: $(basename "$apk")"
 
       # **The download-size gate** [NFR2.11-NFR2.16, NFR2.21].
       #
