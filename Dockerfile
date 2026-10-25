@@ -17,7 +17,7 @@
 # boot migrates once per replica, races itself, and gives the operator
 # no place to stop between the backup and the schema change.
 
-FROM python:3.12-slim-bookworm AS build
+FROM python:3.15-slim-bookworm AS build
 
 # Fail the build on a non-zero exit anywhere in a pipeline, not just the
 # last command. Without this a failed download followed by a successful
@@ -42,7 +42,7 @@ RUN python -m venv /venv \
     && /venv/bin/pip install --no-cache-dir '.[api]'
 
 
-FROM python:3.12-slim-bookworm AS runtime
+FROM python:3.15-slim-bookworm AS runtime
 
 # libpq5 is the RUNTIME library psycopg links against -- the -dev
 # package from the build stage is not needed and is not installed.
