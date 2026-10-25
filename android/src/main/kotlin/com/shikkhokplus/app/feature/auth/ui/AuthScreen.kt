@@ -9,6 +9,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -48,6 +49,7 @@ fun AuthScreen(
     onRequestCode: (String) -> Unit,
     onSubmitCode: (String) -> Unit,
     onRetry: () -> Unit,
+    onGoToSignup: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var phone by remember { mutableStateOf("") }
@@ -62,11 +64,32 @@ fun AuthScreen(
         when (state) {
             AuthUiState.Idle,
             is AuthUiState.Failed,
-            -> PhoneEntry(
-                phone = phone,
-                onPhoneChange = { phone = it },
-                onSubmit = { onRequestCode(phone) },
-            )
+            -> {
+                PhoneEntry(
+                    phone = phone,
+                    onPhoneChange = { phone = it },
+                    onSubmit = { onRequestCode(phone) },
+                )
+
+                // **The way out of the dead end.** The code-sent
+                // message says one is on its way "if this number is
+                // registered", which is literally true and left a
+                // person whose teacher had not recorded them with
+                // nowhere to go: `SignupScreen` shipped in D1 and
+                // nothing could open it.
+                //
+                // A TextButton rather than a second filled one: there
+                // is one primary action on this screen and it is
+                // requesting the code. Signing up is the path for the
+                // minority who need it, and competing emphasis would
+                // make the common case harder to see.
+                TextButton(
+                    onClick = onGoToSignup,
+                    modifier = Modifier.testTag(TAG_GO_TO_SIGNUP),
+                ) {
+                    Text(text = stringResource(R.string.auth_go_to_signup))
+                }
+            }
 
             AuthUiState.Sending -> CircularProgressIndicator(
                 modifier = Modifier.testTag(TAG_SENDING),
@@ -169,4 +192,7 @@ const val TAG_REQUEST_CODE = "auth_request_code"
 const val TAG_RETRY = "auth_retry"
 const val TAG_ERROR = "auth_error"
 const val TAG_SENDING = "auth_sending"
+
+/** The link to self-registration, for a number no teacher recorded. */
+const val TAG_GO_TO_SIGNUP = "auth_go_to_signup"
 const val TAG_SIGNED_IN = "auth_signed_in"

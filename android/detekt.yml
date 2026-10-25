@@ -98,7 +98,13 @@ complexity:
     # A composable is a declarative tree, so its length measures the screen
     # rather than its complexity. Splitting one to satisfy a line count
     # produces worse code, not better.
-    excludes: ['**/designsystem/**', '**/ui/**', '**/MainActivity.kt']
+    #
+    # `**/navigation/**` joins them for the same reason, not as an
+    # exception to it: a NavHost is one declarative tree whose length
+    # measures how many destinations exist. Splitting it into
+    # `firstHalfOfTheGraph` and `secondHalfOfTheGraph` would satisfy
+    # the count and make the graph harder to read.
+    excludes: ['**/designsystem/**', '**/ui/**', '**/navigation/**', '**/MainActivity.kt']
   LongParameterList:
     active: true
     functionThreshold: 7
@@ -131,7 +137,9 @@ naming:
   FunctionNaming:
     active: true
     functionPattern: '[a-z][a-zA-Z0-9]*'
-    excludes: ['**/designsystem/**', '**/ui/**', '**/MainActivity.kt', '**/test/**']
+    # Composables are PascalCase by Compose convention, which this
+    # pattern cannot express. `**/navigation/**` holds composables too.
+    excludes: ['**/designsystem/**', '**/ui/**', '**/navigation/**', '**/MainActivity.kt', '**/test/**']
 
 potential-bugs:
   UnsafeCallOnNullableType:

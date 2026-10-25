@@ -8,6 +8,7 @@ import androidx.compose.ui.test.performTextInput
 import com.shikkhokplus.app.feature.auth.ui.AuthScreen
 import com.shikkhokplus.app.core.designsystem.TAG_OTP_FIELD as TAG_CODE_FIELD
 import com.shikkhokplus.app.feature.auth.ui.TAG_ERROR
+import com.shikkhokplus.app.feature.auth.ui.TAG_GO_TO_SIGNUP
 import com.shikkhokplus.app.feature.auth.ui.TAG_PHONE_FIELD
 import com.shikkhokplus.app.feature.auth.ui.TAG_REQUEST_CODE
 import com.shikkhokplus.app.feature.auth.ui.TAG_RETRY
@@ -43,6 +44,7 @@ class AuthScreenTest {
         onRequestCode: (String) -> Unit = {},
         onSubmitCode: (String) -> Unit = {},
         onRetry: () -> Unit = {},
+        onGoToSignup: () -> Unit = {},
     ) {
         compose.setContent {
             AuthScreen(
@@ -50,6 +52,7 @@ class AuthScreenTest {
                 onRequestCode = onRequestCode,
                 onSubmitCode = onSubmitCode,
                 onRetry = onRetry,
+                onGoToSignup = onGoToSignup,
             )
         }
     }
@@ -162,5 +165,36 @@ class AuthScreenTest {
         // again without navigating back.
         render(AuthUiState.Failed("error.network.unreachable", retryable = true))
         compose.onNodeWithTag(TAG_PHONE_FIELD).assertIsDisplayed()
+    }
+
+    @Test
+    fun `the phone screen offers a way to register`() {
+        // **The dead end this closes.** The code-sent copy says a code
+        // is on its way "if this number is registered", which is
+        // literally true and told a person whose teacher had not
+        // recorded them nothing they could act on. SignupScreen shipped
+        // in D1 and no route reached it, so the honest answer to "how
+        // do I register?" was that you could not.
+        render(AuthUiState.Idle)
+        compose.onNodeWithTag(TAG_GO_TO_SIGNUP).assertIsDisplayed()
+    }
+
+    @Test
+    fun `the register link calls back only when tapped`() {
+        var opened = 0
+        render(AuthUiState.Idle, onGoToSignup = { opened++ })
+        assertEquals(0, opened, "rendering must not navigate")
+
+        compose.onNodeWithTag(TAG_GO_TO_SIGNUP).performClick()
+        assertEquals(1, opened)
+    }
+
+    @Test
+    fun `the register link is absent once a code has been sent`() {
+        // Registering mid-verification would abandon a code already
+        // sent, and the person at this point has a number the server
+        // accepted -- so the path out is the code, not a new account.
+        render(AuthUiState.AwaitingCode)
+        compose.onNodeWithTag(TAG_GO_TO_SIGNUP).assertDoesNotExist()
     }
 }
