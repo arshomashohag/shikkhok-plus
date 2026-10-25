@@ -1,0 +1,141 @@
+{
+  "stage": "code-generation",
+  "unit": "d5-knowing-how-it-is-going",
+  "note": "Plan-stage traceability: each row names the build step of code-generation-plan.md section 2 that implements the rule and the test module of unit-test-instructions.md that verifies it. Code does not exist yet, so no row claims a measured result. D5 creates no table and adds no money arithmetic, so the migration and concurrency rows D1-D4 carried are absent by design. Four Deferred rows, each naming an obligation awaiting a human decision or carrying no automated verifier. Zero GAP rows.",
+  "upstream_ids": [
+    "BR1.1",
+    "BR1.2",
+    "BR1.3",
+    "BR1.4",
+    "BR1.5",
+    "BR1.6",
+    "BR1.7",
+    "BR2.1",
+    "BR2.2",
+    "BR2.3",
+    "BR2.4",
+    "BR2.5",
+    "BR2.6",
+    "BR3.1",
+    "BR3.2",
+    "BR3.3",
+    "BR3.4",
+    "BR4.1",
+    "BR4.2",
+    "BR4.3",
+    "BR4.4",
+    "BR4.5"
+  ],
+  "coverage": [
+    {
+      "id": "BR1.1",
+      "status": "OK",
+      "target": "plan section 3 app/analytics/dues.py, build step 3. Verifier: tests/analytics/test_dues.py - three seats across two batches with outstanding 0, 500 and 1200 produce exactly two rows carrying their own batch names. Test-first"
+    },
+    {
+      "id": "BR1.2",
+      "status": "OK",
+      "target": "plan section 3 seats.py - NO predicate on inactive_from. Verifier: tests/analytics/test_dues_membership.py with a seat that is BOTH inactive AND owing, because a test using only active owing seats passes against a query carrying the predicate. Half of Bolt 5's confidence hypothesis. Test-first"
+    },
+    {
+      "id": "BR1.3",
+      "status": "OK",
+      "target": "plan section 3 dues.py - a seat owing nothing is absent whether active or not. Verifier: the same module, asserted TOGETHER with BR1.2 because the two are opposite halves of one predicate and a test covering one passes against an implementation failing the other"
+    },
+    {
+      "id": "BR1.4",
+      "status": "OK",
+      "target": "plan section 8 - no cache, no rollup, no generate step. Verifier: record a receipt clearing a balance, re-read in the same test, assert the row is gone with no intervening job"
+    },
+    {
+      "id": "BR1.5",
+      "status": "OK",
+      "target": "plan section 4 - an empty collection with a 200, never a 404. Verifier: tests/analytics/test_absences.py, which asserts status AND shape because not-a-200 passes against every wrong answer"
+    },
+    {
+      "id": "BR1.6",
+      "status": "OK",
+      "target": "plan section 3 - two statements and an in-memory fold, with dues.py holding NO session so the per-seat loop cannot reach a query. Verifier: tests/analytics/test_query_count.py growing BATCHES PER TEACHER, not seats per batch, because a seat-growing test passes against a per-batch loop. Test-first"
+    },
+    {
+      "id": "BR1.7",
+      "status": "OK",
+      "target": "plan section 3 seats.py - student_decision <> declined, the one clause besides ownership that D5 shares with D4's roster. Verifier: a probe with a declined seat THAT OWES MONEY"
+    },
+    {
+      "id": "BR2.1",
+      "status": "OK",
+      "target": "plan section 2 step 2, app/analytics/earnings.py - receipt plus credit_grant, never credit_apply. Verifier: unit-test-instructions section 3.1 asserts the TOTAL at 2000 and specifically not 2500, because month 1 reads 1500 under BOTH the correct fold and the double-count defect. Test-first"
+    },
+    {
+      "id": "BR2.2",
+      "status": "OK",
+      "target": "plan section 4 - zero returned as a value, never a null or an absent field. Verifier: test_absences.py, one row of four"
+    },
+    {
+      "id": "BR2.3",
+      "status": "OK",
+      "target": "plan section 4 - fewer than two months returns no trend. Verifier: tests/analytics/test_trend.py as two cases, because one can pass while the other fails"
+    },
+    {
+      "id": "BR2.4",
+      "status": "OK",
+      "target": "plan section 3 - ordered ascending IN THE QUERY, never sorted in the client. Verifier: the order asserted in the response, not in the client"
+    },
+    {
+      "id": "BR2.5",
+      "status": "OK",
+      "target": "plan section 3 seats.py - scoped by the lens owner_id, never an id from the request. Verifier: tests/privacy/test_analytics_probes.py asserting the figure VALUE against seeded data, with teacher B seeded so a leak CHANGES A's answer. Test-first"
+    },
+    {
+      "id": "BR2.6",
+      "status": "OK",
+      "target": "plan section 3 earnings.py - grouped by the period key, never created_at. Verifier: tests/analytics/test_period_grouping.py with a late-recorded payment AND a carry_forward, the second because a carry lands on the RECEIVING period so created_at scatters carries even when no payment is late. Test-first"
+    },
+    {
+      "id": "BR3.1",
+      "status": "OK",
+      "target": "plan section 3 upcoming.py - the soonest exam dated today or later. Verifier: tests/analytics/test_upcoming.py with the boundary case that today counts and yesterday does not"
+    },
+    {
+      "id": "BR3.2",
+      "status": "OK",
+      "target": "plan section 3 - whole days computed server-side, never from the device clock. Verifier: exams dated today, tomorrow and in seven days report 0, 1 and 7"
+    },
+    {
+      "id": "BR3.3",
+      "status": "OK",
+      "target": "plan section 3 - ORDER BY date, created_at, id with LIMIT 1, so the tiebreaker is a property of the query rather than of code applied after fetching. Verifier: two exams on one date return the same exam across repeated reads"
+    },
+    {
+      "id": "BR3.4",
+      "status": "OK",
+      "target": "plan section 4 - an absent next exam with a 200, not an error. Verifier: test_absences.py, one row of four"
+    },
+    {
+      "id": "BR4.1",
+      "status": "Deferred",
+      "target": "plan section 8 - NO collection_rate field while OQ-2 is open. Verifier: the field's absence from the generated OpenAPI document. What is open is narrow and is NOT that the arithmetic is unwritten: FR8.3's definition is annotated open to correction and AC8.3.4's credit rule postdates it. The plan's Assumptions add that BR2.1 and AC8.3.4 take OPPOSITE sides on when a credit counts, so closing OQ-2 is also deciding whether two figures on one screen may use different month conventions. FOR THE HUMAN"
+    },
+    {
+      "id": "BR4.2",
+      "status": "OK",
+      "target": "plan section 1 - no table, no column, no migration. Verifier: a file check that migrations/versions carries no new revision, plus dispositions.py still at 25"
+    },
+    {
+      "id": "BR4.3",
+      "status": "OK",
+      "target": "plan section 3 - every amount from the built derive() or a sum of Money values; nothing added to app/money. Verifier: the built import-boundary checks, which fail make check on raw decimal outside app/money"
+    },
+    {
+      "id": "BR4.4",
+      "status": "OK",
+      "target": "plan section 4 - both routes resolve a teacher lens and declare an EMPTY parameter list, asserted as a plain predicate rather than a judgement about whether a name denotes a resource. PUBLIC_ROUTES untouched at eight with the count asserted twice. Verifier: the built route-enumeration test, the built privacy gate, and a new schema assertion"
+    },
+    {
+      "id": "BR4.5",
+      "status": "OK",
+      "target": "plan section 5 - a row per screen in docs/delivery/bangla-layout-check.md for the two screens this unit adds. Verifier: a file check; a screen with no row means an incomplete unit. The earnings figure is the string to check hardest"
+    }
+  ]
+}

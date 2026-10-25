@@ -1,0 +1,605 @@
+{
+  "stage": "nfr-requirements",
+  "unit": "teaching-and-recording",
+  "note": "upstream_ids are the NFRs this record adds (NFR20-NFR23); the product's base NFR1-NFR19 and NFR24-NFR26 live in the prior record 261016-shikhokplus-tuition-app and are traced in `reverse`. NFRx.y IDs are GLOBAL across units. D4's derived IDs were recomputed at this stage across BOTH records and the whole aidlc/ and docs/ trees, and start above the high-water mark each base reached after D3: NFR1 from .6, NFR2 from .6, NFR5 from .2, NFR6 from .40, NFR10 from .18, NFR14 from .48, NFR16 from .5, NFR17 from .4, NFR18 from .6, NFR19 from .29, NFR20 from .24, NFR24 from .13, NFR25 from .18, NFR26 from .7. 114 IDs were minted and checked mechanically for collisions against every prior use; none collides. A bare NFR6.32, NFR6.39, NFR14.36, NFR14.41, NFR18.3, NFR19.8, NFR20.18, NFR25.9 or NFR26.5 in these artifacts is a CITATION of a prior unit's requirement, never an ID defined here. D4 is typed `service` and `ui`, so all six documents apply.",
+  "upstream_ids": [
+    "NFR20",
+    "NFR21",
+    "NFR22",
+    "NFR23"
+  ],
+  "coverage": [
+    {
+      "id": "NFR20",
+      "status": "OK",
+      "target": "NFR20.24 - NFR20.30 - cost tracks the requesting account's own data: every roster, session-list, marksheet and progress read issues a constant number of statements however large the roster"
+    },
+    {
+      "id": "NFR21",
+      "status": "OK",
+      "target": "NFR20.26, NFR20.28, NFR6.41 - no cached summary and no denormalised count; the marksheet is computed per request and attendance is accepted unaggregated at roughly a million rows a year"
+    },
+    {
+      "id": "NFR22",
+      "status": "OK",
+      "target": "NFR20.25, NFR20.27 - session, mark and attendance data arrive when the relevant screen is opened; D4 adds nothing eager to login"
+    },
+    {
+      "id": "NFR23",
+      "status": "OK",
+      "target": "NFR6.44, NFR6.45, NFR6.50, NFR6.53 - the version guard decides whether a stale roster is applied, which is an authorization-shaped wrong answer under the affirmed test-first predicate, and it is tested concurrently rather than sequentially"
+    }
+  ],
+  "reverse": [
+    {
+      "id": "NFR1.6",
+      "status": "N/A",
+      "target": "BR1.1 and D3's commands.py - session generation is a second management command on the JobHeartbeat mechanism, not a new scheduling technology"
+    },
+    {
+      "id": "NFR1.7",
+      "status": "N/A",
+      "target": "team Deployment and D3's tech-stack - the cron entry is installed by user_data.sh.tftpl, never by hand, because the ASG refreshes on every deploy and a hand-added entry is wiped silently"
+    },
+    {
+      "id": "NFR1.8",
+      "status": "N/A",
+      "target": "NFR25.23 - the two jobs' freshness is tracked under separate names, so a healthy fee run cannot mask a session job that never fired"
+    },
+    {
+      "id": "NFR2.6",
+      "status": "N/A",
+      "target": "BR7.4 and Q14.3 answer C - NO latency target, budget or timing assertion for the attendance path. The requirement was dropped; the prior requirements.md line 210 reads 'Deliberately absent'"
+    },
+    {
+      "id": "NFR2.7",
+      "status": "N/A",
+      "target": "AC3.1.4 and AC3.1.5 - what stands in place of a latency target is structural: default-present, and one atomic roster write"
+    },
+    {
+      "id": "NFR2.8",
+      "status": "N/A",
+      "target": "BR3.1 and BR3.2 - a composed roster renders as queued without the server being reachable at all"
+    },
+    {
+      "id": "NFR2.9",
+      "status": "N/A",
+      "target": "NFR2 - the queue's storage choice is constrained by the 15 MB AAB ceiling and the minSdk 24, 2 GB-RAM floor"
+    },
+    {
+      "id": "NFR5.2",
+      "status": "N/A",
+      "target": "NFR5.1 and BR3.2 - exactly four states, each distinct and visible"
+    },
+    {
+      "id": "NFR5.3",
+      "status": "N/A",
+      "target": "BR3.1 and AC3.1.3 - a queued item is NEVER rendered as confirmed. This is the mechanical negation of what project.md's NEVER protects"
+    },
+    {
+      "id": "NFR5.4",
+      "status": "N/A",
+      "target": "NFR5 and FR3.6 - exactly two paths queue, attendance and the topic log. Every other write fails with a retry prompt"
+    },
+    {
+      "id": "NFR5.5",
+      "status": "N/A",
+      "target": "AC3.1.10 - failed and conflicted render differently, because one means try again and the other means look at what changed"
+    },
+    {
+      "id": "NFR5.6",
+      "status": "N/A",
+      "target": "BR3.2 and AC3.1.9 - persisted to device storage, surviving process death. An in-memory queue loses the roster exactly when Android kills a backgrounded app mid-class"
+    },
+    {
+      "id": "NFR5.7",
+      "status": "N/A",
+      "target": "NFR5.1 - sync is automatic on reconnect; resolving a conflict is not, because it needs the teacher's decision"
+    },
+    {
+      "id": "NFR5.8",
+      "status": "N/A",
+      "target": "BR3.6 and ADR-006 - a refused write becomes conflicted and never failed, and the offline entry is retained. Nothing merged, nothing silently applied or discarded"
+    },
+    {
+      "id": "NFR5.9",
+      "status": "N/A",
+      "target": "BR3.7 and contract-summary B.8 - re-apply carries a FRESH client_mutation_id. Reusing the old id makes re-apply an idempotent no-op that reports success and changes nothing"
+    },
+    {
+      "id": "NFR5.10",
+      "status": "N/A",
+      "target": "tech-stack 2 - the queue file is written atomically via temp-and-rename, the one durability property the serialized-file option does not get for free"
+    },
+    {
+      "id": "NFR5.11",
+      "status": "N/A",
+      "target": "NFR11 and the project ALWAYS-rule - the queue holds no device or advertising identifier; the existing DEX scan and manifest allowlist are unaffected"
+    },
+    {
+      "id": "NFR5.12",
+      "status": "N/A",
+      "target": "tech-stack 2 - the queue is NOT encrypted at rest, stated as a decision. It holds enrollment ids and booleans, not a credential. Flagged for the human"
+    },
+    {
+      "id": "NFR6.40",
+      "status": "N/A",
+      "target": "NFR6 - D4 does not move the scale ceiling"
+    },
+    {
+      "id": "NFR6.41",
+      "status": "N/A",
+      "target": "BR6.2 and entities.md - attendance is the fastest-growing table at roughly a million rows a year at the ceiling, accepted without partitioning because every read is key-scoped"
+    },
+    {
+      "id": "NFR6.42",
+      "status": "N/A",
+      "target": "contract-summary B.7 and BR3.4 - attendance_submission grows at AT LEAST one row per session held and is never pruned; both guarantees it carries evaporate if old rows are deleted"
+    },
+    {
+      "id": "NFR6.43",
+      "status": "N/A",
+      "target": "BR4.4 and BR4.5 - mark is append-only with a supersession chain, so corrections add rows rather than replacing them"
+    },
+    {
+      "id": "NFR6.44",
+      "status": "N/A",
+      "target": "BR3.4 - of N racing writes exactly one applies and N-1 are refused; the version ends at V+1 and not V+N. THE unit's central guarantee"
+    },
+    {
+      "id": "NFR6.45",
+      "status": "N/A",
+      "target": "BR3.4 - a sequential test may not discharge NFR6.44. A version-guarded write passes every sequential test against an implementation with NO guard, because nothing contends"
+    },
+    {
+      "id": "NFR6.46",
+      "status": "N/A",
+      "target": "BR3.3 and contract-summary B.8 - a conditional UPDATE, not a lock; zero rows affected means someone else won. The contender is a stale request, not a concurrent one"
+    },
+    {
+      "id": "NFR6.47",
+      "status": "N/A",
+      "target": "BR3.4 and entities.md - UNIQUE (session_id, resulting_version) is the second independent guarantee, surviving a later rewrite of the conditional update into a read-then-write"
+    },
+    {
+      "id": "NFR6.48",
+      "status": "N/A",
+      "target": "ADR-006 and contract-summary B.8 - session-level granularity is inherited, and its cost is accepted explicitly: two devices on different students in one session DO conflict"
+    },
+    {
+      "id": "NFR6.49",
+      "status": "N/A",
+      "target": "entities.md - topic_version is a separate counter, so a topic write and a roster write do not manufacture a conflict over disjoint columns"
+    },
+    {
+      "id": "NFR6.50",
+      "status": "N/A",
+      "target": "BR3.8 and contract-summary B.7 - concurrent duplicate mutation ids produce one row and one increment. Distinct from NFR6.44: this races the SAME decision twice"
+    },
+    {
+      "id": "NFR6.51",
+      "status": "N/A",
+      "target": "BR1.3 - generation idempotency is UNIQUE (batch_id, date, start_time) with ON CONFLICT DO NOTHING, assertable only concurrently"
+    },
+    {
+      "id": "NFR6.52",
+      "status": "N/A",
+      "target": "BR1.1 and BR1.4 - safe across days as well as threads; the horizon is a function of the calendar, not of the last run"
+    },
+    {
+      "id": "NFR6.53",
+      "status": "N/A",
+      "target": "BR4.5 - the partial unique index makes concurrent mark corrections safe; two cannot both leave a live row"
+    },
+    {
+      "id": "NFR6.54",
+      "status": "N/A",
+      "target": "BR3.11 - interactive writes carry no version and cannot conflict. Stating this is what stops the queued-path rule from spreading"
+    },
+    {
+      "id": "NFR6.55",
+      "status": "N/A",
+      "target": "NFR6.39 - correctness does not depend on running exactly once, so no leader election or distributed locking is needed"
+    },
+    {
+      "id": "NFR6.56",
+      "status": "N/A",
+      "target": "infra/modules/app/main.tf lines 331-333 - the absence of double-firing depends on desired_capacity = 1, and the constraint is the safety net if that ever changes"
+    },
+    {
+      "id": "NFR6.57",
+      "status": "N/A",
+      "target": "OC-4 and NFR7 - D4 adds no compute, tier or managed service; the session job is a second cron entry on the existing host"
+    },
+    {
+      "id": "NFR6.58",
+      "status": "N/A",
+      "target": "BR3.6 - no queue-size ceiling or eviction policy, because a ceiling needs a discard rule and discarding a composed roster is what BR3.6 forbids"
+    },
+    {
+      "id": "NFR10.18",
+      "status": "N/A",
+      "target": "BR6.1 and app/governance/dispositions.py - ONE TableGovernance entry per new table, six of them. RETENTION is derived at lines 279-281, so there is no second map to keep in step"
+    },
+    {
+      "id": "NFR10.19",
+      "status": "N/A",
+      "target": "BR6.1 and the Disposition docstring - RETAIN_WITH_BASIS for attendance, exam and mark; values transcribed from the prior catalogue, with attendance_submission taking attendance's"
+    },
+    {
+      "id": "NFR10.20",
+      "status": "N/A",
+      "target": "RC-8 and D-29 - children's data encrypted at rest. Restated because D4 is the unit that first makes 'children's data' literal"
+    },
+    {
+      "id": "NFR14.48",
+      "status": "N/A",
+      "target": "BR5.2 - the six named readers each filter on their decision column, each with an adversarial probe asserting the refusal rather than only the success"
+    },
+    {
+      "id": "NFR14.49",
+      "status": "N/A",
+      "target": "BR7.2 - a guardian requesting a non-child enrollment gets NOT_AVAILABLE byte-identical to an invented id. The verifier is an equality assertion; two separate refusal assertions pass while the bodies differ"
+    },
+    {
+      "id": "NFR14.50",
+      "status": "N/A",
+      "target": "BR5.1 and app/contract/routes.py - every D4 route resolves a lens, by the built route-enumeration test. D4 adds no PUBLIC_ROUTES entry"
+    },
+    {
+      "id": "NFR14.51",
+      "status": "N/A",
+      "target": "BR5.3 and app/contract/privacy.py - no profile field or account identifier reaches a teacher. A roster is literally a list of people, which is why this bites hardest here"
+    },
+    {
+      "id": "NFR14.52",
+      "status": "N/A",
+      "target": "NFR14.36 - D4's six tables take lens-scoped queries plus adversarial probes, no RLS policy. Verified: profile is the only policy, at migration 0001 lines 261-266, and no D4 table has a column naming its reader"
+    },
+    {
+      "id": "NFR14.53",
+      "status": "N/A",
+      "target": "The NFR14.52 decision is revisited if any D4 table gains a column identifying a reader directly"
+    },
+    {
+      "id": "NFR14.54",
+      "status": "N/A",
+      "target": "entities.md - attendance_submission.submitted_by_account_id names the WRITER, not a permitted reader, and no read is scoped by it. Stated because it is the one apparent counter-example to NFR14.52"
+    },
+    {
+      "id": "NFR14.55",
+      "status": "N/A",
+      "target": "BR6.2 - the marksheet returns the viewer's own named mark plus aggregates, and no row attributable to another student"
+    },
+    {
+      "id": "NFR14.56",
+      "status": "N/A",
+      "target": "BR6.3 - no published band holds fewer than three. A band of one IS a named mark, with the name supplied by anyone in the room"
+    },
+    {
+      "id": "NFR14.57",
+      "status": "N/A",
+      "target": "BR6.4 - no comparison below five marked results, and none while any seat is not_entered. A test per condition; one test varying both passes while either check alone is implemented"
+    },
+    {
+      "id": "NFR14.58",
+      "status": "N/A",
+      "target": "BR6.5 - every aggregate is scoped to one batch. A cross-batch aggregate discloses a batch the viewer is not enrolled in"
+    },
+    {
+      "id": "NFR14.59",
+      "status": "N/A",
+      "target": "BR5.4 - toggle off returns NO marksheet at all, not an empty one. An empty marksheet still discloses that exams exist and how many"
+    },
+    {
+      "id": "NFR14.60",
+      "status": "N/A",
+      "target": "BR5.4 - the toggle is written through exactly one route under an owner-scoped teacher lens"
+    },
+    {
+      "id": "NFR14.61",
+      "status": "N/A",
+      "target": "contract-summary B.7 - client_mutation_id on exactly the four named writes, two of which are D4's. Generalising it to all writes would contradict a deliberate decision"
+    },
+    {
+      "id": "NFR14.62",
+      "status": "N/A",
+      "target": "contract-summary B.7 - a replay of ANOTHER account's mutation id is an AuthorizationError, not a silent success. The natural implementation looks up the id, finds a row, and returns it"
+    },
+    {
+      "id": "NFR14.63",
+      "status": "N/A",
+      "target": "BR3.8 and contract-summary B.7 - the replay returns the original with 200 and created_at UNCHANGED, so a replay is observably a replay. A row-count assertion passes against an in-place overwrite"
+    },
+    {
+      "id": "NFR14.64",
+      "status": "N/A",
+      "target": "BR3.10 - authorization precedes the version check. The conflict body carries current_state, which IS the roster, so the order is what stops an error body handing a stranger the class's attendance"
+    },
+    {
+      "id": "NFR16.5",
+      "status": "N/A",
+      "target": "NFR16 and D-26 - additive under /v1/. Mark.result_state is a four-value enum a client switches on, so a fifth value is a breaking change under B.1.1"
+    },
+    {
+      "id": "NFR17.4",
+      "status": "N/A",
+      "target": "pyproject.toml - D4 adds no backend dependency; the conditional update, the partial index and the concurrency tests all use what exists"
+    },
+    {
+      "id": "NFR17.5",
+      "status": "N/A",
+      "target": "pyproject.toml lines 222-225 - app.authz.* IS a configured strict island, contrary to team.md. Verified by reading the file; D1 also added a fourth island on app.accounts.*"
+    },
+    {
+      "id": "NFR17.6",
+      "status": "N/A",
+      "target": "team Testing Posture - real PostgreSQL 16 via testcontainers, because the partial index, ON CONFLICT, the affected-row count and RLS are the behaviours under test and SQLite emulates none"
+    },
+    {
+      "id": "NFR17.7",
+      "status": "N/A",
+      "target": "android/coverage.gradle.kts and android/coverage-floor.txt - the Kotlin ratchet is live at 52.54 and applies to D4's Kotlin"
+    },
+    {
+      "id": "NFR17.8",
+      "status": "N/A",
+      "target": "BR7.5 and TC-15 - seven new screens, each needing a row in docs/delivery/bangla-layout-check.md. No screenshot harness exists, so the layout itself has NO automated verifier"
+    },
+    {
+      "id": "NFR18.6",
+      "status": "N/A",
+      "target": "NFR18.3 - D4 states no availability target of its own; the product has set none and a figure invented now would be derived from nothing"
+    },
+    {
+      "id": "NFR18.7",
+      "status": "N/A",
+      "target": "BR1.1 - the generation job's availability requirement is daily, not continuous, and must not inherit the API's posture"
+    },
+    {
+      "id": "NFR18.8",
+      "status": "N/A",
+      "target": "team Deployment and D-9 - deploys outside classroom hours. D4 makes the reason literal: a dropped attendance write during a live class"
+    },
+    {
+      "id": "NFR19.29",
+      "status": "N/A",
+      "target": "BR3.5 and AC3.1.5 - the submission row, the version increment and every attendance row commit together. A per-student write leaves attendance half-saved with nothing on screen able to reconcile it"
+    },
+    {
+      "id": "NFR19.30",
+      "status": "N/A",
+      "target": "BR4.4 - the new mark and the old row's superseded_by_id commit together; a committed half leaves two live marks or a seat whose result vanished"
+    },
+    {
+      "id": "NFR19.31",
+      "status": "N/A",
+      "target": "BR1.7 - a reschedule UPDATEs the row and never delete-and-recreates, which would silently discard the topic and attendance"
+    },
+    {
+      "id": "NFR19.32",
+      "status": "N/A",
+      "target": "BR1.3 and NFR19.8 - generation commits per occurrence, so a partial failure costs only the uncommitted remainder"
+    },
+    {
+      "id": "NFR19.33",
+      "status": "N/A",
+      "target": "entities.md - both guarantees are database constraints on the one row per write that can carry them. B.7 places the key on Attendance, where a roster's many rows share one id and it cannot be unique"
+    },
+    {
+      "id": "NFR19.34",
+      "status": "N/A",
+      "target": "BR3.8 - a replay returns the original with 200, writes no second row, does not increment, and leaves created_at unmoved"
+    },
+    {
+      "id": "NFR19.35",
+      "status": "N/A",
+      "target": "app/errors/_classes.py - no new exception class. ConflictError's docstring already states the semantic, and retryable is read off the type"
+    },
+    {
+      "id": "NFR19.36",
+      "status": "N/A",
+      "target": "contract-summary B.8 - the conflict carries expected_version, current_version and current_state; without the state the conflict screen cannot render and the item is a dead end"
+    },
+    {
+      "id": "NFR19.37",
+      "status": "N/A",
+      "target": "app/main.py lines 144-182 - every D4 route declares its error responses, continuing D3's closing of the published-but-unreferenced ErrorEnvelope stopgap"
+    },
+    {
+      "id": "NFR19.38",
+      "status": "N/A",
+      "target": "BR1.6 and BR5.5 - a write to a cancelled session or an inactive batch is a ConflictError, because the request is well-formed and the current state forbids it"
+    },
+    {
+      "id": "NFR19.39",
+      "status": "N/A",
+      "target": "BR1.3 - running generation any number of times on any number of days is safe by construction"
+    },
+    {
+      "id": "NFR19.40",
+      "status": "N/A",
+      "target": "BR1.4 - generation never deletes, never updates and never touches ad_hoc rows. A job that reconciles rather than inserts deletes the Saturday class and its attendance"
+    },
+    {
+      "id": "NFR19.41",
+      "status": "N/A",
+      "target": "app/db/models.py:977 and app/fees/commands.py - the heartbeat is written on COMPLETION, unconditionally on outcome, so a run creating zero sessions still writes it"
+    },
+    {
+      "id": "NFR19.42",
+      "status": "N/A",
+      "target": "app/fees/commands.py - runnable by hand with no required arguments, because that is the recovery procedure when the freshness alert fires"
+    },
+    {
+      "id": "NFR19.43",
+      "status": "N/A",
+      "target": "BR7.3, NFR4 and AC3.4.3 - every schedule and topic read carries a server timestamp, because a client cannot state an age the server never sent without using the device clock"
+    },
+    {
+      "id": "NFR19.44",
+      "status": "N/A",
+      "target": "contract-summary G and NFR19.24 - push is best-effort, logged and not surfaced, and D4 reuses D3's FCM adapter rather than building a second one"
+    },
+    {
+      "id": "NFR19.45",
+      "status": "N/A",
+      "target": "functional-spec 2.2 - an unrecorded past session stays `scheduled` rather than becoming held by the clock, so it stays visible rather than silently historical"
+    },
+    {
+      "id": "NFR19.46",
+      "status": "N/A",
+      "target": "BR6.1 and tests/db/test_governance.py - six tables in one migration, each with its entry, asserted in BOTH directions. The second direction catches a typo producing a stale entry rather than a missing one"
+    },
+    {
+      "id": "NFR19.47",
+      "status": "N/A",
+      "target": "team Deployment - forward-only, a distinct logged step, rehearsed on staging, preceded by a verified pg_dump. Six tables is the largest schema change after D3's four"
+    },
+    {
+      "id": "NFR20.24",
+      "status": "N/A",
+      "target": "BR1.5 - the roster read issues a constant number of statements regardless of roster size, verified by a statement-count assertion rather than a latency one"
+    },
+    {
+      "id": "NFR20.25",
+      "status": "N/A",
+      "target": "BR1.1 - the session list is constant in statements regardless of how many occurrences the horizon produced"
+    },
+    {
+      "id": "NFR20.26",
+      "status": "N/A",
+      "target": "BR4.5 and BR6.2 - the marksheet is one pass over one exam's live marks; the partial unique index makes 'the live mark per seat' a single indexed read"
+    },
+    {
+      "id": "NFR20.27",
+      "status": "N/A",
+      "target": "BR6.6 and team Code Style - guardian progress is ordered IN THE QUERY, never sorted client-side, which is also the second of the five named erosion paths"
+    },
+    {
+      "id": "NFR20.28",
+      "status": "N/A",
+      "target": "entities.md - no index beyond those the constraints already create. Its real verifier is review of the migration, stated plainly rather than implied"
+    },
+    {
+      "id": "NFR20.29",
+      "status": "N/A",
+      "target": "BR1.1 and NFR20.21 - generation's cost is bounded by batches x slots x occurrences, and a missed day adds NO work because the horizon follows the calendar"
+    },
+    {
+      "id": "NFR20.30",
+      "status": "N/A",
+      "target": "NFR20.22 and team Deployment - the job runs outside classroom hours because it contends for the single host the app serves from"
+    },
+    {
+      "id": "NFR24.13",
+      "status": "N/A",
+      "target": "NFR14 and RC-1 - no student or child name in any log line. D4 is the first unit whose core operation is a list of named children. NO automated verifier"
+    },
+    {
+      "id": "NFR24.14",
+      "status": "N/A",
+      "target": "RC-1 - no mark or exam result in any log line, at any level. NO automated verifier"
+    },
+    {
+      "id": "NFR24.15",
+      "status": "N/A",
+      "target": "BR3.10 - the conflict path must not log current_state, which IS the roster. The error body already carries it and the obvious implementation logs the error body"
+    },
+    {
+      "id": "NFR24.16",
+      "status": "N/A",
+      "target": "The positive half of NFR24.15 - mutation id and composed_at may be logged, so the conflict path stays debuggable"
+    },
+    {
+      "id": "NFR24.17",
+      "status": "N/A",
+      "target": "team Error handling - no traceback to a client, and no verbatim database error; a unique violation on attendance names the session and enrollment ids"
+    },
+    {
+      "id": "NFR24.18",
+      "status": "N/A",
+      "target": "FR9.2 and entities.md - the data IS the audit trail: a supersession chain for marks, a submission sequence for attendance, not a parallel log that drifts"
+    },
+    {
+      "id": "NFR24.19",
+      "status": "N/A",
+      "target": "entities.md - attendance_submission rows are never deleted, because the sequence is the attendance correction history"
+    },
+    {
+      "id": "NFR24.20",
+      "status": "N/A",
+      "target": "entities.md - composed_at is used in NO decision; a device clock in a conflict rule would let a wrong phone time reorder two teachers' writes. Review-only verifier"
+    },
+    {
+      "id": "NFR25.18",
+      "status": "N/A",
+      "target": "bolt-plan Bolt 4 - attendance submissions counted by outcome. The unit is built around a hypothesis nobody has measured, and this counter is what makes it answerable"
+    },
+    {
+      "id": "NFR25.19",
+      "status": "N/A",
+      "target": "BR3.6 and BR3.8 - conflict and replay counted separately; they look identical from the teacher's side and mean opposite things"
+    },
+    {
+      "id": "NFR25.20",
+      "status": "N/A",
+      "target": "entities.md - base_version is stored so the conflict rate is answerable FROM DATA after the pilot, not only from counters sampled at the time"
+    },
+    {
+      "id": "NFR25.21",
+      "status": "N/A",
+      "target": "BR1.3 and NFR25.13 - per run: created, skipped by conflict, failed. A sustained skip count is normal; a sustained failure count is a defect, and the two must not be collapsed"
+    },
+    {
+      "id": "NFR25.22",
+      "status": "N/A",
+      "target": "BR4.4 and NFR25.16 - mark corrections countable; a rising rate is a finding about the mark-entry screen"
+    },
+    {
+      "id": "NFR25.23",
+      "status": "N/A",
+      "target": "NFR25.9 - session generation not having run for 48 hours alerts, on the absence of success. Self-healing is what makes the silence invisible"
+    },
+    {
+      "id": "NFR25.24",
+      "status": "N/A",
+      "target": "NFR25.10 and NFR19.32 - a single failed occurrence is a counted metric, not a page; paging would convert commit-granularity resilience into noise"
+    },
+    {
+      "id": "NFR25.25",
+      "status": "N/A",
+      "target": "No alert on the conflict rate - it is a metric to read after the pilot, and a threshold set now would be invented"
+    },
+    {
+      "id": "NFR25.26",
+      "status": "N/A",
+      "target": "NFR25.11 - D4 adds no alert on push delivery; a failure is recorded as an event outcome"
+    },
+    {
+      "id": "NFR25.27",
+      "status": "N/A",
+      "target": "app/fees/commands.py - the alert channel is log.critical on stdout; there is no CloudWatch alarm, no SNS topic and no alarm_actions anywhere. Nothing automated proves an alert reaches a person"
+    },
+    {
+      "id": "NFR26.7",
+      "status": "N/A",
+      "target": "NFR26.3 - session-generation freshness in hours since the last successful run, under 48. The one production SLI D4 adds"
+    },
+    {
+      "id": "NFR26.8",
+      "status": "N/A",
+      "target": "BR7.4 and Q14.3 - NO SLO on attendance write latency, because the requirement it would measure was dropped. The entry a reader is most likely to try to fill"
+    },
+    {
+      "id": "NFR26.9",
+      "status": "N/A",
+      "target": "NFR25.25 - no SLO on the conflict rate; the pilot measures it and V1 sets no target"
+    },
+    {
+      "id": "NFR26.10",
+      "status": "N/A",
+      "target": "NFR26.5 - three invariants are enforced by constraints rather than monitored, because a monitor would watch a value the database cannot produce"
+    }
+  ]
+}

@@ -95,6 +95,96 @@ rather than editing the old one.
 | D3 | Batch fees (what each student owes) | `T5`, `S2` | *not yet checked* | `batch_fees_empty` (31) | |
 | D3 | Payment form | `S3` | *not yet checked* | `payment_ask_teacher` (93) | |
 | D3 | Claim outcomes (incl. the correction notice) | `T4`, `G3` | *not yet checked* | `fees_claim_corrected` (34) | |
+| D4 | Session list (today's and past classes) | `T1` | *not yet checked* | `sessions_empty` (32) | |
+| D4 | Session detail with the roster (attendance marking) | `T2` | *not yet checked* | `attendance_queued` (74) | |
+| D4 | **Conflict resolution (two rosters side by side)** | `T2` | *not yet checked* | `attendance_version_conflict` (122) | |
+| D4 | Exam list | `T3` | *not yet checked* | `exam_entered_count` (43) | |
+| D4 | Mark entry | `T3` | *not yet checked* | `mark_entry_locked` (40) | |
+| D4 | Marksheet (student and guardian) | `G4` | *not yet checked* | `marksheet_no_comparison` (45) | |
+| D4 | Guardian progress over time | `G4` | *not yet checked* | `progress_title` (14) | |
+| D5 | **Teacher overview (earnings, trend, next exam)** | `T6` | *not yet checked* | `dues_nobody_owes` (86) / `overview_earnings_label` (16) | |
+| D5 | Cross-batch dues list | `T5` | *not yet checked* | `dues_nobody_owes` (86) | |
+
+**D4's seven rows are open, and nothing automated discharges them.**
+The obligation is a check on a device in Bangla locale [team: Testing
+Posture], there is still no screenshot harness in this project, and
+code generation cannot perform one. Stated plainly because a manual
+verifier described without that sentence reads, to the next person, as
+a verifier [project.md, learned 2026-10-23]. BR7.5 makes a screen with
+no row an incomplete unit; these rows exist so the gap is a visible
+line in a committed file.
+
+**D5's two rows are open on the same terms**, and the same sentence
+applies to them: nothing automated discharges either. D5 added no
+screenshot harness, because the human closed that choice on 2026-10-23
+in favour of the manual per-screen check, and a correctness test does
+not discharge a layout obligation [project.md].
+
+**The teacher overview is D5's first row to check**, and the reason is
+density rather than length. `overview_earnings_label` is only 16
+characters, but it sits *directly above a money amount rendered in
+Bangla numerals* — and that pairing is the densest short string in the
+product. Bangla conjuncts and the ি / ী / ু vowel signs extend above
+and below the Latin line box, so a headline-sized figure under a label
+in a container sized to Latin metrics is exactly the clipping case the
+check exists to find. It is also the screen a teacher opens most.
+
+The lengths were **computed from `values-bn/strings.xml` after this
+unit's strings landed**, by running the snippet above rather than
+estimating. **Both bundles stand at 245 entries**, of which D5 added 10
+to each — counted on 2026-10-25 with
+`grep -c "<string " android/src/main/res/values{,-bn}/strings.xml`, and
+equal on both sides, which is the property that matters. (An earlier
+revision of this sentence said 223; that figure predated D4's strings
+reaching the working tree and was never recounted. Where a document
+states a number, the number is a claim [project.md].)
+
+**The conflict-resolution screen is the first row to check, and by some
+distance.** Three things compound on it, and no other screen in the
+product carries all three:
+
+- `attendance_version_conflict` at **122 characters is the third-longest
+  string in the whole bundle**, behind only
+  `roster_remove_claimed_remedy` (145) and `decline_guardian_body`
+  (125). It is a two-clause sentence and it sits *above* the comparison
+  rather than replacing it, so unlike those two it does not have the
+  panel to itself.
+- The screen then renders **two labelled columns of names side by side**
+  on a phone — the densest Bangla text this unit ships [BR7.5]. Each
+  cell is a weighted half of a `Row`, so a long Bangla name wraps inside
+  its own half rather than clipping; what the check must confirm is that
+  the wrap is *readable*, not merely that nothing is cut.
+- The two column headings (`conflict_mine_heading`,
+  `conflict_theirs_heading`) must stay visually parallel. If one wraps
+  to two lines and the other does not, the columns stop reading as a
+  comparison, which is the one thing this screen exists to communicate.
+
+The whole screen scrolls vertically, so the failure to look for is
+**wrapping and glyph clipping rather than being pushed below the fold**.
+
+**A second D4 row carries a check the others do not: the queued
+notice.** `attendance_queued` (74) and the four `queue_state_*` strings
+are the only copy in the product that has to make an unsent write read
+as *unsent*. BR3.1's whole guarantee is that a queued roster never
+renders as confirmed, and in Bangla the risk is specific: if
+`queue_state_queued` ("এই ফোনে আছে, এখনও পাঠানো হয়নি") is truncated at
+the comma, what remains reads as "it is on this phone" — which a teacher
+would reasonably take as saved. **A checker must confirm these four
+strings are not truncated**, and that `queue_state_failed` and
+`queue_state_conflicted` remain visibly different sentences rather than
+both collapsing to an ellipsis [AC3.1.10]. Truncation here is not a
+cosmetic fault; it is the silent-queue failure arriving through the
+layout.
+
+**One thing a well-meaning checker must not "fix" on the marksheet
+rows.** `marksheet_rank` and `exam_entered_count` reorder their two
+placeholders relative to the English (`%2$s জনের মধ্যে %1$s তম`,
+`%2$s-এর মধ্যে %1$s জনের`), the same shape as D3's two amount strings.
+Reversing them would read as the wrong rank or the wrong count, not as
+a layout fault, and nothing automated would catch it. Marks render
+through `Numerals.marks` and counts through `Numerals.count`, so
+**Latin digits inside Bangla text is the intended result** here exactly
+as it is for money.
 
 **D3's four rows are open for the same reason the eleven above are, and
 two of them carry a check the others do not.**
@@ -198,6 +288,15 @@ Added to the table by the unit that ships them. From the approved plan:
 - **D2** — `T7` roster with pending state, `T8` add student, create batch,
   remove student, `G1` guardian child home
 - **D3** — `T5` dues, `S2` batch fees, `T4` verify, `S3` submit, `G3` history
-- **D4** — `T1` today, `T2` record a class, `T3` mark entry, marksheet
-- **D5** — insights
+- **D4** — *added to the table above.* The plan named four screens
+  (`T1` today, `T2` record a class, `T3` mark entry, marksheet); the
+  unit ships **seven**, because the conflict-resolution screen, the
+  exam list and guardian progress are each their own screen rather than
+  states of another. BR7.5 enumerates all seven by name and a screen
+  with no row means an incomplete unit, so the table carries seven rows
+  rather than the four forecast here.
+- **D5** — *added to the table above.* The plan forecast "insights" as
+  one screen; the unit ships **two**, because the cross-batch dues list
+  and the teacher overview are different screens with different refresh
+  patterns rather than two states of one [functional-spec § 7a].
 - **D6** — deletion confirmation and its copy

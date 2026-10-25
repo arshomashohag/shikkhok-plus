@@ -1,0 +1,115 @@
+{
+  "stage": "code-generation",
+  "unit": "releasing-safely",
+  "version": 1,
+  "writes": [
+    {
+      "path": "migrations/versions/0007_deletion_safe_cascades.py"
+    },
+    {
+      "path": "app/db/models.py"
+    },
+    {
+      "path": "tests/db/test_migration_head_pin.py"
+    },
+    {
+      "path": "tests/db/test_migration_from_head.py"
+    },
+    {
+      "path": "tests/db/test_migration_runs.py"
+    },
+    {
+      "path": "tests/auth/test_endpoints.py"
+    },
+    {
+      "path": "tests/db/test_cascade_contradictions.py"
+    },
+    {
+      "path": "app/auth/otp.py"
+    },
+    {
+      "path": "tests/auth/test_otp_purpose.py"
+    },
+    {
+      "path": "tests/auth/test_otp.py"
+    },
+    {
+      "path": "app/api/auth.py"
+    },
+    {
+      "path": "app/auth/ceilings.py"
+    },
+    {
+      "path": "tests/auth/test_deletion_ceilings.py"
+    },
+    {
+      "path": "tests/auth/test_ceilings.py"
+    },
+    {
+      "path": "app/governance/deletion.py"
+    },
+    {
+      "path": "app/api/deletion.py"
+    },
+    {
+      "path": "app/schemas/deletion.py"
+    },
+    {
+      "path": "app/contract/routes.py"
+    },
+    {
+      "path": "app/api/health.py"
+    },
+    {
+      "path": "tests/governance/test_deletion.py"
+    },
+    {
+      "path": "tests/governance/test_deletion_paths.py"
+    },
+    {
+      "path": "tests/governance/conftest.py"
+    },
+    {
+      "path": "tests/contract/test_route_lenses.py"
+    },
+    {
+      "path": "scripts/generate_privacy_policy.py"
+    },
+    {
+      "path": "app/governance/commands.py"
+    },
+    {
+      "path": "app/governance/dispositions.py"
+    },
+    {
+      "path": "docs/legal/PRIVACY.md"
+    },
+    {
+      "path": "docs/legal/README.md"
+    },
+    {
+      "path": "tests/governance/test_purge.py"
+    },
+    {
+      "path": "tests/governance/test_policy_generation.py"
+    },
+    {
+      "path": "tests/governance/__init__.py"
+    },
+    {
+      "path": "message-keys.json"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/auth/MessageKeys.kt"
+    },
+    {
+      "path": "android/src/main/res/values/strings.xml"
+    },
+    {
+      "path": "android/src/main/res/values-bn/strings.xml"
+    },
+    {
+      "path": "tests/named_tests.toml"
+    }
+  ]
+}

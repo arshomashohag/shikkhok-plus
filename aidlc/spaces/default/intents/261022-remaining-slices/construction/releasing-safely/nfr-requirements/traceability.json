@@ -1,0 +1,249 @@
+{
+  "stage": "nfr-requirements",
+  "unit": "d6-releasing-safely",
+  "note": "D6 defines 40 new NFR ids and cites 6 from earlier units; high-water marks were recomputed across the whole aidlc tree before numbering, zero collisions verified. The unit adds NO library, service or tool - everything it needs is built, which is what a terminal spec unit should look like. NFR14.83 is the strongest requirement here and is new to the project: a test over the LIVE foreign-key constraints asserting no CASCADE to account.id exists against a RETAIN_WITH_BASIS table, which fails on a newly added contradicting constraint before anyone deletes anything; NFR14.99 makes that reachability TRANSITIVE after review found depth-one missed the owner -> batch chain entirely. Status counts, derived from the rows rather than stated: 32 OK, 6 N/A, 2 Deferred, zero GAP. Five ids were added after review: NFR14.98 (a sign-in code would confirm a deletion as built), NFR14.99 (transitive reachability), NFR14.100 (deletion needs its own number-scoped counter or an attacker locks victims out of signing in), NFR14.101 (the manifest basis must be corrected, not only the disposition), NFR14.102 (a deletion-specific GLOBAL sub-ceiling, because the per-IP and per-number ceilings bind neither a botnet nor a many-numbers-once-each attack).",
+  "upstream_ids": [
+    "NFR14.78",
+    "NFR14.79",
+    "NFR14.80",
+    "NFR14.81",
+    "NFR14.82",
+    "NFR14.83",
+    "NFR14.84",
+    "NFR14.85",
+    "NFR14.86",
+    "NFR14.87",
+    "NFR14.88",
+    "NFR14.89",
+    "NFR14.90",
+    "NFR14.91",
+    "NFR14.92",
+    "NFR14.93",
+    "NFR14.94",
+    "NFR14.95",
+    "NFR14.96",
+    "NFR14.97",
+    "NFR16.6",
+    "NFR16.7",
+    "NFR17.10",
+    "NFR17.11",
+    "NFR21.2",
+    "NFR21.3",
+    "NFR21.4",
+    "NFR21.5",
+    "NFR21.6",
+    "NFR2.21",
+    "NFR10.22",
+    "NFR12.1",
+    "NFR12.11",
+    "NFR14.77",
+    "NFR17.9",
+    "NFR14.98",
+    "NFR14.99",
+    "NFR14.100",
+    "NFR14.101",
+    "NFR14.102"
+  ],
+  "coverage": [
+    {
+      "id": "NFR14.78",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-requirements/security-requirements.md section 1 - Ownership proven by the same OTP mechanism before anything is deleted. Verifier: a probe posting a valid number with no verified code, asserting zero rows change"
+    },
+    {
+      "id": "NFR14.79",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-requirements/security-requirements.md section 1 - Enumeration-resistant: the response for a number with no account is byte-identical to one with an account, asserted by EQUALITY over two responses rather than two independent is-a-200 checks. A public deletion page that distinguishes them is a free account-existence lookup"
+    },
+    {
+      "id": "NFR14.80",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-requirements/security-requirements.md section 1 - The route consumes the BUILT per-number, per-IP and global SMS ceilings; the built ceiling tests extended to it, not a new mechanism"
+    },
+    {
+      "id": "NFR14.81",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-requirements/security-requirements.md section 1 - A confirmation code is single-use and cannot be replayed to delete twice"
+    },
+    {
+      "id": "NFR14.82",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-requirements/security-requirements.md section 2 - No deletion removes a RETAIN_WITH_BASIS row, verified by the manifest-driven test that derives its table list from DISPOSITIONS so a later contradicting table fails WITHOUT the test being edited"
+    },
+    {
+      "id": "NFR14.83",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-requirements/security-requirements.md section 2 - NO CASCADE to account.id exists against a RETAIN_WITH_BASIS table - a test over the LIVE constraints and the manifest, strictly stronger than testing a deletion because it fails on a newly added contradicting constraint before anyone deletes anything. The strongest requirement in this unit and new to the project"
+    },
+    {
+      "id": "NFR14.84",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-requirements/security-requirements.md section 2 - A teacher owning any batch cannot delete. Verifier: a probe asserting refusal AND that every row on the owner-batch-enrollment chain survives. Makes the chain unreachable rather than trusting six constraints to stay right"
+    },
+    {
+      "id": "NFR14.85",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-requirements/security-requirements.md section 3 - The test asserts the ABSENCE of rows per table rather than the success of the call, because every test written by instinct asserts what is there"
+    },
+    {
+      "id": "NFR14.86",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-requirements/security-requirements.md section 3 - The phone number is gone, asserted by querying the NUMBER rather than the account id - an id-keyed assertion passes against a row whose id changed but whose number remains. This is what the published promise reduces to"
+    },
+    {
+      "id": "NFR14.87",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-requirements/security-requirements.md section 3 - A second deletion succeeds and changes nothing, as an idempotent DELETE rather than look-up-then-delete, which is a race"
+    },
+    {
+      "id": "NFR14.88",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-requirements/security-requirements.md section 4 - Policy drift fails make check, the same shape as the built OpenAPI schema-diff gate. A security requirement rather than a documentation one: this unit began by finding three documents giving three answers"
+    },
+    {
+      "id": "NFR14.89",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-requirements/security-requirements.md section 4 - The ADR-012 disclosure asserted against the GENERATED output, so the test fails if the generator stops emitting it, rather than against the committed file which would pass on a stale copy"
+    },
+    {
+      "id": "NFR14.90",
+      "status": "Deferred",
+      "target": "construction/releasing-safely/nfr-requirements/security-requirements.md section 4 - No factual claim lives outside the generated region. PARTLY AUTOMATED ONLY: nothing mechanically prevents one being written outside the markers. docs/legal/README.md carries a rival disposition table today; removing it shrinks the surface and does not close it"
+    },
+    {
+      "id": "NFR14.91",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-requirements/security-requirements.md section 5 - Refusals disclose nothing - the built error-contract test, run against the final schema"
+    },
+    {
+      "id": "NFR14.92",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-requirements/security-requirements.md section 5 - No profile field to a teacher - the built privacy gate, schema-wide by construction"
+    },
+    {
+      "id": "NFR14.93",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-requirements/security-requirements.md section 5 - Every route resolves a lens; PUBLIC_ROUTES stays at eight because both deletion entries were pre-declared in D1"
+    },
+    {
+      "id": "NFR14.94",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-requirements/security-requirements.md section 5 - No trusted lens hint - built in D1, asserted here to survive"
+    },
+    {
+      "id": "NFR14.95",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-requirements/security-requirements.md section 5 - Governance complete in BOTH directions; the second is what matters at the end of a project, because a disposition naming a table that no longer exists is what a long sequence of units produces"
+    },
+    {
+      "id": "NFR14.96",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-requirements/security-requirements.md section 6 - LIFE_OF_ACCOUNT is never purged - 18 of 25 tables. Verifier: a fixture aged two years survives. The dangerous implementation is the natural one"
+    },
+    {
+      "id": "NFR14.97",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-requirements/security-requirements.md section 6 - The purge runs as the restricted APP_ROLE and is not an administrative path; the built meta-test unchanged"
+    },
+    {
+      "id": "NFR16.6",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-requirements/tech-stack-decisions.md section 2 - The generator writes between markers in the committed PRIVACY.md, with the MARKER REGION as the unit of comparison rather than the file - which lets a human improve the surrounding prose without fighting the gate. Two alternatives recorded with why each was declined"
+    },
+    {
+      "id": "NFR16.7",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-requirements/tech-stack-decisions.md section 2 - The generator is deterministic: same manifest, same bytes. Verifier: run it twice and compare. A timestamp or an unordered dict makes every build a diff and the gate becomes noise within a week"
+    },
+    {
+      "id": "NFR17.10",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-requirements/tech-stack-decisions.md section 1 - No third-party dependency, so the SDK admission note has nothing to record and the forbidden-identifier set is untouched"
+    },
+    {
+      "id": "NFR17.11",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-requirements/tech-stack-decisions.md section 1 - No new strict mypy island; the deletion path resolves authorization through app.authz, already strict"
+    },
+    {
+      "id": "NFR21.2",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-requirements/tech-stack-decisions.md section 3 - No soft-delete flag. A soft delete means every query acquires AND deleted_at IS NULL, and the one that forgets serves a deleted user data"
+    },
+    {
+      "id": "NFR21.3",
+      "status": "Deferred",
+      "target": "construction/releasing-safely/nfr-requirements/tech-stack-decisions.md section 3 - No deletion audit table, because recording who deleted what would keep identifying data AFTER the deletion - the exact thing being asked for. NO VERIFIER; a recorded decision, named because log-the-deletion is a reflex"
+    },
+    {
+      "id": "NFR21.4",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-requirements/tech-stack-decisions.md section 3 - No background queue; deletion is synchronous, which satisfies the 30-day promise trivially and avoids a failure mode where a user believes they are deleted and is not"
+    },
+    {
+      "id": "NFR21.5",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-requirements/tech-stack-decisions.md section 4 - The purge is a management command taking no required arguments, following the built fee and session commands, so it is also the recovery procedure a person runs by hand"
+    },
+    {
+      "id": "NFR21.6",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-requirements/tech-stack-decisions.md section 4 - The purge registers a heartbeat under its own job name, so D4 freshness enumeration covers it with NO change to that mechanism. This is the first real test of that option-B decision: D5 registered no job and proved nothing"
+    },
+    {
+      "id": "NFR2.21",
+      "status": "N/A",
+      "target": "Citation of an earlier unit requirement, not defined by D6; the owning unit carries its verifier"
+    },
+    {
+      "id": "NFR10.22",
+      "status": "N/A",
+      "target": "Citation of an earlier unit requirement, not defined by D6; the owning unit carries its verifier"
+    },
+    {
+      "id": "NFR12.1",
+      "status": "N/A",
+      "target": "Citation of an earlier unit requirement, not defined by D6; the owning unit carries its verifier"
+    },
+    {
+      "id": "NFR12.11",
+      "status": "N/A",
+      "target": "Citation of an earlier unit requirement, not defined by D6; the owning unit carries its verifier"
+    },
+    {
+      "id": "NFR14.77",
+      "status": "N/A",
+      "target": "Citation of an earlier unit requirement, not defined by D6; the owning unit carries its verifier"
+    },
+    {
+      "id": "NFR17.9",
+      "status": "N/A",
+      "target": "Citation of an earlier unit requirement, not defined by D6; the owning unit carries its verifier"
+    },
+    {
+      "id": "NFR14.98",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-requirements/security-requirements.md section 1 - a deletion code is its own PURPOSE. As built, issue() takes no purpose argument and verify() does not filter on one, so a SIGN-IN code would confirm a DELETION. OTP_PURPOSE own docstring predicted this: a DEFAULT would let a second consumer arrive without anyone choosing its ceiling. Verifier: issue a sign-in code, present it to the deletion confirmation, assert refusal"
+    },
+    {
+      "id": "NFR14.99",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-requirements/security-requirements.md section 2 - the cascade reachability is computed TRANSITIVELY, not depth-one. Written and run against the live schema: the recursive query finds ELEVEN RETAIN_WITH_BASIS tables, seven of them reachable only through owner -> batch, which 0007 does not touch. This settles that BR1.6 refusal is LOAD-BEARING rather than belt-and-braces; 0007 alone would leave a teacher deletion destroying seven kinds of retained record. The path column is the diagnostic"
+    },
+    {
+      "id": "NFR14.100",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-requirements/security-requirements.md section 1 - deletion gets its OWN ceiling scopes, not the sign-in budget. PER_NUMBER limits count per NUMBER not per requester, so an attacker with a number list can spend each victim daily allowance from the public page and lock them out of signing in without deleting anything. Signup has SIGNUP_NUMBER_DAILY for exactly this reason. Verifier: exhaust the deletion scope, assert a SIGN-IN code still issues for the same number"
+    },
+    {
+      "id": "NFR14.101",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-requirements/security-requirements.md section 4 - the account entry disposition AND its basis are both corrected. The generator reads the basis field and NFR14.89 asserts a disclosure is PRESENT; neither catches a basis that is merely WRONG, so without this the policy would faithfully publish an argument the schema no longer supports. A generated document is only as true as the field it reads"
+    },
+    {
+      "id": "NFR14.102",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-requirements/security-requirements.md section 1 - deletion carries its own GLOBAL daily sub-ceiling (50 carved out of 500), because the other two ceilings do not bind a botnet: ip_prefix_of reduces a caller to a /24 so spanning prefixes never meets PER_IP_HOURLY, and many-numbers-once-each never meets a per-number limit. That leaves GLOBAL_DAILY as the only bound and it is GLOBAL, so draining it from an unauthenticated page denies SIGN-IN to every legitimate user for the day. Human decision 2026-10-25. Verifier: drain the deletion sub-ceiling, assert a sign-in code still issues"
+    }
+  ]
+}

@@ -1,0 +1,507 @@
+{
+  "stage": "nfr-requirements",
+  "unit": "d5-knowing-how-it-is-going",
+  "note": "D5 defines 60 new NFR ids and cites 22 belonging to earlier units. High-water marks were recomputed across BOTH records and the whole aidlc tree before numbering: zero collisions, verified. Nine Deferred rows, each naming a designed obligation whose verifier is manual, absent or a human step - not unaddressed work wearing a label. Zero GAP rows. D5 writes nothing, so the concurrency requirements D1-D4 carried are inapplicable and are named individually rather than dropped silently.",
+  "upstream_ids": [
+    "NFR2.10",
+    "NFR2.11",
+    "NFR2.12",
+    "NFR2.13",
+    "NFR2.14",
+    "NFR2.15",
+    "NFR2.16",
+    "NFR2.17",
+    "NFR2.18",
+    "NFR2.19",
+    "NFR2.20",
+    "NFR2.21",
+    "NFR6.59",
+    "NFR6.60",
+    "NFR6.61",
+    "NFR6.62",
+    "NFR6.63",
+    "NFR10.21",
+    "NFR10.22",
+    "NFR14.65",
+    "NFR14.66",
+    "NFR14.67",
+    "NFR14.68",
+    "NFR14.69",
+    "NFR14.70",
+    "NFR14.71",
+    "NFR14.72",
+    "NFR14.73",
+    "NFR14.74",
+    "NFR14.75",
+    "NFR14.76",
+    "NFR14.77",
+    "NFR17.9",
+    "NFR18.9",
+    "NFR18.10",
+    "NFR19.48",
+    "NFR19.49",
+    "NFR19.50",
+    "NFR19.51",
+    "NFR19.52",
+    "NFR19.53",
+    "NFR19.54",
+    "NFR19.55",
+    "NFR19.56",
+    "NFR19.57",
+    "NFR20.31",
+    "NFR20.32",
+    "NFR20.33",
+    "NFR20.34",
+    "NFR20.35",
+    "NFR20.36",
+    "NFR24.21",
+    "NFR24.22",
+    "NFR24.23",
+    "NFR24.24",
+    "NFR24.25",
+    "NFR24.26",
+    "NFR25.28",
+    "NFR25.29",
+    "NFR25.30",
+    "NFR25.31",
+    "NFR2.6",
+    "NFR2.9",
+    "NFR6.44",
+    "NFR6.50",
+    "NFR6.51",
+    "NFR10.18",
+    "NFR14.48",
+    "NFR14.64",
+    "NFR17.5",
+    "NFR19.29",
+    "NFR19.33",
+    "NFR19.35",
+    "NFR19.38",
+    "NFR19.39",
+    "NFR19.41",
+    "NFR19.44",
+    "NFR19.46",
+    "NFR20.16",
+    "NFR20.18",
+    "NFR24.13",
+    "NFR24.17",
+    "NFR25.23"
+  ],
+  "coverage": [
+    {
+      "id": "NFR2.10",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/performance-requirements.md section 2 - No latency target, timing budget, benchmark or timing assertion on any path. NO AUTOMATED VERIFIER: the absence is checkable only as a file-level review item, and that is the deliberate position rather than a gap, matching D4 NFR2.6"
+    },
+    {
+      "id": "NFR2.11",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/performance-requirements.md section 3 - The release gate asserts a download size at or below 15 MB for the arm64-v8a split. The ceiling and the split are NFR2 and are not re-decided"
+    },
+    {
+      "id": "NFR2.12",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/performance-requirements.md section 3 - The Play Console figure is unavailable to CI, so D5 builds the bundletool form. Reasoning: a gate depending on a transcribed number is skipped under release pressure and is unverifiable after the fact"
+    },
+    {
+      "id": "NFR2.13",
+      "status": "Deferred",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/performance-requirements.md section 3 - The computed figure is related to NFR2 named source by a ONE-OFF HUMAN CONFIRMATION at the first release, comparing the gate output against the Console. That confirmation is a human step and is stated as one"
+    },
+    {
+      "id": "NFR2.14",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/performance-requirements.md section 3 - The gate fails the release rather than warning, demonstrated once against a deliberately lowered threshold"
+    },
+    {
+      "id": "NFR2.15",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/tech-stack-decisions.md section 1 - bundletool added as a CI-only dependency with the SDK admission note team.md requires"
+    },
+    {
+      "id": "NFR2.16",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/tech-stack-decisions.md section 1 - bundletool never ships, so the forbidden-identifier set is unaffected and the two built release gates need no change"
+    },
+    {
+      "id": "NFR2.17",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/tech-stack-decisions.md section 3 - No charting library, with the reversal trigger named: a requirement asking for zoom, selection or a second series"
+    },
+    {
+      "id": "NFR2.18",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/tech-stack-decisions.md section 3 - No caching layer or materialised rollup; AC7.1.4 requires current data on open, so a cache contradicts the requirement rather than optimising it"
+    },
+    {
+      "id": "NFR2.19",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/tech-stack-decisions.md section 3 - No reporting or BI framework; every figure would then be computed where the money import boundary does not reach"
+    },
+    {
+      "id": "NFR2.20",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/tech-stack-decisions.md section 3 - No background computation of any kind, which is why observability has no freshness alert to define"
+    },
+    {
+      "id": "NFR2.21",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/tech-stack-decisions.md Assumptions - bundletool is pinned by THIS unit with its checksum verified and its version named in the gate output, not deferred to the lockfile practice, which is assigned before D1 and has not landed. An unpinned tool computes the number a release gate blocks on"
+    },
+    {
+      "id": "NFR6.59",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/scalability-requirements.md section 1 - The seat set is what grows; the statement-count assertions hold the cost flat as it does"
+    },
+    {
+      "id": "NFR6.60",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/scalability-requirements.md section 1 - Request rate does not grow with scale; no throughput or rate-limit requirement is set and none is claimed"
+    },
+    {
+      "id": "NFR6.61",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/scalability-requirements.md section 1 - No write at all, so no concurrency guarantee. Verified by a test asserting the reads leave every table byte-identical, which fails on a write added later"
+    },
+    {
+      "id": "NFR6.62",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/scalability-requirements.md section 2 - READ consistency, which IS applicable: each read computes from one snapshot so a mid-read receipt cannot make the balance and the oldest-unpaid-period disagree"
+    },
+    {
+      "id": "NFR6.63",
+      "status": "Deferred",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/scalability-requirements.md section 3 - The fold is sized for the stated ceiling and no further. NO VERIFIER and the trigger (a teacher exceeding the nominal batch count by an order of magnitude) is UNWATCHED, stated plainly because a bound with an unwatched trigger is this project recorded failure shape"
+    },
+    {
+      "id": "NFR10.21",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/security-requirements.md section 4 - Governance stays at 25; the built test asserts BOTH directions, and the second is what catches a stale entry naming a table that does not exist"
+    },
+    {
+      "id": "NFR10.22",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/security-requirements.md section 4 - No migration; a file check plus the hand-updated head-revision assertions"
+    },
+    {
+      "id": "NFR14.65",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/security-requirements.md section 1 - Every figure scoped by the lens owner_id, never by an id from the request"
+    },
+    {
+      "id": "NFR14.66",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/security-requirements.md section 1 - The probe asserts the figure VALUE against seeded data, because a probe asserting only a 200 with a number passes against a figure summed across two teachers"
+    },
+    {
+      "id": "NFR14.67",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/security-requirements.md section 1 - No non-teacher lens reaches these reads; the built route-enumeration test plus a probe per route"
+    },
+    {
+      "id": "NFR14.68",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/security-requirements.md section 1 - No PUBLIC_ROUTES entry; the count is asserted at tests/contract/test_route_lenses.py lines 76 and 104"
+    },
+    {
+      "id": "NFR14.69",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/security-requirements.md section 2 - No owner-private profile field or global account id; the built app/contract/privacy.py gate iterates the generated document"
+    },
+    {
+      "id": "NFR14.70",
+      "status": "Deferred",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/security-requirements.md section 2 - The gate catches the schema and NOTHING CATCHES A DESIGN DECISION to render a photo beside a debt. Review only, stated as the honest half"
+    },
+    {
+      "id": "NFR14.71",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/security-requirements.md section 2 - A declined seat is absent whatever it owes; the probe needs a declined OWING seat, which a test using only pending and accepted seats cannot distinguish"
+    },
+    {
+      "id": "NFR14.72",
+      "status": "Deferred",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/security-requirements.md section 3 - No RLS policy because no table is created. A RECORDED DECISION; the probe suite is what actually enforces the boundary"
+    },
+    {
+      "id": "NFR14.73",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/security-requirements.md section 3 - Reads run as the granted non-superuser APP_ROLE; the built meta-test gates the privacy package"
+    },
+    {
+      "id": "NFR14.74",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/security-requirements.md section 5 - ZAP baseline against the staging host driven from the committed openapi.json; both prerequisites verified present"
+    },
+    {
+      "id": "NFR14.75",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/security-requirements.md section 5 - Not a merge gate; placed in the release workflow where team.md puts it"
+    },
+    {
+      "id": "NFR14.76",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/security-requirements.md section 5 - High blocks the promotion, lower annotates, following the two-speed CVE model and for the same stated reason"
+    },
+    {
+      "id": "NFR14.77",
+      "status": "Deferred",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/security-requirements.md section 5 - The scan reaches only UNAUTHENTICATED surface because D5 gives it no token. NO VERIFIER BEYOND THE SCAN; the requirement exists so a green run is not misread as covering authenticated routes"
+    },
+    {
+      "id": "NFR17.9",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/tech-stack-decisions.md section 2 - New modules land under the existing five strict mypy islands or the global disallow_untyped_defs; mypy app is already a make check gate"
+    },
+    {
+      "id": "NFR18.9",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/tech-stack-decisions.md section 4 - Two screens following the built feature layer convention with no new pattern, module or dependency"
+    },
+    {
+      "id": "NFR18.10",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/tech-stack-decisions.md section 4 - Both string bundles and a row per screen; MessageKeyCoverageTest for any new key"
+    },
+    {
+      "id": "NFR19.48",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/reliability-requirements.md section 1 - Every money figure from the built fold; the import-boundary checks fail make check on raw decimal outside app/money"
+    },
+    {
+      "id": "NFR19.49",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/reliability-requirements.md section 1 - Month from the period key, never created_at. The named test uses an entry whose period is October and whose created_at is November"
+    },
+    {
+      "id": "NFR19.50",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/reliability-requirements.md section 1 - The fold selects by kind, never sums amounts: amount is non-negative and the sign lives in the kind, so SUM(amount) adds charges to receipts"
+    },
+    {
+      "id": "NFR19.51",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/reliability-requirements.md section 1 - A figure that cannot be computed is an error, never a zero, because zero is reserved for nothing received"
+    },
+    {
+      "id": "NFR19.52",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/reliability-requirements.md section 2 - Four distinct kinds of nothing, a test per row; collapsing any pair is the defect"
+    },
+    {
+      "id": "NFR19.53",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/reliability-requirements.md section 2 - None of the four is a 404 or 5xx, with the status asserted per case because not-a-200 passes against all three wrong answers"
+    },
+    {
+      "id": "NFR19.54",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/reliability-requirements.md section 3 - No new exception class and no new error code; the built error-contract test with no new mechanism"
+    },
+    {
+      "id": "NFR19.55",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/reliability-requirements.md section 3 - Retryability stays a property of the class, read in one place"
+    },
+    {
+      "id": "NFR19.56",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/reliability-requirements.md section 4 - One consistent snapshot per read, so figures within a response agree. The one reliability property D5 does not inherit"
+    },
+    {
+      "id": "NFR19.57",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/reliability-requirements.md section 5 - The reads leave every table byte-identical, asserted rather than reviewed"
+    },
+    {
+      "id": "NFR20.31",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/performance-requirements.md section 1 - Constant statement count for the dues read, verified by a statement-count assertion following D3 NFR20.18, never a latency assertion"
+    },
+    {
+      "id": "NFR20.32",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/performance-requirements.md section 1 - No single-enrollment function called per row. Names the specific hazard: oldest_unpaid_period is correct, built, and takes one enrollment"
+    },
+    {
+      "id": "NFR20.33",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/performance-requirements.md section 1 - The oldest unpaid period comes from the same in-memory per_cycle map, pinned to the built function value by a test so the reimplementation matches rather than merely being cheap"
+    },
+    {
+      "id": "NFR20.34",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/performance-requirements.md section 1 - Constant statement count for all three overview blocks together"
+    },
+    {
+      "id": "NFR20.35",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/performance-requirements.md section 1 - No join to fee_cycle for the month grouping, because period is a plain string on the ledger row"
+    },
+    {
+      "id": "NFR20.36",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/performance-requirements.md section 1 - No index beyond the existing constraints is required; stated so the absence is a decision rather than an oversight"
+    },
+    {
+      "id": "NFR24.21",
+      "status": "Deferred",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/observability-requirements.md section 1 - No child name in a log line. REVIEW ONLY, NOTHING AUTOMATED CHECKS IT, and it carries more weight here than in D4 because a dues row pairs a name with a debt"
+    },
+    {
+      "id": "NFR24.22",
+      "status": "Deferred",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/observability-requirements.md section 1 - No money amount in a log line. REVIEW ONLY; no automated scanner exists"
+    },
+    {
+      "id": "NFR24.23",
+      "status": "Deferred",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/observability-requirements.md section 1 - No dues row in a log line even in aggregate, including seat ids, because an enrollment id plus a timestamp is a re-identification path. REVIEW ONLY"
+    },
+    {
+      "id": "NFR24.24",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/observability-requirements.md section 1 - The error path logs the correlation id and code and never the figure or the rows. This is the one of the four that gets a test, because its shape is known"
+    },
+    {
+      "id": "NFR24.25",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/observability-requirements.md section 4 - The ZAP report is retained as a build artifact, so a blocked promotion is triageable"
+    },
+    {
+      "id": "NFR24.26",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/observability-requirements.md section 4 - The ZAP report is not attached to the Play release record; it describes infrastructure rather than the release"
+    },
+    {
+      "id": "NFR25.28",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/observability-requirements.md section 2 - D5 registers no job and extends the freshness check not at all, which is the correct outcome of D4 enumeration decision rather than a gap"
+    },
+    {
+      "id": "NFR25.29",
+      "status": "Deferred",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/observability-requirements.md section 2 - No new alert. A wrong figure is undetectable without a second source of truth and an unavailable one is already covered by the error path. NO VERIFIER; stated so the absence is a decision, because a revenue threshold set now would be invented"
+    },
+    {
+      "id": "NFR25.30",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/observability-requirements.md section 3 - A support question is answerable without logs by re-running the read, because figures are derived rather than stored"
+    },
+    {
+      "id": "NFR25.31",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/nfr-requirements/observability-requirements.md section 3 - The authentication audit log is unchanged; D5 adds no auditable event"
+    },
+    {
+      "id": "NFR2.6",
+      "status": "N/A",
+      "target": "Citation of an earlier unit requirement, not an ID defined by D5. Referenced for context in this unit nfr-requirements documents; the owning unit carries its verifier"
+    },
+    {
+      "id": "NFR2.9",
+      "status": "N/A",
+      "target": "Citation of an earlier unit requirement, not an ID defined by D5. Referenced for context in this unit nfr-requirements documents; the owning unit carries its verifier"
+    },
+    {
+      "id": "NFR6.44",
+      "status": "N/A",
+      "target": "Citation of an earlier unit requirement, not an ID defined by D5. Referenced for context in this unit nfr-requirements documents; the owning unit carries its verifier"
+    },
+    {
+      "id": "NFR6.50",
+      "status": "N/A",
+      "target": "Citation of an earlier unit requirement, not an ID defined by D5. Referenced for context in this unit nfr-requirements documents; the owning unit carries its verifier"
+    },
+    {
+      "id": "NFR6.51",
+      "status": "N/A",
+      "target": "Citation of an earlier unit requirement, not an ID defined by D5. Referenced for context in this unit nfr-requirements documents; the owning unit carries its verifier"
+    },
+    {
+      "id": "NFR10.18",
+      "status": "N/A",
+      "target": "Citation of an earlier unit requirement, not an ID defined by D5. Referenced for context in this unit nfr-requirements documents; the owning unit carries its verifier"
+    },
+    {
+      "id": "NFR14.48",
+      "status": "N/A",
+      "target": "Citation of an earlier unit requirement, not an ID defined by D5. Referenced for context in this unit nfr-requirements documents; the owning unit carries its verifier"
+    },
+    {
+      "id": "NFR14.64",
+      "status": "N/A",
+      "target": "Citation of an earlier unit requirement, not an ID defined by D5. Referenced for context in this unit nfr-requirements documents; the owning unit carries its verifier"
+    },
+    {
+      "id": "NFR17.5",
+      "status": "N/A",
+      "target": "Citation of an earlier unit requirement, not an ID defined by D5. Referenced for context in this unit nfr-requirements documents; the owning unit carries its verifier"
+    },
+    {
+      "id": "NFR19.29",
+      "status": "N/A",
+      "target": "Citation of an earlier unit requirement, not an ID defined by D5. Referenced for context in this unit nfr-requirements documents; the owning unit carries its verifier"
+    },
+    {
+      "id": "NFR19.33",
+      "status": "N/A",
+      "target": "Citation of an earlier unit requirement, not an ID defined by D5. Referenced for context in this unit nfr-requirements documents; the owning unit carries its verifier"
+    },
+    {
+      "id": "NFR19.35",
+      "status": "N/A",
+      "target": "Citation of an earlier unit requirement, not an ID defined by D5. Referenced for context in this unit nfr-requirements documents; the owning unit carries its verifier"
+    },
+    {
+      "id": "NFR19.38",
+      "status": "N/A",
+      "target": "Citation of an earlier unit requirement, not an ID defined by D5. Referenced for context in this unit nfr-requirements documents; the owning unit carries its verifier"
+    },
+    {
+      "id": "NFR19.39",
+      "status": "N/A",
+      "target": "Citation of an earlier unit requirement, not an ID defined by D5. Referenced for context in this unit nfr-requirements documents; the owning unit carries its verifier"
+    },
+    {
+      "id": "NFR19.41",
+      "status": "N/A",
+      "target": "Citation of an earlier unit requirement, not an ID defined by D5. Referenced for context in this unit nfr-requirements documents; the owning unit carries its verifier"
+    },
+    {
+      "id": "NFR19.44",
+      "status": "N/A",
+      "target": "Citation of an earlier unit requirement, not an ID defined by D5. Referenced for context in this unit nfr-requirements documents; the owning unit carries its verifier"
+    },
+    {
+      "id": "NFR19.46",
+      "status": "N/A",
+      "target": "Citation of an earlier unit requirement, not an ID defined by D5. Referenced for context in this unit nfr-requirements documents; the owning unit carries its verifier"
+    },
+    {
+      "id": "NFR20.16",
+      "status": "N/A",
+      "target": "Citation of an earlier unit requirement, not an ID defined by D5. Referenced for context in this unit nfr-requirements documents; the owning unit carries its verifier"
+    },
+    {
+      "id": "NFR20.18",
+      "status": "N/A",
+      "target": "Citation of an earlier unit requirement, not an ID defined by D5. Referenced for context in this unit nfr-requirements documents; the owning unit carries its verifier"
+    },
+    {
+      "id": "NFR24.13",
+      "status": "N/A",
+      "target": "Citation of an earlier unit requirement, not an ID defined by D5. Referenced for context in this unit nfr-requirements documents; the owning unit carries its verifier"
+    },
+    {
+      "id": "NFR24.17",
+      "status": "N/A",
+      "target": "Citation of an earlier unit requirement, not an ID defined by D5. Referenced for context in this unit nfr-requirements documents; the owning unit carries its verifier"
+    },
+    {
+      "id": "NFR25.23",
+      "status": "N/A",
+      "target": "Citation of an earlier unit requirement, not an ID defined by D5. Referenced for context in this unit nfr-requirements documents; the owning unit carries its verifier"
+    }
+  ]
+}

@@ -1,0 +1,297 @@
+{
+  "stage": "nfr-design",
+  "unit": "d6-releasing-safely",
+  "note": "D6's security design attaches every mechanism to one already built rather than inventing any: a THIRD ceiling cascade over the same _consume(), an explicit purpose on the existing issue()/verify(), a pg_constraint query through the existing restricted_session fixture. Three facts were read out of the built code BEFORE designing and each changed the design rather than confirming it: scope_kind is String(16) so the natural deletion_ prefix does not fit (computed, not eyeballed); verify() orders by issued_at DESC LIMIT 1 with no purpose predicate, which is both the vulnerability and the reason a naive filter creates a SHADOWING bug; and _signup_scopes has no global scope for a stated reason that does NOT transfer to deletion, so patterning off it would reopen NFR14.102. Section 5a treats the GENERATED PRIVACY POLICY as a security artifact rather than documentation, because a false statement in it is a compliance failure: NFR14.101 is the subtle one, since NFR14.89 asserts a disclosure is present and nothing asserts it is true. Eight rows (DESIGN-1 to DESIGN-8) have no upstream requirement and are design findings recorded as obligations rather than notes; DESIGN-4 supplies the design REASON section 3 reads pg_constraint rather than ORM metadata, which had previously been stated only as a preference. Status counts, derived from the rows: 35 OK, 12 N/A, 1 Deferred, zero GAP. The single Deferred row is NFR14.90, the one partly-automated obligation; every SECURITY obligation is automated, which is a property of the subject (deletion, ceilings and constraints are all questions about state) rather than of effort.",
+  "upstream_ids": [
+    "NFR14.78",
+    "NFR14.79",
+    "NFR14.80",
+    "NFR14.81",
+    "NFR14.83",
+    "NFR14.84",
+    "NFR14.98",
+    "NFR14.99",
+    "NFR14.100",
+    "NFR14.102",
+    "NFR14.91",
+    "NFR14.92",
+    "NFR14.93",
+    "NFR14.94",
+    "NFR14.95",
+    "NFR21.2",
+    "NFR21.3",
+    "NFR21.4",
+    "NFR21.5",
+    "NFR21.6",
+    "NFR14.82",
+    "NFR14.85",
+    "NFR14.86",
+    "NFR14.87",
+    "NFR14.96",
+    "NFR14.97",
+    "DESIGN-1",
+    "DESIGN-2",
+    "NFR14.88",
+    "NFR14.89",
+    "NFR14.90",
+    "NFR16.6",
+    "NFR16.7",
+    "NFR14.101",
+    "NFR17.10",
+    "NFR17.11",
+    "NFR2.21",
+    "NFR10.22",
+    "NFR12.1",
+    "NFR12.11",
+    "NFR14.77",
+    "NFR17.9",
+    "DESIGN-3",
+    "DESIGN-4",
+    "DESIGN-5",
+    "DESIGN-6",
+    "DESIGN-7",
+    "DESIGN-8"
+  ],
+  "coverage": [
+    {
+      "id": "NFR14.78",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-design/security-design.md section 1 - ownership proven through the BUILT verify(), not a reimplementation. Stated explicitly because reimplementing it is the obvious shortcut for a route in a different module, and verify() is where the single-use rule's transaction boundary lives"
+    },
+    {
+      "id": "NFR14.79",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-design/security-design.md section 7 - equality over the two responses, carried unchanged from the requirement"
+    },
+    {
+      "id": "NFR14.80",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-design/security-design.md section 2 - the built ceiling mechanism, extended by a third cascade over the SAME _consume() rather than a new limiter"
+    },
+    {
+      "id": "NFR14.81",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-design/security-design.md section 1 - no new mechanism: verify() already sets consumed_at inside the transaction that read it, under FOR UPDATE. The design requirement is that the deletion path CALLS it"
+    },
+    {
+      "id": "NFR14.83",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-design/security-design.md section 3 - a pg_constraint query over the live schema, not an assertion about the two columns 0007 changes. The distinction is the design: asserting those two is a test of the migration and passes forever while a third contradicting constraint is added later"
+    },
+    {
+      "id": "NFR14.84",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-design/security-design.md section 4 - refusal as a PRECONDITION in the same transaction, with the verifier asserting the account row SURVIVES. A deletion that removes half an account then refuses is worse than either outcome"
+    },
+    {
+      "id": "NFR14.98",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-design/security-design.md section 1 - issue() takes an explicit purpose with NO default (the absent default is the design: OTP_PURPOSE's own docstring says a default would let a consumer arrive without choosing its ceiling), verify() filters on it. otp_request.purpose is String(32), so no migration"
+    },
+    {
+      "id": "NFR14.99",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-design/security-design.md section 3 - transitive reachability with the PATH carried in the query output as the diagnostic. Eleven RETAIN_WITH_BASIS tables reachable, seven only via owner -> batch, which is why section 4's refusal is load-bearing rather than belt-and-braces"
+    },
+    {
+      "id": "NFR14.100",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-design/security-design.md section 2 - four new ScopeKind members with a del_ prefix. The names were COMPUTED against the String(16) column, not eyeballed: deletion_number_day is 19 and delete_number_day is 17, both refused by PostgreSQL outright, which the built signup comment already records happening once"
+    },
+    {
+      "id": "NFR14.102",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-design/security-design.md section 2 - DEL_GLOBAL_DAILY at 50. Includes why signup's explicit no-global decision does NOT transfer: signup declined a global scope because it would bound the same spend twice, whereas deletion's hazard is spending the budget SIGN-IN needs. A reader patterning off signup would omit it and reopen the finding"
+    },
+    {
+      "id": "NFR14.91",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-design/security-design.md section 5 - the built error-contract test, run against the final schema"
+    },
+    {
+      "id": "NFR14.92",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-design/security-design.md section 5 - app/contract/privacy.py, unchanged"
+    },
+    {
+      "id": "NFR14.93",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-design/security-design.md section 5 - the route-enumeration test, unchanged"
+    },
+    {
+      "id": "NFR14.94",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-design/security-design.md section 5 - built in D1, unchanged"
+    },
+    {
+      "id": "NFR14.95",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-design/security-design.md section 5 - the governance pair in BOTH directions; a disposition naming a table that no longer exists is what a long sequence of units produces, and D6 is the last chance to notice"
+    },
+    {
+      "id": "NFR21.2",
+      "status": "N/A",
+      "target": "construction/releasing-safely/nfr-design/security-design.md - no soft-delete flag. A tech-stack refusal with no security mechanism to design"
+    },
+    {
+      "id": "NFR21.3",
+      "status": "N/A",
+      "target": "construction/releasing-safely/nfr-design/security-design.md - no deletion audit table. A recorded refusal; its weakened fallback is stated in tech-stack-decisions"
+    },
+    {
+      "id": "NFR21.4",
+      "status": "N/A",
+      "target": "construction/releasing-safely/nfr-design/security-design.md - no background queue. Synchronous deletion satisfies the 30-day promise trivially"
+    },
+    {
+      "id": "NFR21.5",
+      "status": "N/A",
+      "target": "construction/releasing-safely/nfr-design/security-design.md - the purge's shape is an operational design, carried in infrastructure-design"
+    },
+    {
+      "id": "NFR21.6",
+      "status": "N/A",
+      "target": "construction/releasing-safely/nfr-design/security-design.md - the heartbeat registration is operational, not a security mechanism"
+    },
+    {
+      "id": "NFR14.82",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-design/security-design.md section 3 - nothing RETAIN_WITH_BASIS is removed, asserted at the CONSTRAINT level rather than by the manifest-driven deletion test alone, so a contradiction fails before anyone deletes anything"
+    },
+    {
+      "id": "NFR14.85",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-design/security-design.md section 5 - absence asserted per table by the manifest-driven test, run against the final schema"
+    },
+    {
+      "id": "NFR14.86",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-design/security-design.md section 1 - the number is gone from account at once; the otp_request residue is the purge's half, per the corrected requirement"
+    },
+    {
+      "id": "NFR14.87",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-design/security-design.md section 4 - idempotent deletion; the refusal precondition is checked before any destruction so a repeat is a clean refusal rather than a partial"
+    },
+    {
+      "id": "NFR14.96",
+      "status": "N/A",
+      "target": "construction/releasing-safely/nfr-design/security-design.md - LIFE_OF_ACCOUNT never purged is a purge-behaviour obligation carried by infrastructure-design"
+    },
+    {
+      "id": "NFR14.97",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-design/security-design.md section 3 - the restricted role, with the honest note that THIS test is the one privacy-suite member where the restricted role buys nothing extra; it stays restricted because an exception is a thing to remember"
+    },
+    {
+      "id": "DESIGN-1",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-design/security-design.md section 1 - the SHADOWING property, found by reading verify()'s ORDER BY issued_at DESC LIMIT 1. Has NO upstream requirement: a naive purpose filter placed after the fetch means a sign-in code issued later shadows a valid deletion code, and the user is refused with the deliberately contentless _refused(). The predicate goes in the WHERE beside phone"
+    },
+    {
+      "id": "DESIGN-2",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-design/security-design.md section 2 - fire_ceiling_alert on DEL_GLOBAL_DAILY. This design's addition, not a stated requirement: it is the one scope of seven whose breach has no innocent explanation, where sign-in's global ceiling tripping might be a busy day"
+    },
+    {
+      "id": "NFR14.88",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-design/security-design.md section 5a - regenerate-and-compare in make check, the same shape as the built OpenAPI schema-diff gate. The argument for it is stated as EVIDENCE rather than principle: the three-way document disagreement this unit was handed is exactly what the gate would have caught"
+    },
+    {
+      "id": "NFR14.89",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-design/security-design.md section 5a - the ADR-012 disclosure asserted against the GENERATED output, not against hand-written prose"
+    },
+    {
+      "id": "NFR14.90",
+      "status": "Deferred",
+      "target": "construction/releasing-safely/nfr-design/security-design.md section 5a - PARTLY AUTOMATED and named rather than rounded up: nothing mechanically prevents a factual claim written OUTSIDE the generated region, so a human sentence contradicting the manifest passes the drift gate. Removing the rival hand-written table shrinks the surface and does not close it. This is the reason section 7's every-obligation-automated claim is scoped to the security obligations and excludes this one"
+    },
+    {
+      "id": "NFR16.6",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-design/security-design.md section 5a - markers in the committed PRIVACY.md with the MARKER REGION as the unit of comparison, so reviewed human prose around it stays editable without fighting the gate"
+    },
+    {
+      "id": "NFR16.7",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-design/security-design.md section 5a - deterministic output. A generator emitting a timestamp makes every build a diff and the gate becomes noise within a week"
+    },
+    {
+      "id": "NFR14.101",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-design/security-design.md section 5a - the manifest BASIS corrected, not only the disposition. NFR14.89 asserts a disclosure is PRESENT; nothing asserts it is TRUE, so the account entry's basis (which argues for the anonymization the human overruled) would be faithfully published as the reasoning for a hard delete. Mechanically consistent and substantively wrong is worse than the three-way disagreement it replaced, because that one was at least visible"
+    },
+    {
+      "id": "NFR17.10",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-design/security-design.md section 5a - no third-party dependency, so the forbidden-identifier set is untouched. Verifier: the lockfiles are unchanged, which is a real assertion rather than an absence of one"
+    },
+    {
+      "id": "NFR17.11",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-design/security-design.md section 5a - no new strict mypy island; the deletion path resolves authorization through app.authz, already strict. Verifier: the mypy config is unchanged"
+    },
+    {
+      "id": "NFR2.21",
+      "status": "N/A",
+      "target": "Citation of an earlier unit requirement, not defined by D6; the owning unit carries its verifier"
+    },
+    {
+      "id": "NFR10.22",
+      "status": "N/A",
+      "target": "Citation of an earlier unit requirement, not defined by D6; the owning unit carries its verifier"
+    },
+    {
+      "id": "NFR12.1",
+      "status": "N/A",
+      "target": "Citation of an earlier unit requirement, not defined by D6; the owning unit carries its verifier"
+    },
+    {
+      "id": "NFR12.11",
+      "status": "N/A",
+      "target": "Citation of an earlier unit requirement, not defined by D6; the owning unit carries its verifier"
+    },
+    {
+      "id": "NFR14.77",
+      "status": "N/A",
+      "target": "Citation of an earlier unit requirement, not defined by D6; the owning unit carries its verifier"
+    },
+    {
+      "id": "NFR17.9",
+      "status": "N/A",
+      "target": "Citation of an earlier unit requirement, not defined by D6; the owning unit carries its verifier"
+    },
+    {
+      "id": "DESIGN-3",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-design/security-design.md section 3 - carried forward from the functional design: two of the three 0007 columns are NOT NULL, so a flip of ondelete alone FAILS at migration time. A failing migration is the good outcome; the hazard is the reverse ordering (nullable first, ondelete flip deferred), which leaves the cascade live while the schema looks prepared. Section 3's test catches it because it asserts confdeltype, not nullability"
+    },
+    {
+      "id": "DESIGN-4",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-design/security-design.md section 3 - the constraint NAMES in the database differ from the model's implied names on two constraints, demonstrably, because 0002 renamed a column with alter_column which does not rename its constraint. This is the DESIGN REASON section 3 reads pg_constraint rather than ORM metadata: a metadata-sourced assertion would assert against the document rather than the database. The failure mode is a vacuous pass - a migration written against implied names fails on a migrated database and PASSES against a metadata-created one, so a metadata-building suite stays green while production cannot migrate"
+    },
+    {
+      "id": "DESIGN-5",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-design/security-design.md section 3 - FOUR pinned revision literals, not one (corrected 2026-10-25 after review found the first version named only test_no_d5_migration.py). tests/db/test_no_d5_migration.py:29 (EXPECTED_HEAD plus the revision COUNT), tests/db/test_migration_from_head.py:142, tests/db/test_migration_runs.py:121, and tests/auth/test_endpoints.py:194 - the last being body['migration_revision'], which is NOT a migration test: team.md's Deployment practice makes the health endpoint's applied revision part of the post-deploy SMOKE set, so a stale literal means the smoke check asserts an old revision against a freshly migrated host. tests/db/test_migration_rollback_is_total.py:117 asserts '0001' and is correctly EXCLUDED - the failed-migration path, which 0007 does not move; naming the exception matters as much as naming the list, because a blanket replace of the literal would be right and a blanket replace of 'the revision literal' would not. The pin moves as part of 0007's own change: updating a pin with intent and weakening a gate under pressure produce the same diff, and naming only one test made this look like a one-line update, so the other three would have surfaced as confusing CI failures mid-build - exactly the pressure under which a constant gets edited to make a test pass"
+    },
+    {
+      "id": "DESIGN-6",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-design/security-design.md section 2 - ip_prefix_of verified by reading app/api/auth.py:74 rather than taken on trust. Two properties weaken the per-IP bound for this attack: a /24 prefix (deliberate, so one mobile NAT is not a per-user counter) means spanning prefixes never accumulates, AND an IPv6 address contains no dot so the WHOLE address becomes the scope value, giving each IPv6 caller its own counter. Neither is fixed here - narrowing re-introduces the per-user counter the built comment rejects, and changing the function touches three built routes in the last unit before release. The consequence recorded is that DEL_GLOBAL_DAILY is load-bearing and the per-IP scope is depth, the opposite of how a reader would rank them, so the sub-ceiling is not later traded away as redundant"
+    },
+    {
+      "id": "DESIGN-7",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-design/security-design.md section 2 - the four new del_* counter rows fall under rate_limit_counter's EXISTING HOURS_48 retention (derived from DISPOSITIONS, not quoted), so no new retention entry is needed. Asserted rather than assumed because a new counter kind whose rows were never purged would accumulate one row per number per day indefinitely and nothing in the ceiling path would notice. The correctness property is that the purge window (48h) is LONGER than every ceiling window it serves (daily maximum), so a counter is never deleted while still being enforced against"
+    },
+    {
+      "id": "DESIGN-8",
+      "status": "OK",
+      "target": "construction/releasing-safely/nfr-design/security-design.md section 3 - MEASURED against a real PostgreSQL 16 on 2026-10-25, not reasoned about: pg_constraint is a system catalog and is NOT permission-filtered by table grant, where information_schema's views are. Two child tables with ON DELETE CASCADE, SELECT granted on one only, queried as a restricted role: information_schema saw the granted child only; pg_constraint saw BOTH. This matters because the governance suite records the exact near-miss - an ungranted table is invisible in information_schema so every gate silently stops covering it, and the money assertion skipped batch.default_fee until the grant was added, with the comment concluding a control that quietly narrows is worse than one that fails. Section 3 does NOT inherit that narrowing, and it is a property of the CATALOG CHOICE rather than of care: a future reader simplifying to information_schema.referential_constraints would reintroduce it silently and the test would keep passing"
+    }
+  ]
+}

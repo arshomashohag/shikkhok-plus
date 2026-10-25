@@ -1,0 +1,249 @@
+{
+  "stage": "functional-design",
+  "unit": "d5-knowing-how-it-is-going",
+  "note": "D5 creates no table and ships no migration; every figure derives from rows D3 and D4 built [A5]. Two Deferred rows, each naming an obligation awaiting a human decision rather than unaddressed work: FR8.3/US8.3's collection_rate, held by OQ-2, and NFR2's 15 MB download-size measurement, whose artifact choice belongs to nfr-design. Zero GAP rows.",
+  "upstream_ids": [
+    "FR7.1",
+    "FR7.2",
+    "FR7.3",
+    "FR8.1",
+    "FR8.2",
+    "FR8.3",
+    "FR8.4",
+    "US7.1",
+    "US8.1",
+    "US8.2",
+    "US8.3",
+    "US8.4",
+    "AC7.1.1",
+    "AC7.1.2",
+    "AC7.1.3",
+    "AC7.1.4",
+    "AC7.1.5",
+    "AC8.1.1",
+    "AC8.1.2",
+    "AC8.2.1",
+    "AC8.2.2",
+    "AC8.3.1",
+    "AC8.3.2",
+    "AC8.3.3",
+    "AC8.3.4",
+    "AC8.3.5",
+    "AC8.4.1",
+    "AC8.4.2",
+    "AC8.4.3",
+    "A5",
+    "OQ-2",
+    "FR0.2",
+    "TC-9",
+    "TC-11",
+    "TC-13",
+    "TC-15",
+    "D-2",
+    "D-5",
+    "D-43",
+    "NFR2"
+  ],
+  "coverage": [
+    {
+      "id": "FR7.1",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/functional-design/rules.md BR1.1 - every seat across every owned batch whose outstanding balance is above zero, with amount, batch and oldest unpaid period - and BR1.7, the declined-seat exclusion, which is the one clause besides batch ownership that D5 shares with D4's roster predicate. Workflow in functional-spec.md section 2.1, screens in section 7a"
+    },
+    {
+      "id": "FR7.2",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/functional-design/rules.md BR1.2 and BR1.3 - membership driven by outstanding balance with NO predicate on inactive_from, and a seat owing nothing absent whether active or not. The two halves of Bolt 5's confidence hypothesis; both must be asserted because a test covering one passes against an implementation failing the other"
+    },
+    {
+      "id": "FR7.3",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/functional-design/rules.md BR1.4 (computed on open, no generate step, no cache) and BR1.5 (nobody owing is an empty list with a 200, never an error)"
+    },
+    {
+      "id": "FR8.1",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/functional-design/rules.md BR2.1 - receipt plus credit_grant, never credit_apply, with the double-count case computed rather than asserted, and recording that BR2.1 and AC8.3.4 take opposite sides on when a credit counts. Plus BR2.6 (grouped by the period key, never created_at), BR2.2 (zero is a value) and BR2.5 (scoped by the lens owner)"
+    },
+    {
+      "id": "FR8.2",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/functional-design/rules.md BR2.3 (fewer than two months returns no trend), BR2.4 (ordered ascending in the query, never sorted in the client) and BR2.6 (a late-recorded payment counts in the period it names, so the trend shows no dip and spike that never happened)"
+    },
+    {
+      "id": "FR8.3",
+      "status": "Deferred",
+      "target": "construction/knowing-how-it-is-going/functional-design/rules.md BR4.1 - the collection_rate field does NOT ship while OQ-2 is open, per the prior record's recorded decision that a field is additive under /v1/ while a wrong number in an installed client cannot be withdrawn. NO VERIFIER BEYOND THE FIELD'S ABSENCE, which is asserted against the generated OpenAPI document. Awaiting the human's judgement, not someone's commitment"
+    },
+    {
+      "id": "FR8.4",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/functional-design/rules.md BR3.1 through BR3.4 - soonest exam dated today or later, whole days computed server-side, a stated deterministic tiebreaker, and an empty state rather than an error"
+    },
+    {
+      "id": "US7.1",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/functional-design/functional-spec.md section 2.1 and section 4 - the dues workflow and the predicate table showing where it deliberately departs from D4's roster"
+    },
+    {
+      "id": "US8.1",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/functional-design/functional-spec.md section 3 - the earnings arithmetic with its computed double-count table"
+    },
+    {
+      "id": "US8.2",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/functional-design/entities.md EarningsTrend read model, rules.md BR2.3 and BR2.4"
+    },
+    {
+      "id": "US8.3",
+      "status": "Deferred",
+      "target": "construction/knowing-how-it-is-going/functional-design/rules.md BR4.1 - ships nothing while OQ-2 is open. The five AC8.3.x criteria specify the arithmetic in full; what is open is that FR8.3's definition is annotated open to correction and AC8.3.4's credit rule postdates it, so the criteria may not be consistent with the requirement they cite. For the human"
+    },
+    {
+      "id": "US8.4",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/functional-design/entities.md NextExam read model, rules.md BR3.1 through BR3.4"
+    },
+    {
+      "id": "AC7.1.1",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/functional-design/rules.md BR1.1 - the assertion names three seats across two batches producing exactly two rows carrying their own batch names"
+    },
+    {
+      "id": "AC7.1.2",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/functional-design/rules.md BR1.2 - a seat with inactive_from set and still owing appears. The violation_behaviour requires the test to use a seat that is BOTH inactive AND owing, because a test using only active owing seats passes against a query carrying the predicate"
+    },
+    {
+      "id": "AC7.1.3",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/functional-design/rules.md BR1.3 - an active seat owing nothing is absent, asserted together with BR1.2's case as the opposite halves of one predicate"
+    },
+    {
+      "id": "AC7.1.4",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/functional-design/rules.md BR1.4 (current data on open, no generate step) and BR1.6 (constant statement count, so one action stays one action at the scale ceiling)"
+    },
+    {
+      "id": "AC7.1.5",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/functional-design/rules.md BR1.5 - an empty collection with a 200, never a 404 and never an error, because a failure response would show a retry prompt for the best possible news"
+    },
+    {
+      "id": "AC8.1.1",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/functional-design/rules.md BR2.1 - the total received across all batches for the period"
+    },
+    {
+      "id": "AC8.1.2",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/functional-design/rules.md BR2.2 - zero is returned as a value, never a null, an absent field or an empty-state marker"
+    },
+    {
+      "id": "AC8.2.1",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/functional-design/rules.md BR2.4 - the received total per month in date order, ordered in the query"
+    },
+    {
+      "id": "AC8.2.2",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/functional-design/rules.md BR2.3 - fewer than two months returns no trend, asserted as two cases because one can pass while the other fails"
+    },
+    {
+      "id": "AC8.3.1",
+      "status": "Deferred",
+      "target": "construction/knowing-how-it-is-going/functional-design/rules.md BR4.1 - not shipped while OQ-2 is open. For the human"
+    },
+    {
+      "id": "AC8.3.2",
+      "status": "Deferred",
+      "target": "construction/knowing-how-it-is-going/functional-design/rules.md BR4.1 - not shipped while OQ-2 is open. The carry-forward exclusion is specified and unbuilt. For the human"
+    },
+    {
+      "id": "AC8.3.3",
+      "status": "Deferred",
+      "target": "construction/knowing-how-it-is-going/functional-design/rules.md BR4.1 - not shipped. Note that the built money module already separates forgiveness from cash in precisely so a collection-rate denominator can exclude waivers [app/money/_kinds.py:52-55], so the mechanism this criterion needs exists; what is open is the definition"
+    },
+    {
+      "id": "AC8.3.4",
+      "status": "Deferred",
+      "target": "construction/knowing-how-it-is-going/functional-design/rules.md BR4.1 - not shipped, and this is the criterion that makes OQ-2 a real open question: it postdates FR8.3's definition, so the two may not be consistent. BR2.1's notes record that the shipped earnings figure takes the OPPOSITE side, counting a credit on arrival, so closing OQ-2 in this criterion's favour puts two figures on one screen disagreeing about which month a credit belongs to. For the human"
+    },
+    {
+      "id": "AC8.3.5",
+      "status": "Deferred",
+      "target": "construction/knowing-how-it-is-going/functional-design/rules.md BR4.1 - not shipped while OQ-2 is open. For the human"
+    },
+    {
+      "id": "AC8.4.1",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/functional-design/rules.md BR3.1 and BR3.2 - title, batch, subject, date and whole days remaining, with the boundary case that an exam dated today is upcoming and reports 0 days"
+    },
+    {
+      "id": "AC8.4.2",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/functional-design/rules.md BR3.4 - an absent next exam with a 200, not an error"
+    },
+    {
+      "id": "AC8.4.3",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/functional-design/rules.md BR3.3 - the tiebreaker is stated as (date, created_at, exam_id) rather than left as the word deterministic, because a key nobody names is how two implementations disagree while both satisfying the criterion"
+    },
+    {
+      "id": "A5",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/functional-design/entities.md section 1 and rules.md BR4.2 - every figure derives from the ledger and the exam rows; D5 creates no table, adds no column and ships no migration, and the governance manifest stays at 25"
+    },
+    {
+      "id": "OQ-2",
+      "status": "Deferred",
+      "target": "construction/knowing-how-it-is-going/functional-design/rules.md BR4.1 and the Assumptions of all three documents - the decision to ship without the field is the prior record's and is not reopened here. NO AUTOMATED VERIFIER beyond asserting the field's absence from the generated document. For the human"
+    },
+    {
+      "id": "FR0.2",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/functional-design/rules.md BR4.5 - a row per screen in docs/delivery/bangla-layout-check.md, naming the two screens this unit adds; a screen with no row means an incomplete unit"
+    },
+    {
+      "id": "TC-9",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/functional-design/rules.md BR2.4 (ordering in the query) and BR3.2 (whole days computed server-side) - the client renders what the server decides and computes no figure of its own"
+    },
+    {
+      "id": "TC-11",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/functional-design/rules.md BR2.5 and BR4.4 - every route resolves a teacher lens and scopes by its owner_id, never by a batch id taken from the request. Verified by the built route-enumeration test with no new mechanism"
+    },
+    {
+      "id": "TC-13",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/functional-design/rules.md BR4.4 - a dues row carries an enrollment_id and the teacher-recorded display name, never a student_account_id and never an owner-private profile field. Enforced by the built gate in app/contract/privacy.py"
+    },
+    {
+      "id": "TC-15",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/functional-design/rules.md BR4.5 - with the note that the earnings figure is the one to check hardest, being the densest short string this unit renders on the screen a teacher opens most"
+    },
+    {
+      "id": "D-2",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/functional-design/rules.md BR2.5 - the lens is computed per request and carries the scoping value the handler queries with"
+    },
+    {
+      "id": "D-5",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/functional-design/rules.md BR4.4 - nothing a student or guardian writes reaches a teacher-lens response in this unit"
+    },
+    {
+      "id": "D-43",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/functional-design/rules.md BR4.5 - the Bangla layout obligation, carried per screen"
+    },
+    {
+      "id": "NFR2",
+      "status": "Deferred",
+      "target": "construction/knowing-how-it-is-going/functional-design/functional-spec.md section 7 and section 8 - the 15 MB download-size assertion does NOT exist today, checked against the workflows rather than inherited, and section 8 names it and the ZAP baseline as THIS unit's work so a reported absence does not reach D6 unowned. The ceiling is a DOWNLOAD size while an AAB is not a download, so asserting the AAB's own bytes would measure the wrong thing; the measurement choice belongs to nfr-design and is NOT made here"
+    }
+  ]
+}

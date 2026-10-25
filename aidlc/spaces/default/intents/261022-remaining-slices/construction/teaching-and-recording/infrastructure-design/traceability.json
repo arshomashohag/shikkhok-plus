@@ -1,0 +1,789 @@
+{
+  "stage": "infrastructure-design",
+  "unit": "d4-teaching-and-recording",
+  "note": "D4 adds one cron entry, one migration's six tables and no other infrastructure. Five Deferred rows carrying this unit's two real findings: the freshness checker is hardcoded to the fee job (NFR1.8, NFR25.23, NFR26.7), and the conflict counter has no storage shape chosen (NFR25.18, NFR25.19). Both are the human's at this gate and both are costed. Deferred rows name an obligation whose verifier is manual or absent, stated with that sentence per project.md.",
+  "upstream_ids": [
+    "NFR24.13",
+    "NFR24.14",
+    "NFR24.15",
+    "NFR24.16",
+    "NFR24.17",
+    "NFR24.18",
+    "NFR24.19",
+    "NFR24.20",
+    "NFR25.18",
+    "NFR25.19",
+    "NFR25.20",
+    "NFR25.21",
+    "NFR25.22",
+    "NFR25.23",
+    "NFR25.27",
+    "NFR25.24",
+    "NFR25.25",
+    "NFR25.26",
+    "NFR26.7",
+    "NFR26.8",
+    "NFR26.9",
+    "NFR26.10",
+    "NFR2.6",
+    "NFR2.7",
+    "NFR20.24",
+    "NFR20.25",
+    "NFR20.26",
+    "NFR20.27",
+    "NFR20.28",
+    "NFR20.29",
+    "NFR20.30",
+    "NFR2.8",
+    "NFR2.9",
+    "NFR18.6",
+    "NFR18.7",
+    "NFR18.8",
+    "NFR5.2",
+    "NFR5.3",
+    "NFR5.4",
+    "NFR5.5",
+    "NFR5.6",
+    "NFR5.7",
+    "NFR5.8",
+    "NFR5.9",
+    "NFR19.29",
+    "NFR19.30",
+    "NFR19.31",
+    "NFR19.32",
+    "NFR19.33",
+    "NFR19.34",
+    "NFR19.35",
+    "NFR19.36",
+    "NFR19.37",
+    "NFR19.38",
+    "NFR19.39",
+    "NFR19.40",
+    "NFR19.41",
+    "NFR19.42",
+    "NFR19.43",
+    "NFR19.44",
+    "NFR19.45",
+    "NFR19.46",
+    "NFR19.47",
+    "NFR6.40",
+    "NFR6.41",
+    "NFR6.42",
+    "NFR6.43",
+    "NFR6.44",
+    "NFR6.45",
+    "NFR6.46",
+    "NFR6.47",
+    "NFR6.48",
+    "NFR6.49",
+    "NFR6.50",
+    "NFR6.51",
+    "NFR6.52",
+    "NFR6.53",
+    "NFR6.54",
+    "NFR6.55",
+    "NFR6.56",
+    "NFR6.57",
+    "NFR6.58",
+    "NFR14.48",
+    "NFR14.49",
+    "NFR14.50",
+    "NFR14.51",
+    "NFR14.52",
+    "NFR14.53",
+    "NFR14.54",
+    "NFR14.55",
+    "NFR14.56",
+    "NFR14.57",
+    "NFR14.58",
+    "NFR14.59",
+    "NFR14.60",
+    "NFR14.61",
+    "NFR14.62",
+    "NFR14.63",
+    "NFR14.64",
+    "NFR10.18",
+    "NFR10.19",
+    "NFR10.20",
+    "NFR16.5",
+    "NFR5.10",
+    "NFR5.11",
+    "NFR5.12",
+    "NFR1.6",
+    "NFR1.7",
+    "NFR1.8",
+    "NFR17.4",
+    "NFR17.5",
+    "NFR17.6",
+    "NFR17.7",
+    "NFR17.8",
+    "NFR5.1",
+    "NFR6.34",
+    "NFR6.39",
+    "NFR14.36",
+    "NFR14.41",
+    "NFR18.3",
+    "NFR20.14",
+    "NFR20.16",
+    "NFR20.18",
+    "NFR20.21",
+    "BR1.1",
+    "BR1.3",
+    "BR3.4",
+    "BR3.10",
+    "BR6.1",
+    "BR7.5"
+  ],
+  "coverage": [
+    {
+      "id": "NFR24.13",
+      "status": "Deferred",
+      "target": "construction/teaching-and-recording/infrastructure-design/monitoring-design.md \u00a7 6.1 \u2014 no child name in any log line. Verifier: review of D4's new call sites; no automated scanner exists"
+    },
+    {
+      "id": "NFR24.14",
+      "status": "Deferred",
+      "target": "construction/teaching-and-recording/infrastructure-design/monitoring-design.md \u00a7 6.1 \u2014 no mark in any log line. Verifier: review; no automated scanner exists"
+    },
+    {
+      "id": "NFR24.15",
+      "status": "Deferred",
+      "target": "construction/teaching-and-recording/infrastructure-design/monitoring-design.md \u00a7 6.1 \u2014 no roster in any log line, and the conflict path is where it would be violated. Verifier: review; the counter of \u00a7 2.2 is the sanctioned substitute"
+    },
+    {
+      "id": "NFR24.16",
+      "status": "Deferred",
+      "target": "construction/teaching-and-recording/infrastructure-design/monitoring-design.md \u00a7 6.1, \u00a7 6.2 \u2014 the refused submission's roster must not reach a log line; the authorization-ordering control is independent of the logging one"
+    },
+    {
+      "id": "NFR24.17",
+      "status": "Deferred",
+      "target": "construction/teaching-and-recording/infrastructure-design/monitoring-design.md \u00a7 6.1 \u2014 no traceback and no verbatim database error. Verifier: review; the existing handler returns no traceback to a client"
+    },
+    {
+      "id": "NFR24.18",
+      "status": "N/A",
+      "target": "An audit property carried on the data row itself rather than by log or monitoring infrastructure [monitoring \u00a7 1]"
+    },
+    {
+      "id": "NFR24.19",
+      "status": "N/A",
+      "target": "An audit property carried on the data row itself rather than by log or monitoring infrastructure [monitoring \u00a7 1]"
+    },
+    {
+      "id": "NFR24.20",
+      "status": "N/A",
+      "target": "An audit property carried on the data row itself rather than by log or monitoring infrastructure [monitoring \u00a7 1]"
+    },
+    {
+      "id": "NFR25.18",
+      "status": "Deferred",
+      "target": "construction/teaching-and-recording/infrastructure-design/monitoring-design.md \u00a7 2 \u2014 the applied side is answerable from `attendance_submission`; the conflicted side writes no row and no counter exists in any form today"
+    },
+    {
+      "id": "NFR25.19",
+      "status": "Deferred",
+      "target": "construction/teaching-and-recording/infrastructure-design/monitoring-design.md \u00a7 2.2, \u00a7 3.1 \u2014 conflict and replay must be separately dimensioned; neither counter exists and the storage shape is unchosen"
+    },
+    {
+      "id": "NFR25.20",
+      "status": "OK",
+      "target": "construction/teaching-and-recording/infrastructure-design/monitoring-design.md \u00a7 2.1 \u2014 `base_version` on every submission makes the applied half answerable with no metrics backend, permanently"
+    },
+    {
+      "id": "NFR25.21",
+      "status": "OK",
+      "target": "app/db/models.py \u2014 the `job_heartbeat` row's three count columns carry created/skipped/failed for D4's job under its own name; monitoring \u00a7 3.2"
+    },
+    {
+      "id": "NFR25.22",
+      "status": "OK",
+      "target": "construction/teaching-and-recording/infrastructure-design/monitoring-design.md \u00a7 3 \u2014 answerable as `count(*) FROM mark WHERE superseded_by_id IS NOT NULL`, needing no counter"
+    },
+    {
+      "id": "NFR25.23",
+      "status": "Deferred",
+      "target": "app/fees/commands.py \u2014 the alert condition is designed and the checker cannot see D4's job name; the heartbeat row alone produces no signal; monitoring \u00a7 4.1"
+    },
+    {
+      "id": "NFR25.27",
+      "status": "Deferred",
+      "target": "construction/teaching-and-recording/infrastructure-design/monitoring-design.md \u00a7 4.2 \u2014 `log.critical` on container stdout is the only channel; no log shipping, no alarm, no topic, and the instance is destroyed on every deploy. Nothing automated proves it reaches a person"
+    },
+    {
+      "id": "NFR25.24",
+      "status": "OK",
+      "target": "construction/teaching-and-recording/infrastructure-design/monitoring-design.md \u00a7 4 \u2014 a single failed occurrence is counted on the heartbeat row and deliberately does not alert"
+    },
+    {
+      "id": "NFR25.25",
+      "status": "OK",
+      "target": "construction/teaching-and-recording/infrastructure-design/monitoring-design.md \u00a7 4.3 \u2014 the conflict rate is deliberately not an alert; a threshold set now would be invented. Verifier: none, stated so the absence reads as a decision"
+    },
+    {
+      "id": "NFR25.26",
+      "status": "OK",
+      "target": "construction/teaching-and-recording/infrastructure-design/monitoring-design.md \u00a7 4 \u2014 push failure is an event outcome, not an alert, continuing D3's NFR25.11"
+    },
+    {
+      "id": "NFR26.7",
+      "status": "Deferred",
+      "target": "app/fees/commands.py \u2014 the 48-hour freshness SLO is computable from the heartbeat row, but nothing evaluates it for D4's job name; monitoring \u00a7 4.1, \u00a7 5"
+    },
+    {
+      "id": "NFR26.8",
+      "status": "N/A",
+      "target": "An SLI with no V1 target, recorded as a decision rather than provisioned against [monitoring \u00a7 5]"
+    },
+    {
+      "id": "NFR26.9",
+      "status": "N/A",
+      "target": "An SLI with no V1 target, recorded as a decision rather than provisioned against [monitoring \u00a7 5]"
+    },
+    {
+      "id": "NFR26.10",
+      "status": "OK",
+      "target": "construction/teaching-and-recording/infrastructure-design/monitoring-design.md \u00a7 5.1 \u2014 three guarantees are database constraints and are recorded as constraints rather than re-invented as dashboard panels"
+    },
+    {
+      "id": "NFR2.6",
+      "status": "N/A",
+      "target": "A client-side or structural performance property; D4 designs no latency mechanism and PU-3.6 carries no V1 obligation [monitoring \u00a7 5.2]"
+    },
+    {
+      "id": "NFR2.7",
+      "status": "N/A",
+      "target": "A client-side or structural performance property; D4 designs no latency mechanism and PU-3.6 carries no V1 obligation [monitoring \u00a7 5.2]"
+    },
+    {
+      "id": "NFR20.24",
+      "status": "N/A",
+      "target": "A statement-count design target verified in the test suite rather than by any infrastructure resource [cicd \u00a7 7]"
+    },
+    {
+      "id": "NFR20.25",
+      "status": "N/A",
+      "target": "A statement-count design target verified in the test suite rather than by any infrastructure resource [cicd \u00a7 7]"
+    },
+    {
+      "id": "NFR20.26",
+      "status": "N/A",
+      "target": "A statement-count design target verified in the test suite rather than by any infrastructure resource [cicd \u00a7 7]"
+    },
+    {
+      "id": "NFR20.27",
+      "status": "N/A",
+      "target": "A statement-count design target verified in the test suite rather than by any infrastructure resource [cicd \u00a7 7]"
+    },
+    {
+      "id": "NFR20.28",
+      "status": "N/A",
+      "target": "A statement-count design target verified in the test suite rather than by any infrastructure resource [cicd \u00a7 7]"
+    },
+    {
+      "id": "NFR20.29",
+      "status": "OK",
+      "target": "infra/modules/app/user_data.sh.tftpl \u2014 the job runs on the existing host as a second entry point into the deployed image; no compute added; spec \u00a7 2"
+    },
+    {
+      "id": "NFR20.30",
+      "status": "OK",
+      "target": "infra/modules/app/user_data.sh.tftpl \u2014 the schedule is a cron entry in the Terraform template; the hour is constrained to precede the earliest plausible class and to not collide with 02:00 UTC; spec \u00a7 3.2"
+    },
+    {
+      "id": "NFR2.8",
+      "status": "N/A",
+      "target": "A client-side or structural performance property; D4 designs no latency mechanism and PU-3.6 carries no V1 obligation [monitoring \u00a7 5.2]"
+    },
+    {
+      "id": "NFR2.9",
+      "status": "N/A",
+      "target": "A client-side or structural performance property; D4 designs no latency mechanism and PU-3.6 carries no V1 obligation [monitoring \u00a7 5.2]"
+    },
+    {
+      "id": "NFR18.6",
+      "status": "OK",
+      "target": "construction/teaching-and-recording/infrastructure-design/infrastructure-specification.md \u00a7 1 \u2014 no availability target, stated as a decision; single instance at `desired_capacity = 1` is unchanged"
+    },
+    {
+      "id": "NFR18.7",
+      "status": "OK",
+      "target": "infra/modules/app/user_data.sh.tftpl \u2014 the job's posture is daily rather than continuous, which is what a cron entry expresses"
+    },
+    {
+      "id": "NFR18.8",
+      "status": "OK",
+      "target": "construction/teaching-and-recording/infrastructure-design/cicd-pipeline.md \u00a7 5.4 \u2014 recreate-style rollout, scheduled outside classroom hours and outside both generation windows; the offline queue softens a dropped write"
+    },
+    {
+      "id": "NFR5.2",
+      "status": "N/A",
+      "target": "An offline-queue behaviour implemented entirely on the device; no server resource or configuration expresses it [spec \u00a7 2.1]"
+    },
+    {
+      "id": "NFR5.3",
+      "status": "N/A",
+      "target": "An offline-queue behaviour implemented entirely on the device; no server resource or configuration expresses it [spec \u00a7 2.1]"
+    },
+    {
+      "id": "NFR5.4",
+      "status": "N/A",
+      "target": "An offline-queue behaviour implemented entirely on the device; no server resource or configuration expresses it [spec \u00a7 2.1]"
+    },
+    {
+      "id": "NFR5.5",
+      "status": "N/A",
+      "target": "An offline-queue behaviour implemented entirely on the device; no server resource or configuration expresses it [spec \u00a7 2.1]"
+    },
+    {
+      "id": "NFR5.6",
+      "status": "N/A",
+      "target": "An offline-queue behaviour implemented entirely on the device; no server resource or configuration expresses it [spec \u00a7 2.1]"
+    },
+    {
+      "id": "NFR5.7",
+      "status": "N/A",
+      "target": "An offline-queue behaviour implemented entirely on the device; no server resource or configuration expresses it [spec \u00a7 2.1]"
+    },
+    {
+      "id": "NFR5.8",
+      "status": "N/A",
+      "target": "An offline-queue behaviour implemented entirely on the device; no server resource or configuration expresses it [spec \u00a7 2.1]"
+    },
+    {
+      "id": "NFR5.9",
+      "status": "N/A",
+      "target": "An offline-queue behaviour implemented entirely on the device; no server resource or configuration expresses it [spec \u00a7 2.1]"
+    },
+    {
+      "id": "NFR19.29",
+      "status": "N/A",
+      "target": "An application-layer atomicity, error-class or degradation property; no infrastructure resource expresses it [spec \u00a7 7]"
+    },
+    {
+      "id": "NFR19.30",
+      "status": "N/A",
+      "target": "An application-layer atomicity, error-class or degradation property; no infrastructure resource expresses it [spec \u00a7 7]"
+    },
+    {
+      "id": "NFR19.31",
+      "status": "N/A",
+      "target": "An application-layer atomicity, error-class or degradation property; no infrastructure resource expresses it [spec \u00a7 7]"
+    },
+    {
+      "id": "NFR19.32",
+      "status": "N/A",
+      "target": "An application-layer atomicity, error-class or degradation property; no infrastructure resource expresses it [spec \u00a7 7]"
+    },
+    {
+      "id": "NFR19.33",
+      "status": "N/A",
+      "target": "An application-layer atomicity, error-class or degradation property; no infrastructure resource expresses it [spec \u00a7 7]"
+    },
+    {
+      "id": "NFR19.34",
+      "status": "N/A",
+      "target": "An application-layer atomicity, error-class or degradation property; no infrastructure resource expresses it [spec \u00a7 7]"
+    },
+    {
+      "id": "NFR19.35",
+      "status": "N/A",
+      "target": "An application-layer atomicity, error-class or degradation property; no infrastructure resource expresses it [spec \u00a7 7]"
+    },
+    {
+      "id": "NFR19.36",
+      "status": "N/A",
+      "target": "An application-layer atomicity, error-class or degradation property; no infrastructure resource expresses it [spec \u00a7 7]"
+    },
+    {
+      "id": "NFR19.37",
+      "status": "N/A",
+      "target": "An application-layer atomicity, error-class or degradation property; no infrastructure resource expresses it [spec \u00a7 7]"
+    },
+    {
+      "id": "NFR19.38",
+      "status": "N/A",
+      "target": "An application-layer atomicity, error-class or degradation property; no infrastructure resource expresses it [spec \u00a7 7]"
+    },
+    {
+      "id": "NFR19.39",
+      "status": "N/A",
+      "target": "An application-layer atomicity, error-class or degradation property; no infrastructure resource expresses it [spec \u00a7 7]"
+    },
+    {
+      "id": "NFR19.40",
+      "status": "N/A",
+      "target": "An application-layer atomicity, error-class or degradation property; no infrastructure resource expresses it [spec \u00a7 7]"
+    },
+    {
+      "id": "NFR19.41",
+      "status": "N/A",
+      "target": "An application-layer atomicity, error-class or degradation property; no infrastructure resource expresses it [spec \u00a7 7]"
+    },
+    {
+      "id": "NFR19.42",
+      "status": "N/A",
+      "target": "An application-layer atomicity, error-class or degradation property; no infrastructure resource expresses it [spec \u00a7 7]"
+    },
+    {
+      "id": "NFR19.43",
+      "status": "N/A",
+      "target": "An application-layer atomicity, error-class or degradation property; no infrastructure resource expresses it [spec \u00a7 7]"
+    },
+    {
+      "id": "NFR19.44",
+      "status": "N/A",
+      "target": "An application-layer atomicity, error-class or degradation property; no infrastructure resource expresses it [spec \u00a7 7]"
+    },
+    {
+      "id": "NFR19.45",
+      "status": "N/A",
+      "target": "An application-layer atomicity, error-class or degradation property; no infrastructure resource expresses it [spec \u00a7 7]"
+    },
+    {
+      "id": "NFR19.46",
+      "status": "OK",
+      "target": "infra/modules/app/user_data.sh.tftpl \u2014 one Alembic migration for six tables through the boot step; `migrations/versions/0005_fee_system.py` is the `NEW_TABLES` grant-loop shape it follows; spec \u00a7 4.1, \u00a7 4.3"
+    },
+    {
+      "id": "NFR19.47",
+      "status": "Deferred",
+      "target": ".github/workflows/deploy.yml \u2014 forward-only is a property of D4's create-only migration, but the staging rehearsal depends on `enable_staging_instance` and the pre-migration `pg_dump` does not exist; spec \u00a7 6"
+    },
+    {
+      "id": "NFR6.40",
+      "status": "N/A",
+      "target": "A growth property of the existing single host and database; D4 provisions no partitioning, scaling or capacity change [spec \u00a7 1]"
+    },
+    {
+      "id": "NFR6.41",
+      "status": "N/A",
+      "target": "A growth property of the existing single host and database; D4 provisions no partitioning, scaling or capacity change [spec \u00a7 1]"
+    },
+    {
+      "id": "NFR6.42",
+      "status": "N/A",
+      "target": "A growth property of the existing single host and database; D4 provisions no partitioning, scaling or capacity change [spec \u00a7 1]"
+    },
+    {
+      "id": "NFR6.43",
+      "status": "N/A",
+      "target": "A growth property of the existing single host and database; D4 provisions no partitioning, scaling or capacity change [spec \u00a7 1]"
+    },
+    {
+      "id": "NFR6.44",
+      "status": "N/A",
+      "target": "A concurrency guarantee carried by a database constraint or conditional update, not by an infrastructure resource; its verifier is the concurrent integration test [cicd \u00a7 2.4]"
+    },
+    {
+      "id": "NFR6.45",
+      "status": "N/A",
+      "target": "A concurrency guarantee carried by a database constraint or conditional update, not by an infrastructure resource; its verifier is the concurrent integration test [cicd \u00a7 2.4]"
+    },
+    {
+      "id": "NFR6.46",
+      "status": "N/A",
+      "target": "A concurrency guarantee carried by a database constraint or conditional update, not by an infrastructure resource; its verifier is the concurrent integration test [cicd \u00a7 2.4]"
+    },
+    {
+      "id": "NFR6.47",
+      "status": "N/A",
+      "target": "A concurrency guarantee carried by a database constraint or conditional update, not by an infrastructure resource; its verifier is the concurrent integration test [cicd \u00a7 2.4]"
+    },
+    {
+      "id": "NFR6.48",
+      "status": "N/A",
+      "target": "A concurrency guarantee carried by a database constraint or conditional update, not by an infrastructure resource; its verifier is the concurrent integration test [cicd \u00a7 2.4]"
+    },
+    {
+      "id": "NFR6.49",
+      "status": "N/A",
+      "target": "A concurrency guarantee carried by a database constraint or conditional update, not by an infrastructure resource; its verifier is the concurrent integration test [cicd \u00a7 2.4]"
+    },
+    {
+      "id": "NFR6.50",
+      "status": "N/A",
+      "target": "A concurrency guarantee carried by a database constraint or conditional update, not by an infrastructure resource; its verifier is the concurrent integration test [cicd \u00a7 2.4]"
+    },
+    {
+      "id": "NFR6.51",
+      "status": "N/A",
+      "target": "A concurrency guarantee carried by a database constraint or conditional update, not by an infrastructure resource; its verifier is the concurrent integration test [cicd \u00a7 2.4]"
+    },
+    {
+      "id": "NFR6.52",
+      "status": "N/A",
+      "target": "A concurrency guarantee carried by a database constraint or conditional update, not by an infrastructure resource; its verifier is the concurrent integration test [cicd \u00a7 2.4]"
+    },
+    {
+      "id": "NFR6.53",
+      "status": "N/A",
+      "target": "A concurrency guarantee carried by a database constraint or conditional update, not by an infrastructure resource; its verifier is the concurrent integration test [cicd \u00a7 2.4]"
+    },
+    {
+      "id": "NFR6.54",
+      "status": "N/A",
+      "target": "A concurrency guarantee carried by a database constraint or conditional update, not by an infrastructure resource; its verifier is the concurrent integration test [cicd \u00a7 2.4]"
+    },
+    {
+      "id": "NFR6.55",
+      "status": "N/A",
+      "target": "A concurrency guarantee carried by a database constraint or conditional update, not by an infrastructure resource; its verifier is the concurrent integration test [cicd \u00a7 2.4]"
+    },
+    {
+      "id": "NFR6.56",
+      "status": "N/A",
+      "target": "A concurrency guarantee carried by a database constraint or conditional update, not by an infrastructure resource; its verifier is the concurrent integration test [cicd \u00a7 2.4]"
+    },
+    {
+      "id": "NFR6.57",
+      "status": "OK",
+      "target": "infra/main.tf \u2014 D4 adds no resource and USD 0.00/month; computed from the file's own `cost_breakdown`; spec \u00a7 5"
+    },
+    {
+      "id": "NFR6.58",
+      "status": "OK",
+      "target": "construction/teaching-and-recording/infrastructure-design/infrastructure-specification.md \u00a7 2.1 \u2014 no queue ceiling is enforced server-side because the queue is a file on the device; no server storage is provisioned"
+    },
+    {
+      "id": "NFR14.48",
+      "status": "N/A",
+      "target": "An application-layer authorization or disclosure property; D4 provisions no infrastructure for it, and the 409 ordering control is noted at monitoring \u00a7 6.2"
+    },
+    {
+      "id": "NFR14.49",
+      "status": "N/A",
+      "target": "An application-layer authorization or disclosure property; D4 provisions no infrastructure for it, and the 409 ordering control is noted at monitoring \u00a7 6.2"
+    },
+    {
+      "id": "NFR14.50",
+      "status": "N/A",
+      "target": "An application-layer authorization or disclosure property; D4 provisions no infrastructure for it, and the 409 ordering control is noted at monitoring \u00a7 6.2"
+    },
+    {
+      "id": "NFR14.51",
+      "status": "N/A",
+      "target": "An application-layer authorization or disclosure property; D4 provisions no infrastructure for it, and the 409 ordering control is noted at monitoring \u00a7 6.2"
+    },
+    {
+      "id": "NFR14.52",
+      "status": "N/A",
+      "target": "An application-layer authorization or disclosure property; D4 provisions no infrastructure for it, and the 409 ordering control is noted at monitoring \u00a7 6.2"
+    },
+    {
+      "id": "NFR14.53",
+      "status": "N/A",
+      "target": "An application-layer authorization or disclosure property; D4 provisions no infrastructure for it, and the 409 ordering control is noted at monitoring \u00a7 6.2"
+    },
+    {
+      "id": "NFR14.54",
+      "status": "N/A",
+      "target": "An application-layer authorization or disclosure property; D4 provisions no infrastructure for it, and the 409 ordering control is noted at monitoring \u00a7 6.2"
+    },
+    {
+      "id": "NFR14.55",
+      "status": "N/A",
+      "target": "An application-layer authorization or disclosure property; D4 provisions no infrastructure for it, and the 409 ordering control is noted at monitoring \u00a7 6.2"
+    },
+    {
+      "id": "NFR14.56",
+      "status": "N/A",
+      "target": "An application-layer authorization or disclosure property; D4 provisions no infrastructure for it, and the 409 ordering control is noted at monitoring \u00a7 6.2"
+    },
+    {
+      "id": "NFR14.57",
+      "status": "N/A",
+      "target": "An application-layer authorization or disclosure property; D4 provisions no infrastructure for it, and the 409 ordering control is noted at monitoring \u00a7 6.2"
+    },
+    {
+      "id": "NFR14.58",
+      "status": "N/A",
+      "target": "An application-layer authorization or disclosure property; D4 provisions no infrastructure for it, and the 409 ordering control is noted at monitoring \u00a7 6.2"
+    },
+    {
+      "id": "NFR14.59",
+      "status": "N/A",
+      "target": "An application-layer authorization or disclosure property; D4 provisions no infrastructure for it, and the 409 ordering control is noted at monitoring \u00a7 6.2"
+    },
+    {
+      "id": "NFR14.60",
+      "status": "N/A",
+      "target": "An application-layer authorization or disclosure property; D4 provisions no infrastructure for it, and the 409 ordering control is noted at monitoring \u00a7 6.2"
+    },
+    {
+      "id": "NFR14.61",
+      "status": "N/A",
+      "target": "An application-layer authorization or disclosure property; D4 provisions no infrastructure for it, and the 409 ordering control is noted at monitoring \u00a7 6.2"
+    },
+    {
+      "id": "NFR14.62",
+      "status": "N/A",
+      "target": "An application-layer authorization or disclosure property; D4 provisions no infrastructure for it, and the 409 ordering control is noted at monitoring \u00a7 6.2"
+    },
+    {
+      "id": "NFR14.63",
+      "status": "N/A",
+      "target": "An application-layer authorization or disclosure property; D4 provisions no infrastructure for it, and the 409 ordering control is noted at monitoring \u00a7 6.2"
+    },
+    {
+      "id": "NFR14.64",
+      "status": "N/A",
+      "target": "An application-layer authorization or disclosure property; D4 provisions no infrastructure for it, and the 409 ordering control is noted at monitoring \u00a7 6.2"
+    },
+    {
+      "id": "NFR10.18",
+      "status": "OK",
+      "target": "app/governance/dispositions.py \u2014 six `TableGovernance` entries, 19 today and 25 after D4; verified by tests/db/test_governance.py in both directions; spec \u00a7 4.4"
+    },
+    {
+      "id": "NFR10.19",
+      "status": "OK",
+      "target": "app/governance/dispositions.py \u2014 dispositions transcribed from `security-design.md` \u00a7 6.2 rather than invented; `attendance_submission` takes `attendance`'s; monitoring \u00a7 7"
+    },
+    {
+      "id": "NFR10.20",
+      "status": "OK",
+      "target": "infra/variables.tf \u2014 D4 adds no hosting or database tier, so the existing encrypted-at-rest storage stands; spec \u00a7 1"
+    },
+    {
+      "id": "NFR16.5",
+      "status": "OK",
+      "target": ".github/workflows/deploy.yml \u2014 client and server version independently; D4's endpoints stay additive under `/v1/` and the deploy path is unchanged; cicd \u00a7 5"
+    },
+    {
+      "id": "NFR5.10",
+      "status": "OK",
+      "target": "construction/teaching-and-recording/infrastructure-design/infrastructure-specification.md \u00a7 2.1 \u2014 the queue's storage is on the device; no bucket, no managed sync, no server-side state"
+    },
+    {
+      "id": "NFR5.11",
+      "status": "OK",
+      "target": "android/lint.xml \u2014 the queue holds no device identifier; covered by the built DEX scan and merged-manifest allowlist, unaffected by D4"
+    },
+    {
+      "id": "NFR5.12",
+      "status": "OK",
+      "target": "construction/teaching-and-recording/infrastructure-design/infrastructure-specification.md \u00a7 2.1 \u2014 the queue file is unencrypted as a recorded decision, so no KMS key or keystore is provisioned"
+    },
+    {
+      "id": "NFR1.6",
+      "status": "OK",
+      "target": "infra/modules/app/user_data.sh.tftpl \u2014 a second management command invoked by the same `docker compose run --rm api` shape as the fee entry; spec \u00a7 3.1"
+    },
+    {
+      "id": "NFR1.7",
+      "status": "OK",
+      "target": "infra/modules/app/user_data.sh.tftpl \u2014 the cron entry is Terraform-provisioned and re-created on every boot, never added over SSM; spec \u00a7 3.1"
+    },
+    {
+      "id": "NFR1.8",
+      "status": "Deferred",
+      "target": "app/fees/commands.py \u2014 `stamp_heartbeat` is parameterised by `job_name` but `main_check_freshness` and the host-side service are hardcoded to the fee job, so a second job name is written and never read; spec \u00a7 3.3, monitoring \u00a7 4.1"
+    },
+    {
+      "id": "NFR17.4",
+      "status": "OK",
+      "target": ".github/workflows/check.yml \u2014 D4 adds no backend dependency, so the lockfile currency check and `pip-audit` step cover it unchanged; cicd \u00a7 4"
+    },
+    {
+      "id": "NFR17.5",
+      "status": "OK",
+      "target": ".github/workflows/check.yml \u2014 D4's six lens-scoped readers land under the existing route-enumeration and probe gates run by `make check`; cicd \u00a7 1"
+    },
+    {
+      "id": "NFR17.6",
+      "status": "Deferred",
+      "target": "tests/conftest.py \u2014 pytest with testcontainers is in place, but nothing asserts the integration suite actually ran, and D4's constraints, grants and probes are all tested there; cicd \u00a7 2.2"
+    },
+    {
+      "id": "NFR17.7",
+      "status": "OK",
+      "target": "Makefile \u2014 `:android:verifyCoverageRatchet` runs inside `make check`; the ratchet is armed and D4's screens are measured against it; cicd \u00a7 4"
+    },
+    {
+      "id": "NFR17.8",
+      "status": "Deferred",
+      "target": "construction/teaching-and-recording/infrastructure-design/cicd-pipeline.md \u00a7 5.3 \u2014 seven screens with no screenshot harness; the substitute is a written per-screen check, which is not a verifier of the layout"
+    },
+    {
+      "id": "NFR5.1",
+      "status": "N/A",
+      "target": "A citation of D3's numbering, not an id this unit defines; the requirement documents flag it as such. No D4 infrastructure expression"
+    },
+    {
+      "id": "NFR6.34",
+      "status": "N/A",
+      "target": "A citation of D3's growth reasoning; D4 provisions no scaling mechanism [spec \u00a7 1]"
+    },
+    {
+      "id": "NFR6.39",
+      "status": "N/A",
+      "target": "A citation of an earlier unit's base; D4 adds no capacity [spec \u00a7 7]"
+    },
+    {
+      "id": "NFR14.36",
+      "status": "N/A",
+      "target": "A citation of D3's governance numbering; D4's own obligation is NFR10.18 [spec \u00a7 4.4]"
+    },
+    {
+      "id": "NFR14.41",
+      "status": "N/A",
+      "target": "A citation of D3's numbering; no D4 infrastructure expression"
+    },
+    {
+      "id": "NFR18.3",
+      "status": "N/A",
+      "target": "A citation of D3's availability posture; D4's own statement is NFR18.6 [spec \u00a7 1]"
+    },
+    {
+      "id": "NFR20.14",
+      "status": "N/A",
+      "target": "A citation of D3's row-growth reasoning for the ledger; D4 provisions no partitioning [spec \u00a7 1]"
+    },
+    {
+      "id": "NFR20.16",
+      "status": "N/A",
+      "target": "A citation of D3's query-shape reasoning; verified by statement count in the suite, not by infrastructure [cicd \u00a7 7]"
+    },
+    {
+      "id": "NFR20.18",
+      "status": "N/A",
+      "target": "A citation establishing that a counting assertion, never a latency assertion, is the verifier; no infrastructure expression [monitoring \u00a7 5.2]"
+    },
+    {
+      "id": "NFR20.21",
+      "status": "N/A",
+      "target": "A citation of D3's counting assertion, reused for session generation; the verifier is a test, not a resource [cicd \u00a7 2.4]"
+    },
+    {
+      "id": "BR1.1",
+      "status": "OK",
+      "target": "infra/modules/app/user_data.sh.tftpl \u2014 a generated session must exist before a class; the Terraform-provisioned cron entry is what makes that survive instance replacement; spec \u00a7 3.1"
+    },
+    {
+      "id": "BR1.3",
+      "status": "OK",
+      "target": "construction/teaching-and-recording/infrastructure-design/monitoring-design.md \u00a7 3.2 \u2014 the skip count is the success path and is reported separately from the failure count on the heartbeat row"
+    },
+    {
+      "id": "BR3.4",
+      "status": "OK",
+      "target": "tests/db/test_governance.py \u2014 the version increment is a unique constraint created and granted by D4's migration, exercised by a concurrent integration test; cicd \u00a7 2.4"
+    },
+    {
+      "id": "BR3.10",
+      "status": "OK",
+      "target": "construction/teaching-and-recording/infrastructure-design/monitoring-design.md \u00a7 6.2 \u2014 authorization precedes the version check, so the 409's roster never reaches an unauthorized caller; the logging half is review-enforced"
+    },
+    {
+      "id": "BR6.1",
+      "status": "OK",
+      "target": "app/governance/dispositions.py \u2014 a governance entry is written in the same change as the migration that creates the table; spec \u00a7 4.4"
+    },
+    {
+      "id": "BR7.5",
+      "status": "Deferred",
+      "target": "construction/teaching-and-recording/infrastructure-design/cicd-pipeline.md \u00a7 5.3 \u2014 seven screens ship under a written per-screen Bangla check with no screenshot harness"
+    }
+  ]
+}

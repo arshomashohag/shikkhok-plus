@@ -1,0 +1,1033 @@
+{
+  "stage": "nfr-design",
+  "unit": "teaching-and-recording",
+  "note": "The table carries 133 rows: the 114 NFRx.y DEFINED by this unit plus 19 carried with status N/A because they are CITED by this unit's requirements and DEFINED by an earlier unit -- the same treatment D3 gave its seven inherited ids. Each N/A row names where it comes from and why this design does not discharge it; five of the nineteen (NFR10.15, NFR19.21, NFR19.25, NFR20.17, NFR2.5) appear only inside the ID-disambiguation banner, and their notes say so rather than implying a substantive citation. NFR5.1 is an INCEPTION requirement of the prior record, not a unit-stage id. The 114 are enumerated mechanically by matching the nfr-requirements files, enumerated mechanically by matching the \"**NFRx.y** --\" definition form rather than transcribed, then checked so that every id APPEARS IN THE PROSE of the design document its target names. D4 MINTS NO NEW ID: a bare NFR6.39, NFR20.16, NFR25.9 or NFR14.41 in a design body is a CITATION of a prior unit's requirement. The BRx.y rows under business_rules are the 41 functional-design rules whose mechanism this stage designs; they are cited, not defined. Four designs carry this unit. (1) The THREE concurrency mechanisms are designed in three separate subsections with a mapping table, because blurring replay (client_mutation_id), conflict (attendance_version) and duplicate generation (ON CONFLICT DO NOTHING) is the failure that invites the wrong one being reached for. (2) The four-state device queue, whose storage remains the human's choice: every property is designed against behaviour, and reliability-design section 3.7 states the complete delta under Room. (3) The probe matrix, which copies the built four-route shape in tests/privacy/test_profile_probes.py rather than inventing one, including its positive cases. (4) The refusal ordering, where ATTENDANCE_VERSION_CONFLICT carries the roster in error.details and must therefore be unreachable before authorization -- and which the built oracle test CANNOT catch, because that test guards AUTH_403_CODES and this code is a 409. PU-3.6 carries NO performance obligation in V1 [Q14.3 answer C], so no latency mechanism, timing budget or benchmark harness is designed; performance-design section 1 designs the structural replacement and states the absence as the requirement. No test suite could be EXECUTED at this stage: Docker is unavailable in the session, so every claim about built code is from reading the file and is cited by path.",
+  "upstream_ids": [
+    "NFR10.15",
+    "NFR14.36",
+    "NFR14.41",
+    "NFR18.3",
+    "NFR19.21",
+    "NFR19.24",
+    "NFR19.25",
+    "NFR19.8",
+    "NFR2.5",
+    "NFR20.14",
+    "NFR20.16",
+    "NFR20.17",
+    "NFR20.18",
+    "NFR20.21",
+    "NFR20.22",
+    "NFR5.1",
+    "NFR6.32",
+    "NFR6.34",
+    "NFR6.39",
+    "NFR24.13",
+    "NFR24.14",
+    "NFR24.15",
+    "NFR24.16",
+    "NFR24.17",
+    "NFR24.18",
+    "NFR24.19",
+    "NFR24.20",
+    "NFR25.18",
+    "NFR25.19",
+    "NFR25.20",
+    "NFR25.21",
+    "NFR25.22",
+    "NFR25.23",
+    "NFR25.27",
+    "NFR25.24",
+    "NFR25.25",
+    "NFR25.26",
+    "NFR26.7",
+    "NFR26.8",
+    "NFR26.9",
+    "NFR26.10",
+    "NFR2.6",
+    "NFR2.7",
+    "NFR20.24",
+    "NFR20.25",
+    "NFR20.26",
+    "NFR20.27",
+    "NFR20.28",
+    "NFR20.29",
+    "NFR20.30",
+    "NFR2.8",
+    "NFR2.9",
+    "NFR18.6",
+    "NFR18.7",
+    "NFR18.8",
+    "NFR5.2",
+    "NFR5.3",
+    "NFR5.4",
+    "NFR5.5",
+    "NFR5.6",
+    "NFR5.7",
+    "NFR5.8",
+    "NFR5.9",
+    "NFR19.29",
+    "NFR19.30",
+    "NFR19.31",
+    "NFR19.32",
+    "NFR19.33",
+    "NFR19.34",
+    "NFR19.35",
+    "NFR19.36",
+    "NFR19.37",
+    "NFR19.38",
+    "NFR19.39",
+    "NFR19.40",
+    "NFR19.41",
+    "NFR19.42",
+    "NFR19.43",
+    "NFR19.44",
+    "NFR19.45",
+    "NFR19.46",
+    "NFR19.47",
+    "NFR6.40",
+    "NFR6.41",
+    "NFR6.42",
+    "NFR6.43",
+    "NFR6.44",
+    "NFR6.45",
+    "NFR6.46",
+    "NFR6.47",
+    "NFR6.48",
+    "NFR6.49",
+    "NFR6.50",
+    "NFR6.51",
+    "NFR6.52",
+    "NFR6.53",
+    "NFR6.54",
+    "NFR6.55",
+    "NFR6.56",
+    "NFR6.57",
+    "NFR6.58",
+    "NFR14.48",
+    "NFR14.49",
+    "NFR14.50",
+    "NFR14.51",
+    "NFR14.52",
+    "NFR14.53",
+    "NFR14.54",
+    "NFR14.55",
+    "NFR14.56",
+    "NFR14.57",
+    "NFR14.58",
+    "NFR14.59",
+    "NFR14.60",
+    "NFR14.61",
+    "NFR14.62",
+    "NFR14.63",
+    "NFR14.64",
+    "NFR10.18",
+    "NFR10.19",
+    "NFR10.20",
+    "NFR16.5",
+    "NFR5.10",
+    "NFR5.11",
+    "NFR5.12",
+    "NFR1.6",
+    "NFR1.7",
+    "NFR1.8",
+    "NFR17.4",
+    "NFR17.5",
+    "NFR17.6",
+    "NFR17.7",
+    "NFR17.8"
+  ],
+  "coverage": [
+    {
+      "id": "NFR10.15",
+      "status": "N/A",
+      "target": "inherited \u2014 cited, not defined, by this unit",
+      "note": "Inherited from D3 (collecting-fees): its governance-entry obligation. Appears in this unit's nfr-requirements ONLY inside the ID-disambiguation banner, which exists to tell a reader that this bare id is a citation rather than a definition. Nothing in D4 discharges it. D4's own governance requirement is NFR10.18, designed in security-design.md section 6."
+    },
+    {
+      "id": "NFR14.36",
+      "status": "N/A",
+      "target": "inherited \u2014 cited, not defined, by this unit",
+      "note": "Inherited from D3: the decision that RLS is not added for that unit's tables. Cited by this unit's security-requirements.md because D4 reaches the same conclusion for its six tables on the same reason, re-checked against D4's schema rather than assumed \u2014 security-design.md section 3.1. The DECISION is restated as NFR14.52; NFR14.36 itself is D3's."
+    },
+    {
+      "id": "NFR14.41",
+      "status": "N/A",
+      "target": "inherited \u2014 cited, not defined, by this unit",
+      "note": "Inherited from D3: the privacy suite connects as the restricted non-superuser role. Cited throughout this unit because the guard protects the SUITE rather than a policy, so it binds to D4's probes although D4 adds no RLS policy. security-design.md section 1.1 states what D4 inherits and confirms D4 decides nothing here."
+    },
+    {
+      "id": "NFR18.3",
+      "status": "N/A",
+      "target": "inherited \u2014 cited, not defined, by this unit",
+      "note": "Inherited from D3: no availability target is set. Cited by this unit's reliability-requirements.md as the precedent D4 follows in NFR18.6; reliability-design.md section 1.1 records the absence as a decision rather than re-deciding it."
+    },
+    {
+      "id": "NFR19.21",
+      "status": "N/A",
+      "target": "inherited \u2014 cited, not defined, by this unit",
+      "note": "Inherited from D3. Appears in this unit's nfr-requirements ONLY inside the ID-disambiguation banner, which exists to tell a reader that this bare id is a citation rather than a definition. Nothing in D4 discharges it."
+    },
+    {
+      "id": "NFR19.24",
+      "status": "N/A",
+      "target": "inherited \u2014 cited, not defined, by this unit",
+      "note": "Inherited from D3: the FCM adapter is best-effort, dispatched after commit, logged and not surfaced. Cited because D4 REUSES that adapter rather than building a second one \u2014 reliability-design.md section 6.2, where the absence of a second adapter is the assertion."
+    },
+    {
+      "id": "NFR19.25",
+      "status": "N/A",
+      "target": "inherited \u2014 cited, not defined, by this unit",
+      "note": "Inherited from D3. Appears in this unit's nfr-requirements ONLY inside the ID-disambiguation banner, which exists to tell a reader that this bare id is a citation rather than a definition. Nothing in D4 discharges it."
+    },
+    {
+      "id": "NFR19.8",
+      "status": "N/A",
+      "target": "inherited \u2014 cited, not defined, by this unit",
+      "note": "Inherited from D3: per-occurrence commits in a generation job. Cited because D4's session job follows the same granularity, designed in reliability-design.md section 4.4 against the roster's deliberately opposite all-or-nothing choice."
+    },
+    {
+      "id": "NFR2.5",
+      "status": "N/A",
+      "target": "inherited \u2014 cited, not defined, by this unit",
+      "note": "Inherited from D3's client axis. Appears in this unit's nfr-requirements ONLY inside the ID-disambiguation banner, which exists to tell a reader that this bare id is a citation rather than a definition. Nothing in D4 discharges it. D4's own client-side performance entries are NFR2.8 and NFR2.9."
+    },
+    {
+      "id": "NFR20.14",
+      "status": "N/A",
+      "target": "inherited \u2014 cited, not defined, by this unit",
+      "note": "Inherited from D3: the ledger grows without partitioning because every read is key-scoped. Cited because D4 accepts the same trade for `attendance` at roughly a million rows a year \u2014 scalability-design.md section 1.3, which re-checks the reasoning against D4's access pattern and names the trigger for revisiting it."
+    },
+    {
+      "id": "NFR20.16",
+      "status": "N/A",
+      "target": "inherited \u2014 cited, not defined, by this unit",
+      "note": "Inherited from D3: this product's performance problem is statement count rather than arithmetic. Cited because D4 inherits the shape \u2014 performance-design.md section 2.1 states why statement count and not latency is the design target on a single small host."
+    },
+    {
+      "id": "NFR20.17",
+      "status": "N/A",
+      "target": "inherited \u2014 cited, not defined, by this unit",
+      "note": "Inherited from D3. Appears in this unit's nfr-requirements ONLY inside the ID-disambiguation banner, which exists to tell a reader that this bare id is a citation rather than a definition. Nothing in D4 discharges it."
+    },
+    {
+      "id": "NFR20.18",
+      "status": "N/A",
+      "target": "inherited \u2014 cited, not defined, by this unit",
+      "note": "Inherited from D3: the statement-count assertion shape. Cited because D4's four reads reuse it rather than inventing a measurement \u2014 performance-design.md section 2.2, which adds the growth-based form (count does not grow from 2 seats to 20)."
+    },
+    {
+      "id": "NFR20.21",
+      "status": "N/A",
+      "target": "inherited \u2014 cited, not defined, by this unit",
+      "note": "Inherited from D3: the counting assertion over a generation run. Cited because D4's session job reuses it \u2014 performance-design.md section 3.1, where the bound is computed rather than measured."
+    },
+    {
+      "id": "NFR20.22",
+      "status": "N/A",
+      "target": "inherited \u2014 cited, not defined, by this unit",
+      "note": "Inherited from D3: the job runs outside classroom hours because it contends for the single host. Cited because D4 adds a SECOND cron job to that same host \u2014 performance-design.md section 3.2 and logical-components.md section 4."
+    },
+    {
+      "id": "NFR5.1",
+      "status": "N/A",
+      "target": "inherited \u2014 cited, not defined, by this unit",
+      "note": "An INCEPTION requirement of the prior record (261016), not a derived id of any unit stage: the queue semantics and the fourth `conflicted` state. It is the upstream source the whole of reliability-design.md section 3 implements, and the requirement this unit's NFR5.2 through NFR5.9 refine."
+    },
+    {
+      "id": "NFR6.32",
+      "status": "N/A",
+      "target": "inherited \u2014 cited, not defined, by this unit",
+      "note": "Inherited from D3: the barrier-released concurrency test shape. Cited because D4's three distinct concurrency tests follow it \u2014 scalability-design.md section 2.6, which transcribes the built pattern at tests/auth/test_ceilings.py:283 and deliberately does NOT copy its in-function import."
+    },
+    {
+      "id": "NFR6.34",
+      "status": "N/A",
+      "target": "inherited \u2014 cited, not defined, by this unit",
+      "note": "Inherited from D3: a generation job must be idempotent across DAYS as well as across threads. Cited because D4's session job needs the same across-days test \u2014 scalability-design.md section 3.2, the case concurrency alone does not reach."
+    },
+    {
+      "id": "NFR6.39",
+      "status": "N/A",
+      "target": "inherited \u2014 cited, not defined, by this unit",
+      "note": "Inherited from D3: the job's correctness does not depend on running exactly once, so no leader election is needed. Cited because D4 inherits the property unchanged and because it is what makes the `desired_capacity = 1` dependency safe \u2014 scalability-design.md section 3.3."
+    },
+    {
+      "id": "NFR24.13",
+      "status": "OK",
+      "target": "observability-design.md \u2014 1.1 No child name, ever"
+    },
+    {
+      "id": "NFR24.14",
+      "status": "OK",
+      "target": "observability-design.md \u2014 1.2 No mark, ever"
+    },
+    {
+      "id": "NFR24.15",
+      "status": "OK",
+      "target": "observability-design.md \u2014 1.3 No roster, and the conflict path specifically"
+    },
+    {
+      "id": "NFR24.16",
+      "status": "OK",
+      "target": "observability-design.md \u2014 1.3 No roster, and the conflict path specifically"
+    },
+    {
+      "id": "NFR24.17",
+      "status": "OK",
+      "target": "observability-design.md \u2014 1.4 No traceback, no verbatim database error"
+    },
+    {
+      "id": "NFR24.18",
+      "status": "OK",
+      "target": "observability-design.md \u2014 2.1 Who and when, on the row itself"
+    },
+    {
+      "id": "NFR24.19",
+      "status": "OK",
+      "target": "observability-design.md \u2014 2.2 Submissions are never deleted"
+    },
+    {
+      "id": "NFR24.20",
+      "status": "OK",
+      "target": "observability-design.md \u2014 2.3 `composed_at` is recorded and used in no decision"
+    },
+    {
+      "id": "NFR25.18",
+      "status": "OK",
+      "target": "observability-design.md \u2014 3.2 Attendance submissions counted by outcome"
+    },
+    {
+      "id": "NFR25.19",
+      "status": "OK",
+      "target": "observability-design.md \u2014 3.2 Attendance submissions counted by outcome"
+    },
+    {
+      "id": "NFR25.20",
+      "status": "OK",
+      "target": "observability-design.md \u2014 3.1 The constraint: there is no metrics backend"
+    },
+    {
+      "id": "NFR25.21",
+      "status": "OK",
+      "target": "observability-design.md \u2014 3.3 Generation counted per run"
+    },
+    {
+      "id": "NFR25.22",
+      "status": "OK",
+      "target": "observability-design.md \u2014 3.4 Mark corrections are countable"
+    },
+    {
+      "id": "NFR25.23",
+      "status": "OK",
+      "target": "observability-design.md \u2014 4.1 The one alert D4 adds"
+    },
+    {
+      "id": "NFR25.27",
+      "status": "OK",
+      "target": "observability-design.md \u2014 4.2 The channel"
+    },
+    {
+      "id": "NFR25.24",
+      "status": "OK",
+      "target": "observability-design.md \u2014 4.3 What does not alert"
+    },
+    {
+      "id": "NFR25.25",
+      "status": "OK",
+      "target": "observability-design.md \u2014 4.3 What does not alert"
+    },
+    {
+      "id": "NFR25.26",
+      "status": "OK",
+      "target": "observability-design.md \u2014 4.3 What does not alert"
+    },
+    {
+      "id": "NFR26.7",
+      "status": "OK",
+      "target": "observability-design.md \u2014 4.1 The one alert D4 adds"
+    },
+    {
+      "id": "NFR26.8",
+      "status": "OK",
+      "target": "performance-design.md \u2014 1.2 The design decision stated as an absence"
+    },
+    {
+      "id": "NFR26.9",
+      "status": "OK",
+      "target": "observability-design.md \u2014 5. SLIs and SLOs"
+    },
+    {
+      "id": "NFR26.10",
+      "status": "OK",
+      "target": "observability-design.md \u2014 5.1 Constraints instead of monitors"
+    },
+    {
+      "id": "NFR2.6",
+      "status": "OK",
+      "target": "performance-design.md \u2014 1.1 What is designed instead of a latency budget"
+    },
+    {
+      "id": "NFR2.7",
+      "status": "OK",
+      "target": "performance-design.md \u2014 1.1 What is designed instead of a latency budget"
+    },
+    {
+      "id": "NFR20.24",
+      "status": "OK",
+      "target": "performance-design.md \u2014 2.1 Why statement count and not latency"
+    },
+    {
+      "id": "NFR20.25",
+      "status": "OK",
+      "target": "performance-design.md \u2014 2.2 The four reads and their designed statement counts"
+    },
+    {
+      "id": "NFR20.26",
+      "status": "OK",
+      "target": "performance-design.md \u2014 2.3 The marksheet's one pass"
+    },
+    {
+      "id": "NFR20.27",
+      "status": "OK",
+      "target": "performance-design.md \u2014 2.1 Why statement count and not latency"
+    },
+    {
+      "id": "NFR20.28",
+      "status": "OK",
+      "target": "performance-design.md \u2014 2.2 The four reads and their designed statement counts"
+    },
+    {
+      "id": "NFR20.29",
+      "status": "OK",
+      "target": "performance-design.md \u2014 3. The session-generation job"
+    },
+    {
+      "id": "NFR20.30",
+      "status": "OK",
+      "target": "performance-design.md \u2014 3. The session-generation job"
+    },
+    {
+      "id": "NFR2.8",
+      "status": "OK",
+      "target": "performance-design.md \u2014 4. Client-side"
+    },
+    {
+      "id": "NFR2.9",
+      "status": "OK",
+      "target": "performance-design.md \u2014 4. Client-side"
+    },
+    {
+      "id": "NFR18.6",
+      "status": "OK",
+      "target": "reliability-design.md \u2014 1.1 No target, stated as a decision"
+    },
+    {
+      "id": "NFR18.7",
+      "status": "OK",
+      "target": "reliability-design.md \u2014 1.2 The job's posture is daily, not continuous"
+    },
+    {
+      "id": "NFR18.8",
+      "status": "OK",
+      "target": "reliability-design.md \u2014 1.3 Deploys, and the one place the queue helps"
+    },
+    {
+      "id": "NFR5.2",
+      "status": "OK",
+      "target": "reliability-design.md \u2014 3.1 Four states, and none of them is a lie"
+    },
+    {
+      "id": "NFR5.3",
+      "status": "OK",
+      "target": "reliability-design.md \u2014 3.1 Four states, and none of them is a lie"
+    },
+    {
+      "id": "NFR5.4",
+      "status": "OK",
+      "target": "reliability-design.md \u2014 3.2 Exactly two paths queue"
+    },
+    {
+      "id": "NFR5.5",
+      "status": "OK",
+      "target": "reliability-design.md \u2014 3.1 Four states, and none of them is a lie"
+    },
+    {
+      "id": "NFR5.6",
+      "status": "OK",
+      "target": "reliability-design.md \u2014 3.3 Durability"
+    },
+    {
+      "id": "NFR5.7",
+      "status": "OK",
+      "target": "reliability-design.md \u2014 3.4 Sync is automatic; resolution is not"
+    },
+    {
+      "id": "NFR5.8",
+      "status": "OK",
+      "target": "reliability-design.md \u2014 3.5 Refusal, and the conflict-resolution design"
+    },
+    {
+      "id": "NFR5.9",
+      "status": "OK",
+      "target": "reliability-design.md \u2014 3.6 Re-apply is a NEW write"
+    },
+    {
+      "id": "NFR19.29",
+      "status": "OK",
+      "target": "reliability-design.md \u2014 4.1 The roster is one transaction"
+    },
+    {
+      "id": "NFR19.30",
+      "status": "OK",
+      "target": "reliability-design.md \u2014 4.2 A mark correction is one transaction"
+    },
+    {
+      "id": "NFR19.31",
+      "status": "OK",
+      "target": "reliability-design.md \u2014 4.3 A reschedule updates, never deletes and recreates"
+    },
+    {
+      "id": "NFR19.32",
+      "status": "OK",
+      "target": "reliability-design.md \u2014 4.4 Generation commits per occurrence"
+    },
+    {
+      "id": "NFR19.33",
+      "status": "OK",
+      "target": "reliability-design.md \u2014 5. Why `AttendanceSubmission` exists"
+    },
+    {
+      "id": "NFR19.34",
+      "status": "OK",
+      "target": "reliability-design.md \u2014 5. Why `AttendanceSubmission` exists"
+    },
+    {
+      "id": "NFR19.35",
+      "status": "OK",
+      "target": "reliability-design.md \u2014 7. Error classes"
+    },
+    {
+      "id": "NFR19.36",
+      "status": "OK",
+      "target": "reliability-design.md \u2014 7.2 The conflict envelope"
+    },
+    {
+      "id": "NFR19.37",
+      "status": "OK",
+      "target": "reliability-design.md \u2014 7.3 Declared error responses"
+    },
+    {
+      "id": "NFR19.38",
+      "status": "OK",
+      "target": "reliability-design.md \u2014 7. Error classes"
+    },
+    {
+      "id": "NFR19.39",
+      "status": "OK",
+      "target": "reliability-design.md \u2014 8.1 Safe by construction"
+    },
+    {
+      "id": "NFR19.40",
+      "status": "OK",
+      "target": "reliability-design.md \u2014 8.1 Safe by construction"
+    },
+    {
+      "id": "NFR19.41",
+      "status": "OK",
+      "target": "reliability-design.md \u2014 8.2 The heartbeat is written on completion, unconditionally"
+    },
+    {
+      "id": "NFR19.42",
+      "status": "OK",
+      "target": "reliability-design.md \u2014 8.3 Runnable by hand with no required arguments"
+    },
+    {
+      "id": "NFR19.43",
+      "status": "OK",
+      "target": "reliability-design.md \u2014 6.1 Offline reads degrade to cache, with staleness shown"
+    },
+    {
+      "id": "NFR19.44",
+      "status": "OK",
+      "target": "reliability-design.md \u2014 6.2 Push is best-effort"
+    },
+    {
+      "id": "NFR19.45",
+      "status": "OK",
+      "target": "reliability-design.md \u2014 6.3 An unrecorded past session stays `scheduled`"
+    },
+    {
+      "id": "NFR19.46",
+      "status": "OK",
+      "target": "reliability-design.md \u2014 9.1 One migration, six tables"
+    },
+    {
+      "id": "NFR19.47",
+      "status": "OK",
+      "target": "reliability-design.md \u2014 9.2 Forward-only, rehearsed, backed up"
+    },
+    {
+      "id": "NFR6.40",
+      "status": "OK",
+      "target": "scalability-design.md \u2014 1.1 The ceiling does not move"
+    },
+    {
+      "id": "NFR6.41",
+      "status": "OK",
+      "target": "scalability-design.md \u2014 1.3 `attendance` is the fastest-growing table, and no partitioning is designed"
+    },
+    {
+      "id": "NFR6.42",
+      "status": "OK",
+      "target": "scalability-design.md \u2014 1.4 Two tables grow append-only by design"
+    },
+    {
+      "id": "NFR6.43",
+      "status": "OK",
+      "target": "scalability-design.md \u2014 1.4 Two tables grow append-only by design"
+    },
+    {
+      "id": "NFR6.44",
+      "status": "OK",
+      "target": "scalability-design.md \u2014 2.2 The guarantee"
+    },
+    {
+      "id": "NFR6.45",
+      "status": "OK",
+      "target": "scalability-design.md \u2014 2.6 The test shape, and why a sequential test establishes nothing"
+    },
+    {
+      "id": "NFR6.46",
+      "status": "OK",
+      "target": "scalability-design.md \u2014 2.3 The mechanism: a conditional update, not a lock"
+    },
+    {
+      "id": "NFR6.47",
+      "status": "OK",
+      "target": "scalability-design.md \u2014 2.4 The second, independent guarantee"
+    },
+    {
+      "id": "NFR6.48",
+      "status": "OK",
+      "target": "scalability-design.md \u2014 2.7 Session-level granularity, and its stated cost"
+    },
+    {
+      "id": "NFR6.49",
+      "status": "OK",
+      "target": "scalability-design.md \u2014 2.8 Two counters, not one"
+    },
+    {
+      "id": "NFR6.50",
+      "status": "OK",
+      "target": "scalability-design.md \u2014 2.5 Replay under concurrency is a separate guarantee"
+    },
+    {
+      "id": "NFR6.51",
+      "status": "OK",
+      "target": "scalability-design.md \u2014 3.1 Idempotency is the constraint, not a guard"
+    },
+    {
+      "id": "NFR6.52",
+      "status": "OK",
+      "target": "scalability-design.md \u2014 3.2 Safe across days, not only across threads"
+    },
+    {
+      "id": "NFR6.53",
+      "status": "OK",
+      "target": "scalability-design.md \u2014 2.9 The mark-correction race"
+    },
+    {
+      "id": "NFR6.54",
+      "status": "OK",
+      "target": "scalability-design.md \u2014 2.10 Interactive writes carry no version"
+    },
+    {
+      "id": "NFR6.55",
+      "status": "OK",
+      "target": "scalability-design.md \u2014 3.3 No leader election, and the property that makes that safe"
+    },
+    {
+      "id": "NFR6.56",
+      "status": "OK",
+      "target": "scalability-design.md \u2014 3.3 No leader election, and the property that makes that safe"
+    },
+    {
+      "id": "NFR6.57",
+      "status": "OK",
+      "target": "scalability-design.md \u2014 4.1 No new resource"
+    },
+    {
+      "id": "NFR6.58",
+      "status": "OK",
+      "target": "scalability-design.md \u2014 4.2 No queue ceiling on the device"
+    },
+    {
+      "id": "NFR14.48",
+      "status": "OK",
+      "target": "security-design.md \u2014 2.1 The shape is copied, not invented"
+    },
+    {
+      "id": "NFR14.49",
+      "status": "OK",
+      "target": "security-design.md \u2014 2.2 The six readers, each with its routes"
+    },
+    {
+      "id": "NFR14.50",
+      "status": "OK",
+      "target": "security-design.md \u2014 10. Verification obligations, collected"
+    },
+    {
+      "id": "NFR14.51",
+      "status": "OK",
+      "target": "security-design.md \u2014 10. Verification obligations, collected"
+    },
+    {
+      "id": "NFR14.52",
+      "status": "OK",
+      "target": "security-design.md \u2014 3.1 Why no RLS policy on D4's six tables"
+    },
+    {
+      "id": "NFR14.53",
+      "status": "OK",
+      "target": "security-design.md \u2014 3.2 The trigger that re-opens it"
+    },
+    {
+      "id": "NFR14.54",
+      "status": "OK",
+      "target": "security-design.md \u2014 3.1 Why no RLS policy on D4's six tables"
+    },
+    {
+      "id": "NFR14.55",
+      "status": "OK",
+      "target": "security-design.md \u2014 4.1 What the response may contain"
+    },
+    {
+      "id": "NFR14.56",
+      "status": "OK",
+      "target": "security-design.md \u2014 4.2 The band-merge rule"
+    },
+    {
+      "id": "NFR14.57",
+      "status": "OK",
+      "target": "security-design.md \u2014 4.3 The two independent suppression conditions"
+    },
+    {
+      "id": "NFR14.58",
+      "status": "OK",
+      "target": "security-design.md \u2014 4.4 One batch, never across batches"
+    },
+    {
+      "id": "NFR14.59",
+      "status": "OK",
+      "target": "security-design.md \u2014 4.5 The toggle is an authorization control"
+    },
+    {
+      "id": "NFR14.60",
+      "status": "OK",
+      "target": "security-design.md \u2014 4.5 The toggle is an authorization control"
+    },
+    {
+      "id": "NFR14.61",
+      "status": "OK",
+      "target": "security-design.md \u2014 5.1 The three mechanisms, kept distinct"
+    },
+    {
+      "id": "NFR14.62",
+      "status": "OK",
+      "target": "security-design.md \u2014 5.2 A cross-account replay is an authorization failure"
+    },
+    {
+      "id": "NFR14.63",
+      "status": "OK",
+      "target": "reliability-design.md \u2014 The replay response"
+    },
+    {
+      "id": "NFR14.64",
+      "status": "OK",
+      "target": "security-design.md \u2014 5.4 Authorization precedes the version check"
+    },
+    {
+      "id": "NFR10.18",
+      "status": "OK",
+      "target": "security-design.md \u2014 6.1 One entry per table, not two"
+    },
+    {
+      "id": "NFR10.19",
+      "status": "OK",
+      "target": "security-design.md \u2014 6.2 The dispositions are transcribed, not invented"
+    },
+    {
+      "id": "NFR10.20",
+      "status": "OK",
+      "target": "security-design.md \u2014 6.4 Encryption at rest"
+    },
+    {
+      "id": "NFR16.5",
+      "status": "OK",
+      "target": "logical-components.md \u2014 5. Component isolation: what must not erode"
+    },
+    {
+      "id": "NFR5.10",
+      "status": "OK",
+      "target": "reliability-design.md \u2014 3.3 Durability"
+    },
+    {
+      "id": "NFR5.11",
+      "status": "OK",
+      "target": "security-design.md \u2014 7.1 No identifier, checked against the built gates"
+    },
+    {
+      "id": "NFR5.12",
+      "status": "OK",
+      "target": "security-design.md \u2014 7.2 The queue is not encrypted at rest, as a recorded decision"
+    },
+    {
+      "id": "NFR1.6",
+      "status": "OK",
+      "target": "logical-components.md \u2014 1.4 What D4 does not create"
+    },
+    {
+      "id": "NFR1.7",
+      "status": "OK",
+      "target": "logical-components.md \u2014 6.1 What D4 asks for"
+    },
+    {
+      "id": "NFR1.8",
+      "status": "OK",
+      "target": "logical-components.md \u2014 7. Component diagram"
+    },
+    {
+      "id": "NFR17.4",
+      "status": "OK",
+      "target": "logical-components.md \u2014 Sources"
+    },
+    {
+      "id": "NFR17.5",
+      "status": "OK",
+      "target": "security-design.md \u2014 9. What D4 does not change"
+    },
+    {
+      "id": "NFR17.6",
+      "status": "OK",
+      "target": "performance-design.md \u2014 Sources"
+    },
+    {
+      "id": "NFR17.7",
+      "status": "OK",
+      "target": "observability-design.md \u2014 7. What has no automated verifier"
+    },
+    {
+      "id": "NFR17.8",
+      "status": "OK",
+      "target": "logical-components.md \u2014 6.3 Gaps handed forward, not closed"
+    }
+  ],
+  "business_rules": [
+    {
+      "id": "BR1.1",
+      "status": "OK",
+      "target": "observability-design.md \u2014 4.1 The one alert D4 adds"
+    },
+    {
+      "id": "BR1.2",
+      "status": "OK",
+      "target": "reliability-design.md \u2014 4.3 A reschedule updates, never deletes and recreates"
+    },
+    {
+      "id": "BR1.3",
+      "status": "OK",
+      "target": "observability-design.md \u2014 3.3 Generation counted per run"
+    },
+    {
+      "id": "BR1.4",
+      "status": "OK",
+      "target": "reliability-design.md \u2014 8.1 Safe by construction"
+    },
+    {
+      "id": "BR1.5",
+      "status": "OK",
+      "target": "performance-design.md \u2014 2.2 The four reads and their designed statement counts"
+    },
+    {
+      "id": "BR1.6",
+      "status": "OK",
+      "target": "reliability-design.md \u2014 7.4 Two state-based refusals"
+    },
+    {
+      "id": "BR1.7",
+      "status": "OK",
+      "target": "reliability-design.md \u2014 4.3 A reschedule updates, never deletes and recreates"
+    },
+    {
+      "id": "BR2.1",
+      "status": "OK",
+      "target": "reliability-design.md \u2014 Sources"
+    },
+    {
+      "id": "BR2.2",
+      "status": "OK",
+      "target": "reliability-design.md \u2014 6.1 Offline reads degrade to cache, with staleness shown"
+    },
+    {
+      "id": "BR3.1",
+      "status": "OK",
+      "target": "logical-components.md \u2014 Sources"
+    },
+    {
+      "id": "BR3.2",
+      "status": "OK",
+      "target": "performance-design.md \u2014 4.1 The queue removes the network from the render path"
+    },
+    {
+      "id": "BR3.3",
+      "status": "OK",
+      "target": "logical-components.md \u2014 Sources"
+    },
+    {
+      "id": "BR3.4",
+      "status": "OK",
+      "target": "observability-design.md \u2014 Sources"
+    },
+    {
+      "id": "BR3.5",
+      "status": "OK",
+      "target": "performance-design.md \u2014 1.1 What is designed instead of a latency budget"
+    },
+    {
+      "id": "BR3.6",
+      "status": "OK",
+      "target": "observability-design.md \u2014 Sources"
+    },
+    {
+      "id": "BR3.7",
+      "status": "OK",
+      "target": "reliability-design.md \u2014 3.6 Re-apply is a NEW write"
+    },
+    {
+      "id": "BR3.8",
+      "status": "OK",
+      "target": "observability-design.md \u2014 Sources"
+    },
+    {
+      "id": "BR3.9",
+      "status": "OK",
+      "target": "logical-components.md \u2014 5. Component isolation: what must not erode"
+    },
+    {
+      "id": "BR3.10",
+      "status": "OK",
+      "target": "security-design.md \u2014 5.4 Authorization precedes the version check"
+    },
+    {
+      "id": "BR3.11",
+      "status": "OK",
+      "target": "logical-components.md \u2014 7. Component diagram"
+    },
+    {
+      "id": "BR4.1",
+      "status": "OK",
+      "target": "security-design.md \u2014 2.4 Three tables, three attack directions"
+    },
+    {
+      "id": "BR4.2",
+      "status": "OK",
+      "target": "observability-design.md \u2014 1.2 No mark, ever"
+    },
+    {
+      "id": "BR4.3",
+      "status": "OK",
+      "target": "logical-components.md \u2014 5. Component isolation: what must not erode"
+    },
+    {
+      "id": "BR4.4",
+      "status": "OK",
+      "target": "observability-design.md \u2014 2.1 Who and when, on the row itself"
+    },
+    {
+      "id": "BR4.5",
+      "status": "OK",
+      "target": "observability-design.md \u2014 5.1 Constraints instead of monitors"
+    },
+    {
+      "id": "BR5.1",
+      "status": "OK",
+      "target": "security-design.md \u2014 2.4 Three tables, three attack directions"
+    },
+    {
+      "id": "BR5.2",
+      "status": "OK",
+      "target": "logical-components.md \u2014 Sources"
+    },
+    {
+      "id": "BR5.3",
+      "status": "OK",
+      "target": "observability-design.md \u2014 1.1 No child name, ever"
+    },
+    {
+      "id": "BR5.4",
+      "status": "OK",
+      "target": "logical-components.md \u2014 4. Shared resources and contention"
+    },
+    {
+      "id": "BR5.5",
+      "status": "OK",
+      "target": "reliability-design.md \u2014 7.4 Two state-based refusals"
+    },
+    {
+      "id": "BR6.1",
+      "status": "OK",
+      "target": "logical-components.md \u2014 Sources"
+    },
+    {
+      "id": "BR6.2",
+      "status": "OK",
+      "target": "observability-design.md \u2014 Sources"
+    },
+    {
+      "id": "BR6.3",
+      "status": "OK",
+      "target": "security-design.md \u2014 4.2 The band-merge rule"
+    },
+    {
+      "id": "BR6.4",
+      "status": "OK",
+      "target": "security-design.md \u2014 4.3 The two independent suppression conditions"
+    },
+    {
+      "id": "BR6.5",
+      "status": "OK",
+      "target": "security-design.md \u2014 Sources"
+    },
+    {
+      "id": "BR6.6",
+      "status": "OK",
+      "target": "performance-design.md \u2014 2.2 The four reads and their designed statement counts"
+    },
+    {
+      "id": "BR7.1",
+      "status": "OK",
+      "target": "observability-design.md \u2014 Sources"
+    },
+    {
+      "id": "BR7.2",
+      "status": "OK",
+      "target": "security-design.md \u2014 2.3 The IDOR equality probe"
+    },
+    {
+      "id": "BR7.3",
+      "status": "OK",
+      "target": "performance-design.md \u2014 Sources"
+    },
+    {
+      "id": "BR7.4",
+      "status": "OK",
+      "target": "performance-design.md \u2014 Sources"
+    },
+    {
+      "id": "BR7.5",
+      "status": "OK",
+      "target": "observability-design.md \u2014 7. What has no automated verifier"
+    }
+  ]
+}
