@@ -18,6 +18,8 @@
     <string name="auth_phone_label">Mobile number</string>
     <string name="auth_phone_hint">01XXXXXXXXX</string>
     <string name="auth_request_code">Send code</string>
+    <string name="auth_headline">Sign in</string>
+    <string name="auth_subhead">Enter your number and we will send a code.</string>
     <string name="auth_go_to_signup">New here? Create an account</string>
     <string name="auth_code_label">Enter the code</string>
     <string name="auth_code_sent">If that number is registered, a code has been sent.</string>
@@ -93,6 +95,7 @@
          Mr Karim added you to Physics" would make this screen an oracle
          for who teaches whom. -->
     <string name="signup_title">Create your account</string>
+    <string name="signup_subhead">We will send a code to confirm your number.</string>
     <string name="signup_phone_label">Mobile number</string>
     <string name="signup_name_label">Your name</string>
     <string name="signup_address_label">Address (optional)</string>

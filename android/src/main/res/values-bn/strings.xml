@@ -19,6 +19,8 @@
     <string name="auth_phone_label">মোবাইল নম্বর</string>
     <string name="auth_phone_hint">01XXXXXXXXX</string>
     <string name="auth_request_code">কোড পাঠান</string>
+    <string name="auth_headline">সাইন ইন</string>
+    <string name="auth_subhead">আপনার নম্বর দিন, আমরা একটি কোড পাঠাব।</string>
     <string name="auth_go_to_signup">নতুন? অ্যাকাউন্ট তৈরি করুন</string>
     <string name="auth_code_label">কোডটি লিখুন</string>
     <string name="auth_code_sent">নম্বরটি নিবন্ধিত থাকলে একটি কোড পাঠানো হয়েছে।</string>
@@ -86,6 +88,7 @@
 
     <!-- D1: সাইন-আপ (O1)। শিক্ষক বা ব্যাচের নাম কখনও দেখানো হয় না। -->
     <string name="signup_title">আপনার অ্যাকাউন্ট তৈরি করুন</string>
+    <string name="signup_subhead">আপনার নম্বর নিশ্চিত করতে আমরা একটি কোড পাঠাব।</string>
     <string name="signup_phone_label">মোবাইল নম্বর</string>
     <string name="signup_name_label">আপনার নাম</string>
     <string name="signup_address_label">ঠিকানা (ঐচ্ছিক)</string>
