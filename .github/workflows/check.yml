@@ -41,7 +41,20 @@ jobs:
   backend:
     name: backend
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # **Raised from 10 on 2026-10-25, against a measurement rather than a
+    # guess.** Run 40203674746 was cancelled at exactly 10 minutes with
+    # pytest at 75%; the steps before it cost 81s in total (install 19s,
+    # lockfile compile 43s, CVE audit 12s), so the suite itself needs
+    # ~11.8 min and the job ~13.1. 20 leaves headroom without hiding a
+    # trend: a job that starts taking 18 is telling you something.
+    #
+    # The length is not waste and is not to be optimised away by
+    # collapsing it. `make test` runs the suite TWICE on purpose — 100%
+    # branch on app.money, 80% line on the rest — because one run cannot
+    # enforce two different floors, and the floor that is not enforced is
+    # the one that quietly erodes. That reasoning is in the Makefile and
+    # it still holds; the suite grew through D4-D6, the cap did not.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
