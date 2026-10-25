@@ -191,7 +191,15 @@ def test_health_reports_the_migration_revision(client: TestClient) -> None:
     body = response.json()
     assert body["status"] == "ok"
     assert body["database"] == "ok"
-    assert body["migration_revision"] == "0005"
+    # **This literal is the post-deploy SMOKE check's expected value**,
+    # not a schema detail: `team.md`'s Deployment practice makes "a
+    # health endpoint reporting database connectivity and applied
+    # migration revision" part of the set that decides whether a deploy
+    # is done. Left stale, the smoke check asserts an old revision
+    # against a freshly migrated host. Moved with 0007 deliberately
+    # rather than discovered as a surprise CI failure, which is the
+    # pressure under which a constant gets edited to make a test pass.
+    assert body["migration_revision"] == "0007"
 
 
 def test_health_discloses_nothing_beyond_its_three_fields(

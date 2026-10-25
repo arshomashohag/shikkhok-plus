@@ -125,8 +125,86 @@ _REMINDER_OUTCOME = PgEnum(
     create_type=False,
 )
 
-#: The one job name the heartbeat carries in V1 [NFR25.9].
+#: The fee job's heartbeat name [NFR25.9].
 FEE_GENERATION_JOB = "fee_cycle_generation"
+
+#: D4's session-generation job, registered under its OWN name beside the
+#: fee job [observability-design § 4.1, NFR1.8]. A shared name would let
+#: a healthy fee run mask a session job that has never fired, and session
+#: generation self-heals -- so a job whose cron entry was never wired
+#: looks completely healthy right up to the morning a teacher opens the
+#: app and there is no class to mark attendance against.
+SESSION_GENERATION_JOB = "session_generation"
+
+#: D6's retention purge, registered under its OWN name beside the other
+#: two [BR4.1]. Registering a heartbeat is the WHOLE of what the purge
+#: does to get freshness coverage: ``check_all_jobs`` enumerates every
+#: row in ``job_heartbeat`` rather than naming a job, so a third job
+#: appears in the freshness report without the checker, the host's bare
+#: ``check-freshness`` invocation, or ``user_data.sh.tftpl`` changing.
+#: That property is why option B was chosen on 2026-10-25, and this
+#: constant is the first time it is cashed in by a unit that did not
+#: write the checker.
+RETENTION_PURGE_JOB = "retention_purge"
+
+#: A session's three states [FR3.3]. ``cancelled`` forbids attendance
+#: and topic writes [BR1.6] and is the only transition that does.
+#: ``held`` is reached by RECORDING, never by the clock passing: a class
+#: whose time has gone and which nobody recorded stays ``scheduled``,
+#: which is what keeps an unrecorded class visible [NFR19.45].
+SESSION_STATUS_VALUES: tuple[str, ...] = ("scheduled", "held", "cancelled")
+
+_SESSION_STATUS = PgEnum(
+    *SESSION_STATUS_VALUES,
+    name="session_status",
+    create_type=False,
+)
+
+#: Whether generation produced a session row or a teacher created it
+#: [AC3.0.3]. **No default, on ADR-013's reasoning applied to a second
+#: column**: a later insert path that does not state the origin is a
+#: path that forgot to think about it, and generation must never
+#: re-create or delete an ad-hoc session [BR1.4].
+SESSION_ORIGIN_VALUES: tuple[str, ...] = ("recurrence", "ad_hoc")
+
+_SESSION_ORIGIN = PgEnum(
+    *SESSION_ORIGIN_VALUES,
+    name="session_origin",
+    create_type=False,
+)
+
+#: Which queued path produced a submission row [BR2.1, § B.7]. The
+#: roster and the topic log share one replay store and one set of
+#: rules, and this column is what keeps their version counters from
+#: colliding in ``uq_queued_submission_version``. **No default**, on
+#: ``origin``'s reasoning: a later insert path that does not state the
+#: kind is a path that forgot to think about it.
+SUBMISSION_KIND_VALUES: tuple[str, ...] = ("attendance", "topic")
+
+_SUBMISSION_KIND = PgEnum(
+    *SUBMISSION_KIND_VALUES,
+    name="queued_submission_kind",
+    create_type=False,
+)
+
+#: FR4.3's four result states, and the enum is the point: a zero is a
+#: ``marked`` result with ``marks`` 0 and is never conflated with
+#: ``absent``. ``not_entered`` is a seat the teacher has not reached yet
+#: [AC4.1.4] and ``joined_after`` is a seat that could not have sat the
+#: exam [AC4.1.5]. **A client switches on this enum**, so adding a value
+#: is a breaking change under the contract's § B.1.1 rule.
+RESULT_STATE_VALUES: tuple[str, ...] = (
+    "marked",
+    "absent",
+    "not_entered",
+    "joined_after",
+)
+
+_RESULT_STATE = PgEnum(
+    *RESULT_STATE_VALUES,
+    name="mark_result_state",
+    create_type=False,
+)
 
 __all__ = [
     "CLAIM_STATUS_VALUES",
@@ -135,23 +213,35 @@ __all__ = [
     "FEE_GENERATION_JOB",
     "LEDGER_KIND_VALUES",
     "REMINDER_OUTCOME_VALUES",
+    "RESULT_STATE_VALUES",
+    "RETENTION_PURGE_JOB",
+    "SESSION_GENERATION_JOB",
+    "SESSION_ORIGIN_VALUES",
+    "SESSION_STATUS_VALUES",
+    "SUBMISSION_KIND_VALUES",
     "Account",
+    "Announcement",
+    "Attendance",
     "AuthAuditLog",
     "Batch",
     "BatchSubject",
     "Enrollment",
+    "Exam",
     "FeeCycle",
     "HiddenBatchPreference",
     "JobHeartbeat",
     "LedgerEntryRow",
+    "Mark",
     "OtpRequest",
     "Owner",
     "PaymentClaim",
     "Profile",
+    "QueuedSubmission",
     "RateLimitCounter",
     "RefreshToken",
     "ReminderEvent",
     "ScheduleSlot",
+    "Session",
     "VerifyAttempt",
 ]
 
@@ -181,7 +271,10 @@ class Account(Base):
     :ivar phone: The permanent, unique key; never logged [RC-1, RC-2]
     :ivar created_at: When the record was created, dormant or otherwise
     :ivar activated_at: Set on first successful verify; null while dormant
-    :ivar deleted_at: Reserved for U11's deletion paths
+    :ivar deleted_at: Unused. D6 hard-deletes the row [BR1.1], so
+        nothing ever writes this column; it is kept rather than
+        dropped because dropping it is irreversible and an unused
+        column is the smaller change
     """
 
     __tablename__ = "account"
@@ -500,9 +593,20 @@ class Enrollment(Base):
 
     id: Mapped[uuid.UUID] = _uuid_column()
     batch_id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), nullable=False)
+    # SET NULL on BOTH links, matched deliberately [BR1.2, 0007]. The
+    # student link was CASCADE until 0007 while the guardian link beside
+    # it was SET NULL, so one user action meant two different things
+    # depending on which role the account held -- a student's deletion
+    # removed the enrollment row and the six tables cascading from it,
+    # taking the teacher's attendance, marks and settled fee ledger for
+    # that seat, while a guardian's deletion lost nothing.
+    #
+    # The rule the enumeration produced: a CASCADE to account.id is
+    # wrong exactly when its table's disposition is RETAIN_WITH_BASIS,
+    # because the manifest already says the row must survive.
     student_account_id: Mapped[uuid.UUID | None] = mapped_column(
         PgUUID(as_uuid=True),
-        ForeignKey("account.id", ondelete="CASCADE"),
+        ForeignKey("account.id", ondelete="SET NULL"),
         nullable=True,
     )
     guardian_account_id: Mapped[uuid.UUID | None] = mapped_column(
@@ -795,10 +899,20 @@ class PaymentClaim(Base):
     claimed_amount: Mapped[Money] = mapped_column(MoneyColumn, nullable=False)
     channel: Mapped[str] = mapped_column(String(32), nullable=False)
     transaction_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    submitted_by_account_id: Mapped[uuid.UUID] = mapped_column(
+    # NULLABLE and SET NULL since 0007, matching `verified_by_account_id`
+    # beside it [BR1.2]. The asymmetry was inside ONE table: a teacher's
+    # deletion unlinked the verification and kept the claim, while a
+    # student's deleted the claim outright -- the record of a payment
+    # they submitted, with its transaction id and channel, on a table
+    # the manifest marks RETAIN_WITH_BASIS.
+    #
+    # The column admits NULL because `SET NULL` against a NOT NULL
+    # column is refused by PostgreSQL; the nullability is the
+    # constraint's precondition, not an independent relaxation.
+    submitted_by_account_id: Mapped[uuid.UUID | None] = mapped_column(
         PgUUID(as_uuid=True),
-        ForeignKey("account.id", ondelete="CASCADE"),
-        nullable=False,
+        ForeignKey("account.id", ondelete="SET NULL"),
+        nullable=True,
     )
     submitted_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
@@ -1023,3 +1137,458 @@ class JobHeartbeat(Base):
     cycles_created: Mapped[int] = mapped_column(Integer, nullable=False)
     cycles_skipped: Mapped[int] = mapped_column(Integer, nullable=False)
     periods_failed: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class Session(Base):
+    """One instance of a class: a date and time a batch met.
+
+    **Materialised rows, not a computed view of the recurrence rule.**
+    ``ScheduleSlot`` holds the weekly recurrence; the instances are rows
+    because attendance, the topic log and a reschedule all attach to a
+    specific occurrence, and AC3.0.2 requires a schedule change to leave
+    past sessions untouched -- which a computed view cannot do, because
+    recomputing it moves history [BR1.2].
+
+    **This row carries the product's first optimistic-concurrency
+    version.** Verified rather than assumed: no other table in this
+    module has a version column, and the only concurrency primitives in
+    the backend are ``SELECT ... FOR UPDATE`` in three places. A
+    pessimistic lock is the wrong tool for this path specifically -- the
+    contender is not a concurrent request but a STALE one, composed
+    hours earlier on a phone with no connectivity, and there is no
+    transaction to hold open across that gap [BR3.3, ADR-006].
+
+    ``topic_version`` is **separate** from ``attendance_version``
+    because the two queued paths touch disjoint columns. One shared
+    counter would refuse a topic log because a roster arrived, which is
+    a conflict the teacher cannot act on: there is nothing to compare
+    and nothing to re-apply differently.
+
+    :ivar id: Surrogate key
+    :ivar batch_id: The batch that met
+    :ivar batch_subject_id: Which subject this taught, or NULL
+    :ivar date: The occurrence's date
+    :ivar start_time: When it starts
+    :ivar end_time: When it ends, or NULL
+    :ivar topic: What was covered, or NULL while unlogged [BR2.2]
+    :ivar status: ``scheduled``, ``held`` or ``cancelled``
+    :ivar origin: ``recurrence`` or ``ad_hoc``; no default [BR1.4]
+    :ivar attendance_version: The roster's optimistic version
+    :ivar topic_version: The topic log's own optimistic version
+    :ivar created_at: When the row was created
+    """
+
+    __tablename__ = "session"
+
+    id: Mapped[uuid.UUID] = _uuid_column()
+    batch_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("batch.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    # SET NULL rather than CASCADE: a subject removed from the batch
+    # must not delete the history of the classes that taught it.
+    batch_subject_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("batch_subject.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    date: Mapped[dt.date] = mapped_column(Date, nullable=False)
+    start_time: Mapped[dt.time] = mapped_column(Time, nullable=False)
+    end_time: Mapped[dt.time | None] = mapped_column(Time, nullable=True)
+    # Nullable, and that is BR2.2: an unwritten topic is a different
+    # fact from one the teacher saved as blank, and collapsing the two
+    # makes "topics covered in each" unanswerable.
+    topic: Mapped[str | None] = mapped_column(String(2000), nullable=True)
+    status: Mapped[str] = mapped_column(_SESSION_STATUS, nullable=False)
+    origin: Mapped[str] = mapped_column(_SESSION_ORIGIN, nullable=False)
+    attendance_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    topic_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+    __table_args__ = (
+        # The whole idempotency mechanism [BR1.3]. Generation inserts
+        # with ON CONFLICT DO NOTHING and the conflict is the SUCCESS
+        # path -- the same shape as uq_fee_cycle_enrollment_period and
+        # RateLimitCounter's constraint before it.
+        UniqueConstraint(
+            "batch_id",
+            "date",
+            "start_time",
+            name="uq_session_batch_date_start",
+        ),
+        Index("ix_session_batch_id", "batch_id"),
+        Index("ix_session_batch_date", "batch_id", "date"),
+        CheckConstraint(
+            "attendance_version >= 0",
+            name="ck_session_attendance_version_non_negative",
+        ),
+        CheckConstraint(
+            "topic_version >= 0",
+            name="ck_session_topic_version_non_negative",
+        ),
+    )
+
+
+class QueuedSubmission(Base):
+    """One accepted queued write, and the row both guarantees live on.
+
+    **A table rather than a column, and that is the design.** § B.7
+    requires a replayed ``client_mutation_id`` to return the ORIGINAL
+    stored result with 200 and never write twice. A roster is MANY
+    attendance rows sharing ONE mutation id, so a unique constraint on
+    that column cannot live on ``attendance``: per-row it is not unique
+    for the write it is meant to protect, and absent it leaves
+    idempotency to application logic.
+
+    **That is the shape D3's double-crediting defect had** -- a write
+    with no natural key to conflict on. Here the key exists and is the
+    constraint [reliability-design § 5].
+
+    **It serves both queued paths**, which is what ``kind`` is for. The
+    topic log is on the same device queue under the same rules [BR2.1],
+    so it needs the same replay store -- and reusing this table
+    unchanged could not work, because ``UNIQUE (session_id,
+    resulting_version)`` is attendance-versioned and a topic write
+    reaching topic version N+1 would collide with the roster write that
+    reached attendance version N+1 on the same session.
+
+    :ivar id: Surrogate key
+    :ivar session_id: The session this wrote
+    :ivar kind: Which queued path produced it
+    :ivar submitted_by_account_id: Who submitted it
+    :ivar client_mutation_id: The client's replay key
+    :ivar base_version: The version this write was composed against
+    :ivar resulting_version: The version after it applied; base + 1
+    :ivar composed_at: Client-reported, used in NO decision [NFR24.20]
+    :ivar created_at: When the server accepted it
+    """
+
+    __tablename__ = "queued_submission"
+
+    id: Mapped[uuid.UUID] = _uuid_column()
+    session_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("session.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    # NULLABLE and SET NULL since 0007 [BR1.2]. The account it names is
+    # the TEACHER who submitted, so this row only becomes reachable by
+    # an account deletion once BR1.6's refusal is lifted -- but the
+    # table's disposition is RETAIN_WITH_BASIS either way, and a
+    # cascade against it was a contradiction whether or not any path
+    # currently reaches it.
+    #
+    # The replay constraint `uq_queued_submission_replay` spans this
+    # column. A NULL here makes that pair no longer unique-constrained
+    # against other NULLs, which is correct: PostgreSQL treats NULLs as
+    # distinct in a unique index, and a replay check for an account
+    # that no longer exists has nothing to protect.
+    submitted_by_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("account.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    kind: Mapped[str] = mapped_column(_SUBMISSION_KIND, nullable=False)
+    client_mutation_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), nullable=False
+    )
+    base_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    resulting_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    # A DEVICE clock, recorded for the pilot's queue-latency question
+    # and never read in a decision. A device clock in a conflict rule
+    # would let a wrong phone time silently reorder two writes.
+    composed_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+    __table_args__ = (
+        # The idempotency constraint § B.7 specifies, scoped per
+        # ACCOUNT and deliberately NOT by kind: account B presenting
+        # account A's id is not a duplicate at all [§ 5.2], while the
+        # same account's id arriving on the other path is still the
+        # same client decision and is still a replay.
+        UniqueConstraint(
+            "submitted_by_account_id",
+            "client_mutation_id",
+            name="uq_queued_submission_replay",
+        ),
+        # Belt and braces on the version increment: two writes of one
+        # KIND cannot both produce version N+1. This is what makes
+        # BR3.4's guarantee survive somebody later rewriting the
+        # conditional update into a read-then-write.
+        #
+        # Without `kind` the two counters would collide: a topic write
+        # reaching topic version N+1 would be refused by the roster
+        # write that reached attendance version N+1 on the same
+        # session.
+        UniqueConstraint(
+            "session_id",
+            "kind",
+            "resulting_version",
+            name="uq_queued_submission_version",
+        ),
+        Index("ix_queued_submission_session_id", "session_id"),
+        CheckConstraint(
+            "base_version >= 0",
+            name="ck_queued_submission_base_version_non_negative",
+        ),
+        CheckConstraint(
+            "resulting_version >= 1",
+            name="ck_queued_submission_resulting_version_positive",
+        ),
+    )
+
+
+class Attendance(Base):
+    """One enrollment's presence at one session.
+
+    The whole roster is written in a **single atomic operation** and
+    never one row per student [AC3.1.5]: a per-student write leaves
+    attendance half-saved after a mid-roster connection drop, and
+    nothing on screen can reconcile that.
+
+    ``present`` has **no third value**. AC3.1.4 defaults every seat to
+    present and the teacher marks only exceptions, so an unsubmitted
+    roster is an ABSENT row rather than a null column.
+
+    :ivar id: Surrogate key
+    :ivar session_id: The session
+    :ivar enrollment_id: The seat
+    :ivar present: Whether the student attended
+    :ivar recorded_at: When this was marked
+    :ivar recorded_by_account_id: Who marked it
+    :ivar submission_id: The accepted roster write that produced it
+    """
+
+    __tablename__ = "attendance"
+
+    id: Mapped[uuid.UUID] = _uuid_column()
+    session_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("session.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    enrollment_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("enrollment.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    present: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    recorded_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    recorded_by_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("account.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    submission_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("queued_submission.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    __table_args__ = (
+        # One row per seat per session. A roster re-submission REPLACES
+        # rather than appends [BR3.5], which is what makes the upsert
+        # expressible at all.
+        UniqueConstraint(
+            "session_id",
+            "enrollment_id",
+            name="uq_attendance_session_enrollment",
+        ),
+        Index("ix_attendance_enrollment_id", "enrollment_id"),
+        Index("ix_attendance_submission_fk", "submission_id"),
+    )
+
+
+class Exam(Base):
+    """One assessment in one batch and subject [AC4.1.1].
+
+    Holds no result; results are :class:`Mark` rows.
+
+    ``total_marks`` is an **integer count of marks and not a money
+    value** -- it must never acquire a money type, for the same reason
+    ``Batch.collection_number`` must not. It matches the money-name
+    gate's ``total`` token and carries a per-column exemption stating
+    exactly that.
+
+    :ivar id: Surrogate key
+    :ivar batch_id: The batch
+    :ivar batch_subject_id: Which of that batch's subjects
+    :ivar title: The teacher's name for the assessment
+    :ivar date: The exam date, compared against ``joined_on`` [BR4.3]
+    :ivar total_marks: The denominator, at least 1
+    :ivar created_at: When the exam was created
+    """
+
+    __tablename__ = "exam"
+
+    id: Mapped[uuid.UUID] = _uuid_column()
+    batch_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("batch.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    # RESTRICT, not CASCADE or SET NULL: deleting a subject must not
+    # silently destroy the exams and marks recorded under it, and an
+    # exam with no subject cannot satisfy AC4.1.1.
+    batch_subject_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("batch_subject.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    date: Mapped[dt.date] = mapped_column(Date, nullable=False)
+    total_marks: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+    __table_args__ = (
+        Index("ix_exam_batch_id", "batch_id"),
+        Index("ix_exam_batch_subject_id", "batch_subject_id"),
+        # At least 1: a total of zero makes every percentage undefined
+        # and every band degenerate.
+        CheckConstraint("total_marks >= 1", name="ck_exam_total_marks_positive"),
+    )
+
+
+class Mark(Base):
+    """One enrollment's result in one exam, append-only.
+
+    **A supersession chain, the same shape** :class:`LedgerEntryRow`
+    **uses and for the same reason**: AC3.1.7 and FR9.2 require a
+    correction to be visible, and an UPDATE destroys the fact that a
+    mark changed. A correction appends a new row and sets the old row's
+    ``superseded_by_id`` in the same transaction [BR4.4].
+
+    :ivar id: Surrogate key
+    :ivar exam_id: The exam
+    :ivar enrollment_id: The seat
+    :ivar result_state: One of the four states [BR4.3]
+    :ivar marks: Non-null if and only if ``result_state`` is ``marked``
+    :ivar recorded_at: When this was entered
+    :ivar recorded_by_account_id: Who entered it
+    :ivar superseded_by_id: NULL on the live row [BR4.5]
+    :ivar created_at: When the row was created
+    """
+
+    __tablename__ = "mark"
+
+    id: Mapped[uuid.UUID] = _uuid_column()
+    exam_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("exam.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    enrollment_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("enrollment.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    result_state: Mapped[str] = mapped_column(_RESULT_STATE, nullable=False)
+    # Nullable because the other three states have no number, and
+    # storing zero for them is exactly the conflation FR4.3 forbids.
+    marks: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    recorded_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    recorded_by_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("account.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    superseded_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("mark.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+    __table_args__ = (
+        # A DATABASE constraint rather than a validator, because this is
+        # the invariant the four-state requirement reduces to and a
+        # validator is bypassed by every write path that forgets it.
+        CheckConstraint(
+            "(result_state = 'marked') = (marks IS NOT NULL)",
+            name="ck_mark_state_marks_biconditional",
+        ),
+        CheckConstraint(
+            "marks IS NULL OR marks >= 0",
+            name="ck_mark_marks_non_negative",
+        ),
+        # A PARTIAL unique index, the same shape as the built
+        # uq_enrollment_batch_student. Without it a correction that
+        # fails to set the old row's pointer leaves two live marks and
+        # the marksheet silently counts one student twice [BR4.5].
+        Index(
+            "uq_mark_live_per_seat",
+            "exam_id",
+            "enrollment_id",
+            unique=True,
+            postgresql_where=text("superseded_by_id IS NULL"),
+        ),
+        Index("ix_mark_exam_id", "exam_id"),
+        Index("ix_mark_enrollment_id", "enrollment_id"),
+    )
+
+
+class Announcement(Base):
+    """One note a teacher posted to a batch [FR3.8].
+
+    **Soft-deleted rather than removed**, because AC3.3.3 requires it to
+    disappear from student and guardian views while FR9.2's correction
+    history and the governance manifest's "stays with the batch's
+    history" basis both require the fact of it to survive.
+
+    **No expiry column and no expiry job** [AC3.3.4]. Stated as an
+    absence because the obvious implementation of "announcements" adds
+    one, and a silently expiring announcement is a message the teacher
+    believes was delivered.
+
+    :ivar id: Surrogate key
+    :ivar batch_id: The batch it was posted to
+    :ivar body: The note
+    :ivar created_at: When it was posted
+    :ivar edited_at: NULL until edited; its non-null-ness IS the
+        "shows as edited" flag [AC3.3.2]
+    :ivar deleted_at: NULL while visible [AC3.3.3]
+    :ivar posted_by_account_id: Who posted it
+    """
+
+    __tablename__ = "announcement"
+
+    id: Mapped[uuid.UUID] = _uuid_column()
+    batch_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("batch.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    body: Mapped[str] = mapped_column(String(4000), nullable=False)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    # A separate boolean would be a second source of truth that can
+    # disagree with the timestamp.
+    edited_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    deleted_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    posted_by_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("account.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+    __table_args__ = (Index("ix_announcement_batch_id", "batch_id"),)

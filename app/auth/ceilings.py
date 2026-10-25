@@ -1,4 +1,4 @@
-"""The four counters, checked narrowest first.
+"""Three cascades over one implementation, each checked narrowest first.
 
 **Order is the control.** Each scope is checked and incremented only if it
 passes, in narrowest-to-widest order, so a refusal at the per-number
@@ -43,6 +43,10 @@ from sqlalchemy.orm import Session
 from app.errors import ConflictError
 
 __all__ = [
+    "DEL_GLOBAL_DAILY",
+    "DEL_PER_IP_HOURLY",
+    "DEL_PER_NUMBER_DAILY",
+    "DEL_PER_NUMBER_HOURLY",
     "GLOBAL_DAILY",
     "PER_IP_HOURLY",
     "PER_NUMBER_DAILY",
@@ -87,6 +91,44 @@ SIGNUP_PER_NUMBER_DAILY: Final = 3
 #: tighter signup limit would lock out a school's wifi before it
 #: slowed anyone down.
 SIGNUP_PER_IP_HOURLY: Final = 10
+
+#: A 4th deletion code for one number inside an hour is refused
+#: [NFR14.100]. Matched to the OTP path's hourly allowance: a person
+#: deleting their account asks for a code once, and a third retry is
+#: already generous.
+DEL_PER_NUMBER_HOURLY: Final = 3
+
+#: A 6th inside a day is refused [NFR14.100].
+DEL_PER_NUMBER_DAILY: Final = 5
+
+#: An 11th from one IP prefix inside an hour is refused. **Depth rather
+#: than the control**, and the ranking is the opposite of the obvious
+#: one [DESIGN-6]: `ip_prefix_of` reduces IPv4 to a /24, so an attacker
+#: spanning prefixes never accumulates toward this limit, and an IPv6
+#: address contains no `.` so each caller becomes its own whole-address
+#: scope -- a bound of ten per address rather than per /24.
+#:
+#: Neither is corrected here. Narrowing the prefix would reintroduce the
+#: per-user counter `ip_prefix_of`'s own comment rejects, and changing a
+#: primitive three built routes depend on in the last unit before
+#: release is the wrong trade.
+DEL_PER_IP_HOURLY: Final = 10
+
+#: **The load-bearing control** [NFR14.102]. Fifty deletion codes in a
+#: day across the whole product, as a sub-ceiling of the OTP path's
+#: global budget rather than a share of it.
+#:
+#: **Signup's no-global decision deliberately does not transfer**, and
+#: the difference is the attack. `_signup_scopes` has no global scope
+#: because signup's cost passes through the OTP cascade's global ceiling
+#: immediately afterwards, so a second counter would bound the same
+#: spend twice. Deletion's hazard is not that it spends twice -- it is
+#: that it spends **the same budget sign-in needs**, which is the exact
+#: condition this sub-ceiling exists for. A reader patterning off signup
+#: would omit this scope and reopen the finding.
+DEL_GLOBAL_DAILY: Final = int(
+    os.environ.get("SHIKKHOKPLUS_GLOBAL_DAILY_DELETION_SMS", "50")
+)
 
 _HOUR = dt.timedelta(hours=1)
 _DAY = dt.timedelta(days=1)
@@ -138,6 +180,31 @@ class ScopeKind(enum.Enum):
     # one character of readability.
     SIGNUP_NUMBER_DAILY = "su_number_day"
     SIGNUP_IP_HOURLY = "su_ip_hour"
+    # D6's cascade, on the signup members' reasoning: SEPARATE counters,
+    # never extra conditions on the OTP ones [NFR14.100]. Sharing them
+    # would mean an unauthenticated caller draining a victim's deletion
+    # allowance ALSO locks that victim out of signing in -- and a test
+    # asserting only that the deletion route refuses passes against
+    # exactly that defect, because refusing is what both implementations
+    # do.
+    #
+    # The `del_` prefix is deliberate and the lengths were computed
+    # rather than eyeballed: the column is `String(16)`, and the obvious
+    # prefixes do not fit -- `deletion_number_day` is 19 and
+    # `delete_number_day` is 17. PostgreSQL refuses such a value
+    # outright, as the signup comment above records it already did once.
+    DEL_NUMBER_HOURLY = "del_number_hour"
+    DEL_NUMBER_DAILY = "del_number_day"
+    DEL_IP_HOURLY = "del_ip_hour"
+    DEL_GLOBAL_DAILY = "del_global_day"
+
+
+#: The scopes whose breach reaches a human. Declared beside the enum
+#: rather than tested inline, so adding a fifth cascade is a decision
+#: about this set rather than a condition someone extends in passing.
+_ALERTING_SCOPES: Final = frozenset(
+    {ScopeKind.GLOBAL_DAILY, ScopeKind.DEL_GLOBAL_DAILY}
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -239,7 +306,12 @@ def _window_start(now: dt.datetime, window: dt.timedelta) -> dt.datetime:
 
 
 class CeilingChecker:
-    """Check and consume the four ceilings for one send.
+    """Check and consume the ceilings for one send, signup or deletion.
+
+    **Three cascades over one ``_consume``**, never one cascade with
+    extra conditions: each has its own ``ScopeKind`` members and
+    therefore its own counter rows, so a refusal on one path never
+    consumes another path's allowance.
 
     :ivar session: The session the counters are read and written through
     """
@@ -297,6 +369,39 @@ class CeilingChecker:
         """
         self._consume(self._signup_scopes(number, ip_prefix), now)
 
+    def check_and_consume_deletion(
+        self,
+        number: str,
+        ip_prefix: str,
+        now: dt.datetime | None = None,
+    ) -> None:
+        """Consume one deletion code's budget, refusing at the narrowest.
+
+        **A THIRD cascade over the same ``_consume``, never extra
+        conditions on the first two** [NFR14.100, NFR14.102]. It shares
+        the narrowest-first order, the release-on-refusal accounting and
+        the datastore-backed counters, and shares no counter ROW -- its
+        scopes are distinct :class:`ScopeKind` members, so a deletion
+        refusal never consumes a sign-in allowance and the reverse.
+
+        That separation is the whole control. The public deletion route
+        takes only a phone number, so a shared counter would let an
+        unauthenticated caller spend a victim's sign-in allowance and
+        lock them out of their own account -- while a test asserting
+        only that the route refuses would be green throughout.
+
+        Called **before** the gateway call, for the reason the two
+        existing cascades are: a ceiling checked afterwards has already
+        spent what it exists to protect.
+
+        :param number: The number a deletion code is being sent to
+        :param ip_prefix: The caller's IP prefix
+        :param now: The moment to count against, or None for the clock
+        :return: None
+        :raises CeilingBreach: A ceiling refused this send
+        """
+        self._consume(self._deletion_scopes(number, ip_prefix), now)
+
     def _consume(
         self,
         cascade: list[tuple[_Scope, str]],
@@ -332,7 +437,17 @@ class CeilingChecker:
                 # Undo THIS scope's increment, so a refusal consumes
                 # nothing at all -- including the scope that refused.
                 self._release(scope, value, window)
-                if scope.kind is ScopeKind.GLOBAL_DAILY:
+                # The two GLOBAL scopes alert; the per-number and per-IP
+                # ones never do. They fire constantly once the product
+                # has users, which trains the operator to ignore the one
+                # that matters sitting in the same channel.
+                #
+                # `del_global_day` alerts for a sharper reason than its
+                # sibling: sign-in's global ceiling tripping might be a
+                # busy day, while fifty deletion codes in a day is the
+                # one scope of the seven whose breach has no innocent
+                # explanation.
+                if scope.kind in _ALERTING_SCOPES:
                     fire_ceiling_alert(scope.kind.value)
                 raise CeilingBreach(scope.kind)
 
@@ -411,5 +526,49 @@ class CeilingChecker:
                     _HOUR,
                 ),
                 ip_prefix,
+            ),
+        ]
+
+    @staticmethod
+    def _deletion_scopes(number: str, ip_prefix: str) -> list[tuple[_Scope, str]]:
+        """Build the deletion cascade, narrowest first.
+
+        **Four scopes, including a global one**, where signup has two
+        and no global. That difference is a decision rather than an
+        inconsistency: signup declines a global scope because its cost
+        passes through the OTP cascade's global ceiling moments later,
+        so a second counter would bound one spend at two thresholds.
+        Deletion's hazard is the opposite -- it spends the budget
+        sign-in needs -- which is the exact condition NFR14.102's
+        sub-ceiling exists for.
+
+        :param number: The number a deletion code is being sent to
+        :param ip_prefix: The caller's IP prefix
+        :return: Each scope paired with the value it counts against
+        """
+        return [
+            (
+                _Scope(
+                    ScopeKind.DEL_NUMBER_HOURLY,
+                    DEL_PER_NUMBER_HOURLY,
+                    _HOUR,
+                ),
+                number,
+            ),
+            (
+                _Scope(
+                    ScopeKind.DEL_NUMBER_DAILY,
+                    DEL_PER_NUMBER_DAILY,
+                    _DAY,
+                ),
+                number,
+            ),
+            (
+                _Scope(ScopeKind.DEL_IP_HOURLY, DEL_PER_IP_HOURLY, _HOUR),
+                ip_prefix,
+            ),
+            (
+                _Scope(ScopeKind.DEL_GLOBAL_DAILY, DEL_GLOBAL_DAILY, _DAY),
+                GLOBAL_SCOPE_VALUE,
             ),
         ]

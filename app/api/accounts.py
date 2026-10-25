@@ -180,7 +180,7 @@ def sign_up(
     # The EXISTING OTP path, unchanged [BR2.2]. Signup does not become
     # a second authentication route: it triggers the one that carries
     # the seven abuse controls.
-    issued = otp.issue(session, body.phone, correlation_id)
+    issued = otp.issue(session, body.phone, correlation_id, purpose=otp.OTP_PURPOSE)
     gateway.send(
         body.phone,
         render_otp_message(issued.code, os.environ.get(APP_HASH_ENV, "")),

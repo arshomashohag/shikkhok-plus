@@ -4,7 +4,7 @@
 database connectivity and the applied Alembic revision -- enough for the
 post-deploy smoke set to be meaningful, and nothing more.
 
-It is one of the five ``PUBLIC_ROUTES``, reachable by anyone, so **every
+It is one of the ``PUBLIC_ROUTES``, reachable by anyone, so **every
 field added here is information disclosed**. Version numbers, dependency
 states and queue depths do not belong, and the response model forbids
 extra fields so adding one is a deliberate edit to this file rather than

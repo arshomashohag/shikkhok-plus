@@ -110,18 +110,19 @@ def test_public_routes_contains_the_contracted_entries() -> None:
 
 
 def test_lens_exempt_set_holds_exactly_the_known_routes() -> None:
-    """``LENS_EXEMPT_AUTHENTICATED`` holds three reporting routes.
+    """``LENS_EXEMPT_AUTHENTICATED`` holds four routes.
 
     Kept separate from ``PUBLIC_ROUTES`` for a concrete reason: with one
     combined list, whoever first hits a failing refresh route takes the
     cheapest green edit and adds it to the public set, after which nothing
     records that the route must stay authenticated.
 
-    **The count is the control and it has now fired three times**: once
+    **The count is the control and it has now fired four times**: once
     for the staging outbox against ``PUBLIC_ROUTES``, once here when
-    ``/v1/me`` was added, and once for the invitation listing. Each time
-    it forced the entry to be justified rather than appended. A fourth
-    should be as hard to add as these three were.
+    ``/v1/me`` was added, once for the invitation listing, and once in
+    D6 for the in-app deletion route. Each time it forced the entry to
+    be justified rather than appended. A fifth should be as hard to add
+    as these four were.
 
     Each exemption needs a reason that is a property of the route, not a
     convenience:
@@ -133,7 +134,11 @@ def test_lens_exempt_set_holds_exactly_the_known_routes() -> None:
     - ``/v1/invitations`` is the route that REPORTS which invitation
       lenses exist, on exactly that reasoning. The four PER-SEAT
       invitation routes each resolve an ``InvitationLens``, so the
-      exemption covers the listing alone and nothing it links to.
+      exemption covers the listing alone and nothing it links to;
+    - ``DELETE /v1/me`` acts on the authenticated account ITSELF, so
+      there is no other account's data to scope -- and requiring a lens
+      would leave an account holding none of the three unable to delete
+      itself, which is the account with the least reason to stay.
 
     :return: None
     """
@@ -142,6 +147,7 @@ def test_lens_exempt_set_holds_exactly_the_known_routes() -> None:
             ("POST", "/v1/auth/refresh"),
             ("GET", "/v1/me"),
             ("GET", "/v1/invitations"),
+            ("DELETE", "/v1/me"),
         }
     )
 

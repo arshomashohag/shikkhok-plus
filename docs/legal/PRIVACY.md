@@ -126,17 +126,67 @@ information — a teacher's name, plan and payment status.
 
 ---
 
-## How long we keep it
+## What we keep, and what deletion removes
 
-| Data | Kept for |
+The section below is **generated from the application's own data rules**
+rather than written alongside them. Every row states what the code
+actually does, and our build fails if the two stop matching.
+
+<!-- BEGIN GENERATED: governance manifest -->
+
+> This section is generated from the application's own data
+> rules. If the code changes and this text is not regenerated,
+> our build fails. It cannot quietly describe an older version.
+
+### Deleted outright when you delete your account
+
+| Data | Removed anyway after |
 |---|---|
-| One-time codes | 5 minutes, then deleted |
-| Failed sign-in attempts | 30 days |
-| Sign-in rate counters | 24 hours |
-| Sign-in audit log (no names, no codes) | 12 months |
-| Session tokens | 30 days, or until you sign out |
-| Your account and profile | Until you delete it |
-| Class records | Until the teacher deletes them, or per the rules below |
+| A record that a teacher sent a fee reminder | 12 months |
+| Failed and successful sign-in attempts | 7 days |
+| One-time sign-in codes, stored only as hashes | 7 days |
+| Session tokens, stored only as hashes | 30 days after it expires |
+| Test-only message records, never used in production | 7 days |
+| The record that you are a teacher | no time limit |
+| Which classes you have hidden from your own view | no time limit |
+| Your own name, photo and address | no time limit |
+| Your phone number and account record | no time limit |
+
+### Kept even after you delete your account, because the same record is someone else's too
+
+| Data | Removed anyway after |
+|---|---|
+| A class a teacher runs | no time limit |
+| A class that was held, on a date | no time limit |
+| A class's weekly timetable | no time limit |
+| A note a teacher posted to a class | no time limit |
+| A payment you reported, and the teacher's decision on it | no time limit |
+| A record that a teacher's entry was received | no time limit |
+| A sign-in audit record carrying no name or code | 12 months |
+| A student's exam result | no time limit |
+| A student's place in a class, including the name the teacher typed | no time limit |
+| A subject within a class | no time limit |
+| Amounts charged, paid and waived | no time limit |
+| An exam a teacher set | no time limit |
+| The record that a fee was due for a month | no time limit |
+| Whether a student attended a class | no time limit |
+
+### Not about you, and not changed when you delete your account
+
+These records are about how the service itself is running, not about any person. They hold no name, no phone number and nothing you wrote, and they are not linked to your account, so there is nothing in them for a deletion request to remove. We say so here rather than leaving them off the page: the counters below are what stop somebody flooding a phone number with sign-in codes, and clearing them on request would turn account deletion into a way of switching that protection off. Where the table below gives a time, the record clears itself after it; where it says there is no time limit, it is one line per scheduled job, overwritten on each run rather than appended to, so it never grows with the people using the service.
+
+| Data | Removed anyway after |
+|---|---|
+| Counters that limit sign-in attempts | 48 hours |
+| When our scheduled jobs last ran; it names nobody | no time limit |
+
+**The name a teacher typed for you stays in that teacher's record.** When a teacher invites someone to a class they enter a name for that place themselves. That name belongs to the teacher's own record of the class, so it remains after you delete your account -- and it remains even if you declined the invitation and never used the app. It is not shown to anyone but that teacher. If you want it removed, contact us at the address at the top of this page and we will raise it with the teacher concerned.
+
+<!-- governance manifest digest: c699b0ee6ed7a167470454e67a0b981e1c9cf654ec6eb797a307145e644033a2
+     Covers every disposition, retention class and basis, so a
+     change to any of them fails the drift gate even when it
+     does not alter the text above. Regenerate; do not edit. -->
+<!-- END GENERATED: governance manifest -->
 
 ---
 
@@ -156,34 +206,21 @@ This is the part most policies leave vague, and the part that matters
 most. Deletion is not instant-everything: a teacher's record of a
 class they taught is also their own business record.
 
-**Deleted permanently, within 30 days:**
+**The precise answer, per kind of data, is in "What we keep, and what
+deletion removes" above** — and it is generated from the code rather
+than written here, so it cannot drift away from what actually happens.
+This section explains the reasoning behind it.
 
-- Your phone number
-- Your name and profile photo
-- Your sign-in history and session tokens
-- Any note or detail you entered about yourself
+**Why some records stay.** Attendance, marks and fee entries are
+simultaneously your personal data and the teacher's record of a class
+they ran and were paid for. Erasing them would rewrite a teacher's
+attendance history and fee ledger — including payments already settled.
+Keeping those entries, while removing everything of yours that we hold
+on our own account, is how we honour your erasure right without
+destroying someone else's records.
 
-**Kept, but no longer identifying you:**
-
-- Attendance, marks and fee entries a teacher recorded remain in that
-  teacher's class history, with your name and contact details removed.
-  The teacher sees an unnamed former-student row.
-
-**Why we keep that.** The entries are simultaneously your personal
-data and the teacher's record of a class they ran and were paid for.
-Erasing them would rewrite a teacher's attendance history and fee
-ledger — including payments already settled. Removing everything that
-identifies you, while leaving the anonymous record, is how we honour
-your erasure right without destroying someone else's records.
-
-If you want the anonymised entries removed as well, ask us and we will
+If you want entries like those removed as well, ask us and we will
 discuss it with the teacher concerned.
-
-### A teacher deleting their account
-
-A teacher's deletion removes their own phone number, name and profile
-on the same terms. Their students' records are deleted with the class,
-since nobody else holds them.
 
 ---
 

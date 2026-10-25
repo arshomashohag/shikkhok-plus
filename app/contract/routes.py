@@ -50,15 +50,24 @@ __all__ = [
 #: reaches a batch, a fee, a mark or an attendance record
 #: [logical-components § 4].
 #:
-#: **Two of these have no handler yet.** `/account-deletion`, GET and POST,
-#: is pre-declared D6 scope: both account-deletion paths are release-blocking
-#: V1 deliverables [TC-19, RC-4, RC-5] and neither exists. Allowlisting them
-#: ahead of the handlers is deliberate and is not a hole — an allowlist entry
-#: grants nothing on its own, since the route-enumeration gate walks
-#: REGISTERED routes and an unregistered path is unreachable. What it buys is
-#: that D6 lands handlers against entries already under review, rather than
-#: editing the public-route allowlist in the same commit that adds a public
-#: route.
+#: **The two `/account-deletion` entries now have handlers, and D6 added
+#: no entry here.** They were allowlisted ahead of the handlers as
+#: pre-declared D6 scope — deliberate and not a hole, since an allowlist
+#: entry grants nothing on its own: the route-enumeration gate walks
+#: REGISTERED routes and an unregistered path is unreachable. What it bought
+#: is exactly what happened: D6 landed handlers against entries already under
+#: review, rather than editing the public-route allowlist in the same commit
+#: that added a public route.
+#:
+#: It also shaped the implementation rather than merely recording it. The
+#: external path needs two steps — send a code, then spend it — and a
+#: separate `/account-deletion/code` would have been a ninth entry here. So
+#: `POST /account-deletion` carries both steps, selected by whether the body
+#: names a code, and the count stays at eight [BR3.2].
+#:
+#: **D6's in-app route is NOT here.** `DELETE /v1/me` is authenticated and
+#: goes in `LENS_EXEMPT_AUTHENTICATED` below, which is the whole reason that
+#: set is separate.
 PUBLIC_ROUTES: frozenset[tuple[str, str]] = frozenset(
     {
         ("POST", "/v1/auth/otp"),
@@ -99,6 +108,24 @@ LENS_EXEMPT_AUTHENTICATED: frozenset[tuple[str, str]] = frozenset(
         # InvitationLens -- so the exemption covers the listing alone
         # and not anything it links to.
         ("GET", "/v1/invitations"),
+        # D6's in-app deletion path. The FOURTH exemption, and the
+        # count's fourth firing: each previous one forced the entry to
+        # be justified rather than appended, and this is the reason for
+        # this one.
+        #
+        # It acts on the authenticated account ITSELF, so there is no
+        # other account's data to scope and a lens would carry nothing
+        # the handler could use. Requiring one would be worse than
+        # redundant: an account holding none of the three lenses -- a
+        # person who signed up, was never enrolled and owns no batch --
+        # could not delete itself at all, and that is precisely the
+        # account with the least reason to stay.
+        #
+        # Authenticated and NOT public, which is the whole point of
+        # this set being separate: the external, unauthenticated path
+        # is the `/account-deletion` pair, and it proves ownership with
+        # a verified code instead.
+        ("DELETE", "/v1/me"),
     }
 )
 
