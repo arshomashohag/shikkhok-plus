@@ -18,6 +18,7 @@
     <string name="auth_phone_label">Mobile number</string>
     <string name="auth_phone_hint">01XXXXXXXXX</string>
     <string name="auth_request_code">Send code</string>
+    <string name="auth_go_to_signup">New here? Create an account</string>
     <string name="auth_code_label">Enter the code</string>
     <string name="auth_code_sent">If that number is registered, a code has been sent.</string>
     <string name="auth_verify">Sign in</string>

@@ -238,6 +238,13 @@ dependencies {
     implementation(libs.compose.material3)
     implementation(libs.activity.compose)
     implementation(libs.lifecycle.viewmodel.compose)
+    // **Added when the third screen arrived, exactly as MainActivity
+    // predicted it would be.** That file carried a note saying its
+    // nullable-id navigation "is replaced the moment a third screen
+    // needs a real back stack" — and 23 screens were built against 3
+    // that could be reached, so signup existed and no one could open
+    // it. The conventional Google choice, per the Android practice.
+    implementation(libs.navigation.compose)
 
     testImplementation(libs.kotlin.test)
     testImplementation(libs.kotlin.test.junit)

@@ -225,7 +225,8 @@ tasks.register("verifyReleaseDex") {
         // dexCount guard exists to refuse exactly that reasoning.
         val archives = buildList {
             if (bundle.exists()) add(bundle)
-            apkDir.listFiles()
+            apkDir
+                .listFiles()
                 ?.filter { it.name.endsWith(".apk") }
                 ?.sortedBy { it.name }
                 ?.let { addAll(it) }
@@ -300,7 +301,8 @@ tasks.register("verifyReleaseDex") {
                         val text = zis.readBytes().toString(Charsets.ISO_8859_1)
                         forbiddenIdentifiers.forEach { id ->
                             if (wholeMatch(text, id)) {
-                                hits.getOrPut(id) { mutableListOf() }
+                                hits
+                                    .getOrPut(id) { mutableListOf() }
                                     .add(archive.name + "!" + entry.name)
                             }
                         }

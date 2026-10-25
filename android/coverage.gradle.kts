@@ -70,6 +70,21 @@ val coverageExclusions = listOf(
     // never was.
     "**/*ScreenKt*",
     "**/ui/*Kt*",
+    // **The navigation graph, for exactly the same reason.**
+    //
+    // *(Added 2026-10-26.)* `ShikhokNavHost` is a `@Composable` that
+    // happens to live in `navigation/` rather than `ui/`, so the two
+    // globs above miss it and JaCoCo counted 127 lines it can never
+    // record a hit against — dropping the module from 60.39% to
+    // 57.20% on a change that removed no test.
+    //
+    // The graph is NOT unverified. `DestinationTest` asserts the route
+    // patterns and their argument encoding, which is the part that can
+    // actually be wrong: a route built by string interpolation at a
+    // call site is how a route and its argument name drift apart. What
+    // the composable adds beyond that is wiring Compose cannot measure
+    // from bytecode.
+    "**/navigation/*Kt*",
 )
 
 tasks.register<JacocoReport>("jacocoDebugReport") {

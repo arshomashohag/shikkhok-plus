@@ -19,6 +19,7 @@
     <string name="auth_phone_label">মোবাইল নম্বর</string>
     <string name="auth_phone_hint">01XXXXXXXXX</string>
     <string name="auth_request_code">কোড পাঠান</string>
+    <string name="auth_go_to_signup">নতুন? অ্যাকাউন্ট তৈরি করুন</string>
     <string name="auth_code_label">কোডটি লিখুন</string>
     <string name="auth_code_sent">নম্বরটি নিবন্ধিত থাকলে একটি কোড পাঠানো হয়েছে।</string>
     <string name="auth_verify">সাইন ইন করুন</string>
