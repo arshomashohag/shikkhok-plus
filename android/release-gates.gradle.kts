@@ -215,15 +215,30 @@ tasks.register("verifyReleaseDex") {
             .get()
             .asFile
 
-        val archive = when {
-            bundle.exists() -> bundle
-            else -> apkDir.listFiles()?.firstOrNull { it.name.endsWith(".apk") }
-        } ?: throw GradleException(
-            "No release AAB or APK found. This gate must run after the\n" +
-                "release build, and must FAIL when it cannot find its input --\n" +
-                "a scan that finds nothing because it read nothing is worse\n" +
-                "than no scan, because it reports success."
-        )
+        // **Every release archive present, not the first one found.**
+        // This preferred the AAB when both existed, which was correct
+        // while the AAB was the only published artifact. Now that the
+        // release also publishes an APK, picking one would leave the
+        // other scanned only by inference -- same build type, same
+        // minified DEX, therefore "it must be fine". That inference is
+        // probably true and it is not a scan, and this gate's own
+        // dexCount guard exists to refuse exactly that reasoning.
+        val archives = buildList {
+            if (bundle.exists()) add(bundle)
+            apkDir.listFiles()
+                ?.filter { it.name.endsWith(".apk") }
+                ?.sortedBy { it.name }
+                ?.let { addAll(it) }
+        }
+
+        if (archives.isEmpty()) {
+            throw GradleException(
+                "No release AAB or APK found. This gate must run after the\n" +
+                    "release build, and must FAIL when it cannot find its input --\n" +
+                    "a scan that finds nothing because it read nothing is worse\n" +
+                    "than no scan, because it reports success."
+            )
+        }
 
         val hits = mutableMapOf<String, MutableList<String>>()
         var dexCount = 0
@@ -264,32 +279,42 @@ tasks.register("verifyReleaseDex") {
         // reads this archive correctly -- verified directly against
         // the AAB -- so the choice here is only that streaming avoids
         // holding the whole central directory.
-        java.util.zip
-            .ZipInputStream(
-                archive.inputStream().buffered()
-            ).use { zis ->
-                while (true) {
-                    val entry = zis.nextEntry ?: break
-                    if (!entry.name.endsWith(".dex")) continue
-                    dexCount++
-                    // The DEX string table stores identifiers as plain
-                    // UTF-8, so a byte scan finds them without a dex
-                    // parser. Latin-1 keeps byte offsets intact.
-                    val text = zis.readBytes().toString(Charsets.ISO_8859_1)
-                    forbiddenIdentifiers.forEach { id ->
-                        if (wholeMatch(text, id)) {
-                            hits.getOrPut(id) { mutableListOf() }.add(entry.name)
+        //
+        // The dex count is asserted PER ARCHIVE, not across all of
+        // them. A total would let a healthy AAB scan carry an APK that
+        // yielded nothing, which is the "reports success having read
+        // nothing" failure one archive further along.
+        archives.forEach { archive ->
+            var archiveDex = 0
+            java.util.zip
+                .ZipInputStream(
+                    archive.inputStream().buffered()
+                ).use { zis ->
+                    while (true) {
+                        val entry = zis.nextEntry ?: break
+                        if (!entry.name.endsWith(".dex")) continue
+                        archiveDex++
+                        // The DEX string table stores identifiers as plain
+                        // UTF-8, so a byte scan finds them without a dex
+                        // parser. Latin-1 keeps byte offsets intact.
+                        val text = zis.readBytes().toString(Charsets.ISO_8859_1)
+                        forbiddenIdentifiers.forEach { id ->
+                            if (wholeMatch(text, id)) {
+                                hits.getOrPut(id) { mutableListOf() }
+                                    .add(archive.name + "!" + entry.name)
+                            }
                         }
                     }
                 }
-            }
 
-        if (dexCount == 0) {
-            throw GradleException(
-                "Scanned ${archive.name} and found NO .dex entries.\n" +
-                    "The archive layout is not what this gate expects, so it\n" +
-                    "checked nothing. Failing rather than reporting clean."
-            )
+            if (archiveDex == 0) {
+                throw GradleException(
+                    "Scanned ${archive.name} and found NO .dex entries.\n" +
+                        "The archive layout is not what this gate expects, so it\n" +
+                        "checked nothing. Failing rather than reporting clean."
+                )
+            }
+            dexCount += archiveDex
         }
 
         if (hits.isNotEmpty()) {
@@ -312,9 +337,14 @@ tasks.register("verifyReleaseDex") {
             )
         }
 
+        // Names the archives rather than only counting dex files: the
+        // reader of a green log should be able to see WHICH artifacts
+        // were covered, because the published set is what matters and
+        // a count alone cannot distinguish one archive from two.
         logger.lifecycle(
-            "DEX gate: $dexCount dex file(s) scanned, " +
-                "${forbiddenIdentifiers.size} identifiers, none present."
+            "DEX gate: $dexCount dex file(s) across " +
+                archives.joinToString(", ") { it.name } +
+                ", ${forbiddenIdentifiers.size} identifiers, none present."
         )
     }
 }

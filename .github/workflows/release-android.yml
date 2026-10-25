@@ -170,16 +170,28 @@ jobs:
             > /dev/null
           echo "Keystore decoded and readable."
 
-      - name: Build the bundle
+      - name: Build the bundle and the APK
         env:
           ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/upload.jks
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          # bundleRelease is finalizedBy the two gates, so a forbidden
-          # permission or device identifier fails THIS step.
-          ./gradlew :android:bundleRelease --no-daemon \
+          # bundleRelease and assembleRelease are both finalizedBy the
+          # two gates, so a forbidden permission or device identifier
+          # fails THIS step.
+          #
+          # **One invocation, and that is not a convenience.** The next
+          # step shreds the keystore, so an APK built after it would be
+          # unsigned -- and Gradle succeeds on an unsigned APK, which is
+          # the same "passes here, rejected later" shape the signature
+          # assertion below already exists to catch.
+          #
+          # The AAB is what Play receives; the APK is for direct install
+          # during closed testing, where asking a pilot teacher to go
+          # through Play for every build is friction the pilot does not
+          # need.
+          ./gradlew :android:bundleRelease :android:assembleRelease --no-daemon \
             -PversionName="${{ steps.version.outputs.name }}" \
             -PversionCode="${{ steps.version.outputs.code }}" \
             -PapiBaseUrl="${{ vars.ANDROID_API_BASE_URL }}"
@@ -204,6 +216,24 @@ jobs:
             exit 1
           fi
           echo "Signature block present."
+
+          # **The APK is asserted separately, not inferred from the AAB.**
+          # Both come from one Gradle invocation with one keystore, so an
+          # unsigned APK beside a signed AAB is unlikely -- and "unlikely"
+          # is what this step refuses to accept for the bundle, for the
+          # same reason. An unsigned APK installs nowhere and the failure
+          # would surface on a pilot teacher's phone rather than here.
+          apk=$(find android/build/outputs/apk/release -name '*.apk' | head -1)
+          [ -n "$apk" ] || { echo "::error::No APK under android/build/outputs/apk/release"; exit 1; }
+
+          if ! unzip -l "$apk" | grep -q "META-INF/.*\.RSA\|META-INF/.*\.EC"; then
+            echo "::error::The APK carries no signature block."
+            echo "Gradle produced an UNSIGNED APK, which installs on no"
+            echo "device. Check that ANDROID_KEYSTORE_PATH reached the"
+            echo "build -- an absent keystore makes signing a no-op."
+            exit 1
+          fi
+          echo "APK signature block present: $(basename "$apk")"
 
       # **The download-size gate** [NFR2.11-NFR2.16, NFR2.21].
       #
@@ -357,11 +387,25 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # **The APK is renamed to carry its version.** Gradle names it
+      # from the module (`android-release.apk`), so every release would
+      # otherwise produce an identically-named file -- and a tester with
+      # two downloads in one folder cannot tell which is which. The AAB
+      # keeps its Gradle name because it is uploaded to Play, which
+      # reads the version from inside the bundle rather than the name.
+      - name: Name the APK for humans
+        run: |
+          src=$(find android/build/outputs/apk/release -name '*.apk' | head -1)
+          [ -n "$src" ] || { echo "::error::No APK to rename"; exit 1; }
+          cp "$src" "shikkhokplus-${{ steps.version.outputs.name }}.apk"
+          ls -lh "shikkhokplus-${{ steps.version.outputs.name }}.apk"
+
       - uses: actions/upload-artifact@v4
         with:
           name: release-${{ steps.version.outputs.name }}
           path: |
             android/build/outputs/bundle/release/android-release.aab
+            shikkhokplus-${{ steps.version.outputs.name }}.apk
             android/build/outputs/mapping/release/mapping.txt
             play-release-notes.txt
             CHANGELOG.md
@@ -380,11 +424,16 @@ jobs:
             --version "${{ steps.version.outputs.name }}" --print-only \
             > release-body.md
 
+          # The APK ships as a release asset alongside the AAB: the AAB
+          # is what Play ingests, the APK is what a closed-testing
+          # participant can sideload without waiting for a Play review.
+          # Both came from one build and both passed the same gates.
           gh release create "${{ github.ref_name }}" \
             --title "${{ steps.version.outputs.name }}" \
             --notes-file release-body.md \
             --draft \
             android/build/outputs/bundle/release/android-release.aab \
+            "shikkhokplus-${{ steps.version.outputs.name }}.apk" \
             play-release-notes.txt
 
           echo "Draft release created. Review and publish it."

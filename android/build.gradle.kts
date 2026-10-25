@@ -279,6 +279,18 @@ tasks.matching { it.name == "bundleRelease" }.configureEach {
     finalizedBy("verifyReleasePermissions", "verifyReleaseDex")
 }
 
+// **assembleRelease is gated too, and not because it is redundant.**
+// The APK is built from the same `release` build type and therefore
+// the same minified DEX, so in principle the AAB scan covers it. In
+// principle is not the standard this file sets: `verifyReleaseDex`
+// prefers the AAB when both exist, so without this line the published
+// APK would ship having been scanned only by proxy. A gate that is
+// satisfied by something it did not read is the failure its own guard
+// exists to refuse.
+tasks.matching { it.name == "assembleRelease" }.configureEach {
+    finalizedBy("verifyReleasePermissions", "verifyReleaseDex")
+}
+
 // **The DEX gate must run AFTER the bundle is written, not merely
 // after bundleRelease is requested.** `finalizedBy` alone let it open
 // a stale or partial archive and report "no .dex entries" -- which
