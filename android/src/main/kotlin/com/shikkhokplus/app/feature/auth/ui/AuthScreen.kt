@@ -3,6 +3,7 @@ package com.shikkhokplus.app.feature.auth.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -23,6 +24,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.text.KeyboardOptions
 import com.shikkhokplus.app.R
 import com.shikkhokplus.app.core.designsystem.OtpField
+import com.shikkhokplus.app.core.designsystem.Reach
+import com.shikkhokplus.app.core.designsystem.ScreenScaffold
 import com.shikkhokplus.app.core.designsystem.OtpFieldState
 import com.shikkhokplus.app.core.designsystem.TAG_OTP_FIELD
 import com.shikkhokplus.app.feature.auth.AuthUiState
@@ -55,11 +58,24 @@ fun AuthScreen(
     var phone by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
 
-    Column(
-        modifier = modifier.fillMaxWidth().padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ScreenScaffold(
+        title = stringResource(R.string.app_name),
+        modifier = modifier,
     ) {
-        Text(text = stringResource(R.string.app_name))
+        // **A heading and a sentence, where there was an unstyled app
+        // name.** The screen previously opened with `Text(app_name)` at
+        // default body size and went straight into a field, so nothing
+        // said what the screen was for or what would happen next. The
+        // name moved to the bar, which is where a product name belongs.
+        Text(
+            text = stringResource(R.string.auth_headline),
+            style = MaterialTheme.typography.headlineSmall,
+        )
+        Text(
+            text = stringResource(R.string.auth_subhead),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
 
         when (state) {
             AuthUiState.Idle,
@@ -70,6 +86,12 @@ fun AuthScreen(
                     onPhoneChange = { phone = it },
                     onSubmit = { onRequestCode(phone) },
                 )
+
+                // Directly beneath the control that failed, and ABOVE
+                // the signup link, so a retry is never below the fold.
+                if (state is AuthUiState.Failed) {
+                    FailureBlock(state = state, onRetry = onRetry)
+                }
 
                 // **The way out of the dead end.** The code-sent
                 // message says one is on its way "if this number is
@@ -100,6 +122,11 @@ fun AuthScreen(
                 onCodeChange = { code = it },
                 onSubmit = { onSubmitCode(code) },
             )
+            // A failure that happened while awaiting a code is handled
+            // by the `Failed` arm above, which re-renders the phone
+            // entry. That is deliberate and unchanged: a verify that
+            // failed is recoverable by correcting the number, and the
+            // state carries no memory of which field was in use.
 
             AuthUiState.SignedIn -> Text(
                 text = stringResource(R.string.auth_verify),
@@ -107,22 +134,46 @@ fun AuthScreen(
             )
         }
 
-        // The failure block is OUTSIDE the when, so a failure that
-        // happened while awaiting a code still shows beneath the field
-        // the user was using rather than replacing the screen.
-        if (state is AuthUiState.Failed) {
+    }
+}
+
+/**
+ * The failure block, rendered beneath the control that failed.
+ *
+ * **Placed before the signup link rather than after it.** The link was
+ * added below the entry controls, which pushed this block to the
+ * bottom of a now-scrollable column — so on a small screen a retry
+ * sat below the fold and the Robolectric tests caught it as "not
+ * displayed". A retry the person has to scroll to find is worse than
+ * no retry, because the screen looks like it offers nothing.
+ *
+ * @param state The failure to render
+ * @param onRetry Called when the person asks to try again
+ */
+@Composable
+private fun FailureBlock(
+    state: AuthUiState.Failed,
+    onRetry: () -> Unit,
+) {
+    Text(
+        text = stringResource(MessageKeys.resolve(state.messageKey)),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.error,
+        modifier = Modifier.testTag(TAG_ERROR),
+    )
+    if (state.retryable) {
+        Button(
+            onClick = onRetry,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = Reach.touch)
+                    .testTag(TAG_RETRY),
+        ) {
             Text(
-                text = stringResource(MessageKeys.resolve(state.messageKey)),
-                modifier = Modifier.testTag(TAG_ERROR),
+                text = stringResource(R.string.auth_retry),
+                style = MaterialTheme.typography.labelLarge,
             )
-            if (state.retryable) {
-                Button(
-                    onClick = onRetry,
-                    modifier = Modifier.testTag(TAG_RETRY),
-                ) {
-                    Text(text = stringResource(R.string.auth_retry))
-                }
-            }
         }
     }
 }
@@ -147,9 +198,20 @@ private fun PhoneEntry(
     )
     Button(
         onClick = onSubmit,
-        modifier = Modifier.fillMaxWidth().testTag(TAG_REQUEST_CODE),
+        // **`Reach.touch`, which the design system specified and no
+        // screen used.** A default Button is 40dp tall — under the
+        // 48dp floor this project set for anything tappable, and the
+        // phones it targets are not ones you tap precisely.
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = Reach.touch)
+                .testTag(TAG_REQUEST_CODE),
     ) {
-        Text(text = stringResource(R.string.auth_request_code))
+        Text(
+            text = stringResource(R.string.auth_request_code),
+            style = MaterialTheme.typography.labelLarge,
+        )
     }
 }
 

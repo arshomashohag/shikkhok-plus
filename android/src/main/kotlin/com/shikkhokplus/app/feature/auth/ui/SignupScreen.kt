@@ -3,6 +3,7 @@ package com.shikkhokplus.app.feature.auth.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.text.KeyboardOptions
@@ -24,6 +25,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
+import com.shikkhokplus.app.core.designsystem.Reach
+import com.shikkhokplus.app.core.designsystem.ScreenScaffold
 import com.shikkhokplus.app.core.model.SignupRole
 import com.shikkhokplus.app.feature.auth.MessageKeys
 import com.shikkhokplus.app.feature.auth.SignupUiState
@@ -86,13 +89,14 @@ fun SignupScreen(
     var address by remember { mutableStateOf("") }
     var role by remember { mutableStateOf(SignupRole.STUDENT) }
 
-    Column(
-        modifier = modifier.fillMaxWidth().padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ScreenScaffold(
+        title = stringResource(R.string.signup_title),
+        modifier = modifier,
     ) {
         Text(
-            text = stringResource(R.string.signup_title),
-            style = MaterialTheme.typography.headlineSmall,
+            text = stringResource(R.string.signup_subhead),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
         when (state) {
@@ -241,6 +245,11 @@ private fun SignupForm(
                 onClick = { onRoleChange(option) },
                 enabled = !roleLocked,
                 label = { Text(stringResource(labelOf(option))) },
+                // A default chip is 32dp tall, well under the 48dp
+                // floor. These sit in a vertical group where a miss
+                // selects the neighbouring role, which is the field
+                // the server locks a person's identity to.
+                modifier = Modifier.heightIn(min = Reach.touch),
             )
         }
     }
@@ -254,9 +263,31 @@ private fun SignupForm(
 
     Button(
         onClick = onSubmit,
-        modifier = Modifier.fillMaxWidth().testTag(TAG_SIGNUP_SUBMIT),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = Reach.touch)
+                .testTag(TAG_SIGNUP_SUBMIT),
     ) {
-        Text(stringResource(R.string.signup_submit))
+        // **`signup_submit` takes the number as an argument.** Fetched
+        // without one, Android renders the placeholder itself, so the
+        // button read "Send code to %1$s" on a device. Found by a
+        // person using the build; no test caught it, because a
+        // Robolectric assertion on a tag never reads the text.
+        //
+        // Before a number is typed there is nothing to name, and
+        // "Send code to " with a trailing space is worse than a plain
+        // label — so the generic string is used until the field has
+        // something in it.
+        Text(
+            text =
+                if (phone.isBlank()) {
+                    stringResource(R.string.signup_submit_generic)
+                } else {
+                    stringResource(R.string.signup_submit, phone)
+                },
+            style = MaterialTheme.typography.labelLarge,
+        )
     }
 }
 

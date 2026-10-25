@@ -85,6 +85,20 @@ val coverageExclusions = listOf(
     // the composable adds beyond that is wiring Compose cannot measure
     // from bytecode.
     "**/navigation/*Kt*",
+    // **The screen scaffold, for the same reason as the screens.**
+    //
+    // *(Added 2026-10-26.)* `ScreenScaffold` is four composables and
+    // nothing else — a top bar, a width bound, a scroll decision. It
+    // is exercised by every `*ScreenTest` that renders a screen using
+    // it, and JaCoCo records no hits for the same Robolectric reason
+    // the screens were excluded for.
+    //
+    // Scoped to this one file rather than `**/designsystem/**`. The
+    // other composables there have been counted as uncovered since
+    // they were written, and widening the glob would raise the figure
+    // by excluding them rather than by verifying anything — which is
+    // the move this file's own comment warns against.
+    "**/designsystem/ScreenScaffoldKt*",
 )
 
 tasks.register<JacocoReport>("jacocoDebugReport") {

@@ -138,3 +138,38 @@ suspend fun decodeEnvelope(response: HttpResponse): ErrorEnvelope =
             ),
         )
     }
+
+/**
+ * Run a request whose successful response body is discarded.
+ *
+ * **The sibling of [call], for the write side.** `call` deserialises
+ * the body into `T`; these endpoints answer with a representation the
+ * client does not need, and `AuthResult<Unit>` cannot be produced by
+ * deserialising into `Unit`. Written once here rather than repeated
+ * per method: the shape was already copied four times across the
+ * roster and batches repositories, and a copy that drifts is how one
+ * write starts treating a refusal as a success.
+ *
+ * The three outcomes are the same ones [call] produces, for the same
+ * reason — a refusal carries a server-set `retryable`, and a transport
+ * failure has no envelope to read it from.
+ *
+ * @param request The request to run
+ * @return Ok(Unit), Refused with the envelope, or TransportFailure
+ */
+internal suspend inline fun callDiscardingBody(
+    request: () -> HttpResponse,
+): AuthResult<Unit> =
+    try {
+        val response = request()
+        if (response.status.isSuccess()) {
+            AuthResult.Ok(Unit)
+        } else {
+            AuthResult.Refused(decodeEnvelope(response))
+        }
+    } catch (_: Exception) {
+        // Every exception reaching here is a TRANSPORT failure: no
+        // response arrived. A non-2xx is a response and is handled
+        // above, so this arm cannot swallow a server refusal.
+        AuthResult.TransportFailure
+    }

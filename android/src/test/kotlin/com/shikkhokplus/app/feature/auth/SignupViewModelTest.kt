@@ -116,7 +116,7 @@ class SignupViewModelTest {
         }
 
     @Test
-    fun `a malformed number never reaches the network`() = runTest(dispatcher) {
+    fun `an incomplete number never reaches the network`() = runTest(dispatcher) {
         // Format only, never policy: this checks the number looks like
         // a number. Whether it is already registered is the server's
         // decision and is not duplicated here.
@@ -126,8 +126,51 @@ class SignupViewModelTest {
         model.lookup("12")
         advanceUntilIdle()
 
+        assertEquals(0, repo.lookupCalls, "a short number must not be sent")
+    }
+
+    @Test
+    fun `typing a number one character at a time raises no error`() =
+        runTest(dispatcher) {
+            // **The defect this exists to prevent, found on a device.**
+            // The screen calls lookup on EVERY keystroke, so the first
+            // character arrives long before a whole number does. An
+            // earlier version reported the length rule against each
+            // prefix, so typing "0" produced "that is not a number"
+            // and it never cleared — every later keystroke was also
+            // too short.
+            //
+            // The state must stay at rest until there is enough to ask
+            // the server about. The rule is not weakened: submit still
+            // validates, where the person has said they are finished.
+            val repo = FakeRepository()
+            val model = SignupViewModel(repo)
+
+            "01711".forEachIndexed { i, _ ->
+                model.lookup("01711".take(i + 1))
+                advanceUntilIdle()
+                assertEquals(
+                    SignupUiState.Empty,
+                    model.state.value,
+                    "a partial number must not raise an error: ${"01711".take(i + 1)}",
+                )
+            }
+
+            assertEquals(0, repo.lookupCalls, "no prefix may be sent")
+        }
+
+    @Test
+    fun `a malformed number is refused on submit`() = runTest(dispatcher) {
+        // The rule still bites — at the point the person says they are
+        // done, rather than while they are typing.
+        val repo = FakeRepository()
+        val model = SignupViewModel(repo)
+
+        model.submit("12", "Rahim", null, SignupRole.STUDENT)
+        advanceUntilIdle()
+
         assertIs<SignupUiState.Invalid>(model.state.value)
-        assertEquals(0, repo.lookupCalls, "a bad number must not be sent")
+        assertEquals(0, repo.signupCalls, "a bad number must not be sent")
     }
 
     @Test

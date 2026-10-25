@@ -95,9 +95,22 @@ class SignupViewModel(
         lastPhone = phone
         lastAction = { lookup(phone) }
 
+        // **A number still being typed is not a wrong number.** The
+        // screen calls this on every keystroke, so "1" arrives before
+        // "01711…" does. Reporting the length rule against a prefix
+        // told the person their number was invalid while they were
+        // still entering it — the first character produced an error
+        // and it never cleared, because every subsequent keystroke was
+        // also too short.
+        //
+        // So an incomplete number returns the form to its resting
+        // state rather than raising anything. The rule is NOT weakened:
+        // `submit` runs the same validation, and a genuinely malformed
+        // number is refused there, where the person has said they are
+        // finished.
         val invalid = SignupStateMapper.validate(phone, selfName = "placeholder")
         if (invalid != null && SignupStateMapper.PHONE_KEY in invalid.fieldKeys) {
-            _state.value = SignupUiState.Invalid(listOf(SignupStateMapper.PHONE_KEY))
+            _state.value = SignupUiState.Empty
             return
         }
 
