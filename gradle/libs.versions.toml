@@ -3,21 +3,21 @@
 # meaningful: a version bump is a diff in this file.
 
 [versions]
-agp = "8.7.3"
-kotlin = "2.0.21"
-kotlinxSerialization = "1.7.3"
+agp = "9.4.1"
+kotlin = "2.4.21"
+kotlinxSerialization = "1.12.0"
 # Compose arrives at B3 because the walking skeleton must be demonstrated
 # on a device: team.md requires a Compose screen calling a real endpoint,
 # and a backend-only skeleton cannot satisfy that.
-composeBom = "2024.10.01"
+composeBom = "2026.09.00"
 activityCompose = "1.9.3"
 lifecycleViewmodelCompose = "2.8.7"
-coroutines = "1.9.0"
+coroutines = "1.11.0"
 # Robolectric runs Compose UI tests on the JVM, so the OTP-entry
 # obligation team.md names is checkable in `make check` rather than
 # only on a device. The device run still happens at the checkpoint;
 # this catches a broken screen before it gets there.
-robolectric = "4.14.1"
+robolectric = "4.17"
 # Ktor rather than Retrofit, and the reason is this toolchain rather
 # than a preference. Retrofit needs no processor itself, but the
 # idiomatic pairing is kotlinx-serialization's converter plus Moshi or
@@ -25,22 +25,22 @@ robolectric = "4.14.1"
 # files on this Kotlin/AGP combination (code-summary.md B5 SS G). Ktor
 # is pure Kotlin, uses the serialization plugin already present, and
 # adds no processor at all.
-ktor = "2.3.12"
+ktor = "3.6.0"
 # EncryptedSharedPreferences, for the 30-day refresh token. The
 # alternative -- plain SharedPreferences -- leaves a long-lived
 # credential readable via adb on a rooted phone, and the TokenStore
 # docstring warns specifically against reaching for it because it was
 # convenient.
-securityCrypto = "1.1.0-alpha06"
+securityCrypto = "1.1.0"
 # The quality toolchain, arriving 2026-10-22 rather than with the packaging
 # Bolt that first named it. `team.md` deferred these to "the Bolt that first
 # needs them", which names no Bolt -- and a formatter is first needed by the
 # first Kotlin file, so three Android Bolts merged without one. Installed now,
 # before D1, because `spotlessApply` reformats 32 files today and many more
 # after six units of screens.
-spotless = "6.25.0"
+spotless = "8.10.4"
 ktlint = "1.5.0"
-detekt = "1.23.7"
+detekt = "1.23.8"
 
 [libraries]
 security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "securityCrypto" }
