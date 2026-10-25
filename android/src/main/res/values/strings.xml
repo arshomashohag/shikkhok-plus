@@ -38,13 +38,13 @@
     <string name="roster_title">Students</string>
     <string name="roster_empty">No students yet. Add the first one to get started.</string>
     <string name="roster_retry">Try again</string>
-    <string name="roster_status_dormant">Not signed in yet</string>
+    <string name="roster_status_dormant">Hasn\'t accepted yet</string>
     <string name="roster_status_active">Active</string>
     <string name="roster_status_inactive">Left</string>
     <string name="roster_fetched_at">Showing saved data from %1$s</string>
     <string name="batch_not_found">That class could not be found.</string>
     <string name="batch_create_subject_required">Add at least one subject.</string>
-    <string name="enrollment_remove_claimed">This student has signed in and has a record. Mark them as left instead of removing them.</string>
+    <string name="enrollment_remove_claimed">This student has accepted their place and has a record. Mark them as left instead of removing them.</string>
     <string name="enrollment_remove_erased">This place records someone\'s request to erase their data. Add the number again to create a new, separate record.</string>
     <string name="authz_lens_not_available">You do not have access to this.</string>
     <string name="guardian_children_title">Your children</string>
@@ -74,4 +74,426 @@
     <string name="student_add_submit">Add student</string>
     <string name="action_cancel">Cancel</string>
     <string name="fee_inherits">Uses the class fee</string>
+
+    <!-- Batch list, from the design system's T6 artboard. The empty
+         state explains what a batch IS, because a teacher seeing this
+         screen for the first time has not met the word yet. -->
+    <string name="batches_empty_title">No batches yet</string>
+    <string name="batches_empty_body">A batch is one group you teach together: a subject, its class days and a monthly fee.</string>
+    <string name="batches_create_first">Create first batch</string>
+    <string name="batches_error_title">Couldn\'t load your batches</string>
+    <string name="batches_count">%1$d batches · %2$d students</string>
+    <string name="batches_loading_label">Loading…</string>
+    <string name="batches_fee_per_month">%1$s/mo</string>
+    <string name="auth_code_auto_checks">It checks by itself after the sixth digit. There\'s no button to press.</string>
+
+    <!-- D1: signup (O1). The already-added notice names NEITHER the
+         teacher NOR the batch [BR2.3, AC1.12.2] — saying "your teacher
+         Mr Karim added you to Physics" would make this screen an oracle
+         for who teaches whom. -->
+    <string name="signup_title">Create your account</string>
+    <string name="signup_phone_label">Mobile number</string>
+    <string name="signup_name_label">Your name</string>
+    <string name="signup_address_label">Address (optional)</string>
+    <string name="signup_role_label">I am a</string>
+    <string name="signup_role_teacher">Teacher</string>
+    <string name="signup_role_student">Student</string>
+    <string name="signup_role_guardian">Guardian</string>
+    <string name="signup_submit">Send code to %1$s</string>
+    <string name="signup_already_added_notice">A teacher has already added this number. Check your name below and correct it if needed.</string>
+    <string name="signup_role_locked_note">Your role was set when you were added.</string>
+    <string name="signup_checking_number">Checking…</string>
+    <string name="signup_submitting">Creating your account…</string>
+    <string name="signup_code_sent">We sent a code to %1$s.</string>
+    <string name="signup_go_to_login">Log in instead</string>
+    <string name="signup_phone_invalid">Enter a valid mobile number.</string>
+    <string name="signup_name_required">Please enter your name.</string>
+    <string name="signup_number_already_registered">This number already has an account. Log in instead.</string>
+    <string name="signup_temporarily_unavailable">Sign-up is temporarily unavailable. Please try again later.</string>
+
+    <!-- D1: invitations (O4). Accepting is what grants access; signing
+         up does not [BR5.1]. A declined seat STAYS listed with an
+         accept action, because a decline is reversible by its holder
+         and by nobody else [BR5.4, AC1.13.1]. -->
+    <string name="invitations_title">Your invitations</string>
+    <string name="invitations_empty_title">Nothing to answer</string>
+    <string name="invitations_empty_body">When a teacher adds your number to a class, it will appear here for you to accept or decline.</string>
+    <string name="invitations_error_title">Couldn\'t load your invitations</string>
+    <string name="invitation_fee_per_month">%1$s/mo</string>
+    <string name="invitation_subject_label">Subject</string>
+    <string name="invitation_state_pending">Waiting for your answer</string>
+    <string name="invitation_state_declined">You declined this</string>
+    <string name="invitation_accept">Accept</string>
+    <string name="invitation_decline">Decline</string>
+    <string name="invitation_accepted_confirmation">You have joined %1$s.</string>
+
+    <!-- The TWO decline sheets. One copy shown to both roles told a
+         guardian a debt was cancelled when it was not: a guardian's
+         decline leaves the student's fee entirely intact and withdraws
+         only the guardian's own access [BR5.2, AC1.14.1a]. -->
+    <string name="decline_student_title">Decline this place?</string>
+    <string name="decline_student_body">You won\'t join %1$s and no further fees will be charged to you for it. You can accept later if you change your mind.</string>
+    <string name="decline_guardian_title">Stop following this student?</string>
+    <string name="decline_guardian_body">You won\'t see this student\'s records for %1$s. Their place and their fees are unchanged. You can accept later if you change your mind.</string>
+    <string name="decline_confirm">Decline</string>
+
+    <!-- D1: profile (O5), the EDIT half only. The deletion states on
+         this screen are D6's. -->
+    <string name="profile_title">Your profile</string>
+    <string name="profile_name_label">Your name</string>
+    <string name="profile_address_label">Address</string>
+    <string name="profile_edit">Edit</string>
+    <string name="profile_save">Save</string>
+    <string name="profile_saving">Saving…</string>
+    <string name="profile_saved">Saved.</string>
+    <string name="profile_teacher_name_note">Changing this does not change the name your teachers see. Each teacher sees the name they typed for you.</string>
+
+    <!-- ===================================================== D2 ===== -->
+
+    <!-- The accepted count [AC1.3.5a, BR1.2]. BOTH numbers come from
+         the server; this string only formats them. It is the one count
+         in the product with NO locale helper, so it is the first row
+         to check in the Bangla layout table [NFR3.3]. -->
+    <string name="roster_accepted_count">%1$s of %2$s accepted</string>
+
+    <!-- Per-link state on a roster row [BR2.1]. A seat shows BOTH,
+         separately, and appears once: a student who accepted beside a
+         guardian who declined is a real seat and neither single value
+         describes it. -->
+    <string name="roster_link_student">Student</string>
+    <string name="roster_link_guardian">Guardian</string>
+    <string name="roster_link_pending">Not answered yet</string>
+    <string name="roster_link_accepted">Joined</string>
+    <string name="roster_link_declined">Declined</string>
+    <!-- `absent` is a fourth VALUE, not a null: a seat with no guardian
+         recorded was never asked, so it is not outstanding [BR2.2]. -->
+    <string name="roster_link_absent">No guardian recorded</string>
+    <!-- Marked per row because declined is ABNORMAL and usually means a
+         mistyped number. Pending is not marked: it is the normal state
+         of a new seat [BR1.1, AC1.3.3a]. -->
+    <string name="roster_declined_mark">Declined — check the number</string>
+    <string name="roster_declined_no_number">Declined seat (no number recorded)</string>
+
+    <!-- Removing a seat [W4]. The confirmation NAMES what is being
+         removed rather than asking about nothing in particular. -->
+    <string name="roster_remove">Remove</string>
+    <string name="roster_remove_confirm_title">Remove this place?</string>
+    <string name="roster_remove_confirm_body">%1$s will be removed from this class. Nothing they have recorded is affected, because nobody has accepted this place.</string>
+    <string name="roster_remove_confirm">Remove</string>
+    <!-- TWO refusals, TWO remedies [BR3.2]. One message for both would
+         leave a teacher trying the one that cannot work. Neither
+         offers a retry: both are conflicts, so repeating the request
+         unchanged cannot succeed. -->
+    <string name="roster_remove_refused_title">This place can\'t be removed</string>
+    <string name="roster_remove_claimed_remedy">Someone has accepted this place, so the record stands. You can mark it inactive instead, which stops future fees and keeps the history.</string>
+    <string name="roster_remove_erased_remedy">The account on this place was deleted. The place has to stay as it is and can\'t be reused.</string>
+    <string name="roster_mark_inactive">Mark inactive</string>
+    <string name="action_close">Close</string>
+
+    <!-- Create a batch (US2.1) and add a student (T8, US2.2). Client
+         validation is FORMAT only; whether a number is already on this
+         batch is a SERVER decision and arrives as a failure state. -->
+    <string name="batch_create_submitting">Creating…</string>
+    <string name="batch_create_created">Class created.</string>
+    <string name="student_add_submitting">Adding…</string>
+    <string name="student_add_added">Student added.</string>
+    <string name="student_add_guardian_hint">Optional. The guardian sees this student\'s records once they accept.</string>
+
+    <!-- G1: the guardian's children [US2.6, BR4.2]. A switch REPLACES
+         the view; Back must not reach the previous child's data
+         [AC9.4.2, NFR14.30]. -->
+    <string name="guardian_home_title">Your students</string>
+    <string name="guardian_switch_label">Showing</string>
+    <string name="guardian_child_in_batch">%1$s · %2$s</string>
+    <string name="guardian_empty_title">Nothing to show yet</string>
+    <string name="guardian_empty_body">When a teacher records you as a guardian and you accept, that student appears here.</string>
+
+    <!-- D3: fees, claims and verification.
+
+         Every amount placeholder is filled by Numerals.money, which
+         emits Latin digits under this locale and under Bangla alike
+         [BR6.6] - the server's Money.format agrees, so one amount
+         cannot render in two digit sets depending on which surface
+         drew it.
+
+         The four fee statuses are SERVER-decided [BR6.1]. There is
+         deliberately no "due" or "paid" string chosen by the client:
+         a fully waived cycle has a zero balance and is not paid, and
+         a two-value client-side test cannot say so. -->
+    <string name="fees_empty">No fee has been charged yet.</string>
+    <string name="fees_total_outstanding">Outstanding: %1$s</string>
+    <string name="fees_outstanding_total">Owes %1$s</string>
+    <string name="fees_outstanding_of_charged">%1$s of %2$s outstanding</string>
+    <string name="fees_due_on">Due %1$s</string>
+    <string name="fees_status_paid">Paid</string>
+    <string name="fees_status_partly_paid">Partly paid</string>
+    <string name="fees_status_unpaid">Unpaid</string>
+    <string name="fees_status_waived">Waived</string>
+    <string name="batch_fees_empty">No student owes anything.</string>
+    <string name="fees_remind">Send a reminder</string>
+    <string name="fees_never_reminded">Never reminded</string>
+
+    <!-- The payment form. Identical for a student and a guardian
+         [AC6.2.1]; only the lens differs, and the lens is resolved
+         server-side.
+
+         payment_ask_teacher is shown INSTEAD of the destination step
+         where the teacher set no collection number [NFR14.34], rather
+         than beside a blank field. -->
+    <string name="payment_confirm_child">%1$s · %2$s</string>
+    <string name="payment_send_to">Send the payment to %1$s</string>
+    <string name="payment_ask_teacher">Your teacher has not set a payment number. Ask them how to pay, then record it here.</string>
+    <string name="payment_amount_label">Amount paid</string>
+    <string name="payment_reference_label">Transaction reference</string>
+    <string name="payment_submit">Record this payment</string>
+
+    <!-- What happened to a reported payment. The rejection must reach
+         the submitter [BR5.6], and a corrected verification must reach
+         the student and guardian as well as the teacher [BR5.7]. -->
+    <string name="claims_empty">You have not reported a payment yet.</string>
+    <string name="claim_claimed_amount">%1$s by %2$s</string>
+    <string name="claim_approved_amount">Accepted: %1$s</string>
+    <string name="fees_claim_pending">Waiting for your teacher</string>
+    <string name="fees_claim_approved_full">Accepted in full</string>
+    <string name="fees_claim_approved_partial">Accepted in part</string>
+    <string name="fees_claim_rejected">Not accepted</string>
+    <string name="fees_claim_corrected">Your teacher changed this decision.</string>
+    <string name="fees_disposition_carried">The rest carries to next month</string>
+    <string name="fees_disposition_waived">The rest was waived</string>
+
+    <!-- Server message keys D3 adds. Each must exist here before the
+         app builds: the cross-surface gate publishes the backend's
+         keys and asserts a string for every one. -->
+    <string name="fees_not_available">That is not available.</string>
+    <string name="fees_resolution_not_set">No fee has been set for this class.</string>
+    <string name="fees_claim_no_open_cycle">There is nothing outstanding to pay right now.</string>
+    <string name="fees_claim_amount_not_positive">Enter an amount greater than zero.</string>
+    <string name="fees_claim_channel_unknown">Choose how you paid.</string>
+    <string name="fees_claim_not_found">That payment record is not available.</string>
+    <string name="fees_verification_amount_negative">Enter an amount of zero or more.</string>
+    <string name="fees_verification_disposition_required">Choose whether the rest carries forward or is waived.</string>
+    <string name="fees_verification_disposition_not_applicable">Nothing is left over, so there is nothing to carry or waive.</string>
+    <string name="fees_verification_disposition_unknown">That choice is not recognised.</string>
+    <string name="fees_verification_already_decided">Someone has already recorded a decision on this payment. Refresh to see it.</string>
+
+    <!-- The push reminder itself. The server names these keys and
+         never sends the text [TC-15, D-43]. -->
+    <string name="fees_reminder_title">Fee reminder</string>
+    <string name="fees_reminder_body">A fee is outstanding.</string>
+
+    <!-- ===================================================== -->
+    <!-- D4: classes, attendance, the write queue, exams and   -->
+    <!-- marks.                                                -->
+    <!-- ===================================================== -->
+
+    <!-- The session list. -->
+    <string name="sessions_add">Add a class</string>
+    <string name="sessions_empty">No classes scheduled yet.</string>
+    <string name="sessions_retry">Try again</string>
+    <string name="session_when">%1$s at %2$s</string>
+    <string name="session_cancelled_mark">Cancelled</string>
+    <string name="session_ad_hoc_mark">Added by you</string>
+    <string name="session_topic_unlogged">No topic logged yet</string>
+
+    <!--
+      The three server-decided session statuses. The mapper names the
+      key and the screen renders it; a fourth status fails the mapper
+      rather than rendering as a default.
+    -->
+    <string name="session_status_scheduled">Scheduled</string>
+    <string name="session_status_held">Held</string>
+    <string name="session_status_cancelled">Cancelled</string>
+
+    <!-- Attendance marking. -->
+    <string name="attendance_title">Attendance for %1$s</string>
+    <string name="attendance_present">Present</string>
+    <string name="attendance_absent">Absent</string>
+    <string name="attendance_submit">Save attendance</string>
+    <string name="attendance_retry">Try again</string>
+    <string name="attendance_read_only">This class takes no attendance.</string>
+    <string name="attendance_confirmed">Saved. Your teacher record is up to date.</string>
+
+    <!--
+      **The queued notice must never read as confirmed** [BR3.1]. It
+      says where the roster is - on this phone - and that it will be
+      sent by itself. The word "saved" alone would be the silent queue
+      the project rule forbids.
+    -->
+    <string name="attendance_queued">Attendance for %1$s is saved on this phone and will be sent when you are back online.</string>
+
+    <!--
+      The four queue states, named individually [BR3.2]. Failed and
+      conflicted are deliberately different sentences with different
+      remedies: AC3.1.10 requires them to be distinguishable, and one
+      wording for both leaves a teacher repeating a request that
+      cannot succeed.
+    -->
+    <string name="queue_state_queued">On this phone, not yet sent</string>
+    <string name="queue_state_confirmed">Sent</string>
+    <string name="queue_state_failed">Could not be sent. You can try again.</string>
+    <string name="queue_state_conflicted">Someone changed this class. Look at what changed before deciding.</string>
+
+    <!--
+      The conflict-resolution screen. The densest Bangla text this
+      unit ships [BR7.5] - two labelled columns beside an explanation
+      on a phone - and the first row to check in the layout table.
+    -->
+    <string name="conflict_title">Attendance for %1$s was changed elsewhere</string>
+    <string name="conflict_mine_heading">What you recorded</string>
+    <string name="conflict_theirs_heading">What the record says now</string>
+    <string name="conflict_seat_absent">Not on this roster</string>
+    <string name="conflict_reapply">Use what I recorded</string>
+    <string name="conflict_discard">Keep the current record</string>
+    <string name="attendance_version_conflict">This class was marked on another device after you recorded yours. Nothing has been changed yet - choose which record to keep.</string>
+
+    <!-- The topic log. -->
+    <string name="topic_label">What was covered</string>
+    <string name="topic_save">Save topic</string>
+
+    <!-- Exams. -->
+    <string name="exams_add">Add an exam</string>
+    <string name="exams_empty">No exams yet.</string>
+    <string name="exams_retry">Try again</string>
+    <string name="exam_entered_count">%1$s of %2$s marked</string>
+
+    <!-- Mark entry. -->
+    <string name="mark_entry_title">%1$s, out of %2$s</string>
+    <string name="mark_entry_label">Mark</string>
+    <string name="mark_entry_absent">Absent</string>
+    <string name="mark_entry_retry">Try again</string>
+    <string name="mark_entry_read_only">Marks cannot be changed for this exam.</string>
+    <string name="mark_entry_locked">This student joined after the exam.</string>
+
+    <!--
+      The four result states [BR4.3]. Two of them are derived
+      server-side rather than typed by the teacher, and the wordings
+      keep them apart: "not marked yet" is the teacher's own backlog,
+      "absent" is a fact about the student. Collapsing the two would
+      publish an absence nobody recorded.
+    -->
+    <string name="mark_state_marked">Marked</string>
+    <string name="mark_state_absent">Absent</string>
+    <string name="mark_state_not_entered">Not marked yet</string>
+    <string name="mark_state_joined_after">Joined after this exam</string>
+
+    <!-- The marksheet, as a student or guardian sees it. -->
+    <string name="marksheet_own">Your mark: %1$s</string>
+    <string name="marksheet_rank">Rank %1$s of %2$s</string>
+    <string name="marksheet_average">Class average: %1$s</string>
+    <string name="marksheet_highest">Highest: %1$s</string>
+    <string name="marksheet_retry">Try again</string>
+
+    <!--
+      **Says nothing about how many results exist** [BR6.4]. The
+      server withholds the comparison below five marked results and
+      again while any seat is unmarked; naming either condition here
+      would disclose the very thing the threshold protects.
+    -->
+    <string name="marksheet_no_comparison">Your mark is shown on its own for now.</string>
+
+
+    <!-- Guardian progress over time. -->
+    <string name="progress_title">%1$s in %2$s</string>
+    <string name="progress_empty">No exam results yet.</string>
+    <string name="progress_retry">Try again</string>
+
+    <!-- Announcements. -->
+    <string name="announcements_empty">No announcements yet.</string>
+    <string name="announcement_edited">Edited</string>
+    <string name="announcement_post">Post</string>
+
+    <!--
+      Server message keys D4 adds. Each must exist here before the app
+      builds: the cross-surface gate publishes the backend's keys and
+      asserts a string for every one.
+    -->
+
+    <!--
+      **The shared refusal, and its wording is a security property.**
+      It is returned both when the thing does not exist and when it is
+      not yours, and a caller able to tell those apart can probe ids
+      [BR3.10, security-design § 2.3]. So it names no resource, no
+      owner and no reason.
+
+      It is also what a family sees when the marksheet toggle is off
+      [BR5.4], which is why it must stay this vague: a more helpful
+      sentence would disclose which of the three situations applies.
+      Do not "improve" this string.
+    -->
+    <string name="teaching_not_available">That is not available.</string>
+
+    <!--
+      The topic log's version conflict [BR2.1], twin of the attendance
+      one. Same remedy - look at what changed, never retry as-is -
+      different path, because the two guard different columns.
+    -->
+    <string name="topic_version_conflict">Someone saved a different topic for this class after you wrote yours. Nothing has been changed yet - look at what it says now before saving again.</string>
+
+    <!-- State-based refusals: retrying unchanged cannot succeed. -->
+    <string name="teaching_batch_inactive">This class has been closed, so it can no longer be changed. You can still look at its records.</string>
+    <string name="teaching_session_cancelled">This class was cancelled, so attendance and topics cannot be recorded for it.</string>
+    <string name="teaching_session_already_exists">There is already a class for that date and time.</string>
+    <string name="teaching_announcement_deleted">This announcement has been deleted.</string>
+    <string name="teaching_seat_not_on_roster">Some students on this list are no longer in the class. Reload the attendance list and record it again.</string>
+    <string name="teaching_mutation_id_already_used">This saved item was already used for a different change. Reload the class and record it again.</string>
+
+    <!-- Marks. -->
+    <string name="marks_out_of_range">That mark is outside the exam\'s total. Enter a number between zero and the total.</string>
+    <string name="marks_state_mismatch">A mark needs a number, and an absence needs none. Choose one.</string>
+    <string name="marks_result_state_not_enterable">That result cannot be entered by hand.</string>
+    <string name="marks_exam_total_invalid">An exam must be out of at least one mark.</string>
+
+    <!--
+      **Lowering a total below a mark already recorded.** The
+      `marks <= total_marks` bound spans the exam, so a lowered total
+      would leave a stored mark above full marks. The copy names the
+      two ways out, because "refused" alone leaves the teacher stuck.
+    -->
+    <string name="marks_exam_total_below_recorded">A mark higher than that total has already been recorded. Correct that mark first, or set a higher total.</string>
+
+    <!--
+      D5: the cross-batch dues view and the teacher overview.
+
+      **The empty dues state says it is good news.** A blank list
+      explains nothing, and a teacher seeing one cannot tell it apart
+      from a failed load - so the copy states the outcome rather than
+      describing an absence.
+    -->
+    <string name="dues_title">Who owes you</string>
+    <string name="dues_nobody_owes">Nobody owes anything right now. Every student across all your classes is paid up.</string>
+    <string name="dues_since">Since %1$s</string>
+    <string name="dues_retry">Try again</string>
+
+    <!--
+      **The earnings label sits above the densest short string this app
+      renders**: a money amount under a long Bangla label, on the screen
+      a teacher opens most. It is the first row of the Bangla layout
+      check for that reason.
+    -->
+    <string name="overview_earnings_label">Received this month</string>
+    <string name="overview_trend_label">Month by month</string>
+    <string name="overview_next_exam_label">Next exam</string>
+    <!--
+      Shown when nothing is scheduled. A sentence rather than a blank:
+      a teacher between terms is told the schedule is empty rather than
+      left to interpret an absence as a failure.
+    -->
+    <string name="overview_no_exam">Nothing scheduled yet.</string>
+    <string name="overview_days_remaining">%1$s days to go</string>
+    <string name="overview_retry">Try again</string>
+
+    <!--
+      D6: the deletion refusal a teacher sees.
+
+      **It names what is blocking and what to do about it**, unlike
+      every other refusal on the deletion path. The caller has already
+      proved they own the number, so enumeration resistance does not
+      apply here - and a vague refusal would leave a teacher believing
+      the feature is broken rather than that their classes come first.
+
+      The count arrives in the error's details and is NOT interpolated
+      into this string: the sentence has to read correctly for one
+      class and for ten.
+    -->
+    <string name="governance_deletion_owns_batches">You still have classes on ShikkhokPlus. Hand them over or close them first, then delete your account.</string>
 </resources>

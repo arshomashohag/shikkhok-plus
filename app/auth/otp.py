@@ -42,6 +42,7 @@ from app.errors import ValidationError
 __all__ = [
     "ATTEMPT_CEILING",
     "CODE_LIFETIME",
+    "DELETION_PURPOSE",
     "OTP_PURPOSE",
     "IssuedCode",
     "issue",
@@ -54,10 +55,23 @@ CODE_LIFETIME: Final = dt.timedelta(minutes=5)
 #: A code dies after five failed attempts; the 6th is refused [BR2.3].
 ATTEMPT_CEILING: Final = 5
 
-#: Required, with exactly one V1 value. A DEFAULT would let a second
-#: consumer arrive without anyone choosing its ceiling, which is the one
-#: control protecting the project's wallet.
+#: Sign-in. **Required at every call site, and there is deliberately no
+#: default**: a default would let a second consumer arrive without
+#: anyone choosing its ceiling, which is the one control protecting the
+#: project's wallet. D6 was that second consumer, and the absent default
+#: is what made it a compile-time question rather than a silent reuse.
 OTP_PURPOSE: Final = "otp"
+
+#: Account deletion [NFR14.98]. Its own purpose, so a code issued to
+#: sign in cannot confirm a destruction -- which is what the code did
+#: before D6, because ``verify()`` filtered on the phone alone.
+#:
+#: Eight characters against ``otp_request.purpose``'s ``String(32)``, so
+#: no migration. The sibling control's values are constrained by a
+#: ``String(16)`` and the abbreviation that forced is recorded in
+#: ``app/auth/ceilings.py``; this column is wide enough that no such
+#: compromise is needed here.
+DELETION_PURPOSE: Final = "deletion"
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,13 +94,21 @@ def issue(
     session: Session,
     phone: str,
     correlation_id: str,
+    *,
+    purpose: str,
     now: dt.datetime | None = None,
 ) -> IssuedCode:
     """Issue a code, doing equivalent work whether or not the number exists.
 
+    ``purpose`` is **keyword-only and has no default**, so a third
+    consumer cannot inherit sign-in's purpose by saying nothing. The
+    keyword form is what stops it being supplied positionally into
+    ``correlation_id``'s place by a caller reordering arguments.
+
     :param session: The session to write through
     :param phone: The number to issue for
     :param correlation_id: Ties the audit row to this request
+    :param purpose: What this code may be spent on
     :param now: The moment of issue, or None for the clock
     :return: The code to transmit and whether an account existed
     """
@@ -106,7 +128,7 @@ def issue(
         "id": row_id,
         "phone": phone,
         "otp_hash": digest,
-        "purpose": OTP_PURPOSE,
+        "purpose": purpose,
         "issued_at": moment,
         "expires_at": moment + CODE_LIFETIME,
     }
@@ -147,9 +169,11 @@ def verify(
     phone: str,
     code: str,
     correlation_id: str,
+    *,
+    purpose: str,
     now: dt.datetime | None = None,
 ) -> uuid.UUID:
-    """Verify a code and return the account it authenticates.
+    """Verify a code of one purpose and return the account it authenticates.
 
     The expiry, the single-use rule and the attempt ceiling share one
     transaction boundary, which is why they are one function rather than
@@ -161,21 +185,39 @@ def verify(
     :param phone: The number being verified
     :param code: The presented code
     :param correlation_id: Ties the audit row to this request
+    :param purpose: What the presented code must have been issued for
     :param now: The moment of verification, or None for the clock
     :return: The authenticated account's id
-    :raises ValidationError: The code is wrong, expired, used or dead
+    :raises ValidationError: The code is wrong, expired, used, dead, or
+        was issued for a different purpose
     """
     moment = now or dt.datetime.now(tz=dt.UTC)
 
     # FOR UPDATE is what makes the check-then-write atomic. Without it,
     # two concurrent verifies both read an unconsumed row.
+    #
+    # **`purpose` is in the WHERE, beside `phone`, and that placement is
+    # the design rather than a style choice** [DESIGN-1]. This query
+    # returns the LATEST row, so checking the purpose after fetching
+    # means a sign-in code issued after a deletion code SHADOWS it: the
+    # user's valid deletion code is refused, with `_refused()`, which
+    # discloses nothing -- so they retry, spend ceiling budget, and
+    # conclude the feature is broken.
+    #
+    # The order is plausible in real use, not contrived: a person
+    # requests a deletion code, is unsure, signs in to look at their
+    # data first, then returns to the deletion page.
+    #
+    # Filtering here gives each purpose its own most-recent code, which
+    # is what the single-use rule below is then applied to.
     row = session.execute(
         sa.text(
             "SELECT id, otp_hash, expires_at, consumed_at FROM otp_request "
-            "WHERE phone = :phone ORDER BY issued_at DESC LIMIT 1 "
+            "WHERE phone = :phone AND purpose = :purpose "
+            "ORDER BY issued_at DESC LIMIT 1 "
             "FOR UPDATE"
         ),
-        {"phone": phone},
+        {"phone": phone, "purpose": purpose},
     ).one_or_none()
 
     if row is None:

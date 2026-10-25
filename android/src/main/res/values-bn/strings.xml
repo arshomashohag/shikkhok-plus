@@ -36,13 +36,13 @@
     <string name="roster_title">শিক্ষার্থীরা</string>
     <string name="roster_empty">এখনও কোনো শিক্ষার্থী নেই। শুরু করতে প্রথমজনকে যোগ করুন।</string>
     <string name="roster_retry">আবার চেষ্টা করুন</string>
-    <string name="roster_status_dormant">এখনও সাইন ইন করেননি</string>
+    <string name="roster_status_dormant">এখনও গ্রহণ করেননি</string>
     <string name="roster_status_active">চলমান</string>
     <string name="roster_status_inactive">ছেড়ে গেছেন</string>
     <string name="roster_fetched_at">%1$s এর সংরক্ষিত তথ্য দেখানো হচ্ছে</string>
     <string name="batch_not_found">এই ক্লাসটি খুঁজে পাওয়া যায়নি।</string>
     <string name="batch_create_subject_required">অন্তত একটি বিষয় যোগ করুন।</string>
-    <string name="enrollment_remove_claimed">এই শিক্ষার্থী সাইন ইন করেছেন এবং তার রেকর্ড আছে। মুছে ফেলার বদলে তাকে ছেড়ে যাওয়া হিসেবে চিহ্নিত করুন।</string>
+    <string name="enrollment_remove_claimed">এই শিক্ষার্থী তার জায়গা গ্রহণ করেছেন এবং তার রেকর্ড আছে। মুছে ফেলার বদলে তাকে ছেড়ে যাওয়া হিসেবে চিহ্নিত করুন।</string>
     <string name="enrollment_remove_erased">এই জায়গাটিতে কারও তথ্য মুছে ফেলার অনুরোধ রেকর্ড করা আছে। নতুন ও আলাদা রেকর্ড তৈরি করতে নম্বরটি আবার যোগ করুন।</string>
     <string name="authz_lens_not_available">এটি দেখার অনুমতি আপনার নেই।</string>
     <string name="guardian_children_title">আপনার সন্তানরা</string>
@@ -72,4 +72,373 @@
     <string name="student_add_submit">যোগ করুন</string>
     <string name="action_cancel">বাতিল</string>
     <string name="fee_inherits">ক্লাসের ফি প্রযোজ্য</string>
+
+    <!-- ব্যাচ তালিকা -->
+    <string name="batches_empty_title">এখনও কোনও ব্যাচ নেই</string>
+    <string name="batches_empty_body">ব্যাচ হল একসঙ্গে পড়ানো একটি দল: একটি বিষয়, ক্লাসের দিন এবং মাসিক ফি।</string>
+    <string name="batches_create_first">প্রথম ব্যাচ তৈরি করুন</string>
+    <string name="batches_error_title">ব্যাচ তালিকা লোড করা যায়নি</string>
+    <string name="batches_count">%1$d ব্যাচ · %2$d জন শিক্ষার্থী</string>
+    <string name="batches_loading_label">লোড হচ্ছে…</string>
+    <string name="batches_fee_per_month">%1$s/মাস</string>
+    <string name="auth_code_auto_checks">ছয়টি সংখ্যা দেওয়ার পর নিজেই যাচাই হবে। কোনও বাটন চাপতে হবে না।</string>
+
+    <!-- D1: সাইন-আপ (O1)। শিক্ষক বা ব্যাচের নাম কখনও দেখানো হয় না। -->
+    <string name="signup_title">আপনার অ্যাকাউন্ট তৈরি করুন</string>
+    <string name="signup_phone_label">মোবাইল নম্বর</string>
+    <string name="signup_name_label">আপনার নাম</string>
+    <string name="signup_address_label">ঠিকানা (ঐচ্ছিক)</string>
+    <string name="signup_role_label">আমি একজন</string>
+    <string name="signup_role_teacher">শিক্ষক</string>
+    <string name="signup_role_student">শিক্ষার্থী</string>
+    <string name="signup_role_guardian">অভিভাবক</string>
+    <string name="signup_submit">%1$s নম্বরে কোড পাঠান</string>
+    <string name="signup_already_added_notice">একজন শিক্ষক ইতিমধ্যে এই নম্বরটি যোগ করেছেন। নিচে আপনার নাম দেখে নিন, প্রয়োজনে ঠিক করুন।</string>
+    <string name="signup_role_locked_note">আপনাকে যোগ করার সময় আপনার ভূমিকা নির্ধারিত হয়েছে।</string>
+    <string name="signup_checking_number">দেখা হচ্ছে…</string>
+    <string name="signup_submitting">আপনার অ্যাকাউন্ট তৈরি হচ্ছে…</string>
+    <string name="signup_code_sent">আমরা %1$s নম্বরে একটি কোড পাঠিয়েছি।</string>
+    <string name="signup_go_to_login">বরং লগ ইন করুন</string>
+    <string name="signup_phone_invalid">সঠিক মোবাইল নম্বর দিন।</string>
+    <string name="signup_name_required">অনুগ্রহ করে আপনার নাম লিখুন।</string>
+    <string name="signup_number_already_registered">এই নম্বরে ইতিমধ্যে একটি অ্যাকাউন্ট আছে। বরং লগ ইন করুন।</string>
+    <string name="signup_temporarily_unavailable">সাইন-আপ এখন সাময়িকভাবে বন্ধ আছে। অনুগ্রহ করে পরে চেষ্টা করুন।</string>
+
+    <!-- D1: আমন্ত্রণ (O4)। প্রত্যাখ্যান করা জায়গা তালিকায় থেকে যায়। -->
+    <string name="invitations_title">আপনার আমন্ত্রণ</string>
+    <string name="invitations_empty_title">উত্তর দেওয়ার কিছু নেই</string>
+    <string name="invitations_empty_body">কোনও শিক্ষক আপনার নম্বর কোনও ক্লাসে যোগ করলে তা এখানে দেখা যাবে, আপনি গ্রহণ বা প্রত্যাখ্যান করতে পারবেন।</string>
+    <string name="invitations_error_title">আপনার আমন্ত্রণ লোড করা যায়নি</string>
+    <string name="invitation_fee_per_month">%1$s/মাস</string>
+    <string name="invitation_subject_label">বিষয়</string>
+    <string name="invitation_state_pending">আপনার উত্তরের অপেক্ষায়</string>
+    <string name="invitation_state_declined">আপনি এটি প্রত্যাখ্যান করেছেন</string>
+    <string name="invitation_accept">গ্রহণ করুন</string>
+    <string name="invitation_decline">প্রত্যাখ্যান করুন</string>
+    <string name="invitation_accepted_confirmation">আপনি %1$s-এ যোগ দিয়েছেন।</string>
+
+    <!-- দুটি আলাদা প্রত্যাখ্যান বার্তা: অভিভাবকের প্রত্যাখ্যানে
+         শিক্ষার্থীর ফি বন্ধ হয় না। -->
+    <string name="decline_student_title">এই জায়গা প্রত্যাখ্যান করবেন?</string>
+    <string name="decline_student_body">আপনি %1$s-এ যোগ দেবেন না এবং এর জন্য আপনার কাছে আর কোনও ফি নেওয়া হবে না। মত বদলালে পরে গ্রহণ করতে পারবেন।</string>
+    <string name="decline_guardian_title">এই শিক্ষার্থীকে অনুসরণ করা বন্ধ করবেন?</string>
+    <string name="decline_guardian_body">আপনি %1$s-এর জন্য এই শিক্ষার্থীর রেকর্ড আর দেখতে পাবেন না। তার জায়গা ও ফি অপরিবর্তিত থাকবে। মত বদলালে পরে গ্রহণ করতে পারবেন।</string>
+    <string name="decline_confirm">প্রত্যাখ্যান করুন</string>
+
+    <!-- D1: প্রোফাইল (O5), শুধু সম্পাদনার অংশ। -->
+    <string name="profile_title">আপনার প্রোফাইল</string>
+    <string name="profile_name_label">আপনার নাম</string>
+    <string name="profile_address_label">ঠিকানা</string>
+    <string name="profile_edit">সম্পাদনা</string>
+    <string name="profile_save">সংরক্ষণ</string>
+    <string name="profile_saving">সংরক্ষণ হচ্ছে…</string>
+    <string name="profile_saved">সংরক্ষিত হয়েছে।</string>
+    <string name="profile_teacher_name_note">এটি বদলালে আপনার শিক্ষকেরা যে নাম দেখেন তা বদলায় না। প্রত্যেক শিক্ষক আপনার জন্য তার টাইপ করা নামই দেখেন।</string>
+
+    <!-- ===================================================== D2 ===== -->
+
+    <!-- গৃহীত আসনের সংখ্যা। দুটি সংখ্যাই সার্ভার থেকে আসে। -->
+    <string name="roster_accepted_count">%2$s-এর মধ্যে %1$s জন গ্রহণ করেছে</string>
+
+    <string name="roster_link_student">শিক্ষার্থী</string>
+    <string name="roster_link_guardian">অভিভাবক</string>
+    <string name="roster_link_pending">এখনও উত্তর দেয়নি</string>
+    <string name="roster_link_accepted">যোগ দিয়েছে</string>
+    <string name="roster_link_declined">প্রত্যাখ্যান করেছে</string>
+    <string name="roster_link_absent">কোনও অভিভাবক নেই</string>
+    <string name="roster_declined_mark">প্রত্যাখ্যাত — নম্বরটি দেখে নিন</string>
+    <string name="roster_declined_no_number">প্রত্যাখ্যাত আসন (কোনো নম্বর রাখা হয়নি)</string>
+
+    <string name="roster_remove">সরান</string>
+    <string name="roster_remove_confirm_title">এই জায়গাটি সরাবেন?</string>
+    <string name="roster_remove_confirm_body">%1$s-কে এই ক্লাস থেকে সরানো হবে। কেউ এই জায়গা গ্রহণ করেনি, তাই কারও কোনও রেকর্ড নষ্ট হবে না।</string>
+    <string name="roster_remove_confirm">সরান</string>
+    <string name="roster_remove_refused_title">এই জায়গাটি সরানো যাবে না</string>
+    <string name="roster_remove_claimed_remedy">কেউ এই জায়গা গ্রহণ করেছে, তাই রেকর্ডটি থেকে যাবে। বদলে আপনি এটি নিষ্ক্রিয় চিহ্নিত করতে পারেন — ভবিষ্যতের ফি বন্ধ হবে এবং পুরনো হিসাব থেকে যাবে।</string>
+    <string name="roster_remove_erased_remedy">এই জায়গার অ্যাকাউন্টটি মুছে ফেলা হয়েছে। জায়গাটি যেমন আছে তেমনই থাকবে এবং আর ব্যবহার করা যাবে না।</string>
+    <string name="roster_mark_inactive">নিষ্ক্রিয় চিহ্নিত করুন</string>
+    <string name="action_close">বন্ধ করুন</string>
+
+    <string name="batch_create_submitting">তৈরি হচ্ছে…</string>
+    <string name="batch_create_created">ক্লাস তৈরি হয়েছে।</string>
+    <string name="student_add_submitting">যোগ হচ্ছে…</string>
+    <string name="student_add_added">শিক্ষার্থী যোগ হয়েছে।</string>
+    <string name="student_add_guardian_hint">ঐচ্ছিক। অভিভাবক গ্রহণ করলে এই শিক্ষার্থীর রেকর্ড দেখতে পাবেন।</string>
+
+    <!-- G1: অভিভাবকের শিক্ষার্থীরা। শিক্ষার্থী বদলালে দৃশ্যটি
+         প্রতিস্থাপিত হয়, স্তূপীকৃত হয় না। -->
+    <string name="guardian_home_title">আপনার শিক্ষার্থীরা</string>
+    <string name="guardian_switch_label">দেখাচ্ছে</string>
+    <string name="guardian_child_in_batch">%1$s · %2$s</string>
+    <string name="guardian_empty_title">এখনও দেখানোর কিছু নেই</string>
+    <string name="guardian_empty_body">কোনও শিক্ষক আপনাকে অভিভাবক হিসেবে যুক্ত করলে এবং আপনি গ্রহণ করলে সেই শিক্ষার্থী এখানে দেখা যাবে।</string>
+
+    <!-- D3: ফি, দাবি ও যাচাই।
+
+         প্রতিটি টাকার অঙ্ক Numerals.money দিয়ে দেখানো হয়, যা এই
+         লোকেলেও ল্যাটিন অঙ্ক দেয় [BR6.6] — সার্ভারের Money.format
+         একই নিয়ম মানে, তাই একই অঙ্ক দুই জায়গায় দুই রকম দেখাবে না।
+
+         চারটি ফি-অবস্থা সার্ভার ঠিক করে [BR6.1]। সম্পূর্ণ মকুব করা
+         চক্রের বাকি শূন্য, কিন্তু সেটি "পরিশোধিত" নয় — তাই ক্লায়েন্ট
+         নিজে দুটি অবস্থার মধ্যে বেছে নেয় না। -->
+    <string name="fees_empty">এখনও কোনও ফি ধার্য হয়নি।</string>
+    <string name="fees_total_outstanding">বাকি: %1$s</string>
+    <string name="fees_outstanding_total">বাকি %1$s</string>
+    <string name="fees_outstanding_of_charged">%2$s-এর মধ্যে %1$s বাকি</string>
+    <string name="fees_due_on">শেষ তারিখ %1$s</string>
+    <string name="fees_status_paid">পরিশোধিত</string>
+    <string name="fees_status_partly_paid">আংশিক পরিশোধিত</string>
+    <string name="fees_status_unpaid">অপরিশোধিত</string>
+    <string name="fees_status_waived">মকুব</string>
+    <string name="batch_fees_empty">কোনও শিক্ষার্থীর কিছু বাকি নেই।</string>
+    <string name="fees_remind">মনে করিয়ে দিন</string>
+    <string name="fees_never_reminded">কখনও মনে করিয়ে দেওয়া হয়নি</string>
+
+    <!-- পেমেন্ট ফর্ম। শিক্ষার্থী ও অভিভাবকের জন্য একই [AC6.2.1];
+         শুধু লেন্স আলাদা, আর লেন্স সার্ভার ঠিক করে।
+
+         শিক্ষক কোনও নম্বর না দিলে গন্তব্যের ধাপটি দেখানোই হয় না
+         [NFR14.34] — ফাঁকা ঘর নয়, এই বার্তাটি দেখানো হয়। -->
+    <string name="payment_confirm_child">%1$s · %2$s</string>
+    <string name="payment_send_to">%1$s নম্বরে টাকা পাঠান</string>
+    <string name="payment_ask_teacher">আপনার শিক্ষক কোনও পেমেন্ট নম্বর দেননি। কীভাবে টাকা দেবেন তা তাঁর কাছে জেনে নিয়ে এখানে লিখুন।</string>
+    <string name="payment_amount_label">প্রদত্ত পরিমাণ</string>
+    <string name="payment_reference_label">লেনদেন নম্বর</string>
+    <string name="payment_submit">এই পেমেন্ট জানান</string>
+
+    <!-- জানানো পেমেন্টের ফল। প্রত্যাখ্যান যিনি জানিয়েছেন তাঁর কাছে
+         পৌঁছাতেই হবে [BR5.6], আর সংশোধিত সিদ্ধান্ত শিক্ষকের পাশাপাশি
+         শিক্ষার্থী ও অভিভাবকের কাছেও [BR5.7]। -->
+    <string name="claims_empty">আপনি এখনও কোনও পেমেন্ট জানাননি।</string>
+    <string name="claim_claimed_amount">%2$s-এ %1$s</string>
+    <string name="claim_approved_amount">গৃহীত: %1$s</string>
+    <string name="fees_claim_pending">শিক্ষকের সিদ্ধান্তের অপেক্ষায়</string>
+    <string name="fees_claim_approved_full">সম্পূর্ণ গৃহীত</string>
+    <string name="fees_claim_approved_partial">আংশিক গৃহীত</string>
+    <string name="fees_claim_rejected">গৃহীত হয়নি</string>
+    <string name="fees_claim_corrected">আপনার শিক্ষক এই সিদ্ধান্ত বদলেছেন।</string>
+    <string name="fees_disposition_carried">বাকিটা পরের মাসে যুক্ত হবে</string>
+    <string name="fees_disposition_waived">বাকিটা মকুব করা হয়েছে</string>
+
+    <!-- D3-এর সার্ভার বার্তা-কী। অ্যাপ বিল্ড হওয়ার আগেই প্রতিটির
+         জন্য এখানে একটি স্ট্রিং থাকতে হবে। -->
+    <string name="fees_not_available">এটি পাওয়া যাচ্ছে না।</string>
+    <string name="fees_resolution_not_set">এই ক্লাসের জন্য কোনও ফি ঠিক করা হয়নি।</string>
+    <string name="fees_claim_no_open_cycle">এই মুহূর্তে পরিশোধ করার মতো কিছু বাকি নেই।</string>
+    <string name="fees_claim_amount_not_positive">শূন্যের চেয়ে বেশি পরিমাণ লিখুন।</string>
+    <string name="fees_claim_channel_unknown">কীভাবে টাকা দিয়েছেন তা বেছে নিন।</string>
+    <string name="fees_claim_not_found">ওই পেমেন্টের রেকর্ড পাওয়া যাচ্ছে না।</string>
+    <string name="fees_verification_amount_negative">শূন্য বা তার বেশি পরিমাণ লিখুন।</string>
+    <string name="fees_verification_disposition_required">বাকিটা পরের মাসে যাবে নাকি মকুব হবে তা বেছে নিন।</string>
+    <string name="fees_verification_disposition_not_applicable">কিছুই বাকি নেই, তাই পরে নেওয়ার বা মকুবের কিছু নেই।</string>
+    <string name="fees_verification_disposition_unknown">ওই পছন্দটি চেনা যাচ্ছে না।</string>
+    <string name="fees_verification_already_decided">এই পেমেন্ট নিয়ে ইতিমধ্যে সিদ্ধান্ত নেওয়া হয়েছে। রিফ্রেশ করে দেখুন।</string>
+
+    <!-- পুশ রিমাইন্ডার। সার্ভার শুধু কী পাঠায়, লেখা নয়
+         [TC-15, D-43]। -->
+    <string name="fees_reminder_title">ফি-র কথা মনে করিয়ে দেওয়া</string>
+    <string name="fees_reminder_body">একটি ফি বাকি রয়েছে।</string>
+
+    <!-- ===================================================== -->
+    <!-- D4: ক্লাস, হাজিরা, রাইট-কিউ, পরীক্ষা ও নম্বর।          -->
+    <!-- ===================================================== -->
+
+    <!-- ক্লাসের তালিকা। -->
+    <string name="sessions_add">নতুন ক্লাস যোগ করুন</string>
+    <string name="sessions_empty">এখনও কোনও ক্লাস নির্ধারিত হয়নি।</string>
+    <string name="sessions_retry">আবার চেষ্টা করুন</string>
+    <string name="session_when">%1$s, %2$s</string>
+    <string name="session_cancelled_mark">বাতিল</string>
+    <string name="session_ad_hoc_mark">আপনার যোগ করা</string>
+    <string name="session_topic_unlogged">এখনও কোনও বিষয় লেখা হয়নি</string>
+
+    <!--
+      সার্ভারের ঠিক করা তিনটি অবস্থা। ম্যাপার কী বেছে দেয়, স্ক্রিন
+      শুধু দেখায়।
+    -->
+    <string name="session_status_scheduled">নির্ধারিত</string>
+    <string name="session_status_held">হয়েছে</string>
+    <string name="session_status_cancelled">বাতিল</string>
+
+    <!-- হাজিরা নেওয়া। -->
+    <string name="attendance_title">%1$s তারিখের হাজিরা</string>
+    <string name="attendance_present">উপস্থিত</string>
+    <string name="attendance_absent">অনুপস্থিত</string>
+    <string name="attendance_submit">হাজিরা সংরক্ষণ করুন</string>
+    <string name="attendance_retry">আবার চেষ্টা করুন</string>
+    <string name="attendance_read_only">এই ক্লাসে হাজিরা নেওয়া যাবে না।</string>
+    <string name="attendance_confirmed">পাঠানো হয়েছে। শিক্ষকের রেকর্ড হালনাগাদ হয়েছে।</string>
+
+    <!--
+      **কিউ-তে থাকা লেখা কখনও "পাঠানো হয়েছে" বোঝাবে না** [BR3.1]।
+      বাক্যটি বলে রেকর্ডটি কোথায় আছে — এই ফোনে — এবং নিজে থেকেই
+      পাঠানো হবে।
+    -->
+    <string name="attendance_queued">%1$s তারিখের হাজিরা এই ফোনে রাখা আছে, ইন্টারনেট এলে নিজে থেকেই পাঠানো হবে।</string>
+
+    <!--
+      কিউয়ের চারটি অবস্থা, আলাদা আলাদা করে [BR3.2]। "পাঠানো যায়নি"
+      আর "কেউ বদলেছেন" ইচ্ছাকৃতভাবে আলাদা বাক্য, কারণ দুটির করণীয়
+      আলাদা [AC3.1.10]।
+    -->
+    <string name="queue_state_queued">এই ফোনে আছে, এখনও পাঠানো হয়নি</string>
+    <string name="queue_state_confirmed">পাঠানো হয়েছে</string>
+    <string name="queue_state_failed">পাঠানো যায়নি। আবার চেষ্টা করতে পারেন।</string>
+    <string name="queue_state_conflicted">কেউ এই ক্লাসের হাজিরা বদলেছেন। সিদ্ধান্ত নেওয়ার আগে দেখে নিন কী বদলেছে।</string>
+
+    <!--
+      দ্বন্দ্ব মেটানোর স্ক্রিন। এই ইউনিটের সবচেয়ে ঘন বাংলা লেখা
+      [BR7.5] — ফোনের পর্দায় পাশাপাশি দুটি কলাম ও তার উপরে
+      ব্যাখ্যা — এবং লেআউট তালিকায় সবার আগে যাচাই করার সারি।
+    -->
+    <string name="conflict_title">%1$s তারিখের হাজিরা অন্য জায়গা থেকে বদলানো হয়েছে</string>
+    <string name="conflict_mine_heading">আপনি যা লিখেছিলেন</string>
+    <string name="conflict_theirs_heading">রেকর্ডে এখন যা আছে</string>
+    <string name="conflict_seat_absent">এই তালিকায় নেই</string>
+    <string name="conflict_reapply">আমার লেখাটিই রাখুন</string>
+    <string name="conflict_discard">বর্তমান রেকর্ডই থাক</string>
+    <string name="attendance_version_conflict">আপনার লেখার পরে অন্য একটি ডিভাইস থেকে এই ক্লাসের হাজিরা নেওয়া হয়েছে। এখনও কিছুই বদলানো হয়নি — কোনটি রাখবেন তা বেছে নিন।</string>
+
+    <!-- বিষয়ের তালিকা। -->
+    <string name="topic_label">যা পড়ানো হয়েছে</string>
+    <string name="topic_save">বিষয় সংরক্ষণ করুন</string>
+
+    <!-- পরীক্ষা। -->
+    <string name="exams_add">নতুন পরীক্ষা যোগ করুন</string>
+    <string name="exams_empty">এখনও কোনও পরীক্ষা নেই।</string>
+    <string name="exams_retry">আবার চেষ্টা করুন</string>
+    <string name="exam_entered_count">%2$s-এর মধ্যে %1$s জনের নম্বর দেওয়া হয়েছে</string>
+
+    <!-- নম্বর দেওয়া। -->
+    <string name="mark_entry_title">%1$s, পূর্ণমান %2$s</string>
+    <string name="mark_entry_label">নম্বর</string>
+    <string name="mark_entry_absent">অনুপস্থিত</string>
+    <string name="mark_entry_retry">আবার চেষ্টা করুন</string>
+    <string name="mark_entry_read_only">এই পরীক্ষার নম্বর বদলানো যাবে না।</string>
+    <string name="mark_entry_locked">এই শিক্ষার্থী পরীক্ষার পরে ভর্তি হয়েছে।</string>
+
+    <!--
+      ফলাফলের চারটি অবস্থা [BR4.3]। "এখনও নম্বর দেওয়া হয়নি" শিক্ষকের
+      নিজের বাকি কাজ, আর "অনুপস্থিত" শিক্ষার্থী সম্পর্কে একটি তথ্য —
+      দুটি মিলিয়ে ফেললে এমন অনুপস্থিতি প্রকাশ পাবে যা কেউ লেখেনি।
+    -->
+    <string name="mark_state_marked">নম্বর দেওয়া হয়েছে</string>
+    <string name="mark_state_absent">অনুপস্থিত</string>
+    <string name="mark_state_not_entered">এখনও নম্বর দেওয়া হয়নি</string>
+    <string name="mark_state_joined_after">এই পরীক্ষার পরে ভর্তি</string>
+
+    <!-- মার্কশিট, শিক্ষার্থী ও অভিভাবকের চোখে। -->
+    <string name="marksheet_own">আপনার নম্বর: %1$s</string>
+    <string name="marksheet_rank">%2$s জনের মধ্যে %1$s তম</string>
+    <string name="marksheet_average">ক্লাসের গড়: %1$s</string>
+    <string name="marksheet_highest">সর্বোচ্চ: %1$s</string>
+    <string name="marksheet_retry">আবার চেষ্টা করুন</string>
+
+    <!--
+      **কতগুলি ফল আছে তা বলে না** [BR6.4]। পাঁচটির কম নম্বর দেওয়া
+      হলে, কিংবা কারও নম্বর বাকি থাকলে সার্ভার তুলনা দেয় না; এখানে
+      শর্তটির কথা লিখলে ঠিক সেটিই প্রকাশ পেত যা সীমাটি আড়াল করে।
+    -->
+    <string name="marksheet_no_comparison">আপাতত শুধু আপনার নিজের নম্বরটিই দেখানো হচ্ছে।</string>
+
+
+    <!-- অভিভাবকের জন্য সময়ের সঙ্গে অগ্রগতি। -->
+    <string name="progress_title">%2$s-এ %1$s</string>
+    <string name="progress_empty">এখনও কোনও পরীক্ষার ফল নেই।</string>
+    <string name="progress_retry">আবার চেষ্টা করুন</string>
+
+    <!-- ঘোষণা। -->
+    <string name="announcements_empty">এখনও কোনও ঘোষণা নেই।</string>
+    <string name="announcement_edited">সম্পাদিত</string>
+    <string name="announcement_post">পোস্ট করুন</string>
+
+    <!--
+      D4-এর সার্ভার বার্তা-কী। অ্যাপ বিল্ড হওয়ার আগেই প্রতিটির জন্য
+      এখানে একটি স্ট্রিং থাকতে হবে।
+    -->
+
+    <!--
+      **সাধারণ প্রত্যাখ্যান, এবং এর শব্দচয়ন নিজেই একটি নিরাপত্তা
+      বৈশিষ্ট্য।** জিনিসটি নেই — আর জিনিসটি আপনার নয়: দুই ক্ষেত্রেই
+      একই উত্তর যায়, কারণ পার্থক্য বুঝতে পারলেই আইডি খুঁজে বেড়ানো
+      সম্ভব [BR3.10]। তাই এখানে কোনও রিসোর্স, মালিক বা কারণের নাম
+      নেই।
+
+      মার্কশিট বন্ধ থাকলেও পরিবার এটিই দেখে [BR5.4] — সেজন্যই বাক্যটি
+      এত সাধারণ রাখতে হবে। একে "আরও সহায়ক" করা যাবে না।
+    -->
+    <string name="teaching_not_available">এটি পাওয়া যাচ্ছে না।</string>
+
+    <!--
+      বিষয়ের তালিকার সংস্করণ-দ্বন্দ্ব [BR2.1], হাজিরার যমজ। করণীয়
+      একই — কী বদলেছে দেখুন, আগেরটি আবার পাঠাবেন না — কেবল পথটি
+      আলাদা।
+    -->
+    <string name="topic_version_conflict">আপনার লেখার পরে কেউ এই ক্লাসের জন্য অন্য একটি বিষয় সংরক্ষণ করেছেন। এখনও কিছুই বদলানো হয়নি — আবার সংরক্ষণ করার আগে দেখে নিন এখন কী লেখা আছে।</string>
+
+    <!-- অবস্থাজনিত প্রত্যাখ্যান: আগেরটি আবার পাঠিয়ে লাভ নেই। -->
+    <string name="teaching_batch_inactive">এই ক্লাসটি বন্ধ করা হয়েছে, তাই আর বদলানো যাবে না। রেকর্ড দেখা যাবে।</string>
+    <string name="teaching_session_cancelled">এই ক্লাসটি বাতিল হয়েছে, তাই এর হাজিরা বা বিষয় লেখা যাবে না।</string>
+    <string name="teaching_session_already_exists">ওই তারিখ ও সময়ে ইতিমধ্যেই একটি ক্লাস রয়েছে।</string>
+    <string name="teaching_announcement_deleted">এই ঘোষণাটি মুছে ফেলা হয়েছে।</string>
+    <string name="teaching_seat_not_on_roster">এই তালিকার কিছু শিক্ষার্থী আর এই ক্লাসে নেই। হাজিরার তালিকাটি আবার লোড করে নতুন করে লিখুন।</string>
+    <string name="teaching_mutation_id_already_used">জমা রাখা এই এন্ট্রিটি আগে অন্য একটি পরিবর্তনের জন্য ব্যবহার করা হয়েছে। ক্লাসটি আবার লোড করে নতুন করে লিখুন।</string>
+
+    <!-- নম্বর। -->
+    <string name="marks_out_of_range">নম্বরটি পরীক্ষার পূর্ণমানের বাইরে। শূন্য থেকে পূর্ণমানের মধ্যে একটি সংখ্যা লিখুন।</string>
+    <string name="marks_state_mismatch">নম্বর দিলে সংখ্যা লাগবে, অনুপস্থিত লিখলে সংখ্যা লাগবে না। যেকোনো একটি বেছে নিন।</string>
+    <string name="marks_result_state_not_enterable">ওই ফলাফলটি হাতে লেখা যায় না।</string>
+    <string name="marks_exam_total_invalid">পরীক্ষার পূর্ণমান অন্তত এক হতে হবে।</string>
+
+    <!--
+      **ইতিমধ্যে দেওয়া নম্বরের চেয়ে কম পূর্ণমান।** বাঁধনটি পরীক্ষা
+      পর্যন্ত বিস্তৃত, তাই পূর্ণমান কমালে সংরক্ষিত কোনও নম্বর
+      পূর্ণমানের উপরে থেকে যেত। বাক্যটি দুটি পথই বলে দেয়, কারণ শুধু
+      "হবে না" বললে শিক্ষক আটকে যান।
+    -->
+    <string name="marks_exam_total_below_recorded">ওই পূর্ণমানের চেয়ে বেশি নম্বর ইতিমধ্যেই দেওয়া হয়েছে। আগে ওই নম্বরটি ঠিক করুন, অথবা পূর্ণমান আরও বেশি দিন।</string>
+
+    <!--
+      D5: সব ব্যাচ মিলিয়ে বকেয়ার তালিকা এবং শিক্ষকের সারসংক্ষেপ।
+
+      **খালি তালিকার বার্তাটি সুখবর হিসেবেই লেখা।** শুধু ফাঁকা তালিকা
+      দেখলে শিক্ষক বুঝতে পারেন না এটি সত্যিই খালি, নাকি লোড হয়নি — তাই
+      বাক্যটি ফলাফলটাই বলে দেয়।
+    -->
+    <string name="dues_title">কার কাছে পাওনা</string>
+    <string name="dues_nobody_owes">এই মুহূর্তে কারও কোনও বকেয়া নেই। আপনার সব ক্লাসের সব শিক্ষার্থীর পাওনা পরিশোধ হয়েছে।</string>
+    <string name="dues_since">%1$s থেকে</string>
+    <string name="dues_retry">আবার চেষ্টা করুন</string>
+
+    <!--
+      **আয়ের লেখাটির নিচেই এই অ্যাপের সবচেয়ে ঘন ছোট স্ট্রিংটি বসে**:
+      লম্বা বাংলা লেবেলের নিচে টাকার অঙ্ক, আর এই পর্দাটিই শিক্ষক সবচেয়ে
+      বেশি খোলেন। সেই কারণেই বাংলা লেআউট পরীক্ষার প্রথম সারি এটি।
+    -->
+    <string name="overview_earnings_label">এই মাসে পেয়েছেন</string>
+    <string name="overview_trend_label">মাসে মাসে</string>
+    <string name="overview_next_exam_label">পরবর্তী পরীক্ষা</string>
+    <!--
+      কিছু নির্ধারিত না থাকলে দেখানো হয়। ফাঁকা না রেখে একটি বাক্য:
+      দুই টার্মের মাঝামাঝি সময়ে শিক্ষক যেন অনুপস্থিতিকে ত্রুটি ভেবে
+      না বসেন।
+    -->
+    <string name="overview_no_exam">এখনও কিছু নির্ধারিত হয়নি।</string>
+    <string name="overview_days_remaining">আর %1$s দিন</string>
+    <string name="overview_retry">আবার চেষ্টা করুন</string>
+
+    <!--
+      D6: অ্যাকাউন্ট মুছতে চাওয়া শিক্ষককে দেখানো প্রত্যাখ্যান।
+
+      **এটি কী আটকাচ্ছে তা স্পষ্ট করে বলে** - মুছে ফেলার পথের অন্য
+      সব প্রত্যাখ্যানের বিপরীতে। এখানে ব্যক্তি ইতিমধ্যে প্রমাণ
+      করেছেন নম্বরটি তাঁর, তাই কিছু গোপন রাখার প্রশ্ন নেই; অস্পষ্ট
+      বার্তা দিলে শিক্ষক ভাববেন সুবিধাটি নষ্ট, তাঁর ক্লাসগুলোই যে
+      আগে সামলাতে হবে তা নয়।
+
+      সংখ্যাটি ত্রুটির details-এ আসে, এই বাক্যে বসানো হয় না: একটি
+      ক্লাস হোক বা দশটি, বাক্যটি ঠিকই পড়তে হবে।
+    -->
+    <string name="governance_deletion_owns_batches">ShikkhokPlus-এ আপনার ক্লাস রয়ে গেছে। আগে সেগুলো হস্তান্তর করুন বা বন্ধ করুন, তারপর অ্যাকাউন্ট মুছুন।</string>
 </resources>

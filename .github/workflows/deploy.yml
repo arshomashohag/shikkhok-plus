@@ -36,11 +36,17 @@ on:
         description: "Branch or tag to deploy"
         required: false
         type: string
-      skip_migrations:
-        description: "Skip Alembic (the instance still migrates at boot)"
-        required: false
-        type: boolean
-        default: false
+      # `skip_migrations` was removed on 2026-10-25. It was declared here
+      # and referenced nowhere else in this file -- no `if:`, no
+      # expression -- so it skipped nothing in either position while
+      # reading as a deliberate control. Migrations run in
+      # `user_data.sh.tftpl` as a distinct logged step that fails closed,
+      # and this workflow has no Alembic step to skip.
+      #
+      # Removed rather than wired up: an input that suppressed the boot
+      # migration would let an instance serve against a schema it was not
+      # built for, which is the failure that step exits non-zero to
+      # prevent.
 
 permissions:
   contents: read

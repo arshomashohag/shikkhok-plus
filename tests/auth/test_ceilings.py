@@ -86,7 +86,17 @@ def test_the_first_three_within_an_hour_are_admitted(
 def test_the_sixth_within_a_day_is_refused(checker: CeilingChecker) -> None:
     # The hourly window must not be what stops this, so each send lands
     # in its own hour.
-    now = dt.datetime.now(tz=dt.UTC)
+    #
+    # **The anchor is a fixed start-of-day, not the wall clock.** It read
+    # `dt.datetime.now(tz=dt.UTC)` until 2026-10-25, which made the test
+    # fail for part of every day: six sends spread an hour apart from a
+    # 20:00Z start cross midnight, the daily window resets, and the sixth
+    # is admitted. A 09:00Z start touches one calendar day and a 20:00Z
+    # start touches two, so the test passed in the morning and failed in
+    # the evening -- found when a D4 run late in the UTC day reported it
+    # as the suite's one failure. The test already controlled the hour
+    # offsets; it just anchored them to a moving point.
+    now = dt.datetime.now(tz=dt.UTC).replace(hour=0, minute=0, second=0, microsecond=0)
     for hour in range(PER_NUMBER_DAILY):
         checker.check_and_consume(
             number=NUMBER, ip_prefix=IP_PREFIX, now=now + dt.timedelta(hours=hour)

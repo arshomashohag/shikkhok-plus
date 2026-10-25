@@ -3,6 +3,72 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.spotless)
+    alias(libs.plugins.detekt)
+}
+
+// ---------------------------------------------------------------------------
+// The Kotlin quality toolchain.
+//
+// **Why these run on every PR and the release gates do not.** The gates in
+// release-gates.gradle.kts are the strongest checks this project has, and
+// until now they were the ONLY Kotlin checks -- and they run on
+// `bundleRelease`. A `TelephonyManager` call could therefore sit on `main`
+// through every pull request and be found on the build that was about to
+// ship. These attach to `check`, so a forbidden identifier or an unformatted
+// file fails on the commit that introduces it.
+//
+// This is the per-commit half of the rule affirmed 2026-10-22: enforce the
+// forbidden-identifier set at commit time AS WELL AS at release time.
+// ---------------------------------------------------------------------------
+
+spotless {
+    // **ktlint does NOT run over src/**/*.kt, and that is a decision rather
+    // than an omission.** Decided 2026-10-22, after installing it and
+    // finding it cannot parse this codebase.
+    //
+    // ktlint reads `[...]` inside a KDoc block as a Kotlin reference link,
+    // so a traceability tag -- `/** Never read from the SIM [AC1.1.6]. */`
+    // -- fails its parser with "closing bracket expected". The code
+    // compiles; the formatter cannot read it. There are 52 such tags across
+    // 21 of the 32 Kotlin files, and they are the convention that ties this
+    // code to its requirements on both surfaces.
+    //
+    // Three options were weighed: escape every tag as a code span, move
+    // tags out of KDoc into line comments, or drop the Kotlin formatter.
+    // The first two change a convention used consistently across the
+    // project to satisfy a tool's parser, which is the tail wagging the
+    // dog -- and `team.md` is explicit that style is settled by a file in
+    // the repository and that project constraints outrank the sample.
+    //
+    // **What covers Kotlin instead**: detekt for static analysis, Android
+    // Lint with HardwareIds fatal, and the release DEX scan. Those catch
+    // defects. Automated brace placement does not, and with one reviewer
+    // the review is better spent on structure anyway [OC-6, D-45].
+    //
+    // The Gradle and XML targets below DO run: both parse cleanly, and
+    // `strings.xml` carries the Bangla bundle, where a malformed entity or
+    // a stray encoding is far easier to see in a consistently formatted
+    // file.
+    kotlinGradle {
+        target("*.gradle.kts")
+        ktlint(libs.versions.ktlint.get())
+    }
+    format("xml") {
+        target("src/main/res/**/*.xml")
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
+}
+
+detekt {
+    buildUponDefaultConfig = true
+    config.setFrom(files("$rootDir/android/detekt.yml"))
+    // The baseline is deliberately ABSENT. A baseline on a 32-file surface
+    // would freeze today's findings as acceptable, and the whole reason this
+    // toolchain arrives before D1 rather than after D6 is that the surface is
+    // still small enough to fix rather than baseline.
+    autoCorrect = false
 }
 
 android {
@@ -122,6 +188,32 @@ android {
             isIncludeAndroidResources = true
         }
     }
+
+    // **Lint is configured by android/lint.xml**, where HardwareIds is
+    // raised to fatal. The file carries the reasoning; what matters here is
+    // that lint runs and that a fatal finding stops the build rather than
+    // printing a warning nobody reads.
+    lint {
+        lintConfig = file("lint.xml")
+        // An unchecked warning is a warning that accumulates. These two
+        // turn the configured severities into a gate.
+        abortOnError = true
+        warningsAsErrors = false
+        checkDependencies = true
+        // A baseline is deliberately absent, for the same reason detekt has
+        // none: the surface is 32 files and still small enough to fix.
+        checkReleaseBuilds = true
+        htmlReport = true
+        xmlReport = true
+    }
+}
+
+// **Dependency locking for this module's configurations.** The settings file
+// locks the buildscript classpath; this locks what the app itself resolves.
+// Both halves are needed: the version catalogue pins our DECLARED versions
+// and says nothing about the transitive graph those declarations pull in.
+dependencyLocking {
+    lockAllConfigurations()
 }
 
 kotlin {
@@ -166,6 +258,11 @@ dependencies {
 // The two release-build gates team.md requires: the merged-manifest
 // permission allowlist and the minified-DEX identifier scan.
 apply(from = "release-gates.gradle.kts")
+
+// The coverage ratchet. Separate file for the same reason the release gates
+// are: each is a self-contained control with its own reasoning, and a build
+// file that inlines all of them stops being readable.
+apply(from = "coverage.gradle.kts")
 
 // **Wired to the build, not left to be remembered.** A gate somebody
 // has to invoke is a gate that gets skipped on the release that

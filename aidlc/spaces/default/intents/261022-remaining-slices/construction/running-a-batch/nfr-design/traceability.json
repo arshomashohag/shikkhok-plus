@@ -1,0 +1,124 @@
+{
+  "stage": "nfr-design",
+  "unit": "running-a-batch",
+  "note": "upstream_ids are the NFRx.y the sensor derives from this unit's performance and security requirement files; D2 is typed `ui` so there are no scalability or reliability files to draw from. NFR14.15 is a CITATION of the prior record's rule, not an ID defined here. The design's one genuinely new mechanism is NFR14.30: the child switch is the only obligation in this unit with no server-side backstop, because both requests are legitimately authorized and nothing on the server can see that Back took the guardian to the wrong child.",
+  "upstream_ids": [
+    "NFR2.3",
+    "NFR2.4",
+    "NFR3.3",
+    "NFR14.15",
+    "NFR14.26",
+    "NFR14.27",
+    "NFR14.28",
+    "NFR14.29",
+    "NFR14.30",
+    "NFR14.31",
+    "NFR20.7",
+    "NFR20.8",
+    "NFR20.9",
+    "NFR20.10",
+    "NFR20.11",
+    "NFR23.4",
+    "NFR23.5",
+    "NFR23.6"
+  ],
+  "coverage": [
+    {
+      "id": "NFR2.3",
+      "status": "OK",
+      "target": "No new dependency and one new feature package, so the device floor is unchanged (performance-design section 4)"
+    },
+    {
+      "id": "NFR2.4",
+      "status": "OK",
+      "target": "Code and strings only; the download-size assertion is measured at the release gate owned by D5/D6 (performance-design section 4)"
+    },
+    {
+      "id": "NFR3.3",
+      "status": "OK",
+      "target": "The count is a formatted string with no locale helper of its own, so its Bangla form is a per-screen check obligation rather than a guaranteed mechanism (performance-design section 4)"
+    },
+    {
+      "id": "NFR14.15",
+      "status": "OK",
+      "target": "Cited from the prior record: a guardian reaches children through their own link. Rendered here, unchanged (security-design section 2)"
+    },
+    {
+      "id": "NFR14.26",
+      "status": "OK",
+      "target": "The two new roster fields are decision enums, not personal data (security-design section 2)"
+    },
+    {
+      "id": "NFR14.27",
+      "status": "OK",
+      "target": "The existing schema-wide teacher-lens invariant covers the new fields without a new per-endpoint test (security-design section 2)"
+    },
+    {
+      "id": "NFR14.28",
+      "status": "OK",
+      "target": "The mapper resolves displayLabel, so the composable has no name to render for a declined row even by accident (security-design section 2)"
+    },
+    {
+      "id": "NFR14.29",
+      "status": "OK",
+      "target": "Guardian reach is unchanged and list_guardian_children is safe only because the lens stops being granted, which D2 must not route around (security-design section 2)"
+    },
+    {
+      "id": "NFR14.30",
+      "status": "OK",
+      "target": "The switch is a selection within one screen rather than a navigation push, so there is no back entry to return to (security-design section 1)"
+    },
+    {
+      "id": "NFR14.31",
+      "status": "OK",
+      "target": "remove_enrollment refuses on two independent conditions and the roster row carries only one, so a client derivation would offer removal for an erased seat (security-design section 3)"
+    },
+    {
+      "id": "NFR20.7",
+      "status": "OK",
+      "target": "A conditional aggregate in the existing grouped statement; the per-batch follow-up is the rejected option (performance-design section 1)"
+    },
+    {
+      "id": "NFR20.8",
+      "status": "OK",
+      "target": "Numerator and denominator from one grouped pass, with the predicate on the aggregate and not the WHERE (performance-design section 1)"
+    },
+    {
+      "id": "NFR20.9",
+      "status": "OK",
+      "target": "The response carries the number; enforced by a mapper test rather than structurally, which security-design states plainly (performance-design section 1)"
+    },
+    {
+      "id": "NFR20.10",
+      "status": "OK",
+      "target": "The two new fields are columns of rows the seat select already reads: no join, no statement, no index (performance-design section 2)"
+    },
+    {
+      "id": "NFR20.11",
+      "status": "OK",
+      "target": "No pagination in V1, made a later additive change by the server-side count rather than by accident (performance-design section 2)"
+    },
+    {
+      "id": "NFR23.4",
+      "status": "OK",
+      "target": "The count is written from the criterion before the endpoint (security-design section 5)"
+    },
+    {
+      "id": "NFR23.5",
+      "status": "OK",
+      "target": "The two refusals are separate assertions, because one test asserting it refuses distinguishes neither (security-design section 5)"
+    },
+    {
+      "id": "NFR23.6",
+      "status": "OK",
+      "target": "A Robolectric rendering test, named as the ONLY mechanism because no server-side control can observe the violation (security-design sections 1 and 5)"
+    }
+  ],
+  "reverse": [
+    {
+      "id": "NFR21.1",
+      "status": "N/A",
+      "target": "D1's no-cache rule, cited not restated. Relevant because D2's batch count is read on every sign-in and changes rarely, which is exactly the argument for caching it and exactly the staleness the rule prevents (performance-design section 3)"
+    }
+  ]
+}

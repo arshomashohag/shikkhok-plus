@@ -86,8 +86,29 @@ def enroll(
     guardian_account_id: uuid.UUID | None = None,
     guardian_phone: str | None = None,
     fee_amount: Money | None = None,
+    student_decision: str | None = None,
+    guardian_decision: str | None = None,
 ) -> uuid.UUID:
     """Create one enrollment seat in a batch.
+
+    **A decision left unstated here follows the LINK, mirroring
+    ``0004``'s conditional backfill**: ``accepted`` where the link
+    names an account, ``pending`` otherwise [ADR-013]. This helper
+    predates D1, and every merged test using it seats a person who --
+    under the superseded model, where naming WAS claiming -- was
+    already using their lens. Reproducing the migration's own rule is
+    what keeps those tests asserting what they were written to assert.
+
+    It is NOT a default on the column or on the service:
+    ``add_enrollment`` states ``pending`` explicitly, as a teacher
+    creating a seat does, and the database carries no default at all.
+    Defaulting flatly to ``accepted`` here would be worse than either:
+    it would arrange ``accepted`` beside a NULL link, a state no code
+    path can produce, and the erased-seat refusal test would then be
+    refused as *claimed* for a reason that does not exist.
+
+    D1's own tests state both decisions explicitly rather than
+    inheriting any of this.
 
     :param session: An arranging session
     :param batch_id: The batch the seat belongs to
@@ -96,8 +117,17 @@ def enroll(
     :param guardian_account_id: The guardian, if one is recorded
     :param guardian_phone: The teacher-typed guardian contact
     :param fee_amount: This seat's fee, or None to inherit
+    :param student_decision: The student link's decision, or None to
+        follow the link
+    :param guardian_decision: The guardian link's decision, or None to
+        follow the link
     :return: The new enrollment's id
     """
+    if student_decision is None:
+        student_decision = "accepted" if student_account_id else "pending"
+    if guardian_decision is None:
+        guardian_decision = "accepted" if guardian_account_id else "pending"
+
     record = Enrollment(
         batch_id=batch_id,
         student_account_id=student_account_id,
@@ -105,6 +135,8 @@ def enroll(
         guardian_phone=guardian_phone,
         fee_amount=fee_amount,
         display_name=display_name,
+        student_decision=student_decision,
+        guardian_decision=guardian_decision,
         created_at=dt.datetime.now(tz=dt.UTC),
     )
     session.add(record)

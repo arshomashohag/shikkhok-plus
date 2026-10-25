@@ -1,0 +1,191 @@
+{
+  "stage": "domain-design",
+  "upstream_ids": [
+    "FR1.9a",
+    "FR1.9b",
+    "FR1.9c",
+    "FR1.9c.1",
+    "FR1.9c.2",
+    "FR1.9d",
+    "FR1.9d.1",
+    "FR1.9e",
+    "FR1.9h",
+    "FR1.9i",
+    "FR1.7a",
+    "FR1.16",
+    "FR1.17",
+    "FR11.1a",
+    "US1.10",
+    "US1.11",
+    "US1.12",
+    "US1.13",
+    "US1.15",
+    "NFR20",
+    "NFR21",
+    "NFR22"
+  ],
+  "coverage": [
+    {
+      "id": "FR1.9a",
+      "status": "OK",
+      "target": "ADR-014 — BOTH _LENS_QUERY and _SUMMARY_QUERY gain `decision = 'accepted'` predicates. The columns alone grant nothing; the queries that read them are where the exposure closes."
+    },
+    {
+      "id": "FR1.9b",
+      "status": "OK",
+      "target": "Two independent enum columns, one per link [ADR-009]"
+    },
+    {
+      "id": "FR1.9c",
+      "status": "OK",
+      "target": "`declined` is a stored state, so re-adding the number finds it rather than creating a fresh pending link [ADR-009]"
+    },
+    {
+      "id": "FR1.9c.1",
+      "status": "OK",
+      "target": "The declined→accepted transition is permitted on the column; InvitationLens is granted on `declined` as well as `pending` so the person can reach the seat [ADR-009, ADR-011]"
+    },
+    {
+      "id": "FR1.9c.2",
+      "status": "OK",
+      "target": "No teacher-reachable path writes the column. Enforced at the API layer rather than by the schema, and recorded here so Functional Design does not have to rediscover it [ADR-009]"
+    },
+    {
+      "id": "FR1.9d",
+      "status": "OK",
+      "target": "InvitationLens carries enrollment_id and reaches batch name, subject and fee — all teacher-authored, so no privacy boundary is crossed [ADR-011]"
+    },
+    {
+      "id": "FR1.9d.1",
+      "status": "OK",
+      "target": "A fourth Lens subtype [ADR-011], resolved by its own statement rather than a branch of _LENS_QUERY, because an invitation grant is per-enrollment and a person may hold several"
+    },
+    {
+      "id": "FR1.9e",
+      "status": "OK",
+      "target": "`pending` is a durable column value with no expiry mechanism, so a seat stays pending indefinitely [ADR-009]"
+    },
+    {
+      "id": "FR1.9h",
+      "status": "OK",
+      "target": "The roster reads both decision columns; `pending` and `declined` are distinguishable values rather than inferred absences [ADR-009]"
+    },
+    {
+      "id": "FR1.9i",
+      "status": "OK",
+      "target": "Removal while unaccepted is expressible as `both links not accepted`, which the enum makes a direct predicate [ADR-009]"
+    },
+    {
+      "id": "FR1.7a",
+      "status": "OK",
+      "target": "Signup creates Account, Profile, and an Owner row only for the Teacher choice. No role column [ADR-010]"
+    },
+    {
+      "id": "FR1.16",
+      "status": "OK",
+      "target": "Both decision columns are independent, so one account holding both links on one seat carries two values and sees the seat once [ADR-009]"
+    },
+    {
+      "id": "FR1.17",
+      "status": "OK",
+      "target": "Profile.address, nullable text, under the existing row-level-security policy; the display name is Profile.self_name and needs no column [ADR-010]"
+    },
+    {
+      "id": "FR11.1a",
+      "status": "OK",
+      "target": "The decision column survives the erasure marker being set, and the two compose to mean 'declined, then left' [ADR-009, ADR-012]"
+    },
+    {
+      "id": "US1.10",
+      "status": "OK",
+      "target": "InvitationLens plus the two decision columns [ADR-009, ADR-011]"
+    },
+    {
+      "id": "US1.11",
+      "status": "OK",
+      "target": "Profile populated at signup [ADR-010]"
+    },
+    {
+      "id": "US1.12",
+      "status": "OK",
+      "target": "The already-added path reads the pending link and pre-fills Enrollment.display_name; signing up does not change the decision column [ADR-009, ADR-010]"
+    },
+    {
+      "id": "US1.13",
+      "status": "OK",
+      "target": "The declined→accepted transition and the InvitationLens grant on `declined` [ADR-009, ADR-011]"
+    },
+    {
+      "id": "US1.15",
+      "status": "OK",
+      "target": "Both values readable per link on the roster [ADR-009]"
+    },
+    {
+      "id": "NFR20",
+      "status": "OK",
+      "target": "The three role lenses stay one statement; the invitation read is a second statement issued only on the invitation route, so the per-request path is unchanged [ADR-011]"
+    },
+    {
+      "id": "NFR21",
+      "status": "OK",
+      "target": "No cached summary and no denormalised count: the roster's accepted count is computed from the columns [ADR-009]"
+    },
+    {
+      "id": "NFR22",
+      "status": "N/A",
+      "target": "No eager per-lens data at login is a behaviour of the login response rather than of the schema. Nothing in this stage changes it."
+    }
+  ],
+  "reverse": [
+    {
+      "id": "ADR-009",
+      "status": "OK",
+      "target": "FR1.9b, FR1.9a, FR1.9c, FR1.9e, FR1.9h, FR1.9i, FR1.16 — per-link acceptance as two enum columns"
+    },
+    {
+      "id": "ADR-010",
+      "status": "OK",
+      "target": "FR1.17, FR1.7a, US1.11 — signup's personal data on Profile, under the existing row-level-security policy"
+    },
+    {
+      "id": "ADR-011",
+      "status": "OK",
+      "target": "FR1.9d, FR1.9d.1, NFR20 — InvitationLens as a fourth type in the existing hierarchy"
+    },
+    {
+      "id": "ADR-012",
+      "status": "OK",
+      "target": "FR11.1a, and the governance obligation under ADR-004 — a declined seat keeps the teacher-typed name, and the manifest discloses it"
+    },
+    {
+      "id": "Enrollment.student_decision",
+      "status": "OK",
+      "target": "FR1.9b — the student link's state"
+    },
+    {
+      "id": "Enrollment.guardian_decision",
+      "status": "OK",
+      "target": "FR1.9b — the guardian link's state, independent of the student's"
+    },
+    {
+      "id": "Profile.address",
+      "status": "OK",
+      "target": "FR1.17 — owner-private, HARD_DELETE / LIFE_OF_ACCOUNT by Profile's existing manifest entry"
+    },
+    {
+      "id": "InvitationLens",
+      "status": "OK",
+      "target": "FR1.9d.1 — the lens a pending read resolves"
+    },
+    {
+      "id": "ADR-013",
+      "status": "OK",
+      "target": "FR1.9a, FR1.9e — the acceptance backfill. A plain DEFAULT 'pending' would have retroactively withdrawn the student lens from every seat whose student had already signed in, because is_dormant is student_account_id IS NULL and signing in was acceptance under the superseded model."
+    },
+    {
+      "id": "ADR-014",
+      "status": "OK",
+      "target": "FR1.9a, FR1.4a — both lens-granting queries filter on the decision columns. Without it the columns exist and nothing reads them, leaving the mistyped-number exposure open."
+    }
+  ]
+}

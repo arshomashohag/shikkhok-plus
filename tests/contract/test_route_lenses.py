@@ -61,22 +61,23 @@ def _dual_lens() -> TeacherLens | GuardianLens:
     raise NotImplementedError
 
 
-def test_public_routes_has_exactly_six_entries() -> None:
-    """``PUBLIC_ROUTES`` is a fixed set of exactly five.
+def test_public_routes_has_exactly_eight_entries() -> None:
+    """``PUBLIC_ROUTES`` is a fixed set of exactly eight.
 
-    The length assertion is the control: a SEVENTH entry is a diff
+    The length assertion is the control: a NINTH entry is a diff
     against a stated number rather than a line appended to a growing
-    list. It has already done that job once -- the staging outbox route
-    broke this test on the commit that added it, which is exactly what
-    a public route deserves.
+    list. It has already done that job twice -- the staging outbox
+    route broke this test on the commit that added it, and D1's two
+    signup routes broke it again, which is exactly what an
+    unauthenticated route deserves.
 
     :return: None
     """
-    assert len(PUBLIC_ROUTES) == 6
+    assert len(PUBLIC_ROUTES) == 8
 
 
 def test_public_routes_contains_the_contracted_entries() -> None:
-    """The five are the ones the contract fixes.
+    """The eight are the ones the contract fixes.
 
     :return: None
     """
@@ -85,20 +86,70 @@ def test_public_routes_contains_the_contracted_entries() -> None:
     assert ("GET", "/health") in PUBLIC_ROUTES
     assert ("GET", "/account-deletion") in PUBLIC_ROUTES
     assert ("POST", "/account-deletion") in PUBLIC_ROUTES
+    # D1's two: the product's first unauthenticated WRITE, and its
+    # first deliberate disclosure. Both bounded by signup's own
+    # ceilings [BR2.1, BR2.3].
+    assert ("POST", "/v1/accounts") in PUBLIC_ROUTES
+    assert ("GET", "/v1/accounts/already-added") in PUBLIC_ROUTES
+
+    # **The count, asserted.** The docstring on PUBLIC_ROUTES claimed
+    # "exactly five, and the count is asserted" while holding six entries
+    # and asserting no count at all -- the membership checks above pass
+    # whatever else the set contains. Added 2026-10-22.
+    #
+    # This is the half that matters: membership proves the known routes are
+    # present, and only the count catches a SEVENTH being appended. Adding a
+    # public route should mean editing this number, which is a reviewable,
+    # deliberate act rather than one more line in a growing list.
+    assert len(PUBLIC_ROUTES) == 8, (
+        f"PUBLIC_ROUTES holds {len(PUBLIC_ROUTES)} entries, not 8: "
+        f"{sorted(PUBLIC_ROUTES)}. A public route is reachable with no "
+        f"authentication at all. If the addition is intended, change the "
+        f"number here and in the docstring in the same commit."
+    )
 
 
-def test_lens_exempt_set_has_exactly_one_entry() -> None:
-    """``LENS_EXEMPT_AUTHENTICATED`` holds the refresh route alone.
+def test_lens_exempt_set_holds_exactly_the_known_routes() -> None:
+    """``LENS_EXEMPT_AUTHENTICATED`` holds four routes.
 
     Kept separate from ``PUBLIC_ROUTES`` for a concrete reason: with one
     combined list, whoever first hits a failing refresh route takes the
     cheapest green edit and adds it to the public set, after which nothing
     records that the route must stay authenticated.
 
+    **The count is the control and it has now fired four times**: once
+    for the staging outbox against ``PUBLIC_ROUTES``, once here when
+    ``/v1/me`` was added, once for the invitation listing, and once in
+    D6 for the in-app deletion route. Each time it forced the entry to
+    be justified rather than appended. A fifth should be as hard to add
+    as these four were.
+
+    Each exemption needs a reason that is a property of the route, not a
+    convenience:
+
+    - refresh presents a refresh token, not an access token, so there is
+      no authenticated account to resolve a lens from yet;
+    - ``/v1/me`` is the route that REPORTS the lenses, so requiring one
+      would mean an account had to know what it was before it could ask;
+    - ``/v1/invitations`` is the route that REPORTS which invitation
+      lenses exist, on exactly that reasoning. The four PER-SEAT
+      invitation routes each resolve an ``InvitationLens``, so the
+      exemption covers the listing alone and nothing it links to;
+    - ``DELETE /v1/me`` acts on the authenticated account ITSELF, so
+      there is no other account's data to scope -- and requiring a lens
+      would leave an account holding none of the three unable to delete
+      itself, which is the account with the least reason to stay.
+
     :return: None
     """
-    assert len(LENS_EXEMPT_AUTHENTICATED) == 1
-    assert ("POST", "/v1/auth/refresh") in LENS_EXEMPT_AUTHENTICATED
+    assert LENS_EXEMPT_AUTHENTICATED == frozenset(
+        {
+            ("POST", "/v1/auth/refresh"),
+            ("GET", "/v1/me"),
+            ("GET", "/v1/invitations"),
+            ("DELETE", "/v1/me"),
+        }
+    )
 
 
 def test_the_two_allowlists_are_disjoint() -> None:

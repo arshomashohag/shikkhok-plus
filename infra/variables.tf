@@ -115,9 +115,13 @@ variable "acknowledged_monthly_budget" {
     The ceiling an apply may not silently cross. project.md: always
     keep infrastructure spend under USD 50/month [OC-4].
 
-    A PRECONDITION rather than a comment, because the arithmetic
-    caught a real overrun: staging plus RDS is USD 50.20. Raising this
-    is a deliberate act with a diff, which is the point.
+    A PRECONDITION rather than a comment, and the reason is written
+    in `main.tf`: the comment that used to claim "staging plus RDS is
+    USD 50.20" was itself wrong. Recomputed 2026-10-24, staging plus
+    RDS is USD 47.28 -- under the ceiling. The precondition computes
+    from `cost_breakdown` and cannot drift; a comment can, and did.
+
+    Raising this is a deliberate act with a diff, which is the point.
   EOT
   type        = number
   default     = 50.00
@@ -141,7 +145,10 @@ variable "enable_staging_instance" {
     Acceptable now, with no real data and no users. It stops being
     acceptable before closed testing [OC-5], which is when real
     children's records arrive -- so this is a deferral, not a
-    cancellation. Saves ~USD 16.17/month.
+    cancellation. Saves USD 14.66/month -- a second `cost_host`,
+    which at the default `root_volume_gb = 30` is 12.26 + 2.40.
+    (This read "~USD 16.17" until 2026-10-24, a figure implying a
+    49 GB volume; corrected by computing it from `cost_breakdown`.)
   EOT
   type        = bool
   default     = false

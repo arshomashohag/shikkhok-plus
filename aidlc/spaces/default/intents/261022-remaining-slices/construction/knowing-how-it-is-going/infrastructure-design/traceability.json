@@ -1,0 +1,147 @@
+{
+  "stage": "infrastructure-design",
+  "unit": "d5-knowing-how-it-is-going",
+  "note": "D5 adds NO runtime infrastructure: no resource, no cron entry, no secret, USD 0.00 per month, Terraform untouched. It adds two release-time CI gates, each placed where it is by a concrete constraint rather than preference - the size gate needs a signing keystore that exists only inside the release job protected environment, and the ZAP scan needs a deployed host no merge-time job has. Both new gates carry PRECONDITION ASSERTIONS in the same commit that introduces them - three for the ZAP job, because a size gate pointed at a missing AAB, a DAST scan against an unreachable host, and a scan whose schema failed to import all exit zero by default, and the third hides behind the second passing. This is the failure shape this project has now met three times in its own history. 6 Deferred rows, each naming a review-only prohibition, a recorded decision or a human step. Zero GAP rows.",
+  "upstream_ids": [
+    "NFR2.11",
+    "NFR2.12",
+    "NFR2.13",
+    "NFR2.14",
+    "NFR2.15",
+    "NFR2.16",
+    "NFR2.21",
+    "NFR2.20",
+    "NFR14.74",
+    "NFR14.75",
+    "NFR14.76",
+    "NFR14.77",
+    "NFR24.25",
+    "NFR24.26",
+    "NFR24.21",
+    "NFR24.22",
+    "NFR24.23",
+    "NFR24.24",
+    "NFR25.28",
+    "NFR25.29",
+    "NFR25.30",
+    "NFR25.31",
+    "NFR7.7"
+  ],
+  "coverage": [
+    {
+      "id": "NFR2.11",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/infrastructure-design/cicd-pipeline.md section 2 - one step after the signature assertion and before Syft, signing its own APK set with a THROWAWAY keystore. The upload keystore is shredded at line 187 BEFORE the signature step at 194, so signing with it would fail every release; build-apks needs A signature, not THE signature, and a signed set size does not depend on which key signed it"
+    },
+    {
+      "id": "NFR2.12",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/infrastructure-design/cicd-pipeline.md section 2 - The bundletool form, with the AAB-exists precondition asserted in the same step"
+    },
+    {
+      "id": "NFR2.13",
+      "status": "Deferred",
+      "target": "construction/knowing-how-it-is-going/infrastructure-design/cicd-pipeline.md section 6 - The gate comment names the dimensions held fixed; the first release records the observed difference against the Console. A HUMAN STEP with no owner beyond the first release"
+    },
+    {
+      "id": "NFR2.14",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/infrastructure-design/cicd-pipeline.md section 2 - Fails rather than warns, demonstrated once against a lowered threshold"
+    },
+    {
+      "id": "NFR2.15",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/infrastructure-design/infrastructure-specification.md section 3 - bundletool runs only in the release job inside the android-release protected environment, which exists so a workflow edit cannot exfiltrate the upload key"
+    },
+    {
+      "id": "NFR2.16",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/infrastructure-design/infrastructure-specification.md section 3 - CI-only, so the DEX scan and manifest allowlist are unaffected"
+    },
+    {
+      "id": "NFR2.21",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/infrastructure-design/cicd-pipeline.md section 2 - Pinned and checksum-verified in the step that uses it"
+    },
+    {
+      "id": "NFR2.20",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/infrastructure-design/infrastructure-specification.md section 2 - No cron entry; user_data.sh.tftpl is unchanged and a file check asserts it"
+    },
+    {
+      "id": "NFR14.74",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/infrastructure-design/cicd-pipeline.md section 3 - the scan targets terraform output -raw api_url AFTER an explicit init keyed by the job own environment input (hardcoding staging would make a production run scan a real wrong host and SUCCEED), because the backend is PARTIAL (bucket and key supplied by -backend-config) so without init the command reads no remote state. api_url is the primary host OF THE LOADED KEY and is NOT the rehearsal host, which has its own origin_fqdn and no URL output"
+    },
+    {
+      "id": "NFR14.75",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/infrastructure-design/cicd-pipeline.md section 3 - Not in check.yml: a per-push DAST pass scans a possibly mid-deploy environment and becomes the gate that gets disabled"
+    },
+    {
+      "id": "NFR14.76",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/infrastructure-design/cicd-pipeline.md section 3 - Run as zap-api-scan.py (baseline performs no schema import); High blocks the promotion, lower annotates, following the CVE two-speed model"
+    },
+    {
+      "id": "NFR14.77",
+      "status": "Deferred",
+      "target": "construction/knowing-how-it-is-going/infrastructure-design/cicd-pipeline.md section 3 - the scan carries no token, so a pass means authenticated routes refuse without one and NOT that they are free of findings. THREE preconditions guard it, the third being the subtle one: a schema that fails to import degrades the scan to a root-URL crawl that exits zero, HIDDEN BEHIND a health probe that just passed. NO VERIFIER distinguishes a clean scan from a vacuous one beyond those assertions"
+    },
+    {
+      "id": "NFR24.25",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/infrastructure-design/monitoring-design.md section 5 - Retained as a build artifact so a blocked promotion is triageable"
+    },
+    {
+      "id": "NFR24.26",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/infrastructure-design/monitoring-design.md section 5 - Not attached to the Play record and not published: it names the host and what was scanned"
+    },
+    {
+      "id": "NFR24.21",
+      "status": "Deferred",
+      "target": "construction/knowing-how-it-is-going/infrastructure-design/monitoring-design.md section 3 - A log line carries a count and never a collection. REVIEW ONLY; no scanner is built, and one built for this unit would imply coverage it does not have"
+    },
+    {
+      "id": "NFR24.22",
+      "status": "Deferred",
+      "target": "construction/knowing-how-it-is-going/infrastructure-design/monitoring-design.md section 3 - No money amount in a log line. REVIEW ONLY"
+    },
+    {
+      "id": "NFR24.23",
+      "status": "Deferred",
+      "target": "construction/knowing-how-it-is-going/infrastructure-design/monitoring-design.md section 3 - No dues row including bare seat ids: an enrollment id is pseudonymous only while its context is absent, and a quoted support request supplies the context. REVIEW ONLY"
+    },
+    {
+      "id": "NFR24.24",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/infrastructure-design/monitoring-design.md section 3 - The error path is a single known site, so a test asserts its record carries no enrollment_id key and no decimal-shaped value"
+    },
+    {
+      "id": "NFR25.28",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/infrastructure-design/infrastructure-specification.md section 2 - No job, no heartbeat, nothing for the freshness enumeration to read - the correct outcome of D4 option B rather than a gap it left"
+    },
+    {
+      "id": "NFR25.29",
+      "status": "Deferred",
+      "target": "construction/knowing-how-it-is-going/infrastructure-design/monitoring-design.md section 1 - No alert, with the reasoning recorded per failure: a wrong figure needs a second source of truth that does not exist, an unavailable one is already an error, and a revenue threshold set now would be invented"
+    },
+    {
+      "id": "NFR25.30",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/infrastructure-design/monitoring-design.md section 4 - Every figure reproducible by re-running the read, which is why the logging prohibitions cost little here"
+    },
+    {
+      "id": "NFR25.31",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/infrastructure-design/monitoring-design.md section 4 - The audit log unchanged; reading ones own figures is not an auditable event"
+    },
+    {
+      "id": "NFR7.7",
+      "status": "OK",
+      "target": "construction/knowing-how-it-is-going/infrastructure-design/infrastructure-specification.md section 1 - USD 0.00 per month: no resource, no entry in the budget guard arithmetic, an empty Terraform plan for this unit"
+    }
+  ]
+}

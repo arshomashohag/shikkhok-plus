@@ -231,3 +231,576 @@ id = "test_dynamic_decimal_import_is_caught"
 file = "tests/gates/test_import_gates.py"
 criterion = "importlib.import_module('decimal') is caught by Gate 2's AST walk; the real Ruff config passes it because there is no import statement"
 rule = "BR6.2"
+
+# ---------------------------------------------------------------------------
+# D1 `signing-up-and-joining`. Seven entries, and the reason they are named
+# rather than left to a coverage number is sharper here than anywhere else in
+# this manifest: the authorization layer is measured as BRANCH coverage, and
+# every one of these predicates is a branch that several other tests already
+# execute incidentally. Deleting any of these tests would not move a number.
+# ---------------------------------------------------------------------------
+
+[[test]]
+id = "test_links_that_only_name_an_account_grant_no_role_lens"
+file = "tests/authz/test_acceptance_predicate.py"
+criterion = "An account named on BOTH links of a pending seat resolves neither a student nor a guardian lens; this failed against the merged _LENS_QUERY, which granted on the link alone"
+rule = "BR1.1"
+
+[[test]]
+id = "test_the_summary_counts_agree_with_the_grant"
+file = "tests/authz/test_acceptance_predicate.py"
+criterion = "lens_summary reports zero student seats and zero guardian children for the same unaccepted links; a separate statement in a separate module, so fixing the resolver alone is a silent half-fix"
+rule = "BR1.2"
+
+[[test]]
+id = "test_one_account_on_both_links_decides_once_for_both"
+file = "tests/authz/test_decision_transitions.py"
+criterion = "One accept moves BOTH columns when one account holds both links, and only its own when the links name different people; BR5.2 and BR5.3 read as a contradiction and an implementation satisfying either alone fails half this file"
+rule = "BR5.3"
+
+[[test]]
+id = "test_no_decision_service_resets_a_link_to_pending"
+file = "tests/authz/test_decision_transitions.py"
+criterion = "Every D1 write path exercised against a declined link leaves it declined or accepted, never pending; the absence BR5.4's durability depends on, which no diff shows"
+rule = "BR6.1"
+
+[[test]]
+id = "test_pending_and_declined_links_grant_an_invitation_lens"
+file = "tests/authz/test_invitation_lens.py"
+criterion = "A pending AND a declined seat both resolve invitation lenses, returned as a SET across two batches; restricting the grant to pending would make BR5.4's reversal unreachable"
+rule = "BR1.3"
+
+[[test]]
+id = "test_a_seat_stays_removable_after_the_named_person_signs_up"
+file = "tests/batches/test_removability_after_signup.py"
+criterion = "A teacher removes a seat whose named person has signed up and accepted nothing; this failed against merged code and is the mistyped-number recovery path the unit exists to open"
+rule = "BR7.1"
+
+[[test]]
+id = "test_the_roster_shows_an_accepted_seat_as_claimed"
+file = "tests/batches/test_removability_after_signup.py"
+criterion = "A seat whose GUARDIAN link accepted while the student link is pending reads as claimed; an implementation reading only student_decision passes every other test in that file"
+rule = "BR7.2"
+
+[[test]]
+id = "test_reading_a_seat_removed_mid_request_raises_rather_than_rendering"
+file = "tests/authz/test_invitation_lens.py"
+criterion = "A seat removed between resolving the lens and reading it raises rather than returning a blank invitation; a teacher may legitimately remove an unaccepted seat, so the window is real"
+rule = "BR7.1"
+
+[[test]]
+id = "test_signing_up_leaves_an_existing_seat_pending"
+file = "tests/accounts/test_lookup.py"
+criterion = "After signup links the account to an existing seat, BOTH decision columns are still pending and the guardian link names the new account; the single most important ABSENCE in this unit, which no diff shows"
+rule = "BR5.1"
+
+# ---------------------------------------------------------------------
+# D2 `running-a-batch`. Three obligations, and the third is the one that
+# must not become a review note: no server-side control can observe it.
+# ---------------------------------------------------------------------
+
+[[test]]
+id = "test_one_accepted_link_makes_the_seat_accepted"
+file = "tests/batches/test_accepted_count.py"
+criterion = "A split seat — student accepted, guardian declined — counts as accepted; an implementation requiring BOTH links, or reading only student_decision, gets a different answer here and the same answer everywhere else"
+rule = "BR1.2"
+
+[[test]]
+id = "test_the_denominator_includes_declined_seats"
+file = "tests/batches/test_accepted_count.py"
+criterion = "Nine accepted of twelve where one of the three others DECLINED; an implementation filtering declined seats from the total reports nine of eleven, and the teacher cannot tell a decline from a removal"
+rule = "BR1.4"
+
+[[test]]
+id = "test_the_two_refusals_carry_different_codes_and_message_keys"
+file = "tests/batches/test_removal_refusals.py"
+criterion = "Claimed and erased differ on BOTH halves a screen reads — the code it switches on and the message key it renders; a pair agreeing on either collapses two remedies into one screen and leaves a teacher trying the one that cannot work"
+rule = "BR3.2"
+
+[[test]]
+id = "test_removability_agrees_with_what_removal_actually_does"
+file = "tests/batches/test_roster_states.py"
+criterion = "The row's is_removable equals whether remove_enrollment actually succeeds, across claimed, erased and removable seats; the erased seat's two decisions both read pending, so every client-side derivation would offer an action the server then refuses"
+rule = "BR3.1"
+
+[[test]]
+id = "test_a_recorded_guardian_who_has_not_answered_is_pending_not_absent"
+file = "tests/batches/test_roster_states.py"
+criterion = "A guardian the teacher recorded who has not signed up yet reads pending, not absent; keying absence on guardian_account_id rather than the typed number would drop every unregistered guardian out of the outstanding figure"
+rule = "BR2.2"
+
+[[test]]
+id = "BACK AFTER A CHILD SWITCH does not reach the previous child"
+file = "android/src/test/kotlin/com/shikkhokplus/app/feature/guardian/GuardianHomeScreenTest.kt"
+criterion = "After switching child and then pressing Back, the previous child is still not the one displayed; no server-side control can observe this failure because both requests are legitimately authorized and neither response is anomalous, so this test is the only mechanism"
+rule = "BR4.2"
+
+# ---------------------------------------------------------------------
+# D3 `collecting-fees`. The RED-first obligations, each named with the
+# WRONG implementation it separates from the right one.
+#
+# Nearly every rule in this unit met the test-first predicate -- the
+# correct output is knowable from the requirement, and a wrong answer
+# is a money or an authorization error -- which is unusual and is the
+# point of the unit.
+# ---------------------------------------------------------------------
+
+[[test]]
+id = "test_the_clamp_does_not_degrade_the_anchor"
+file = "tests/fees/test_periods.py"
+criterion = "Anchor 31 gives 2027-01-31, 2027-02-28, 2027-03-31 and 2028-02-29; the THIRD value separates the designs, because a degrading clamp rewrites the anchor to 28 in February and returns the 28th for ever after"
+rule = "BR2.2"
+
+[[test]]
+id = "test_a_null_anchor_means_the_last_day_of_the_period"
+file = "tests/fees/test_periods.py"
+criterion = "A NULL fee_due_day yields the month's last day, the only default that cannot make a fee due before the month it pays for has been taught"
+rule = "BR2.3"
+
+[[test]]
+id = "test_zero_is_a_real_fee_and_not_a_missing_one"
+file = "tests/fees/test_resolution.py"
+criterion = "An enrollment fee of 0.00 on a batch defaulting to 1000.00 charges 0.00; `enrollment.fee_amount or batch.default_fee` is the idiomatic line and it bills a student the teacher deliberately excused"
+rule = "BR2.4"
+
+[[test]]
+id = "test_both_null_refuses_rather_than_charging_zero"
+file = "tests/fees/test_resolution.py"
+criterion = "Neither fee set refuses; a 0.00 charge would be indistinguishable from a waiver once it is on the append-only ledger"
+rule = "BR2.4"
+
+[[test]]
+id = "test_a_zero_seat_fee_charges_zero_not_the_batch_default"
+file = "tests/fees/test_generation.py"
+criterion = "The falsiness defect end to end rather than only in the pure resolver, because the generation path is where it would actually bill somebody"
+rule = "BR2.4"
+
+[[test]]
+id = "test_overlapping_generations_leave_exactly_one_cycle_per_period"
+file = "tests/fees/test_generation_races.py"
+criterion = "Eight threads released from a barrier against real PostgreSQL leave one row per (enrollment_id, period) and one period's charge; a SEQUENTIAL version passes against an implementation with no atomicity at all, which is the implementation the constraint exists to prevent"
+rule = "BR1.3"
+
+[[test]]
+id = "test_overlapping_generations_over_several_periods_each_charge_once"
+file = "tests/fees/test_generation_races.py"
+criterion = "Three periods racing at once each charge once; a per-period lock that happened to work for one period can still double-charge when several insert in one run"
+rule = "BR1.3"
+
+[[test]]
+id = "test_a_later_rerun_on_a_new_day_appends_nothing"
+file = "tests/fees/test_generation_across_days.py"
+criterion = "Day N, then N+1, then N+1 again leave an identical row set and ledger total; racing threads cannot reach this because they all carry the same clock, which is why it is a separate test and the forgettable one"
+rule = "BR1.4"
+
+[[test]]
+id = "test_a_missed_day_is_caught_up_by_the_next_run"
+file = "tests/fees/test_generation_across_days.py"
+criterion = "A job that did not run in December or January fills both holes in February; a hole nothing ever fills is the failure the inclusive period range prevents"
+rule = "BR1.4"
+
+[[test]]
+id = "test_the_containing_period_is_charged_in_full_not_prorated"
+file = "tests/fees/test_inactive_from.py"
+criterion = "A seat inactive from the 15th of a 28-day month is charged the whole fee; the rule is named in the affirmed posture as one that fails quietly"
+rule = "BR1.5"
+
+[[test]]
+id = "test_an_existing_due_stands_after_the_seat_goes_inactive"
+file = "tests/fees/test_inactive_from.py"
+criterion = "Going inactive stops FUTURE cycles and clears nothing; D5's cross-batch dues query is driven by outstanding balance rather than active status, so a clearing implementation would silently empty that view"
+rule = "BR1.5"
+
+[[test]]
+id = "test_a_declined_guardian_link_does_not_stop_generation"
+file = "tests/fees/test_decline_semantics.py"
+criterion = "A declined guardian link generates the next period unchanged; if a guardian's refusal stopped generation, any student could clear their own fees by having a guardian refuse"
+rule = "BR1.7"
+
+[[test]]
+id = "test_a_declined_guardian_link_writes_no_reversal"
+file = "tests/fees/test_decline_semantics.py"
+criterion = "The student's obligation stands in full after a guardian decline; this is the half of the asymmetry that already produced one defect in this project on the presentation side, where a guardian was told the fee stopped and it had not"
+rule = "BR1.7"
+
+[[test]]
+id = "test_a_declined_student_link_voids_the_accrued_balance_by_reversal"
+file = "tests/fees/test_decline_semantics.py"
+criterion = "Outstanding reaches 0.00 AND the original charge row still exists; deleting the charge would also give zero while destroying the audit trail FR9.2 requires, so both halves are asserted"
+rule = "BR1.6"
+
+[[test]]
+id = "test_voiding_a_partly_paid_cycle_forgives_only_the_remainder"
+file = "tests/fees/test_decline_semantics.py"
+criterion = "A seat charged 1500 with 500 received is forgiven 1000, not 1500; forgiving the charge would record a relief that never happened"
+rule = "BR1.6"
+
+[[test]]
+id = "test_un_declining_resumes_without_resurrecting_voided_cycles"
+file = "tests/fees/test_decline_semantics.py"
+criterion = "After decline, void and re-accept, the voided period stays at 0.00 and only later periods carry a charge; retroactively re-billing months somebody was not participating in punishes correcting a mistake"
+rule = "BR1.8"
+
+[[test]]
+id = "test_a_pending_seat_generates"
+file = "tests/fees/test_decline_semantics.py"
+criterion = "A seat with both decisions pending generates; pending is the normal state of a new seat, and withholding generation would make the product useless for the one task it exists for"
+rule = "BR1.9"
+
+[[test]]
+id = "test_carrying_1000_into_a_second_1000_charge_reads_2000_not_3000"
+file = "tests/fees/test_carry.py"
+criterion = "The figure team memory warns about: two-sided gives 2000.00 and one-sided gives 3000.00, with the gap growing every period. An earlier form of this rule paired 2500 against a true 1500, which reproduces under no implementation"
+rule = "BR3.1"
+
+[[test]]
+id = "test_the_two_sides_of_every_carry_sum_equal"
+file = "tests/fees/test_carry.py"
+criterion = "sum(carry_forward) == sum(carried_out) at the enrollment level, which catches a one-sided carry immediately and is a transaction property the fold cannot enforce"
+rule = "BR3.1"
+
+[[test]]
+id = "test_a_carry_exceeding_the_origins_balance_is_refused"
+file = "tests/fees/test_carry.py"
+criterion = "Carrying 1200 out of a period owing 1000 raises; the receiver would be charged in full while the origin is relieved only to its floor, so the surplus appears from nowhere"
+rule = "BR3.2"
+
+[[test]]
+id = "test_credit_granted_in_one_period_is_spent_in_another"
+file = "tests/fees/test_credit.py"
+criterion = "200.00 credit against a 1000.00 charge leaves 800.00 -- the figure ADR-002's first correction attempt computed as 1000, because its per-cycle form was missing the credit_applied term. Credit trapped in a closed period would make an overpayment vanish"
+rule = "BR4.1"
+
+[[test]]
+id = "test_credit_exceeding_the_charge_applies_only_what_is_owed"
+file = "tests/fees/test_credit.py"
+criterion = "1500.00 held against a 1000.00 charge applies 1000.00 and leaves 500.00; applying the whole credit would drive the balance negative, which the invariant forbids"
+rule = "BR4.4"
+
+[[test]]
+id = "test_generation_applies_available_credit_in_the_same_transaction"
+file = "tests/fees/test_credit.py"
+criterion = "The charge is appended BEFORE the application, asserted on the entry order; reversed, the computation is min(available, 0) and the credit is never spent at all"
+rule = "BR4.5"
+
+[[test]]
+id = "test_over_approval_records_a_receipt_and_a_credit_grant"
+file = "tests/fees/test_verification.py"
+criterion = "A 1000 charge approved at 1200 gives outstanding 0.00 and credit 200.00; cash in is receipt PLUS credit_grant, which is exactly where ADR-002's first correction attempt failed"
+rule = "BR4.2"
+
+[[test]]
+id = "test_a_claim_resolves_to_the_oldest_unpaid_cycle"
+file = "tests/fees/test_claims.py"
+criterion = "With two unpaid cycles the stored period is the earlier one, resolved once at submission so the claimant and the teacher look at the same cycle"
+rule = "BR5.1"
+
+[[test]]
+id = "test_a_claim_with_no_open_cycle_is_refused_and_creates_none"
+file = "tests/fees/test_claims.py"
+criterion = "No cycle row is created to receive the payment; creating one would bill the student for a period that had not begun"
+rule = "BR5.1"
+
+[[test]]
+id = "test_an_over_claim_is_accepted_as_pending"
+file = "tests/fees/test_claims.py"
+criterion = "5000 against a 1000 balance is recorded; blocking an over-claim at submission makes a genuine out-of-band overpayment unreportable, leaving a phone call as the only route"
+rule = "BR5.2"
+
+[[test]]
+id = "test_the_shortfall_is_charged_minus_approved_not_claimed_minus_approved"
+file = "tests/fees/test_verification.py"
+criterion = "1000 charged, 1500 claimed, approved at 600 gives 400.00 and not 900.00. A claim equal to the charge cannot separate the two formulas, which is why this case uses one where they differ; measuring against the claim would let a payer change what they owe by changing what they assert"
+rule = "BR5.3"
+
+[[test]]
+id = "test_a_shortfall_with_no_disposition_is_refused"
+file = "tests/fees/test_verification.py"
+criterion = "An approval below the charge with no disposition raises and leaves the claim pending; a default would silently choose for the teacher, and carried and waived have opposite consequences for the student"
+rule = "BR5.4"
+
+[[test]]
+id = "test_the_decision_and_its_entries_are_one_transaction"
+file = "tests/fees/test_verification.py"
+criterion = "An induced mid-verification failure leaves neither the status change nor any ledger entry; a partial commit would leave money recorded against a pending claim, which the append-only ledger cannot tidy away"
+rule = "BR5.5"
+
+[[test]]
+id = "test_rejection_records_no_ledger_entry_and_leaves_the_balance"
+file = "tests/fees/test_verification.py"
+criterion = "After a rejection the entry count and the outstanding balance are both unchanged"
+rule = "BR5.6"
+
+[[test]]
+id = "test_a_correction_retains_the_previous_decision"
+file = "tests/fees/test_verification.py"
+criterion = "The prior decision survives with its amount, actor and timestamp; correction history hidden from the person whose money it concerns is the asymmetry FR9.2 forbids"
+rule = "BR5.7"
+
+[[test]]
+id = "test_a_teacher_cannot_read_another_teachers_batch_fees"
+file = "tests/fees/test_fee_privacy.py"
+criterion = "Teacher A reading teacher B's fee overview is refused with the shared NOT_AVAILABLE, probed as the restricted non-superuser role"
+rule = "BR6.4"
+
+[[test]]
+id = "test_an_invented_batch_id_is_refused_identically"
+file = "tests/fees/test_fee_privacy.py"
+criterion = "A real-but-not-yours id and an invented one return the same code and the same status; a difference is an existence oracle letting a prober enumerate which ids are real"
+rule = "BR6.4"
+
+[[test]]
+id = "test_a_student_cannot_read_another_students_fee_cycle"
+file = "tests/fees/test_fee_privacy.py"
+criterion = "The third IDOR shape the affirmed posture names, landing for the first time because fee cycles did not exist before; the same test asserts the lens reads its OWN seat, so the refusal is not passing because the function refuses everybody"
+rule = "BR6.4"
+
+[[test]]
+id = "test_the_collection_number_is_refused_to_a_non_enrolled_student"
+file = "tests/fees/test_fee_privacy.py"
+criterion = "A student not enrolled in that batch cannot reach the teacher's payment number, which is the one teacher-authored field deliberately disclosed downward and is bounded rather than incidental"
+rule = "BR6.4"
+
+[[test]]
+id = "test_no_other_fee_response_carries_the_collection_number"
+file = "tests/fees/test_fee_privacy.py"
+criterion = "The direction the built schema-wide privacy invariant does not check: that gate asserts no teacher-facing response carries a PROFILE field, and this asserts the collection number appears in no listing and no overview"
+rule = "BR6.4"
+
+[[test]]
+id = "test_exactly_the_allowlisted_routes_carry_the_collection_number"
+file = "tests/contract/test_collection_number.py"
+criterion = "An EQUALITY against the allowlist, not a membership test; a membership test passes the moment the field spreads to a fourth response, and NFR14.33's never-in-a-listing falls out of the equality"
+rule = "BR6.4"
+
+[[test]]
+id = "test_a_fully_waived_charge_is_waived_and_not_paid"
+file = "tests/fees/test_status_enum.py"
+criterion = "A fully waived cycle has a zero balance and is NOT paid; this is the case that needs four enum values, because a client-side `balance > 0` test reports it as paid and nobody paid"
+rule = "BR6.1"
+
+[[test]]
+id = "test_exactly_one_resource_refusal_code_is_registered"
+file = "tests/contract/test_error_contract.py"
+criterion = "AUTH_403_CODES minus the non-resource allowlist is exactly {NOT_AVAILABLE}; a whole-set equality would fail against a correct registry because LENS_NOT_AVAILABLE is not an oracle, and the fix a reader would reach for is deleting the assertion"
+rule = "BR6.4"
+
+[[test]]
+id = "test_a_run_that_finds_nothing_due_still_stamps"
+file = "tests/fees/test_commands.py"
+criterion = "A run with nothing due writes the heartbeat with cycles_created = 0; generation is monthly, so stamping only on > 0 would leave the row stale for weeks during correct operation, fire the 48-hour alert constantly and get it muted -- reaching the alert's own failure mode by the opposite route"
+rule = "BR1.4"
+
+[[test]]
+id = "test_no_row_at_all_is_unhealthy"
+file = "tests/fees/test_commands.py"
+criterion = "The no-row case alerts; zero rows is falsy in most shapes a developer would write, so `alert if staleness > 48h` treats never-ran as fine -- which is precisely the scheduler-was-never-wired failure"
+rule = "BR1.4"
+
+[[test]]
+id = "test_the_heartbeat_records_a_partially_failed_run"
+file = "tests/fees/test_commands.py"
+criterion = "A run that generated one and failed one still stamps, carrying both counts; a run that generated 2,900 of 3,000 did succeed at the 2,900 and its heartbeat must not roll back with the 2,901st"
+rule = "BR1.4"
+
+[[test]]
+id = "test_a_failed_send_is_recorded_and_does_not_raise"
+file = "tests/notifications/test_fcm.py"
+criterion = "Both halves at once: the caller gets no exception AND the event row says failed. Best-effort delivery is the project's stated exception to `silent failures are not acceptable`, and the exception covers not SURFACING the failure, never failing to record it"
+rule = "BR7.2"
+
+[[test]]
+id = "test_the_event_survives_a_dispatch_that_never_returns"
+file = "tests/notifications/test_fcm.py"
+criterion = "The row is committed BEFORE the dispatch, so a process that died inside the adapter leaves a record; writing the event afterwards loses the record of a send that may have happened, and a flag cannot express that at all"
+rule = "BR7.1"
+
+[[test]]
+id = "test_no_feature_package_defines_a_push_client"
+file = "tests/notifications/test_boundary.py"
+criterion = "An AST walk proving no module under a feature package defines an FCM client, with a planted violation proving the gate can fire; absent it, OQ-4's two-adapter outcome is prevented only by D4's author remembering to import rather than copy"
+rule = "BR7.2"
+
+[[test]]
+id = "test_fee_cycle_carries_no_money_column"
+file = "tests/db/test_migration_runs.py"
+criterion = "fee_cycle's column set is exactly {id, enrollment_id, period, due_date, created_at}; a money column here would be a second source of truth drifting from the entries that produce it, in the direction of whichever write path forgot to update it"
+rule = "BR1.2"
+
+[[test]]
+id = "a waived cycle is settled but is not the paid label"
+file = "android/src/test/kotlin/com/shikkhokplus/app/feature/fees/FeeStateMapperTest.kt"
+criterion = "On the client too: both have a zero balance and the mapper distinguishes them from the server's enum, so the screen cannot report a waiver as paid"
+rule = "BR6.1"
+
+[[test]]
+id = "a fee cycle rejects a JSON number for charged"
+file = "android/src/test/kotlin/com/shikkhokplus/app/feature/fees/FeeDtoTest.kt"
+criterion = "Money decodes from a JSON string and fails LOUDLY on a number; a lenient decoder that quietly converts is the actual failure mode and it passes a happy-path test on both sides"
+rule = "BR6.2"
+
+[[test]]
+id = "a submitted claim encodes its amount as a JSON string"
+file = "android/src/test/kotlin/com/shikkhokplus/app/feature/fees/FeeDtoTest.kt"
+criterion = "The rule is BOTH directions; inbound is the half everyone tests, and an outbound number would surface as a rejected payment in front of a guardian"
+rule = "BR6.2"
+
+[[test]]
+id = "an unset destination omits the step entirely"
+file = "android/src/test/kotlin/com/shikkhokplus/app/feature/fees/FeeScreenTest.kt"
+criterion = "Where no collection number is set the destination step and every channel button are ABSENT rather than blank; a null field invites a client placeholder that reads as a value which failed to load"
+rule = "BR6.4"
+
+[[test]]
+id = "a rejection is shown to the submitter"
+file = "android/src/test/kotlin/com/shikkhokplus/app/feature/fees/FeeScreenTest.kt"
+criterion = "A rejected claim renders its status and no approved amount; `isDecided` rather than `approvedAmount != null`, because the nullable test would render a rejection as still pending and the submitter would go on believing they paid"
+rule = "BR5.6"
+
+[[test]]
+id = "a corrected verification is shown to the submitter"
+file = "android/src/test/kotlin/com/shikkhokplus/app/feature/fees/FeeScreenTest.kt"
+criterion = "The correction notice reaches the student and guardian screen, not only the teacher's; hiding it from the person whose money it concerns is the asymmetry FR9.2 forbids"
+rule = "BR5.7"
+
+# ---------------------------------------------------------------------
+# Added after the traceability sensor surfaced NFR6.35, NFR14.45 and
+# NFR20.16-.18 as declared-but-unmapped. Two were real defects: the
+# batch fee view was N+1, and a concurrent re-verification recorded a
+# second decision. Both are named here because both are the kind a
+# coverage percentage cannot see.
+# ---------------------------------------------------------------------
+
+[[test]]
+id = "test_racing_verifications_record_one_decision_and_one_receipt"
+file = "tests/fees/test_verification_races.py"
+criterion = "Eight barrier-released threads verifying one claim yield exactly one acceptance and one 1000.00 receipt. Proven to fire: with the row lock removed, 8 of 8 are accepted and the payment is credited eight times. A claim has no (enrollment, period) uniqueness, so this is the one concurrent path the fee-cycle constraint does not cover"
+rule = "BR5.7"
+
+[[test]]
+id = "test_a_deliberate_correction_is_still_permitted"
+file = "tests/fees/test_verification_races.py"
+criterion = "A declared correction passes the same guard that refuses a concurrent repeat; a guard written as 'refuse any verification of a decided claim' would pass the race test above and break FR9.2's correction path entirely"
+rule = "BR5.7"
+
+[[test]]
+id = "test_the_batch_fee_view_query_count_does_not_grow_with_the_batch"
+file = "tests/fees/test_query_count.py"
+criterion = "The same statement count at N=2 and N=25. The first implementation measured 8 statements for 2 seats and 77 for 25 -- three per seat, because derive and the status computation each folded the same ledger. NFR20.17 says D3 must not close D2's open fee column with a query per seat"
+rule = "BR6.1"
+
+[[test]]
+id = "test_the_roster_fee_read_is_one_fold_per_enrollment_not_three"
+file = "tests/fees/test_query_count.py"
+criterion = "A 4-seat batch costs a constant handful of statements rather than three per seat; the subtler half of the same defect, where the per-seat count is small enough that N+1 is not obvious from one reading"
+rule = "BR6.1"
+
+# ---------------------------------------------------------------------
+# D5. Every defect this unit can ship produces a number that BALANCES:
+# there is no constraint to violate, no migration to fail and no race to
+# lose. These five are the assertions whose OBVIOUS form passes against
+# the very defect they exist to catch, which is exactly the class a
+# coverage percentage cannot see.
+# ---------------------------------------------------------------------
+
+[[test]]
+id = "test_the_total_is_two_thousand_and_specifically_not_two_thousand_five_hundred"
+file = "tests/analytics/test_earnings.py"
+criterion = "BR2.1's two-month case totals 2000.00, never 2500.00. Proven to fire: adding CREDIT_APPLY to the cash-in set reads exactly 2500.00. The assertion is on the TOTAL because month one reads 1500.00 under both the correct fold and the double-count -- month one contains no apply at all, so a per-month assertion misses the defect entirely"
+rule = "BR2.1"
+
+[[test]]
+id = "test_an_inactive_seat_that_owes_money_appears"
+file = "tests/analytics/test_dues_membership.py"
+criterion = "A seat that is BOTH inactive AND owing 1500.00 is present in the dues view. Proven to fire: adding `inactive_from IS NULL` -- D4's roster predicate -- drops it. A test using only active owing seats passes against that wrong predicate, which is why the fixture carries both properties at once"
+rule = "BR1.2"
+
+[[test]]
+id = "test_a_payment_recorded_in_november_counts_in_its_october_period"
+file = "tests/analytics/test_period_grouping.py"
+criterion = "An entry whose period is 2026-10 and whose created_at is 2 November counts in October. Proven to fire: grouping by created_at reads October as absent. Late recording is the NORMAL case -- a teacher verifies October's cash in early November -- and the defect makes the trend show a dip and a spike that never happened"
+rule = "BR2.6"
+
+[[test]]
+id = "test_a_carry_forward_counts_in_the_period_it_lands_on"
+file = "tests/analytics/test_period_grouping.py"
+criterion = "A carry_forward lands on the receiving period while its created_at is whenever generation ran, so this case fails against created_at grouping EVEN WHEN NO PAYMENT IS LATE. Proven to fire alongside the late-payment fixture; it is not redundant with it, because it reaches the defect by a different route"
+rule = "BR2.6"
+
+[[test]]
+id = "test_a_sees_a_s_own_next_exam_even_though_b_s_is_sooner"
+file = "tests/privacy/test_analytics_probes.py"
+criterion = "Teacher B's exam is seeded SOONER than A's, so an unscoped LIMIT 1 returns B's and the assertion changes. Proven to fire: dropping the owner_id predicate returns 'B's exam, SOONER'. A probe where B's exam were later would pass against the leak, because correct and leaked would both be A's"
+rule = "BR3.1"
+
+[[test]]
+id = "test_the_earnings_total_is_a_s_own_and_not_the_sum_of_both"
+file = "tests/privacy/test_analytics_probes.py"
+criterion = "Teacher A's earnings read exactly 1000.00 against B's 7000.00. Proven to fire: dropping the owner_id predicate reads 8000.00. B is seeded seven times larger because a wrong scope on a SUM returns a number that looks right -- if A dominated, A's figure would barely move under a leak"
+rule = "BR2.5"
+
+[[test]]
+id = "test_the_dues_read_does_not_grow_with_the_number_of_batches"
+file = "tests/analytics/test_query_count.py"
+criterion = "The same statement count at 2 batches and at 25, with seats-per-batch held fixed. Proven to fire: a per-batch loop measures 4 statements for 2 batches and 27 for 25 -- and the seat-growing test PASSED against that same defect, which is why D5 grows the batch axis rather than reusing D3's"
+rule = "BR1.6"
+
+[[test]]
+id = "test_the_in_fold_period_equals_the_built_function_s_answer"
+file = "tests/analytics/test_dues.py"
+criterion = "The oldest unpaid period computed from the in-memory per_cycle map equals app/fees/balances.py's oldest_unpaid_period for the same seat. Without this the reimplementation is merely cheap; with it, a later change to the built function that the copy does not track fails"
+rule = "BR1.6"
+
+[[test]]
+id = "test_both_new_operations_declare_an_empty_parameter_list"
+file = "tests/contract/test_analytics_contract.py"
+criterion = "Both D5 operations declare parameters == [] in the generated document. A plain predicate rather than a judgement about whether a name denotes a resource; the companion test asserts GET /v1/me/fees DOES take one, so this is a property of these two routes and not of the /me/ prefix"
+rule = "BR4.4"
+
+[[test]]
+id = "test_life_of_account_tables_are_never_purged"
+file = "tests/governance/test_purge.py"
+criterion = "Two-year-old rows in all 18 LIFE_OF_ACCOUNT tables survive a purge run, with a prior assertion that aged rows were actually planted and are visible to the purge's own session. Proven to fire: giving _build_windows a default window deletes them and this fails. Without the visibility assertion the comparison is 0 == 0 and passes against a purge that truncates every one"
+rule = "BR4.2"
+
+[[test]]
+id = "test_every_window_deletes_past_its_horizon_and_keeps_inside_it"
+file = "tests/governance/test_purge.py"
+criterion = "For each of the 7 finite windows, a row one day older than the cutoff is gone and one a day newer is present. Both halves per table: deleting everything passes the first alone, deleting nothing passes the second alone, and a fixture set created 'now' exercises only the negative branch"
+rule = "BR4.1"
+
+[[test]]
+id = "test_the_delete_is_chunked_rather_than_one_statement_per_table"
+file = "tests/governance/test_purge.py"
+criterion = "7 expired auth_audit_log rows at chunk_size=2 take exactly 4 statements. Proven to fire: ignoring the caller's chunk size reports 2. The other purge tests leave one expired row per table, where chunked and unchunked are indistinguishable"
+rule = "BR4.1"
+
+[[test]]
+id = "test_d4s_freshness_enumeration_covers_this_job_unedited"
+file = "tests/governance/test_purge.py"
+criterion = "check_all_jobs reports on retention_purge after the purge stamps its heartbeat, with no edit to the checker, and reports it UNHEALTHY five days later. The stale half is what proves the row is evaluated rather than merely listed"
+rule = "BR4.1"
+
+[[test]]
+id = "test_a_basis_only_change_also_fails_the_gate"
+file = "tests/governance/test_policy_generation.py"
+criterion = "Changing one table's basis, leaving its disposition and retention untouched, makes the committed policy differ from the generated one. This gate's first version missed exactly this, on the field NFR14.101 is about: a generator rendering only disposition and retention compares only those"
+rule = "BR2.3"
+
+[[test]]
+id = "test_the_generated_text_discloses_the_surviving_teacher_typed_name"
+file = "tests/governance/test_policy_generation.py"
+criterion = "The GENERATED output states the teacher-typed name, that it survives deletion, and that declining does not remove it. Asserted as substance rather than against a recorded blob, which would be circular; the companion test flips enrollment to HARD_DELETE and the sentence must disappear"
+rule = "BR2.2"
+
+[[test]]
+id = "test_life_of_account_is_not_rendered_as_deletion_of_the_account"
+file = "tests/governance/test_policy_generation.py"
+criterion = "The RETAIN_WITH_BASIS section never reads 'until the account is deleted'. A regression test for a false disclosure this generator actually produced: retention and disposition answer different questions, and conflating them told a regulator that records surviving erasure were deleted by it"
+rule = "BR2.1"
+
+[[test]]
+id = "test_the_account_basis_no_longer_argues_against_hard_delete"
+file = "tests/governance/test_policy_generation.py"
+criterion = "The account basis no longer contains 'anonymized rather than removed' or 'would free the number for reuse', and does contain 'removed outright'. Correcting the disposition alone would publish an argument AGAINST hard delete as the stated reasoning FOR one"
+rule = "BR1.1"

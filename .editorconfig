@@ -1,0 +1,64 @@
+# ktlint configuration, read by spotless.
+#
+# **The disabled rules below are deliberate and are not concessions.** This
+# codebase documents heavily and in a particular shape: a KDoc stating what a
+# thing is, followed by an explanatory comment stating WHY it is that way and
+# what failure it prevents. Several of ktlint's default rules reject that
+# shape. `team.md` is explicit that style is settled by a file in the
+# repository so review can spend itself on structure instead, and that an
+# agent reads the project's linter config before making a style suggestion --
+# so the house style wins and the rule is turned off, rather than 32 files
+# being reformatted to satisfy a default nobody chose.
+#
+# Everything not listed here keeps ktlint's `official` style.
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{kt,kts}]
+indent_style = space
+indent_size = 4
+max_line_length = 120
+
+# The project's documentation shape: KDoc, then an EOL comment carrying the
+# reasoning. This pattern appears throughout and is the most valuable thing
+# in the codebase to a reviewer learning the platform [OC-3].
+ktlint_standard_no-consecutive-comments = disabled
+
+# Trailing commas are a formatting preference with no defect behind them,
+# and enforcing them would rewrite every argument list in the first commit.
+ktlint_standard_trailing-comma-on-call-site = disabled
+ktlint_standard_trailing-comma-on-declaration-site = disabled
+
+# Compose composables are PascalCase by Android convention, which this rule
+# rejects. Deferring to the documented convention is the standing
+# instruction for this surface [OC-3, D-27].
+ktlint_standard_function-naming = disabled
+
+# Multiline expression wrapping and argument-list wrapping both reformat
+# existing code to taste rather than catching a defect. Left to the author.
+ktlint_standard_multiline-expression-wrapping = disabled
+ktlint_standard_string-template-indent = disabled
+ktlint_function_signature_body_expression_wrapping = default
+
+[*.xml]
+indent_style = space
+indent_size = 4
+
+[*.{yml,yaml}]
+indent_style = space
+indent_size = 2
+
+[*.py]
+# Matches Ruff's configured line length, which is a deliberate project-level
+# departure from the 79 in the global Python standard: 88 is Ruff's default,
+# so the formatter runs unconfigured on the setting most likely to be
+# mis-set. See pyproject.toml.
+indent_style = space
+indent_size = 4
+max_line_length = 88

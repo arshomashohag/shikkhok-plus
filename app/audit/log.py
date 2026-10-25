@@ -1,4 +1,4 @@
-"""Append-only, five events, and deliberately no free-form field.
+"""Append-only, a closed event set, and no free-form field.
 
 **An audit log that leaks what it audits is a common and self-defeating
 mistake** [BR6.2]. The correlation id ties a row back to a request
@@ -38,6 +38,20 @@ class AuthEvent(enum.Enum):
 
     Closed deliberately: an open vocabulary is how a free-form value
     re-enters a log that is specified not to have one.
+
+    **D1 extends it with NAMED MEMBERS and adds no field** [NFR12.7,
+    NFR12.9, NFR12.10]. The obvious alternative -- one
+    ``SIGNUP_EVENT`` member plus a ``detail`` column saying which --
+    is the free-form string this log is specified not to have, arriving
+    through the one door still open. Account creation belongs here on
+    its merits: it is rate-limited, unauthenticated, and the place an
+    enumeration attempt would surface.
+
+    ``SIGNUP_CEILING_BREACHED`` records the breach and **not its scope
+    value**, which is a phone number or an IP prefix [NFR12.10]. The
+    scope KIND is operator-useful and reaches the logs through
+    :func:`~app.auth.ceilings.fire_ceiling_alert`; neither reaches this
+    table, which holds no content by design.
     """
 
     OTP_ISSUED = "OTP_ISSUED"
@@ -45,6 +59,8 @@ class AuthEvent(enum.Enum):
     VERIFY_SUCCEEDED = "VERIFY_SUCCEEDED"
     REFRESH_ROTATED = "REFRESH_ROTATED"
     REFRESH_REUSE_DETECTED = "REFRESH_REUSE_DETECTED"
+    ACCOUNT_CREATED = "ACCOUNT_CREATED"
+    SIGNUP_CEILING_BREACHED = "SIGNUP_CEILING_BREACHED"
 
 
 def write_audit(
@@ -62,7 +78,7 @@ def write_audit(
 
     :param session: The session to write through
     :param account_id: The account, or None for an unknown number
-    :param event: Which of the five events occurred
+    :param event: Which member of the closed vocabulary occurred
     :param correlation_id: Ties the row to a request, carrying no content
     :param occurred_at: When it happened, or None for the clock
     :return: None

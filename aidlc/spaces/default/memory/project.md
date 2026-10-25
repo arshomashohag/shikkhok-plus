@@ -71,6 +71,10 @@
 - NEVER weaken a defined coverage floor or an affirmed quality target to make a build step pass. [org: Testing Posture] (affirmed 2026-10-16)
 - NEVER change the package namespace `com.shikkhokplus.app`; it is permanent once published. [TC-2] [D-38] (affirmed 2026-10-16)
 
+- NEVER record an obligation without naming the verifier that discharges it, and never discharge a performance or layout obligation with a correctness test. [TC-15] [TC-17] [D-43] [PU-3.6] (affirmed 2026-10-22)
+
+- NEVER let a comment state a count, a version or a scope that nothing checks; where a comment states a number, the number is a claim and either a test asserts it or the number comes out. [app/contract/routes.py:33-49] (affirmed 2026-10-22)
+
 ## Mandated
 
 <!-- Populated by practices-discovery affirmation gate. -->
@@ -97,7 +101,16 @@
 - ALWAYS prefer conventional, well-documented Android choices over clever ones, because review depth on that surface is limited — while letting project constraints outrank the sample wherever they conflict. [OC-3] [D-27] (affirmed 2026-10-16)
 - ALWAYS keep infrastructure spend under USD 50/month. [OC-4] (affirmed 2026-10-16)
 
+- ALWAYS lock dependency resolution on every surface that has a package manager, and make the CI install read the lockfile rather than re-resolve; a CI step may not be labelled as a lockfile or verification check unless it performs one. [team: Deployment] [check.yml:88] (affirmed 2026-10-22)
+
+- ALWAYS pair a mechanical control named in a practice with the deliverable unit that installs it, and treat a unit as incomplete while a control assigned to it is missing. [team: Way of Working] (affirmed 2026-10-22)
+
+- ALWAYS enforce the forbidden-identifier set at commit time as well as at release time, so a forbidden framework reference cannot reach `main` and be found only on the build that was about to ship. [TC-3] [TC-4] [D-35] [D-37] (affirmed 2026-10-22)
+
+- ALWAYS assert that a test suite's precondition held before treating its pass as evidence, so a suite that silently skipped is never read as a suite that passed. [tests/conftest.py] [pg-rls] (affirmed 2026-10-22)
+
 ## Corrections
 
 <!-- Project-specific corrections from human feedback. -->
 <!-- Format: NEVER/ALWAYS [behavior] (learned [date]) -->
+- When a two-way choice is settled by picking the option with no automated verifier, write that sentence in the artifact rather than describing only what the manual check is. Here PU-3.6's latency obligation moved from a Macrobenchmark to a timed manual pilot check, and the honest record is both halves: the named verifier, and the plain statement that nothing automated discharges it. A manual verifier described without that sentence reads, to the next person, as a verifier. (learned 2026-10-23) <!-- cid:261022-remaining-slices:delivery-planning:5fa2cff6686c93ea8090b3ae705d9c720441bc90f75dae09acdaa874b0756011 -->

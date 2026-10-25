@@ -71,6 +71,29 @@ WRITE_PERMITTED: frozenset[str] = frozenset(
         # writes ONLY what the API cannot, and a test below pins that
         # distinction so the exemption cannot quietly widen.
         "app/db/seed_staging.py",
+        # D1's two, named individually rather than as
+        # `app/accounts/**` -- the package is new, and a prefix would
+        # silently permit every file a later Unit drops into it.
+        #
+        # `app/api/accounts.py` is deliberately NOT here. The handlers
+        # pass a lens into the two services below and write nothing
+        # themselves, which was verified against this check rather than
+        # assumed: listing a module that needs no exemption is how an
+        # allowlist stops describing what it permits.
+        #
+        # `accounts/service.py` creates `owner` for a Teacher signup
+        # [BR4.1], which is the second place an owner row can now come
+        # from: the seeder writes it because no endpoint did, and this
+        # is that endpoint. It also LINKS existing seats, and sets no
+        # decision while doing so [BR5.1].
+        #
+        # `accounts/decisions.py` writes the two decision columns and
+        # nothing else. It is the only module that may, which is the
+        # point of listing it: a decision belongs to the link that
+        # names its holder, so any other writer of those columns would
+        # be speaking for somebody else.
+        "app/accounts/service.py",
+        "app/accounts/decisions.py",
     }
 )
 
@@ -242,10 +265,20 @@ def test_the_staging_seeder_writes_only_what_no_endpoint_can() -> None:
     )
 
 
-def test_the_allowlisted_module_is_the_only_writer() -> None:
+def test_the_write_allowlist_has_not_grown_vacuous() -> None:
     # Guards the check itself. If the allowlist ever grew to cover every
     # module, the ban above would pass vacuously while forbidding nothing.
-    assert len(WRITE_PERMITTED) == 2
+    #
+    # Four as of D1: the batch service, the staging seeder, and the two
+    # modules that create an account and record a decision. Moving this
+    # number is the reviewable act -- `app/` holds far more modules than
+    # four, so the ban still forbids something.
+    assert len(WRITE_PERMITTED) == 4, (
+        f"WRITE_PERMITTED holds {len(WRITE_PERMITTED)} modules, not 4: "
+        f"{sorted(WRITE_PERMITTED)}. Each writes `owner` or "
+        "`enrollment`, and each needs a reason that is a property of "
+        "the module rather than a convenience."
+    )
 
 
 def test_the_orm_models_declare_the_shell_tables() -> None:

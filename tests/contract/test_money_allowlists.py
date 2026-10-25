@@ -167,8 +167,21 @@ def test_the_real_application_needs_the_allowlist() -> None:
     """The allowlist is load-bearing, not decorative.
 
     Pins BR3.3's prediction against the built application: without the
-    exemptions the gate reports ``fee_due_day`` and nothing else, and
-    both real money columns pass either way.
+    exemptions the gate reports only the two date-and-day fields that
+    match a money token while carrying no amount, and every real money
+    property passes either way.
+
+    ``due_date`` joined ``fee_due_day`` at D3 [BR2.2]. Both are the same
+    false positive in two shapes -- an integer day-of-month and a
+    computed date -- and each is exempted by its own
+    ``(schema, field)`` pair so an exemption can never widen beyond the
+    property it was reasoned about.
+
+    ``total_marks`` joined them at D4: an INTEGER COUNT of marks, the
+    denominator a score is out of, matching the ``total`` token and
+    carrying no amount [entities.md]. It appears on three schemas and
+    each is exempted separately for the same reason. ``marks`` itself
+    matches no token at all, which is why it is absent here.
 
     :return: None
     """
@@ -179,7 +192,11 @@ def test_the_real_application_needs_the_allowlist() -> None:
     assert money_schema_violations(app) == []
 
     without = money_schema_violations(app, exempt={})
-    assert {v.field for v in without} == {"fee_due_day"}
+    assert {v.field for v in without} == {
+        "fee_due_day",
+        "due_date",
+        "total_marks",
+    }
 
 
 def test_a_list_of_money_named_numbers_is_caught() -> None:

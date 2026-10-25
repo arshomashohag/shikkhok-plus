@@ -1,0 +1,177 @@
+{
+  "stage": "functional-design",
+  "unit": "d6-releasing-safely",
+  "note": "D6 is terminal and release-blocking. It creates no table and ships ONE migration, 0007, altering THREE constraints, which exists because of a defect rather than a feature: Enrollment.student_account_id is ondelete CASCADE while guardian_account_id is SET NULL, so a student deleting their account would destroy the teacher's attendance, marks and settled fee history for that seat, while a guardian doing the same loses nothing. Six foreign keys point at enrollment.id and all six CASCADE, verified by reading the model. Three human decisions on 2026-10-25 shape this unit: a teacher owning any batch cannot delete their account, because account -> owner -> batch -> enrollment -> six tables is the largest cascade in the product and nothing had considered it: hard-delete the account row, honouring the published policy over the manifest's ANONYMIZE_IN_PLACE; and fix the cascade by constraint rather than by deletion code. Two Deferred rows, each naming an obligation with no automated verifier or awaiting a human step. Zero GAP rows.",
+  "upstream_ids": [
+    "US1.6",
+    "US1.7",
+    "US10.1",
+    "AC1.6.1",
+    "AC1.6.2",
+    "AC1.6.3",
+    "AC1.7.1",
+    "AC1.7.2",
+    "AC10.1.1",
+    "AC10.1.2",
+    "AC10.1.3",
+    "AC10.1.4",
+    "AC10.1.5",
+    "AC10.1.6",
+    "AC10.1.7",
+    "FR1.14",
+    "FR1.15",
+    "FR11.1",
+    "FR11.3",
+    "ADR-003",
+    "ADR-004",
+    "ADR-009",
+    "ADR-012",
+    "TC-19",
+    "RC-4",
+    "RC-5",
+    "NFR12",
+    "NFR14"
+  ],
+  "coverage": [
+    {
+      "id": "US1.6",
+      "status": "OK",
+      "target": "construction/releasing-safely/functional-design/rules.md BR1.1 through BR1.5 - the in-app deletion path, hard-deleting the account and profile while the enrollment and its teacher-authored history survive"
+    },
+    {
+      "id": "US1.7",
+      "status": "OK",
+      "target": "construction/releasing-safely/functional-design/rules.md BR3.1 through BR3.3 - the external route, reaching the same deletion function, proving ownership by OTP without an app session, and consuming the same SMS ceilings"
+    },
+    {
+      "id": "US10.1",
+      "status": "OK",
+      "target": "construction/releasing-safely/functional-design/rules.md BR5.1 through BR5.4 - the invariants D6 ASSERTS rather than builds, run against the final schema after six units of routes. D6 is typed spec and this is what that means"
+    },
+    {
+      "id": "AC1.6.1",
+      "status": "OK",
+      "target": "construction/releasing-safely/functional-design/rules.md BR1.1 and BR1.3 - the account and profile rows are hard-deleted, and the test asserts the ABSENCE of rows enumerated from DISPOSITIONS rather than listed by hand, so a table added later with no deletion handling fails WITHOUT the test being edited"
+    },
+    {
+      "id": "AC1.6.2",
+      "status": "OK",
+      "target": "construction/releasing-safely/functional-design/rules.md BR1.2 and BR1.6 - enforced by migration 0007 altering THREE columns to SET NULL (enrollment.student_account_id, payment_claim.submitted_by_account_id, queued_submission.submitted_by_account_id), two of which must also become nullable, found by ENUMERATING every account.id reference against its table's disposition: a CASCADE is wrong exactly when the disposition is RETAIN_WITH_BASIS. 0007 drops the two enrollment constraints by their REAL names, fk_enrollment_account_id_account and fk_enrollment_guardian_account, which are not the convention names the model implies - a migration written against the model would fail on a migrated database and pass on a metadata-created one. BR1.6 additionally refuses deletion for a teacher owning any batch, because account -> owner -> batch -> enrollment -> six tables would otherwise erase every student's history across every batch they ran"
+    },
+    {
+      "id": "AC1.6.3",
+      "status": "OK",
+      "target": "construction/releasing-safely/functional-design/rules.md BR1.4 - a second deletion succeeds and writes nothing, implemented as an idempotent DELETE rather than look-up-then-delete, which is a race between two requests"
+    },
+    {
+      "id": "AC1.7.1",
+      "status": "OK",
+      "target": "construction/releasing-safely/functional-design/rules.md BR3.1 - both paths call one deletion function and the test compares the surviving ROW SETS rather than asserting each against a hand-written expectation, because the route that drifts is the external one"
+    },
+    {
+      "id": "AC1.7.2",
+      "status": "OK",
+      "target": "construction/releasing-safely/functional-design/rules.md BR3.2 - reachable without an app session, naming the app and developer. Both routes are ALREADY in PUBLIC_ROUTES, declared in D1 as pre-declared D6 scope, so the asserted count of eight does not change"
+    },
+    {
+      "id": "AC10.1.1",
+      "status": "OK",
+      "target": "construction/releasing-safely/functional-design/rules.md BR5.1 - asserted by the BUILT error-contract test against the final schema; D6 builds no new mechanism"
+    },
+    {
+      "id": "AC10.1.2",
+      "status": "OK",
+      "target": "construction/releasing-safely/functional-design/rules.md BR5.1 - the guardian IDOR case, covered by the same built test and D4's probe suite"
+    },
+    {
+      "id": "AC10.1.3",
+      "status": "OK",
+      "target": "construction/releasing-safely/functional-design/rules.md BR5.1 - the student fee-cycle case, covered by D3's built probes"
+    },
+    {
+      "id": "AC10.1.4",
+      "status": "OK",
+      "target": "construction/releasing-safely/functional-design/rules.md BR5.1 - retryable false and no existence disclosure, asserted by the built test that exactly one resource-refusal code is registered"
+    },
+    {
+      "id": "AC10.1.5",
+      "status": "OK",
+      "target": "construction/releasing-safely/functional-design/rules.md BR5.2 - the built app/contract/privacy.py gate, which iterates the generated document and is schema-wide by construction, run against the FINAL schema"
+    },
+    {
+      "id": "AC10.1.6",
+      "status": "OK",
+      "target": "construction/releasing-safely/functional-design/rules.md BR5.3 - the lens is resolved from owned batches and enrollments; a hint affects navigation only. Built in D1, asserted here to survive"
+    },
+    {
+      "id": "AC10.1.7",
+      "status": "OK",
+      "target": "construction/releasing-safely/functional-design/rules.md BR5.2 - the route-enumeration test with PUBLIC_ROUTES at eight, the count asserted in two places"
+    },
+    {
+      "id": "FR1.14",
+      "status": "OK",
+      "target": "construction/releasing-safely/functional-design/rules.md BR1.1 - in-app deletion per each table's recorded disposition"
+    },
+    {
+      "id": "FR1.15",
+      "status": "OK",
+      "target": "construction/releasing-safely/functional-design/rules.md BR3.2 - the externally accessible route, usable without reinstalling the app"
+    },
+    {
+      "id": "FR11.1",
+      "status": "OK",
+      "target": "construction/releasing-safely/functional-design/entities.md section 3 and rules.md BR1.1, BR1.2 - the deletion table transcribed from dispositions.py with the one change the human's decision requires"
+    },
+    {
+      "id": "FR11.3",
+      "status": "OK",
+      "target": "construction/releasing-safely/functional-design/rules.md BR1.4 - a repeated request succeeds and changes nothing further"
+    },
+    {
+      "id": "ADR-003",
+      "status": "OK",
+      "target": "construction/releasing-safely/functional-design/rules.md BR5.4 - every table carries a disposition, asserted by the built governance test in both directions"
+    },
+    {
+      "id": "ADR-004",
+      "status": "OK",
+      "target": "construction/releasing-safely/functional-design/rules.md BR5.4 and BR4.1 - every table carries a retention class, and D6 is the first unit to ENFORCE one: RetentionClass is referenced only by its own definition today"
+    },
+    {
+      "id": "ADR-009",
+      "status": "OK",
+      "target": "construction/releasing-safely/functional-design/rules.md BR1.5 - deletion does not clear a decline, because resetting it would re-expose a stranger's child to the next person signing up with that number"
+    },
+    {
+      "id": "ADR-012",
+      "status": "OK",
+      "target": "construction/releasing-safely/functional-design/rules.md BR2.2 - the generated policy text states that a teacher-typed name survives deletion, asserted against the GENERATED output rather than the committed file so the test fails if the generator stops emitting it"
+    },
+    {
+      "id": "TC-19",
+      "status": "OK",
+      "target": "construction/releasing-safely/functional-design/rules.md BR1.3, BR3.1 - both paths tested, each asserting deletion removes what the Data Safety form claims and retains what the policy discloses"
+    },
+    {
+      "id": "RC-4",
+      "status": "Deferred",
+      "target": "construction/releasing-safely/functional-design/functional-spec.md section 7 - the Data Safety form content is written against the GENERATED policy rather than independently. NO AUTOMATED VERIFIER: a form submitted to Play cannot be asserted from the repository, and the control is that its content derives from the generated text. A human submits it"
+    },
+    {
+      "id": "RC-5",
+      "status": "Deferred",
+      "target": "construction/releasing-safely/functional-design/rules.md BR2.1 and BR2.3 - the policy is generated and drift fails make check. NO AUTOMATED VERIFIER for the PUBLISHED copy: Play reads a URL, and whether the hosted document matches the committed one is outside the repository. docs/legal/README.md already records that the link must stay reachable"
+    },
+    {
+      "id": "NFR12",
+      "status": "OK",
+      "target": "construction/releasing-safely/functional-design/rules.md BR3.3 - the deletion route consumes the same per-number, per-IP and global SMS ceilings, asserted by extending the built ceiling tests to it"
+    },
+    {
+      "id": "NFR14",
+      "status": "OK",
+      "target": "construction/releasing-safely/functional-design/rules.md BR5.1 and BR5.2 - the privacy boundary asserted against the final schema by the three built gates, with no new mechanism"
+    }
+  ]
+}

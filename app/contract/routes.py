@@ -30,13 +30,50 @@ __all__ = [
     "unlensed_routes",
 ]
 
-#: Routes reachable with no authentication at all. Exactly five, and the
-#: count is asserted: a sixth entry is a diff against a stated number rather
-#: than a line appended to a growing list.
+#: Routes reachable with no authentication at all. **Exactly eight**, and
+#: the count IS asserted: a ninth entry is a diff against a stated number
+#: rather than a line appended to a growing list.
+#:
+#: The number read "five" over a six-entry set until 2026-10-22 — the two
+#: deletion routes were added without it, so the stated count and the
+#: asserted count had diverged and nothing noticed, because nothing asserted
+#: the count at all. Corrected along with the assertion that now makes the
+#: claim real [practices 2026-10-22: a comment may not state a number that
+#: nothing checks]. D1 adds two and moves the number with them.
+#:
+#: **D1's two are the product's first unauthenticated WRITE and its first
+#: deliberate disclosure** [BR2.1, BR2.3]. `POST /v1/accounts` must be
+#: public because there is no session to authenticate with before an
+#: account exists, and the already-added lookup must be public because it
+#: is called while the signup form renders. Both are bounded by signup's
+#: OWN ceilings, counted separately from the OTP path's, and neither
+#: reaches a batch, a fee, a mark or an attendance record
+#: [logical-components § 4].
+#:
+#: **The two `/account-deletion` entries now have handlers, and D6 added
+#: no entry here.** They were allowlisted ahead of the handlers as
+#: pre-declared D6 scope — deliberate and not a hole, since an allowlist
+#: entry grants nothing on its own: the route-enumeration gate walks
+#: REGISTERED routes and an unregistered path is unreachable. What it bought
+#: is exactly what happened: D6 landed handlers against entries already under
+#: review, rather than editing the public-route allowlist in the same commit
+#: that added a public route.
+#:
+#: It also shaped the implementation rather than merely recording it. The
+#: external path needs two steps — send a code, then spend it — and a
+#: separate `/account-deletion/code` would have been a ninth entry here. So
+#: `POST /account-deletion` carries both steps, selected by whether the body
+#: names a code, and the count stays at eight [BR3.2].
+#:
+#: **D6's in-app route is NOT here.** `DELETE /v1/me` is authenticated and
+#: goes in `LENS_EXEMPT_AUTHENTICATED` below, which is the whole reason that
+#: set is separate.
 PUBLIC_ROUTES: frozenset[tuple[str, str]] = frozenset(
     {
         ("POST", "/v1/auth/otp"),
         ("POST", "/v1/auth/verify"),
+        ("POST", "/v1/accounts"),
+        ("GET", "/v1/accounts/already-added"),
         ("GET", "/health"),
         ("GET", "/account-deletion"),
         ("POST", "/account-deletion"),
@@ -55,6 +92,40 @@ PUBLIC_ROUTES: frozenset[tuple[str, str]] = frozenset(
 LENS_EXEMPT_AUTHENTICATED: frozenset[tuple[str, str]] = frozenset(
     {
         ("POST", "/v1/auth/refresh"),
+        # The route that REPORTS the lenses, so it cannot require one:
+        # an account would have to already know what it was in order to
+        # ask what it is. Every value it returns is derived from the
+        # authenticated account id and it reads nothing another account
+        # could own, which is what makes the exemption safe rather than
+        # merely necessary.
+        ("GET", "/v1/me"),
+        # The route that REPORTS which invitation lenses exist, exempt
+        # on exactly GET /v1/me's reasoning: requiring one would mean a
+        # person had to already know which seats they were offered in
+        # order to ask. Every row it returns is resolved from the
+        # authenticated account id by `available_invitations`, and the
+        # four per-seat routes beneath it DO each resolve an
+        # InvitationLens -- so the exemption covers the listing alone
+        # and not anything it links to.
+        ("GET", "/v1/invitations"),
+        # D6's in-app deletion path. The FOURTH exemption, and the
+        # count's fourth firing: each previous one forced the entry to
+        # be justified rather than appended, and this is the reason for
+        # this one.
+        #
+        # It acts on the authenticated account ITSELF, so there is no
+        # other account's data to scope and a lens would carry nothing
+        # the handler could use. Requiring one would be worse than
+        # redundant: an account holding none of the three lenses -- a
+        # person who signed up, was never enrolled and owns no batch --
+        # could not delete itself at all, and that is precisely the
+        # account with the least reason to stay.
+        #
+        # Authenticated and NOT public, which is the whole point of
+        # this set being separate: the external, unauthenticated path
+        # is the `/account-deletion` pair, and it proves ownership with
+        # a verified code instead.
+        ("DELETE", "/v1/me"),
     }
 )
 

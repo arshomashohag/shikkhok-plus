@@ -85,6 +85,35 @@ def _roster_status(row: service.RosterRow) -> str:
     return "active"
 
 
+def _roster_row_response(row: service.RosterRow) -> RosterRowResponse:
+    """Render one seat for the wire.
+
+    **One mapping for both the roster and the add-student response.**
+    The seat a teacher has just added is the seat they are about to see
+    on the roster, and two hand-written mappings of the same row is how
+    the two start describing it differently.
+
+    :param row: The seat the service described
+    :return: The response body
+    """
+    return RosterRowResponse(
+        enrollment_id=row.enrollment_id,
+        display_name=row.display_name,
+        guardian_phone=row.guardian_phone,
+        fee_amount=_to_wire(row.fee_amount),
+        # `status` is UNCHANGED [functional-spec § 1]. Acceptance is a
+        # different axis, and collapsing the two is what produced the
+        # gap this unit closes: a seat whose student accepted and whose
+        # guardian declined is not dormant, carries no `inactive_from`,
+        # and reported plain `active`.
+        status=_roster_status(row),
+        student_state=row.student_state,
+        guardian_state=row.guardian_state,
+        is_removable=row.is_removable,
+        inactive_from=row.inactive_from,
+    )
+
+
 @router.post(
     "/batches",
     response_model=BatchResponse,
@@ -124,7 +153,11 @@ def create_batch(
         collection_channel=batch.collection_channel,
         marksheet_visible=batch.marksheet_visible,
         active=batch.active,
+        # A new batch holds no seats, so both numbers are zero and the
+        # count renders from the first moment -- a teacher meets the
+        # shape of "0 of 0" rather than meeting it later [W1].
         enrollment_count=0,
+        accepted_count=0,
     )
 
 
@@ -158,6 +191,7 @@ def list_batches(
             marksheet_visible=summary.batch.marksheet_visible,
             active=summary.batch.active,
             enrollment_count=summary.enrollment_count,
+            accepted_count=summary.accepted_count,
         )
         for summary in service.list_batches(session, lens=lens)
     ]
@@ -181,17 +215,7 @@ def read_roster(
     :return: One row per seat
     """
     rows = service.list_roster(session, lens=lens, batch_id=batch_id)
-    return [
-        RosterRowResponse(
-            enrollment_id=row.enrollment_id,
-            display_name=row.display_name,
-            guardian_phone=row.guardian_phone,
-            fee_amount=_to_wire(row.fee_amount),
-            status=_roster_status(row),
-            inactive_from=row.inactive_from,
-        )
-        for row in rows
-    ]
+    return [_roster_row_response(row) for row in rows]
 
 
 @router.post(
@@ -213,7 +237,7 @@ def add_enrollment(
     :param session: The request-scoped session
     :return: The created seat
     """
-    record = service.add_enrollment(
+    row = service.add_enrollment(
         session,
         lens=lens,
         batch_id=batch_id,
@@ -222,14 +246,12 @@ def add_enrollment(
         fee_amount=_from_wire(body.fee_amount),
         joined_on=body.joined_on,
     )
-    return RosterRowResponse(
-        enrollment_id=record.id,
-        display_name=record.display_name,
-        guardian_phone=record.guardian_phone,
-        fee_amount=_to_wire(record.fee_amount),
-        status="dormant",
-        inactive_from=None,
-    )
+    # **The same mapping the roster uses**, rather than a second one
+    # written beside it. A new seat is pending on both links [ADR-013,
+    # W2] and the service decides that; a hand-written `status="dormant"`
+    # here would be this handler deciding it instead, and it would drift
+    # the first time the roster's rule changed.
+    return _roster_row_response(row)
 
 
 @router.patch(

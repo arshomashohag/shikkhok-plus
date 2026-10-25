@@ -1,6 +1,241 @@
 {
   "components": {
     "schemas": {
+      "AlreadyAddedResponse": {
+        "additionalProperties": false,
+        "description": "What the lookup may say about a number [BR2.3, BR4.5].\n\n**Three fields, and the absences are the requirement.** No teacher\nname, no teacher id, no batch name, no batch subject, no fee, no\nenrollment id. With any of those this becomes an oracle for who\nteaches whom, readable by anyone who can type a phone number\n[AC1.12.2].\n\n:ivar already_added: Whether a teacher recorded this number\n:ivar display_name: The teacher-typed name to pre-fill as\n    correctable, or None\n:ivar role: The role to lock the form to, or None",
+        "properties": {
+          "already_added": {
+            "title": "Already Added",
+            "type": "boolean"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "enum": [
+                  "guardian",
+                  "student",
+                  "teacher"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          }
+        },
+        "required": [
+          "already_added"
+        ],
+        "title": "AlreadyAddedResponse",
+        "type": "object"
+      },
+      "AnnouncementBodyRequest": {
+        "additionalProperties": false,
+        "description": "Post or edit a note.\n\n:ivar body: What it says",
+        "properties": {
+          "body": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Body",
+            "type": "string"
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "title": "AnnouncementBodyRequest",
+        "type": "object"
+      },
+      "AnnouncementResponse": {
+        "additionalProperties": false,
+        "description": "One visible announcement.\n\n``edited`` is the DECISION the server computes from\n``edited_at``'s non-null-ness [AC3.3.2]; the timestamp itself does\nnot cross the wire, so there is no second source of truth for a\nclient to disagree with.\n\n**No expiry field**, because there is no expiry [AC3.3.4].\n\n:ivar announcement_id: The note\n:ivar body: What it says\n:ivar created_at: When it was posted\n:ivar edited: Whether it has been edited",
+        "properties": {
+          "announcement_id": {
+            "format": "uuid",
+            "title": "Announcement Id",
+            "type": "string"
+          },
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "edited": {
+            "title": "Edited",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "announcement_id",
+          "body",
+          "created_at",
+          "edited"
+        ],
+        "title": "AnnouncementResponse",
+        "type": "object"
+      },
+      "AttendanceEntryResponse": {
+        "additionalProperties": false,
+        "description": "One past session, as a student or guardian sees it.\n\n:ivar session_id: The session\n:ivar date: When it met\n:ivar start_time: When it started\n:ivar topic: What was covered, or null if never logged\n:ivar topic_logged: Whether a topic was ever written\n:ivar present: What was recorded for THIS seat, or null",
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "present": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Present"
+          },
+          "session_id": {
+            "format": "uuid",
+            "title": "Session Id",
+            "type": "string"
+          },
+          "start_time": {
+            "format": "time",
+            "title": "Start Time",
+            "type": "string"
+          },
+          "topic": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Topic"
+          },
+          "topic_logged": {
+            "title": "Topic Logged",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "date",
+          "session_id",
+          "start_time",
+          "topic_logged"
+        ],
+        "title": "AttendanceEntryResponse",
+        "type": "object"
+      },
+      "AttendanceSubmitRequest": {
+        "additionalProperties": false,
+        "description": "A whole roster, written in one atomic operation [BR3.5].\n\n**One of exactly two D4 bodies carrying ``client_mutation_id``**\n[§ B.7]. ``base_attendance_version`` travels in the BODY rather\nthan an ``If-Match`` header [§ B.8]: a queued write is serialized\ninto the device's queue and replayed hours later by a sync worker,\nand a body field survives that naturally where a header is a\nsecond thing the queue must remember and the first thing a retry\nwrapper drops.\n\n``composed_at`` is the DEVICE's clock, recorded for the pilot's\nqueue-latency question and **used in no decision** [NFR24.20]. A\ndevice clock in a conflict rule would let a wrong phone time\nsilently reorder two teachers' writes.\n\n:ivar base_attendance_version: The version this was composed\n    against\n:ivar client_mutation_id: The replay key, per account\n:ivar seats: One mark per seat, the whole roster at once\n:ivar composed_at: When the device composed it, or null",
+        "properties": {
+          "base_attendance_version": {
+            "minimum": 0.0,
+            "title": "Base Attendance Version",
+            "type": "integer"
+          },
+          "client_mutation_id": {
+            "format": "uuid",
+            "title": "Client Mutation Id",
+            "type": "string"
+          },
+          "composed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Composed At"
+          },
+          "seats": {
+            "items": {
+              "$ref": "#/components/schemas/SeatMarkRequest"
+            },
+            "title": "Seats",
+            "type": "array"
+          }
+        },
+        "required": [
+          "base_attendance_version",
+          "client_mutation_id",
+          "seats"
+        ],
+        "title": "AttendanceSubmitRequest",
+        "type": "object"
+      },
+      "AttendanceSubmitResponse": {
+        "additionalProperties": false,
+        "description": "What an accepted or replayed roster write produced.\n\n**No ``queue_state`` field** [BR3.9]: the server returns the\napplied version, and the client derives its own state.\n\n:ivar attendance_version: The version now in force\n:ivar submission_id: The accepted write's record",
+        "properties": {
+          "attendance_version": {
+            "title": "Attendance Version",
+            "type": "integer"
+          },
+          "submission_id": {
+            "format": "uuid",
+            "title": "Submission Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "attendance_version",
+          "submission_id"
+        ],
+        "title": "AttendanceSubmitResponse",
+        "type": "object"
+      },
+      "BandResponse": {
+        "additionalProperties": false,
+        "description": "One published band of the distribution.\n\nHolds a **count, never a membership**. Both bounds inclusive.\n\n:ivar low: The lowest mark in the band\n:ivar high: The highest mark in the band\n:ivar count: How many marked results fall in it",
+        "properties": {
+          "count": {
+            "minimum": 3.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "high": {
+            "title": "High",
+            "type": "integer"
+          },
+          "low": {
+            "title": "Low",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "count",
+          "high",
+          "low"
+        ],
+        "title": "BandResponse",
+        "type": "object"
+      },
       "BatchCreateRequest": {
         "additionalProperties": false,
         "description": "Create a batch [AC2.1.1, AC2.1.2].\n\n:ivar name: The teacher's name for the class\n:ivar subjects: One or more subjects taught\n:ivar teacher_display_name: What students see the teacher called\n:ivar default_fee: The fee an enrollment inherits when it sets none\n:ivar fee_due_day: Day of month 1-31; 29-31 clamp at generation\n:ivar collection_number: Where payments are sent\n:ivar collection_channel: Which service that number belongs to",
@@ -87,8 +322,12 @@
         "type": "object"
       },
       "BatchResponse": {
-        "description": "A batch as its owner sees it.\n\n:ivar id: The batch\n:ivar name: The teacher's name for the class\n:ivar subjects: The subjects taught\n:ivar teacher_display_name: What students see the teacher called\n:ivar default_fee: The inherited fee\n:ivar fee_due_day: Day of month 1-31\n:ivar collection_number: Where payments are sent\n:ivar collection_channel: Which service that number belongs to\n:ivar marksheet_visible: U6's toggle\n:ivar active: False means read-only history\n:ivar enrollment_count: How many seats, computed server-side",
+        "description": "A batch as its owner sees it.\n\n:ivar id: The batch\n:ivar name: The teacher's name for the class\n:ivar subjects: The subjects taught\n:ivar teacher_display_name: What students see the teacher called\n:ivar default_fee: The inherited fee\n:ivar fee_due_day: Day of month 1-31\n:ivar collection_number: Where payments are sent\n:ivar collection_channel: Which service that number belongs to\n:ivar marksheet_visible: U6's toggle\n:ivar active: False means read-only history\n:ivar enrollment_count: How many seats, computed server-side. The\n    **denominator** of \"9 of 12 accepted\", and it counts every seat\n    the teacher created including declined ones [BR1.4]\n:ivar accepted_count: How many of those seats at least one link has\n    accepted [BR1.2], computed server-side and **never counted by\n    the client** [BR1.3, TC-9]. A client counting rows is a client\n    deciding what counts as accepted, and it is wrong the moment the\n    roster paginates because it can only count the rows it holds",
         "properties": {
+          "accepted_count": {
+            "title": "Accepted Count",
+            "type": "integer"
+          },
           "active": {
             "title": "Active",
             "type": "boolean"
@@ -173,6 +412,7 @@
           }
         },
         "required": [
+          "accepted_count",
           "active",
           "collection_channel",
           "collection_number",
@@ -186,6 +426,344 @@
           "teacher_display_name"
         ],
         "title": "BatchResponse",
+        "type": "object"
+      },
+      "ClaimResponse": {
+        "additionalProperties": false,
+        "description": "A claim and its decision, as its submitter sees it.\n\n``previous_decision`` is carried deliberately: a corrected\nverification is visible to the teacher **and** to that student and\nguardian, never hidden from either party [BR5.7, FR9.2]. It is typed\nas a map of strings because every value in it -- including the\namount -- is a string, so a money value inside it crosses the wire\nunder the same rule as every other [BR6.2].\n\n:ivar claim_id: The claim\n:ivar period: The period it resolved to at submission\n:ivar claimed_amount: What was claimed\n:ivar approved_amount: What was accepted, or null while pending\n:ivar status: One of the four server-set values\n:ivar shortfall_disposition: Carried or waived, where one applies\n:ivar channel: Which service the money moved through\n:ivar submitted_at: When it was submitted\n:ivar verified_at: When it was decided, or null\n:ivar previous_decision: The prior decision, on a correction",
+        "properties": {
+          "approved_amount": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "channel": {
+            "title": "Channel",
+            "type": "string"
+          },
+          "claim_id": {
+            "format": "uuid",
+            "title": "Claim Id",
+            "type": "string"
+          },
+          "claimed_amount": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "period": {
+            "title": "Period",
+            "type": "string"
+          },
+          "previous_decision": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Decision"
+          },
+          "shortfall_disposition": {
+            "anyOf": [
+              {
+                "enum": [
+                  "carried",
+                  "waived"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shortfall Disposition"
+          },
+          "status": {
+            "enum": [
+              "approved_full",
+              "approved_partial",
+              "pending",
+              "rejected"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "submitted_at": {
+            "format": "date-time",
+            "title": "Submitted At",
+            "type": "string"
+          },
+          "verified_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verified At"
+          }
+        },
+        "required": [
+          "channel",
+          "claim_id",
+          "claimed_amount",
+          "period",
+          "status",
+          "submitted_at"
+        ],
+        "title": "ClaimResponse",
+        "type": "object"
+      },
+      "ClaimSubmitRequest": {
+        "additionalProperties": false,
+        "description": "Submit a payment claim [AC6.1.x].\n\n``claimed_amount`` is **not capped** at the outstanding balance\n[BR5.2]: money may genuinely have been overpaid out of band, and\nblocking that at submission makes a real overpayment unreportable.\nZero and negative are refused, which the wire pattern already does\nfor a negative since it admits no sign.\n\n:ivar claimed_amount: What the claimant says they paid\n:ivar channel: Which service it moved through, from the server set\n:ivar transaction_id: The reference they quote, if any",
+        "properties": {
+          "channel": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Channel",
+            "type": "string"
+          },
+          "claimed_amount": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "transaction_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transaction Id"
+          }
+        },
+        "required": [
+          "channel",
+          "claimed_amount"
+        ],
+        "title": "ClaimSubmitRequest",
+        "type": "object"
+      },
+      "CorrectionEntryResponse": {
+        "additionalProperties": false,
+        "description": "One row in a seat's correction history [FR9.2].\n\n:ivar mark_id: The row\n:ivar result_state: What it recorded\n:ivar marks: Its number, or null\n:ivar recorded_at: When it was entered\n:ivar superseded: Whether a later row replaced it",
+        "properties": {
+          "mark_id": {
+            "format": "uuid",
+            "title": "Mark Id",
+            "type": "string"
+          },
+          "marks": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Marks"
+          },
+          "recorded_at": {
+            "format": "date-time",
+            "title": "Recorded At",
+            "type": "string"
+          },
+          "result_state": {
+            "enum": [
+              "absent",
+              "joined_after",
+              "marked",
+              "not_entered"
+            ],
+            "title": "Result State",
+            "type": "string"
+          },
+          "superseded": {
+            "title": "Superseded",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "mark_id",
+          "recorded_at",
+          "result_state",
+          "superseded"
+        ],
+        "title": "CorrectionEntryResponse",
+        "type": "object"
+      },
+      "DecisionResponse": {
+        "additionalProperties": false,
+        "description": "The seat's state after this holder decided [BR5.2].\n\nReports **this holder's own** decision. The other link's state is\ndeliberately absent: it belongs to another person, and a seat whose\nstudent and guardian are different people shows each state only to\nits own holder. The teacher's roster is where both appear side by\nside, and that screen is D2's [AC1.10.7].\n\n:ivar enrollment_id: The seat decided on\n:ivar decision: This holder's decision after the write",
+        "properties": {
+          "decision": {
+            "enum": [
+              "accepted",
+              "declined"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "enrollment_id": {
+            "format": "uuid",
+            "title": "Enrollment Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision",
+          "enrollment_id"
+        ],
+        "title": "DecisionResponse",
+        "type": "object"
+      },
+      "DeletionOutcome": {
+        "additionalProperties": false,
+        "description": "What the external route did: sent a code, or deleted.\n\nThe two values are the two steps, and nothing distinguishes a known\nnumber from an unknown one within either. A second request for an\naccount already deleted returns ``deleted`` [BR1.4]: on a deletion\nscreen an error reads as \"it did not work\", and the action already\nsucceeded.\n\n:ivar status: ``requested`` after a code is sent, ``deleted``\n    after one is spent",
+        "properties": {
+          "status": {
+            "enum": [
+              "deleted",
+              "requested"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "DeletionOutcome",
+        "type": "object"
+      },
+      "DeletionRequest": {
+        "additionalProperties": false,
+        "description": "Ask for a deletion code, or confirm with one.\n\n**``code`` is optional and that is what selects the step.** The\nexternal route is one route with two steps rather than two routes,\nbecause ``PUBLIC_ROUTES`` declares exactly two external deletion\nentries and asserts its own count -- a separate code endpoint would\nbe a ninth public route [BR3.2].\n\n:ivar phone: The number whose account is to be deleted\n:ivar code: The deletion code, or None to be sent one",
+        "properties": {
+          "code": {
+            "anyOf": [
+              {
+                "maxLength": 10,
+                "minLength": 4,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "phone": {
+            "maxLength": 20,
+            "minLength": 8,
+            "title": "Phone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "phone"
+        ],
+        "title": "DeletionRequest",
+        "type": "object"
+      },
+      "DeletionResponse": {
+        "additionalProperties": false,
+        "description": "The in-app acknowledgement.\n\nA distinct model from :class:`DeletionOutcome` because the in-app\nroute has exactly one outcome: it is authenticated, so there is no\ncode step. Carrying the two-valued model here would publish a\n``requested`` the route can never return.\n\n**No row counts and no ``existed`` flag**, however useful they would\nbe to a client. The in-app route could afford one -- the caller is\nauthenticated -- and does not take one anyway: two shapes for one\noutcome is how the paths start to drift [BR3.1].\n\n:ivar status: Always ``deleted``",
+        "properties": {
+          "status": {
+            "const": "deleted",
+            "default": "deleted",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "title": "DeletionResponse",
+        "type": "object"
+      },
+      "DuesResponse": {
+        "additionalProperties": false,
+        "description": "Everyone who owes this teacher money, across every batch.\n\n**An empty ``rows`` is the defined empty state** [BR1.5], never a\n404 and never an error: a teacher whose students have all paid is\ngetting the best possible news, and a failure shape would make the\napp render a retry prompt for it.\n\n:ivar rows: One entry per owing seat, largest debt first, possibly\n    empty",
+        "properties": {
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/DuesRowResponse"
+            },
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "title": "DuesResponse",
+        "type": "object"
+      },
+      "DuesRowResponse": {
+        "additionalProperties": false,
+        "description": "One person who owes money, in one batch [FR7.1].\n\nThe key is ``enrollment_id`` and never an account id [ADR-001], and\n``display_name`` is the TEACHER's record rather than anything the\nstudent or guardian wrote [TC-13]. Both are asserted schema-wide by\nthe built privacy gate rather than by remembering it here.\n\n:ivar enrollment_id: The teacher-facing key\n:ivar batch_id: The batch the debt sits in\n:ivar batch_name: That batch's name, because the same person may\n    owe in two\n:ivar display_name: The teacher-typed name\n:ivar outstanding: What this seat still owes\n:ivar oldest_unpaid_period: Which period the debt starts in, or\n    null",
+        "properties": {
+          "batch_id": {
+            "format": "uuid",
+            "title": "Batch Id",
+            "type": "string"
+          },
+          "batch_name": {
+            "title": "Batch Name",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "enrollment_id": {
+            "format": "uuid",
+            "title": "Enrollment Id",
+            "type": "string"
+          },
+          "oldest_unpaid_period": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Oldest Unpaid Period"
+          },
+          "outstanding": {
+            "$ref": "#/components/schemas/Money"
+          }
+        },
+        "required": [
+          "batch_id",
+          "batch_name",
+          "display_name",
+          "enrollment_id",
+          "outstanding"
+        ],
+        "title": "DuesRowResponse",
         "type": "object"
       },
       "EnrollmentCreateRequest": {
@@ -309,6 +887,176 @@
         "title": "ErrorEnvelope",
         "type": "object"
       },
+      "ExamCreateRequest": {
+        "additionalProperties": false,
+        "description": "Create or edit an assessment [BR4.1].\n\n:ivar batch_subject_id: One of the batch's own subjects\n:ivar title: The teacher's name for it\n:ivar date: When it was sat\n:ivar total_marks: The denominator, at least 1",
+        "properties": {
+          "batch_subject_id": {
+            "format": "uuid",
+            "title": "Batch Subject Id",
+            "type": "string"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "total_marks": {
+            "minimum": 1.0,
+            "title": "Total Marks",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "batch_subject_id",
+          "date",
+          "title",
+          "total_marks"
+        ],
+        "title": "ExamCreateRequest",
+        "type": "object"
+      },
+      "ExamResponse": {
+        "additionalProperties": false,
+        "description": "One assessment.\n\n:ivar exam_id: The exam\n:ivar title: The teacher's name for it\n:ivar date: When it was sat\n:ivar total_marks: The denominator, an integer COUNT\n:ivar subject_name: The subject assessed",
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "exam_id": {
+            "format": "uuid",
+            "title": "Exam Id",
+            "type": "string"
+          },
+          "subject_name": {
+            "title": "Subject Name",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "total_marks": {
+            "minimum": 1.0,
+            "title": "Total Marks",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "exam_id",
+          "subject_name",
+          "title",
+          "total_marks"
+        ],
+        "title": "ExamResponse",
+        "type": "object"
+      },
+      "FamilyBatchViewResponse": {
+        "additionalProperties": false,
+        "description": "What a student or guardian sees of one batch [BR7.2].\n\n``served_at`` is BR7.3's server timestamp, so a client rendering\nthis from cache can state its age without consulting the device\nclock -- which is the thing excluded from decisions.\n\n:ivar next_session_date: The next scheduled session's date, or\n    null\n:ivar next_session_start_time: Its start time, or null\n:ivar past_sessions: Past sessions with topics and attendance\n:ivar announcements: The batch's visible notes\n:ivar served_at: When the server computed this",
+        "properties": {
+          "announcements": {
+            "items": {
+              "$ref": "#/components/schemas/AnnouncementResponse"
+            },
+            "title": "Announcements",
+            "type": "array"
+          },
+          "next_session_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Session Date"
+          },
+          "next_session_start_time": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Session Start Time"
+          },
+          "past_sessions": {
+            "items": {
+              "$ref": "#/components/schemas/AttendanceEntryResponse"
+            },
+            "title": "Past Sessions",
+            "type": "array"
+          },
+          "served_at": {
+            "format": "date-time",
+            "title": "Served At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "announcements",
+          "past_sessions",
+          "served_at"
+        ],
+        "title": "FamilyBatchViewResponse",
+        "type": "object"
+      },
+      "FeeCycleResponse": {
+        "additionalProperties": false,
+        "description": "One period's fee, for any lens entitled to read it.\n\n``status`` is the decision; ``outstanding`` is reported for display\nand is never what the client computes a status from.\n\n:ivar period: The period, as ``YYYY-MM``\n:ivar due_date: The due date, after the short-month clamp\n:ivar charged: What was charged for this period\n:ivar outstanding: What is still owed, floored at zero\n:ivar status: The server-computed status",
+        "properties": {
+          "charged": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "due_date": {
+            "format": "date",
+            "title": "Due Date",
+            "type": "string"
+          },
+          "outstanding": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "period": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
+            "title": "Period",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "paid",
+              "partly_paid",
+              "unpaid",
+              "waived"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "charged",
+          "due_date",
+          "outstanding",
+          "period",
+          "status"
+        ],
+        "title": "FeeCycleResponse",
+        "type": "object"
+      },
       "GuardianChildResponse": {
         "description": "One reachable child as a guardian sees it.\n\nCarries ``batch_name`` and ``teacher_display_name`` because\nattribution is required even in the single-child case [AC2.8.5] --\nthat is where it is most needed, since the selection list is where\nit would otherwise have been shown.\n\n:ivar enrollment_id: The seat, which BR5.1 keys the route on\n:ivar display_name: The teacher-typed name for the child\n:ivar batch_name: Which class\n:ivar teacher_display_name: Which teacher recorded this",
         "properties": {
@@ -416,6 +1164,54 @@
         "title": "InactiveFromRequest",
         "type": "object"
       },
+      "InvitationResponse": {
+        "additionalProperties": false,
+        "description": "One unaccepted seat, in exactly the width BR1.4 permits.\n\nBatch name, subject and fee amount -- all teacher-authored, so this\nread crosses no privacy boundary -- plus the seat's own id, which\nthe accept and decline routes are keyed on, and this holder's own\ndecision so the screen can offer the right action without deciding\nwhat ``declined`` means for itself [TC-9].\n\n**There is no attendance, no mark, no other enrollment and no\nfurther batch field**, and no write action but accept and decline\non the link that names the holder [AC1.10.2].\n\n:ivar enrollment_id: The seat, which the decision routes are keyed on\n:ivar batch_name: The class being joined\n:ivar subject: The subjects taught, as the teacher named them\n:ivar fee_amount: This seat's fee, or None when it inherits the\n    batch default. None is NOT zero: zero is a waiver\n:ivar decision: This holder's own decision, ``pending`` or\n    ``declined``",
+        "properties": {
+          "batch_name": {
+            "title": "Batch Name",
+            "type": "string"
+          },
+          "decision": {
+            "enum": [
+              "declined",
+              "pending"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "enrollment_id": {
+            "format": "uuid",
+            "title": "Enrollment Id",
+            "type": "string"
+          },
+          "fee_amount": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "subject": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Subject",
+            "type": "array"
+          }
+        },
+        "required": [
+          "batch_name",
+          "decision",
+          "enrollment_id",
+          "subject"
+        ],
+        "title": "InvitationResponse",
+        "type": "object"
+      },
       "IssueRequest": {
         "additionalProperties": false,
         "description": "Ask for a code to be sent to a number.\n\nThe number is **typed by the user** and never read from the SIM\n[AC1.1.6]: there is no device-side source for this field.\n\n:ivar phone: The destination number in international form",
@@ -446,11 +1242,346 @@
         "title": "IssueResponse",
         "type": "object"
       },
+      "LensEntry": {
+        "description": "One lens the account can choose.\n\n:ivar kind: Which lens: teacher, student or guardian\n:ivar count: How much sits behind it",
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "count",
+          "kind"
+        ],
+        "title": "LensEntry",
+        "type": "object"
+      },
+      "MarkWriteRequest": {
+        "additionalProperties": false,
+        "description": "Enter or correct one seat's result [BR4.2].\n\n**No version field**: a mark is an interactive write and cannot\nconflict [BR3.11].\n\n``marks`` is non-null if and only if ``result_state`` is\n``marked``. A zero IS a mark: a zero stored as ``absent`` tells a\nguardian their child missed an exam they sat and failed.\n\n:ivar enrollment_id: The seat\n:ivar result_state: ``marked`` or ``absent``\n:ivar marks: The number, or null",
+        "properties": {
+          "enrollment_id": {
+            "format": "uuid",
+            "title": "Enrollment Id",
+            "type": "string"
+          },
+          "marks": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Marks"
+          },
+          "result_state": {
+            "enum": [
+              "absent",
+              "marked"
+            ],
+            "title": "Result State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "enrollment_id",
+          "result_state"
+        ],
+        "title": "MarkWriteRequest",
+        "type": "object"
+      },
+      "MarksheetToggleRequest": {
+        "additionalProperties": false,
+        "description": "Set whether families may see a marksheet [BR5.4].\n\n:ivar visible: Whether families may see it",
+        "properties": {
+          "visible": {
+            "title": "Visible",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "visible"
+        ],
+        "title": "MarksheetToggleRequest",
+        "type": "object"
+      },
+      "MeResponse": {
+        "description": "Everything this account can be.\n\n**No role, and no default lens.** The list says what is available;\nwhich one the person wants is their choice, and a server-chosen\ndefault would be a stored role by another name. A single-entry\nlist is the app's cue to skip the picker.\n\n:ivar lenses: Every available lens, teacher first",
+        "properties": {
+          "lenses": {
+            "items": {
+              "$ref": "#/components/schemas/LensEntry"
+            },
+            "title": "Lenses",
+            "type": "array"
+          }
+        },
+        "title": "MeResponse",
+        "type": "object"
+      },
       "Money": {
         "description": "A BDT amount in canonical form: exactly two decimal places, no thousands separator, no currency symbol, no sign. Always a JSON string, never a JSON number.",
         "pattern": "^[0-9]+\\.[0-9]{2}$",
         "title": "Money",
         "type": "string"
+      },
+      "MonthlyEarningsResponse": {
+        "additionalProperties": false,
+        "description": "Money received in one calendar month [FR8.1].\n\n:ivar period: The month, as ``YYYY-MM``\n:ivar received: ``receipt`` plus ``credit_grant`` for that month",
+        "properties": {
+          "period": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
+            "title": "Period",
+            "type": "string"
+          },
+          "received": {
+            "$ref": "#/components/schemas/Money"
+          }
+        },
+        "required": [
+          "period",
+          "received"
+        ],
+        "title": "MonthlyEarningsResponse",
+        "type": "object"
+      },
+      "NextExamResponse": {
+        "additionalProperties": false,
+        "description": "The soonest exam dated today or later [FR8.4].\n\n:ivar exam_id: The exam\n:ivar title: The teacher's name for it\n:ivar batch_name: Which class sits it\n:ivar subject_name: The subject assessed\n:ivar date: When it is sat\n:ivar days_remaining: Whole days, computed server-side [BR3.2] --\n    a client computing it would use the device clock and would\n    disagree across time zones",
+        "properties": {
+          "batch_name": {
+            "title": "Batch Name",
+            "type": "string"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "days_remaining": {
+            "title": "Days Remaining",
+            "type": "integer"
+          },
+          "exam_id": {
+            "format": "uuid",
+            "title": "Exam Id",
+            "type": "string"
+          },
+          "subject_name": {
+            "title": "Subject Name",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "batch_name",
+          "date",
+          "days_remaining",
+          "exam_id",
+          "subject_name",
+          "title"
+        ],
+        "title": "NextExamResponse",
+        "type": "object"
+      },
+      "OverviewResponse": {
+        "additionalProperties": false,
+        "description": "The three blocks of the teacher overview, each independently absent.\n\n**``earnings`` is never absent and ``trend`` and ``next_exam``\nmay be**, which is the distinction this model exists to publish:\n\n* ``earnings`` carries a **zero value** in a month with no receipts\n  [BR2.2]. Rendering zero as \"no data\" tells a teacher their records\n  are missing when they are complete, in the month they most need to\n  know the number is really zero;\n* ``trend`` is **null under two months of history** [BR2.3], not a\n  one-point series -- a single point implies a direction it cannot\n  know;\n* ``next_exam`` is **null when nothing is scheduled** [BR3.4], which\n  the client renders as a defined empty state rather than a failure.\n\n:ivar earnings: This month's money received; never absent\n:ivar trend: The monthly series ascending, or null under two months\n:ivar next_exam: The soonest upcoming exam, or null",
+        "properties": {
+          "earnings": {
+            "$ref": "#/components/schemas/MonthlyEarningsResponse"
+          },
+          "next_exam": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NextExamResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "trend": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/MonthlyEarningsResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trend"
+          }
+        },
+        "required": [
+          "earnings"
+        ],
+        "title": "OverviewResponse",
+        "type": "object"
+      },
+      "PaymentDestinationResponse": {
+        "additionalProperties": false,
+        "description": "Where to send a payment, and through what.\n\n**The ONE response in the product carrying the collection number**\n[BR6.4, NFR14.32]. The allowlist test asserts that as an equality\nagainst a one-element set, so the field spreading to a second\nresponse fails the build rather than passing a membership check.\n\nWhere the teacher set no number the route returns **no object at\nall** rather than this model with a null in it [NFR14.34]: a null\ninvites a client-side placeholder, and an absent object leaves the\nclient nothing to render while the copy tells the person to ask the\nteacher how to pay.\n\n:ivar collection_number: Where payments are sent\n:ivar collection_channel: Which service that number belongs to\n:ivar channels: The channel set, server-supplied so adding one is a\n    data change rather than an app release",
+        "properties": {
+          "channels": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Channels",
+            "type": "array"
+          },
+          "collection_channel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Collection Channel"
+          },
+          "collection_number": {
+            "title": "Collection Number",
+            "type": "string"
+          }
+        },
+        "required": [
+          "channels",
+          "collection_number"
+        ],
+        "title": "PaymentDestinationResponse",
+        "type": "object"
+      },
+      "ProgressEntryResponse": {
+        "additionalProperties": false,
+        "description": "One exam in a child's progress series [BR6.6].\n\n**An absence carries no numeric value**, rather than a zero: an\nabsence plotted as zero shows a collapse in performance that did\nnot happen.\n\n:ivar exam_id: The exam\n:ivar title: Its title\n:ivar date: When it was sat\n:ivar total_marks: Its denominator\n:ivar result_state: One of the four states\n:ivar marks: The number, or null",
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "exam_id": {
+            "format": "uuid",
+            "title": "Exam Id",
+            "type": "string"
+          },
+          "marks": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Marks"
+          },
+          "result_state": {
+            "enum": [
+              "absent",
+              "joined_after",
+              "marked",
+              "not_entered"
+            ],
+            "title": "Result State",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "total_marks": {
+            "minimum": 1.0,
+            "title": "Total Marks",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "exam_id",
+          "result_state",
+          "title",
+          "total_marks"
+        ],
+        "title": "ProgressEntryResponse",
+        "type": "object"
+      },
+      "PublishedMarksheetResponse": {
+        "additionalProperties": false,
+        "description": "A marksheet with its comparison [BR6.2].\n\n**No per-student collection.** ``bands`` holds counts rather than\npeople, and a test over the generated document asserts that no\nproperty of this schema is a collection of student-shaped\nobjects.\n\n:ivar published: Always true; the discriminator a client switches\n    on\n:ivar viewer_marks: The viewer's own mark, or null if absent\n:ivar viewer_rank: Their rank among marked results, or null\n:ivar average: The mean of marked results\n:ivar highest: The highest marked result\n:ivar marked_count: How many results were marked\n:ivar bands: The merged distribution",
+        "properties": {
+          "average": {
+            "title": "Average",
+            "type": "number"
+          },
+          "bands": {
+            "items": {
+              "$ref": "#/components/schemas/BandResponse"
+            },
+            "title": "Bands",
+            "type": "array"
+          },
+          "highest": {
+            "title": "Highest",
+            "type": "integer"
+          },
+          "marked_count": {
+            "title": "Marked Count",
+            "type": "integer"
+          },
+          "published": {
+            "const": true,
+            "default": true,
+            "title": "Published",
+            "type": "boolean"
+          },
+          "viewer_marks": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Viewer Marks"
+          },
+          "viewer_rank": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Viewer Rank"
+          }
+        },
+        "required": [
+          "average",
+          "bands",
+          "highest",
+          "marked_count"
+        ],
+        "title": "PublishedMarksheetResponse",
+        "type": "object"
       },
       "RefreshRequest": {
         "additionalProperties": false,
@@ -469,8 +1600,86 @@
         "title": "RefreshRequest",
         "type": "object"
       },
+      "RejectionRequest": {
+        "additionalProperties": false,
+        "description": "Reject a claim, optionally as a correction [BR5.6, BR5.7].\n\nA body with one optional field rather than no body at all, because\nrejection is correctable for the same reason approval is: a teacher\nwho rejected the wrong claim must be able to say so, and FR9.2 makes\nno exception for the rejection path.\n\nEvery field defaults, so an ordinary rejection may still send no\nbody.\n\n:ivar correcting: True when deliberately revising a decided claim",
+        "properties": {
+          "correcting": {
+            "default": false,
+            "title": "Correcting",
+            "type": "boolean"
+          }
+        },
+        "title": "RejectionRequest",
+        "type": "object"
+      },
+      "RosterFeeRowResponse": {
+        "additionalProperties": false,
+        "description": "One seat's fee position, as its teacher sees it.\n\nThe key is ``enrollment_id`` and never an account id [ADR-001],\nasserted schema-wide by the built privacy gate.\n\n**No ``collection_number``.** The teacher's payment destination is\ncarried by exactly one response and this is not it [NFR14.33].\n\n:ivar enrollment_id: The teacher-facing key\n:ivar display_name: The teacher-typed name\n:ivar outstanding: What this seat owes across every period\n:ivar current_period: The latest generated period, or null\n:ivar current_status: That period's status, or null\n:ivar due_date: That period's due date, or null",
+        "properties": {
+          "current_period": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Period"
+          },
+          "current_status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "paid",
+                  "partly_paid",
+                  "unpaid",
+                  "waived"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Status"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "due_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due Date"
+          },
+          "enrollment_id": {
+            "format": "uuid",
+            "title": "Enrollment Id",
+            "type": "string"
+          },
+          "outstanding": {
+            "$ref": "#/components/schemas/Money"
+          }
+        },
+        "required": [
+          "display_name",
+          "enrollment_id",
+          "outstanding"
+        ],
+        "title": "RosterFeeRowResponse",
+        "type": "object"
+      },
       "RosterRowResponse": {
-        "description": "One seat as a teacher sees it.\n\n``status`` is a **server-computed decision**, not an input to one\n[TC-9]: the client switches on this enum and never compares a date\nor an amount of its own.\n\n:ivar enrollment_id: The teacher-facing key for this seat\n:ivar display_name: The teacher-typed name\n:ivar guardian_phone: The teacher-typed guardian contact\n:ivar fee_amount: This seat's fee, or null when it inherits\n:ivar status: ``dormant``, ``active`` or ``inactive``\n:ivar inactive_from: The recorded date, if any",
+        "description": "One seat as a teacher sees it.\n\n``status`` is a **server-computed decision**, not an input to one\n[TC-9]: the client switches on this enum and never compares a date\nor an amount of its own.\n\n:ivar enrollment_id: The teacher-facing key for this seat\n:ivar display_name: The teacher-typed name\n:ivar guardian_phone: The teacher-typed guardian contact\n:ivar fee_amount: This seat's fee, or null when it inherits\n:ivar status: ``dormant``, ``active`` or ``inactive``.\n\n    **Unchanged, and the two new fields sit beside it rather than\n    replacing it.** Acceptance is a different axis from activity:\n    an inactive seat keeps whatever decisions its links carry,\n    because leaving a batch is not un-accepting it. Folding the two\n    together would produce a product of two axes and a value set\n    nobody can switch on exhaustively\n:ivar student_state: The student link's own decision --\n    ``pending``, ``accepted`` or ``declined`` [BR2.1]\n:ivar guardian_state: The guardian link's own decision, plus\n    ``absent`` when no guardian was recorded [BR2.2]. ``absent`` is\n    a fourth VALUE and not a null, because a decision nobody was\n    asked for is not an outstanding one\n:ivar is_removable: Whether removal would succeed [BR3.1].\n\n    **A decision the client reads and never derives** [NFR14.31].\n    Removal tests two conditions -- no link accepted, and no erasure\n    marker set -- and this row carries only the first. A client\n    inferring removability from the link states it displays would\n    offer the action on an erased seat, which is a wrong answer\n    presented as an available action rather than a style violation\n:ivar inactive_from: The recorded date, if any",
         "properties": {
           "display_name": {
             "title": "Display Name",
@@ -502,6 +1711,10 @@
             ],
             "title": "Guardian Phone"
           },
+          "guardian_state": {
+            "title": "Guardian State",
+            "type": "string"
+          },
           "inactive_from": {
             "anyOf": [
               {
@@ -514,8 +1727,16 @@
             ],
             "title": "Inactive From"
           },
+          "is_removable": {
+            "title": "Is Removable",
+            "type": "boolean"
+          },
           "status": {
             "title": "Status",
+            "type": "string"
+          },
+          "student_state": {
+            "title": "Student State",
             "type": "string"
           }
         },
@@ -524,10 +1745,396 @@
           "enrollment_id",
           "fee_amount",
           "guardian_phone",
+          "guardian_state",
           "inactive_from",
-          "status"
+          "is_removable",
+          "status",
+          "student_state"
         ],
         "title": "RosterRowResponse",
+        "type": "object"
+      },
+      "RosterSeatResponse": {
+        "additionalProperties": false,
+        "description": "One seat on a session's roster.\n\nThe key is ``enrollment_id`` and never an account id [ADR-001,\nBR5.3], asserted schema-wide by the built privacy gate.\n\n``present`` is **null where nothing was recorded**, which is a\ndifferent fact from ``false``: AC3.1.4 defaults every seat to\npresent in the UI and the teacher marks only exceptions, so\ncollapsing the two would tell a guardian their child was marked\nabsent from a class nobody has marked at all.\n\n:ivar enrollment_id: The teacher-facing key\n:ivar display_name: The TEACHER-typed name\n:ivar present: What was recorded, or null",
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "enrollment_id": {
+            "format": "uuid",
+            "title": "Enrollment Id",
+            "type": "string"
+          },
+          "present": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Present"
+          }
+        },
+        "required": [
+          "display_name",
+          "enrollment_id"
+        ],
+        "title": "RosterSeatResponse",
+        "type": "object"
+      },
+      "SeatMarkRequest": {
+        "additionalProperties": false,
+        "description": "One seat's presence within a roster submission.\n\n:ivar enrollment_id: The seat\n:ivar present: Whether the student attended",
+        "properties": {
+          "enrollment_id": {
+            "format": "uuid",
+            "title": "Enrollment Id",
+            "type": "string"
+          },
+          "present": {
+            "title": "Present",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enrollment_id",
+          "present"
+        ],
+        "title": "SeatMarkRequest",
+        "type": "object"
+      },
+      "SeatResultResponse": {
+        "additionalProperties": false,
+        "description": "One seat's result, as its TEACHER sees it.\n\nTeacher-facing, which is why it may carry a per-student row at\nall: the privacy boundary this unit protects is between FAMILIES,\nand a teacher already knows who is in their own class. The\nmarksheet a student reads carries nothing of the kind.\n\n:ivar enrollment_id: The teacher-facing key\n:ivar display_name: The TEACHER-typed name\n:ivar result_state: One of the four states\n:ivar marks: The number, or null",
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "enrollment_id": {
+            "format": "uuid",
+            "title": "Enrollment Id",
+            "type": "string"
+          },
+          "marks": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Marks"
+          },
+          "result_state": {
+            "enum": [
+              "absent",
+              "joined_after",
+              "marked",
+              "not_entered"
+            ],
+            "title": "Result State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "display_name",
+          "enrollment_id",
+          "result_state"
+        ],
+        "title": "SeatResultResponse",
+        "type": "object"
+      },
+      "SessionCreateRequest": {
+        "additionalProperties": false,
+        "description": "Create an ad-hoc session [AC3.0.3].\n\n:ivar date: When it meets\n:ivar start_time: When it starts\n:ivar end_time: When it ends, or null\n:ivar batch_subject_id: The subject, or null",
+        "properties": {
+          "batch_subject_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch Subject Id"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "end_time": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Time"
+          },
+          "start_time": {
+            "format": "time",
+            "title": "Start Time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "date",
+          "start_time"
+        ],
+        "title": "SessionCreateRequest",
+        "type": "object"
+      },
+      "SessionRescheduleRequest": {
+        "additionalProperties": false,
+        "description": "Move a session, preserving its identity [BR1.7].\n\n**No version field**: this is an interactive write and cannot\nconflict [BR3.11].\n\n:ivar date: Its new date\n:ivar start_time: Its new start time",
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "start_time": {
+            "format": "time",
+            "title": "Start Time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "date",
+          "start_time"
+        ],
+        "title": "SessionRescheduleRequest",
+        "type": "object"
+      },
+      "SessionResponse": {
+        "additionalProperties": false,
+        "description": "One session, for any lens entitled to read it.\n\n``topic_logged`` is the DECISION; ``topic`` is carried for display\nand is never what the client computes a logged-ness from [BR2.2].\n\n:ivar session_id: The session\n:ivar date: When it meets\n:ivar start_time: When it starts\n:ivar end_time: When it ends, or null\n:ivar status: Its state\n:ivar origin: Whether generation or a teacher created it\n:ivar topic: What was covered, or null if never logged\n:ivar topic_logged: Whether a topic was ever written\n:ivar subject_name: The subject taught, or null\n:ivar attendance_version: The roster's version, for the queue\n:ivar topic_version: The topic log's own version",
+        "properties": {
+          "attendance_version": {
+            "title": "Attendance Version",
+            "type": "integer"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "end_time": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Time"
+          },
+          "origin": {
+            "enum": [
+              "ad_hoc",
+              "recurrence"
+            ],
+            "title": "Origin",
+            "type": "string"
+          },
+          "session_id": {
+            "format": "uuid",
+            "title": "Session Id",
+            "type": "string"
+          },
+          "start_time": {
+            "format": "time",
+            "title": "Start Time",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "cancelled",
+              "held",
+              "scheduled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "subject_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Name"
+          },
+          "topic": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Topic"
+          },
+          "topic_logged": {
+            "title": "Topic Logged",
+            "type": "boolean"
+          },
+          "topic_version": {
+            "title": "Topic Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "attendance_version",
+          "date",
+          "origin",
+          "session_id",
+          "start_time",
+          "status",
+          "topic_logged",
+          "topic_version"
+        ],
+        "title": "SessionResponse",
+        "type": "object"
+      },
+      "SessionSubjectRequest": {
+        "additionalProperties": false,
+        "description": "Set which subject a session taught.\n\n:ivar batch_subject_id: The subject, or null to clear it",
+        "properties": {
+          "batch_subject_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch Subject Id"
+          }
+        },
+        "title": "SessionSubjectRequest",
+        "type": "object"
+      },
+      "SignupRequest": {
+        "additionalProperties": false,
+        "description": "Create an account for a number nobody has registered.\n\nThe number is **typed by the person** and never read from the SIM\n[TC-4, D-35]: there is no device-side source for this field, here\nor anywhere in this product.\n\n:ivar phone: The number this identity is keyed on\n:ivar role: The claimed role; nothing verifies it [BR4.2]\n:ivar self_name: The name the person chose for themselves. Lands on\n    ``Profile.self_name`` and never on an ``Enrollment.display_name``\n    [BR3.1]\n:ivar address: Owner-private, and optional because the\n    already-added path reaches signup with no address yet",
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "phone": {
+            "maxLength": 20,
+            "minLength": 8,
+            "title": "Phone",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "guardian",
+              "student",
+              "teacher"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "self_name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Self Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "phone",
+          "role",
+          "self_name"
+        ],
+        "title": "SignupRequest",
+        "type": "object"
+      },
+      "SignupResponse": {
+        "additionalProperties": false,
+        "description": "The account exists and a code is on its way [BR4.3].\n\n**No token and no lens.** The account is created before the code is\nsent, and the person is authenticated by the existing OTP flow,\nunchanged [BR2.2]. Returning a token here would make signup a\nsecond authentication path with none of the seven controls the\nfirst one carries.\n\n:ivar account_id: The new account\n:ivar code_sent_to: The number the code was sent to, echoed so the\n    screen can name its destination [BR4.3, AC1.11.4]",
+        "properties": {
+          "account_id": {
+            "format": "uuid",
+            "title": "Account Id",
+            "type": "string"
+          },
+          "code_sent_to": {
+            "title": "Code Sent To",
+            "type": "string"
+          }
+        },
+        "required": [
+          "account_id",
+          "code_sent_to"
+        ],
+        "title": "SignupResponse",
+        "type": "object"
+      },
+      "SuppressedMarksheetResponse": {
+        "additionalProperties": false,
+        "description": "A marksheet with no comparison at all [BR6.4].\n\nA **distinct shape** rather than the published one with nulls: a\nrank of null beside an average of zero would read as a real\nresult.\n\n:ivar published: Always false; the discriminator\n:ivar viewer_marks: The viewer's own mark, or null\n:ivar reason: Why no comparison was published",
+        "properties": {
+          "published": {
+            "const": false,
+            "default": false,
+            "title": "Published",
+            "type": "boolean"
+          },
+          "reason": {
+            "enum": [
+              "marking_incomplete",
+              "too_few_results"
+            ],
+            "title": "Reason",
+            "type": "string"
+          },
+          "viewer_marks": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Viewer Marks"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "SuppressedMarksheetResponse",
         "type": "object"
       },
       "TokenResponse": {
@@ -553,6 +2160,49 @@
           "refresh_token"
         ],
         "title": "TokenResponse",
+        "type": "object"
+      },
+      "TopicWriteRequest": {
+        "additionalProperties": false,
+        "description": "A session's topic [BR2.1].\n\n**The second and last D4 body carrying ``client_mutation_id``.**\n\nAn empty string is a topic logged as BLANK and is a different fact\nfrom never writing one [BR2.2].\n\n:ivar base_topic_version: The version this was composed against\n:ivar client_mutation_id: The replay key, per account\n:ivar topic: What was covered; '' means logged-and-blank",
+        "properties": {
+          "base_topic_version": {
+            "minimum": 0.0,
+            "title": "Base Topic Version",
+            "type": "integer"
+          },
+          "client_mutation_id": {
+            "format": "uuid",
+            "title": "Client Mutation Id",
+            "type": "string"
+          },
+          "topic": {
+            "maxLength": 2000,
+            "title": "Topic",
+            "type": "string"
+          }
+        },
+        "required": [
+          "base_topic_version",
+          "client_mutation_id",
+          "topic"
+        ],
+        "title": "TopicWriteRequest",
+        "type": "object"
+      },
+      "TopicWriteResponse": {
+        "additionalProperties": false,
+        "description": "What an accepted topic write produced.\n\n:ivar topic_version: The version now in force",
+        "properties": {
+          "topic_version": {
+            "title": "Topic Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "topic_version"
+        ],
+        "title": "TopicWriteResponse",
         "type": "object"
       },
       "ValidationError": {
@@ -595,6 +2245,40 @@
         "title": "ValidationError",
         "type": "object"
       },
+      "VerificationRequest": {
+        "additionalProperties": false,
+        "description": "Record a teacher's decision on a claim [AC6.3.x].\n\n``shortfall_disposition`` is **required where the approval is below\nthe charge and forbidden where it is not** [BR5.4]. It carries no\ndefault: the two choices have opposite consequences for the student,\nso a default silently chooses for the teacher. The requirement\ncannot be expressed in the schema alone -- it depends on what the\ncycle was charged -- so the server enforces it and this field stays\noptional here.\n\n``correcting`` is **the teacher saying \"I know this claim is already\ndecided and I am revising it\"** [BR5.7, FR9.2]. It defaults to\n``False``, so an ordinary verification of an undecided claim needs no\nflag and a *concurrent* second verification is refused rather than\nsilently double-crediting the payment.\n\nIt cannot be inferred from the claim's state. A decided claim with a\nsecond request arriving is exactly the shape of both the race this\nguard exists to stop and the correction FR9.2 requires, and the\nserver cannot tell them apart -- only the teacher knows which one\nthey meant. Inferring it would mean choosing to let the race through.\n\n:ivar approved_amount: What the teacher accepts\n:ivar shortfall_disposition: Carried or waived, where one applies\n:ivar correcting: True when deliberately revising a decided claim",
+        "properties": {
+          "approved_amount": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "correcting": {
+            "default": false,
+            "title": "Correcting",
+            "type": "boolean"
+          },
+          "shortfall_disposition": {
+            "anyOf": [
+              {
+                "enum": [
+                  "carried",
+                  "waived"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shortfall Disposition"
+          }
+        },
+        "required": [
+          "approved_amount"
+        ],
+        "title": "VerificationRequest",
+        "type": "object"
+      },
       "VerifyRequest": {
         "additionalProperties": false,
         "description": "Present a code for verification.\n\n:ivar phone: The number the code was issued for\n:ivar code: The six-digit code",
@@ -628,6 +2312,68 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/account-deletion": {
+      "get": {
+        "description": "Serve the externally reachable deletion page.\n\nNo session, no database read and no parameters: it is a static page\nwhose only job is to be reachable and to name the app and developer\n[AC1.7.2].\n\n:return: The page",
+        "operationId": "deletion_page_account_deletion_get",
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Deletion Page",
+        "tags": [
+          "deletion"
+        ]
+      },
+      "post": {
+        "description": "Send a deletion code, or delete once one is presented.\n\n**One route with two steps rather than two routes**, and that is a\ndeliberate consequence of the allowlist rather than a convenience.\n``PUBLIC_ROUTES`` declares exactly two external deletion entries,\nits count is asserted at eight, and D6's stated job is to land\nhandlers against entries already under review -- not to add a public\nroute in the commit that implements one. A separate\n``/account-deletion/code`` would have been a ninth public entry,\nwhich is a diff against a stated number [BR3.2].\n\nThe step is chosen by whether ``code`` is present, which is also how\nthe page's single form behaves: submit a number to be sent a code,\nsubmit it again with the code to confirm.\n\n``verify`` is CALLED rather than reimplemented, which is what gives\nthis route the single-use rule, the expiry and the attempt ceiling\nwithout a second copy of any of them [NFR14.81]. Reimplementing it\nis the obvious shortcut for a route living in a different module.\n\n:param body: The request body\n:param request: The incoming request\n:param session: The request-scoped session\n:param gateway: The configured SMS gateway\n:return: ``requested`` after a code is sent, ``deleted`` after one\n    is spent\n:raises CeilingBreach: A deletion ceiling refused this send\n:raises ValidationError: The code is wrong, expired, used or was\n    issued for a different purpose\n:raises DeletionRefused: The account owns at least one batch",
+        "operationId": "external_deletion_account_deletion_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeletionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeletionOutcome"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "External Deletion",
+        "tags": [
+          "deletion"
+        ]
+      }
+    },
     "/health": {
       "get": {
         "description": "Report liveness, database connectivity and schema revision.\n\n:param session: The request-scoped session\n:return: The health report",
@@ -647,6 +2393,260 @@
         "summary": "Health",
         "tags": [
           "health"
+        ]
+      }
+    },
+    "/v1/accounts": {
+      "post": {
+        "description": "Create an account, then send the verification code [BR4.3].\n\n**The ordering is the requirement, not an implementation detail**\n[AC1.11.4]. The account exists before the code is sent, so a person\nwho verifies always has something to verify into; sending first\nwould mean a code arriving for an account that may never be\ncreated.\n\nThe ceiling is consumed **before** the account is created, for the\nreason the OTP path checks before its gateway call: a ceiling\nchecked afterwards has already spent what it exists to protect.\n\nPublic by design, and in ``PUBLIC_ROUTES``: there is no session to\nauthenticate with before an account exists.\n\n:param body: The signup request\n:param request: The incoming request\n:param session: The request-scoped session\n:param gateway: The configured SMS gateway\n:return: The new account and the number its code went to\n:raises CeilingBreach: A signup ceiling refused this request\n:raises DuplicateNumber: The number already has an account",
+        "operationId": "sign_up_v1_accounts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignupResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sign Up",
+        "tags": [
+          "accounts"
+        ]
+      }
+    },
+    "/v1/accounts/already-added": {
+      "get": {
+        "description": "Report whether a teacher recorded this number, and nothing more.\n\n**This route discloses that a seat exists, deliberately**\n[BR2.3, AC1.12.2]. That is its purpose, and it is why BR2.2's\nbyte-identical requirement applies to the OTP endpoint and not to\nthis one. What is bounded is the WIDTH -- never the teacher, never\nthe batch -- and the rate, through signup's own ceilings.\n\nPublic, and in ``PUBLIC_ROUTES``: it is called while the signup\nform renders, before any account exists.\n\n:param phone: The number typed into the form\n:param request: The incoming request\n:param session: The request-scoped session\n:return: Existence, the name to pre-fill and the role to lock\n:raises CeilingBreach: A signup ceiling refused this request",
+        "operationId": "lookup_already_added_v1_accounts_already_added_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "phone",
+            "required": true,
+            "schema": {
+              "title": "Phone",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlreadyAddedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Lookup Already Added",
+        "tags": [
+          "accounts"
+        ]
+      }
+    },
+    "/v1/announcements/{announcement_id}": {
+      "delete": {
+        "description": "Soft-delete a note [AC3.3.3].\n\nThe row survives; only its visibility ends.\n\n:param announcement_id: The note, from the route path\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: An empty 204",
+        "operationId": "remove_announcement_v1_announcements__announcement_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "announcement_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Announcement Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide. On a version conflict the details carry the current version and the current roster, which is why this is unreachable before authorization."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Announcement",
+        "tags": [
+          "teaching"
+        ]
+      },
+      "put": {
+        "description": "Edit a note, marking it as edited [AC3.3.2].\n\n:param announcement_id: The note, from the route path\n:param body: Its new text\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: The edited note",
+        "operationId": "update_announcement_v1_announcements__announcement_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "announcement_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Announcement Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnnouncementBodyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnnouncementResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide. On a version conflict the details carry the current version and the current roster, which is why this is unreachable before authorization."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Announcement",
+        "tags": [
+          "teaching"
         ]
       }
     },
@@ -860,6 +2860,166 @@
         ]
       }
     },
+    "/v1/batches/{batch_id}/announcements": {
+      "get": {
+        "description": "List a batch's visible announcements, for its teacher.\n\n:param batch_id: The batch, from the route path\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: The visible notes, newest first",
+        "operationId": "read_announcements_v1_batches__batch_id__announcements_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AnnouncementResponse"
+                  },
+                  "title": "Response Read Announcements V1 Batches  Batch Id  Announcements Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Announcements",
+        "tags": [
+          "teaching"
+        ]
+      },
+      "post": {
+        "description": "Post one note to a batch [BR7.1].\n\n:param batch_id: The batch, from the route path\n:param body: What it says\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: The posted note",
+        "operationId": "create_announcement_v1_batches__batch_id__announcements_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnnouncementBodyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnnouncementResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide. On a version conflict the details carry the current version and the current roster, which is why this is unreachable before authorization."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Announcement",
+        "tags": [
+          "teaching"
+        ]
+      }
+    },
     "/v1/batches/{batch_id}/enrollments": {
       "post": {
         "description": "Add a student to a batch [AC2.2.2].\n\n:param batch_id: The batch to add to\n:param body: The seat to create\n:param lens: The teacher lens carrying the owner id\n:param session: The request-scoped session\n:return: The created seat",
@@ -914,6 +3074,328 @@
         ]
       }
     },
+    "/v1/batches/{batch_id}/exams": {
+      "get": {
+        "description": "List one batch's exams, oldest first.\n\n:param batch_id: The batch, from the route path\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: One row per exam",
+        "operationId": "read_batch_exams_v1_batches__batch_id__exams_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ExamResponse"
+                  },
+                  "title": "Response Read Batch Exams V1 Batches  Batch Id  Exams Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence, and the refusal when the marksheet toggle is off is the same one: an empty marksheet would still disclose that exams exist and how many."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Batch Exams",
+        "tags": [
+          "marks"
+        ]
+      },
+      "post": {
+        "description": "Create one exam [BR4.1].\n\nThe subject must be one of **this batch's own**; a subject id from\nanother teacher's batch would attach an exam across the ownership\nboundary, and the refusal is the shared ``NOT_AVAILABLE`` because\nnaming it as wrong is the oracle.\n\n:param batch_id: The batch, from the route path\n:param body: The subject, title, date and total\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: The new exam",
+        "operationId": "create_batch_exam_v1_batches__batch_id__exams_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExamCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExamResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence, and the refusal when the marksheet toggle is off is the same one: an empty marksheet would still disclose that exams exist and how many."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Batch Exam",
+        "tags": [
+          "marks"
+        ]
+      }
+    },
+    "/v1/batches/{batch_id}/fees": {
+      "get": {
+        "description": "List every seat's fee position on one of this teacher's batches.\n\n:param batch_id: The batch, from the route path\n:param session: The request-scoped session\n:param lens: The teacher lens carrying the owner id\n:return: One row per seat",
+        "operationId": "read_batch_fees_v1_batches__batch_id__fees_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RosterFeeRowResponse"
+                  },
+                  "title": "Response Read Batch Fees V1 Batches  Batch Id  Fees Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Batch Fees",
+        "tags": [
+          "fees"
+        ]
+      }
+    },
+    "/v1/batches/{batch_id}/marksheet-visibility": {
+      "put": {
+        "description": "Write the marksheet toggle [BR5.4].\n\n**The one route that writes it.** The column is already built and\nnon-null, so D4 ships no migration and no default for it.\n\n:param batch_id: The batch, from the route path\n:param body: Whether families may see a marksheet\n:param session: The request-scoped session\n:param lens: The teacher lens; only the owner may write it\n:return: The value now in force",
+        "operationId": "set_batch_marksheet_visibility_v1_batches__batch_id__marksheet_visibility_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarksheetToggleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarksheetToggleRequest"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence, and the refusal when the marksheet toggle is off is the same one: an empty marksheet would still disclose that exams exist and how many."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Batch Marksheet Visibility",
+        "tags": [
+          "marks"
+        ]
+      }
+    },
     "/v1/batches/{batch_id}/roster": {
       "get": {
         "description": "List the seats in one of this teacher's batches.\n\nThe roster is what AC2.2.x and AC2.4.x are observed through; it\ncarries no numbered criterion of its own, and AC2.6.1 belongs to\nthe unbuilt student-facing list.\n\n:param batch_id: The batch whose roster to read\n:param lens: The teacher lens carrying the owner id\n:param session: The request-scoped session\n:return: One row per seat",
@@ -962,6 +3444,707 @@
         ]
       }
     },
+    "/v1/batches/{batch_id}/sessions": {
+      "get": {
+        "description": "List one of this teacher's batches' sessions.\n\n:param batch_id: The batch, from the route path\n:param session: The request-scoped session\n:param lens: The teacher lens carrying the owner id\n:return: One row per session, oldest first",
+        "operationId": "read_batch_sessions_v1_batches__batch_id__sessions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SessionResponse"
+                  },
+                  "title": "Response Read Batch Sessions V1 Batches  Batch Id  Sessions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Batch Sessions",
+        "tags": [
+          "teaching"
+        ]
+      },
+      "post": {
+        "description": "Create an ad-hoc session for a date with no slot [BR1.4].\n\n:param batch_id: The batch, from the route path\n:param body: The date, time and optional subject\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: The new session",
+        "operationId": "create_session_v1_batches__batch_id__sessions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide. On a version conflict the details carry the current version and the current roster, which is why this is unreachable before authorization."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Session",
+        "tags": [
+          "teaching"
+        ]
+      }
+    },
+    "/v1/children/{enrollment_id}/exams/{exam_id}/marksheet": {
+      "get": {
+        "description": "Read one child's marksheet, for their recorded guardian.\n\n:param enrollment_id: The child's seat, from the route path\n:param exam_id: The exam, from the route path\n:param session: The request-scoped session\n:param lens: The guardian lens\n:return: The published comparison, or a suppressed marksheet",
+        "operationId": "read_child_marksheet_v1_children__enrollment_id__exams__exam_id__marksheet_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enrollment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enrollment Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "exam_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Exam Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/PublishedMarksheetResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SuppressedMarksheetResponse"
+                    }
+                  ],
+                  "title": "Response Read Child Marksheet V1 Children  Enrollment Id  Exams  Exam Id  Marksheet Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence, and the refusal when the marksheet toggle is off is the same one: an empty marksheet would still disclose that exams exist and how many."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Child Marksheet",
+        "tags": [
+          "marks"
+        ]
+      }
+    },
+    "/v1/children/{enrollment_id}/fees": {
+      "get": {
+        "description": "List one child's periods, for their recorded guardian.\n\nThe child arrives as a **path parameter**, never from a\nclient-supplied lens hint [BR5.1, OQ-7].\n\n:param enrollment_id: The child's seat, from the route path\n:param session: The request-scoped session\n:param lens: The guardian lens\n:return: One row per generated period",
+        "operationId": "read_child_fees_v1_children__enrollment_id__fees_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enrollment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enrollment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/FeeCycleResponse"
+                  },
+                  "title": "Response Read Child Fees V1 Children  Enrollment Id  Fees Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Child Fees",
+        "tags": [
+          "fees"
+        ]
+      }
+    },
+    "/v1/children/{enrollment_id}/progress": {
+      "get": {
+        "description": "Read one child's results across exams, in date order [BR6.6].\n\n**Ordered by the server**, not the client, and an absence carries\nno numeric value: plotted as zero it would show a collapse in\nperformance that did not happen.\n\n:param enrollment_id: The child's seat, from the route path\n:param session: The request-scoped session\n:param lens: The guardian lens\n:return: One entry per exam, oldest first",
+        "operationId": "read_child_progress_v1_children__enrollment_id__progress_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enrollment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enrollment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProgressEntryResponse"
+                  },
+                  "title": "Response Read Child Progress V1 Children  Enrollment Id  Progress Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence, and the refusal when the marksheet toggle is off is the same one: an empty marksheet would still disclose that exams exist and how many."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Child Progress",
+        "tags": [
+          "marks"
+        ]
+      }
+    },
+    "/v1/children/{enrollment_id}/teaching": {
+      "get": {
+        "description": "Return what this guardian sees of their child's batch [BR7.2].\n\nThe child arrives as a **path parameter**, never from a\nclient-supplied lens hint.\n\n:param enrollment_id: The child's seat, from the route path\n:param session: The request-scoped session\n:param lens: The guardian lens\n:return: The batch view, with its server timestamp",
+        "operationId": "read_child_batch_teaching_v1_children__enrollment_id__teaching_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enrollment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enrollment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FamilyBatchViewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Child Batch Teaching",
+        "tags": [
+          "teaching"
+        ]
+      }
+    },
+    "/v1/claims/{claim_id}": {
+      "get": {
+        "description": "Read one of this claimant's own claims and its outcome.\n\nThe rejection the submitter must see [BR5.6] and the prior decision\na correction retained [BR5.7] are both carried here.\n\n:param claim_id: The claim, from the route path\n:param session: The request-scoped session\n:param lens: The student lens\n:return: The claim and its decision",
+        "operationId": "read_claim_v1_claims__claim_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "claim_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Claim Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Claim",
+        "tags": [
+          "fees"
+        ]
+      }
+    },
+    "/v1/claims/{claim_id}/rejection": {
+      "post": {
+        "description": "Reject a claim, recording nothing as received [BR5.6].\n\nA separate route from verification rather than an approval of zero:\nrejecting and approving nothing are different decisions, and the\nclaimant is shown different things.\n\n:param claim_id: The claim, from the route path\n:param session: The request-scoped session\n:param lens: The teacher lens\n:param body: Optional; carries ``correcting`` when revising\n:return: The rejected claim",
+        "operationId": "record_rejection_v1_claims__claim_id__rejection_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "claim_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Claim Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RejectionRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Rejection",
+        "tags": [
+          "fees"
+        ]
+      }
+    },
+    "/v1/claims/{claim_id}/verification": {
+      "post": {
+        "description": "Approve a claim, in whole or in part [AC6.3.x].\n\nThe shortfall is computed server-side as ``charged - approved``\n[BR5.3]; the request names the approved amount and the disposition,\nnever the shortfall. A disposition is **required** where the\napproval falls below the charge and refused where it does not\n[BR5.4] -- the server decides which, because only it knows what the\ncycle was charged.\n\n:param claim_id: The claim, from the route path\n:param body: The approved amount and the disposition\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: The decided claim",
+        "operationId": "record_verification_v1_claims__claim_id__verification_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "claim_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Claim Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerificationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Verification",
+        "tags": [
+          "fees"
+        ]
+      }
+    },
     "/v1/enrollments/{enrollment_id}": {
       "delete": {
         "description": "Remove a dormant, never-erased seat [AC2.5.1].\n\n:param enrollment_id: The seat to remove\n:param lens: The teacher lens, which scopes the write\n:param session: The request-scoped session\n:return: None",
@@ -996,6 +4179,168 @@
         "summary": "Remove Enrollment",
         "tags": [
           "batches"
+        ]
+      }
+    },
+    "/v1/enrollments/{enrollment_id}/claims": {
+      "post": {
+        "description": "Submit a payment claim against this seat's oldest unpaid cycle.\n\n:param enrollment_id: The seat, from the route path\n:param body: The claimed amount, channel and reference\n:param session: The request-scoped session\n:param lens: The student lens\n:return: The pending claim",
+        "operationId": "create_claim_v1_enrollments__enrollment_id__claims_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enrollment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enrollment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClaimSubmitRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Claim",
+        "tags": [
+          "fees"
+        ]
+      }
+    },
+    "/v1/enrollments/{enrollment_id}/fees": {
+      "get": {
+        "description": "List one seat's generated periods, for its teacher.\n\n:param enrollment_id: The seat, from the route path\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: One row per generated period",
+        "operationId": "read_enrollment_fees_as_teacher_v1_enrollments__enrollment_id__fees_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enrollment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enrollment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/FeeCycleResponse"
+                  },
+                  "title": "Response Read Enrollment Fees As Teacher V1 Enrollments  Enrollment Id  Fees Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Enrollment Fees As Teacher",
+        "tags": [
+          "fees"
         ]
       }
     },
@@ -1046,6 +4391,405 @@
         ]
       }
     },
+    "/v1/enrollments/{enrollment_id}/payment-destination": {
+      "get": {
+        "description": "Return where to pay for this seat [BR6.4, NFR14.32].\n\n**The one route in the product carrying the collection number**, and\na test over the generated document asserts that as an equality\nrather than a membership.\n\nReturns **null where the teacher set no number** [NFR14.34], so the\nclient omits the destination step entirely rather than rendering a\nfield with a null in it.\n\n:param enrollment_id: The seat, from the route path\n:param session: The request-scoped session\n:param lens: The student lens\n:return: The destination, or None",
+        "operationId": "read_payment_destination_v1_enrollments__enrollment_id__payment_destination_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enrollment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enrollment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/PaymentDestinationResponse"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Read Payment Destination V1 Enrollments  Enrollment Id  Payment Destination Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Payment Destination",
+        "tags": [
+          "fees"
+        ]
+      }
+    },
+    "/v1/exams/{exam_id}": {
+      "put": {
+        "description": "Edit an exam's title, date or total.\n\n:param exam_id: The exam, from the route path\n:param body: Its new values\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: The updated exam",
+        "operationId": "update_batch_exam_v1_exams__exam_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "exam_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Exam Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExamCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExamResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence, and the refusal when the marksheet toggle is off is the same one: an empty marksheet would still disclose that exams exist and how many."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Batch Exam",
+        "tags": [
+          "marks"
+        ]
+      }
+    },
+    "/v1/exams/{exam_id}/marks": {
+      "post": {
+        "description": "Enter or correct one seat's result [BR4.2, BR4.4].\n\nA correction **appends and supersedes**; no mark is ever updated\nin place or deleted, because FR9.2 requires a change to be\nvisible and on a shared marksheet a silently changed mark is the\none a student will dispute.\n\n:param exam_id: The exam, from the route path\n:param body: The seat, the state and the number\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: None",
+        "operationId": "write_exam_mark_v1_exams__exam_id__marks_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "exam_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Exam Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarkWriteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence, and the refusal when the marksheet toggle is off is the same one: an empty marksheet would still disclose that exams exist and how many."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Write Exam Mark",
+        "tags": [
+          "marks"
+        ]
+      }
+    },
+    "/v1/exams/{exam_id}/marks/{enrollment_id}/history": {
+      "get": {
+        "description": "Read one seat's correction history [FR9.2].\n\n:param exam_id: The exam, from the route path\n:param enrollment_id: The seat, from the route path\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: Every row ever recorded, oldest first",
+        "operationId": "read_mark_history_v1_exams__exam_id__marks__enrollment_id__history_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "exam_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Exam Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "enrollment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enrollment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CorrectionEntryResponse"
+                  },
+                  "title": "Response Read Mark History V1 Exams  Exam Id  Marks  Enrollment Id  History Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence, and the refusal when the marksheet toggle is off is the same one: an empty marksheet would still disclose that exams exist and how many."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Mark History",
+        "tags": [
+          "marks"
+        ]
+      }
+    },
+    "/v1/exams/{exam_id}/results": {
+      "get": {
+        "description": "Read every seat's result for one exam [BR4.3].\n\n``not_entered`` and ``joined_after`` are **derived** and never\ntyped by the teacher.\n\n:param exam_id: The exam, from the route path\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: One row per seat",
+        "operationId": "read_exam_results_v1_exams__exam_id__results_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "exam_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Exam Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SeatResultResponse"
+                  },
+                  "title": "Response Read Exam Results V1 Exams  Exam Id  Results Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence, and the refusal when the marksheet toggle is off is the same one: an empty marksheet would still disclose that exams exist and how many."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Exam Results",
+        "tags": [
+          "marks"
+        ]
+      }
+    },
     "/v1/guardian/children": {
       "get": {
         "description": "List the seats this guardian was recorded on [AC2.7.1].\n\nResolved through ``guardian_account_id`` and never through the\nchild, so two teachers' records never merge [BR5.3].\n\n:param lens: The guardian lens carrying the authenticated account\n:param session: The request-scoped session\n:return: One entry per reachable seat",
@@ -1069,6 +4813,1094 @@
         "summary": "List Children",
         "tags": [
           "batches"
+        ]
+      }
+    },
+    "/v1/invitations": {
+      "get": {
+        "description": "List every unaccepted seat this account holds [BR1.3, BR5.5].\n\n**Lens-exempt for the same reason ``GET /v1/me`` is**, and recorded\nin ``LENS_EXEMPT_AUTHENTICATED`` rather than left to infer: this is\nthe route that REPORTS which invitation lenses exist, so requiring\none would mean a person had to already know which seats they were\noffered in order to ask. Every row it returns is derived from the\nauthenticated account id and it reads nothing another account could\nown.\n\nA **declined** seat stays in this list with its state, because its\nholder may change their mind [BR5.4, AC1.13.1]. A seat whose links\nthis account holds BOTH appears once [BR5.3].\n\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:return: One entry per unaccepted seat, oldest first",
+        "operationId": "list_invitations_v1_invitations_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/InvitationResponse"
+                  },
+                  "title": "Response List Invitations V1 Invitations Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Invitations",
+        "tags": [
+          "accounts"
+        ]
+      }
+    },
+    "/v1/invitations/{enrollment_id}": {
+      "get": {
+        "description": "Read one unaccepted seat, at BR1.4's width.\n\n:param lens: The invitation lens carrying the one reachable seat\n:param session: The request-scoped session\n:return: Batch name, subject, fee and this holder's own state",
+        "operationId": "read_one_invitation_v1_invitations__enrollment_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enrollment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enrollment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read One Invitation",
+        "tags": [
+          "accounts"
+        ]
+      }
+    },
+    "/v1/invitations/{enrollment_id}/accept": {
+      "post": {
+        "description": "Accept this seat, from ``pending`` or from ``declined``.\n\nOne route for both, because accepting after a decline is the same\noperation and not a second one [BR5.4, AC1.13.2]: the lens becomes\navailable exactly as if the person had accepted first time.\n\n:param lens: The invitation lens carrying the one reachable seat\n:param session: The request-scoped session\n:return: The seat and this holder's decision",
+        "operationId": "accept_invitation_v1_invitations__enrollment_id__accept_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enrollment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enrollment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecisionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Accept Invitation",
+        "tags": [
+          "accounts"
+        ]
+      }
+    },
+    "/v1/invitations/{enrollment_id}/decline": {
+      "post": {
+        "description": "Decline this seat, withdrawing only this holder's own lens.\n\n**A guardian's decline does not stop the student's fee** [BR5.2,\nAC1.14.1a]. The seat leaves this person's enrollments and stays\namong their invitations, with an accept action [BR5.5].\n\n:param lens: The invitation lens carrying the one reachable seat\n:param session: The request-scoped session\n:return: The seat and this holder's decision",
+        "operationId": "decline_invitation_v1_invitations__enrollment_id__decline_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enrollment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enrollment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecisionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decline Invitation",
+        "tags": [
+          "accounts"
+        ]
+      }
+    },
+    "/v1/me": {
+      "delete": {
+        "description": "Delete the authenticated account.\n\n**The same deletion function the external route calls** [BR3.1].\nThe access token is the ownership proof here, where the external\nroute uses a verified code, and that is the ONLY difference between\nthe two paths -- the outcome is identical row for row, which the\ntest asserts by comparing the surviving row sets rather than each\nagainst a hand-written expectation.\n\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:return: The acknowledgement\n:raises DeletionRefused: The account owns at least one batch",
+        "operationId": "delete_own_account_v1_me_delete",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeletionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Delete Own Account",
+        "tags": [
+          "deletion"
+        ]
+      },
+      "get": {
+        "description": "List every lens this account has.\n\n:param account_id: The authenticated account\n:param session: The session to query through\n:return: The available lenses, each with its count",
+        "operationId": "read_me_v1_me_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Read Me",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/v1/me/batches/{enrollment_id}/teaching": {
+      "get": {
+        "description": "Return what this student sees of one of their batches [BR7.2].\n\n:param enrollment_id: Their seat, from the route path\n:param session: The request-scoped session\n:param lens: The student lens\n:return: The batch view, with its server timestamp",
+        "operationId": "read_my_batch_teaching_v1_me_batches__enrollment_id__teaching_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enrollment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enrollment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FamilyBatchViewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read My Batch Teaching",
+        "tags": [
+          "teaching"
+        ]
+      }
+    },
+    "/v1/me/dues": {
+      "get": {
+        "description": "Everyone who owes this teacher money, across every batch [FR7.1].\n\n**Two statements whatever the teacher's size**: one for the seats,\none for the ledger, then a fold in memory [BR1.6]. The oldest unpaid\nperiod comes from that same fold rather than from\n``app/fees/balances.py``'s ``oldest_unpaid_period``, which takes one\nenrollment and would be one query per row.\n\n**Computed on open** [BR1.4]: no generate step, no refresh action,\nno materialised rollup. A stale figure about money is worse than a\nslow one -- a teacher chases a debt already paid, or fails to chase\none just incurred.\n\n**No parameter of any kind.** The lens's ``owner_id`` is the only\nscoping value, so there is nothing to validate and nothing to\nforget.\n\n:param session: The request-scoped session, which is also what makes\n    both statements read ONE snapshot [NFR6.62]\n:param lens: The teacher lens carrying the owner id\n:return: One row per owing seat, largest first, possibly empty",
+        "operationId": "read_dues_v1_me_dues_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DuesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "This account holds no teacher lens."
+          }
+        },
+        "summary": "Read Dues",
+        "tags": [
+          "analytics"
+        ]
+      }
+    },
+    "/v1/me/enrollments/{enrollment_id}/exams/{exam_id}/marksheet": {
+      "get": {
+        "description": "Read this student's own marksheet for one exam [BR6.2].\n\n:param enrollment_id: Their seat, from the route path\n:param exam_id: The exam, from the route path\n:param session: The request-scoped session\n:param lens: The student lens\n:return: The published comparison, or a suppressed marksheet",
+        "operationId": "read_my_marksheet_v1_me_enrollments__enrollment_id__exams__exam_id__marksheet_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enrollment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enrollment Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "exam_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Exam Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/PublishedMarksheetResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SuppressedMarksheetResponse"
+                    }
+                  ],
+                  "title": "Response Read My Marksheet V1 Me Enrollments  Enrollment Id  Exams  Exam Id  Marksheet Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence, and the refusal when the marksheet toggle is off is the same one: an empty marksheet would still disclose that exams exist and how many."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read My Marksheet",
+        "tags": [
+          "marks"
+        ]
+      }
+    },
+    "/v1/me/fees": {
+      "get": {
+        "description": "List this student's own periods for one of their seats.\n\nThe seat arrives as a query parameter and the grant is checked\nagainst it, never the other way round: the handler cannot reach a\nsecond seat because the view refuses one this lens does not hold.\n\n:param enrollment_id: The seat to read\n:param session: The request-scoped session\n:param lens: The student lens\n:return: One row per generated period",
+        "operationId": "read_my_fees_v1_me_fees_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "enrollment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enrollment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/FeeCycleResponse"
+                  },
+                  "title": "Response Read My Fees V1 Me Fees Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read My Fees",
+        "tags": [
+          "fees"
+        ]
+      }
+    },
+    "/v1/me/overview": {
+      "get": {
+        "description": "Return this month's earnings, the trend and the next exam [FR8.1-FR8.4].\n\n**The earnings total and the trend fold the SAME ledger read**\n[performance § 2]. Two figures from one read, so they cannot\ndisagree -- a second query would be a second chance to.\n\n**Zero is a value, not an absence** [BR2.2]. A month with no\nreceipts reports ``\"0.00\"``, which is a fact about the month, and\nthe zero is supplied **here at the boundary** rather than inside the\nfold: inside, absence genuinely means zero, while at the edge it\ncould mean the read failed [reliability § 1.3]. The fold runs over\nrows already in hand, so a failure raises rather than producing an\nempty map.\n\n:param session: The request-scoped session\n:param lens: The teacher lens carrying the owner id\n:return: The three blocks, each able to be absent without the others",
+        "operationId": "read_overview_v1_me_overview_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "This account holds no teacher lens."
+          }
+        },
+        "summary": "Read Overview",
+        "tags": [
+          "analytics"
+        ]
+      }
+    },
+    "/v1/sessions/{session_id}": {
+      "get": {
+        "description": "Read one session.\n\n:param session_id: The session, from the route path\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: The session",
+        "operationId": "read_session_v1_sessions__session_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Session",
+        "tags": [
+          "teaching"
+        ]
+      }
+    },
+    "/v1/sessions/{session_id}/attendance": {
+      "get": {
+        "description": "Read one session's roster [BR1.5].\n\n:param session_id: The session, from the route path\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: One row per seat on the roster",
+        "operationId": "read_session_roster_v1_sessions__session_id__attendance_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RosterSeatResponse"
+                  },
+                  "title": "Response Read Session Roster V1 Sessions  Session Id  Attendance Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Session Roster",
+        "tags": [
+          "teaching"
+        ]
+      },
+      "post": {
+        "description": "Submit a whole roster in one atomic write [BR3.3-BR3.8].\n\n**The other of the two D4 writes carrying\n``client_mutation_id``.** A replay returns the ORIGINAL stored\nresult with 200 and writes nothing; a stale version is refused\nwith 409 **after** the lens has been resolved, because the\nconflict's details carry the current roster.\n\n:param session_id: The session, from the route path\n:param body: The version, the replay key and every seat's mark\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: The version now in force",
+        "operationId": "submit_session_roster_v1_sessions__session_id__attendance_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttendanceSubmitRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttendanceSubmitResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide. On a version conflict the details carry the current version and the current roster, which is why this is unreachable before authorization."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Submit Session Roster",
+        "tags": [
+          "teaching"
+        ]
+      }
+    },
+    "/v1/sessions/{session_id}/cancellation": {
+      "post": {
+        "description": "Cancel a session [BR1.6].\n\nTerminal for writes and not for reads: the row and its history\nremain readable.\n\n:param session_id: The session, from the route path\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: The cancelled session",
+        "operationId": "cancel_session_v1_sessions__session_id__cancellation_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide. On a version conflict the details carry the current version and the current roster, which is why this is unreachable before authorization."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Session",
+        "tags": [
+          "teaching"
+        ]
+      }
+    },
+    "/v1/sessions/{session_id}/schedule": {
+      "put": {
+        "description": "Move a session, preserving its identity [BR1.7].\n\n:param session_id: The session, from the route path\n:param body: Its new date and start time\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: The moved session",
+        "operationId": "reschedule_session_v1_sessions__session_id__schedule_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionRescheduleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide. On a version conflict the details carry the current version and the current roster, which is why this is unreachable before authorization."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reschedule Session",
+        "tags": [
+          "teaching"
+        ]
+      }
+    },
+    "/v1/sessions/{session_id}/subject": {
+      "put": {
+        "description": "Set which subject a session taught.\n\n:param session_id: The session, from the route path\n:param body: The subject, or null to clear it\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: The updated session",
+        "operationId": "set_session_subject_v1_sessions__session_id__subject_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionSubjectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide. On a version conflict the details carry the current version and the current roster, which is why this is unreachable before authorization."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Session Subject",
+        "tags": [
+          "teaching"
+        ]
+      }
+    },
+    "/v1/sessions/{session_id}/topic": {
+      "put": {
+        "description": "Write a session's topic [BR2.1].\n\n**One of exactly two D4 writes carrying ``client_mutation_id``**\nand a version, because it is one of the two mid-class paths the\ndevice queue covers [§ B.7, NFR5]. The replay key is FORWARDED, not\nmerely declared: a body that carries the field while the call drops\nit leaves this path with no replay protection, and the schema-level\ncontract test cannot see the difference. ``test_api.py``'s\n``test_both_declared_mutation_id_paths_actually_replay`` is what\nasserts the forwarding.\n\n:param session_id: The session, from the route path\n:param body: The version, the replay key and the topic\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: The topic version now in force",
+        "operationId": "write_session_topic_v1_sessions__session_id__topic_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TopicWriteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TopicWriteResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide. On a version conflict the details carry the current version and the current roster, which is why this is unreachable before authorization."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Write Session Topic",
+        "tags": [
+          "teaching"
         ]
       }
     }

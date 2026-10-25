@@ -93,8 +93,27 @@ class RosterRow:
     :ivar guardian_phone: The teacher-typed guardian contact, if any
     :ivar fee_amount: This seat's fee, or None when it inherits the
         batch default. None is NOT zero: zero is a waiver [AC2.2.5]
-    :ivar is_dormant: True while nobody has signed in to this seat
+    :ivar is_dormant: True while **no link has accepted** this seat
+        [BR7.2]. Not "nobody has signed in": after D1 a named account
+        may still be pending, and reading the link would show a seat as
+        claimed the moment a stranger signs up on a mistyped number
     :ivar inactive_from: The date after which no cycle generates
+    :ivar student_state: The student link's own decision --
+        ``pending``, ``accepted`` or ``declined`` [BR2.1]
+    :ivar guardian_state: The guardian link's own decision, plus a
+        fourth value ``absent`` when no guardian is recorded [BR2.2].
+
+        **``absent`` is not ``pending``**, and the distinction is
+        load-bearing rather than tidy: ``guardian_account_id`` is
+        nullable and a seat genuinely can have no guardian, so
+        reporting ``pending`` there would count a decision nobody was
+        asked for as outstanding.
+    :ivar is_removable: Whether removal would succeed [BR3.1].
+
+        **Sent because the client must not derive it.** Removal tests
+        two conditions and this row carries only the first: a client
+        inferring removability from the link states it displays would
+        offer the action on an erased seat, whose marker it never saw.
     """
 
     enrollment_id: uuid.UUID
@@ -103,6 +122,9 @@ class RosterRow:
     fee_amount: Money | None
     is_dormant: bool
     inactive_from: dt.date | None
+    student_state: str
+    guardian_state: str
+    is_removable: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,6 +141,123 @@ class GuardianChildRow:
     student_account_id: uuid.UUID | None
     display_name: str
     batch_name: str
+
+
+def _nobody_accepted(record: Enrollment) -> bool:
+    """Report whether no link on this seat has accepted it.
+
+    **The predicate D1's migration made necessary** [BR7.1, BR7.2].
+    Both of this module's merged readers of the link columns -- the
+    roster's dormancy flag and ``remove_enrollment``'s claimed check --
+    read ``student_account_id`` as "claimed", which was correct only
+    while signing in WAS acceptance. After BR5.1 signing up links the
+    account and leaves the decision ``pending``, so the link stopped
+    answering that question and this does instead.
+
+    **Either link's acceptance claims the seat.** A guardian who
+    accepts a seat whose student has not is holding a lens over it, so
+    a derivation reading only ``student_decision`` would report a
+    claimed seat as removable -- which is the harm in the opposite
+    direction from the one this unit is mostly about.
+
+    One function for both callers, deliberately: two copies of a
+    predicate that must agree is how they stop agreeing, and the pair
+    that was wrong together is the pair this replaces.
+
+    :param record: The seat to test
+    :return: True when neither link carries ``accepted``
+    """
+    return (
+        record.student_decision != "accepted" and record.guardian_decision != "accepted"
+    )
+
+
+def _guardian_state(record: Enrollment) -> str:
+    """Report the guardian link's decision, or that there is no link.
+
+    **One predicate for both callers.** The roster reads it per row and
+    :func:`roster_row_of` reports it for a seat just created; two copies
+    of a predicate that must agree is how they stop agreeing, which is
+    the reasoning :func:`_nobody_accepted` already records for its own
+    pair of callers.
+
+    **``absent`` is a fourth value and not a null** [BR2.2]. A seat with
+    no guardian recorded has no decision to report, and answering
+    ``pending`` there would count a decision nobody was asked for --
+    making the batch's outstanding figure wrong by exactly the number of
+    guardian-less seats.
+
+    **The link is the teacher-typed number, not the account id.** A
+    guardian the teacher recorded who has not signed up yet carries
+    ``guardian_phone`` and a NULL ``guardian_account_id`` [BR5.1,
+    ``_LINK_GUARDIAN_SEATS``], and they are genuinely pending: they were
+    asked and have not answered. Keying absence on the account id would
+    report every unregistered guardian as ``absent``, which is the exact
+    inversion this rule exists to prevent.
+
+    :param record: The seat to read
+    :return: The guardian decision, or ``absent``
+    """
+    if record.guardian_phone is None and record.guardian_account_id is None:
+        return "absent"
+    return record.guardian_decision
+
+
+def _is_removable(record: Enrollment) -> bool:
+    """Report whether removal would succeed on this seat.
+
+    **The two conditions :func:`remove_enrollment` tests, and the roster
+    carries only one of them** [BR3.1, NFR14.31]. A seat is removable
+    when no link accepted it AND no erasure marker is set; the row
+    carries the decisions and does not carry the markers, so a client
+    deriving removability from what it displays would offer removal on
+    an erased seat. That is a wrong answer presented as an available
+    action, not a style preference.
+
+    **The same two predicates the write path uses**, deliberately. This
+    answers "would removal succeed", so if it answered differently from
+    the function that performs it, the roster would offer an action the
+    server then refuses -- which is worse than not offering it, because
+    the teacher has already decided by the time they learn.
+
+    :param record: The seat to test
+    :return: True when removal would be permitted
+    """
+    was_erased = (
+        record.student_relink_blocked_at is not None
+        or record.guardian_relink_blocked_at is not None
+    )
+    return _nobody_accepted(record) and not was_erased
+
+
+def _roster_row(record: Enrollment) -> RosterRow:
+    """Build one roster row from a seat.
+
+    **One builder, so the add-student response and the roster cannot
+    disagree about a seat.** A teacher who adds a student sees the row
+    the response carried; the next roster read must show the same seat
+    the same way, and two hand-written mappings of the same columns is
+    how that stops being true.
+
+    The decisions are **added beside** ``is_dormant`` rather than
+    replacing it [BR2.1]: the flag is the seat-level collapse of both
+    links and these are the links themselves, so the shared
+    :func:`_nobody_accepted` stays the one source for the first.
+
+    :param record: The seat to describe
+    :return: The row a teacher reads
+    """
+    return RosterRow(
+        enrollment_id=record.id,
+        display_name=record.display_name,
+        guardian_phone=record.guardian_phone,
+        fee_amount=record.fee_amount,
+        is_dormant=_nobody_accepted(record),
+        inactive_from=record.inactive_from,
+        student_state=record.student_decision,
+        guardian_state=_guardian_state(record),
+        is_removable=_is_removable(record),
+    )
 
 
 def _owned_batch(session: Session, *, lens: TeacherLens, batch_id: uuid.UUID) -> Batch:
@@ -149,6 +288,15 @@ def list_roster(
 ) -> list[RosterRow]:
     """List the seats in one of this teacher's batches.
 
+    **Each row carries both link decisions separately** [BR2.1], and the
+    seat appears once. Collapsing them would lose the case the roster
+    exists to show: a student who accepted and a guardian who declined
+    is a student who is enrolled and owes a fee beside a guardian who
+    simply does not watch, and either single value is wrong.
+
+    No extra statement and no join [NFR20.10]: both are columns of the
+    rows this select already reads.
+
     :param session: The session to query through
     :param lens: The teacher lens carrying the owner id
     :param batch_id: The batch whose roster to read
@@ -163,17 +311,7 @@ def list_roster(
         .order_by(Enrollment.display_name, Enrollment.id)
     ).scalars()
 
-    return [
-        RosterRow(
-            enrollment_id=row.id,
-            display_name=row.display_name,
-            guardian_phone=row.guardian_phone,
-            fee_amount=row.fee_amount,
-            is_dormant=row.student_account_id is None,
-            inactive_from=row.inactive_from,
-        )
-        for row in rows
-    ]
+    return [_roster_row(row) for row in rows]
 
 
 def list_guardian_children(
@@ -186,6 +324,14 @@ def list_guardian_children(
     then show every enrollment of those children -- merges two teachers'
     records: a guardian recorded by teacher A would see teacher B's batch
     for the same child.
+
+    **Safe after D1 only TRANSITIVELY, which is recorded so it is a
+    decision rather than a later discovery** [rules.md sweep]. This
+    query has no decision predicate of its own: it is correct because
+    ``GuardianLens`` stops being granted for an unaccepted link
+    [BR1.1], so it never runs for one. A reader who later removes the
+    lens requirement, or calls this from somewhere the lens did not
+    come from, inherits a query that would list seats nobody accepted.
 
     :param session: The session to query through
     :param lens: The guardian lens carrying the authenticated account
@@ -254,13 +400,17 @@ def _owned_enrollment(
 def remove_enrollment(
     session: Session, *, lens: TeacherLens, enrollment_id: uuid.UUID
 ) -> None:
-    """Delete a seat, if it is both dormant and never erased.
+    """Delete a seat, if no link accepted it and none was ever erased.
 
     **Two conditions, and the second is the one that gets forgotten.**
-    After an erasure ``student_account_id`` is NULL again, so a check
-    reading only that column deletes the erased row -- destroying the
-    marker that stops the number reattaching on its next sign-in, which
-    is the harm the marker exists to prevent [BR6.2, §B.1].
+    After an erasure the link is NULL again, so a check reading only
+    acceptance deletes the erased row -- destroying the marker that
+    stops the number reattaching on its next sign-in, which is the harm
+    the marker exists to prevent [BR6.2, §B.1].
+
+    The first condition reads the DECISION columns and not the link
+    columns [BR7.1]; see :func:`_nobody_accepted` for why that change
+    belongs in the same Unit that changed what the link means.
 
     :param session: The session to write through
     :param lens: The teacher lens carrying the owner id
@@ -271,7 +421,20 @@ def remove_enrollment(
     """
     record = _owned_enrollment(session, lens=lens, enrollment_id=enrollment_id)
 
-    if record.student_account_id is not None:
+    # THE DECISION, NOT THE LINK [BR7.1, AC2.5.1a]. This read
+    # ``student_account_id IS NOT NULL`` until D1, and that was correct
+    # only while signing in WAS acceptance. After BR5.1 it starts
+    # refusing to remove a seat created on a MISTYPED NUMBER the instant
+    # that stranger signs up -- closing the single recovery path the
+    # acceptance model exists to open, in a merged routed write path
+    # rather than on a screen.
+    #
+    # A declined seat is removable for the same reason a pending one
+    # is: nobody accepted, so nothing is destroyed, and re-adding the
+    # number creates a fresh seat the person is free to decline again.
+    # ADR-003 is intact -- a teacher still cannot make an ACCEPTED
+    # person's records go away.
+    if not _nobody_accepted(record):
         raise EnrollmentNotRemovable(
             code="ENROLLMENT_CLAIMED",
             message_key="enrollment.remove.claimed",
@@ -322,16 +485,29 @@ def set_inactive_from(
 
 @dataclass(frozen=True, slots=True)
 class BatchSummary:
-    """A batch and its seat count, as its owner sees it.
+    """A batch and its seat counts, as its owner sees it.
+
+    **Two numbers, one of them a numerator** [BR1.2]. The pair renders
+    as "9 of 12 accepted", and the denominator is the one that is easy
+    to get wrong: ``enrollment_count`` counts **every** seat the teacher
+    created, declined ones included [BR1.4]. Excluding declined seats
+    would shrink it silently as people refuse, so "9 of 12" becomes
+    "9 of 11" with nothing having been removed and the teacher unable to
+    tell a decline from a removal.
 
     :ivar batch: The batch row
     :ivar subjects: The subjects taught
-    :ivar enrollment_count: How many seats, computed server-side
+    :ivar enrollment_count: How many seats, computed server-side. The
+        DENOMINATOR, and it excludes nothing
+    :ivar accepted_count: How many of those seats at least one link has
+        accepted [BR1.2]. Either link's acceptance counts the seat: a
+        student who accepted has joined, whatever the guardian did
     """
 
     batch: Batch
     subjects: list[str]
     enrollment_count: int
+    accepted_count: int
 
 
 def create_batch(
@@ -393,7 +569,9 @@ def list_batches(session: Session, *, lens: TeacherLens) -> list[BatchSummary]:
 
     **The counts come from one grouped query, not one query per batch.**
     The roster's query-count property applies here for the same reason:
-    a per-batch count is the N+1 shape with a different name.
+    a per-batch count is the N+1 shape with a different name. The
+    accepted count joined that statement as a conditional aggregate
+    rather than arriving as a fourth one [NFR20.7, NFR20.8].
 
     :param session: The session to query through
     :param lens: The teacher lens carrying the owner id
@@ -410,13 +588,35 @@ def list_batches(session: Session, *, lens: TeacherLens) -> list[BatchSummary]:
         return []
 
     batch_ids = [batch.id for batch in batches]
-    counts = dict(
-        session.execute(
-            sa.select(Enrollment.batch_id, sa.func.count(Enrollment.id))
-            .where(Enrollment.batch_id.in_(batch_ids))
-            .group_by(Enrollment.batch_id)
-        ).all()
-    )
+    # **One pass for both numbers** [NFR20.7, NFR20.8]. The numerator is
+    # a conditional aggregate on the statement that already computes the
+    # denominator, so adding the accepted count costs no additional
+    # statement however many batches a teacher owns -- which is the N+1
+    # property this query was already written to hold.
+    #
+    # `count(...) FILTER (WHERE ...)` rather than `sum(CASE WHEN ...)`:
+    # both are one pass, and FILTER says what it means. Syntax-checked
+    # against the pinned SQLAlchemy 2.1.5 before this was written, since
+    # a fourth grouped statement was the named fallback.
+    counted = session.execute(
+        sa.select(
+            Enrollment.batch_id,
+            sa.func.count(Enrollment.id),
+            # EITHER link's acceptance claims the seat [BR1.2]. Reading
+            # only `student_decision` would report a seat whose guardian
+            # accepted as not joined.
+            sa.func.count(Enrollment.id).filter(
+                sa.or_(
+                    Enrollment.student_decision == "accepted",
+                    Enrollment.guardian_decision == "accepted",
+                )
+            ),
+        )
+        .where(Enrollment.batch_id.in_(batch_ids))
+        .group_by(Enrollment.batch_id)
+    ).all()
+    counts = {batch_id: total for batch_id, total, _ in counted}
+    accepted = {batch_id: taken for batch_id, _, taken in counted}
     subjects: dict[uuid.UUID, list[str]] = {batch_id: [] for batch_id in batch_ids}
     for batch_id, subject_name in session.execute(
         sa.select(BatchSubject.batch_id, BatchSubject.name)
@@ -430,6 +630,7 @@ def list_batches(session: Session, *, lens: TeacherLens) -> list[BatchSummary]:
             batch=batch,
             subjects=subjects[batch.id],
             enrollment_count=counts.get(batch.id, 0),
+            accepted_count=accepted.get(batch.id, 0),
         )
         for batch in batches
     ]
@@ -446,8 +647,15 @@ def add_enrollment(
     guardian_phone: str | None = None,
     fee_amount: Money | None = None,
     joined_on: dt.date | None = None,
-) -> Enrollment:
+) -> RosterRow:
     """Add a seat to one of this teacher's batches.
+
+    **Returns the roster row, not the ORM record** [D2]. The seat a
+    teacher has just added is the seat they are about to see on the
+    roster, so both come from :func:`_roster_row` and cannot describe
+    it differently -- the add response reporting ``pending`` while the
+    roster computes ``absent`` for the same seat is the drift this
+    removes rather than documents.
 
     :param session: The session to write through
     :param lens: The teacher lens carrying the owner id
@@ -458,7 +666,7 @@ def add_enrollment(
     :param guardian_phone: The teacher-typed guardian contact
     :param fee_amount: This seat's fee, or None to inherit
     :param joined_on: When the student joined
-    :return: The new enrollment
+    :return: The new seat, as the roster describes it
     :raises BatchNotFound: The batch is not this lens's to write
     """
     _owned_batch(session, lens=lens, batch_id=batch_id)
@@ -471,8 +679,14 @@ def add_enrollment(
         guardian_phone=guardian_phone,
         fee_amount=fee_amount,
         joined_on=joined_on,
+        # STATED, because the columns carry no default [ADR-013]. A seat
+        # a teacher creates is pending from creation whether or not the
+        # number already has an account: naming someone is not their
+        # agreement, which is the whole of BR5.1.
+        student_decision="pending",
+        guardian_decision="pending",
         created_at=dt.datetime.now(tz=dt.UTC),
     )
     session.add(record)
     session.commit()
-    return record
+    return _roster_row(record)

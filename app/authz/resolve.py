@@ -56,6 +56,28 @@ MEMO_ATTRIBUTE = "lenses"
 #: *which child*, since nothing linked that row to the student's except
 #: a shared batch. The reshape puts both links on one row, so the
 #: enrollment the guardian reaches IS the child's enrollment.
+#:
+#: **Both role branches carry ``decision = 'accepted'``, and that
+#: predicate is the reason D1 exists** [BR1.1, ADR-014]. Before it,
+#: NAMING an account on a link was the grant -- so a teacher who
+#: mistyped one digit of a guardian's number handed a stranger a
+#: guardian lens over a child's attendance and marks, the moment that
+#: stranger signed up.
+#:
+#: Enforced INSIDE the granting query rather than above it, because a
+#: check above a query is one the next query can bypass. The decision
+#: column is not an authorization input on its own: the per-link
+#: erasure markers are a second, independent axis and both are read on
+#: every grant [BR6.2].
+#:
+#: **``app/authz/summary.py`` carries the SAME predicate in a separate
+#: statement, and changing one alone is a silent half-fix** [BR1.2].
+#: The summary renders the lens picker; this resolver grants. Both read
+#: the same columns and neither reads the other, so a fix here without
+#: one there offers a lens that resolves to nothing.
+#:
+#: The predicates add no join and no round trip [NFR20.1]: both columns
+#: are on rows this statement already reads.
 _LENS_QUERY = sa.text(
     """
     SELECT
@@ -67,10 +89,12 @@ _LENS_QUERY = sa.text(
         EXISTS (
             SELECT 1 FROM enrollment
             WHERE student_account_id = :account_id
+              AND student_decision = 'accepted'
         ) AS is_student,
         (
             SELECT id FROM enrollment
             WHERE guardian_account_id = :account_id
+              AND guardian_decision = 'accepted'
             ORDER BY created_at, id LIMIT 1
         ) AS guardian_enrollment_id
     """

@@ -6,19 +6,45 @@ set -euo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
-# certbot is ABSENT: CloudFront terminates public TLS with an ACM
-# certificate, so the origin needs only a self-signed one for the
+# **certbot is REQUIRED, and the comment that used to stand here was
+# wrong in a way that cost three days of a dead staging origin.**
+#
+# It read: "certbot is ABSENT: CloudFront terminates public TLS with an
+# ACM certificate, so the origin needs only a self-signed one for the
 # CloudFront-to-origin hop. A Let's Encrypt renewal nobody checks is a
-# certificate that expires on a Sunday.
-# **ssl-cert is NOT optional.** It is what generates
-# /etc/ssl/certs/ssl-cert-snakeoil.pem, which the TLS server block
-# below references. Without it nginx fails its config test with
-# `cannot load certificate ... No such file or directory`, falls back
-# to its packaged default, and serves port 80 only -- while the
-# instance still reports a successful boot. CloudFront is configured
-# https-only, so every request through the CDN then 502s.
+# certificate that expires on a Sunday."
+#
+# The second sentence is a fair concern and the first is false.
+# CloudFront DOES validate a custom origin's certificate. AWS documents
+# that it does not support self-signed origin certificates, and that
+# when no name in the certificate matches the origin domain it drops
+# the connection and returns 502. Proven on this host 2026-10-24: with
+# verification on, the handshake fails `no alternative certificate
+# subject name matches target host name`; with it off, nginx answers
+# normally. The application was healthy the whole time and the nginx
+# access log was zero bytes, because no request ever arrived.
+#
+# So the origin needs a REAL certificate. DNS-01 is used rather than
+# HTTP-01 because the security group admits only 443 from CloudFront's
+# prefix list, so there is no port 80 for a challenge to land on. The
+# instance role carries the three Route53 permissions this needs,
+# including ListHostedZones, which the plugin uses to find the zone by
+# name before writing the _acme-challenge record.
+#
+# The renewal concern is answered rather than dismissed: certbot
+# installs its own systemd timer, and the certificate is re-issued on
+# every instance replacement anyway, which on this project is every
+# deploy.
+#
+# **ssl-cert is still NOT optional.** It generates the snakeoil pair
+# that the TLS server block falls back to on first boot, before certbot
+# has run. Without it nginx fails its config test with `cannot load
+# certificate ... No such file or directory`, falls back to its
+# packaged default, and serves port 80 only -- while the instance still
+# reports a successful boot.
 apt-get install -y --no-install-recommends \
-  docker.io docker-compose-v2 nginx ssl-cert
+  docker.io docker-compose-v2 nginx ssl-cert \
+  certbot python3-certbot-dns-route53
 
 usermod -aG docker ubuntu
 systemctl enable --now docker
@@ -59,11 +85,17 @@ server {
     listen 443 ssl default_server;
     server_name _;
 
-    # A self-signed certificate is sufficient and correct here.
-    # CloudFront terminates the PUBLIC TLS session with an ACM
-    # certificate; this one secures only the CloudFront-to-origin hop,
-    # and CloudFront does not validate an origin certificate's chain
-    # when the origin protocol policy is https-only.
+    # **The snakeoil pair is the FALLBACK, not the answer.** It is what
+    # nginx starts on before certbot has run, so the host is reachable
+    # over SSM and the boot can continue. The certbot step later in
+    # this script replaces both paths with a real Let's Encrypt
+    # certificate and reloads.
+    #
+    # It is NOT sufficient on its own: CloudFront validates a custom
+    # origin's certificate, does not support self-signed ones, and
+    # returns 502 when no name matches the origin domain. An earlier
+    # version of this comment claimed the opposite and the staging
+    # origin 502'd for three days with a healthy application behind it.
     ssl_certificate     /etc/ssl/certs/ssl-cert-snakeoil.pem;
     ssl_certificate_key /etc/ssl/private/ssl-cert-snakeoil.key;
     ssl_protocols       TLSv1.2 TLSv1.3;
@@ -251,6 +283,55 @@ rm -f /tmp/dns-register.json
 echo "Registered ${origin_fqdn} -> $PUBLIC_IP"
 
 # ---------------------------------------------------------------------
+# A real origin certificate, so CloudFront will talk to us at all
+# ---------------------------------------------------------------------
+#
+# **This runs AFTER the DNS registration above and not before.** DNS-01
+# writes a TXT record under the same zone, and the zone must already
+# resolve this host; ordering it earlier would issue a certificate for
+# a name pointing at the previous instance.
+#
+# **Failure here is not fatal to the boot, deliberately.** nginx is
+# already serving on the snakeoil pair, so the instance is reachable
+# over SSM for diagnosis and the application is up. What fails is
+# CloudFront, loudly and in one place, rather than the whole boot
+# failing for a certificate problem. The provision log records it
+# either way.
+echo "Requesting origin certificate for ${origin_fqdn}..." \
+  >> /var/log/shikkhokplus-provision.log
+if certbot certonly --dns-route53 \
+     -d "${origin_fqdn}" \
+     --non-interactive --agree-tos --register-unsafely-without-email \
+     --keep-until-expiring \
+     >> /var/log/shikkhokplus-provision.log 2>&1; then
+  LIVE="/etc/letsencrypt/live/${origin_fqdn}"
+  sed -i \
+    "s#ssl_certificate .*ssl-cert-snakeoil.pem;#ssl_certificate     $LIVE/fullchain.pem;#" \
+    /etc/nginx/sites-available/shikkhokplus
+  sed -i \
+    "s#ssl_certificate_key .*ssl-cert-snakeoil.key;#ssl_certificate_key $LIVE/privkey.pem;#" \
+    /etc/nginx/sites-available/shikkhokplus
+  if nginx -t >> /var/log/shikkhokplus-provision.log 2>&1; then
+    systemctl reload nginx
+    echo "Origin certificate installed; nginx reloaded." \
+      >> /var/log/shikkhokplus-provision.log
+  else
+    # Revert rather than leave nginx unable to start on its next boot.
+    sed -i \
+      "s#ssl_certificate .*fullchain.pem;#ssl_certificate     /etc/ssl/certs/ssl-cert-snakeoil.pem;#" \
+      /etc/nginx/sites-available/shikkhokplus
+    sed -i \
+      "s#ssl_certificate_key .*privkey.pem;#ssl_certificate_key /etc/ssl/private/ssl-cert-snakeoil.key;#" \
+      /etc/nginx/sites-available/shikkhokplus
+    echo "FAILED: nginx rejected the certificate; reverted to snakeoil. CloudFront will 502." \
+      >> /var/log/shikkhokplus-provision.log
+  fi
+else
+  echo "FAILED: certbot could not issue for ${origin_fqdn}. Serving snakeoil; CloudFront will 502." \
+    >> /var/log/shikkhokplus-provision.log
+fi
+
+# ---------------------------------------------------------------------
 # Self-healing: bring the application up without waiting for a deploy
 # ---------------------------------------------------------------------
 #
@@ -332,6 +413,122 @@ if ! sudo -u ubuntu docker compose run --rm api alembic upgrade head \
 fi
 
 sudo -u ubuntu docker compose up -d --remove-orphans
+
+# **The daily fee-cycle generation, installed by Terraform and never by
+# hand** [NFR25.9, infrastructure-specification § 3].
+#
+# The ASG replaces this instance on every deploy -- the rollout step
+# refreshes it deliberately, so "a refresh exercises the same path a
+# replacement takes after a failure". A cron entry added over SSM
+# therefore survives until the next routine deploy and no longer, and
+# because generation SELF-HEALS, nothing looks wrong when it stops:
+# the system reports healthy right up to the moment somebody notices
+# nobody has been billed since that deploy. Writing the entry here is
+# what makes it survive the event it has to survive.
+#
+# Same shape as the Alembic step above: `run --rm` against the api
+# service, so the job uses the deployed image and its configuration
+# rather than a second copy of either.
+#
+# 02:00 UTC is 08:00 in Dhaka -- after any overnight deploy window and
+# before a teacher opens the app to check the month's fees.
+echo "Installing the generation cron entry..." \
+  >> /var/log/shikkhokplus-provision.log
+cat > /etc/cron.d/shikkhokplus-fee-generation <<'CRON'
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# min hour dom mon dow user command
+0 2 * * * ubuntu cd /home/ubuntu && docker compose run --rm api python -m app.fees.commands generate >> /var/log/shikkhokplus-fee-generation.log 2>&1
+CRON
+chmod 0644 /etc/cron.d/shikkhokplus-fee-generation
+
+# **The daily session generation** [BR1.1, observability-design § 4.1].
+#
+# Installed here for exactly the reason the fee entry is, and with more
+# force: session generation ALSO self-heals, so a cron entry wiped by
+# the next routine deploy produces no visible symptom until the morning
+# a teacher opens the app and there is no class to mark attendance
+# against.
+#
+# **01:00 UTC is 07:00 in Dhaka.** It must complete before the earliest
+# plausible class and must not collide with the fee job at 02:00, which
+# shares this instance and this database. The design constrains it only
+# to those two properties; the specific hour is this build's choice.
+#
+# The job registers its heartbeat under its OWN name, and the freshness
+# service above needs NO change to cover it: that check enumerates every
+# registered job rather than checking the fee job by name
+# [infrastructure-specification § 3.3, the human's option B], which is
+# the property that keeps this file unedited as D5 and D6 add jobs.
+echo "Installing the session-generation cron entry..." \
+  >> /var/log/shikkhokplus-provision.log
+cat > /etc/cron.d/shikkhokplus-session-generation <<'CRON'
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# min hour dom mon dow user command
+0 1 * * * ubuntu cd /home/ubuntu && docker compose run --rm api python -m app.teaching.commands generate >> /var/log/shikkhokplus-session-generation.log 2>&1
+CRON
+chmod 0644 /etc/cron.d/shikkhokplus-session-generation
+
+# **The freshness check is NOT a second cron entry** [§ 1.4].
+#
+# A check sharing the job's trigger is circular: if the trigger is
+# gone, neither the job nor its own self-check runs and the alert
+# never fires. So the two are given different mechanisms -- cron for
+# the job, a `Restart=always` service for the check -- and a crontab
+# that is edited, corrupted or emptied leaves the check running to
+# notice.
+#
+# **What this does NOT survive, stated plainly rather than implied.**
+# Both are written by THIS script, so an instance replacement wipes
+# and reinstalls both together: the check cannot detect its own
+# absence any more than the job can. What it covers is every failure
+# short of that -- a broken crontab, a cron daemon that died, a job
+# erroring every night -- which is the larger share of them. The
+# instance-replacement case is covered by this file being the thing
+# Terraform applies, so a replacement RE-RUNS it rather than skipping
+# it; that is exactly why the entry is here and not added over SSM.
+#
+# A systemd *timer* would have been the natural choice and is the
+# wrong one: it is host-level scheduling like cron, so a reader would
+# reasonably assume the two differ more than they do.
+echo "Installing the freshness check..." \
+  >> /var/log/shikkhokplus-provision.log
+cat > /home/ubuntu/freshness-check.sh <<'CHECK'
+#!/bin/bash
+# Deliberately an infinite loop in a restart-always container rather
+# than a host timer: it must survive exactly what cron does not.
+while true; do
+  sleep 3600
+  cd /home/ubuntu || continue
+  docker compose run --rm api python -m app.fees.commands check-freshness \
+    >> /var/log/shikkhokplus-fee-generation.log 2>&1
+done
+CHECK
+chmod 0755 /home/ubuntu/freshness-check.sh
+chown ubuntu:ubuntu /home/ubuntu/freshness-check.sh
+
+cat > /etc/systemd/system/shikkhokplus-freshness.service <<'UNIT'
+[Unit]
+Description=Alert when fee generation has not succeeded recently
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=ubuntu
+ExecStart=/home/ubuntu/freshness-check.sh
+Restart=always
+RestartSec=60
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+systemctl daemon-reload
+systemctl enable --now shikkhokplus-freshness.service \
+  >> /var/log/shikkhokplus-provision.log 2>&1 || \
+  echo "WARNING: freshness check did not start" \
+    >> /var/log/shikkhokplus-provision.log
 
 # **Assert the outcome, not the command.** `up -d` succeeds on a
 # container that starts and immediately exits, so a boot reporting

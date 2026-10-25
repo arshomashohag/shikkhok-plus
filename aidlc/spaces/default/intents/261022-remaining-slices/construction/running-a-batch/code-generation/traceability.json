@@ -1,0 +1,527 @@
+{
+  "stage": "code-generation",
+  "unit": "running-a-batch",
+  "note": "upstream_ids are this unit's acceptance criteria, its BRx.y from functional-design/rules.md, and its NFRx.y from the four nfr-requirements files. D2's amended stories (US1.3, US1.15, US2.5) carry the 'a'-suffixed criteria from THIS record; its unamended stories (US2.1-US2.4) carry the prior record's criteria; and the guardian home, which this record's story map labels D2's US2.6, is the prior record's US2.7 and US2.8. Statuses are exactly OK, GAP, Deferred and N/A, and every target is one workspace-relative file that exists.",
+  "upstream_ids": [
+    "AC1.15.1",
+    "AC1.15.2",
+    "AC1.15.3",
+    "AC1.15.4",
+    "AC1.3.2",
+    "AC1.3.2a",
+    "AC1.3.3",
+    "AC1.3.3a",
+    "AC1.3.4",
+    "AC1.3.4a",
+    "AC1.3.5",
+    "AC1.3.5a",
+    "AC1.3.6",
+    "AC1.3.6a",
+    "AC2.1.1",
+    "AC2.1.2",
+    "AC2.1.3",
+    "AC2.2.1",
+    "AC2.2.2",
+    "AC2.2.3",
+    "AC2.2.4",
+    "AC2.2.5",
+    "AC2.3.1",
+    "AC2.3.2",
+    "AC2.4.1",
+    "AC2.4.2",
+    "AC2.4.3",
+    "AC2.4.4",
+    "AC2.4.5",
+    "AC2.5.1",
+    "AC2.5.1a",
+    "AC2.5.2",
+    "AC2.7.1",
+    "AC2.7.2",
+    "AC2.7.3",
+    "AC2.7.4",
+    "BR1.1",
+    "BR1.2",
+    "BR1.3",
+    "BR1.4",
+    "BR1.5",
+    "BR1.6",
+    "BR2.1",
+    "BR2.2",
+    "BR2.3",
+    "BR2.4",
+    "BR3.1",
+    "BR3.2",
+    "BR4.1",
+    "BR4.2",
+    "BR5.2",
+    "BR5.4",
+    "BR6.2",
+    "BR7.1",
+    "BR7.2",
+    "NFR14.15",
+    "NFR14.26",
+    "NFR14.27",
+    "NFR14.28",
+    "NFR14.29",
+    "NFR14.30",
+    "NFR14.31",
+    "NFR2.3",
+    "NFR2.4",
+    "NFR20.10",
+    "NFR20.11",
+    "NFR20.7",
+    "NFR20.8",
+    "NFR20.9",
+    "NFR23.4",
+    "NFR23.5",
+    "NFR23.6",
+    "NFR3.3",
+    "US2.6"
+  ],
+  "coverage": [
+    {
+      "id": "AC1.3.2a",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "note": "BR1.5. add_enrollment creates the seat and dispatches nothing; the ABSENCE of any gateway call is the criterion. tests/batches/test_roster_states.py:test_a_newly_added_seat_is_pending_on_both_links"
+    },
+    {
+      "id": "AC1.3.3a",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/roster/RosterStateMapper.kt",
+      "note": "BR1.1. RosterStateMapper.toRow sets isDeclined for a declined link and not a pending one; the count carries pending at batch level instead. RosterStateMapperTest + RosterScreenTest:'a declined row is marked and a pending row is not'"
+    },
+    {
+      "id": "AC1.3.4a",
+      "status": "Deferred",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/roster/ui/RosterScreen.kt",
+      "note": "BR2.1. The per-link states are on the roster ROW and a seat DETAIL screen with its number-correction path is not in D2's six screens; the unit ships T6, T7, T8, create-batch, remove-seat and G1"
+    },
+    {
+      "id": "AC1.3.5a",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "note": "BR1.2, BR1.4. The conditional aggregate in list_batches counts seats with at least one accepted link over every seat; rendered by BatchesScreen and RosterScreen. tests/batches/test_accepted_count.py"
+    },
+    {
+      "id": "AC1.3.6a",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "note": "BR2.4, BR3.2. _is_removable reads the erasure markers, so a never-accepted seat and an accepted-then-erased one differ in is_removable and in the refusal code. tests/batches/test_roster_states.py:test_removability_agrees_with_what_removal_actually_does"
+    },
+    {
+      "id": "AC1.15.1",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "note": "BR1.6. No expiry and no automatic deactivation exists anywhere in the seat path; a pending seat stays pending, which is an absence the roster's dormancy flag reports unchanged"
+    },
+    {
+      "id": "AC1.15.2",
+      "status": "OK",
+      "target": "tests/batches/test_removal_refusals.py",
+      "note": "BR3.2, AC2.5.1a. A seat nobody accepted is removable and the two refusals name their remedies; this is the mistyped-number recovery path reaching a person"
+    },
+    {
+      "id": "AC1.15.3",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/roster/RosterUiState.kt",
+      "note": "BR1.5. RemovalRemedy carries no reason field and no decline reason is collected or rendered anywhere in D2"
+    },
+    {
+      "id": "AC1.15.4",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/roster/ui/AddStudentScreen.kt",
+      "note": "BR1.5. AddStudentUiState.Added confirms the seat was added and claims nobody was told; asserted by AddStudentScreenTest:'an added seat is confirmed without claiming anyone was told'"
+    },
+    {
+      "id": "AC2.1.1",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/batches/ui/CreateBatchScreen.kt",
+      "note": "[BR1.3] CreateBatchScreen over the built POST /v1/batches; four states, client validation format-only. CreateBatchScreenTest"
+    },
+    {
+      "id": "AC2.1.2",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/batches/ui/CreateBatchScreen.kt",
+      "note": "[BR1.3] The shared BatchCreateForm takes name, subjects, default fee and due day; the server rejects a missing subject as BATCH_NEEDS_A_SUBJECT"
+    },
+    {
+      "id": "AC2.1.3",
+      "status": "Deferred",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/batches/ui/CreateBatchScreen.kt",
+      "note": "Schedule and timing fields are not in D2's create form; the batch schedule half of US2.4 is deferred with AC2.4.2-AC2.4.5"
+    },
+    {
+      "id": "AC2.2.1",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/roster/ui/AddStudentScreen.kt",
+      "note": "[BR1.5] AddStudentScreen over the built POST /v1/batches/{id}/enrollments"
+    },
+    {
+      "id": "AC2.2.2",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/roster/ui/AddStudentScreen.kt",
+      "note": "[BR1.5] Name, optional guardian number and optional fee; the seat is created pending on both links [ADR-013]. tests/batches/test_roster_states.py:test_a_newly_added_seat_is_pending_on_both_links"
+    },
+    {
+      "id": "AC2.2.3",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "note": "[BR2.1] Inherited unchanged: add_enrollment is scoped per batch through _owned_batch, so one person in two batches is two seats"
+    },
+    {
+      "id": "AC2.2.4",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/roster/ui/AddStudentScreen.kt",
+      "note": "[BR1.3] A duplicate is a SERVER decision surfaced as AddStudentUiState.Failed, never a client check. AddStudentScreenTest:'A DUPLICATE ARRIVES AS A SERVER REFUSAL, not a client check'"
+    },
+    {
+      "id": "AC2.2.5",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/roster/ui/AddStudentScreen.kt",
+      "note": "[BR2.1] A blank fee field sends null, which means INHERIT; zero is a waiver. Enforced by the shared StudentAddForm and unchanged from D1"
+    },
+    {
+      "id": "AC2.3.1",
+      "status": "Deferred",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/roster/ui/RosterScreen.kt",
+      "note": "Editing a seat's display name needs a seat-detail screen, which is not among D2's six. The roster READS display_name and D2 adds no edit path"
+    },
+    {
+      "id": "AC2.3.2",
+      "status": "Deferred",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/roster/ui/RosterScreen.kt",
+      "note": "Same deferral as AC2.3.1"
+    },
+    {
+      "id": "AC2.4.1",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/roster/ui/RemoveSeatConfirm.kt",
+      "note": "[BR3.2] The mark-inactive remedy is offered on a CLAIMED refusal and calls the built PATCH /v1/enrollments/{id}/inactive-from. RosterScreenTest:'THE TWO REFUSALS SHOW DIFFERENT REMEDIES'"
+    },
+    {
+      "id": "AC2.4.2",
+      "status": "Deferred",
+      "target": "app/batches/service.py",
+      "note": "inactive_from's fee-cycle consequence needs a ledger; there is none until D3"
+    },
+    {
+      "id": "AC2.4.3",
+      "status": "Deferred",
+      "target": "app/batches/service.py",
+      "note": "Same deferral as AC2.4.2: existing dues standing is a money statement"
+    },
+    {
+      "id": "AC2.4.4",
+      "status": "Deferred",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/roster/ui/RosterScreen.kt",
+      "note": "Batch schedule editing is not among D2's six screens"
+    },
+    {
+      "id": "AC2.4.5",
+      "status": "Deferred",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/roster/ui/RosterScreen.kt",
+      "note": "Same deferral as AC2.4.4"
+    },
+    {
+      "id": "AC2.5.1a",
+      "status": "OK",
+      "target": "tests/batches/test_removal_refusals.py",
+      "note": "BR3.1, BR3.2. A seat no link accepted is removed; the two refusals carry distinct codes AND distinct message keys, asserted as a pair"
+    },
+    {
+      "id": "AC2.5.2",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/roster/ui/RemoveSeatConfirm.kt",
+      "note": "[BR3.1] RemoveSeatConfirm names the seat being removed before anything is deleted. RosterScreenTest:'the removal confirmation names the seat being removed'"
+    },
+    {
+      "id": "AC2.7.1",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/guardian/GuardianStateMapper.kt",
+      "note": "BR4.2. GuardianUiState.SeveralChildren draws the switcher; GuardianStateMapperTest:'several children is a separate state carrying the selection'"
+    },
+    {
+      "id": "AC2.7.2",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/guardian/GuardianStateMapper.kt",
+      "note": "[BR4.2] GuardianUiState.OneChild draws NO switcher. GuardianHomeScreenTest:'one child draws no switcher'"
+    },
+    {
+      "id": "AC2.7.3",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/guardian/ui/GuardianHomeScreen.kt",
+      "note": "[BR4.1] Each child carries displayName and teacherDisplayName; SelectedChild renders the batch and teacher together"
+    },
+    {
+      "id": "AC2.7.4",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/guardian/GuardianStateMapper.kt",
+      "note": "BR4.2. afterChildSelected REPLACES the selection within one state; no re-authentication and no navigation. GuardianHomeScreenTest:'BACK AFTER A CHILD SWITCH does not reach the previous child'"
+    },
+    {
+      "id": "BR1.1",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/roster/RosterStateMapper.kt",
+      "note": "isDeclined is a mapper decision; pending is never marked per row. RosterStateMapperTest + RosterScreenTest"
+    },
+    {
+      "id": "BR1.2",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "note": "count(id) FILTER (WHERE student_decision='accepted' OR guardian_decision='accepted'); either link's acceptance counts the seat. tests/batches/test_accepted_count.py:test_one_accepted_link_makes_the_seat_accepted"
+    },
+    {
+      "id": "BR1.3",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/batches/BatchesStateMapper.kt",
+      "note": "Both counts are carried from the response and never derived; BatchesStateMapperTest arranges one row against a server count of 9 of 12, so any client tally disagrees"
+    },
+    {
+      "id": "BR1.4",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "note": "The denominator is the unfiltered count over the same grouped statement. tests/batches/test_accepted_count.py:test_the_denominator_includes_declined_seats"
+    },
+    {
+      "id": "BR1.5",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/roster/ui/AddStudentScreen.kt",
+      "note": "An absence: no gateway call on seat creation and no teacher notification on a decline, anywhere in D2's paths"
+    },
+    {
+      "id": "BR1.6",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "note": "An absence: no expiry, no auto-deactivation and no staleness decoration on a pending seat"
+    },
+    {
+      "id": "BR2.1",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "note": "_roster_row carries student_state and guardian_state separately BESIDE is_dormant; one row per seat. tests/batches/test_roster_states.py:test_a_split_seat_returns_both_states_and_appears_once"
+    },
+    {
+      "id": "BR2.2",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "note": "_guardian_state returns 'absent' only when NEITHER guardian_phone nor guardian_account_id is set, so a recorded-but-unregistered guardian stays pending. tests/batches/test_roster_states.py:test_a_recorded_guardian_who_has_not_answered_is_pending_not_absent"
+    },
+    {
+      "id": "BR2.3",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/roster/RosterStateMapper.kt",
+      "note": "displayLabel is the number for a declined seat and the name otherwise; the name is retained on the row and not rendered. RosterScreenTest:'a declined row shows the number and NOT the teacher-typed name'"
+    },
+    {
+      "id": "BR2.4",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "note": "_is_removable reads the erasure markers, which the decisions alone cannot express; a never-accepted seat and an erased one differ in the row and in the refusal"
+    },
+    {
+      "id": "BR3.1",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "note": "is_removable is computed server-side from BOTH conditions remove_enrollment tests and read by the client. tests/batches/test_roster_states.py:test_removability_agrees_with_what_removal_actually_does"
+    },
+    {
+      "id": "BR3.2",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/roster/RosterStateMapper.kt",
+      "note": "afterRemovalRefused maps the two codes to two RemovalRemedy values; only MARK_INACTIVE draws an action. tests/batches/test_removal_refusals.py + RosterScreenTest"
+    },
+    {
+      "id": "BR4.1",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "note": "list_guardian_children resolves through guardian_account_id; inherited, unchanged, and rendered by D2's G1"
+    },
+    {
+      "id": "BR4.2",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/guardian/GuardianStateMapper.kt",
+      "note": "afterChildSelected replaces the selection; the screen owns no back stack. GuardianHomeScreenTest:'BACK AFTER A CHILD SWITCH does not reach the previous child'"
+    },
+    {
+      "id": "NFR2.3",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "note": "[BR2.1] The roster adds no statement and no join: both new fields are columns of rows the seat select already reads"
+    },
+    {
+      "id": "NFR2.4",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "note": "[BR1.2] The batch list keeps its fixed statement count; the accepted count joined the existing grouped aggregate"
+    },
+    {
+      "id": "NFR3.3",
+      "status": "OK",
+      "target": "docs/delivery/bangla-layout-check.md",
+      "note": "[BR1.2] The count is a formatted string with two numbers and no locale helper; Numerals.count makes the Latin-digit rule explicit at the call site, and the Bangla check table carries its row"
+    },
+    {
+      "id": "NFR14.26",
+      "status": "OK",
+      "target": "app/schemas/batches.py",
+      "note": "[BR2.1] student_state and guardian_state are decision enums; neither is a name, a number or an address"
+    },
+    {
+      "id": "NFR14.27",
+      "status": "OK",
+      "target": "app/contract/privacy.py",
+      "note": "[BR2.1] Inherited, no change. The schema-wide teacher-lens invariant covers the new fields without a per-endpoint test; the full suite passes with the widened schema"
+    },
+    {
+      "id": "NFR14.28",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/roster/RosterStateMapper.kt",
+      "note": "[BR2.3] A declined row renders displayLabel, which is the number. RosterScreenTest asserts the name does NOT appear"
+    },
+    {
+      "id": "NFR14.29",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "note": "[BR4.1] Inherited, no change: guardian reach is through guardian_account_id only"
+    },
+    {
+      "id": "NFR14.30",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/guardian/ui/GuardianHomeScreen.kt",
+      "note": "[BR4.2] The switch is a FilterChip selection inside one composable; the screen takes no NavController and owns no back stack"
+    },
+    {
+      "id": "NFR14.31",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "note": "[BR3.1] Removability is the server's decision, sent as is_removable and read by the client"
+    },
+    {
+      "id": "NFR20.7",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "note": "[BR1.2] The accepted count costs NO additional statement: it is a conditional aggregate on the existing grouped query"
+    },
+    {
+      "id": "NFR20.8",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "note": "[BR1.2] count(...) FILTER grouped by batch_id over batch_id.in_(batch_ids), syntax-checked against the pinned SQLAlchemy 2.1.5 before use"
+    },
+    {
+      "id": "NFR20.9",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/batches/BatchesStateMapper.kt",
+      "note": "[BR1.3] The count is server-side; no client tally exists on either the batch list or the roster"
+    },
+    {
+      "id": "NFR20.10",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "note": "[BR2.1] The two roster fields add no statement and no join; the ownership check stays its own statement as before"
+    },
+    {
+      "id": "NFR20.11",
+      "status": "OK",
+      "target": "app/schemas/batches.py",
+      "note": "[BR1.3] No pagination added, and the design stays pagination-ready because the count is the server's"
+    },
+    {
+      "id": "NFR23.4",
+      "status": "OK",
+      "target": "tests/batches/test_accepted_count.py",
+      "note": "[BR1.2] The count was written from AC1.3.5a BEFORE the aggregate existed and confirmed RED: 5 failures on 'BatchSummary has no attribute accepted_count'"
+    },
+    {
+      "id": "NFR23.5",
+      "status": "OK",
+      "target": "tests/batches/test_removal_refusals.py",
+      "note": "[BR3.2] The two refusals are asserted as a distinguishable PAIR, on both the code and the message key; verified load-bearing by converging the keys, which failed 2 of 4"
+    },
+    {
+      "id": "NFR23.6",
+      "status": "OK",
+      "target": "android/src/test/kotlin/com/shikkhokplus/app/feature/guardian/GuardianHomeScreenTest.kt",
+      "note": "[BR4.2] The Back-after-switch test exists, is named in tests/named_tests.toml, and was verified non-vacuous: making the switch stop replacing fails it"
+    },
+    {
+      "id": "AC1.3.2",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "note": "BR1.5. The suffixed AC1.3.2a is this criterion's D2 form; both are carried so the bare id resolves. add_enrollment creates the seat and dispatches nothing. tests/batches/test_roster_states.py:test_a_newly_added_seat_is_pending_on_both_links"
+    },
+    {
+      "id": "AC1.3.3",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/roster/RosterStateMapper.kt",
+      "note": "BR1.1. Carried as the bare form of AC1.3.3a. isDeclined is a mapper decision, marked per row for declined only. RosterStateMapperTest"
+    },
+    {
+      "id": "AC1.3.4",
+      "status": "Deferred",
+      "target": "app/batches/service.py",
+      "note": "BR2.1. Bare form of AC1.3.4a. The seat-detail screen that shows the per-link breakdown in full is not among D2's six screens; the states themselves are built and exposed"
+    },
+    {
+      "id": "AC1.3.5",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "note": "BR1.2, BR1.4. Bare form of AC1.3.5a. accepted_count over a denominator including declined seats, one grouped statement. tests/batches/test_accepted_count.py"
+    },
+    {
+      "id": "AC1.3.6",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "note": "BR3.2. Bare form of AC1.3.6a. The two refusals carry different codes and different message keys. tests/batches/test_removal_refusals.py"
+    },
+    {
+      "id": "AC2.5.1",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/guardian/ui/GuardianHomeScreen.kt",
+      "note": "BR4.2. Bare form of AC2.5.1a. OneChild and SeveralChildren are separate states; the switch is a selection within one screen"
+    },
+    {
+      "id": "BR5.2",
+      "status": "N/A",
+      "target": "app/accounts/decisions.py",
+      "note": "D1's rule, cited by this unit's rules.md and functional-spec.md as inherited context. D2 renders the decision it records and adds no write path to it"
+    },
+    {
+      "id": "BR5.4",
+      "status": "N/A",
+      "target": "app/accounts/decisions.py",
+      "note": "D1's rule (a decline is reversible by its holder), cited as inherited context. D2 displays the resulting state and does not implement reversal"
+    },
+    {
+      "id": "BR6.2",
+      "status": "N/A",
+      "target": "app/batches/service.py",
+      "note": "D1's erasure-marker rule, cited by rules.md where it explains why an erased seat's row cannot be deleted. D2 reads the refusal, never the marker"
+    },
+    {
+      "id": "BR7.1",
+      "status": "N/A",
+      "target": "app/batches/service.py",
+      "note": "D1's rule. _nobody_accepted and the removal check read the erasure markers; D2 reads is_removable rather than deriving it, which is why this rule is cited and not implemented here"
+    },
+    {
+      "id": "BR7.2",
+      "status": "N/A",
+      "target": "app/batches/service.py",
+      "note": "D1's redefinition of is_dormant as no-link-accepted. D2 carries is_dormant through unchanged alongside the new per-link states"
+    },
+    {
+      "id": "NFR14.15",
+      "status": "N/A",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/roster/ui/RosterScreen.kt",
+      "note": "Inherited from identity-and-access and cited by this unit's rules.md and functional-spec.md. D2 introduces no change to it"
+    },
+    {
+      "id": "US2.6",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/guardian/ui/GuardianHomeScreen.kt",
+      "note": "BR4.1, BR4.2, NFR14.29, NFR14.30. The guardian child home and switcher. list_guardian_children scopes on guardian_account_id, never through the child, and returns one row per reachable seat. SelectedChild renders batchName and teacherDisplayName on every state that shows a child, including the one-child path, because it is the same composable in both states. GuardianUiState.Empty is a separate state explaining that a teacher must record the number. OneChild and SeveralChildren are separate states and the switch is a selection within one screen, which is what makes the Back obligation satisfiable. GuardianHomeScreenTest, GuardianStateMapperTest. NOT built: a persistent masked statement of the signed-in number on this screen. The screen has no access to that number, which lives in the auth feature; recorded here rather than tracked against an id this record does not define."
+    }
+  ]
+}

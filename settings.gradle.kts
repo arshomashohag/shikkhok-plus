@@ -28,6 +28,33 @@ dependencyResolutionManagement {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Dependency locking, added 2026-10-22.
+//
+// `team.md` named Gradle dependency locking plus `dependencyVerification`
+// checksums as skeleton-time toolchain and neither landed, so until today the
+// Kotlin surface resolved version RANGES on every build. The version
+// catalogue pins what WE declare; it says nothing about what those
+// dependencies pull in transitively, and the checksum file is the only
+// control this project has that detects a tampered or substituted artifact in
+// the Gradle supply chain.
+//
+// Locking is enabled here, at the settings level, so it applies to the
+// buildscript classpath as well as the module's own configurations -- a
+// compromised plugin is the more dangerous of the two and the one a
+// module-level block would miss.
+//
+// Regenerate after a deliberate version change:
+//   ./gradlew dependencies --write-locks
+//   ./gradlew --write-verification-metadata sha256 help
+// ---------------------------------------------------------------------------
+buildscript {
+    configurations.classpath {
+        resolutionStrategy.activateDependencyLocking()
+    }
+}
+
+
 rootProject.name = "shikkhokplus"
 
 include(":android")

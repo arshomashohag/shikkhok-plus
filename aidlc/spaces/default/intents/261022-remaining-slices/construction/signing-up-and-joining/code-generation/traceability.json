@@ -1,0 +1,635 @@
+{
+  "stage": "code-generation",
+  "unit": "signing-up-and-joining",
+  "note": "upstream_ids are what the sensor derives: every acceptance criterion of the stories the story map assigns to D1, every NFRx.y from this unit's four NFR requirement files, and every BRx.y from its rules.md. For this stage an OK target must be ONE workspace-relative file path that exists, so the file is the target and the function-level detail moved to a note. An earlier draft used file.py:function targets and the statuses DEFERRED, PARTIAL and NOT_APPLICABLE, none of which the sensor accepts.",
+  "upstream_ids": [
+    "AC1.10.1",
+    "AC1.10.2",
+    "AC1.10.3",
+    "AC1.10.4",
+    "AC1.10.5",
+    "AC1.10.6",
+    "AC1.10.7",
+    "AC1.11.1",
+    "AC1.11.2",
+    "AC1.11.3",
+    "AC1.11.4",
+    "AC1.11.5",
+    "AC1.12.1",
+    "AC1.12.2",
+    "AC1.12.3",
+    "AC1.12.4",
+    "AC1.13.1",
+    "AC1.13.2",
+    "AC1.13.3",
+    "AC1.13.4",
+    "AC1.16.1",
+    "AC1.16.2",
+    "AC1.16.3",
+    "AC1.16.4",
+    "AC1.2.1",
+    "AC1.2.2",
+    "AC1.2.3",
+    "AC1.2.4",
+    "BR1.1",
+    "BR1.2",
+    "BR1.3",
+    "BR1.4",
+    "BR1.5",
+    "BR2.1",
+    "BR2.2",
+    "BR2.3",
+    "BR3.1",
+    "BR3.2",
+    "BR3.3",
+    "BR3.4",
+    "BR4.1",
+    "BR4.2",
+    "BR4.3",
+    "BR4.4",
+    "BR4.5",
+    "BR5.1",
+    "BR5.2",
+    "BR5.3",
+    "BR5.4",
+    "BR5.5",
+    "BR6.1",
+    "BR6.2",
+    "BR7.1",
+    "BR7.2",
+    "NFR10.13",
+    "NFR10.14",
+    "NFR11.1",
+    "NFR12.1",
+    "NFR12.3",
+    "NFR12.4",
+    "NFR12.5",
+    "NFR12.6",
+    "NFR12.7",
+    "NFR12.8",
+    "NFR13.4",
+    "NFR14.22",
+    "NFR14.23",
+    "NFR14.24",
+    "NFR14.25",
+    "NFR18.1",
+    "NFR18.2",
+    "NFR19.1",
+    "NFR19.2",
+    "NFR19.3",
+    "NFR19.4",
+    "NFR19.5",
+    "NFR19.6",
+    "NFR19.7",
+    "NFR2.1",
+    "NFR2.2",
+    "NFR20.1",
+    "NFR20.2",
+    "NFR20.3",
+    "NFR20.4",
+    "NFR20.5",
+    "NFR20.6",
+    "NFR21.1",
+    "NFR22.1",
+    "NFR23.1",
+    "NFR23.2",
+    "NFR23.3",
+    "NFR25.3",
+    "NFR6.1",
+    "NFR6.20",
+    "NFR6.21",
+    "NFR6.22",
+    "NFR6.23",
+    "NFR6.24",
+    "NFR6.25",
+    "NFR7.5"
+  ],
+  "coverage": [
+    {
+      "id": "AC1.10.1",
+      "status": "OK",
+      "target": "app/schemas/accounts.py",
+      "note": "app/schemas/accounts.py:InvitationResponse + app/authz/invitations.py:read_invitation"
+    },
+    {
+      "id": "AC1.10.2",
+      "status": "OK",
+      "target": "app/schemas/accounts.py",
+      "note": "app/schemas/accounts.py:InvitationResponse - a schema obligation, so there is nothing to filter"
+    },
+    {
+      "id": "AC1.10.3",
+      "status": "OK",
+      "target": "app/accounts/decisions.py",
+      "note": "app/accounts/decisions.py:accept_seat; tests/accounts/test_decisions_api.py:test_accepting_grants_the_lens_and_leaves_the_invitations"
+    },
+    {
+      "id": "AC1.10.4",
+      "status": "OK",
+      "target": "app/accounts/decisions.py",
+      "note": "app/accounts/decisions.py:decline_seat"
+    },
+    {
+      "id": "AC1.10.5",
+      "status": "OK",
+      "target": "app/accounts/decisions.py",
+      "note": "app/accounts/decisions.py:_SET_DECISION - both CASEs fire when one account holds both links"
+    },
+    {
+      "id": "AC1.10.6",
+      "status": "OK",
+      "target": "app/accounts/decisions.py",
+      "note": "app/accounts/decisions.py:_SET_DECISION - each CASE tests its own link"
+    },
+    {
+      "id": "AC1.10.7",
+      "status": "Deferred",
+      "target": "D2 owns the roster rendering of split states. D1 stores both decision columns and keeps the single is_dormant flag truthful; see app/batches/service.py and code-summary.md"
+    },
+    {
+      "id": "AC1.11.1",
+      "status": "OK",
+      "target": "app/accounts/service.py",
+      "note": "app/accounts/service.py:create_account"
+    },
+    {
+      "id": "AC1.11.2",
+      "status": "OK",
+      "target": "app/accounts/service.py",
+      "note": "app/accounts/service.py:create_account; tests/accounts/test_lookup.py:test_a_teacher_signup_reaches_an_empty_batch_list"
+    },
+    {
+      "id": "AC1.11.3",
+      "status": "OK",
+      "target": "app/authz/resolve.py",
+      "note": "app/authz/resolve.py:_LENS_QUERY; tests/accounts/test_lookup.py:test_a_signed_up_but_unaccepted_seat_grants_no_lens"
+    },
+    {
+      "id": "AC1.11.4",
+      "status": "OK",
+      "target": "app/api/accounts.py",
+      "note": "app/api/accounts.py:sign_up; tests/accounts/test_ceilings.py:test_the_account_exists_before_the_code_is_sent"
+    },
+    {
+      "id": "AC1.11.5",
+      "status": "OK",
+      "target": "app/accounts/service.py",
+      "note": "app/accounts/service.py:SignupRole; tests/accounts/test_signup.py:test_nothing_verifies_a_role_claim"
+    },
+    {
+      "id": "AC1.12.1",
+      "status": "OK",
+      "target": "app/accounts/service.py",
+      "note": "app/accounts/service.py:already_added + android/.../feature/auth/SignupStateMapper.kt:afterLookup"
+    },
+    {
+      "id": "AC1.12.2",
+      "status": "OK",
+      "target": "app/accounts/service.py",
+      "note": "app/accounts/service.py:_LOOKUP_QUERY - the batch is never joined; tests/accounts/test_lookup.py:test_the_lookup_does_not_join_a_batch_at_all"
+    },
+    {
+      "id": "AC1.12.3",
+      "status": "OK",
+      "target": "app/accounts/service.py",
+      "note": "app/accounts/service.py:_link_existing_seats; tests/accounts/test_lookup.py:test_signing_up_leaves_an_existing_seat_pending"
+    },
+    {
+      "id": "AC1.12.4",
+      "status": "OK",
+      "target": "app/accounts/service.py",
+      "note": "app/accounts/service.py:DuplicateNumber"
+    },
+    {
+      "id": "AC1.13.1",
+      "status": "OK",
+      "target": "app/authz/invitations.py",
+      "note": "app/authz/invitations.py:_INVITATION_QUERY - declined links still grant"
+    },
+    {
+      "id": "AC1.13.2",
+      "status": "OK",
+      "target": "app/accounts/decisions.py",
+      "note": "app/accounts/decisions.py:accept_seat; tests/authz/test_decision_transitions.py:test_declined_to_accepted_is_reversible_by_its_holder"
+    },
+    {
+      "id": "AC1.13.3",
+      "status": "OK",
+      "target": "app/accounts/decisions.py",
+      "note": "app/accounts/decisions.py - no teacher-reachable path writes a decision; tests/authz/test_decision_transitions.py:test_no_decision_service_resets_a_link_to_pending"
+    },
+    {
+      "id": "AC1.13.4",
+      "status": "OK",
+      "target": "app/batches/service.py",
+      "note": "app/batches/service.py:add_enrollment - a re-add creates a fresh seat and clears no existing decision"
+    },
+    {
+      "id": "AC1.16.1",
+      "status": "OK",
+      "target": "app/auth/ceilings.py",
+      "note": "app/auth/ceilings.py:_signup_scopes SIGNUP_NUMBER_DAILY"
+    },
+    {
+      "id": "AC1.16.2",
+      "status": "OK",
+      "target": "app/auth/ceilings.py",
+      "note": "app/auth/ceilings.py:_signup_scopes SIGNUP_IP_HOURLY"
+    },
+    {
+      "id": "AC1.16.3",
+      "status": "OK",
+      "target": "app/api/auth.py",
+      "note": "app/api/auth.py:issue_code unchanged; tests/accounts/test_ceilings.py:test_the_otp_response_stays_byte_identical_after_signup_exists"
+    },
+    {
+      "id": "AC1.16.4",
+      "status": "OK",
+      "target": "app/schemas/accounts.py",
+      "note": "app/schemas/accounts.py:AlreadyAddedResponse"
+    },
+    {
+      "id": "AC1.2.1",
+      "status": "OK",
+      "target": "app/authz/invitations.py",
+      "note": "Superseded by AC1.2.1a, which this unit implements: app/authz/invitations.py:available_invitations + app/api/accounts.py:list_invitations"
+    },
+    {
+      "id": "AC1.2.2",
+      "status": "OK",
+      "target": "app/authz/resolve.py",
+      "note": "Superseded by AC1.2.2a, which this unit implements: app/authz/resolve.py:_LENS_QUERY"
+    },
+    {
+      "id": "AC1.2.3",
+      "status": "OK",
+      "target": "app/authz/resolve.py",
+      "note": "Superseded by AC1.2.3a, which this unit implements: app/authz/resolve.py:_LENS_QUERY + app/authz/summary.py:_SUMMARY_QUERY"
+    },
+    {
+      "id": "AC1.2.4",
+      "status": "N/A",
+      "target": "Lens switching is merged behaviour from identity-and-access. D1 changes WHICH lenses resolve, not how a person switches between them"
+    },
+    {
+      "id": "BR1.1",
+      "status": "OK",
+      "target": "app/authz/resolve.py"
+    },
+    {
+      "id": "BR1.2",
+      "status": "OK",
+      "target": "app/authz/summary.py"
+    },
+    {
+      "id": "BR1.3",
+      "status": "OK",
+      "target": "app/authz/invitations.py"
+    },
+    {
+      "id": "BR1.4",
+      "status": "OK",
+      "target": "app/schemas/accounts.py"
+    },
+    {
+      "id": "BR1.5",
+      "status": "OK",
+      "target": "app/authz/invitations.py"
+    },
+    {
+      "id": "BR2.1",
+      "status": "OK",
+      "target": "app/auth/ceilings.py"
+    },
+    {
+      "id": "BR2.2",
+      "status": "OK",
+      "target": "app/api/auth.py"
+    },
+    {
+      "id": "BR2.3",
+      "status": "OK",
+      "target": "app/accounts/service.py"
+    },
+    {
+      "id": "BR3.1",
+      "status": "OK",
+      "target": "app/accounts/service.py"
+    },
+    {
+      "id": "BR3.2",
+      "status": "OK",
+      "target": "app/contract/privacy.py"
+    },
+    {
+      "id": "BR3.3",
+      "status": "OK",
+      "target": "app/accounts/service.py"
+    },
+    {
+      "id": "BR3.4",
+      "status": "OK",
+      "target": "app/contract/privacy.py"
+    },
+    {
+      "id": "BR4.1",
+      "status": "OK",
+      "target": "app/accounts/service.py"
+    },
+    {
+      "id": "BR4.2",
+      "status": "OK",
+      "target": "app/accounts/service.py"
+    },
+    {
+      "id": "BR4.3",
+      "status": "OK",
+      "target": "app/api/accounts.py"
+    },
+    {
+      "id": "BR4.4",
+      "status": "OK",
+      "target": "app/accounts/service.py"
+    },
+    {
+      "id": "BR4.5",
+      "status": "OK",
+      "target": "app/accounts/service.py"
+    },
+    {
+      "id": "BR5.1",
+      "status": "OK",
+      "target": "app/accounts/service.py"
+    },
+    {
+      "id": "BR5.2",
+      "status": "OK",
+      "target": "app/accounts/decisions.py"
+    },
+    {
+      "id": "BR5.3",
+      "status": "OK",
+      "target": "app/accounts/decisions.py"
+    },
+    {
+      "id": "BR5.4",
+      "status": "OK",
+      "target": "app/accounts/decisions.py"
+    },
+    {
+      "id": "BR5.5",
+      "status": "OK",
+      "target": "app/authz/invitations.py"
+    },
+    {
+      "id": "BR6.1",
+      "status": "OK",
+      "target": "app/accounts/decisions.py"
+    },
+    {
+      "id": "BR6.2",
+      "status": "OK",
+      "target": "app/authz/resolve.py"
+    },
+    {
+      "id": "BR7.1",
+      "status": "OK",
+      "target": "app/batches/service.py"
+    },
+    {
+      "id": "BR7.2",
+      "status": "OK",
+      "target": "app/batches/service.py"
+    },
+    {
+      "id": "NFR10.13",
+      "status": "OK",
+      "target": "app/api/accounts.py"
+    },
+    {
+      "id": "NFR10.14",
+      "status": "OK",
+      "target": "app/db/models.py"
+    },
+    {
+      "id": "NFR11.1",
+      "status": "OK",
+      "target": "app/api/accounts.py"
+    },
+    {
+      "id": "NFR12.1",
+      "status": "OK",
+      "target": "app/api/accounts.py"
+    },
+    {
+      "id": "NFR12.3",
+      "status": "OK",
+      "target": "app/auth/ceilings.py"
+    },
+    {
+      "id": "NFR12.4",
+      "status": "OK",
+      "target": "app/auth/ceilings.py"
+    },
+    {
+      "id": "NFR12.5",
+      "status": "OK",
+      "target": "app/auth/ceilings.py"
+    },
+    {
+      "id": "NFR12.6",
+      "status": "OK",
+      "target": "app/api/accounts.py"
+    },
+    {
+      "id": "NFR12.7",
+      "status": "OK",
+      "target": "app/audit/log.py"
+    },
+    {
+      "id": "NFR12.8",
+      "status": "OK",
+      "target": "app/audit/log.py"
+    },
+    {
+      "id": "NFR13.4",
+      "status": "OK",
+      "target": "app/api/accounts.py"
+    },
+    {
+      "id": "NFR14.22",
+      "status": "OK",
+      "target": "app/api/accounts.py"
+    },
+    {
+      "id": "NFR14.23",
+      "status": "OK",
+      "target": "app/api/accounts.py"
+    },
+    {
+      "id": "NFR14.24",
+      "status": "OK",
+      "target": "app/api/accounts.py"
+    },
+    {
+      "id": "NFR14.25",
+      "status": "OK",
+      "target": "app/contract/privacy.py"
+    },
+    {
+      "id": "NFR18.1",
+      "status": "OK",
+      "target": "app/api/accounts.py"
+    },
+    {
+      "id": "NFR18.2",
+      "status": "OK",
+      "target": "app/api/accounts.py"
+    },
+    {
+      "id": "NFR19.1",
+      "status": "OK",
+      "target": "migrations/versions/0004_acceptance_and_address.py"
+    },
+    {
+      "id": "NFR19.2",
+      "status": "OK",
+      "target": "migrations/versions/0004_acceptance_and_address.py"
+    },
+    {
+      "id": "NFR19.3",
+      "status": "OK",
+      "target": "app/api/accounts.py"
+    },
+    {
+      "id": "NFR19.4",
+      "status": "OK",
+      "target": "app/api/accounts.py"
+    },
+    {
+      "id": "NFR19.5",
+      "status": "OK",
+      "target": "app/api/accounts.py"
+    },
+    {
+      "id": "NFR19.6",
+      "status": "OK",
+      "target": "app/api/accounts.py"
+    },
+    {
+      "id": "NFR19.7",
+      "status": "OK",
+      "target": "app/api/accounts.py"
+    },
+    {
+      "id": "NFR2.1",
+      "status": "OK",
+      "target": "android/src/main/kotlin/com/shikkhokplus/app/feature/auth/ui/SignupScreen.kt"
+    },
+    {
+      "id": "NFR2.2",
+      "status": "OK",
+      "target": "android/coverage-floor.txt"
+    },
+    {
+      "id": "NFR20.1",
+      "status": "OK",
+      "target": "app/authz/resolve.py"
+    },
+    {
+      "id": "NFR20.2",
+      "status": "OK",
+      "target": "app/authz/resolve.py"
+    },
+    {
+      "id": "NFR20.3",
+      "status": "OK",
+      "target": "app/authz/invitations.py"
+    },
+    {
+      "id": "NFR20.4",
+      "status": "OK",
+      "target": "app/api/accounts.py"
+    },
+    {
+      "id": "NFR20.5",
+      "status": "OK",
+      "target": "app/api/accounts.py"
+    },
+    {
+      "id": "NFR20.6",
+      "status": "OK",
+      "target": "app/api/accounts.py"
+    },
+    {
+      "id": "NFR21.1",
+      "status": "OK",
+      "target": "app/authz/resolve.py"
+    },
+    {
+      "id": "NFR22.1",
+      "status": "OK",
+      "target": "app/authz/summary.py"
+    },
+    {
+      "id": "NFR23.1",
+      "status": "OK",
+      "target": "tests/authz/test_decision_transitions.py"
+    },
+    {
+      "id": "NFR23.2",
+      "status": "OK",
+      "target": "tests/authz/test_acceptance_predicate.py"
+    },
+    {
+      "id": "NFR23.3",
+      "status": "OK",
+      "target": "app/authz/resolve.py"
+    },
+    {
+      "id": "NFR25.3",
+      "status": "OK",
+      "target": "app/api/accounts.py"
+    },
+    {
+      "id": "NFR6.1",
+      "status": "OK",
+      "target": "app/api/accounts.py"
+    },
+    {
+      "id": "NFR6.20",
+      "status": "OK",
+      "target": "app/api/accounts.py"
+    },
+    {
+      "id": "NFR6.21",
+      "status": "OK",
+      "target": "app/api/accounts.py"
+    },
+    {
+      "id": "NFR6.22",
+      "status": "OK",
+      "target": "app/api/accounts.py"
+    },
+    {
+      "id": "NFR6.23",
+      "status": "OK",
+      "target": "app/api/accounts.py"
+    },
+    {
+      "id": "NFR6.24",
+      "status": "OK",
+      "target": "app/api/accounts.py"
+    },
+    {
+      "id": "NFR6.25",
+      "status": "OK",
+      "target": "app/api/accounts.py"
+    },
+    {
+      "id": "NFR7.5",
+      "status": "OK",
+      "target": "app/api/accounts.py"
+    }
+  ]
+}

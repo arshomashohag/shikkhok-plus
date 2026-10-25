@@ -3,7 +3,6 @@ package com.shikkhokplus.app.feature.batches
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.shikkhokplus.app.core.network.BatchDto
-import com.shikkhokplus.app.core.network.ErrorEnvelope
 import com.shikkhokplus.app.feature.auth.AuthResult
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -34,62 +33,6 @@ interface BatchesRepository {
         defaultFee: String?,
         feeDueDay: Int?,
     ): AuthResult<BatchDto>
-}
-
-/**
- * Maps responses to a [BatchesUiState]. The unit the tests target.
- */
-object BatchesStateMapper {
-    /** Shown when the device cannot reach the server at all. */
-    const val OFFLINE_KEY: String = "error.network.unreachable"
-
-    /**
-     * Map a loaded list.
-     *
-     * @param rows The batches the server returned
-     * @return The state the screen renders
-     */
-    fun afterLoad(rows: List<BatchDto>): BatchesUiState =
-        if (rows.isEmpty()) {
-            BatchesUiState.Empty
-        } else {
-            BatchesUiState.Loaded(
-                rows.map { dto ->
-                    BatchRow(
-                        id = dto.id,
-                        name = dto.name,
-                        subjects = dto.subjects,
-                        defaultFee = dto.defaultFee,
-                        // Counted SERVER-side. A client counting a
-                        // roster it has not fetched would be guessing,
-                        // and one that fetched every roster to count
-                        // would be the N+1 shape on the client.
-                        enrollmentCount = dto.enrollmentCount,
-                        active = dto.active,
-                    )
-                },
-            )
-        }
-
-    /**
-     * Map a server refusal.
-     *
-     * @param envelope The server's error
-     * @return The state the screen renders
-     */
-    fun afterError(envelope: ErrorEnvelope): BatchesUiState =
-        BatchesUiState.Failed(
-            messageKey = envelope.error.messageKey,
-            retryable = envelope.error.retryable,
-        )
-
-    /**
-     * Map a transport failure, where no envelope arrived.
-     *
-     * @return The offline state
-     */
-    fun afterTransportFailure(): BatchesUiState =
-        BatchesUiState.Failed(OFFLINE_KEY, retryable = true)
 }
 
 /**

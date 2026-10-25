@@ -1,0 +1,369 @@
+{
+  "stage": "code-generation",
+  "unit": "d6-releasing-safely",
+  "note": "make check: All gates passed, measured by the orchestrator re-running it rather than quoted from a build report. 1424 passed, 0 SKIPPED, 0 failed - counted from the raw progress output (1424 characters, all dots) rather than the summary line. The zero skip count is the load-bearing figure: tests/conftest.py skips the whole integration suite at module level without Docker, so a green run with skips would prove nothing about the privacy boundary, the migrations or the RLS probes. Money module 100.00% branch, backend 92.54% line against an 80% floor, Kotlin 60.34% against a 60.39% committed floor, ruff and mypy clean across 116 source files. 94 new test functions across 8 files. SIX plan corrections, and the first two were the orchestrator's errors rather than the build's: (1) a stale 'Exactly five' claim carried out of team.md:659 into two planning documents WITHOUT opening the file - it reads 'Exactly eight' and was fixed in eec0f92 before D6 began, so the project's own rule about comments stating uncheckable numbers applied to the documents that state the rule; (2) the plan said the cascade assertion drops to ZERO after 0007 when nine retained tables remain reachable via owner -> batch, contradicting this unit's OWN nfr-design which established that is why BR1.6's refusal is load-bearing; (3) the manifest cannot express WHICH rows belong to an account, so the phone-scoped tables are reached by no constraint; (4) the two-path comparison is vacuous as written; (5) 'no new PUBLIC_ROUTES entry' forced a two-step route shape and a fourth lens exemption; (6) the regenerate-and-compare gate would NOT have caught a basis change, which is exactly what NFR14.101 is about. The build also caught a false disclosure in its OWN first output: LIFE_OF_ACCOUNT rendered as 'until the account is deleted' against the RETAIN_WITH_BASIS rows, which by definition SURVIVE deletion - the opposite of the truth on the exact point ADR-012 exists to disclose. Status counts, derived from the rows: 59 OK, 1 Deferred, zero GAP. The single Deferred row is NFR14.90, partly automated by design and not pretended otherwise.",
+  "upstream_ids": [
+    "BR1.1",
+    "BR1.2",
+    "BR1.3",
+    "BR1.4",
+    "BR1.5",
+    "BR1.6",
+    "BR2.1",
+    "BR2.2",
+    "BR2.3",
+    "BR3.1",
+    "BR3.2",
+    "BR3.3",
+    "BR4.1",
+    "BR4.2",
+    "BR5.4",
+    "NFR14.78",
+    "NFR14.79",
+    "NFR14.80",
+    "NFR14.81",
+    "NFR14.82",
+    "NFR14.83",
+    "NFR14.84",
+    "NFR14.85",
+    "NFR14.86",
+    "NFR14.87",
+    "NFR14.88",
+    "NFR14.89",
+    "NFR14.90",
+    "NFR14.91",
+    "NFR14.92",
+    "NFR14.93",
+    "NFR14.94",
+    "NFR14.95",
+    "NFR14.96",
+    "NFR14.97",
+    "NFR14.98",
+    "NFR14.99",
+    "NFR14.100",
+    "NFR14.101",
+    "NFR14.102",
+    "NFR16.6",
+    "NFR16.7",
+    "NFR17.10",
+    "NFR17.11",
+    "NFR21.2",
+    "NFR21.3",
+    "NFR21.4",
+    "NFR21.5",
+    "NFR21.6",
+    "DESIGN-1",
+    "DESIGN-2",
+    "DESIGN-3",
+    "DESIGN-4",
+    "DESIGN-5",
+    "DESIGN-6",
+    "DESIGN-7",
+    "DESIGN-8",
+    "BUILD-1",
+    "BUILD-2",
+    "BUILD-3"
+  ],
+  "coverage": [
+    {
+      "id": "BR1.1",
+      "status": "OK",
+      "target": "app/governance/dispositions.py - the account entry is HARD_DELETE and its BASIS was rewritten with it. Both fields together [NFR14.101]: the generator reads basis, so correcting the disposition alone would publish an argument AGAINST hard delete as the stated reasoning FOR one. Tests assert the old phrases are gone and the new reasoning present"
+    },
+    {
+      "id": "BR1.2",
+      "status": "OK",
+      "target": "tests/governance/test_deletion.py - absence asserted for BOTH roles. A guardian-only test passes against the defect 0007 fixes, because a guardian link was already SET NULL"
+    },
+    {
+      "id": "BR1.3",
+      "status": "OK",
+      "target": "tests/governance/test_deletion.py - the table list is derived from DISPOSITIONS, never hand-written, so a table added later with no deletion handling fails WITHOUT the test being edited. Extended by HARD_DELETE_SCOPES, asserted complete in both directions"
+    },
+    {
+      "id": "BR1.4",
+      "status": "OK",
+      "target": "app/governance/deletion.py - one deletion function, two callers [app/api/deletion.py]. Mutation-proved: making the in-app route delete the account row directly fails the two-path comparison and the teacher-refusal test"
+    },
+    {
+      "id": "BR1.5",
+      "status": "OK",
+      "target": "app/governance/deletion.py - the teacher-with-batches refusal is a PRECONDITION in the same transaction, with the test asserting the account row SURVIVES. A refusal raised after partial destruction passes a refusal-only test"
+    },
+    {
+      "id": "BR1.6",
+      "status": "OK",
+      "target": "tests/db/test_cascade_contradictions.py - the refusal is proved LOAD-BEARING rather than belt-and-braces: nine RETAIN_WITH_BASIS tables remain reachable after 0007, every one through account -> owner -> batch. A separate test asserts no retained table is EVER reachable without owner, because if one became so the refusal would stop covering it silently"
+    },
+    {
+      "id": "BR2.1",
+      "status": "OK",
+      "target": "scripts/generate_privacy_policy.py - writes between markers in the committed PRIVACY.md; the MARKER REGION is the unit of comparison so reviewed prose stays editable. The rival hand-written tables in PRIVACY.md and docs/legal/README.md were removed - README's heading 'generated from the schema, not written beside it' is now true"
+    },
+    {
+      "id": "BR2.2",
+      "status": "OK",
+      "target": "tests/governance/test_policy_generation.py - ADR-012's disclosure asserted on GENERATED output and DERIVED from enrollment's disposition rather than printed unconditionally: flipping that entry to HARD_DELETE removes the sentence, and a test asserts it"
+    },
+    {
+      "id": "BR2.3",
+      "status": "OK",
+      "target": "tests/governance/test_policy_generation.py - drift fails the build, matching the built test_schema_diff.py shape. The --check form exits 1 and writes nothing. A sha256 digest over EVERY manifest field closes the basis hole the plan's design left open, without publishing developer vocabulary on a regulator-facing page"
+    },
+    {
+      "id": "BR3.1",
+      "status": "OK",
+      "target": "app/governance/deletion.py - one function behind both routes; the test compares SURVIVING ROW SETS. Note the plan's version of this was vacuous: it discriminates only once the phone-scoped otp_request count is included, which nothing cascades to"
+    },
+    {
+      "id": "BR3.2",
+      "status": "OK",
+      "target": "app/contract/routes.py - PUBLIC_ROUTES still holds EIGHT, asserted twice. D6 added no entry: POST /account-deletion carries both steps (send a code, spend it), selected by whether the body names a code, because a separate /account-deletion/code would have been a ninth route against an asserted count"
+    },
+    {
+      "id": "BR3.3",
+      "status": "OK",
+      "target": "app/auth/ceilings.py - the external route consumes check_and_consume_deletion()'s own cascade. Mutation-proved: pointing it at the sign-in scopes fails nine tests including both sign-in-still-works assertions"
+    },
+    {
+      "id": "BR4.1",
+      "status": "OK",
+      "target": "app/governance/commands.py - idempotent and chunked at CHUNK_SIZE=1000, committing per chunk, via a ctid subquery with LIMIT since PostgreSQL has no DELETE ... LIMIT. A second run deletes zero"
+    },
+    {
+      "id": "BR4.2",
+      "status": "OK",
+      "target": "tests/governance/test_purge.py - LIFE_OF_ACCOUNT is never purged, with a REAL non-emptiness precondition so the test cannot pass by having nothing to delete, plus a structural companion failing at the window map rather than after rows are gone. WINDOWS is built by SELECTING finite classes, never by excluding LIFE_OF_ACCOUNT: selection fails closed when a new class arrives, exclusion fails open"
+    },
+    {
+      "id": "BR5.4",
+      "status": "OK",
+      "target": "tests/db/test_governance.py - the governance pair run against the FINAL schema, both directions. A disposition naming a table that no longer exists is what a long sequence of units produces, and D6 is the last chance to notice"
+    },
+    {
+      "id": "NFR14.78",
+      "status": "OK",
+      "target": "app/api/deletion.py - ownership proven through the BUILT verify(), not a reimplementation"
+    },
+    {
+      "id": "NFR14.79",
+      "status": "OK",
+      "target": "app/api/deletion.py - enumeration-resistant: the response before verification is identical whether or not the number has an account. record_outbox carries the same account_exists guard the sign-in route has, since recording an outbox entry for an unknown number would be an existence oracle on a public route"
+    },
+    {
+      "id": "NFR14.80",
+      "status": "OK",
+      "target": "app/auth/ceilings.py - the built ceiling mechanism extended by a third cascade over the SAME _consume(), never a new limiter"
+    },
+    {
+      "id": "NFR14.81",
+      "status": "OK",
+      "target": "tests/auth/test_otp_purpose.py - a consumed code cannot be replayed; verify() already sets consumed_at inside the transaction that read it, under FOR UPDATE. The design requirement was that the deletion path CALLS it"
+    },
+    {
+      "id": "NFR14.82",
+      "status": "OK",
+      "target": "tests/db/test_cascade_contradictions.py - nothing RETAIN_WITH_BASIS is removed, asserted at the CONSTRAINT level so a contradiction fails before anyone deletes anything"
+    },
+    {
+      "id": "NFR14.83",
+      "status": "OK",
+      "target": "tests/db/test_cascade_contradictions.py - a recursive pg_constraint walk over the LIVE schema, carrying the path as the diagnostic. 9 tests"
+    },
+    {
+      "id": "NFR14.84",
+      "status": "OK",
+      "target": "app/governance/deletion.py - a teacher owning any batch cannot delete; the verifier asserts the refusal AND that the account survives"
+    },
+    {
+      "id": "NFR14.85",
+      "status": "OK",
+      "target": "tests/governance/test_deletion.py - absence per table, enumerated from the manifest"
+    },
+    {
+      "id": "NFR14.86",
+      "status": "OK",
+      "target": "tests/governance/test_deletion.py - the number is gone from account at once, queried BY NUMBER rather than by id; the otp_request residue is the purge's half and is phone-scoped, reached by no constraint"
+    },
+    {
+      "id": "NFR14.87",
+      "status": "OK",
+      "target": "app/governance/deletion.py - idempotent; the refusal precondition is checked before any destruction so a repeat is a clean refusal rather than a partial"
+    },
+    {
+      "id": "NFR14.88",
+      "status": "OK",
+      "target": "tests/governance/test_policy_generation.py - policy drift fails the build"
+    },
+    {
+      "id": "NFR14.89",
+      "status": "OK",
+      "target": "tests/governance/test_policy_generation.py - the ADR-012 disclosure asserted on generated output, and DERIVED rather than hardcoded"
+    },
+    {
+      "id": "NFR14.90",
+      "status": "Deferred",
+      "target": "PARTLY AUTOMATED as designed and not pretended otherwise: nothing mechanically stops a human sentence OUTSIDE the generated region contradicting the manifest. The rival hand-written tables were removed to shrink the surface; the obligation remains partly manual"
+    },
+    {
+      "id": "NFR14.91",
+      "status": "OK",
+      "target": "the built error-contract test, run against the final schema"
+    },
+    {
+      "id": "NFR14.92",
+      "status": "OK",
+      "target": "app/contract/privacy.py, unchanged and run against the final schema"
+    },
+    {
+      "id": "NFR14.93",
+      "status": "OK",
+      "target": "tests/contract/test_route_lenses.py - every route names a lens. DELETE /v1/me required a FOURTH LENS_EXEMPT_AUTHENTICATED entry the plan never mentioned: the route acts on the authenticated account itself, so requiring a lens would leave an account holding none of the three unable to delete itself. That set's own count assertion needed updating, which is the control working"
+    },
+    {
+      "id": "NFR14.94",
+      "status": "OK",
+      "target": "no trusted lens hint; built in D1, unchanged"
+    },
+    {
+      "id": "NFR14.95",
+      "status": "OK",
+      "target": "the governance pair in BOTH directions"
+    },
+    {
+      "id": "NFR14.96",
+      "status": "OK",
+      "target": "tests/governance/test_purge.py - LIFE_OF_ACCOUNT never purged, with aged fixtures"
+    },
+    {
+      "id": "NFR14.97",
+      "status": "OK",
+      "target": "the purge runs as the restricted role; tests connect as shikkhok_app. An RLS trap was found and closed here: counting as the owner before and the restricted role after reported profile going 1->0 across a purge that never names profile, because profile_owner_only hides the row from a session without the account GUC"
+    },
+    {
+      "id": "NFR14.98",
+      "status": "OK",
+      "target": "app/auth/otp.py - a required keyword-only purpose on issue() and verify(); a sign-in code cannot confirm a deletion. Three production call sites updated"
+    },
+    {
+      "id": "NFR14.99",
+      "status": "OK",
+      "target": "tests/db/test_cascade_contradictions.py - reachability is TRANSITIVE. This is where the plan was corrected: nine retained tables remain reachable after 0007, all via owner -> batch, so the plan's 'after 0007, zero' could only have passed by being weakened"
+    },
+    {
+      "id": "NFR14.100",
+      "status": "OK",
+      "target": "app/auth/ceilings.py - four del_* scopes, separate COUNTERS not extra conditions. Mutation-proved against the sign-in scopes"
+    },
+    {
+      "id": "NFR14.101",
+      "status": "OK",
+      "target": "app/governance/dispositions.py and the digest - the basis is corrected AND covered by the gate. The plan's regenerate-and-compare would NOT have caught a basis change; proved by mutating one and watching the gate stay silent"
+    },
+    {
+      "id": "NFR14.102",
+      "status": "OK",
+      "target": "app/auth/ceilings.py - DEL_GLOBAL_DAILY at 50, with the DESIGN-6 reasoning recorded at the constant: it is the load-bearing control and the per-IP scope is depth, the opposite of how a reader would rank them"
+    },
+    {
+      "id": "NFR16.6",
+      "status": "OK",
+      "target": "scripts/generate_privacy_policy.py - markers in the committed file; a document without markers, and reversed markers, are both refused"
+    },
+    {
+      "id": "NFR16.7",
+      "status": "OK",
+      "target": "tests/governance/test_policy_generation.py - deterministic within a process AND across processes, with PYTHONHASHSEED deliberately unpinned; the generated region carries no date"
+    },
+    {
+      "id": "NFR17.10",
+      "status": "OK",
+      "target": "no third-party dependency added; the forbidden-identifier set is untouched"
+    },
+    {
+      "id": "NFR17.11",
+      "status": "OK",
+      "target": "no new strict mypy island; mypy app clean across 116 source files"
+    },
+    {
+      "id": "NFR21.2",
+      "status": "OK",
+      "target": "no soft-delete flag; Account.deleted_at stays unused and its stale docstring was corrected"
+    },
+    {
+      "id": "NFR21.3",
+      "status": "OK",
+      "target": "no deletion audit table, as decided"
+    },
+    {
+      "id": "NFR21.4",
+      "status": "OK",
+      "target": "app/governance/deletion.py - synchronous, no queue; the path commits before responding"
+    },
+    {
+      "id": "NFR21.5",
+      "status": "OK",
+      "target": "app/governance/commands.py - main_purge() takes no required arguments, following main_generate()'s built shape, so it is also the by-hand recovery procedure"
+    },
+    {
+      "id": "NFR21.6",
+      "status": "OK",
+      "target": "app/db/models.py - RETENTION_PURGE_JOB registered; D4's freshness enumeration covers it with NO change to that mechanism, which is the property option B was chosen for"
+    },
+    {
+      "id": "DESIGN-1",
+      "status": "OK",
+      "target": "app/auth/otp.py - the purpose predicate is in the WHERE beside phone, not after the fetch, so a later sign-in code cannot shadow a valid deletion code. tests/auth/test_otp_purpose.py covers BOTH shadowing directions"
+    },
+    {
+      "id": "DESIGN-2",
+      "status": "OK",
+      "target": "app/auth/ceilings.py - _ALERTING_SCOPES so fire_ceiling_alert fires on the global scope only"
+    },
+    {
+      "id": "DESIGN-3",
+      "status": "OK",
+      "target": "migrations/versions/0007 - nullability FIRST, then the constraint swap, with the order marked load-bearing: SET NULL against NOT NULL is refused by PostgreSQL"
+    },
+    {
+      "id": "DESIGN-4",
+      "status": "OK",
+      "target": "migrations/versions/0007 - constraints dropped by their REAL names, verified against a live migrated database rather than inferred. The names are DATA in the migration rather than derived, because a derived name would be wrong for exactly the two that drifted"
+    },
+    {
+      "id": "DESIGN-5",
+      "status": "OK",
+      "target": "all four pinned revision literals moved, including tests/auth/test_endpoints.py:194 (the /health smoke value) with a comment saying why it is not a migration detail. test_migration_rollback_is_total.py:117's '0001' deliberately left alone. test_no_d5_migration.py RENAMED to test_migration_head_pin.py rather than re-pinned, so its name stops describing a check it no longer performs"
+    },
+    {
+      "id": "DESIGN-6",
+      "status": "OK",
+      "target": "app/auth/ceilings.py - the IPv4 /24 and IPv6 whole-address properties recorded at DEL_PER_IP_HOURLY, with the statement that neither is corrected here and why"
+    },
+    {
+      "id": "DESIGN-7",
+      "status": "OK",
+      "target": "the four del_* counter rows fall under rate_limit_counter's existing HOURS_48 retention; no new entry needed"
+    },
+    {
+      "id": "DESIGN-8",
+      "status": "OK",
+      "target": "tests/db/test_cascade_contradictions.py - includes a MEASURED catalog test creating an ungranted child table and asserting pg_constraint sees its cascade while information_schema does not. The orchestrator measured this independently against a real PostgreSQL 16 before the build"
+    },
+    {
+      "id": "BUILD-1",
+      "status": "OK",
+      "target": "app/governance/deletion.py - HARD_DELETE_SCOPES. The manifest cannot say WHICH rows belong to an account: HARD_DELETE splits into account-scoped (6 tables, reached by constraint), PHONE-scoped (otp_request, staging_sms_outbox, reached by NO constraint) and not-person-scoped. A constraint-only implementation silently misses the phone-scoped half and the manifest-driven absence test does not catch it"
+    },
+    {
+      "id": "BUILD-2",
+      "status": "OK",
+      "target": "tests/governance/test_deletion_paths.py - rate_limit_counter is DELIBERATELY not cleared by a deletion, even though two of its seven scopes key on a phone number: clearing it would make the public deletion route the way to RESET the abuse ceilings protecting that number. A test asserts the counters survive"
+    },
+    {
+      "id": "BUILD-3",
+      "status": "OK",
+      "target": "app/api/deletion.py - record_outbox was needed and no upstream artifact mentions it; without it the staging flow cannot surface a deletion code and the external path is untestable end to end. Carries the same account_exists guard as the sign-in route"
+    }
+  ]
+}

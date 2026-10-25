@@ -3,130 +3,195 @@
 **Stage**: delivery-planning (2.9)
 **Phase**: Inception
 **Depth**: Comprehensive
+**Revision**: re-run 2026-10-22. Supersedes the 2026-10-18 rationale.
 
-> Why the Bolts sit in the order they do, what each early one buys, and where
-> the schedule is most likely wrong.
+> Why the six remaining deliverable units sit in the order they do, what each
+> buys, and where this plan is most likely wrong.
+>
+> A **deliverable unit** groups one or more Bolts — one build pass over a piece
+> of work, ending in something that runs — by what a person can do when the
+> group ships.
 
 ## Sources
 
-- [upstream] the Bolt plan and the Units Generation DAG
+- [upstream] the re-cut Bolt plan and the Units Generation DAG
 - [upstream] `inception/contract-design/contract-summary.md` open questions
-- [human] the stated top risk: the privacy boundary
+- [decision] `docs/delivery/vertical-slices.md`, committed 2026-10-22
+- [human] the stated top risk: the privacy boundary [Q2, unchanged]
+- [code] the built state on disk, read 2026-10-22
 
 ---
 
-## B. Should a formal WSJF-style scoring model be used?
+## A. The heuristic
 
-**No. Recommending against it, and recommending the rationale artifact say so explicitly rather than silently omitting it.**
+**Dependency-forced first, then user-visible value, with one exception forced by
+a tooling prerequisite.**
 
-The reasoning:
+Walking-skeleton-first no longer applies: the skeleton is built and was
+human-checkpointed at B3. Risk-first, which drove the original ordering, has
+largely spent itself — the privacy boundary's mechanisms are all in place and
+proven (see section C). What remains is mostly forced by the DAG, and where it is
+not, the deciding question is which group makes the app usable soonest.
 
-- **The DAG leaves almost no freedom to score.** Of eleven positions, seven are forced or near-forced: B1, B2, B3 are a strict chain; B5 is forced after B3; B7 is forced after B6; B10 is forced after B7 and B9; B11 is terminal. Genuine freedom exists in exactly two places — where U10 goes, and the internal order of {U5, U6, U7}. Producing eleven WSJF scores to decide two orderings is numbers dressing up a decision the geometry already made, which is precisely the failure mode the delivery knowledge base warns about.
-- **WSJF's denominator does not discriminate here.** Job size across the three contested Units is L, L and M — a one-step spread on a four-step scale. WSJF rewards small-and-valuable; with sizes that flat, the ordering collapses onto the numerator, which is just risk-first by another name.
-- **WSJF's value term is undefined for this project.** Every V1 capability is Must Have and the minimum viable scope equals full V1 scope [scope: Q1]. Cost of delay is therefore identical across all eleven Bolts: nothing ships until everything ships. A scoring model whose value axis is constant for every item is not a model.
-- **The one real decision was settled by a hard constraint, not a trade-off.** U10's placement turned on the Macrobenchmark harness being a prerequisite of U5. No score would have surfaced that; reading the artifacts did.
+**No WSJF or other formal scoring, and this is recorded rather than silently
+omitted** [Q4, unchanged and still correct]. The reasoning survives the re-cut
+intact: every remaining capability is Must Have, so cost of delay is identical
+across all six units and the value axis is constant; job sizes span two steps at
+most; and four of the six positions are dependency-forced. A scoring model whose
+value axis does not vary is not a model. The one genuinely free choice — where
+the Macrobenchmark harness goes — turns on a hard prerequisite that no score
+would have surfaced, which is the same thing that happened last time.
 
-**What I recommend instead, and what the artifact should carry:** the named heuristic (walking-skeleton-first, then risk-first) plus the two explicit justifications above for the only two free choices. That is auditable, falsifiable, and honest about where judgement was actually exercised. If the human wants a scored comparison for the {U5, U6, U7} ordering specifically, I can produce one — but I would be reverse-engineering weights to reach the answer the critical path already gives.
+## B. The order, and what forces each position
 
----
+| # | Unit | Forced? | Why here |
+|---|---|---|---|
+| 1 | D1 `signing-up-and-joining` | **Yes, absolutely** | Nothing else can be demonstrated by a real person until an account can exist. Today a teacher exists only by hand-inserting a database row, so every other unit's "done when" is currently unreachable. |
+| 2 | D2 `running-a-batch` | Yes | Every remaining capability is scoped to a batch and a roster. Also the cheapest unit by far — no new endpoints, screens only — so it converts a large amount of already-paid-for backend work into something usable. |
+| 3 | D3 `collecting-fees` | By DAG | `fee-cycles-and-ledger` depends on `batches-and-enrollment`; `payment-claims` depends on fee cycles. Chosen ahead of D4 because the fee model is *already known to be in revision* [D-18] and pinning the arithmetic under test is what makes that revision cheap rather than frightening. |
+| 4 | D4 `teaching-and-recording` | By DAG | Both members depend on `batches-and-enrollment`. Deferred past money deliberately: it is the largest surface and carries the offline queue, but none of it is money or privacy risk and nothing downstream waits on it except insights. |
+| 5 | D5 `knowing-how-it-is-going` | **Yes** | `teacher-insights` depends on both `payment-claims` and `exams-and-marksheets`, so it cannot precede D3 or D4. |
+| 6 | D6 `releasing-safely` | **Yes** | Topologically terminal: its schema-iterating test is vacuous until the last table exists. |
 
-## E. Risk and sequencing rationale
+Serial throughout. This is a solo build with no second worker [Q5]; the
+parallelisable sets recorded at Units Generation describe reorderability, which
+matters when a dependency slips, not simultaneity.
 
-### Top risks, ranked
+## C. Addressing the stated privacy worry
 
-1. **Privacy-boundary failure** (human's stated chief worry) — a student's or guardian's private write reaching a teacher, RLS not actually in force, or a cross-teacher leak through an account enrolled with several teachers. Likelihood: medium. Impact: **critical** — it is a children's-data breach under RC-1/RC-2/RC-3 in a product whose Play declaration is mixed-audience-including-children, and it is the vulnerability class a scanner cannot find because finding it requires knowing the intended policy.
-2. **Money arithmetic defect** — likelihood medium (the identity was wrong twice already, per the recorded learnings), impact high. The fee model is *already known to be in revision* [D-18], so the arithmetic will be disturbed after it is written.
-3. **Android surface quality** [OC-3] — the thinnest-reviewed part of the product, reviewed by someone learning the platform. Likelihood medium-high, impact medium. Mitigated mechanically rather than by more review.
-4. **Play release blocked late** — 12-tester/14-day window, account type unresolved, four release-blocking V1 deliverables all living in the terminal Bolt. Likelihood medium, impact high (no release).
-5. **SMS gateway unselected at skeleton time** — likelihood high (it is unselected today and B3 is the third Bolt), impact medium-high (blocks the skeleton's verification as written).
-6. **Schedule** — every capability is Must Have, so nothing absorbs variance.
+The human's chief worry [Q2] is the privacy boundary: nothing a student or
+guardian writes reaching any teacher, row-level security genuinely in force, no
+cross-teacher leak. **Most of that is now proven rather than planned**, which is
+the single biggest change since the original rationale.
 
-### What each early Bolt buys
+**Already demonstrated, in built and merged code:**
 
-- **B1** buys the money invariant under randomized test before any caller exists, which is the only point at which 100% branch coverage is reachable, and the only point at which the fee-model revision is cheap.
-- **B2** buys both mechanical privacy gates — the route-enumeration test and the schema-wide no-profile-field assertion — *before the first route exists*. This is the highest-leverage position in the whole sequence: a privacy gate installed after routes exist is a gate shaped around what already passes.
-- **B3** buys the computed lens, row-level security in force under a restricted non-superuser role, and the seven OTP abuse controls, all demonstrated end-to-end on real hardware against a real host. It also buys the governance manifest's *mechanism*, so the disposition obligation is enforced from the third Bolt rather than the eleventh.
-- **B4** buys the forbidden-identifier enforcement before six Bolts' worth of dependencies arrive, the Macrobenchmark harness B8 needs, and the start of the Play clock.
-- **B5** buys the first genuinely multi-party privacy test — two teachers, one shared account — and settles OQ-7.
-- **B6** buys the fee arithmetic pinned by tests before the known revision lands, and the concurrency-tested idempotency constraint.
+- A route without a lens cannot merge, and a teacher-lens response schema cannot
+  carry a profile field — both enforced in CI against deliberately introduced
+  violations, and both covering endpoints that do not exist yet, including every
+  endpoint D1 through D6 will add. This was the highest-leverage position in the
+  original sequence and it paid off: the gates were installed before the routes.
+- Row-level security is in force, asserted by a meta-test that `current_user` is
+  not a superuser and `row_security` is on, running *before* the privacy suite so
+  the suite cannot pass vacuously.
+- The lens is computed per request with no role field and no cache, and one
+  account resolves all three lenses in a single statement.
+- A student is refused a teacher's operations — including the teacher batch list
+  as a 403 rather than an empty list, because an empty list tells a non-teacher
+  they are a teacher with no classes.
+- Two teachers sharing one student account cannot see each other's data, and
+  teacher-facing reads are keyed on `enrollment_id` rather than an account id.
 
-### Addressing the stated privacy worry directly
+**What this plan adds to the privacy surface:**
 
-**What the sequence proves early:**
-
-- **By end of B2** (second Bolt): that a route without a lens cannot merge, and that a teacher-lens response schema cannot carry a profile field — both enforced in CI, both demonstrated against deliberately introduced violations. These are schema-level and route-level invariants, so they cover endpoints that do not exist yet, including the ones added in B10 after everyone has stopped thinking about privacy. This is the single most important early privacy win and it is available at Bolt 2 precisely because U2 was carved out as its own Unit.
-- **By end of B3** (the skeleton, human-checkpointed): that row-level security is genuinely in force — asserted by a meta-test that `current_user` is not a superuser and `row_security` is on, running *before* the privacy suite, so the suite cannot pass vacuously. That the owner-private `profile` is under RLS. That the lens is computed per request with no role field and no cache. That a cross-teacher request returns a **403 byte-identical** to the response for an id that does not exist, so the response is not an enumeration oracle. *(Status amended 2026-10-18 at B2 Functional Design per BR1.4/BR4.3: this said "404 and not 403". The property that matters is indistinguishability, not which status; the normative schema fixes 403, and a uniform status carrying distinct `code` values would still be an oracle.)*
-- **By end of B5**: that two teachers sharing one student account cannot see each other's data, and that every teacher-facing read is keyed on `enrollment_id` rather than an account id — the keying rule ADR-001 makes the whole boundary rest on.
-- **By end of B7**: the IDOR shapes that matter for money — teacher A requesting teacher B's batch, a guardian requesting a non-child's enrollment, a student requesting a fee cycle not their own.
+- **Acceptance closes a real hole that nobody had named.** Today a teacher typing
+  a phone number grants that account a guardian lens over a child immediately. A
+  mistyped digit is a children's-data exposure to a stranger, and nothing in the
+  built system prevents, detects or even logs it. D1 makes a seat grant nothing
+  until accepted, and the pending state on the roster row [Q14] is what makes the
+  mistyped digit *visible* rather than silent. I rate this the most valuable
+  single change in this plan.
+- **The already-added lookup is narrowed** [Q9]. O1 state 3 as designed names the
+  teacher and the batch to an unauthenticated caller, so anyone who typed a phone
+  number would learn who teaches that person and where. The lookup now confirms
+  only that the number was added. This is a deliberate departure from the
+  artboard, recorded as such.
 
 **What remains unproven until late, stated plainly:**
 
-- **Deletion actually removing what the policy says it removes** is unproven until **B11**, the final Bolt, running in autonomous mode. This is the gap I am most uncomfortable with, and it is why I recommend re-gating B11 as a human checkpoint (section A). `team.md` is explicit that deletion features are the ones most reliably shipped broken, because nobody tests the absence of data — and the sequence as the DAG permits it puts that test last.
-- **The purge honouring retention clocks** is likewise B11-only, and its failure mode is silent: children's data simply persisting past its stated retention, which no user notices and no test outside B11 covers.
-- **The schema-iterating completeness test** is only *fully* meaningful at B11, when the last table exists. The per-Bolt obligation makes it meaningful *incrementally* from B3, which is the mitigation, but incremental meaningfulness is not the same as the final assertion.
-- **The AC9.4.2 back-stack case** — Back must never land in another lens's or another child's data — is a standing per-Unit obligation rather than a Bolt, which means it is verified per screen rather than globally. A screen-count-complete assertion does not exist in this plan. Flagging: if the human wants one, it belongs in B11's DoD and would be a scope addition.
+- **Deletion actually removing what the policy says it removes** is unproven until
+  D6, the final unit, now running autonomously. This is the gap I am least
+  comfortable with. `team.md` is explicit that deletion features are "the ones
+  most reliably shipped broken, because nobody tests the absence of data", and
+  the DAG genuinely puts that test last. The previous plan recommended re-gating
+  it as a human checkpoint; that recommendation was overtaken by the decision to
+  run autonomously [Q8], and I am recording rather than re-litigating it — the
+  human stops that remain (Plan Approval, summary confirmation, any failure)
+  apply to D6 like any other unit.
+- **The purge honouring retention clocks** is likewise D6-only, and its failure
+  mode is silent: children's data simply persisting past its stated retention,
+  which no user notices and no test outside D6 covers.
+- **The AC9.4.2 back-stack case** — Back must never land in another lens's or
+  another child's data — is a standing per-unit obligation verified per screen.
+  No screen-count-complete assertion exists in this plan. With the lens switcher
+  now on every screen [Q11], this case gets materially more surface than it had
+  when the app assumed a single lens. Flagging: if a global assertion is wanted,
+  it belongs in D6's Definition of Done and is a scope addition.
 
-### The three named open items
+## D. Top risks, re-ranked
 
-- **The fee model is already known to be in revision [D-18].** This is why B6 sits first among the parallel set and why `team.md`'s test-first predicate is at its strongest there. The suite that pins the arithmetic is what makes the revision a safe change rather than a frightening one. The residual exposure: if the revision lands *after* B7 has built on the current arithmetic, the blast radius includes payment verification and carry-forward, not just fee generation. B6-then-B7 adjacency is deliberate — it keeps the two money Bolts together so a revision touches a contiguous region of history.
-- **FR8.3's collection-rate definition is open to correction**, and AC8.3.4's credit rule postdates it. B10 is position 10, the maximum deferral the DAG allows. My recommendation stands: if still open at B10, omit the field rather than ship provisional arithmetic, because `/v1/` is additive and a wrong number in an installed client cannot be withdrawn.
-- **Two deletion-related open questions remain** — OQ-1 (`PaymentClaim.transaction_id` surviving the claimant's deletion) and OQ-5 (the external deletion route's web surface against Play's expectations). Both block B11, which is release-blocking. Neither is a workflow decision; both are human judgements. The useful observation is that **both are cheap to close now and expensive to close at B11**: OQ-1 changes a response schema that B7 ships (so closing it before B7 avoids a revisit), and OQ-5 is confirmable by reading Play's current requirements the moment Play Console access exists at B4.
+1. **The Macrobenchmark harness is a prerequisite nobody is scheduled to build.**
+   Likelihood **high**, impact medium. PU-3.6's mid-class speed requirement is
+   dischargeable only by a Macrobenchmark on a low-end device profile, and
+   `team.md` is explicit that a Compose correctness test does not discharge a
+   performance requirement. That harness belonged to `release-packaging`, which
+   shipped its two release gates and not its harness. It now sits in D5 — *after*
+   D4, which is the unit that needs it. **This is the one genuine sequencing
+   defect in this plan and I am naming it rather than hiding it.** Three ways out,
+   and the choice belongs to whoever starts D4: build the harness at the start of
+   D4 rather than in D5; or give PU-3.6 an explicit manual pilot check and drop
+   the automated claim; or move all of D5's packaging remainder ahead of D4. The
+   first is cheapest. What is not acceptable is discovering at D5 that a
+   correctness test was quietly treated as the verifier.
 
-### Deviation from topological order — declared
+2. **Privacy-boundary failure.** Likelihood **low-medium**, down from medium,
+   impact **critical** — a children's-data breach under RC-1/RC-2/RC-3. The
+   mechanisms are built and proven, which is why the likelihood dropped. What
+   keeps it from being low: every remaining unit adds endpoints and screens, the
+   lens switcher multiplies the back-stack surface, and acceptance introduces a
+   genuinely new state (pending) that the lens resolver must honour everywhere.
 
-The chosen sequence respects every DAG edge. One deviation from the *obvious* topological reading is declared explicitly: **U10 is lifted from its natural late position to position 4**, which the DAG permits (U10 depends only on U3) and which the units artifact flagged as the useful hidden opportunity. Justification is in section A and rests primarily on the undeclared Macrobenchmark-harness dependency from U5 to U10.
+3. **Money arithmetic defect.** Likelihood medium, impact high. The ledger
+   identity was wrong twice before randomized testing settled it, and the fee
+   model is still known to be in revision [D-18]. D3 is where this lands, and it
+   is why D3 precedes D4.
 
----
+4. **Deletion shipped broken.** Likelihood medium, impact high — no public Play
+   track, or worse, a policy that contradicts the database. Last unit, autonomous,
+   and the thing a compressed schedule squeezes.
 
-## F. Schedule shape
+5. **Android surface quality** [OC-3]. Likelihood medium-high, impact medium. The
+   thinnest-reviewed part of the product, and this re-cut *increases* its share of
+   the remaining work substantially — every one of the six units now ships screens,
+   where the original plan had four that were backend-only. Mitigated mechanically
+   rather than by more review: ViewModel state-machine tests, the serialization
+   test per money-carrying model, the Kotlin coverage no-regression ratchet.
 
-### Is 11 Bolts at the stated complexities consistent with 8–12 weeks?
+6. **Play release blocked late.** Likelihood medium, impact high. The 12-tester,
+   14-day closed-testing window and the four release-blocking deliverables all live
+   in the terminal unit.
 
-**Marginally, at the optimistic end, and only under assumptions worth naming.** My honest read is that 8 weeks is unlikely and 12 weeks is achievable-but-tight, with meaningful probability of overrun. I am giving a range with assumptions rather than a point estimate, per the brief's own reservation that 8–12 weeks is judgement and not measured velocity.
+7. **Schedule.** Every capability is Must Have, so nothing absorbs variance. The
+   original estimate of 10–16 weeks covered eleven Bolts; four have shipped, and
+   the re-cut adds account creation and acceptance, which did not exist in that
+   estimate. **I am not restating a number here.** A range invented at this point
+   would be less honest than the original, because the one thing that has changed
+   is that real velocity data now exists — four Bolts over six days — and whoever
+   wants an estimate should derive it from that rather than from a planning guess.
 
-The complexity inventory: 1 × XL, 4 × L, 4 × M, 1 × S, plus U11 at L. Against a solo build with one human reviewer in the loop for seven of eleven Bolts.
+## E. What each unit buys
 
-**A sizing sketch, explicitly illustrative rather than estimated** — calibrating against nothing, because no velocity exists yet on this codebase:
+- **D1** buys the ability for a real person to use the app at all, and closes the
+  unconsented-guardian hole. Everything else is undemonstrable without it.
+- **D2** buys the largest ratio of usable capability to work in the whole plan:
+  no new endpoints, screens only, against nine endpoints already built and tested.
+- **D3** buys the fee arithmetic pinned under test before the known revision lands,
+  and the concurrency-tested idempotency constraint.
+- **D4** buys the offline conflict path — the one piece of genuinely novel
+  client-side behaviour in the product, and the only place where a wrong answer is
+  silent data loss during a live class.
+- **D5** buys the cross-batch dues view, which is the feature the product brief
+  named as distinctive, and the benchmark harness that should have arrived earlier.
+- **D6** buys a public release, and is the only unit that gates one.
 
-| Band | Bolts | Illustrative span |
-|---|---|---|
-| S | B2 | ~2–4 days |
-| M | B1, B4, B9, B10 | ~4–7 days each |
-| L | B5, B6, B7, B8, B11 | ~1–2 weeks each |
-| XL | B3 | ~2–3 weeks |
+## F. Deviations from topological order
 
-That totals roughly **10–17 weeks** of build, which straddles and mostly exceeds the 8–12 week range. I am not presenting that as an estimate — it is arithmetic over guesses, and the guesses are the whole content. What it does usefully say is that **the brief's range is on the optimistic side of a straightforward sum, not the pessimistic side**, and anyone planning against 8 weeks is planning against the best case of a range that was already described as judgement.
+None. Every position is either DAG-forced or free, and no free choice was used to
+move a unit ahead of its dependencies.
 
-### Where the estimate is most likely wrong
-
-Ranked by expected magnitude of error:
-
-1. **B3 is the dominant uncertainty and the most likely underestimate.** It is XL, it is first, it is the walking skeleton, and `team.md` concedes it is "deliberately larger than a minimal connectivity proof." It carries seven adversarial abuse-control tests, datastore-backed counters, a two-tier ceiling with a defined degradation path, JWT `kid` with key rotation, a full refresh-token state machine with reuse detection, RLS with a restricted-role meta-test, the first Alembic migration against real Postgres, the entire skeleton-time toolchain, *and* an Android surface in a framework with no declared experience — plus the governance-manifest mechanism I added. It is also the Bolt with the least calibration behind it, because nothing has been built yet. If one Bolt doubles, it is this one.
-2. **The Android learning curve is unpriced across every screen-bearing Bolt.** [OC-3] states no declared Kotlin or Android experience. Every one of B3, B5, B8, B9, B10 carries Compose work, and the first of them pays an onboarding cost that no complexity letter reflects. The M and L letters describe scope, not unfamiliarity.
-3. **Review latency is not in the arithmetic at all.** Seven of eleven Bolts are human checkpoints, the reviewer is one person who also holds every other role, and `team.md` acknowledges review depth on the Android surface is shallow. Wall-clock elapsed time exceeds build time by however long each checkpoint waits, and that term is entirely unmodelled.
-4. **The teacher analytics dashboard was explicitly excluded from the 8–12 week range** by the brief's own second reservation, on the grounds that it was a Must Have specifying nothing. Requirements Analysis has since defined it (FR8.1–FR8.3) and it now lives in **B10**. So the range excludes work that is now in the plan. That is a known, named gap in the original estimate's coverage, not a new risk.
-5. **The three external dependencies with unknown lead times** — SMS vendor, Play account type and verification, and the OQ-1/OQ-5 decisions — are all currently open and none has a committed date. The Play 12-tester/14-day window is a hard 14 days that cannot overlap with itself, and it cannot start before B4 uploads. Placing B4 at position 4 is the mitigation; it does not remove the dependency.
-6. **Nothing absorbs variance.** Every capability is Must Have and minimum viable scope equals full V1 scope, so there is no descope lever. A slip moves the date one-for-one. This was recorded as an accepted risk at Ideation and remains the structural reason the range cannot be defended as tight.
-
-### Recommended framing
-
-**Build: 10–16 weeks, with B3 the dominant variance term.** Plus Play's 14-day closed-testing window, which can run concurrently with later Bolts *only if* B4 lands on schedule at position 4 and the account type permits — and the account type is currently unknown.
-
-Named assumptions behind that range:
-- The SMS vendor is selected before B3 starts (otherwise B3's verification is deferred and the skeleton checkpoint is provisional).
-- The Play account exists and is verified before B4 completes.
-- Review turnaround on each of the seven gated checkpoints is days, not weeks.
-- The fee-model revision [D-18] lands before or during B6, not after B7.
-- No forbidden-identifier finding at B4 requires removing an already-integrated SDK.
-
-**What would firm this up at essentially zero cost:** B1 and B2 together are small, low-risk, and almost entirely backend. Completing them yields the first real velocity data point on this codebase, this reviewer and this toolchain — and re-estimating B3 onward from that point will be worth more than any amount of further reasoning now. I recommend the schedule be re-stated after B2 rather than defended before B1.
-
----
-
-## Flagged for the human — not decided by me
-
-1. **Re-gating B11 as a human checkpoint**, notwithstanding the settled gated-through-U8 decision. B11 holds both deletion paths and four release-blocking Play deliverables, and deletion is the surface `team.md` says is most reliably shipped broken. This is an amendment to a settled decision and is yours.
-2. **The SMS vendor and the skeleton checkpoint.** Without a vendor, B3 cannot satisfy the Construction Verification Command as `team.md` words it ("an SMS arrives through the real gateway"). Either start vendor selection now as a B1/B2-parallel activity, or accept a provisionally-verified skeleton with a recorded obligation to re-verify before B4's first upload. I recommend the former but will not choose it for you.
-3. **The Play account type**, which determines whether the 12-tester/14-day requirement applies and whether the fallback is a materially longer organisation-account verification path. Worth resolving before Construction starts.
-4. **The AC9.4.2 back-stack privacy case has no screen-count-complete verifier** in this plan — it is a per-Unit obligation, verified per screen. If you want a global assertion, it is a scope addition to B11.
-5. **The 15 MB download-size ratchet can fail a feature Bolt** once B4 establishes it at position 4. That is the intended behaviour, but no budget is allocated for the remediation when it happens.
+One **prerequisite inversion** is recorded instead, because the DAG does not
+express it: D4's latency obligation needs a harness that D5 carries. A dependency
+DAG records data and call dependencies; a tooling prerequisite is a third kind it
+does not express. This is the same class of problem that settled
+`release-packaging`'s position in the original plan, and it has recurred for the
+same reason — which is itself worth noting as a pattern rather than an accident.

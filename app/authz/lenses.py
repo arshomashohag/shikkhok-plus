@@ -67,3 +67,38 @@ class GuardianLens(Lens):
     """
 
     child_enrollment_id: UUID | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class InvitationLens(Lens):
+    """Reach for a seat whose holder has not accepted it [BR1.3].
+
+    **A fourth type rather than a branch inside the resolver**
+    [NFR14.24], for the same reason the other three are types: the
+    route-enumeration gate matches on a dependency's return annotation
+    being a ``Lens`` subtype, so a conditional would be invisible to it,
+    and the ``enrollment_id`` living inside the lens is what stops a
+    handler widening the read to a second seat.
+
+    **Granted on ``pending`` OR ``declined``**, which is the one place
+    this hierarchy admits a refused state. BR5.4 makes a decline
+    reversible by its holder and by nobody else, and a reversal needs
+    the holder to still reach the seat; a grant restricted to
+    ``pending`` would quietly convert a mis-tap into a permanent
+    lockout from a person's own records.
+
+    **Resolved by its own statement, never by the hot-path query**
+    [ADR-011, NFR20.3]. An invitation grant is a SET -- a person may
+    hold several unaccepted seats -- and ``_LENS_QUERY`` returns
+    scalars, so a fourth branch there would silently return only the
+    first.
+
+    What it reaches is bounded by the response SCHEMA rather than by a
+    filter [BR1.4]: batch name, subject and fee amount, all three
+    teacher-authored, so the unaccepted read crosses no privacy
+    boundary and there is nothing to leak.
+
+    :ivar enrollment_id: The one seat this lens reaches
+    """
+
+    enrollment_id: UUID

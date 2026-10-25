@@ -127,10 +127,22 @@ resource "aws_cloudfront_distribution" "api" {
     custom_origin_config {
       http_port  = 80
       https_port = 443
-      # **https-only.** The origin presents a self-signed certificate
-      # which CloudFront does not validate for a custom origin, but the
-      # hop is still encrypted -- and it carries an Authorization
-      # header on every authenticated request.
+      # **https-only**, and the origin must present a REAL certificate.
+      #
+      # This comment used to read "the origin presents a self-signed
+      # certificate which CloudFront does not validate for a custom
+      # origin". That is false, and it cost three days of a staging
+      # origin that returned 502 to every request while the
+      # application behind it was healthy. AWS documents that
+      # CloudFront does not support self-signed origin certificates,
+      # and that when no name in the certificate matches the origin
+      # domain it drops the connection and returns 502.
+      #
+      # `user_data.sh.tftpl` therefore issues a Let's Encrypt
+      # certificate for `local.origin_fqdn` by DNS-01 on every boot.
+      # The hop is encrypted and authenticated, which matters because
+      # it carries an Authorization header on every authenticated
+      # request.
       origin_protocol_policy = "https-only"
       origin_ssl_protocols   = ["TLSv1.2"]
     }

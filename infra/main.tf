@@ -37,10 +37,22 @@ locals {
 
 # **The budget is a precondition, checked before anything is created.**
 #
-# Computed rather than asserted, and it caught a real overrun: staging
-# plus RDS is USD 50.20 against a USD 50 ceiling [OC-4]. Twenty cents,
-# which is exactly the kind of number a comment gets wrong and an
-# expression does not.
+# Computed rather than asserted -- and this comment is the proof of
+# why, because it used to assert "staging plus RDS is USD 50.20
+# against a USD 50 ceiling" and say that twenty cents "is exactly the
+# kind of number a comment gets wrong and an expression does not."
+# The comment was the thing that got it wrong. Recomputed from the
+# `cost_breakdown` below on 2026-10-24: staging plus RDS is
+# **USD 47.28**, which is UNDER the ceiling, not over it. 50.20
+# matches no configuration this code can produce; it was written
+# against defaults that have since moved (`root_volume_gb` is 30, and
+# 50.20 implies roughly 49).
+#
+# The live figures, each a sum over `cost_breakdown`:
+#   app only, no staging, no RDS ....... 15.26
+#   + staging .......................... 29.92
+#   + RDS (no staging) ................. 32.62
+#   + staging and RDS .................. 47.28
 #
 # Phase 2 therefore requires a choice -- retire the rehearsal host, or
 # raise the ceiling deliberately -- rather than discovering it on a
@@ -92,8 +104,14 @@ resource "terraform_data" "budget_guard" {
         acknowledged budget of USD ${var.acknowledged_monthly_budget}
         [OC-4: always keep infrastructure spend under USD 50/month].
 
-        Staging and RDS together are USD 50.20. Either set
-        enable_staging_instance = false, or raise
+        Breakdown: app host ${local.cost_breakdown.app_instance},
+        staging ${local.cost_breakdown.staging_instance},
+        RDS ${local.cost_breakdown.rds}, route53
+        ${local.cost_breakdown.route53_zone}, ecr
+        ${local.cost_breakdown.ecr}.
+
+        Either disable what you do not need
+        (enable_staging_instance, enable_rds), or raise
         acknowledged_monthly_budget deliberately.
       EOT
     }

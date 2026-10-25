@@ -28,6 +28,18 @@ SHELL_TABLES = ("owner", "enrollment")
 #: The tables U4 adds. Listed so the from-zero run asserts they exist.
 U4_TABLES = ("batch", "batch_subject", "schedule_slot", "hidden_batch_preference")
 
+#: The five tables D3 adds. ``job_heartbeat`` is the one easy to miss,
+#: because it arrived from the observability design rather than from the
+#: entity model -- and a missing governance row for it is a red
+#: ``make check`` rather than a note.
+D3_TABLES = (
+    "fee_cycle",
+    "ledger_entry",
+    "payment_claim",
+    "reminder_event",
+    "job_heartbeat",
+)
+
 
 def test_the_migration_created_every_owned_table(restricted_session: Session) -> None:
     present = {
@@ -59,11 +71,54 @@ def test_the_migration_created_this_units_tables(restricted_session: Session) ->
     assert set(U4_TABLES) <= present
 
 
+def test_the_migration_created_d3s_five_tables(restricted_session: Session) -> None:
+    present = {
+        row[0]
+        for row in restricted_session.execute(
+            sa.text("SELECT tablename FROM pg_tables WHERE schemaname = 'public'")
+        )
+    }
+    missing = set(D3_TABLES) - present
+    assert missing == set(), (
+        f"D3 declares five tables and the migration created {missing} "
+        "nowhere. job_heartbeat is the one that goes missing, because it "
+        "comes from the observability design rather than the entity model."
+    )
+
+
+#: Exactly the columns ``fee_cycle`` may carry [BR1.2]. Not one of them
+#: is money. The rule says the thinness is asserted by a test rather
+#: than by a docstring, and this is that test: a money column here
+#: would be a second source of truth that drifts from the ledger
+#: entries producing it.
+FEE_CYCLE_COLUMNS = frozenset(
+    {"id", "enrollment_id", "period", "due_date", "created_at"}
+)
+
+
+def test_fee_cycle_carries_no_money_column(restricted_session: Session) -> None:
+    present = {
+        row[0]
+        for row in restricted_session.execute(
+            sa.text(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_schema = 'public' AND table_name = 'fee_cycle'"
+            )
+        )
+    }
+    assert present == FEE_CYCLE_COLUMNS, (
+        f"fee_cycle's column set is {sorted(present)} and must be "
+        f"{sorted(FEE_CYCLE_COLUMNS)} [BR1.2]. Every money quantity is "
+        "derived by folding ledger_entry rows; a column here drifts from "
+        "them in the direction of whichever write path forgot to update it."
+    )
+
+
 def test_the_schema_is_at_the_head_revision(restricted_session: Session) -> None:
     revision = restricted_session.execute(
         sa.text("SELECT version_num FROM alembic_version")
     ).scalar_one()
-    assert revision == "0003"
+    assert revision == "0007"
 
 
 def test_the_restricted_role_exists(restricted_session: Session) -> None:

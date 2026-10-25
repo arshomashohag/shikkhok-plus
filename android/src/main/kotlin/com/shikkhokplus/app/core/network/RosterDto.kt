@@ -19,7 +19,32 @@ import kotlinx.serialization.Serializable
  * @property displayName The teacher-typed name
  * @property guardianPhone The teacher-typed guardian contact, if any
  * @property feeAmount This seat's fee, or null when it inherits
- * @property status `dormant`, `active` or `inactive`, decided server-side
+ * @property status `dormant`, `active` or `inactive`, decided server-side.
+ *   **A different axis from acceptance**, and the two sit side by side
+ *   rather than folding together: an inactive seat keeps whatever
+ *   decisions its links carry, because leaving a batch is not
+ *   un-accepting it
+ * @property studentState The student link's own decision — `pending`,
+ *   `accepted` or `declined` [BR2.1]
+ * @property guardianState The guardian link's own decision, plus a
+ *   fourth value `absent` when no guardian was recorded [BR2.2].
+ *
+ *   **Both states arrive per link and the seat appears once.** A
+ *   student who accepted beside a guardian who declined is a real seat
+ *   and neither single value describes it: the student is enrolled and
+ *   owes a fee, the guardian simply does not watch.
+ *
+ *   **These default to nothing.** A missing field is a contract
+ *   failure the decoder must report, not a seat to render as pending —
+ *   the mapper turns an unrecognised value into an explicit failure
+ *   state for the same reason [RosterStateMapper].
+ * @property isRemovable Whether removal would succeed, **decided
+ *   server-side** [BR3.1, NFR14.31].
+ *
+ *   It could be derived from the two states above today, and deriving
+ *   it is the trap: removal tests a second condition this row does not
+ *   carry — the erasure markers [BR7.1] — so a derivation would offer
+ *   removal on an erased seat, whose decisions both read `pending`.
  * @property inactiveFrom The recorded date, if any
  */
 @Serializable
@@ -29,6 +54,9 @@ data class RosterRowDto(
     @SerialName("guardian_phone") val guardianPhone: String? = null,
     @SerialName("fee_amount") val feeAmount: Money? = null,
     val status: String,
+    @SerialName("student_state") val studentState: String,
+    @SerialName("guardian_state") val guardianState: String,
+    @SerialName("is_removable") val isRemovable: Boolean,
     @SerialName("inactive_from") val inactiveFrom: String? = null,
 )
 
@@ -41,7 +69,16 @@ data class RosterRowDto(
  * @property defaultFee The fee an enrollment inherits
  * @property feeDueDay Day of month 1-31
  * @property active False means read-only history
- * @property enrollmentCount How many seats, counted server-side
+ * @property enrollmentCount How many seats, counted server-side. The
+ *   **denominator** of "9 of 12 accepted", and it counts every seat the
+ *   teacher created including declined ones [BR1.4]
+ * @property acceptedCount How many of those seats at least one link has
+ *   accepted, counted server-side [BR1.2, BR1.3].
+ *
+ *   **The client never counts rows to derive this** [TC-9]. A client
+ *   counting is a client deciding what counts as accepted, and it is
+ *   wrong the moment the roster paginates because it can only count the
+ *   rows it holds.
  */
 @Serializable
 data class BatchDto(
@@ -52,6 +89,7 @@ data class BatchDto(
     @SerialName("fee_due_day") val feeDueDay: Int? = null,
     val active: Boolean = true,
     @SerialName("enrollment_count") val enrollmentCount: Int = 0,
+    @SerialName("accepted_count") val acceptedCount: Int = 0,
 )
 
 /**

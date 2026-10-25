@@ -3,70 +3,93 @@
 **Stage**: delivery-planning (2.9)
 **Phase**: Inception
 **Depth**: Comprehensive
+**Revision**: re-run 2026-10-22.
+
+> Who builds each deliverable unit, and who reviews it.
+>
+> A **deliverable unit** (D1–D6) groups one or more Bolts — one build pass over
+> a piece of work, ending in something that runs — by what a person can do when
+> the group ships. `bolt-plan.md` defines them.
 
 ## Sources
 
-- [team] the affirmed Way of Working: "We work **solo**: the agent writes most
-  of the code and the user reviews all of it" [OC-1]
-- [upstream] `ideation/feasibility/` — no mobs to staff [feasibility: Q1]
-- [upstream] the Bolt plan
+- [upstream] the re-cut Bolt plan
+- [team] the affirmed Way of Working — solo build [OC-1], review depth on the
+  Android surface [OC-3]
+- [state] Team Formation (1.5) was SKIP under the `classic` plan
 
 ---
 
-## There is no team to allocate
+## A. There is no team to allocate
 
-This is a solo build. One person holds every role — product owner, architect,
-reviewer, release manager — and the agent writes most of the code. Inventing a
-staffing table here would describe a project that does not exist, so this
-artifact records the allocation that is real: **every Bolt, one builder, one
-reviewer, the same two parties throughout.**
+Team Formation did not run, because this is a solo build: one person, who
+reviews everything, with the agent writing most of the code [OC-1]. Stating that
+plainly is more useful than inventing roles that do not exist.
 
-| Bolt | Builder | Reviewer | Gate |
-|---|---|---|---|
-| B1 `money-core` | agent | the user | human checkpoint |
-| B2 `api-contract` | agent | the user | human checkpoint |
-| B3 `identity-and-access` | agent | the user | **skeleton checkpoint** — human, and separate |
-| B4 `release-packaging` | agent | the user | human checkpoint |
-| B5 `batches-and-enrollment` | agent | the user | human checkpoint |
-| B6 `fee-cycles-and-ledger` | agent | the user | human checkpoint |
-| B7 `payment-claims-and-verification` | agent | the user | human checkpoint — the last gated one |
-| B8 `sessions-and-attendance` | agent | the user | automatic |
-| B9 `exams-and-marksheets` | agent | the user | automatic |
-| B10 `teacher-insights` | agent | the user | automatic |
-| B11 `privacy-and-governance` | agent | the user | automatic — **re-gating recommended**, see the Bolt plan |
+**Every deliverable unit is built by `aidlc-developer-agent` and reviewed by the
+human.** There is no Program Board, no mob composition, no rotation, and no
+hand-off between teams. The mob-programming and team-topology practices in the
+knowledge base do not apply here and are not forced onto this project.
 
-## What follows from solo, and is already built into the plan
+| Unit | Built by | Reviewed by |
+|---|---|---|
+| D1 `signing-up-and-joining` | aidlc-developer-agent | the human |
+| D2 `running-a-batch` | aidlc-developer-agent | the human |
+| D3 `collecting-fees` | aidlc-developer-agent | the human |
+| D4 `teaching-and-recording` | aidlc-developer-agent | the human |
+| D5 `knowing-how-it-is-going` | aidlc-developer-agent | the human |
+| D6 `releasing-safely` | aidlc-developer-agent | the human |
 
-The staffing constraint is not a footnote here; it shaped several decisions in
-earlier stages and they are collected in one place because they are the real
-content of this artifact.
+## B. What follows from one reviewer
 
-- **No Bolt runs concurrently with another.** Construction Execution is serial
-  because there is no second worker, not because the DAG forbids it. The
-  parallelisable sets recorded at Units Generation describe *reorderability*,
-  not simultaneity — they mean a Bolt can be moved without a merge hazard, which
-  is useful when an external dependency slips.
-- **Review is the only quality gate that sees intent**, and it is one stretched
-  reviewer. That is why the plan leans on mechanical gates: the money boundary
-  is a type and an import check, the lens is a data dependency and a
-  route-enumeration test, the forbidden-identifier set is a manifest allowlist
-  and a bytecode scan. Each of those arrives in the Bolt that establishes it, so
-  review is the backstop rather than the mechanism.
-- **Android depth is the declared weak spot** [OC-3], and five Bolts carry
-  Compose work. The plan's compensation is conventional choices, tests an
-  unfamiliar reviewer can read, and CI failures rather than review findings —
-  not more review.
-- **Review latency is a real schedule term and is not in any estimate.** Seven
-  Bolts are human checkpoints held by one person who also holds every other
-  role. Wall-clock exceeds build time by however long each checkpoint waits.
+Two consequences the team practice already accepts deliberately, restated here
+because this revision makes both sharper.
 
-## Assumptions & Open Questions
+**Review is the only quality gate that sees intent.** Tests and linters catch
+what they are told to catch; the review catches whether the thing is the right
+thing. That is why this project puts its important rules in mechanisms rather
+than in review: the money boundary is a type and an import check, the lens is a
+data dependency and a route-enumeration test, the forbidden-identifier set is a
+manifest allowlist and a bytecode scan, the privacy boundary is a restricted
+database role. Review remains the backstop and is not the mechanism.
 
-- **The teacher-onboarding mechanism for closed testing has no owner and no
-  surface.** No admin UI is budgeted, so onboarding pilot teachers almost
-  certainly means direct `psql` against production under the affirmed
-  named-non-superuser-with-logged-session rule. That is acceptable, but it must
-  be decided and runbooked rather than improvised on the day — the alternative
-  is an ad-hoc production session against children's data. The standing
-  prohibition applies: no production query result containing child-identifying
-  data goes into a local file, a chat, or an AI tool context.
+**The Android surface is the thinnest-reviewed part of the product** [OC-3], and
+**this revision increases its share of the work substantially.** The original
+plan had four remaining Bolts that were backend-only; under the re-cut, all six
+deliverable units ship screens, because a unit is no longer done until the thing
+can be done on a phone. The compensations are unchanged and now carry more
+weight:
+
+- conventional, well-documented Android choices over clever ones, with project
+  constraints outranking the sample where they conflict;
+- tests an unfamiliar reviewer can read — ViewModel state-machine tests for
+  loading, success, error and the explicit retry path; a serialization test per
+  money-carrying model proving loud failure on a JSON number;
+- the Kotlin coverage no-regression ratchet, which gives the trend teeth without
+  anyone inventing a target they cannot justify;
+- checks that fail in CI rather than in review.
+
+## C. Autonomy
+
+**Construction runs autonomously from here** [Q8]. The affirmed practice gated
+"through the payment slice, then autonomous", and the slice that anchored it —
+the platform subscription — no longer exists. The fee system remains in full but
+no longer marks a gating boundary.
+
+Human stops that remain regardless: Plan Approval, summary confirmation,
+verification-command selection, and any failure. The walking skeleton was built
+and human-checkpointed at B3, so that ceremony does not recur.
+
+## D. Review expertise per unit
+
+Not a staffing plan — a note on where the single reviewer's attention is worth
+most, given that the mechanisms carry the rest.
+
+| Unit | Where review attention earns most |
+|---|---|
+| D1 | The acceptance state machine. Pending, accepted and declined interact with the lens resolver, and a mistake grants a lens that should not exist. The durable-decline path is the one most likely to be got subtly wrong. |
+| D2 | Screens over already-tested endpoints. Lowest review risk in the plan. |
+| D3 | The fee arithmetic, and specifically the branches: the short-month clamp, carry-forward versus waive, partial approval, over-approval becoming credit. 100% branch coverage on the money module is what makes this reviewable at all. |
+| D4 | The offline conflict path. The failure mode is silent data loss during a live class, and a conflicted write presenting as failed would invite a wrong retry. |
+| D5 | The cross-batch dues query's driving predicate — outstanding balance, not active status. The natural implementation is wrong in a way that looks right. |
+| D6 | Everything. Deletion features are the ones most reliably shipped broken, because nobody tests the absence of data, and this unit runs autonomously at the end of the plan. |

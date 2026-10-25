@@ -1,0 +1,170 @@
+{
+  "stage": "units-generation",
+  "upstream_ids": [
+    "US1.2",
+    "US1.3",
+    "US1.6",
+    "US1.8",
+    "US2.5",
+    "US1.10",
+    "US1.11",
+    "US1.12",
+    "US1.13",
+    "US1.14",
+    "US1.15",
+    "US1.16",
+    "US1.17",
+    "FR0.1",
+    "FR0.2",
+    "ADR-009",
+    "ADR-010",
+    "ADR-011",
+    "ADR-012",
+    "ADR-013",
+    "ADR-014"
+  ],
+  "coverage": [
+    {
+      "id": "US1.2",
+      "status": "OK",
+      "target": "signing-up-and-joining"
+    },
+    {
+      "id": "US1.3",
+      "status": "OK",
+      "target": "running-a-batch"
+    },
+    {
+      "id": "US1.6",
+      "status": "OK",
+      "target": "releasing-safely"
+    },
+    {
+      "id": "US1.8",
+      "status": "N/A",
+      "target": "signing-up-and-joining, as already-delivered context: the OTP abuse controls come from the merged identity-and-access unit, and D1's tests assert they still hold after signup exists."
+    },
+    {
+      "id": "US2.5",
+      "status": "OK",
+      "target": "running-a-batch"
+    },
+    {
+      "id": "US1.10",
+      "status": "OK",
+      "target": "signing-up-and-joining"
+    },
+    {
+      "id": "US1.11",
+      "status": "OK",
+      "target": "signing-up-and-joining"
+    },
+    {
+      "id": "US1.12",
+      "status": "OK",
+      "target": "signing-up-and-joining"
+    },
+    {
+      "id": "US1.13",
+      "status": "OK",
+      "target": "signing-up-and-joining"
+    },
+    {
+      "id": "US1.14",
+      "status": "OK",
+      "target": "collecting-fees"
+    },
+    {
+      "id": "US1.15",
+      "status": "OK",
+      "target": "running-a-batch"
+    },
+    {
+      "id": "US1.16",
+      "status": "OK",
+      "target": "signing-up-and-joining"
+    },
+    {
+      "id": "US1.17",
+      "status": "N/A",
+      "target": "signing-up-and-joining, as a withdrawn story whose obligation first binds there: D1's four screens each need a row in docs/delivery/bangla-layout-check.md [FR0.2]."
+    },
+    {
+      "id": "FR0.1",
+      "status": "Deferred",
+      "target": "Carried by US1.11, which the story map assigns. An ADR is a design decision rather than a traceable story, so it reaches a unit through the story that implements it."
+    },
+    {
+      "id": "FR0.2",
+      "status": "Deferred",
+      "target": "Carried by US1.11, which the story map assigns. An ADR is a design decision rather than a traceable story, so it reaches a unit through the story that implements it."
+    },
+    {
+      "id": "ADR-009",
+      "status": "Deferred",
+      "target": "Carried by US1.10, which the story map assigns. An ADR is a design decision rather than a traceable story, so it reaches a unit through the story that implements it."
+    },
+    {
+      "id": "ADR-010",
+      "status": "Deferred",
+      "target": "Carried by US1.11, which the story map assigns. An ADR is a design decision rather than a traceable story, so it reaches a unit through the story that implements it."
+    },
+    {
+      "id": "ADR-011",
+      "status": "Deferred",
+      "target": "Carried by US1.10, which the story map assigns. An ADR is a design decision rather than a traceable story, so it reaches a unit through the story that implements it."
+    },
+    {
+      "id": "ADR-012",
+      "status": "Deferred",
+      "target": "Carried by US1.6, which the story map assigns. An ADR is a design decision rather than a traceable story, so it reaches a unit through the story that implements it."
+    },
+    {
+      "id": "ADR-013",
+      "status": "Deferred",
+      "target": "Carried by US1.10, which the story map assigns. An ADR is a design decision rather than a traceable story, so it reaches a unit through the story that implements it."
+    },
+    {
+      "id": "ADR-014",
+      "status": "Deferred",
+      "target": "Carried by US1.10, which the story map assigns. An ADR is a design decision rather than a traceable story, so it reaches a unit through the story that implements it."
+    }
+  ],
+  "reverse": [
+    {
+      "id": "signing-up-and-joining",
+      "status": "OK",
+      "target": "US1.2, US1.5, US1.10, US1.11, US1.12, US1.13, US1.16; FR0.1, FR0.2; ADR-009, ADR-010, ADR-011, ADR-013, ADR-014. NOT US1.14: no ledger table exists before collecting-fees creates one."
+    },
+    {
+      "id": "running-a-batch",
+      "status": "OK",
+      "target": "US1.3, US1.15, US2.1 through US2.6. Screens over built endpoints, plus the roster's per-link state and accepted count."
+    },
+    {
+      "id": "collecting-fees",
+      "status": "OK",
+      "target": "US5.1 through US5.7, US6.1 through US6.4, and US1.14 in full including AC1.14.2a"
+    },
+    {
+      "id": "teaching-and-recording",
+      "status": "OK",
+      "target": "US3.1 through US3.6, US4.1 through US4.7. The Macrobenchmark harness moves to its start."
+    },
+    {
+      "id": "knowing-how-it-is-going",
+      "status": "OK",
+      "target": "US7.1, US8.1 through US8.4, plus the 15 MB assertion, Syft and the ZAP baseline"
+    },
+    {
+      "id": "releasing-safely",
+      "status": "OK",
+      "target": "US1.6, US1.7, US10.1, ADR-012's generated disclosure, and the governance manifests"
+    },
+    {
+      "id": "US9.1 through US9.4",
+      "status": "N/A",
+      "target": "Cross-cutting standing obligations with named verifiers in unit-of-work.md, not one unit's deliverable. Mapping a cross-cutting story to one unit is how the Bangla verifier went three Bolts missing."
+    }
+  ]
+}

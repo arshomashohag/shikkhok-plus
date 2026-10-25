@@ -102,6 +102,12 @@ def test_the_event_vocabulary_is_closed() -> None:
         "VERIFY_SUCCEEDED",
         "REFRESH_ROTATED",
         "REFRESH_REUSE_DETECTED",
+        # D1's two, added as NAMED MEMBERS rather than as one event
+        # plus a `detail` column -- which is the free-form string this
+        # log is specified not to have, arriving through the one door
+        # still open [NFR12.7, NFR12.9, NFR12.10].
+        "ACCOUNT_CREATED",
+        "SIGNUP_CEILING_BREACHED",
     }
 
 

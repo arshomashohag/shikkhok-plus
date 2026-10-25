@@ -15,6 +15,7 @@ trivially-asserting test visible to a reader as a mismatch.
 from __future__ import annotations
 
 import ast
+import re
 import tomllib
 from pathlib import Path
 
@@ -37,15 +38,45 @@ def _defined_test_names(source: Path) -> set[str]:
     """
     Collect every test function defined in a file, including methods.
 
+    **Two languages, because one named obligation lives in Kotlin.**
+    D2's Back-after-child-switch test [NFR23.6] is the only mechanism
+    that can observe its rule -- no server-side control can, since both
+    requests are legitimately authorized and neither response is
+    anomalous -- so it has to be nameable here. A manifest that could
+    only hold Python entries would have quietly dropped the one
+    obligation most at risk of becoming a review note.
+
     :param source: The test file to parse.
-    :return: Function names beginning with ``test_``.
+    :return: Test names defined in the file.
     """
+    if source.suffix == ".kt":
+        return _kotlin_test_names(source)
+
     tree = ast.parse(source.read_text(encoding="utf-8"), filename=str(source))
     return {
         node.name
         for node in ast.walk(tree)
         if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")
     }
+
+
+def _kotlin_test_names(source: Path) -> set[str]:
+    """
+    Collect the backtick-quoted names of a Kotlin test file's tests.
+
+    A regex rather than a Kotlin parser, and the scope is what makes
+    that safe: it matches ``fun `...`()`` on the line after an
+    ``@Test`` annotation, which is the only shape this project's
+    Kotlin tests use. A test whose annotation and signature were
+    separated by a blank line would be missed -- and a MISS fails the
+    manifest check loudly rather than passing it, which is the right
+    direction for a guard to be wrong in.
+
+    :param source: The Kotlin test file to read.
+    :return: The declared test names, without their backticks.
+    """
+    text = source.read_text(encoding="utf-8")
+    return set(re.findall(r"@Test\s+fun\s+`([^`]+)`", text))
 
 
 ENTRIES = _manifest()

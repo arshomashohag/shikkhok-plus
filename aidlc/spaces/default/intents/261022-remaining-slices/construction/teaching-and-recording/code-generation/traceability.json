@@ -1,0 +1,945 @@
+{
+  "stage": "code-generation",
+  "unit": "d4-teaching-and-recording",
+  "note": "Plan-stage traceability: each row names the build step of code-generation-plan.md § 2 that implements the requirement and the test module of unit-test-instructions.md that verifies it. Code does not exist yet, so no row claims a measured result. Six Deferred rows, each naming an obligation whose verifier is manual or absent, stated with that sentence per project.md's NEVER on unverified obligations; they are security-design.md § 10's six no-automated-verifier rows and nothing else. Zero GAP rows.",
+  "upstream_ids": [
+    "NFR1.6",
+    "NFR1.7",
+    "NFR1.8",
+    "NFR2.6",
+    "NFR2.7",
+    "NFR2.8",
+    "NFR2.9",
+    "NFR5.1",
+    "NFR5.2",
+    "NFR5.3",
+    "NFR5.4",
+    "NFR5.5",
+    "NFR5.6",
+    "NFR5.7",
+    "NFR5.8",
+    "NFR5.9",
+    "NFR5.10",
+    "NFR5.11",
+    "NFR5.12",
+    "NFR6.40",
+    "NFR6.41",
+    "NFR6.42",
+    "NFR6.43",
+    "NFR6.44",
+    "NFR6.45",
+    "NFR6.46",
+    "NFR6.47",
+    "NFR6.48",
+    "NFR6.49",
+    "NFR6.50",
+    "NFR6.51",
+    "NFR6.52",
+    "NFR6.53",
+    "NFR6.54",
+    "NFR6.55",
+    "NFR6.56",
+    "NFR6.57",
+    "NFR6.58",
+    "NFR10.18",
+    "NFR10.19",
+    "NFR10.20",
+    "NFR14.48",
+    "NFR14.49",
+    "NFR14.50",
+    "NFR14.51",
+    "NFR14.52",
+    "NFR14.53",
+    "NFR14.54",
+    "NFR14.55",
+    "NFR14.56",
+    "NFR14.57",
+    "NFR14.58",
+    "NFR14.59",
+    "NFR14.60",
+    "NFR14.61",
+    "NFR14.62",
+    "NFR14.63",
+    "NFR14.64",
+    "NFR16.5",
+    "NFR17.4",
+    "NFR17.5",
+    "NFR17.6",
+    "NFR17.7",
+    "NFR17.8",
+    "NFR18.6",
+    "NFR18.7",
+    "NFR18.8",
+    "NFR19.29",
+    "NFR19.30",
+    "NFR19.31",
+    "NFR19.32",
+    "NFR19.33",
+    "NFR19.34",
+    "NFR19.35",
+    "NFR19.36",
+    "NFR19.37",
+    "NFR19.38",
+    "NFR19.39",
+    "NFR19.40",
+    "NFR19.41",
+    "NFR19.42",
+    "NFR19.43",
+    "NFR19.44",
+    "NFR19.45",
+    "NFR19.46",
+    "NFR19.47",
+    "NFR20.24",
+    "NFR20.25",
+    "NFR20.26",
+    "NFR20.27",
+    "NFR20.28",
+    "NFR20.29",
+    "NFR20.30",
+    "NFR24.13",
+    "NFR24.14",
+    "NFR24.15",
+    "NFR24.16",
+    "NFR24.17",
+    "NFR24.18",
+    "NFR24.19",
+    "NFR24.20",
+    "NFR25.18",
+    "NFR25.19",
+    "NFR25.20",
+    "NFR25.21",
+    "NFR25.22",
+    "NFR25.23",
+    "NFR25.24",
+    "NFR25.25",
+    "NFR25.26",
+    "NFR25.27",
+    "NFR26.7",
+    "NFR26.8",
+    "NFR26.9",
+    "NFR26.10",
+    "BR1.1",
+    "BR1.2",
+    "BR1.3",
+    "BR1.4",
+    "BR1.5",
+    "BR1.6",
+    "BR1.7",
+    "BR2.1",
+    "BR2.2",
+    "BR3.1",
+    "BR3.2",
+    "BR3.3",
+    "BR3.4",
+    "BR3.5",
+    "BR3.6",
+    "BR3.7",
+    "BR3.8",
+    "BR3.9",
+    "BR3.10",
+    "BR3.11",
+    "BR4.1",
+    "BR4.2",
+    "BR4.3",
+    "BR4.4",
+    "BR4.5",
+    "BR5.1",
+    "BR5.2",
+    "BR5.3",
+    "BR5.4",
+    "BR5.5",
+    "BR6.1",
+    "BR6.2",
+    "BR6.3",
+    "BR6.4",
+    "BR6.5",
+    "BR6.6",
+    "BR7.1",
+    "BR7.2",
+    "BR7.3",
+    "BR7.4",
+    "BR7.5"
+  ],
+  "coverage": [
+    {
+      "id": "BR1.1",
+      "status": "OK",
+      "target": "plan § 3.1 app/teaching/generation.py, build step 4. Verifier: tests/teaching/test_generation.py — four Mondays over a four-week horizon, origin recurrence"
+    },
+    {
+      "id": "BR1.2",
+      "status": "OK",
+      "target": "plan § 3.1 generation.py, step 4. Verifier: tests/teaching/test_schedule_changes.py — four sessions byte-identical after a slot weekday change, attendance untouched"
+    },
+    {
+      "id": "BR1.3",
+      "status": "OK",
+      "target": "plan § 3.1 generation.py, ON CONFLICT DO NOTHING on (batch_id, date, start_time); migration 0006 § 3.5. Verifier: tests/teaching/test_generation_races.py — N threads from a barrier, real PostgreSQL. Test-first"
+    },
+    {
+      "id": "BR1.4",
+      "status": "OK",
+      "target": "plan § 3.1 generation.py considers only origin=recurrence and never deletes. Verifier: tests/teaching/test_generation_races.py — ad-hoc row and its attendance survive a pass"
+    },
+    {
+      "id": "BR1.5",
+      "status": "OK",
+      "target": "plan § 3.1 app/teaching/roster.py, one indexed query, step 5. Verifier: tests/teaching/test_roster.py — five tests, one per clause plus the membership set. Test-first"
+    },
+    {
+      "id": "BR1.6",
+      "status": "OK",
+      "target": "plan § 3.1 submissions.py state checks. Verifier: tests/teaching/test_state_refusals.py — ConflictError and attendance row count unchanged"
+    },
+    {
+      "id": "BR1.7",
+      "status": "OK",
+      "target": "plan § 3.1 sessions.py reschedule updates date/start_time in place. Verifier: tests/teaching/test_reschedule.py — same id, topic and attendance survive"
+    },
+    {
+      "id": "BR2.1",
+      "status": "OK",
+      "target": "plan § 3.1 sessions.py topic write, queued path against topic_version. Verifier: tests/teaching/test_topic.py plus the offline-enqueue case of BR3.1"
+    },
+    {
+      "id": "BR2.2",
+      "status": "OK",
+      "target": "plan § 3.1 sessions.py: NULL topic vs empty string. Verifier: tests/teaching/test_topic.py — two sessions produce different topic_logged values"
+    },
+    {
+      "id": "BR3.1",
+      "status": "OK",
+      "target": "plan § 5.1 core/queue/, build step 11. Verifier: QueueStoreTest.kt — (a) a queued item is never the confirmed state and the server holds no row; (b) a third path does not enqueue"
+    },
+    {
+      "id": "BR3.2",
+      "status": "OK",
+      "target": "plan § 5.1 QueueStore.kt, serialized file with atomic rename (human's choice 2026-10-25). Verifier: QueueStoreTest.kt — persistence across process death, four visually distinct states"
+    },
+    {
+      "id": "BR3.3",
+      "status": "OK",
+      "target": "plan § 3.1 submissions.py conditional UPDATE, step 6. Verifier: tests/teaching/test_attendance_races.py happy path plus the refusal in BR3.4. Test-first"
+    },
+    {
+      "id": "BR3.4",
+      "status": "OK",
+      "target": "plan § 3.1 submissions.py; UNIQUE (session_id, resulting_version) in migration 0006. Verifier: tests/teaching/test_attendance_races.py — exactly one 200, N-1 409s, version V+1 not V+N, winning roster byte-identical. Test-first"
+    },
+    {
+      "id": "BR3.5",
+      "status": "OK",
+      "target": "plan § 3.1 submissions.py — one transaction for submission row, per-seat upserts and the increment. Verifier: tests/teaching/test_atomic_write.py — failure on the k-th of 12 leaves zero rows"
+    },
+    {
+      "id": "BR3.6",
+      "status": "OK",
+      "target": "plan § 5.1 QueueState.kt — Conflicted is not Failed and schedules no automatic retry. Verifier: QueueStoreTest.kt plus the conflict-resolution screen test"
+    },
+    {
+      "id": "BR3.7",
+      "status": "OK",
+      "target": "plan § 5.1 — re-apply composes a NEW write with the current version and a FRESH client_mutation_id. Verifier: QueueStoreTest.kt, its own named test; the default implementation reuses the id and silently returns the replay"
+    },
+    {
+      "id": "BR3.8",
+      "status": "OK",
+      "target": "plan § 3.1 submissions.py replay lookup scoped by BOTH columns; UNIQUE (submitted_by_account_id, client_mutation_id). Verifier: tests/teaching/test_replay.py — concurrent, created_at unmoved. Test-first"
+    },
+    {
+      "id": "BR3.9",
+      "status": "OK",
+      "target": "plan § 4 — no queue_state in any response schema. Verifier: a contract test iterating the generated OpenAPI document"
+    },
+    {
+      "id": "BR3.10",
+      "status": "OK",
+      "target": "plan § 3.1 — the sequence spells authorization before the version compare. Verifier: tests/teaching/test_refusal_order.py, run for both a matching and a non-matching version. Test-first"
+    },
+    {
+      "id": "BR3.11",
+      "status": "OK",
+      "target": "plan § 4 — interactive writes carry no version. Verifier: a mark write with no version field succeeds, in tests/marks/test_entry.py"
+    },
+    {
+      "id": "BR4.1",
+      "status": "OK",
+      "target": "plan § 3.2 app/marks/exams.py, the subject-belongs-to-batch check. Verifier: tests/privacy/test_teaching_probes.py — teacher B's subject id under teacher A's batch is refused as NOT_AVAILABLE"
+    },
+    {
+      "id": "BR4.2",
+      "status": "OK",
+      "target": "plan § 3.2 entry.py; the CHECK biconditional in migration 0006 § 3.5; the upper bound in the write path. Verifier: tests/marks/test_entry.py, both directions. Test-first"
+    },
+    {
+      "id": "BR4.3",
+      "status": "OK",
+      "target": "plan § 3.2 results.py — four states, not_entered and joined_after derived. Verifier: tests/marks/test_result_states.py — three seats differing only in joined_on and row presence"
+    },
+    {
+      "id": "BR4.4",
+      "status": "OK",
+      "target": "plan § 3.2 entry.py — append and supersede in one transaction, never UPDATE. Verifier: tests/marks/test_entry.py — 55 corrected to 65 leaves two rows with the history readable"
+    },
+    {
+      "id": "BR4.5",
+      "status": "OK",
+      "target": "plan § 3.5 — partial unique index WHERE superseded_by_id IS NULL. Verifier: tests/marks/test_entry.py — a second live row is rejected by the constraint, not by logic. Test-first"
+    },
+    {
+      "id": "BR5.1",
+      "status": "OK",
+      "target": "plan § 4 — every route declares a dependency whose return annotation is a Lens subtype. Verifier: the built route-enumeration test; no new mechanism"
+    },
+    {
+      "id": "BR5.2",
+      "status": "OK",
+      "target": "plan § 4, build step 5 — the six readers, each named. Verifier: tests/privacy/test_teaching_probes.py, six adversarial plus six positive probes. Test-first"
+    },
+    {
+      "id": "BR5.3",
+      "status": "OK",
+      "target": "plan § 4 — a roster exposes an enrollment id, never student_account_id. Verifier: the built app/contract/privacy.py gate over the generated document"
+    },
+    {
+      "id": "BR5.4",
+      "status": "OK",
+      "target": "plan § 4 toggle route; § 3.5 states the migration touches no batch column. Verifier: a probe asserting three absences, plus tests/db/test_migration_0006.py"
+    },
+    {
+      "id": "BR5.5",
+      "status": "OK",
+      "target": "plan § 3.1 state checks on every write. Verifier: tests/teaching/test_state_refusals.py — four writes refused, every read still succeeds"
+    },
+    {
+      "id": "BR6.1",
+      "status": "OK",
+      "target": "plan § 3.4 — six entries in app/governance/dispositions.py, 19 to 25, in the same change as migration 0006. Verifier: the built tests/db/test_governance.py, both directions"
+    },
+    {
+      "id": "BR6.2",
+      "status": "OK",
+      "target": "plan § 3.2 marksheet.py — the response type has no per-student collection at all. Verifier: tests/marks/test_marksheet.py, a schema assertion plus a derivation probe. Test-first"
+    },
+    {
+      "id": "BR6.3",
+      "status": "OK",
+      "target": "plan § 3.2 marksheet.py — the merge REPEATS until every published band holds three. Verifier: the worked eight-mark case as a named regression plus a Hypothesis property over generated lists. Test-first"
+    },
+    {
+      "id": "BR6.4",
+      "status": "OK",
+      "target": "plan § 3.2 marksheet.py — two independent suppression conditions. Verifier: tests/marks/test_marksheet_thresholds.py, a test per condition each holding the other satisfied. Test-first"
+    },
+    {
+      "id": "BR6.5",
+      "status": "OK",
+      "target": "plan § 3.2 marksheet.py — non-marked excluded from numerator, denominator, rank and bands; one batch only. Verifier: tests/marks/test_marksheet.py, disjoint two-batch seeding"
+    },
+    {
+      "id": "BR6.6",
+      "status": "OK",
+      "target": "plan § 3.2 progress.py — ordered by exam date IN THE QUERY, absent carries no value. Verifier: tests/marks/test_progress.py — three exams, middle absent"
+    },
+    {
+      "id": "BR7.1",
+      "status": "OK",
+      "target": "plan § 3.1 announcements.py, soft delete, edited_at as the flag. Verifier: tests/teaching/test_announcements.py, four parts incl. no expiry column and no scheduled job"
+    },
+    {
+      "id": "BR7.2",
+      "status": "OK",
+      "target": "plan § 4 family reads; the guardian's child arrives as a path parameter, never a client hint. Verifier: the IDOR equality assertion over two responses"
+    },
+    {
+      "id": "BR7.3",
+      "status": "OK",
+      "target": "plan § 4 — every schedule and topic read carries the server timestamp. Verifier: a response-shape assertion; the caching half is Android work with no server rule behind it"
+    },
+    {
+      "id": "BR7.4",
+      "status": "Deferred",
+      "target": "plan § 7 and test instructions § 9 — D4 ships no latency target, no benchmark and no timing assertion on the attendance path. Verifier: review of the diff for any timing assertion. NOTHING AUTOMATED DISCHARGES THIS, and that is the deliberate position rather than a gap: the obligation was dropped at Q14.3 answer C"
+    },
+    {
+      "id": "BR7.5",
+      "status": "OK",
+      "target": "plan § 5.2 — seven rows in docs/delivery/bangla-layout-check.md. Verifier: a file check; a screen with no row means an incomplete unit"
+    },
+    {
+      "id": "NFR1.6",
+      "status": "OK",
+      "target": "plan § 3.3 — the session job stamps its heartbeat under its own name via the already-parameterised stamp_heartbeat"
+    },
+    {
+      "id": "NFR1.7",
+      "status": "OK",
+      "target": "plan § 3.3 — the heartbeat is stamped unconditionally on outcome, following run_generation's built shape"
+    },
+    {
+      "id": "NFR1.8",
+      "status": "OK",
+      "target": "plan § 3.3 — main_check_freshness() enumerates every job_heartbeat row (human's option B, 2026-10-25). Verifier: tests/fees/test_freshness_enumeration.py, incl. a second job stale while the fee job is fresh, and the empty registry. Test-first"
+    },
+    {
+      "id": "NFR2.6",
+      "status": "Deferred",
+      "target": "plan § 7 — no latency target for the attendance path. Verifier: review for the absence of a timing assertion. NO AUTOMATED VERIFIER, deliberately: see BR7.4"
+    },
+    {
+      "id": "NFR2.7",
+      "status": "OK",
+      "target": "plan § 2 — the structural properties that stand in place of a target. Verifier: the default-present roster test and the single-atomic-write test, neither presented as a performance test"
+    },
+    {
+      "id": "NFR2.8",
+      "status": "OK",
+      "target": "plan § 5.1 — a composed roster renders as queued with the server unreachable. Verifier: the offline-enqueue test of BR3.1 (a)"
+    },
+    {
+      "id": "NFR2.9",
+      "status": "OK",
+      "target": "plan § 5.1 — the queue is a serialized file, adding no dependency. Verifier: the existing release-gate AAB size assertion"
+    },
+    {
+      "id": "NFR5.1",
+      "status": "OK",
+      "target": "plan § 5.1 — queued writes persist to device storage, not memory. Verifier: QueueStoreTest.kt restart case"
+    },
+    {
+      "id": "NFR5.2",
+      "status": "OK",
+      "target": "plan § 5.1 — exactly four queue states"
+    },
+    {
+      "id": "NFR5.3",
+      "status": "OK",
+      "target": "plan § 5.1 — automatic sync on connectivity, no teacher action"
+    },
+    {
+      "id": "NFR5.4",
+      "status": "OK",
+      "target": "plan § 5.1 — only the two mid-class paths queue; every other write refuses with a retry prompt"
+    },
+    {
+      "id": "NFR5.5",
+      "status": "OK",
+      "target": "plan § 5.1 — a queued item never renders as confirmed"
+    },
+    {
+      "id": "NFR5.6",
+      "status": "OK",
+      "target": "plan § 5.1 — Conflicted and Failed are visually distinct"
+    },
+    {
+      "id": "NFR5.7",
+      "status": "OK",
+      "target": "plan § 5.1 — a conflicted item schedules no automatic retry"
+    },
+    {
+      "id": "NFR5.8",
+      "status": "OK",
+      "target": "plan § 5.1 — the offline entry is retained until the teacher re-applies or discards; nothing is merged"
+    },
+    {
+      "id": "NFR5.9",
+      "status": "OK",
+      "target": "plan § 5.1 — re-apply carries the current version and a fresh mutation id [BR3.7]"
+    },
+    {
+      "id": "NFR5.10",
+      "status": "OK",
+      "target": "plan § 5.1 — write to queue.json.tmp in the SAME directory, fsync, then renameTo. Same directory because a cross-filesystem rename is a copy. Verifier: QueueStoreTest.kt simulated-crash case"
+    },
+    {
+      "id": "NFR5.11",
+      "status": "OK",
+      "target": "plan § 5.1 — the queue holds enrollment ids, booleans, a version and two UUIDs; no identifier of any kind. Verifier: the existing DEX scan and manifest allowlist, plus review of the serialized shape"
+    },
+    {
+      "id": "NFR5.12",
+      "status": "Deferred",
+      "target": "plan § 8 — the queue file is not encrypted, as a recorded acceptance [security-design § 7.2]. NO VERIFIER; this is an acceptance, and the cost of reversing it is small and costed there. For the human"
+    },
+    {
+      "id": "NFR6.40",
+      "status": "OK",
+      "target": "plan § 3.1 — the roster commits as one transaction"
+    },
+    {
+      "id": "NFR6.41",
+      "status": "OK",
+      "target": "plan § 3.1 — per-seat upsert on (session_id, enrollment_id); a re-submission replaces"
+    },
+    {
+      "id": "NFR6.42",
+      "status": "OK",
+      "target": "plan § 3.1 — a partial write is impossible; failure rolls the whole roster back"
+    },
+    {
+      "id": "NFR6.43",
+      "status": "OK",
+      "target": "plan § 3.1 — the version increments by exactly one per applied write"
+    },
+    {
+      "id": "NFR6.44",
+      "status": "OK",
+      "target": "plan § 3.1 — the conditional UPDATE is both check and write, so no window exists between them. Verifier: tests/teaching/test_attendance_races.py. Test-first"
+    },
+    {
+      "id": "NFR6.45",
+      "status": "OK",
+      "target": "plan § 3.1 — zero rows affected means someone else won; no pessimistic lock"
+    },
+    {
+      "id": "NFR6.46",
+      "status": "OK",
+      "target": "plan § 3.1 — N-1 racing writes are refused. Verifier: the barrier test. Test-first"
+    },
+    {
+      "id": "NFR6.47",
+      "status": "OK",
+      "target": "plan § 3.1 — topic_version is separate from attendance_version, so disjoint columns do not manufacture conflicts"
+    },
+    {
+      "id": "NFR6.48",
+      "status": "OK",
+      "target": "plan § 3.1 — session-level granularity, inherited from ADR-006 and § B.8, with its stated cost"
+    },
+    {
+      "id": "NFR6.49",
+      "status": "OK",
+      "target": "plan § 3.1 — UNIQUE (session_id, resulting_version) as the second independent guarantee"
+    },
+    {
+      "id": "NFR6.50",
+      "status": "OK",
+      "target": "plan § 3.1 — the replay lookup is scoped by both columns. Verifier: tests/teaching/test_replay.py, concurrent. Test-first"
+    },
+    {
+      "id": "NFR6.51",
+      "status": "OK",
+      "target": "plan § 3.1 — generation idempotency by unique constraint, never an application guard. Verifier: tests/teaching/test_generation_races.py. Test-first"
+    },
+    {
+      "id": "NFR6.52",
+      "status": "OK",
+      "target": "plan § 3.1 — idempotent across days as well as concurrently. Verifier: the later-day re-run case"
+    },
+    {
+      "id": "NFR6.53",
+      "status": "OK",
+      "target": "plan § 3.1 — a conflict is the success path and generation continues without raising"
+    },
+    {
+      "id": "NFR6.54",
+      "status": "OK",
+      "target": "plan § 3.1 — generation never deletes any row and considers only origin=recurrence"
+    },
+    {
+      "id": "NFR6.55",
+      "status": "OK",
+      "target": "plan § 3.1 — a missed day adds no work; the horizon is a function of the calendar"
+    },
+    {
+      "id": "NFR6.56",
+      "status": "OK",
+      "target": "plan § 3.2 — the supersession chain, append-only, one live row per seat"
+    },
+    {
+      "id": "NFR6.57",
+      "status": "OK",
+      "target": "plan § 3.5 — the partial unique index is what makes the live-row guarantee survive a logic error"
+    },
+    {
+      "id": "NFR6.58",
+      "status": "OK",
+      "target": "plan § 3.2 — the marksheet reads the live mark per seat in one indexed pass"
+    },
+    {
+      "id": "NFR10.18",
+      "status": "OK",
+      "target": "plan § 3.4 — one TableGovernance entry per table, not two; RETENTION is derived by comprehension. Verifier: the built governance pair"
+    },
+    {
+      "id": "NFR10.19",
+      "status": "OK",
+      "target": "plan § 3.4 — dispositions transcribed from the prior catalogue; attendance_submission takes attendance's"
+    },
+    {
+      "id": "NFR10.20",
+      "status": "OK",
+      "target": "plan § 8 — D4 adds no hosting or database tier, so the existing storage encryption stands"
+    },
+    {
+      "id": "NFR14.48",
+      "status": "OK",
+      "target": "plan § 4, test instructions § 5 — six readers, each with an adversarial and a positive probe, direct and join routes. Test-first"
+    },
+    {
+      "id": "NFR14.49",
+      "status": "OK",
+      "target": "test instructions § 4.2 — an EQUALITY assertion over two responses, not two independent refusal assertions. The timing half is NFR14.49's second clause and is Deferred below under its own row"
+    },
+    {
+      "id": "NFR14.50",
+      "status": "OK",
+      "target": "plan § 1, § 4 — no PUBLIC_ROUTES entry; the frozenset's count is asserted in two places, so adding one fails make check"
+    },
+    {
+      "id": "NFR14.51",
+      "status": "OK",
+      "target": "plan § 4 — the built app/contract/privacy.py gate; no new mechanism"
+    },
+    {
+      "id": "NFR14.52",
+      "status": "Deferred",
+      "target": "plan § 8 — no RLS policy on D4's six tables, because none has a column naming its reader. A RECORDED DECISION with no automated verifier; the § 5 probes are what actually enforce the boundary"
+    },
+    {
+      "id": "NFR14.53",
+      "status": "Deferred",
+      "target": "security-design § 3.2 — the decision re-opens if any D4 table gains a column identifying a reader. NOTHING WATCHES THE TRIGGER; the watch is review plus that sentence"
+    },
+    {
+      "id": "NFR14.54",
+      "status": "OK",
+      "target": "plan § 8 — attendance_submission.submitted_by_account_id names the WRITER and no read is ever scoped by it; stated because it is the one column that looks like a counter-example"
+    },
+    {
+      "id": "NFR14.55",
+      "status": "OK",
+      "target": "plan § 3.2 — schema shape rather than filtering: no per-student collection exists to populate. Verifier: a schema assertion plus a derivation probe"
+    },
+    {
+      "id": "NFR14.56",
+      "status": "OK",
+      "target": "test instructions § 4.3 — the property test over generated lists is what catches the single-pass bug. Test-first"
+    },
+    {
+      "id": "NFR14.57",
+      "status": "OK",
+      "target": "test instructions § 4.4 — two threshold tests, each holding the other condition satisfied. Test-first"
+    },
+    {
+      "id": "NFR14.58",
+      "status": "OK",
+      "target": "plan § 3.2 — every aggregate scoped to one batch. Verifier: disjoint two-batch seeding"
+    },
+    {
+      "id": "NFR14.59",
+      "status": "OK",
+      "target": "test instructions § 4.5 — three absences asserted individually; not a 200 carrying an empty list"
+    },
+    {
+      "id": "NFR14.60",
+      "status": "OK",
+      "target": "plan § 4 — the toggle is written through exactly one owner-scoped route. Verifier: the route test plus a non-owner probe"
+    },
+    {
+      "id": "NFR14.61",
+      "status": "OK",
+      "target": "plan § 4 — client_mutation_id on exactly the two writes § B.7 names, asserted over the generated OpenAPI document"
+    },
+    {
+      "id": "NFR14.62",
+      "status": "OK",
+      "target": "plan § 3.1 — the lookup is scoped by the authenticated account, so A's id under B's token is not a duplicate. Verifier: a probe asserting refusal and specifically not a 200 carrying A's result. Test-first"
+    },
+    {
+      "id": "NFR14.63",
+      "status": "OK",
+      "target": "test instructions § 4.1 — created_at unmoved is the load-bearing assertion; a row count passes against an in-place overwrite. Test-first"
+    },
+    {
+      "id": "NFR14.64",
+      "status": "OK",
+      "target": "plan § 3.1 — the sequence puts authorization before the version compare, because current_state IS the roster. Verifier: tests/teaching/test_refusal_order.py, both version cases. Test-first"
+    },
+    {
+      "id": "NFR16.5",
+      "status": "OK",
+      "target": "plan § 7 — the committed OpenAPI schema is regenerated and its diff reviewed; the schema-diff gate blocks on drift"
+    },
+    {
+      "id": "NFR17.4",
+      "status": "OK",
+      "target": "plan § 7 — Ruff check and format across D4's new modules, with the project's named rule sets"
+    },
+    {
+      "id": "NFR17.5",
+      "status": "OK",
+      "target": "plan § 7 — D4's six lens-scoped readers land inside the ALREADY-CONFIGURED app.authz.* strict island (pyproject.toml:222-226, added 2026-10-22). team.md's note that it was never configured is stale"
+    },
+    {
+      "id": "NFR17.6",
+      "status": "OK",
+      "target": "plan § 7 — mypy clean under the global disallow_untyped_defs; type hints on every parameter and return"
+    },
+    {
+      "id": "NFR17.7",
+      "status": "OK",
+      "target": "plan § 3.2 — app/marks/marksheet.py holds no I/O, no session and no HTTP, which is what makes its branch target reachable"
+    },
+    {
+      "id": "NFR17.8",
+      "status": "Deferred",
+      "target": "repository-wide tooling the infrastructure design lists as open and this unit does not close: Schemathesis, the screenshot harness, the Docker precondition assertion. Each names a designed obligation awaiting a human decision. NOT D4 work and not claimed as covered"
+    },
+    {
+      "id": "NFR18.6",
+      "status": "OK",
+      "target": "plan § 5.2 — every user-facing string in both strings.xml bundles, from the first screen"
+    },
+    {
+      "id": "NFR18.7",
+      "status": "OK",
+      "target": "plan § 5.2 — seven rows in the per-screen Bangla check table [BR7.5]"
+    },
+    {
+      "id": "NFR18.8",
+      "status": "OK",
+      "target": "plan § 5.2 — the conflict-resolution screen is the densest Bangla text this unit renders and is checked hardest"
+    },
+    {
+      "id": "NFR19.29",
+      "status": "OK",
+      "target": "plan § 3.1 — ConflictError, not ValidationError, for a well-formed request the current state forbids"
+    },
+    {
+      "id": "NFR19.30",
+      "status": "OK",
+      "target": "plan § 8 — no new exception class; the built five-class hierarchy covers D4"
+    },
+    {
+      "id": "NFR19.31",
+      "status": "OK",
+      "target": "plan § 3.1 — retryable is a property of the error class, read in one place; no raise site sets it"
+    },
+    {
+      "id": "NFR19.32",
+      "status": "OK",
+      "target": "plan § 4 — one error envelope with code, retryable and message_key; no server-sent English string"
+    },
+    {
+      "id": "NFR19.33",
+      "status": "OK",
+      "target": "plan § 3.1 — the replay returns the ORIGINAL stored result with 200, not 201 and not an error"
+    },
+    {
+      "id": "NFR19.34",
+      "status": "OK",
+      "target": "test instructions § 4.1 — created_at unmoved. Test-first"
+    },
+    {
+      "id": "NFR19.35",
+      "status": "OK",
+      "target": "plan § 8 — ATTENDANCE_VERSION_CONFLICT is a ConflictError carrying 409, so it never enters AUTH_403_CODES and the built oracle registry test is untouched"
+    },
+    {
+      "id": "NFR19.36",
+      "status": "OK",
+      "target": "plan § 3.1 — the shared NOT_AVAILABLE is raised before any resource-specific work"
+    },
+    {
+      "id": "NFR19.37",
+      "status": "OK",
+      "target": "plan § 3.1 — a database constraint violation on the natural key is the success path for generation"
+    },
+    {
+      "id": "NFR19.38",
+      "status": "OK",
+      "target": "plan § 3.1 — two state-based refusals: a cancelled session and an inactive batch. Verifier: a test per case asserting existing rows are untouched"
+    },
+    {
+      "id": "NFR19.39",
+      "status": "OK",
+      "target": "plan § 3.1 — the roster write's transaction boundary covers the submission row, the upserts and the increment"
+    },
+    {
+      "id": "NFR19.40",
+      "status": "OK",
+      "target": "plan § 3.2 — the correction appends and sets the old pointer in one transaction"
+    },
+    {
+      "id": "NFR19.41",
+      "status": "OK",
+      "target": "plan § 3.1 — the generation job self-heals and may run twice or miss a day without harm"
+    },
+    {
+      "id": "NFR19.42",
+      "status": "OK",
+      "target": "plan § 3.1 — main_generate_sessions() takes no required arguments, matching the built fee command's shape"
+    },
+    {
+      "id": "NFR19.43",
+      "status": "OK",
+      "target": "plan § 3.3 — the heartbeat is committed in its own transaction after the work, so it cannot roll back with work that succeeded"
+    },
+    {
+      "id": "NFR19.44",
+      "status": "OK",
+      "target": "plan § 3.3 — a run finding nothing due stamps with zero counts; nothing-was-due and nothing-ran stay distinguishable"
+    },
+    {
+      "id": "NFR19.45",
+      "status": "OK",
+      "target": "plan § 3.1 — the job runs outside Bangladesh classroom hours; the cron hour is proposed at 01:00 UTC in the Assumptions"
+    },
+    {
+      "id": "NFR19.46",
+      "status": "OK",
+      "target": "plan § 3.5 — all six tables in ONE migration, 0006, with a NEW_TABLES tuple and a grant loop, following 0005"
+    },
+    {
+      "id": "NFR19.47",
+      "status": "OK",
+      "target": "plan § 3.5 — the six tables are granted explicitly to APP_ROLE. Verifier: the built reachability pair, which fails make check on a missing grant"
+    },
+    {
+      "id": "NFR20.24",
+      "status": "OK",
+      "target": "plan § 3.1 roster.py — a constant statement count regardless of roster size. Verifier: a statement-count assertion, never a latency assertion"
+    },
+    {
+      "id": "NFR20.25",
+      "status": "OK",
+      "target": "plan § 3.1 — the session list is a constant statement count over a full horizon. Verifier: a statement-count assertion"
+    },
+    {
+      "id": "NFR20.26",
+      "status": "OK",
+      "target": "plan § 3.2 — the marksheet is one pass over one exam's live marks, served by the partial index. Verifier: a statement-count assertion plus the index in the migration"
+    },
+    {
+      "id": "NFR20.27",
+      "status": "OK",
+      "target": "plan § 3.2 progress.py — ordered by exam date in the query, never sorted in the client"
+    },
+    {
+      "id": "NFR20.28",
+      "status": "OK",
+      "target": "plan § 3.5 — no index beyond the ones the constraints already create. Verifier: review of the migration, stated plainly rather than implied"
+    },
+    {
+      "id": "NFR20.29",
+      "status": "OK",
+      "target": "plan § 3.1 — generation's cost is bounded by active batches x slots x occurrences; the horizon assumption is named in the plan's Assumptions"
+    },
+    {
+      "id": "NFR20.30",
+      "status": "OK",
+      "target": "plan § 3.1, Assumptions — the cron hour, reviewed rather than automatically checked"
+    },
+    {
+      "id": "NFR24.13",
+      "status": "Deferred",
+      "target": "no child name in any log line. Verifier: review of D4's new call sites. NO AUTOMATED SCANNER EXISTS, and that sentence is the requirement's honest half"
+    },
+    {
+      "id": "NFR24.14",
+      "status": "Deferred",
+      "target": "no mark in any log line. Verifier: review. NO AUTOMATED SCANNER EXISTS"
+    },
+    {
+      "id": "NFR24.15",
+      "status": "OK",
+      "target": "test instructions § 6 — the conflict path must not log current_state, which IS the roster. This is the one of the three logging prohibitions that gets a test"
+    },
+    {
+      "id": "NFR24.16",
+      "status": "OK",
+      "target": "plan § 3.1 — the refused submission's roster never reaches a log line; the authorization-ordering control is independent of the logging one"
+    },
+    {
+      "id": "NFR24.17",
+      "status": "OK",
+      "target": "plan § 4 — every error log carries the request id and never a phone number, an OTP or a token"
+    },
+    {
+      "id": "NFR24.18",
+      "status": "OK",
+      "target": "plan § 3.3 — the per-job alert line names the stale job rather than a hardcoded constant"
+    },
+    {
+      "id": "NFR24.19",
+      "status": "OK",
+      "target": "plan § 3.1 — the generation run logs its counts, following the built fee command"
+    },
+    {
+      "id": "NFR24.20",
+      "status": "OK",
+      "target": "plan § 4 — no exception traceback is returned to a client"
+    },
+    {
+      "id": "NFR25.18",
+      "status": "Deferred",
+      "target": "the conflict counter's storage shape is unchosen [monitoring-design § 2.2]. The shape (session_id, base_version, current_version, submitted_by, timestamp) is designed and avoids the NFR24.15 roster prohibition; WHERE IT LIVES IS THE HUMAN'S and is not decided here. D4 does not claim this covered"
+    },
+    {
+      "id": "NFR25.19",
+      "status": "Deferred",
+      "target": "the replay counter, same decision and same row as NFR25.18. For the human"
+    },
+    {
+      "id": "NFR25.20",
+      "status": "OK",
+      "target": "plan § 3.3 — log.critical on the host's stdout, this product's existing alert channel; D4 adds no alerting infrastructure"
+    },
+    {
+      "id": "NFR25.21",
+      "status": "OK",
+      "target": "plan § 3.3 — the alert names the job and its reason"
+    },
+    {
+      "id": "NFR25.22",
+      "status": "OK",
+      "target": "plan § 3.3 — alert unless a row exists AND is fresh; never alert-if-stale, which treats zero rows as healthy"
+    },
+    {
+      "id": "NFR25.23",
+      "status": "OK",
+      "target": "plan § 3.3 — the enumeration closes this: D4's heartbeat row is now read. Verifier: tests/fees/test_freshness_enumeration.py. Test-first"
+    },
+    {
+      "id": "NFR25.24",
+      "status": "OK",
+      "target": "plan § 3.3 — the empty registry is treated as UNHEALTHY, so no-jobs-registered cannot read as healthy"
+    },
+    {
+      "id": "NFR25.25",
+      "status": "Deferred",
+      "target": "the attendance conflict rate is a metric to read after the pilot, not a condition with a known-bad threshold. NO ALERT, because a threshold set now would be invented. Depends on NFR25.18's storage decision"
+    },
+    {
+      "id": "NFR25.26",
+      "status": "OK",
+      "target": "plan § 3.3 — per-job staleness windows stay per-job; the shared 48-hour constant is correct while both jobs agree, with its trigger stated"
+    },
+    {
+      "id": "NFR25.27",
+      "status": "OK",
+      "target": "plan § 3.3 — log.critical is the only alerting mechanism and D4 adds none"
+    },
+    {
+      "id": "NFR26.7",
+      "status": "OK",
+      "target": "plan § 3.3 — session-generation freshness under 48 hours, measured by the freshness command's verdict, now actually reached"
+    },
+    {
+      "id": "NFR26.8",
+      "status": "OK",
+      "target": "plan § 3.1 — the job's SLI is freshness rather than duration, because it self-heals"
+    },
+    {
+      "id": "NFR26.9",
+      "status": "OK",
+      "target": "plan § 7 — no API response-time target is set by this unit; no unit of this product has set one and D4 does not start"
+    },
+    {
+      "id": "NFR26.10",
+      "status": "OK",
+      "target": "plan § 3.3 — the heartbeat's three counts are the job's health metric"
+    }
+  ]
+}

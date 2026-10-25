@@ -1,0 +1,80 @@
+{
+  "stage": "nfr-requirements",
+  "unit": "running-a-batch",
+  "note": "upstream_ids are the NFRs this record adds (NFR20-NFR23); the product's base NFR1-NFR17 live in the prior record. NFRx.y IDs are GLOBAL across units, so D2's derived IDs start above the high-water mark each base reached after D1: NFR20 from .7, NFR23 from .4, NFR14 from .26, NFR2 from .3, NFR3 from .3. D2 is typed `ui`, so produces_kinds asks for performance, security and tech-stack only - it adds no row, job, service or alert, so there is nothing for a scalability, reliability or observability document to say. Derived IDs extending a prior-record base are declared in reverse with the rule or criterion that motivates each. A bare NFR14.15 in these artifacts is a CITATION of the prior record's rule (a guardian reaches children through their own link), not an ID defined here.",
+  "upstream_ids": [
+    "NFR20",
+    "NFR21",
+    "NFR22",
+    "NFR23"
+  ],
+  "coverage": [
+    {
+      "id": "NFR20",
+      "status": "OK",
+      "target": "NFR20.7, NFR20.8, NFR20.9, NFR20.10, NFR20.11 - the count is aggregated in the listing statement and the roster stays one statement, so cost tracks the requesting teacher's own data"
+    },
+    {
+      "id": "NFR21",
+      "status": "OK",
+      "target": "NFR20.9 - no cached or denormalised count; the server computes it per request, which is what NFR21 forbids caching"
+    },
+    {
+      "id": "NFR22",
+      "status": "OK",
+      "target": "NFR20.9, NFR20.11 - counts only at list level, with a lens's rows arriving when that view is opened"
+    },
+    {
+      "id": "NFR23",
+      "status": "OK",
+      "target": "NFR23.4, NFR23.5, NFR23.6 - the count is written from the criterion first, the two refusals are distinct outcomes, and the Back obligation carries a test because it is unobservable server-side"
+    }
+  ],
+  "reverse": [
+    {
+      "id": "NFR2.3",
+      "status": "N/A",
+      "target": "NFR2 of the prior record - the device floor. A client property with no inception NFR in this record"
+    },
+    {
+      "id": "NFR2.4",
+      "status": "N/A",
+      "target": "NFR2 - download size, measured at the release gate owned by D5/D6"
+    },
+    {
+      "id": "NFR3.3",
+      "status": "N/A",
+      "target": "NFR3 - the count's Bangla digit rendering. A per-screen check obligation under FR0.2 rather than a requirement of this record"
+    },
+    {
+      "id": "NFR14.26",
+      "status": "N/A",
+      "target": "BR2.1 - the new roster fields carry decisions, not personal data. Extends the prior record's NFR14 privacy axis"
+    },
+    {
+      "id": "NFR14.27",
+      "status": "N/A",
+      "target": "D1 BR3.2 - the schema-wide teacher-lens invariant, inherited unchanged"
+    },
+    {
+      "id": "NFR14.28",
+      "status": "N/A",
+      "target": "BR2.3 and ADR-012 - a declined row shows the number, not the retained name. Retention and display are different decisions and only the first is in the governance manifest"
+    },
+    {
+      "id": "NFR14.29",
+      "status": "N/A",
+      "target": "BR4.1 and NFR14.15 - guardians reach children through their own link. Built in identity-and-access, rendered here"
+    },
+    {
+      "id": "NFR14.30",
+      "status": "N/A",
+      "target": "BR4.2 and AC9.4.2 - Back after a child switch. The only place two scopes of one lens are adjacent, and unobservable server-side"
+    },
+    {
+      "id": "NFR14.31",
+      "status": "N/A",
+      "target": "BR3.1 - removability is the server's decision. The roster row does not carry the erasure markers remove_enrollment also reads"
+    }
+  ]
+}

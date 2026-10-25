@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,6 +21,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.text.KeyboardOptions
 import com.shikkhokplus.app.R
+import com.shikkhokplus.app.core.designsystem.OtpField
+import com.shikkhokplus.app.core.designsystem.OtpFieldState
+import com.shikkhokplus.app.core.designsystem.TAG_OTP_FIELD
 import com.shikkhokplus.app.feature.auth.AuthUiState
 import com.shikkhokplus.app.feature.auth.MessageKeys
 
@@ -135,27 +139,33 @@ private fun CodeEntry(
     // Shown for ANY number, known or not: the server's response is
     // identical either way, and the copy says "if that number is
     // registered" so the screen does not imply recognition [BR2.7].
-    Text(text = stringResource(R.string.auth_code_sent))
-    OutlinedTextField(
-        value = code,
-        onValueChange = onCodeChange,
-        label = { Text(stringResource(R.string.auth_code_label)) },
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-        singleLine = true,
-        modifier = Modifier.fillMaxWidth().testTag(TAG_CODE_FIELD),
+    Text(
+        text = stringResource(R.string.auth_code_sent),
+        style = MaterialTheme.typography.bodyMedium,
     )
-    Button(
-        onClick = onSubmit,
-        modifier = Modifier.fillMaxWidth().testTag(TAG_VERIFY),
-    ) {
-        Text(text = stringResource(R.string.auth_verify))
-    }
+
+    // **No verify button.** The code is exactly six digits, so when
+    // the sixth arrives there is nothing left to decide — a button
+    // would be one more tap between a teacher and their classes, and
+    // it would leave the SMS-autofill path waiting on a gesture after
+    // Android has already filled all six.
+    OtpField(
+        code = code,
+        onCodeChange = onCodeChange,
+        onComplete = onSubmit,
+        state = OtpFieldState.EDITING,
+        modifier = Modifier.fillMaxWidth(),
+    )
+
+    Text(
+        text = stringResource(R.string.auth_code_auto_checks),
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 const val TAG_PHONE_FIELD = "auth_phone_field"
 const val TAG_REQUEST_CODE = "auth_request_code"
-const val TAG_CODE_FIELD = "auth_code_field"
-const val TAG_VERIFY = "auth_verify"
 const val TAG_RETRY = "auth_retry"
 const val TAG_ERROR = "auth_error"
 const val TAG_SENDING = "auth_sending"

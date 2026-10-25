@@ -90,11 +90,20 @@ Phase 1 still keeps Postgres on the box: a database bound to
 `127.0.0.1` is exposed to nothing, and the reason to pay for RDS is
 automated backups and PITR, which is a Phase 2 concern.
 
-> **Phase 2 has a budget collision, found by computing it.** Staging
-> plus RDS is **USD 50.20** against the USD 50 ceiling. A `precondition`
-> blocks the apply rather than letting a bill discover it — Phase 2
-> means retiring the rehearsal host or raising
-> `acknowledged_monthly_budget` deliberately.
+> **Phase 2 fits, and the collision this note used to claim was an
+> arithmetic error.** Staging plus RDS is **USD 47.28** against the
+> USD 50 ceiling — 2.72 of headroom. Until 2026-10-24 this read
+> "USD 50.20" and said Phase 2 meant retiring the rehearsal host or
+> raising the budget; neither is required. The `precondition` still
+> blocks an apply that genuinely crosses the ceiling, computing from
+> `cost_breakdown` rather than from a number written in prose.
+>
+> | configuration | USD/month |
+> |---|---|
+> | app only | 15.26 |
+> | + staging | 29.92 |
+> | + RDS | 32.62 |
+> | + staging and RDS | 47.28 |
 
 ---
 

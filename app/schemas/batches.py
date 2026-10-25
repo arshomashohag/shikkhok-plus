@@ -98,7 +98,14 @@ class BatchResponse(BaseModel):
     :ivar collection_channel: Which service that number belongs to
     :ivar marksheet_visible: U6's toggle
     :ivar active: False means read-only history
-    :ivar enrollment_count: How many seats, computed server-side
+    :ivar enrollment_count: How many seats, computed server-side. The
+        **denominator** of "9 of 12 accepted", and it counts every seat
+        the teacher created including declined ones [BR1.4]
+    :ivar accepted_count: How many of those seats at least one link has
+        accepted [BR1.2], computed server-side and **never counted by
+        the client** [BR1.3, TC-9]. A client counting rows is a client
+        deciding what counts as accepted, and it is wrong the moment the
+        roster paginates because it can only count the rows it holds
     """
 
     id: uuid.UUID
@@ -112,6 +119,7 @@ class BatchResponse(BaseModel):
     marksheet_visible: bool
     active: bool
     enrollment_count: int
+    accepted_count: int
 
 
 class EnrollmentCreateRequest(BaseModel):
@@ -160,7 +168,28 @@ class RosterRowResponse(BaseModel):
     :ivar display_name: The teacher-typed name
     :ivar guardian_phone: The teacher-typed guardian contact
     :ivar fee_amount: This seat's fee, or null when it inherits
-    :ivar status: ``dormant``, ``active`` or ``inactive``
+    :ivar status: ``dormant``, ``active`` or ``inactive``.
+
+        **Unchanged, and the two new fields sit beside it rather than
+        replacing it.** Acceptance is a different axis from activity:
+        an inactive seat keeps whatever decisions its links carry,
+        because leaving a batch is not un-accepting it. Folding the two
+        together would produce a product of two axes and a value set
+        nobody can switch on exhaustively
+    :ivar student_state: The student link's own decision --
+        ``pending``, ``accepted`` or ``declined`` [BR2.1]
+    :ivar guardian_state: The guardian link's own decision, plus
+        ``absent`` when no guardian was recorded [BR2.2]. ``absent`` is
+        a fourth VALUE and not a null, because a decision nobody was
+        asked for is not an outstanding one
+    :ivar is_removable: Whether removal would succeed [BR3.1].
+
+        **A decision the client reads and never derives** [NFR14.31].
+        Removal tests two conditions -- no link accepted, and no erasure
+        marker set -- and this row carries only the first. A client
+        inferring removability from the link states it displays would
+        offer the action on an erased seat, which is a wrong answer
+        presented as an available action rather than a style violation
     :ivar inactive_from: The recorded date, if any
     """
 
@@ -169,6 +198,9 @@ class RosterRowResponse(BaseModel):
     guardian_phone: str | None
     fee_amount: MoneyField | None
     status: str
+    student_state: str
+    guardian_state: str
+    is_removable: bool
     inactive_from: dt.date | None
 
 

@@ -10,8 +10,6 @@
 // They run on the RELEASE variant only. A debug build can differ in
 // which dependencies are present, and the release AAB is what ships.
 
-import java.util.zip.ZipFile
-
 // ---------------------------------------------------------------------
 // Gate 1: the merged manifest declares exactly the approved permissions
 // ---------------------------------------------------------------------
@@ -77,8 +75,12 @@ tasks.register("verifyReleasePermissions") {
 
     doLast {
         val file = manifestCandidates
-            .map { layout.buildDirectory.file(it).get().asFile }
-            .firstOrNull { it.exists() }
+            .map {
+                layout.buildDirectory
+                    .file(it)
+                    .get()
+                    .asFile
+            }.firstOrNull { it.exists() }
             ?: throw GradleException(
                 listOf(
                     "No merged manifest found. Looked in:",
@@ -104,7 +106,8 @@ tasks.register("verifyReleasePermissions") {
         //
         // Typed explicitly: Groovy's XmlParser returns untyped nodes,
         // and an inferred Set<Any?> makes every use below ambiguous.
-        val declared: Set<String> = doc.children()
+        val declared: Set<String> = doc
+            .children()
             .filterIsInstance<groovy.util.Node>()
             .filter { node -> node.name().toString().endsWith("uses-permission") }
             .mapNotNull { node ->
@@ -113,13 +116,13 @@ tasks.register("verifyReleasePermissions") {
                     k.toString().endsWith("name")
                 }
                 key?.let { attrs[it]?.toString() }
-            }
-            .toSet()
+            }.toSet()
 
         val forbidden = declared intersect forbiddenPermissions
-        val selfScoped = declared.filter { p ->
-            approvedSelfScopedSuffixes.any { s -> p.endsWith(s) }
-        }.toSet()
+        val selfScoped = declared
+            .filter { p ->
+                approvedSelfScopedSuffixes.any { s -> p.endsWith(s) }
+            }.toSet()
         val unexpected =
             declared - approvedPermissions - forbiddenPermissions - selfScoped
         val problems = mutableListOf<String>()
@@ -183,7 +186,6 @@ val forbiddenIdentifiers = listOf(
     "getBSSID",
     "getSSID",
     "AdvertisingIdClient",
-
     // **The VALUE, not the field name.** `Settings.Secure.ANDROID_ID`
     // is a compile-time String constant, so javac inlines it and the
     // identifier `ANDROID_ID` never reaches the DEX -- only its value,
@@ -205,8 +207,13 @@ tasks.register("verifyReleaseDex") {
 
     doLast {
         val bundle = layout.buildDirectory
-            .file("outputs/bundle/release/android-release.aab").get().asFile
-        val apkDir = layout.buildDirectory.dir("outputs/apk/release").get().asFile
+            .file("outputs/bundle/release/android-release.aab")
+            .get()
+            .asFile
+        val apkDir = layout.buildDirectory
+            .dir("outputs/apk/release")
+            .get()
+            .asFile
 
         val archive = when {
             bundle.exists() -> bundle
@@ -233,7 +240,11 @@ tasks.register("verifyReleaseDex") {
         // identifier as its own NUL-length-prefixed entry, so a match
         // must not be flanked by another identifier character.
         val identifierChar = Regex("[A-Za-z0-9_$]")
-        fun wholeMatch(text: String, id: String): Boolean {
+
+        fun wholeMatch(
+            text: String,
+            id: String
+        ): Boolean {
             var from = 0
             while (true) {
                 val at = text.indexOf(id, from)
@@ -253,24 +264,25 @@ tasks.register("verifyReleaseDex") {
         // reads this archive correctly -- verified directly against
         // the AAB -- so the choice here is only that streaming avoids
         // holding the whole central directory.
-        java.util.zip.ZipInputStream(
-            archive.inputStream().buffered()
-        ).use { zis ->
-            while (true) {
-                val entry = zis.nextEntry ?: break
-                if (!entry.name.endsWith(".dex")) continue
-                dexCount++
-                // The DEX string table stores identifiers as plain
-                // UTF-8, so a byte scan finds them without a dex
-                // parser. Latin-1 keeps byte offsets intact.
-                val text = zis.readBytes().toString(Charsets.ISO_8859_1)
-                forbiddenIdentifiers.forEach { id ->
-                    if (wholeMatch(text, id)) {
-                        hits.getOrPut(id) { mutableListOf() }.add(entry.name)
+        java.util.zip
+            .ZipInputStream(
+                archive.inputStream().buffered()
+            ).use { zis ->
+                while (true) {
+                    val entry = zis.nextEntry ?: break
+                    if (!entry.name.endsWith(".dex")) continue
+                    dexCount++
+                    // The DEX string table stores identifiers as plain
+                    // UTF-8, so a byte scan finds them without a dex
+                    // parser. Latin-1 keeps byte offsets intact.
+                    val text = zis.readBytes().toString(Charsets.ISO_8859_1)
+                    forbiddenIdentifiers.forEach { id ->
+                        if (wholeMatch(text, id)) {
+                            hits.getOrPut(id) { mutableListOf() }.add(entry.name)
+                        }
                     }
                 }
             }
-        }
 
         if (dexCount == 0) {
             throw GradleException(

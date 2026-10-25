@@ -182,7 +182,9 @@ class HttpRepositoryTest {
             engineReturning(
                 HttpStatusCode.OK,
                 """[{"enrollment_id":"e-1","display_name":"Rahim",
-                   "fee_amount":1500.00,"status":"active"}]""",
+                   "fee_amount":1500.00,"status":"active",
+                   "student_state":"pending","guardian_state":"absent",
+                   "is_removable":true}]""",
             )
 
         val result = HttpRosterRepository(client(engine)).roster("b-1")
@@ -198,7 +200,9 @@ class HttpRepositoryTest {
             engineReturning(
                 HttpStatusCode.OK,
                 """[{"enrollment_id":"e-1","display_name":"Rahim",
-                   "fee_amount":"1500.00","status":"active"}]""",
+                   "fee_amount":"1500.00","status":"active",
+                   "student_state":"pending","guardian_state":"absent",
+                   "is_removable":true}]""",
             )
 
         val result = HttpRosterRepository(client(engine)).roster("b-1")
@@ -216,7 +220,9 @@ class HttpRepositoryTest {
             engineReturning(
                 HttpStatusCode.OK,
                 """[{"enrollment_id":"e-1","display_name":"Rahim",
-                   "status":"active","a_field_from_a_later_unit":42}]""",
+                   "status":"active","student_state":"pending",
+                   "guardian_state":"absent","is_removable":true,
+                   "a_field_from_a_later_unit":42}]""",
             )
 
         assertIs<AuthResult.Ok<*>>(HttpRosterRepository(client(engine)).roster("b-1"))

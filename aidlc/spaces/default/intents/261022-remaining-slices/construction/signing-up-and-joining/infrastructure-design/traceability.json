@@ -1,0 +1,366 @@
+{
+  "stage": "infrastructure-design",
+  "unit": "signing-up-and-joining",
+  "note": "upstream_ids are the NFRx.y IDs the sensor derives from this unit's nfr-design artifacts. D1 provisions no infrastructure, so most of these are application-level requirements with no infrastructure expression and are recorded N/A with the reason rather than claimed as covered. The OK rows are the ones infrastructure genuinely carries: the deployment and migration properties, the pipeline gates, the alerting and retention tables, and the named gaps. NFR6.1 and NFR12.1 are citations of the prior record's rules. The observability IDs cited in monitoring-design.md (NFR12.9, NFR12.11, NFR24.1-24.3, NFR25.1, NFR25.4, NFR25.6, NFR25.7, NFR26.1, NFR26.2) are not derived as upstream: the sensor reads the nfr-design files and observability-design.md is not among them. They are declared in the reverse array so the monitoring design is not carrying requirements no coverage file mentions.",
+  "upstream_ids": [
+    "NFR2.1",
+    "NFR2.2",
+    "NFR6.1",
+    "NFR6.20",
+    "NFR6.21",
+    "NFR6.22",
+    "NFR6.23",
+    "NFR6.24",
+    "NFR6.25",
+    "NFR7.5",
+    "NFR10.13",
+    "NFR10.14",
+    "NFR11.1",
+    "NFR12.1",
+    "NFR12.3",
+    "NFR12.4",
+    "NFR12.5",
+    "NFR12.6",
+    "NFR12.7",
+    "NFR12.8",
+    "NFR12.10",
+    "NFR13.4",
+    "NFR14.22",
+    "NFR14.23",
+    "NFR14.24",
+    "NFR14.25",
+    "NFR18.1",
+    "NFR18.2",
+    "NFR19.1",
+    "NFR19.2",
+    "NFR19.3",
+    "NFR19.4",
+    "NFR19.5",
+    "NFR19.6",
+    "NFR19.7",
+    "NFR20.1",
+    "NFR20.2",
+    "NFR20.3",
+    "NFR20.4",
+    "NFR20.5",
+    "NFR20.6",
+    "NFR21.1",
+    "NFR22.1",
+    "NFR23.1",
+    "NFR23.2",
+    "NFR23.3",
+    "NFR24.4",
+    "NFR25.2",
+    "NFR25.3",
+    "NFR25.5"
+  ],
+  "coverage": [
+    {
+      "id": "NFR2.1",
+      "status": "OK",
+      "target": "The device floor is a client property; infrastructure serves the same API regardless (infrastructure-specification Deployment)"
+    },
+    {
+      "id": "NFR2.2",
+      "status": "OK",
+      "target": "Download size is measured at the release gate by release-android.yml, which D1 does not change (cicd-pipeline)"
+    },
+    {
+      "id": "NFR6.1",
+      "status": "N/A",
+      "target": "Cited from the prior record: the one-statement lens shape. An application query property with no infrastructure expression"
+    },
+    {
+      "id": "NFR6.20",
+      "status": "N/A",
+      "target": "The scale ceiling is unchanged and no autoscaling rule is provisioned, so there is no infrastructure artifact to design for it"
+    },
+    {
+      "id": "NFR6.21",
+      "status": "N/A",
+      "target": "Account-table growth is bounded by application-level ceilings; infrastructure provisions no separate control"
+    },
+    {
+      "id": "NFR6.22",
+      "status": "OK",
+      "target": "Named as a gap with an owner: the 48-hour disposition is declared and no job enforces it; D1 installs none (infrastructure-specification Gaps, monitoring-design Retention)"
+    },
+    {
+      "id": "NFR6.23",
+      "status": "N/A",
+      "target": "Database uniqueness constraint, applied by migration rather than by infrastructure"
+    },
+    {
+      "id": "NFR6.24",
+      "status": "N/A",
+      "target": "A state-machine property of the application, not an infrastructure one"
+    },
+    {
+      "id": "NFR6.25",
+      "status": "N/A",
+      "target": "Counter atomicity is a SQL property of the upsert; infrastructure supplies the database and nothing more"
+    },
+    {
+      "id": "NFR7.5",
+      "status": "OK",
+      "target": "D1 adds no row to the Infrastructure Services table and no Terraform change, so the budget guard's estimate is unchanged (infrastructure-specification)"
+    },
+    {
+      "id": "NFR10.13",
+      "status": "OK",
+      "target": "Encryption at rest is an RDS property of the running instance, inherited unchanged (infrastructure-specification Infrastructure Services)"
+    },
+    {
+      "id": "NFR10.14",
+      "status": "N/A",
+      "target": "Row-level security is a schema object created by migration, not provisioned infrastructure"
+    },
+    {
+      "id": "NFR11.1",
+      "status": "N/A",
+      "target": "Enforced by the Android manifest allowlist and release DEX scan in release-android.yml, which D1 does not change"
+    },
+    {
+      "id": "NFR12.1",
+      "status": "N/A",
+      "target": "Cited from the prior record: the per-purpose SMS budget, an application-side gateway concern"
+    },
+    {
+      "id": "NFR12.3",
+      "status": "N/A",
+      "target": "Signup scope members are application code in the ceiling module"
+    },
+    {
+      "id": "NFR12.4",
+      "status": "N/A",
+      "target": "Cascade ordering is application code"
+    },
+    {
+      "id": "NFR12.5",
+      "status": "N/A",
+      "target": "Counters are datastore-backed, which is satisfied by the existing database; no new infrastructure"
+    },
+    {
+      "id": "NFR12.6",
+      "status": "N/A",
+      "target": "Error-class mapping is application code"
+    },
+    {
+      "id": "NFR12.7",
+      "status": "N/A",
+      "target": "The closed audit vocabulary is application code"
+    },
+    {
+      "id": "NFR12.8",
+      "status": "N/A",
+      "target": "Log-content rules are application code; the sink is unchanged"
+    },
+    {
+      "id": "NFR12.10",
+      "status": "N/A",
+      "target": "Scope-kind-not-value is application code"
+    },
+    {
+      "id": "NFR13.4",
+      "status": "N/A",
+      "target": "Signup issuing no session is an application decision; the token design is unchanged"
+    },
+    {
+      "id": "NFR14.22",
+      "status": "N/A",
+      "target": "Byte-identical OTP responses are an application property, asserted by test"
+    },
+    {
+      "id": "NFR14.23",
+      "status": "N/A",
+      "target": "Lookup disclosure width is an application response-schema property"
+    },
+    {
+      "id": "NFR14.24",
+      "status": "N/A",
+      "target": "The invitation lens is an application type"
+    },
+    {
+      "id": "NFR14.25",
+      "status": "N/A",
+      "target": "The schema-wide invariant runs as a test inside make check, already covered by NFR23.x; no infrastructure artifact"
+    },
+    {
+      "id": "NFR18.1",
+      "status": "OK",
+      "target": "Phase 1 posture inherited: one EC2 behind an ASG with recreate-style refresh and an accepted short restart window (infrastructure-specification Deployment)"
+    },
+    {
+      "id": "NFR18.2",
+      "status": "OK",
+      "target": "Deploys are explicit dispatch rather than on-merge, so scheduling outside classroom hours is an operator choice the pipeline permits (cicd-pipeline Deploy pipeline)"
+    },
+    {
+      "id": "NFR19.1",
+      "status": "OK",
+      "target": "Alembic runs as a distinct pre-deploy step, and the SHA tag is the artifact so a rollback is a redeploy (cicd-pipeline Properties D1's migration depends on)"
+    },
+    {
+      "id": "NFR19.2",
+      "status": "OK",
+      "target": "The conditional backfill is application-side; infrastructure's contribution is that the database is not on the instance, so an ASG refresh cannot destroy the rows being backfilled (cicd-pipeline)"
+    },
+    {
+      "id": "NFR19.3",
+      "status": "OK",
+      "target": "Partly met and the gap is named: RDS automated backups cover the data, nothing asserts a recoverable backup at the moment the migration runs (infrastructure-specification Gaps)"
+    },
+    {
+      "id": "NFR19.4",
+      "status": "OK",
+      "target": "Named as a gap with an owner: enable_staging_instance defaults to false, so the rehearsal has nowhere to happen; enabling it costs USD 14.66 and stays under the ceiling (infrastructure-specification Gaps, The staging gap)"
+    },
+    {
+      "id": "NFR19.5",
+      "status": "N/A",
+      "target": "Transactional integrity is an application and database property"
+    },
+    {
+      "id": "NFR19.6",
+      "status": "N/A",
+      "target": "Retryability by error class is application code"
+    },
+    {
+      "id": "NFR19.7",
+      "status": "N/A",
+      "target": "A write-path rule in application code"
+    },
+    {
+      "id": "NFR20.1",
+      "status": "N/A",
+      "target": "Query shape, application code"
+    },
+    {
+      "id": "NFR20.2",
+      "status": "N/A",
+      "target": "An access-path property of the query, not of provisioned infrastructure"
+    },
+    {
+      "id": "NFR20.3",
+      "status": "N/A",
+      "target": "Query placement, application code"
+    },
+    {
+      "id": "NFR20.4",
+      "status": "N/A",
+      "target": "Request-handling cost, application code"
+    },
+    {
+      "id": "NFR20.5",
+      "status": "N/A",
+      "target": "An index already present in the schema"
+    },
+    {
+      "id": "NFR20.6",
+      "status": "N/A",
+      "target": "Ordering of the OTP trigger relative to the transaction, application code"
+    },
+    {
+      "id": "NFR21.1",
+      "status": "OK",
+      "target": "No cache tier is provisioned, which is what makes the no-cache design unachievable to violate by configuration (infrastructure-specification Infrastructure Services)"
+    },
+    {
+      "id": "NFR22.1",
+      "status": "N/A",
+      "target": "Response shape of GET /v1/me, application code"
+    },
+    {
+      "id": "NFR23.1",
+      "status": "OK",
+      "target": "Acceptance transition tests run inside make check, the same command locally and in CI (cicd-pipeline What make check actually runs)"
+    },
+    {
+      "id": "NFR23.2",
+      "status": "OK",
+      "target": "The adversarial lens test runs in the same gate; no new pipeline stage (cicd-pipeline)"
+    },
+    {
+      "id": "NFR23.3",
+      "status": "OK",
+      "target": "Branch coverage on the authorization layer is enforced by the test target (cicd-pipeline)"
+    },
+    {
+      "id": "NFR24.4",
+      "status": "N/A",
+      "target": "Traceback suppression is the FastAPI exception handler's behaviour, application code"
+    },
+    {
+      "id": "NFR25.2",
+      "status": "OK",
+      "target": "The narrow-ceiling non-alert is carried into the alerting table so it is not reversed when D1 doubles the number of narrow scopes (monitoring-design Alerting)"
+    },
+    {
+      "id": "NFR25.3",
+      "status": "OK",
+      "target": "The audit write's fail-open behaviour is acceptable only because its failure alerts; recorded as a monitoring requirement with a security purpose (monitoring-design Alerting)"
+    },
+    {
+      "id": "NFR25.5",
+      "status": "OK",
+      "target": "Signup attempts by outcome, derived by query rather than emitted to a backend Phase 1 does not have (monitoring-design Metrics)"
+    }
+  ],
+  "reverse": [
+    {
+      "id": "NFR12.9",
+      "status": "N/A",
+      "target": "Account creation as a named AuthEvent member; the collection table records it, the sink is unchanged (monitoring-design Collection)"
+    },
+    {
+      "id": "NFR12.11",
+      "status": "N/A",
+      "target": "The audit write fails open behind a savepoint and its failure alerts; carried into the alerting table because D1 adds rows to that log (monitoring-design Alerting)"
+    },
+    {
+      "id": "NFR24.1",
+      "status": "N/A",
+      "target": "Log-content rules extended to the two new personal fields; no infrastructure change, same sink (monitoring-design Logging rules)"
+    },
+    {
+      "id": "NFR24.2",
+      "status": "N/A",
+      "target": "The correlation id already propagates; D1 adds no new path (monitoring-design Logging rules)"
+    },
+    {
+      "id": "NFR24.3",
+      "status": "N/A",
+      "target": "Gateway bodies never logged, because the OTP is in the body (monitoring-design Logging rules)"
+    },
+    {
+      "id": "NFR25.1",
+      "status": "N/A",
+      "target": "The global SMS ceiling alert is existing and unchanged (monitoring-design Alerting)"
+    },
+    {
+      "id": "NFR25.4",
+      "status": "N/A",
+      "target": "The pre-migration backup alert is the deploy step failing; see the NFR19.3 gap (monitoring-design Alerting)"
+    },
+    {
+      "id": "NFR25.6",
+      "status": "N/A",
+      "target": "Acceptance transition counts, derived by query; one of the two metrics that show whether this unit worked (monitoring-design Metrics)"
+    },
+    {
+      "id": "NFR25.7",
+      "status": "N/A",
+      "target": "Pending-seat population bucketed by age, derived by query (monitoring-design Metrics)"
+    },
+    {
+      "id": "NFR26.1",
+      "status": "N/A",
+      "target": "Signup success rate with no V1 target, measured through the pilot (monitoring-design SLIs and SLOs)"
+    },
+    {
+      "id": "NFR26.2",
+      "status": "N/A",
+      "target": "An SLI with a target of zero discharged by the adversarial test rather than a monitor (monitoring-design SLIs and SLOs)"
+    }
+  ]
+}

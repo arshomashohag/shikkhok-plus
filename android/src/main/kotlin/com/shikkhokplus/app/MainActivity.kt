@@ -5,6 +5,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
@@ -19,6 +22,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.shikkhokplus.app.core.designsystem.ShikhokTheme
 import com.shikkhokplus.app.core.network.ApiClient
 import com.shikkhokplus.app.core.network.EncryptedTokenStore
 import com.shikkhokplus.app.core.network.HttpAuthRepository
@@ -58,8 +62,21 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            MaterialTheme {
-                Surface {
+            ShikhokTheme {
+                Surface(
+                    // **safeDrawing, not statusBars.** It covers the
+                    // status bar, the navigation bar AND the display
+                    // cutout, which is what a phone with a notch
+                    // actually needs. Without this the first field
+                    // rendered UNDER the status bar and was half
+                    // hidden -- found on a real device, not in any
+                    // test, because a test renders with no insets at
+                    // all and passes either way.
+                    modifier = Modifier.windowInsetsPadding(
+                        WindowInsets.safeDrawing,
+                    ),
+                    color = MaterialTheme.colorScheme.background,
+                ) {
                     if (BuildConfig.API_BASE_URL.isBlank()) {
                         UnconfiguredNotice()
                     } else {

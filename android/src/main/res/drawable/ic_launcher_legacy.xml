@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The launcher icon for API 24-25, which predate adaptive icons.
+
+  **This exists because minSdk is 24 and `mipmap-anydpi-v26` does not
+  cover it.** Without it those devices fall back to Android's default
+  green robot, and this product's audience is exactly the budget phone
+  most likely to still be on Nougat.
+
+  Same mark, but the blue tile is drawn INTO the icon rather than
+  supplied as a separate background layer, because a pre-26 launcher
+  composites nothing: it takes one bitmap or drawable as-is. The 26dp
+  corner radius imitates the squircle those launchers apply themselves
+  on later versions.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- The tile, rounded, since nothing will mask it for us. -->
+    <path
+        android:fillColor="#1D4F91"
+        android:pathData="M26,0 H82 A26,26 0 0 1 108,26 V82 A26,26 0 0 1 82,108 H26 A26,26 0 0 1 0,82 V26 A26,26 0 0 1 26,0 Z" />
+
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M40,33 m-9,0 a9,9 0 1,0 18,0 a9,9 0 1,0 -18,0" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M28,84 V56 a12,12 0 0 1 24,0 v28 Z" />
+    <path
+        android:fillColor="#A9C7FF"
+        android:pathData="M64,42 m-7,0 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0" />
+    <path
+        android:fillColor="#A9C7FF"
+        android:pathData="M54,84 V63 a10,10 0 0 1 20,0 v21 Z" />
+    <path
+        android:strokeColor="#1D4F91"
+        android:strokeWidth="2.4"
+        android:strokeLineJoin="round"
+        android:pathData="M40,63 c6,0 10,2 13,5 v16 c-3,-3 -7,-4 -13,-4 Z" />
+    <path
+        android:strokeColor="#1D4F91"
+        android:strokeWidth="2.4"
+        android:strokeLineJoin="round"
+        android:pathData="M66,63 c-6,0 -10,2 -13,5 v16 c3,-3 7,-4 13,-4 Z" />
+    <path
+        android:strokeColor="#1D4F91"
+        android:strokeWidth="8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M46,72 L53,80 L79,41.5" />
+    <path
+        android:fillColor="#1D4F91"
+        android:strokeColor="#1D4F91"
+        android:strokeWidth="4"
+        android:strokeLineJoin="round"
+        android:pathData="M85.6,31.8 L84.7,42.1 L76.4,36.5 Z" />
+    <path
+        android:strokeColor="#A9C7FF"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M46,72 L53,80 L79,41.5" />
+    <path
+        android:fillColor="#A9C7FF"
+        android:strokeColor="#A9C7FF"
+        android:strokeWidth="1.5"
+        android:strokeLineJoin="round"
+        android:pathData="M85.6,31.8 L84.7,42.1 L76.4,36.5 Z" />
+</vector>

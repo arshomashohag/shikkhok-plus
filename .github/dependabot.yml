@@ -1,0 +1,118 @@
+# Dependabot.
+#
+# **Weekly and grouped, with the security channel left immediate.** That
+# split is the affirmed practice and the reasoning is specific to a solo
+# build: daily individual pull requests across a two-language repository with
+# one reviewer produce a backlog that gets closed unread, and a channel
+# nobody reads is worse than no channel. Grouping by ecosystem makes the
+# weekly batch one review rather than nine.
+#
+# Security updates are NOT grouped and NOT weekly. Dependabot raises those
+# as soon as an advisory lands, which is the behaviour wanted: a Critical in
+# the request path should not wait for Monday.
+#
+# This is the alerting half of the two-speed model. The blocking half is
+# pip-audit in `check.yml` (per push, annotating) and the release gate
+# (blocking, with dated exceptions in `.security-exceptions.md`).
+
+version: 2
+updates:
+
+  # -------------------------------------------------------------------------
+  # Python
+  # -------------------------------------------------------------------------
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Dhaka
+    open-pull-requests-limit: 5
+    groups:
+      python-production:
+        patterns: ["*"]
+        exclude-patterns:
+          - pytest*
+          - hypothesis
+          - mypy
+          - ruff
+          - testcontainers*
+          - pip-audit
+          - pip-tools
+      python-dev:
+        patterns:
+          - pytest*
+          - hypothesis
+          - mypy
+          - ruff
+          - testcontainers*
+          - pip-audit
+          - pip-tools
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+    labels: ["dependencies", "python"]
+
+  # -------------------------------------------------------------------------
+  # Gradle
+  #
+  # One group, not two. The Android surface has a single module and a
+  # version catalogue, so a split by scope would produce two PRs touching
+  # the same file.
+  # -------------------------------------------------------------------------
+  - package-ecosystem: gradle
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Dhaka
+    open-pull-requests-limit: 5
+    groups:
+      gradle-all:
+        patterns: ["*"]
+    commit-message:
+      prefix: "chore(deps)"
+    labels: ["dependencies", "android"]
+    # **A Gradle bump must regenerate the lockfile and the checksum file**,
+    # which Dependabot cannot do. A dependency PR that updates the catalogue
+    # and not the lockfile fails the build, which is the correct outcome:
+    # the failure says the lockfile needs regenerating rather than letting
+    # the pin silently diverge from what resolves.
+
+  # -------------------------------------------------------------------------
+  # GitHub Actions
+  #
+  # Pinned action versions are a supply-chain surface in their own right --
+  # a compromised action runs with the workflow's token.
+  # -------------------------------------------------------------------------
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Dhaka
+    open-pull-requests-limit: 3
+    groups:
+      actions-all:
+        patterns: ["*"]
+    commit-message:
+      prefix: "chore(ci)"
+    labels: ["dependencies", "ci"]
+
+  # -------------------------------------------------------------------------
+  # Docker
+  # -------------------------------------------------------------------------
+  - package-ecosystem: docker
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Dhaka
+    open-pull-requests-limit: 2
+    commit-message:
+      prefix: "chore(deps)"
+    labels: ["dependencies", "docker"]

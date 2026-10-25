@@ -3,156 +3,437 @@
 **Stage**: delivery-planning (2.9)
 **Phase**: Inception
 **Depth**: Comprehensive
-**Sequence**: validated as a topological order over the Units Generation DAG
+**Revision**: re-run 2026-10-22. Supersedes the 2026-10-18 plan of eleven
+service-shaped Bolts, four of which have shipped.
 
-> A **Bolt** is one build pass over a piece of the work, ending in something that
-> runs. This plan sequences eleven of them — one per Unit of Work — through
-> Construction. The dependency topology comes from Units Generation (2.7); what
-> this stage adds is the economic path through it.
+> A **Bolt** is one build pass over a piece of the work, ending in something
+> that runs. A **deliverable unit** groups one or more Bolts by what a person
+> can do when it ships.
+>
+> This plan covers only what remains. Four Bolts are built and frozen; the nine
+> that were outstanding are re-cut as six deliverable units.
 
 ## Sources
 
-- [upstream] `inception/units-generation/unit-of-work.md` and `unit-of-work-dependency.md`
-- [upstream] `inception/contract-design/contract-summary.md` — contract ownership and open questions
-- [upstream] `inception/domain-design/decisions.md` — ADR-001..008
-- [upstream] `ideation/approval-handoff/initiative-brief.md` §6 — the Ideation-era estimate
-- [team] the affirmed Way of Working, Walking Skeleton, Deployment and Testing Posture
+- [upstream] `inception/units-generation/unit-of-work.md` and
+  `unit-of-work-dependency.md` — the Unit catalogue and the dependency DAG
+- [upstream] `inception/contract-design/contract-summary.md`
+- [upstream] `inception/domain-design/components.md` — ADR-001..008 and the
+  Appendix A dispositions
+- [decision] `docs/delivery/vertical-slices.md`, committed 2026-10-22 — the
+  re-cut this stage brings into the record
+- [human] Q7–Q16 in `delivery-planning-questions.md`
+- [team] the affirmed Way of Working, Walking Skeleton, Deployment and Testing
+  Posture
+- [code] the built state on disk, read 2026-10-22
 
-## Way of working, as it applies here
+## What changed, and why this plan exists
 
-- **Branching**: trunk-based. Worktree base and merge target are `main`.
-- **Merge**: squash-merge, one commit per Bolt, named by the Bolt slug.
-- **Execution**: serial. Solo build — there is no second worker to parallelise onto.
-- **Iteration**: unit-major, one Unit per Bolt, checkpoints enabled.
-- **Walking skeleton**: B3 `identity-and-access`, with its own human checkpoint
-  before later Bolts begin.
-- **Gating**: B1–B7 are human checkpoints; B8–B11 run automatically. This
-  translates the affirmed "gated through the payment slice, then autonomous"
-  onto the current unit list, where the payment slice is U8. One recommended
-  exception to that is recorded under Assumptions below.
+The 2026-10-18 plan typed every Bolt `service`, `spec`, `library` or
+`packaging`, and carried the Android work as a trailing clause of the
+Definition of Done — B3 ended with "Android: OTP entry via SMS Retriever, the
+lens switcher, both language bundles on screen one."
+
+That boundary let a Bolt be **technically done and practically unusable**. B3
+and B5 both shipped and both met their stated Definition of Done. What reached
+the phone was a phone-number field, an OTP field, a batch list and two unstyled
+forms, against nine working endpoints. Nothing flagged it, because nothing was
+in breach.
+
+**From here a Bolt is one user-visible capability: API, screens and tests
+together.** Its Definition of Done names the design artboard it must match, and
+it is not done until the thing can be done on a phone. [Q7]
+
+Three decision changes arrived with that re-cut and are recorded here:
+
+1. **Account creation did not exist in any Bolt.** A student or guardian is
+   created by their teacher; a teacher had no path at all and could only exist
+   by hand-inserting a database row.
+2. **The app charges nobody.** The platform subscription is gone. The fee
+   system is untouched — teachers still record and collect tuition from their
+   own students, which is the product's core. [Q8]
+3. **Every lens is returned at login** and the person picks one, with a switcher
+   on every screen. Already built as `GET /v1/me`. [Q11]
+
+And one gap this stage found and closed:
+
+4. **A seat now requires acceptance before it grants a lens.** [Q10] See below.
+
+## The lens model, as settled
+
+Confirmed as already built, not changed: one account holds the teacher, student
+and guardian lenses simultaneously, each computed per request from `Owner` and
+`Enrollment`, with no role column anywhere [BR1.1]. `tests/authz/test_dual_role_cost.py`
+proves all three resolve in one statement; `tests/batches/test_role_restricts_writes.py`
+proves a student is refused a teacher's operations.
+
+**What was missing is acceptance.** A teacher typing a phone number today makes
+that account a student or guardian immediately — no consent, no notification, no
+way to decline. A mistyped digit exposes a child's records to whoever owns that
+number. From here:
+
+- A seat a teacher creates is **pending**. It is visible to the account it names
+  so they can act on it, and grants no student or guardian lens until accepted.
+- **Declining is durable** and survives the teacher re-adding the same number, so
+  a declined person is not prompted forever.
+- **Acceptance markers are per link, not per row** [BR6.2] — `student_accepted_at`
+  and `guardian_accepted_at`, mirroring the two erasure markers already on the
+  seat. One flag cannot express the states, because the student's claim and the
+  guardian's claim are independent facts about one seat.
+- **The teacher's side never blocks on it.** Roster, batch and fee-cycle
+  generation all work against a pending seat from creation. The debt is real
+  whether or not anyone has opened the app. [Q13]
+- **A pending state shows on the roster row** — the mechanism that catches a
+  mistyped number, which would otherwise be indistinguishable from a student who
+  has not opened the app yet. [Q14]
+- **Dues predate acceptance and are shown in full**, so the teacher's roster and
+  the student's own view never disagree about one seat. [Q13]
+- **Removal is unchanged** [FR2.12, ADR-003]: edit any time, remove only while
+  unclaimed, otherwise mark inactive. Acceptance does not create a new removal
+  rule; it gives the existing dormant-vs-claimed distinction a precise meaning. [Q15]
+- **One account may hold both links on one seat** — an adult student needing no
+  guardian, or a teacher enrolling their own child. No special case. [Q12]
 
 ---
 
-## A. The Bolt sequence
+## A. What is already built
 
-One Unit per Bolt, eleven Bolts, serial execution. Chosen heuristic: **walking-skeleton-first, then risk-first, with value-first breaking ties among equals.** Named for `risk-and-sequencing-rationale.md`.
+Frozen. Not re-planned, listed so the remaining plan reads against the real
+state rather than the original one.
 
-| # | Bolt | Unit | Why it sits here |
+| Bolt | Unit | State |
+|---|---|---|
+| B1 `money-core` | U1 | Built. `Money` value object, both chokepoints, both import-boundary mechanisms, property test on the ledger identity. |
+| B2 `api-contract` | U2 | Built. Committed OpenAPI, schema-diff gate, five-class error taxonomy, route-enumeration harness, schema-wide no-profile-field assertion. |
+| B3 `identity-and-access` | U3 | Built. **The walking skeleton**, human-checkpointed. OTP with all seven abuse controls, computed lens, row-level security, auth audit log, first Alembic migration. |
+| B5 `batches-and-enrollment` | U4 | Built. `Owner` indirection, Batch, enrollment with both links on one row, dormant-account resolution, `inactive_from`. |
+
+Also landed outside a Bolt boundary: `GET /v1/me` (the lens summary), the
+Compose design system, the app icon, a phone-installable APK, and the whole
+deployment pipeline with its infrastructure.
+
+**B4 `release-packaging` is partly built and is NOT complete.** Both release
+gates exist in `android/release-gates.gradle.kts` — the merged-manifest
+permission allowlist asserting the absence of `AD_ID`, and the minified-release
+DEX scan for the ten forbidden identifiers. **The Macrobenchmark harness and the
+low-end-device profile do not exist**, and the mid-class attendance latency
+obligation [PU-3.6, TC-17] is dischargeable only by that harness. It is carried
+into D5 below rather than being quietly assumed done.
+
+---
+
+## B. The remaining work, as six deliverable units
+
+Nine outstanding Bolts, grouped by what a person can do when the group ships.
+Each unit is independently installable and demonstrable on a phone.
+
+| # | Deliverable unit | Bolts it groups | What a person can do when it ships |
 |---|---|---|---|
-| 1 | `b1-money-core` | U1 `money-core` | DAG root, and the only Unit buildable and 100%-branch-testable before any endpoint exists; it is also the cheapest possible first review, which is how a solo reviewer calibrates on a codebase that does not yet exist. |
-| 2 | `b2-api-contract` | U2 `api-contract` | DAG-forced after U1; it carries the schema-wide no-profile-field assertion and the route-enumeration harness, so the two mechanical privacy gates must exist *before* the first route is written rather than be retrofitted around routes that already pass. |
-| 3 | `b3-identity-and-access` | U3 `identity-and-access` | **The walking skeleton.** DAG-forced after U2, affirmed by `team.md`, and the stated top risk's foundation: the computed lens and row-level security are both born here. Ends in the human skeleton checkpoint. |
-| 4 | `b4-release-packaging` | U10 `release-packaging` | Moved early, deliberately. Three independent reasons, in descending strength — (i) U5 cannot discharge PU-3.6 without U10's Macrobenchmark harness; (ii) the merged-manifest allowlist and DEX scan are the only mechanisms that catch a forbidden identifier arriving transitively, and every feature Bolt after this one adds dependencies — running them from Bolt 4 means a violation reddens CI on the commit that introduces it, not on a sweep at Bolt 11; (iii) Play's 12-tester/14-day closed-testing clock and the Play review lead time are both unknown-but-nonzero, and starting them at Bolt 4 converts a schedule risk into a background process. |
-| 5 | `b5-batches-and-enrollment` | U4 `batches-and-enrollment` | DAG-forced after U3, and the sole gateway to the entire feature fan-out. `Enrollment` is the privacy pivot on which every downstream teacher-facing read is keyed, so this is where the privacy boundary stops being a one-account demo and becomes a multi-party structure. Also where OQ-7 (guardian child as path parameter) must be settled. |
-| 6 | `b6-fee-cycles-and-ledger` | U7 `fee-cycles-and-ledger` | **First of the three-way parallel set.** Chosen first because it is where money risk and the longest remaining chain coincide: it is the only member of {U5, U6, U7} on the critical path (`U7 → U8 → U9`), it carries the mandatory money tests and the concurrency-tested idempotency constraint, and the fee model is *already known to be in revision* [D-18] — so the sooner the arithmetic is pinned by a test suite, the cheaper that revision is. |
-| 7 | `b7-payment-claims-and-verification` | U8 `payment-claims-and-verification` | DAG-forced after U7, and the last gated checkpoint by the human's settled decision. Placing it at position 7 rather than 9 means the gated run ends as early as the DAG permits, which is the point of gating through the payment slice. |
-| 8 | `b8-sessions-and-attendance` | U5 `sessions-and-attendance` | Deferred past the money chain deliberately. It is the largest surface and the one carrying the four-state offline queue and the conflict-resolution screen, but none of that is on the critical path to U9 and none of it is money or privacy risk. Running it at 8 means it runs with U10's benchmark harness already in place and with the autonomous-mode cadence, where its mostly-UI character is the best fit. |
-| 9 | `b9-exams-and-marksheets` | U6 `exams-and-marksheets` | The only Unit the human's top risk touches lightly — it is academic data under the same lens machinery already proven three times over. Smallest remaining feature Unit (M), placed here to clear U9's second dependency with minimum ceremony. |
-| 10 | `b10-teacher-insights` | U9 `teacher-insights` | DAG-forced after both U8 and U6. Placed last among feature Units also because it inherits OQ-2's unsettled collection-rate arithmetic, so it benefits from the longest possible interval for that correction to land. |
-| 11 | `b11-privacy-and-governance` | U11 `privacy-and-governance` | Topologically terminal and release-blocking. Resolved below. |
+| **D1** | `signing-up-and-joining` | V1 account creation, V1a seat acceptance | Create an account as a teacher, student or guardian; accept or decline a seat a teacher added you to |
+| **D2** | `running-a-batch` | V2 batch and roster, V3 guardian view | Create a batch, add students and guardians, see the roster; a guardian switches between children |
+| **D3** | `collecting-fees` | V4 fee cycles, V5 payment claims and verification | See what is owed, submit a payment, have a teacher verify it |
+| **D4** | `teaching-and-recording` | V6 attendance, V7 marks | Record attendance mid-class; enter marks and publish a marksheet |
+| **D5** | `knowing-how-it-is-going` | V8 insights, the outstanding half of B4 | See cross-batch dues and earnings; the latency obligation gets its harness |
+| **D6** | `releasing-safely` | V9 privacy and governance | Delete an account, by either path; ship to a public Play track |
 
-### Where U10 goes — decided: position 4
+Sizes are relative, not estimates. Serial execution: this is a solo build and
+there is no second worker [Q5], not because the DAG forbids concurrency.
 
-Early, immediately after the skeleton checkpoint. The argument the units artifact anticipated ("late means it is not maintained alongside churning features") is real but inverted here: the maintenance cost of the allowlist and DEX scan is a *per-dependency* cost that gets paid either way, and paying it incrementally as each Bolt adds its dependencies is strictly cheaper than paying it in one sweep at the end — because at the end, an SDK that must be removed has already had six Bolts built on top of it, and `project.md` mandates checking a new dependency against the forbidden-identifier set *before* adding it, which is a rule with no mechanism until U10 exists. The Macrobenchmark-harness dependency on U5 makes the decision overdetermined.
+### Why these groupings
 
-The one cost I am accepting explicitly: U10 at position 4 means the signing config, R8 rules and 15 MB assertion are established against an app with one feature package, and the 15 MB assertion will be re-tested as each feature Bolt adds to the AAB. That is the desired behaviour (a ratchet, like the Kotlin coverage no-regression rule) rather than a cost, but it does mean a feature Bolt can fail on download size, and the budget for that failure is unallocated.
-
-### Where U11 goes — decided: position 11, with a per-Bolt obligation
-
-U11 stays terminal, because its schema-iterating test is genuinely vacuous until the last table exists and the dependency artifact is right about that. **But the terminal-and-release-blocking tension is resolved by splitting what U11 contains**, and the split is cheaper here than anywhere because the dispositions are *already decided* in `components.md` Appendix A.
-
-I take the option the dependency artifact suggested, in this exact form:
-
-> **Per-Bolt obligation, added to the Definition of Done of every table-creating Bolt (B3, B5, B6, B7, B8, B9, and B10 if it adds a table):** the Bolt's Alembic migration does not merge until every table it creates has a row in both Governance manifests — a disposition per deleting actor (copied from `components.md` Appendix A, which has already decided all 24 entities) and a retention class (from ADR-004) — and the manifest row carries its privacy-policy clause text. A manifest row is part of the migration's commit, not a follow-up.
-
-That obligation needs a mechanism, or it is a wish. The mechanism is small and arrives in **B3**, not B11: the manifest pair is created as two committed structured-data files in U3's Bolt (U3 creates `Account`, `Profile`, `OtpRequest`, `VerifyAttempt`, `RefreshToken`, `RateLimitCounter`, `AuthAuditLog`, `DeviceToken`, plus the empty `Owner` and `Enrollment` shells), together with the schema-iterating test asserting every live table appears in both. From B3 onward that test is *not* vacuous — it is exactly as meaningful as the schema is large, and it reddens CI the moment a Bolt adds a table without a disposition. This is a scope addition to B3 and I am calling it out as such.
-
-What then remains in **B11** is what genuinely cannot be done earlier: both deletion-path endpoints and their tests, the idempotent chunked purge, the privacy-policy text *generated* from the completed manifests, the Data Safety form content, the Play children's-data and target-audience declarations, and the deletion-confirmation copy. These are release-blocking but they are not schedule-blocking in the same way — none of them is a dependency of any other Bolt, and all of them are authorable against a manifest that has been accumulating correctly since B3.
-
-**The residual risk I am not eliminating:** B11 is the last Bolt and runs in autonomous mode, and it contains four release-blocking Play deliverables plus the two deletion paths that `team.md` says are "the ones most reliably shipped broken, because nobody tests the absence of data." If the schedule compresses, this is the Bolt that gets squeezed, and squeezing it means no release. I recommend B11 be re-gated as a human checkpoint by explicit exception, notwithstanding the gated-through-U8 decision — the decision was about *money and privacy write surfaces*, and B11 is the deletion surface, which is the same risk class. **Flagging rather than deciding: this is an amendment to a settled decision and belongs to the human.**
-
-### The order among U5, U6, U7 — decided: U7, then U5, then U6
-
-Given the stated top risk is the privacy boundary and the secondary risk is money, the question is which of the three proves most and unblocks most.
-
-- **U7 first.** It is the only one of the three on the critical path (`U7 → U8 → U9`), so any other choice idles the longest chain. It carries the mandatory money tests, the concurrency-tested `(enrollment_id, period)` idempotency, and two-sided carry-forward — the arithmetic the fee-model revision [D-18] will disturb. Pinning that arithmetic before the revision arrives is what makes the revision safe rather than frightening, which is `team.md`'s own stated reason for test-first on money.
-- **U5 second.** Largest and most UI-heavy; its distinctive risk (the four-state queue, the conflict-resolution screen, the offline path that `team.md` and NFR5.1 amended into existence) is real but self-contained and blocks nothing. It needs U10's harness, which by then exists.
-- **U6 third.** Smallest (M), lowest risk, and its only downstream consumer is U9's next-upcoming-exam view. Nothing is bought by moving it earlier.
-
-**This resolves OQ-4.** U7 is built before U6, so **U7 owns the FCM adapter**, the `DeviceToken` lifecycle, the `UNREGISTERED`-deletes-the-token rule and the never-fail-the-caller rule. U6 reuses it and never reimplements it. This matches the contract summary's C6 row ("U7 if built first, else U6") and the sequencing is now the record.
+- **D1** pairs signup with acceptance because they are one flow, not two
+  features: a student whose teacher already added them signs up and claims that
+  seat in a single pass through O1 state 3. Building them together also means
+  the pending state is never shipped without a way to resolve it [Q16] — which
+  is exactly the failure this re-cut exists to prevent.
+- **D2** pairs the roster with the guardian view because both are screens over
+  endpoints that already work. No new backend capability; the gap is entirely
+  on the phone.
+- **D3** keeps fees and payments together because a fee a person cannot pay is
+  not a shippable capability. Splitting them would ship a screen that shows a
+  debt with no way to clear it.
+- **D4** pairs attendance with marks because they are the two things a teacher
+  does *during and after* a class, and they share the batch-session surface.
+- **D5** is grouped by necessity rather than affinity: insights is the last
+  feature Unit, and the Macrobenchmark harness has to exist by the time the
+  latency obligation is checked. See the risk note below.
+- **D6** stands alone because it is release-blocking and terminal.
 
 ---
 
+## C. Per-unit detail
+
+Every unit inherits, without restatement below: tests per the affirmed Testing
+Posture predicate; `make check` green locally and in CI; squash-merge to `main`
+as one commit per Bolt; conventional-commit shaped; the per-Bolt governance
+obligation (every table a migration creates carries a disposition row per
+deleting actor and a retention class, or the schema-iterating test reddens CI);
+Bangla and English both present with the layout surviving the longest Bangla
+string; accessibility and back-stack, where Back must never land in another
+lens's or another child's data.
+
+**Every unit below also inherits the new screens rule**: it names the artboards
+it must match, and it is not done until the capability can be exercised on a
+phone.
+
+### D1 — `signing-up-and-joining` (L)
+
+**The slice that makes the app usable by someone who has never used it.** Nothing
+in the built system creates an account.
+
+**API.** `POST /v1/accounts` taking role, name, phone and address — creating the
+`Account`, plus an `Owner` row when the role is Teacher and none otherwise, so
+the role is decided by what gets created and never stored [BR1.1]. A lookup the
+signup form calls before it renders, for the already-added case. Migrations for
+`address` and a display name, each with its governance disposition row, both
+being personal data [RC-5]. Seat acceptance: `student_accepted_at`,
+`guardian_accepted_at` and their durable decline markers, with accept and
+decline endpoints. The lens resolver reads the acceptance markers, so a pending
+seat grants nothing.
+
+Signup carries **its own per-number and per-IP ceilings**, separate from the OTP
+ceilings. Unlike `POST /v1/auth/otp`, signup's response is deliberately
+informative — state 5 of the artboard says "This number already has an account"
+— so it is an existence oracle by construction and needs its own abuse control.
+
+**The already-added lookup names neither the teacher nor the batch** [Q9]. It
+confirms the number has been added and returns what the form needs to pre-fill
+and lock the role, and nothing more. The artboard shows the teacher's name and
+the batch; that is the one place this plan departs from the design, deliberately,
+because anyone who typed a phone number would otherwise learn who teaches that
+person and where.
+
+**Screens.** `O1` create account, in all five states — empty, filled,
+already-added with the role locked, sending, and the two errors. `O2` log in,
+restyled. `O3` OTP, which already matches. The pending-seat list and its accept
+and decline actions.
+
+**Done when.** Someone installs the APK, signs up as a teacher on a number nobody
+has entered, and reaches their own empty batch list. A student whose teacher
+already added them signs up, sees their name pre-filled with the role locked,
+and accepts the seat. A person who declines is not prompted again when the
+teacher re-adds the same number.
+
+**Confidence hypothesis.** *A phone number typed by a teacher grants that account
+no student or guardian lens until the account holder accepts, and `POST
+/v1/auth/otp` remains byte-identical for known and unknown numbers after signup
+exists.* Falsified by: a lens resolving for an unaccepted seat, or the existing
+adversarial OTP test failing once signup is added. Secondary: *a declined seat
+re-added by the teacher does not re-prompt.*
+
+### D2 — `running-a-batch` (M)
+
+Everything the built endpoints already support, with the screens the design
+specifies. **No new endpoints.**
+
+**API.** `GET /v1/batches`, `POST /v1/batches`, `GET /v1/batches/{id}/roster`,
+`POST /v1/batches/{id}/enrollments`, `DELETE /v1/enrollments/{id}` and
+`GET /v1/guardian/children` all exist and work. The one addition is the pending
+state on the roster response [Q14], which the roster screen renders.
+
+**Screens.** `T6` batch list (built); `T7` single batch with roster, showing the
+pending state per row; `T8` add student; create-batch, replacing the bare text
+fields in `CreateForms.kt`; remove-student, which has no UI at all today. `G1`
+guardian child home and switcher.
+
+**OQ-7 settles here** — the guardian-child route shape was deferred to "when the
+guardian screens are in front of the decider", and this is that unit.
+
+**Done when.** A teacher creates a batch, adds two students by phone number, sees
+them on the roster with their pending state, and removes one that nobody has
+claimed. A guardian with two children switches between them.
+
+**Confidence hypothesis.** *A teacher adding a student who never accepts sees that
+seat as pending indefinitely and can correct the number, while a teacher adding a
+student who accepts sees the state change without any action of their own.*
+Falsified by: a roster that cannot distinguish the two, which is the mistyped-digit
+failure this state exists to catch.
+
+### D3 — `collecting-fees` (XL)
+
+The money surface. Two Bolts, kept together because a fee nobody can pay is not a
+capability.
+
+**V4 — fee cycles and ledger.** Append-only `LedgerEntry` with its seven kinds;
+the thin `FeeCycle` carrying only the `(enrollment_id, period)` unique constraint;
+generation via `ON CONFLICT DO NOTHING` and never an application-level guard
+[TC-12, D-21]; calendar-month periods with the short-month clamp; the daily
+self-healing job; credit grant and apply; two-sided carry-forward, where a
+`carried_out` entry relieves the originating period and a `carry_forward` entry
+charges the receiving one; the server-computed status enum (`due`/`paid`/`partial`)
+so no client ever compares a balance [TC-9]. **Owns the FCM adapter** per OQ-4:
+`DeviceToken` lifecycle, `UNREGISTERED` deletes the token, dispatch after commit
+outside the request transaction, failure logged and never surfaced.
+
+`Money.format(locale)` becomes blocking here — deferred out of B1 and specified
+at `construction/money-core/nfr-design/security-design.md` §A.6 (Western digits,
+2,2,3 lakh/crore grouping, `৳` prefix with no space, decimals suppressed when
+zero), with NFR9.26's build-time completeness check.
+
+**V5 — payment claims and verification.** The identical submission form in the
+student and guardian lenses; batch → enrollment → open-cycle resolution; partial
+amounts; the server-supplied channel list as a database row and never a client
+enum; the pending-verification list; approve, approve-less, reject;
+carry-forward-or-waive on partial; over-approval becoming credit; verifier
+identity and timestamp; payment history with overwrite-and-visible-history
+[FR9.1, FR9.2].
+
+**Screens.** `T5` dues, `S2` batch fees, `T4` verify, `S3` submit, `G3` history.
+
+**Tests are mandatory here, not optional** [TC-20, D-23, PU-5.7], and test-first
+by the predicate throughout: the correct output is knowable from the requirement
+and a wrong answer is a money error. 100% branch coverage on the money module.
+Idempotency tested with **overlapping concurrent** generations asserting the
+outcome, plus the across-days case.
+
+**Done when.** A teacher sees what each student owes, a student submits a payment
+against an open cycle, the teacher approves it for less than claimed, and the
+remainder carries forward with the enrollment total unchanged.
+
+**Confidence hypothesis.** *A partial payment approved for less than claimed leaves
+the originating period relieved and the receiving period charged such that the
+enrollment-level total is unchanged, and an approval exceeding the claim becomes
+an `available_credit` grant rather than a negative outstanding.* Falsified by: a
+negative `outstanding` at any point, or a carry that changes the enrollment total.
+Privacy secondary: *a guardian claiming against a non-child's enrollment, and a
+student requesting a fee cycle not their own, each receive a 403 byte-identical
+to the response for an id that does not exist.*
+
+### D4 — `teaching-and-recording` (XL)
+
+**V6 — sessions and attendance.** Session instances from weekly recurrence plus
+ad-hoc; status transitions; reschedule and cancel; the topic log; the atomic
+roster write with optimistic concurrency via `attendance_version` and
+`client_mutation_id`; the four-state queue (queued / confirmed / failed /
+conflicted) surviving app restart and syncing on reconnect; the refuse-on-conflict
+rule, never merged and never silently applied [ADR-006, FR11.4]; the
+conflict-resolution screen [FR11.5] offering re-apply or discard with the offline
+entry preserved until chosen, where **re-apply uses a new `client_mutation_id`**
+because reusing the old one silently turns re-apply into a no-op; announcements.
+
+**V7 — exams and marksheets.** Exam creation per batch and subject; mark entry
+with the four result states and correction history via `superseded_by_id`; the
+batch-scoped marksheet, **anonymised** [FR4.5]; the `marksheet_visible` toggle;
+exam dates; the guardian progress-over-time view. **Reuses V4's FCM adapter**;
+reimplementing it is a Definition of Done failure.
+
+**Screens.** `T1` today, `T2` record a class, `T3` mark entry, marksheet in light
+and dark.
+
+**PU-3.6's mid-class speed requirement is not discharged by a correctness test.**
+It needs the Macrobenchmark on the low-end device profile — which does not exist
+yet. See the sequencing risk in `risk-and-sequencing-rationale.md`.
+
+**Done when.** A teacher takes attendance mid-class on a real phone, loses
+connectivity mid-write, and gets an explicit conflicted state with a working
+re-apply rather than a silent overwrite. A student sees an anonymised marksheet.
+
+**Confidence hypothesis.** *An attendance roster composed offline against version N,
+submitted after the teacher changed that roster from another device to version
+N+1, is refused and surfaced as `conflicted` — never `failed`, never silently
+applied, never merged — and re-applying it writes, because it carries a fresh
+`client_mutation_id`.* Falsified by: a conflicted write presenting as failed, a
+silent overwrite, or a re-apply returning success while changing nothing.
+
+### D5 — `knowing-how-it-is-going` (M)
+
+**V8 — teacher insights.** Cross-batch dues driven by **outstanding balance and
+not active status**, so students who left owing money still appear [PU-7.2];
+monthly earnings; earnings trend; collection rate with its carry-forward, waiver
+and credit rules; next upcoming exam. The empty-state rule from AC9.2.5 honoured —
+an explanation, never a bare empty state. List membership and order decided
+server-side; the client may not filter or re-sort [TC-9].
+
+**Carries OQ-2 explicitly**: FR8.3's collection-rate definition is open to
+correction and AC8.3.4's credit rule postdates it. The `collection_rate` field
+does not ship to a client until the arithmetic is settled — a field can be added
+additively, a wrong number pinned into an installed client cannot be withdrawn.
+
+**Plus the outstanding half of `release-packaging`**: the Macrobenchmark harness
+and the low-end-device profile, the 15 MB download-size assertion measured from
+the Play Console's reported `arm64-v8a` split, Syft SBOM per release build, and
+the ZAP baseline pass wired against the committed OpenAPI schema.
+
+**Done when.** A teacher sees every student who owes money across all their
+batches, including one who left mid-year still owing.
+
+**Confidence hypothesis.** *A student who left a batch mid-year owing 2000 BDT
+appears on the cross-batch dues screen, and an active student who owes nothing does
+not — the query is driven by balance and not by status.* Falsified by: the departed
+debtor missing, which is the specific defect an "active students" query produces
+naturally.
+
+### D6 — `releasing-safely` (L) — release-blocking
+
+Terminal, and the gate on any public Play track.
+
+Both Governance manifests complete and the schema-iterating test green against
+the final schema. **Both account-deletion paths**: in-app, and an externally
+accessible route usable without reinstalling the app, as a public FastAPI route.
+A test per path asserting deletion removes exactly what the Data Safety form
+claims and retains exactly what the privacy policy discloses, **per each table's
+written disposition** from `components.md` Appendix A — including the
+uncomfortable ones: `Enrollment.guardian_phone` survives the guardian's deletion,
+`PaymentClaim` is anonymised not deleted, `AuthAuditLog` is anonymised in place.
+Deletion is idempotent [FR11.3]. The idempotent chunked purge honouring ADR-004's
+clocks, with the visible-purge rule — a guardian opening the app in 2031 for a
+2027 marksheet sees "records older than three years are not kept", never a bare
+empty state. Privacy-policy text **generated from the manifests**, not written
+independently. Data Safety form content. Play children's-data and target-audience
+declarations. Deletion-confirmation copy naming what is retained, including
+ADR-003's "a teacher cannot make their students' records go away".
+
+**Acceptance adds two columns to this unit's scope**: `student_accepted_at` and
+`guardian_accepted_at` each need a disposition and a retention class like any
+other personal-data column.
+
+**OQ-1 and OQ-5 must close before this unit starts.** See
+`external-dependency-map.md`; the previous plan pointed at a "section D" that did
+not exist in the document, which is corrected here.
+
+**Done when.** A guardian deletes their account by each path and the database
+matches the privacy policy row by row.
+
+**Confidence hypothesis.** *After a guardian deletes their account, every column the
+privacy policy says is removed is absent and every column it says is retained is
+present — asserted row by row against the manifest rather than a remembered list —
+and a second deletion request succeeds with no further effect.* Falsified by: any
+divergence between the generated policy text and the database state, which is
+precisely what this unit exists to prevent and which no review catches, because
+nobody tests the absence of data.
+
 ---
 
-## C. Per-Bolt detail
+## D. Gating
 
-Every Bolt bundles exactly one Unit. Every Bolt's DoD additionally inherits: tests per the affirmed Testing Posture predicate; `make check` green locally and in CI; a green post-merge run on `main`; squash-merge to `main` as one commit named by the Bolt slug; conventional-commit shaped. I do not repeat those below. Gating: B1–B7 are human checkpoints, B8–B11 autonomous (subject to my B11 recommendation above).
+**Construction runs autonomously from here** [Q8]. The affirmed practice gated
+"through the payment slice, then autonomous", and that slice was the platform
+subscription boundary, which no longer exists — the app charges nobody. The fee
+system remains in full, but it no longer marks a gating boundary.
 
-### B1 — `b1-money-core` (U1, `library`, M) — not the skeleton
-**DoD.** `Money` frozen value object: no `__float__`/`__int__`, float construction raises, `Decimal(<float>)` banned, `__add__`/`__sub__` `Money`-only, `apply_rate` as the named multiplication, `allocate(n)` summing exactly, `ROUND_HALF_UP` declared once, 2dp quantization at construction, `Money.ZERO`, `Money.sum`, `is_zero`/`is_positive`. **`format(locale)` is deferred out of B1** (amended 2026-10-18 at Code Generation): the Bangla rendering is unspecified — digit set, grouping interval, separators, currency symbol — and a guessed rendering shipped to installed phones cannot be withdrawn, while a missing one is additive under the `/v1/` policy. It becomes blocking at **B6**, the first Bolt whose response assembly needs a display string. The locale-completeness build check defers with it, having nothing to check until a rendering specification exists. **OQ-B1-1 closed 2026-10-18** with that specification recorded at `construction/money-core/nfr-design/security-design.md` §A.6 — Western digits, 2,2,3 lakh/crore grouping, `৳` prefix with no space, decimals suppressed when zero — so B6 inherits both the specification and NFR9.26's build-time completeness check rather than the open question. Both chokepoints: the annotated Pydantic type and the SQLAlchemy `TypeDecorator` → `NUMERIC(12,2)`. Kotlin `@JvmInline value class Money(BigDecimal)` with a serializer that reads only a JSON string and fails loudly on a number. Both import-boundary mechanisms present *from this first commit*: Ruff `flake8-tidy-imports` banned-api on raw `decimal` outside `app/money/**`, and the layered-import test asserting `app.money` imports nothing from `app.api`/`app.db`/`app.repositories`/`app.authz`/`app.schemas`. 100% branch coverage. Named test per fee-cycle and payment state transition; documented boundary case per money input. Hypothesis property test on ADR-002's verified identity: `total_charged − total_forgiven − (total_receipt + total_credit_grant) == total_outstanding − available_credit`, with `available_credit >= 0`, `total_outstanding >= 0`, `sum(carry_forward) == sum(carried_out)`. Skeleton-time toolchain: Ruff with its named rule sets, mypy strict on `app.money.*`, pytest, Gitleaks as pre-commit hook and CI job, `uv.lock`.
-**Confidence hypothesis.** *A randomized sequence of charges, approvals, partial approvals, multi-period two-sided carry-forwards, waivers and credit grants/applies, composed in arbitrary order, leaves the ledger identity exactly satisfied and `outstanding` never negative — and a multi-period carry does not double-count (carrying 1000 into a second 1000 charge reads 2000 owed, not 3000).* Falsified by: any generated history where the identity fails, or where a two-period carry reads 3000 against a true 2000. This is the hypothesis the recorded learnings say was wrong twice before randomized testing settled it, so it is stated as the thing B1 exists to test rather than assert.
+Human stops that remain regardless, and are not affected by this: Plan Approval,
+summary confirmation, verification-command selection, and any failure.
 
-### B2 — `b2-api-contract` (U2, `spec`, S) — not the skeleton
-**DoD.** Committed OpenAPI 3.1 file and the schema-diff CI gate (committed must equal generated, or CI fails). Error taxonomy: the five closed classes, one FastAPI handler mapping them to responses, the envelope `{code, retryable, message_key}` with `retryable` server-provided and `message_key` rather than `message`. The non-disclosure rule implemented and commented with its reasoning at the raise site: a uniform **403** for both an unreachable and an absent resource, with the two responses **byte-identical** (same status, same `code`, same `retryable`, same `message_key`, same `details`). *Amended 2026-10-18 at B2 Functional Design (BR1.4, BR1.5, BR4.3). This DoD previously said "the 404-instead-of-403 rule", which contradicted `contract-summary.md`'s normative schema section; the schema wins, 404 is not in the five-class taxonomy, and 403 is honest to an authenticated caller who mistyped an id they do own. Either uniform answer closes the enumeration oracle; a uniform STATUS carrying distinct codes does not, which is why byte-identity rather than status uniformity is the requirement.* Money-as-JSON-string asserted on both sides. **The OpenAPI money-pattern assertion** (added 2026-10-18 at B1's NFR Design, which authored it but cannot run it — B1 has no endpoint): iterate the generated schema and assert every money field matches the canonical pattern and every `*_display` sibling is accompanied by its canonical `amount` field. This is what catches a money value typed as a free-form string, which no import rule can see. The `*_display` sibling rule recorded *in the schema* (per OQ-6's resolution) so the diff gate catches a field gaining or losing its sibling. Route-enumeration harness: walks `route.dependant` recursively, matches on the dependency's return annotation being a `Lens` subtype (never on name), runs against the real app object at collection time, with `PUBLIC_ROUTES` an explicit frozenset of exactly the OTP issue and verify endpoints, health, and the external deletion route. The schema-wide invariant: no teacher-lens response schema contains any field in the owner-private profile set, by iterating the generated schema. Schemathesis wired, with the artifact stating in writing that it validates conformance and never counts as privacy coverage.
-**Confidence hypothesis.** *Adding an endpoint with no lens dependency reddens CI on the commit that adds it, and adding a profile field to a teacher-lens response schema reddens CI on the commit that adds it — both against an app with essentially no endpoints yet.* Falsified by: either violation, deliberately introduced as a test fixture, passing. The deliberate-violation test is part of the DoD; a gate nobody has seen fail is a gate nobody knows works.
-
-### B3 — `b3-identity-and-access` (U3, `service`, XL) — **THE WALKING SKELETON**
-**DoD.** Everything `unit-of-work.md` lists for U3: OTP issue and verify with all seven abuse controls and their named adversarial tests (4th/hour and 6th/day per number refused; 11th/hour per IP refused; OTP at 5m01s refused; a verified OTP cannot re-verify; 6th verify attempt refused and the OTP dead; stored value ≠ transmitted value; known and unknown number responses byte-identical with the *structural* assertion that the unknown path performs the same hash computation, not a wall-clock bound; the global daily SMS ceiling enforced with its alert firing). Rate-limit counters **datastore-backed, not per-process**, with a test that would fail against a per-process dictionary under two workers. The global ceiling's per-number and per-IP-prefix sub-ceilings, with the degradation path defined and what a legitimate user sees when it trips. JWT `kid` with two valid verification keys. Rotating refresh tokens with reuse detection and family invalidation, stored hashed, tested as a state machine including the 15-minute-expiry rejection. The lens resolver with RLS context, single entitlement point, request-scoped memoization permitted and cross-request caching forbidden. The owner-private `profile` under row-level security. The append-only auth audit log (holding no OTP, no token, no child name). The SMS gateway adapter with its `purpose` parameter and per-purpose ceiling (V1 purpose: `otp`), single send attempt, no automatic retry, timeout recorded as `unknown`. First Alembic migration applied from zero against a real Postgres — **creating `Owner` and `Enrollment` as empty shells** alongside the identity tables. **The money column type-and-precision assertion** (added 2026-10-18 at B1's NFR Design, which authored it but cannot run it — B1 has no table): iterate the migrated schema and assert every money-carrying column has the exact declared type and precision, **regardless of how it was created**. This is what catches a raw SQL migration or a string-typed column declaration, neither of which imports anything an import rule could ban. Integration tests connect as a restricted non-superuser role, with the meta-test asserting `current_user` is not a superuser and `row_security` is on *before* the privacy suite runs. Android: OTP entry via SMS Retriever, the lens switcher, both language bundles on screen one. **Added scope per section A:** the two Governance manifest files created as committed structured data covering U3's tables plus the two shells, and the schema-iterating test that every live table carries a disposition per actor and a retention class.
-**Verification.** The recorded Construction Verification Command — real end-to-end on a device or emulator against the real Lightsail backend. Not a passing suite, not a design review. Then the human skeleton checkpoint.
-**Confidence hypothesis.** *An account that owns one batch and is simultaneously enrolled as a guardian of a child in another teacher's batch resolves to a teacher lens for the first and a guardian lens for the second, within a single session, with no role field and no cached role anywhere — and an account owning no batches is never offered a teacher lens (FR1.4).* Falsified by: a resolved lens that depends on anything stored rather than computed, or a teacher lens offered to a batch-less account. Secondary, privacy-specific: *a request authenticated as teacher A, asking for teacher B's batch, receives a **403**, and the response is byte-identical to the response for a batch id that does not exist at all — same status, same `code`, same `retryable`, same `message_key`, same `details`.* *(Status amended 2026-10-18 at B2 Functional Design per BR1.4/BR4.3: this hypothesis said 404. The byte-indistinguishability it already demanded is the real criterion and is unchanged; only the status it names has moved, to match the uniform 403 the normative schema fixes.)*
-
-### B4 — `b4-release-packaging` (U10, `packaging`, M) — not the skeleton
-**DoD.** AAB output, signing config, release and debug flavours, R8 rules surviving minification, `compileSdk`/`targetSdk` 36, `minSdk` 24. The 15 MB download-size assertion measured from the Play Console's reported `arm64-v8a` split size, wired as a release-gate check. The merged-manifest permission allowlist as a Gradle task that *fails the build*, asserting an exact approved permission set and the **absence** of `com.google.android.gms.permission.AD_ID`. The minified-release-DEX scan for `getImei`, `getSubscriberId`, `getSimSerialNumber`, `getLine1Number`, `Build.getSerial`, `getMacAddress`, `getBSSID`, `getSSID`, `AdvertisingIdClient`, `ANDROID_ID` — run on the R8-minified release build, never the debug build. Android Lint `HardwareIds` raised to `fatal` in `lint.xml` as a complement. Syft SBOM per release build. detekt, spotless/ktlint `official`, Kotlin coverage reporting established. **The Macrobenchmark harness and low-end-device profile**, which B8 consumes. The SDK admission note template. The ZAP baseline pass wired against the committed OpenAPI schema, to run at the release gate.
-**Confidence hypothesis.** *Adding a dependency that transitively declares `AD_ID`, or that calls `ANDROID_ID` or `getImei` without declaring any permission, fails the release build — and both failures are demonstrated against deliberately introduced fixtures rather than assumed.* Falsified by: either fixture building green. The allowlist alone cannot catch the second case, which is exactly why both gates exist; a Bolt that ships only the allowlist has not met its DoD.
-
-### B5 — `b5-batches-and-enrollment` (U4, `service`, L) — not the skeleton
-**DoD.** The `Owner` indirection carrying the subscription anchor; Batch, BatchSubject, ScheduleSlot; add-student with dormant-account resolution and attach-to-existing; per-enrollment guardian; fee override; multiple enrollment across batches; `inactive_from` semantics; edit and remove (removal permitted only while dormant, per FR2.12); student and guardian batch lists; guardian child selection; hide-batch preference; Room-cached rosters with staleness. Establishes the Room read-cache pattern: entities mirror the API DTO one-to-one, carry only `fetched_at`, hold no derived field. **OQ-7 settled here** — the contract artifact asks for the guardian-child route shape to be decided once with the guardian screens in front of the decider, and this is that Bolt. Per-Bolt governance obligation: manifest rows for every table this migration creates. Test-first by the predicate on `inactive_from` (money-adjacent and fails quietly): it must stop future fee cycles, leave existing dues standing, and leave the student active in other batches — all three asserted separately.
-**Confidence hypothesis.** *One permanent account enrolled with two different teachers sees, under a single authenticated session, exactly the batches of the teacher whose number it was enrolled under for each enrollment — and neither teacher's roster read returns any row keyed on an account id rather than an `enrollment_id`.* Falsified by: a cross-teacher row appearing in either direction, or any teacher-facing query whose scoping key is an account id. This is the human's stated top risk at its first genuinely multi-party test — B3 could only demonstrate the mechanism; B5 is where it has two teachers to leak between.
-
-### B6 — `b6-fee-cycles-and-ledger` (U7, `service`, L) — not the skeleton
-**DoD.** Append-only `LedgerEntry` with its seven kinds; the thin `FeeCycle` carrying only the `(enrollment_id, period)` unique constraint; generation via `ON CONFLICT DO NOTHING` and never an application-level "has this run" guard; calendar-month periods with the short-month clamp; the daily self-healing job; credit grant and apply; two-sided carry-forward (`carried_out` relieving the originating period, `carry_forward` charging the receiving one); the server-computed fee status enum (`due`/`paid`/`partial`) so no client ever compares a balance; student and guardian fee views. Mandatory money tests are a deliverable condition, not a follow-up [TC-20, D-23, PU-5.7]. Idempotency tested with **overlapping concurrent** generations asserting the outcome (exactly one row per `(enrollment_id, period)`, ledger total unchanged) plus the across-days case (a cycle generated on the 1st is not regenerated on the 2nd). **Owns the FCM adapter** per the OQ-4 resolution: `DeviceToken` lifecycle, `UNREGISTERED` deletes the token, dispatch after commit outside the request transaction, failure logged and never surfaced, never fails its caller. `ReminderEvent` log. Per-Bolt governance obligation for its tables. Test-first throughout by the predicate.
-**Confidence hypothesis.** *Two fee-generation jobs running with overlapping transactions against the same enrollment produce exactly one `FeeCycle` row and leave the ledger total unchanged — and the same assertion holds when the job re-runs the following day.* Falsified by: two rows, a changed total, or a test that passes only because the calls were sequential. Secondary: *an FCM send failure during fee-reminder dispatch leaves the fee cycle committed and the request successful.*
-
-### B7 — `b7-payment-claims-and-verification` (U8, `service`, L) — not the skeleton
-**DoD.** The identical submission form in student and guardian lenses; batch → enrollment → open-cycle resolution; partial amounts; the server-supplied channel list (a database row, never a client enum); the pending-verification list; approve / approve-less / reject; carry-forward-or-waive on partial; over-approval becoming credit; verifier identity and timestamp; payment history views; overwrite-with-visible-history per FR9.1/FR9.2. Every state transition carries a named test, test-first by the predicate. Per-Bolt governance obligation. **Last gated checkpoint** under the settled decision.
-**Confidence hypothesis.** *A partial payment approved for less than claimed, with the remainder carried forward, leaves the originating period relieved and the receiving period charged such that the enrollment-level total is unchanged — and an approval exceeding the claimed amount becomes an `available_credit` grant rather than a negative outstanding.* Falsified by: a negative `outstanding` at any point, or a carry that changes the enrollment total. Privacy-specific secondary: *a guardian submitting a claim against a non-child's enrollment receives a **403**, and a student requesting a fee cycle not their own receives a **403** — each byte-identical to the response for an id that does not exist.* *(Status amended 2026-10-18 at B2 Functional Design per BR1.4/BR4.3; byte-identity added, since a matching status alone would leave the oracle open through `code`.)*
-
-### B8 — `b8-sessions-and-attendance` (U5, `service`, L) — not the skeleton
-**DoD.** Session instances from weekly recurrence plus ad-hoc; status transitions; reschedule and cancel; the topic log; the atomic roster write with optimistic concurrency via `attendance_version` and `client_mutation_id`; the **four-state** queue (queued / confirmed / failed / conflicted) per amended NFR5.1, surviving app restart, syncing automatically on reconnect; the refuse-on-conflict rule (never merged, never silently applied) per ADR-006/FR11.4; the conflict-resolution screen FR11.5 requires, showing offline entry against current record and offering re-apply or discard with the offline entry preserved until chosen; **re-apply uses a new `client_mutation_id`** (the contract artifact flags that reusing the old one silently turns re-apply into a no-op); announcements; the mid-class Compose path; next-class and topics views; attendance visible to student and guardian. PU-3.6 discharged by a **Macrobenchmark on the low-end device profile** from B4 — explicitly not by a Compose correctness test. ViewModel state-machine tests including the explicit retry path. Per-Bolt governance obligation.
-**Confidence hypothesis.** *An attendance roster composed offline against version N, submitted after the teacher changed that roster from another device to version N+1, is refused and surfaced as `conflicted` — never `failed`, never silently applied, never merged — and re-applying it after the teacher chooses to do so actually writes, because it carries a fresh `client_mutation_id`.* Falsified by: a conflicted write presenting as failed (which would invite a wrong retry), a silent overwrite, or a re-apply that returns success while changing nothing.
-
-### B9 — `b9-exams-and-marksheets` (U6, `service`, M) — not the skeleton
-**DoD.** Exam creation per batch and subject; mark entry with the four result states and correction history via `superseded_by_id`; the batch-scoped marksheet, **anonymised** per FR4.5; the `marksheet_visible` toggle; exam dates; the guardian progress-over-time view. **Reuses U7's FCM adapter** for the marks-entered alert; reimplementing it is a DoD failure. Per-Bolt governance obligation.
-**Confidence hypothesis.** *The batch marksheet returned to a student contains every peer's mark and no peer's name or any other identifying field, and the same endpoint under a guardian lens for a different child returns a **403** byte-identical to the response for an enrollment id that does not exist.* *(Status amended 2026-10-18 at B2 Functional Design per BR1.4/BR4.3: this said "404 rather than a 403". Either uniform answer closed the oracle, and the normative schema fixes 403; byte-identity is what the criterion actually turns on.)* Falsified by: any identifying field surviving into the marksheet response — which the B2 schema-wide invariant should already have caught at schema level, making this the behavioural confirmation that the schema gate and the runtime agree.
-
-### B10 — `b10-teacher-insights` (U9, `service`, M) — not the skeleton
-**DoD.** Cross-batch dues driven by **outstanding balance and not active status**, so students who left owing money still appear; monthly earnings; earnings trend; collection rate with its carry-forward, waiver and credit rules; next upcoming exam. The empty-state rule from AC9.2.5 honoured (an explanation, never a bare empty state). List membership and order decided server-side; the client may not filter or re-sort. Per-Bolt governance obligation if it adds any table. **Carries OQ-2 explicitly:** FR8.3's collection-rate definition is annotated open to correction and AC8.3.4's credit rule postdates it; this Bolt's DoD includes extending U1's property test to cover the credit rule, and the `collection_rate` field does not ship to a client until the arithmetic is settled.
-**Confidence hypothesis.** *A student who left a batch mid-year owing 2000 BDT appears on the cross-batch dues screen, and a student who is active but owes nothing does not — i.e. the query is driven by balance and not by status.* Falsified by: the departed debtor missing, which is the specific defect the testing posture names and the one an "active students" query produces naturally.
-
-### B11 — `b11-privacy-and-governance` (U11, `spec`, L) — not the skeleton
-**DoD.** Both Governance manifests complete and the schema-iterating test green against the *final* schema. Both account-deletion paths: in-app, and the externally accessible route usable without reinstalling the app, as a public FastAPI route on the existing container. A test per path asserting deletion removes exactly what the Data Safety form claims and retains exactly what the privacy policy discloses, **per each table's written disposition** from Appendix A — including the uncomfortable ones (`Enrollment.guardian_phone` survives the guardian's deletion; `PaymentClaim` is anonymised not deleted; `AuthAuditLog` is anonymised in place). Deletion is idempotent per FR11.3. The idempotent chunked purge honouring ADR-004's clocks, with the visible-purge rule (a guardian opening the app in 2031 for a 2027 marksheet sees "records older than three years are not kept", never a bare empty state). Privacy-policy text **generated from the manifests**, not written independently. Data Safety form content. Play children's-data and target-audience declarations. Deletion-confirmation copy naming what is retained, including ADR-003's "a teacher cannot make their students' records go away". **OQ-1 and OQ-5 must be closed before this Bolt starts** (see section D).
-**Confidence hypothesis.** *After a guardian deletes their account, every column the privacy policy says is removed is actually absent from the database, and every column it says is retained is actually present — asserted row by row against the manifest rather than against a remembered list — and a second deletion request succeeds with no further effect.* Falsified by: any divergence between the generated policy text and the database state, which is precisely the failure this Unit exists to prevent and which no amount of review catches, because nobody tests the absence of data.
-
----
+The walking skeleton is already built and was human-checkpointed at B3, so the
+skeleton ceremony does not recur.
 
 ## Assumptions & Open Questions
 
-- **Recommended exception to the gating decision: re-gate B11 as a human
-  checkpoint.** The settled decision gates through U8 and then runs
-  automatically, and that decision was about the money and privacy *write*
-  surfaces. B11 is the deletion surface — both account-deletion paths plus four
-  release-blocking Play deliverables — and the affirmed practice says deletion
-  features are "the ones most reliably shipped broken, because nobody tests the
-  absence of data." It is also the last Bolt, so it is the one a compressed
-  schedule squeezes, and squeezing it means no release. This is an amendment to
-  a decision already made, so it is recommended rather than applied.
-- **OQ-1 and OQ-5 must close before B11 starts**; OQ-1 ideally before B7, so the
-  payment-history schema is not revisited. **OQ-2 must close before B10**, or
-  B10 ships without the `collection_rate` field rather than with provisional
-  arithmetic — a field can be added additively, whereas a wrong number pinned
-  into an installed client cannot be withdrawn.
-- **B3's scope grew at this stage.** The Governance manifest pair and its
-  schema-iterating test move into B3, so the per-Bolt disposition obligation has
-  a mechanism from the first migration rather than an honour system until B11.
-  Called out because B3 was already the largest Bolt.
+- **Assumed:** a teacher's display name is all signup needs. A subscription plan,
+  an institution name and a photo are all plausible and none is required to reach
+  a batch list, so they are left out until something needs them.
+- **Assumed:** acceptance needs no expiry. A pending seat stays pending
+  indefinitely rather than lapsing after some period. An expiry is additive if
+  teachers find stale pending rows a nuisance, and inventing a window now would
+  be guessing at a problem nobody has reported.
+- **Open, and it belongs to D4's sequencing rather than to this list:** whether
+  the Macrobenchmark harness is built at the start of D4 or whether PU-3.6 carries
+  an explicit manual pilot check instead. Both are acceptable; silently using a
+  correctness test to discharge a performance requirement is not. Recorded in
+  `risk-and-sequencing-rationale.md`.
+- **Carried from Domain Design:** whether `PaymentClaim.transaction_id` survives
+  the claimant's deletion. A product and legal judgement; D6 implements whichever
+  answer lands.
+- **Carried, OQ-2:** FR8.3's collection-rate definition remains open to
+  correction. D5 ships without the `collection_rate` field rather than with
+  provisional arithmetic.

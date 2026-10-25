@@ -1,0 +1,283 @@
+{
+  "stage": "code-generation",
+  "unit": "teaching-and-recording",
+  "version": 1,
+  "writes": [
+    {
+      "path": ".github/workflows/check.yml"
+    },
+    {
+      "path": ".github/workflows/deploy.yml"
+    },
+    {
+      "path": "Makefile"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/core/network/MarksDto.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/core/network/TeachingDto.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/core/queue/QueueState.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/core/queue/QueueStore.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/core/queue/QueueSync.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/core/queue/QueuedWrite.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/attendance/AttendanceStateMapper.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/attendance/AttendanceUiState.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/attendance/AttendanceViewModel.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/attendance/ui/AttendanceScreen.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/attendance/ui/ConflictScreen.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/auth/MessageKeys.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/marks/MarksStateMapper.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/marks/MarksUiState.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/marks/MarksViewModel.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/marks/ui/ExamListScreen.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/marks/ui/MarkEntryScreen.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/marks/ui/MarksheetScreen.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/marks/ui/ProgressScreen.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/sessions/SessionsStateMapper.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/sessions/SessionsUiState.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/sessions/SessionsViewModel.kt"
+    },
+    {
+      "path": "android/src/main/kotlin/com/shikkhokplus/app/feature/sessions/ui/SessionListScreen.kt"
+    },
+    {
+      "path": "android/src/main/res/values-bn/strings.xml"
+    },
+    {
+      "path": "android/src/main/res/values/strings.xml"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/core/queue/QueueStoreTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/core/queue/QueueSyncTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/attendance/AttendanceStateMapperTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/attendance/AttendanceViewModelTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/marks/MarksStateMapperTest.kt"
+    },
+    {
+      "path": "android/src/test/kotlin/com/shikkhokplus/app/feature/sessions/SessionsStateMapperTest.kt"
+    },
+    {
+      "path": "app/api/marks.py"
+    },
+    {
+      "path": "app/api/teaching.py"
+    },
+    {
+      "path": "app/contract/money_names.py"
+    },
+    {
+      "path": "app/db/models.py"
+    },
+    {
+      "path": "app/fees/commands.py"
+    },
+    {
+      "path": "app/governance/dispositions.py"
+    },
+    {
+      "path": "app/main.py"
+    },
+    {
+      "path": "app/marks/__init__.py"
+    },
+    {
+      "path": "app/marks/entry.py"
+    },
+    {
+      "path": "app/marks/exams.py"
+    },
+    {
+      "path": "app/marks/marksheet.py"
+    },
+    {
+      "path": "app/marks/results.py"
+    },
+    {
+      "path": "app/marks/views.py"
+    },
+    {
+      "path": "app/schemas/marks.py"
+    },
+    {
+      "path": "app/schemas/teaching.py"
+    },
+    {
+      "path": "app/teaching/__init__.py"
+    },
+    {
+      "path": "app/teaching/announcements.py"
+    },
+    {
+      "path": "app/teaching/commands.py"
+    },
+    {
+      "path": "app/teaching/generation.py"
+    },
+    {
+      "path": "app/teaching/roster.py"
+    },
+    {
+      "path": "app/teaching/sessions.py"
+    },
+    {
+      "path": "app/teaching/submissions.py"
+    },
+    {
+      "path": "docs/delivery/bangla-layout-check.md"
+    },
+    {
+      "path": "infra/modules/app/user_data.sh.tftpl"
+    },
+    {
+      "path": "message-keys.json"
+    },
+    {
+      "path": "migrations/versions/0006_teaching_and_recording.py"
+    },
+    {
+      "path": "openapi.json"
+    },
+    {
+      "path": "tests/auth/test_ceilings.py"
+    },
+    {
+      "path": "tests/auth/test_endpoints.py"
+    },
+    {
+      "path": "tests/contract/test_money_allowlists.py"
+    },
+    {
+      "path": "tests/contract/test_teaching_contract.py"
+    },
+    {
+      "path": "tests/db/test_migration_0006.py"
+    },
+    {
+      "path": "tests/db/test_migration_from_head.py"
+    },
+    {
+      "path": "tests/db/test_migration_runs.py"
+    },
+    {
+      "path": "tests/fees/__init__.py"
+    },
+    {
+      "path": "tests/fees/test_freshness_enumeration.py"
+    },
+    {
+      "path": "tests/marks/__init__.py"
+    },
+    {
+      "path": "tests/marks/conftest.py"
+    },
+    {
+      "path": "tests/marks/test_entry.py"
+    },
+    {
+      "path": "tests/marks/test_exams.py"
+    },
+    {
+      "path": "tests/marks/test_marksheet.py"
+    },
+    {
+      "path": "tests/marks/test_marksheet_thresholds.py"
+    },
+    {
+      "path": "tests/marks/test_result_states.py"
+    },
+    {
+      "path": "tests/marks/test_toggle_and_progress.py"
+    },
+    {
+      "path": "tests/privacy/test_teaching_probes.py"
+    },
+    {
+      "path": "tests/teaching/__init__.py"
+    },
+    {
+      "path": "tests/teaching/conftest.py"
+    },
+    {
+      "path": "tests/teaching/test_announcements.py"
+    },
+    {
+      "path": "tests/teaching/test_api.py"
+    },
+    {
+      "path": "tests/teaching/test_atomic_write.py"
+    },
+    {
+      "path": "tests/teaching/test_attendance_races.py"
+    },
+    {
+      "path": "tests/teaching/test_commands.py"
+    },
+    {
+      "path": "tests/teaching/test_generation.py"
+    },
+    {
+      "path": "tests/teaching/test_generation_races.py"
+    },
+    {
+      "path": "tests/teaching/test_refusal_order.py"
+    },
+    {
+      "path": "tests/teaching/test_replay.py"
+    },
+    {
+      "path": "tests/teaching/test_roster.py"
+    },
+    {
+      "path": "tests/teaching/test_sessions.py"
+    }
+  ]
+}

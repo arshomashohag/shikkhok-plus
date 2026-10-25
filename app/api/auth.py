@@ -1,7 +1,10 @@
 """The three auth endpoints, wired to the taxonomy U2 shipped.
 
-Three of the five ``PUBLIC_ROUTES`` are opened here; the other two are
-U11's deletion routes. The refresh route goes in
+Two of the eight ``PUBLIC_ROUTES`` are opened here -- the issue and
+verify endpoints. The deletion pair lives in :mod:`app.api.deletion`,
+signup's two in :mod:`app.api.accounts`, ``/health`` in
+:mod:`app.api.health`, and the staging outbox in :mod:`app.api.staging`.
+The refresh route goes in
 ``LENS_EXEMPT_AUTHENTICATED``, which is why U2 kept that set separate --
 with one combined allowlist, whoever first hits a failing refresh route
 takes the cheapest green edit and moves it to ``PUBLIC_ROUTES``, after
@@ -108,7 +111,7 @@ def issue_code(
         number=body.phone, ip_prefix=ip_prefix_of(request)
     )
 
-    issued = otp.issue(session, body.phone, correlation_id)
+    issued = otp.issue(session, body.phone, correlation_id, purpose=otp.OTP_PURPOSE)
 
     message = render_otp_message(issued.code, os.environ.get(APP_HASH_ENV, ""))
     gateway.send(body.phone, message, correlation_id)
@@ -156,7 +159,9 @@ def verify_code(
     :return: The new token pair
     """
     correlation_id = correlation_of(request)
-    account_id = otp.verify(session, body.phone, body.code, correlation_id)
+    account_id = otp.verify(
+        session, body.phone, body.code, correlation_id, purpose=otp.OTP_PURPOSE
+    )
     pair = issue_pair(session, account_id, correlation_id)
     session.commit()
     return TokenResponse(

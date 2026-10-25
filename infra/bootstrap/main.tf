@@ -304,6 +304,61 @@ data "aws_iam_policy_document" "ci_state" {
     actions   = ["s3:ListBucket"]
     resources = [aws_s3_bucket.state.arn]
   }
+
+  # **The app's own config bucket**, which the main module creates and
+  # owns -- the compose file the host fetches at boot.
+  #
+  # Scoped by NAME PREFIX rather than granted account-wide: this role
+  # can create and destroy `shikkhokplus-*-config-*` and nothing else,
+  # so it cannot touch the state bucket's siblings or another
+  # project's data.
+  #
+  # Both halves are needed and neither is obvious from the create
+  # alone: the Get* actions are how Terraform reads a bucket back to
+  # detect drift, and without them a second apply fails on a bucket
+  # the first one made. The Delete* actions are what `terraform
+  # destroy` needs.
+  statement {
+    sid    = "ConfigBucket"
+    effect = "Allow"
+    actions = [
+      "s3:CreateBucket",
+      "s3:DeleteBucket",
+      "s3:ListBucket",
+      "s3:GetBucketLocation",
+      "s3:GetBucketPolicy",
+      "s3:GetBucketAcl",
+      "s3:GetBucketCORS",
+      "s3:GetBucketWebsite",
+      "s3:GetBucketVersioning",
+      "s3:GetBucketLogging",
+      "s3:GetBucketTagging",
+      "s3:GetAccelerateConfiguration",
+      "s3:GetBucketRequestPayment",
+      "s3:GetLifecycleConfiguration",
+      "s3:GetReplicationConfiguration",
+      "s3:GetEncryptionConfiguration",
+      "s3:PutEncryptionConfiguration",
+      "s3:GetBucketPublicAccessBlock",
+      "s3:PutBucketPublicAccessBlock",
+      "s3:GetBucketObjectLockConfiguration",
+      "s3:PutBucketTagging",
+    ]
+    resources = ["arn:aws:s3:::shikkhokplus-*-config-*"]
+  }
+
+  statement {
+    sid    = "ConfigBucketObjects"
+    effect = "Allow"
+    actions = [
+      "s3:GetObject",
+      "s3:PutObject",
+      "s3:DeleteObject",
+      "s3:GetObjectTagging",
+      "s3:PutObjectTagging",
+    ]
+    resources = ["arn:aws:s3:::shikkhokplus-*-config-*/*"]
+  }
 }
 
 resource "aws_iam_role_policy" "ci_state" {

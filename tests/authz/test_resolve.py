@@ -70,10 +70,21 @@ def _enroll(session: Session, account_id: uuid.UUID, role: str) -> uuid.UUID:
         if role == "student"
         else {"guardian_account_id": account_id}
     )
+    # D1 added two per-link decision columns with no default [ADR-013],
+    # so this helper states both. ACCEPTED for the link it seats,
+    # because every test in this file asserts a lens is granted or
+    # withdrawn by OWNERSHIP and ENROLLMENT changes -- an unaccepted
+    # link would withhold the lens for a different reason and each of
+    # those assertions would pass vacuously.
+    decisions = {
+        "student_decision": "accepted" if role == "student" else "pending",
+        "guardian_decision": "accepted" if role == "guardian" else "pending",
+    }
     record = Enrollment(
         batch_id=uuid.uuid4(),
         display_name="Teacher Typed Name",
         created_at=dt.datetime.now(tz=dt.UTC),
+        **decisions,
         **links,
     )
     session.add(record)

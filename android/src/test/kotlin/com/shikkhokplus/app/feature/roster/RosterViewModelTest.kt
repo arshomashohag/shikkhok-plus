@@ -2,6 +2,7 @@ package com.shikkhokplus.app.feature.roster
 
 import com.shikkhokplus.app.core.network.ErrorBody
 import com.shikkhokplus.app.core.network.ErrorEnvelope
+import com.shikkhokplus.app.core.model.LinkState
 import com.shikkhokplus.app.core.network.RosterRowDto
 import com.shikkhokplus.app.feature.auth.AuthResult
 import kotlinx.coroutines.Dispatchers
@@ -45,11 +46,32 @@ class RosterViewModelTest {
     private fun row(
         name: String,
         status: String = "active",
+        studentState: String = "pending",
+        guardianState: String = "absent",
+        isRemovable: Boolean = true,
     ): RosterRowDto =
         RosterRowDto(
             enrollmentId = "e-$name",
             displayName = name,
             status = status,
+            studentState = studentState,
+            guardianState = guardianState,
+            isRemovable = isRemovable,
+        )
+
+    /** The UI row the removal entry points now take. */
+    private fun uiRow(name: String): RosterRow =
+        RosterRow(
+            enrollmentId = "e-$name",
+            displayName = name,
+            statusLabel = "roster.status.dormant",
+            fee = null,
+            guardianPhone = null,
+            studentState = LinkState.PENDING,
+            guardianState = LinkState.ABSENT,
+            displayLabel = name,
+            isDeclined = false,
+            isRemovable = true,
         )
 
     private class FakeRepository(
@@ -183,7 +205,7 @@ class RosterViewModelTest {
             FakeRepository(removeResult = AuthResult.TransportFailure)
         val viewModel = RosterViewModel(repository)
 
-        viewModel.remove("e-Rahim")
+        viewModel.remove(uiRow("Rahim"))
         advanceUntilIdle()
 
         val state = assertIs<RosterUiState.Failed>(viewModel.state.value)
@@ -203,7 +225,7 @@ class RosterViewModelTest {
 
             viewModel.load("b-1")
             advanceUntilIdle()
-            viewModel.remove("e-Rahim")
+            viewModel.remove(uiRow("Rahim"))
             advanceUntilIdle()
 
             viewModel.retry()
@@ -250,7 +272,7 @@ class RosterViewModelTest {
 
         viewModel.load("b-1")
         advanceUntilIdle()
-        viewModel.remove("e-Rahim")
+        viewModel.remove(uiRow("Rahim"))
         advanceUntilIdle()
 
         assertEquals(2, repository.rosterCalls)

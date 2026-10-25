@@ -22,13 +22,73 @@ from sqlalchemy import Engine, event
 from sqlalchemy.orm import Session
 
 from app.auth.hashing import OTP_HMAC_KEY_ENV
-from app.auth.otp import ATTEMPT_CEILING, CODE_LIFETIME, issue, verify
+from app.auth.otp import (
+    ATTEMPT_CEILING,
+    CODE_LIFETIME,
+    OTP_PURPOSE,
+    IssuedCode,
+)
+from app.auth.otp import (
+    issue as _issue,
+)
+from app.auth.otp import (
+    verify as _verify,
+)
 from app.db.models import Account
 from app.errors import ValidationError
 
 KNOWN = "+8801711111111"
 UNKNOWN = "+8801799999999"
 CORRELATION = "test-correlation-id"
+
+
+# Every test in THIS file is about the sign-in purpose: the oracle, the
+# expiry, the single-use rule and the attempt ceiling are all properties
+# of one code regardless of what it is for. The purpose is bound once
+# here rather than repeated at thirty call sites, which would make the
+# one file where the purpose MATTERS -- test_otp_purpose.py -- read the
+# same as this one.
+#
+# Bound explicitly to OTP_PURPOSE rather than defaulted in `issue`
+# itself: the absent default is the control, and a wrapper that supplied
+# one in production code is exactly what D6 was the second consumer of.
+
+
+def issue(
+    session: Session,
+    phone: str,
+    correlation_id: str,
+    now: dt.datetime | None = None,
+) -> IssuedCode:
+    """Issue a SIGN-IN code.
+
+    :param session: The session to write through
+    :param phone: The number to issue for
+    :param correlation_id: Ties the audit row to this request
+    :param now: The moment of issue, or None for the clock
+    :return: The code and whether an account existed
+    """
+    return _issue(session, phone, correlation_id, purpose=OTP_PURPOSE, now=now)
+
+
+def verify(
+    session: Session,
+    phone: str,
+    code: str,
+    correlation_id: str,
+    now: dt.datetime | None = None,
+) -> uuid.UUID:
+    """Verify a SIGN-IN code.
+
+    :param session: The session to work through
+    :param phone: The number being verified
+    :param code: The presented code
+    :param correlation_id: Ties the audit row to this request
+    :param now: The moment of verification, or None for the clock
+    :return: The authenticated account's id
+    :raises ValidationError: The code is wrong, expired, used or dead
+    """
+    return _verify(session, phone, code, correlation_id, purpose=OTP_PURPOSE, now=now)
 
 
 @pytest.fixture(autouse=True)

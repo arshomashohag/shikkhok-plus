@@ -10,11 +10,87 @@
 
 PY ?= python3
 
-.PHONY: check format lint typecheck test gates contract openapi install clean android
+.PHONY: check format lint typecheck test gates contract openapi install clean android lock audit android-quality
 
-check: lint typecheck test android
+check: lint typecheck test android android-quality
 	@echo ""
 	@echo "All gates passed."
+
+## Regenerate the Python lockfile. THE ONLY SANCTIONED WAY to update
+## requirements.txt.
+##
+## Like openapi.json, that file is an OUTPUT, and the CI check compares it
+## against a fresh compile — so hand-editing it to turn a red check green
+## inverts the control. Unlike openapi.json, getting this wrong has a supply
+## chain consequence rather than only a contract one.
+##
+## `--generate-hashes` is the point. Without it the file pins versions but
+## not ARTIFACTS, and a version pin does not detect a substituted wheel.
+## Compiled against Python 3.12 deliberately: that is what CI and the
+## container run, and a lockfile compiled on a different minor version can
+## resolve different markers.
+## `--allow-unsafe` is required, not optional, and the name is misleading.
+## It pins `pip` and `setuptools`, which pip-tools excludes by default —
+## and with `--require-hashes` pip REFUSES an install where any requirement
+## lacks a hash, so omitting it produces a lockfile that cannot be
+## installed. Verified by installing into a clean venv rather than by
+## reading the flag's documentation.
+## `--upgrade` is NOT optional, and leaving it off is the defect this
+## target shipped with. Without it pip-compile treats the EXISTING
+## requirements.txt as a constraint and keeps every pin that still
+## satisfies pyproject.toml — so `make lock` is a no-op on a machine
+## that already has the file. CI compiles from scratch, resolves the
+## newest versions the `>=` ranges admit, and the two can never agree:
+## the check fails, the developer runs `make lock`, nothing changes,
+## and the only apparent way out is to weaken the check.
+##
+## Diagnosed 2026-10-25 against a real failure where the committed file
+## was byte-identical to a fresh local `make lock` and still differed
+## from CI's compile by five packages.
+lock:
+	@echo "==> compiling requirements.txt (hashes: this downloads every wheel)"
+	$(PY) -m piptools compile --extra dev --extra api --generate-hashes \
+		--allow-unsafe --upgrade --output-file requirements.txt pyproject.toml
+	@echo "    done — now read the diff."
+
+## Dependency CVEs, locally. Annotating, same as the per-push CI step.
+## The BLOCKING check is at the release gate, where each Critical and High
+## is fixed or carries a dated row in .security-exceptions.md.
+audit:
+	@echo "==> dependency CVEs (annotating)"
+	@$(PY) -m pip_audit --requirement requirements.txt --desc \
+		--progress-spinner off \
+		|| echo "    findings above do not block; they block the release gate."
+
+## The Kotlin quality toolchain: format, static analysis, lint, coverage
+## ratchet. Part of `check` for the same reason the Android suite is —
+## team.md requires ONE entrypoint, local and in CI.
+##
+## Skipped with a loud notice when no JDK is reachable, matching the
+## `android` target. The notice is the point: a silent skip would make this
+## gate vacuous, which is this project's most common defect shape.
+## **`set -e` is load-bearing, not decoration.** Inside a shell `if`, only
+## the LAST command's exit status reaches make — so without it, a spotless,
+## detekt or lint failure is silently discarded and the recipe reports
+## success. That was true of the first version of this target and `make
+## check` printed "All gates passed" over a failing build, which is this
+## project's most-documented defect shape reproduced inside a gate written
+## to prevent it. Caught by running it; a reader would not have seen it.
+##
+## One `gradlew` invocation for all four tasks rather than four: Gradle
+## configures the project once, which is most of the wall-clock cost, and a
+## single non-zero exit covers every task.
+android-quality:
+	@if ./gradlew --version >/dev/null 2>&1; then \
+		set -e; \
+		echo "==> kotlin quality: format, static analysis, lint, coverage"; \
+		./gradlew :android:spotlessCheck :android:detekt \
+		          :android:lintDebug :android:verifyCoverageRatchet \
+		          --console=plain -q; \
+	else \
+		echo "SKIPPED: the Kotlin quality gates need a JDK and none was reachable."; \
+		echo "          These gates did NOT run. CI runs them on every push."; \
+	fi
 
 ## The Android suite. Part of `check` rather than a separate command the
 ## person has to remember: `team.md` requires ONE entrypoint, local and in
@@ -96,11 +172,16 @@ test:
 	@# outside the floor and the gate passed -- the very failure the
 	@# gate exists to prevent, reproduced inside the gate.
 	$(PY) -m pytest tests -q -p no:cacheprovider \
+		--cov=app.accounts --cov=app.analytics \
 		--cov=app.api --cov=app.audit --cov=app.auth --cov=app.authz \
 		--cov=app.batches \
 		--cov=app.config --cov=app.contract --cov=app.db --cov=app.errors \
+		--cov=app.fees \
 		--cov=app.gateway --cov=app.governance --cov=app.main \
+		--cov=app.marks \
+		--cov=app.notifications \
 		--cov=app.schemas \
+		--cov=app.teaching \
 		--cov-report=term-missing --cov-fail-under=80 \
 		--cov-config=.coveragerc-backend
 
@@ -116,6 +197,12 @@ contract:
 format:
 	$(PY) -m ruff format app tests
 	$(PY) -m ruff check app tests --fix
+	@if ./gradlew --version >/dev/null 2>&1; then \
+		echo "==> kotlin format"; \
+		./gradlew :android:spotlessApply --console=plain -q; \
+	else \
+		echo "SKIPPED: Kotlin formatting needs a JDK and none was reachable."; \
+	fi
 
 install:
 	$(PY) -m pip install -e ".[dev]"
@@ -332,3 +419,141 @@ android-key-info:
 	@echo "Valid-until must be past 2033 or Play refuses the key."
 
 .PHONY: android-key android-key-secrets android-key-copy android-key-info
+
+# ---------------------------------------------------------------------
+# An APK for a real phone
+# ---------------------------------------------------------------------
+
+## Which backend the APK talks to.
+##
+## **The default is staging, not localhost.** `10.0.2.2` is the
+## emulator's route to this machine and means nothing on a phone: an
+## APK built with it fails every request with a connection error, which
+## reads as a broken app rather than a wrong address.
+##
+## Override for a backend running on this laptop, using the machine's
+## LAN address — the phone must be on the same wifi:
+##   make apk API=http://192.168.1.5:8000
+API ?= https://api.shikkhokplus.nirmatabd.com
+
+## Build a debug APK to sideload.
+##
+## Signed with Android's debug key, so it installs with no keystore and
+## no password. **Not the artifact you ship**: R8 is off, so this build
+## cannot surface a minification bug, and `make android-release-apk`
+## exists for that.
+##
+## Usage: make apk
+##        make apk API=http://192.168.1.5:8000
+apk:
+	@case "$(API)" in \
+	  http://*|https://*) ;; \
+	  *) echo "API must start with http:// or https:// — got '$(API)'"; exit 1 ;; \
+	esac
+	@echo "==> Building a debug APK against $(API)"
+	@./gradlew :android:assembleDebug --no-daemon -PapiBaseUrl="$(API)"
+	@echo ""
+	@# **Asserted, because an unsigned APK will not install** and the
+	@# phone's refusal says only "app not installed", which sends you
+	@# looking at the phone rather than at the build.
+	@#
+	@# `apksigner`, not a META-INF grep: a debug APK is signed with
+	@# APK Signature Scheme v2, which stores the signature OUTSIDE the
+	@# zip entries, so a correctly signed APK has zero META-INF/*.RSA
+	@# files. (An AAB is the opposite case and does carry them — which
+	@# is why the release workflow greps and this does not.)
+	@apksigner=$$(find $$ANDROID_HOME/build-tools \
+	    /opt/homebrew/share/android-commandlinetools/build-tools \
+	    $$HOME/Library/Android/sdk/build-tools \
+	    -name apksigner 2>/dev/null | sort -r | head -1); \
+	if [ -n "$$apksigner" ]; then \
+	  "$$apksigner" verify android/build/outputs/apk/debug/android-debug.apk \
+	    2>/dev/null \
+	    && echo "Signed with the debug key." \
+	    || { echo "NOT SIGNED — this will not install."; exit 1; }; \
+	else \
+	  echo "(apksigner not found; signature not checked)"; \
+	fi
+	@echo ""
+	@ls -lh android/build/outputs/apk/debug/android-debug.apk | awk '{print "APK: " $$9 "  (" $$5 ")"}'
+	@echo ""
+	@echo "Install over USB:   make apk-install"
+	@echo "Or copy that file to the phone and open it."
+	@echo ""
+	@echo "A sideloaded APK needs \"Install unknown apps\" allowed for"
+	@echo "whichever app opens it — Files, Drive or your browser."
+
+## Build and push to a USB-connected phone.
+##
+## `-r` reinstalls over an existing copy and keeps its data, so a
+## second run does not make you sign in again.
+##
+## Usage: make apk-install
+apk-install: apk
+	@command -v adb >/dev/null 2>&1 || { \
+	  echo "adb is not on PATH."; \
+	  echo "Install platform-tools, or copy the APK to the phone by hand."; \
+	  exit 1; }
+	@test -n "$$(adb devices | sed -n '2,$$p' | grep -w device)" || { \
+	  echo "No phone detected by adb."; \
+	  echo ""; \
+	  echo "On the phone: Settings -> About -> tap Build number seven"; \
+	  echo "times, then Developer options -> USB debugging. Reconnect"; \
+	  echo "and accept the prompt on the phone's screen."; \
+	  exit 1; }
+	@echo "==> Installing"
+	@adb install -r android/build/outputs/apk/debug/android-debug.apk
+	@echo ""
+	@echo "Installed. Launching."
+	@adb shell monkey -p com.shikkhokplus.app -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1 || true
+
+## Follow the app's log from a connected phone.
+##
+## Filtered to this app's own process, because an unfiltered logcat on
+## a real phone is unreadable.
+##
+## Usage: make apk-log
+apk-log:
+	@command -v adb >/dev/null 2>&1 || { echo "adb is not on PATH."; exit 1; }
+	@pid=$$(adb shell pidof com.shikkhokplus.app 2>/dev/null | tr -d '\r'); \
+	if [ -z "$$pid" ]; then \
+	  echo "The app is not running. Start it on the phone, then re-run."; \
+	  exit 1; \
+	fi; \
+	echo "==> Logs for pid $$pid. Ctrl-C to stop."; \
+	adb logcat --pid="$$pid"
+
+## Build a RELEASE APK, signed with the upload key.
+##
+## **Use this to check what you actually ship.** R8 is on, so it
+## catches the class of bug a debug build hides — a stripped
+## serializer, a missing keep rule — and those surface only here.
+##
+## Needs the keystore password. A crash trace is obfuscated: read it
+## with android/build/outputs/mapping/release/mapping.txt.
+##
+## Usage: make android-release-apk
+android-release-apk:
+	@test -f "$(KEYSTORE)" || { \
+	  echo "No keystore at $(KEYSTORE). Run 'make android-key' first."; \
+	  exit 1; }
+	@case "$(API)" in \
+	  https://*) ;; \
+	  *) echo "A release build must use https — got '$(API)'."; \
+	     echo "It carries phone numbers and OTPs over the public internet."; \
+	     exit 1 ;; \
+	esac
+	@printf "Keystore password: "; \
+	stty -echo; read pw; stty echo; echo ""; \
+	ANDROID_KEYSTORE_PATH="$(KEYSTORE)" \
+	ANDROID_KEYSTORE_PASSWORD="$$pw" \
+	ANDROID_KEY_ALIAS="$(KEY_ALIAS)" \
+	ANDROID_KEY_PASSWORD="$$pw" \
+	./gradlew :android:assembleRelease --no-daemon \
+	  -PapiBaseUrl="$(API)" \
+	  -PversionName="$${VERSION:-0.0.0-local}" \
+	  -PversionCode="$${CODE:-1}"
+	@echo ""
+	@ls -lh android/build/outputs/apk/release/*.apk 2>/dev/null | awk '{print "APK: " $$9 "  (" $$5 ")"}'
+
+.PHONY: apk apk-install apk-log android-release-apk

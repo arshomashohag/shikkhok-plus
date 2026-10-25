@@ -23,7 +23,8 @@ enable_staging_instance = true
 # --- Phase 2. Leave false. ---
 # RDS with ingress from the app's SECURITY GROUP (+USD 17.36/month).
 #
-# NOTE: staging + RDS is USD 50.20, which trips the budget
-# precondition at the USD 50 ceiling. Phase 2 means retiring the
-# rehearsal host or raising acknowledged_monthly_budget deliberately.
+# NOTE: staging + RDS is USD 47.28, which FITS under the USD 50
+# ceiling with 2.72 to spare. (This file said 50.20 until 2026-10-24
+# and claimed the combination tripped the precondition; it does not.
+# Recomputed from main.tf's cost_breakdown.)
 enable_rds = false

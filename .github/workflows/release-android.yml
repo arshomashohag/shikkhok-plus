@@ -205,6 +205,126 @@ jobs:
           fi
           echo "Signature block present."
 
+      # **The download-size gate** [NFR2.11-NFR2.16, NFR2.21].
+      #
+      # Placed after "The bundle is signed" -- so the clearer signature
+      # error fires first -- and before Syft, so a bundle failing the
+      # ceiling is not inventoried.
+      #
+      # **It signs its own APK set with a THROWAWAY keystore, and that
+      # is what makes this placement possible at all.** The upload
+      # keystore is shredded at the "Remove the keystore" step ABOVE,
+      # which runs `if: always()` and therefore before this point --
+      # so a gate signing with the upload key would fail EVERY release
+      # on a missing file rather than on a size.
+      #
+      # Three remedies existed. Moving the shred step later trades a
+      # real security property (the upload key not outliving its use)
+      # for convenience, and was rejected. Placing the gate between the
+      # build and the shred works but makes this gate's correctness
+      # depend on a security step's position, so a later reader
+      # rearranging either breaks the other. Signing independently
+      # makes the gate correct wherever a built AAB exists.
+      #
+      # `build-apks` needs A signature, not THE signature: the size is
+      # not exactly key-independent, because the signing block carries
+      # the certificate, but it moves by ~1-4 KB against 11.4 MB of
+      # headroom. The NFR2.13 proxy error already disclosed below is a
+      # larger source of difference than the key is.
+      - name: The download size is under the ceiling
+        env:
+          # Pinned AND checksum-verified [NFR2.21]. An unpinned tool
+          # computes the number this gate blocks on, and nothing would
+          # record which version produced the verdict.
+          #
+          # Checksum measured 2026-10-25 by downloading this exact
+          # artifact and running shasum -a 256 against it, not copied
+          # from a page.
+          BUNDLETOOL_VERSION: "1.17.2"
+          BUNDLETOOL_SHA256: "2d4ad908faea64047c1cc9cb747e6aa667c6ab192e09607bd16b67246a8cd6ae"
+          # 15 MB as a byte count, stated once [NFR2.11].
+          CEILING_BYTES: "15728640"
+        run: |
+          set -euo pipefail
+
+          aab=android/build/outputs/bundle/release/android-release.aab
+          # **The precondition** [cicd-pipeline § 4]. Without it
+          # `build-apks` fails on a missing file with an opaque tool
+          # error rather than a message naming what went wrong -- and
+          # the existing signature step asserts the same thing for the
+          # same reason.
+          [ -f "$aab" ] || { echo "::error::No AAB at $aab"; exit 1; }
+
+          jar="$RUNNER_TEMP/bundletool.jar"
+          curl -fsSL -o "$jar" \
+            "https://github.com/google/bundletool/releases/download/${BUNDLETOOL_VERSION}/bundletool-all-${BUNDLETOOL_VERSION}.jar"
+          echo "${BUNDLETOOL_SHA256}  $jar" | sha256sum -c - || {
+            echo "::error::bundletool checksum mismatch."
+            echo "The pinned artifact is not what was downloaded. Do not"
+            echo "relax this: the tool computes the number this gate"
+            echo "blocks on."
+            exit 1
+          }
+
+          # A THROWAWAY key, generated here and never the upload key.
+          ks="$RUNNER_TEMP/size-check.jks"
+          keytool -genkeypair -v -keystore "$ks" -alias size-check \
+            -keyalg RSA -keysize 2048 -validity 1 \
+            -storepass size-check-only -keypass size-check-only \
+            -dname "CN=size-check, O=ci, C=BD" >/dev/null
+
+          # get-size reads an APK SET, not an AAB, so the set is built
+          # first -- verified against `bundletool help get-size`.
+          java -jar "$jar" build-apks \
+            --bundle="$aab" \
+            --output="$RUNNER_TEMP/size-check.apks" \
+            --ks="$ks" --ks-pass=pass:size-check-only \
+            --ks-key-alias=size-check --key-pass=pass:size-check-only
+
+          # --dimensions=ABI varies the ABI and holds density, language
+          # and SDK at their defaults, giving one CSV row per ABI.
+          java -jar "$jar" get-size total \
+            --apks="$RUNNER_TEMP/size-check.apks" \
+            --dimensions=ABI > "$RUNNER_TEMP/sizes.csv"
+          cat "$RUNNER_TEMP/sizes.csv"
+
+          # **arm64-v8a's row**, which is the split NFR2 names. Read by
+          # column rather than by position in the file, so a reordered
+          # output does not silently measure a different ABI.
+          max=$(python3 - "$RUNNER_TEMP/sizes.csv" <<'PY'
+          import csv, sys
+          with open(sys.argv[1], newline="") as handle:
+              rows = list(csv.DictReader(handle))
+          wanted = [r for r in rows if r.get("ABI") == "arm64-v8a"]
+          if not wanted:
+              print("::error::No arm64-v8a row in the get-size output.", file=sys.stderr)
+              print("The gate measured nothing. Columns seen: "
+                    f"{list(rows[0]) if rows else 'none'}", file=sys.stderr)
+              raise SystemExit(1)
+          print(max(int(r["MAX"]) for r in wanted))
+          PY
+          )
+
+          echo "arm64-v8a max download: $max bytes (ceiling $CEILING_BYTES)"
+          {
+            echo "| arm64-v8a download | \`$max\` bytes |"
+            echo "| ceiling | \`$CEILING_BYTES\` bytes |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # **Fails rather than warns** [NFR2.14].
+          if [ "$max" -gt "$CEILING_BYTES" ]; then
+            echo "::error::Download size $max exceeds $CEILING_BYTES bytes."
+            exit 1
+          fi
+
+          # **A CLOSE PROXY for Play's reported download, not the same
+          # quantity** [NFR2.13]: density, language and SDK are held at
+          # defaults here, and Play reports per-device. The first
+          # release records the observed difference against the Console
+          # figure -- a human step, and stated as one.
+          echo "Within the ceiling. Compare against the Play Console"
+          echo "figure at the first release and record the difference."
+
       - name: SBOM
         # team.md: one per release build, so "is this CVE in the AAB on
         # the store" is answerable in a minute rather than a day. Not a
