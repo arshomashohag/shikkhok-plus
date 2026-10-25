@@ -35,10 +35,22 @@ check: lint typecheck test android android-quality
 ## lacks a hash, so omitting it produces a lockfile that cannot be
 ## installed. Verified by installing into a clean venv rather than by
 ## reading the flag's documentation.
+## `--upgrade` is NOT optional, and leaving it off is the defect this
+## target shipped with. Without it pip-compile treats the EXISTING
+## requirements.txt as a constraint and keeps every pin that still
+## satisfies pyproject.toml — so `make lock` is a no-op on a machine
+## that already has the file. CI compiles from scratch, resolves the
+## newest versions the `>=` ranges admit, and the two can never agree:
+## the check fails, the developer runs `make lock`, nothing changes,
+## and the only apparent way out is to weaken the check.
+##
+## Diagnosed 2026-10-25 against a real failure where the committed file
+## was byte-identical to a fresh local `make lock` and still differed
+## from CI's compile by five packages.
 lock:
 	@echo "==> compiling requirements.txt (hashes: this downloads every wheel)"
 	$(PY) -m piptools compile --extra dev --extra api --generate-hashes \
-		--allow-unsafe --output-file requirements.txt pyproject.toml
+		--allow-unsafe --upgrade --output-file requirements.txt pyproject.toml
 	@echo "    done — now read the diff."
 
 ## Dependency CVEs, locally. Annotating, same as the per-push CI step.
