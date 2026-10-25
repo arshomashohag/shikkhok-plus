@@ -442,6 +442,34 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 CRON
 chmod 0644 /etc/cron.d/shikkhokplus-fee-generation
 
+# **The daily session generation** [BR1.1, observability-design § 4.1].
+#
+# Installed here for exactly the reason the fee entry is, and with more
+# force: session generation ALSO self-heals, so a cron entry wiped by
+# the next routine deploy produces no visible symptom until the morning
+# a teacher opens the app and there is no class to mark attendance
+# against.
+#
+# **01:00 UTC is 07:00 in Dhaka.** It must complete before the earliest
+# plausible class and must not collide with the fee job at 02:00, which
+# shares this instance and this database. The design constrains it only
+# to those two properties; the specific hour is this build's choice.
+#
+# The job registers its heartbeat under its OWN name, and the freshness
+# service above needs NO change to cover it: that check enumerates every
+# registered job rather than checking the fee job by name
+# [infrastructure-specification § 3.3, the human's option B], which is
+# the property that keeps this file unedited as D5 and D6 add jobs.
+echo "Installing the session-generation cron entry..." \
+  >> /var/log/shikkhokplus-provision.log
+cat > /etc/cron.d/shikkhokplus-session-generation <<'CRON'
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# min hour dom mon dow user command
+0 1 * * * ubuntu cd /home/ubuntu && docker compose run --rm api python -m app.teaching.commands generate >> /var/log/shikkhokplus-session-generation.log 2>&1
+CRON
+chmod 0644 /etc/cron.d/shikkhokplus-session-generation
+
 # **The freshness check is NOT a second cron entry** [§ 1.4].
 #
 # A check sharing the job's trigger is circular: if the trigger is

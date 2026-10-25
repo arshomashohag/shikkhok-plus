@@ -147,6 +147,38 @@ jobs:
                     --desc --strict --progress-spinner off \
             || echo "::warning::pip-audit reported findings. These do not block this push; they block the release gate."
 
+      # Guards the guard, exactly as the Gitleaks step above does, and
+      # for the same failure shape. `tests/conftest.py` skips the WHOLE
+      # integration suite at module level when no Docker daemon is
+      # reachable -- a reasonable skip locally, and a silent one. Without
+      # this assertion a runner image that lost Docker would narrow
+      # `make check` to its unit half, report green, and gate merges to
+      # `main` having run none of the row-level-security probes, none of
+      # the migration tests and none of the concurrency tests.
+      #
+      # The asymmetry this closes: Gitleaks has had its precondition
+      # asserted since the first commit, because a scanner whose clean
+      # verdict can come from an empty scan is worth distrusting. The
+      # database suite is the stronger obligation -- it is what proves
+      # the privacy boundary holds for children's data -- and had no
+      # such assertion. Assigned to "before D1" in team.md on 2026-10-22
+      # and built 2026-10-25, after a D4 dispatch measured the hole:
+      # 24 of 28 tests skipped, zero failures, exit 0.
+      #
+      # This asserts the precondition rather than trusting it. The
+      # second half -- that the suite actually RAN -- is the exit code
+      # of `make check` itself once Docker is known present.
+      - name: Docker is available for the integration suite
+        run: |
+          if ! docker info >/dev/null 2>&1; then
+            echo "::error::No Docker daemon on this runner."
+            echo "tests/conftest.py skips the entire integration suite"
+            echo "without one, so make check would pass having run"
+            echo "neither the privacy probes nor the concurrency tests."
+            exit 1
+          fi
+          echo "Docker $(docker info --format '{{.ServerVersion}}') available."
+
       # Steps 3-10. One command, identical to the local one.
       - name: make check
         run: make check

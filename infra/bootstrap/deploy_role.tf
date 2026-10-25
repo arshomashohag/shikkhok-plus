@@ -177,6 +177,83 @@ resource "aws_iam_role_policy" "deploy" {
         ]
         Resource = "*"
       },
+      {
+        # **Reading the Terraform state, and only reading it.** Added
+        # at D5 for the ZAP scan, which needs one output -- `api_url`,
+        # the host to scan -- and nothing else.
+        #
+        # **Why this role rather than the other one.** There are two
+        # OIDC roles and `AWS_ROLE_ARN` is the infrastructure role,
+        # whose own comment above says it can create and destroy. A
+        # DAST scan reads one output and sends HTTP requests; it has no
+        # business holding a role that can destroy the host it is
+        # scanning. Widening this role by one READ is a far smaller
+        # change than reaching for that one, and that was the design's
+        # stated instruction when it flagged this permission as
+        # unverified.
+        #
+        # **Scoped to the state objects, not the bucket.** The prefix
+        # is `<environment>/terraform.tfstate`, so this grants no read
+        # of anything else the bucket may hold -- backups, logs, or a
+        # second project's state. `s3:ListBucket` is scoped to the
+        # bucket itself because that is the only resource form it
+        # accepts -- but its KEYS are narrowed by an `s3:prefix`
+        # condition on the statement below, which an earlier version
+        # omitted. Unconditioned, it would have listed every object
+        # name in the bucket.
+        #
+        # **No `s3:PutObject` and no lock permission.** `terraform
+        # output` is a read, and the scan passes `-lock=false` for
+        # exactly this reason: the S3 backend uses native lockfile
+        # locking [infra/versions.tf], and a read-only consumer should
+        # not need to write a lock object. Granting write access to the
+        # lock would mean this role could block a real apply.
+        #
+        # **The state file contains secrets** -- Terraform state always
+        # does, and this one holds the CDN-to-origin shared secret.
+        # That is the cost of this grant and it is stated rather than
+        # glossed: a compromised scan workflow could read it. The
+        # alternative considered was publishing `api_url` to SSM under
+        # the path this role already reads, which would avoid state
+        # access entirely. **That is the better long-run shape and is
+        # NOT taken here**, because it means a Terraform change
+        # (a new `aws_ssm_parameter`) that the scan job does not
+        # otherwise need, and the design asked for the one-permission
+        # widening. Worth revisiting if more consumers want the URL.
+        Sid    = "TerraformStateRead"
+        Effect = "Allow"
+        Action = ["s3:GetObject"]
+        Resource = [
+          "arn:aws:s3:::${local.state_bucket}/staging/terraform.tfstate",
+          "arn:aws:s3:::${local.state_bucket}/production/terraform.tfstate",
+        ]
+      },
+      {
+        # **Narrowed by Condition, not by Resource.** `s3:ListBucket`
+        # accepts only the bucket as its Resource -- that part of the
+        # comment above is right -- but the KEYS it may enumerate are
+        # narrowed by an `s3:prefix` condition, which an earlier
+        # version omitted. Without it this grants a listing of every
+        # object name in the bucket: backups, logs, or a second
+        # project's state. Names rather than contents, but a name is
+        # disclosure and the cost was understated by exactly that
+        # enumeration.
+        #
+        # The two prefixes are the state keys this role may already
+        # GetObject, so listing discloses nothing the read does not.
+        Sid      = "TerraformStateList"
+        Effect   = "Allow"
+        Action   = ["s3:ListBucket"]
+        Resource = "arn:aws:s3:::${local.state_bucket}"
+        Condition = {
+          StringLike = {
+            "s3:prefix" = [
+              "staging/*",
+              "production/*",
+            ]
+          }
+        }
+      },
     ]
   })
 }

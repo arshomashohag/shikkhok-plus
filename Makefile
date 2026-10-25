@@ -160,14 +160,16 @@ test:
 	@# outside the floor and the gate passed -- the very failure the
 	@# gate exists to prevent, reproduced inside the gate.
 	$(PY) -m pytest tests -q -p no:cacheprovider \
-		--cov=app.accounts \
+		--cov=app.accounts --cov=app.analytics \
 		--cov=app.api --cov=app.audit --cov=app.auth --cov=app.authz \
 		--cov=app.batches \
 		--cov=app.config --cov=app.contract --cov=app.db --cov=app.errors \
 		--cov=app.fees \
 		--cov=app.gateway --cov=app.governance --cov=app.main \
+		--cov=app.marks \
 		--cov=app.notifications \
 		--cov=app.schemas \
+		--cov=app.teaching \
 		--cov-report=term-missing --cov-fail-under=80 \
 		--cov-config=.coveragerc-backend
 

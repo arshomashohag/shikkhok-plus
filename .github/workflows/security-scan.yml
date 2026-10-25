@@ -1,0 +1,351 @@
+name: security-scan
+
+# **The scripted DAST pass, before the Play internal-track promotion.**
+#
+# `team.md`: *"one scripted DAST pass before the Play internal-track
+# promotion: an OWASP ZAP baseline scan against the staging host, driven
+# from the committed OpenAPI 3.1 schema."*
+#
+# ---------------------------------------------------------------------
+# **WHERE THIS LIVES WAS AN OPEN QUESTION AND IS STILL THE HUMAN'S.**
+#
+# The design left it open between a fourth job in `deploy.yml` and this
+# separate workflow, and recorded that BOTH satisfy every requirement --
+# the difference is what `deploy.yml` is for.
+#
+# Its own file is chosen here for one reason: `deploy.yml` runs on a
+# DEPLOY cadence and this runs before a PLAY PROMOTION, which is a
+# different rhythm and a different decision. Folding it in would mean
+# either running a DAST pass on every staging deploy -- which is the
+# gate that gets disabled -- or adding an `if:` that makes the deploy
+# workflow's job list conditional on something it does not otherwise
+# care about.
+#
+# **Moving it into `deploy.yml` is a small change if the human prefers
+# that**: the steps below are self-contained and the only coupling is
+# the `environment` input and the role assumption.
+# ---------------------------------------------------------------------
+#
+# **What a green run here means, and what it does not** [NFR14.77]. The
+# scan is driven from the schema with NO TOKEN, so what it verifies is
+# that **every authenticated route refuses without one** -- which is
+# real and worth checking -- and **NOT** that authenticated routes are
+# free of findings. For this product it means the front door is locked,
+# not that the rooms were searched. No automated verifier distinguishes
+# the two, and this comment exists so a green run is not reported
+# upward as "the API passed a security scan".
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Which deployment to scan"
+        required: true
+        type: choice
+        options: [staging, production]
+        # Defaults to staging because team.md places the scan before
+        # the internal-track promotion. A DEFAULT, not an assumption --
+        # the Terraform state key below reads this input rather than
+        # hardcoding `staging/`, because hardcoding would be worse than
+        # it looks: a production run would then read a REAL state file
+        # and scan a REAL host -- the wrong one -- with every other
+        # input correctly resolved. It would not fail; it would succeed
+        # against the wrong target.
+        default: staging
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: security-scan-${{ inputs.environment }}
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  zap:
+    name: ZAP API scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          # **The NARROW deploy role, not the infrastructure role.**
+          # `AWS_ROLE_ARN` is the infrastructure role and its own
+          # comment says it "can create and destroy". A ZAP scan reads
+          # one Terraform output and sends HTTP requests; it has no
+          # business holding a role that can destroy the host it is
+          # scanning.
+          #
+          # **This role could not read Terraform state when this job
+          # was written**, and the fix was to widen it by exactly one
+          # read-only permission rather than to reach for the other
+          # role -- see the `TerraformStateRead` statement added to
+          # infra/bootstrap/deploy_role.tf in the same commit.
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: security-scan-${{ github.run_id }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.10.5"
+          terraform_wrapper: false
+
+      - name: Init
+        working-directory: infra
+        run: |
+          # **REQUIRED.** The backend is PARTIAL [infra/versions.tf]:
+          # the bucket is not hardcoded and deploy.yml overrides the key
+          # PER ENVIRONMENT. Without this init, `terraform output` reads
+          # no remote state at all and returns an empty string -- which
+          # the next step's guard turns into a failure rather than a
+          # scan of nothing.
+          #
+          # The key comes from this job's OWN dispatch input, matching
+          # deploy.yml.
+          terraform init -input=false \
+            -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
+            -backend-config="key=${{ inputs.environment }}/terraform.tfstate"
+
+      - name: Resolve the host to scan
+        id: host
+        working-directory: infra
+        run: |
+          set -euo pipefail
+
+          # **NOT a hardcoded URL**: a hostname that stops matching the
+          # deployment leaves a GREEN SCAN OF NOTHING, which is the
+          # shape Gitleaks-on-a-shallow-clone and the Docker skip both
+          # had.
+          #
+          # `api_url` is the CloudFront-fronted primary host OF THE
+          # LOADED STATE KEY. The init above is what makes this the
+          # chosen environment's own URL. It is NOT the rehearsal host,
+          # which has its own origin_fqdn and no URL output.
+          #
+          # `-lock=false` because this is a READ. The S3 backend uses
+          # native lockfile locking, and a read-only consumer should not
+          # need to write a lock object -- which also keeps the role's
+          # new permission read-only.
+          url=$(terraform output -lock=false -raw api_url)
+
+          # **PRECONDITION 1** [cicd-pipeline § 4]. An empty URL means
+          # the state did not load, and every later step would then
+          # scan nothing and exit zero.
+          [ -n "$url" ] || {
+            echo "::error::No api_url in the ${{ inputs.environment }} state."
+            echo "Either terraform init did not load the backend, or this"
+            echo "environment has never been applied. A scan now would"
+            echo "report no findings because it had no target."
+            exit 1
+          }
+
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Scanning $url"
+
+      - name: The host answers before we scan it
+        env:
+          URL: ${{ steps.host.outputs.url }}
+        run: |
+          set -euo pipefail
+
+          # **PRECONDITION 2.** A scan of an unreachable host finds
+          # nothing and exits zero. Assert reachability FIRST.
+          curl -fsS -m 15 "$URL/health" >/dev/null || {
+            echo "::error::$URL/health did not answer."
+            echo "A scan now would report no findings because it found"
+            echo "no application, not because the application is clean."
+            exit 1
+          }
+          echo "Health check answered."
+
+      - name: ZAP API scan
+        id: scan
+        env:
+          URL: ${{ steps.host.outputs.url }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/zap-out"
+          chmod 777 "$GITHUB_WORKSPACE/zap-out"
+          cp openapi.json "$GITHUB_WORKSPACE/zap-out/openapi.json"
+
+          # **`zap-api-scan.py`, NOT `zap-baseline.py`.** Verified
+          # against the pinned image: baseline has NO `-f` option and
+          # performs no OpenAPI import at all -- it crawls from a URL.
+          # The API script is the one that reads a schema, which is
+          # what team.md's "driven from the committed OpenAPI 3.1
+          # schema" requires.
+          #
+          # `-d` is NOT decoration: it is what makes the script print
+          # "Total of N URLs", which the next step asserts against. See
+          # that step for why the JSON report cannot supply it.
+          #
+          # `|| true` so the exit code is captured rather than ending
+          # the job here: the threshold decision is made below, after
+          # the import assertion, because a scan that imported nothing
+          # must fail LOUDLY rather than pass on a clean exit.
+          set +e
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE/zap-out:/zap/wrk:rw" \
+            -t ghcr.io/zaproxy/zaproxy:stable \
+            zap-api-scan.py \
+              -t /zap/wrk/openapi.json \
+              -f openapi \
+              -d \
+              -J zap-report.json \
+              -w zap-report.md \
+              -z "-config replacer.full_list\\(0\\).description=host \
+                  -config replacer.full_list\\(0\\).enabled=true \
+                  -config replacer.full_list\\(0\\).matchtype=REQ_HEADER \
+                  -config replacer.full_list\\(0\\).matchstr=Host \
+                  -config replacer.full_list\\(0\\).regex=false \
+                  -config replacer.full_list\\(0\\).replacement=${URL#https://}" \
+            2>&1 | tee "$GITHUB_WORKSPACE/zap-out/scan.log"
+          code=${PIPESTATUS[0]}
+          set -e
+
+          echo "exit=$code" >> "$GITHUB_OUTPUT"
+          echo "ZAP exited $code"
+
+      # **PRECONDITION 3, AND IT IS THE SUBTLE ONE.**
+      #
+      # A schema that fails to import leaves ZAP crawling the bare root
+      # URL, finding almost nothing and exiting zero -- a green scan of
+      # nothing HIDDEN BEHIND a /health probe that just passed. A
+      # precondition that hides a vacuous pass is worse than none, which
+      # is why this is specified rather than left to the exit code.
+      #
+      # ---------------------------------------------------------------
+      # **WHAT THIS READS, AND WHY NOT THE JSON REPORT.**
+      #
+      # The design proposed reading a path count from ZAP's `-J` JSON
+      # report. **Checked against the pinned image, that does not
+      # work**, and the reason is worth recording so nobody re-proposes
+      # it: `-J` writes `zap.core.jsonreport()`, whose
+      # `site[].alerts[].instances[].uri` entries are ALERT-DERIVED. It
+      # is not a visit log. A clean scan of a fully imported schema
+      # produces few or no URIs, so a count from it cannot distinguish
+      # "scanned everything and found nothing" from "imported nothing".
+      # Using it would be a precondition that fails on a clean run and
+      # passes on an empty one -- backwards.
+      #
+      # **`zap.core.urls()` IS the visit log**, and `zap-api-scan.py`
+      # already computes `len(zap.core.urls())` and prints it as
+      # "Total of N URLs" under `-d`. That is what this parses.
+      #
+      # **What it catches**: a schema that did not import, a target that
+      # served nothing, a scan that reached the root URL only.
+      # **What it does NOT catch**: a schema that imported PARTIALLY
+      # above the floor, or a correct import whose routes mostly 404.
+      # The floor is a floor, not an equality, because ZAP's URL count
+      # includes query-string variants and the schema's path count
+      # includes templated segments -- the two are not the same
+      # quantity and asserting equality would fail on correct runs.
+      # ---------------------------------------------------------------
+      - name: The schema actually imported
+        run: |
+          set -euo pipefail
+
+          log="$GITHUB_WORKSPACE/zap-out/scan.log"
+          [ -f "$log" ] || { echo "::error::No scan log to read."; exit 1; }
+
+          # Measured 2026-10-25 from the committed document: 48 paths,
+          # 54 operations. The floor is deliberately well below both --
+          # it asserts the import HAPPENED, and the scan's own findings
+          # assert what it found.
+          declared=$(python3 -c "import json; print(len(json.load(open('openapi.json'))['paths']))")
+          floor=$(( declared / 2 ))
+
+          visited=$(grep -oE 'Total of [0-9]+ URLs' "$log" \
+                    | grep -oE '[0-9]+' | tail -1 || true)
+
+          if [ -z "$visited" ]; then
+            # **Absent is a FAILURE, never a pass.** The count is
+            # printed only when the scan found at least one URL: a zero
+            # count makes zap-api-scan.py log a WARNING and exit zero,
+            # which is precisely the vacuous pass this step exists to
+            # catch. A missing line therefore means either zero URLs or
+            # a script whose output shape changed -- and both must stop
+            # the release rather than be assumed benign.
+            echo "::error::No URL count in the scan log."
+            echo "zap-api-scan.py prints 'Total of N URLs' under -d only"
+            echo "when N > 0; a zero count warns and exits 0. Either the"
+            echo "schema did not import, or the script's output changed"
+            echo "and this assertion needs updating. Not treated as a"
+            echo "pass either way."
+            tail -40 "$log"
+            exit 1
+          fi
+
+          echo "ZAP visited $visited URLs; the schema declares $declared paths."
+          if [ "$visited" -lt "$floor" ]; then
+            echo "::error::Only $visited URLs visited against $declared"
+            echo "declared paths (floor $floor). The schema did not"
+            echo "import: a failed import degrades the scan to a root-URL"
+            echo "crawl that finds nothing and exits zero, which the"
+            echo "/health probe above makes look like a clean scan of a"
+            echo "healthy host."
+            exit 1
+          fi
+
+          {
+            echo "### ZAP API scan"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| target | \`${{ steps.host.outputs.url }}\` |"
+            echo "| URLs visited | \`$visited\` |"
+            echo "| schema paths | \`$declared\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: High or above blocks the promotion
+        run: |
+          set -euo pipefail
+
+          # **The two-speed threshold**, following the CVE model
+          # team.md already established and for the reason it already
+          # states: a solo developer who hits an unactionable finding
+          # mid-release with no triage path bypasses the gate once, and
+          # after one bypass it is decoration.
+          #
+          # Documented exit codes: 0 success, 1 at least one FAIL,
+          # 2 at least one WARN, 3 any other failure.
+          #
+          # 1 and 3 block. 2 annotates. The import assertion above has
+          # already run, so a 0 here cannot be a scan of nothing.
+          code="${{ steps.scan.outputs.exit }}"
+          case "$code" in
+            0) echo "No findings at or above the configured threshold." ;;
+            2) echo "::warning::ZAP reported WARN-level findings. These do"
+               echo "not block the promotion; read the report artifact." ;;
+            1) echo "::error::ZAP reported FAIL-level findings. Fix them or"
+               echo "record a dated written exception before promoting."
+               exit 1 ;;
+            *) echo "::error::ZAP exited $code, which is not a findings"
+               echo "verdict. The scan did not complete; treat it as"
+               echo "unknown rather than clean."
+               exit 1 ;;
+          esac
+
+      # **Retained as a build artifact** [NFR24.25]: without it a
+      # blocked promotion names a severity and nothing a person can
+      # triage.
+      #
+      # **Not attached to the Play release record and not published**
+      # [NFR24.26]: it describes the staging host's surface, which is
+      # infrastructure detail rather than release documentation, and
+      # publishing a DAST report tells a reader where the host is and
+      # what was scanned.
+      - name: Keep the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-report-${{ inputs.environment }}-${{ github.run_id }}
+          path: zap-out/
+          if-no-files-found: warn
+          retention-days: 30
