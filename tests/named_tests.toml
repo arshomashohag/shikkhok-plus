@@ -694,3 +694,113 @@ id = "test_the_roster_fee_read_is_one_fold_per_enrollment_not_three"
 file = "tests/fees/test_query_count.py"
 criterion = "A 4-seat batch costs a constant handful of statements rather than three per seat; the subtler half of the same defect, where the per-seat count is small enough that N+1 is not obvious from one reading"
 rule = "BR6.1"
+
+# ---------------------------------------------------------------------
+# D5. Every defect this unit can ship produces a number that BALANCES:
+# there is no constraint to violate, no migration to fail and no race to
+# lose. These five are the assertions whose OBVIOUS form passes against
+# the very defect they exist to catch, which is exactly the class a
+# coverage percentage cannot see.
+# ---------------------------------------------------------------------
+
+[[test]]
+id = "test_the_total_is_two_thousand_and_specifically_not_two_thousand_five_hundred"
+file = "tests/analytics/test_earnings.py"
+criterion = "BR2.1's two-month case totals 2000.00, never 2500.00. Proven to fire: adding CREDIT_APPLY to the cash-in set reads exactly 2500.00. The assertion is on the TOTAL because month one reads 1500.00 under both the correct fold and the double-count -- month one contains no apply at all, so a per-month assertion misses the defect entirely"
+rule = "BR2.1"
+
+[[test]]
+id = "test_an_inactive_seat_that_owes_money_appears"
+file = "tests/analytics/test_dues_membership.py"
+criterion = "A seat that is BOTH inactive AND owing 1500.00 is present in the dues view. Proven to fire: adding `inactive_from IS NULL` -- D4's roster predicate -- drops it. A test using only active owing seats passes against that wrong predicate, which is why the fixture carries both properties at once"
+rule = "BR1.2"
+
+[[test]]
+id = "test_a_payment_recorded_in_november_counts_in_its_october_period"
+file = "tests/analytics/test_period_grouping.py"
+criterion = "An entry whose period is 2026-10 and whose created_at is 2 November counts in October. Proven to fire: grouping by created_at reads October as absent. Late recording is the NORMAL case -- a teacher verifies October's cash in early November -- and the defect makes the trend show a dip and a spike that never happened"
+rule = "BR2.6"
+
+[[test]]
+id = "test_a_carry_forward_counts_in_the_period_it_lands_on"
+file = "tests/analytics/test_period_grouping.py"
+criterion = "A carry_forward lands on the receiving period while its created_at is whenever generation ran, so this case fails against created_at grouping EVEN WHEN NO PAYMENT IS LATE. Proven to fire alongside the late-payment fixture; it is not redundant with it, because it reaches the defect by a different route"
+rule = "BR2.6"
+
+[[test]]
+id = "test_a_sees_a_s_own_next_exam_even_though_b_s_is_sooner"
+file = "tests/privacy/test_analytics_probes.py"
+criterion = "Teacher B's exam is seeded SOONER than A's, so an unscoped LIMIT 1 returns B's and the assertion changes. Proven to fire: dropping the owner_id predicate returns 'B's exam, SOONER'. A probe where B's exam were later would pass against the leak, because correct and leaked would both be A's"
+rule = "BR3.1"
+
+[[test]]
+id = "test_the_earnings_total_is_a_s_own_and_not_the_sum_of_both"
+file = "tests/privacy/test_analytics_probes.py"
+criterion = "Teacher A's earnings read exactly 1000.00 against B's 7000.00. Proven to fire: dropping the owner_id predicate reads 8000.00. B is seeded seven times larger because a wrong scope on a SUM returns a number that looks right -- if A dominated, A's figure would barely move under a leak"
+rule = "BR2.5"
+
+[[test]]
+id = "test_the_dues_read_does_not_grow_with_the_number_of_batches"
+file = "tests/analytics/test_query_count.py"
+criterion = "The same statement count at 2 batches and at 25, with seats-per-batch held fixed. Proven to fire: a per-batch loop measures 4 statements for 2 batches and 27 for 25 -- and the seat-growing test PASSED against that same defect, which is why D5 grows the batch axis rather than reusing D3's"
+rule = "BR1.6"
+
+[[test]]
+id = "test_the_in_fold_period_equals_the_built_function_s_answer"
+file = "tests/analytics/test_dues.py"
+criterion = "The oldest unpaid period computed from the in-memory per_cycle map equals app/fees/balances.py's oldest_unpaid_period for the same seat. Without this the reimplementation is merely cheap; with it, a later change to the built function that the copy does not track fails"
+rule = "BR1.6"
+
+[[test]]
+id = "test_both_new_operations_declare_an_empty_parameter_list"
+file = "tests/contract/test_analytics_contract.py"
+criterion = "Both D5 operations declare parameters == [] in the generated document. A plain predicate rather than a judgement about whether a name denotes a resource; the companion test asserts GET /v1/me/fees DOES take one, so this is a property of these two routes and not of the /me/ prefix"
+rule = "BR4.4"
+
+[[test]]
+id = "test_life_of_account_tables_are_never_purged"
+file = "tests/governance/test_purge.py"
+criterion = "Two-year-old rows in all 18 LIFE_OF_ACCOUNT tables survive a purge run, with a prior assertion that aged rows were actually planted and are visible to the purge's own session. Proven to fire: giving _build_windows a default window deletes them and this fails. Without the visibility assertion the comparison is 0 == 0 and passes against a purge that truncates every one"
+rule = "BR4.2"
+
+[[test]]
+id = "test_every_window_deletes_past_its_horizon_and_keeps_inside_it"
+file = "tests/governance/test_purge.py"
+criterion = "For each of the 7 finite windows, a row one day older than the cutoff is gone and one a day newer is present. Both halves per table: deleting everything passes the first alone, deleting nothing passes the second alone, and a fixture set created 'now' exercises only the negative branch"
+rule = "BR4.1"
+
+[[test]]
+id = "test_the_delete_is_chunked_rather_than_one_statement_per_table"
+file = "tests/governance/test_purge.py"
+criterion = "7 expired auth_audit_log rows at chunk_size=2 take exactly 4 statements. Proven to fire: ignoring the caller's chunk size reports 2. The other purge tests leave one expired row per table, where chunked and unchunked are indistinguishable"
+rule = "BR4.1"
+
+[[test]]
+id = "test_d4s_freshness_enumeration_covers_this_job_unedited"
+file = "tests/governance/test_purge.py"
+criterion = "check_all_jobs reports on retention_purge after the purge stamps its heartbeat, with no edit to the checker, and reports it UNHEALTHY five days later. The stale half is what proves the row is evaluated rather than merely listed"
+rule = "BR4.1"
+
+[[test]]
+id = "test_a_basis_only_change_also_fails_the_gate"
+file = "tests/governance/test_policy_generation.py"
+criterion = "Changing one table's basis, leaving its disposition and retention untouched, makes the committed policy differ from the generated one. This gate's first version missed exactly this, on the field NFR14.101 is about: a generator rendering only disposition and retention compares only those"
+rule = "BR2.3"
+
+[[test]]
+id = "test_the_generated_text_discloses_the_surviving_teacher_typed_name"
+file = "tests/governance/test_policy_generation.py"
+criterion = "The GENERATED output states the teacher-typed name, that it survives deletion, and that declining does not remove it. Asserted as substance rather than against a recorded blob, which would be circular; the companion test flips enrollment to HARD_DELETE and the sentence must disappear"
+rule = "BR2.2"
+
+[[test]]
+id = "test_life_of_account_is_not_rendered_as_deletion_of_the_account"
+file = "tests/governance/test_policy_generation.py"
+criterion = "The RETAIN_WITH_BASIS section never reads 'until the account is deleted'. A regression test for a false disclosure this generator actually produced: retention and disposition answer different questions, and conflating them told a regulator that records surviving erasure were deleted by it"
+rule = "BR2.1"
+
+[[test]]
+id = "test_the_account_basis_no_longer_argues_against_hard_delete"
+file = "tests/governance/test_policy_generation.py"
+criterion = "The account basis no longer contains 'anonymized rather than removed' or 'would free the number for reuse', and does contain 'removed outright'. Correcting the disposition alone would publish an argument AGAINST hard delete as the stated reasoning FOR one"
+rule = "BR1.1"

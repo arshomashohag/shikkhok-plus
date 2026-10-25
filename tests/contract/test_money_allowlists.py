@@ -177,6 +177,12 @@ def test_the_real_application_needs_the_allowlist() -> None:
     ``(schema, field)`` pair so an exemption can never widen beyond the
     property it was reasoned about.
 
+    ``total_marks`` joined them at D4: an INTEGER COUNT of marks, the
+    denominator a score is out of, matching the ``total`` token and
+    carrying no amount [entities.md]. It appears on three schemas and
+    each is exempted separately for the same reason. ``marks`` itself
+    matches no token at all, which is why it is absent here.
+
     :return: None
     """
     from app.main import create_app
@@ -186,7 +192,11 @@ def test_the_real_application_needs_the_allowlist() -> None:
     assert money_schema_violations(app) == []
 
     without = money_schema_violations(app, exempt={})
-    assert {v.field for v in without} == {"fee_due_day", "due_date"}
+    assert {v.field for v in without} == {
+        "fee_due_day",
+        "due_date",
+        "total_marks",
+    }
 
 
 def test_a_list_of_money_named_numbers_is_caught() -> None:

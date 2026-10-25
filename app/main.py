@@ -62,11 +62,15 @@ def _register_routes(app: FastAPI) -> None:
     :return: None
     """
     from app.api.accounts import router as accounts_router
+    from app.api.analytics import router as analytics_router
     from app.api.auth import router as auth_router
     from app.api.batches import router as batches_router
+    from app.api.deletion import router as deletion_router
     from app.api.fees import router as fees_router
     from app.api.health import router as health_router
+    from app.api.marks import router as marks_router
     from app.api.me import router as me_router
+    from app.api.teaching import router as teaching_router
 
     # Recorded as they are included, so the contract gates enumerate
     # what this application ACTUALLY registered. A gate reading a
@@ -75,11 +79,15 @@ def _register_routes(app: FastAPI) -> None:
 
     for router in (
         accounts_router,
+        analytics_router,
         auth_router,
         batches_router,
+        deletion_router,
         fees_router,
         health_router,
+        marks_router,
         me_router,
+        teaching_router,
     ):
         app.include_router(router)
         app.state.included_routers.append(router)

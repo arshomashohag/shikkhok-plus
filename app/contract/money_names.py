@@ -69,6 +69,15 @@ NON_MONEY_COLUMNS: Final[dict[tuple[str, str], str]] = {
         "itself asserted by a test over the column set, so there is no "
         "money value on fee_cycle for this exemption to hide."
     ),
+    ("exam", "total_marks"): (
+        "An INTEGER COUNT of marks, not an amount [entities.md]. It is "
+        "the denominator a score is out of, constrained >= 1 because a "
+        "total of zero makes every percentage undefined. Matches the "
+        "'total' token. The table it sits on carries no money column of "
+        "any kind -- a title, a date, two foreign keys and this count -- "
+        "so there is no money value on exam for this exemption to hide, "
+        "and `mark.marks` does not match any token at all."
+    ),
 }
 
 #: Response-schema properties that match a money token and carry
@@ -93,12 +102,45 @@ NON_MONEY_FIELDS: Final[dict[tuple[str, str], str]] = {
         "component, so this exemption narrows the gate by exactly one "
         "field that was never money. Matches both 'fee' and 'due'."
     ),
+    # D4's exam denominator, crossing the wire. An INTEGER COUNT of
+    # marks, constrained >= 1 at the schema and by a database CHECK --
+    # not an amount, and never a money type [entities.md]. Matches the
+    # 'total' token. Named per (schema, field) like every other entry,
+    # so an exemption can never widen beyond the one property it was
+    # reasoned about, and none of these schemas carries a money
+    # property for it to hide.
+    ("ExamResponse", "total_marks"): (
+        "An INTEGER COUNT of marks on the exam read, not an amount. "
+        "It is the denominator a score is out of."
+    ),
+    ("ExamCreateRequest", "total_marks"): (
+        "The same count inbound, on creation and on edit. A request "
+        "schema reaches the gate too."
+    ),
+    ("ProgressEntryResponse", "total_marks"): (
+        "The same count on the guardian progress series, carried so a "
+        "client can render '60 out of 80' without a second lookup."
+    ),
     ("RosterFeeRowResponse", "due_date"): (
         "The same computed date on the teacher's roster view. Named "
         "separately because the gate matches (schema, field) pairs, so "
         "an exemption can never widen beyond the one property it was "
         "reasoned about -- and this schema's `outstanding` is real "
         "money and still checked."
+    ),
+    # D5's dues row. A PERIOD KEY, matching the 'paid' token inside the
+    # word 'unpaid' -- which is the vocabulary's weakest match and the
+    # clearest illustration of why the token list is a weakening used
+    # only where nothing stronger exists.
+    ("DuesRowResponse", "oldest_unpaid_period"): (
+        "A `YYYY-MM` PERIOD KEY, not an amount [BR1.1]. It names which "
+        "period a debt starts in and is pattern-constrained as a month "
+        "string. It matches the 'paid' token inside 'unpaid', which is "
+        "a substring collision rather than a money signal. The schema "
+        "it sits on carries one genuine money property -- "
+        "`outstanding` -- which references the shared Money component "
+        "and is still checked, so this exemption narrows the gate by "
+        "exactly one field that was never money."
     ),
 }
 

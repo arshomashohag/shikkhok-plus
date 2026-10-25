@@ -9,6 +9,8 @@
     "batch.not_found",
     "enrollment.remove.claimed",
     "enrollment.remove.erased",
+    "error.attendance_version_conflict",
+    "error.topic_version_conflict",
     "fees.claim.amount_not_positive",
     "fees.claim.channel_unknown",
     "fees.claim.no_open_cycle",
@@ -20,8 +22,21 @@
     "fees.verification.disposition_not_applicable",
     "fees.verification.disposition_required",
     "fees.verification.disposition_unknown",
+    "governance.deletion.owns_batches",
+    "marks.exam.total_below_recorded",
+    "marks.exam.total_invalid",
+    "marks.out_of_range",
+    "marks.result_state.not_enterable",
+    "marks.state_mismatch",
     "signup.number.already_registered",
     "signup.temporarily_unavailable",
-    "staging.outbox.empty"
+    "staging.outbox.empty",
+    "teaching.announcement.deleted",
+    "teaching.batch.inactive",
+    "teaching.mutation_id.already_used",
+    "teaching.not_available",
+    "teaching.seat.not_on_roster",
+    "teaching.session.already_exists",
+    "teaching.session.cancelled"
   ]
 }
