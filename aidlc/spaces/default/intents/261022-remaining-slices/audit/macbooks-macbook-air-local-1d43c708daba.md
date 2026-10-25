@@ -49411,3 +49411,589 @@ nfr-requirements D3 collecting-fees: seven artifacts written. Recomputed every N
 **Details**: git add aidlc/spaces/default/intents/261022-remaining-slices/audit/macbooks-macbook-air-local-1d43c708daba.md && git commit -m "chore(aidlc): record audit event
 
 ---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-25T14:23:15Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: git add .claude/skills/mobile-design && git commit -m "docs(skills): add mobile-design skill for iOS and Android guidance"
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-25T14:23:20Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: git log --oneline -3 && echo "--- ahead of remote ---" && git rev-list --count origin/planning/shikhokplus-ideation-inception..HEAD 2>/dev/null || echo "(no ups
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-25T14:23:25Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: git push 2>&1 | tail -8
+
+---
+
+## Human Turn
+**Timestamp**: 2026-10-25T14:36:24Z
+**Event**: HUMAN_TURN
+**Session**: 602d453a-cecc-4a7d-ad6f-1f22d6052b2a
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-25T14:36:30Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: gh run list --limit 5 --json databaseId,status,conclusion,name,headBranch,createdAt,event 2>&1 | head -40
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-25T14:36:39Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '30,50p' .github/workflows/check.yml
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-25T14:36:51Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '185,200p' .github/workflows/check.yml
+
+---
+
+## Human Turn
+**Timestamp**: 2026-10-25T14:37:59Z
+**Event**: HUMAN_TURN
+**Session**: 602d453a-cecc-4a7d-ad6f-1f22d6052b2a
+
+---
+
+## Human Turn
+**Timestamp**: 2026-10-25T14:38:12Z
+**Event**: HUMAN_TURN
+**Session**: 602d453a-cecc-4a7d-ad6f-1f22d6052b2a
+
+---
+
+## Human Turn
+**Timestamp**: 2026-10-25T14:38:15Z
+**Event**: HUMAN_TURN
+**Session**: 602d453a-cecc-4a7d-ad6f-1f22d6052b2a
+**Picked**: ["Install gh via brew (Recommended)"]
+
+---
+
+## Question Replied
+**Timestamp**: 2026-10-25T14:38:15Z
+**Event**: QUESTION_REPLIED
+**Session**: 602d453a-cecc-4a7d-ad6f-1f22d6052b2a
+**Question**: I can't read the run logs without the GitHub CLI. How do you want me to diagnose the cancellation?
+**Reply**: Install gh via brew (Recommended)
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-25T14:38:19Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: brew install gh 2>&1 | tail -12
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-25T14:38:42Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: gh auth status 2>&1 | head -10
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-25T14:38:48Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '100,130p' .github/workflows/check.yml
+
+---
+
+## Human Turn
+**Timestamp**: 2026-10-25T14:43:04Z
+**Event**: HUMAN_TURN
+**Session**: 602d453a-cecc-4a7d-ad6f-1f22d6052b2a
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-25T14:43:10Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: gh run list --limit 6 --json databaseId,status,conclusion,displayTitle,headBranch,createdAt,updatedAt 2>&1 | head -50
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-25T14:43:17Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: gh run view 40202019691 --json jobs 2>&1 | python3 -c "\nimport sys,json\nd=json.load(sys.stdin)\nfor j in d['jobs']:\n    print(f\"JOB {j['name']}: {j['conclusion'
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-25T14:43:27Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: gh run view 40202019691 --log 2>&1 | grep -E "^backend\s+make check" | tail -40
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-25T14:43:56Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: gh run view 40202019691 --log 2>&1 | grep -E "^backend" | grep -iE "gradle|jdk|java|Downloading|SKIPPED" | tail -8
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-25T14:44:04Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '130,160p' .github/workflows/check.yml
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-25T14:44:09Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '178,190p' .github/workflows/check.yml
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-25T14:44:21Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Edit
+**Details**: <project-dir>/.github/workflows/check.yml
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-25T14:44:27Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '206,250p' .github/workflows/check.yml
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-25T14:44:35Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 -c "\nimport yaml\nd=yaml.safe_load(open('.github/workflows/check.yml'))\nfor jn,j in d['jobs'].items():\n    print(f'{jn}: timeout={j.get(\"timeout-minutes
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-25T14:44:41Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: git add .github/workflows/check.yml && git commit -m "ci(backend): stop re-running the whole android build in the backend job" && git push 2>&1 | tail -4
+
+---
+
+## Human Turn
+**Timestamp**: 2026-10-25T14:55:21Z
+**Event**: HUMAN_TURN
+**Session**: 602d453a-cecc-4a7d-ad6f-1f22d6052b2a
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-25T14:55:28Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: gh run view 40203674746 --json jobs 2>&1 | python3 -c "\nimport sys,json\nd=json.load(sys.stdin)\nfor j in d['jobs']:\n    print(f\"JOB {j['name']}: {j['conclusion'
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-25T14:55:39Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: gh run view 40203674746 --log 2>&1 | grep -E "^backend\s+make check" | python3 -c "\nimport sys,re\nprev=None\nfor l in sys.stdin:\n    m=re.match(r'backend\s+make 
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-25T14:55:52Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: gh run view 40203674746 --log 2>&1 | grep -E "^backend" | grep -oE "T14:[0-9]{2}:[0-9]{2}" | head -1; echo "--- step starts ---"; gh run view 40203674746 --log 
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-25T14:56:05Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: gh run view 40203674746 --log 2>&1 | grep -E "^backend" | python3 -c "\nimport sys,re\nfrom collections import OrderedDict\nspans=OrderedDict()\nfor l in sys.stdin:
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-25T14:56:14Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: gh run view 40203674746 --log 2>&1 | grep -E "^backend\s+make check" | grep -E "collected|passed|%\]" | head -3; echo "--- local test count ---"; find tests -na
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-25T14:56:25Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 -c "\n# Observed: 530s got to 75% of pytest, after 81s of setup.\npytest_at_75 = 530 - 0  # the whole step was pytest+lint+typecheck\n# lint+typecheck fini
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-25T14:56:36Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '148,172p' Makefile
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-25T14:56:47Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Edit
+**Details**: <project-dir>/.github/workflows/check.yml
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-25T14:56:53Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 -c "\nimport yaml\nd=yaml.safe_load(open('.github/workflows/check.yml'))\nfor jn,j in d['jobs'].items(): print(f'{jn}: timeout-minutes={j.get(\"timeout-min
+
+---
+
+## Human Turn
+**Timestamp**: 2026-10-25T15:07:09Z
+**Event**: HUMAN_TURN
+**Session**: 602d453a-cecc-4a7d-ad6f-1f22d6052b2a
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-25T15:07:17Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: gh run view 40204617584 --json jobs 2>&1 | python3 -c "\nimport sys,json\nd=json.load(sys.stdin)\nfor j in d['jobs']:\n    print(f\"JOB {j['name']}: {j['conclusion'
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-25T15:07:28Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: gh run view 40204617584 --log 2>&1 | grep -E "^backend" | grep -iE "coverage|passed|skipped|Docker .* available|All gates" | tail -8
+
+---
+
+## Human Turn
+**Timestamp**: 2026-10-25T15:27:45Z
+**Event**: HUMAN_TURN
+**Session**: 602d453a-cecc-4a7d-ad6f-1f22d6052b2a
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-25T15:27:51Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: echo "=== existing tags ===" && git tag -l --sort=-v:refname | head -10 && echo "(none)" && echo "=== branch and head ===" && git branch --show-current && git l
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-25T15:27:57Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: echo "=== v1.0.0 points at ===" && git log --oneline -1 v1.0.0 && echo "=== is it an ancestor of HEAD? ===" && git merge-base --is-ancestor v1.0.0 HEAD && echo 
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-25T15:28:08Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '1,60p' .github/workflows/release-android.yml
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-25T15:28:19Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: echo "=== is HEAD on main? ===" && git merge-base --is-ancestor HEAD origin/main 2>/dev/null && echo "yes - HEAD is in main" || echo "NO - these 71 commits are 
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-25T15:28:24Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '59,100p' .github/workflows/release-android.yml
+
+---
+
+## Human Turn
+**Timestamp**: 2026-10-25T15:29:42Z
+**Event**: HUMAN_TURN
+**Session**: 602d453a-cecc-4a7d-ad6f-1f22d6052b2a
+**Picked**: ["I've merged the PR. Update main to remote then create tag","v1.1.0 (Recommended)"]
+
+---
+
+## Question Replied
+**Timestamp**: 2026-10-25T15:29:43Z
+**Event**: QUESTION_REPLIED
+**Session**: 602d453a-cecc-4a7d-ad6f-1f22d6052b2a
+**Question**: Where should the release tag point? `main` is 71 commits behind — it has only the AI-DLC scaffold. All your work (D1–D6) is on `planning/shikhokplus-ideation-inception`.
+**Reply**: I've merged the PR. Update main to remote then create tag
+
+---
+
+## Question Replied
+**Timestamp**: 2026-10-25T15:29:43Z
+**Event**: QUESTION_REPLIED
+**Session**: 602d453a-cecc-4a7d-ad6f-1f22d6052b2a
+**Question**: Which version? The last tag is v1.0.0 and 71 commits have landed since — D1 through D6, the full fee system, teaching, analytics and deletion flows.
+**Reply**: v1.1.0 (Recommended)
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-25T15:29:48Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: git fetch origin --prune --tags 2>&1 | tail -5 && echo "=== origin/main now ===" && git log --oneline -1 origin/main
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-25T15:29:55Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: git checkout main 2>&1 | tail -2 && git pull --ff-only 2>&1 | tail -2 && echo "=== HEAD ===" && git log --oneline -1
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-25T15:30:06Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: git add aidlc/spaces/default/intents/261022-remaining-slices/audit/macbooks-macbook-air-local-1d43c708daba.md && git commit -m "chore(aidlc): record audit event
+
+---
