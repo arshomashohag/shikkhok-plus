@@ -48,10 +48,12 @@ from app.fees.generation import (
 __all__ = [
     "STALENESS_THRESHOLD",
     "FreshnessVerdict",
+    "check_all_jobs",
     "check_generation_freshness",
     "main",
     "main_check_freshness",
     "main_generate",
+    "report_unhealthy_jobs",
     "run_generation",
     "stamp_heartbeat",
 ]
@@ -199,6 +201,92 @@ def check_generation_freshness(
     return FreshnessVerdict(healthy=True, reason="fresh", staleness=staleness)
 
 
+def check_all_jobs(
+    session: Session,
+    *,
+    now: dt.datetime | None = None,
+) -> list[tuple[str, FreshnessVerdict]]:
+    """Check every registered job, one verdict per heartbeat row.
+
+    **This is option B, chosen by the human on 2026-10-25**
+    [infrastructure-specification § 3.3]. The alternatives each required
+    editing ``user_data`` again for every later job, and ``user_data``
+    takes effect only on instance replacement -- so a control that
+    requires editing it is a control the next unit can silently fail to
+    apply.
+
+    The per-job function is already parameterised and does not change;
+    what changes is that the entry point enumerates rather than
+    defaulting. A job's row is **deleted by the migration that retires
+    it**, which is option B's one accepted cost written as a rule:
+    otherwise a retired job's row goes stale forever and alerts
+    indefinitely. Nothing retires a job in D4; this is recorded so the
+    first retirement does not have to rediscover it.
+
+    Returns the verdicts rather than logging them, so the decision about
+    what is unhealthy and the decision about how to alert stay separable
+    and the enumeration itself is assertable without a log capture.
+
+    :param session: The session to read through
+    :param now: The comparison time; the real clock by default
+    :return: One ``(job_name, verdict)`` pair per registered job
+    """
+    moment = now or dt.datetime.now(tz=dt.UTC)
+    names = list(
+        session.scalars(
+            sa.select(JobHeartbeat.job_name).order_by(JobHeartbeat.job_name)
+        ).all()
+    )
+    return [
+        (name, check_generation_freshness(session, job_name=name, now=moment))
+        for name in names
+    ]
+
+
+def report_unhealthy_jobs(
+    session: Session,
+    *,
+    now: dt.datetime | None = None,
+) -> int:
+    """Alert on every unhealthy job and report how many there were.
+
+    **An empty registry is UNHEALTHY**, and that is the case to get
+    right. With no heartbeat rows at all the loop body never runs and a
+    naive implementation returns zero -- healthy -- which is the
+    never-wired-scheduler failure arriving by the new enumeration route.
+    A system with no registered job is a system whose jobs are not
+    registered.
+
+    Each alert carries **the row's own job name**, replacing the
+    hardcoded one this function previously logged: a stale session job
+    that named the fee job would send whoever reads the alert to the
+    wrong place.
+
+    :param session: The session to read through
+    :param now: The comparison time; the real clock by default
+    :return: How many jobs are unhealthy; zero only when all are fresh
+    """
+    verdicts = check_all_jobs(session, now=now)
+
+    if not verdicts:
+        log.critical(
+            "no scheduled job has ever registered a heartbeat",
+            extra={"reason": "empty_registry", "job_name": None},
+        )
+        return 1
+
+    unhealthy = 0
+    for job_name, verdict in verdicts:
+        if verdict.healthy:
+            continue
+        unhealthy += 1
+        log.critical(
+            "a scheduled job has not succeeded recently",
+            extra={"reason": verdict.reason, "job_name": job_name},
+        )
+    return unhealthy
+
+
 def main_generate() -> int:
     """Entry point for ``generate-fee-cycles``.
 
@@ -238,19 +326,19 @@ def main_check_freshness() -> int:
     is unproven. Stated plainly here because a manual check described
     without that sentence reads, to the next person, as a verifier.
 
-    :return: 0 when healthy, 1 when not
+    **It checks EVERY registered job, not the fee job** [infra § 3.3,
+    the human's option B]. The host invocation at
+    ``user_data.sh.tftpl`` stays a bare ``check-freshness`` with no
+    argument -- that is now correct rather than incomplete, which is
+    the property that made option B the choice, and it is why D5 and D6
+    get freshness coverage with no further change to ``user_data``.
+
+    :return: 0 when every registered job is fresh, 1 when any is not
     """
     with session_scope(build_engine()) as session:
-        verdict = check_generation_freshness(session)
+        unhealthy = report_unhealthy_jobs(session)
 
-    if verdict.healthy:
-        return 0
-
-    log.critical(
-        "fee cycle generation has not succeeded recently",
-        extra={"reason": verdict.reason, "job_name": FEE_GENERATION_JOB},
-    )
-    return 1
+    return 1 if unhealthy else 0
 
 
 def main() -> int:
