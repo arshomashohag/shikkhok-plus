@@ -97,6 +97,7 @@
     <string name="signup_role_student">শিক্ষার্থী</string>
     <string name="signup_role_guardian">অভিভাবক</string>
     <string name="signup_submit">%1$s নম্বরে কোড পাঠান</string>
+    <string name="signup_submit_generic">কোড পাঠান</string>
     <string name="signup_already_added_notice">একজন শিক্ষক ইতিমধ্যে এই নম্বরটি যোগ করেছেন। নিচে আপনার নাম দেখে নিন, প্রয়োজনে ঠিক করুন।</string>
     <string name="signup_role_locked_note">আপনাকে যোগ করার সময় আপনার ভূমিকা নির্ধারিত হয়েছে।</string>
     <string name="signup_checking_number">দেখা হচ্ছে…</string>

@@ -104,6 +104,7 @@
     <string name="signup_role_student">Student</string>
     <string name="signup_role_guardian">Guardian</string>
     <string name="signup_submit">Send code to %1$s</string>
+    <string name="signup_submit_generic">Send code</string>
     <string name="signup_already_added_notice">A teacher has already added this number. Check your name below and correct it if needed.</string>
     <string name="signup_role_locked_note">Your role was set when you were added.</string>
     <string name="signup_checking_number">Checking…</string>

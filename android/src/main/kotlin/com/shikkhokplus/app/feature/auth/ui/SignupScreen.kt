@@ -269,8 +269,23 @@ private fun SignupForm(
                 .heightIn(min = Reach.touch)
                 .testTag(TAG_SIGNUP_SUBMIT),
     ) {
+        // **`signup_submit` takes the number as an argument.** Fetched
+        // without one, Android renders the placeholder itself, so the
+        // button read "Send code to %1$s" on a device. Found by a
+        // person using the build; no test caught it, because a
+        // Robolectric assertion on a tag never reads the text.
+        //
+        // Before a number is typed there is nothing to name, and
+        // "Send code to " with a trailing space is worse than a plain
+        // label — so the generic string is used until the field has
+        // something in it.
         Text(
-            text = stringResource(R.string.signup_submit),
+            text =
+                if (phone.isBlank()) {
+                    stringResource(R.string.signup_submit_generic)
+                } else {
+                    stringResource(R.string.signup_submit, phone)
+                },
             style = MaterialTheme.typography.labelLarge,
         )
     }
