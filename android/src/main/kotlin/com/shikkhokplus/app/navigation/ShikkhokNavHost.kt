@@ -19,6 +19,7 @@ import com.shikkhokplus.app.core.ui.BatchCreateForm
 import com.shikkhokplus.app.core.ui.StudentAddForm
 import com.shikkhokplus.app.feature.auth.AuthUiState
 import com.shikkhokplus.app.feature.auth.AuthViewModel
+import com.shikkhokplus.app.feature.auth.SignupUiState
 import com.shikkhokplus.app.feature.auth.SignupViewModel
 import com.shikkhokplus.app.feature.auth.ui.AuthScreen
 import com.shikkhokplus.app.feature.auth.ui.SignupScreen
@@ -99,12 +100,34 @@ fun ShikkhokNavHost(
                 viewModel { SignupViewModel(HttpSignupRepository(client)) }
             val state by model.state.collectAsState()
 
+            // **On success, go to the code screen.** Signup issues an
+            // OTP and does not authenticate, so the person's next step
+            // is entering that code. Leaving them on a "we sent a
+            // code" message with no field to type it into is a second
+            // dead end one screen further along.
+            //
+            // `popBackStack` rather than `navigate`: auth is already
+            // on the stack beneath this, so returning to it keeps one
+            // auth screen rather than stacking a second.
+            LaunchedEffect(state) {
+                val sent = state
+                if (sent is SignupUiState.CodeSent) {
+                    // The auth ViewModel is shared with the screen we
+                    // are returning to, and it has issued nothing
+                    // itself — so it is told a code is outstanding and
+                    // which number it went to. Without this it would
+                    // show the number field and invite a second code,
+                    // invalidating the one the person is holding.
+                    authModel.adoptPendingCode(sent.codeSentTo)
+                    navController.popBackStack()
+                }
+            }
+
             SignupScreen(
                 state = state,
-                onPhoneLookup = model::lookup,
-                onSubmit = { name, address, role ->
+                onSubmit = { phone, name, address, role ->
                     model.submit(
-                        phone = model.lastPhone,
+                        phone = phone,
                         selfName = name,
                         address = address,
                         role = role,

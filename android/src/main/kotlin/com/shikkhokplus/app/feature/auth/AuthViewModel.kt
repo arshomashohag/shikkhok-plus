@@ -121,6 +121,26 @@ class AuthViewModel(
     }
 
     /**
+     * Adopt a code another screen already caused to be sent.
+     *
+     * **Signup issues an OTP without authenticating**, so a person who
+     * has just registered arrives here with a code already in flight.
+     * Without this the screen would sit at [AuthUiState.Idle] showing
+     * the number field — asking them to request a second code, which
+     * invalidates the one they are holding and spends another SMS.
+     *
+     * The number is carried rather than re-typed because [submitCode]
+     * verifies against [lastPhone], and that is empty on a ViewModel
+     * that has not issued anything itself.
+     *
+     * @param phone The number the code was sent to
+     */
+    fun adoptPendingCode(phone: String) {
+        lastPhone = phone
+        _state.value = AuthUiState.AwaitingCode
+    }
+
+    /**
      * Submit the code the user entered.
      *
      * @param code The code read from the SMS or typed

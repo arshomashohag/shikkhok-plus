@@ -69,8 +69,8 @@ const val TAG_SIGNUP_ROLE_GROUP: String = "signup_role_group"
  *   tell whether the system understood them.
  *
  * @param state What to render
- * @param onPhoneLookup Called when a complete number is entered
- * @param onSubmit Called with name, address and the chosen role
+ * @param onSubmit Called with the whole payload, on the button. There
+ *   is no per-keystroke lookup: signup makes one request.
  * @param onGoToLogin Called from the number-already-registered path
  * @param onRetry Called when a retryable failure offers a retry
  * @param modifier Layout modifier from the caller
@@ -78,8 +78,7 @@ const val TAG_SIGNUP_ROLE_GROUP: String = "signup_role_group"
 @Composable
 fun SignupScreen(
     state: SignupUiState,
-    onPhoneLookup: (String) -> Unit,
-    onSubmit: (name: String, address: String, role: SignupRole) -> Unit,
+    onSubmit: (phone: String, name: String, address: String, role: SignupRole) -> Unit,
     onGoToLogin: () -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
@@ -100,12 +99,19 @@ fun SignupScreen(
         )
 
         when (state) {
+            // **No lookup while typing.** This called onPhoneLookup on
+            // every keystroke, so an 11-digit number made four network
+            // requests once it passed the length floor — and the
+            // earlier prefixes each produced a state change the person
+            // could see. Signup now sends one request, on the button.
+            //
+            // The already-added path still works: the server answers
+            // the signup POST with its own refusal when a teacher has
+            // already recorded the number, which is the same answer
+            // the lookup was fetching early.
             SignupUiState.Empty -> SignupForm(
                 phone = phone,
-                onPhoneChange = {
-                    phone = it
-                    onPhoneLookup(it)
-                },
+                onPhoneChange = { phone = it },
                 name = name,
                 onNameChange = { name = it },
                 address = address,
@@ -113,7 +119,7 @@ fun SignupScreen(
                 role = role,
                 onRoleChange = { role = it },
                 roleLocked = false,
-                onSubmit = { onSubmit(name, address, role) },
+                onSubmit = { onSubmit(phone, name, address, role) },
                 invalidFieldKeys = emptyList(),
             )
 
@@ -140,6 +146,7 @@ fun SignupScreen(
                     roleLocked = true,
                     onSubmit = {
                         onSubmit(
+                            phone,
                             name.ifEmpty { state.prefilledName },
                             address,
                             state.lockedRole,
@@ -159,7 +166,7 @@ fun SignupScreen(
                 role = role,
                 onRoleChange = { role = it },
                 roleLocked = false,
-                onSubmit = { onSubmit(name, address, role) },
+                onSubmit = { onSubmit(phone, name, address, role) },
                 invalidFieldKeys = state.fieldKeys,
             )
 
