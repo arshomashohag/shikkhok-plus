@@ -40,7 +40,7 @@ def create_app() -> FastAPI:
     check_startup_configuration()
 
     app = FastAPI(
-        title="ShikhokPlus API",
+        title="ShikkhokPlus API",
         version="1.0.0",
         description=(
             "Private tuition management. Every money value crosses this "

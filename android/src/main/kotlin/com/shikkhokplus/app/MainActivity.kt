@@ -22,13 +22,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.rememberNavController
-import com.shikkhokplus.app.core.designsystem.ShikhokTheme
+import com.shikkhokplus.app.core.designsystem.ShikkhokTheme
 import com.shikkhokplus.app.core.network.ApiClient
 import com.shikkhokplus.app.core.network.EncryptedTokenStore
 import com.shikkhokplus.app.core.network.HttpAuthRepository
 import com.shikkhokplus.app.feature.auth.AuthUiState
 import com.shikkhokplus.app.feature.auth.AuthViewModel
-import com.shikkhokplus.app.navigation.ShikhokNavHost
+import com.shikkhokplus.app.navigation.ShikkhokNavHost
 
 /**
  * The single Activity, hosting the navigation graph.
@@ -54,7 +54,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            ShikhokTheme {
+            ShikkhokTheme {
                 Surface(
                     // **safeDrawing, not statusBars.** It covers the
                     // status bar, the navigation bar AND the display
@@ -128,7 +128,7 @@ private fun AppRoot() {
 
     val navController = rememberNavController()
 
-    ShikhokNavHost(
+    ShikkhokNavHost(
         client = client,
         // Read ONCE, for the start destination only. The graph's own
         // LaunchedEffect handles the sign-in that happens later; using

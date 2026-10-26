@@ -24,9 +24,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
+import com.shikkhokplus.app.core.designsystem.ListScreenScaffold
 import com.shikkhokplus.app.core.designsystem.EmptyState
 import com.shikkhokplus.app.core.designsystem.Reach
-import com.shikkhokplus.app.core.designsystem.ShikhokCard
+import com.shikkhokplus.app.core.designsystem.ShikkhokCard
 import com.shikkhokplus.app.core.designsystem.SkeletonBlock
 import com.shikkhokplus.app.core.designsystem.Spacing
 import com.shikkhokplus.app.core.format.Numerals
@@ -79,9 +80,14 @@ fun BatchesScreen(
     onCreate: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier.fillMaxSize()) {
-        BatchesHeader(state)
-
+    // `BatchesHeader` stays, in the scaffold's header slot: it carries
+    // the "N batches · M students" summary, which belongs above the
+    // list and must not scroll away with it.
+    ListScreenScaffold(
+        title = stringResource(R.string.batches_title),
+        modifier = modifier,
+        header = { BatchesHeader(state) },
+    ) {
         when (state) {
             BatchesUiState.Idle -> Unit
 
@@ -213,7 +219,7 @@ private fun BatchesHeader(state: BatchesUiState) {
  */
 @Composable
 private fun BatchRowView(row: BatchRow, onOpen: (String) -> Unit) {
-    ShikhokCard(
+    ShikkhokCard(
         modifier = Modifier.testTag(TAG_BATCH_ROW),
         onClick = { onOpen(row.id) },
     ) {
@@ -272,7 +278,7 @@ private fun BatchRowView(row: BatchRow, onOpen: (String) -> Unit) {
 /** A placeholder card, sized to a real one. */
 @Composable
 private fun BatchSkeletonCard() {
-    ShikhokCard {
+    ShikkhokCard {
         SkeletonBlock(widthFraction = 0.6f, height = 16.dp)
         SkeletonBlock(widthFraction = 0.75f, height = 10.dp)
         SkeletonBlock(widthFraction = 0.45f, height = 12.dp)

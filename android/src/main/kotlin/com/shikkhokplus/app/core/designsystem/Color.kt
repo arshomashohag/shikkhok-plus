@@ -117,7 +117,7 @@ internal val OutlineVariantDark = Color(0xFF343B45)
  * M3's default, because the design tells layers apart by surface tone
  * instead of by shadow — there are no elevations to read.
  */
-internal val ShikhokLightColors = lightColorScheme(
+internal val ShikkhokLightColors = lightColorScheme(
     primary = BluePrimaryLight,
     onPrimary = SurfaceLight,
     primaryContainer = BlueContainerLight,
@@ -139,7 +139,7 @@ internal val ShikhokLightColors = lightColorScheme(
 )
 
 /** The dark scheme. Same roles, same contrast policy. */
-internal val ShikhokDarkColors = darkColorScheme(
+internal val ShikkhokDarkColors = darkColorScheme(
     primary = BluePrimaryDark,
     onPrimary = Color(0xFF0B2447),
     primaryContainer = BlueContainerDark,

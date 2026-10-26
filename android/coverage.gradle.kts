@@ -72,7 +72,7 @@ val coverageExclusions = listOf(
     "**/ui/*Kt*",
     // **The navigation graph, for exactly the same reason.**
     //
-    // *(Added 2026-10-26.)* `ShikhokNavHost` is a `@Composable` that
+    // *(Added 2026-10-26.)* `ShikkhokNavHost` is a `@Composable` that
     // happens to live in `navigation/` rather than `ui/`, so the two
     // globs above miss it and JaCoCo counted 127 lines it can never
     // record a hit against — dropping the module from 60.39% to

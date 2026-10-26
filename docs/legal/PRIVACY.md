@@ -1,8 +1,8 @@
-# ShikhokPlus Privacy Policy
+# ShikkhokPlus Privacy Policy
 
 **Last updated: 20 October 2026**
 
-ShikhokPlus (`com.shikkhokplus.app`) helps private tutors in
+ShikkhokPlus (`com.shikkhokplus.app`) helps private tutors in
 Bangladesh manage their classes — attendance, marks and fees — and
 lets students and guardians see their own records.
 
@@ -85,7 +85,7 @@ grant nothing and exist to stop other apps talking to ours.
 
 ## Children's data
 
-ShikhokPlus is used by school-age students, so children's data is
+ShikkhokPlus is used by school-age students, so children's data is
 central rather than incidental.
 
 - A child's record is created by their **teacher**, in the course of

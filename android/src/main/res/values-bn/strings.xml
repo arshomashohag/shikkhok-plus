@@ -144,6 +144,7 @@
 
     <!-- গৃহীত আসনের সংখ্যা। দুটি সংখ্যাই সার্ভার থেকে আসে। -->
     <string name="roster_accepted_count">%2$s-এর মধ্যে %1$s জন গ্রহণ করেছে</string>
+    <string name="roster_title_fallback">ক্লাস</string>
 
     <string name="roster_link_student">শিক্ষার্থী</string>
     <string name="roster_link_guardian">অভিভাবক</string>
@@ -446,4 +447,17 @@
       ক্লাস হোক বা দশটি, বাক্যটি ঠিকই পড়তে হবে।
     -->
     <string name="governance_deletion_owns_batches">ShikkhokPlus-এ আপনার ক্লাস রয়ে গেছে। আগে সেগুলো হস্তান্তর করুন বা বন্ধ করুন, তারপর অ্যাকাউন্ট মুছুন।</string>
+    <string name="screen_title_create_batch">নতুন ক্লাস</string>
+    <string name="screen_title_batch_fees">ফি</string>
+    <string name="screen_title_claim_status">পেমেন্টের অবস্থা</string>
+    <string name="screen_title_fee_history">ফি-এর ইতিহাস</string>
+    <string name="screen_title_payment_form">পেমেন্ট জমা দিন</string>
+    <string name="screen_title_exam_list">পরীক্ষা</string>
+    <string name="screen_title_marksheet">নম্বরপত্র</string>
+    <string name="screen_title_overview">সারসংক্ষেপ</string>
+    <string name="screen_title_add_student">শিক্ষার্থী যোগ করুন</string>
+    <string name="screen_title_sessions">ক্লাসসমূহ</string>
+    <string name="screen_title_progress">অগ্রগতি</string>
+    <string name="screen_title_attendance">উপস্থিতি</string>
+    <string name="screen_title_mark_entry">নম্বর দিন</string>
 </resources>

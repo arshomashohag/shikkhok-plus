@@ -84,6 +84,75 @@ fun ScreenScaffold(
 }
 
 /**
+ * The frame for a screen whose content is a list.
+ *
+ * **Separate from [ScreenScaffold] because a `LazyColumn` must own its
+ * own scrolling.** Putting one inside a `verticalScroll` column gives
+ * it unbounded height: it renders every row at once, which defeats the
+ * laziness entirely and throws on some Compose versions rather than
+ * merely performing badly. Eleven of this app's screens are lists, so
+ * the distinction is worth a second entry point rather than a boolean
+ * that is easy to get wrong.
+ *
+ * The caller supplies the `LazyColumn` itself, because only it knows
+ * its keys, its content type and its item layout.
+ *
+ * @param title What this screen is, shown in the bar
+ * @param modifier The layout modifier
+ * @param header Anything fixed above the list — a summary line, a
+ *   staleness notice — which does not scroll with it
+ * @param content The list, and anything else that scrolls with it
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ListScreenScaffold(
+    title: String,
+    modifier: Modifier = Modifier,
+    header: @Composable ColumnScope.() -> Unit = {},
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleLarge,
+                    )
+                },
+                colors =
+                    TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.background,
+                        titleContentColor = MaterialTheme.colorScheme.onSurface,
+                    ),
+            )
+        },
+        containerColor = MaterialTheme.colorScheme.background,
+    ) { inner ->
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(inner),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .widthIn(max = 480.dp)
+                        .padding(horizontal = Spacing.screen),
+                verticalArrangement = Arrangement.spacedBy(Spacing.tight),
+            ) {
+                header()
+                content()
+            }
+        }
+    }
+}
+
+/**
  * The content column, shared by both scaffold shapes.
  *
  * @param inner The scaffold's own insets

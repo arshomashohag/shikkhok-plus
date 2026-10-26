@@ -14,6 +14,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
+import com.shikkhokplus.app.core.designsystem.ScreenScaffold
 import com.shikkhokplus.app.core.ui.BatchCreateForm
 import com.shikkhokplus.app.feature.auth.MessageKeys
 
@@ -95,9 +96,9 @@ fun CreateBatchScreen(
     onDone: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = modifier.fillMaxWidth().padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ScreenScaffold(
+        title = stringResource(R.string.screen_title_create_batch),
+        modifier = modifier,
     ) {
         when (state) {
             CreateBatchUiState.Form ->

@@ -50,7 +50,7 @@ import io.ktor.client.HttpClient
  * @param modifier The layout modifier
  */
 @Composable
-fun ShikhokNavHost(
+fun ShikkhokNavHost(
     client: HttpClient,
     signedIn: Boolean,
     navController: NavHostController,

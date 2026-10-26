@@ -1,1 +1,1 @@
-"""ShikhokPlus backend application package."""
+"""ShikkhokPlus backend application package."""

@@ -40,7 +40,7 @@ import androidx.compose.ui.unit.dp
  * @param content The card's contents
  */
 @Composable
-fun ShikhokCard(
+fun ShikkhokCard(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,

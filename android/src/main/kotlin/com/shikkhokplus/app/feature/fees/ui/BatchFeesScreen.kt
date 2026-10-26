@@ -15,6 +15,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
+import com.shikkhokplus.app.core.designsystem.ListScreenScaffold
 import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.feature.auth.MessageKeys
 import com.shikkhokplus.app.feature.fees.RosterFeeRow
@@ -63,16 +64,16 @@ fun BatchFeesScreen(
     onRemind: (RosterFeeRow) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = modifier.fillMaxWidth().padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ListScreenScaffold(
+        title = stringResource(R.string.screen_title_batch_fees),
+        modifier = modifier,
     ) {
         if (rows.isEmpty()) {
             Text(
                 stringResource(R.string.batch_fees_empty),
                 Modifier.testTag(TAG_BATCH_FEES_EMPTY),
             )
-            return@Column
+            return@ListScreenScaffold
         }
 
         LazyColumn(
