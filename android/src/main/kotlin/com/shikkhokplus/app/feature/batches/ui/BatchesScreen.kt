@@ -71,6 +71,8 @@ const val TAG_BATCH_ACCEPTED_COUNT: String = "batch_accepted_count"
  * @param onRetry Called when the user asks to retry
  * @param onCreate Called when the teacher wants a new class
  * @param modifier The layout modifier
+ * @param bottomBar The navigation bar, supplied by the route so this
+ *   screen stays renderable in a test without one
  */
 @Composable
 fun BatchesScreen(
@@ -79,6 +81,7 @@ fun BatchesScreen(
     onRetry: () -> Unit,
     onCreate: () -> Unit,
     modifier: Modifier = Modifier,
+    bottomBar: @Composable () -> Unit = {},
 ) {
     // `BatchesHeader` stays, in the scaffold's header slot: it carries
     // the "N batches · M students" summary, which belongs above the
@@ -87,6 +90,7 @@ fun BatchesScreen(
         title = stringResource(R.string.batches_title),
         modifier = modifier,
         header = { BatchesHeader(state) },
+        bottomBar = bottomBar,
     ) {
         when (state) {
             BatchesUiState.Idle -> Unit

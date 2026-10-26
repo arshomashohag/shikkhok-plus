@@ -74,6 +74,7 @@
     <string name="student_add_fee">এই শিক্ষার্থীর ফি (ঐচ্ছিক)</string>
     <string name="student_add_submit">যোগ করুন</string>
     <string name="action_cancel">বাতিল</string>
+    <string name="action_back">পিছনে</string>
     <string name="fee_inherits">ক্লাসের ফি প্রযোজ্য</string>
 
     <!-- ব্যাচ তালিকা -->
@@ -460,4 +461,8 @@
     <string name="screen_title_progress">অগ্রগতি</string>
     <string name="screen_title_attendance">উপস্থিতি</string>
     <string name="screen_title_mark_entry">নম্বর দিন</string>
+    <string name="nav_today">আজ</string>
+    <string name="nav_batches">ব্যাচ</string>
+    <string name="nav_dues">বকেয়া</string>
+    <string name="nav_more">আরও</string>
 </resources>

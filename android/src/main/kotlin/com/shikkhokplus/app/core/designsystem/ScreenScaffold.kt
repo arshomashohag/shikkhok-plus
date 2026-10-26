@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -19,7 +21,15 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.PathData
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.shikkhokplus.app.R
 
 /**
  * The frame every screen sits in.
@@ -51,6 +61,7 @@ fun ScreenScaffold(
     title: String,
     modifier: Modifier = Modifier,
     scrollable: Boolean = true,
+    onBack: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Scaffold(
@@ -63,6 +74,29 @@ fun ScreenScaffold(
                         style = MaterialTheme.typography.titleLarge,
                     )
                 },
+                // **A back arrow when the screen was pushed.** A form
+                // reached from a list needs a way out that is not the
+                // system gesture alone: a device with three-button
+                // navigation has one, but the affordance should be on
+                // screen either way.
+                navigationIcon = {
+                    if (onBack != null) {
+                        IconButton(
+                            onClick = onBack,
+                            modifier = Modifier.testTag(TAG_SCAFFOLD_BACK),
+                        ) {
+                            // **An inline vector, not a Material icon.**
+                            // `material-icons-extended` is not a
+                            // dependency here, and adding it would mean
+                            // regenerating the Gradle lockfile and 581
+                            // checksums for one arrow.
+                            BackArrow(
+                                contentDescription =
+                                    stringResource(R.string.action_back),
+                            )
+                        }
+                    }
+                },
                 colors =
                     TopAppBarDefaults.topAppBarColors(
                         // The page tone, not a raised surface: this
@@ -70,6 +104,8 @@ fun ScreenScaffold(
                         // elevations outside bottom sheets.
                         containerColor = MaterialTheme.colorScheme.background,
                         titleContentColor = MaterialTheme.colorScheme.onSurface,
+                        navigationIconContentColor =
+                            MaterialTheme.colorScheme.onSurface,
                     ),
             )
         },
@@ -101,6 +137,10 @@ fun ScreenScaffold(
  * @param modifier The layout modifier
  * @param header Anything fixed above the list — a summary line, a
  *   staleness notice — which does not scroll with it
+ * @param bottomBar The navigation bar, on a screen that is a tab
+ *   destination. Empty by default: a screen pushed onto the stack
+ *   shows no tabs, because tapping one from there would leave a
+ *   half-finished task behind the bar.
  * @param content The list, and anything else that scrolls with it
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -109,10 +149,15 @@ fun ListScreenScaffold(
     title: String,
     modifier: Modifier = Modifier,
     header: @Composable ColumnScope.() -> Unit = {},
+    bottomBar: @Composable () -> Unit = {},
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
+        // **The bottom bar belongs to the Scaffold, not the content.**
+        // Placed inside the column it would scroll away with the list,
+        // and the list's own bottom inset would be wrong.
+        bottomBar = bottomBar,
         topBar = {
             TopAppBar(
                 title = {
@@ -192,4 +237,49 @@ private fun ScreenBody(
             content = content,
         )
     }
+}
+
+/** The scaffold's back arrow. Not user-visible text. */
+const val TAG_SCAFFOLD_BACK: String = "scaffold_back"
+
+/**
+ * A back arrow, drawn rather than imported.
+ *
+ * `autoMirrored` so it points the other way in a right-to-left locale.
+ *
+ * @param contentDescription What TalkBack announces
+ */
+@Composable
+private fun BackArrow(contentDescription: String) {
+    Icon(
+        painter =
+            rememberVectorPainter(
+                ImageVector.Builder(
+                    defaultWidth = 24.dp,
+                    defaultHeight = 24.dp,
+                    viewportWidth = 24f,
+                    viewportHeight = 24f,
+                    autoMirror = true,
+                ).apply {
+                    addPath(
+                        pathData =
+                            PathData {
+                                moveTo(20f, 11f)
+                                horizontalLineTo(7.83f)
+                                lineTo(13.42f, 5.41f)
+                                lineTo(12f, 4f)
+                                lineTo(4f, 12f)
+                                lineTo(12f, 20f)
+                                lineTo(13.41f, 18.59f)
+                                lineTo(7.83f, 13f)
+                                horizontalLineTo(20f)
+                                close()
+                            },
+                        fill = SolidColor(Color.Black),
+                    )
+                }.build(),
+            ),
+        contentDescription = contentDescription,
+        tint = MaterialTheme.colorScheme.onSurface,
+    )
 }

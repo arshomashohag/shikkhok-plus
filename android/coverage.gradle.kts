@@ -99,6 +99,19 @@ val coverageExclusions = listOf(
     // by excluding them rather than by verifying anything — which is
     // the move this file's own comment warns against.
     "**/designsystem/ScreenScaffoldKt*",
+    // **The bottom navigation bar, same reason, measured.**
+    //
+    // *(Added 2026-10-27.)* `BottomNavTest` renders the bar and clicks
+    // its tabs, and JaCoCo still recorded `BottomNavKt` at 0 covered
+    // against 24 missed -- the Robolectric limitation this file
+    // already documents for screens, in a component that happens to
+    // live under `designsystem/`.
+    //
+    // What the tests verify is not the line count: that all four
+    // destinations render, that an enabled tab reports its index, that
+    // a disabled one does not navigate, and that it becomes usable the
+    // moment its screen is ready.
+    "**/designsystem/BottomNavKt*",
 )
 
 tasks.register<JacocoReport>("jacocoDebugReport") {

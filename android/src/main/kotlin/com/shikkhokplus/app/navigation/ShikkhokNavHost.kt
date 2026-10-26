@@ -12,6 +12,12 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import com.shikkhokplus.app.R
+import com.shikkhokplus.app.core.designsystem.BottomNav
+import com.shikkhokplus.app.core.designsystem.NavDestination
+import com.shikkhokplus.app.core.designsystem.ScreenScaffold
 import com.shikkhokplus.app.core.network.HttpBatchesRepository
 import com.shikkhokplus.app.core.network.HttpRosterRepository
 import com.shikkhokplus.app.core.network.HttpSignupRepository
@@ -151,6 +157,19 @@ fun ShikkhokNavHost(
 
             BatchesScreen(
                 state = state,
+                // **All four tabs, three of them disabled.** Today,
+                // Dues and More have no HTTP repository and no
+                // ViewModel yet, so opening one would show a screen
+                // that cannot load. Hiding them instead would make the
+                // bar change shape as each unit lands, and a person
+                // who has seen four tabs once expects four.
+                bottomBar = {
+                    BottomNav(
+                        destinations = teacherTabs(),
+                        selectedIndex = TAB_BATCHES,
+                        onSelect = { },
+                    )
+                },
                 onOpen = { id ->
                     val name =
                         (state as? BatchesUiState.Loaded)
@@ -176,13 +195,23 @@ fun ShikkhokNavHost(
             val model: BatchesViewModel =
                 viewModel(parent) { BatchesViewModel(HttpBatchesRepository(client)) }
 
-            BatchCreateForm(
-                onCreate = { name, subjects, fee, dueDay ->
-                    model.create(name, subjects, fee, dueDay)
-                    navController.popBackStack()
-                },
-                onCancel = { navController.popBackStack() },
-            )
+            // **Wrapped in the scaffold the form no longer carries.**
+            // The form is pure content now, so the app bar, the margin
+            // and the back affordance come from here. Rendering it bare
+            // gave a screen with no title at all once its own heading
+            // was removed.
+            ScreenScaffold(
+                title = stringResource(R.string.screen_title_create_batch),
+                onBack = { navController.popBackStack() },
+            ) {
+                BatchCreateForm(
+                    onCreate = { name, subjects, fee, dueDay ->
+                        model.create(name, subjects, fee, dueDay)
+                        navController.popBackStack()
+                    },
+                    onCancel = { navController.popBackStack() },
+                )
+            }
         }
 
         composable(
@@ -232,13 +261,58 @@ fun ShikkhokNavHost(
                     RosterViewModel(HttpRosterRepository(client))
                 }
 
-            StudentAddForm(
-                onAdd = { name, guardian, fee ->
-                    model.addStudent(name, guardian, fee)
-                    navController.popBackStack()
-                },
-                onCancel = { navController.popBackStack() },
-            )
+            ScreenScaffold(
+                title = stringResource(R.string.screen_title_add_student),
+                onBack = { navController.popBackStack() },
+            ) {
+                StudentAddForm(
+                    onAdd = { name, guardian, fee ->
+                        model.addStudent(name, guardian, fee)
+                        navController.popBackStack()
+                    },
+                    onCancel = { navController.popBackStack() },
+                )
+            }
         }
     }
 }
+
+/** The Batches tab's position in the teacher's bar. */
+private const val TAB_BATCHES = 1
+
+/**
+ * The teacher's four destinations, as the design fixes them.
+ *
+ * Only Batches is enabled. The other three are declared here so the
+ * bar has its real shape from the first build, and each becomes
+ * enabled when its repository and ViewModel land.
+ *
+ * @return The tabs, in the design's order
+ */
+@Composable
+private fun teacherTabs(): List<NavDestination> =
+    listOf(
+        NavDestination(
+            label = stringResource(R.string.nav_today),
+            icon = painterResource(R.drawable.ic_nav_today),
+            tag = "nav_tab_today",
+            enabled = false,
+        ),
+        NavDestination(
+            label = stringResource(R.string.nav_batches),
+            icon = painterResource(R.drawable.ic_nav_batches),
+            tag = "nav_tab_batches",
+        ),
+        NavDestination(
+            label = stringResource(R.string.nav_dues),
+            icon = painterResource(R.drawable.ic_nav_dues),
+            tag = "nav_tab_dues",
+            enabled = false,
+        ),
+        NavDestination(
+            label = stringResource(R.string.nav_more),
+            icon = painterResource(R.drawable.ic_nav_more),
+            tag = "nav_tab_more",
+            enabled = false,
+        ),
+    )

@@ -80,13 +80,15 @@ fun BatchCreateForm(
     var dueDay by remember { mutableStateOf("") }
 
     Column(
-        modifier = modifier.fillMaxWidth().padding(16.dp),
+        modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(
-            stringResource(R.string.batch_create_title),
-            style = MaterialTheme.typography.titleLarge,
-        )
+        // **No heading and no padding here.** The screen that
+        // hosts this form puts its name in the app bar and owns
+        // the margin. Rendering a titleLarge here as well is the
+        // "parent view holding a child view" doubling reported on
+        // a device: the same words twice, once in the bar and once
+        // just below it.
 
         OutlinedTextField(
             value = name,
@@ -176,13 +178,9 @@ fun StudentAddForm(
     var fee by remember { mutableStateOf("") }
 
     Column(
-        modifier = modifier.fillMaxWidth().padding(16.dp),
+        modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(
-            stringResource(R.string.student_add_title),
-            style = MaterialTheme.typography.titleLarge,
-        )
 
         OutlinedTextField(
             value = name,

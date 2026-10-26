@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  A 24dp line icon from the design's bottom navigation.
+
+  Stroked, not filled: the design draws these with stroke-width 2 and
+  no fill, which keeps them legible at 20dp on a low-density screen.
+  No colour is baked in: the composable tints them, so one drawable
+  serves the selected and unselected states and the dark theme.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"
+        android:strokeWidth="2"
+        android:strokeColor="#FF000000"
+        android:strokeLineJoin="round"
+        android:strokeLineCap="round" />
+</vector>
