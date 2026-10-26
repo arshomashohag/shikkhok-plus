@@ -131,7 +131,18 @@ fun BatchCreateForm(
                         dueDay.trim().toIntOrNull(),
                     )
                 },
-                enabled = name.isNotBlank(),
+                // **`subjects` too, not just the name.** The server
+                // requires `minItems: 1` and `splitSubjects` filters
+                // empties, so an untouched subjects field submitted an
+                // empty array -- which FastAPI rejects with a raw 422
+                // carrying no message_key, so the envelope could render
+                // nothing and the screen looked like the button simply
+                // did not work. Reported as "I can't create batches".
+                //
+                // Format only, never policy: this checks a required
+                // field is present, which the contract states. It does
+                // not duplicate any server decision.
+                enabled = name.isNotBlank() && splitSubjects(subjects).isNotEmpty(),
                 modifier = Modifier.testTag(TAG_FORM_SUBMIT),
             ) {
                 Text(stringResource(R.string.batch_create_submit))

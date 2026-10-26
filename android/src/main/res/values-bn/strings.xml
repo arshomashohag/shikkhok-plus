@@ -63,8 +63,8 @@
 
     <!-- Creating a class and adding a student. -->
     <string name="batch_create_title">নতুন ক্লাস</string>
-    <string name="batch_create_name">ক্লাসের নাম</string>
-    <string name="batch_create_subjects">বিষয়, কমা দিয়ে আলাদা করুন</string>
+    <string name="batch_create_name">ক্লাসের নাম (আবশ্যক)</string>
+    <string name="batch_create_subjects">বিষয়, কমা দিয়ে আলাদা করুন (আবশ্যক)</string>
     <string name="batch_create_fee">মাসিক ফি (ঐচ্ছিক)</string>
     <string name="batch_create_due_day">মাসের কত তারিখে দিতে হবে (ঐচ্ছিক)</string>
     <string name="batch_create_submit">ক্লাস তৈরি করুন</string>

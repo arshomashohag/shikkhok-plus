@@ -75,11 +75,8 @@ fun DuesScreen(
         title = stringResource(R.string.dues_title),
         modifier = modifier,
     ) {
-        Text(
-            text = stringResource(R.string.dues_title),
-            style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.testTag(TAG_DUES_TITLE),
-        )
+        // The title is in the app bar. It was rendered here too,
+        // so every screen showed its name twice.
 
         when (state) {
             DuesUiState.Idle -> Unit

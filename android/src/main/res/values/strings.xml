@@ -65,8 +65,8 @@
 
     <!-- Creating a class and adding a student. -->
     <string name="batch_create_title">New class</string>
-    <string name="batch_create_name">Class name</string>
-    <string name="batch_create_subjects">Subjects, separated by commas</string>
+    <string name="batch_create_name">Class name (required)</string>
+    <string name="batch_create_subjects">Subjects, separated by commas (required)</string>
     <string name="batch_create_fee">Monthly fee (optional)</string>
     <string name="batch_create_due_day">Due day of month (optional)</string>
     <string name="batch_create_submit">Create class</string>

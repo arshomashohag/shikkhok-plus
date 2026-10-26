@@ -71,10 +71,8 @@ fun ProfileScreen(
         title = stringResource(R.string.profile_title),
         modifier = modifier,
     ) {
-        Text(
-            text = stringResource(R.string.profile_title),
-            style = MaterialTheme.typography.headlineSmall,
-        )
+        // The title is in the app bar. It was rendered here too,
+        // so every screen showed its name twice.
 
         when (state) {
             ProfileUiState.Loading -> CircularProgressIndicator()

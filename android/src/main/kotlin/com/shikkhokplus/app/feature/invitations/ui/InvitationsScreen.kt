@@ -78,10 +78,8 @@ fun InvitationsScreen(
         title = stringResource(R.string.invitations_title),
         modifier = modifier,
     ) {
-        Text(
-            text = stringResource(R.string.invitations_title),
-            style = MaterialTheme.typography.headlineSmall,
-        )
+        // The title is in the app bar. It was rendered here too,
+        // so every screen showed its name twice.
 
         when (state) {
             InvitationsUiState.Idle,

@@ -107,6 +107,29 @@ class CreateFormsTest {
     // misunderstanding as easily as catch a defect.
 
     @Test
+    fun `an empty subjects field yields no subjects, which must not submit`() {
+        // **The reported defect, as a predicate.** The server requires
+        // `minItems: 1` on subjects and `splitSubjects` filters empties,
+        // so an untouched field produced an empty array. FastAPI
+        // rejects that with a raw 422 carrying no message_key, so the
+        // error envelope rendered nothing and the screen looked like
+        // the button was simply dead. The submit guard now checks this
+        // list as well as the name.
+        //
+        // Asserted as the pure function the guard calls, for the reason
+        // the comment above gives: a widget-level click test on this
+        // form could not be made to fire under Robolectric, and the
+        // guard's input is what actually decides.
+        assertEquals(emptyList(), splitSubjects(""))
+        assertEquals(emptyList(), splitSubjects("   "))
+        assertEquals(emptyList(), splitSubjects(",, ,"))
+
+        // And the cases that must still submit.
+        assertEquals(listOf("Physics"), splitSubjects("Physics"))
+        assertEquals(listOf("Physics", "Maths"), splitSubjects("Physics, Maths"))
+    }
+
+    @Test
     fun `subjects are split on commas and trimmed`() {
         // Tested as the PURE FUNCTION it is, not through the widget.
         // Driving two text fields and a button through Robolectric to

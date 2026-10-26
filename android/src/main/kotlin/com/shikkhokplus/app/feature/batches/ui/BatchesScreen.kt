@@ -185,13 +185,11 @@ private fun BatchesHeader(state: BatchesUiState) {
     Column(
         Modifier
             .fillMaxWidth()
-            .padding(horizontal = Spacing.screen, vertical = Spacing.listItem),
+            .padding(vertical = Spacing.tight),
     ) {
-        Text(
-            text = stringResource(R.string.batches_title),
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
+        // The title is in the app bar; this header carries only the
+        // count beneath it. Rendering the name here as well showed it
+        // twice, and the horizontal padding is now the scaffold's.
         val subtitle = when (state) {
             is BatchesUiState.Loaded -> stringResource(
                 R.string.batches_count,

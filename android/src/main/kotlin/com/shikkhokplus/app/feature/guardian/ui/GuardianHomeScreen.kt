@@ -94,11 +94,8 @@ fun GuardianHomeScreen(
         title = stringResource(R.string.guardian_home_title),
         modifier = modifier,
     ) {
-        Text(
-            stringResource(R.string.guardian_home_title),
-            Modifier.testTag(TAG_GUARDIAN_TITLE),
-            style = MaterialTheme.typography.titleLarge,
-        )
+        // The title is in the app bar. It was rendered here too,
+        // so every screen showed its name twice.
 
         when (state) {
             GuardianUiState.Idle -> Unit
