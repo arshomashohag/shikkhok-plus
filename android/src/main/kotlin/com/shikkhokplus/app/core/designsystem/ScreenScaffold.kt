@@ -135,8 +135,10 @@ fun ScreenScaffold(
  *
  * @param title What this screen is, shown in the bar
  * @param modifier The layout modifier
- * @param header Anything fixed above the list — a summary line, a
- *   staleness notice — which does not scroll with it
+ * @param subtitle A count or status under the title, inside the bar,
+ *   as the design's `.ab` block draws it
+ * @param header Anything fixed above the list — a staleness notice,
+ *   say — which does not scroll with it
  * @param bottomBar The navigation bar, on a screen that is a tab
  *   destination. Empty by default: a screen pushed onto the stack
  *   shows no tabs, because tapping one from there would leave a
@@ -148,6 +150,7 @@ fun ScreenScaffold(
 fun ListScreenScaffold(
     title: String,
     modifier: Modifier = Modifier,
+    subtitle: String? = null,
     header: @Composable ColumnScope.() -> Unit = {},
     bottomBar: @Composable () -> Unit = {},
     content: @Composable ColumnScope.() -> Unit,
@@ -161,10 +164,24 @@ fun ListScreenScaffold(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleLarge,
-                    )
+                    // **The count sits INSIDE the bar, under the
+                    // title.** The design draws `.ab` as one 64dp
+                    // block holding `.h1` and `.sub` together; as a
+                    // separate band below the bar it read as a second
+                    // header rather than part of the first.
+                    Column {
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.titleLarge,
+                        )
+                        if (subtitle != null) {
+                            Text(
+                                text = subtitle,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
                 },
                 colors =
                     TopAppBarDefaults.topAppBarColors(

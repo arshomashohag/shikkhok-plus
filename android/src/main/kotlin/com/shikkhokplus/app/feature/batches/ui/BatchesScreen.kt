@@ -89,7 +89,8 @@ fun BatchesScreen(
     ListScreenScaffold(
         title = stringResource(R.string.batches_title),
         modifier = modifier,
-        header = { BatchesHeader(state) },
+        // "7 batches · 112 students" under the title, inside the bar.
+        subtitle = batchesSubtitle(state),
         bottomBar = bottomBar,
     ) {
         when (state) {
@@ -176,42 +177,29 @@ fun BatchesScreen(
 private const val SKELETON_ROWS = 3
 
 /**
- * The screen's heading, with its count line.
+ * The count line under the title, inside the app bar.
  *
- * The subtitle changes with the state rather than disappearing, so the
- * header does not resize as content arrives — a reflow at that moment
- * moves whatever the user was about to tap.
+ * It changes with the state rather than disappearing, so the bar does
+ * not resize as content arrives — a reflow at that moment moves
+ * whatever the person was about to tap.
  *
  * @param state What the screen is showing
+ * @return The line to draw, or null when there is nothing to say
  */
 @Composable
-private fun BatchesHeader(state: BatchesUiState) {
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .padding(vertical = Spacing.tight),
-    ) {
-        // The title is in the app bar; this header carries only the
-        // count beneath it. Rendering the name here as well showed it
-        // twice, and the horizontal padding is now the scaffold's.
-        val subtitle = when (state) {
-            is BatchesUiState.Loaded -> stringResource(
+private fun batchesSubtitle(state: BatchesUiState): String? =
+    when (state) {
+        is BatchesUiState.Loaded ->
+            stringResource(
                 R.string.batches_count,
                 state.rows.size,
                 state.rows.sumOf { it.enrollmentCount },
             )
-            BatchesUiState.Loading -> stringResource(R.string.batches_loading_label)
-            else -> null
-        }
-        if (subtitle != null) {
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+
+        BatchesUiState.Loading -> stringResource(R.string.batches_loading_label)
+        BatchesUiState.Empty -> stringResource(R.string.batches_subtitle_none)
+        else -> null
     }
-}
 
 /**
  * One class, as a card.
