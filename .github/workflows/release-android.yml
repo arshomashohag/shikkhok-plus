@@ -49,7 +49,7 @@ jobs:
     # workflow edit on any branch could exfiltrate the upload key.
     environment: android-release
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # Full history: the release notes are generated from the
           # commits since the previous tag, and a shallow clone has
@@ -143,12 +143,12 @@ jobs:
             echo "| backend | \`$API_BASE_URL\` |"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "17"
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       # **No test suite here, by decision.** The tests belong on the
       # pull request, where a red result blocks the merge; re-running
@@ -432,7 +432,7 @@ jobs:
           cp "$src" "shikkhokplus-${{ steps.version.outputs.name }}.apk"
           ls -lh "shikkhokplus-${{ steps.version.outputs.name }}.apk"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: release-${{ steps.version.outputs.name }}
           path: |
