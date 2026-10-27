@@ -18,6 +18,11 @@ import com.shikkhokplus.app.R
 import com.shikkhokplus.app.core.designsystem.BottomNav
 import com.shikkhokplus.app.core.designsystem.NavDestination
 import com.shikkhokplus.app.core.designsystem.ScreenScaffold
+import com.shikkhokplus.app.core.network.HttpAnalyticsRepository
+import com.shikkhokplus.app.feature.dues.DuesViewModel
+import com.shikkhokplus.app.feature.dues.ui.DuesScreen
+import com.shikkhokplus.app.feature.overview.OverviewViewModel
+import com.shikkhokplus.app.feature.overview.ui.OverviewScreen
 import com.shikkhokplus.app.core.network.HttpBatchesRepository
 import com.shikkhokplus.app.core.network.HttpRosterRepository
 import com.shikkhokplus.app.core.network.HttpSignupRepository
@@ -167,7 +172,7 @@ fun ShikkhokNavHost(
                     BottomNav(
                         destinations = teacherTabs(),
                         selectedIndex = TAB_BATCHES,
-                        onSelect = { },
+                        onSelect = { navController.switchTab(it) },
                     )
                 },
                 onOpen = { id ->
@@ -181,6 +186,46 @@ fun ShikkhokNavHost(
                 },
                 onRetry = model::retry,
                 onCreate = { navController.navigate(Destination.CreateBatch.route) },
+            )
+        }
+
+        composable(Destination.Overview.route) {
+            val model: OverviewViewModel =
+                viewModel { OverviewViewModel(HttpAnalyticsRepository(client)) }
+            val state by model.state.collectAsState()
+
+            LaunchedEffect(Unit) { model.load() }
+
+            OverviewScreen(
+                state = state,
+                onRetry = model::retry,
+                bottomBar = {
+                    BottomNav(
+                        destinations = teacherTabs(),
+                        selectedIndex = TAB_OVERVIEW,
+                        onSelect = { navController.switchTab(it) },
+                    )
+                },
+            )
+        }
+
+        composable(Destination.Dues.route) {
+            val model: DuesViewModel =
+                viewModel { DuesViewModel(HttpAnalyticsRepository(client)) }
+            val state by model.state.collectAsState()
+
+            LaunchedEffect(Unit) { model.load() }
+
+            DuesScreen(
+                state = state,
+                onRetry = model::retry,
+                bottomBar = {
+                    BottomNav(
+                        destinations = teacherTabs(),
+                        selectedIndex = TAB_DUES,
+                        onSelect = { navController.switchTab(it) },
+                    )
+                },
             )
         }
 
@@ -277,8 +322,46 @@ fun ShikkhokNavHost(
     }
 }
 
+/** Today's position in the teacher's bar. */
+private const val TAB_OVERVIEW = 0
+
 /** The Batches tab's position in the teacher's bar. */
 private const val TAB_BATCHES = 1
+
+/** The Dues tab's position. */
+private const val TAB_DUES = 2
+
+/**
+ * Switch to a tab, as a tab rather than a push.
+ *
+ * **`popUpTo` the start destination, `saveState`, `launchSingleTop`.**
+ * Without these, tapping between tabs grows the back stack forever and
+ * Back walks a person through every tab they have ever visited rather
+ * than leaving the app. `restoreState` brings each tab back where they
+ * left it, so a half-scrolled list is not reset by a trip to another
+ * tab.
+ *
+ * An unbuilt tab is simply ignored: the bar disables those, and this
+ * refuses them again rather than trusting the caller.
+ *
+ * @param index Which tab was chosen
+ */
+private fun NavHostController.switchTab(index: Int) {
+    val route =
+        when (index) {
+            TAB_OVERVIEW -> Destination.Overview.route
+            TAB_BATCHES -> Destination.Batches.route
+            TAB_DUES -> Destination.Dues.route
+            else -> return
+        }
+    if (currentDestination?.route == route) return
+
+    navigate(route) {
+        popUpTo(graph.startDestinationId) { saveState = true }
+        launchSingleTop = true
+        restoreState = true
+    }
+}
 
 /**
  * The teacher's four destinations, as the design fixes them.
@@ -296,7 +379,6 @@ private fun teacherTabs(): List<NavDestination> =
             label = stringResource(R.string.nav_today),
             icon = painterResource(R.drawable.ic_nav_today),
             tag = "nav_tab_today",
-            enabled = false,
         ),
         NavDestination(
             label = stringResource(R.string.nav_batches),
@@ -307,7 +389,6 @@ private fun teacherTabs(): List<NavDestination> =
             label = stringResource(R.string.nav_dues),
             icon = painterResource(R.drawable.ic_nav_dues),
             tag = "nav_tab_dues",
-            enabled = false,
         ),
         NavDestination(
             label = stringResource(R.string.nav_more),

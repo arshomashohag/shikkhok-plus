@@ -53,6 +53,10 @@ import com.shikkhokplus.app.R
  * @param scrollable Whether the content scrolls. A form must, because
  *   the keyboard takes half the screen; a list must not, because the
  *   list scrolls itself and nesting two scrollers breaks both
+ * @param bottomBar The navigation bar, on a screen that is a tab
+ *   destination. Empty by default: a screen pushed onto the stack
+ *   shows no tabs, because tapping one from there would leave a
+ *   half-finished task behind the bar.
  * @param content The screen's own contents, in a column
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -62,10 +66,14 @@ fun ScreenScaffold(
     modifier: Modifier = Modifier,
     scrollable: Boolean = true,
     onBack: (() -> Unit)? = null,
+    bottomBar: @Composable () -> Unit = {},
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
+        // A tab destination can be a form-shaped screen: the overview
+        // scrolls as one column and is still a tab.
+        bottomBar = bottomBar,
         topBar = {
             TopAppBar(
                 title = {

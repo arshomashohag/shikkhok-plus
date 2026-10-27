@@ -36,9 +36,19 @@ sealed interface Destination {
         override val route: String = "signup"
     }
 
+    /** Today's summary. The first tab. */
+    data object Overview : Destination {
+        override val route: String = "overview"
+    }
+
     /** A teacher's classes. The start destination once signed in. */
     data object Batches : Destination {
         override val route: String = "batches"
+    }
+
+    /** Who owes money, across every batch. The third tab. */
+    data object Dues : Destination {
+        override val route: String = "dues"
     }
 
     /** The create-a-class form. */

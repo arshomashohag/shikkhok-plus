@@ -25,7 +25,9 @@ class DestinationTest {
             listOf(
                 Destination.Auth,
                 Destination.Signup,
+                Destination.Overview,
                 Destination.Batches,
+                Destination.Dues,
                 Destination.CreateBatch,
                 Destination.Roster,
                 Destination.AddStudent,
@@ -74,5 +76,21 @@ class DestinationTest {
     fun `the add-student route substitutes the batch id`() {
         val built = Destination.AddStudent.of("b-7")
         assertEquals("batches/b-7/roster/add", built)
+    }
+
+    @Test
+    fun `the three tab destinations have plain routes with no arguments`() {
+        // A tab is switched to, never pushed with a payload. A route
+        // carrying `{arg}` could not be reached from the bar at all,
+        // and the failure would be silent: the tab simply would not
+        // open.
+        listOf(
+            Destination.Overview,
+            Destination.Batches,
+            Destination.Dues,
+        ).forEach {
+            assertTrue("{" !in it.route, "a tab route takes no argument: ${it.route}")
+            assertTrue("?" !in it.route, "a tab route takes no query: ${it.route}")
+        }
     }
 }
