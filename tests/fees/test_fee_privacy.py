@@ -216,7 +216,7 @@ def test_a_guardian_reads_their_own_childs_fee_cycles(
         enrollment_id=mine,
     )
 
-    assert [row.period for row in history] == ["2027-01"]
+    assert [row.period for row in history.cycles] == ["2027-01"]
 
 
 def test_a_declined_guardian_link_cannot_read_the_fees(
@@ -300,7 +300,7 @@ def test_a_student_cannot_read_another_students_fee_cycle(
             restricted_session,
             lens=StudentLens(account_id=me),
             enrollment_id=mine,
-        )
+        ).cycles
     ] == ["2027-01"]
 
 
@@ -554,5 +554,10 @@ def test_no_other_fee_response_carries_the_collection_number(
         enrollment_id=seat,
     )
 
-    for row in [*rows, *history]:
+    for row in [*rows, *history.cycles]:
         assert not hasattr(row, "collection_number")
+
+    # The WRAPPER too, not only its rows. `enrollment_fee_history`
+    # gained a `total_outstanding` on 2026-10-27, and a field added to
+    # the envelope would slip past a loop that only reads the entries.
+    assert not hasattr(history, "collection_number")

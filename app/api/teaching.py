@@ -39,6 +39,7 @@ from app.schemas.teaching import (
     SessionOrigin,
     SessionRescheduleRequest,
     SessionResponse,
+    SessionRosterResponse,
     SessionStatus,
     SessionSubjectRequest,
     TopicWriteRequest,
@@ -385,29 +386,43 @@ def write_session_topic(
 
 @router.get(
     "/sessions/{session_id}/attendance",
-    response_model=list[RosterSeatResponse],
+    response_model=SessionRosterResponse,
     responses=_AUTH_ERRORS,
 )
 def read_session_roster(
     session_id: uuid.UUID,
     session: Annotated[DbSession, Depends(get_session)],
     lens: Annotated[TeacherLens, Depends(teacher_lens)],
-) -> list[RosterSeatResponse]:
-    """Read one session's roster [BR1.5].
+) -> SessionRosterResponse:
+    """Read one session's roster, with its version [BR1.5].
+
+    **The version is what makes a conflict recoverable.** A write
+    carries a `base_attendance_version` and a stale one is refused
+    [TC-8, D-9]; the app re-reads here to show what changed, and
+    without the current version it cannot compose the next write.
 
     :param session_id: The session, from the route path
     :param session: The request-scoped session
     :param lens: The teacher lens
-    :return: One row per seat on the roster
+    :return: The seats, and the version they are at
     """
-    return [
-        RosterSeatResponse(
-            enrollment_id=row.enrollment_id,
-            display_name=row.display_name,
-            present=row.present,
-        )
-        for row in session_roster(session, lens=lens, session_id=session_id)
-    ]
+    return SessionRosterResponse(
+        seats=[
+            RosterSeatResponse(
+                enrollment_id=row.enrollment_id,
+                display_name=row.display_name,
+                present=row.present,
+            )
+            for row in session_roster(session, lens=lens, session_id=session_id)
+        ],
+        # `session_service`, not the bare name: this module has its
+        # own `read_session` HANDLER, and the unqualified call
+        # resolved to that instead — caught by mypy as a Session
+        # passed where a UUID was expected.
+        attendance_version=session_service.read_session(
+            session, lens=lens, session_id=session_id
+        ).attendance_version,
+    )
 
 
 @router.post(

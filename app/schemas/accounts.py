@@ -135,6 +135,16 @@ class InvitationResponse(BaseModel):
         batch default. None is NOT zero: zero is a waiver
     :ivar decision: This holder's own decision, ``pending`` or
         ``declined``
+    :ivar role: Which link this account holds on the seat. Present
+        because the DECLINE CONFIRMATION differs by role [BR5.2]: a
+        student's decline stops their fee, a guardian's leaves the
+        student's obligation entirely intact. The client had no
+        trustworthy way to tell them apart, and one confirmation shown
+        to both told a guardian a debt was cancelled when it was not.
+
+        This discloses nothing new -- the holder is on this seat -- and
+        it is decided server-side rather than inferred from a lens hint
+        the client supplied [TC-11, D-2]
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -144,6 +154,7 @@ class InvitationResponse(BaseModel):
     subject: list[str]
     fee_amount: MoneyField | None = None
     decision: Literal["pending", "declined"]
+    role: Literal["student", "guardian"]
 
 
 class DecisionResponse(BaseModel):

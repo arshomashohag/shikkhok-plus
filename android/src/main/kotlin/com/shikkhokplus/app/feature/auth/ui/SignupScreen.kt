@@ -25,8 +25,10 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
 import com.shikkhokplus.app.core.designsystem.LogoLoader
+import com.shikkhokplus.app.core.designsystem.BrandMark
 import com.shikkhokplus.app.core.designsystem.Reach
 import com.shikkhokplus.app.core.designsystem.ScreenScaffold
+import com.shikkhokplus.app.core.designsystem.Spacing
 import com.shikkhokplus.app.core.model.SignupRole
 import com.shikkhokplus.app.feature.auth.MessageKeys
 import com.shikkhokplus.app.feature.auth.SignupUiState
@@ -91,6 +93,10 @@ fun SignupScreen(
     ScreenScaffold(
         title = stringResource(R.string.signup_title),
         modifier = modifier,
+        // `O1`'s `.top` band: the mark beside the title, not a
+        // branding hero. A form screen with a full hero pushes its
+        // first field below the fold.
+        leading = { BrandMark(modifier = Modifier.padding(start = Spacing.listItem)) },
     ) {
         Text(
             text = stringResource(R.string.signup_subhead),

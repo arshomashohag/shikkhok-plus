@@ -68,16 +68,20 @@ const val TAG_OVERVIEW_RETRY: String = "overview_retry"
  * @param state What to render
  * @param onRetry Invoked when the teacher asks to try again
  * @param modifier The layout modifier
+ * @param bottomBar The navigation bar, supplied by the route so this
+ *   screen stays renderable in a test without one
  */
 @Composable
 fun OverviewScreen(
     state: OverviewUiState,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
+    bottomBar: @Composable () -> Unit = {},
 ) {
     ScreenScaffold(
         title = stringResource(R.string.screen_title_overview),
         modifier = modifier,
+        bottomBar = bottomBar,
     ) {
         when (state) {
             OverviewUiState.Idle -> Unit

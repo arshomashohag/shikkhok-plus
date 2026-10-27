@@ -20,6 +20,10 @@ import com.shikkhokplus.app.core.model.Money
  * @property fee This seat's fee, or null when it inherits the batch
  *   default. Null is NOT zero: zero is a waiver
  * @property state This holder's own decision
+ * @property heldAsGuardian Whether this holder is the guardian on the
+ *   seat rather than the student. Carried per row because the decline
+ *   confirmation differs by role [BR5.2], and server-decided: the
+ *   invitation response states it
  * @property canDecline Whether a decline action belongs on this row.
  *
  *   **A decision, not an inference** [TC-9, D-31]. A composable that
@@ -37,6 +41,7 @@ data class InvitationRow(
     val fee: Money?,
     val state: AcceptanceState,
     val canDecline: Boolean,
+    val heldAsGuardian: Boolean,
 )
 
 /**

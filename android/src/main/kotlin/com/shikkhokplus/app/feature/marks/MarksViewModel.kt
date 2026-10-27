@@ -26,6 +26,21 @@ data class ExamResultsPayload(
     val writable: Boolean = true,
 )
 
+/**
+ * Who is reading a marksheet, which decides the route [BR6.2, BR7.2].
+ *
+ * Not a preference and not a hint the server trusts: it selects which
+ * endpoint is called, and each endpoint resolves its own lens. Naming
+ * the wrong one is refused by that lens rather than silently served.
+ */
+enum class MarksheetReader {
+    /** The student reading their own seat. */
+    SELF,
+
+    /** A guardian reading their recorded child's seat. */
+    CHILD,
+}
+
 /** What the marks repository must provide. */
 interface MarksRepository {
     /**
@@ -83,16 +98,30 @@ interface MarksRepository {
     ): AuthResult<Unit>
 
     /**
-     * Read a batch's marksheet for the signed-in student or guardian
-     * [BR6.2].
+     * Read one seat's marksheet [BR6.2].
+     *
+     * **The seat is always named, and `reader` chooses the route.**
+     * A student and a guardian read the same marksheet over two
+     * different paths — `/v1/me/enrollments/…` and `/v1/children/…` —
+     * because each resolves a different lens, and the lens is what
+     * decides whether this caller may see this seat [BR7.2]. A single
+     * path carrying a "whose is it" flag would make that an
+     * application check instead of a routing one.
+     *
+     * An earlier form of this contract took a nullable seat, meaning
+     * "the student's own". It could not be implemented: both server
+     * routes parse a seat id from the path, so the student case had
+     * no id to send.
      *
      * @param examId The exam
-     * @param enrollmentId The seat, for a guardian naming their child
+     * @param enrollmentId The seat, in both cases
+     * @param reader Which lens is asking
      * @return The marksheet, or a refusal
      */
     suspend fun marksheet(
         examId: String,
-        enrollmentId: String?,
+        enrollmentId: String,
+        reader: MarksheetReader,
     ): AuthResult<MarksheetDto>
 
     /**
@@ -246,13 +275,18 @@ class MarksViewModel(
      * Load a marksheet for a student or guardian [BR6.2].
      *
      * @param examId The exam
-     * @param enrollmentId The child's seat, for a guardian
+     * @param enrollmentId The seat being read
+     * @param reader Which lens is asking, which chooses the route
      */
-    fun loadMarksheet(examId: String, enrollmentId: String? = null) {
+    fun loadMarksheet(
+        examId: String,
+        enrollmentId: String,
+        reader: MarksheetReader,
+    ) {
         _state.value = MarksUiState.Loading
         viewModelScope.launch {
             _state.value =
-                when (val result = repository.marksheet(examId, enrollmentId)) {
+                when (val result = repository.marksheet(examId, enrollmentId, reader)) {
                     is AuthResult.Ok -> MarksStateMapper.afterMarksheet(result.value)
                     // **The toggle-off case is NOT distinguishable
                     // here, and that is the server's deliberate

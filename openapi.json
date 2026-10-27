@@ -960,6 +960,33 @@
         "title": "ExamResponse",
         "type": "object"
       },
+      "ExamResultsResponse": {
+        "additionalProperties": false,
+        "description": "One exam's results, with the exam and whether it may be written.\n\n**A wrapper rather than a bare array, and `writable` is why.** The\nscreen must know whether to offer mark entry at all, and that is a\nserver decision [BR5.5]: an exam in an inactive batch is read-only\nand the write is refused with `teaching.batch.inactive`. Without\nit the client either guesses, or offers an entry field that fails\non save — which is the failure a person blames on the app.\n\nThe exam travels with the results because the screen shows its\ntitle and total alongside them, and a second request to learn what\nthe first was about is a round trip the server can spare.\n\n:ivar exam: The exam these results belong to\n:ivar results: One row per seat [BR4.3]\n:ivar writable: Whether marks may be entered, decided server-side",
+        "properties": {
+          "exam": {
+            "$ref": "#/components/schemas/ExamResponse"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/SeatResultResponse"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "writable": {
+            "title": "Writable",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "exam",
+          "results",
+          "writable"
+        ],
+        "title": "ExamResultsResponse",
+        "type": "object"
+      },
       "FamilyBatchViewResponse": {
         "additionalProperties": false,
         "description": "What a student or guardian sees of one batch [BR7.2].\n\n``served_at`` is BR7.3's server timestamp, so a client rendering\nthis from cache can state its age without consulting the device\nclock -- which is the thing excluded from decisions.\n\n:ivar next_session_date: The next scheduled session's date, or\n    null\n:ivar next_session_start_time: Its start time, or null\n:ivar past_sessions: Past sessions with topics and attendance\n:ivar announcements: The batch's visible notes\n:ivar served_at: When the server computed this",
@@ -1055,6 +1082,28 @@
           "status"
         ],
         "title": "FeeCycleResponse",
+        "type": "object"
+      },
+      "FeeHistoryResponse": {
+        "additionalProperties": false,
+        "description": "One seat's periods, with the total the server computed.\n\n**A wrapper rather than a bare array, and the total is why.** The\nclient must not sum the rows: that is money arithmetic on the\nAndroid side, which [D-20] forbids, and it would be wrong the\nmoment the history paginates — a page of three periods would\nreport a total that is not the balance.\n\nThe value is the ledger fold's own ``total_outstanding``, floored\nat zero inside the money module, not a second sum computed beside\nthe rows.\n\n:ivar cycles: One row per generated period, oldest first\n:ivar total_outstanding: What this seat still owes in total",
+        "properties": {
+          "cycles": {
+            "items": {
+              "$ref": "#/components/schemas/FeeCycleResponse"
+            },
+            "title": "Cycles",
+            "type": "array"
+          },
+          "total_outstanding": {
+            "$ref": "#/components/schemas/Money"
+          }
+        },
+        "required": [
+          "cycles",
+          "total_outstanding"
+        ],
+        "title": "FeeHistoryResponse",
         "type": "object"
       },
       "GuardianChildResponse": {
@@ -1166,7 +1215,7 @@
       },
       "InvitationResponse": {
         "additionalProperties": false,
-        "description": "One unaccepted seat, in exactly the width BR1.4 permits.\n\nBatch name, subject and fee amount -- all teacher-authored, so this\nread crosses no privacy boundary -- plus the seat's own id, which\nthe accept and decline routes are keyed on, and this holder's own\ndecision so the screen can offer the right action without deciding\nwhat ``declined`` means for itself [TC-9].\n\n**There is no attendance, no mark, no other enrollment and no\nfurther batch field**, and no write action but accept and decline\non the link that names the holder [AC1.10.2].\n\n:ivar enrollment_id: The seat, which the decision routes are keyed on\n:ivar batch_name: The class being joined\n:ivar subject: The subjects taught, as the teacher named them\n:ivar fee_amount: This seat's fee, or None when it inherits the\n    batch default. None is NOT zero: zero is a waiver\n:ivar decision: This holder's own decision, ``pending`` or\n    ``declined``",
+        "description": "One unaccepted seat, in exactly the width BR1.4 permits.\n\nBatch name, subject and fee amount -- all teacher-authored, so this\nread crosses no privacy boundary -- plus the seat's own id, which\nthe accept and decline routes are keyed on, and this holder's own\ndecision so the screen can offer the right action without deciding\nwhat ``declined`` means for itself [TC-9].\n\n**There is no attendance, no mark, no other enrollment and no\nfurther batch field**, and no write action but accept and decline\non the link that names the holder [AC1.10.2].\n\n:ivar enrollment_id: The seat, which the decision routes are keyed on\n:ivar batch_name: The class being joined\n:ivar subject: The subjects taught, as the teacher named them\n:ivar fee_amount: This seat's fee, or None when it inherits the\n    batch default. None is NOT zero: zero is a waiver\n:ivar decision: This holder's own decision, ``pending`` or\n    ``declined``\n:ivar role: Which link this account holds on the seat. Present\n    because the DECLINE CONFIRMATION differs by role [BR5.2]: a\n    student's decline stops their fee, a guardian's leaves the\n    student's obligation entirely intact. The client had no\n    trustworthy way to tell them apart, and one confirmation shown\n    to both told a guardian a debt was cancelled when it was not.\n\n    This discloses nothing new -- the holder is on this seat -- and\n    it is decided server-side rather than inferred from a lens hint\n    the client supplied [TC-11, D-2]",
         "properties": {
           "batch_name": {
             "title": "Batch Name",
@@ -1195,6 +1244,14 @@
               }
             ]
           },
+          "role": {
+            "enum": [
+              "guardian",
+              "student"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
           "subject": {
             "items": {
               "type": "string"
@@ -1207,6 +1264,7 @@
           "batch_name",
           "decision",
           "enrollment_id",
+          "role",
           "subject"
         ],
         "title": "InvitationResponse",
@@ -1314,14 +1372,36 @@
         "type": "object"
       },
       "MeResponse": {
-        "description": "Everything this account can be.\n\n**No role, and no default lens.** The list says what is available;\nwhich one the person wants is their choice, and a server-chosen\ndefault would be a stored role by another name. A single-entry\nlist is the app's cue to skip the picker.\n\n:ivar lenses: Every available lens, teacher first",
+        "description": "Everything this account can be.\n\n**No role, and no default lens.** The list says what is available;\nwhich one the person wants is their choice, and a server-chosen\ndefault would be a stored role by another name. A single-entry\nlist is the app's cue to skip the picker.\n\n:ivar lenses: Every available lens, teacher first\n:ivar self_name: The name this person chose for themselves, or\n    None before they have set one\n:ivar address: Their address, or None. **Owner-private** [BR3.4]:\n    it sits in `OWNER_PRIVATE_FIELDS` and reaches no teacher-lens\n    response, which the schema-wide privacy gate asserts. It is\n    returned HERE because this is the owner reading their own row",
         "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
           "lenses": {
             "items": {
               "$ref": "#/components/schemas/LensEntry"
             },
             "title": "Lenses",
             "type": "array"
+          },
+          "self_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Self Name"
           }
         },
         "title": "MeResponse",
@@ -1465,6 +1545,38 @@
           "collection_number"
         ],
         "title": "PaymentDestinationResponse",
+        "type": "object"
+      },
+      "ProfileUpdateRequest": {
+        "additionalProperties": false,
+        "description": "What a person may change about themselves.\n\n**Name and address only.** A profile write cannot touch the phone\nnumber, which is the login and changes only through the OTP path,\nand it cannot touch a lens: a role is computed per request from\nowned batches and enrollments and has no stored field to set\n[TC-11, D-2].\n\nBoth are optional and omitting one leaves it unchanged, so the app\ncan save a single edited field without resending the other.\n\n:ivar self_name: The new name, or None to leave it alone\n:ivar address: The new address, or None to leave it alone",
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "self_name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Self Name"
+          }
+        },
+        "title": "ProfileUpdateRequest",
         "type": "object"
       },
       "ProgressEntryResponse": {
@@ -2012,6 +2124,29 @@
           "topic_version"
         ],
         "title": "SessionResponse",
+        "type": "object"
+      },
+      "SessionRosterResponse": {
+        "additionalProperties": false,
+        "description": "One session's roster, with the version it is at.\n\n**A wrapper rather than a bare array, and the version is why.**\nAttendance writes carry a `base_attendance_version` and a stale\none is refused with a 409 [TC-8, D-9]. After that refusal the app\nre-reads the roster to show what changed — and without the current\nversion here it cannot compose the next write, so a conflict\nbecomes a dead end rather than something a person can resolve.\n\n:ivar seats: One row per seat on the roster\n:ivar attendance_version: The roster's current version",
+        "properties": {
+          "attendance_version": {
+            "title": "Attendance Version",
+            "type": "integer"
+          },
+          "seats": {
+            "items": {
+              "$ref": "#/components/schemas/RosterSeatResponse"
+            },
+            "title": "Seats",
+            "type": "array"
+          }
+        },
+        "required": [
+          "attendance_version",
+          "seats"
+        ],
+        "title": "SessionRosterResponse",
         "type": "object"
       },
       "SessionSubjectRequest": {
@@ -3707,11 +3842,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/FeeCycleResponse"
-                  },
-                  "title": "Response Read Child Fees V1 Children  Enrollment Id  Fees Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/FeeHistoryResponse"
                 }
               }
             },
@@ -4297,11 +4428,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/FeeCycleResponse"
-                  },
-                  "title": "Response Read Enrollment Fees As Teacher V1 Enrollments  Enrollment Id  Fees Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/FeeHistoryResponse"
                 }
               }
             },
@@ -4724,7 +4851,7 @@
     },
     "/v1/exams/{exam_id}/results": {
       "get": {
-        "description": "Read every seat's result for one exam [BR4.3].\n\n``not_entered`` and ``joined_after`` are **derived** and never\ntyped by the teacher.\n\n:param exam_id: The exam, from the route path\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: One row per seat",
+        "description": "Read every seat's result for one exam, with the exam [BR4.3].\n\n``not_entered`` and ``joined_after`` are **derived** and never\ntyped by the teacher.\n\n**`writable` is reported, not inferred.** Whether marks may be\nentered is a server decision [BR5.5] — an exam in an inactive\nbatch is read-only — and a client guessing would offer an entry\nfield whose save is refused.\n\n:param exam_id: The exam, from the route path\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: The exam, one row per seat, and whether it is writable",
         "operationId": "read_exam_results_v1_exams__exam_id__results_get",
         "parameters": [
           {
@@ -4743,11 +4870,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/SeatResultResponse"
-                  },
-                  "title": "Response Read Exam Results V1 Exams  Exam Id  Results Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/ExamResultsResponse"
                 }
               }
             },
@@ -4996,7 +5119,7 @@
         ]
       },
       "get": {
-        "description": "List every lens this account has.\n\n:param account_id: The authenticated account\n:param session: The session to query through\n:return: The available lenses, each with its count",
+        "description": "List every lens this account has.\n\n:param account_id: The authenticated account\n:param session: The session to query through\n:return: The available lenses, and this person's own profile",
         "operationId": "read_me_v1_me_get",
         "responses": {
           "200": {
@@ -5011,6 +5134,46 @@
           }
         },
         "summary": "Read Me",
+        "tags": [
+          "me"
+        ]
+      },
+      "patch": {
+        "description": "Change this person's own name or address.\n\n**The row is created if it does not exist.** An account may reach\nhere before anything wrote a profile for it — a person who signed\nup without one, or whose teacher recorded only a number — and a\nwrite that failed because there was nothing to update would be a\nconfusing refusal for a form that is simply being filled in.\n\n**Row-level security is what bounds this, not the handler.** The\napp connects as the restricted role and the policy on `profile`\nadmits only the owner's row, so a write for another account fails\nat the database rather than relying on this function remembering\nto check [TC-13, D-7].\n\n:param body: The fields to change; an omitted one is left alone\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:return: The updated profile, with the lenses unchanged",
+        "operationId": "update_me_v1_me_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Me",
         "tags": [
           "me"
         ]
@@ -5225,11 +5388,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/FeeCycleResponse"
-                  },
-                  "title": "Response Read My Fees V1 Me Fees Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/FeeHistoryResponse"
                 }
               }
             },
@@ -5380,7 +5539,7 @@
     },
     "/v1/sessions/{session_id}/attendance": {
       "get": {
-        "description": "Read one session's roster [BR1.5].\n\n:param session_id: The session, from the route path\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: One row per seat on the roster",
+        "description": "Read one session's roster, with its version [BR1.5].\n\n**The version is what makes a conflict recoverable.** A write\ncarries a `base_attendance_version` and a stale one is refused\n[TC-8, D-9]; the app re-reads here to show what changed, and\nwithout the current version it cannot compose the next write.\n\n:param session_id: The session, from the route path\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: The seats, and the version they are at",
         "operationId": "read_session_roster_v1_sessions__session_id__attendance_get",
         "parameters": [
           {
@@ -5399,11 +5558,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/RosterSeatResponse"
-                  },
-                  "title": "Response Read Session Roster V1 Sessions  Session Id  Attendance Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/SessionRosterResponse"
                 }
               }
             },

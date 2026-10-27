@@ -1,13 +1,19 @@
 package com.shikkhokplus.app.feature.auth.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -16,6 +22,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
@@ -23,8 +30,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.text.KeyboardOptions
 import com.shikkhokplus.app.R
 import com.shikkhokplus.app.core.designsystem.LogoLoader
+import com.shikkhokplus.app.core.designsystem.BrandHero
 import com.shikkhokplus.app.core.designsystem.OtpField
 import com.shikkhokplus.app.core.designsystem.Reach
+import com.shikkhokplus.app.core.designsystem.Spacing
 import com.shikkhokplus.app.core.designsystem.ScreenScaffold
 import com.shikkhokplus.app.core.designsystem.OtpFieldState
 import com.shikkhokplus.app.core.designsystem.TAG_OTP_FIELD
@@ -58,90 +67,169 @@ fun AuthScreen(
     var phone by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
 
-    ScreenScaffold(
-        title = stringResource(R.string.app_name),
-        modifier = modifier,
+    // **`O2`'s three bands**, which the app did not have: a blue
+    // branding hero, the content centred in what is left, and the
+    // action pinned at the bottom. It was a single top-aligned column
+    // instead, so the number field sat under the app bar with the
+    // whole screen empty beneath it.
+    //
+    // No `ScreenScaffold` here: this screen has no app bar at all in
+    // the design — the hero IS the top, and a bar above it would be a
+    // second header over a branding band.
+    // **One scrolling column, not three competing bands.** The
+    // artboard draws a hero, a centred body and a pinned action bar,
+    // and translating that as a fixed hero plus a weighted body plus
+    // a fixed bar fails on a short screen: on a 320x414 viewport the
+    // hero alone takes 260px, so the weighted band collapsed to 6px
+    // and the number field scrolled out of a window too small to see
+    // it. Found by printing the semantic tree, not by guessing.
+    //
+    // Scrolling the whole screen keeps the artboard's ORDER and
+    // proportions on a tall phone — hero, content, action at the foot
+    // — while guaranteeing that nothing is ever unreachable on a
+    // short one. `Arrangement.Center` on the inner column is what
+    // gives the vertical centring the design asks for when there is
+    // room to spare.
+    Surface(
+        modifier = modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background,
     ) {
-        // **A heading and a sentence, where there was an unstyled app
-        // name.** The screen previously opened with `Text(app_name)` at
-        // default body size and went straight into a field, so nothing
-        // said what the screen was for or what would happen next. The
-        // name moved to the bar, which is where a product name belongs.
-        Text(
-            text = stringResource(R.string.auth_headline),
-            style = MaterialTheme.typography.headlineSmall,
-        )
-        Text(
-            text = stringResource(R.string.auth_subhead),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        // **The hero's height is a function of the screen, not only
+        // the state.** The artboard draws the tall band on a 760dp
+        // phone; on a short screen the same band leaves no room for
+        // the field and the action beneath it. `BoxWithConstraints`
+        // lets the tall version appear only where it fits.
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val roomForTallHero = maxHeight >= TALL_HERO_MIN_HEIGHT
 
-        when (state) {
-            // The app does not route here while restoring; this arm
-            // exists so the `when` stays exhaustive and a future
-            // caller cannot render a blank screen by accident.
-            AuthUiState.Restoring -> LogoLoader()
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState()),
+            ) {
+            BrandHero(
+                compact = state !is AuthUiState.Idle || !roomForTallHero,
+                tagline = stringResource(R.string.auth_tagline),
+            )
 
-            AuthUiState.Idle,
-            is AuthUiState.Failed,
-            -> {
-                PhoneEntry(
-                    phone = phone,
-                    onPhoneChange = { phone = it },
-                    onSubmit = { onRequestCode(phone) },
-                )
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            horizontal = Spacing.screen,
+                            vertical = Spacing.section,
+                        ),
+                verticalArrangement = Arrangement.spacedBy(Spacing.listItem),
+            ) {
+                when (state) {
+                    AuthUiState.Restoring -> LogoLoader()
 
-                // Directly beneath the control that failed, and ABOVE
-                // the signup link, so a retry is never below the fold.
-                if (state is AuthUiState.Failed) {
-                    FailureBlock(state = state, onRetry = onRetry)
-                }
+                    AuthUiState.Idle,
+                    is AuthUiState.Failed,
+                    -> {
+                        Text(
+                            text = stringResource(R.string.auth_headline),
+                            style = MaterialTheme.typography.titleLarge,
+                        )
+                        PhoneEntry(
+                            phone = phone,
+                            onPhoneChange = { phone = it },
+                        )
+                        if (state is AuthUiState.Failed) {
+                            FailureBlock(state = state, onRetry = onRetry)
+                        }
+                        ActionBar(
+                            onSubmit = { onRequestCode(phone) },
+                            onGoToSignup = onGoToSignup,
+                            enabled = phone.isNotBlank(),
+                        )
+                    }
 
-                // **The way out of the dead end.** The code-sent
-                // message says one is on its way "if this number is
-                // registered", which is literally true and left a
-                // person whose teacher had not recorded them with
-                // nowhere to go: `SignupScreen` shipped in D1 and
-                // nothing could open it.
-                //
-                // A TextButton rather than a second filled one: there
-                // is one primary action on this screen and it is
-                // requesting the code. Signing up is the path for the
-                // minority who need it, and competing emphasis would
-                // make the common case harder to see.
-                TextButton(
-                    onClick = onGoToSignup,
-                    modifier = Modifier.testTag(TAG_GO_TO_SIGNUP),
-                ) {
-                    Text(text = stringResource(R.string.auth_go_to_signup))
+                    AuthUiState.Sending -> LogoLoader(
+                        modifier = Modifier.testTag(TAG_SENDING),
+                        size = 72.dp,
+                        label = stringResource(R.string.auth_sending),
+                    )
+
+                    AuthUiState.AwaitingCode -> CodeEntry(
+                        code = code,
+                        onCodeChange = { code = it },
+                        onSubmit = { onSubmitCode(code) },
+                    )
+
+                    AuthUiState.SignedIn -> Text(
+                        text = stringResource(R.string.auth_verify),
+                        modifier = Modifier.testTag(TAG_SIGNED_IN),
+                    )
                 }
             }
+            }
+        }
+    }
+}
 
-            // The brand loader rather than a default spinner, which
-            // is what the design asks for anywhere above 48dp.
-            AuthUiState.Sending -> LogoLoader(
-                modifier = Modifier.testTag(TAG_SENDING),
-                size = 72.dp,
-            )
+/**
+ * The shortest screen that can hold the tall branding band and still
+ * show the number field and its action without scrolling.
+ *
+ * Below this the compact band is used instead. 560dp is comfortably
+ * under any current phone in portrait and above the 414dp the tests
+ * render at, which is what makes the short case covered rather than
+ * assumed.
+ */
+private val TALL_HERO_MIN_HEIGHT = 560.dp
 
-            AuthUiState.AwaitingCode -> CodeEntry(
-                code = code,
-                onCodeChange = { code = it },
-                onSubmit = { onSubmitCode(code) },
-            )
-            // A failure that happened while awaiting a code is handled
-            // by the `Failed` arm above, which re-renders the phone
-            // entry. That is deliberate and unchanged: a verify that
-            // failed is recoverable by correcting the number, and the
-            // state carries no memory of which field was in use.
-
-            AuthUiState.SignedIn -> Text(
-                text = stringResource(R.string.auth_verify),
-                modifier = Modifier.testTag(TAG_SIGNED_IN),
+/**
+ * The pinned foot of the sign-in screen.
+ *
+ * @param onSubmit Called to request a code
+ * @param onGoToSignup Called to open self-registration
+ * @param enabled Whether a number has been entered
+ */
+@Composable
+private fun ActionBar(
+    onSubmit: () -> Unit,
+    onGoToSignup: () -> Unit,
+    enabled: Boolean,
+) {
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(
+                    start = Spacing.screen,
+                    end = Spacing.screen,
+                    top = Spacing.tight,
+                    bottom = Spacing.section,
+                ),
+        verticalArrangement = Arrangement.spacedBy(Spacing.tight),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Button(
+            onClick = onSubmit,
+            // Disabled until there is something to send, rather than
+            // letting the server refuse an empty number.
+            enabled = enabled,
+            shape = RoundedCornerShape(28.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = Reach.moneyButton)
+                    .testTag(TAG_REQUEST_CODE),
+        ) {
+            Text(
+                text = stringResource(R.string.auth_request_code),
+                style = MaterialTheme.typography.labelLarge,
             )
         }
-
+        TextButton(
+            onClick = onGoToSignup,
+            modifier = Modifier.testTag(TAG_GO_TO_SIGNUP),
+        ) {
+            Text(text = stringResource(R.string.auth_go_to_signup))
+        }
     }
 }
 
@@ -190,7 +278,6 @@ private fun FailureBlock(
 private fun PhoneEntry(
     phone: String,
     onPhoneChange: (String) -> Unit,
-    onSubmit: () -> Unit,
 ) {
     OutlinedTextField(
         value = phone,
@@ -204,23 +291,6 @@ private fun PhoneEntry(
         singleLine = true,
         modifier = Modifier.fillMaxWidth().testTag(TAG_PHONE_FIELD),
     )
-    Button(
-        onClick = onSubmit,
-        // **`Reach.touch`, which the design system specified and no
-        // screen used.** A default Button is 40dp tall — under the
-        // 48dp floor this project set for anything tappable, and the
-        // phones it targets are not ones you tap precisely.
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .heightIn(min = Reach.touch)
-                .testTag(TAG_REQUEST_CODE),
-    ) {
-        Text(
-            text = stringResource(R.string.auth_request_code),
-            style = MaterialTheme.typography.labelLarge,
-        )
-    }
 }
 
 @Composable

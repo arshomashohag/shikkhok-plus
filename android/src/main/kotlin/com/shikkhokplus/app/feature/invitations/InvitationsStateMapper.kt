@@ -144,6 +144,14 @@ object InvitationsStateMapper {
             // [TC-9, D-31]. An already-declined seat keeps its accept
             // action and offers no second decline [BR5.4].
             canDecline = state == AcceptanceState.PENDING,
+            // **Read from the response, never inferred.** The server
+            // states which link this account holds; the client sends a
+            // lens hint but must not trust its own [TC-11, D-2], and
+            // an unknown value falls to student rather than guessing
+            // guardian — the sheet that would wrongly promise a fee
+            // had stopped is the guardian one, so the safer default is
+            // the student sheet, which the student case also needs.
+            heldAsGuardian = dto.role == "guardian",
         )
     }
 }

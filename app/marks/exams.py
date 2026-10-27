@@ -250,6 +250,38 @@ def update_exam(
     )
 
 
+def read_exam_row(
+    session: DbSession,
+    *,
+    lens: TeacherLens,
+    exam_id: uuid.UUID,
+) -> ExamRow:
+    """Read one exam with its subject name, for the results screen.
+
+    ``readable_exam`` returns the row and checks the lens; this adds
+    the subject name, which lives on a joined table and which
+    ``ExamResponse`` carries. Written beside ``list_exams`` so the two
+    cannot describe an exam differently.
+
+    :param session: The session to read through
+    :param lens: The teacher lens
+    :param exam_id: The exam
+    :return: The exam, with its subject
+    :raises AuthorizationError: This lens does not reach the exam
+    """
+    exam = readable_exam(session, lens=lens, exam_id=exam_id)
+    subject = session.scalars(
+        sa.select(BatchSubject.name).where(BatchSubject.id == exam.batch_subject_id)
+    ).one_or_none()
+    return ExamRow(
+        exam_id=exam.id,
+        title=exam.title,
+        date=exam.date,
+        total_marks=exam.total_marks,
+        subject_name=subject or "",
+    )
+
+
 def list_exams(
     session: DbSession,
     *,

@@ -146,17 +146,24 @@ typecheck:
 ##       with their violation fixtures and configuration assertions, and the
 ##       property test over randomized histories.
 test:
-	@echo "==> tests + money coverage (100% branch)"
-	$(PY) -m pytest tests --cov=app.money --cov-branch --cov-report=term-missing
-	@echo ""
-	@echo "==> backend coverage floor (80% line) for the rest of app/"
-	@# A SECOND run, because the two floors genuinely differ: 100% branch on
-	@# the money module, 80% line elsewhere. One run cannot enforce both, and
-	@# the floor that is not enforced is the one that quietly erodes.
+	@echo "==> tests, measured once, with both floors enforced"
+	@# **One pytest run, two reports.** This used to be two full runs of
+	@# the same suite, because the two floors genuinely differ: 100%
+	@# branch on app/money, 80% line on the rest. That reasoning is
+	@# still correct -- what was wrong was the conclusion that one RUN
+	@# cannot enforce both. One run cannot enforce both with one
+	@# `--cov-fail-under`; it can with two `coverage report` passes over
+	@# the same data file, which is what this does. The suite is the
+	@# expensive part and it now executes once.
 	@#
-	@# app.contract.emit is excluded: it is a `python -m` entry point whose
-	@# whole body is the subprocess the determinism test invokes, so it is
-	@# exercised in a child process where this run's tracer cannot see it.
+	@# `--cov-report=` (empty) suppresses the per-run report: the two
+	@# reports below are the ones that carry the floors, and a third
+	@# unscoped one would only invite someone to read the wrong number.
+	@#
+	@# app.contract.emit is excluded in .coveragerc-backend: it is a
+	@# `python -m` entry point whose whole body is the subprocess the
+	@# determinism test invokes, so it is exercised in a child process
+	@# where this run's tracer cannot see it.
 	@#
 	@# The package list is EXPLICIT rather than `--cov=app`, so a new
 	@# package is a deliberate line here. The cost of that choice is real
@@ -172,6 +179,7 @@ test:
 	@# outside the floor and the gate passed -- the very failure the
 	@# gate exists to prevent, reproduced inside the gate.
 	$(PY) -m pytest tests -q -p no:cacheprovider \
+		--cov=app.money \
 		--cov=app.accounts --cov=app.analytics \
 		--cov=app.api --cov=app.audit --cov=app.auth --cov=app.authz \
 		--cov=app.batches \
@@ -183,8 +191,25 @@ test:
 		--cov=app.notifications \
 		--cov=app.schemas \
 		--cov=app.teaching \
-		--cov-report=term-missing --cov-fail-under=80 \
+		--cov-report= \
 		--cov-config=.coveragerc-backend
+	@echo ""
+	@echo "==> money coverage (100% branch)"
+	@# Reported FIRST and from the same data: the stronger floor is the
+	@# one worth failing on early. `--include` scopes the report without
+	@# re-running anything, and the config carries the one sanctioned
+	@# exclusion.
+	$(PY) -m coverage report --include='app/money/*' \
+		--fail-under=100 --show-missing --rcfile=pyproject.toml
+	@echo ""
+	@echo "==> backend coverage floor (80% line) for the rest of app/"
+	@# **`--omit`, not a shorter `--include` list.** Scoping this report
+	@# by omission means a package added to the run above is measured
+	@# here by default; scoping it by inclusion would mean a new package
+	@# silently sat outside the floor, which is the exact erosion the
+	@# explicit --cov list exists to prevent.
+	$(PY) -m coverage report --omit='app/money/*,app/contract/emit.py' \
+		--fail-under=80 --show-missing --rcfile=.coveragerc-backend
 
 ## The gates alone, for when that is what you are working on.
 gates:

@@ -146,6 +146,11 @@ def test_lens_exempt_set_holds_exactly_the_known_routes() -> None:
         {
             ("POST", "/v1/auth/refresh"),
             ("GET", "/v1/me"),
+            # The write half of the same row, added 2026-10-27 on
+            # exactly GET /v1/me's reasoning: it touches only the
+            # authenticated account's own profile, and row-level
+            # security is what bounds it.
+            ("PATCH", "/v1/me"),
             ("GET", "/v1/invitations"),
             ("DELETE", "/v1/me"),
         }

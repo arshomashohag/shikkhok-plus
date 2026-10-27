@@ -85,6 +85,11 @@ data class SignupResponseDto(
  * @property subject The subjects taught, as the teacher named them
  * @property feeAmount This seat's fee, or null when it inherits
  * @property decision `pending` or `declined`, decided server-side
+ * @property role Which link this account holds, `student` or
+ *   `guardian`. **The decline confirmation differs by role** [BR5.2]:
+ *   a student's decline stops their fee, a guardian's leaves the
+ *   student's obligation intact. Decided server-side, never inferred
+ *   from the lens hint the client supplied [TC-11, D-2]
  */
 @Serializable
 data class InvitationDto(
@@ -93,6 +98,7 @@ data class InvitationDto(
     val subject: List<String> = emptyList(),
     @SerialName("fee_amount") val feeAmount: Money? = null,
     val decision: String,
+    val role: String,
 )
 
 /**

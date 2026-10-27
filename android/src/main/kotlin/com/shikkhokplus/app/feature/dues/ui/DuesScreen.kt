@@ -64,16 +64,20 @@ const val TAG_DUES_RETRY: String = "dues_retry"
  * @param state What to render
  * @param onRetry Invoked when the teacher asks to try again
  * @param modifier The layout modifier
+ * @param bottomBar The navigation bar, supplied by the route so this
+ *   screen stays renderable in a test without one
  */
 @Composable
 fun DuesScreen(
     state: DuesUiState,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
+    bottomBar: @Composable () -> Unit = {},
 ) {
     ListScreenScaffold(
         title = stringResource(R.string.dues_title),
         modifier = modifier,
+        bottomBar = bottomBar,
     ) {
         // The title is in the app bar. It was rendered here too,
         // so every screen showed its name twice.

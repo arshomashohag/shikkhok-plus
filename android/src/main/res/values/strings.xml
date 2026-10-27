@@ -522,4 +522,21 @@
     <string name="nav_more">More</string>
     <string name="batches_subtitle_none">None yet</string>
     <string name="auth_restoring">Signing you in…</string>
+    <string name="auth_tagline">For teachers, students and guardians</string>
+    <string name="auth_sending">Sending code…</string>
+    <string name="roster_open_sessions">Attendance</string>
+    <string name="roster_open_exams">Marks</string>
+    <string name="lens_picker_title">Continue as</string>
+    <string name="lens_picker_subtitle">You hold more than one role. Pick the one you want to use now — you can switch any time.</string>
+    <string name="lens_teacher">Teacher</string>
+    <string name="lens_student">Student</string>
+    <string name="lens_guardian">Guardian</string>
+    <string name="lens_teacher_count">%1$s classes</string>
+    <string name="lens_student_count">%1$s enrolments</string>
+    <string name="lens_guardian_count">%1$s children</string>
+    <string name="lens_switch">Switch role</string>
+    <string name="session_retry">Try again</string>
+    <string name="nav_children">Children</string>
+    <string name="nav_invitations">Invitations</string>
+    <string name="nav_fees">Fees</string>
 </resources>

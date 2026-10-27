@@ -53,6 +53,12 @@ import com.shikkhokplus.app.R
  * @param scrollable Whether the content scrolls. A form must, because
  *   the keyboard takes half the screen; a list must not, because the
  *   list scrolls itself and nesting two scrollers breaks both
+ * @param leading Something small before the title — `O1` puts the
+ *   logo mark there
+ * @param bottomBar The navigation bar, on a screen that is a tab
+ *   destination. Empty by default: a screen pushed onto the stack
+ *   shows no tabs, because tapping one from there would leave a
+ *   half-finished task behind the bar.
  * @param content The screen's own contents, in a column
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -62,10 +68,15 @@ fun ScreenScaffold(
     modifier: Modifier = Modifier,
     scrollable: Boolean = true,
     onBack: (() -> Unit)? = null,
+    leading: @Composable (() -> Unit)? = null,
+    bottomBar: @Composable () -> Unit = {},
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
+        // A tab destination can be a form-shaped screen: the overview
+        // scrolls as one column and is still a tab.
+        bottomBar = bottomBar,
         topBar = {
             TopAppBar(
                 title = {
@@ -80,6 +91,12 @@ fun ScreenScaffold(
                 // navigation has one, but the affordance should be on
                 // screen either way.
                 navigationIcon = {
+                    // `O1` pairs a small mark with the title rather
+                    // than a back arrow: it is reached from sign-in,
+                    // which the alternative link returns to.
+                    if (leading != null) {
+                        leading()
+                    }
                     if (onBack != null) {
                         IconButton(
                             onClick = onBack,
@@ -139,6 +156,8 @@ fun ScreenScaffold(
  *   as the design's `.ab` block draws it
  * @param header Anything fixed above the list — a staleness notice,
  *   say — which does not scroll with it
+ * @param leading Something small before the title — `O1` puts the
+ *   logo mark there
  * @param bottomBar The navigation bar, on a screen that is a tab
  *   destination. Empty by default: a screen pushed onto the stack
  *   shows no tabs, because tapping one from there would leave a

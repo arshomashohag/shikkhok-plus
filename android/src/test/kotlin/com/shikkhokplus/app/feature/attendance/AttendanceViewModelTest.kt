@@ -118,6 +118,47 @@ class AttendanceViewModelTest {
         )
 
     @Test
+    fun `a toggle changes one seat and sends nothing`() = runTest(dispatcher) {
+        // **Nothing leaves the device on a tap** [BR3.5]. A teacher
+        // marks a whole roster and commits it once; a send per toggle
+        // would be the per-seat queue the rule forbids, and mid-class
+        // it would be a request per tap on a phone that may have no
+        // signal.
+        val transport = FakeAttendance(mutableListOf())
+        val model =
+            AttendanceViewModel(transport, FakeSessions(AuthResult.Ok(detail())), store())
+        model.load("s-1")
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val before = assertIs<AttendanceUiState.Marking>(model.state.value)
+        val seat = before.seats.first()
+        model.toggle(seat, !seat.present)
+
+        val after = assertIs<AttendanceUiState.Marking>(model.state.value)
+        assertEquals(!seat.present, after.seats.first().present)
+        // Every other seat is untouched.
+        assertEquals(before.seats.drop(1), after.seats.drop(1))
+        assertEquals(emptyList(), transport.sent)
+    }
+
+    @Test
+    fun `a toggle is ignored outside marking`() = runTest(dispatcher) {
+        val model =
+            AttendanceViewModel(
+                FakeAttendance(mutableListOf()),
+                FakeSessions(AuthResult.TransportFailure),
+                store(),
+            )
+        model.load("s-1")
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val failed = model.state.value
+        model.toggle(AttendanceSeat("e-1", "Rafi", present = true), present = false)
+
+        assertEquals(failed, model.state.value)
+    }
+
+    @Test
     fun `loading then success`() = runTest(dispatcher) {
         val model =
             AttendanceViewModel(

@@ -51,6 +51,12 @@ const val TAG_ROSTER_RETRY: String = "roster_retry"
 /** The add-student button. */
 const val TAG_ROSTER_ADD: String = "roster_add"
 
+/** The attendance entry point. */
+const val TAG_ROSTER_SESSIONS: String = "roster_sessions"
+
+/** The marks entry point. */
+const val TAG_ROSTER_EXAMS: String = "roster_exams"
+
 /** The accepted-of-total count for this batch. */
 const val TAG_ROSTER_ACCEPTED_COUNT: String = "roster_accepted_count"
 
@@ -107,6 +113,8 @@ fun RosterScreen(
     state: RosterUiState,
     onRetry: () -> Unit,
     onAddStudent: () -> Unit = {},
+    onOpenSessions: () -> Unit = {},
+    onOpenExams: () -> Unit = {},
     onRemove: (RosterRow) -> Unit = {},
     onConfirmRemoval: (RosterRow) -> Unit = {},
     onCancelRemoval: () -> Unit = {},
@@ -149,7 +157,8 @@ fun RosterScreen(
                 )
             }
 
-            is RosterUiState.Loaded -> RosterList(state, onAddStudent, onRemove)
+            is RosterUiState.Loaded ->
+                RosterList(state, onAddStudent, onOpenSessions, onOpenExams, onRemove)
 
             // Both removal states are drawn by `RemoveSeatConfirm.kt`,
             // so the confirmation and its two refusals are one
@@ -195,6 +204,8 @@ fun RosterScreen(
 private fun RosterList(
     state: RosterUiState.Loaded,
     onAddStudent: () -> Unit,
+    onOpenSessions: () -> Unit,
+    onOpenExams: () -> Unit,
     onRemove: (RosterRow) -> Unit,
 ) {
     // **"9 of 12 accepted"** [AC1.3.5a]. The count is at BATCH level
@@ -212,6 +223,21 @@ private fun RosterList(
     }
     Button(onClick = onAddStudent, modifier = Modifier.testTag(TAG_ROSTER_ADD)) {
         Text(stringResource(R.string.student_add_title))
+    }
+
+    // **The roster is where a class's work starts.** Attendance and
+    // marks were both built and neither could be opened: the sessions
+    // list and the exam list had routes and nothing navigated to them.
+    // This is the same gap the navigation graph exists to close, one
+    // level further in.
+    Button(
+        onClick = onOpenSessions,
+        modifier = Modifier.testTag(TAG_ROSTER_SESSIONS),
+    ) {
+        Text(stringResource(R.string.roster_open_sessions))
+    }
+    Button(onClick = onOpenExams, modifier = Modifier.testTag(TAG_ROSTER_EXAMS)) {
+        Text(stringResource(R.string.roster_open_exams))
     }
     state.fetchedAtLabel?.let { label ->
         // The cache is a READ cache, and saying so is part of the

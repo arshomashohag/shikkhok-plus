@@ -150,10 +150,18 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      # The same gate `check.yml` runs. A release that skipped the
-      # tests would be the one release where skipping them mattered.
-      - name: Unit tests
-        run: ./gradlew :android:testDebugUnitTest --no-daemon
+      # **No test suite here, by decision.** The tests belong on the
+      # pull request, where a red result blocks the merge; re-running
+      # them at release time verifies this runner rather than the
+      # artifact, and delays a release window. Enforced by
+      # tests/gates/test_deploy_runs_no_tests.py.
+      #
+      # What this gives up, stated rather than glossed: a tag can be
+      # cut from a commit no pull request tested, and nothing in this
+      # workflow would notice. The release-blocking checks that remain
+      # are the manifest permission allowlist and the DEX identifier
+      # scan below, which are about the forbidden-identifier set
+      # [TC-3, TC-4, D-35, D-37] and not about correctness.
 
       - name: Write the keystore
         env:
