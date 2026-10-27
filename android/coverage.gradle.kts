@@ -125,6 +125,18 @@ val coverageExclusions = listOf(
     // success and failure paths — which is the behaviour the loader
     // exists to cover.
     "**/designsystem/LogoLoaderKt*",
+    // **The branding hero, same reason, measured.**
+    //
+    // *(Added 2026-10-27.)* `AuthScreenTest` renders it and asserts
+    // it is displayed, and JaCoCo still recorded `BrandHeroKt` at 0
+    // covered against 42 missed — the Robolectric limitation this
+    // file documents for every other composable.
+    //
+    // What the tests verify is the relationship the figure cannot
+    // see: that the hero, the number field, the action and the
+    // register link are ALL reachable on a 320x414 screen, which is
+    // the case a fixed hero plus a weighted body silently broke.
+    "**/designsystem/BrandHeroKt*",
 )
 
 tasks.register<JacocoReport>("jacocoDebugReport") {

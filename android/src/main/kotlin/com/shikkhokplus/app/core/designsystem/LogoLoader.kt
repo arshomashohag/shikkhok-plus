@@ -8,6 +8,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -90,8 +91,21 @@ fun LogoLoader(
     val student = MaterialTheme.colorScheme.secondary
     val ground = MaterialTheme.colorScheme.background
 
-    Column(
-        modifier = modifier.testTag(TAG_LOGO_LOADER),
+    // **Centred in whatever space it is given, both ways.** Reported
+    // from a device: the loader sat at the top of the sign-in screen
+    // while the one on app startup was correctly in the middle. The
+    // difference was that the startup one is wrapped in a
+    // `FullScreenLoader` and these were bare, so they took only the
+    // height of their own content and landed wherever the parent
+    // column happened to put them — the top.
+    //
+    // `fillMaxSize` and a centred Box make every use centre on its own
+    // rather than depending on the caller remembering to wrap it.
+    Box(
+        modifier = modifier.fillMaxSize().testTag(TAG_LOGO_LOADER),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(Spacing.listItem),
     ) {
@@ -113,6 +127,7 @@ fun LogoLoader(
                 modifier =
                     Modifier.semantics { liveRegion = LiveRegionMode.Polite },
             )
+        }
         }
     }
 }
@@ -145,7 +160,7 @@ fun FullScreenLoader(
  * @param student The student figure's and the tick's colour
  * @param ground The page behind, which the book outline is drawn in
  */
-private fun DrawScope.drawLogo(
+internal fun DrawScope.drawLogo(
     t: Float,
     teacher: Color,
     student: Color,

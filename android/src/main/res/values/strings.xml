@@ -522,4 +522,6 @@
     <string name="nav_more">More</string>
     <string name="batches_subtitle_none">None yet</string>
     <string name="auth_restoring">Signing you in…</string>
+    <string name="auth_tagline">For teachers, students and guardians</string>
+    <string name="auth_sending">Sending code…</string>
 </resources>

@@ -5,6 +5,8 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import com.shikkhokplus.app.core.designsystem.TAG_BRAND_HERO
+import com.shikkhokplus.app.core.designsystem.ShikkhokTheme
 import com.shikkhokplus.app.feature.auth.ui.AuthScreen
 import com.shikkhokplus.app.core.designsystem.TAG_OTP_FIELD as TAG_CODE_FIELD
 import com.shikkhokplus.app.feature.auth.ui.TAG_ERROR
@@ -47,6 +49,9 @@ class AuthScreenTest {
         onGoToSignup: () -> Unit = {},
     ) {
         compose.setContent {
+            // The screen now reads MaterialTheme colours for its
+            // branding hero, so it must render inside the theme.
+            ShikkhokTheme {
             AuthScreen(
                 state = state,
                 onRequestCode = onRequestCode,
@@ -54,6 +59,7 @@ class AuthScreenTest {
                 onRetry = onRetry,
                 onGoToSignup = onGoToSignup,
             )
+            }
         }
     }
 
@@ -196,5 +202,33 @@ class AuthScreenTest {
         // accepted -- so the path out is the code, not a new account.
         render(AuthUiState.AwaitingCode)
         compose.onNodeWithTag(TAG_GO_TO_SIGNUP).assertDoesNotExist()
+    }
+
+    @Test
+    fun `the branding hero is shown`() {
+        // `O2` opens with a blue band carrying the mark, the wordmark
+        // and a tagline. The app went straight into a text field, so
+        // nothing said what it was before asking for a phone number.
+        render(AuthUiState.Idle)
+        compose.onNodeWithTag(TAG_BRAND_HERO).assertIsDisplayed()
+    }
+
+    @Test
+    fun `every control stays reachable on a short screen`() {
+        // **The regression this file already caught once.** These
+        // tests render at 320x414dp, and the tall hero alone takes
+        // 260 of it — a fixed hero plus a weighted body plus a pinned
+        // action bar collapsed the middle band to 6px and scrolled
+        // the number field out of a window too small to show it.
+        //
+        // Asserted together rather than in three tests because the
+        // failure is their RELATIONSHIP: any one of them can be
+        // visible while another is pushed off.
+        render(AuthUiState.Idle)
+
+        compose.onNodeWithTag(TAG_BRAND_HERO).assertIsDisplayed()
+        compose.onNodeWithTag(TAG_PHONE_FIELD).assertIsDisplayed()
+        compose.onNodeWithTag(TAG_REQUEST_CODE).assertIsDisplayed()
+        compose.onNodeWithTag(TAG_GO_TO_SIGNUP).assertIsDisplayed()
     }
 }
