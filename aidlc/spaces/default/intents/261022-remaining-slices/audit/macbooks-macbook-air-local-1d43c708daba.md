@@ -57946,3 +57946,462 @@ nfr-requirements D3 collecting-fees: seven artifacts written. Recomputed every N
 **Details**: git add aidlc/spaces/default/intents/261022-remaining-slices/audit/macbooks-macbook-air-local-1d43c708daba.md && git commit -q -m "chore(aidlc): record the lens
 
 ---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-27T09:11:42Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: git stash pop -q 2>/dev/null; git checkout requirements.txt && /opt/homebrew/bin/python3.12 -m piptools --version 2>&1 | head -2 || echo "pip-tools not installe
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-27T09:11:47Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: git stash list | head -3; git status --short | head -5
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-27T09:11:54Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: git stash drop -q stash@{0} && V=/private/tmp/claude-502/-Users-shohag-Desktop-Development-shikkhok-plus/602d453a-cecc-4a7d-ad6f-1f22d6052b2a/lockenv && /opt/ho
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-27T09:12:11Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: V=/private/tmp/claude-502/-Users-shohag-Desktop-Development-shikkhok-plus/602d453a-cecc-4a7d-ad6f-1f22d6052b2a/lockenv && "$V/bin/python" -m piptools compile --
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-27T09:13:29Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='.github/workflows/check.yml'\ns=open(p).read()\nold = '''          if ! diff -q \\\n              <(grep -v '^#' requirements.txt | grep -v '^$
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-27T09:13:37Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: /tmp/stripped.txt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-27T09:13:47Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: V=/private/tmp/claude-502/-Users-shohag-Desktop-Development-shikkhok-plus/602d453a-cecc-4a7d-ad6f-1f22d6052b2a/lockenv && "$V/bin/python" -m piptools compile --
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-27T09:14:00Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: make check 2>&1 | tail -8
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-27T09:22:13Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: git add requirements.txt && git commit -q -m "chore(deps): bump platformdirs to 4.13.6" && git add .github/workflows/check.yml && git commit -q -m "fix(ci): com
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-27T09:22:19Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: git push -q origin feat/wire-remaining-layers && echo pushed && git status --short
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-10-27T09:25:52Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: unknown
+**Agent ID**: af258b82b2091ff9c
+**Message**: Goal was making the app usable by all three roles: lens routing is built and PR #26 is open. CI failed on a lockfile check, I pushed two fixes, and I'm now waiting on the re-run.
+
+---
+
+## Human Turn
+**Timestamp**: 2026-10-27T09:27:19Z
+**Event**: HUMAN_TURN
+**Session**: 602d453a-cecc-4a7d-ad6f-1f22d6052b2a
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-27T09:27:24Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: gh pr checks 26 2>&1 | head -5
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-27T09:27:31Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: gh run view 40480277205 --json jobs --jq '.jobs[] | select(.name=="backend") | .steps[] | "\(.conclusion // "running")\t\(.name)"' 2>&1 | head -12
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-10-27T09:30:53Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: unknown
+**Agent ID**: a70b3df5e0e731667
+**Message**: Goal: make the Shikkhok+ app usable by all three roles. Lens routing is built, tested, and PR #26 is open; the CI lockfile failure is fixed and that step now passes. Next: confirm the backend pytest j
+
+---
+
+## Human Turn
+**Timestamp**: 2026-10-27T09:32:36Z
+**Event**: HUMAN_TURN
+**Session**: 602d453a-cecc-4a7d-ad6f-1f22d6052b2a
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-27T09:32:46Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '178,200p' Makefile; echo "=== coverage config ==="; grep -n "\[tool.coverage" -A 25 pyproject.toml | head -45
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-27T09:33:01Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: find tests -name "test_coverage_scope.py"; echo "=== how it reads the Makefile ==="; grep -nE "Makefile|cov=|re\.|def test" $(find tests -name test_coverage_sco
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-27T09:33:07Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '50,105p' tests/gates/test_coverage_scope.py
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-27T09:33:17Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '140,150p' Makefile; echo "=== PY ==="; grep -n "^PY" Makefile
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-27T09:33:39Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='Makefile'\ns=open(p).read()\nstart=s.index('test:\n\t@echo "==> tests + money coverage (100% branch)"')\nend=s.index('## The gates alone, for w
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-27T09:33:46Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: time make test 2>&1 | tail -22
+
+---
+
+## Human Turn
+**Timestamp**: 2026-10-27T09:37:45Z
+**Event**: HUMAN_TURN
+**Session**: 602d453a-cecc-4a7d-ad6f-1f22d6052b2a
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-27T09:37:53Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '1,50p' tests/gates/test_coverage_scope.py
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-27T09:38:19Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='tests/gates/test_coverage_scope.py'\ns=open(p).read()\n\ns=s.replace('''    "money": (\n        "measured separately at 100% BRANCH coverage in 
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-27T09:38:27Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: echo "=== money floor at 100: does a 101 threshold fail? ==="; python3 -m coverage report --include='app/money/*' --fail-under=101 --rcfile=pyproject.toml 2>&1 
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-27T09:38:36Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: echo "=== money report scoped wider (should drop below 100 and FAIL) ==="; python3 -m coverage report --include='app/money/*,app/fees/*' --fail-under=100 --rcfi
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-27T09:39:27Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/tests/gates/test_deploy_runs_no_tests.py
+
+---
+
+## Human Turn
+**Timestamp**: 2026-10-27T10:02:43Z
+**Event**: HUMAN_TURN
+**Session**: 602d453a-cecc-4a7d-ad6f-1f22d6052b2a
+**Picked**: ["Forbid it everywhere"]
+
+---
+
+## Question Replied
+**Timestamp**: 2026-10-27T10:02:44Z
+**Event**: QUESTION_REPLIED
+**Session**: 602d453a-cecc-4a7d-ad6f-1f22d6052b2a
+**Question**: The guard found one existing case: `release-android.yml` runs `testDebugUnitTest` before building the AAB/APK. It's deliberate — the comment says "a release that skipped the tests would be the one release where skipping them mattered." Unlike a deploy, a release is cut from a tag, which may not be a commit any PR tested. Should the guard forbid it too?
+**Reply**: Forbid it everywhere
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-27T10:02:56Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='.github/workflows/release-android.yml'\ns=open(p).read()\nold = '''      # The same gate `check.yml` runs. A release that skipped the\n      # 
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-27T10:03:20Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='tests/gates/test_deploy_runs_no_tests.py'\ns=open(p).read()\ns=s.replace('''This is a guard, not a preference: the pipeline does not run tests
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-27T10:03:31Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: /tmp/deploy.bak
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-27T10:03:38Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: time make check 2>&1 | tail -12
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-27T10:03:45Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 -m ruff format tests/gates/test_deploy_runs_no_tests.py && python3 -m ruff check tests/gates/test_deploy_runs_no_tests.py && echo "clean" && time make c
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-27T10:08:45Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: make test 2>&1 | grep -E "^==>|Required|fail|TOTAL" | head -10
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-27T10:17:59Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: git status --short && git add Makefile tests/gates/test_coverage_scope.py && git commit -q -m "perf(ci): run the backend suite once and report both floors" && g
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-27T10:18:12Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: git add aidlc/spaces/default/intents/261022-remaining-slices/audit/macbooks-macbook-air-local-1d43c708daba.md && git commit -q -m "chore(aidlc): record the pipe
+
+---
