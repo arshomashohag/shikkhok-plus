@@ -29,9 +29,10 @@ MAKEFILE = ROOT / "Makefile"
 #: ONLY by appearing here.
 DELIBERATELY_EXCLUDED: dict[str, str] = {
     "money": (
-        "measured separately at 100% BRANCH coverage in the first "
-        "pytest run; including it here would let the weaker 80% line "
-        "floor stand in for the stronger target"
+        "measured at 100% BRANCH coverage by its own report; letting "
+        "the weaker 80% line floor also cover it would let that floor "
+        "stand in for the stronger target. It is MEASURED by the run "
+        "and OMITTED from the line report, which is asserted below"
     ),
 }
 
@@ -52,28 +53,39 @@ def _packages_on_disk() -> set[str]:
     return packages | modules
 
 
-def _packages_in_makefile() -> set[str]:
-    """Read the LINE-FLOOR ``--cov`` list out of the Makefile.
+def _measured_packages() -> set[str]:
+    """Read the ``--cov`` list out of the Makefile's single test run.
 
-    Scoped to the second pytest invocation specifically. The first one
-    also carries a ``--cov=app.money``, for the 100% branch target, and
-    reading both as one list would report the money module as inside
-    the line floor when the whole point is that it is not.
+    **The suite runs ONCE and is reported twice**, so there is one
+    ``--cov`` list covering both floors rather than one list per run.
+    It therefore includes ``app.money``, which the line report then
+    omits -- see :func:`test_the_money_module_is_omitted_from_the_line_floor`,
+    which is now what keeps the weaker floor off the stronger target.
 
-    :return: The package names the 80% line floor measures
+    :return: The package names the run measures
     """
     text = MAKEFILE.read_text()
-    marker = "--cov-fail-under=80"
-    assert marker in text, "the line floor's command changed shape"
+    marker = "--cov-config=.coveragerc-backend"
+    assert marker in text, "the test command changed shape"
 
-    # Everything from the second invocation up to its fail-under flag.
     tail = text[: text.index(marker)]
     command = tail[tail.rindex("pytest tests") :]
     return set(re.findall(r"--cov=app\.(\w+)", command))
 
 
+def _line_floor_omissions() -> str:
+    """Read the ``--omit`` the 80% line report is scoped by.
+
+    :return: The omit argument, verbatim
+    """
+    text = MAKEFILE.read_text()
+    match = re.search(r"coverage report --omit='([^']+)'", text)
+    assert match is not None, "the line floor's report changed shape"
+    return match.group(1)
+
+
 def test_every_package_is_measured_or_deliberately_excluded() -> None:
-    measured = _packages_in_makefile()
+    measured = _measured_packages()
     unmeasured = _packages_on_disk() - measured - set(DELIBERATELY_EXCLUDED)
 
     assert unmeasured == set(), (
@@ -89,15 +101,41 @@ def test_the_makefile_names_no_package_that_does_not_exist() -> None:
     # The other direction: a stale entry makes the list look more
     # thorough than it is, and `--cov` on a nonexistent package is
     # silently ignored.
-    phantom = _packages_in_makefile() - _packages_on_disk()
+    phantom = _measured_packages() - _packages_on_disk()
     assert phantom == set(), f"--cov names nonexistent packages: {phantom}"
 
 
-def test_the_money_module_is_not_in_the_line_floor() -> None:
-    # It carries 100% BRANCH coverage in the first run. Measuring it
-    # under the 80% line floor as well would let the weaker target
-    # stand in for the stronger one.
-    assert "money" not in _packages_in_makefile()
+def test_the_money_module_is_omitted_from_the_line_floor() -> None:
+    # **This assertion moved, and the move is the point.** The money
+    # module used to be absent from the second run's --cov list; with
+    # one run it must be PRESENT there, or it is not measured at all
+    # and its own 100% report has no data to read.
+    #
+    # What keeps the weaker floor off the stronger target is now the
+    # line report's --omit. Asserting the old thing against the new
+    # command would have passed while checking nothing.
+    assert "money" in _measured_packages(), "the run must measure it"
+    assert "app/money/*" in _line_floor_omissions(), (
+        "the 80% line report must omit app/money, or the weaker floor "
+        "stands in for the 100% branch target"
+    )
+
+
+def test_both_floors_are_still_enforced() -> None:
+    # A report without --fail-under prints a number and exits zero,
+    # which looks identical to a passing gate. Both reports carry one.
+    text = MAKEFILE.read_text()
+    assert "--fail-under=100" in text, "the money floor stopped failing"
+    assert "--fail-under=80" in text, "the line floor stopped failing"
+
+
+def test_the_suite_runs_exactly_once() -> None:
+    # The halving this target exists for. A second `pytest tests` in
+    # this recipe would silently restore the duplicate run.
+    recipe = MAKEFILE.read_text()
+    start = recipe.index("\ntest:")
+    end = recipe.index("\ngates:")
+    assert recipe[start:end].count("pytest tests") == 1
 
 
 def test_every_exclusion_states_a_reason() -> None:
