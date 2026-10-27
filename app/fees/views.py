@@ -377,18 +377,42 @@ def batch_fee_overview(
     return rows
 
 
+@dataclass(frozen=True)
+class FeeHistory:
+    """One seat's periods, with the total the SERVER computed.
+
+    **The total is here rather than left to the caller** [TC-9, D-31].
+    Summing the rows client-side would be the Android app doing money
+    arithmetic, which [D-20] forbids outright, and it would be wrong
+    the moment the history paginates: a page of three periods would
+    report a total that is not the balance.
+
+    It is not a new calculation either. ``derive`` already produces
+    ``total_outstanding`` as part of the ledger fold, floored at zero
+    and computed inside the money module; this surfaces the value that
+    already decides the number, rather than recomputing it beside the
+    rows and risking the two disagreeing.
+
+    :ivar cycles: One row per generated period, oldest first
+    :ivar total_outstanding: What this seat still owes in total
+    """
+
+    cycles: list[FeeCycleRow]
+    total_outstanding: Money
+
+
 def enrollment_fee_history(
     session: Session,
     *,
     lens: Lens,
     enrollment_id: uuid.UUID,
-) -> list[FeeCycleRow]:
-    """List every generated period for one seat, oldest first.
+) -> FeeHistory:
+    """List every generated period for one seat, with its total.
 
     :param session: The session to read through
     :param lens: The viewer's lens
     :param enrollment_id: The seat
-    :return: One row per generated period
+    :return: The periods and the total still owed
     :raises AuthorizationError: No path grants this lens that seat
     """
     _readable_enrollment(session, lens=lens, enrollment_id=enrollment_id)
@@ -416,7 +440,7 @@ def enrollment_fee_history(
                 ),
             )
         )
-    return rows
+    return FeeHistory(cycles=rows, total_outstanding=derived.total_outstanding)
 
 
 def _charged_in(session: Session, enrollment_id: uuid.UUID, period: str) -> Money:

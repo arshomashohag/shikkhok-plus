@@ -99,6 +99,18 @@ LENS_EXEMPT_AUTHENTICATED: frozenset[tuple[str, str]] = frozenset(
         # could own, which is what makes the exemption safe rather than
         # merely necessary.
         ("GET", "/v1/me"),
+        # The WRITE half of the same row, added 2026-10-27, exempt on
+        # exactly GET /v1/me's reasoning and no wider. It reads and
+        # writes only `profile` for the authenticated account id,
+        # which no lens would narrow further: a lens says which OTHER
+        # people's data you may reach, and this reaches none.
+        #
+        # What actually bounds it is row-level security. The app
+        # connects as the restricted role and the policy on `profile`
+        # admits only the owner's row, so a write aimed at another
+        # account fails at the database rather than relying on the
+        # handler [TC-13, D-7].
+        ("PATCH", "/v1/me"),
         # The route that REPORTS which invitation lenses exist, exempt
         # on exactly GET /v1/me's reasoning: requiring one would mean a
         # person had to already know which seats they were offered in

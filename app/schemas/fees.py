@@ -34,6 +34,7 @@ __all__ = [
     "ClaimResponse",
     "ClaimSubmitRequest",
     "FeeCycleResponse",
+    "FeeHistoryResponse",
     "PaymentDestinationResponse",
     "RosterFeeRowResponse",
     "VerificationRequest",
@@ -71,6 +72,29 @@ class FeeCycleResponse(BaseModel):
     charged: MoneyField
     outstanding: MoneyField
     status: FeeStatus
+
+
+class FeeHistoryResponse(BaseModel):
+    """One seat's periods, with the total the server computed.
+
+    **A wrapper rather than a bare array, and the total is why.** The
+    client must not sum the rows: that is money arithmetic on the
+    Android side, which [D-20] forbids, and it would be wrong the
+    moment the history paginates — a page of three periods would
+    report a total that is not the balance.
+
+    The value is the ledger fold's own ``total_outstanding``, floored
+    at zero inside the money module, not a second sum computed beside
+    the rows.
+
+    :ivar cycles: One row per generated period, oldest first
+    :ivar total_outstanding: What this seat still owes in total
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    cycles: list[FeeCycleResponse]
+    total_outstanding: MoneyField
 
 
 class RosterFeeRowResponse(BaseModel):

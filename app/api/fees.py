@@ -38,6 +38,7 @@ from app.schemas.fees import (
     ClaimResponse,
     ClaimSubmitRequest,
     FeeCycleResponse,
+    FeeHistoryResponse,
     PaymentDestinationResponse,
     RejectionRequest,
     RosterFeeRowResponse,
@@ -182,14 +183,14 @@ def read_batch_fees(
 
 @router.get(
     "/enrollments/{enrollment_id}/fees",
-    response_model=list[FeeCycleResponse],
+    response_model=FeeHistoryResponse,
     responses=_AUTH_ERRORS,
 )
 def read_enrollment_fees_as_teacher(
     enrollment_id: uuid.UUID,
     session: Annotated[Session, Depends(get_session)],
     lens: Annotated[TeacherLens, Depends(teacher_lens)],
-) -> list[FeeCycleResponse]:
+) -> FeeHistoryResponse:
     """List one seat's generated periods, for its teacher.
 
     :param enrollment_id: The seat, from the route path
@@ -197,24 +198,27 @@ def read_enrollment_fees_as_teacher(
     :param lens: The teacher lens
     :return: One row per generated period
     """
-    return [
-        _cycle_response(row)
-        for row in views.enrollment_fee_history(
-            session, lens=lens, enrollment_id=enrollment_id
-        )
-    ]
+    history = views.enrollment_fee_history(
+        session, lens=lens, enrollment_id=enrollment_id
+    )
+    return FeeHistoryResponse(
+        cycles=[_cycle_response(row) for row in history.cycles],
+        # The SERVER's total, from the ledger fold. The client is not
+        # permitted to sum the rows [D-20, TC-9].
+        total_outstanding=WireMoney(to_wire(history.total_outstanding)),
+    )
 
 
 @router.get(
     "/me/fees",
-    response_model=list[FeeCycleResponse],
+    response_model=FeeHistoryResponse,
     responses=_AUTH_ERRORS,
 )
 def read_my_fees(
     enrollment_id: uuid.UUID,
     session: Annotated[Session, Depends(get_session)],
     lens: Annotated[StudentLens, Depends(student_lens)],
-) -> list[FeeCycleResponse]:
+) -> FeeHistoryResponse:
     """List this student's own periods for one of their seats.
 
     The seat arrives as a query parameter and the grant is checked
@@ -226,24 +230,27 @@ def read_my_fees(
     :param lens: The student lens
     :return: One row per generated period
     """
-    return [
-        _cycle_response(row)
-        for row in views.enrollment_fee_history(
-            session, lens=lens, enrollment_id=enrollment_id
-        )
-    ]
+    history = views.enrollment_fee_history(
+        session, lens=lens, enrollment_id=enrollment_id
+    )
+    return FeeHistoryResponse(
+        cycles=[_cycle_response(row) for row in history.cycles],
+        # The SERVER's total, from the ledger fold. The client is not
+        # permitted to sum the rows [D-20, TC-9].
+        total_outstanding=WireMoney(to_wire(history.total_outstanding)),
+    )
 
 
 @router.get(
     "/children/{enrollment_id}/fees",
-    response_model=list[FeeCycleResponse],
+    response_model=FeeHistoryResponse,
     responses=_AUTH_ERRORS,
 )
 def read_child_fees(
     enrollment_id: uuid.UUID,
     session: Annotated[Session, Depends(get_session)],
     lens: Annotated[GuardianLens, Depends(guardian_lens)],
-) -> list[FeeCycleResponse]:
+) -> FeeHistoryResponse:
     """List one child's periods, for their recorded guardian.
 
     The child arrives as a **path parameter**, never from a
@@ -254,12 +261,15 @@ def read_child_fees(
     :param lens: The guardian lens
     :return: One row per generated period
     """
-    return [
-        _cycle_response(row)
-        for row in views.enrollment_fee_history(
-            session, lens=lens, enrollment_id=enrollment_id
-        )
-    ]
+    history = views.enrollment_fee_history(
+        session, lens=lens, enrollment_id=enrollment_id
+    )
+    return FeeHistoryResponse(
+        cycles=[_cycle_response(row) for row in history.cycles],
+        # The SERVER's total, from the ledger fold. The client is not
+        # permitted to sum the rows [D-20, TC-9].
+        total_outstanding=WireMoney(to_wire(history.total_outstanding)),
+    )
 
 
 @router.get(

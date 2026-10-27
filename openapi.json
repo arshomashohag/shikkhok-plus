@@ -1057,6 +1057,28 @@
         "title": "FeeCycleResponse",
         "type": "object"
       },
+      "FeeHistoryResponse": {
+        "additionalProperties": false,
+        "description": "One seat's periods, with the total the server computed.\n\n**A wrapper rather than a bare array, and the total is why.** The\nclient must not sum the rows: that is money arithmetic on the\nAndroid side, which [D-20] forbids, and it would be wrong the\nmoment the history paginates — a page of three periods would\nreport a total that is not the balance.\n\nThe value is the ledger fold's own ``total_outstanding``, floored\nat zero inside the money module, not a second sum computed beside\nthe rows.\n\n:ivar cycles: One row per generated period, oldest first\n:ivar total_outstanding: What this seat still owes in total",
+        "properties": {
+          "cycles": {
+            "items": {
+              "$ref": "#/components/schemas/FeeCycleResponse"
+            },
+            "title": "Cycles",
+            "type": "array"
+          },
+          "total_outstanding": {
+            "$ref": "#/components/schemas/Money"
+          }
+        },
+        "required": [
+          "cycles",
+          "total_outstanding"
+        ],
+        "title": "FeeHistoryResponse",
+        "type": "object"
+      },
       "GuardianChildResponse": {
         "description": "One reachable child as a guardian sees it.\n\nCarries ``batch_name`` and ``teacher_display_name`` because\nattribution is required even in the single-child case [AC2.8.5] --\nthat is where it is most needed, since the selection list is where\nit would otherwise have been shown.\n\n:ivar enrollment_id: The seat, which BR5.1 keys the route on\n:ivar display_name: The teacher-typed name for the child\n:ivar batch_name: Which class\n:ivar teacher_display_name: Which teacher recorded this",
         "properties": {
@@ -1323,14 +1345,36 @@
         "type": "object"
       },
       "MeResponse": {
-        "description": "Everything this account can be.\n\n**No role, and no default lens.** The list says what is available;\nwhich one the person wants is their choice, and a server-chosen\ndefault would be a stored role by another name. A single-entry\nlist is the app's cue to skip the picker.\n\n:ivar lenses: Every available lens, teacher first",
+        "description": "Everything this account can be.\n\n**No role, and no default lens.** The list says what is available;\nwhich one the person wants is their choice, and a server-chosen\ndefault would be a stored role by another name. A single-entry\nlist is the app's cue to skip the picker.\n\n:ivar lenses: Every available lens, teacher first\n:ivar self_name: The name this person chose for themselves, or\n    None before they have set one\n:ivar address: Their address, or None. **Owner-private** [BR3.4]:\n    it sits in `OWNER_PRIVATE_FIELDS` and reaches no teacher-lens\n    response, which the schema-wide privacy gate asserts. It is\n    returned HERE because this is the owner reading their own row",
         "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
           "lenses": {
             "items": {
               "$ref": "#/components/schemas/LensEntry"
             },
             "title": "Lenses",
             "type": "array"
+          },
+          "self_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Self Name"
           }
         },
         "title": "MeResponse",
@@ -1474,6 +1518,38 @@
           "collection_number"
         ],
         "title": "PaymentDestinationResponse",
+        "type": "object"
+      },
+      "ProfileUpdateRequest": {
+        "additionalProperties": false,
+        "description": "What a person may change about themselves.\n\n**Name and address only.** A profile write cannot touch the phone\nnumber, which is the login and changes only through the OTP path,\nand it cannot touch a lens: a role is computed per request from\nowned batches and enrollments and has no stored field to set\n[TC-11, D-2].\n\nBoth are optional and omitting one leaves it unchanged, so the app\ncan save a single edited field without resending the other.\n\n:ivar self_name: The new name, or None to leave it alone\n:ivar address: The new address, or None to leave it alone",
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "self_name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Self Name"
+          }
+        },
+        "title": "ProfileUpdateRequest",
         "type": "object"
       },
       "ProgressEntryResponse": {
@@ -3716,11 +3792,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/FeeCycleResponse"
-                  },
-                  "title": "Response Read Child Fees V1 Children  Enrollment Id  Fees Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/FeeHistoryResponse"
                 }
               }
             },
@@ -4306,11 +4378,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/FeeCycleResponse"
-                  },
-                  "title": "Response Read Enrollment Fees As Teacher V1 Enrollments  Enrollment Id  Fees Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/FeeHistoryResponse"
                 }
               }
             },
@@ -5005,7 +5073,7 @@
         ]
       },
       "get": {
-        "description": "List every lens this account has.\n\n:param account_id: The authenticated account\n:param session: The session to query through\n:return: The available lenses, each with its count",
+        "description": "List every lens this account has.\n\n:param account_id: The authenticated account\n:param session: The session to query through\n:return: The available lenses, and this person's own profile",
         "operationId": "read_me_v1_me_get",
         "responses": {
           "200": {
@@ -5020,6 +5088,46 @@
           }
         },
         "summary": "Read Me",
+        "tags": [
+          "me"
+        ]
+      },
+      "patch": {
+        "description": "Change this person's own name or address.\n\n**The row is created if it does not exist.** An account may reach\nhere before anything wrote a profile for it — a person who signed\nup without one, or whose teacher recorded only a number — and a\nwrite that failed because there was nothing to update would be a\nconfusing refusal for a form that is simply being filled in.\n\n**Row-level security is what bounds this, not the handler.** The\napp connects as the restricted role and the policy on `profile`\nadmits only the owner's row, so a write for another account fails\nat the database rather than relying on this function remembering\nto check [TC-13, D-7].\n\n:param body: The fields to change; an omitted one is left alone\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:return: The updated profile, with the lenses unchanged",
+        "operationId": "update_me_v1_me_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Me",
         "tags": [
           "me"
         ]
@@ -5234,11 +5342,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/FeeCycleResponse"
-                  },
-                  "title": "Response Read My Fees V1 Me Fees Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/FeeHistoryResponse"
                 }
               }
             },
