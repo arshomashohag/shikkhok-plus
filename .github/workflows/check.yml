@@ -131,14 +131,21 @@ jobs:
           python -m piptools compile --quiet --extra dev --extra api \
             --generate-hashes --allow-unsafe \
             --output-file /tmp/requirements.check.txt pyproject.toml
+          # Strip EVERY comment line, not just column-zero ones.
+          # pip-compile indents its provenance annotations
+          # ("    # via fastapi"), and `grep -v '^#'` keeps all 135 of
+          # them -- so a resolution-order change that alters no pinned
+          # version failed this check. What the lockfile promises is
+          # the pins and the hashes; those are what this compares.
+          strip() { sed -e 's/[[:space:]]*#.*$//' -e '/^[[:space:]]*$/d' "$1"; }
           if ! diff -q \
-              <(grep -v '^#' requirements.txt | grep -v '^$') \
-              <(grep -v '^#' /tmp/requirements.check.txt | grep -v '^$') \
+              <(strip requirements.txt) \
+              <(strip /tmp/requirements.check.txt) \
               >/dev/null; then
             echo "::error::requirements.txt does not match pyproject.toml."
             echo "Regenerate it:  make lock"
-            diff <(grep -v '^#' requirements.txt | grep -v '^$') \
-                 <(grep -v '^#' /tmp/requirements.check.txt | grep -v '^$') \
+            diff <(strip requirements.txt) \
+                 <(strip /tmp/requirements.check.txt) \
                  || true
             exit 1
           fi
