@@ -471,4 +471,17 @@
     <string name="auth_sending">কোড পাঠানো হচ্ছে…</string>
     <string name="roster_open_sessions">হাজিরা</string>
     <string name="roster_open_exams">নম্বর</string>
+    <string name="lens_picker_title">যে রূপে চালিয়ে যাবেন</string>
+    <string name="lens_picker_subtitle">আপনার একাধিক ভূমিকা আছে। এখন যেটি ব্যবহার করবেন বেছে নিন — যেকোনো সময় বদলানো যাবে।</string>
+    <string name="lens_teacher">শিক্ষক</string>
+    <string name="lens_student">শিক্ষার্থী</string>
+    <string name="lens_guardian">অভিভাবক</string>
+    <string name="lens_teacher_count">%1$s টি ক্লাস</string>
+    <string name="lens_student_count">%1$s টি ভর্তি</string>
+    <string name="lens_guardian_count">%1$s জন সন্তান</string>
+    <string name="lens_switch">ভূমিকা বদলান</string>
+    <string name="session_retry">আবার চেষ্টা করুন</string>
+    <string name="nav_children">সন্তান</string>
+    <string name="nav_invitations">আমন্ত্রণ</string>
+    <string name="nav_fees">ফি</string>
 </resources>

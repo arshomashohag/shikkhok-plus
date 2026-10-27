@@ -8,6 +8,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -31,6 +32,9 @@ const val TAG_PROFILE_ADDRESS: String = "profile_address"
 
 /** Test tag for the save control. */
 const val TAG_PROFILE_SAVE: String = "profile_save"
+
+/** The switch-role action. Absent for a person with one lens. */
+const val TAG_PROFILE_SWITCH_LENS: String = "profile_switch_lens"
 
 /**
  * `O5`, the profile edit half.
@@ -60,6 +64,8 @@ const val TAG_PROFILE_SAVE: String = "profile_save"
  * @param modifier Layout modifier from the caller
  * @param bottomBar The navigation bar, supplied by the route so this
  *   screen stays renderable in a test without one
+ * @param onSwitchLens Called to return to the lens picker, or null
+ *   when this person holds only one lens and has nothing to switch to
  */
 @Composable
 fun ProfileScreen(
@@ -69,6 +75,7 @@ fun ProfileScreen(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
     bottomBar: @Composable () -> Unit = {},
+    onSwitchLens: (() -> Unit)? = null,
 ) {
     ScreenScaffold(
         title = stringResource(R.string.profile_title),
@@ -96,6 +103,21 @@ fun ProfileScreen(
                 )
                 Button(onClick = onEdit, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.profile_edit))
+                }
+                // **Absent, not disabled, for a single-lens person.**
+                // A greyed-out "Switch role" tells someone with one
+                // role that they are missing something; nothing to
+                // switch to is better said by saying nothing.
+                onSwitchLens?.let { switch ->
+                    TextButton(
+                        onClick = switch,
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .testTag(TAG_PROFILE_SWITCH_LENS),
+                    ) {
+                        Text(stringResource(R.string.lens_switch))
+                    }
                 }
             }
 

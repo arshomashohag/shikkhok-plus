@@ -41,6 +41,7 @@ import com.shikkhokplus.app.feature.roster.RosterViewModel
 import com.shikkhokplus.app.feature.roster.ui.RosterScreen
 import com.shikkhokplus.app.core.network.HttpAttendanceRepository
 import com.shikkhokplus.app.core.queue.QueueStore
+import com.shikkhokplus.app.core.session.Lens
 import com.shikkhokplus.app.core.network.HttpFeesRepository
 import com.shikkhokplus.app.core.network.HttpGuardianRepository
 import com.shikkhokplus.app.core.network.HttpInvitationsRepository
@@ -56,6 +57,8 @@ import com.shikkhokplus.app.feature.fees.FeesViewModel
 import com.shikkhokplus.app.feature.fees.ui.FeeHistoryScreen
 import com.shikkhokplus.app.feature.guardian.GuardianViewModel
 import com.shikkhokplus.app.feature.guardian.ui.GuardianHomeScreen
+import com.shikkhokplus.app.core.model.AcceptanceState
+import com.shikkhokplus.app.feature.invitations.InvitationsUiState
 import com.shikkhokplus.app.feature.invitations.InvitationsViewModel
 import com.shikkhokplus.app.feature.invitations.ui.InvitationsScreen
 import com.shikkhokplus.app.feature.marks.MarksViewModel
@@ -108,6 +111,7 @@ import io.ktor.client.HttpClient
  *
  * @param client The authenticated HTTP client for signed-in routes
  * @param queue The app's single pending-write queue [BR3.5]
+ * @param session Who is signed in and what they may switch to
  * @param signedIn Whether a session was restored before first render
  * @param navController The host's controller
  * @param modifier The layout modifier
@@ -116,6 +120,7 @@ import io.ktor.client.HttpClient
 fun ShikkhokNavHost(
     client: HttpClient,
     queue: QueueStore,
+    session: SessionBinding,
     signedIn: Boolean,
     navController: NavHostController,
     authModel: AuthViewModel,
@@ -123,8 +128,12 @@ fun ShikkhokNavHost(
 ) {
     NavHost(
         navController = navController,
-        startDestination =
-            if (signedIn) Destination.Batches.route else Destination.Auth.route,
+        // **The start destination is the lens's own home.** Sending
+        // everyone to Batches meant a student or guardian landed on a
+        // teacher screen whose endpoint requires a TeacherLens and
+        // refuses them — the app opened on an error for two of its
+        // three audiences.
+        startDestination = if (signedIn) homeFor(session.lens) else Destination.Auth.route,
         modifier = modifier,
     ) {
         composable(Destination.Auth.route) {
@@ -137,7 +146,20 @@ fun ShikkhokNavHost(
             // and assert what renders.
             LaunchedEffect(state) {
                 if (state is AuthUiState.SignedIn) {
-                    navController.navigate(Destination.Batches.route) {
+                    // **The lens's own home, not Batches.** Hardcoding
+                    // the teacher home here sent a student who had just
+                    // entered their code straight to an endpoint that
+                    // refuses them -- the same defect as the old start
+                    // destination, on the path that does not go through
+                    // it.
+                    //
+                    // No race with the lens read: when sign-in flips
+                    // the session to `Resolving`, `AppRoot` returns
+                    // the loader and this graph is not composed at
+                    // all, so by the time this effect can run the
+                    // lens is settled. A null here means the person
+                    // genuinely holds no seat.
+                    navController.navigate(homeFor(session.lens)) {
                         // The auth screen leaves the back stack: a
                         // signed-in person pressing Back should leave
                         // the app, not return to an OTP field that
@@ -216,9 +238,9 @@ fun ShikkhokNavHost(
                 state = state,
                 bottomBar = {
                     BottomNav(
-                        destinations = teacherTabs(),
-                        selectedIndex = TAB_BATCHES,
-                        onSelect = { navController.switchTab(it) },
+                        destinations = tabsFor(session.lens),
+                        selectedIndex = tabIndexOf(session.lens, Destination.Batches.route),
+                        onSelect = { navController.switchTab(it, session.lens) },
                     )
                 },
                 onOpen = { id ->
@@ -247,9 +269,9 @@ fun ShikkhokNavHost(
                 onRetry = model::retry,
                 bottomBar = {
                     BottomNav(
-                        destinations = teacherTabs(),
-                        selectedIndex = TAB_OVERVIEW,
-                        onSelect = { navController.switchTab(it) },
+                        destinations = tabsFor(session.lens),
+                        selectedIndex = tabIndexOf(session.lens, Destination.Overview.route),
+                        onSelect = { navController.switchTab(it, session.lens) },
                     )
                 },
             )
@@ -267,9 +289,9 @@ fun ShikkhokNavHost(
                 onRetry = model::retry,
                 bottomBar = {
                     BottomNav(
-                        destinations = teacherTabs(),
-                        selectedIndex = TAB_DUES,
-                        onSelect = { navController.switchTab(it) },
+                        destinations = tabsFor(session.lens),
+                        selectedIndex = tabIndexOf(session.lens, Destination.Dues.route),
+                        onSelect = { navController.switchTab(it, session.lens) },
                     )
                 },
             )
@@ -628,6 +650,24 @@ fun ShikkhokNavHost(
 
             LaunchedEffect(Unit) { model.load() }
 
+            // **Accepting a seat grants a lens the app does not yet
+            // know about.** The server decides lenses from accepted
+            // seats, so a student who accepts their first one stays
+            // lens-free -- bar and all -- until the next launch.
+            //
+            // Re-resolving rather than navigating is what AC9.4.2
+            // requires: Back from here must return to this list, not
+            // into the newly available lens's stack. The bar gains
+            // its tabs; nothing jumps.
+            val decided = state
+            LaunchedEffect(decided) {
+                if (decided is InvitationsUiState.Decided &&
+                    decided.state == AcceptanceState.ACCEPTED
+                ) {
+                    session.onLensesChanged()
+                }
+            }
+
             InvitationsScreen(
                 state = state,
                 onOpen = model::open,
@@ -653,11 +693,12 @@ fun ShikkhokNavHost(
                 onRetry = model::retry,
                 bottomBar = {
                     BottomNav(
-                        destinations = teacherTabs(),
-                        selectedIndex = TAB_MORE,
-                        onSelect = { navController.switchTab(it) },
+                        destinations = tabsFor(session.lens),
+                        selectedIndex = tabIndexOf(session.lens, Destination.Profile.route),
+                        onSelect = { navController.switchTab(it, session.lens) },
                     )
                 },
+                onSwitchLens = session.onSwitch,
             )
         }
     }
@@ -691,17 +732,57 @@ private fun readerOrSelf(raw: String?): MarksheetReader =
 private fun feeReaderOrStudent(raw: String?): FeeReader =
     FeeReader.entries.firstOrNull { it.name == raw } ?: FeeReader.STUDENT
 
-/** Today's position in the teacher's bar. */
-private const val TAB_OVERVIEW = 0
+/**
+ * Which tab in this lens's bar is the given route.
+ *
+ * **Looked up rather than hardcoded.** The position of a route
+ * differs per lens — Profile is index 3 for a teacher and index 1 for
+ * a student — so a fixed constant would highlight the wrong tab for
+ * two of the three bars.
+ *
+ * A route not in this lens's bar highlights nothing, which is correct
+ * for a pushed screen that happens to render a bar.
+ *
+ * Internal rather than private so a test can hold the bar and its
+ * routes to their positional pairing, which is the contract that
+ * breaks silently.
+ *
+ * @param lens The lens whose bar is shown
+ * @param route The route currently rendered
+ * @return Its index, or -1 when the bar does not hold it
+ */
+internal fun tabIndexOf(lens: Lens?, route: String): Int =
+    routesFor(lens).indexOf(route)
 
-/** The Batches tab's position in the teacher's bar. */
-private const val TAB_BATCHES = 1
-
-/** The Dues tab's position. */
-private const val TAB_DUES = 2
-
-/** The More tab's position. */
-private const val TAB_MORE = 3
+/**
+ * The home screen for one lens.
+ *
+ * **Every lens has a real home**, and none of them is another lens's.
+ * A guardian sent to Batches is sent to an endpoint that requires a
+ * `TeacherLens`; a person with no lens yet is sent to invitations,
+ * which is lens-exempt on the server precisely so a fresh signup has
+ * somewhere to land [BR1.3].
+ *
+ * **This settles an open question the mockups left to navigation**:
+ * whether `O4 · Invitations` is reached from the lens switcher or
+ * sits above the batch list. It is neither — it is the student's and
+ * the lens-free person's HOME, and a tab on both their bars. The
+ * artboard already draws it as its own screen, and the one place a
+ * person with no seat can act is the list of seats they have been
+ * offered.
+ *
+ * @param lens The chosen lens, or null when none is held
+ * @return The route to start at
+ */
+internal fun homeFor(lens: Lens?): String =
+    when (lens) {
+        Lens.TEACHER -> Destination.Batches.route
+        Lens.GUARDIAN -> Destination.GuardianHome.route
+        // A student's own seats are what they came for, and
+        // invitations is where an unaccepted one appears.
+        Lens.STUDENT -> Destination.Invitations.route
+        null -> Destination.Invitations.route
+    }
 
 /**
  * Switch to a tab, as a tab rather than a push.
@@ -713,20 +794,14 @@ private const val TAB_MORE = 3
  * left it, so a half-scrolled list is not reset by a trip to another
  * tab.
  *
- * An unbuilt tab is simply ignored: the bar disables those, and this
- * refuses them again rather than trusting the caller.
+ * The destination comes from the same per-lens list the bar renders,
+ * so a tab cannot navigate somewhere the bar does not show.
  *
  * @param index Which tab was chosen
+ * @param lens The lens whose bar was tapped
  */
-private fun NavHostController.switchTab(index: Int) {
-    val route =
-        when (index) {
-            TAB_OVERVIEW -> Destination.Overview.route
-            TAB_BATCHES -> Destination.Batches.route
-            TAB_DUES -> Destination.Dues.route
-            TAB_MORE -> Destination.Profile.route
-            else -> return
-        }
+private fun NavHostController.switchTab(index: Int, lens: Lens?) {
+    val route = routesFor(lens).getOrNull(index) ?: return
     if (currentDestination?.route == route) return
 
     navigate(route) {
@@ -737,12 +812,96 @@ private fun NavHostController.switchTab(index: Int) {
 }
 
 /**
+ * The routes behind one lens's bar, positionally.
+ *
+ * **Paired with [tabsFor] by position, and that pairing is the whole
+ * contract**: index 2 in the bar must be index 2 here, or a tap opens
+ * the wrong screen. Kept adjacent for that reason, and asserted by a
+ * test that walks both.
+ *
+ * @param lens The lens whose bar is shown
+ * @return One route per tab, in bar order
+ */
+internal fun routesFor(lens: Lens?): List<String> =
+    when (lens) {
+        Lens.TEACHER ->
+            listOf(
+                Destination.Overview.route,
+                Destination.Batches.route,
+                Destination.Dues.route,
+                Destination.Profile.route,
+            )
+        Lens.GUARDIAN ->
+            listOf(
+                Destination.GuardianHome.route,
+                Destination.Invitations.route,
+                Destination.Profile.route,
+            )
+        Lens.STUDENT, null ->
+            listOf(
+                Destination.Invitations.route,
+                Destination.Profile.route,
+            )
+    }
+
+/**
+ * The bar for one lens.
+ *
+ * **Three different bars, because three lenses hold different
+ * things.** A teacher's Dues tab has no meaning for a student, and a
+ * guardian's Children tab has none for a teacher. The earlier single
+ * bar was the teacher's, shown to everyone.
+ *
+ * Icons are reused across bars rather than drawn per lens: the label
+ * carries the meaning, and inventing four more drawables would add a
+ * review surface without adding information.
+ *
+ * @param lens The lens whose bar to build
+ * @return The tabs, paired by position with [routesFor]
+ */
+@Composable
+private fun tabsFor(lens: Lens?): List<NavDestination> =
+    when (lens) {
+        Lens.TEACHER -> teacherTabs()
+        Lens.GUARDIAN ->
+            listOf(
+                NavDestination(
+                    label = stringResource(R.string.nav_children),
+                    icon = painterResource(R.drawable.ic_nav_today),
+                    tag = "nav_tab_children",
+                ),
+                NavDestination(
+                    label = stringResource(R.string.nav_invitations),
+                    icon = painterResource(R.drawable.ic_nav_batches),
+                    tag = "nav_tab_invitations",
+                ),
+                NavDestination(
+                    label = stringResource(R.string.nav_more),
+                    icon = painterResource(R.drawable.ic_nav_more),
+                    tag = "nav_tab_more",
+                ),
+            )
+        Lens.STUDENT, null ->
+            listOf(
+                NavDestination(
+                    label = stringResource(R.string.nav_invitations),
+                    icon = painterResource(R.drawable.ic_nav_batches),
+                    tag = "nav_tab_invitations",
+                ),
+                NavDestination(
+                    label = stringResource(R.string.nav_more),
+                    icon = painterResource(R.drawable.ic_nav_more),
+                    tag = "nav_tab_more",
+                ),
+            )
+    }
+
+/**
  * The teacher's four destinations, as the design fixes them.
  *
- * **All four are enabled now.** Three were declared disabled while
- * their repositories and ViewModels were missing, so the bar had its
- * real shape before it had its real screens. Those layers have landed
- * and each tab opens a screen that loads.
+ * Kept as its own function because it is the only bar with four
+ * tabs and the only one whose shape the design artboards fix; the
+ * other two are built inline in [tabsFor].
  *
  * @return The tabs, in the design's order
  */

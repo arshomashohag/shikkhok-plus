@@ -28,10 +28,16 @@ import com.shikkhokplus.app.core.designsystem.FullScreenLoader
 import com.shikkhokplus.app.core.designsystem.ShikkhokTheme
 import com.shikkhokplus.app.core.network.ApiClient
 import com.shikkhokplus.app.core.queue.QueueStore
+import com.shikkhokplus.app.core.session.Lens
+import com.shikkhokplus.app.core.session.SessionUiState
+import com.shikkhokplus.app.core.session.SessionViewModel
+import com.shikkhokplus.app.core.session.ui.LensPickerScreen
+import com.shikkhokplus.app.core.network.HttpProfileRepository
 import com.shikkhokplus.app.core.network.EncryptedTokenStore
 import com.shikkhokplus.app.core.network.HttpAuthRepository
 import com.shikkhokplus.app.feature.auth.AuthUiState
 import com.shikkhokplus.app.feature.auth.AuthViewModel
+import com.shikkhokplus.app.navigation.SessionBinding
 import com.shikkhokplus.app.navigation.ShikkhokNavHost
 
 /**
@@ -151,15 +157,95 @@ private fun AppRoot() {
         return
     }
 
+    // **Live, not remembered.** An earlier draft of this line read
+    // `remember { ... }`, which pins the value to the FIRST
+    // composition -- so a person who signs in during this session
+    // stayed `false` here, the lens was never resolved, and a teacher
+    // who had just entered their code got the lens-free bar.
+    //
+    // The NavHost below still takes a remembered value for its start
+    // destination, and must: a live value THERE rebuilds the graph and
+    // discards the back stack. The two uses genuinely differ.
+    val signedIn = authState is AuthUiState.SignedIn
+
+    // **The lens is resolved BEFORE the graph is built**, behind the
+    // loader already showing. Routing everyone to the teacher home
+    // and correcting a second later would be the same flash this file
+    // already fixed once for the sign-in screen -- except worse,
+    // because the wrong screen here is one the server refuses.
+    val sessionModel: SessionViewModel =
+        viewModel { SessionViewModel(HttpProfileRepository(client)) }
+    val sessionState by sessionModel.state.collectAsState()
+
+    // Only for someone who IS signed in: a signed-out person has no
+    // token, so asking would be a guaranteed 401 before the OTP
+    // screen. Keyed on `signedIn` so it fires again the moment someone
+    // signs in mid-session, which is the whole reason that value is
+    // live rather than remembered.
+    LaunchedEffect(signedIn) { if (signedIn) sessionModel.resolve() }
+
+    val lens: Lens?
+    // Whether there is anything to switch TO. Resolved alongside the
+    // lens because only the picker's own list knows: a person with
+    // one lens is offered nothing, and offering it anyway would send
+    // them to a picker that immediately picks for them.
+    var multiLens = false
+    if (signedIn) {
+        when (val resolved = sessionState) {
+            SessionUiState.Resolving -> {
+                FullScreenLoader(label = stringResource(R.string.auth_restoring))
+                return
+            }
+
+            is SessionUiState.Choosing -> {
+                // **The person chooses, because the server sends no
+                // default** [TC-11, D-2]. Returning here rather than
+                // routing means the picker is not a back-stack entry:
+                // Back from the home screen leaves the app rather than
+                // returning to a choice already made.
+                LensPickerScreen(
+                    options = resolved.options,
+                    onChoose = sessionModel::choose,
+                )
+                return
+            }
+
+            is SessionUiState.Ready -> {
+                lens = resolved.lens
+                multiLens = resolved.fromPicker
+            }
+
+            // **No lens is not a failure.** A fresh signup holds no
+            // seat until a teacher adds them, and the graph sends a
+            // null lens to invitations -- which is lens-exempt on the
+            // server for exactly this case [BR1.3].
+            SessionUiState.NoLens -> lens = null
+
+            // A failure also routes to the lens-free home rather than
+            // stranding the person on an error page: invitations and
+            // the profile both work without a lens, so they can at
+            // least see their own row and try again.
+            is SessionUiState.Failed -> lens = null
+        }
+    } else {
+        lens = null
+    }
+
     val navController = rememberNavController()
 
     ShikkhokNavHost(
         client = client,
         queue = queue,
+        session =
+            SessionBinding(
+                lens = lens,
+                onSwitch = if (multiLens) sessionModel::switchLens else null,
+                onLensesChanged = sessionModel::refreshLenses,
+            ),
         // Read ONCE, now that it is settled. A live value here would
         // rebuild the whole NavHost the moment the state changed,
         // discarding the back stack with it.
-        signedIn = remember { authState is AuthUiState.SignedIn },
+        signedIn = remember { signedIn },
         navController = navController,
         authModel = authModel,
     )
