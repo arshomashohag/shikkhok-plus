@@ -19,9 +19,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.rememberNavController
+import com.shikkhokplus.app.R
+import com.shikkhokplus.app.core.designsystem.FullScreenLoader
 import com.shikkhokplus.app.core.designsystem.ShikkhokTheme
 import com.shikkhokplus.app.core.network.ApiClient
 import com.shikkhokplus.app.core.network.EncryptedTokenStore
@@ -126,14 +129,28 @@ private fun AppRoot() {
     // token repeatedly and trip the server's reuse detection.
     LaunchedEffect(Unit) { authModel.resumeSession(repository::refresh) }
 
+    // **The session is checked BEFORE anything is routed.** Previously
+    // `signedIn` was read before `resumeSession` had finished, so it was
+    // always false: the graph started at the sign-in screen and jumped
+    // to the home screen a second or two later once the refresh landed.
+    // A returning teacher saw a login screen they never had to use.
+    //
+    // Now the ViewModel starts at `Restoring`, the app shows the brand
+    // loader, and the graph is not built until the answer is known — so
+    // the start destination is correct on the first frame and there is
+    // nothing to jump away from.
+    if (authState is AuthUiState.Restoring) {
+        FullScreenLoader(label = stringResource(R.string.auth_restoring))
+        return
+    }
+
     val navController = rememberNavController()
 
     ShikkhokNavHost(
         client = client,
-        // Read ONCE, for the start destination only. The graph's own
-        // LaunchedEffect handles the sign-in that happens later; using
-        // a live value here would rebuild the whole NavHost the moment
-        // the session resumed, discarding the back stack with it.
+        // Read ONCE, now that it is settled. A live value here would
+        // rebuild the whole NavHost the moment the state changed,
+        // discarding the back stack with it.
         signedIn = remember { authState is AuthUiState.SignedIn },
         navController = navController,
         authModel = authModel,

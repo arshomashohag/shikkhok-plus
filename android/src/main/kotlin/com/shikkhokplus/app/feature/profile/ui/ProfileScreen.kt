@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -19,6 +18,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
+import com.shikkhokplus.app.core.designsystem.LogoLoader
 import com.shikkhokplus.app.core.designsystem.ScreenScaffold
 import com.shikkhokplus.app.feature.auth.MessageKeys
 import com.shikkhokplus.app.feature.profile.ProfileUiState
@@ -75,7 +75,7 @@ fun ProfileScreen(
         // so every screen showed its name twice.
 
         when (state) {
-            ProfileUiState.Loading -> CircularProgressIndicator()
+            ProfileUiState.Loading -> LogoLoader()
 
             is ProfileUiState.Viewing -> {
                 ProfileField(
@@ -102,7 +102,7 @@ fun ProfileScreen(
             )
 
             ProfileUiState.Saving -> {
-                CircularProgressIndicator()
+                LogoLoader()
                 Text(text = stringResource(R.string.profile_saving))
             }
 

@@ -112,6 +112,19 @@ val coverageExclusions = listOf(
     // a disabled one does not navigate, and that it becomes usable the
     // moment its screen is ready.
     "**/designsystem/BottomNavKt*",
+    // **The animated logo loader, same reason, measured.**
+    //
+    // *(Added 2026-10-27.)* `LogoLoaderKt` is a Canvas drawing one
+    // frame of an animation from a clock value. JaCoCo recorded 28
+    // missed and 0 covered: Robolectric does not advance an infinite
+    // transition, so no frame is ever drawn under test.
+    //
+    // What IS testable here is tested: `LogoLoaderTest` asserts the
+    // loader renders, that it carries a label when given one, and
+    // that `AuthViewModel` resolves away from `Restoring` on both the
+    // success and failure paths — which is the behaviour the loader
+    // exists to cover.
+    "**/designsystem/LogoLoaderKt*",
 )
 
 tasks.register<JacocoReport>("jacocoDebugReport") {

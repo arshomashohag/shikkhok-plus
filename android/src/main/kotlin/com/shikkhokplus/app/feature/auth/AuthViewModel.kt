@@ -72,7 +72,7 @@ class AuthViewModel(
     private val repository: AuthRepository,
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow<AuthUiState>(AuthUiState.Idle)
+    private val _state = MutableStateFlow<AuthUiState>(AuthUiState.Restoring)
 
     /** What the screen renders. */
     val state: StateFlow<AuthUiState> = _state.asStateFlow()
@@ -92,13 +92,27 @@ class AuthViewModel(
      * error about a refresh they never asked for would be noise about
      * machinery they do not know exists.
      *
+     * **It must always resolve.** The state starts at
+     * [AuthUiState.Restoring], so a path that left it unchanged would
+     * hold the loader forever — the opposite of the flash it fixes.
+     *
      * @param refresh Exchanges the stored token for a fresh pair
      */
     fun resumeSession(refresh: suspend () -> AuthResult<TokenResponse>) {
         viewModelScope.launch {
-            if (refresh() is AuthResult.Ok) {
-                _state.value = AuthUiState.SignedIn
-            }
+            // **Always resolves, which is what fixes the flash.** The
+            // starting state is `Restoring`, so leaving it untouched on
+            // failure would hold the loader forever. A failure here is
+            // still SILENT in the sense that matters: the person simply
+            // arrives at the sign-in screen, which is where they were
+            // going anyway, with no error about machinery they do not
+            // know exists.
+            _state.value =
+                if (refresh() is AuthResult.Ok) {
+                    AuthUiState.SignedIn
+                } else {
+                    AuthUiState.Idle
+                }
         }
     }
 

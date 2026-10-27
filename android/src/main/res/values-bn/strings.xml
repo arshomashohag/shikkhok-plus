@@ -466,4 +466,5 @@
     <string name="nav_dues">বকেয়া</string>
     <string name="nav_more">আরও</string>
     <string name="batches_subtitle_none">এখনও নেই</string>
+    <string name="auth_restoring">সাইন ইন করা হচ্ছে…</string>
 </resources>

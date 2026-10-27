@@ -521,4 +521,5 @@
     <string name="nav_dues">Dues</string>
     <string name="nav_more">More</string>
     <string name="batches_subtitle_none">None yet</string>
+    <string name="auth_restoring">Signing you in…</string>
 </resources>

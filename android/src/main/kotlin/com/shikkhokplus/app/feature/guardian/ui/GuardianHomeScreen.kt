@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -16,6 +15,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
+import com.shikkhokplus.app.core.designsystem.LogoLoader
 import com.shikkhokplus.app.core.designsystem.ScreenScaffold
 import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.feature.auth.MessageKeys
@@ -101,7 +101,7 @@ fun GuardianHomeScreen(
             GuardianUiState.Idle -> Unit
 
             GuardianUiState.Loading ->
-                CircularProgressIndicator(Modifier.testTag(TAG_GUARDIAN_LOADING))
+                LogoLoader(Modifier.testTag(TAG_GUARDIAN_LOADING))
 
             // **No switcher drawn.** There is nothing to switch
             // between, and a control offering one option is noise.

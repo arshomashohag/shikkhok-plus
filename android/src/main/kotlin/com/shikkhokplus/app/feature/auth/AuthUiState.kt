@@ -13,7 +13,22 @@ package com.shikkhokplus.app.feature.auth
  * than an untargeted "test the ViewModel".
  */
 sealed interface AuthUiState {
-    /** Nothing has been asked for yet. */
+    /**
+     * A stored session is being redeemed, before anything is shown.
+     *
+     * **Distinct from [Idle], and the distinction is the defect it
+     * fixes.** `Idle` meant both "never signed in" and "still
+     * checking", so the graph started at the sign-in screen and jumped
+     * to the home screen once the refresh landed — a returning teacher
+     * saw the login screen flash for a second or two before being
+     * taken somewhere else.
+     *
+     * This is the FIRST state, not [Idle]: the app opens on the loader
+     * and resolves to one destination or the other.
+     */
+    data object Restoring : AuthUiState
+
+    /** Nothing has been asked for yet; the sign-in screen is shown. */
     data object Idle : AuthUiState
 
     /** A request is in flight; the screen shows a spinner. */

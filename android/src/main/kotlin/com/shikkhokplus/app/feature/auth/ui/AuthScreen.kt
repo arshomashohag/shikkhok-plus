@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -23,6 +22,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.text.KeyboardOptions
 import com.shikkhokplus.app.R
+import com.shikkhokplus.app.core.designsystem.LogoLoader
 import com.shikkhokplus.app.core.designsystem.OtpField
 import com.shikkhokplus.app.core.designsystem.Reach
 import com.shikkhokplus.app.core.designsystem.ScreenScaffold
@@ -78,6 +78,11 @@ fun AuthScreen(
         )
 
         when (state) {
+            // The app does not route here while restoring; this arm
+            // exists so the `when` stays exhaustive and a future
+            // caller cannot render a blank screen by accident.
+            AuthUiState.Restoring -> LogoLoader()
+
             AuthUiState.Idle,
             is AuthUiState.Failed,
             -> {
@@ -113,8 +118,11 @@ fun AuthScreen(
                 }
             }
 
-            AuthUiState.Sending -> CircularProgressIndicator(
+            // The brand loader rather than a default spinner, which
+            // is what the design asks for anywhere above 48dp.
+            AuthUiState.Sending -> LogoLoader(
                 modifier = Modifier.testTag(TAG_SENDING),
+                size = 72.dp,
             )
 
             AuthUiState.AwaitingCode -> CodeEntry(

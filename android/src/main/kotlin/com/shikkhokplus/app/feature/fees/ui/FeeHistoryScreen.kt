@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -16,6 +15,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
+import com.shikkhokplus.app.core.designsystem.LogoLoader
 import com.shikkhokplus.app.core.designsystem.ListScreenScaffold
 import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.feature.auth.MessageKeys
@@ -81,7 +81,7 @@ fun FeeHistoryScreen(
     ) {
         when (state) {
             FeeUiState.Loading ->
-                CircularProgressIndicator(Modifier.testTag(TAG_FEES_LOADING))
+                LogoLoader(Modifier.testTag(TAG_FEES_LOADING))
 
             FeeUiState.Empty ->
                 // Nothing CHARGED yet is not the same as everything
