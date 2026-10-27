@@ -21,8 +21,8 @@ from sqlalchemy.orm import Session as DbSession
 from app.api.deps import get_session, guardian_lens, student_lens, teacher_lens
 from app.authz.lenses import GuardianLens, StudentLens, TeacherLens
 from app.marks import views
-from app.marks.entry import correction_history, record_mark
-from app.marks.exams import create_exam, list_exams, update_exam
+from app.marks.entry import correction_history, exam_is_writable, record_mark
+from app.marks.exams import create_exam, list_exams, read_exam_row, update_exam
 from app.marks.marksheet import Marksheet, Published
 from app.marks.results import exam_results
 from app.schemas.errors import ErrorEnvelope
@@ -31,6 +31,7 @@ from app.schemas.marks import (
     CorrectionEntryResponse,
     ExamCreateRequest,
     ExamResponse,
+    ExamResultsResponse,
     MarksheetResponse,
     MarkWriteRequest,
     ProgressEntryResponse,
@@ -253,33 +254,49 @@ def update_batch_exam(
 
 @router.get(
     "/exams/{exam_id}/results",
-    response_model=list[SeatResultResponse],
+    response_model=ExamResultsResponse,
     responses=_AUTH_ERRORS,
 )
 def read_exam_results(
     exam_id: uuid.UUID,
     session: Annotated[DbSession, Depends(get_session)],
     lens: Annotated[TeacherLens, Depends(teacher_lens)],
-) -> list[SeatResultResponse]:
-    """Read every seat's result for one exam [BR4.3].
+) -> ExamResultsResponse:
+    """Read every seat's result for one exam, with the exam [BR4.3].
 
     ``not_entered`` and ``joined_after`` are **derived** and never
     typed by the teacher.
 
+    **`writable` is reported, not inferred.** Whether marks may be
+    entered is a server decision [BR5.5] — an exam in an inactive
+    batch is read-only — and a client guessing would offer an entry
+    field whose save is refused.
+
     :param exam_id: The exam, from the route path
     :param session: The request-scoped session
     :param lens: The teacher lens
-    :return: One row per seat
+    :return: The exam, one row per seat, and whether it is writable
     """
-    return [
-        SeatResultResponse(
-            enrollment_id=row.enrollment_id,
-            display_name=row.display_name,
-            result_state=_result_state(row.result_state),
-            marks=row.marks,
-        )
-        for row in exam_results(session, lens=lens, exam_id=exam_id)
-    ]
+    exam = read_exam_row(session, lens=lens, exam_id=exam_id)
+    return ExamResultsResponse(
+        exam=ExamResponse(
+            exam_id=exam.exam_id,
+            title=exam.title,
+            date=exam.date,
+            total_marks=exam.total_marks,
+            subject_name=exam.subject_name,
+        ),
+        results=[
+            SeatResultResponse(
+                enrollment_id=row.enrollment_id,
+                display_name=row.display_name,
+                result_state=_result_state(row.result_state),
+                marks=row.marks,
+            )
+            for row in exam_results(session, lens=lens, exam_id=exam_id)
+        ],
+        writable=exam_is_writable(session, exam_id=exam_id),
+    )
 
 
 @router.post(

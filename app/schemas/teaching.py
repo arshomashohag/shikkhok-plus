@@ -51,6 +51,7 @@ __all__ = [
     "SessionOrigin",
     "SessionRescheduleRequest",
     "SessionResponse",
+    "SessionRosterResponse",
     "SessionStatus",
     "SessionSubjectRequest",
     "TopicWriteRequest",
@@ -166,6 +167,26 @@ class RosterSeatResponse(BaseModel):
     enrollment_id: uuid.UUID
     display_name: str
     present: bool | None = None
+
+
+class SessionRosterResponse(BaseModel):
+    """One session's roster, with the version it is at.
+
+    **A wrapper rather than a bare array, and the version is why.**
+    Attendance writes carry a `base_attendance_version` and a stale
+    one is refused with a 409 [TC-8, D-9]. After that refusal the app
+    re-reads the roster to show what changed — and without the current
+    version here it cannot compose the next write, so a conflict
+    becomes a dead end rather than something a person can resolve.
+
+    :ivar seats: One row per seat on the roster
+    :ivar attendance_version: The roster's current version
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    seats: list[RosterSeatResponse]
+    attendance_version: int
 
 
 class SeatMarkRequest(BaseModel):

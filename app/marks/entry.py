@@ -116,6 +116,33 @@ def _writable_exam(
     return row
 
 
+def exam_is_writable(
+    session: DbSession,
+    *,
+    exam_id: uuid.UUID,
+) -> bool:
+    """Report whether marks may be entered for this exam [BR5.5].
+
+    **The same rule ``_writable_exam`` enforces, asked rather than
+    raised.** A reader needs to know before offering the control; a
+    writer needs the refusal. Both come from one condition here, so
+    the screen cannot offer an entry field the write would reject.
+
+    :param session: The session to read through
+    :param exam_id: The exam
+    :return: True when the exam's batch is active
+    """
+    batch_id = session.scalars(
+        sa.select(Exam.batch_id).where(Exam.id == exam_id)
+    ).one_or_none()
+    if batch_id is None:
+        return False
+    active = session.scalars(
+        sa.select(Batch.active).where(Batch.id == batch_id)
+    ).one_or_none()
+    return bool(active)
+
+
 def record_mark(
     session: DbSession,
     *,

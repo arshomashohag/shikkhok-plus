@@ -960,6 +960,33 @@
         "title": "ExamResponse",
         "type": "object"
       },
+      "ExamResultsResponse": {
+        "additionalProperties": false,
+        "description": "One exam's results, with the exam and whether it may be written.\n\n**A wrapper rather than a bare array, and `writable` is why.** The\nscreen must know whether to offer mark entry at all, and that is a\nserver decision [BR5.5]: an exam in an inactive batch is read-only\nand the write is refused with `teaching.batch.inactive`. Without\nit the client either guesses, or offers an entry field that fails\non save — which is the failure a person blames on the app.\n\nThe exam travels with the results because the screen shows its\ntitle and total alongside them, and a second request to learn what\nthe first was about is a round trip the server can spare.\n\n:ivar exam: The exam these results belong to\n:ivar results: One row per seat [BR4.3]\n:ivar writable: Whether marks may be entered, decided server-side",
+        "properties": {
+          "exam": {
+            "$ref": "#/components/schemas/ExamResponse"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/SeatResultResponse"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "writable": {
+            "title": "Writable",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "exam",
+          "results",
+          "writable"
+        ],
+        "title": "ExamResultsResponse",
+        "type": "object"
+      },
       "FamilyBatchViewResponse": {
         "additionalProperties": false,
         "description": "What a student or guardian sees of one batch [BR7.2].\n\n``served_at`` is BR7.3's server timestamp, so a client rendering\nthis from cache can state its age without consulting the device\nclock -- which is the thing excluded from decisions.\n\n:ivar next_session_date: The next scheduled session's date, or\n    null\n:ivar next_session_start_time: Its start time, or null\n:ivar past_sessions: Past sessions with topics and attendance\n:ivar announcements: The batch's visible notes\n:ivar served_at: When the server computed this",
@@ -2097,6 +2124,29 @@
           "topic_version"
         ],
         "title": "SessionResponse",
+        "type": "object"
+      },
+      "SessionRosterResponse": {
+        "additionalProperties": false,
+        "description": "One session's roster, with the version it is at.\n\n**A wrapper rather than a bare array, and the version is why.**\nAttendance writes carry a `base_attendance_version` and a stale\none is refused with a 409 [TC-8, D-9]. After that refusal the app\nre-reads the roster to show what changed — and without the current\nversion here it cannot compose the next write, so a conflict\nbecomes a dead end rather than something a person can resolve.\n\n:ivar seats: One row per seat on the roster\n:ivar attendance_version: The roster's current version",
+        "properties": {
+          "attendance_version": {
+            "title": "Attendance Version",
+            "type": "integer"
+          },
+          "seats": {
+            "items": {
+              "$ref": "#/components/schemas/RosterSeatResponse"
+            },
+            "title": "Seats",
+            "type": "array"
+          }
+        },
+        "required": [
+          "attendance_version",
+          "seats"
+        ],
+        "title": "SessionRosterResponse",
         "type": "object"
       },
       "SessionSubjectRequest": {
@@ -4801,7 +4851,7 @@
     },
     "/v1/exams/{exam_id}/results": {
       "get": {
-        "description": "Read every seat's result for one exam [BR4.3].\n\n``not_entered`` and ``joined_after`` are **derived** and never\ntyped by the teacher.\n\n:param exam_id: The exam, from the route path\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: One row per seat",
+        "description": "Read every seat's result for one exam, with the exam [BR4.3].\n\n``not_entered`` and ``joined_after`` are **derived** and never\ntyped by the teacher.\n\n**`writable` is reported, not inferred.** Whether marks may be\nentered is a server decision [BR5.5] — an exam in an inactive\nbatch is read-only — and a client guessing would offer an entry\nfield whose save is refused.\n\n:param exam_id: The exam, from the route path\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: The exam, one row per seat, and whether it is writable",
         "operationId": "read_exam_results_v1_exams__exam_id__results_get",
         "parameters": [
           {
@@ -4820,11 +4870,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/SeatResultResponse"
-                  },
-                  "title": "Response Read Exam Results V1 Exams  Exam Id  Results Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/ExamResultsResponse"
                 }
               }
             },
@@ -5493,7 +5539,7 @@
     },
     "/v1/sessions/{session_id}/attendance": {
       "get": {
-        "description": "Read one session's roster [BR1.5].\n\n:param session_id: The session, from the route path\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: One row per seat on the roster",
+        "description": "Read one session's roster, with its version [BR1.5].\n\n**The version is what makes a conflict recoverable.** A write\ncarries a `base_attendance_version` and a stale one is refused\n[TC-8, D-9]; the app re-reads here to show what changed, and\nwithout the current version it cannot compose the next write.\n\n:param session_id: The session, from the route path\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: The seats, and the version they are at",
         "operationId": "read_session_roster_v1_sessions__session_id__attendance_get",
         "parameters": [
           {
@@ -5512,11 +5558,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/RosterSeatResponse"
-                  },
-                  "title": "Response Read Session Roster V1 Sessions  Session Id  Attendance Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/SessionRosterResponse"
                 }
               }
             },

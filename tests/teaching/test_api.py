@@ -123,13 +123,19 @@ def test_the_roster_round_trips_through_the_api(
 
     before = client.get(f"/v1/sessions/{api_session}/attendance", headers=headers)
     assert before.status_code == 200
-    assert before.json() == [
-        {
-            "enrollment_id": str(seat),
-            "display_name": "Rahim",
-            "present": None,
-        }
-    ]
+    # The response wraps its seats and carries the version, added
+    # 2026-10-27: a 409 is only recoverable if the app can read the
+    # current version and compose the next write from it.
+    assert before.json() == {
+        "seats": [
+            {
+                "enrollment_id": str(seat),
+                "display_name": "Rahim",
+                "present": None,
+            }
+        ],
+        "attendance_version": 0,
+    }
 
     applied = client.post(
         f"/v1/sessions/{api_session}/attendance",
@@ -144,7 +150,10 @@ def test_the_roster_round_trips_through_the_api(
     assert applied.json()["attendance_version"] == 1
 
     after = client.get(f"/v1/sessions/{api_session}/attendance", headers=headers)
-    assert after.json()[0]["present"] is False
+    assert after.json()["seats"][0]["present"] is False
+    # The version moved with the write, which is what the next
+    # submission must send as its base.
+    assert after.json()["attendance_version"] == 1
 
 
 def test_a_stale_version_returns_409_with_the_current_state(

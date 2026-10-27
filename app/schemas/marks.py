@@ -32,6 +32,7 @@ __all__ = [
     "CorrectionEntryResponse",
     "ExamCreateRequest",
     "ExamResponse",
+    "ExamResultsResponse",
     "MarkWriteRequest",
     "MarksheetResponse",
     "ProgressEntryResponse",
@@ -132,6 +133,32 @@ class SeatResultResponse(BaseModel):
     display_name: str
     result_state: ResultState
     marks: int | None = None
+
+
+class ExamResultsResponse(BaseModel):
+    """One exam's results, with the exam and whether it may be written.
+
+    **A wrapper rather than a bare array, and `writable` is why.** The
+    screen must know whether to offer mark entry at all, and that is a
+    server decision [BR5.5]: an exam in an inactive batch is read-only
+    and the write is refused with `teaching.batch.inactive`. Without
+    it the client either guesses, or offers an entry field that fails
+    on save — which is the failure a person blames on the app.
+
+    The exam travels with the results because the screen shows its
+    title and total alongside them, and a second request to learn what
+    the first was about is a round trip the server can spare.
+
+    :ivar exam: The exam these results belong to
+    :ivar results: One row per seat [BR4.3]
+    :ivar writable: Whether marks may be entered, decided server-side
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    exam: ExamResponse
+    results: list[SeatResultResponse]
+    writable: bool
 
 
 class CorrectionEntryResponse(BaseModel):
