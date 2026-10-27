@@ -71,9 +71,9 @@ jobs:
     timeout-minutes: 30
     environment: ${{ inputs.environment }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@v6
         with:
           # **The NARROW deploy role, not the infrastructure role.**
           # `AWS_ROLE_ARN` is the infrastructure role and its own
@@ -91,7 +91,7 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: security-scan-${{ github.run_id }}
 
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: "1.10.5"
           terraform_wrapper: false
@@ -343,7 +343,7 @@ jobs:
       # what was scanned.
       - name: Keep the report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: zap-report-${{ inputs.environment }}-${{ github.run_id }}
           path: zap-out/
