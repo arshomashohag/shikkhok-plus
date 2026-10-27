@@ -93,12 +93,70 @@ def test_an_invitation_carries_exactly_the_three_fields(
         "subject",
         "fee_amount",
         "decision",
+        # `role` was added 2026-10-27 and this width guard failed,
+        # correctly -- widening this response is a privacy decision,
+        # not a detail. It is admissible because it discloses nothing
+        # the holder does not have: they are on this seat, and the
+        # query derives it from the same condition the `decision`
+        # column already branches on.
+        #
+        # It is here because the DECLINE CONFIRMATION differs by role
+        # [BR5.2] and the client had no trustworthy source for it. One
+        # sheet shown to both roles told a guardian a debt was
+        # cancelled when it was not.
+        "role",
     }
     assert body["batch_name"] == "Physics"
     assert body["decision"] == "pending"
+    assert body["role"] == "student"
     # Money crosses as a JSON STRING, never a number [TC-7, D-20].
     assert body["fee_amount"] == "1200.00"
     assert isinstance(body["fee_amount"], str)
+
+
+def test_the_role_names_which_link_the_reader_holds(
+    client: TestClient, owner_session: Session
+) -> None:
+    """A guardian is told they are the guardian [BR5.2].
+
+    **The field exists for the decline confirmation.** A student's
+    decline stops their fee; a guardian's withdraws only their own
+    lens and leaves the student's obligation entirely intact. One
+    confirmation written once and shown to both roles told a guardian
+    a debt was cancelled when it was not, and the client had no
+    trustworthy way to tell the two apart -- the response carried no
+    role and the server never returned which lens produced it.
+
+    Asserted from BOTH sides of the same seat, because a constant
+    "student" would pass a test that only ever reads as the student.
+
+    :param client: A client against the restricted engine
+    :param owner_session: A session able to arrange fixture data
+    :return: None
+    """
+    teacher = make_teacher(owner_session, name="Physics")
+    student = make_account(owner_session)
+    guardian = make_account(owner_session)
+    enrollment_id = _seat(
+        owner_session,
+        teacher=teacher,
+        student_account_id=student,
+        guardian_account_id=guardian,
+    )
+
+    as_student = client.get(
+        f"/v1/invitations/{enrollment_id}",
+        headers=auth_header(owner_session, student),
+    )
+    as_guardian = client.get(
+        f"/v1/invitations/{enrollment_id}",
+        headers=auth_header(owner_session, guardian),
+    )
+
+    assert as_student.status_code == 200
+    assert as_guardian.status_code == 200
+    assert as_student.json()["role"] == "student"
+    assert as_guardian.json()["role"] == "guardian"
 
 
 def test_a_person_cannot_reach_a_seat_that_is_not_theirs(

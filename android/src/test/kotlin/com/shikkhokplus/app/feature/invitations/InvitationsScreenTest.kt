@@ -44,6 +44,7 @@ class InvitationsScreenTest {
         fee = Money.of("1200.00"),
         state = AcceptanceState.PENDING,
         canDecline = true,
+        heldAsGuardian = false,
     )
 
     private fun render(

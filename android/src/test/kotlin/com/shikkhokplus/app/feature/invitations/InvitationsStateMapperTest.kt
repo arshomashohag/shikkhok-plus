@@ -26,6 +26,7 @@ class InvitationsStateMapperTest {
     private fun invitation(
         decision: String = "pending",
         fee: Money? = null,
+        role: String = "student",
     ): InvitationDto =
         InvitationDto(
             enrollmentId = "e-1",
@@ -33,6 +34,7 @@ class InvitationsStateMapperTest {
             subject = listOf("Physics"),
             feeAmount = fee,
             decision = decision,
+            role = role,
         )
 
     @Test
@@ -91,6 +93,7 @@ class InvitationsStateMapperTest {
                 fee = null,
                 state = AcceptanceState.PENDING,
                 canDecline = true,
+                heldAsGuardian = false,
             )
 
         val state = InvitationsStateMapper.beforeDecline(row, heldAsGuardian = false)
@@ -116,6 +119,7 @@ class InvitationsStateMapperTest {
                 fee = null,
                 state = AcceptanceState.PENDING,
                 canDecline = true,
+                heldAsGuardian = false,
             )
 
         val state = InvitationsStateMapper.beforeDecline(row, heldAsGuardian = true)

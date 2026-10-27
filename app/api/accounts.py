@@ -111,12 +111,20 @@ def _as_response(row: InvitationRow) -> InvitationResponse:
     decision: Literal["pending", "declined"] = (
         "declined" if row.decision == "declined" else "pending"
     )
+    # Narrowed the same way and for the same reason. The query emits
+    # exactly these two literals from one `case`, and a `cast` would
+    # assert that rather than check it -- which is the distinction the
+    # comment above draws.
+    role: Literal["student", "guardian"] = (
+        "guardian" if row.role == "guardian" else "student"
+    )
     return InvitationResponse(
         enrollment_id=row.enrollment_id,
         batch_name=row.batch_name,
         subject=row.subject,
         fee_amount=_to_wire(row.fee_amount),
         decision=decision,
+        role=role,
     )
 
 

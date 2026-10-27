@@ -105,6 +105,9 @@ class InvitationRow:
     :ivar fee_amount: This seat's fee, or None when it inherits the
         batch default. None is NOT zero: zero is a waiver
     :ivar decision: This holder's own decision, never the other link's
+    :ivar role: Which link this account holds, ``student`` or
+        ``guardian``. Present so the decline confirmation can say what
+        a decline actually does for THIS holder
     """
 
     enrollment_id: uuid.UUID
@@ -112,6 +115,7 @@ class InvitationRow:
     subject: list[str]
     fee_amount: Money | None
     decision: str
+    role: str
 
 
 #: Read ONE seat through its invitation lens, at BR1.4's width.
@@ -141,7 +145,7 @@ class InvitationRow:
 #: are literal SQL because none of them touches an amount.
 def _invitation_statement(
     *, account_id: uuid.UUID, enrollment_id: uuid.UUID
-) -> sa.Select[uuid.UUID, str, Money | None, str]:
+) -> sa.Select[uuid.UUID, str, Money | None, str, str]:
     """Build the one-seat read, scoped to its holder.
 
     The fee falls back to the batch default here rather than on the
@@ -169,6 +173,20 @@ def _invitation_statement(
                     Enrollment.student_decision,
                 ),
                 else_=Enrollment.guardian_decision,
+            ),
+            # **Which link this account holds.** The same condition the
+            # decision column already branches on, so this discloses
+            # nothing the holder does not have: they are on this seat.
+            #
+            # It is here because the DECLINE CONFIRMATION differs by
+            # role [BR5.2] -- a student's decline stops their fee, a
+            # guardian's leaves the student's obligation intact -- and
+            # the client had no trustworthy way to tell them apart. A
+            # single sheet shown to both once told a guardian a debt
+            # was cancelled when it was not.
+            sa.case(
+                (Enrollment.student_account_id == account_id, sa.literal("student")),
+                else_=sa.literal("guardian"),
             ),
         )
         .join(Batch, Batch.id == Enrollment.batch_id)
@@ -210,7 +228,7 @@ def read_invitation(session: Session, *, lens: InvitationLens) -> InvitationRow:
         # invitation.
         raise LookupError(str(lens.enrollment_id))
 
-    enrollment_id, batch_name, fee_amount, decision = row
+    enrollment_id, batch_name, fee_amount, decision, role = row
 
     subjects = [
         name
@@ -228,4 +246,5 @@ def read_invitation(session: Session, *, lens: InvitationLens) -> InvitationRow:
         subject=subjects,
         fee_amount=fee_amount,
         decision=decision,
+        role=role,
     )

@@ -31,7 +31,7 @@ class AccountsDtoTest {
                 """
                 {"enrollment_id":"e-1","batch_name":"Physics",
                  "subject":["Physics"],"fee_amount":"1200.00",
-                 "decision":"pending"}
+                 "decision":"pending","role":"student"}
                 """.trimIndent(),
             )
 
@@ -50,7 +50,7 @@ class AccountsDtoTest {
                     """
                     {"enrollment_id":"e-1","batch_name":"Physics",
                      "subject":["Physics"],"fee_amount":1200.00,
-                     "decision":"pending"}
+                     "decision":"pending","role":"student"}
                     """.trimIndent(),
                 )
             }
@@ -67,7 +67,7 @@ class AccountsDtoTest {
             json.decodeFromString<InvitationDto>(
                 """
                 {"enrollment_id":"e-1","batch_name":"Physics",
-                 "subject":["Physics"],"decision":"pending"}
+                 "subject":["Physics"],"decision":"pending","role":"student"}
                 """.trimIndent(),
             )
 
@@ -85,6 +85,7 @@ class AccountsDtoTest {
                     subject = listOf("Physics"),
                     feeAmount = Money.of("1200.00"),
                     decision = "pending",
+                    role = "student",
                 ),
             )
 
