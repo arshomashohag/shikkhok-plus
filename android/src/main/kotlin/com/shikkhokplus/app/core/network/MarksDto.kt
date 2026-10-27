@@ -222,3 +222,51 @@ data class ProgressDto(
     @SerialName("batch_name") val batchName: String,
     val entries: List<ProgressEntryDto> = emptyList(),
 )
+
+/**
+ * One exam's results, as the wire carries them [BR4.3, BR5.5].
+ *
+ * **A wrapper rather than a bare array, and `writable` is why.** An
+ * exam in an inactive batch is read-only, and that is a server
+ * decision — without the flag the screen either guesses or offers an
+ * entry field whose save is refused, which is the failure a person
+ * blames on the app.
+ *
+ * @property exam The exam, so the screen can show its title and total
+ *   without a second call
+ * @property results One row per seat, in the server's order
+ * @property writable Whether marks may be written
+ */
+@Serializable
+data class ExamResultsResponseDto(
+    val exam: ExamDto,
+    val results: List<ExamResultDto> = emptyList(),
+    val writable: Boolean,
+)
+
+/**
+ * The body of an exam creation [BR4.1].
+ *
+ * @property title The teacher's name for the exam
+ * @property date The exam date
+ * @property totalMarks The total, at least one
+ * @property batchSubjectId Which of the batch's subjects. The
+ *   belongs-to-batch check is the server's
+ */
+@Serializable
+data class ExamCreateRequestDto(
+    val title: String,
+    val date: String,
+    @SerialName("total_marks") val totalMarks: Int,
+    @SerialName("batch_subject_id") val batchSubjectId: String,
+)
+
+/**
+ * The body of a marksheet visibility toggle [BR5.4].
+ *
+ * @property visible Whether families see marksheets for this batch
+ */
+@Serializable
+data class MarksheetToggleRequestDto(
+    val visible: Boolean,
+)
