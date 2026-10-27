@@ -39,6 +39,24 @@ data class FeeCycleDto(
 )
 
 /**
+ * One seat's periods, with the total the SERVER computed.
+ *
+ * **A wrapper rather than a bare array, and the total is why.** The
+ * client must not sum [cycles]: that would be money arithmetic on
+ * this side, which [D-20] forbids outright, and it would be wrong the
+ * moment the history paginates — a page of three periods would report
+ * a total that is not the balance.
+ *
+ * @property cycles One row per generated period, oldest first
+ * @property totalOutstanding What this seat still owes in total
+ */
+@Serializable
+data class FeeHistoryDto(
+    val cycles: List<FeeCycleDto> = emptyList(),
+    @SerialName("total_outstanding") val totalOutstanding: Money,
+)
+
+/**
  * One seat's fee position on a teacher's roster.
  *
  * **Carries no collection number** [BR6.4, NFR14.33]. The teacher's

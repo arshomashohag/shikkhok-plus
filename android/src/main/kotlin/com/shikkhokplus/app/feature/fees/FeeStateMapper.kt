@@ -2,6 +2,7 @@ package com.shikkhokplus.app.feature.fees
 
 import com.shikkhokplus.app.core.model.Money
 import com.shikkhokplus.app.core.network.ClaimDto
+import com.shikkhokplus.app.core.network.ErrorEnvelope
 import com.shikkhokplus.app.core.network.FeeCycleDto
 import com.shikkhokplus.app.core.network.PaymentDestinationDto
 import com.shikkhokplus.app.core.network.RosterFeeRowDto
@@ -222,4 +223,32 @@ object FeeStateMapper {
         messageKey: String,
         retryable: Boolean,
     ): FeeUiState = FeeUiState.Failed(messageKey, retryable)
+
+    /**
+     * Map a server error envelope.
+     *
+     * **The client decides neither half.** The server names the
+     * string and states whether a retry would help; inferring either
+     * from a status code is how a non-retryable refusal grows a retry
+     * button that spends money the server just declined [TC-9].
+     *
+     * @param envelope The server's error
+     * @return The failure state
+     */
+    fun afterError(envelope: ErrorEnvelope): FeeUiState =
+        FeeUiState.Failed(
+            messageKey = envelope.error.messageKey,
+            retryable = envelope.error.retryable,
+        )
+
+    /**
+     * Map a transport failure, where no envelope was received.
+     *
+     * Retryable, because nothing reached the server: there is no
+     * refusal to respect, only a connection that did not open.
+     *
+     * @return The offline state
+     */
+    fun afterTransportFailure(): FeeUiState =
+        FeeUiState.Failed(OFFLINE_KEY, retryable = true)
 }
