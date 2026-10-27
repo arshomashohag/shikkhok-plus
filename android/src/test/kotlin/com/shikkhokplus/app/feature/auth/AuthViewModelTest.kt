@@ -65,9 +65,14 @@ class AuthViewModelTest {
     }
 
     @Test
-    fun `it starts idle`() {
+    fun `it starts by restoring, not idle`() {
+        // **This test pinned the defect.** It asserted `Idle` as the
+        // first state, which is exactly what made the app open on the
+        // sign-in screen and jump to the home screen once the stored
+        // session was redeemed. `Idle` now means "checked, and nobody
+        // is signed in"; `Restoring` means "still checking".
         val model = AuthViewModel(FakeRepository())
-        assertIs<AuthUiState.Idle>(model.state.value)
+        assertIs<AuthUiState.Restoring>(model.state.value)
     }
 
     @Test
@@ -196,5 +201,65 @@ class AuthViewModelTest {
             Regex("""\b(if|when)\s*\([^)]*[<>]=?""").findAll(body).none(),
             "a comparison on a domain value appeared in the ViewModel",
         )
+    }
+
+    @Test
+    fun `the first state is Restoring, not Idle`() {
+        // **The defect this fixes, reported from a device.** `Idle`
+        // meant both "never signed in" and "still checking", so the
+        // graph started at the sign-in screen and jumped to the home
+        // screen a second or two later — a returning teacher saw a
+        // login screen they never had to use.
+        val model = AuthViewModel(FakeRepository())
+
+        assertEquals(AuthUiState.Restoring, model.state.value)
+    }
+
+    @Test
+    fun `a restored session resolves to SignedIn`() = runTest(dispatcher) {
+        val model = AuthViewModel(FakeRepository())
+
+        model.resumeSession { AuthResult.Ok(TokenResponse("a.b.c", "opaque", 900)) }
+        advanceUntilIdle()
+
+        assertEquals(AuthUiState.SignedIn, model.state.value)
+    }
+
+    @Test
+    fun `a failed restore resolves to Idle rather than hanging`() =
+        runTest(dispatcher) {
+            // **It must always resolve.** The starting state is now
+            // `Restoring`, so a path that left it unchanged would hold
+            // the loader forever — the opposite of the flash it fixes,
+            // and a worse bug.
+            val model = AuthViewModel(FakeRepository())
+
+            model.resumeSession { AuthResult.TransportFailure }
+            advanceUntilIdle()
+
+            assertEquals(AuthUiState.Idle, model.state.value)
+        }
+
+    @Test
+    fun `a refused restore also resolves, silently`() = runTest(dispatcher) {
+        // A rotated-out token is refused rather than failing in
+        // transport. The person simply arrives at the sign-in screen,
+        // with no error about machinery they do not know exists.
+        val model = AuthViewModel(FakeRepository())
+
+        model.resumeSession {
+            AuthResult.Refused(
+                ErrorEnvelope(
+                    ErrorBody(
+                        code = "UNAUTHENTICATED",
+                        messageKey = "auth.token.invalid",
+                        retryable = false,
+                    ),
+                ),
+            )
+        }
+        advanceUntilIdle()
+
+        assertEquals(AuthUiState.Idle, model.state.value)
     }
 }

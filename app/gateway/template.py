@@ -33,7 +33,7 @@ APP_HASH_LENGTH: Final = 11
 
 #: The body. ``<#>`` is the SMS Retriever prefix and the hash closes it.
 OTP_TEMPLATE: Final = (
-    "<#> {code} is your ShikhokPlus code. It expires in 5 minutes. "
+    "<#> {code} is your ShikkhokPlus code. It expires in 5 minutes. "
     "Do not share it. {app_hash}"
 )
 

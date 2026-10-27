@@ -24,9 +24,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
+import com.shikkhokplus.app.core.designsystem.ListScreenScaffold
 import com.shikkhokplus.app.core.designsystem.EmptyState
 import com.shikkhokplus.app.core.designsystem.Reach
-import com.shikkhokplus.app.core.designsystem.ShikhokCard
+import com.shikkhokplus.app.core.designsystem.ShikkhokCard
 import com.shikkhokplus.app.core.designsystem.SkeletonBlock
 import com.shikkhokplus.app.core.designsystem.Spacing
 import com.shikkhokplus.app.core.format.Numerals
@@ -70,6 +71,8 @@ const val TAG_BATCH_ACCEPTED_COUNT: String = "batch_accepted_count"
  * @param onRetry Called when the user asks to retry
  * @param onCreate Called when the teacher wants a new class
  * @param modifier The layout modifier
+ * @param bottomBar The navigation bar, supplied by the route so this
+ *   screen stays renderable in a test without one
  */
 @Composable
 fun BatchesScreen(
@@ -78,10 +81,18 @@ fun BatchesScreen(
     onRetry: () -> Unit,
     onCreate: () -> Unit,
     modifier: Modifier = Modifier,
+    bottomBar: @Composable () -> Unit = {},
 ) {
-    Column(modifier = modifier.fillMaxSize()) {
-        BatchesHeader(state)
-
+    // `BatchesHeader` stays, in the scaffold's header slot: it carries
+    // the "N batches · M students" summary, which belongs above the
+    // list and must not scroll away with it.
+    ListScreenScaffold(
+        title = stringResource(R.string.batches_title),
+        modifier = modifier,
+        // "7 batches · 112 students" under the title, inside the bar.
+        subtitle = batchesSubtitle(state),
+        bottomBar = bottomBar,
+    ) {
         when (state) {
             BatchesUiState.Idle -> Unit
 
@@ -166,44 +177,29 @@ fun BatchesScreen(
 private const val SKELETON_ROWS = 3
 
 /**
- * The screen's heading, with its count line.
+ * The count line under the title, inside the app bar.
  *
- * The subtitle changes with the state rather than disappearing, so the
- * header does not resize as content arrives — a reflow at that moment
- * moves whatever the user was about to tap.
+ * It changes with the state rather than disappearing, so the bar does
+ * not resize as content arrives — a reflow at that moment moves
+ * whatever the person was about to tap.
  *
  * @param state What the screen is showing
+ * @return The line to draw, or null when there is nothing to say
  */
 @Composable
-private fun BatchesHeader(state: BatchesUiState) {
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .padding(horizontal = Spacing.screen, vertical = Spacing.listItem),
-    ) {
-        Text(
-            text = stringResource(R.string.batches_title),
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        val subtitle = when (state) {
-            is BatchesUiState.Loaded -> stringResource(
+private fun batchesSubtitle(state: BatchesUiState): String? =
+    when (state) {
+        is BatchesUiState.Loaded ->
+            stringResource(
                 R.string.batches_count,
                 state.rows.size,
                 state.rows.sumOf { it.enrollmentCount },
             )
-            BatchesUiState.Loading -> stringResource(R.string.batches_loading_label)
-            else -> null
-        }
-        if (subtitle != null) {
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+
+        BatchesUiState.Loading -> stringResource(R.string.batches_loading_label)
+        BatchesUiState.Empty -> stringResource(R.string.batches_subtitle_none)
+        else -> null
     }
-}
 
 /**
  * One class, as a card.
@@ -213,7 +209,7 @@ private fun BatchesHeader(state: BatchesUiState) {
  */
 @Composable
 private fun BatchRowView(row: BatchRow, onOpen: (String) -> Unit) {
-    ShikhokCard(
+    ShikkhokCard(
         modifier = Modifier.testTag(TAG_BATCH_ROW),
         onClick = { onOpen(row.id) },
     ) {
@@ -272,7 +268,7 @@ private fun BatchRowView(row: BatchRow, onOpen: (String) -> Unit) {
 /** A placeholder card, sized to a real one. */
 @Composable
 private fun BatchSkeletonCard() {
-    ShikhokCard {
+    ShikkhokCard {
         SkeletonBlock(widthFraction = 0.6f, height = 16.dp)
         SkeletonBlock(widthFraction = 0.75f, height = 10.dp)
         SkeletonBlock(widthFraction = 0.45f, height = 12.dp)

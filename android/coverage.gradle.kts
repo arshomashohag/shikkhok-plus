@@ -72,7 +72,7 @@ val coverageExclusions = listOf(
     "**/ui/*Kt*",
     // **The navigation graph, for exactly the same reason.**
     //
-    // *(Added 2026-10-26.)* `ShikhokNavHost` is a `@Composable` that
+    // *(Added 2026-10-26.)* `ShikkhokNavHost` is a `@Composable` that
     // happens to live in `navigation/` rather than `ui/`, so the two
     // globs above miss it and JaCoCo counted 127 lines it can never
     // record a hit against — dropping the module from 60.39% to
@@ -99,6 +99,32 @@ val coverageExclusions = listOf(
     // by excluding them rather than by verifying anything — which is
     // the move this file's own comment warns against.
     "**/designsystem/ScreenScaffoldKt*",
+    // **The bottom navigation bar, same reason, measured.**
+    //
+    // *(Added 2026-10-27.)* `BottomNavTest` renders the bar and clicks
+    // its tabs, and JaCoCo still recorded `BottomNavKt` at 0 covered
+    // against 24 missed -- the Robolectric limitation this file
+    // already documents for screens, in a component that happens to
+    // live under `designsystem/`.
+    //
+    // What the tests verify is not the line count: that all four
+    // destinations render, that an enabled tab reports its index, that
+    // a disabled one does not navigate, and that it becomes usable the
+    // moment its screen is ready.
+    "**/designsystem/BottomNavKt*",
+    // **The animated logo loader, same reason, measured.**
+    //
+    // *(Added 2026-10-27.)* `LogoLoaderKt` is a Canvas drawing one
+    // frame of an animation from a clock value. JaCoCo recorded 28
+    // missed and 0 covered: Robolectric does not advance an infinite
+    // transition, so no frame is ever drawn under test.
+    //
+    // What IS testable here is tested: `LogoLoaderTest` asserts the
+    // loader renders, that it carries a label when given one, and
+    // that `AuthViewModel` resolves away from `Restoring` on both the
+    // success and failure paths — which is the behaviour the loader
+    // exists to cover.
+    "**/designsystem/LogoLoaderKt*",
 )
 
 tasks.register<JacocoReport>("jacocoDebugReport") {

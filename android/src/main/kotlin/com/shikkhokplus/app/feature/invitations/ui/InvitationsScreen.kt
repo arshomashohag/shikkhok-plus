@@ -8,7 +8,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -18,6 +17,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
+import com.shikkhokplus.app.core.designsystem.LogoLoader
+import com.shikkhokplus.app.core.designsystem.ListScreenScaffold
 import com.shikkhokplus.app.core.model.AcceptanceState
 import com.shikkhokplus.app.feature.auth.MessageKeys
 import com.shikkhokplus.app.feature.invitations.DeclineSheet
@@ -73,19 +74,17 @@ fun InvitationsScreen(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = modifier.fillMaxWidth().padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ListScreenScaffold(
+        title = stringResource(R.string.invitations_title),
+        modifier = modifier,
     ) {
-        Text(
-            text = stringResource(R.string.invitations_title),
-            style = MaterialTheme.typography.headlineSmall,
-        )
+        // The title is in the app bar. It was rendered here too,
+        // so every screen showed its name twice.
 
         when (state) {
             InvitationsUiState.Idle,
             InvitationsUiState.Loading,
-            -> CircularProgressIndicator()
+            -> LogoLoader()
 
             InvitationsUiState.Empty -> {
                 Text(

@@ -63,8 +63,8 @@
 
     <!-- Creating a class and adding a student. -->
     <string name="batch_create_title">নতুন ক্লাস</string>
-    <string name="batch_create_name">ক্লাসের নাম</string>
-    <string name="batch_create_subjects">বিষয়, কমা দিয়ে আলাদা করুন</string>
+    <string name="batch_create_name">ক্লাসের নাম (আবশ্যক)</string>
+    <string name="batch_create_subjects">বিষয়, কমা দিয়ে আলাদা করুন (আবশ্যক)</string>
     <string name="batch_create_fee">মাসিক ফি (ঐচ্ছিক)</string>
     <string name="batch_create_due_day">মাসের কত তারিখে দিতে হবে (ঐচ্ছিক)</string>
     <string name="batch_create_submit">ক্লাস তৈরি করুন</string>
@@ -74,6 +74,7 @@
     <string name="student_add_fee">এই শিক্ষার্থীর ফি (ঐচ্ছিক)</string>
     <string name="student_add_submit">যোগ করুন</string>
     <string name="action_cancel">বাতিল</string>
+    <string name="action_back">পিছনে</string>
     <string name="fee_inherits">ক্লাসের ফি প্রযোজ্য</string>
 
     <!-- ব্যাচ তালিকা -->
@@ -144,6 +145,7 @@
 
     <!-- গৃহীত আসনের সংখ্যা। দুটি সংখ্যাই সার্ভার থেকে আসে। -->
     <string name="roster_accepted_count">%2$s-এর মধ্যে %1$s জন গ্রহণ করেছে</string>
+    <string name="roster_title_fallback">ক্লাস</string>
 
     <string name="roster_link_student">শিক্ষার্থী</string>
     <string name="roster_link_guardian">অভিভাবক</string>
@@ -446,4 +448,23 @@
       ক্লাস হোক বা দশটি, বাক্যটি ঠিকই পড়তে হবে।
     -->
     <string name="governance_deletion_owns_batches">ShikkhokPlus-এ আপনার ক্লাস রয়ে গেছে। আগে সেগুলো হস্তান্তর করুন বা বন্ধ করুন, তারপর অ্যাকাউন্ট মুছুন।</string>
+    <string name="screen_title_create_batch">নতুন ক্লাস</string>
+    <string name="screen_title_batch_fees">ফি</string>
+    <string name="screen_title_claim_status">পেমেন্টের অবস্থা</string>
+    <string name="screen_title_fee_history">ফি-এর ইতিহাস</string>
+    <string name="screen_title_payment_form">পেমেন্ট জমা দিন</string>
+    <string name="screen_title_exam_list">পরীক্ষা</string>
+    <string name="screen_title_marksheet">নম্বরপত্র</string>
+    <string name="screen_title_overview">সারসংক্ষেপ</string>
+    <string name="screen_title_add_student">শিক্ষার্থী যোগ করুন</string>
+    <string name="screen_title_sessions">ক্লাসসমূহ</string>
+    <string name="screen_title_progress">অগ্রগতি</string>
+    <string name="screen_title_attendance">উপস্থিতি</string>
+    <string name="screen_title_mark_entry">নম্বর দিন</string>
+    <string name="nav_today">আজ</string>
+    <string name="nav_batches">ব্যাচ</string>
+    <string name="nav_dues">বকেয়া</string>
+    <string name="nav_more">আরও</string>
+    <string name="batches_subtitle_none">এখনও নেই</string>
+    <string name="auth_restoring">সাইন ইন করা হচ্ছে…</string>
 </resources>

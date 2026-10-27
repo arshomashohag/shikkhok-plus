@@ -41,6 +41,7 @@ from app.authz.invitations import (
 )
 from app.authz.lenses import InvitationLens
 from app.gateway.null import build_gateway
+from app.gateway.outbox import outbox_enabled, record_outbox
 from app.gateway.sms import SmsGateway
 from app.gateway.template import render_otp_message
 from app.money import Money as DomainMoney
@@ -181,11 +182,27 @@ def sign_up(
     # a second authentication route: it triggers the one that carries
     # the seven abuse controls.
     issued = otp.issue(session, body.phone, correlation_id, purpose=otp.OTP_PURPOSE)
-    gateway.send(
-        body.phone,
-        render_otp_message(issued.code, os.environ.get(APP_HASH_ENV, "")),
-        correlation_id,
-    )
+    message = render_otp_message(issued.code, os.environ.get(APP_HASH_ENV, ""))
+    gateway.send(body.phone, message, correlation_id)
+
+    # **The staging outbox, which this path was missing.** `/v1/auth/otp`
+    # records here and this endpoint did not, so a person who registered
+    # on a host with no SMS credentials got a 201, an account, and no way
+    # to reach the code -- the outbox exists precisely so that is
+    # possible before real credentials are configured.
+    #
+    # No `account_exists` guard, unlike the auth route. There the guard
+    # stops the outbox becoming an existence oracle for a number with no
+    # account; here the account was just created three statements above,
+    # so it always exists and the condition could only ever be true.
+    if outbox_enabled():
+        record_outbox(
+            session,
+            phone=body.phone,
+            message=message,
+            correlation_id=correlation_id,
+        )
+
     session.commit()
 
     return SignupResponse(account_id=created.account_id, code_sent_to=body.phone)

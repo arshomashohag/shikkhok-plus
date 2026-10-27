@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -19,6 +18,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
+import com.shikkhokplus.app.core.designsystem.LogoLoader
+import com.shikkhokplus.app.core.designsystem.ListScreenScaffold
 import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.feature.auth.MessageKeys
 import com.shikkhokplus.app.feature.dues.DuesRow
@@ -70,21 +71,18 @@ fun DuesScreen(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = modifier.fillMaxWidth().padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ListScreenScaffold(
+        title = stringResource(R.string.dues_title),
+        modifier = modifier,
     ) {
-        Text(
-            text = stringResource(R.string.dues_title),
-            style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.testTag(TAG_DUES_TITLE),
-        )
+        // The title is in the app bar. It was rendered here too,
+        // so every screen showed its name twice.
 
         when (state) {
             DuesUiState.Idle -> Unit
 
             DuesUiState.Loading ->
-                CircularProgressIndicator(
+                LogoLoader(
                     modifier = Modifier.testTag(TAG_DUES_LOADING),
                 )
 

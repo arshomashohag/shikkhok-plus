@@ -15,6 +15,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
+import com.shikkhokplus.app.core.designsystem.ScreenScaffold
 import com.shikkhokplus.app.feature.fees.PaymentDestination
 
 /** Stable test identifiers. Not user-visible text. */
@@ -95,9 +96,9 @@ fun PaymentFormScreen(
     onSubmit: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = modifier.fillMaxWidth().padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ScreenScaffold(
+        title = stringResource(R.string.screen_title_payment_form),
+        modifier = modifier,
     ) {
         // Named before anything is recorded [AC6.1.3].
         Text(

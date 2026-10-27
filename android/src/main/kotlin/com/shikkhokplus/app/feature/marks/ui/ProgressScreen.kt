@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -17,6 +16,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
+import com.shikkhokplus.app.core.designsystem.LogoLoader
+import com.shikkhokplus.app.core.designsystem.ListScreenScaffold
 import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.feature.auth.MessageKeys
 import com.shikkhokplus.app.feature.marks.MarksUiState
@@ -84,13 +85,13 @@ fun ProgressScreen(
     onRetry: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = modifier.fillMaxWidth().padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ListScreenScaffold(
+        title = stringResource(R.string.screen_title_progress),
+        modifier = modifier,
     ) {
         when (state) {
             MarksUiState.Loading ->
-                CircularProgressIndicator(Modifier.testTag(TAG_PROGRESS_LOADING))
+                LogoLoader(Modifier.testTag(TAG_PROGRESS_LOADING))
 
             is MarksUiState.ProgressLoaded -> {
                 Text(

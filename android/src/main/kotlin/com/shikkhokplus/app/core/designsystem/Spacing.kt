@@ -78,7 +78,7 @@ object Reach {
  * them and a component picks the right one by default:
  * fields 8 (small), cards 12 (medium), chips and sheets 16 (large).
  */
-internal val ShikhokShapes = Shapes(
+internal val ShikkhokShapes = Shapes(
     extraSmall = RoundedCornerShape(4.dp),
     small = RoundedCornerShape(8.dp),
     medium = RoundedCornerShape(12.dp),

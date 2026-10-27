@@ -2307,7 +2307,7 @@
   },
   "info": {
     "description": "Private tuition management. Every money value crosses this boundary as a JSON string; every lens-scoped response names the lens that produced it.",
-    "title": "ShikhokPlus API",
+    "title": "ShikkhokPlus API",
     "version": "1.0.0"
   },
   "openapi": "3.1.0",

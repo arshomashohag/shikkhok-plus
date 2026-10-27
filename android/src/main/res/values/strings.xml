@@ -12,7 +12,7 @@
   the client could not localize.
 -->
 <resources>
-    <string name="app_name">ShikhokPlus</string>
+    <string name="app_name">ShikkhokPlus</string>
 
     <!-- OTP entry, screen one. -->
     <string name="auth_phone_label">Mobile number</string>
@@ -65,8 +65,8 @@
 
     <!-- Creating a class and adding a student. -->
     <string name="batch_create_title">New class</string>
-    <string name="batch_create_name">Class name</string>
-    <string name="batch_create_subjects">Subjects, separated by commas</string>
+    <string name="batch_create_name">Class name (required)</string>
+    <string name="batch_create_subjects">Subjects, separated by commas (required)</string>
     <string name="batch_create_fee">Monthly fee (optional)</string>
     <string name="batch_create_due_day">Due day of month (optional)</string>
     <string name="batch_create_submit">Create class</string>
@@ -76,6 +76,7 @@
     <string name="student_add_fee">Fee for this student (optional)</string>
     <string name="student_add_submit">Add student</string>
     <string name="action_cancel">Cancel</string>
+    <string name="action_back">Back</string>
     <string name="fee_inherits">Uses the class fee</string>
 
     <!-- Batch list, from the design system's T6 artboard. The empty
@@ -160,6 +161,7 @@
          in the product with NO locale helper, so it is the first row
          to check in the Bangla layout table [NFR3.3]. -->
     <string name="roster_accepted_count">%1$s of %2$s accepted</string>
+    <string name="roster_title_fallback">Class</string>
 
     <!-- Per-link state on a roster row [BR2.1]. A seat shows BOTH,
          separately, and appears once: a student who accepted beside a
@@ -501,4 +503,23 @@
       class and for ten.
     -->
     <string name="governance_deletion_owns_batches">You still have classes on ShikkhokPlus. Hand them over or close them first, then delete your account.</string>
+    <string name="screen_title_create_batch">New class</string>
+    <string name="screen_title_batch_fees">Fees</string>
+    <string name="screen_title_claim_status">Payment status</string>
+    <string name="screen_title_fee_history">Fee history</string>
+    <string name="screen_title_payment_form">Record a payment</string>
+    <string name="screen_title_exam_list">Exams</string>
+    <string name="screen_title_marksheet">Marksheet</string>
+    <string name="screen_title_overview">Overview</string>
+    <string name="screen_title_add_student">Add a student</string>
+    <string name="screen_title_sessions">Classes</string>
+    <string name="screen_title_progress">Progress</string>
+    <string name="screen_title_attendance">Attendance</string>
+    <string name="screen_title_mark_entry">Enter marks</string>
+    <string name="nav_today">Today</string>
+    <string name="nav_batches">Batches</string>
+    <string name="nav_dues">Dues</string>
+    <string name="nav_more">More</string>
+    <string name="batches_subtitle_none">None yet</string>
+    <string name="auth_restoring">Signing you in…</string>
 </resources>

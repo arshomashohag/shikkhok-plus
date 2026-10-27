@@ -23,6 +23,7 @@ from sqlalchemy.orm import sessionmaker
 from app.config import check_startup_configuration
 from app.db.session import build_engine
 from app.errors import register_error_handler
+from app.logging_setup import configure_logging
 
 __all__ = ["app", "create_app"]
 
@@ -39,8 +40,14 @@ def create_app() -> FastAPI:
     # ceiling -- and nothing would report it.
     check_startup_configuration()
 
+    # **Before the first log line.** Several call sites carry their
+    # real content in `extra=` -- the SMS gateway's outcome and
+    # provider code above all -- and the default formatter drops it,
+    # so `sms send` reached production carrying no verdict at all.
+    configure_logging()
+
     app = FastAPI(
-        title="ShikhokPlus API",
+        title="ShikkhokPlus API",
         version="1.0.0",
         description=(
             "Private tuition management. Every money value crosses this "

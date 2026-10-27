@@ -177,7 +177,8 @@ test:
 		--cov=app.batches \
 		--cov=app.config --cov=app.contract --cov=app.db --cov=app.errors \
 		--cov=app.fees \
-		--cov=app.gateway --cov=app.governance --cov=app.main \
+		--cov=app.gateway --cov=app.governance \
+		--cov=app.logging_setup --cov=app.main \
 		--cov=app.marks \
 		--cov=app.notifications \
 		--cov=app.schemas \

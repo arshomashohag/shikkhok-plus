@@ -89,7 +89,7 @@ private fun banglaSafe(
  * value nobody checked against Bangla, and leaving it default makes its
  * use obvious in review.
  */
-internal val ShikhokTypography: Typography = Typography().let { base ->
+internal val ShikkhokTypography: Typography = Typography().let { base ->
     base.copy(
         displaySmall = banglaSafe(34, 52, FontWeight.Bold),
         headlineMedium = banglaSafe(26, 40, FontWeight.Bold),

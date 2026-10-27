@@ -9,7 +9,7 @@ import androidx.compose.runtime.Composable
  *
  * **No dynamic colour.** M3's `dynamicColorScheme` would take the
  * palette from the user's wallpaper, which would discard the contrast
- * work in [ShikhokLightColors] — the 7:1 floor is a decision about
+ * work in [ShikkhokLightColors] — the 7:1 floor is a decision about
  * reading an amount in sunlight, and a wallpaper cannot know it. It
  * would also let the payment states drift towards each other, and
  * those must stay distinguishable without colour at all.
@@ -19,14 +19,14 @@ import androidx.compose.runtime.Composable
  * @param content The screen
  */
 @Composable
-fun ShikhokTheme(
+fun ShikkhokTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
     MaterialTheme(
-        colorScheme = if (darkTheme) ShikhokDarkColors else ShikhokLightColors,
-        typography = ShikhokTypography,
-        shapes = ShikhokShapes,
+        colorScheme = if (darkTheme) ShikkhokDarkColors else ShikkhokLightColors,
+        typography = ShikkhokTypography,
+        shapes = ShikkhokShapes,
         content = content,
     )
 }

@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -17,6 +16,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
+import com.shikkhokplus.app.core.designsystem.LogoLoader
+import com.shikkhokplus.app.core.designsystem.ListScreenScaffold
 import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.core.model.LinkState
 import com.shikkhokplus.app.feature.auth.MessageKeys
@@ -113,18 +114,27 @@ fun RosterScreen(
     onDismissRefusal: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = modifier.fillMaxWidth().padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+    // **The class name goes in the bar, not in the body.** It was
+    // rendered as default-size body text above the list, which is a
+    // title doing a title's job without looking like one. The bar
+    // carries it on every state, including the ones that have no
+    // name to show yet.
+    ListScreenScaffold(
+        title =
+            when (state) {
+                is RosterUiState.Loaded -> state.batchName
+                is RosterUiState.Empty -> state.batchName
+                else -> stringResource(R.string.roster_title_fallback)
+            },
+        modifier = modifier,
     ) {
         when (state) {
             RosterUiState.Idle -> Unit
 
             RosterUiState.Loading ->
-                CircularProgressIndicator(Modifier.testTag(TAG_ROSTER_LOADING))
+                LogoLoader(Modifier.testTag(TAG_ROSTER_LOADING))
 
             is RosterUiState.Empty -> {
-                Text(state.batchName, Modifier.testTag(TAG_ROSTER_TITLE))
                 Button(
                     onClick = onAddStudent,
                     modifier = Modifier.testTag(TAG_ROSTER_ADD),
@@ -187,7 +197,6 @@ private fun RosterList(
     onAddStudent: () -> Unit,
     onRemove: (RosterRow) -> Unit,
 ) {
-    Text(state.batchName, Modifier.testTag(TAG_ROSTER_TITLE))
     // **"9 of 12 accepted"** [AC1.3.5a]. The count is at BATCH level
     // because pending is the normal state of a new seat and marking
     // every pending row would flag normality as a problem [BR1.1].

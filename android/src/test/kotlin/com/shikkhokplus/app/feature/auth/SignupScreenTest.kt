@@ -43,15 +43,13 @@ class SignupScreenTest {
 
     private fun render(
         state: SignupUiState,
-        onPhoneLookup: (String) -> Unit = {},
-        onSubmit: (String, String, SignupRole) -> Unit = { _, _, _ -> },
+        onSubmit: (String, String, String, SignupRole) -> Unit = { _, _, _, _ -> },
         onGoToLogin: () -> Unit = {},
         onRetry: () -> Unit = {},
     ) {
         compose.setContent {
             SignupScreen(
                 state = state,
-                onPhoneLookup = onPhoneLookup,
                 onSubmit = onSubmit,
                 onGoToLogin = onGoToLogin,
                 onRetry = onRetry,

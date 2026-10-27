@@ -148,7 +148,7 @@ Two changes, recorded together because they arrived together.
 
 ### The app charges nobody
 
-No teacher, student or guardian pays ShikhokPlus. **This removes the
+No teacher, student or guardian pays ShikkhokPlus. **This removes the
 platform subscription, not the fee system** — teachers still record
 and collect tuition from their own students, which is the product's
 core feature and all of `T4`, `T5` and `S3`.

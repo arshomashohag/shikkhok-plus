@@ -12,6 +12,12 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import com.shikkhokplus.app.R
+import com.shikkhokplus.app.core.designsystem.BottomNav
+import com.shikkhokplus.app.core.designsystem.NavDestination
+import com.shikkhokplus.app.core.designsystem.ScreenScaffold
 import com.shikkhokplus.app.core.network.HttpBatchesRepository
 import com.shikkhokplus.app.core.network.HttpRosterRepository
 import com.shikkhokplus.app.core.network.HttpSignupRepository
@@ -19,6 +25,7 @@ import com.shikkhokplus.app.core.ui.BatchCreateForm
 import com.shikkhokplus.app.core.ui.StudentAddForm
 import com.shikkhokplus.app.feature.auth.AuthUiState
 import com.shikkhokplus.app.feature.auth.AuthViewModel
+import com.shikkhokplus.app.feature.auth.SignupUiState
 import com.shikkhokplus.app.feature.auth.SignupViewModel
 import com.shikkhokplus.app.feature.auth.ui.AuthScreen
 import com.shikkhokplus.app.feature.auth.ui.SignupScreen
@@ -50,7 +57,7 @@ import io.ktor.client.HttpClient
  * @param modifier The layout modifier
  */
 @Composable
-fun ShikhokNavHost(
+fun ShikkhokNavHost(
     client: HttpClient,
     signedIn: Boolean,
     navController: NavHostController,
@@ -99,12 +106,34 @@ fun ShikhokNavHost(
                 viewModel { SignupViewModel(HttpSignupRepository(client)) }
             val state by model.state.collectAsState()
 
+            // **On success, go to the code screen.** Signup issues an
+            // OTP and does not authenticate, so the person's next step
+            // is entering that code. Leaving them on a "we sent a
+            // code" message with no field to type it into is a second
+            // dead end one screen further along.
+            //
+            // `popBackStack` rather than `navigate`: auth is already
+            // on the stack beneath this, so returning to it keeps one
+            // auth screen rather than stacking a second.
+            LaunchedEffect(state) {
+                val sent = state
+                if (sent is SignupUiState.CodeSent) {
+                    // The auth ViewModel is shared with the screen we
+                    // are returning to, and it has issued nothing
+                    // itself — so it is told a code is outstanding and
+                    // which number it went to. Without this it would
+                    // show the number field and invite a second code,
+                    // invalidating the one the person is holding.
+                    authModel.adoptPendingCode(sent.codeSentTo)
+                    navController.popBackStack()
+                }
+            }
+
             SignupScreen(
                 state = state,
-                onPhoneLookup = model::lookup,
-                onSubmit = { name, address, role ->
+                onSubmit = { phone, name, address, role ->
                     model.submit(
-                        phone = model.lastPhone,
+                        phone = phone,
                         selfName = name,
                         address = address,
                         role = role,
@@ -128,6 +157,19 @@ fun ShikhokNavHost(
 
             BatchesScreen(
                 state = state,
+                // **All four tabs, three of them disabled.** Today,
+                // Dues and More have no HTTP repository and no
+                // ViewModel yet, so opening one would show a screen
+                // that cannot load. Hiding them instead would make the
+                // bar change shape as each unit lands, and a person
+                // who has seen four tabs once expects four.
+                bottomBar = {
+                    BottomNav(
+                        destinations = teacherTabs(),
+                        selectedIndex = TAB_BATCHES,
+                        onSelect = { },
+                    )
+                },
                 onOpen = { id ->
                     val name =
                         (state as? BatchesUiState.Loaded)
@@ -153,13 +195,23 @@ fun ShikhokNavHost(
             val model: BatchesViewModel =
                 viewModel(parent) { BatchesViewModel(HttpBatchesRepository(client)) }
 
-            BatchCreateForm(
-                onCreate = { name, subjects, fee, dueDay ->
-                    model.create(name, subjects, fee, dueDay)
-                    navController.popBackStack()
-                },
-                onCancel = { navController.popBackStack() },
-            )
+            // **Wrapped in the scaffold the form no longer carries.**
+            // The form is pure content now, so the app bar, the margin
+            // and the back affordance come from here. Rendering it bare
+            // gave a screen with no title at all once its own heading
+            // was removed.
+            ScreenScaffold(
+                title = stringResource(R.string.screen_title_create_batch),
+                onBack = { navController.popBackStack() },
+            ) {
+                BatchCreateForm(
+                    onCreate = { name, subjects, fee, dueDay ->
+                        model.create(name, subjects, fee, dueDay)
+                        navController.popBackStack()
+                    },
+                    onCancel = { navController.popBackStack() },
+                )
+            }
         }
 
         composable(
@@ -209,13 +261,58 @@ fun ShikhokNavHost(
                     RosterViewModel(HttpRosterRepository(client))
                 }
 
-            StudentAddForm(
-                onAdd = { name, guardian, fee ->
-                    model.addStudent(name, guardian, fee)
-                    navController.popBackStack()
-                },
-                onCancel = { navController.popBackStack() },
-            )
+            ScreenScaffold(
+                title = stringResource(R.string.screen_title_add_student),
+                onBack = { navController.popBackStack() },
+            ) {
+                StudentAddForm(
+                    onAdd = { name, guardian, fee ->
+                        model.addStudent(name, guardian, fee)
+                        navController.popBackStack()
+                    },
+                    onCancel = { navController.popBackStack() },
+                )
+            }
         }
     }
 }
+
+/** The Batches tab's position in the teacher's bar. */
+private const val TAB_BATCHES = 1
+
+/**
+ * The teacher's four destinations, as the design fixes them.
+ *
+ * Only Batches is enabled. The other three are declared here so the
+ * bar has its real shape from the first build, and each becomes
+ * enabled when its repository and ViewModel land.
+ *
+ * @return The tabs, in the design's order
+ */
+@Composable
+private fun teacherTabs(): List<NavDestination> =
+    listOf(
+        NavDestination(
+            label = stringResource(R.string.nav_today),
+            icon = painterResource(R.drawable.ic_nav_today),
+            tag = "nav_tab_today",
+            enabled = false,
+        ),
+        NavDestination(
+            label = stringResource(R.string.nav_batches),
+            icon = painterResource(R.drawable.ic_nav_batches),
+            tag = "nav_tab_batches",
+        ),
+        NavDestination(
+            label = stringResource(R.string.nav_dues),
+            icon = painterResource(R.drawable.ic_nav_dues),
+            tag = "nav_tab_dues",
+            enabled = false,
+        ),
+        NavDestination(
+            label = stringResource(R.string.nav_more),
+            icon = painterResource(R.drawable.ic_nav_more),
+            tag = "nav_tab_more",
+            enabled = false,
+        ),
+    )
