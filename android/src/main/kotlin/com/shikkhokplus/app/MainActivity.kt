@@ -27,6 +27,7 @@ import com.shikkhokplus.app.R
 import com.shikkhokplus.app.core.designsystem.FullScreenLoader
 import com.shikkhokplus.app.core.designsystem.ShikkhokTheme
 import com.shikkhokplus.app.core.network.ApiClient
+import com.shikkhokplus.app.core.queue.QueueStore
 import com.shikkhokplus.app.core.network.EncryptedTokenStore
 import com.shikkhokplus.app.core.network.HttpAuthRepository
 import com.shikkhokplus.app.feature.auth.AuthUiState
@@ -116,6 +117,12 @@ private fun UnconfiguredNotice() {
 private fun AppRoot() {
     val context = LocalContext.current
     val tokens = remember { EncryptedTokenStore.create(context) }
+    // **One queue for the whole app, not one per screen.** The pending
+    // attendance writes are a single ordered list [BR3.5]; a store
+    // built per route would split that list by screen, and a write
+    // queued on one would be invisible to the retry on another.
+    val queue =
+        remember { QueueStore(java.io.File(context.filesDir, "attendance-queue.json")) }
     val client =
         remember { ApiClient.build(BuildConfig.API_BASE_URL, tokenStore = tokens) }
     val repository = remember { HttpAuthRepository(client = client, tokens = tokens) }
@@ -148,6 +155,7 @@ private fun AppRoot() {
 
     ShikkhokNavHost(
         client = client,
+        queue = queue,
         // Read ONCE, now that it is settled. A live value here would
         // rebuild the whole NavHost the moment the state changed,
         // discarding the back stack with it.

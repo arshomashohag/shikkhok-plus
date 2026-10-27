@@ -469,4 +469,6 @@
     <string name="auth_restoring">সাইন ইন করা হচ্ছে…</string>
     <string name="auth_tagline">শিক্ষক, শিক্ষার্থী ও অভিভাবকদের জন্য</string>
     <string name="auth_sending">কোড পাঠানো হচ্ছে…</string>
+    <string name="roster_open_sessions">হাজিরা</string>
+    <string name="roster_open_exams">নম্বর</string>
 </resources>

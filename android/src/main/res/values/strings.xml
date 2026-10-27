@@ -524,4 +524,6 @@
     <string name="auth_restoring">Signing you in…</string>
     <string name="auth_tagline">For teachers, students and guardians</string>
     <string name="auth_sending">Sending code…</string>
+    <string name="roster_open_sessions">Attendance</string>
+    <string name="roster_open_exams">Marks</string>
 </resources>

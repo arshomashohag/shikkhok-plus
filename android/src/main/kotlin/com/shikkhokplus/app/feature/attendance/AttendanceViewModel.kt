@@ -112,6 +112,39 @@ class AttendanceViewModel(
     }
 
     /**
+     * Record one seat's mark, on the device only [BR3.5].
+     *
+     * **Nothing is sent here.** The teacher marks a whole roster and
+     * commits it once: the write is one item covering every seat, so
+     * a per-toggle send would be the per-seat queue [BR3.5] forbids,
+     * and mid-class it would be a request per tap on a phone that may
+     * have no signal.
+     *
+     * Ignored outside [AttendanceUiState.Marking] and when the server
+     * said the session is not writable — the screen hides the control
+     * then, and refusing again here keeps a stale recomposition from
+     * editing a roster that cannot be sent [BR1.6, BR5.5].
+     *
+     * @param seat The seat whose mark changed
+     * @param present Whether they are now marked present
+     */
+    fun toggle(seat: AttendanceSeat, present: Boolean) {
+        val marking = _state.value as? AttendanceUiState.Marking ?: return
+        if (!marking.writable) return
+        _state.value =
+            marking.copy(
+                seats =
+                    marking.seats.map {
+                        if (it.enrollmentId == seat.enrollmentId) {
+                            it.copy(present = present)
+                        } else {
+                            it
+                        }
+                    },
+            )
+    }
+
+    /**
      * Accept a roster, queue it, and try to send it [BR3.1, BR3.5].
      *
      * **The write is queued first and sent second**, which is the order

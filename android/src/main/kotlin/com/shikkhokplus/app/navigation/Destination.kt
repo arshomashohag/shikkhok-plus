@@ -98,4 +98,175 @@ sealed interface Destination {
          */
         fun of(id: String): String = "batches/$id/roster/add"
     }
+
+    /**
+     * One class's sessions, for attendance and the topic log.
+     *
+     * The name travels beside the id for the same reason [Roster]
+     * does: the sessions endpoint does not return it.
+     */
+    data object Sessions : Destination {
+        override val route: String = "batches/{batchId}/sessions?name={batchName}"
+
+        /**
+         * Build a concrete route for one class.
+         *
+         * @param id The batch to open
+         * @param name The teacher's name for it
+         * @return The route to navigate to
+         */
+        fun of(
+            id: String,
+            name: String,
+        ): String =
+            "batches/$id/sessions?name=" +
+                java.net.URLEncoder.encode(name, "UTF-8")
+    }
+
+    /** Marking one session's roster [BR3.5]. */
+    data object Attendance : Destination {
+        override val route: String = "sessions/{sessionId}/attendance"
+
+        /** The session argument's name. */
+        const val ARG_SESSION: String = "sessionId"
+
+        /**
+         * Build a concrete route for one session.
+         *
+         * @param sessionId The session to mark
+         * @return The route to navigate to
+         */
+        fun of(sessionId: String): String = "sessions/$sessionId/attendance"
+    }
+
+    /** One class's exams. */
+    data object Exams : Destination {
+        override val route: String = "batches/{batchId}/exams?name={batchName}"
+
+        /**
+         * Build a concrete route for one class.
+         *
+         * @param id The batch to open
+         * @param name The teacher's name for it
+         * @return The route to navigate to
+         */
+        fun of(
+            id: String,
+            name: String,
+        ): String =
+            "batches/$id/exams?name=" +
+                java.net.URLEncoder.encode(name, "UTF-8")
+    }
+
+    /** Entering one exam's marks [BR4.2]. */
+    data object MarkEntry : Destination {
+        override val route: String = "exams/{examId}/marks"
+
+        /** The exam argument's name. */
+        const val ARG_EXAM: String = "examId"
+
+        /**
+         * Build a concrete route for one exam.
+         *
+         * @param examId The exam to mark
+         * @return The route to navigate to
+         */
+        fun of(examId: String): String = "exams/$examId/marks"
+    }
+
+    /**
+     * One seat's marksheet [BR6.2].
+     *
+     * **The reader is in the route**, because a student and a guardian
+     * read the same seat over two different server paths, each
+     * resolving its own lens [BR7.2]. Carrying it here keeps the
+     * screen from guessing which it is.
+     */
+    data object Marksheet : Destination {
+        override val route: String =
+            "marksheet/{examId}/{enrollmentId}?reader={reader}"
+
+        /** The exam argument's name. */
+        const val ARG_EXAM: String = "examId"
+
+        /** The seat argument's name. */
+        const val ARG_SEAT: String = "enrollmentId"
+
+        /** The reader argument's name. */
+        const val ARG_READER: String = "reader"
+
+        /**
+         * Build a concrete route for one seat's marksheet.
+         *
+         * @param examId The exam
+         * @param enrollmentId The seat
+         * @param reader `SELF` or `CHILD`
+         * @return The route to navigate to
+         */
+        fun of(
+            examId: String,
+            enrollmentId: String,
+            reader: String,
+        ): String = "marksheet/$examId/$enrollmentId?reader=$reader"
+    }
+
+    /** A child's marks across exams [BR6.6]. */
+    data object Progress : Destination {
+        override val route: String = "children/{enrollmentId}/progress"
+
+        /** The seat argument's name. */
+        const val ARG_SEAT: String = "enrollmentId"
+
+        /**
+         * Build a concrete route for one child.
+         *
+         * @param enrollmentId The child's seat
+         * @return The route to navigate to
+         */
+        fun of(enrollmentId: String): String = "children/$enrollmentId/progress"
+    }
+
+    /**
+     * One seat's fee history.
+     *
+     * **The reader is in the route** for the same reason [Marksheet]
+     * carries one: three lenses read this through three server paths,
+     * and the screen must not pick for itself.
+     */
+    data object FeeHistory : Destination {
+        override val route: String = "fees/{enrollmentId}?reader={reader}"
+
+        /** The seat argument's name. */
+        const val ARG_SEAT: String = "enrollmentId"
+
+        /** The reader argument's name. */
+        const val ARG_READER: String = "reader"
+
+        /**
+         * Build a concrete route for one seat.
+         *
+         * @param enrollmentId The seat
+         * @param reader `STUDENT`, `GUARDIAN` or `TEACHER`
+         * @return The route to navigate to
+         */
+        fun of(
+            enrollmentId: String,
+            reader: String,
+        ): String = "fees/$enrollmentId?reader=$reader"
+    }
+
+    /** A guardian's children. The start destination for that lens. */
+    data object GuardianHome : Destination {
+        override val route: String = "children"
+    }
+
+    /** Seats awaiting acceptance [BR1.4]. */
+    data object Invitations : Destination {
+        override val route: String = "invitations"
+    }
+
+    /** The signed-in person's own profile. The More tab. */
+    data object Profile : Destination {
+        override val route: String = "profile"
+    }
 }

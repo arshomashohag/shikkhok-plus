@@ -58,6 +58,8 @@ const val TAG_PROFILE_SAVE: String = "profile_save"
  * @param onSave Called with the edited name and address
  * @param onRetry Called when a retryable failure offers a retry
  * @param modifier Layout modifier from the caller
+ * @param bottomBar The navigation bar, supplied by the route so this
+ *   screen stays renderable in a test without one
  */
 @Composable
 fun ProfileScreen(
@@ -66,10 +68,12 @@ fun ProfileScreen(
     onSave: (name: String, address: String) -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
+    bottomBar: @Composable () -> Unit = {},
 ) {
     ScreenScaffold(
         title = stringResource(R.string.profile_title),
         modifier = modifier,
+        bottomBar = bottomBar,
     ) {
         // The title is in the app bar. It was rendered here too,
         // so every screen showed its name twice.
