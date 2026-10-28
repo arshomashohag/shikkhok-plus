@@ -3,6 +3,7 @@ package com.shikkhokplus.app.feature.batches
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.shikkhokplus.app.core.network.BatchDto
+import com.shikkhokplus.app.core.ui.WriteState
 import com.shikkhokplus.app.feature.auth.AuthResult
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -49,6 +50,16 @@ class BatchesViewModel(
     /** What the screen renders. */
     val state: StateFlow<BatchesUiState> = _state.asStateFlow()
 
+    private val _writeState = MutableStateFlow<WriteState>(WriteState.Idle)
+
+    /**
+     * Where the create form's write stands, apart from the list.
+     *
+     * The form watches this and closes only on [WriteState.Saved]. See
+     * [WriteState] for the race this replaces.
+     */
+    val writeState: StateFlow<WriteState> = _writeState.asStateFlow()
+
     /** Load the teacher's batches. */
     fun load() {
         _state.value = BatchesUiState.Loading
@@ -75,9 +86,20 @@ class BatchesViewModel(
      * deliberately does not have. The list reloads from the server so
      * what the teacher sees is what exists.
      *
+     * **The outcome goes to [writeState], and the list is left alone.**
+     * This used to set the list to `Loading` and then to the refusal,
+     * while the screen that had just been navigated back to reloaded
+     * the same list concurrently. Whichever response landed last won,
+     * so a refused create could be overwritten by the old list -- no
+     * class, and no error. A refusal now belongs to the form that
+     * caused it, which stays open to show it.
+     *
+     * A second tap while one is in flight is ignored, so a slow network
+     * cannot create the same class twice.
+     *
      * @param name The teacher's name for the class
      * @param subjects One or more subjects taught
-     * @param defaultFee The inherited fee as a canonical string, or null
+     * @param defaultFee The inherited fee in canonical form, or null
      * @param feeDueDay Day of month 1-31, or null
      */
     fun create(
@@ -86,15 +108,37 @@ class BatchesViewModel(
         defaultFee: String?,
         feeDueDay: Int?,
     ) {
-        _state.value = BatchesUiState.Loading
+        if (_writeState.value == WriteState.Saving) return
+        _writeState.value = WriteState.Saving
         viewModelScope.launch {
-            when (val result = repository.createBatch(name, subjects, defaultFee, feeDueDay)) {
-                is AuthResult.Ok -> load()
-                is AuthResult.Refused ->
-                    _state.value = BatchesStateMapper.afterError(result.envelope)
-                AuthResult.TransportFailure ->
-                    _state.value = BatchesStateMapper.afterTransportFailure()
-            }
+            _writeState.value =
+                when (val result = repository.createBatch(name, subjects, defaultFee, feeDueDay)) {
+                    is AuthResult.Ok -> {
+                        load()
+                        WriteState.Saved
+                    }
+                    is AuthResult.Refused ->
+                        WriteState.Failed(
+                            messageKey = result.envelope.error.messageKey,
+                            retryable = result.envelope.error.retryable,
+                        )
+                    AuthResult.TransportFailure ->
+                        WriteState.Failed(
+                            messageKey = BatchesStateMapper.OFFLINE_KEY,
+                            retryable = true,
+                        )
+                }
         }
+    }
+
+    /**
+     * Mark a finished write as seen, so the form does not close twice.
+     *
+     * Called by the route once it has acted on [WriteState.Saved], and
+     * when the form is abandoned, so the next form opens clean rather
+     * than showing the last one's error.
+     */
+    fun acknowledgeWrite() {
+        if (_writeState.value != WriteState.Saving) _writeState.value = WriteState.Idle
     }
 }

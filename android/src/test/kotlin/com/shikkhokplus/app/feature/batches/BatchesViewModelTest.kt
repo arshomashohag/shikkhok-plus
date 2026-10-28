@@ -4,6 +4,7 @@ import com.shikkhokplus.app.core.model.Money
 import com.shikkhokplus.app.core.network.BatchDto
 import com.shikkhokplus.app.core.network.ErrorBody
 import com.shikkhokplus.app.core.network.ErrorEnvelope
+import com.shikkhokplus.app.core.ui.WriteState
 import com.shikkhokplus.app.feature.auth.AuthResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -17,6 +18,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -177,27 +179,104 @@ class BatchesViewModelTest {
             assertEquals("1500.00", repository.created?.third)
         }
 
-    @Test
-    fun `a refused create surfaces and does not reload`() = runTest(dispatcher) {
-        val repository = Fake()
-        repository.createResult =
-            AuthResult.Refused(
-                ErrorEnvelope(
-                    ErrorBody(
-                        code = "BATCH_NEEDS_A_SUBJECT",
-                        retryable = false,
-                        messageKey = "batch.create.subject_required",
-                    ),
+    private fun refusal() =
+        AuthResult.Refused(
+            ErrorEnvelope(
+                ErrorBody(
+                    code = "BATCH_NEEDS_A_SUBJECT",
+                    retryable = false,
+                    messageKey = "batch.create.subject_required",
                 ),
-            )
+            ),
+        )
+
+    @Test
+    fun `a refused create reaches the form and does not reload`() = runTest(dispatcher) {
+        // **Rewritten, not loosened.** This used to assert the refusal
+        // on the LIST's state, which is exactly where a concurrent
+        // reload could overwrite it. It now belongs to the form that
+        // caused it, which stays open to show it.
+        val repository = Fake()
+        repository.createResult = refusal()
         val model = BatchesViewModel(repository)
 
         model.create("Class 9", emptyList(), null, null)
         advanceUntilIdle()
 
-        val state = assertIs<BatchesUiState.Failed>(model.state.value)
-        assertEquals("batch.create.subject_required", state.messageKey)
+        val write = assertIs<WriteState.Failed>(model.writeState.value)
+        assertEquals("batch.create.subject_required", write.messageKey)
         assertEquals(0, repository.calls, "a failed create must not reload")
+    }
+
+    @Test
+    fun `a refused create is not hidden by a list reload racing it`() =
+        runTest(dispatcher) {
+            // **The reported bug, reproduced.** Returning to the list
+            // re-runs its load, so a refused create and a list read
+            // were in flight together and the last answer won. A
+            // teacher saw their old list, no error, and no class.
+            val repository = Fake(AuthResult.Ok(emptyList()))
+            repository.createResult = refusal()
+            val model = BatchesViewModel(repository)
+
+            model.create("Class 9", listOf("Physics"), "1500", 10)
+            model.load()
+            advanceUntilIdle()
+
+            assertIs<WriteState.Failed>(model.writeState.value)
+        }
+
+    @Test
+    fun `a successful create reports Saved so the form can close`() =
+        runTest(dispatcher) {
+            val model = BatchesViewModel(Fake())
+
+            model.create("Class 9", listOf("Physics"), null, null)
+            advanceUntilIdle()
+
+            assertEquals(WriteState.Saved, model.writeState.value)
+        }
+
+    @Test
+    fun `a second tap while saving does not create twice`() = runTest(dispatcher) {
+        // On a slow network the button is the only thing a person can
+        // press. Two taps must not be two classes.
+        var creates = 0
+        val repository =
+            object : BatchesRepository {
+                override suspend fun batches() = AuthResult.Ok(emptyList<BatchDto>())
+
+                override suspend fun createBatch(
+                    name: String,
+                    subjects: List<String>,
+                    defaultFee: String?,
+                    feeDueDay: Int?,
+                ): AuthResult<BatchDto> {
+                    creates += 1
+                    return AuthResult.Ok(BatchDto(id = "b", name = name))
+                }
+            }
+        val model = BatchesViewModel(repository)
+
+        model.create("Class 9", listOf("Physics"), null, null)
+        model.create("Class 9", listOf("Physics"), null, null)
+        advanceUntilIdle()
+
+        assertEquals(1, creates)
+    }
+
+    @Test
+    fun `acknowledging a write lets the next form open clean`() = runTest(dispatcher) {
+        val repository = Fake()
+        repository.createResult = refusal()
+        val model = BatchesViewModel(repository)
+        model.create("Class 9", listOf("Physics"), null, null)
+        advanceUntilIdle()
+
+        model.acknowledgeWrite()
+
+        assertEquals(WriteState.Idle, model.writeState.value)
+        assertNull((model.writeState.value as? WriteState.Failed)?.messageKey)
     }
 
     @Test

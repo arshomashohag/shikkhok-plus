@@ -3,6 +3,7 @@ package com.shikkhokplus.app.feature.roster
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.shikkhokplus.app.core.network.RosterRowDto
+import com.shikkhokplus.app.core.ui.WriteState
 import com.shikkhokplus.app.feature.auth.AuthResult
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -91,6 +92,16 @@ class RosterViewModel(
 
     /** What the screen renders. */
     val state: StateFlow<RosterUiState> = _state.asStateFlow()
+
+    private val _writeState = MutableStateFlow<WriteState>(WriteState.Idle)
+
+    /**
+     * Where the add-student form's write stands, apart from the roster.
+     *
+     * The form closes only on [WriteState.Saved]. See [WriteState] for
+     * the race this replaces.
+     */
+    val writeState: StateFlow<WriteState> = _writeState.asStateFlow()
 
     private var lastBatchId: String? = null
 
@@ -198,9 +209,19 @@ class RosterViewModel(
      * **No optimistic insert**, for the same reason removal has no
      * local queue [TC-8, D-9].
      *
+     * **The outcome goes to [writeState], and the roster is left
+     * alone**, for the reason [BatchesViewModel.create] gives: the
+     * form used to navigate away before the server answered, the
+     * roster reloaded concurrently, and a refused add could be
+     * overwritten by the old list with no error shown.
+     *
+     * A second tap while one is in flight is ignored, so a slow network
+     * cannot add the same student twice.
+     *
      * @param displayName The teacher-typed name
      * @param guardianPhone The guardian's number, or null
-     * @param feeAmount This seat's fee, or null to inherit
+     * @param feeAmount This seat's fee in canonical form, or null to
+     *   inherit
      */
     fun addStudent(
         displayName: String,
@@ -208,19 +229,40 @@ class RosterViewModel(
         feeAmount: String?,
     ) {
         val batchId = lastBatchId ?: return
-        _state.value = RosterUiState.Loading
+        if (_writeState.value == WriteState.Saving) return
+        _writeState.value = WriteState.Saving
         viewModelScope.launch {
-            when (
-                val result =
-                    repository.addEnrollment(batchId, displayName, guardianPhone, feeAmount)
-            ) {
-                is AuthResult.Ok -> load(batchId, lastBatchName)
-                is AuthResult.Refused ->
-                    _state.value = RosterStateMapper.afterError(result.envelope)
-                AuthResult.TransportFailure ->
-                    _state.value = RosterStateMapper.afterTransportFailure()
-            }
+            _writeState.value =
+                when (
+                    val result =
+                        repository.addEnrollment(batchId, displayName, guardianPhone, feeAmount)
+                ) {
+                    is AuthResult.Ok -> {
+                        load(batchId, lastBatchName)
+                        WriteState.Saved
+                    }
+                    is AuthResult.Refused ->
+                        WriteState.Failed(
+                            messageKey = result.envelope.error.messageKey,
+                            retryable = result.envelope.error.retryable,
+                        )
+                    AuthResult.TransportFailure ->
+                        WriteState.Failed(
+                            messageKey = RosterStateMapper.OFFLINE_KEY,
+                            retryable = true,
+                        )
+                }
         }
+    }
+
+    /**
+     * Mark a finished write as seen, so the form does not close twice.
+     *
+     * Called by the route once it has acted on [WriteState.Saved], and
+     * when the form is abandoned, so the next form opens clean.
+     */
+    fun acknowledgeWrite() {
+        if (_writeState.value != WriteState.Saving) _writeState.value = WriteState.Idle
     }
 
     /**

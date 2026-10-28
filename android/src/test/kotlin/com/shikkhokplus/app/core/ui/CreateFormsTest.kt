@@ -1,5 +1,7 @@
 package com.shikkhokplus.app.core.ui
 
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -44,19 +46,104 @@ class CreateFormsTest {
     }
 
     @Test
-    fun `a typed fee is sent as the string the teacher typed`() {
-        // Never parsed to a number here. The money type is the server's
-        // and the wire's; the client carries the characters [TC-7].
+    fun `a fee typed without decimals is sent in canonical form`() {
+        // **Replaces "a typed fee is sent as the string the teacher
+        // typed"**, which typed `1200.00` -- the one form the server
+        // accepts -- and so passed while what every teacher actually
+        // types, `1200`, was refused with a 422. The class or student
+        // was then silently never created.
         var captured: String? = null
         compose.setContent {
             StudentAddForm(onAdd = { _, _, fee -> captured = fee }, onCancel = {})
         }
 
         compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Rahim")
-        compose.onNodeWithTag(TAG_FORM_FEE).performTextInput("1200.00")
+        compose.onNodeWithTag(TAG_FORM_FEE).performTextInput("1200")
         compose.onNodeWithTag(TAG_FORM_SUBMIT).performClick()
 
         assertEquals("1200.00", captured)
+    }
+
+    @Test
+    fun `a fee typed in Bangla digits is sent in Latin canonical form`() {
+        var captured: String? = null
+        compose.setContent {
+            BatchCreateForm(
+                onCreate = { _, _, fee, _ -> captured = fee },
+                onCancel = {},
+            )
+        }
+
+        compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Class 9")
+        compose.onNodeWithTag(TAG_FORM_SUBJECTS).performTextInput("Physics")
+        compose.onNodeWithTag(TAG_FORM_FEE).performTextInput("১,৫০০")
+        compose.onNodeWithTag(TAG_FORM_SUBMIT).performClick()
+
+        assertEquals("1500.00", captured)
+    }
+
+    @Test
+    fun `a fee that is not an amount blocks submit rather than being sent`() {
+        var called = false
+        compose.setContent {
+            BatchCreateForm(onCreate = { _, _, _, _ -> called = true }, onCancel = {})
+        }
+
+        compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Class 9")
+        compose.onNodeWithTag(TAG_FORM_SUBJECTS).performTextInput("Physics")
+        compose.onNodeWithTag(TAG_FORM_FEE).performTextInput("fifteen hundred")
+
+        compose.onNodeWithTag(TAG_FORM_SUBMIT).assertIsNotEnabled()
+        compose.onNodeWithTag(TAG_FORM_SUBMIT).performClick()
+        assertEquals(false, called)
+    }
+
+    @Test
+    fun `a due day outside 1 to 31 blocks submit`() {
+        // The field accepted any two digits; the server refuses 0 and
+        // anything past 31.
+        compose.setContent {
+            BatchCreateForm(onCreate = { _, _, _, _ -> }, onCancel = {})
+        }
+
+        compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Class 9")
+        compose.onNodeWithTag(TAG_FORM_SUBJECTS).performTextInput("Physics")
+        compose.onNodeWithTag(TAG_FORM_DUE_DAY).performTextInput("45")
+
+        compose.onNodeWithTag(TAG_FORM_SUBMIT).assertIsNotEnabled()
+    }
+
+    @Test
+    fun `submit is disabled while the write is in flight`() {
+        // The form now stays open until the server answers, so it must
+        // not be able to start a second write meanwhile.
+        compose.setContent {
+            BatchCreateForm(onCreate = { _, _, _, _ -> }, onCancel = {}, saving = true)
+        }
+
+        compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Class 9")
+        compose.onNodeWithTag(TAG_FORM_SUBJECTS).performTextInput("Physics")
+
+        compose.onNodeWithTag(TAG_FORM_SUBMIT).assertIsNotEnabled()
+    }
+
+    @Test
+    fun `a refusal is shown on the form`() {
+        // It used to have nowhere to appear: the form closed on the tap.
+        compose.setContent {
+            StudentAddForm(onAdd = { _, _, _ -> }, onCancel = {}, error = "Could not save")
+        }
+
+        compose.onNodeWithTag(TAG_FORM_ERROR).assertIsDisplayed()
+    }
+
+    @Test
+    fun `no error is shown when there is none`() {
+        compose.setContent {
+            StudentAddForm(onAdd = { _, _, _ -> }, onCancel = {})
+        }
+
+        compose.onNodeWithTag(TAG_FORM_ERROR).assertDoesNotExist()
     }
 
     @Test

@@ -22,9 +22,16 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
+import com.shikkhokplus.app.core.model.Money
 
 /** Stable test identifiers. Not user-visible text. */
 const val TAG_FORM_NAME: String = "form_name"
+
+/** The due-day field on the class form. */
+const val TAG_FORM_DUE_DAY: String = "form_due_day"
+
+/** The write's refusal, shown on the form that caused it. */
+const val TAG_FORM_ERROR: String = "form_error"
 
 /** The subjects field on the class form. */
 const val TAG_FORM_SUBJECTS: String = "form_subjects"
@@ -64,15 +71,22 @@ fun splitSubjects(raw: String): List<String> =
  * check with no server counterpart would be a business rule living on
  * the client.
  *
- * @param onCreate Called with the entered values
+ * @param onCreate Called with the entered values, the fee already in
+ *   canonical form
  * @param onCancel Called when the teacher backs out
  * @param modifier The layout modifier
+ * @param saving True while the write is in flight; the form stays open
+ *   and cannot submit twice
+ * @param error Why the last write failed, already resolved to text, or
+ *   null. The typed values stay in the fields beside it
  */
 @Composable
 fun BatchCreateForm(
     onCreate: (String, List<String>, String?, Int?) -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
+    saving: Boolean = false,
+    error: String? = null,
 ) {
     var name by remember { mutableStateOf("") }
     var subjects by remember { mutableStateOf("") }
@@ -112,6 +126,13 @@ fun BatchCreateForm(
             // Decimal, because a money value carries two places. The
             // field is still a STRING all the way to the wire [TC-7].
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            isError = !feeIsValid(fee),
+            supportingText =
+                if (feeIsValid(fee)) {
+                    null
+                } else {
+                    { Text(stringResource(R.string.fee_invalid)) }
+                },
             modifier = Modifier.fillMaxWidth().testTag(TAG_FORM_FEE),
         )
         OutlinedTextField(
@@ -120,8 +141,27 @@ fun BatchCreateForm(
             label = { Text(stringResource(R.string.batch_create_due_day)) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            modifier = Modifier.fillMaxWidth(),
+            isError = !dueDayIsValid(dueDay),
+            supportingText =
+                if (dueDayIsValid(dueDay)) {
+                    null
+                } else {
+                    { Text(stringResource(R.string.due_day_invalid)) }
+                },
+            modifier = Modifier.fillMaxWidth().testTag(TAG_FORM_DUE_DAY),
         )
+
+        // **Shown on the form, beside what was typed.** The form used
+        // to close before the server answered, so a refusal had nowhere
+        // to appear and was overwritten by a list reload.
+        error?.let {
+            Text(
+                text = it,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.testTag(TAG_FORM_ERROR),
+            )
+        }
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
@@ -129,7 +169,7 @@ fun BatchCreateForm(
                     onCreate(
                         name.trim(),
                         splitSubjects(subjects),
-                        fee.trim().ifBlank { null },
+                        canonicalFee(fee),
                         dueDay.trim().toIntOrNull(),
                     )
                 },
@@ -144,7 +184,12 @@ fun BatchCreateForm(
                 // Format only, never policy: this checks a required
                 // field is present, which the contract states. It does
                 // not duplicate any server decision.
-                enabled = name.isNotBlank() && splitSubjects(subjects).isNotEmpty(),
+                enabled =
+                    !saving &&
+                        name.isNotBlank() &&
+                        splitSubjects(subjects).isNotEmpty() &&
+                        feeIsValid(fee) &&
+                        dueDayIsValid(dueDay),
                 modifier = Modifier.testTag(TAG_FORM_SUBMIT),
             ) {
                 Text(stringResource(R.string.batch_create_submit))
@@ -157,21 +202,72 @@ fun BatchCreateForm(
 }
 
 /**
+ * The fee to send, read from what was typed.
+ *
+ * **Canonical form, never the raw text.** Both forms used to send the
+ * field as typed, and the server accepts only `1500.00`: a teacher
+ * typing `1500` was refused, and the refusal was hidden, so the class
+ * or student was silently never created.
+ *
+ * Blank is `null` -- INHERIT, never zero [AC2.2.5]. Text that is not an
+ * amount is also `null` here, but the forms never reach this with such
+ * text, because [feeIsValid] keeps the submit button disabled.
+ *
+ * @param raw The fee field as typed
+ * @return The canonical amount, or null to inherit
+ */
+internal fun canonicalFee(raw: String): String? =
+    if (raw.isBlank()) null else Money.fromTyped(raw)?.toString()
+
+/**
+ * Whether the fee field holds something submittable.
+ *
+ * Blank is valid -- it inherits. Anything else must read as an amount.
+ * **Format only**, which the contract states; whether the amount is
+ * acceptable is the server's decision.
+ *
+ * @param raw The fee field as typed
+ * @return True when blank or a readable amount
+ */
+internal fun feeIsValid(raw: String): Boolean = raw.isBlank() || Money.fromTyped(raw) != null
+
+/** The range a due day may take, as the server states it. */
+private val DUE_DAYS: IntRange = 1..31
+
+/**
+ * Whether the due-day field holds something submittable.
+ *
+ * Blank is valid -- no due day. Otherwise 1 to 31, the range the server
+ * enforces: `0` and `45` were both accepted by this field and refused
+ * there. A format check, like the fee's.
+ *
+ * @param raw The field as typed
+ * @return True when blank or a day of the month
+ */
+internal fun dueDayIsValid(raw: String): Boolean =
+    raw.isBlank() || raw.toIntOrNull()?.let { it in DUE_DAYS } == true
+
+/**
  * Add a student to a class.
  *
  * **An empty fee field means INHERIT, not zero** [AC2.2.5]. The field
  * sends null when blank rather than "0.00", because zero is a waiver
  * and defaulting to it would silently waive every student's fee.
  *
- * @param onAdd Called with the entered values
+ * @param onAdd Called with the entered values, the fee already in
+ *   canonical form
  * @param onCancel Called when the teacher backs out
  * @param modifier The layout modifier
+ * @param saving True while the write is in flight
+ * @param error Why the last write failed, already resolved, or null
  */
 @Composable
 fun StudentAddForm(
     onAdd: (String, String?, String?) -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
+    saving: Boolean = false,
+    error: String? = null,
 ) {
     var name by remember { mutableStateOf("") }
     var guardian by remember { mutableStateOf("") }
@@ -203,9 +299,28 @@ fun StudentAddForm(
             label = { Text(stringResource(R.string.student_add_fee)) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            supportingText = { Text(stringResource(R.string.fee_inherits)) },
+            isError = !feeIsValid(fee),
+            supportingText = {
+                Text(
+                    stringResource(
+                        if (feeIsValid(fee)) R.string.fee_inherits else R.string.fee_invalid,
+                    ),
+                )
+            },
             modifier = Modifier.fillMaxWidth().testTag(TAG_FORM_FEE),
         )
+
+        // **Shown on the form, beside what was typed.** The form used
+        // to close before the server answered, so a refusal had nowhere
+        // to appear and was overwritten by a list reload.
+        error?.let {
+            Text(
+                text = it,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.testTag(TAG_FORM_ERROR),
+            )
+        }
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
@@ -213,10 +328,10 @@ fun StudentAddForm(
                     onAdd(
                         name.trim(),
                         guardian.trim().ifBlank { null },
-                        fee.trim().ifBlank { null },
+                        canonicalFee(fee),
                     )
                 },
-                enabled = name.isNotBlank(),
+                enabled = !saving && name.isNotBlank() && feeIsValid(fee),
                 modifier = Modifier.testTag(TAG_FORM_SUBMIT),
             ) {
                 Text(stringResource(R.string.student_add_submit))
