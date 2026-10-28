@@ -61682,3 +61682,991 @@ nfr-requirements D3 collecting-fees: seven artifacts written. Recomputed every N
 **Details**: git add android/ tests/batches/test_endpoints.py && git commit -q -m "feat(android): remove a student or mark them inactive from the roster\n\nCo-Authored-By: Cla
 
 ---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:05:52Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: /private/tmp/claude-502/-Users-shohag-Desktop-Development-shikkhok-plus/602d453a-cecc-4a7d-ad6f-1f22d6052b2a/pr3.md
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:06:38Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: grep -n "onRequestCode(" -B 4 android/src/main/kotlin/com/shikkhokplus/app/feature/auth/ui/AuthScreen.kt | head -12; grep -n "fun requestCode" -A 10 android/src
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:06:47Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: echo "=== phone columns ==="; grep -nE "phone[a-z_]*: Mapped" app/db/models.py; grep -nE "__tablename__" app/db/models.py | awk -F'"' '{print $2}' | tr '\n' ' '
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:06:52Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '340,352p' app/db/models.py | grep -E "class|tablename|phone"; grep -rn "rate_limit_counter" app/db/models.py | head -2; grep -n "class RateLimitCounter"
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:06:56Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: grep -rn "exception_handler" app/ | grep -v __pycache__ | head -5; sed -n '452,480p' app/db/models.py | grep -E "scope|key|Mapped" | head -6
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:07:40Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Write
+**Details**: <project-dir>/tests/accounts/test_phone.py
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:07:42Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 -m pytest tests/accounts/test_phone.py -p no:cacheprovider -q 2>&1 | grep -E "Error|error" | head -3; grep -n "^from\|^import\|ValidationError" app/erro
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:07:57Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Write
+**Details**: <project-dir>/app/accounts/phone.py
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:07:59Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 -m pytest tests/accounts/test_phone.py -p no:cacheprovider -rA 2>&1 | grep -cE "^PASSED"; python3 -m pytest tests/accounts/test_phone.py -p no:cacheprov
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:08:09Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='app/accounts/phone.py'\ns=open(p).read()\nold='''    if text.startswith("880"):\n        text = text[3:]'''\nassert old in s\ns=s.replace(old,'''
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:08:26Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: grep -rln "from app.errors" app/authz/ app/money/ app/schemas/ 2>/dev/null; sed -n '60,80p' tests/gates/test_import_gates.py
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:08:53Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/app/schemas/phone.py
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:09:00Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '218,250p' app/api/accounts.py; sed -n '28,48p' app/api/staging.py
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:09:08Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='app/api/accounts.py'\ns=open(p).read()\ns=s.replace('''def lookup_already_added(\n    phone: str,\n    request: Request,''','''def lookup_alread
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:09:15Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: grep -n "^from app\|^import" app/api/staging.py; python3 - <<'PY'\nimport re\np='app/api/staging.py'\ns=open(p).read()\nm=list(re.finditer(r'^from app\.[^\n]+\n',s,
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:09:22Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 -m pytest tests -p no:cacheprovider -x -q -rf 2>&1 | grep -E "^FAILED|passed|failed|Error" | head -12
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:10:37Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: make openapi >/dev/null && git diff --stat openapi.json && git diff openapi.json | grep -E "^[-+].*(phone|maxLength|minLength)" | head -12
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:10:52Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='app/schemas/phone.py'\ns=open(p).read()\nold='''#: A Bangladeshi mobile number, stored and compared as ``+8801XXXXXXXXX``.\nPhoneField = Annota
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:11:01Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 -m pytest tests -p no:cacheprovider -q -rf 2>&1 | grep -E "^FAILED" | sed -E 's/ - .*//' | head -30; python3 -m pytest tests -p no:cacheprovider -q -rf 
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:16:17Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 -m pytest "tests/accounts/test_ceilings.py::test_the_otp_response_stays_byte_identical_after_signup_exists" "tests/accounts/test_ceilings.py::test_the_a
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:16:29Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 -m pytest tests/accounts/test_ceilings.py -p no:cacheprovider -rA 2>&1 | grep -E "^(PASSED|FAILED|ERROR)" | head; grep -nE "phone|number" tests/accounts
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:16:43Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 -m pytest "tests/accounts/test_ceilings.py::test_signup_is_refused_through_the_endpoint" -p no:cacheprovider 2>&1 | grep -E "^E |^>|assert " | head -10;
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:17:01Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: grep -rlE 'f"\+8801\{uuid\.uuid4\(\)\.int % 10\*\*9:09d\}"' tests/ | grep -v __pycache__ | while read f; do sed -i '' 's/f"+8801{uuid.uuid4().int % 10\*\*9:09d}
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:17:07Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: for i in 1 2; do python3 -m pytest tests -p no:cacheprovider -q -rf 2>&1 | grep -cE "^FAILED" ; done; python3 -m pytest tests -p no:cacheprovider -rA -q 2>&1 | 
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:30:51Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '1,90p' tests/auth/test_endpoints.py | grep -vE '^\s*$' | head -70
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:31:05Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '70,80p' app/errors/handler.py
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:31:20Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Write
+**Details**: <project-dir>/tests/accounts/test_phone_at_the_boundary.py
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:31:22Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: grep -n "class OtpRequest" app/db/models.py | head -1; python3 -m ruff format tests/accounts/test_phone_at_the_boundary.py -q; python3 -m ruff check tests/accou
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:31:47Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='tests/accounts/test_phone_at_the_boundary.py'\ns=open(p).read()\nold=s[s.index('def test_every_spelling_is_stored_as_one_number('):s.index('de
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:32:04Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/tests/accounts/test_phone_at_the_boundary.py
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:32:37Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Write
+**Details**: <project-dir>/migrations/versions/0008_canonical_phones.py
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:32:39Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='app/db/models.py'\ns=open(p).read()\nold='''    guardian_phone: Mapped[str | None] = mapped_column(String(20), nullable=True)'''\nassert s.coun
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:32:49Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='app/db/models.py'\ns=open(p).read()\ns=s.replace('''    student_phone: Mapped[str | None] = mapped_column(\n        String(20), nullable=True, 
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:33:39Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: grep -nE "0007|EXPECTED|PINNED|HEAD|COUNT" tests/db/test_migration_head_pin.py tests/db/test_migration_from_head.py tests/db/test_migration_runs.py | head -14; 
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:33:46Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '28,38p' tests/db/test_migration_head_pin.py; sed -n '115,122p' tests/db/test_migration_runs.py; sed -n '132,143p' tests/db/test_migration_from_head.py
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:33:55Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='tests/db/test_migration_head_pin.py'\ns=open(p).read()\ns=s.replace('''#: Every revision on disk. D6 adds ``0007`` -- the cascade fix -- and i
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:34:42Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '1,76p' tests/db/test_migration_from_head.py | grep -vE '^\s*$' | head -55; grep -rn "def upgrade_to_head\|def stage_at\|def downgrade_to" tests/ | grep 
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:34:50Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '57,140p' tests/db/migration_support.py | grep -vE '^\s*$' | grep -vE '^\s+:param|^\s+"""' | head -50; grep -n "def insert_account\|def insert_enrollment
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:34:59Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: grep -rln 'stage_at(postgres_url, "000[4-7]")' tests/db/ | head; f=$(grep -rln 'stage_at(postgres_url, "000[4-7]")' tests/db/ | head -1); grep -nE "INSERT INTO 
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:35:12Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '40,110p' tests/db/test_migration_0004.py | grep -vE '^\s*$'
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:35:31Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Write
+**Details**: <project-dir>/tests/db/test_migration_0008.py
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:35:33Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 -m ruff format tests/db/test_migration_0008.py -q; python3 -m ruff check tests/db/test_migration_0008.py; python3 -m pytest tests/db/test_migration_0008
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:35:48Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: git add app/ migrations/ tests/ openapi.json && git status --short | head -30 && git commit -q -m "fix(api): store every phone number in one canonical form\n\nCo-
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:35:57Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: for f in 0003_staging_sms_outbox 0005_fee_system 0006_teaching_and_recording; do echo "== $f: $(git diff HEAD~1 HEAD --stat -- migrations/versions/$f.py | tail 
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:36:04Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: git checkout HEAD~1 -- migrations/versions/0003_staging_sms_outbox.py migrations/versions/0005_fee_system.py migrations/versions/0006_teaching_and_recording.py 
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:36:23Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '186,282p' app/accounts/service.py | grep -vE '^\s*$' | grep -vE '^\s+:param' | head -60; grep -rn "Account(" app/auth/*.py app/api/auth.py | head -4
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:36:33Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 -c "\nimport json; d=json.load(open('openapi.json')); s=d['components']['schemas']\nprint('signup req:', [k for k in d['paths']['/v1/accounts']['post']['r
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:37:05Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Write
+**Details**: <project-dir>/tests/accounts/test_seat_linking.py
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:37:07Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: grep -n "class TeacherFixture" -A 10 tests/batches/conftest.py | grep -E "class|:ivar|^\S+-\s+[a-z_]+:" | head -6; python3 -m ruff format tests/accounts/test_se
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:37:27Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/s/    """A teacher with one batch/./    """Create a teacher with one batch./; s/    """A fresh, valid, canonical mobile number/./    """Return a fresh, valid, canonical mobile number.
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:37:32Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: grep -rnE "ROW LEVEL SECURITY|CREATE POLICY" migrations/versions/*.py | sed -E 's/:.*(ON|TABLE) +"?([a-z_]+)"?.*/: \2/' | sort -u | head -12
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:37:45Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '/^def _roster_status/,/^def /p' app/api/batches.py | grep -vE '^\s*$' | head -20; grep -n "def _link_state\|student_state\s*=\|guardian_state\s*=" app/b
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:37:50Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '235,300p' app/batches/service.py | grep -vE '^\s*$' | head -50
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:38:15Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='app/batches/service.py'\ns=open(p).read()\nold='''    student_account_id: uuid.UUID | None = None,\n    guardian_account_id: uuid.UUID | None =
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:38:21Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: grep -n "    _owned_batch(session, lens=lens, batch_id=batch_id)" app/batches/service.py; sed -n "$(grep -n 'def add_enrollment' app/batches/service.py | cut -d
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:38:25Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '693,702p' app/batches/service.py | cat -A | cut -c1-90 | head -10
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:38:29Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '693,702p' app/batches/service.py
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:38:42Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='app/batches/service.py'\ns=open(p).read()\nold='''    student_account_id: uuid.UUID | None = None,\n    guardian_account_id: uuid.UUID | None =
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:38:47Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '283,310p' app/accounts/service.py
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:38:58Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='app/accounts/service.py'\ns=open(p).read()\nold='''    The student link is attached through ``Enrollment.guardian_phone``\n    only for the gua
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:39:17Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 -m pytest tests -p no:cacheprovider -q -rf 2>&1 | grep -E "^FAILED" | sed -E 's/ - .*//' | head; echo "failures: $(python3 -m pytest tests -p no:cachepr
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:45:46Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '194,202p' tests/auth/test_endpoints.py; grep -rn '"0007"\|0007' .github/ scripts/ infra/ Makefile 2>/dev/null | grep -v "^Binary" | head -5
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:45:52Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='tests/auth/test_endpoints.py'\ns=open(p).read()\nold='''    # against a freshly migrated host. Moved with 0007 deliberately\n    # rather than 
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:46:30Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/=,i) if 
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:46:38Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/K[^
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:47:02Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/if
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:47:14Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/model.addStudent
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:47:42Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: grep -rn "AddStudentScreen(" android/src | grep -v "fun AddStudentScreen" ; sed -n '100,120p' android/src/main/kotlin/com/shikkhokplus/app/feature/roster/ui/Add
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:47:50Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='android/src/main/kotlin/com/shikkhokplus/app/feature/roster/ui/AddStudentScreen.kt'\ns=open(p).read()\ns=s.replace('''    onAdd: (String, Stri
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:47:56Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '30,66p;148,185p' android/src/test/kotlin/com/shikkhokplus/app/core/ui/CreateFormsTest.kt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:48:20Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/sent
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:48:53Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='android/src/test/kotlin/com/shikkhokplus/app/core/network/HttpRepositoryTest.kt'\ns=open(p).read()\ns=s.rstrip()[:-1].rstrip()+'''\n\n    @Test\n
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:49:13Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: make check 2>&1 | grep -E "FAILED|Kotlin line|Committed floor|ROSE|DROPPED|All gates|\.kt:[0-9]+:|\.py:[0-9]+:[0-9]+|make: \*\*\*|Coverage failure" | head -10
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:49:17Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 -m ruff check app tests 2>&1 | head -8; python3 -m ruff format --check app tests 2>&1 | tail -3
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:49:23Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 -m ruff format app tests -q && python3 -m ruff format --check app tests | tail -1 && make check 2>&1 | grep -E "FAILED|Kotlin line|Committed floor|ROSE|
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:53:40Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/android/coverage-floor.txt
+
+---
