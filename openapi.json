@@ -1380,7 +1380,7 @@
         "type": "object"
       },
       "MeResponse": {
-        "description": "Everything this account can be.\n\n**No role, and no default lens.** The list says what is available;\nwhich one the person wants is their choice, and a server-chosen\ndefault would be a stored role by another name. A single-entry\nlist is the app's cue to skip the picker.\n\n:ivar lenses: Every available lens, teacher first\n:ivar self_name: The name this person chose for themselves, or\n    None before they have set one\n:ivar address: Their address, or None. **Owner-private** [BR3.4]:\n    it sits in `OWNER_PRIVATE_FIELDS` and reaches no teacher-lens\n    response, which the schema-wide privacy gate asserts. It is\n    returned HERE because this is the owner reading their own row",
+        "description": "Everything this account can be.\n\n**No role, and no default lens.** The list says what is available;\nwhich one the person wants is their choice, and a server-chosen\ndefault would be a stored role by another name. A single-entry\nlist is the app's cue to skip the picker.\n\n:ivar lenses: Every available lens, teacher first\n:ivar self_name: The name this person chose for themselves, or\n    None before they have set one\n:ivar address: Their address, or None. **Owner-private** [BR3.4]:\n    it sits in `OWNER_PRIVATE_FIELDS` and reaches no teacher-lens\n    response, which the schema-wide privacy gate asserts. It is\n    returned HERE because this is the owner reading their own row\n:ivar phone: The number this account signs in with. The owner's own\n    login, read by the owner on a lens-exempt route; the profile\n    shows it read-only, and in-app deletion asks the person to type\n    it back as confirmation, which needs the app to know it",
         "properties": {
           "address": {
             "anyOf": [
@@ -1399,6 +1399,17 @@
             },
             "title": "Lenses",
             "type": "array"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
           },
           "self_name": {
             "anyOf": [
