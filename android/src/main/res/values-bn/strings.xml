@@ -43,7 +43,7 @@
     <string name="roster_status_active">চলমান</string>
     <string name="roster_status_inactive">ছেড়ে গেছেন</string>
     <string name="roster_fetched_at">%1$s এর সংরক্ষিত তথ্য দেখানো হচ্ছে</string>
-    <string name="batch_not_found">এই ক্লাসটি খুঁজে পাওয়া যায়নি।</string>
+    <string name="batch_not_found">এই ব্যাচটি খুঁজে পাওয়া যায়নি।</string>
     <string name="batch_create_subject_required">অন্তত একটি বিষয় যোগ করুন।</string>
     <string name="enrollment_remove_claimed">এই শিক্ষার্থী তার জায়গা গ্রহণ করেছেন এবং তার রেকর্ড আছে। মুছে ফেলার বদলে তাকে ছেড়ে যাওয়া হিসেবে চিহ্নিত করুন।</string>
     <string name="enrollment_remove_erased">এই জায়গাটিতে কারও তথ্য মুছে ফেলার অনুরোধ রেকর্ড করা আছে। নতুন ও আলাদা রেকর্ড তৈরি করতে নম্বরটি আবার যোগ করুন।</string>
@@ -54,20 +54,20 @@
     <string name="staging_outbox_empty">এই নম্বরের জন্য কোনো স্টেজিং বার্তা নেই।</string>
 
     <!-- The batch list (B5a: the device walkthrough). -->
-    <string name="batches_title">আপনার ক্লাসসমূহ</string>
-    <string name="batches_empty">এখনও কোনো ক্লাস নেই। শুরু করতে একটি তৈরি করুন।</string>
+    <string name="batches_title">ব্যাচ</string>
+    <string name="batches_empty">এখনও কোনো ব্যাচ নেই। শুরু করতে একটি তৈরি করুন।</string>
     <plurals name="batches_student_count">
         <item quantity="one">%1$d জন শিক্ষার্থী</item>
         <item quantity="other">%1$d জন শিক্ষার্থী</item>
     </plurals>
 
     <!-- Creating a class and adding a student. -->
-    <string name="batch_create_title">নতুন ক্লাস</string>
-    <string name="batch_create_name">ক্লাসের নাম (আবশ্যক)</string>
+    <string name="batch_create_title">নতুন ব্যাচ</string>
+    <string name="batch_create_name">ব্যাচের নাম (আবশ্যক)</string>
     <string name="batch_create_subjects">বিষয়, কমা দিয়ে আলাদা করুন (আবশ্যক)</string>
     <string name="batch_create_fee">মাসিক ফি (ঐচ্ছিক)</string>
     <string name="batch_create_due_day">মাসের কত তারিখে দিতে হবে (ঐচ্ছিক)</string>
-    <string name="batch_create_submit">ক্লাস তৈরি করুন</string>
+    <string name="batch_create_submit">ব্যাচ তৈরি করুন</string>
     <string name="student_add_title">শিক্ষার্থী যোগ করুন</string>
     <string name="student_add_name">শিক্ষার্থীর নাম</string>
     <string name="student_add_guardian">অভিভাবকের ফোন (ঐচ্ছিক)</string>
@@ -75,7 +75,7 @@
     <string name="student_add_submit">যোগ করুন</string>
     <string name="action_cancel">বাতিল</string>
     <string name="action_back">পিছনে</string>
-    <string name="fee_inherits">ক্লাসের ফি প্রযোজ্য</string>
+    <string name="fee_inherits">ব্যাচের ফি প্রযোজ্য</string>
 
     <!-- ব্যাচ তালিকা -->
     <string name="batches_empty_title">এখনও কোনও ব্যাচ নেই</string>
@@ -145,7 +145,7 @@
 
     <!-- গৃহীত আসনের সংখ্যা। দুটি সংখ্যাই সার্ভার থেকে আসে। -->
     <string name="roster_accepted_count">%2$s-এর মধ্যে %1$s জন গ্রহণ করেছে</string>
-    <string name="roster_title_fallback">ক্লাস</string>
+    <string name="roster_title_fallback">ব্যাচ</string>
 
     <string name="roster_link_student">শিক্ষার্থী</string>
     <string name="roster_link_guardian">অভিভাবক</string>
@@ -158,7 +158,7 @@
 
     <string name="roster_remove">সরান</string>
     <string name="roster_remove_confirm_title">এই জায়গাটি সরাবেন?</string>
-    <string name="roster_remove_confirm_body">%1$s-কে এই ক্লাস থেকে সরানো হবে। কেউ এই জায়গা গ্রহণ করেনি, তাই কারও কোনও রেকর্ড নষ্ট হবে না।</string>
+    <string name="roster_remove_confirm_body">%1$s-কে এই ব্যাচ থেকে সরানো হবে। কেউ এই জায়গা গ্রহণ করেনি, তাই কারও কোনও রেকর্ড নষ্ট হবে না।</string>
     <string name="roster_remove_confirm">সরান</string>
     <string name="roster_remove_refused_title">এই জায়গাটি সরানো যাবে না</string>
     <string name="roster_remove_claimed_remedy">কেউ এই জায়গা গ্রহণ করেছে, তাই রেকর্ডটি থেকে যাবে। বদলে আপনি এটি নিষ্ক্রিয় চিহ্নিত করতে পারেন — ভবিষ্যতের ফি বন্ধ হবে এবং পুরনো হিসাব থেকে যাবে।</string>
@@ -167,7 +167,7 @@
     <string name="action_close">বন্ধ করুন</string>
 
     <string name="batch_create_submitting">তৈরি হচ্ছে…</string>
-    <string name="batch_create_created">ক্লাস তৈরি হয়েছে।</string>
+    <string name="batch_create_created">ব্যাচ তৈরি হয়েছে।</string>
     <string name="student_add_submitting">যোগ হচ্ছে…</string>
     <string name="student_add_added">শিক্ষার্থী যোগ হয়েছে।</string>
     <string name="student_add_guardian_hint">ঐচ্ছিক। অভিভাবক গ্রহণ করলে এই শিক্ষার্থীর রেকর্ড দেখতে পাবেন।</string>
@@ -231,7 +231,7 @@
     <!-- D3-এর সার্ভার বার্তা-কী। অ্যাপ বিল্ড হওয়ার আগেই প্রতিটির
          জন্য এখানে একটি স্ট্রিং থাকতে হবে। -->
     <string name="fees_not_available">এটি পাওয়া যাচ্ছে না।</string>
-    <string name="fees_resolution_not_set">এই ক্লাসের জন্য কোনও ফি ঠিক করা হয়নি।</string>
+    <string name="fees_resolution_not_set">এই ব্যাচের জন্য কোনও ফি ঠিক করা হয়নি।</string>
     <string name="fees_claim_no_open_cycle">এই মুহূর্তে পরিশোধ করার মতো কিছু বাকি নেই।</string>
     <string name="fees_claim_amount_not_positive">শূন্যের চেয়ে বেশি পরিমাণ লিখুন।</string>
     <string name="fees_claim_channel_unknown">কীভাবে টাকা দিয়েছেন তা বেছে নিন।</string>
@@ -385,11 +385,11 @@
     <string name="topic_version_conflict">আপনার লেখার পরে কেউ এই ক্লাসের জন্য অন্য একটি বিষয় সংরক্ষণ করেছেন। এখনও কিছুই বদলানো হয়নি — আবার সংরক্ষণ করার আগে দেখে নিন এখন কী লেখা আছে।</string>
 
     <!-- অবস্থাজনিত প্রত্যাখ্যান: আগেরটি আবার পাঠিয়ে লাভ নেই। -->
-    <string name="teaching_batch_inactive">এই ক্লাসটি বন্ধ করা হয়েছে, তাই আর বদলানো যাবে না। রেকর্ড দেখা যাবে।</string>
+    <string name="teaching_batch_inactive">এই ব্যাচটি বন্ধ করা হয়েছে, তাই আর বদলানো যাবে না। রেকর্ড দেখা যাবে।</string>
     <string name="teaching_session_cancelled">এই ক্লাসটি বাতিল হয়েছে, তাই এর হাজিরা বা বিষয় লেখা যাবে না।</string>
     <string name="teaching_session_already_exists">ওই তারিখ ও সময়ে ইতিমধ্যেই একটি ক্লাস রয়েছে।</string>
     <string name="teaching_announcement_deleted">এই ঘোষণাটি মুছে ফেলা হয়েছে।</string>
-    <string name="teaching_seat_not_on_roster">এই তালিকার কিছু শিক্ষার্থী আর এই ক্লাসে নেই। হাজিরার তালিকাটি আবার লোড করে নতুন করে লিখুন।</string>
+    <string name="teaching_seat_not_on_roster">এই তালিকার কিছু শিক্ষার্থী আর এই ব্যাচে নেই। হাজিরার তালিকাটি আবার লোড করে নতুন করে লিখুন।</string>
     <string name="teaching_mutation_id_already_used">জমা রাখা এই এন্ট্রিটি আগে অন্য একটি পরিবর্তনের জন্য ব্যবহার করা হয়েছে। ক্লাসটি আবার লোড করে নতুন করে লিখুন।</string>
 
     <!-- নম্বর। -->
@@ -414,7 +414,7 @@
       বাক্যটি ফলাফলটাই বলে দেয়।
     -->
     <string name="dues_title">কার কাছে পাওনা</string>
-    <string name="dues_nobody_owes">এই মুহূর্তে কারও কোনও বকেয়া নেই। আপনার সব ক্লাসের সব শিক্ষার্থীর পাওনা পরিশোধ হয়েছে।</string>
+    <string name="dues_nobody_owes">এই মুহূর্তে কারও কোনও বকেয়া নেই। আপনার সব ব্যাচের সব শিক্ষার্থীর পাওনা পরিশোধ হয়েছে।</string>
     <string name="dues_since">%1$s থেকে</string>
     <string name="dues_retry">আবার চেষ্টা করুন</string>
 
@@ -447,8 +447,8 @@
       সংখ্যাটি ত্রুটির details-এ আসে, এই বাক্যে বসানো হয় না: একটি
       ক্লাস হোক বা দশটি, বাক্যটি ঠিকই পড়তে হবে।
     -->
-    <string name="governance_deletion_owns_batches">ShikkhokPlus-এ আপনার ক্লাস রয়ে গেছে। আগে সেগুলো হস্তান্তর করুন বা বন্ধ করুন, তারপর অ্যাকাউন্ট মুছুন।</string>
-    <string name="screen_title_create_batch">নতুন ক্লাস</string>
+    <string name="governance_deletion_owns_batches">ShikkhokPlus-এ আপনার ব্যাচ রয়ে গেছে। আগে সেগুলো হস্তান্তর করুন বা বন্ধ করুন, তারপর অ্যাকাউন্ট মুছুন।</string>
+    <string name="screen_title_create_batch">নতুন ব্যাচ</string>
     <string name="screen_title_batch_fees">ফি</string>
     <string name="screen_title_claim_status">পেমেন্টের অবস্থা</string>
     <string name="screen_title_fee_history">ফি-এর ইতিহাস</string>
@@ -476,7 +476,7 @@
     <string name="lens_teacher">শিক্ষক</string>
     <string name="lens_student">শিক্ষার্থী</string>
     <string name="lens_guardian">অভিভাবক</string>
-    <string name="lens_teacher_count">%1$s টি ক্লাস</string>
+    <string name="lens_teacher_count">%1$s টি ব্যাচ</string>
     <string name="lens_student_count">%1$s টি ভর্তি</string>
     <string name="lens_guardian_count">%1$s জন সন্তান</string>
     <string name="lens_switch">ভূমিকা বদলান</string>
@@ -484,4 +484,6 @@
     <string name="nav_children">সন্তান</string>
     <string name="nav_invitations">আমন্ত্রণ</string>
     <string name="nav_fees">ফি</string>
+    <string name="fee_invalid">1500 বা 1500.50 এর মতো একটি পরিমাণ লিখুন</string>
+    <string name="due_day_invalid">1 থেকে 31 এর মধ্যে একটি দিন লিখুন</string>
 </resources>

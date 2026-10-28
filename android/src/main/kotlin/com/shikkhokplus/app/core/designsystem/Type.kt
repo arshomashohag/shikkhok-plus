@@ -84,10 +84,20 @@ private fun banglaSafe(
 /**
  * The scale.
  *
- * Only the seven slots the design defines are overridden. The rest keep
- * M3's defaults deliberately: an unused slot with a made-up value is a
- * value nobody checked against Bangla, and leaving it default makes its
- * use obvious in review.
+ * **Every one of M3's fifteen slots is mapped onto the design's seven
+ * steps** (TypeScale.dc.html: display, headline, title, reading, body,
+ * label, caption). None keeps a Material default.
+ *
+ * This used to override only the seven, leaving the rest at M3's
+ * defaults on the reasoning that an unused slot would make its use
+ * obvious in review. They were not unused: `titleMedium`, `bodySmall`,
+ * `titleSmall` and `labelMedium` were used throughout the screens, so
+ * much of the app's text was off the scale, two of the four below the
+ * design's 13sp floor, and all four under the 1.53 line-height ratio
+ * that keeps Bangla conjuncts from clipping. Review did not catch it,
+ * which is the case for making the rule mechanical rather than visible:
+ * every slot is now a design step, and TypographyScaleTest fails if one
+ * drops below the floor or the ratio.
  */
 internal val ShikkhokTypography: Typography = Typography().let { base ->
     base.copy(
@@ -98,5 +108,15 @@ internal val ShikkhokTypography: Typography = Typography().let { base ->
         bodyMedium = banglaSafe(16, 26, FontWeight.Normal),
         labelLarge = banglaSafe(14, 22, FontWeight.SemiBold),
         labelSmall = banglaSafe(13, 20, FontWeight.Medium),
+        // The eight slots the design does not name, each onto the step
+        // its role matches. Same sizes as a design step, never between.
+        displayLarge = banglaSafe(34, 52, FontWeight.Bold),
+        displayMedium = banglaSafe(34, 52, FontWeight.Bold),
+        headlineLarge = banglaSafe(26, 40, FontWeight.Bold),
+        headlineSmall = banglaSafe(26, 40, FontWeight.Bold),
+        titleMedium = banglaSafe(16, 26, FontWeight.SemiBold),
+        titleSmall = banglaSafe(14, 22, FontWeight.SemiBold),
+        bodySmall = banglaSafe(13, 20, FontWeight.Normal),
+        labelMedium = banglaSafe(13, 20, FontWeight.Medium),
     )
 }

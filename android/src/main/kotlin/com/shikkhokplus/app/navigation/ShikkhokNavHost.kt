@@ -28,6 +28,8 @@ import com.shikkhokplus.app.core.network.HttpRosterRepository
 import com.shikkhokplus.app.core.network.HttpSignupRepository
 import com.shikkhokplus.app.core.ui.BatchCreateForm
 import com.shikkhokplus.app.core.ui.StudentAddForm
+import com.shikkhokplus.app.feature.auth.MessageKeys
+import com.shikkhokplus.app.core.ui.WriteState
 import com.shikkhokplus.app.feature.auth.AuthUiState
 import com.shikkhokplus.app.feature.auth.AuthViewModel
 import com.shikkhokplus.app.feature.auth.SignupUiState
@@ -313,16 +315,37 @@ fun ShikkhokNavHost(
             // and the back affordance come from here. Rendering it bare
             // gave a screen with no title at all once its own heading
             // was removed.
+            val write by model.writeState.collectAsState()
+
+            // **Close on the server's answer, not on the tap.** This
+            // used to navigate back in the same tap that started the
+            // write, and the list it returned to reloaded concurrently:
+            // a refused create was overwritten by the old list, so the
+            // class silently never existed. The form now stays open
+            // until `Saved`, and on a refusal it stays open with the
+            // error beside what was typed.
+            LaunchedEffect(write) {
+                if (write == WriteState.Saved) {
+                    model.acknowledgeWrite()
+                    navController.popBackStack()
+                }
+            }
+            val leave = {
+                model.acknowledgeWrite()
+                navController.popBackStack()
+            }
+
             ScreenScaffold(
                 title = stringResource(R.string.screen_title_create_batch),
-                onBack = { navController.popBackStack() },
+                onBack = { leave() },
             ) {
                 BatchCreateForm(
                     onCreate = { name, subjects, fee, dueDay ->
                         model.create(name, subjects, fee, dueDay)
-                        navController.popBackStack()
                     },
-                    onCancel = { navController.popBackStack() },
+                    onCancel = { leave() },
+                    saving = write == WriteState.Saving,
+                    error = writeError(write),
                 )
             }
         }
@@ -377,17 +400,33 @@ fun ShikkhokNavHost(
                 viewModel(parent, key = id) {
                     RosterViewModel(HttpRosterRepository(client))
                 }
+            val write by model.writeState.collectAsState()
+
+            // Close on the server's answer, for the reason CreateBatch
+            // gives: closing on the tap let a roster reload overwrite a
+            // refused add, so the student silently never existed.
+            LaunchedEffect(write) {
+                if (write == WriteState.Saved) {
+                    model.acknowledgeWrite()
+                    navController.popBackStack()
+                }
+            }
+            val leave = {
+                model.acknowledgeWrite()
+                navController.popBackStack()
+            }
 
             ScreenScaffold(
                 title = stringResource(R.string.screen_title_add_student),
-                onBack = { navController.popBackStack() },
+                onBack = { leave() },
             ) {
                 StudentAddForm(
                     onAdd = { name, guardian, fee ->
                         model.addStudent(name, guardian, fee)
-                        navController.popBackStack()
                     },
-                    onCancel = { navController.popBackStack() },
+                    onCancel = { leave() },
+                    saving = write == WriteState.Saving,
+                    error = writeError(write),
                 )
             }
         }
@@ -731,6 +770,16 @@ private fun readerOrSelf(raw: String?): MarksheetReader =
  */
 private fun feeReaderOrStudent(raw: String?): FeeReader =
     FeeReader.entries.firstOrNull { it.name == raw } ?: FeeReader.STUDENT
+
+/**
+ * Resolve a failed write to the text its form shows, or null.
+ *
+ * @param write Where the form's write stands
+ * @return The message, or null when there is nothing to report
+ */
+@Composable
+private fun writeError(write: WriteState): String? =
+    (write as? WriteState.Failed)?.let { stringResource(MessageKeys.resolve(it.messageKey)) }
 
 /**
  * Which tab in this lens's bar is the given route.

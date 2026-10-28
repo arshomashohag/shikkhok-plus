@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The window the app draws inside.
+
+  **NoActionBar is the point.** With no theme declared, Android supplied
+  its default, which draws a window title bar reading the app's name
+  ABOVE every screen's own app bar: the same screen titled twice, the
+  outer one dark and outside the design. Every screen draws its own bar
+  (ScreenScaffold), so the window must draw none.
+
+  A platform parent, not AppCompat or MaterialComponents: Compose draws
+  every component, and pulling in a View-system library only to hide a
+  bar would add a dependency to check against the forbidden-identifier
+  set for no benefit.
+
+  Window, status bar and navigation bar take the design's tokens
+  (Colour.dc.html, "background" and "surface") so a cold start shows
+  the app's own ground rather than a white or black flash, and the
+  system bars meet the screen without a seam.
+
+  The navigation bar is themed only from API 27 (values-v27): light
+  navigation-bar icons do not exist before it, so a light bar on 24-26
+  would carry white icons on white and become invisible. Below 27 the
+  system's own dark bar stays.
+-->
+<resources>
+    <style name="Theme.ShikkhokPlus" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/window_background</item>
+        <item name="android:statusBarColor">@color/window_background</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+</resources>

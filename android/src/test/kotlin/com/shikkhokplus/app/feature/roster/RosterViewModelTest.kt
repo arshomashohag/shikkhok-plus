@@ -4,6 +4,7 @@ import com.shikkhokplus.app.core.network.ErrorBody
 import com.shikkhokplus.app.core.network.ErrorEnvelope
 import com.shikkhokplus.app.core.model.LinkState
 import com.shikkhokplus.app.core.network.RosterRowDto
+import com.shikkhokplus.app.core.ui.WriteState
 import com.shikkhokplus.app.feature.auth.AuthResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -264,6 +265,47 @@ class RosterViewModelTest {
 
             assertEquals(null, repository.addedFee)
         }
+
+    @Test
+    fun `a refused add reaches the form, not the roster`() = runTest(dispatcher) {
+        // The roster's equivalent of the batch-create bug: the form
+        // closed on the tap, the roster reloaded, and a refused add
+        // was overwritten by the old list with no error shown.
+        val repository = FakeRepository()
+        repository.addResult =
+            AuthResult.Refused(
+                ErrorEnvelope(
+                    ErrorBody(
+                        code = "VALIDATION",
+                        retryable = false,
+                        messageKey = "error.unexpected",
+                    ),
+                ),
+            )
+        val viewModel = RosterViewModel(repository)
+        viewModel.load("b-1")
+        advanceUntilIdle()
+
+        viewModel.addStudent("Rahim", null, "1500.00")
+        viewModel.load("b-1")
+        advanceUntilIdle()
+
+        assertIs<WriteState.Failed>(viewModel.writeState.value)
+    }
+
+    @Test
+    fun `a successful add reports Saved and reloads`() = runTest(dispatcher) {
+        val repository = FakeRepository()
+        val viewModel = RosterViewModel(repository)
+        viewModel.load("b-1")
+        advanceUntilIdle()
+
+        viewModel.addStudent("Rahim", null, null)
+        advanceUntilIdle()
+
+        assertEquals(WriteState.Saved, viewModel.writeState.value)
+        assertEquals(2, repository.rosterCalls)
+    }
 
     @Test
     fun `a successful removal reloads the roster`() = runTest(dispatcher) {

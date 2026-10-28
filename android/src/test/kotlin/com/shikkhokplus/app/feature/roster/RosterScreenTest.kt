@@ -437,7 +437,7 @@ class RosterScreenTest {
 
         compose.onNodeWithTag(TAG_ROSTER_REMOVE_CONFIRM).assertIsDisplayed()
         compose.onNodeWithText(
-            "01711-234567 will be removed from this class. Nothing they have " +
+            "01711-234567 will be removed from this batch. Nothing they have " +
                 "recorded is affected, because nobody has accepted this place.",
         ).assertIsDisplayed()
     }

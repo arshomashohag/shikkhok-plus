@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dark "background" and "surface", mirroring Color.kt. -->
+<resources>
+    <color name="window_background">#FF0F1215</color>
+    <color name="navigation_bar">#FF15191E</color>
+</resources>

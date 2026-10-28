@@ -11,6 +11,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.ui.res.painterResource
+import androidx.compose.material3.Icon
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -126,11 +132,13 @@ fun BatchesScreen(
                 Box(Modifier.fillMaxSize()) {
                     LazyColumn(
                         modifier = Modifier.testTag(TAG_BATCHES_LIST),
+                        // **Bottom only.** ListScreenScaffold already
+                        // insets its content 16dp from each edge; adding
+                        // start and end here put every card 32dp in,
+                        // twice T6's margin. The bottom still clears the
+                        // FAB, so the last row is reachable rather than
+                        // hidden under it.
                         contentPadding = PaddingValues(
-                            start = Spacing.screen,
-                            end = Spacing.screen,
-                            // Clears the FAB, so the last row is
-                            // reachable rather than hidden under it.
                             bottom = Spacing.screen + Reach.moneyButton + Spacing.screen,
                         ),
                         verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -141,9 +149,12 @@ fun BatchesScreen(
                     }
                     CreateBatchFab(
                         onClick = onCreate,
+                        // Bottom only, for the reason the list gives:
+                        // the scaffold already holds it 16dp from the
+                        // edge, which is where T6 puts it.
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
-                            .padding(Spacing.screen)
+                            .padding(bottom = Spacing.screen)
                             .testTag(TAG_BATCHES_CREATE),
                     )
                 }
@@ -287,18 +298,29 @@ private fun BatchSkeletonCard() {
  */
 @Composable
 private fun CreateBatchFab(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    // T6: 56dp tall, 16dp corners, a "+" then "New batch". The icon is
+    // decoration beside a visible label, so it carries no description.
     Button(
         onClick = onClick,
         modifier = modifier.heightIn(min = Reach.moneyButton),
-        shape = MaterialTheme.shapes.large,
+        shape = RoundedCornerShape(FAB_CORNER),
+        contentPadding = PaddingValues(horizontal = 20.dp),
     ) {
+        Icon(
+            painter = painterResource(R.drawable.ic_add),
+            contentDescription = null,
+            modifier = Modifier.size(20.dp),
+        )
+        Spacer(Modifier.width(Spacing.tight))
         Text(
             text = stringResource(R.string.batch_create_title),
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
+            style = MaterialTheme.typography.titleMedium,
         )
     }
 }
+
+/** T6's FAB corner. Not the button pill: it is a FAB, and squarer. */
+private val FAB_CORNER = 16.dp
 
 /**
  * A full-width button for a decision that matters.
