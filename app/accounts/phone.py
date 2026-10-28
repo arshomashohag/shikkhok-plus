@@ -21,10 +21,7 @@ from typing import Final
 
 from app.errors import ValidationError
 
-__all__ = ["PHONE_INVALID_KEY", "canonical_phone"]
-
-#: The client string resource for a number that cannot receive an OTP.
-PHONE_INVALID_KEY: Final = "phone.invalid"
+__all__ = ["canonical_phone"]
 
 #: A Bangladeshi mobile number once the country code is removed: ``01``,
 #: an operator digit 3-9, then eight more digits. ``012`` and the landline
@@ -59,7 +56,11 @@ def canonical_phone(raw: str) -> str:
         # E.164 drops the trunk zero: +880 1711... is local 01711...
         text = "0" + text[3:]
     if not _LOCAL_MOBILE.fullmatch(text):
-        raise ValidationError(code="PHONE_INVALID", message_key=PHONE_INVALID_KEY)
+        # The key is written LITERALLY, not through a constant: the
+        # message-key contract gate finds raised keys by matching the
+        # keyword with a quoted string, and a constant here hid this one
+        # from it, leaving it unpublished and untested on the client.
+        raise ValidationError(code="PHONE_INVALID", message_key="phone.invalid")
     return f"+880{text[1:]}"
 
 

@@ -22,13 +22,13 @@ from __future__ import annotations
 
 import datetime as dt
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from app.authz.lenses import GuardianLens, TeacherLens
-from app.db.models import Account, Batch, BatchSubject, Enrollment
+from app.db.models import Account, Batch, BatchSubject, Enrollment, ScheduleSlot
 from app.errors import AuthorizationError, ConflictError, ValidationError
 from app.money import Money
 
@@ -498,6 +498,8 @@ class BatchSummary:
     :ivar batch: The batch row
     :ivar subjects: The subjects taught
     :ivar subject_ids: Each subject's key, parallel to ``subjects``
+    :ivar schedule: The weekly classes as (weekday, start, end), in
+        weekday then time order
     :ivar enrollment_count: How many seats, computed server-side. The
         DENOMINATOR, and it excludes nothing
     :ivar accepted_count: How many of those seats at least one link has
@@ -510,6 +512,7 @@ class BatchSummary:
     subject_ids: list[uuid.UUID]
     enrollment_count: int
     accepted_count: int
+    schedule: list[tuple[int, dt.time, dt.time]] = field(default_factory=list)
 
 
 def create_batch(
@@ -644,6 +647,23 @@ def list_batches(session: Session, *, lens: TeacherLens) -> list[BatchSummary]:
     ).all():
         subjects[batch_id].append(subject_name)
         subject_ids[batch_id].append(subject_id)
+    # The schedule in one grouped statement too, for T6's card line. Read
+    # from the model directly: the teaching module owns the WRITE, and
+    # importing it here would close a cycle (it imports this module).
+    schedules: dict[uuid.UUID, list[tuple[int, dt.time, dt.time]]] = {
+        batch_id: [] for batch_id in batch_ids
+    }
+    for batch_id, weekday, start, end in session.execute(
+        sa.select(
+            ScheduleSlot.batch_id,
+            ScheduleSlot.weekday,
+            ScheduleSlot.start_time,
+            ScheduleSlot.end_time,
+        )
+        .where(ScheduleSlot.batch_id.in_(batch_ids))
+        .order_by(ScheduleSlot.weekday, ScheduleSlot.start_time)
+    ).all():
+        schedules[batch_id].append((weekday, start, end))
 
     return [
         BatchSummary(
@@ -652,6 +672,7 @@ def list_batches(session: Session, *, lens: TeacherLens) -> list[BatchSummary]:
             subject_ids=subject_ids[batch.id],
             enrollment_count=counts.get(batch.id, 0),
             accepted_count=accepted.get(batch.id, 0),
+            schedule=schedules[batch.id],
         )
         for batch in batches
     ]

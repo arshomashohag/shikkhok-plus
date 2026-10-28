@@ -27,6 +27,7 @@ from sqlalchemy.orm import Session as DbSession
 from app.api.deps import get_session, guardian_lens, student_lens, teacher_lens
 from app.authz.lenses import GuardianLens, StudentLens, TeacherLens
 from app.schemas.errors import ErrorEnvelope
+from app.schemas.schedule import ScheduleRequest, ScheduleSlotWire
 from app.schemas.teaching import (
     AnnouncementBodyRequest,
     AnnouncementResponse,
@@ -46,8 +47,10 @@ from app.schemas.teaching import (
     TopicWriteResponse,
 )
 from app.teaching import announcements as notes
+from app.teaching import schedule
 from app.teaching import sessions as session_service
 from app.teaching.roster import session_roster
+from app.teaching.schedule import Slot
 from app.teaching.submissions import SeatMark, submit_roster, write_topic
 
 __all__ = ["router"]
@@ -180,6 +183,74 @@ def _announcement_response(
         created_at=row.created_at,
         edited=row.edited,
     )
+
+
+def _wire_slots(slots: list[Slot]) -> list[ScheduleSlotWire]:
+    """Render slots for the wire, times to the minute.
+
+    :param slots: The domain slots
+    :return: The wire slots
+    """
+    return [
+        ScheduleSlotWire(
+            weekday=slot.weekday,
+            start_time=slot.start_time.strftime("%H:%M"),
+            end_time=slot.end_time.strftime("%H:%M"),
+        )
+        for slot in slots
+    ]
+
+
+@router.get(
+    "/batches/{batch_id}/schedule",
+    response_model=list[ScheduleSlotWire],
+    responses=_AUTH_ERRORS,
+)
+def read_batch_schedule(
+    batch_id: uuid.UUID,
+    session: Annotated[DbSession, Depends(get_session)],
+    lens: Annotated[TeacherLens, Depends(teacher_lens)],
+) -> list[ScheduleSlotWire]:
+    """Read one of this teacher's batches' weekly classes.
+
+    :param batch_id: The batch, from the route path
+    :param session: The request-scoped session
+    :param lens: The teacher lens carrying the owner id
+    :return: The slots, in weekday then time order
+    """
+    return _wire_slots(schedule.read_schedule(session, lens=lens, batch_id=batch_id))
+
+
+@router.put(
+    "/batches/{batch_id}/schedule",
+    response_model=list[ScheduleSlotWire],
+    responses=_WRITE_ERRORS,
+)
+def write_batch_schedule(
+    batch_id: uuid.UUID,
+    body: ScheduleRequest,
+    session: Annotated[DbSession, Depends(get_session)],
+    lens: Annotated[TeacherLens, Depends(teacher_lens)],
+) -> list[ScheduleSlotWire]:
+    """Replace one batch's weekly classes; its sessions follow at once.
+
+    **The writer that did not exist**, so no batch had sessions and
+    attendance could not be reached. Existing sessions are left alone
+    when the schedule changes [BR1.2].
+
+    :param batch_id: The batch, from the route path
+    :param body: The complete new schedule
+    :param session: The request-scoped session
+    :param lens: The teacher lens carrying the owner id
+    :return: The schedule as stored
+    """
+    stored = schedule.set_schedule(
+        session,
+        lens=lens,
+        batch_id=batch_id,
+        slots=[schedule.slot_of(wire) for wire in body.slots],
+    )
+    return _wire_slots(stored)
 
 
 @router.get(

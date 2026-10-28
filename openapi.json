@@ -238,7 +238,7 @@
       },
       "BatchCreateRequest": {
         "additionalProperties": false,
-        "description": "Create a batch [AC2.1.1, AC2.1.2].\n\n:ivar name: The teacher's name for the class\n:ivar subjects: One or more subjects taught\n:ivar teacher_display_name: What students see the teacher called\n:ivar default_fee: The fee an enrollment inherits when it sets none\n:ivar fee_due_day: Day of month 1-31; 29-31 clamp at generation\n:ivar collection_number: Where payments are sent\n:ivar collection_channel: Which service that number belongs to",
+        "description": "Create a batch [AC2.1.1, AC2.1.2].\n\n:ivar name: The teacher's name for the class\n:ivar schedule: The weekly classes, so a batch can be created with its\n    class days and sessions follow at once; optional\n:ivar subjects: One or more subjects taught\n:ivar teacher_display_name: What students see the teacher called\n:ivar default_fee: The fee an enrollment inherits when it sets none\n:ivar fee_due_day: Day of month 1-31; 29-31 clamp at generation\n:ivar collection_number: Where payments are sent\n:ivar collection_channel: Which service that number belongs to",
         "properties": {
           "collection_channel": {
             "anyOf": [
@@ -293,6 +293,14 @@
             "title": "Name",
             "type": "string"
           },
+          "schedule": {
+            "items": {
+              "$ref": "#/components/schemas/ScheduleSlotWire"
+            },
+            "maxItems": 21,
+            "title": "Schedule",
+            "type": "array"
+          },
           "subjects": {
             "items": {
               "type": "string"
@@ -322,7 +330,7 @@
         "type": "object"
       },
       "BatchResponse": {
-        "description": "A batch as its owner sees it.\n\n:ivar id: The batch\n:ivar name: The teacher's name for the class\n:ivar subjects: The subjects taught\n:ivar subject_options: The same subjects with their keys, in the same\n    order, for the writes that name one\n:ivar teacher_display_name: What students see the teacher called\n:ivar default_fee: The inherited fee\n:ivar fee_due_day: Day of month 1-31\n:ivar collection_number: Where payments are sent\n:ivar collection_channel: Which service that number belongs to\n:ivar marksheet_visible: U6's toggle\n:ivar active: False means read-only history\n:ivar enrollment_count: How many seats, computed server-side. The\n    **denominator** of \"9 of 12 accepted\", and it counts every seat\n    the teacher created including declined ones [BR1.4]\n:ivar accepted_count: How many of those seats at least one link has\n    accepted [BR1.2], computed server-side and **never counted by\n    the client** [BR1.3, TC-9]. A client counting rows is a client\n    deciding what counts as accepted, and it is wrong the moment the\n    roster paginates because it can only count the rows it holds",
+        "description": "A batch as its owner sees it.\n\n:ivar id: The batch\n:ivar name: The teacher's name for the class\n:ivar subjects: The subjects taught\n:ivar subject_options: The same subjects with their keys, in the same\n    order, for the writes that name one\n:ivar schedule: The weekly classes, in weekday then time order -- the\n    \"Mon Wed · 4:00 pm\" line on the batch list (T6)\n:ivar teacher_display_name: What students see the teacher called\n:ivar default_fee: The inherited fee\n:ivar fee_due_day: Day of month 1-31\n:ivar collection_number: Where payments are sent\n:ivar collection_channel: Which service that number belongs to\n:ivar marksheet_visible: U6's toggle\n:ivar active: False means read-only history\n:ivar enrollment_count: How many seats, computed server-side. The\n    **denominator** of \"9 of 12 accepted\", and it counts every seat\n    the teacher created including declined ones [BR1.4]\n:ivar accepted_count: How many of those seats at least one link has\n    accepted [BR1.2], computed server-side and **never counted by\n    the client** [BR1.3, TC-9]. A client counting rows is a client\n    deciding what counts as accepted, and it is wrong the moment the\n    roster paginates because it can only count the rows it holds",
         "properties": {
           "accepted_count": {
             "title": "Accepted Count",
@@ -392,6 +400,13 @@
             "title": "Name",
             "type": "string"
           },
+          "schedule": {
+            "items": {
+              "$ref": "#/components/schemas/ScheduleSlotWire"
+            },
+            "title": "Schedule",
+            "type": "array"
+          },
           "subject_options": {
             "items": {
               "$ref": "#/components/schemas/SubjectOption"
@@ -429,6 +444,7 @@
           "id",
           "marksheet_visible",
           "name",
+          "schedule",
           "subject_options",
           "subjects",
           "teacher_display_name"
@@ -1913,6 +1929,54 @@
           "enrollment_id"
         ],
         "title": "RosterSeatResponse",
+        "type": "object"
+      },
+      "ScheduleRequest": {
+        "additionalProperties": false,
+        "description": "A batch's complete weekly schedule, replacing the old one.\n\n:ivar slots: Every weekly class; empty clears the schedule",
+        "properties": {
+          "slots": {
+            "items": {
+              "$ref": "#/components/schemas/ScheduleSlotWire"
+            },
+            "maxItems": 21,
+            "title": "Slots",
+            "type": "array"
+          }
+        },
+        "required": [
+          "slots"
+        ],
+        "title": "ScheduleRequest",
+        "type": "object"
+      },
+      "ScheduleSlotWire": {
+        "additionalProperties": false,
+        "description": "One weekly class.\n\n:ivar weekday: 0-6, Monday through Sunday\n:ivar start_time: When it starts, ``HH:MM``\n:ivar end_time: When it ends, ``HH:MM``, after the start",
+        "properties": {
+          "end_time": {
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+            "title": "End Time",
+            "type": "string"
+          },
+          "start_time": {
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+            "title": "Start Time",
+            "type": "string"
+          },
+          "weekday": {
+            "maximum": 6.0,
+            "minimum": 0.0,
+            "title": "Weekday",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "end_time",
+          "start_time",
+          "weekday"
+        ],
+        "title": "ScheduleSlotWire",
         "type": "object"
       },
       "SeatMarkRequest": {
@@ -3612,6 +3676,170 @@
         "summary": "Read Roster",
         "tags": [
           "batches"
+        ]
+      }
+    },
+    "/v1/batches/{batch_id}/schedule": {
+      "get": {
+        "description": "Read one of this teacher's batches' weekly classes.\n\n:param batch_id: The batch, from the route path\n:param session: The request-scoped session\n:param lens: The teacher lens carrying the owner id\n:return: The slots, in weekday then time order",
+        "operationId": "read_batch_schedule_v1_batches__batch_id__schedule_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ScheduleSlotWire"
+                  },
+                  "title": "Response Read Batch Schedule V1 Batches  Batch Id  Schedule Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Batch Schedule",
+        "tags": [
+          "teaching"
+        ]
+      },
+      "put": {
+        "description": "Replace one batch's weekly classes; its sessions follow at once.\n\n**The writer that did not exist**, so no batch had sessions and\nattendance could not be reached. Existing sessions are left alone\nwhen the schedule changes [BR1.2].\n\n:param batch_id: The batch, from the route path\n:param body: The complete new schedule\n:param session: The request-scoped session\n:param lens: The teacher lens carrying the owner id\n:return: The schedule as stored",
+        "operationId": "write_batch_schedule_v1_batches__batch_id__schedule_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScheduleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ScheduleSlotWire"
+                  },
+                  "title": "Response Write Batch Schedule V1 Batches  Batch Id  Schedule Put",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide. On a version conflict the details carry the current version and the current roster, which is why this is unreachable before authorization."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Write Batch Schedule",
+        "tags": [
+          "teaching"
         ]
       }
     },

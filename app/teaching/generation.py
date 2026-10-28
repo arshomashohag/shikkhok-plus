@@ -156,6 +156,7 @@ def generate_sessions(
     session: DbSession,
     *,
     today: dt.date | None = None,
+    batch_id: uuid.UUID | None = None,
 ) -> GenerationResult:
     """Generate every session the active batches' schedules imply.
 
@@ -168,6 +169,9 @@ def generate_sessions(
 
     :param session: The session to work through
     :param today: The date to generate around; the real one by default
+    :param batch_id: Only this batch, when a teacher has just set its
+        schedule and should not wait for the nightly run; every active
+        batch when None, which is the nightly job
     :return: The run's three counts
     """
     when = today or dt.datetime.now(tz=dt.UTC).date()
@@ -186,6 +190,7 @@ def generate_sessions(
         # can bypass.
         .join(Batch, Batch.id == ScheduleSlot.batch_id)
         .where(Batch.active.is_(True))
+        .where(sa.true() if batch_id is None else ScheduleSlot.batch_id == batch_id)
         .order_by(ScheduleSlot.batch_id, ScheduleSlot.weekday)
     ).all()
 

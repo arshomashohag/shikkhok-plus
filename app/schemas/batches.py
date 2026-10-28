@@ -24,6 +24,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.money import MoneyField
 from app.schemas.phone import PhoneField
+from app.schemas.schedule import ScheduleSlotWire
 
 __all__ = [
     "BatchCreateRequest",
@@ -40,6 +41,8 @@ class BatchCreateRequest(BaseModel):
     """Create a batch [AC2.1.1, AC2.1.2].
 
     :ivar name: The teacher's name for the class
+    :ivar schedule: The weekly classes, so a batch can be created with its
+        class days and sessions follow at once; optional
     :ivar subjects: One or more subjects taught
     :ivar teacher_display_name: What students see the teacher called
     :ivar default_fee: The fee an enrollment inherits when it sets none
@@ -52,6 +55,7 @@ class BatchCreateRequest(BaseModel):
 
     name: str = Field(min_length=1, max_length=120)
     subjects: list[str] = Field(min_length=1)
+    schedule: list[ScheduleSlotWire] = Field(default_factory=list, max_length=21)
     teacher_display_name: str | None = Field(default=None, max_length=120)
     default_fee: MoneyField | None = None
     fee_due_day: int | None = Field(default=None, ge=1, le=31)
@@ -114,6 +118,8 @@ class BatchResponse(BaseModel):
     :ivar subjects: The subjects taught
     :ivar subject_options: The same subjects with their keys, in the same
         order, for the writes that name one
+    :ivar schedule: The weekly classes, in weekday then time order -- the
+        "Mon Wed · 4:00 pm" line on the batch list (T6)
     :ivar teacher_display_name: What students see the teacher called
     :ivar default_fee: The inherited fee
     :ivar fee_due_day: Day of month 1-31
@@ -135,6 +141,7 @@ class BatchResponse(BaseModel):
     name: str
     subjects: list[str]
     subject_options: list[SubjectOption]
+    schedule: list[ScheduleSlotWire]
     teacher_display_name: str | None
     default_fee: MoneyField | None
     fee_due_day: int | None

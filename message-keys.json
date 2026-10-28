@@ -28,6 +28,8 @@
     "marks.out_of_range",
     "marks.result_state.not_enterable",
     "marks.state_mismatch",
+    "phone.invalid",
+    "schedule.duplicate_slot",
     "signup.number.already_registered",
     "signup.temporarily_unavailable",
     "staging.outbox.empty",

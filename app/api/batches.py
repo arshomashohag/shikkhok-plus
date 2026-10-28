@@ -14,6 +14,7 @@ due, written in a composable where it looks like presentation.
 from __future__ import annotations
 
 import uuid
+from dataclasses import replace
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, status
@@ -34,6 +35,13 @@ from app.schemas.batches import (
     SubjectOption,
 )
 from app.schemas.money import Money as WireMoney
+from app.schemas.schedule import ScheduleSlotWire
+from app.teaching.schedule import (
+    refuse_duplicate_slots,
+    set_schedule,
+    slot_of,
+    slots_of,
+)
 
 __all__ = ["router"]
 
@@ -85,6 +93,14 @@ def _batch_response(summary: service.BatchSummary) -> BatchResponse:
         id=batch.id,
         name=batch.name,
         subjects=summary.subjects,
+        schedule=[
+            ScheduleSlotWire(
+                weekday=weekday,
+                start_time=start.strftime("%H:%M"),
+                end_time=end.strftime("%H:%M"),
+            )
+            for weekday, start, end in summary.schedule
+        ],
         subject_options=[
             SubjectOption(id=subject_id, name=name)
             for subject_id, name in zip(
@@ -166,6 +182,10 @@ def create_batch(
     :param session: The request-scoped session
     :return: The created batch
     """
+    # Refused BEFORE the batch is written, so a duplicated slot cannot
+    # leave a batch behind with no schedule and an error in its place.
+    slots = [slot_of(wire) for wire in body.schedule]
+    refuse_duplicate_slots(slots)
     summary = service.create_batch(
         session,
         lens=lens,
@@ -177,6 +197,15 @@ def create_batch(
         collection_number=body.collection_number,
         collection_channel=body.collection_channel,
     )
+    if slots:
+        set_schedule(session, lens=lens, batch_id=summary.batch.id, slots=slots)
+        summary = replace(
+            summary,
+            schedule=[
+                (slot.weekday, slot.start_time, slot.end_time)
+                for slot in slots_of(session, summary.batch.id)
+            ],
+        )
     return _batch_response(summary)
 
 
