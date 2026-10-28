@@ -1514,6 +1514,35 @@
         "title": "ExamResultsResponse",
         "type": "object"
       },
+      "ExamUpdateRequest": {
+        "additionalProperties": false,
+        "description": "Edit an assessment: what it is called, when, and out of how much.\n\nNo subject: an edit names what changes, and the exam stays in the\nsubject it was set in.\n\n:ivar title: The teacher's name for it\n:ivar date: When it was sat\n:ivar total_marks: The denominator, at least 1, and not below any\n    mark already recorded",
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "total_marks": {
+            "minimum": 1.0,
+            "title": "Total Marks",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "title",
+          "total_marks"
+        ],
+        "title": "ExamUpdateRequest",
+        "type": "object"
+      },
       "FamilyBatchViewResponse": {
         "additionalProperties": false,
         "description": "What a student or guardian sees of one batch [BR7.2].\n\n``served_at`` is BR7.3's server timestamp, so a client rendering\nthis from cache can state its age without consulting the device\nclock -- which is the thing excluded from decisions.\n\n:ivar next_session_date: The next scheduled session's date, or\n    null\n:ivar next_session_start_time: Its start time, or null\n:ivar past_sessions: Past sessions with topics and attendance\n:ivar announcements: The batch's visible notes\n:ivar served_at: When the server computed this",
@@ -6147,7 +6176,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ExamCreateRequest"
+                "$ref": "#/components/schemas/ExamUpdateRequest"
               }
             }
           },

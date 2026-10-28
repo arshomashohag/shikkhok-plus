@@ -39,6 +39,7 @@ from app.schemas.marks import (
     ExamListItemResponse,
     ExamResponse,
     ExamResultsResponse,
+    ExamUpdateRequest,
     MarksheetResponse,
     MarkWriteRequest,
     ProgressEntryResponse,
@@ -250,7 +251,7 @@ def create_batch_exam(
 )
 def update_batch_exam(
     exam_id: uuid.UUID,
-    body: ExamCreateRequest,
+    body: ExamUpdateRequest,
     session: Annotated[DbSession, Depends(get_session)],
     lens: Annotated[TeacherLens, Depends(teacher_lens)],
 ) -> ExamResponse:

@@ -133,6 +133,9 @@ class WriteContractTest {
             Write("patch", "/v1/batches/{batch_id}") {
                 HttpBatchDetailRepository(it).editBatch(ID, BatchEdit(name = "Physics B", subjects = listOf("Optics")))
             },
+            Write("put", "/v1/exams/{exam_id}") {
+                HttpMarksRepository(it).editExam(ID, "Mid-term", "2026-11-04", 50)
+            },
             Write("post", "/v1/reminders") { HttpAnalyticsRepository(it).remind(listOf(ID)) },
             Write("post", "/v1/me/notifications/read") { HttpInboxRepository(it).markRead() },
             Write("put", "/v1/batches/{batch_id}/marksheet-visibility") {

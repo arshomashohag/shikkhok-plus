@@ -61,4 +61,12 @@ class DatesTest {
 
         assertEquals(true, heading.contains(" 17 "), heading)
     }
+
+    @Test
+    fun `a server date round-trips through the picker's UTC midnight`() {
+        val millis = isoToUtcMillis("2026-11-04")
+
+        assertEquals("2026-11-04", millis?.let(::isoDate))
+        assertEquals(null, isoToUtcMillis("not a date"))
+    }
 }

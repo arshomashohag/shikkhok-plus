@@ -2,6 +2,7 @@ package com.shikkhokplus.app.feature.marks
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.shikkhokplus.app.core.network.CorrectionDto
 import com.shikkhokplus.app.core.network.ExamDto
 import com.shikkhokplus.app.core.network.ExamResultDto
 import com.shikkhokplus.app.core.network.MarksheetDto
@@ -78,6 +79,31 @@ interface MarksRepository {
         totalMarks: Int,
         batchSubjectId: String,
     ): AuthResult<Unit>
+
+    /**
+     * Edit an exam's title, date or total.
+     *
+     * @param examId The exam
+     * @param title Its new title
+     * @param date Its new date, `yyyy-MM-dd`
+     * @param totalMarks Its new total
+     * @return Nothing on success, or why the server refused
+     */
+    suspend fun editExam(
+        examId: String,
+        title: String,
+        date: String,
+        totalMarks: Int,
+    ): AuthResult<Unit>
+
+    /**
+     * Read every mark ever recorded for one seat in one exam.
+     *
+     * @param examId The exam
+     * @param enrollmentId The seat
+     * @return The rows, oldest first
+     */
+    suspend fun markHistory(examId: String, enrollmentId: String): AuthResult<List<CorrectionDto>>
 
     /**
      * Read one exam's results.
@@ -204,6 +230,11 @@ class MarksViewModel(
      * rather than offering nothing to choose.
      */
     val subjectOptions: StateFlow<List<SubjectOptionDto>?> = _subjects.asStateFlow()
+
+    private val _history = MutableStateFlow<MarkHistory?>(null)
+
+    /** The mark history open on the entry screen, or null when closed. */
+    val history: StateFlow<MarkHistory?> = _history.asStateFlow()
 
     private var lastBatchId: String? = null
     private var lastBatchName: String = ""
@@ -337,11 +368,58 @@ class MarksViewModel(
                         totalMarks = result.value.exam.totalMarks,
                         results = result.value.results,
                         writable = result.value.writable,
+                        examDate = result.value.exam.date,
                     )
                 is AuthResult.Refused -> MarksStateMapper.afterError(result.envelope)
                 AuthResult.TransportFailure ->
                     MarksStateMapper.afterTransportFailure()
             }
+    }
+
+    /**
+     * Edit the open exam's title, date or total.
+     *
+     * Uses [writeState], so the edit form closes only once the server
+     * accepts it; a total below a recorded mark is refused there.
+     *
+     * @param title Its new title
+     * @param date Its new date, `yyyy-MM-dd`
+     * @param totalMarks Its new total
+     */
+    fun editExam(title: String, date: String, totalMarks: Int) {
+        val examId = lastExamId ?: return
+        if (_writeState.value == WriteState.Saving) return
+        _writeState.value = WriteState.Saving
+        viewModelScope.launch {
+            _writeState.value =
+                when (val result = repository.editExam(examId, title, date, totalMarks)) {
+                    is AuthResult.Ok -> WriteState.Saved.also { refreshResults(examId) }
+                    is AuthResult.Refused ->
+                        WriteState.Failed(result.envelope.error.messageKey, result.envelope.error.retryable)
+                    AuthResult.TransportFailure -> WriteState.Failed(MarksStateMapper.OFFLINE_KEY, retryable = true)
+                }
+        }
+    }
+
+    /**
+     * Open one seat's mark history.
+     *
+     * @param row The seat
+     */
+    fun openHistory(row: MarkRow) {
+        val examId = lastExamId ?: return
+        _history.value = MarkHistory(row.displayName)
+        viewModelScope.launch {
+            val read = repository.markHistory(examId, row.enrollmentId)
+            _history.value =
+                (read as? AuthResult.Ok)?.let { MarkHistory(row.displayName, MarksStateMapper.history(it.value)) }
+                    ?: MarkHistory(row.displayName, failed = true)
+        }
+    }
+
+    /** Close the mark history. */
+    fun closeHistory() {
+        _history.value = null
     }
 
     /**

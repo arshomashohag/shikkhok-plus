@@ -2,6 +2,7 @@ package com.shikkhokplus.app.feature.marks
 
 import com.shikkhokplus.app.core.network.ErrorEnvelope
 import com.shikkhokplus.app.core.network.ExamDto
+import com.shikkhokplus.app.core.network.CorrectionDto
 import com.shikkhokplus.app.core.network.ExamResultDto
 import com.shikkhokplus.app.core.network.MarkBandDto
 import com.shikkhokplus.app.core.network.MarksheetDto
@@ -42,6 +43,9 @@ object MarksStateMapper {
      * `absent` publishes an absence the teacher never recorded, on a
      * marksheet the whole batch can see.
      */
+    /** The states a teacher recorded, which therefore have a history. */
+    private val RECORDED_STATES: Set<String> = setOf("marked", "absent")
+
     private val RESULT_STATE_KEYS: Map<String, String> =
         mapOf(
             "marked" to "mark.state.marked",
@@ -96,6 +100,7 @@ object MarksStateMapper {
         totalMarks: Int,
         results: List<ExamResultDto>,
         writable: Boolean = true,
+        examDate: String = "",
     ): MarksUiState {
         val rows =
             results.map { dto ->
@@ -115,11 +120,32 @@ object MarksStateMapper {
                     // server's state rather than by comparing dates
                     // the client does not hold.
                     isEditable = writable && dto.resultState != STATE_JOINED_AFTER,
+                    hasHistory = dto.resultState in RECORDED_STATES,
                 )
             }
 
-        return MarksUiState.EntryLoaded(examId, examTitle, totalMarks, rows, writable)
+        return MarksUiState.EntryLoaded(examId, examTitle, totalMarks, rows, writable, examDate)
     }
+
+    /**
+     * Map a seat's mark history, keeping the server's order.
+     *
+     * A state this app does not know is shown as its own wire value
+     * rather than dropped: the history is a record, and a gap in it
+     * would misstate what was recorded.
+     *
+     * @param rows The server's rows, oldest first
+     * @return The entries to show
+     */
+    fun history(rows: List<CorrectionDto>): List<HistoryEntry> =
+        rows.map { row ->
+            HistoryEntry(
+                stateLabel = RESULT_STATE_KEYS[row.resultState] ?: row.resultState,
+                marks = row.marks,
+                recordedAt = row.recordedAt,
+                superseded = row.superseded,
+            )
+        }
 
     /**
      * Map a marksheet the server published [BR6.2].

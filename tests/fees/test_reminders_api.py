@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 from app.fees.ledger_writer import append_entry
 from app.money import Money
 from tests.batches.conftest import TeacherFixture, enroll, make_teacher
-from tests.fees.conftest import bearer
+from tests.conftest import bearer
 
 
 def _owing_seat(

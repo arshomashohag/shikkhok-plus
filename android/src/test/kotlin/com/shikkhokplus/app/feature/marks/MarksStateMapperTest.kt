@@ -3,6 +3,7 @@ package com.shikkhokplus.app.feature.marks
 import com.shikkhokplus.app.core.network.ErrorBody
 import com.shikkhokplus.app.core.network.ErrorEnvelope
 import com.shikkhokplus.app.core.network.ExamDto
+import com.shikkhokplus.app.core.network.CorrectionDto
 import com.shikkhokplus.app.core.network.ExamResultDto
 import com.shikkhokplus.app.core.network.MarkBandDto
 import com.shikkhokplus.app.core.network.MarksheetDto
@@ -475,5 +476,32 @@ class MarksStateMapperTest {
 
         assertEquals(MarksStateMapper.OFFLINE_KEY, failed.messageKey)
         assertEquals(true, failed.retryable)
+    }
+
+    @Test
+    fun `only a recorded result has a history, and the exam's date is kept`() {
+        val loaded =
+            assertIs<MarksUiState.EntryLoaded>(
+                MarksStateMapper.afterResults(
+                    "x-1",
+                    "Mid-term",
+                    100,
+                    listOf("marked", "absent", "not_entered", "joined_after").map { result(state = it, marks = null) },
+                    examDate = "2026-11-04",
+                ),
+            )
+
+        assertEquals(listOf(true, true, false, false), loaded.rows.map { it.hasHistory })
+        assertEquals("2026-11-04", loaded.examDate)
+    }
+
+    @Test
+    fun `a history keeps an unknown state as its wire value rather than dropping it`() {
+        val entries =
+            MarksStateMapper.history(
+                listOf(CorrectionDto("m-1", "future", null, "2026-10-17T06:00:00Z", superseded = false)),
+            )
+
+        assertEquals("future", entries.single().stateLabel)
     }
 }

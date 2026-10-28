@@ -39,6 +39,8 @@ data class ExamRow(
  * @property isEditable Whether this seat can be marked, **decided
  *   server-side**. A seat that joined after the exam cannot be
  *   [BR4.3], and the client is told rather than comparing dates
+ * @property hasHistory Whether anything was ever recorded for the seat,
+ *   so its history has something to show
  */
 data class MarkRow(
     val enrollmentId: String,
@@ -46,6 +48,7 @@ data class MarkRow(
     val stateLabel: String,
     val marks: Int?,
     val isEditable: Boolean,
+    val hasHistory: Boolean = false,
 )
 
 /**
@@ -125,6 +128,7 @@ sealed interface MarksUiState {
      * @property rows One row per seat
      * @property writable Whether marks may be written, **decided
      *   server-side** [BR5.5]
+     * @property examDate Its date, `yyyy-MM-dd`, for the edit form
      */
     data class EntryLoaded(
         val examId: String,
@@ -132,6 +136,7 @@ sealed interface MarksUiState {
         val totalMarks: Int,
         val rows: List<MarkRow>,
         val writable: Boolean,
+        val examDate: String = "",
     ) : MarksUiState
 
     /**
@@ -224,4 +229,32 @@ data class ProgressRow(
     val totalMarks: Int,
     val stateLabel: String,
     val marks: Int?,
+)
+
+/**
+ * One recorded mark in a seat's history.
+ *
+ * @property stateLabel Names the recorded result state's string resource
+ * @property marks The score, when marked
+ * @property recordedAt When it was recorded
+ * @property superseded Whether a later correction replaced it
+ */
+data class HistoryEntry(
+    val stateLabel: String,
+    val marks: Int?,
+    val recordedAt: String,
+    val superseded: Boolean,
+)
+
+/**
+ * A seat's mark history, as the sheet shows it.
+ *
+ * @property displayName Whose marks
+ * @property entries Oldest first, or null while reading
+ * @property failed Whether the read failed
+ */
+data class MarkHistory(
+    val displayName: String,
+    val entries: List<HistoryEntry>? = null,
+    val failed: Boolean = false,
 )

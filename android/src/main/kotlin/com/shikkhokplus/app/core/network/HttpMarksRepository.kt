@@ -80,6 +80,19 @@ class HttpMarksRepository(
      * @param batchSubjectId Which of the batch's subjects
      * @return Nothing on success, or why the server refused
      */
+    override suspend fun editExam(
+        examId: String,
+        title: String,
+        date: String,
+        totalMarks: Int,
+    ): AuthResult<Unit> =
+        callDiscardingBody {
+            client.put("/v1/exams/$examId") { setBody(ExamUpdateRequestDto(title, date, totalMarks)) }
+        }
+
+    override suspend fun markHistory(examId: String, enrollmentId: String): AuthResult<List<CorrectionDto>> =
+        call { client.get("/v1/exams/$examId/marks/$enrollmentId/history") }
+
     override suspend fun createExam(
         batchId: String,
         title: String,

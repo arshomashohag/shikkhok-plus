@@ -34,6 +34,7 @@ __all__ = [
     "ExamListItemResponse",
     "ExamResponse",
     "ExamResultsResponse",
+    "ExamUpdateRequest",
     "MarkWriteRequest",
     "MarksheetResponse",
     "ProgressEntryResponse",
@@ -104,6 +105,25 @@ class ExamCreateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     batch_subject_id: uuid.UUID
+    title: str = Field(min_length=1, max_length=200)
+    date: dt.date
+    total_marks: int = Field(ge=1)
+
+
+class ExamUpdateRequest(BaseModel):
+    """Edit an assessment: what it is called, when, and out of how much.
+
+    No subject: an edit names what changes, and the exam stays in the
+    subject it was set in.
+
+    :ivar title: The teacher's name for it
+    :ivar date: When it was sat
+    :ivar total_marks: The denominator, at least 1, and not below any
+        mark already recorded
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
     title: str = Field(min_length=1, max_length=200)
     date: dt.date
     total_marks: int = Field(ge=1)

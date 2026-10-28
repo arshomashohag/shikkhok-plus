@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.feature.marks
 
+import com.shikkhokplus.app.core.network.CorrectionDto
 import com.shikkhokplus.app.core.network.ErrorBody
 import com.shikkhokplus.app.core.network.ErrorEnvelope
 import com.shikkhokplus.app.core.network.ExamDto
@@ -60,7 +61,33 @@ class MarksViewModelWriteTest {
             return createResult
         }
 
-        override suspend fun results(examId: String) = AuthResult.TransportFailure
+        var editResult: AuthResult<Unit> = AuthResult.Ok(Unit)
+        val edits = mutableListOf<Triple<String, String, Int>>()
+        var resultReads = 0
+        var historyResult: AuthResult<List<CorrectionDto>> =
+            AuthResult.Ok(
+                listOf(
+                    CorrectionDto("m-1", "marked", 18, "2026-10-17T06:00:00Z", superseded = true),
+                    CorrectionDto("m-2", "marked", 21, "2026-10-18T06:00:00Z", superseded = false),
+                ),
+            )
+
+        override suspend fun editExam(
+            examId: String,
+            title: String,
+            date: String,
+            totalMarks: Int,
+        ): AuthResult<Unit> {
+            edits += Triple(title, date, totalMarks)
+            return editResult
+        }
+
+        override suspend fun markHistory(examId: String, enrollmentId: String) = historyResult
+
+        override suspend fun results(examId: String): AuthResult<ExamResultsPayload> {
+            resultReads++
+            return AuthResult.TransportFailure
+        }
 
         override suspend fun writeMark(
             examId: String,
@@ -140,5 +167,66 @@ class MarksViewModelWriteTest {
         advanceUntilIdle()
 
         assertEquals(listOf(SubjectOptionDto("bs-1", "Physics")), model.subjectOptions.value)
+    }
+
+    @Test
+    fun `an exam edit reports Saved and reads the results again`() = runTest(dispatcher) {
+        val repository = Fake()
+        val model = MarksViewModel(repository).also { it.loadResults("x-1") }
+        advanceUntilIdle()
+
+        model.editExam("Mid-term", "2026-11-04", 50)
+        advanceUntilIdle()
+
+        assertEquals(listOf(Triple("Mid-term", "2026-11-04", 50)), repository.edits)
+        assertEquals(WriteState.Saved, model.writeState.value)
+        assertEquals(2, repository.resultReads)
+    }
+
+    @Test
+    fun `a total below a recorded mark is refused and shown on the form`() = runTest(dispatcher) {
+        val repository = Fake()
+        repository.editResult =
+            AuthResult.Refused(ErrorEnvelope(ErrorBody("X", false, "marks.exam.total_below_recorded")))
+        val model = MarksViewModel(repository).also { it.loadResults("x-1") }
+        advanceUntilIdle()
+
+        model.editExam("Mid-term", "2026-11-04", 10)
+        advanceUntilIdle()
+
+        assertEquals(WriteState.Failed("marks.exam.total_below_recorded", false), model.writeState.value)
+        assertEquals(1, repository.resultReads)
+    }
+
+    @Test
+    fun `a seat's history opens oldest first with the replaced marks marked`() = runTest(dispatcher) {
+        val model = MarksViewModel(Fake()).also { it.loadResults("x-1") }
+        advanceUntilIdle()
+        val row = MarkRow("e-1", "Rahim", "mark.state.marked", 21, isEditable = true, hasHistory = true)
+
+        model.openHistory(row)
+        assertEquals(MarkHistory("Rahim"), model.history.value, "reading")
+        advanceUntilIdle()
+
+        val entries = model.history.value?.entries.orEmpty()
+        assertEquals(listOf(18, 21), entries.map { it.marks })
+        assertEquals(listOf(true, false), entries.map { it.superseded })
+        assertEquals("mark.state.marked", entries.first().stateLabel)
+
+        model.closeHistory()
+        assertEquals(null, model.history.value)
+    }
+
+    @Test
+    fun `a failed history read says so`() = runTest(dispatcher) {
+        val repository = Fake()
+        repository.historyResult = AuthResult.TransportFailure
+        val model = MarksViewModel(repository).also { it.loadResults("x-1") }
+        advanceUntilIdle()
+
+        model.openHistory(MarkRow("e-1", "Rahim", "mark.state.absent", null, isEditable = true))
+        advanceUntilIdle()
+
+        assertEquals(true, model.history.value?.failed)
     }
 }

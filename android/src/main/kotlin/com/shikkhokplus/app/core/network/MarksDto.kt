@@ -226,6 +226,40 @@ data class ExamCreateRequestDto(
 )
 
 /**
+ * The body of an exam edit. No subject: the exam stays in the subject
+ * it was set in.
+ *
+ * @property title The new title
+ * @property date The new date
+ * @property totalMarks The new total; the server refuses one below a
+ *   mark already recorded
+ */
+@Serializable
+data class ExamUpdateRequestDto(
+    val title: String,
+    val date: String,
+    @SerialName("total_marks") val totalMarks: Int,
+)
+
+/**
+ * One row of a seat's mark history, oldest first [FR9.2].
+ *
+ * @property markId The row
+ * @property resultState `marked` or `absent`, as recorded
+ * @property marks The score, when marked
+ * @property recordedAt When it was recorded
+ * @property superseded Whether a later correction replaced it
+ */
+@Serializable
+data class CorrectionDto(
+    @SerialName("mark_id") val markId: String,
+    @SerialName("result_state") val resultState: String,
+    val marks: Int? = null,
+    @SerialName("recorded_at") val recordedAt: String,
+    val superseded: Boolean,
+)
+
+/**
  * The body of a marksheet visibility toggle [BR5.4].
  *
  * @property visible Whether families see marksheets for this batch

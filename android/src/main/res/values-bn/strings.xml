@@ -734,4 +734,10 @@
     <string name="batch_subject_in_use">যে বিষয়ে পরীক্ষা আছে সেটি সরানো যাবে না। বিষয়টি রাখুন, অথবা আগে পরীক্ষাগুলো মুছুন।</string>
     <string name="batch_edit_title">ব্যাচ সম্পাদনা</string>
     <string name="batch_edit_save">পরিবর্তন সংরক্ষণ করুন</string>
+    <string name="exam_edit_title">পরীক্ষা সম্পাদনা</string>
+    <string name="exam_edit_save">পরিবর্তন সংরক্ষণ করুন</string>
+    <string name="mark_history_open">ইতিহাস</string>
+    <string name="mark_history_title">%1$s-এর জন্য রেকর্ড করা নম্বর</string>
+    <string name="mark_history_replaced">বদলানো হয়েছে · রেকর্ড %1$s</string>
+    <string name="mark_history_current">বর্তমান · রেকর্ড %1$s</string>
 </resources>

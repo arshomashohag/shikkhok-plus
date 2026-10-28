@@ -32,6 +32,7 @@ import com.shikkhokplus.app.R
 import com.shikkhokplus.app.core.designsystem.LogoLoader
 import com.shikkhokplus.app.core.format.displayDate
 import com.shikkhokplus.app.core.format.isoDate
+import com.shikkhokplus.app.core.format.isoToUtcMillis
 import com.shikkhokplus.app.core.format.todayAsUtcMillis
 import com.shikkhokplus.app.core.network.SubjectOptionDto
 import com.shikkhokplus.app.core.ui.TAG_FORM_CANCEL
@@ -75,6 +76,9 @@ private const val MAX_TOTAL_DIGITS = 4
  * @param error Why the last write failed, already resolved, or null
  * @param todayUtcMillis Today, as the date picker counts it; injected so
  *   a test does not depend on the clock
+ * @param editing The exam being edited, or null to create one. An edit
+ *   keeps the exam's subject, so no subject is offered and the key
+ *   passed to [onCreate] is empty
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -86,10 +90,11 @@ fun ExamCreateForm(
     saving: Boolean = false,
     error: String? = null,
     todayUtcMillis: Long = todayAsUtcMillis(),
+    editing: ExamFormValues? = null,
 ) {
-    var title by remember { mutableStateOf("") }
-    var total by remember { mutableStateOf("") }
-    var dateMillis by remember { mutableStateOf(todayUtcMillis) }
+    var title by remember { mutableStateOf(editing?.title.orEmpty()) }
+    var total by remember { mutableStateOf(editing?.totalMarks?.toString().orEmpty()) }
+    var dateMillis by remember { mutableStateOf(editing?.date?.let(::isoToUtcMillis) ?: todayUtcMillis) }
     var picking by remember { mutableStateOf(false) }
     var chosen by remember(subjects) {
         // One subject means there is nothing to choose: pre-select it
@@ -130,30 +135,7 @@ fun ExamCreateForm(
             modifier = Modifier.fillMaxWidth().testTag(TAG_EXAM_TOTAL),
         )
 
-        Text(
-            text = stringResource(R.string.exam_create_subject),
-            style = MaterialTheme.typography.labelLarge,
-        )
-        if (subjects.isEmpty()) {
-            // A batch always has a subject [AC2.1.1], so an empty list is
-            // a failed read. Said plainly rather than shown as no choice.
-            Text(
-                text = stringResource(R.string.exam_create_subjects_failed),
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.testTag(TAG_EXAM_SUBJECTS_FAILED),
-            )
-        } else {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                subjects.forEach { subject ->
-                    FilterChip(
-                        selected = chosen == subject.id,
-                        onClick = { chosen = subject.id },
-                        label = { Text(subject.name) },
-                        modifier = Modifier.testTag(TAG_EXAM_SUBJECT),
-                    )
-                }
-            }
-        }
+        if (editing == null) SubjectChoice(subjects, chosen) { chosen = it }
 
         error?.let {
             Text(
@@ -164,29 +146,12 @@ fun ExamCreateForm(
             )
         }
 
-        val totalMarks = total.toIntOrNull()
-        val subjectId = chosen
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(
-                onClick = {
-                    if (totalMarks != null && subjectId != null) {
-                        onCreate(title.trim(), isoDate(dateMillis), totalMarks, subjectId)
-                    }
-                },
-                enabled =
-                    !saving &&
-                        title.isNotBlank() &&
-                        totalMarks != null &&
-                        totalMarks >= 1 &&
-                        subjectId != null,
-                modifier = Modifier.testTag(TAG_FORM_SUBMIT),
-            ) {
-                Text(stringResource(R.string.exam_create_submit))
-            }
-            TextButton(onClick = onCancel, modifier = Modifier.testTag(TAG_FORM_CANCEL)) {
-                Text(stringResource(R.string.action_cancel))
-            }
-        }
+        ExamFormActions(
+            submitLabel = stringResource(if (editing == null) R.string.exam_create_submit else R.string.exam_edit_save),
+            submit = submitOf(title, total, dateMillis, if (editing == null) chosen else "").takeUnless { saving },
+            onCreate = onCreate,
+            onCancel = onCancel,
+        )
     }
 
     if (picking) {
@@ -207,5 +172,120 @@ fun ExamCreateForm(
                 }
             },
         ) { DatePicker(state = picker) }
+    }
+}
+
+/**
+ * What the exam form starts from when it edits.
+ *
+ * @property title The exam's title
+ * @property date Its date, `yyyy-MM-dd`
+ * @property totalMarks Its total
+ */
+data class ExamFormValues(
+    val title: String,
+    val date: String,
+    val totalMarks: Int,
+)
+
+/**
+ * The subject chips, or a plain line when the subjects failed to load.
+ *
+ * @param subjects The batch's subjects
+ * @param chosen The chosen subject's key, or null
+ * @param onChoose Called with a subject's key
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SubjectChoice(
+    subjects: List<SubjectOptionDto>,
+    chosen: String?,
+    onChoose: (String) -> Unit,
+) {
+    Text(
+        text = stringResource(R.string.exam_create_subject),
+        style = MaterialTheme.typography.labelLarge,
+    )
+    if (subjects.isEmpty()) {
+        // A batch always has a subject [AC2.1.1], so an empty list is
+        // a failed read. Said plainly rather than shown as no choice.
+        Text(
+            text = stringResource(R.string.exam_create_subjects_failed),
+            color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.testTag(TAG_EXAM_SUBJECTS_FAILED),
+        )
+    } else {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            subjects.forEach { subject ->
+                FilterChip(
+                    selected = chosen == subject.id,
+                    onClick = { onChoose(subject.id) },
+                    label = { Text(subject.name) },
+                    modifier = Modifier.testTag(TAG_EXAM_SUBJECT),
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The form's values ready to send, or null while one is missing.
+ *
+ * Format only: a title, a whole-number total of at least one, and a
+ * subject key (empty when editing, where the subject stays).
+ *
+ * @param title The typed title
+ * @param total The typed total
+ * @param dateMillis The picked date
+ * @param subjectId The chosen subject's key, or null
+ * @return Title, ISO date, total and subject key, or null
+ */
+private fun submitOf(title: String, total: String, dateMillis: Long, subjectId: String?): ExamSubmission? {
+    val totalMarks = total.toIntOrNull()?.takeIf { it >= 1 } ?: return null
+    if (title.isBlank() || subjectId == null) return null
+    return ExamSubmission(title.trim(), isoDate(dateMillis), totalMarks, subjectId)
+}
+
+/**
+ * What the form sends.
+ *
+ * @property title The trimmed title
+ * @property date The ISO date
+ * @property totalMarks The total
+ * @property subjectId The subject key, empty when editing
+ */
+private data class ExamSubmission(
+    val title: String,
+    val date: String,
+    val totalMarks: Int,
+    val subjectId: String,
+)
+
+/**
+ * Submit and cancel.
+ *
+ * @param submitLabel The submit button's words
+ * @param submit What to send, or null to keep submit disabled
+ * @param onCreate Called with title, ISO date, total and subject key
+ * @param onCancel Called when the teacher backs out
+ */
+@Composable
+private fun ExamFormActions(
+    submitLabel: String,
+    submit: ExamSubmission?,
+    onCreate: (String, String, Int, String) -> Unit,
+    onCancel: () -> Unit,
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Button(
+            onClick = { submit?.let { onCreate(it.title, it.date, it.totalMarks, it.subjectId) } },
+            enabled = submit != null,
+            modifier = Modifier.testTag(TAG_FORM_SUBMIT),
+        ) {
+            Text(submitLabel)
+        }
+        TextButton(onClick = onCancel, modifier = Modifier.testTag(TAG_FORM_CANCEL)) {
+            Text(stringResource(R.string.action_cancel))
+        }
     }
 }

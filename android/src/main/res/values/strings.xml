@@ -789,4 +789,10 @@
     <string name="batch_subject_in_use">A subject with an exam can’t be removed. Keep it, or delete its exams first.</string>
     <string name="batch_edit_title">Edit batch</string>
     <string name="batch_edit_save">Save changes</string>
+    <string name="exam_edit_title">Edit exam</string>
+    <string name="exam_edit_save">Save changes</string>
+    <string name="mark_history_open">History</string>
+    <string name="mark_history_title">Marks recorded for %1$s</string>
+    <string name="mark_history_replaced">Replaced · recorded %1$s</string>
+    <string name="mark_history_current">Current · recorded %1$s</string>
 </resources>

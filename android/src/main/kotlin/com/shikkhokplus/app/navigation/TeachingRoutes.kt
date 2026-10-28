@@ -1,5 +1,10 @@
 package com.shikkhokplus.app.navigation
 
+import com.shikkhokplus.app.feature.marks.ui.MarkHistorySheet
+import com.shikkhokplus.app.feature.marks.ui.ExamFormValues
+import com.shikkhokplus.app.feature.marks.ui.EditExamScreen
+import com.shikkhokplus.app.feature.marks.MarksUiState
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
@@ -357,6 +362,10 @@ internal fun NavGraphBuilder.teachingRoutes(
             viewModel(key = examId) { MarksViewModel(HttpMarksRepository(client)) }
         val state by model.state.collectAsState()
 
+        val history by model.history.collectAsState()
+        val examWrite by model.writeState.collectAsState()
+        var editingExam by remember { mutableStateOf(false) }
+
         LaunchedEffect(examId) { model.loadResults(examId) }
 
         MarkEntryScreen(
@@ -371,7 +380,23 @@ internal fun NavGraphBuilder.teachingRoutes(
                 model.writeMark(row.enrollmentId, resultState = "absent", marks = null)
             },
             onRetry = model::retry,
+            onEditExam = { editingExam = true },
+            onHistory = model::openHistory,
         )
+        history?.let { MarkHistorySheet(it, onDismiss = model::closeHistory) }
+        (state as? MarksUiState.EntryLoaded)?.takeIf { editingExam }?.let { open ->
+            val close = {
+                editingExam = false
+                model.acknowledgeWrite()
+            }
+            BackHandler(onBack = close)
+            EditExamScreen(
+                values = ExamFormValues(open.examTitle, open.examDate, open.totalMarks),
+                write = examWrite,
+                onSave = model::editExam,
+                onClose = close,
+            )
+        }
     }
 }
 

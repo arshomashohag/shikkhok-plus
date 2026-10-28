@@ -114,8 +114,10 @@ NON_MONEY_FIELDS: Final[dict[tuple[str, str], str]] = {
         "It is the denominator a score is out of."
     ),
     ("ExamCreateRequest", "total_marks"): (
-        "The same count inbound, on creation and on edit. A request "
-        "schema reaches the gate too."
+        "The same count inbound, on creation. A request schema reaches the gate too."
+    ),
+    ("ExamUpdateRequest", "total_marks"): (
+        "The same count inbound, on edit, which no longer reuses the creation body."
     ),
     ("ProgressEntryResponse", "total_marks"): (
         "The same count on the guardian progress series, carried so a "

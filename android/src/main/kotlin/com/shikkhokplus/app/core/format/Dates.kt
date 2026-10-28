@@ -55,6 +55,14 @@ fun todayAsUtcMillis(): Long {
 fun isoDate(utcMillis: Long): String = utcFormat("yyyy-MM-dd").format(utcMillis)
 
 /**
+ * A `yyyy-MM-dd` date as the picker counts it: UTC midnight.
+ *
+ * @param iso The date, as the server sends it
+ * @return Midnight UTC of that date, or null if it cannot be read
+ */
+fun isoToUtcMillis(iso: String): Long? = runCatching { utcFormat("yyyy-MM-dd").parse(iso)?.time }.getOrNull()
+
+/**
  * A picked date for display, with Latin digits per the numeral rule.
  *
  * @param utcMillis A date as the picker reports it
