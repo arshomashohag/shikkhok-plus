@@ -3,7 +3,6 @@ package com.shikkhokplus.app.core.designsystem
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
@@ -20,6 +19,15 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.draw.drawBehind
 
 /** Stable test identifier for the chip. Not user-visible text. */
 const val TAG_PAYMENT_CHIP: String = "payment_chip"
@@ -109,16 +117,22 @@ internal data class ChipStyle(
  * @param state Which state to render
  * @param label The words to show, server-provided
  * @param modifier The layout modifier
+ * @param compact The 24dp list-row size rather than the 32dp one
  */
 @Composable
 fun PaymentStateChip(
     state: PaymentState,
     label: String,
     modifier: Modifier = Modifier,
+    compact: Boolean = false,
 ) {
-    val dark = isSystemInDarkTheme()
+    // The app's theme, not the system's: a screen forced light or dark
+    // must get the matching chip.
+    val dark = MaterialTheme.colorScheme.surface.luminance() < DARK_LUMINANCE
     val style = styleFor(state, dark)
-    val shape: Shape = RoundedCornerShape(16.dp)
+    val radius = if (compact) 12.dp else 16.dp
+    val shape: Shape = RoundedCornerShape(radius)
+    val base = if (compact) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelLarge
 
     Row(
         modifier = modifier
@@ -126,30 +140,63 @@ fun PaymentStateChip(
             // The state is named for a screen reader, which cannot see
             // the shape or the fill that carry it visually.
             .semantics { contentDescription = "${state.spoken()}: $label" }
-            .defaultMinSize(minHeight = 32.dp)
+            .defaultMinSize(minHeight = if (compact) 24.dp else 32.dp)
             .background(style.container, shape)
-            .then(
-                if (style.border != null) {
-                    Modifier.border(
-                        BorderStroke(1.5.dp, style.border),
-                        shape,
-                    )
-                } else {
-                    Modifier
-                }
-            )
-            .padding(horizontal = 12.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(Spacing.tight),
+            .then(chipBorder(style, radius))
+            .padding(horizontal = if (compact) 8.dp else 12.dp, vertical = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         PaymentStateIcon(state, style.content)
         Text(
             text = label,
-            style = MaterialTheme.typography.labelLarge,
+            // Overdue is the one bold chip; the rest are 600.
+            style =
+                base.copy(
+                    fontWeight = if (state == PaymentState.OVERDUE) FontWeight.Bold else FontWeight.SemiBold,
+                ),
             color = style.content,
+            // A chip is one line; a label that wrapped would read as two.
+            maxLines = 1,
+            softWrap = false,
         )
     }
 }
+
+/**
+ * The chip's outline: none, solid, or dashed for "being checked".
+ *
+ * **Dashed is the cue that works without colour** for a payment not yet
+ * confirmed, so it is drawn rather than approximated by a solid line.
+ *
+ * @param style The resolved style
+ * @param radius The corner radius
+ * @return The border modifier
+ */
+private fun chipBorder(style: ChipStyle, radius: Dp): Modifier {
+    val colour = style.border ?: return Modifier
+    return if (style.dashed) {
+        Modifier.drawBehind {
+            val stroke = 1.5.dp.toPx()
+            drawRoundRect(
+                color = colour,
+                topLeft = Offset(stroke / 2, stroke / 2),
+                size = Size(size.width - stroke, size.height - stroke),
+                cornerRadius = CornerRadius(radius.toPx()),
+                style =
+                    Stroke(
+                        width = stroke,
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 3.dp.toPx())),
+                    ),
+            )
+        }
+    } else {
+        Modifier.border(BorderStroke(1.5.dp, colour), RoundedCornerShape(radius))
+    }
+}
+
+/** Below this surface luminance the app is in its dark theme. */
+private const val DARK_LUMINANCE = 0.5f
 
 /**
  * Resolve the colours for a state.

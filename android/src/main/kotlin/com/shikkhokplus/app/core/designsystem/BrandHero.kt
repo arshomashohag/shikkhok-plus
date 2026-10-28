@@ -12,6 +12,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.SpanStyle
@@ -53,13 +54,17 @@ fun BrandHero(
     compact: Boolean = false,
     tagline: String? = null,
 ) {
-    val onHero = MaterialTheme.colorScheme.onPrimary
-    val accent = MaterialTheme.colorScheme.primaryContainer
-    val ground = MaterialTheme.colorScheme.primary
+    // **Brand colours, fixed in both themes** (O2's hero): a blue band,
+    // a white teacher, and the student, the tick and "Plus" in #A9C7FF.
+    // Reading them from the scheme turned the band pale blue in dark
+    // mode and drew the accent in the paler #D8E3F7.
+    val onHero = BrandInk
+    val accent = BrandAccent
+    val ground = BrandBlue
 
     Surface(
         modifier = modifier.fillMaxWidth().testTag(TAG_BRAND_HERO),
-        color = MaterialTheme.colorScheme.primary,
+        color = BrandBlue,
     ) {
         Column(
             modifier =
@@ -91,8 +96,8 @@ fun BrandHero(
             if (!compact && tagline != null) {
                 Text(
                     text = tagline,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = accent,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 15.sp, lineHeight = 24.sp),
+                    color = BrandTagline,
                     textAlign = TextAlign.Center,
                 )
             }
@@ -140,9 +145,12 @@ fun BrandMark(
     modifier: Modifier = Modifier,
     size: Dp = 40.dp,
 ) {
-    val primary = MaterialTheme.colorScheme.primary
-    val secondary = MaterialTheme.colorScheme.secondary
-    val background = MaterialTheme.colorScheme.background
+    // The mark on a light page (O1): the teacher in the brand blue and
+    // the student a lighter step of it, #5B8ED6 — not the slate
+    // secondary, which drew the student grey.
+    val primary = BrandBlue
+    val secondary = BrandStudent
+    val background = MaterialTheme.colorScheme.surface
 
     Canvas(
         modifier
@@ -177,3 +185,18 @@ private fun Mark(
         drawLogo(t = 0.69f, teacher = figure, student = accent, ground = ground)
     }
 }
+
+/** The hero's ground. */
+private val BrandBlue = Color(0xFF1D4F91)
+
+/** The teacher figure and the wordmark on the hero. */
+private val BrandInk = Color(0xFFFFFFFF)
+
+/** The student figure, the tick and "Plus" on the hero. */
+private val BrandAccent = Color(0xFFA9C7FF)
+
+/** The hero's tagline. */
+private val BrandTagline = Color(0xFFD8E3F7)
+
+/** The student figure on a light page. */
+internal val BrandStudent = Color(0xFF5B8ED6)
