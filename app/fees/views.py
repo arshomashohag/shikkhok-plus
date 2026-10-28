@@ -40,6 +40,7 @@ from app.errors import AuthorizationError
 from app.errors.codes import NOT_AVAILABLE
 from app.fees.balances import derive_for_enrollment
 from app.fees.claims import CHANNELS
+from app.fees.overdue import days_overdue
 from app.fees.status import (
     CLAIM_STATUS_VALUES,
     DISPOSITION_VALUES,
@@ -49,6 +50,7 @@ from app.fees.status import (
     fee_status,
     status_from_entries,
 )
+from app.local_time import bangladesh_today
 from app.money import LedgerEntry, LedgerEntryKind, Money, derive
 
 __all__ = [
@@ -135,6 +137,9 @@ class RosterFeeRow:
     :ivar current_period: The latest generated period, or None
     :ivar current_status: That period's status, or None
     :ivar due_date: That period's due date, or None
+    :ivar days_overdue: How late the oldest unpaid period is, or None
+    :ivar verifying: The total of this seat's claims still waiting for
+        the teacher, or None when none waits
     """
 
     enrollment_id: uuid.UUID
@@ -143,6 +148,8 @@ class RosterFeeRow:
     current_period: str | None
     current_status: FeeStatus | None
     due_date: dt.date | None
+    days_overdue: int | None = None
+    verifying: Money | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -295,12 +302,14 @@ def batch_fee_overview(
     *,
     lens: TeacherLens,
     batch_id: uuid.UUID,
+    today: dt.date | None = None,
 ) -> list[RosterFeeRow]:
     """List every seat's fee position on one of this teacher's batches.
 
     :param session: The session to read through
     :param lens: The teacher lens carrying the owner id
     :param batch_id: The batch
+    :param today: The date overdue is measured on; Bangladesh's by default
     :return: One row per seat, ordered as the roster is
     :raises AuthorizationError: The batch is not this lens's
     """
@@ -350,22 +359,38 @@ def batch_fee_overview(
     # period -- the period keys are fixed width, so lexical order IS
     # chronological order.
     latest: dict[uuid.UUID, FeeCycle] = {}
+    due_by_seat: dict[uuid.UUID, dict[str, dt.date]] = {}
     for cycle in session.scalars(
         sa.select(FeeCycle)
         .where(FeeCycle.enrollment_id.in_(seat_ids))
         .order_by(FeeCycle.period)
     ):
         latest[cycle.enrollment_id] = cycle
+        due_by_seat.setdefault(cycle.enrollment_id, {})[cycle.period] = cycle.due_date
+
+    # Claims waiting for the teacher, summed per seat in one statement:
+    # the "Verifying ৳800" chip.
+    verifying: dict[uuid.UUID, Money] = {}
+    for seat_id, claimed in session.execute(
+        sa.select(PaymentClaim.enrollment_id, PaymentClaim.claimed_amount).where(
+            PaymentClaim.enrollment_id.in_(seat_ids),
+            PaymentClaim.status == "pending",
+        )
+    ).all():
+        verifying[seat_id] = verifying.get(seat_id, Money.ZERO) + claimed
+
+    on = today or bangladesh_today()
 
     rows: list[RosterFeeRow] = []
     for seat in seats:
         entries = ledger[seat.id]
         newest = latest.get(seat.id)
+        derived = derive(entries)
         rows.append(
             RosterFeeRow(
                 enrollment_id=seat.id,
                 display_name=seat.display_name,
-                outstanding=derive(entries).total_outstanding,
+                outstanding=derived.total_outstanding,
                 current_period=None if newest is None else newest.period,
                 current_status=(
                     None
@@ -373,6 +398,10 @@ def batch_fee_overview(
                     else status_from_entries(entries, newest.period)
                 ),
                 due_date=None if newest is None else newest.due_date,
+                days_overdue=days_overdue(
+                    derived.per_cycle, due_by_seat.get(seat.id, {}), on
+                ),
+                verifying=verifying.get(seat.id),
             )
         )
     return rows

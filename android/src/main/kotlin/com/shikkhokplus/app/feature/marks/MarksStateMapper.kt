@@ -74,6 +74,7 @@ object MarksStateMapper {
                     // Carried through, never `rows.count { ... }`.
                     enteredCount = dto.enteredCount,
                     expectedCount = dto.expectedCount,
+                    state = dto.state,
                 )
             },
         )

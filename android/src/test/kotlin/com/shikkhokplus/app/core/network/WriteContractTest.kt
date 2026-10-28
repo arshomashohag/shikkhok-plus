@@ -103,6 +103,15 @@ class WriteContractTest {
             Write("put", "/v1/sessions/{session_id}/topic") {
                 HttpAttendanceRepository(it).submit(QueuedWrite.topic(ID, 2, "Thermodynamics"))
             },
+            Write("post", "/v1/batches/{batch_id}/announcements") {
+                HttpBatchDetailRepository(it).postNotice(ID, "Bring a calculator")
+            },
+            Write("put", "/v1/announcements/{announcement_id}") {
+                HttpBatchDetailRepository(it).editNotice(ID, "Bring two calculators")
+            },
+            Write("delete", "/v1/announcements/{announcement_id}") {
+                HttpBatchDetailRepository(it).removeNotice(ID)
+            },
             Write("put", "/v1/sessions/{session_id}/subject") {
                 HttpRecordRepository(it).setSubject(ID, ID)
             },

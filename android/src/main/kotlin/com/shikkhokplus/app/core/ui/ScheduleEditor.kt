@@ -128,6 +128,36 @@ fun scheduleSummary(slots: List<ScheduleSlotDto>): String {
 }
 
 /**
+ * A schedule's days on their own, as T7's tag shows them: `Sat · Mon · Wed`.
+ *
+ * @param slots The weekly classes
+ * @return The days, empty when there are none
+ */
+@Composable
+fun scheduleDays(slots: List<ScheduleSlotDto>): String =
+    WEEK_ORDER.filter { day -> slots.any { it.weekday == day } }.map { stringResource(dayName(it)) }.joinToString(" · ")
+
+/**
+ * A schedule's time range, as T7's tag shows it: `4:00–5:30 pm`.
+ *
+ * Read from the first slot, as the app writes one time for every day.
+ *
+ * @param slots The weekly classes
+ * @return The range, empty when there are none
+ */
+fun scheduleRange(slots: List<ScheduleSlotDto>): String {
+    val first = slots.firstOrNull() ?: return ""
+    val start = displayTime(first.startTime.take(HHMM_LENGTH))
+    val end = displayTime(first.endTime.take(HHMM_LENGTH))
+    val startHalf = start.substringAfter(' ')
+    return if (startHalf == end.substringAfter(' ')) {
+        "${start.substringBefore(' ')}–$end"
+    } else {
+        "$start–$end"
+    }
+}
+
+/**
  * Pick a batch's class days and their time.
  *
  * @param draft The schedule being edited

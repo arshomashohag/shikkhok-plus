@@ -45,7 +45,6 @@ import com.shikkhokplus.app.feature.batches.BatchesUiState
 import com.shikkhokplus.app.feature.batches.BatchesViewModel
 import com.shikkhokplus.app.feature.batches.ui.BatchesScreen
 import com.shikkhokplus.app.feature.roster.RosterViewModel
-import com.shikkhokplus.app.feature.roster.ui.RosterScreen
 import com.shikkhokplus.app.core.queue.QueueStore
 import com.shikkhokplus.app.core.session.Lens
 import com.shikkhokplus.app.core.network.HttpFeesRepository
@@ -343,44 +342,7 @@ fun ShikkhokNavHost(
             }
         }
 
-        composable(
-            route = Destination.Roster.route,
-            arguments =
-                listOf(
-                    navArgument(Destination.Roster.ARG_ID) { type = NavType.StringType },
-                    navArgument(Destination.Roster.ARG_NAME) {
-                        type = NavType.StringType
-                        defaultValue = ""
-                    },
-                ),
-        ) { entry ->
-            val id = entry.arguments?.getString(Destination.Roster.ARG_ID).orEmpty()
-            val name = entry.arguments?.getString(Destination.Roster.ARG_NAME).orEmpty()
-
-            val model: RosterViewModel =
-                viewModel(key = id) { RosterViewModel(HttpRosterRepository(client)) }
-            val state by model.state.collectAsState()
-
-            LaunchedEffect(id) { model.load(id, name) }
-
-            RosterScreen(
-                state = state,
-                onRetry = model::retry,
-                onAddStudent = { navController.navigate(Destination.AddStudent.of(id)) },
-                onOpenSessions = {
-                    navController.navigate(Destination.Sessions.of(id, name))
-                },
-                onOpenExams = { navController.navigate(Destination.Exams.of(id, name)) },
-                onOpenSchedule = { navController.navigate(Destination.BatchSchedule.of(id)) },
-                // The removal flow was built in full and these were left
-                // at their defaults, so Remove did nothing.
-                onRemove = model::confirmRemoval,
-                onConfirmRemoval = model::remove,
-                onCancelRemoval = model::cancelRemoval,
-                onMarkInactive = model::markInactive,
-                onDismissRefusal = model::dismissRefusal,
-            )
-        }
+        batchDetailRoute(client, queue, navController)
 
         composable(
             route = Destination.AddStudent.route,

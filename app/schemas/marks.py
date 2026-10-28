@@ -83,10 +83,13 @@ class ExamListItemResponse(ExamResponse):
 
     :ivar entered_count: Seats with a mark or an absence entered
     :ivar expected_count: Seats that could have sat the exam
+    :ivar state: ``upcoming``, ``needs_marks`` or ``complete``, decided
+        by the server so the client never compares a date or a count
     """
 
     entered_count: int = Field(ge=0)
     expected_count: int = Field(ge=0)
+    state: Literal["upcoming", "needs_marks", "complete"]
 
 
 class ExamCreateRequest(BaseModel):

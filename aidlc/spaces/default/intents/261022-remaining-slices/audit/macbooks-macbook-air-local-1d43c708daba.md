@@ -70501,3 +70501,619 @@ nfr-requirements D3 collecting-fees: seven artifacts written. Recomputed every N
 **Details**: <project-dir>/android/coverage-floor.txt
 
 ---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T12:59:19Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n 120,150p app/fees/views.py; sed -n 292,380p app/fees/views.py; grep -n "batch_fee_overview\|RosterFeeRowResponse(" -A14 app/api/fees.py | head -40
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T12:59:51Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Write
+**Details**: <project-dir>/tests/fees/test_batch_fee_status.py
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T13:00:11Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/app/local_time.py
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T13:00:24Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'EOF'\np='app/analytics/today.py'\ns=open(p).read()\ns=s.replace('''def _due_dates(\n    session: Session, seat_ids: list[uuid.UUID]\n) -> dict[tuple[uui
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T13:00:56Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/list[RosterFeeRow
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T13:01:33Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python -m ruff check --fix -q app; python -m ruff check app tests; python -m pytest tests/fees tests/analytics/test_today.py -p no:cacheprovider 2>&1 | grep -E 
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T13:02:20Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/tests/marks/test_exams.py
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T13:02:37Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/list[ExamProgress
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T13:02:57Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/ExamProgress:,def
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T13:04:24Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python -m pytest tests/marks tests/contract tests/gates tests/fees tests/analytics -p no:cacheprovider 2>&1 | grep -E "^FAILED|^E  " | head -12
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T13:05:50Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: grep -n "\-\-cov=" Makefile | head; python3 - <<'EOF'\np='app/contract/money_names.py'\ns=open(p).read()\nanchor='''    ("CurrentFeeResponse", "due_date"): ('''\ns=
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T13:05:55Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/s/		--cov=app.logging_setup --cov=app.main ///		--cov=app.local_time --cov=app.logging_setup --cov=app.main //
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T13:06:08Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: cd /private/tmp/claude-502/-Users-shohag-Desktop-Development-shikkhok-plus/602d453a-cecc-4a7d-ad6f-1f22d6052b2a/scratchpad/artifact-files/08870a1d-3766-4531-ae6
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T13:06:23Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: cd <project-dir>/android/src/main/kotlin/com/shikkhokplus/app && grep -n "    fun \|class RosterViewModel\|data class RosterPa
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T13:06:28Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n 150,175p feature/roster/RosterUiState.kt; sed -n 25,60p feature/roster/RosterViewModel.kt; grep -n "RosterFeeRowDto\|class.*FeeRow" core/network/FeeDto.k
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T13:06:35Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n 60,95p core/network/FeeDto.kt; sed -n 40,80p feature/fees/FeeUiState.kt; sed -n 125,165p feature/fees/FeeStateMapper.kt; grep -rn "batchFees\|/batches/\$
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T13:07:04Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/android/src/main/kotlin/com/shikkhokplus/app/core/network/HttpBatchDetailRepository.kt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T13:07:23Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/android/src/main/kotlin/com/shikkhokplus/app/BatchDetailUiState.kt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T13:07:36Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/android/src/main/kotlin/com/shikkhokplus/app/feature/batchdetail/feature/batchdetail/BatchDetailMapper.kt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T13:07:51Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Write
+**Details**: <project-dir>/android/src/main/kotlin/com/shikkhokplus/app/feature/batchdetail/BatchDetailViewModel.kt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T13:08:04Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'EOF'\ndef edit(p, pairs):\n    s=open(p).read()\n    for a,b in pairs:\n        assert a in s,(p,a[:60]); s=s.replace(a,b,1)\n    open(p,'w').write(s)\ne
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T13:08:27Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n 195,260p feature/roster/RosterViewModel.kt | grep -v "^\s*\*\|^\s*/\*\*"
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T13:08:36Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n 160,215p feature/roster/ui/RosterScreen.kt; grep -n "^private fun\|^fun\|^internal fun" feature/roster/ui/RosterScreen.kt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T13:08:46Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/android/src/main/kotlin/com/shikkhokplus/app/slots.any
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T13:09:14Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Write
+**Details**: <project-dir>/android/src/main/kotlin/com/shikkhokplus/app/feature/batchdetail/ui/BatchDetailScreen.kt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T13:09:55Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/android/src/main/kotlin/com/shikkhokplus/app/StudentsTab.kt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T13:09:59Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: cd <project-dir>/android/src/main/kotlin/com/shikkhokplus/app/feature/batchdetail/ui && python3 - <<'EOF'\np='StudentsTab.kt'\ns
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T13:10:53Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/android/src/main/kotlin/com/shikkhokplus/app/feature/batchdetail/ui/ClassesTab.kt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T13:11:26Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/android/src/main/kotlin/com/shikkhokplus/app/feature/batchdetail/ui/Add
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T13:11:58Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/android/src/main/kotlin/com/shikkhokplus/app/navigation/BatchDetailRoute.kt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T13:12:45Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/Unit
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T13:13:06Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: cd <project-dir>/android/src/main/kotlin/com/shikkhokplus/app && python3 - <<'EOF'\ndef edit(p, pairs):\n    s=open(p).read()\n  
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T13:14:21Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/BatchDetailViewModelTest.kt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T13:14:35Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/android/src/test/kotlin/com/shikkhokplus/app/feature/batchdetail/BatchDetailScreenTest.kt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T13:15:01Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: mkdir -p <project-dir>/android/src/test/kotlin/com/shikkhokplus/app/render && S=/private/tmp/claude-502/-Users-shohag-Desktop-
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T13:20:32Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'EOF'\np='android/src/main/kotlin/com/shikkhokplus/app/feature/batchdetail/ui/BatchDetailScreen.kt'\ns=open(p).read()\nold='''            Tab(\n        
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T13:20:55Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/test/kotlin/com/shikkhokplus/app/render/BatchRender.kt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T13:21:10Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n 225,380p main/kotlin/com/shikkhokplus/app/feature/roster/ui/RosterScreen.kt; grep -n "displayLabel" -B3 -A12 main/kotlin/com/shikkhokplus/app/feature/ros
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T13:21:34Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'EOF'\ndef edit(p, pairs):\n    s=open(p).read()\n    for a,b in pairs:\n        assert a in s,(p,a[:60]); s=s.replace(a,b,1)\n    open(p,'w').write(s)\nP
+
+---
+
+## Human Turn
+**Timestamp**: 2026-10-28T13:31:07Z
+**Event**: HUMAN_TURN
+**Session**: 602d453a-cecc-4a7d-ad6f-1f22d6052b2a
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T13:31:18Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: grep -n "const val TAG_ROSTER_\(REMOVE_CONFIRM\|REMOVE_REFUSED\|REMEDY\|MARK_INACTIVE\)" -B2 main/kotlin/com/shikkhokplus/app/feature/roster/ui/RosterScreen.kt;
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T13:31:54Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/android/src/test/kotlin/com/shikkhokplus/app/feature/batchdetail/StudentsTabTest.kt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T13:32:13Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'EOF'\np='android/src/test/kotlin/com/shikkhokplus/app/feature/batchdetail/StudentsTabTest.kt'\ns=open(p).read()\ns=s.replace('''        render(RosterU
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T13:32:54Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: /private/tmp/claude-502/-Users-shohag-Desktop-Development-shikkhok-plus/602d453a-cecc-4a7d-ad6f-1f22d6052b2a/scratchpad/check.log
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T13:33:05Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'EOF'\nimport json\ns=json.load(open('openapi.json'))\nfor p,ops in sorted(s['paths'].items()):\n    for m,o in ops.items():\n        if any(k in p for k
+
+---
+
+## Human Turn
+**Timestamp**: 2026-10-28T13:39:07Z
+**Event**: HUMAN_TURN
+**Session**: 602d453a-cecc-4a7d-ad6f-1f22d6052b2a
+**Picked**: ["Can we use in app notification? Same as class notifications and others"]
+
+---
+
+## Question Replied
+**Timestamp**: 2026-10-28T13:39:07Z
+**Event**: QUESTION_REPLIED
+**Session**: 602d453a-cecc-4a7d-ad6f-1f22d6052b2a
+**Question**: How should a teacher's fee reminder (Dues → "Remind late guardians") reach guardians? The server has no way to reach a phone today: push needs Firebase registration, which the app doesn't do, and SMS goes through BulkSMSBD at your cost.
+**Reply**: Can we use in app notification? Same as class notifications and others
+
+---
+
+## Human Turn
+**Timestamp**: 2026-10-28T13:39:07Z
+**Event**: HUMAN_TURN
+**Session**: 602d453a-cecc-4a7d-ad6f-1f22d6052b2a
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T13:39:28Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/android/coverage-floor.txt
+
+---

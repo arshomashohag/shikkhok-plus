@@ -12,6 +12,8 @@ package com.shikkhokplus.app.feature.marks
  *   the server** [TC-9]
  * @property expectedCount How many seats could have sat it, which leaves
  *   out a seat that joined after the exam date
+ * @property state `upcoming`, `needs_marks` or `complete`, the server's
+ *   grouping for T7's Exams tab
  */
 data class ExamRow(
     val examId: String,
@@ -21,6 +23,7 @@ data class ExamRow(
     val totalMarks: Int,
     val enteredCount: Int,
     val expectedCount: Int,
+    val state: String = "complete",
 )
 
 /**

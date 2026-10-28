@@ -132,6 +132,7 @@ def _exam_list_item(entry: ExamProgress) -> ExamListItemResponse:
         subject_name=entry.exam.subject_name,
         entered_count=entry.entered_count,
         expected_count=entry.expected_count,
+        state=entry.state,
     )
 
 

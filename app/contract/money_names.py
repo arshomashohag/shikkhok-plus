@@ -136,6 +136,10 @@ NON_MONEY_FIELDS: Final[dict[tuple[str, str], str]] = {
         "A COUNT of students with anything overdue on Today (T1), not an "
         "amount. The amount beside it, `overdue`, is the money field."
     ),
+    ("RosterFeeRowResponse", "days_overdue"): (
+        "A COUNT of days since the oldest unpaid period fell due, for "
+        "T7's fee chip. The amounts beside it are money fields."
+    ),
     ("CurrentFeeResponse", "due_date"): (
         "The same computed date on the student's batch list (S1), for "
         "their latest period. Its sibling `outstanding` is real money "

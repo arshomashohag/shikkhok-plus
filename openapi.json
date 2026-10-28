@@ -1142,7 +1142,7 @@
       },
       "ExamListItemResponse": {
         "additionalProperties": false,
-        "description": "One exam on the teacher's list, with its marking progress.\n\nCounted server-side, so the client never tallies a rows list to\ndecide what counts as entered.\n\n:ivar entered_count: Seats with a mark or an absence entered\n:ivar expected_count: Seats that could have sat the exam",
+        "description": "One exam on the teacher's list, with its marking progress.\n\nCounted server-side, so the client never tallies a rows list to\ndecide what counts as entered.\n\n:ivar entered_count: Seats with a mark or an absence entered\n:ivar expected_count: Seats that could have sat the exam\n:ivar state: ``upcoming``, ``needs_marks`` or ``complete``, decided\n    by the server so the client never compares a date or a count",
         "properties": {
           "date": {
             "format": "date",
@@ -1164,6 +1164,15 @@
             "title": "Expected Count",
             "type": "integer"
           },
+          "state": {
+            "enum": [
+              "complete",
+              "needs_marks",
+              "upcoming"
+            ],
+            "title": "State",
+            "type": "string"
+          },
           "subject_name": {
             "title": "Subject Name",
             "type": "string"
@@ -1183,6 +1192,7 @@
           "entered_count",
           "exam_id",
           "expected_count",
+          "state",
           "subject_name",
           "title",
           "total_marks"
@@ -2102,7 +2112,7 @@
       },
       "RosterFeeRowResponse": {
         "additionalProperties": false,
-        "description": "One seat's fee position, as its teacher sees it.\n\nThe key is ``enrollment_id`` and never an account id [ADR-001],\nasserted schema-wide by the built privacy gate.\n\n**No ``collection_number``.** The teacher's payment destination is\ncarried by exactly one response and this is not it [NFR14.33].\n\n:ivar enrollment_id: The teacher-facing key\n:ivar display_name: The teacher-typed name\n:ivar outstanding: What this seat owes across every period\n:ivar current_period: The latest generated period, or null\n:ivar current_status: That period's status, or null\n:ivar due_date: That period's due date, or null",
+        "description": "One seat's fee position, as its teacher sees it.\n\nThe key is ``enrollment_id`` and never an account id [ADR-001],\nasserted schema-wide by the built privacy gate.\n\n**No ``collection_number``.** The teacher's payment destination is\ncarried by exactly one response and this is not it [NFR14.33].\n\n:ivar enrollment_id: The teacher-facing key\n:ivar display_name: The teacher-typed name\n:ivar outstanding: What this seat owes across every period\n:ivar current_period: The latest generated period, or null\n:ivar current_status: That period's status, or null\n:ivar due_date: That period's due date, or null\n:ivar days_overdue: How late the oldest unpaid period is, decided by\n    the server against Bangladesh's date, or null\n:ivar verifying: The total of claims still waiting for the teacher",
         "properties": {
           "current_period": {
             "anyOf": [
@@ -2132,6 +2142,17 @@
             ],
             "title": "Current Status"
           },
+          "days_overdue": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days Overdue"
+          },
           "display_name": {
             "title": "Display Name",
             "type": "string"
@@ -2155,6 +2176,16 @@
           },
           "outstanding": {
             "$ref": "#/components/schemas/Money"
+          },
+          "verifying": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [

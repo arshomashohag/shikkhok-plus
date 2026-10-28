@@ -23,6 +23,8 @@ import kotlinx.serialization.Serializable
  *   wrong the moment the list paginates
  * @property expectedCount How many seats could have sat it, which leaves
  *   out a seat that joined after the exam date
+ * @property state `upcoming`, `needs_marks` or `complete`, decided by the
+ *   server so the client never compares a date or a count
  */
 @Serializable
 data class ExamDto(
@@ -33,6 +35,7 @@ data class ExamDto(
     @SerialName("total_marks") val totalMarks: Int,
     @SerialName("entered_count") val enteredCount: Int = 0,
     @SerialName("expected_count") val expectedCount: Int = 0,
+    val state: String = "complete",
 )
 
 /**

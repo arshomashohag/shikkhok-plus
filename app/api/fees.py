@@ -183,6 +183,8 @@ def read_batch_fees(
             current_period=row.current_period,
             current_status=row.current_status,
             due_date=row.due_date,
+            days_overdue=row.days_overdue,
+            verifying=_optional_wire(row.verifying),
         )
         for row in views.batch_fee_overview(session, lens=lens, batch_id=batch_id)
     ]

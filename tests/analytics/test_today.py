@@ -19,10 +19,11 @@ import uuid
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.analytics.today import DHAKA, today_view
+from app.analytics.today import today_view
 from app.db.models import Enrollment, FeeCycle
 from app.db.models import Session as ClassSession
 from app.fees.claims import submit_claim
+from app.local_time import DHAKA
 from app.money import Money
 from tests.analytics.conftest import add_exam, lens_for, seat_with_ledger
 from tests.batches.conftest import TeacherFixture

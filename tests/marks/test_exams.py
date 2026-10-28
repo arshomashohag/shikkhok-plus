@@ -377,3 +377,58 @@ def test_the_list_counts_entered_results_against_expected_ones(
     )
 
     assert (row.entered_count, row.expected_count) == (2, 3)
+
+
+def test_each_exam_says_whether_it_is_coming_needs_marks_or_is_done(
+    restricted_session: DbSession,
+    teacher_lens: TeacherLens,
+    teacher: TeacherFixture,
+    subject: uuid.UUID,
+    seat_factory: Callable[..., uuid.UUID],
+) -> None:
+    """T7's Exams tab groups by this, so the app never compares dates.
+
+    :param restricted_session: The application-role session
+    :param teacher_lens: The teacher's lens
+    :param teacher: The batch's owner
+    :param subject: The subject assessed
+    :param seat_factory: Makes seats
+    :return: None
+    """
+    seat = seat_factory("Asha", joined_on=EXAM_DATE - dt.timedelta(days=30))
+    done, unmarked, coming = (
+        create_exam(
+            restricted_session,
+            lens=teacher_lens,
+            batch_id=teacher.batch_id,
+            batch_subject_id=subject,
+            title=title,
+            date=day,
+            total_marks=TOTAL_MARKS,
+        ).exam_id
+        for title, day in (
+            ("Done", EXAM_DATE),
+            ("Unmarked", EXAM_DATE + dt.timedelta(days=1)),
+            ("Coming", EXAM_DATE + dt.timedelta(days=30)),
+        )
+    )
+    record_mark(
+        restricted_session,
+        lens=teacher_lens,
+        exam_id=done,
+        enrollment_id=seat,
+        result_state="marked",
+        marks=80,
+    )
+
+    states = {
+        entry.exam.exam_id: entry.state
+        for entry in list_exam_progress(
+            restricted_session,
+            lens=teacher_lens,
+            batch_id=teacher.batch_id,
+            today=EXAM_DATE + dt.timedelta(days=2),
+        )
+    }
+
+    assert states == {done: "complete", unmarked: "needs_marks", coming: "upcoming"}

@@ -29,19 +29,17 @@ from app.analytics.seats import ledger_for_seats, owned_seats
 from app.authz.lenses import TeacherLens
 from app.db.models import Batch, BatchSubject, Exam, FeeCycle
 from app.db.models import Session as ClassSession
+from app.fees.overdue import overdue_balance
 from app.fees.queue import QueueItem, verification_queue
+from app.local_time import bangladesh_now
 from app.money import Money, derive
 
 __all__ = [
-    "DHAKA",
     "Outstanding",
     "TodayClass",
     "TodayView",
     "today_view",
 ]
-
-#: Bangladesh Standard Time. No daylight saving, so a fixed offset.
-DHAKA = dt.timezone(dt.timedelta(hours=6), name="Asia/Dhaka")
 
 #: How many waiting payments the screen previews before "See all".
 VERIFY_PREVIEW = 2
@@ -124,21 +122,23 @@ class TodayView:
 
 def _due_dates(
     session: Session, seat_ids: list[uuid.UUID]
-) -> dict[tuple[uuid.UUID, str], dt.date]:
+) -> dict[uuid.UUID, dict[str, dt.date]]:
     """Read every fee period's due date for these seats, in one statement.
 
     :param session: The session to read through
     :param seat_ids: The seats
-    :return: ``(seat, period)`` to due date
+    :return: Seat to its periods' due dates
     """
+    by_seat: dict[uuid.UUID, dict[str, dt.date]] = {}
     if not seat_ids:
-        return {}
-    rows = session.execute(
+        return by_seat
+    for seat_id, period, due_date in session.execute(
         sa.select(FeeCycle.enrollment_id, FeeCycle.period, FeeCycle.due_date).where(
             FeeCycle.enrollment_id.in_(seat_ids)
         )
-    ).all()
-    return {(row[0], row[1]): row[2] for row in rows}
+    ).all():
+        by_seat.setdefault(seat_id, {})[period] = due_date
+    return by_seat
 
 
 def _outstanding(session: Session, lens: TeacherLens, today: dt.date) -> Outstanding:
@@ -160,19 +160,13 @@ def _outstanding(session: Session, lens: TeacherLens, today: dt.date) -> Outstan
     owing_batches: set[uuid.UUID] = set()
     for seat in seats:
         per_cycle = derive(ledger.get(seat.enrollment_id, [])).per_cycle
-        seat_late = [
-            balance
-            for period, balance in per_cycle.items()
-            if balance.is_positive()
-            and (due_date := due.get((seat.enrollment_id, period))) is not None
-            and due_date < today
-        ]
+        seat_late = overdue_balance(per_cycle, due.get(seat.enrollment_id, {}), today)
         seat_owed = Money.sum(per_cycle.values())
         if seat_owed.is_positive():
             owed.append(seat_owed)
             owing_batches.add(seat.batch_id)
-        if seat_late:
-            late.extend(seat_late)
+        if seat_late.is_positive():
+            late.append(seat_late)
             late_seats += 1
     return Outstanding(
         total=Money.sum(owed),
@@ -264,7 +258,7 @@ def today_view(
     :param now: The present; the real clock by default
     :return: The view
     """
-    local = (now or dt.datetime.now(tz=dt.UTC)).astimezone(DHAKA)
+    local = bangladesh_now(now)
     queue = verification_queue(session, lens=lens, now=local.astimezone(dt.UTC))
     return TodayView(
         date=local.date(),

@@ -117,6 +117,9 @@ class RosterFeeRowResponse(BaseModel):
     :ivar current_period: The latest generated period, or null
     :ivar current_status: That period's status, or null
     :ivar due_date: That period's due date, or null
+    :ivar days_overdue: How late the oldest unpaid period is, decided by
+        the server against Bangladesh's date, or null
+    :ivar verifying: The total of claims still waiting for the teacher
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -127,6 +130,8 @@ class RosterFeeRowResponse(BaseModel):
     current_period: str | None = None
     current_status: FeeStatus | None = None
     due_date: dt.date | None = None
+    days_overdue: int | None = None
+    verifying: MoneyField | None = None
 
 
 class ClaimSubmitRequest(BaseModel):
