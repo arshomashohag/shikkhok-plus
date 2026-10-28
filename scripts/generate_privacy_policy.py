@@ -144,6 +144,7 @@ _TABLE_DESCRIPTION: Final[dict[str, str]] = {
     "ledger_entry": "Amounts charged, paid and waived",
     "payment_claim": "A payment you reported, and the teacher's decision on it",
     "reminder_event": "A record that a teacher sent a fee reminder",
+    "notification": "Messages in your in-app inbox, such as a fee reminder",
     "job_heartbeat": "When our scheduled jobs last ran; it names nobody",
     "session": "A class that was held, on a date",
     "queued_submission": "A record that a teacher's entry was received",

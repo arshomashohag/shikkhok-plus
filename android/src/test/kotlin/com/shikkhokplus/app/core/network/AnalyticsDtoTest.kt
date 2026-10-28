@@ -77,7 +77,11 @@ class AnalyticsDtoTest {
 
     @Test
     fun `an empty dues response decodes to an empty list, not a failure`() {
-        val decoded = json.decodeFromString<DuesResponseDto>("""{"rows": []}""")
+        val decoded =
+            json.decodeFromString<DuesResponseDto>(
+                """{"summary":{"total":"0.00","count":0,"late_total":"0.00",
+                "remindable":0,"groups":[]},"rows": []}""",
+            )
 
         assertEquals(emptyList(), decoded.rows)
     }

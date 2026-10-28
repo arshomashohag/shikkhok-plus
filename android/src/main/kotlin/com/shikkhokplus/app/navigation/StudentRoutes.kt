@@ -1,5 +1,10 @@
 package com.shikkhokplus.app.navigation
 
+import com.shikkhokplus.app.core.network.HttpInboxRepository
+import com.shikkhokplus.app.feature.inbox.InboxUiState
+import com.shikkhokplus.app.feature.inbox.InboxViewModel
+import com.shikkhokplus.app.feature.inbox.ui.InboxBell
+import com.shikkhokplus.app.feature.inbox.ui.InboxScreen
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -46,7 +51,17 @@ internal fun NavGraphBuilder.studentRoutes(
             onOpen = { seat -> navController.navigate(Destination.StudentBatch.of(seat)) },
             onRetry = model::retry,
             bottomBar = bottomBar,
+            barActions = { InboxBellFor(client) { navController.navigate(Destination.Inbox.route) } },
         )
+    }
+
+    composable(Destination.Inbox.route) {
+        val model: InboxViewModel = viewModel { InboxViewModel(HttpInboxRepository(client)) }
+        val state by model.state.collectAsState()
+
+        LaunchedEffect(Unit) { model.open() }
+
+        InboxScreen(state = state, onBack = { navController.popBackStack() }, onRetry = model::open)
     }
 
     composable(
@@ -70,4 +85,22 @@ internal fun NavGraphBuilder.studentRoutes(
             onRetry = model::retry,
         )
     }
+}
+
+
+/**
+ * The inbox bell, reading its own unread count each time the home
+ * screen it sits on is shown.
+ *
+ * @param client The authenticated HTTP client
+ * @param onOpen Called to open the inbox
+ */
+@Composable
+internal fun InboxBellFor(client: HttpClient, onOpen: () -> Unit) {
+    val model: InboxViewModel = viewModel(key = "inbox-bell") { InboxViewModel(HttpInboxRepository(client)) }
+    val state by model.state.collectAsState()
+
+    LaunchedEffect(Unit) { model.load() }
+
+    InboxBell(unread = (state as? InboxUiState.Loaded)?.unread ?: 0, onClick = onOpen)
 }

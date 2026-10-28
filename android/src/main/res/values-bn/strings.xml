@@ -413,7 +413,7 @@
       দেখলে শিক্ষক বুঝতে পারেন না এটি সত্যিই খালি, নাকি লোড হয়নি — তাই
       বাক্যটি ফলাফলটাই বলে দেয়।
     -->
-    <string name="dues_title">কার কাছে পাওনা</string>
+    <string name="dues_title">বকেয়া</string>
     <string name="dues_nobody_owes">এই মুহূর্তে কারও কোনও বকেয়া নেই। আপনার সব ব্যাচের সব শিক্ষার্থীর পাওনা পরিশোধ হয়েছে।</string>
     <string name="dues_since">%1$s থেকে</string>
     <string name="dues_retry">আবার চেষ্টা করুন</string>
@@ -702,4 +702,33 @@
     <string name="batch_notice_send">পাঠান</string>
     <string name="batch_schedule">সময়সূচি</string>
     <string name="batch_declined_by_number">এই নম্বর থেকে প্রত্যাখ্যাত</string>
+    <string name="dues_owed_to_you">আপনার পাওনা</string>
+    <string name="dues_students">%1$s জন শিক্ষার্থী</string>
+    <string name="dues_group_over_30">30+ দিন দেরি</string>
+    <string name="dues_group_late">1–30 দিন দেরি</string>
+    <string name="dues_group_not_late">বকেয়া, এখনও দেরি নয়</string>
+    <string name="dues_legend">%1$s · %2$s</string>
+    <string name="dues_bar_description">30 দিনের বেশি দেরি %1$s, 30 দিন পর্যন্ত দেরি %2$s, এখনও দেরি নয় %3$s</string>
+    <string name="dues_filter_all_batches">সব ব্যাচ</string>
+    <string name="dues_filter_late">শুধু দেরি</string>
+    <string name="dues_filter_not_reminded">মনে করানো হয়নি</string>
+    <string name="dues_filter_empty">এই ফিল্টারে কেউ নেই।</string>
+    <string name="dues_days">%1$s দিন</string>
+    <string name="dues_reminded">মনে করানো হয়েছে %1$s</string>
+    <string name="dues_never_reminded">কখনও মনে করানো হয়নি</string>
+    <string name="dues_remind_button">দেরি করা %1$s জনকে মনে করান</string>
+    <string name="dues_remind_note">তারা অ্যাপে দেখবে, কত বকেয়া সহ</string>
+    <string name="dues_remind_confirm_title">%1$s জন শিক্ষার্থীকে মনে করাবেন?</string>
+    <string name="dues_remind_confirm_body">যে শিক্ষার্থী ও অভিভাবক আসন গ্রহণ করেছেন, তারা অ্যাপে একটি রিমাইন্ডার পাবেন যাতে বকেয়ার পরিমাণ থাকবে। আজ যাদের মনে করানো হয়েছে, তাদের বাদ দেওয়া হবে।</string>
+    <string name="dues_remind_send">রিমাইন্ডার পাঠান</string>
+    <string name="dues_remind_cancel">বাতিল</string>
+    <string name="dues_remind_sent">%1$s জনকে মনে করানো হয়েছে</string>
+    <string name="dues_empty_title">সবার পাওনা পরিশোধ হয়েছে</string>
+    <string name="inbox_title">নোটিফিকেশন</string>
+    <string name="inbox_open">নোটিফিকেশন</string>
+    <string name="inbox_empty_title">এখনও কিছু নেই</string>
+    <string name="inbox_empty_body">শিক্ষকদের পাঠানো বেতনের রিমাইন্ডার এখানে দেখা যাবে।</string>
+    <string name="inbox_fee_reminder_title">বেতনের রিমাইন্ডার · %1$s</string>
+    <string name="inbox_fee_reminder_body">%1$s বকেয়া, %2$s থেকে।</string>
+    <string name="inbox_fee_reminder_body_no_period">%1$s বকেয়া।</string>
 </resources>

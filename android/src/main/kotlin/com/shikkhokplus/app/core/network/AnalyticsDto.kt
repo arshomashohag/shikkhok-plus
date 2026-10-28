@@ -27,6 +27,13 @@ import kotlinx.serialization.Serializable
  * @property oldestUnpaidPeriod Which period the debt starts in as
  *   `YYYY-MM`, or null. **Computed server-side** from the same fold
  *   the balance comes from
+ * @property latestUnpaidPeriod Which period it runs to, or null
+ * @property daysLate Days since the oldest late due date, or null when
+ *   nothing is past due. The server compared the dates
+ * @property bucket Which group the row belongs in: `over_30`, `late`
+ *   or `not_late`
+ * @property lastRemindedAt When a reminder last went out, if ever
+ * @property remindable Whether "Remind" would reach this seat now
  */
 @Serializable
 data class DuesRowDto(
@@ -36,6 +43,46 @@ data class DuesRowDto(
     @SerialName("display_name") val displayName: String,
     val outstanding: Money,
     @SerialName("oldest_unpaid_period") val oldestUnpaidPeriod: String? = null,
+    @SerialName("latest_unpaid_period") val latestUnpaidPeriod: String? = null,
+    @SerialName("days_late") val daysLate: Int? = null,
+    val bucket: String = "not_late",
+    @SerialName("last_reminded_at") val lastRemindedAt: String? = null,
+    val remindable: Boolean = false,
+)
+
+/**
+ * One group on the Dues screen, totalled by the server.
+ *
+ * @property bucket `over_30`, `late` or `not_late`
+ * @property total What its rows owe together
+ * @property count How many rows
+ * @property share Its total as a whole percent of everything owed, so
+ *   the bar is drawn without dividing money on the phone
+ */
+@Serializable
+data class DuesGroupDto(
+    val bucket: String,
+    val total: Money,
+    val count: Int,
+    val share: Int,
+)
+
+/**
+ * The Dues screen's headline figures, so the app adds up nothing.
+ *
+ * @property total Everything owed
+ * @property count How many seats owe it
+ * @property lateTotal What is owed past its due date
+ * @property remindable How many seats a "Remind" would reach
+ * @property groups One per bucket, latest first, empty ones included
+ */
+@Serializable
+data class DuesSummaryDto(
+    val total: Money,
+    val count: Int,
+    @SerialName("late_total") val lateTotal: Money,
+    val remindable: Int,
+    val groups: List<DuesGroupDto> = emptyList(),
 )
 
 /**
@@ -46,13 +93,37 @@ data class DuesRowDto(
  * never an error, so the screen shows "nobody owes anything" rather
  * than a retry prompt for the best possible news.
  *
- * @property rows One entry per owing seat, **already ordered** largest
+ * @property summary The totals, overall and per group
+ * @property rows One entry per owing seat, **already ordered** latest
  *   debt first. The client renders the order it is given; sorting a
  *   domain list here would be the second of the five erosion paths
  */
 @Serializable
 data class DuesResponseDto(
+    val summary: DuesSummaryDto,
     val rows: List<DuesRowDto> = emptyList(),
+)
+
+/**
+ * The seats to remind.
+ *
+ * @property enrollmentIds The seats
+ */
+@Serializable
+data class ReminderBody(
+    @SerialName("enrollment_ids") val enrollmentIds: List<String>,
+)
+
+/**
+ * What a reminder did.
+ *
+ * @property sent Seats whose student or guardian was reminded
+ * @property skipped Seats left alone
+ */
+@Serializable
+data class ReminderResultDto(
+    val sent: Int,
+    val skipped: Int,
 )
 
 /**

@@ -2,6 +2,7 @@ package com.shikkhokplus.app.feature.student.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -51,6 +52,7 @@ const val TAG_MY_BATCHES_RETRY: String = "my_batches_retry"
  * @param onOpen Called with a seat id when a batch is tapped
  * @param onRetry Called when the student asks to try again
  * @param modifier The layout modifier
+ * @param barActions Icons at the bar's end, such as the inbox bell
  * @param bottomBar The lens's tab bar
  */
 @Composable
@@ -60,11 +62,13 @@ fun MyBatchesScreen(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
     bottomBar: @Composable () -> Unit = {},
+    barActions: @Composable RowScope.() -> Unit = {},
 ) {
     ListScreenScaffold(
         title = stringResource(R.string.my_batches_title),
         modifier = modifier,
         bottomBar = bottomBar,
+        actions = barActions,
     ) {
         when (state) {
             MyBatchesUiState.Loading -> LogoLoader(Modifier.testTag(TAG_MY_BATCHES_LOADING))

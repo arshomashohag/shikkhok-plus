@@ -200,7 +200,7 @@ def test_health_reports_the_migration_revision(client: TestClient) -> None:
     # (canonical phones), deliberately rather than discovered as a
     # surprise CI failure -- which is the pressure under which a
     # constant gets edited to make a test pass.
-    assert body["migration_revision"] == "0008"
+    assert body["migration_revision"] == "0009"
 
 
 def test_health_discloses_nothing_beyond_its_three_fields(

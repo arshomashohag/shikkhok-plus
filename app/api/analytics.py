@@ -29,19 +29,27 @@ from typing import Annotated, Final, Literal
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.analytics.dues import dues_rows
+from app.analytics.dues import DuesSummary, dues_rows, dues_summary
 from app.analytics.earnings import MonthlyEarnings, period_totals, trend
-from app.analytics.seats import ledger_for_seats, owned_seats
+from app.analytics.seats import (
+    due_dates_for_seats,
+    last_reminders_for_seats,
+    ledger_for_seats,
+    owned_seats,
+)
 from app.analytics.today import today_view
 from app.analytics.upcoming import next_exam
 from app.api.deps import get_session, teacher_lens
 from app.api.fees import queue_item_response
 from app.authz.lenses import TeacherLens
+from app.local_time import bangladesh_today
 from app.money import Money as DomainMoney
 from app.money.wire import to_wire
 from app.schemas.analytics import (
+    DuesGroupResponse,
     DuesResponse,
     DuesRowResponse,
+    DuesSummaryResponse,
     MonthlyEarningsResponse,
     NextExamResponse,
     OutstandingResponse,
@@ -125,8 +133,9 @@ def read_dues(
 ) -> DuesResponse:
     """Everyone who owes this teacher money, across every batch [FR7.1].
 
-    **Two statements whatever the teacher's size**: one for the seats,
-    one for the ledger, then a fold in memory [BR1.6]. The oldest unpaid
+    **Four statements whatever the teacher's size**: the seats, the
+    ledger, the due dates and the last reminders, then a fold in memory
+    [BR1.6]. The oldest unpaid
     period comes from that same fold rather than from
     ``app/fees/balances.py``'s ``oldest_unpaid_period``, which takes one
     enrollment and would be one query per row.
@@ -146,9 +155,17 @@ def read_dues(
     :return: One row per owing seat, largest first, possibly empty
     """
     seats = owned_seats(session, lens)
-    ledger = ledger_for_seats(session, [seat.enrollment_id for seat in seats])
+    seat_ids = [seat.enrollment_id for seat in seats]
+    rows = dues_rows(
+        seats,
+        ledger_for_seats(session, seat_ids),
+        due_by_seat=due_dates_for_seats(session, seat_ids),
+        last_reminded=last_reminders_for_seats(session, seat_ids),
+        today=bangladesh_today(),
+    )
 
     return DuesResponse(
+        summary=_summary_response(dues_summary(rows)),
         rows=[
             DuesRowResponse(
                 enrollment_id=row.enrollment_id,
@@ -157,9 +174,37 @@ def read_dues(
                 display_name=row.display_name,
                 outstanding=_to_wire(row.outstanding),
                 oldest_unpaid_period=row.oldest_unpaid_period,
+                latest_unpaid_period=row.latest_unpaid_period,
+                days_late=row.days_late,
+                bucket=row.bucket,
+                last_reminded_at=row.last_reminded_at,
+                remindable=row.remindable,
             )
-            for row in dues_rows(seats, ledger)
-        ]
+            for row in rows
+        ],
+    )
+
+
+def _summary_response(summary: DuesSummary) -> DuesSummaryResponse:
+    """Render the dues headline for the wire.
+
+    :param summary: The totals
+    :return: The response body
+    """
+    return DuesSummaryResponse(
+        total=_to_wire(summary.total),
+        count=summary.count,
+        late_total=_to_wire(summary.late_total),
+        remindable=summary.remindable,
+        groups=[
+            DuesGroupResponse(
+                bucket=group.bucket,
+                total=_to_wire(group.total),
+                count=group.count,
+                share=group.share,
+            )
+            for group in summary.groups
+        ],
     )
 
 

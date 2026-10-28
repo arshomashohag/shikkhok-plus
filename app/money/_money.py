@@ -203,6 +203,28 @@ class Money:
             for i in range(parts)
         ]
 
+    def percent_of(self, total: Money) -> int:
+        """
+        State this amount as a whole percentage of a total.
+
+        For showing a share, never for charging one: the result is an
+        ``int`` and cannot re-enter money arithmetic. Rounded once, with
+        the module's declared mode.
+
+        :param total: The whole. A zero total gives a zero share rather
+            than a division error, because "nothing owed" has no parts.
+        :return: The share, in whole percent.
+        :raises MoneyValidationError: If the total is negative.
+        """
+        if total.is_negative():
+            raise MoneyValidationError("A share of a negative total has no meaning.")
+        if total.is_zero():
+            return 0
+        share = (self.amount * 100 / total.amount).quantize(
+            Decimal("1"), rounding=ROUNDING
+        )
+        return int(share)
+
     @classmethod
     def sum(cls, amounts: Iterable[Money]) -> Money:
         """

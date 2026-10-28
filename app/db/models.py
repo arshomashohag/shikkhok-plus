@@ -1597,3 +1597,54 @@ class Announcement(Base):
     )
 
     __table_args__ = (Index("ix_announcement_batch_id", "batch_id"),)
+
+
+class Notification(Base):
+    """A message in one account's in-app inbox.
+
+    **Addressed to an account, read only by that account.** Every read is
+    scoped by the authenticated caller's id, never by an id taken from a
+    request, so there is no lens to resolve [0009].
+
+    ``batch_name`` is copied at send time rather than joined, so the
+    message reads the same after the batch is renamed or the seat is
+    removed -- it is a record of what was said.
+
+    :ivar id: Surrogate key
+    :ivar account_id: Whose inbox it sits in
+    :ivar enrollment_id: The seat it is about, if any
+    :ivar kind: What produced it, such as ``fee_reminder``
+    :ivar batch_name: The batch it concerns, as named when sent
+    :ivar period: The period it concerns, as ``YYYY-MM``, if any
+    :ivar amount: The money it concerns, if any
+    :ivar created_at: When it was sent
+    :ivar read_at: When its owner opened the inbox after it arrived
+    """
+
+    __tablename__ = "notification"
+
+    id: Mapped[uuid.UUID] = _uuid_column()
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("account.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    enrollment_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("enrollment.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    batch_name: Mapped[str] = mapped_column(Text, nullable=False)
+    period: Mapped[str | None] = mapped_column(String(7), nullable=True)
+    amount: Mapped[Money | None] = mapped_column(MoneyColumn, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    read_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    __table_args__ = (
+        Index("ix_notification_account_created", "account_id", "created_at"),
+    )

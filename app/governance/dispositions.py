@@ -305,6 +305,17 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
             "it is removed outright rather than retained."
         ),
     ),
+    "notification": TableGovernance(
+        disposition=Disposition.HARD_DELETE,
+        retention=RetentionClass.MONTHS_12,
+        basis=(
+            "A message in one account's inbox, such as a fee reminder. "
+            "It belongs to the account it is addressed to and evidences "
+            "no transaction -- the reminder itself is recorded in "
+            "`reminder_event` -- so it goes with that account and is "
+            "purged after a year."
+        ),
+    ),
     "job_heartbeat": TableGovernance(
         disposition=Disposition.NOT_PERSONAL,
         # Same correction as `rate_limit_counter`, same reason: the old

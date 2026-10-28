@@ -130,6 +130,8 @@ class WriteContractTest {
             Write("post", "/v1/claims/{claim_id}/rejection") {
                 HttpVerificationRepository(it).reject(ID)
             },
+            Write("post", "/v1/reminders") { HttpAnalyticsRepository(it).remind(listOf(ID)) },
+            Write("post", "/v1/me/notifications/read") { HttpInboxRepository(it).markRead() },
             Write("put", "/v1/batches/{batch_id}/marksheet-visibility") {
                 HttpMarksRepository(it).setMarksheetVisible(ID, visible = true)
             },

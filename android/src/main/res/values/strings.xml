@@ -466,7 +466,7 @@
       from a failed load - so the copy states the outcome rather than
       describing an absence.
     -->
-    <string name="dues_title">Who owes you</string>
+    <string name="dues_title">Dues</string>
     <string name="dues_nobody_owes">Nobody owes anything right now. Every student across all your batches is paid up.</string>
     <string name="dues_since">Since %1$s</string>
     <string name="dues_retry">Try again</string>
@@ -757,4 +757,33 @@
     <string name="batch_notice_send">Send</string>
     <string name="batch_schedule">Schedule</string>
     <string name="batch_declined_by_number">Declined by this number</string>
+    <string name="dues_owed_to_you">Owed to you</string>
+    <string name="dues_students">%1$s students</string>
+    <string name="dues_group_over_30">30+ days late</string>
+    <string name="dues_group_late">1–30 days late</string>
+    <string name="dues_group_not_late">Due, not late yet</string>
+    <string name="dues_legend">%1$s · %2$s</string>
+    <string name="dues_bar_description">%1$s more than 30 days late, %2$s up to 30 days late, %3$s not yet late</string>
+    <string name="dues_filter_all_batches">All batches</string>
+    <string name="dues_filter_late">Late only</string>
+    <string name="dues_filter_not_reminded">Not reminded</string>
+    <string name="dues_filter_empty">No one matches this filter.</string>
+    <string name="dues_days">%1$s days</string>
+    <string name="dues_reminded">Reminded %1$s</string>
+    <string name="dues_never_reminded">Never reminded</string>
+    <string name="dues_remind_button">Remind %1$s late students</string>
+    <string name="dues_remind_note">They see it in the app, with what they owe</string>
+    <string name="dues_remind_confirm_title">Remind %1$s students?</string>
+    <string name="dues_remind_confirm_body">Each student and guardian who accepted their seat gets a reminder in the app showing what they owe. Anyone reminded today is skipped.</string>
+    <string name="dues_remind_send">Send reminders</string>
+    <string name="dues_remind_cancel">Cancel</string>
+    <string name="dues_remind_sent">Reminded %1$s students</string>
+    <string name="dues_empty_title">Everyone is paid up</string>
+    <string name="inbox_title">Notifications</string>
+    <string name="inbox_open">Notifications</string>
+    <string name="inbox_empty_title">Nothing here yet</string>
+    <string name="inbox_empty_body">Fee reminders from your teachers appear here.</string>
+    <string name="inbox_fee_reminder_title">Fee reminder · %1$s</string>
+    <string name="inbox_fee_reminder_body">%1$s is due, from %2$s.</string>
+    <string name="inbox_fee_reminder_body_no_period">%1$s is due.</string>
 </resources>

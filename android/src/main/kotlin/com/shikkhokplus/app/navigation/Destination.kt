@@ -316,6 +316,11 @@ sealed interface Destination {
         override val route: String = "verify"
     }
 
+    /** The reader's own inbox: fee reminders from their teachers. */
+    data object Inbox : Destination {
+        override val route: String = "me/notifications"
+    }
+
     /** A student's batches (S1). The start destination for that lens. */
     data object MyBatches : Destination {
         override val route: String = "me/batches"

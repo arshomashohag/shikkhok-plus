@@ -3,6 +3,7 @@ package com.shikkhokplus.app.feature.guardian.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
@@ -89,6 +90,7 @@ const val TAG_GUARDIAN_FEES: String = "guardian_fees"
  * @param onSelectChild Called with the child to show instead
  * @param onOpenProgress Called with the shown child, to open their results
  * @param onOpenFees Called with the shown child, to open their payments
+ * @param barActions Icons at the bar's end, such as the inbox bell
  * @param bottomBar The lens's tab bar
  * @param onRetry Called when the user asks to retry
  * @param modifier The layout modifier
@@ -102,11 +104,13 @@ fun GuardianHomeScreen(
     onOpenProgress: (GuardianChild) -> Unit = {},
     onOpenFees: (GuardianChild) -> Unit = {},
     bottomBar: @Composable () -> Unit = {},
+    barActions: @Composable RowScope.() -> Unit = {},
 ) {
     ScreenScaffold(
         title = stringResource(R.string.guardian_home_title),
         modifier = modifier,
         bottomBar = bottomBar,
+        actions = barActions,
     ) {
         // The title is in the app bar. It was rendered here too,
         // so every screen showed its name twice.

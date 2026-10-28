@@ -873,9 +873,46 @@
         "title": "DeletionResponse",
         "type": "object"
       },
+      "DuesGroupResponse": {
+        "additionalProperties": false,
+        "description": "One group on the Dues screen, totalled by the server.\n\n:ivar bucket: Which group: more than 30 days late, 1-30 days late,\n    or due and not yet late\n:ivar total: What its rows owe together\n:ivar count: How many rows\n:ivar share: Its total as a whole percent of everything owed, so the\n    app draws the bar without dividing money",
+        "properties": {
+          "bucket": {
+            "enum": [
+              "late",
+              "not_late",
+              "over_30"
+            ],
+            "title": "Bucket",
+            "type": "string"
+          },
+          "count": {
+            "minimum": 0.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "share": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Share",
+            "type": "integer"
+          },
+          "total": {
+            "$ref": "#/components/schemas/Money"
+          }
+        },
+        "required": [
+          "bucket",
+          "count",
+          "share",
+          "total"
+        ],
+        "title": "DuesGroupResponse",
+        "type": "object"
+      },
       "DuesResponse": {
         "additionalProperties": false,
-        "description": "Everyone who owes this teacher money, across every batch.\n\n**An empty ``rows`` is the defined empty state** [BR1.5], never a\n404 and never an error: a teacher whose students have all paid is\ngetting the best possible news, and a failure shape would make the\napp render a retry prompt for it.\n\n:ivar rows: One entry per owing seat, largest debt first, possibly\n    empty",
+        "description": "Everyone who owes this teacher money, across every batch.\n\n**An empty ``rows`` is the defined empty state** [BR1.5], never a\n404 and never an error: a teacher whose students have all paid is\ngetting the best possible news, and a failure shape would make the\napp render a retry prompt for it.\n\n:ivar summary: The totals, overall and per group\n:ivar rows: One entry per owing seat, latest debt first, possibly\n    empty",
         "properties": {
           "rows": {
             "items": {
@@ -883,14 +920,20 @@
             },
             "title": "Rows",
             "type": "array"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/DuesSummaryResponse"
           }
         },
+        "required": [
+          "summary"
+        ],
         "title": "DuesResponse",
         "type": "object"
       },
       "DuesRowResponse": {
         "additionalProperties": false,
-        "description": "One person who owes money, in one batch [FR7.1].\n\nThe key is ``enrollment_id`` and never an account id [ADR-001], and\n``display_name`` is the TEACHER's record rather than anything the\nstudent or guardian wrote [TC-13]. Both are asserted schema-wide by\nthe built privacy gate rather than by remembering it here.\n\n:ivar enrollment_id: The teacher-facing key\n:ivar batch_id: The batch the debt sits in\n:ivar batch_name: That batch's name, because the same person may\n    owe in two\n:ivar display_name: The teacher-typed name\n:ivar outstanding: What this seat still owes\n:ivar oldest_unpaid_period: Which period the debt starts in, or\n    null",
+        "description": "One person who owes money, in one batch [FR7.1].\n\nThe key is ``enrollment_id`` and never an account id [ADR-001], and\n``display_name`` is the TEACHER's record rather than anything the\nstudent or guardian wrote [TC-13]. Both are asserted schema-wide by\nthe built privacy gate rather than by remembering it here.\n\n:ivar enrollment_id: The teacher-facing key\n:ivar batch_id: The batch the debt sits in\n:ivar batch_name: That batch's name, because the same person may\n    owe in two\n:ivar display_name: The teacher-typed name\n:ivar outstanding: What this seat still owes\n:ivar oldest_unpaid_period: Which period the debt starts in, or\n    null\n:ivar latest_unpaid_period: Which period it runs to, or null\n:ivar days_late: Days since the oldest late due date, or null when\n    nothing is past due\n:ivar bucket: Which group the row belongs in\n:ivar last_reminded_at: When a reminder last went out, if ever\n:ivar remindable: Whether \"Remind\" would reach this seat now",
         "properties": {
           "batch_id": {
             "format": "uuid",
@@ -901,6 +944,27 @@
             "title": "Batch Name",
             "type": "string"
           },
+          "bucket": {
+            "enum": [
+              "late",
+              "not_late",
+              "over_30"
+            ],
+            "title": "Bucket",
+            "type": "string"
+          },
+          "days_late": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days Late"
+          },
           "display_name": {
             "title": "Display Name",
             "type": "string"
@@ -909,6 +973,30 @@
             "format": "uuid",
             "title": "Enrollment Id",
             "type": "string"
+          },
+          "last_reminded_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Reminded At"
+          },
+          "latest_unpaid_period": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Unpaid Period"
           },
           "oldest_unpaid_period": {
             "anyOf": [
@@ -924,16 +1012,60 @@
           },
           "outstanding": {
             "$ref": "#/components/schemas/Money"
+          },
+          "remindable": {
+            "title": "Remindable",
+            "type": "boolean"
           }
         },
         "required": [
           "batch_id",
           "batch_name",
+          "bucket",
           "display_name",
           "enrollment_id",
-          "outstanding"
+          "outstanding",
+          "remindable"
         ],
         "title": "DuesRowResponse",
+        "type": "object"
+      },
+      "DuesSummaryResponse": {
+        "additionalProperties": false,
+        "description": "The Dues screen's headline, so the app adds up nothing [TC-9].\n\n:ivar total: Everything owed\n:ivar count: How many seats owe it\n:ivar late_total: What is owed past its due date\n:ivar remindable: How many seats a \"Remind\" would reach\n:ivar groups: One per bucket, latest first, empty ones included",
+        "properties": {
+          "count": {
+            "minimum": 0.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/DuesGroupResponse"
+            },
+            "title": "Groups",
+            "type": "array"
+          },
+          "late_total": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "remindable": {
+            "minimum": 0.0,
+            "title": "Remindable",
+            "type": "integer"
+          },
+          "total": {
+            "$ref": "#/components/schemas/Money"
+          }
+        },
+        "required": [
+          "count",
+          "groups",
+          "late_total",
+          "remindable",
+          "total"
+        ],
+        "title": "DuesSummaryResponse",
         "type": "object"
       },
       "DuplicateClaimResponse": {
@@ -1491,6 +1623,29 @@
         "title": "InactiveFromRequest",
         "type": "object"
       },
+      "InboxResponse": {
+        "additionalProperties": false,
+        "description": "The reader's inbox, newest first.\n\n:ivar items: The messages\n:ivar unread: How many have not been seen, over the whole inbox",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "unread": {
+            "minimum": 0.0,
+            "title": "Unread",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "unread"
+        ],
+        "title": "InboxResponse",
+        "type": "object"
+      },
       "InvitationResponse": {
         "additionalProperties": false,
         "description": "One unaccepted seat, in exactly the width BR1.4 permits.\n\nBatch name, subject and fee amount -- all teacher-authored, so this\nread crosses no privacy boundary -- plus the seat's own id, which\nthe accept and decline routes are keyed on, and this holder's own\ndecision so the screen can offer the right action without deciding\nwhat ``declined`` means for itself [TC-9].\n\n**There is no attendance, no mark, no other enrollment and no\nfurther batch field**, and no write action but accept and decline\non the link that names the holder [AC1.10.2].\n\n:ivar enrollment_id: The seat, which the decision routes are keyed on\n:ivar batch_name: The class being joined\n:ivar subject: The subjects taught, as the teacher named them\n:ivar fee_amount: This seat's fee, or None when it inherits the\n    batch default. None is NOT zero: zero is a waiver\n:ivar decision: This holder's own decision, ``pending`` or\n    ``declined``\n:ivar role: Which link this account holds on the seat. Present\n    because the DECLINE CONFIRMATION differs by role [BR5.2]: a\n    student's decline stops their fee, a guardian's leaves the\n    student's obligation entirely intact. The client had no\n    trustworthy way to tell them apart, and one confirmation shown\n    to both told a guardian a debt was cancelled when it was not.\n\n    This discloses nothing new -- the holder is on this seat -- and\n    it is decided server-side rather than inferred from a lens hint\n    the client supplied [TC-11, D-2]",
@@ -1761,6 +1916,78 @@
           "title"
         ],
         "title": "NextExamResponse",
+        "type": "object"
+      },
+      "NotificationResponse": {
+        "additionalProperties": false,
+        "description": "One message in the reader's own inbox.\n\n:ivar notification_id: The message\n:ivar kind: What produced it\n:ivar enrollment_id: The seat it is about, if any\n:ivar batch_name: The batch, as named when it was sent\n:ivar period: The period it concerns, as ``YYYY-MM``, if any\n:ivar amount: The money it concerns, if any\n:ivar created_at: When it was sent\n:ivar read: Whether the reader has opened the inbox since",
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "batch_name": {
+            "title": "Batch Name",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "enrollment_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enrollment Id"
+          },
+          "kind": {
+            "const": "fee_reminder",
+            "title": "Kind",
+            "type": "string"
+          },
+          "notification_id": {
+            "format": "uuid",
+            "title": "Notification Id",
+            "type": "string"
+          },
+          "period": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period"
+          },
+          "read": {
+            "title": "Read",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "batch_name",
+          "created_at",
+          "kind",
+          "notification_id",
+          "read"
+        ],
+        "title": "NotificationResponse",
         "type": "object"
       },
       "OutstandingResponse": {
@@ -2108,6 +2335,49 @@
           }
         },
         "title": "RejectionRequest",
+        "type": "object"
+      },
+      "ReminderRequest": {
+        "additionalProperties": false,
+        "description": "The seats a teacher wants reminded about what they owe.\n\n:ivar enrollment_ids: The seats; every one must be this teacher's",
+        "properties": {
+          "enrollment_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Enrollment Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "enrollment_ids"
+        ],
+        "title": "ReminderRequest",
+        "type": "object"
+      },
+      "ReminderResponse": {
+        "additionalProperties": false,
+        "description": "What the reminder did.\n\n:ivar sent: Seats whose student or guardian was reminded in the app\n:ivar skipped: Seats left alone -- owing nothing, already reminded\n    today, or with nobody who has accepted the seat",
+        "properties": {
+          "sent": {
+            "minimum": 0.0,
+            "title": "Sent",
+            "type": "integer"
+          },
+          "skipped": {
+            "minimum": 0.0,
+            "title": "Skipped",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sent",
+          "skipped"
+        ],
+        "title": "ReminderResponse",
         "type": "object"
       },
       "RosterFeeRowResponse": {
@@ -6341,7 +6611,7 @@
     },
     "/v1/me/dues": {
       "get": {
-        "description": "Everyone who owes this teacher money, across every batch [FR7.1].\n\n**Two statements whatever the teacher's size**: one for the seats,\none for the ledger, then a fold in memory [BR1.6]. The oldest unpaid\nperiod comes from that same fold rather than from\n``app/fees/balances.py``'s ``oldest_unpaid_period``, which takes one\nenrollment and would be one query per row.\n\n**Computed on open** [BR1.4]: no generate step, no refresh action,\nno materialised rollup. A stale figure about money is worse than a\nslow one -- a teacher chases a debt already paid, or fails to chase\none just incurred.\n\n**No parameter of any kind.** The lens's ``owner_id`` is the only\nscoping value, so there is nothing to validate and nothing to\nforget.\n\n:param session: The request-scoped session, which is also what makes\n    both statements read ONE snapshot [NFR6.62]\n:param lens: The teacher lens carrying the owner id\n:return: One row per owing seat, largest first, possibly empty",
+        "description": "Everyone who owes this teacher money, across every batch [FR7.1].\n\n**Four statements whatever the teacher's size**: the seats, the\nledger, the due dates and the last reminders, then a fold in memory\n[BR1.6]. The oldest unpaid\nperiod comes from that same fold rather than from\n``app/fees/balances.py``'s ``oldest_unpaid_period``, which takes one\nenrollment and would be one query per row.\n\n**Computed on open** [BR1.4]: no generate step, no refresh action,\nno materialised rollup. A stale figure about money is worse than a\nslow one -- a teacher chases a debt already paid, or fails to chase\none just incurred.\n\n**No parameter of any kind.** The lens's ``owner_id`` is the only\nscoping value, so there is nothing to validate and nothing to\nforget.\n\n:param session: The request-scoped session, which is also what makes\n    both statements read ONE snapshot [NFR6.62]\n:param lens: The teacher lens carrying the owner id\n:return: One row per owing seat, largest first, possibly empty",
         "operationId": "read_dues_v1_me_dues_get",
         "responses": {
           "200": {
@@ -6621,6 +6891,43 @@
         ]
       }
     },
+    "/v1/me/notifications": {
+      "get": {
+        "description": "Read this account's own messages, newest first.\n\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:return: The messages and the unread count",
+        "operationId": "read_inbox_v1_me_notifications_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InboxResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Read Inbox",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/v1/me/notifications/read": {
+      "post": {
+        "description": "Mark every message in this account's own inbox as read.\n\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:return: None",
+        "operationId": "read_all_v1_me_notifications_read_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Read All",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
     "/v1/me/overview": {
       "get": {
         "description": "Return this month's earnings, the trend and the next exam [FR8.1-FR8.4].\n\n**The earnings total and the trend fold the SAME ledger read**\n[performance § 2]. Two figures from one read, so they cannot\ndisagree -- a second query would be a second chance to.\n\n**Zero is a value, not an absence** [BR2.2]. A month with no\nreceipts reports ``\"0.00\"``, which is a fact about the month, and\nthe zero is supplied **here at the boundary** rather than inside the\nfold: inside, absence genuinely means zero, while at the edge it\ncould mean the read failed [reliability § 1.3]. The fold runs over\nrows already in hand, so a failure raises rather than producing an\nempty map.\n\n:param session: The request-scoped session\n:param lens: The teacher lens carrying the owner id\n:return: The three blocks, each able to be absent without the others",
@@ -6702,6 +7009,88 @@
         "summary": "Read Today",
         "tags": [
           "analytics"
+        ]
+      }
+    },
+    "/v1/reminders": {
+      "post": {
+        "description": "Remind the people on these seats what they owe, in the app.\n\nEvery seat must be this teacher's or nothing is sent. A seat owing\nnothing, already reminded today, or with nobody who accepted it is\nskipped and counted, not refused, so one tap over a list never\nfails on its least interesting row.\n\n:param body: The seats\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: How many were reminded and how many skipped",
+        "operationId": "send_reminders_v1_reminders_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReminderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReminderResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Send Reminders",
+        "tags": [
+          "fees"
         ]
       }
     },

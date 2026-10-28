@@ -27,6 +27,7 @@ import com.shikkhokplus.app.core.designsystem.NavDestination
 import com.shikkhokplus.app.core.designsystem.ScreenScaffold
 import com.shikkhokplus.app.core.network.HttpAnalyticsRepository
 import com.shikkhokplus.app.feature.dues.DuesViewModel
+import com.shikkhokplus.app.feature.dues.ui.DuesActions
 import com.shikkhokplus.app.feature.dues.ui.DuesScreen
 import com.shikkhokplus.app.core.network.HttpBatchesRepository
 import com.shikkhokplus.app.core.network.HttpRosterRepository
@@ -280,7 +281,15 @@ fun ShikkhokNavHost(
 
             DuesScreen(
                 state = state,
-                onRetry = model::retry,
+                actions =
+                    DuesActions(
+                        onRetry = model::retry,
+                        onFilter = model::filter,
+                        onNarrow = model::narrow,
+                        onAskRemind = model::askToRemind,
+                        onRemind = model::remind,
+                        onDismissRemind = model::dismissRemind,
+                    ),
                 bottomBar = {
                     BottomNav(
                         destinations = tabsFor(session.lens),
@@ -554,6 +563,7 @@ fun ShikkhokNavHost(
                     )
                 },
                 onRetry = model::retry,
+                barActions = { InboxBellFor(client) { navController.navigate(Destination.Inbox.route) } },
             )
         }
 

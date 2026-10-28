@@ -31,6 +31,7 @@ from app.authz.lenses import GuardianLens, StudentLens, TeacherLens
 from app.fees import views
 from app.fees.claims import submit_claim
 from app.fees.queue import QueueItem, shortfall_preview, verification_queue
+from app.fees.reminders import remind
 from app.fees.verification import reject_claim, verify_claim
 from app.money import Money as DomainMoney
 from app.money.wire import parse, to_wire
@@ -45,6 +46,8 @@ from app.schemas.fees import (
     PaymentDestinationResponse,
     RecentDecisionResponse,
     RejectionRequest,
+    ReminderRequest,
+    ReminderResponse,
     RosterFeeRowResponse,
     ShortfallPreviewRequest,
     ShortfallPreviewResponse,
@@ -552,3 +555,29 @@ def record_rejection(
         correcting=body.correcting if body is not None else False,
     )
     return _claim_response(views.claim_detail(session, lens=lens, claim_id=claim.id))
+
+
+@router.post(
+    "/reminders",
+    response_model=ReminderResponse,
+    responses=_WRITE_ERRORS,
+)
+def send_reminders(
+    body: ReminderRequest,
+    session: Annotated[Session, Depends(get_session)],
+    lens: Annotated[TeacherLens, Depends(teacher_lens)],
+) -> ReminderResponse:
+    """Remind the people on these seats what they owe, in the app.
+
+    Every seat must be this teacher's or nothing is sent. A seat owing
+    nothing, already reminded today, or with nobody who accepted it is
+    skipped and counted, not refused, so one tap over a list never
+    fails on its least interesting row.
+
+    :param body: The seats
+    :param session: The request-scoped session
+    :param lens: The teacher lens
+    :return: How many were reminded and how many skipped
+    """
+    outcome = remind(session, lens=lens, enrollment_ids=body.enrollment_ids)
+    return ReminderResponse(sent=outcome.sent, skipped=outcome.skipped)

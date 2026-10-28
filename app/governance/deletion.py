@@ -173,6 +173,11 @@ HARD_DELETE_SCOPES: Final[dict[str, _Target]] = {
             "after the batch refusal passes, like `owner`."
         ),
     ),
+    "notification": _Target(
+        scope=Scope.ACCOUNT_COLUMN,
+        column="account_id",
+        note="The account's own inbox, addressed to nobody else.",
+    ),
     "otp_request": _Target(
         scope=Scope.PHONE_COLUMN,
         column="phone",

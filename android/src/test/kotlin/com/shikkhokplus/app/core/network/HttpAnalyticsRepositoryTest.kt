@@ -31,7 +31,14 @@ class HttpAnalyticsRepositoryTest {
     @Test
     fun `the dues route carries no identifier either`() = runTest {
         val engine =
-            MockEngine { respond("""{"rows":[]}""", HttpStatusCode.OK, jsonHeaders()) }
+            MockEngine {
+                respond(
+                    """{"summary":{"total":"0.00","count":0,"late_total":"0.00",
+                    "remindable":0,"groups":[]},"rows":[]}""",
+                    HttpStatusCode.OK,
+                    jsonHeaders(),
+                )
+            }
         val result = HttpAnalyticsRepository(client(engine)).dues()
 
         assertIs<AuthResult.Ok<DuesResponseDto>>(result)
@@ -45,7 +52,7 @@ class HttpAnalyticsRepositoryTest {
         val engine =
             MockEngine {
                 respond(
-                    """{"rows":[{"enrollment_id":"e-1","batch_id":"b-1",
+                    """{"summary":{"total":"0.00","count":0,"late_total":"0.00","remindable":0,"groups":[]},"rows":[{"enrollment_id":"e-1","batch_id":"b-1",
                        "batch_name":"HSC Physics","display_name":"Rahim",
                        "outstanding":"1200.00"}]}""".trimIndent(),
                     HttpStatusCode.OK,
@@ -66,7 +73,7 @@ class HttpAnalyticsRepositoryTest {
         val engine =
             MockEngine {
                 respond(
-                    """{"rows":[{"enrollment_id":"e-1","batch_id":"b-1",
+                    """{"summary":{"total":"0.00","count":0,"late_total":"0.00","remindable":0,"groups":[]},"rows":[{"enrollment_id":"e-1","batch_id":"b-1",
                        "batch_name":"HSC Physics","display_name":"Rahim",
                        "outstanding":1200.00}]}""".trimIndent(),
                     HttpStatusCode.OK,
@@ -102,5 +109,16 @@ class HttpAnalyticsRepositoryTest {
         val result = HttpAnalyticsRepository(client(engine)).dues()
 
         assertIs<AuthResult.TransportFailure>(result)
+    }
+
+    @Test
+    fun `a reminder posts the seats and reads what it did`() = runTest {
+        val engine =
+            MockEngine { respond("""{"sent":1,"skipped":0}""", HttpStatusCode.OK, jsonHeaders()) }
+        val result = HttpAnalyticsRepository(client(engine)).remind(listOf("e-1"))
+
+        val ok = assertIs<AuthResult.Ok<ReminderResultDto>>(result)
+        assertEquals(1, ok.value.sent)
+        assertEquals("/v1/reminders", engine.requestHistory.single().url.encodedPath)
     }
 }

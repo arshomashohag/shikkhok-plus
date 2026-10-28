@@ -144,6 +144,7 @@ actually does, and our build fails if the two stop matching.
 |---|---|
 | A record that a teacher sent a fee reminder | 12 months |
 | Failed and successful sign-in attempts | 7 days |
+| Messages in your in-app inbox, such as a fee reminder | 12 months |
 | One-time sign-in codes, stored only as hashes | 7 days |
 | Session tokens, stored only as hashes | 30 days after it expires |
 | Test-only message records, never used in production | 7 days |
@@ -182,7 +183,7 @@ These records are about how the service itself is running, not about any person.
 
 **The name a teacher typed for you stays in that teacher's record.** When a teacher invites someone to a class they enter a name for that place themselves. That name belongs to the teacher's own record of the class, so it remains after you delete your account -- and it remains even if you declined the invitation and never used the app. It is not shown to anyone but that teacher. If you want it removed, contact us at the address at the top of this page and we will raise it with the teacher concerned.
 
-<!-- governance manifest digest: c699b0ee6ed7a167470454e67a0b981e1c9cf654ec6eb797a307145e644033a2
+<!-- governance manifest digest: 5237993ab8a1f4b65256fda9119921d2fd350d362caed3f083feef57ca0f52dd
      Covers every disposition, retention class and basis, so a
      change to any of them fails the drift gate even when it
      does not alter the text above. Regenerate; do not edit. -->

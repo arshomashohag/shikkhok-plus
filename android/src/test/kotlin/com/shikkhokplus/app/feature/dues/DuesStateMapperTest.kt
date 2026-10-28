@@ -1,6 +1,7 @@
 package com.shikkhokplus.app.feature.dues
 
 import com.shikkhokplus.app.core.model.Money
+import com.shikkhokplus.app.core.network.DuesGroupDto
 import com.shikkhokplus.app.core.network.DuesResponseDto
 import com.shikkhokplus.app.core.network.DuesRowDto
 import com.shikkhokplus.app.core.network.ErrorBody
@@ -36,7 +37,7 @@ class DuesStateMapperTest {
 
     @Test
     fun `rows map to the loaded state`() {
-        val state = DuesStateMapper.afterLoad(DuesResponseDto(rows = listOf(row())))
+        val state = DuesStateMapper.afterLoad(DuesResponseDto(summary = duesSummary(), rows = listOf(row())))
 
         val loaded = assertIs<DuesUiState.Loaded>(state)
         assertEquals(1, loaded.rows.size)
@@ -53,7 +54,7 @@ class DuesStateMapperTest {
         // a teacher cannot tell apart from a failed load.
         assertEquals(
             DuesUiState.Empty,
-            DuesStateMapper.afterLoad(DuesResponseDto(rows = emptyList())),
+            DuesStateMapper.afterLoad(DuesResponseDto(summary = duesSummary(), rows = emptyList())),
         )
     }
 
@@ -64,6 +65,7 @@ class DuesStateMapperTest {
         // domain list's order, which is one of the five erosion paths.
         val response =
             DuesResponseDto(
+                summary = duesSummary(),
                 rows =
                     listOf(
                         row(name = "Large", outstanding = "3000.00"),
@@ -87,7 +89,7 @@ class DuesStateMapperTest {
         // would render as a stray label.
         val loaded =
             assertIs<DuesUiState.Loaded>(
-                DuesStateMapper.afterLoad(DuesResponseDto(rows = listOf(row(period = null)))),
+                DuesStateMapper.afterLoad(DuesResponseDto(summary = duesSummary(), rows = listOf(row(period = null)))),
             )
 
         assertEquals(null, loaded.rows[0].oldestUnpaidPeriod)
@@ -122,5 +124,89 @@ class DuesStateMapperTest {
 
         assertEquals(DuesStateMapper.OFFLINE_KEY, failed.messageKey)
         assertTrue(failed.retryable)
+    }
+
+    @Test
+    fun `the headline and groups are the server's, unknown buckets dropped`() {
+        val response =
+            duesResponse(duesRow("A")).copy(
+                summary =
+                    duesSummary().copy(
+                        groups = duesSummary().groups + DuesGroupDto("future", Money.of("1.00"), 1, 0),
+                    ),
+            )
+
+        val loaded = assertIs<DuesUiState.Loaded>(DuesStateMapper.afterLoad(response))
+
+        assertEquals(Money.of("6000.00"), loaded.summary.total)
+        assertEquals(
+            listOf(DuesGroupKind.OVER_30, DuesGroupKind.LATE, DuesGroupKind.NOT_LATE),
+            loaded.summary.groups.map { it.kind },
+        )
+        assertEquals(listOf(60, 25, 15), loaded.summary.groups.map { it.share })
+    }
+
+    @Test
+    fun `each row carries the server's group, lateness and reminder`() {
+        val loaded =
+            assertIs<DuesUiState.Loaded>(
+                DuesStateMapper.afterLoad(
+                    duesResponse(
+                        duesRow("A", bucket = "over_30", reminded = "2026-10-14T06:00:00Z", remindable = true),
+                    ),
+                ),
+            )
+
+        val row = loaded.rows.single()
+        assertEquals(DuesGroupKind.OVER_30, row.group)
+        assertEquals(7, row.daysLate)
+        assertEquals("2026-10-14T06:00:00Z", row.lastRemindedAt)
+        assertTrue(row.remindable)
+    }
+
+    @Test
+    fun `the batch list is each batch once, in the server's order`() {
+        val loaded =
+            assertIs<DuesUiState.Loaded>(
+                DuesStateMapper.afterLoad(
+                    duesResponse(duesRow("A", batch = "b-2"), duesRow("B", batch = "b-1"), duesRow("C", batch = "b-2")),
+                ),
+            )
+
+        assertEquals(listOf("b-2", "b-1"), loaded.batches.map { it.id })
+    }
+
+    @Test
+    fun `the filters key on the server's group, reminder and batch`() {
+        val rows =
+            assertIs<DuesUiState.Loaded>(
+                DuesStateMapper.afterLoad(
+                    duesResponse(
+                        duesRow("late", bucket = "late", reminded = "2026-10-14T06:00:00Z"),
+                        duesRow("long", bucket = "over_30", batch = "b-2"),
+                        duesRow("fresh"),
+                    ),
+                ),
+            ).rows
+
+        fun names(filter: DuesFilter, batch: String? = null) =
+            DuesStateMapper.visible(rows, filter, batch).map { it.displayName }
+
+        assertEquals(listOf("late", "long", "fresh"), names(DuesFilter.ALL))
+        assertEquals(listOf("late", "long"), names(DuesFilter.LATE_ONLY))
+        assertEquals(listOf("long", "fresh"), names(DuesFilter.NOT_REMINDED))
+        assertEquals(listOf("long"), names(DuesFilter.ALL, "b-2"))
+    }
+
+    @Test
+    fun `a reminder goes only to the rows the server marked`() {
+        val rows =
+            assertIs<DuesUiState.Loaded>(
+                DuesStateMapper.afterLoad(
+                    duesResponse(duesRow("yes", bucket = "late", remindable = true), duesRow("no", bucket = "late")),
+                ),
+            ).rows
+
+        assertEquals(listOf("seat-yes"), DuesStateMapper.remindTargets(rows))
     }
 }

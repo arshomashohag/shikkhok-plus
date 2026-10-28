@@ -5,6 +5,8 @@ import com.shikkhokplus.app.feature.dues.DuesRepository
 import com.shikkhokplus.app.feature.today.TodayRepository
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
 
 /**
  * The Today and dues repositories, over HTTP.
@@ -42,4 +44,14 @@ class HttpAnalyticsRepository(
      */
     override suspend fun dues(): AuthResult<DuesResponseDto> =
         call { client.get("/v1/me/dues") }
+
+    /**
+     * Remind these seats what they owe, in the app.
+     *
+     * @param enrollmentIds The seats
+     * @return How many were reminded and skipped, an error envelope, or
+     *   a transport failure
+     */
+    override suspend fun remind(enrollmentIds: List<String>): AuthResult<ReminderResultDto> =
+        call { client.post("/v1/reminders") { setBody(ReminderBody(enrollmentIds)) } }
 }

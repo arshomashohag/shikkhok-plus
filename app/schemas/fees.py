@@ -38,6 +38,8 @@ __all__ = [
     "FeeHistoryResponse",
     "PaymentDestinationResponse",
     "RecentDecisionResponse",
+    "ReminderRequest",
+    "ReminderResponse",
     "RosterFeeRowResponse",
     "ShortfallPreviewRequest",
     "ShortfallPreviewResponse",
@@ -398,3 +400,28 @@ class ShortfallPreviewResponse(BaseModel):
 
     shortfall: MoneyField
     disposition_required: bool
+
+
+class ReminderRequest(BaseModel):
+    """The seats a teacher wants reminded about what they owe.
+
+    :ivar enrollment_ids: The seats; every one must be this teacher's
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    enrollment_ids: list[uuid.UUID] = Field(min_length=1, max_length=500)
+
+
+class ReminderResponse(BaseModel):
+    """What the reminder did.
+
+    :ivar sent: Seats whose student or guardian was reminded in the app
+    :ivar skipped: Seats left alone -- owing nothing, already reminded
+        today, or with nobody who has accepted the seat
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    sent: int = Field(ge=0)
+    skipped: int = Field(ge=0)
