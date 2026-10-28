@@ -62670,3 +62670,640 @@ nfr-requirements D3 collecting-fees: seven artifacts written. Recomputed every N
 **Details**: <project-dir>/android/coverage-floor.txt
 
 ---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:53:52Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '/^class ScheduleSlot(Base):/,/__table_args__/p' app/db/models.py | grep -vE '^\s*$'; grep -n "^def \|^async def " app/teaching/generation.py
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:53:57Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '155,240p' app/teaching/generation.py | grep -vE '^\s*$' | head -60; grep -n "generate_sessions" app/ -r | grep -v "def generate_sessions" | head
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:54:19Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '1,100p' tests/teaching/test_api.py | grep -vE '^\s*$' | sed -n '1,70p' | grep -vE '^\s+:param|^\s+"""$'
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:54:54Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Write
+**Details**: <project-dir>/tests/teaching/test_schedule_api.py
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:54:56Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 -m ruff format tests/teaching/test_schedule_api.py -q; python3 -m ruff check tests/teaching/test_schedule_api.py; python3 -m pytest tests/teaching/test_
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:55:23Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '1,60p' app/teaching/sessions.py | grep -E "^from|^import|__all__"; sed -n '103,140p' app/teaching/sessions.py | grep -vE '^\s*$'
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:55:31Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '64,75p' app/teaching/roster.py; grep -n "status" app/errors/_classes.py | head -5
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:55:35Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '88,110p' app/errors/_classes.py | grep -E "def __init__|status.*=|404|403"
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:55:56Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Write
+**Details**: <project-dir>/app/teaching/schedule.py
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:56:06Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='app/teaching/schedule.py'\ns=open(p).read()\ns=s.replace('__all__ = ["Slot", "read_schedule", "refuse_duplicate_slots", "set_schedule"]','__al
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:56:23Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/app/schemas/schedule.py
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:56:28Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 -m mypy app 2>&1 | head -4
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:56:52Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/None:,def
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:57:01Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 -m ruff check app --fix -q; grep -nE '^@router\.(get|post|put)\("/batches/\{batch_id\}/sessions"' -A 6 app/api/teaching.py | head -10; grep -n "^from\|^
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:57:06Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: grep -nE '^@router\.' app/api/teaching.py | head -6; sed -n "$(grep -nE '^@router\.' app/api/teaching.py | head -1 | cut -d: -f1),+28p" app/api/teaching.py
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:57:19Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='app/api/teaching.py'\ns=open(p).read()\nanchor='''@router.get(\n    "/batches/{batch_id}/sessions",'''\nassert s.count(anchor)==1\nroutes='''def 
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:57:36Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 -m pytest tests -p no:cacheprovider -q -rf 2>&1 | grep -E "^FAILED" | sed -E 's/ - .*//' | head; echo "failures: $(python3 -m pytest tests -p no:cachepr
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T05:03:28Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 -m pytest tests/contract/test_message_keys.py -p no:cacheprovider -q 2>&1 | grep -E "^E " | head -6; grep -rn "phone.invalid\|batch.create.subject_requi
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T05:03:41Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: f=$(git ls-files | grep -E "message-keys.json$" | head -1); echo "$f"; grep -c '"' "$f"; grep -n 'phone.invalid\|schedule' "$f"; grep -nE "def _emitted|re\.|mes
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T05:03:55Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\nimport json\np='app/accounts/phone.py'\ns=open(p).read()\ns=s.replace('__all__ = ["PHONE_INVALID_KEY", "canonical_phone"]','__all__ = ["canonical_
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T05:04:02Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 -m pytest tests/contract/test_message_keys.py tests/accounts/test_phone.py -p no:cacheprovider -q -rf 2>&1 | grep -E "^FAILED|^E " | head -8; git diff m
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T05:04:11Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='app/accounts/phone.py'\ns=open(p).read()\nold='''        # The key is written LITERALLY, not through a constant: the\n        # message-key con
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T05:04:19Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: ./gradlew :android:testDebugUnitTest --tests '*MessageKeyCoverageTest*' --no-daemon 2>&1 | grep -E "FAILED|BUILD|schedule" | head -4
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T05:04:58Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\ndef add(p,pairs):\n    t=open(p,encoding='utf-8').read()\n    for k,_ in pairs: assert f'name="{k}"' not in t,k\n    t=t.replace('</resources>',''
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T05:05:23Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='android/src/main/kotlin/com/shikkhokplus/app/core/network/RosterDto.kt'\ns=open(p).read()\ns=s.replace('''    @SerialName("subject_options") v
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T05:05:41Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/android/src/main/kotlin/com/shikkhokplus/app/feature/schedule/ScheduleViewModel.kt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T05:06:25Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Write
+**Details**: <project-dir>/android/src/main/kotlin/com/shikkhokplus/app/core/ui/ScheduleEditor.kt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T05:06:27Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: ./gradlew :android:compileDebugKotlin --no-daemon -q 2>&1 | grep -E "^e: " | sed 's|.*/kotlin/||' | head -5; echo "--- compiled ---"
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T05:06:52Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='android/src/main/kotlin/com/shikkhokplus/app/core/ui/ScheduleEditor.kt'\ns=open(p).read()\nold='''                onClick = {\n                
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T05:07:12Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/android/src/main/kotlin/com/shikkhokplus/app/feature/batches/ui/CreateBatchScreen.kt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T05:07:21Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: git diff --stat android/src/test/kotlin/com/shikkhokplus/app/feature/marks/ExamCreateFormTest.kt && git checkout -- android/src/test/kotlin/com/shikkhokplus/app
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T05:08:08Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/android/src/main/kotlin/com/shikkhokplus/app/feature/schedule/ui/ScheduleScreen.kt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T05:08:26Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 -c "\nimport json; s=json.load(open('openapi.json'))['components']['schemas']['SessionCreateRequest']\nprint(s.get('required'), {k:(v.get('format') or v.g
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T05:08:41Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='android/src/main/kotlin/com/shikkhokplus/app/feature/marks/ui/ExamCreateForm.kt'\ns=open(p).read()\nstart=s.index('/**\n * Today\'s date as th
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T05:09:16Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/android/src/main/kotlin/com/shikkhokplus/app/feature/sessions/ui/AddSessionDialog.kt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T05:09:56Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/android/src/test/kotlin/com/shikkhokplus/app/core/ui/ScheduleDraftTest.kt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T05:10:25Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\nimport re,html\nt=open('android/build/test-results/testDebugUnitTest/TEST-com.shikkhokplus.app.core.ui.CreateFormsTest.xml').read()\nfor m in re.
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T05:10:46Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='android/src/test/kotlin/com/shikkhokplus/app/core/ui/CreateFormsTest.kt'\ns=open(p).read()\ni=s.index('fun `a fee typed in Bangla digits is se
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T05:11:20Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/android/src/test/kotlin/com/shikkhokplus/app/feature/schedule/ScheduleScreenTest.kt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T05:11:39Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 -m ruff format app tests -q; make check 2>&1 | grep -E "FAILED|Kotlin line|Committed floor|ROSE|DROPPED|All gates|\.kt:[0-9]+:|\.py:[0-9]+:[0-9]+|make: 
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T05:15:49Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: f=android/src/main/kotlin/com/shikkhokplus/app/navigation/ShikkhokNavHost.kt; grep -nE "^        composable\(|^        composable\($" $f | head -40; grep -nE "^
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T05:16:03Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='android/src/main/kotlin/com/shikkhokplus/app/navigation/ShikkhokNavHost.kt'\ns=open(p).read()\nlines=s.split('\n')\n# 1-based line numbers: Ses
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T05:16:18Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: f=android/src/main/kotlin/com/shikkhokplus/app/navigation/ShikkhokNavHost.kt; for n in 459 460 748 749; do printf "%s: %s\n" $n "$(sed -n "${n}p" $f)"; done; gr
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T05:16:29Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='android/src/main/kotlin/com/shikkhokplus/app/navigation/ShikkhokNavHost.kt'\ns=open(p).read()\nlines=s.split('\n')\nstart,end=459-1,712-1\nasser
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T05:16:43Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: make android-quality 2>&1 | grep -E "\.kt:[0-9]+:|Kotlin line|Committed floor|ROSE|DROPPED|BUILD FAILED" | sed 's|.*/kotlin/com/shikkhokplus/app/||' | head -20
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T05:17:25Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\nimport re\nfor p in ['android/src/main/kotlin/com/shikkhokplus/app/navigation/TeachingRoutes.kt','android/src/main/kotlin/com/shikkhokplus/app/n
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T05:17:43Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\nfor p in ['android/src/main/kotlin/com/shikkhokplus/app/navigation/TeachingRoutes.kt','android/src/main/kotlin/com/shikkhokplus/app/navigation/
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T05:17:56Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: make check 2>&1 | grep -E "FAILED|Kotlin line|Committed floor|ROSE|DROPPED|All gates|\.kt:[0-9]+:|make: \*\*\*|Coverage failure" | head -8
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T05:22:17Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/android/coverage-floor.txt
+
+---
