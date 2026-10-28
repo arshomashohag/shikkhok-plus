@@ -71,5 +71,76 @@ value class Money(val amount: BigDecimal) {
             }
             return Money(BigDecimal(raw).setScale(SCALE, RoundingMode.UNNECESSARY))
         }
+
+        /**
+         * Read an amount a person TYPED, or null when it is not one.
+         *
+         * **Deliberately not [of].** That function parses the wire and
+         * must stay strict. This one reads a text field, where `1500`,
+         * `1,500`, `১৫০০` and `৳1500` all mean the same amount and none
+         * of them is canonical. Sending them as typed is the defect
+         * this exists to close: the server refused every one, and a
+         * teacher's class was silently never created.
+         *
+         * **Representation only, never arithmetic.** It maps Bangla
+         * digits, drops separators and a taka sign, and pads to two
+         * places. It refuses rather than rounds a third decimal: the
+         * rounding mode is declared once on the server [D-20], and a
+         * client that rounded would be a second declaration.
+         *
+         * Blank returns null like any non-amount. What blank MEANS --
+         * inherit the class fee -- is the caller's decision, and
+         * returning [ZERO] here would waive the fee instead.
+         *
+         * @param raw The text as typed
+         * @return The amount, or null when the text is not an amount
+         */
+        fun fromTyped(raw: String): Money? {
+            val latin =
+                raw
+                    .trim()
+                    .removePrefix(TAKA_SIGN)
+                    .trim()
+                    .map(::latinDigit)
+                    .joinToString("")
+            if (!TYPED_PATTERN.matches(latin)) return null
+
+            val plain = latin.replace(",", "")
+            return try {
+                Money(BigDecimal(plain).setScale(SCALE, RoundingMode.UNNECESSARY))
+            } catch (_: ArithmeticException) {
+                null
+            }
+        }
+
+        /** The taka sign a person may type before an amount. */
+        private const val TAKA_SIGN: String = "৳"
+
+        /** Bangla digit zero, U+09E6; the nine that follow are contiguous. */
+        private const val BANGLA_ZERO: Char = '০'
+
+        /** The offsets of the ten digits from zero, in either script. */
+        private val DIGIT_OFFSETS: IntRange = 0..9
+
+        /**
+         * What a typed amount may look like once its digits are Latin:
+         * digits with optional comma groups, then up to two decimals.
+         * The comma rule admits both the Western `1,500,000` and the
+         * South Asian `15,00,000` grouping, and refuses a leading or
+         * trailing comma.
+         */
+        private val TYPED_PATTERN: Regex =
+            Regex("""^[0-9]+(,[0-9]+)*(\.[0-9]{1,2})?$""")
+
+        /**
+         * Map one Bangla digit to its Latin counterpart.
+         *
+         * @param char Any character
+         * @return The Latin digit, or the character unchanged
+         */
+        private fun latinDigit(char: Char): Char {
+            val offset = char - BANGLA_ZERO
+            return if (offset in DIGIT_OFFSETS) '0' + offset else char
+        }
     }
 }
