@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The two tokens the WINDOW needs before Compose draws anything.
+  Mirrors Color.kt: "background" and "surface" (the bottom bar's ground).
+  Kept to these two; every other colour lives in Compose.
+-->
+<resources>
+    <color name="window_background">#FFF4F6F9</color>
+    <color name="navigation_bar">#FFFFFFFF</color>
+</resources>
