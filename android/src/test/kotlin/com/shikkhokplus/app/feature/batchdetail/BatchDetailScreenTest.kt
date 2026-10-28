@@ -1,5 +1,10 @@
 package com.shikkhokplus.app.feature.batchdetail
 
+import androidx.compose.ui.test.performScrollTo
+import com.shikkhokplus.app.feature.batchdetail.ui.TAG_BATCH_EDIT
+import com.shikkhokplus.app.feature.batchdetail.ui.EditBatchScreen
+import com.shikkhokplus.app.core.ui.TAG_FORM_SUBMIT
+import com.shikkhokplus.app.core.network.BatchEdit
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -83,6 +88,58 @@ class BatchDetailScreenTest {
 
         assertEquals(listOf(BatchTab.NOTICES), chosen)
         assertEquals(1, added)
+    }
+
+    @Test
+    fun `the pencil opens the edit form`() {
+        var edits = 0
+        compose.setContent {
+            ShikkhokTheme {
+                BatchDetailScreen(
+                    batchName = "Physics A",
+                    header = null,
+                    tab = BatchTab.STUDENTS,
+                    onSelect = {},
+                    onBack = {},
+                    onAdd = {},
+                    onSchedule = {},
+                    onEdit = { edits++ },
+                ) {}
+            }
+        }
+
+        compose.onNodeWithTag(TAG_BATCH_EDIT).performClick()
+
+        assertEquals(1, edits)
+    }
+
+    @Test
+    fun `the edit form starts from the batch and saves what was typed`() {
+        val saved = mutableListOf<BatchEdit>()
+        compose.setContent {
+            ShikkhokTheme {
+                EditBatchScreen(
+                    header = BatchHeader("Physics A", Money.of("1200.00"), 10, emptyList(), listOf("Optics", "Waves")),
+                    write = WriteState.Idle,
+                    onSave = { saved += it },
+                    onClose = {},
+                )
+            }
+        }
+
+        compose.onNodeWithTag(TAG_FORM_SUBMIT).performScrollTo().performClick()
+
+        assertEquals(
+            listOf(
+                BatchEdit(
+                    name = "Physics A",
+                    subjects = listOf("Optics", "Waves"),
+                    defaultFee = "1200.00",
+                    feeDueDay = 10,
+                ),
+            ),
+            saved,
+        )
     }
 
     @Test

@@ -3,6 +3,7 @@ package com.shikkhokplus.app.feature.batchdetail
 import com.shikkhokplus.app.core.model.Money
 import com.shikkhokplus.app.core.network.AnnouncementDto
 import com.shikkhokplus.app.core.network.BatchDto
+import com.shikkhokplus.app.core.network.BatchEdit
 import com.shikkhokplus.app.core.network.ErrorBody
 import com.shikkhokplus.app.core.network.ErrorEnvelope
 import com.shikkhokplus.app.core.network.RosterFeeRowDto
@@ -72,7 +73,22 @@ class BatchDetailViewModelTest {
     private class Fake(
         var fees: AuthResult<List<RosterFeeRowDto>> = AuthResult.Ok(emptyList()),
         var write: AuthResult<Unit> = AuthResult.Ok(Unit),
+        var edited: AuthResult<BatchDto>? = null,
     ) : BatchDetailRepository {
+        val edits = mutableListOf<BatchEdit>()
+
+        override suspend fun editBatch(batchId: String, edit: BatchEdit): AuthResult<BatchDto> {
+            edits += edit
+            return edited ?: AuthResult.Ok(
+                BatchDto(
+                    id = batchId,
+                    name = edit.name ?: "Physics A",
+                    defaultFee = Money.of("1600.00"),
+                    feeDueDay = 5,
+                ),
+            )
+        }
+
         val posted = mutableListOf<String>()
         val removed = mutableListOf<String>()
         var notices = listOf(AnnouncementDto("n-1", "Bring a calculator", "2026-10-26T09:00:00Z"))
@@ -166,5 +182,50 @@ class BatchDetailViewModelTest {
         model.select(BatchTab.NOTICES)
 
         assertEquals(BatchTab.NOTICES, model.state.value.tab)
+    }
+
+    @Test
+    fun `an edit sends what changed and shows the batch the server returns`() = runTest(dispatcher) {
+        val fake = Fake()
+        val model = BatchDetailViewModel(fake)
+        model.load("b-1")
+        advanceUntilIdle()
+
+        model.editBatch(BatchEdit(name = "Physics B", defaultFee = "1600.00", feeDueDay = 5))
+        advanceUntilIdle()
+
+        assertEquals(listOf(BatchEdit(name = "Physics B", defaultFee = "1600.00", feeDueDay = 5)), fake.edits)
+        assertEquals("Physics B", model.state.value.header?.name)
+        assertEquals(Money.of("1600.00"), model.state.value.header?.defaultFee)
+        assertEquals(WriteState.Saved, model.state.value.batchWrite)
+
+        model.acknowledgeBatchEdit()
+        assertEquals(WriteState.Idle, model.state.value.batchWrite)
+    }
+
+    @Test
+    fun `a refused edit keeps the header and carries the server's key`() = runTest(dispatcher) {
+        val envelope = ErrorEnvelope(ErrorBody(code = "X", messageKey = "batch.subject_in_use", retryable = false))
+        val model = BatchDetailViewModel(Fake(edited = AuthResult.Refused(envelope)))
+        model.load("b-1")
+        advanceUntilIdle()
+
+        model.editBatch(BatchEdit(subjects = listOf("Waves")))
+        advanceUntilIdle()
+
+        assertEquals("Physics A", model.state.value.header?.name)
+        assertEquals(WriteState.Failed("batch.subject_in_use", false), model.state.value.batchWrite)
+    }
+
+    @Test
+    fun `an edit that cannot reach the server is retryable`() = runTest(dispatcher) {
+        val model = BatchDetailViewModel(Fake(edited = AuthResult.TransportFailure))
+        model.load("b-1")
+        advanceUntilIdle()
+
+        model.editBatch(BatchEdit(name = "Physics B"))
+        advanceUntilIdle()
+
+        assertEquals(true, (model.state.value.batchWrite as WriteState.Failed).retryable)
     }
 }

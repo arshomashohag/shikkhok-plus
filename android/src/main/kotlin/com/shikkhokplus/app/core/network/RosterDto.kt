@@ -145,3 +145,21 @@ data class GuardianChildDto(
     @SerialName("batch_name") val batchName: String,
     @SerialName("teacher_display_name") val teacherDisplayName: String? = null,
 )
+
+/**
+ * An edit to a batch. Only what is set is sent: `explicitNulls` is off,
+ * so a null field is left out and the server leaves it alone.
+ *
+ * @property name The teacher's name for the class
+ * @property subjects The full list of subjects to keep
+ * @property defaultFee The monthly fee as the canonical string, for
+ *   cycles not yet generated
+ * @property feeDueDay Day of month 1-31
+ */
+@Serializable
+data class BatchEdit(
+    val name: String? = null,
+    val subjects: List<String>? = null,
+    @SerialName("default_fee") val defaultFee: String? = null,
+    @SerialName("fee_due_day") val feeDueDay: Int? = null,
+)

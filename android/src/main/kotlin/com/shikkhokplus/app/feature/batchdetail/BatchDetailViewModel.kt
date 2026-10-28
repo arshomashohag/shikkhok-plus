@@ -2,6 +2,7 @@ package com.shikkhokplus.app.feature.batchdetail
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.shikkhokplus.app.core.network.BatchEdit
 import com.shikkhokplus.app.core.ui.WriteState
 import com.shikkhokplus.app.feature.auth.AuthResult
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -41,6 +42,44 @@ class BatchDetailViewModel(
         }
         refreshFees()
         refreshNotices()
+    }
+
+    /**
+     * Edit the batch's name, subjects, fee or due day.
+     *
+     * A new fee reaches only cycles generated after it, so the fee chips
+     * are read again to show what still stands.
+     *
+     * @param edit What changes
+     */
+    fun editBatch(edit: BatchEdit) {
+        val id = batchId ?: return
+        if (_state.value.batchWrite == WriteState.Saving) return
+        _state.update { it.copy(batchWrite = WriteState.Saving) }
+        viewModelScope.launch {
+            when (val result = repository.editBatch(id, edit)) {
+                is AuthResult.Ok -> {
+                    _state.update {
+                        it.copy(header = BatchDetailMapper.header(result.value), batchWrite = WriteState.Saved)
+                    }
+                    refreshFees()
+                }
+                is AuthResult.Refused ->
+                    _state.update {
+                        it.copy(
+                            batchWrite =
+                                WriteState.Failed(result.envelope.error.messageKey, result.envelope.error.retryable),
+                        )
+                    }
+                AuthResult.TransportFailure ->
+                    _state.update { it.copy(batchWrite = WriteState.Failed(OFFLINE_KEY, retryable = true)) }
+            }
+        }
+    }
+
+    /** Forget a finished or failed batch edit, once shown. */
+    fun acknowledgeBatchEdit() {
+        _state.update { it.copy(batchWrite = WriteState.Idle) }
     }
 
     /** Read the fee chips again, as after a failure or a payment. */

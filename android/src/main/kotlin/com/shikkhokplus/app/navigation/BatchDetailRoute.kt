@@ -1,5 +1,7 @@
 package com.shikkhokplus.app.navigation
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -18,10 +20,12 @@ import com.shikkhokplus.app.core.network.HttpRecordRepository
 import com.shikkhokplus.app.core.network.HttpRosterRepository
 import com.shikkhokplus.app.core.network.HttpSessionsRepository
 import com.shikkhokplus.app.core.queue.QueueStore
+import com.shikkhokplus.app.feature.batchdetail.BatchDetailState
 import com.shikkhokplus.app.feature.batchdetail.BatchDetailViewModel
 import com.shikkhokplus.app.feature.batchdetail.BatchTab
 import com.shikkhokplus.app.feature.batchdetail.ui.BatchDetailScreen
 import com.shikkhokplus.app.feature.batchdetail.ui.ClassesTab
+import com.shikkhokplus.app.feature.batchdetail.ui.EditBatchScreen
 import com.shikkhokplus.app.feature.batchdetail.ui.ExamsTab
 import com.shikkhokplus.app.feature.batchdetail.ui.NoticesTab
 import com.shikkhokplus.app.feature.batchdetail.ui.StudentsTab
@@ -82,6 +86,7 @@ internal fun NavGraphBuilder.batchDetailRoute(
         val saved by recorder.saved.collectAsState()
         var addingClass by remember { mutableStateOf(false) }
         var composingNotice by remember { mutableStateOf(false) }
+        var editing by remember { mutableStateOf(false) }
 
         LaunchedEffect(id) {
             detail.load(id)
@@ -103,6 +108,7 @@ internal fun NavGraphBuilder.batchDetailRoute(
             onSelect = detail::select,
             onBack = { navController.popBackStack() },
             onSchedule = { navController.navigate(Destination.BatchSchedule.of(id)) },
+            onEdit = { editing = true },
             onAdd = {
                 when (state.tab) {
                     BatchTab.STUDENTS -> navController.navigate(Destination.AddStudent.of(id))
@@ -168,6 +174,7 @@ internal fun NavGraphBuilder.batchDetailRoute(
             }
         }
 
+        if (editing) EditOverlay(detail, state) { editing = false }
         if (addingClass) {
             AddSessionDialog(
                 onAdd = { date, start ->
@@ -192,6 +199,24 @@ internal fun NavGraphBuilder.batchDetailRoute(
             )
         }
     }
+}
+
+/**
+ * The batch's edit form over the batch screen, until saved or closed.
+ *
+ * @param detail The batch view model
+ * @param state Its state
+ * @param onClose Called once the form closes
+ */
+@Composable
+private fun EditOverlay(detail: BatchDetailViewModel, state: BatchDetailState, onClose: () -> Unit) {
+    val header = state.header ?: return
+    val close = {
+        onClose()
+        detail.acknowledgeBatchEdit()
+    }
+    BackHandler(onBack = close)
+    EditBatchScreen(header = header, write = state.batchWrite, onSave = detail::editBatch, onClose = close)
 }
 
 /** `HH:MM` out of `HH:MM:SS`. */

@@ -9,7 +9,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -20,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
@@ -41,6 +45,9 @@ const val TAG_BATCH_FAB: String = "batch_fab"
 /** The link to the batch's schedule. */
 const val TAG_BATCH_SCHEDULE: String = "batch_schedule"
 
+/** The pencil that opens the batch's edit form. */
+const val TAG_BATCH_EDIT: String = "batch_edit"
+
 /** One information tag under the title. */
 const val TAG_BATCH_INFO: String = "batch_info"
 
@@ -54,6 +61,7 @@ const val TAG_BATCH_INFO: String = "batch_info"
  * @param onBack Called to leave
  * @param onAdd Called by the add button, for the open tab
  * @param onSchedule Called to edit the batch's class days and time
+ * @param onEdit Called to edit the batch's name, subjects and fee
  * @param modifier The layout modifier
  * @param content The open tab's contents
  */
@@ -66,6 +74,7 @@ fun BatchDetailScreen(
     onBack: () -> Unit,
     onAdd: () -> Unit,
     onSchedule: () -> Unit,
+    onEdit: () -> Unit = {},
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
@@ -75,6 +84,13 @@ fun BatchDetailScreen(
         onBack = onBack,
         actions = {
             TextAction(stringResource(R.string.batch_schedule), onSchedule, Modifier.testTag(TAG_BATCH_SCHEDULE))
+            IconButton(onClick = onEdit, modifier = Modifier.testTag(TAG_BATCH_EDIT)) {
+                Icon(
+                    painterResource(R.drawable.ic_edit),
+                    stringResource(R.string.batch_edit_title),
+                    Modifier.size(22.dp),
+                )
+            }
         },
         modifier = modifier,
         header = {

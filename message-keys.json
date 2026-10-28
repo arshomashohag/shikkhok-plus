@@ -7,6 +7,7 @@
     "authz.lens.not_available",
     "batch.create.subject_required",
     "batch.not_found",
+    "batch.subject_in_use",
     "enrollment.remove.claimed",
     "enrollment.remove.erased",
     "enrollment.student_already_in_batch",

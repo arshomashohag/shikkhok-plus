@@ -5,6 +5,7 @@ import com.shikkhokplus.app.feature.batchdetail.BatchDetailRepository
 import io.ktor.client.HttpClient
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
+import io.ktor.client.request.patch
 import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
@@ -32,6 +33,9 @@ class HttpBatchDetailRepository(
             AuthResult.TransportFailure -> AuthResult.TransportFailure
         }
     }
+
+    override suspend fun editBatch(batchId: String, edit: BatchEdit): AuthResult<BatchDto> =
+        call { client.patch("/v1/batches/$batchId") { setBody(edit) } }
 
     override suspend fun fees(batchId: String): AuthResult<List<RosterFeeRowDto>> =
         call { client.get("/v1/batches/$batchId/fees") }

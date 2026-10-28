@@ -32,6 +32,7 @@ object MessageKeys {
         "auth.token.not_valid" to R.string.auth_token_not_valid,
         // U4: batches, enrollment seats and the guardian's children.
         "batch.not_found" to R.string.batch_not_found,
+        "batch.subject_in_use" to R.string.batch_subject_in_use,
         "batch.create.subject_required" to
             R.string.batch_create_subject_required,
         "enrollment.remove.claimed" to R.string.enrollment_remove_claimed,

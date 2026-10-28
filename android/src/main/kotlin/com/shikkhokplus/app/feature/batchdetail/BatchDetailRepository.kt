@@ -2,6 +2,7 @@ package com.shikkhokplus.app.feature.batchdetail
 
 import com.shikkhokplus.app.core.network.AnnouncementDto
 import com.shikkhokplus.app.core.network.BatchDto
+import com.shikkhokplus.app.core.network.BatchEdit
 import com.shikkhokplus.app.core.network.RosterFeeRowDto
 import com.shikkhokplus.app.feature.auth.AuthResult
 
@@ -14,6 +15,15 @@ interface BatchDetailRepository {
      * @return The batch, a refusal, or a transport failure
      */
     suspend fun batch(batchId: String): AuthResult<BatchDto>
+
+    /**
+     * Edit the batch's name, subjects, fee or due day.
+     *
+     * @param batchId The batch
+     * @param edit What changes
+     * @return The batch as it now stands, a refusal, or a transport failure
+     */
+    suspend fun editBatch(batchId: String, edit: BatchEdit): AuthResult<BatchDto>
 
     /**
      * Read each seat's fee position, for the Students tab's chips.

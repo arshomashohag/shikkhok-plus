@@ -69,8 +69,10 @@ class BatchUpdateRequest(BaseModel):
     Every field optional, because a PATCH names only what changes.
 
     :ivar name: The teacher's name for the class
+    :ivar subjects: The full list of subjects to keep; one with an exam
+        cannot be left out
     :ivar teacher_display_name: What students see the teacher called
-    :ivar default_fee: The inherited fee
+    :ivar default_fee: The inherited fee, for cycles not yet generated
     :ivar fee_due_day: Day of month 1-31
     :ivar collection_number: Where payments are sent
     :ivar collection_channel: Which service that number belongs to
@@ -81,6 +83,7 @@ class BatchUpdateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str | None = Field(default=None, min_length=1, max_length=120)
+    subjects: list[str] | None = Field(default=None, min_length=1)
     teacher_display_name: str | None = Field(default=None, max_length=120)
     default_fee: MoneyField | None = None
     fee_due_day: int | None = Field(default=None, ge=1, le=31)

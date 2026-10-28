@@ -731,4 +731,7 @@
     <string name="inbox_fee_reminder_title">বেতনের রিমাইন্ডার · %1$s</string>
     <string name="inbox_fee_reminder_body">%1$s বকেয়া, %2$s থেকে।</string>
     <string name="inbox_fee_reminder_body_no_period">%1$s বকেয়া।</string>
+    <string name="batch_subject_in_use">যে বিষয়ে পরীক্ষা আছে সেটি সরানো যাবে না। বিষয়টি রাখুন, অথবা আগে পরীক্ষাগুলো মুছুন।</string>
+    <string name="batch_edit_title">ব্যাচ সম্পাদনা</string>
+    <string name="batch_edit_save">পরিবর্তন সংরক্ষণ করুন</string>
 </resources>

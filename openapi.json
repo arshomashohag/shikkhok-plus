@@ -452,6 +452,123 @@
         "title": "BatchResponse",
         "type": "object"
       },
+      "BatchUpdateRequest": {
+        "additionalProperties": false,
+        "description": "Edit a batch [AC2.3.1].\n\nEvery field optional, because a PATCH names only what changes.\n\n:ivar name: The teacher's name for the class\n:ivar subjects: The full list of subjects to keep; one with an exam\n    cannot be left out\n:ivar teacher_display_name: What students see the teacher called\n:ivar default_fee: The inherited fee, for cycles not yet generated\n:ivar fee_due_day: Day of month 1-31\n:ivar collection_number: Where payments are sent\n:ivar collection_channel: Which service that number belongs to\n:ivar marksheet_visible: U6's toggle\n:ivar active: False collapses the batch to read-only history",
+        "properties": {
+          "active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active"
+          },
+          "collection_channel": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Collection Channel"
+          },
+          "collection_number": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Collection Number"
+          },
+          "default_fee": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fee_due_day": {
+            "anyOf": [
+              {
+                "maximum": 31.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fee Due Day"
+          },
+          "marksheet_visible": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Marksheet Visible"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "subjects": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subjects"
+          },
+          "teacher_display_name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Teacher Display Name"
+          }
+        },
+        "title": "BatchUpdateRequest",
+        "type": "object"
+      },
       "ClaimQueueItemResponse": {
         "additionalProperties": false,
         "description": "One claim waiting for the teacher (T4).\n\n**The comparison is the server's.** ``comparison`` and\n``difference`` are measured against what the period CHARGED\n[BR5.3]; the client shows them and never subtracts.\n\n:ivar claim_id: The claim\n:ivar enrollment_id: The seat it is against\n:ivar display_name: The student, as the teacher typed the name\n:ivar batch_name: The batch\n:ivar period: The period the claim resolved to\n:ivar claimed_amount: What the payer says they sent\n:ivar charged: What that period charged\n:ivar comparison: ``matches``, ``short`` or ``over``\n:ivar difference: How far from the charge, never negative\n:ivar channel: The service the money moved through\n:ivar transaction_id: The reference quoted, if any\n:ivar submitted_at: When it was sent\n:ivar submitted_by: ``student`` or ``guardian``, or null\n:ivar submitter_phone: The number the teacher holds for them\n:ivar duplicate_of: The earlier claim quoting the same reference",
@@ -4056,6 +4173,60 @@
           }
         },
         "summary": "Create Batch",
+        "tags": [
+          "batches"
+        ]
+      }
+    },
+    "/v1/batches/{batch_id}": {
+      "patch": {
+        "description": "Edit a batch's name, subjects, fee or due day [AC2.3.1].\n\nA new fee reaches only cycles generated after it; what is already\nowed is never rewritten.\n\n:param batch_id: The batch, from the route path\n:param body: What changes; an omitted field is left alone\n:param lens: The teacher lens carrying the owner id\n:param session: The request-scoped session\n:return: The batch as the list describes it",
+        "operationId": "update_batch_v1_batches__batch_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Batch",
         "tags": [
           "batches"
         ]

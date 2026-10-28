@@ -116,6 +116,7 @@ data class Notice(
  * @property fees The fee chips
  * @property notices The notices, or null until read or when the read failed
  * @property noticeWrite A notice being posted, changed or removed
+ * @property batchWrite An edit to the batch itself
  */
 data class BatchDetailState(
     val tab: BatchTab = BatchTab.STUDENTS,
@@ -123,4 +124,5 @@ data class BatchDetailState(
     val fees: FeeChips = FeeChips.Loading,
     val notices: List<Notice>? = null,
     val noticeWrite: WriteState = WriteState.Idle,
+    val batchWrite: WriteState = WriteState.Idle,
 )

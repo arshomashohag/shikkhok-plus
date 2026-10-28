@@ -786,4 +786,7 @@
     <string name="inbox_fee_reminder_title">Fee reminder · %1$s</string>
     <string name="inbox_fee_reminder_body">%1$s is due, from %2$s.</string>
     <string name="inbox_fee_reminder_body_no_period">%1$s is due.</string>
+    <string name="batch_subject_in_use">A subject with an exam can’t be removed. Keep it, or delete its exams first.</string>
+    <string name="batch_edit_title">Edit batch</string>
+    <string name="batch_edit_save">Save changes</string>
 </resources>

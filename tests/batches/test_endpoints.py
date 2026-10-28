@@ -455,3 +455,49 @@ def test_a_subject_key_from_the_batch_list_creates_an_exam(
     )
 
     assert response.status_code in (200, 201), response.text
+
+
+def test_a_batch_edit_returns_the_batch_as_the_list_shows_it(
+    client: TestClient, owner_session: Session, teacher: TeacherFixture
+) -> None:
+    """PATCH renames, re-subjects and re-prices, money as a string.
+
+    :param client: The test client
+    :param owner_session: A session able to arrange fixture data
+    :param teacher: The teacher
+    :return: None
+    """
+    response = client.patch(
+        f"/v1/batches/{teacher.batch_id}",
+        json={"name": "Batch Y", "subjects": ["Optics"], "default_fee": "1600.00"},
+        headers=_auth(client, owner_session, teacher.account_id),
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert (body["name"], body["subjects"], body["default_fee"]) == (
+        "Batch Y",
+        ["Optics"],
+        "1600.00",
+    )
+
+
+def test_another_teacher_cannot_edit_a_batch_over_http(
+    client: TestClient, owner_session: Session, teacher: TeacherFixture
+) -> None:
+    """A stranger's PATCH is the same 404 a missing batch gets.
+
+    :param client: The test client
+    :param owner_session: A session able to arrange fixture data
+    :param teacher: The teacher
+    :return: None
+    """
+    stranger = make_teacher(owner_session, name="Other")
+
+    response = client.patch(
+        f"/v1/batches/{teacher.batch_id}",
+        json={"name": "Taken"},
+        headers=_auth(client, owner_session, stranger.account_id),
+    )
+
+    assert response.status_code == 404

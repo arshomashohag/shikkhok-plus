@@ -66,7 +66,22 @@ fun splitSubjects(raw: String): List<String> =
     raw.split(",").map(String::trim).filter(String::isNotEmpty)
 
 /**
- * Create a class.
+ * What the batch form starts from, when it edits rather than creates.
+ *
+ * @property name The batch's name
+ * @property subjects Its subjects, comma-separated as typed
+ * @property fee Its fee as the canonical string, or blank
+ * @property dueDay Its due day, or blank
+ */
+data class BatchFormValues(
+    val name: String = "",
+    val subjects: String = "",
+    val fee: String = "",
+    val dueDay: String = "",
+)
+
+/**
+ * Create a class, or edit one.
  *
  * **Client-side validation is FORMAT only, never policy** [layering
  * rules]. The submit button is disabled until a name exists, which is
@@ -83,6 +98,10 @@ fun splitSubjects(raw: String): List<String> =
  *   and cannot submit twice
  * @param error Why the last write failed, already resolved to text, or
  *   null. The typed values stay in the fields beside it
+ * @param initial What the fields start with; blank to create
+ * @param withSchedule Whether to offer class days. An edit leaves them
+ *   to the batch's own schedule screen
+ * @param submitLabel The submit button's words
  */
 @Composable
 fun BatchCreateForm(
@@ -91,11 +110,14 @@ fun BatchCreateForm(
     modifier: Modifier = Modifier,
     saving: Boolean = false,
     error: String? = null,
+    initial: BatchFormValues = BatchFormValues(),
+    withSchedule: Boolean = true,
+    submitLabel: String = stringResource(R.string.batch_create_submit),
 ) {
-    var name by remember { mutableStateOf("") }
-    var subjects by remember { mutableStateOf("") }
-    var fee by remember { mutableStateOf("") }
-    var dueDay by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf(initial.name) }
+    var subjects by remember { mutableStateOf(initial.subjects) }
+    var fee by remember { mutableStateOf(initial.fee) }
+    var dueDay by remember { mutableStateOf(initial.dueDay) }
     var schedule by remember { mutableStateOf(ScheduleDraft()) }
 
     Column(
@@ -159,7 +181,7 @@ fun BatchCreateForm(
         // batch created without them had no schedule, so no session was
         // ever generated and attendance could not be taken (T0: "name the
         // batch and pick its class days, time and monthly fee").
-        ScheduleEditor(draft = schedule, onChange = { schedule = it })
+        if (withSchedule) ScheduleEditor(draft = schedule, onChange = { schedule = it })
 
         // **Shown on the form, beside what was typed.** The form used
         // to close before the server answered, so a refusal had nowhere
@@ -204,7 +226,7 @@ fun BatchCreateForm(
                         schedule.isValid,
                 modifier = Modifier.testTag(TAG_FORM_SUBMIT),
             ) {
-                Text(stringResource(R.string.batch_create_submit))
+                Text(submitLabel)
             }
             TextButton(onClick = onCancel, modifier = Modifier.testTag(TAG_FORM_CANCEL)) {
                 Text(stringResource(R.string.action_cancel))

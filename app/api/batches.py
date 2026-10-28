@@ -29,6 +29,7 @@ from app.money.wire import parse, to_wire
 from app.schemas.batches import (
     BatchCreateRequest,
     BatchResponse,
+    BatchUpdateRequest,
     CurrentFeeResponse,
     EnrollmentCreateRequest,
     GuardianChildResponse,
@@ -210,6 +211,44 @@ def create_batch(
             ],
         )
     return _batch_response(summary)
+
+
+@router.patch("/batches/{batch_id}", response_model=BatchResponse)
+def update_batch(
+    batch_id: uuid.UUID,
+    body: BatchUpdateRequest,
+    lens: Annotated[TeacherLens, Depends(teacher_lens)],
+    session: Annotated[Session, Depends(get_session)],
+) -> BatchResponse:
+    """Edit a batch's name, subjects, fee or due day [AC2.3.1].
+
+    A new fee reaches only cycles generated after it; what is already
+    owed is never rewritten.
+
+    :param batch_id: The batch, from the route path
+    :param body: What changes; an omitted field is left alone
+    :param lens: The teacher lens carrying the owner id
+    :param session: The request-scoped session
+    :return: The batch as the list describes it
+    """
+    return _batch_response(
+        service.update_batch(
+            session,
+            lens=lens,
+            batch_id=batch_id,
+            changes=service.BatchChanges(
+                name=body.name,
+                subjects=body.subjects,
+                teacher_display_name=body.teacher_display_name,
+                default_fee=_from_wire(body.default_fee),
+                fee_due_day=body.fee_due_day,
+                collection_number=body.collection_number,
+                collection_channel=body.collection_channel,
+                marksheet_visible=body.marksheet_visible,
+                active=body.active,
+            ),
+        )
+    )
 
 
 @router.get("/batches", response_model=list[BatchResponse])

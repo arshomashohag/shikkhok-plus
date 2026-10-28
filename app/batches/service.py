@@ -28,11 +28,12 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from app.authz.lenses import GuardianLens, StudentLens, TeacherLens
-from app.db.models import Account, Batch, BatchSubject, Enrollment, ScheduleSlot
+from app.db.models import Account, Batch, BatchSubject, Enrollment, Exam, ScheduleSlot
 from app.errors import AuthorizationError, ConflictError, ValidationError
 from app.money import Money
 
 __all__ = [
+    "BatchChanges",
     "BatchNotFound",
     "BatchSummary",
     "EnrollmentNotRemovable",
@@ -46,6 +47,7 @@ __all__ = [
     "list_student_batches",
     "remove_enrollment",
     "set_inactive_from",
+    "update_batch",
 ]
 
 
@@ -896,3 +898,134 @@ def add_enrollment(
     session.add(record)
     session.commit()
     return _roster_row(record)
+
+
+@dataclass(frozen=True, slots=True)
+class BatchChanges:
+    """What an edit names. ``None`` means leave it as it is.
+
+    :ivar name: The teacher's name for the class
+    :ivar subjects: The full list of subjects to keep, or None
+    :ivar teacher_display_name: What students see the teacher called
+    :ivar default_fee: The inherited fee, for cycles not yet generated
+    :ivar fee_due_day: Day of month 1-31
+    :ivar collection_number: Where payments are sent
+    :ivar collection_channel: Which service that number belongs to
+    :ivar marksheet_visible: U6's toggle
+    :ivar active: False collapses the batch to read-only history
+    """
+
+    name: str | None = None
+    subjects: list[str] | None = None
+    teacher_display_name: str | None = None
+    default_fee: Money | None = None
+    fee_due_day: int | None = None
+    collection_number: str | None = None
+    collection_channel: str | None = None
+    marksheet_visible: bool | None = None
+    active: bool | None = None
+
+
+def update_batch(
+    session: Session,
+    *,
+    lens: TeacherLens,
+    batch_id: uuid.UUID,
+    changes: BatchChanges,
+) -> BatchSummary:
+    """Edit a batch this lens owns [AC2.3.1].
+
+    **A fee change is forward-only.** A charge is a ledger entry written
+    when its cycle generated, so a new ``default_fee`` reaches only the
+    cycles generated after it; nothing already owed is rewritten.
+
+    **Subjects are the full list to keep.** A name already present keeps
+    its key, so sessions and exams naming it are untouched; a new name
+    is added; a name left out is removed -- unless an exam was set in it,
+    which refuses the whole edit, because the exam would lose what it
+    was a test of. A class that named a removed subject keeps its record
+    and loses only the subject label.
+
+    :param session: The session to write through
+    :param lens: The teacher lens carrying the owner id
+    :param batch_id: The batch
+    :param changes: What to change
+    :return: The batch as the list describes it
+    :raises BatchNotFound: No such batch, or another owner's
+    :raises ValidationError: The subject list is empty
+    :raises ConflictError: A subject to remove has an exam
+    """
+    batch = _owned_batch(session, lens=lens, batch_id=batch_id)
+    if changes.subjects is not None:
+        _replace_subjects(session, lens=lens, batch_id=batch.id, names=changes.subjects)
+
+    for column in (
+        "name",
+        "teacher_display_name",
+        "default_fee",
+        "fee_due_day",
+        "collection_number",
+        "collection_channel",
+        "marksheet_visible",
+        "active",
+    ):
+        value = getattr(changes, column)
+        if value is not None:
+            setattr(batch, column, value)
+    session.commit()
+
+    return next(
+        summary
+        for summary in list_batches(session, lens=lens)
+        if summary.batch.id == batch.id
+    )
+
+
+def _replace_subjects(
+    session: Session, *, lens: TeacherLens, batch_id: uuid.UUID, names: list[str]
+) -> None:
+    """Make a batch's subjects exactly these names, keeping existing keys.
+
+    Re-checks ownership itself rather than trusting its caller, so the
+    write sweep in ``test_every_write_is_scoped.py`` sees it scoped.
+
+    :param session: The session to write through
+    :param lens: The teacher lens carrying the owner id
+    :param batch_id: The batch
+    :param names: The subjects to keep
+    :raises ValidationError: The list is empty
+    :raises ConflictError: A subject to remove has an exam
+    """
+    batch_id = _owned_batch(session, lens=lens, batch_id=batch_id).id
+    wanted = list(dict.fromkeys(name.strip() for name in names if name.strip()))
+    if not wanted:
+        raise ValidationError(
+            code="BATCH_NEEDS_A_SUBJECT",
+            message_key="batch.create.subject_required",
+        )
+    existing = list(
+        session.scalars(
+            sa.select(BatchSubject).where(BatchSubject.batch_id == batch_id)
+        )
+    )
+    dropped = [row for row in existing if row.name not in wanted]
+    examined = session.scalar(
+        sa.select(sa.func.count())
+        .select_from(Exam)
+        .where(Exam.batch_subject_id.in_([row.id for row in dropped]))
+    )
+    if dropped and examined:
+        session.rollback()
+        raise ConflictError(
+            code="SUBJECT_HAS_EXAMS",
+            message_key="batch.subject_in_use",
+        )
+    for row in dropped:
+        session.delete(row)
+    kept = {row.name for row in existing}
+    session.add_all(
+        BatchSubject(batch_id=batch_id, name=name)
+        for name in wanted
+        if name not in kept
+    )
+    session.flush()
