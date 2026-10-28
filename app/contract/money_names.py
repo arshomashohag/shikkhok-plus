@@ -99,6 +99,10 @@ NON_MONEY_FIELDS: Final[dict[tuple[str, str], str]] = {
         'payment was decided ("Paid 8 Oct"). The schema\'s money '
         "properties reference Money."
     ),
+    ("PaymentLineResponse", "due_date"): (
+        "A DATE, not an amount: when a month on G3's payment history "
+        "was due. The line's money property, `amount`, references Money."
+    ),
     ("PayableResponse", "due_date"): (
         "A DATE, not an amount: when the month offered for payment was "
         "due. Its money property, `amount_due`, references Money."
@@ -127,6 +131,12 @@ NON_MONEY_FIELDS: Final[dict[tuple[str, str], str]] = {
     ),
     ("ExamUpdateRequest", "total_marks"): (
         "The same count inbound, on edit, which no longer reuses the creation body."
+    ),
+    ("ChildResultResponse", "total_marks"): (
+        "The exam's mark count on G1's latest results, not money."
+    ),
+    ("ProgressSummaryResponse", "total_marks"): (
+        "The last test's mark count on G2's summary line, not money."
     ),
     ("LastResultResponse", "total_marks"): (
         "The exam's mark count on S1's \"Last test 44/50\", not money."

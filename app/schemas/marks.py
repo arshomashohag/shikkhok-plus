@@ -316,6 +316,7 @@ class ProgressEntryResponse(BaseModel):
     :ivar rank: The viewer's rank, only where the marksheet publishes
         its comparison [BR6.4]; else null
     :ivar ranked_out_of: How many marked results the rank is among
+    :ivar batch_average: The batch's average mark, on the same condition
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -329,3 +330,4 @@ class ProgressEntryResponse(BaseModel):
     subject_name: str | None = None
     rank: int | None = Field(default=None, ge=1)
     ranked_out_of: int | None = Field(default=None, ge=1)
+    batch_average: float | None = Field(default=None, ge=0)

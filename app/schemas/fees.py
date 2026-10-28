@@ -440,6 +440,9 @@ class PayableResponse(BaseModel):
     :ivar period: The month a claim would be recorded against
     :ivar amount_due: What is still owed on it
     :ivar due_date: When it was due, or null
+    :ivar total_due: Everything the seat owes, that month included
+    :ivar later_periods: How many later months also owe
+    :ivar days_late: Days past the oldest late due date, or null
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -449,6 +452,9 @@ class PayableResponse(BaseModel):
     period: str = Field(pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")
     amount_due: MoneyField
     due_date: dt.date | None = None
+    total_due: MoneyField
+    later_periods: int = Field(ge=0)
+    days_late: int | None = Field(default=None, ge=1)
 
 
 class WaitingPaymentResponse(BaseModel):
@@ -456,12 +462,18 @@ class WaitingPaymentResponse(BaseModel):
 
     :ivar batch_name: The batch
     :ivar period: The month the waiting payment is for
+    :ivar amount: What was claimed
+    :ivar channel: Which app it moved through
+    :ivar submitted_at: When it was sent
     """
 
     model_config = ConfigDict(extra="forbid")
 
     batch_name: str
     period: str = Field(pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")
+    amount: MoneyField
+    channel: str
+    submitted_at: dt.datetime | None = None
 
 
 class PayablesResponse(BaseModel):

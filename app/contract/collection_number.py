@@ -67,6 +67,8 @@ PERMITTED_ROUTES: Final[frozenset[tuple[str, str]]] = frozenset(
     {
         # Downward: a student or guardian reads where to pay [BR6.4].
         ("GET", "/v1/enrollments/{enrollment_id}/payment-destination"),
+        # Downward, the guardian's own route to the same answer (G3).
+        ("GET", "/v1/children/{enrollment_id}/payment-destination"),
         # The teacher's own batch, read and written by its owner.
         ("GET", "/v1/batches"),
         ("POST", "/v1/batches"),
@@ -78,7 +80,10 @@ PERMITTED_ROUTES: Final[frozenset[tuple[str, str]]] = frozenset(
 #: who is not the teacher who authored it. This is the entry the
 #: security design named, and the one whose lens must not be a teacher's.
 DOWNWARD_ROUTES: Final[frozenset[tuple[str, str]]] = frozenset(
-    {("GET", "/v1/enrollments/{enrollment_id}/payment-destination")}
+    {
+        ("GET", "/v1/enrollments/{enrollment_id}/payment-destination"),
+        ("GET", "/v1/children/{enrollment_id}/payment-destination"),
+    }
 )
 
 

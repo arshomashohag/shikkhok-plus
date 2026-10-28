@@ -179,6 +179,8 @@ data class MarksheetDto(
  * @property subjectName Which subject the exam was in
  * @property rank The rank, only where the marksheet publishes it
  * @property rankedOutOf How many marked results the rank is among
+ * @property batchAverage The batch's average mark, where published; a
+ *   count of marks, never money, so a Double is right here
  */
 @Serializable
 data class ProgressEntryDto(
@@ -191,6 +193,7 @@ data class ProgressEntryDto(
     @SerialName("subject_name") val subjectName: String? = null,
     val rank: Int? = null,
     @SerialName("ranked_out_of") val rankedOutOf: Int? = null,
+    @SerialName("batch_average") val batchAverage: Double? = null,
 )
 
 /**

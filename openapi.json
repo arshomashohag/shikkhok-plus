@@ -580,6 +580,172 @@
         "title": "BatchUpdateRequest",
         "type": "object"
       },
+      "ChildBatchResponse": {
+        "additionalProperties": false,
+        "description": "One of the child's batches, with its next class.\n\n:ivar enrollment_id: The seat\n:ivar batch_name: The batch\n:ivar teacher_display_name: The teacher, or null\n:ivar next_session: The next class, or null",
+        "properties": {
+          "batch_name": {
+            "title": "Batch Name",
+            "type": "string"
+          },
+          "enrollment_id": {
+            "format": "uuid",
+            "title": "Enrollment Id",
+            "type": "string"
+          },
+          "next_session": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UpcomingSessionResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "teacher_display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Teacher Display Name"
+          }
+        },
+        "required": [
+          "batch_name",
+          "enrollment_id"
+        ],
+        "title": "ChildBatchResponse",
+        "type": "object"
+      },
+      "ChildResultResponse": {
+        "additionalProperties": false,
+        "description": "A child's latest marked result in one batch, with its trend.\n\n:ivar enrollment_id: The seat\n:ivar batch_name: The batch\n:ivar title: The exam\n:ivar date: When it was sat\n:ivar marks: The mark\n:ivar total_marks: Out of how many\n:ivar previous_marks: The mark before it in the same batch, or null\n:ivar trend: ``up``, ``down`` or ``same`` against the previous\n    mark as a share of its total, or ``first``",
+        "properties": {
+          "batch_name": {
+            "title": "Batch Name",
+            "type": "string"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "enrollment_id": {
+            "format": "uuid",
+            "title": "Enrollment Id",
+            "type": "string"
+          },
+          "marks": {
+            "minimum": 0.0,
+            "title": "Marks",
+            "type": "integer"
+          },
+          "previous_marks": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Marks"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "total_marks": {
+            "minimum": 1.0,
+            "title": "Total Marks",
+            "type": "integer"
+          },
+          "trend": {
+            "enum": [
+              "down",
+              "first",
+              "same",
+              "up"
+            ],
+            "title": "Trend",
+            "type": "string"
+          }
+        },
+        "required": [
+          "batch_name",
+          "date",
+          "enrollment_id",
+          "marks",
+          "title",
+          "total_marks",
+          "trend"
+        ],
+        "title": "ChildResultResponse",
+        "type": "object"
+      },
+      "ChildSummaryResponse": {
+        "additionalProperties": false,
+        "description": "One child on G1.\n\n:ivar key: The child's first seat, which names them in other reads\n:ivar display_name: The teacher-typed name\n:ivar batch_count: How many batches\n:ivar next_payment: The most urgent fee to pay, or null\n:ivar waiting: Payments sent and being checked\n:ivar latest_results: Each batch's latest marked result\n:ivar batches: The batches, with their next classes",
+        "properties": {
+          "batch_count": {
+            "minimum": 1.0,
+            "title": "Batch Count",
+            "type": "integer"
+          },
+          "batches": {
+            "items": {
+              "$ref": "#/components/schemas/ChildBatchResponse"
+            },
+            "title": "Batches",
+            "type": "array"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "key": {
+            "format": "uuid",
+            "title": "Key",
+            "type": "string"
+          },
+          "latest_results": {
+            "items": {
+              "$ref": "#/components/schemas/ChildResultResponse"
+            },
+            "title": "Latest Results",
+            "type": "array"
+          },
+          "next_payment": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PayableResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "waiting": {
+            "items": {
+              "$ref": "#/components/schemas/WaitingPaymentResponse"
+            },
+            "title": "Waiting",
+            "type": "array"
+          }
+        },
+        "required": [
+          "batch_count",
+          "display_name",
+          "key"
+        ],
+        "title": "ChildSummaryResponse",
+        "type": "object"
+      },
       "ClaimQueueItemResponse": {
         "additionalProperties": false,
         "description": "One claim waiting for the teacher (T4).\n\n**The comparison is the server's.** ``comparison`` and\n``difference`` are measured against what the period CHARGED\n[BR5.3]; the client shows them and never subtracts.\n\n:ivar claim_id: The claim\n:ivar enrollment_id: The seat it is against\n:ivar display_name: The student, as the teacher typed the name\n:ivar batch_name: The batch\n:ivar period: The period the claim resolved to\n:ivar claimed_amount: What the payer says they sent\n:ivar charged: What that period charged\n:ivar comparison: ``matches``, ``short`` or ``over``\n:ivar difference: How far from the charge, never negative\n:ivar channel: The service the money moved through\n:ivar transaction_id: The reference quoted, if any\n:ivar submitted_at: When it was sent\n:ivar submitted_by: ``student`` or ``guardian``, or null\n:ivar submitter_phone: The number the teacher holds for them\n:ivar duplicate_of: The earlier claim quoting the same reference",
@@ -1790,6 +1956,21 @@
         "title": "GuardianChildResponse",
         "type": "object"
       },
+      "GuardianHomeResponse": {
+        "additionalProperties": false,
+        "description": "Every child this guardian has accepted, by name.\n\n:ivar children: The children; empty before any is linked",
+        "properties": {
+          "children": {
+            "items": {
+              "$ref": "#/components/schemas/ChildSummaryResponse"
+            },
+            "title": "Children",
+            "type": "array"
+          }
+        },
+        "title": "GuardianHomeResponse",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -2338,7 +2519,7 @@
       },
       "PayableResponse": {
         "additionalProperties": false,
-        "description": "One month a student can pay for (S3).\n\n:ivar enrollment_id: Their seat; the claim is posted against it\n:ivar batch_name: The batch\n:ivar period: The month a claim would be recorded against\n:ivar amount_due: What is still owed on it\n:ivar due_date: When it was due, or null",
+        "description": "One month a student can pay for (S3).\n\n:ivar enrollment_id: Their seat; the claim is posted against it\n:ivar batch_name: The batch\n:ivar period: The month a claim would be recorded against\n:ivar amount_due: What is still owed on it\n:ivar due_date: When it was due, or null\n:ivar total_due: Everything the seat owes, that month included\n:ivar later_periods: How many later months also owe\n:ivar days_late: Days past the oldest late due date, or null",
         "properties": {
           "amount_due": {
             "$ref": "#/components/schemas/Money"
@@ -2346,6 +2527,18 @@
           "batch_name": {
             "title": "Batch Name",
             "type": "string"
+          },
+          "days_late": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days Late"
           },
           "due_date": {
             "anyOf": [
@@ -2364,17 +2557,27 @@
             "title": "Enrollment Id",
             "type": "string"
           },
+          "later_periods": {
+            "minimum": 0.0,
+            "title": "Later Periods",
+            "type": "integer"
+          },
           "period": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
             "title": "Period",
             "type": "string"
+          },
+          "total_due": {
+            "$ref": "#/components/schemas/Money"
           }
         },
         "required": [
           "amount_due",
           "batch_name",
           "enrollment_id",
-          "period"
+          "later_periods",
+          "period",
+          "total_due"
         ],
         "title": "PayableResponse",
         "type": "object"
@@ -2446,6 +2649,139 @@
         "title": "PaymentDestinationResponse",
         "type": "object"
       },
+      "PaymentLineResponse": {
+        "additionalProperties": false,
+        "description": "One batch's fee in one month, and where its payment stands (G3).\n\n:ivar enrollment_id: The seat\n:ivar batch_name: The batch\n:ivar amount: What the month charged\n:ivar state: ``paid``, ``partly_paid``, ``waived``, ``verifying`` or\n    ``due``\n:ivar due_date: When it was due\n:ivar sent_on: When the latest payment for it was sent, or null\n:ivar decided_on: When that payment was approved, or null\n:ivar channel: Which app it moved through, or null",
+        "properties": {
+          "amount": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "batch_name": {
+            "title": "Batch Name",
+            "type": "string"
+          },
+          "channel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channel"
+          },
+          "decided_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided On"
+          },
+          "due_date": {
+            "format": "date",
+            "title": "Due Date",
+            "type": "string"
+          },
+          "enrollment_id": {
+            "format": "uuid",
+            "title": "Enrollment Id",
+            "type": "string"
+          },
+          "sent_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sent On"
+          },
+          "state": {
+            "enum": [
+              "due",
+              "paid",
+              "partly_paid",
+              "verifying",
+              "waived"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "amount",
+          "batch_name",
+          "due_date",
+          "enrollment_id",
+          "state"
+        ],
+        "title": "PaymentLineResponse",
+        "type": "object"
+      },
+      "PaymentMonthResponse": {
+        "additionalProperties": false,
+        "description": "One month's fees across the child's batches.\n\n:ivar period: ``YYYY-MM``\n:ivar lines: One per batch charged that month",
+        "properties": {
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/PaymentLineResponse"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "period": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
+            "title": "Period",
+            "type": "string"
+          }
+        },
+        "required": [
+          "lines",
+          "period"
+        ],
+        "title": "PaymentMonthResponse",
+        "type": "object"
+      },
+      "PaymentsResponse": {
+        "additionalProperties": false,
+        "description": "A child's fee history, newest month first (G3).\n\n:ivar display_name: The child\n:ivar year: The year the total covers\n:ivar paid_this_year: What payments approved this year came to\n:ivar months: The months, newest first",
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "months": {
+            "items": {
+              "$ref": "#/components/schemas/PaymentMonthResponse"
+            },
+            "title": "Months",
+            "type": "array"
+          },
+          "paid_this_year": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "year": {
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "display_name",
+          "paid_this_year",
+          "year"
+        ],
+        "title": "PaymentsResponse",
+        "type": "object"
+      },
       "ProfileUpdateRequest": {
         "additionalProperties": false,
         "description": "What a person may change about themselves.\n\n**Name and address only.** A profile write cannot touch the phone\nnumber, which is the login and changes only through the OTP path,\nand it cannot touch a lens: a role is computed per request from\nowned batches and enrollments and has no stored field to set\n[TC-11, D-2].\n\nBoth are optional and omitting one leaves it unchanged, so the app\ncan save a single edited field without resending the other.\n\n:ivar self_name: The new name, or None to leave it alone\n:ivar address: The new address, or None to leave it alone",
@@ -2480,8 +2816,20 @@
       },
       "ProgressEntryResponse": {
         "additionalProperties": false,
-        "description": "One exam in a child's progress series [BR6.6].\n\n**An absence carries no numeric value**, rather than a zero: an\nabsence plotted as zero shows a collapse in performance that did\nnot happen.\n\n:ivar exam_id: The exam\n:ivar title: Its title\n:ivar date: When it was sat\n:ivar total_marks: Its denominator\n:ivar result_state: One of the four states\n:ivar marks: The number, or null\n:ivar subject_name: Which subject the exam was in\n:ivar rank: The viewer's rank, only where the marksheet publishes\n    its comparison [BR6.4]; else null\n:ivar ranked_out_of: How many marked results the rank is among",
+        "description": "One exam in a child's progress series [BR6.6].\n\n**An absence carries no numeric value**, rather than a zero: an\nabsence plotted as zero shows a collapse in performance that did\nnot happen.\n\n:ivar exam_id: The exam\n:ivar title: Its title\n:ivar date: When it was sat\n:ivar total_marks: Its denominator\n:ivar result_state: One of the four states\n:ivar marks: The number, or null\n:ivar subject_name: Which subject the exam was in\n:ivar rank: The viewer's rank, only where the marksheet publishes\n    its comparison [BR6.4]; else null\n:ivar ranked_out_of: How many marked results the rank is among\n:ivar batch_average: The batch's average mark, on the same condition",
         "properties": {
+          "batch_average": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch Average"
+          },
           "date": {
             "format": "date",
             "title": "Date",
@@ -2566,6 +2914,61 @@
           "total_marks"
         ],
         "title": "ProgressEntryResponse",
+        "type": "object"
+      },
+      "ProgressSummaryResponse": {
+        "additionalProperties": false,
+        "description": "G2's reading of a child's latest run of results in one batch.\n\n:ivar direction: ``up``, ``down`` or ``same``\n:ivar run: How many tests the run spans\n:ivar first_marks: The run's first mark\n:ivar last_marks: Its last mark\n:ivar total_marks: The last test's total\n:ivar above_average: Whether the last mark beats the published batch\n    average, or null where none was published",
+        "properties": {
+          "above_average": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Above Average"
+          },
+          "direction": {
+            "enum": [
+              "down",
+              "same",
+              "up"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "first_marks": {
+            "minimum": 0.0,
+            "title": "First Marks",
+            "type": "integer"
+          },
+          "last_marks": {
+            "minimum": 0.0,
+            "title": "Last Marks",
+            "type": "integer"
+          },
+          "run": {
+            "minimum": 2.0,
+            "title": "Run",
+            "type": "integer"
+          },
+          "total_marks": {
+            "minimum": 1.0,
+            "title": "Total Marks",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "direction",
+          "first_marks",
+          "last_marks",
+          "run",
+          "total_marks"
+        ],
+        "title": "ProgressSummaryResponse",
         "type": "object"
       },
       "PublishedMarksheetResponse": {
@@ -4016,20 +4419,41 @@
       },
       "WaitingPaymentResponse": {
         "additionalProperties": false,
-        "description": "A seat not offered because its payment is being checked.\n\n:ivar batch_name: The batch\n:ivar period: The month the waiting payment is for",
+        "description": "A seat not offered because its payment is being checked.\n\n:ivar batch_name: The batch\n:ivar period: The month the waiting payment is for\n:ivar amount: What was claimed\n:ivar channel: Which app it moved through\n:ivar submitted_at: When it was sent",
         "properties": {
+          "amount": {
+            "$ref": "#/components/schemas/Money"
+          },
           "batch_name": {
             "title": "Batch Name",
+            "type": "string"
+          },
+          "channel": {
+            "title": "Channel",
             "type": "string"
           },
           "period": {
             "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
             "title": "Period",
             "type": "string"
+          },
+          "submitted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted At"
           }
         },
         "required": [
+          "amount",
           "batch_name",
+          "channel",
           "period"
         ],
         "title": "WaitingPaymentResponse",
@@ -5554,6 +5978,80 @@
         ]
       }
     },
+    "/v1/children/{enrollment_id}/claims": {
+      "post": {
+        "description": "Record a guardian's payment for their child's oldest unpaid month.\n\n:param enrollment_id: The seat\n:param body: The claimed amount, channel and reference\n:param session: The request-scoped session\n:param lens: The guardian lens\n:return: The pending claim",
+        "operationId": "create_child_claim_v1_children__enrollment_id__claims_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enrollment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enrollment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClaimSubmitRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Child Claim",
+        "tags": [
+          "guardian"
+        ]
+      }
+    },
     "/v1/children/{enrollment_id}/exams/{exam_id}/marksheet": {
       "get": {
         "description": "Read one child's marksheet, for their recorded guardian.\n\n:param enrollment_id: The child's seat, from the route path\n:param exam_id: The exam, from the route path\n:param session: The request-scoped session\n:param lens: The guardian lens\n:return: The published comparison, or a suppressed marksheet",
@@ -5700,6 +6198,206 @@
         ]
       }
     },
+    "/v1/children/{enrollment_id}/payables": {
+      "get": {
+        "description": "List what can be paid for the child holding this seat.\n\n:param enrollment_id: Any one of the child's seats\n:param session: The request-scoped session\n:param lens: The guardian lens\n:return: The payable months and the waiting batches",
+        "operationId": "read_child_payables_v1_children__enrollment_id__payables_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enrollment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enrollment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PayablesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Child Payables",
+        "tags": [
+          "guardian"
+        ]
+      }
+    },
+    "/v1/children/{enrollment_id}/payment-destination": {
+      "get": {
+        "description": "Return where to pay for this seat, for its guardian.\n\nThe second downward disclosure of the collection number, to the\naccepted guardian of a seat in that teacher's batch.\n\n:param enrollment_id: The seat\n:param session: The request-scoped session\n:param lens: The guardian lens\n:return: The destination, or None where the teacher set no number",
+        "operationId": "read_child_payment_destination_v1_children__enrollment_id__payment_destination_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enrollment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enrollment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/PaymentDestinationResponse"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Read Child Payment Destination V1 Children  Enrollment Id  Payment Destination Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Child Payment Destination",
+        "tags": [
+          "guardian"
+        ]
+      }
+    },
+    "/v1/children/{enrollment_id}/payments": {
+      "get": {
+        "description": "Return a child's fee history, newest month first, with this year's total.\n\n:param enrollment_id: Any one of the child's seats\n:param session: The request-scoped session\n:param lens: The guardian lens\n:return: The history",
+        "operationId": "read_child_payments_v1_children__enrollment_id__payments_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enrollment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enrollment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Child Payments",
+        "tags": [
+          "guardian"
+        ]
+      }
+    },
     "/v1/children/{enrollment_id}/progress": {
       "get": {
         "description": "Read one child's results across exams, in date order [BR6.6].\n\n**Ordered by the server**, not the client, and an absence carries\nno numeric value: plotted as zero it would show a collapse in\nperformance that did not happen.\n\n:param enrollment_id: The child's seat, from the route path\n:param session: The request-scoped session\n:param lens: The guardian lens\n:return: One entry per exam, oldest first",
@@ -5765,6 +6463,78 @@
         "summary": "Read Child Progress",
         "tags": [
           "marks"
+        ]
+      }
+    },
+    "/v1/children/{enrollment_id}/progress/summary": {
+      "get": {
+        "description": "Read a child's latest run of results in one batch (G2).\n\n:param enrollment_id: The seat\n:param session: The request-scoped session\n:param lens: The guardian lens\n:return: The run, or None with fewer than two marked results",
+        "operationId": "read_child_progress_summary_v1_children__enrollment_id__progress_summary_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enrollment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enrollment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ProgressSummaryResponse"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Read Child Progress Summary V1 Children  Enrollment Id  Progress Summary Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Child Progress Summary",
+        "tags": [
+          "guardian"
         ]
       }
     },
@@ -6887,6 +7657,48 @@
         "summary": "List Children",
         "tags": [
           "batches"
+        ]
+      }
+    },
+    "/v1/guardian/home": {
+      "get": {
+        "description": "Every child, with what to pay next, what is checking and latest results (G1).\n\n:param session: The request-scoped session\n:param lens: The guardian lens\n:return: The children, by name",
+        "operationId": "read_guardian_home_v1_guardian_home_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuardianHomeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this."
+          }
+        },
+        "summary": "Read Guardian Home",
+        "tags": [
+          "guardian"
         ]
       }
     },

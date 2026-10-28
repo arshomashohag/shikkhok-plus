@@ -26,9 +26,17 @@ from sqlalchemy.orm import Session
 from app.analytics.seats import due_dates_for_seats, ledger_for_seats
 from app.authz.lenses import StudentLens
 from app.db.models import Batch, Enrollment, PaymentClaim
+from app.fees.overdue import days_overdue
+from app.local_time import bangladesh_today
 from app.money import Money, derive
 
-__all__ = ["Payable", "Payables", "WaitingPayment", "payables"]
+__all__ = [
+    "Payable",
+    "Payables",
+    "WaitingPayment",
+    "payables",
+    "payables_for_seats",
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,6 +48,9 @@ class Payable:
     :ivar period: The month a claim would be recorded against
     :ivar amount_due: What is still owed on that month
     :ivar due_date: When it was due, if a cycle records one
+    :ivar total_due: Everything the seat owes, that month included
+    :ivar later_periods: How many later months also owe
+    :ivar days_late: Days past the oldest late due date, or None
     """
 
     enrollment_id: uuid.UUID
@@ -47,6 +58,9 @@ class Payable:
     period: str
     amount_due: Money
     due_date: dt.date | None
+    total_due: Money = Money.ZERO
+    later_periods: int = 0
+    days_late: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,10 +69,16 @@ class WaitingPayment:
 
     :ivar batch_name: The batch
     :ivar period: The month the waiting payment is for
+    :ivar amount: What was claimed
+    :ivar channel: Which app it moved through
+    :ivar submitted_at: When it was sent
     """
 
     batch_name: str
     period: str
+    amount: Money = Money.ZERO
+    channel: str = ""
+    submitted_at: dt.datetime | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -89,29 +109,53 @@ def payables(session: Session, *, lens: StudentLens) -> Payables:
         )
         .order_by(Batch.name, Enrollment.id)
     ).all()
+    return payables_for_seats(session, [(seat_id, name) for seat_id, name in seats])
+
+
+def payables_for_seats(
+    session: Session, seats: list[tuple[uuid.UUID, str]], today: dt.date | None = None
+) -> Payables:
+    """List what can be paid on these seats, and what is already waiting.
+
+    The caller has established that its lens reaches every seat.
+
+    :param session: The session to read through
+    :param seats: Each seat with its batch name
+    :param today: Bangladesh's date, which lateness is measured on
+    :return: The payable months and the waiting seats
+    """
+    on = today or bangladesh_today()
     seat_ids = [seat_id for seat_id, _ in seats]
     ledger = ledger_for_seats(session, seat_ids)
     due = due_dates_for_seats(session, seat_ids)
-    pending = dict(
-        session.execute(
-            sa.select(PaymentClaim.enrollment_id, sa.func.min(PaymentClaim.period))
-            .where(
-                PaymentClaim.enrollment_id.in_(seat_ids),
-                PaymentClaim.status == "pending",
-            )
-            .group_by(PaymentClaim.enrollment_id)
-        ).all()
-    )
+    pending: dict[uuid.UUID, PaymentClaim] = {}
+    for waiting_claim in session.scalars(
+        sa.select(PaymentClaim)
+        .where(
+            PaymentClaim.enrollment_id.in_(seat_ids),
+            PaymentClaim.status == "pending",
+        )
+        .order_by(PaymentClaim.submitted_at)
+    ):
+        pending.setdefault(waiting_claim.enrollment_id, waiting_claim)
 
     payable: list[Payable] = []
     waiting: list[WaitingPayment] = []
     for seat_id, batch_name in seats:
-        if seat_id in pending:
+        claim = pending.get(seat_id)
+        if claim is not None:
             waiting.append(
-                WaitingPayment(batch_name=batch_name, period=pending[seat_id])
+                WaitingPayment(
+                    batch_name=batch_name,
+                    period=claim.period,
+                    amount=claim.claimed_amount,
+                    channel=claim.channel,
+                    submitted_at=claim.submitted_at,
+                )
             )
             continue
-        per_cycle = derive(ledger[seat_id]).per_cycle
+        derived = derive(ledger[seat_id])
+        per_cycle = derived.per_cycle
         owing = sorted(p for p, balance in per_cycle.items() if balance.is_positive())
         if not owing:
             continue
@@ -123,6 +167,9 @@ def payables(session: Session, *, lens: StudentLens) -> Payables:
                 period=period,
                 amount_due=per_cycle[period],
                 due_date=due[seat_id].get(period),
+                total_due=derived.total_outstanding,
+                later_periods=len(owing) - 1,
+                days_late=days_overdue(per_cycle, due[seat_id], on),
             )
         )
 

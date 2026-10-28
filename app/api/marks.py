@@ -502,6 +502,7 @@ def read_child_progress(
             subject_name=entry.subject_name,
             rank=entry.rank,
             ranked_out_of=entry.ranked_out_of,
+            batch_average=entry.batch_average,
         )
         for entry in views.guardian_progress(
             session, lens=lens, enrollment_id=enrollment_id
@@ -546,6 +547,7 @@ def read_my_progress(
             subject_name=entry.subject_name,
             rank=entry.rank,
             ranked_out_of=entry.ranked_out_of,
+            batch_average=entry.batch_average,
         )
         for entry in views.guardian_progress(
             session, lens=lens, enrollment_id=enrollment_id

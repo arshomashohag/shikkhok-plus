@@ -83,6 +83,17 @@ fun dayLabel(iso: String): String =
     } ?: iso
 
 /**
+ * A date's weekday alone, as "next: Sun 8:00 am" says it.
+ *
+ * @param iso `yyyy-MM-dd`
+ * @return The short weekday, or the input if it cannot be read
+ */
+fun weekdayShort(iso: String): String =
+    isoToUtcMillis(iso)?.let { millis ->
+        SimpleDateFormat("EEE", Locale.getDefault()).apply { timeZone = TimeZone.getTimeZone("UTC") }.format(millis)
+    } ?: iso
+
+/**
  * A server timestamp in the phone's time as `17 Oct, 3:22 pm`.
  *
  * @param iso The server's timestamp

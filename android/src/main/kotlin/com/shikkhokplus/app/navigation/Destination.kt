@@ -326,6 +326,54 @@ sealed interface Destination {
         override val route: String = "me/batches"
     }
 
+    /** A child's payments (G3), keyed by one of the child's seats. */
+    data object ChildPayments : Destination {
+        override val route: String = "children/{seat}/payments"
+
+        /** The seat argument's name. */
+        const val ARG_SEAT: String = "seat"
+
+        /**
+         * Build a concrete route.
+         *
+         * @param seat One of the child's seats
+         * @return The route to navigate to
+         */
+        fun of(seat: String): String = "children/$seat/payments"
+    }
+
+    /** A child's progress (G2), opened on one seat's batch. */
+    data object ChildProgress : Destination {
+        override val route: String = "children/{seat}/progress"
+
+        /** The seat argument's name. */
+        const val ARG_SEAT: String = "seat"
+
+        /**
+         * Build a concrete route.
+         *
+         * @param seat The seat whose batch to show first
+         * @return The route to navigate to
+         */
+        fun of(seat: String): String = "children/$seat/progress"
+    }
+
+    /** Pay for a child (G3's form), opened on one seat's fee. */
+    data object ChildPay : Destination {
+        override val route: String = "children/{seat}/pay"
+
+        /** The seat argument's name. */
+        const val ARG_SEAT: String = "seat"
+
+        /**
+         * Build a concrete route.
+         *
+         * @param seat The seat whose fee to pay
+         * @return The route to navigate to
+         */
+        fun of(seat: String): String = "children/$seat/pay"
+    }
+
     /** Pay a fee (S3), optionally opened on one seat's fee. */
     data object Pay : Destination {
         override val route: String = "me/pay?seat={seat}"

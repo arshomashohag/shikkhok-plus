@@ -41,11 +41,11 @@ class HttpTeachingRepositoryTest {
         // theirs and rely on the server to refuse — which works until
         // one endpoint forgets.
         val engine =
-            MockEngine { respond("[]", HttpStatusCode.OK, jsonHeaders()) }
-        val result = HttpGuardianRepository(client(engine)).children()
+            MockEngine { respond("""{"children":[]}""", HttpStatusCode.OK, jsonHeaders()) }
+        val result = HttpGuardianRepository(client(engine)).home()
 
-        assertIs<AuthResult.Ok<List<GuardianChildDto>>>(result)
-        assertEquals("/v1/guardian/children", engine.requestHistory.single().url.encodedPath)
+        assertIs<AuthResult.Ok<GuardianHomeDto>>(result)
+        assertEquals("/v1/guardian/home", engine.requestHistory.single().url.encodedPath)
     }
 
     @Test
@@ -60,7 +60,7 @@ class HttpTeachingRepositoryTest {
                     jsonHeaders(),
                 )
             }
-        val result = HttpGuardianRepository(client(engine)).children()
+        val result = HttpGuardianRepository(client(engine)).home()
 
         val refused = assertIs<AuthResult.Refused>(result)
         assertEquals("error.not_available", refused.envelope.error.messageKey)
@@ -73,7 +73,7 @@ class HttpTeachingRepositoryTest {
         // is no envelope to read a retry policy from, so the client
         // must not invent one.
         val engine = MockEngine { throw java.io.IOException("no route to host") }
-        val result = HttpGuardianRepository(client(engine)).children()
+        val result = HttpGuardianRepository(client(engine)).home()
 
         assertIs<AuthResult.TransportFailure>(result)
     }

@@ -58,6 +58,14 @@ class ContractConformanceTest {
             Contract("/v1/me/notifications", InboxDto.serializer()),
             Contract("/v1/me/deletion-summary", DeletionSummaryDto.serializer()),
             Contract("/v1/me/payables", PayablesDto.serializer()),
+            Contract("/v1/guardian/home", GuardianHomeDto.serializer()),
+            Contract("/v1/children/{enrollment_id}/payables", PayablesDto.serializer()),
+            Contract("/v1/children/{enrollment_id}/payments", PaymentsDto.serializer()),
+            Contract(
+                "/v1/children/{enrollment_id}/payment-destination",
+                PaymentDestinationDto.serializer(),
+            ),
+            Contract("/v1/children/{enrollment_id}/progress/summary", ProgressSummaryDto.serializer()),
             Contract(
                 "/v1/enrollments/{enrollment_id}/payment-destination",
                 PaymentDestinationDto.serializer(),

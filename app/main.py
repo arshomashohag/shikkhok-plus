@@ -74,6 +74,7 @@ def _register_routes(app: FastAPI) -> None:
     from app.api.batches import router as batches_router
     from app.api.deletion import router as deletion_router
     from app.api.fees import router as fees_router
+    from app.api.guardian import router as guardian_router
     from app.api.health import router as health_router
     from app.api.marks import router as marks_router
     from app.api.me import router as me_router
@@ -92,6 +93,7 @@ def _register_routes(app: FastAPI) -> None:
         batches_router,
         deletion_router,
         fees_router,
+        guardian_router,
         health_router,
         marks_router,
         me_router,

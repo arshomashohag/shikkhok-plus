@@ -84,6 +84,7 @@ class ProgressEntry:
         exam's marksheet publishes its comparison [BR6.4]; else None
     :ivar ranked_out_of: How many marked results the rank is among, on
         the same condition
+    :ivar batch_average: The batch's average mark, on the same condition
     """
 
     exam_id: uuid.UUID
@@ -95,6 +96,7 @@ class ProgressEntry:
     subject_name: str | None = None
     rank: int | None = None
     ranked_out_of: int | None = None
+    batch_average: float | None = None
 
 
 def _marksheet_is_visible(session: DbSession, *, batch_id: uuid.UUID) -> bool:
@@ -285,10 +287,10 @@ def guardian_progress(
                 )
             )
             continue
-        rank, out_of = (
+        rank, out_of, average = (
             _published_rank(session, exam_id=exam_id, enrollment_id=enrollment_id)
             if state == "marked"
-            else (None, None)
+            else (None, None, None)
         )
         entries.append(
             ProgressEntry(
@@ -301,6 +303,7 @@ def guardian_progress(
                 subject_name=subject,
                 rank=rank,
                 ranked_out_of=out_of,
+                batch_average=average,
             )
         )
     return entries
@@ -308,8 +311,8 @@ def guardian_progress(
 
 def _published_rank(
     session: DbSession, *, exam_id: uuid.UUID, enrollment_id: uuid.UUID
-) -> tuple[int | None, int | None]:
-    """Return a seat's rank and field size, where the marksheet publishes.
+) -> tuple[int | None, int | None, float | None]:
+    """Return a seat's rank, field size and the average, where published.
 
     The same computation the marksheet itself makes, so the two cannot
     disagree: a suppressed marksheet discloses no rank here either.
@@ -317,16 +320,16 @@ def _published_rank(
     :param session: The session to read through
     :param exam_id: The exam, already reached by the caller's lens
     :param enrollment_id: The seat
-    :return: Rank and how many it is among, or both None
+    :return: Rank, how many it is among and the average, or all None
     """
     exam = session.get(Exam, exam_id)
     if exam is None:
-        return None, None
+        return None, None, None
     results = results_for_exam(session, exam=exam)
     viewer = next((row for row in results if row.enrollment_id == enrollment_id), None)
     if viewer is None:
-        return None, None
+        return None, None, None
     sheet = compute_marksheet(results, total_marks=exam.total_marks, viewer=viewer)
     if not isinstance(sheet, Published) or sheet.viewer_rank is None:
-        return None, None
-    return sheet.viewer_rank, sheet.marked_count
+        return None, None, None
+    return sheet.viewer_rank, sheet.marked_count, sheet.average

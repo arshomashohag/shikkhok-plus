@@ -30,7 +30,7 @@ from app.api.deps import get_session, guardian_lens, student_lens, teacher_lens
 from app.authz.lenses import GuardianLens, StudentLens, TeacherLens
 from app.fees import views
 from app.fees.claims import submit_claim
-from app.fees.payables import payables
+from app.fees.payables import Payables, payables
 from app.fees.queue import QueueItem, shortfall_preview, verification_queue
 from app.fees.reminders import remind
 from app.fees.verification import reject_claim, verify_claim
@@ -60,7 +60,7 @@ from app.schemas.fees import (
 )
 from app.schemas.money import Money as WireMoney
 
-__all__ = ["queue_item_response", "router"]
+__all__ = ["claim_response", "payables_response", "queue_item_response", "router"]
 
 router = APIRouter(prefix="/v1", tags=["fees"])
 
@@ -137,7 +137,7 @@ def _cycle_response(row: views.FeeCycleRow) -> FeeCycleResponse:
     )
 
 
-def _claim_response(detail: views.ClaimDetail) -> ClaimResponse:
+def claim_response(detail: views.ClaimDetail) -> ClaimResponse:
     """Render one claim for the wire.
 
     :param detail: The claim as the view described it
@@ -341,7 +341,15 @@ def read_payables(
     :param lens: The student lens
     :return: The payable months and the waiting seats
     """
-    found = payables(session, lens=lens)
+    return payables_response(payables(session, lens=lens))
+
+
+def payables_response(found: Payables) -> PayablesResponse:
+    """Render what can be paid, and what is waiting, for the wire.
+
+    :param found: The payables
+    :return: The response body
+    """
     return PayablesResponse(
         payable=[
             PayableResponse(
@@ -350,11 +358,20 @@ def read_payables(
                 period=row.period,
                 amount_due=_to_wire(row.amount_due),
                 due_date=row.due_date,
+                total_due=_to_wire(row.total_due),
+                later_periods=row.later_periods,
+                days_late=row.days_late,
             )
             for row in found.payable
         ],
         waiting=[
-            WaitingPaymentResponse(batch_name=row.batch_name, period=row.period)
+            WaitingPaymentResponse(
+                batch_name=row.batch_name,
+                period=row.period,
+                amount=_to_wire(row.amount),
+                channel=row.channel,
+                submitted_at=row.submitted_at,
+            )
             for row in found.waiting
         ],
     )
@@ -392,7 +409,7 @@ def create_claim(
         channel=body.channel,
         transaction_id=body.transaction_id,
     )
-    return _claim_response(views.claim_detail(session, lens=lens, claim_id=claim.id))
+    return claim_response(views.claim_detail(session, lens=lens, claim_id=claim.id))
 
 
 def queue_item_response(item: QueueItem) -> ClaimQueueItemResponse:
@@ -518,7 +535,7 @@ def read_claim(
     :param lens: The student lens
     :return: The claim and its decision
     """
-    return _claim_response(views.claim_detail(session, lens=lens, claim_id=claim_id))
+    return claim_response(views.claim_detail(session, lens=lens, claim_id=claim_id))
 
 
 @router.post(
@@ -557,7 +574,7 @@ def record_verification(
         verified_by_account_id=lens.account_id,
         correcting=body.correcting,
     )
-    return _claim_response(
+    return claim_response(
         views.claim_detail(session, lens=lens, claim_id=outcome.claim.id)
     )
 
@@ -593,7 +610,7 @@ def record_rejection(
         verified_by_account_id=lens.account_id,
         correcting=body.correcting if body is not None else False,
     )
-    return _claim_response(views.claim_detail(session, lens=lens, claim_id=claim.id))
+    return claim_response(views.claim_detail(session, lens=lens, claim_id=claim.id))
 
 
 @router.post(

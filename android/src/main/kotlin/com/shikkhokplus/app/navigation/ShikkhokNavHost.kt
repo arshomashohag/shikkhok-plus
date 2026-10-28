@@ -57,6 +57,7 @@ import com.shikkhokplus.app.feature.fees.FeeReader
 import com.shikkhokplus.app.feature.fees.FeesViewModel
 import com.shikkhokplus.app.feature.fees.ui.FeeHistoryScreen
 import com.shikkhokplus.app.feature.guardian.GuardianViewModel
+import com.shikkhokplus.app.feature.guardian.ui.GuardianActions
 import com.shikkhokplus.app.feature.guardian.ui.GuardianHomeScreen
 import com.shikkhokplus.app.core.model.AcceptanceState
 import com.shikkhokplus.app.feature.invitations.InvitationsUiState
@@ -539,22 +540,16 @@ fun ShikkhokNavHost(
                 // replaces the shown child, so Back cannot reach the
                 // previous one's data. Results and payments are pushes
                 // the guardian asks for explicitly.
-                onSelectChild = model::selectChild,
-                onOpenProgress = { child ->
-                    navController.navigate(
-                        Destination.Progress.of(
-                            child.enrollmentId,
-                            MarksheetReader.CHILD.name,
-                            child.displayName,
-                            child.batchName,
-                        ),
-                    )
-                },
-                onOpenFees = { child ->
-                    navController.navigate(
-                        Destination.FeeHistory.of(child.enrollmentId, FeeReader.GUARDIAN.name),
-                    )
-                },
+                actions =
+                    GuardianActions(
+                        onSelect = model::select,
+                        onPay = { option -> navController.navigate(Destination.ChildPay.of(option.enrollmentId)) },
+                        onPayments = { seat -> navController.navigate(Destination.ChildPayments.of(seat)) },
+                        onResult = { result, _ ->
+                            navController.navigate(Destination.ChildProgress.of(result.enrollmentId))
+                        },
+                        onRetry = model::retry,
+                    ),
                 bottomBar = {
                     BottomNav(
                         destinations = tabsFor(session.lens),
@@ -562,10 +557,11 @@ fun ShikkhokNavHost(
                         onSelect = { navController.switchTab(it, session.lens) },
                     )
                 },
-                onRetry = model::retry,
                 barActions = { InboxBellFor(client) { navController.navigate(Destination.Inbox.route) } },
             )
         }
+
+        guardianRoutes(client, navController)
 
         composable(Destination.Invitations.route) {
             val model: InvitationsViewModel =

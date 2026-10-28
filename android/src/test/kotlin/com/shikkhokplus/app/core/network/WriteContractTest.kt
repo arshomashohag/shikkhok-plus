@@ -139,6 +139,9 @@ class WriteContractTest {
             Write("post", "/v1/enrollments/{enrollment_id}/claims") {
                 HttpPayRepository(it).submit(ID, ClaimSubmitDto(Money.of("1500.00"), "bKash", "DJ62K0LQ7V"))
             },
+            Write("post", "/v1/children/{enrollment_id}/claims") {
+                HttpChildPayRepository(it, ID).submit(ID, ClaimSubmitDto(Money.of("1500.00"), "bKash", "DJ62K0LQ7V"))
+            },
             Write("post", "/v1/reminders") { HttpAnalyticsRepository(it).remind(listOf(ID)) },
             Write("post", "/v1/me/notifications/read") { HttpInboxRepository(it).markRead() },
             Write("put", "/v1/batches/{batch_id}/marksheet-visibility") {
