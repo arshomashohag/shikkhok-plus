@@ -328,3 +328,194 @@ def test_the_linked_student_is_offered_the_seat_and_given_nothing(
     assert [row["enrollment_id"] for row in invitations] == [str(seat_id)]
     assert invitations[0]["role"] == "student"
     assert all(lens["kind"] != "student" for lens in me["lenses"])
+
+
+# ------------------------------------------------- what a linked person sees
+
+
+def test_a_guardian_does_not_see_a_seat_they_have_not_accepted(
+    client: TestClient, owner_session: Session, teacher: TeacherFixture
+) -> None:
+    """Accepting one child's seat must not list every seat linked to you.
+
+    **The leak linking at creation made likely.** The guardian lens is
+    granted by ANY accepted guardian link, and the children list had no
+    acceptance predicate of its own -- so a guardian who accepted their
+    own child's seat also saw a seat a teacher created by mistyping a
+    digit into their number: a stranger's child's name and batch. The
+    fee and marks reads were safe, because they check acceptance per
+    seat; the list was not.
+
+    :param client: The test client
+    :param owner_session: An arranging session
+    :param teacher: The teacher
+    :return: None
+    """
+    number = _number()
+    guardian = make_account(owner_session, phone=number)
+    mine = _add_seat(client, owner_session, teacher, guardian_phone=number)
+    stranger = _add_seat(client, owner_session, teacher, guardian_phone=number)
+    headers = _auth(owner_session, guardian)
+    accepted = client.post(f"/v1/invitations/{mine}/accept", headers=headers)
+    assert accepted.status_code in (200, 204), accepted.text
+
+    listed = [
+        row["enrollment_id"]
+        for row in client.get("/v1/guardian/children", headers=headers).json()
+    ]
+
+    assert listed == [str(mine)]
+    assert str(stranger) not in listed
+
+
+def _accept(
+    client: TestClient, session: Session, account: uuid.UUID, seat: uuid.UUID
+) -> None:
+    """Accept a seat as the person it names.
+
+    :param client: The test client
+    :param session: An arranging session
+    :param account: The person
+    :param seat: The seat
+    :return: None
+    """
+    response = client.post(
+        f"/v1/invitations/{seat}/accept", headers=_auth(session, account)
+    )
+    assert response.status_code in (200, 204), response.text
+
+
+def test_a_student_lists_their_accepted_batches(
+    client: TestClient, owner_session: Session, teacher: TeacherFixture
+) -> None:
+    """S1's source: the student's own batches, once accepted.
+
+    No route listed them, so once a student accepted a seat nothing in
+    the app could reach it again.
+
+    :param client: The test client
+    :param owner_session: An arranging session
+    :param teacher: The teacher
+    :return: None
+    """
+    number = _number()
+    student = make_account(owner_session, phone=number)
+    accepted = _add_seat(client, owner_session, teacher, student_phone=number)
+    # The unaccepted seat is in ANOTHER teacher's batch: one student has
+    # at most one seat per batch, which the next test asserts.
+    elsewhere = make_teacher(owner_session, name="Chemistry")
+    _add_seat(client, owner_session, elsewhere, student_phone=number)
+    _accept(client, owner_session, student, accepted)
+
+    rows = client.get(
+        "/v1/me/enrollments", headers=_auth(owner_session, student)
+    ).json()
+
+    assert [row["enrollment_id"] for row in rows] == [str(accepted)]
+    assert rows[0]["batch_name"]
+
+
+def test_a_student_cannot_list_someone_elses_seat(
+    client: TestClient, owner_session: Session, teacher: TeacherFixture
+) -> None:
+    """Two students, two lists, no overlap.
+
+    :param client: The test client
+    :param owner_session: An arranging session
+    :param teacher: The teacher
+    :return: None
+    """
+    first, second = _number(), _number()
+    one = make_account(owner_session, phone=first)
+    two = make_account(owner_session, phone=second)
+    seat_one = _add_seat(client, owner_session, teacher, student_phone=first)
+    seat_two = _add_seat(client, owner_session, teacher, student_phone=second)
+    _accept(client, owner_session, one, seat_one)
+    _accept(client, owner_session, two, seat_two)
+
+    rows = client.get("/v1/me/enrollments", headers=_auth(owner_session, one)).json()
+
+    assert [row["enrollment_id"] for row in rows] == [str(seat_one)]
+
+
+def test_a_student_reads_progress_for_their_own_seat_only(
+    client: TestClient, owner_session: Session, teacher: TeacherFixture
+) -> None:
+    """The results list S2 shows, refused for a seat that is not theirs.
+
+    :param client: The test client
+    :param owner_session: An arranging session
+    :param teacher: The teacher
+    :return: None
+    """
+    mine_number, other_number = _number(), _number()
+    student = make_account(owner_session, phone=mine_number)
+    other = make_account(owner_session, phone=other_number)
+    mine = _add_seat(client, owner_session, teacher, student_phone=mine_number)
+    theirs = _add_seat(client, owner_session, teacher, student_phone=other_number)
+    _accept(client, owner_session, student, mine)
+    _accept(client, owner_session, other, theirs)
+    owner_session.execute(
+        sa.text("UPDATE batch SET marksheet_visible = true WHERE id = :id"),
+        {"id": teacher.batch_id},
+    )
+    owner_session.commit()
+    headers = _auth(owner_session, student)
+
+    own = client.get(f"/v1/me/enrollments/{mine}/progress", headers=headers)
+    other_seat = client.get(f"/v1/me/enrollments/{theirs}/progress", headers=headers)
+
+    assert own.status_code == 200, own.text
+    assert other_seat.status_code in (403, 404)
+
+
+def test_the_same_student_twice_in_one_batch_is_refused_not_a_crash(
+    client: TestClient, owner_session: Session, teacher: TeacherFixture
+) -> None:
+    """A second seat for one number is a clear 409 (T8's error state).
+
+    It was a 500: the unique seat constraint fired once linking made
+    both seats name the same account.
+
+    :param client: The test client
+    :param owner_session: An arranging session
+    :param teacher: The teacher
+    :return: None
+    """
+    number = _number()
+    make_account(owner_session, phone=number)
+    _add_seat(client, owner_session, teacher, student_phone=number)
+
+    response = client.post(
+        f"/v1/batches/{teacher.batch_id}/enrollments",
+        json={"display_name": "Rahim again", "student_phone": number},
+        headers=_auth(owner_session, teacher.account_id),
+    )
+
+    assert response.status_code == 409
+    assert (
+        response.json()["error"]["message_key"] == "enrollment.student_already_in_batch"
+    )
+
+
+def test_two_waiting_seats_for_one_number_cannot_exist(
+    client: TestClient, owner_session: Session, teacher: TeacherFixture
+) -> None:
+    """Refused before sign-up too, so sign-up never collides on linking.
+
+    :param client: The test client
+    :param owner_session: An arranging session
+    :param teacher: The teacher
+    :return: None
+    """
+    number = _number()
+    _add_seat(client, owner_session, teacher, student_phone=number)
+
+    response = client.post(
+        f"/v1/batches/{teacher.batch_id}/enrollments",
+        json={"display_name": "Rahim again", "student_phone": number},
+        headers=_auth(owner_session, teacher.account_id),
+    )
+
+    assert response.status_code == 409
+    _signup(client, number, "student")

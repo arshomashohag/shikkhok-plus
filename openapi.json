@@ -639,6 +639,36 @@
         "title": "CorrectionEntryResponse",
         "type": "object"
       },
+      "CurrentFeeResponse": {
+        "additionalProperties": false,
+        "description": "A seat's latest fee period, as the student sees it on S1.\n\nThe status is the server's [TC-9]; the app renders it and decides\nnothing from the amounts.\n\n:ivar period: ``YYYY-MM``\n:ivar status: The period's status\n:ivar due_date: When it is due\n:ivar outstanding: What is still owed for it",
+        "properties": {
+          "due_date": {
+            "format": "date",
+            "title": "Due Date",
+            "type": "string"
+          },
+          "outstanding": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "period": {
+            "title": "Period",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "due_date",
+          "outstanding",
+          "period",
+          "status"
+        ],
+        "title": "CurrentFeeResponse",
+        "type": "object"
+      },
       "DecisionResponse": {
         "additionalProperties": false,
         "description": "The seat's state after this holder decided [BR5.2].\n\nReports **this holder's own** decision. The other link's state is\ndeliberately absent: it belongs to another person, and a seat whose\nstudent and guardian are different people shows each state only to\nits own holder. The teacher's roster is where both appear side by\nside, and that screen is D2's [AC1.10.7].\n\n:ivar enrollment_id: The seat decided on\n:ivar decision: This holder's decision after the write",
@@ -2314,6 +2344,66 @@
           "code_sent_to"
         ],
         "title": "SignupResponse",
+        "type": "object"
+      },
+      "StudentBatchResponse": {
+        "additionalProperties": false,
+        "description": "One batch a student is in (S1).\n\n:ivar enrollment_id: Their seat; every other student read takes it\n:ivar batch_name: The batch\n:ivar teacher_display_name: What the teacher is called, or None\n:ivar subjects: The subjects taught\n:ivar schedule: The weekly classes\n:ivar current_fee: The latest fee period, or None before the first",
+        "properties": {
+          "batch_name": {
+            "title": "Batch Name",
+            "type": "string"
+          },
+          "current_fee": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CurrentFeeResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "enrollment_id": {
+            "format": "uuid",
+            "title": "Enrollment Id",
+            "type": "string"
+          },
+          "schedule": {
+            "items": {
+              "$ref": "#/components/schemas/ScheduleSlotWire"
+            },
+            "title": "Schedule",
+            "type": "array"
+          },
+          "subjects": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Subjects",
+            "type": "array"
+          },
+          "teacher_display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Teacher Display Name"
+          }
+        },
+        "required": [
+          "batch_name",
+          "current_fee",
+          "enrollment_id",
+          "schedule",
+          "subjects",
+          "teacher_display_name"
+        ],
+        "title": "StudentBatchResponse",
         "type": "object"
       },
       "SubjectOption": {
@@ -5549,6 +5639,32 @@
         ]
       }
     },
+    "/v1/me/enrollments": {
+      "get": {
+        "description": "List the batches this student has accepted (S1) [AC2.6.1].\n\n**The route that did not exist.** Every student read is keyed on a\nseat, and nothing listed a student's seats once accepted -- so a\nstudent who accepted their invitation could not reach it again.\n\n:param lens: The student lens carrying the authenticated account\n:param session: The request-scoped session\n:return: One entry per accepted seat",
+        "operationId": "list_my_batches_v1_me_enrollments_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/StudentBatchResponse"
+                  },
+                  "title": "Response List My Batches V1 Me Enrollments Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List My Batches",
+        "tags": [
+          "batches"
+        ]
+      }
+    },
     "/v1/me/enrollments/{enrollment_id}/exams/{exam_id}/marksheet": {
       "get": {
         "description": "Read this student's own marksheet for one exam [BR6.2].\n\n:param enrollment_id: Their seat, from the route path\n:param exam_id: The exam, from the route path\n:param session: The request-scoped session\n:param lens: The student lens\n:return: The published comparison, or a suppressed marksheet",
@@ -5626,6 +5742,74 @@
           }
         },
         "summary": "Read My Marksheet",
+        "tags": [
+          "marks"
+        ]
+      }
+    },
+    "/v1/me/enrollments/{enrollment_id}/progress": {
+      "get": {
+        "description": "Read this student's own results across exams [BR6.6].\n\n**The student's half of the guardian's progress read**, through the\nsame function and so the same rules: accepted seats only, the\nbatch's marksheet toggle respected, absences carrying no number.\nS2's results list is built from it; until now a student had none.\n\n**Ordered by the server**, not the client, and an absence carries\nno numeric value: plotted as zero it would show a collapse in\nperformance that did not happen.\n\n:param enrollment_id: Their own seat, from the route path\n:param session: The request-scoped session\n:param lens: The student lens\n:return: One entry per exam, oldest first",
+        "operationId": "read_my_progress_v1_me_enrollments__enrollment_id__progress_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enrollment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enrollment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProgressEntryResponse"
+                  },
+                  "title": "Response Read My Progress V1 Me Enrollments  Enrollment Id  Progress Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence, and the refusal when the marksheet toggle is off is the same one: an empty marksheet would still disclose that exams exist and how many."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read My Progress",
         "tags": [
           "marks"
         ]

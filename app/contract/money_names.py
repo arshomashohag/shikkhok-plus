@@ -121,6 +121,12 @@ NON_MONEY_FIELDS: Final[dict[tuple[str, str], str]] = {
         "The same count on the guardian progress series, carried so a "
         "client can render '60 out of 80' without a second lookup."
     ),
+    ("CurrentFeeResponse", "due_date"): (
+        "The same computed date on the student's batch list (S1), for "
+        "their latest period. Its sibling `outstanding` is real money "
+        "and references the shared Money component, so it is still "
+        "checked."
+    ),
     ("RosterFeeRowResponse", "due_date"): (
         "The same computed date on the teacher's roster view. Named "
         "separately because the gate matches (schema, field) pairs, so "

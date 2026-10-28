@@ -481,3 +481,44 @@ def read_child_progress(
             session, lens=lens, enrollment_id=enrollment_id
         )
     ]
+
+
+@router.get(
+    "/me/enrollments/{enrollment_id}/progress",
+    response_model=list[ProgressEntryResponse],
+    responses=_AUTH_ERRORS,
+)
+def read_my_progress(
+    enrollment_id: uuid.UUID,
+    session: Annotated[DbSession, Depends(get_session)],
+    lens: Annotated[StudentLens, Depends(student_lens)],
+) -> list[ProgressEntryResponse]:
+    """Read this student's own results across exams [BR6.6].
+
+    **The student's half of the guardian's progress read**, through the
+    same function and so the same rules: accepted seats only, the
+    batch's marksheet toggle respected, absences carrying no number.
+    S2's results list is built from it; until now a student had none.
+
+    **Ordered by the server**, not the client, and an absence carries
+    no numeric value: plotted as zero it would show a collapse in
+    performance that did not happen.
+
+    :param enrollment_id: Their own seat, from the route path
+    :param session: The request-scoped session
+    :param lens: The student lens
+    :return: One entry per exam, oldest first
+    """
+    return [
+        ProgressEntryResponse(
+            exam_id=entry.exam_id,
+            title=entry.title,
+            date=entry.date,
+            total_marks=entry.total_marks,
+            result_state=_result_state(entry.result_state),
+            marks=entry.marks,
+        )
+        for entry in views.guardian_progress(
+            session, lens=lens, enrollment_id=enrollment_id
+        )
+    ]

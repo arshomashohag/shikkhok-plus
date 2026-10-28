@@ -9,6 +9,7 @@
     "batch.not_found",
     "enrollment.remove.claimed",
     "enrollment.remove.erased",
+    "enrollment.student_already_in_batch",
     "error.attendance_version_conflict",
     "error.topic_version_conflict",
     "fees.claim.amount_not_positive",

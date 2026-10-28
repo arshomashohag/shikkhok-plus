@@ -153,6 +153,47 @@ class BatchResponse(BaseModel):
     accepted_count: int
 
 
+class CurrentFeeResponse(BaseModel):
+    """A seat's latest fee period, as the student sees it on S1.
+
+    The status is the server's [TC-9]; the app renders it and decides
+    nothing from the amounts.
+
+    :ivar period: ``YYYY-MM``
+    :ivar status: The period's status
+    :ivar due_date: When it is due
+    :ivar outstanding: What is still owed for it
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    period: str
+    status: str
+    due_date: dt.date
+    outstanding: MoneyField
+
+
+class StudentBatchResponse(BaseModel):
+    """One batch a student is in (S1).
+
+    :ivar enrollment_id: Their seat; every other student read takes it
+    :ivar batch_name: The batch
+    :ivar teacher_display_name: What the teacher is called, or None
+    :ivar subjects: The subjects taught
+    :ivar schedule: The weekly classes
+    :ivar current_fee: The latest fee period, or None before the first
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    enrollment_id: uuid.UUID
+    batch_name: str
+    teacher_display_name: str | None
+    subjects: list[str]
+    schedule: list[ScheduleSlotWire]
+    current_fee: CurrentFeeResponse | None
+
+
 class EnrollmentCreateRequest(BaseModel):
     """Add a student to a batch [AC2.2.2, AC2.2.5].
 

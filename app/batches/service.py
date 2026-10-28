@@ -27,7 +27,7 @@ from dataclasses import dataclass, field
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
-from app.authz.lenses import GuardianLens, TeacherLens
+from app.authz.lenses import GuardianLens, StudentLens, TeacherLens
 from app.db.models import Account, Batch, BatchSubject, Enrollment, ScheduleSlot
 from app.errors import AuthorizationError, ConflictError, ValidationError
 from app.money import Money
@@ -43,6 +43,7 @@ __all__ = [
     "list_batches",
     "list_guardian_children",
     "list_roster",
+    "list_student_batches",
     "remove_enrollment",
     "set_inactive_from",
 ]
@@ -314,6 +315,81 @@ def list_roster(
     return [_roster_row(row) for row in rows]
 
 
+@dataclass(frozen=True)
+class StudentBatchRow:
+    """One batch a student has accepted a seat in.
+
+    :ivar enrollment_id: Their seat, which every student read is keyed on
+    :ivar batch_name: The batch
+    :ivar teacher_display_name: What the teacher is called, or None
+    :ivar subjects: The subjects taught
+    :ivar schedule: The weekly classes as (weekday, start, end)
+    """
+
+    enrollment_id: uuid.UUID
+    batch_name: str
+    teacher_display_name: str | None
+    subjects: list[str]
+    schedule: list[tuple[int, dt.time, dt.time]]
+
+
+def list_student_batches(
+    session: Session, *, lens: StudentLens
+) -> list[StudentBatchRow]:
+    """List the batches this student has ACCEPTED a seat in (S1).
+
+    **The acceptance predicate is in this query**, not inherited from
+    the lens. The guardian list once relied on the lens instead and
+    leaked linked-but-unaccepted seats, because the lens is granted by
+    ANY accepted link rather than per seat [BR1.1].
+
+    :param session: The session to query through
+    :param lens: The student lens carrying the authenticated account
+    :return: One row per accepted seat, ordered by batch name
+    """
+    rows = session.execute(
+        sa.select(Enrollment.id, Batch.id, Batch.name, Batch.teacher_display_name)
+        .join(Batch, Batch.id == Enrollment.batch_id)
+        .where(
+            Enrollment.student_account_id == lens.account_id,
+            Enrollment.student_decision == "accepted",
+        )
+        .order_by(Batch.name, Enrollment.id)
+    ).all()
+    batch_ids = [batch_id for _, batch_id, _, _ in rows]
+    subjects: dict[uuid.UUID, list[str]] = {batch_id: [] for batch_id in batch_ids}
+    for batch_id, name in session.execute(
+        sa.select(BatchSubject.batch_id, BatchSubject.name)
+        .where(BatchSubject.batch_id.in_(batch_ids))
+        .order_by(BatchSubject.name)
+    ).all():
+        subjects[batch_id].append(name)
+    schedules: dict[uuid.UUID, list[tuple[int, dt.time, dt.time]]] = {
+        batch_id: [] for batch_id in batch_ids
+    }
+    for batch_id, weekday, start, end in session.execute(
+        sa.select(
+            ScheduleSlot.batch_id,
+            ScheduleSlot.weekday,
+            ScheduleSlot.start_time,
+            ScheduleSlot.end_time,
+        )
+        .where(ScheduleSlot.batch_id.in_(batch_ids))
+        .order_by(ScheduleSlot.weekday, ScheduleSlot.start_time)
+    ).all():
+        schedules[batch_id].append((weekday, start, end))
+    return [
+        StudentBatchRow(
+            enrollment_id=enrollment_id,
+            batch_name=name,
+            teacher_display_name=teacher,
+            subjects=subjects[batch_id],
+            schedule=schedules[batch_id],
+        )
+        for enrollment_id, batch_id, name, teacher in rows
+    ]
+
+
 def list_guardian_children(
     session: Session, *, lens: GuardianLens
 ) -> list[GuardianChildRow]:
@@ -325,13 +401,15 @@ def list_guardian_children(
     records: a guardian recorded by teacher A would see teacher B's batch
     for the same child.
 
-    **Safe after D1 only TRANSITIVELY, which is recorded so it is a
-    decision rather than a later discovery** [rules.md sweep]. This
-    query has no decision predicate of its own: it is correct because
-    ``GuardianLens`` stops being granted for an unaccepted link
-    [BR1.1], so it never runs for one. A reader who later removes the
-    lens requirement, or calls this from somewhere the lens did not
-    come from, inherits a query that would list seats nobody accepted.
+    **Filtered to ACCEPTED links here, not transitively.** This used to
+    carry no decision predicate, on the reasoning that ``GuardianLens``
+    is withheld for an unaccepted link. It is not withheld per SEAT: the
+    lens is granted by ANY accepted guardian link, so a guardian who
+    accepted their own child's seat also saw every seat merely linked to
+    their number -- including one a teacher created by mistyping a digit:
+    a stranger's child's name and batch [BR1.1]. Linking at seat creation
+    made that common. The fee and marks reads check acceptance per seat
+    and were never exposed; this list now does the same.
 
     :param session: The session to query through
     :param lens: The guardian lens carrying the authenticated account
@@ -340,7 +418,10 @@ def list_guardian_children(
     rows = session.execute(
         sa.select(Enrollment, Batch.name)
         .join(Batch, Batch.id == Enrollment.batch_id)
-        .where(Enrollment.guardian_account_id == lens.account_id)
+        .where(
+            Enrollment.guardian_account_id == lens.account_id,
+            Enrollment.guardian_decision == "accepted",
+        )
         .order_by(Batch.name, Enrollment.display_name, Enrollment.id)
     ).all()
 
@@ -696,6 +777,48 @@ def _account_for(session: Session, phone: str | None) -> uuid.UUID | None:
     ).scalar_one_or_none()
 
 
+def _refuse_second_seat(
+    session: Session,
+    *,
+    batch_id: uuid.UUID,
+    student_phone: str | None,
+    student_account_id: uuid.UUID | None,
+) -> None:
+    """Refuse a second seat for one student in one batch.
+
+    **A clear refusal instead of a 500.** A student holds at most one seat
+    per batch (``uq_enrollment_batch_student``). Once seats link to
+    accounts by number, adding the same student twice -- an easy slip --
+    hit that constraint as a server error. Refusing on the NUMBER too,
+    not only on a linked account, also keeps two waiting seats from
+    colliding when that student later signs up.
+
+    :param session: The session to query through
+    :param batch_id: The batch
+    :param student_phone: The typed student number, canonical, or None
+    :param student_account_id: The account it resolves to, or None
+    :return: None
+    :raises ConflictError: That student already has a seat here
+    """
+    clauses = []
+    if student_phone is not None:
+        clauses.append(Enrollment.student_phone == student_phone)
+    if student_account_id is not None:
+        clauses.append(Enrollment.student_account_id == student_account_id)
+    if not clauses:
+        return
+    taken = session.execute(
+        sa.select(Enrollment.id).where(
+            Enrollment.batch_id == batch_id, sa.or_(*clauses)
+        )
+    ).first()
+    if taken is not None:
+        raise ConflictError(
+            code="ENROLLMENT_STUDENT_ALREADY_SEATED",
+            message_key="enrollment.student_already_in_batch",
+        )
+
+
 def add_enrollment(
     session: Session,
     *,
@@ -730,8 +853,17 @@ def add_enrollment(
     :param joined_on: When the student joined
     :return: The new seat, as the roster describes it
     :raises BatchNotFound: The batch is not this lens's to write
+    :raises ConflictError: That student already has a seat in the batch
     """
     _owned_batch(session, lens=lens, batch_id=batch_id)
+
+    student_account = student_account_id or _account_for(session, student_phone)
+    _refuse_second_seat(
+        session,
+        batch_id=batch_id,
+        student_phone=student_phone,
+        student_account_id=student_account,
+    )
 
     # **Link to a person who is ALREADY signed up** [BR5.1]. A number with
     # no account waits on the seat and links at sign-up instead. Before

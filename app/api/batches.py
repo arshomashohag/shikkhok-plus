@@ -20,18 +20,21 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_session, guardian_lens, teacher_lens
-from app.authz.lenses import GuardianLens, TeacherLens
+from app.api.deps import get_session, guardian_lens, student_lens, teacher_lens
+from app.authz.lenses import GuardianLens, StudentLens, TeacherLens
 from app.batches import service
+from app.fees.views import enrollment_fee_history
 from app.money import Money as DomainMoney
 from app.money.wire import parse, to_wire
 from app.schemas.batches import (
     BatchCreateRequest,
     BatchResponse,
+    CurrentFeeResponse,
     EnrollmentCreateRequest,
     GuardianChildResponse,
     InactiveFromRequest,
     RosterRowResponse,
+    StudentBatchResponse,
     SubjectOption,
 )
 from app.schemas.money import Money as WireMoney
@@ -329,6 +332,63 @@ def remove_enrollment(
     :return: None
     """
     service.remove_enrollment(session, lens=lens, enrollment_id=enrollment_id)
+
+
+@router.get("/me/enrollments", response_model=list[StudentBatchResponse])
+def list_my_batches(
+    lens: Annotated[StudentLens, Depends(student_lens)],
+    session: Annotated[Session, Depends(get_session)],
+) -> list[StudentBatchResponse]:
+    """List the batches this student has accepted (S1) [AC2.6.1].
+
+    **The route that did not exist.** Every student read is keyed on a
+    seat, and nothing listed a student's seats once accepted -- so a
+    student who accepted their invitation could not reach it again.
+
+    :param lens: The student lens carrying the authenticated account
+    :param session: The request-scoped session
+    :return: One entry per accepted seat
+    """
+    return [
+        StudentBatchResponse(
+            enrollment_id=row.enrollment_id,
+            batch_name=row.batch_name,
+            teacher_display_name=row.teacher_display_name,
+            subjects=row.subjects,
+            schedule=[
+                ScheduleSlotWire(
+                    weekday=weekday,
+                    start_time=start.strftime("%H:%M"),
+                    end_time=end.strftime("%H:%M"),
+                )
+                for weekday, start, end in row.schedule
+            ],
+            current_fee=_current_fee(session, lens, row.enrollment_id),
+        )
+        for row in service.list_student_batches(session, lens=lens)
+    ]
+
+
+def _current_fee(
+    session: Session, lens: StudentLens, enrollment_id: uuid.UUID
+) -> CurrentFeeResponse | None:
+    """Read the seat's latest fee period through the fee module's rules.
+
+    :param session: The session to read through
+    :param lens: The student lens, which the fee read re-authorizes
+    :param enrollment_id: The seat
+    :return: The latest period, or None before the first is generated
+    """
+    history = enrollment_fee_history(session, lens=lens, enrollment_id=enrollment_id)
+    if not history.cycles:
+        return None
+    latest = history.cycles[-1]
+    return CurrentFeeResponse(
+        period=latest.period,
+        status=latest.status,
+        due_date=latest.due_date,
+        outstanding=WireMoney(to_wire(latest.outstanding)),
+    )
 
 
 @router.get("/guardian/children", response_model=list[GuardianChildResponse])
