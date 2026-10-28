@@ -97,6 +97,21 @@ class AuthViewModelTest {
     }
 
     @Test
+    fun `signing out returns to the phone screen`() = runTest {
+        // Sign-out and account deletion both end here. Idle is the
+        // state the number field renders from.
+        val model = AuthViewModel(FakeRepository())
+        model.requestCode("+8801711111111")
+        advanceUntilIdle()
+        model.submitCode("123456")
+        advanceUntilIdle()
+
+        model.signOut()
+
+        assertEquals(AuthUiState.Idle, model.state.value)
+    }
+
+    @Test
     fun `a transport failure surfaces an explicit retry`() = runTest {
         // THE RETRY PATH. No local queue and no silent retry: the user
         // is shown the failure and asks for the retry themselves.

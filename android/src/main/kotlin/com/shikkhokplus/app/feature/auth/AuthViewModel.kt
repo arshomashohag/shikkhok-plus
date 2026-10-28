@@ -183,4 +183,17 @@ class AuthViewModel(
         if (!failed.retryable) return
         lastAction?.invoke()
     }
+
+    /**
+     * Return to the signed-out state.
+     *
+     * **State only.** Clearing the stored tokens and the device's queue
+     * is the caller's, because this ViewModel does not own them; the
+     * app's one `endSession` action does all three together so none
+     * can be forgotten.
+     */
+    fun signOut() {
+        lastAction = null
+        _state.value = AuthUiState.Idle
+    }
 }

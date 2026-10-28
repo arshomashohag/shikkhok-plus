@@ -27,7 +27,7 @@ object ProfileStateMapper {
      * @return The viewing state
      */
     fun afterLoad(dto: MeDto): ProfileUiState =
-        ProfileUiState.Viewing(selfName = dto.selfName, address = dto.address)
+        ProfileUiState.Viewing(selfName = dto.selfName, address = dto.address, phone = dto.phone)
 
     /**
      * Map a successful save.

@@ -3,6 +3,7 @@ package com.shikkhokplus.app.core.network
 import com.shikkhokplus.app.feature.auth.AuthResult
 import com.shikkhokplus.app.feature.profile.ProfileRepository
 import io.ktor.client.HttpClient
+import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.patch
 import io.ktor.client.request.setBody
@@ -46,4 +47,16 @@ class HttpProfileRepository(
                 setBody(ProfileUpdateDto(selfName = selfName, address = address))
             }
         }
+
+    /**
+     * Delete this account [TC-19].
+     *
+     * The access token is the ownership proof; the server runs the same
+     * deletion function the web route runs, so the two paths cannot
+     * remove different things [BR3.1].
+     *
+     * @return Nothing on success, or why the server refused
+     */
+    override suspend fun deleteAccount(): AuthResult<Unit> =
+        callDiscardingBody { client.delete("/v1/me") }
 }

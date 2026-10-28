@@ -283,6 +283,11 @@ sealed interface Destination {
         override val route: String = "invitations"
     }
 
+    /** Deleting one's own account (O5) [TC-19]. */
+    data object DeleteAccount : Destination {
+        override val route: String = "profile/delete"
+    }
+
     /** The signed-in person's own profile. The More tab. */
     data object Profile : Destination {
         override val route: String = "profile"

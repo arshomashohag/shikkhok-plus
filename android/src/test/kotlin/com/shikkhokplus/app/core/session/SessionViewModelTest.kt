@@ -47,6 +47,8 @@ class SessionViewModelTest {
 
         override suspend fun save(selfName: String?, address: String?) =
             AuthResult.TransportFailure
+
+        override suspend fun deleteAccount() = AuthResult.TransportFailure
     }
 
     private fun me(vararg lenses: Pair<String, Int>) =

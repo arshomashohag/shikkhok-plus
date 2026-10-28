@@ -23,10 +23,12 @@ sealed interface ProfileUiState {
      *
      * @property selfName The name this person chose, or null
      * @property address The address this person entered, or null
+     * @property phone The sign-in number, shown read-only (O5)
      */
     data class Viewing(
         val selfName: String?,
         val address: String?,
+        val phone: String? = null,
     ) : ProfileUiState
 
     /**

@@ -5,6 +5,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import com.shikkhokplus.app.feature.profile.ui.DeleteAccountScreen
+import com.shikkhokplus.app.core.format.Numerals
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.Text
+import androidx.compose.material3.AlertDialog
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
@@ -776,6 +783,7 @@ fun ShikkhokNavHost(
             val model: ProfileViewModel =
                 viewModel { ProfileViewModel(HttpProfileRepository(client)) }
             val state by model.state.collectAsState()
+            var confirmingSignOut by remember { mutableStateOf(false) }
 
             LaunchedEffect(Unit) { model.load() }
 
@@ -792,6 +800,46 @@ fun ShikkhokNavHost(
                     )
                 },
                 onSwitchLens = session.onSwitch,
+                onDeleteAccount = {
+                    model.startDeletion()
+                    navController.navigate(Destination.DeleteAccount.route)
+                },
+                onSignOut = { confirmingSignOut = true },
+            )
+
+            if (confirmingSignOut) {
+                SignOutDialog(
+                    unsent = remember { session.unsentWrites() },
+                    onConfirm = {
+                        confirmingSignOut = false
+                        session.onEndSession()
+                    },
+                    onDismiss = { confirmingSignOut = false },
+                )
+            }
+        }
+
+        composable(Destination.DeleteAccount.route) { entry ->
+            // The PROFILE's ViewModel: it holds the number the person
+            // must type back, read when the profile loaded.
+            val parent =
+                remember(entry) { navController.getBackStackEntry(Destination.Profile.route) }
+            val model: ProfileViewModel =
+                viewModel(parent) { ProfileViewModel(HttpProfileRepository(client)) }
+            val deletion by model.deletion.collectAsState()
+
+            DeleteAccountScreen(
+                state = deletion,
+                onDelete = model::deleteAccount,
+                onKeep = {
+                    model.cancelDeletion()
+                    navController.popBackStack()
+                },
+                // **The account is gone, so the session ends here** --
+                // tokens, queue and every screen holding its data. Back
+                // from the done screen never returns to a deleted
+                // account's profile (AC9.4.2, last row).
+                onDone = session.onEndSession,
             )
         }
     }
@@ -824,6 +872,41 @@ private fun readerOrSelf(raw: String?): MarksheetReader =
  */
 private fun feeReaderOrStudent(raw: String?): FeeReader =
     FeeReader.entries.firstOrNull { it.name == raw } ?: FeeReader.STUDENT
+
+/**
+ * Confirm signing out, and say what it would discard.
+ *
+ * **Never silent about unsent work.** Ending the session clears the
+ * device's queue -- the next person to sign in must not send this
+ * account's rosters under their own token -- so attendance saved and not
+ * yet sent is lost, and the dialog says how much before it happens.
+ *
+ * @param unsent How many saved writes have not been sent
+ * @param onConfirm Called to sign out
+ * @param onDismiss Called to stay signed in
+ */
+@Composable
+private fun SignOutDialog(unsent: Int, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.sign_out_title)) },
+        text = {
+            Text(
+                if (unsent > 0) {
+                    stringResource(R.string.sign_out_unsent, Numerals.count(unsent))
+                } else {
+                    stringResource(R.string.sign_out_body)
+                },
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) { Text(stringResource(R.string.sign_out_confirm)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+        },
+    )
+}
 
 /**
  * Resolve a failed write to the text its form shows, or null.

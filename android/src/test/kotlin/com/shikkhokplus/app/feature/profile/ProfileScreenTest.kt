@@ -6,10 +6,14 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import com.shikkhokplus.app.feature.profile.ui.ProfileScreen
 import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_ADDRESS
+import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_DELETE
+import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_PHONE
+import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_SIGN_OUT
 import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_NAME
 import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_SAVE
 import org.junit.Rule
@@ -28,9 +32,11 @@ import kotlin.test.assertEquals
  *   [BR3.1, AC1.5.3]. The two names answer different questions and only
  *   the server knows which table it reads, so a person has no way to
  *   discover this except by being told.
- * * **No deletion control appears.** Both account-deletion paths are
- *   D6's [TC-19], and the mockups draw them on this same screen — so
- *   the absence is worth asserting rather than assuming.
+ * * **The deletion control is present and wired.** This used to assert
+ *   the OPPOSITE -- no deletion control -- because both deletion paths
+ *   were D6's [TC-19] and the absence guarded against a half-built
+ *   control appearing early. The in-app path has now landed, so the
+ *   guard has done its job and the assertion flips with it.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
@@ -81,15 +87,12 @@ class ProfileScreenTest {
     }
 
     @Test
-    fun `the edit half offers no deletion control`() {
-        render(
-            ProfileUiState.Viewing(selfName = "Rahim", address = "Dhaka"),
-        )
+    fun `the profile offers account deletion`() {
+        // Flipped from "offers no deletion control" when the in-app
+        // deletion path landed; see the class comment.
+        render(ProfileUiState.Viewing(selfName = "Rahim", address = "Dhaka"))
 
-        compose
-            .onAllNodesWithText("Delete", substring = true, ignoreCase = true)
-            .fetchSemanticsNodes()
-            .let { assertEquals(0, it.size) }
+        compose.onNodeWithTag(TAG_PROFILE_DELETE).performScrollTo().assertIsDisplayed()
     }
 
     @Test
@@ -140,5 +143,36 @@ class ProfileScreenTest {
 
         compose.onNodeWithText("Try again", substring = true).performClick()
         assertEquals(true, retried)
+    }
+
+    @Test
+    fun `the sign-in number is shown, read-only`() {
+        // O5: "This is your login and cannot be changed."
+        render(ProfileUiState.Viewing("Rahim", "Dhaka", phone = "+8801611477203"))
+
+        compose.onNodeWithTag(TAG_PROFILE_PHONE).performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun `delete and sign out each call back only when tapped`() {
+        var deletes = 0
+        var signOuts = 0
+        compose.setContent {
+            ProfileScreen(
+                state = ProfileUiState.Viewing("Rahim", "Dhaka", phone = "+8801611477203"),
+                onEdit = {},
+                onSave = { _, _ -> },
+                onRetry = {},
+                onDeleteAccount = { deletes++ },
+                onSignOut = { signOuts++ },
+            )
+        }
+        assertEquals(0, deletes + signOuts, "rendering must not act")
+
+        compose.onNodeWithTag(TAG_PROFILE_DELETE).performScrollTo().performClick()
+        compose.onNodeWithTag(TAG_PROFILE_SIGN_OUT).performScrollTo().performClick()
+
+        assertEquals(1, deletes)
+        assertEquals(1, signOuts)
     }
 }

@@ -344,4 +344,16 @@ class QueueStoreTest {
         assertFalse(onDisk.contains("displayName"), onDisk)
         assertFalse(onDisk.contains("phone"), onDisk)
     }
+
+    @Test
+    fun `clear empties the queue, for the end of a session`() {
+        // The queue belongs to the account that wrote it; left in place,
+        // the next person to sign in would send it under their token.
+        val queue = store()
+        queue.enqueue(QueuedWrite.attendance("s-1", 1, listOf(AttendanceEntry("e-1", true))))
+
+        queue.clear()
+
+        assertEquals(emptyList(), queue.read())
+    }
 }
