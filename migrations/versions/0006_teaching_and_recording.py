@@ -488,7 +488,9 @@ def upgrade() -> None:
     # ----------------------------------------------------------------
     for table in NEW_TABLES:
         op.execute(
-            sa.text(f'GRANT SELECT, INSERT, UPDATE, DELETE ON "{table}" TO {APP_ROLE}')
+            sa.text(
+                f'GRANT SELECT, INSERT, UPDATE, DELETE ON "{table}" TO {APP_ROLE}'  # noqa: S608  fixed module constants
+            )
         )
 
 

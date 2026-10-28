@@ -66,7 +66,10 @@ def upgrade() -> None:
     # a new table was invisible to the application role AND to the
     # governance gates reading information_schema.
     op.execute(
-        sa.text(f"GRANT SELECT, INSERT, DELETE ON staging_sms_outbox TO {APP_ROLE}")
+        sa.text(
+            "GRANT SELECT, INSERT, DELETE ON staging_sms_outbox "
+            f"TO {APP_ROLE}"
+        )
     )
 
 
@@ -78,7 +81,5 @@ def downgrade() -> None:
 
     :return: None
     """
-    op.drop_index(
-        "ix_staging_sms_outbox_phone_recorded", table_name="staging_sms_outbox"
-    )
+    op.drop_index("ix_staging_sms_outbox_phone_recorded", table_name="staging_sms_outbox")
     op.drop_table("staging_sms_outbox")
