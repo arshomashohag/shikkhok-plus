@@ -23,6 +23,7 @@ import uuid
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.money import MoneyField
+from app.schemas.phone import PhoneField
 
 __all__ = [
     "BatchCreateRequest",
@@ -163,8 +164,8 @@ class EnrollmentCreateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     display_name: str = Field(min_length=1, max_length=120)
-    student_phone: str | None = Field(default=None, max_length=20)
-    guardian_phone: str | None = Field(default=None, max_length=20)
+    student_phone: PhoneField | None = None
+    guardian_phone: PhoneField | None = None
     fee_amount: MoneyField | None = None
     joined_on: dt.date | None = None
 

@@ -578,6 +578,9 @@ class Enrollment(Base):
     :ivar guardian_account_id: The guardian recorded for this seat, if any
     :ivar display_name: The teacher-typed name
     :ivar guardian_phone: The teacher-typed guardian contact
+    :ivar student_phone: The teacher-typed STUDENT number, canonical. What
+        links the seat to the student's account, at creation when that
+        account exists and at sign-up when it does not [0008]
     :ivar fee_amount: This seat's fee, or NULL to inherit the batch
         default. Zero is a real fee of zero, which is a waiver
     :ivar joined_on: When the student joined
@@ -616,6 +619,7 @@ class Enrollment(Base):
     )
     display_name: Mapped[str] = mapped_column(Text, nullable=False)
     guardian_phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    student_phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
     fee_amount: Mapped[Money | None] = mapped_column(MoneyColumn, nullable=True)
     joined_on: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
     inactive_from: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
@@ -640,6 +644,7 @@ class Enrollment(Base):
         Index("ix_enrollment_account_id", "student_account_id"),
         Index("ix_enrollment_batch_id", "batch_id"),
         Index("ix_enrollment_guardian_account_id", "guardian_account_id"),
+        Index("ix_enrollment_student_phone", "student_phone"),
         Index(
             "uq_enrollment_batch_student",
             "batch_id",

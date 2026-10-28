@@ -18,6 +18,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.phone import PhoneField
+
 __all__ = [
     "DeletionOutcome",
     "DeletionRequest",
@@ -40,7 +42,7 @@ class DeletionRequest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    phone: str = Field(min_length=8, max_length=20)
+    phone: PhoneField
     code: str | None = Field(default=None, min_length=4, max_length=10)
 
 

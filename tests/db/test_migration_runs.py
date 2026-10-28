@@ -118,7 +118,7 @@ def test_the_schema_is_at_the_head_revision(restricted_session: Session) -> None
     revision = restricted_session.execute(
         sa.text("SELECT version_num FROM alembic_version")
     ).scalar_one()
-    assert revision == "0007"
+    assert revision == "0008"
 
 
 def test_the_restricted_role_exists(restricted_session: Session) -> None:

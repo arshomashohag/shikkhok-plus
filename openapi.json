@@ -685,8 +685,7 @@
             "title": "Code"
           },
           "phone": {
-            "maxLength": 20,
-            "minLength": 8,
+            "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
             "title": "Phone",
             "type": "string"
           }
@@ -797,7 +796,7 @@
           "guardian_phone": {
             "anyOf": [
               {
-                "maxLength": 20,
+                "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
                 "type": "string"
               },
               {
@@ -821,7 +820,7 @@
           "student_phone": {
             "anyOf": [
               {
-                "maxLength": 20,
+                "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
                 "type": "string"
               },
               {
@@ -1283,8 +1282,7 @@
         "description": "Ask for a code to be sent to a number.\n\nThe number is **typed by the user** and never read from the SIM\n[AC1.1.6]: there is no device-side source for this field.\n\n:ivar phone: The destination number in international form",
         "properties": {
           "phone": {
-            "maxLength": 20,
-            "minLength": 8,
+            "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
             "title": "Phone",
             "type": "string"
           }
@@ -2205,8 +2203,7 @@
             "title": "Address"
           },
           "phone": {
-            "maxLength": 20,
-            "minLength": 8,
+            "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
             "title": "Phone",
             "type": "string"
           },
@@ -2465,8 +2462,7 @@
             "type": "string"
           },
           "phone": {
-            "maxLength": 20,
-            "minLength": 8,
+            "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
             "title": "Phone",
             "type": "string"
           }
@@ -2615,7 +2611,7 @@
     },
     "/v1/accounts/already-added": {
       "get": {
-        "description": "Report whether a teacher recorded this number, and nothing more.\n\n**This route discloses that a seat exists, deliberately**\n[BR2.3, AC1.12.2]. That is its purpose, and it is why BR2.2's\nbyte-identical requirement applies to the OTP endpoint and not to\nthis one. What is bounded is the WIDTH -- never the teacher, never\nthe batch -- and the rate, through signup's own ceilings.\n\nPublic, and in ``PUBLIC_ROUTES``: it is called while the signup\nform renders, before any account exists.\n\n:param phone: The number typed into the form\n:param request: The incoming request\n:param session: The request-scoped session\n:return: Existence, the name to pre-fill and the role to lock\n:raises CeilingBreach: A signup ceiling refused this request",
+        "description": "Report whether a teacher recorded this number, and nothing more.\n\n**This route discloses that a seat exists, deliberately**\n[BR2.3, AC1.12.2]. That is its purpose, and it is why BR2.2's\nbyte-identical requirement applies to the OTP endpoint and not to\nthis one. What is bounded is the WIDTH -- never the teacher, never\nthe batch -- and the rate, through signup's own ceilings.\n\nPublic, and in ``PUBLIC_ROUTES``: it is called while the signup\nform renders, before any account exists.\n\n:param phone: The number typed into the form, canonicalised on the\n    way in like every other number, so the ceiling and the lookup\n    both see one spelling\n:param request: The incoming request\n:param session: The request-scoped session\n:return: Existence, the name to pre-fill and the role to lock\n:raises CeilingBreach: A signup ceiling refused this request",
         "operationId": "lookup_already_added_v1_accounts_already_added_get",
         "parameters": [
           {

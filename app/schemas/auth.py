@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.phone import PhoneField
+
 __all__ = [
     "IssueRequest",
     "IssueResponse",
@@ -30,7 +32,7 @@ class IssueRequest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    phone: str = Field(min_length=8, max_length=20)
+    phone: PhoneField
 
 
 class IssueResponse(BaseModel):
@@ -57,7 +59,7 @@ class VerifyRequest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    phone: str = Field(min_length=8, max_length=20)
+    phone: PhoneField
     code: str = Field(min_length=4, max_length=10)
 
 

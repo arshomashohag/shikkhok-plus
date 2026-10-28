@@ -157,7 +157,9 @@ def upgrade() -> None:
     ):
         sa.Enum(*values, name=name).create(bind, checkfirst=False)
 
-    kind = postgresql.ENUM(*LEDGER_KIND_VALUES, name=LEDGER_KIND_TYPE, create_type=False)
+    kind = postgresql.ENUM(
+        *LEDGER_KIND_VALUES, name=LEDGER_KIND_TYPE, create_type=False
+    )
     claim_status = postgresql.ENUM(
         *CLAIM_STATUS_VALUES, name=CLAIM_STATUS_TYPE, create_type=False
     )
@@ -355,9 +357,7 @@ def upgrade() -> None:
     # ----------------------------------------------------------------
     for table in NEW_TABLES:
         op.execute(
-            sa.text(
-                f"GRANT SELECT, INSERT, UPDATE, DELETE ON {table} TO {APP_ROLE}"  # noqa: S608  fixed module constants
-            )
+            sa.text(f"GRANT SELECT, INSERT, UPDATE, DELETE ON {table} TO {APP_ROLE}")
         )
 
 

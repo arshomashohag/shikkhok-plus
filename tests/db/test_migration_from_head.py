@@ -139,7 +139,7 @@ def test_the_head_revision_advanced(staged: Engine) -> None:
             sa.text("SELECT version_num FROM alembic_version")
         ).scalar_one()
 
-    assert revision == "0007"
+    assert revision == "0008"
 
 
 def test_the_role_column_is_gone(staged: Engine) -> None:

@@ -38,7 +38,7 @@ def _phone() -> str:
 
     :return: A number in international form
     """
-    return f"+8801{uuid.uuid4().int % 10**9:09d}"
+    return f"+88017{uuid.uuid4().int % 10**8:08d}"
 
 
 def _guardian_seat(
