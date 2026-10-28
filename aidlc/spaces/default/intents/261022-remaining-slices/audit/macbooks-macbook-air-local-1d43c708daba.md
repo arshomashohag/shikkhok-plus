@@ -60085,3 +60085,211 @@ nfr-requirements D3 collecting-fees: seven artifacts written. Recomputed every N
 **Details**: R=android/src/main/res\ngit add android/src/main/AndroidManifest.xml $R/values/themes.xml $R/values/colors.xml $R/values-night $R/values-v27 $R/values-night-v27 
 
 ---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T00:40:37Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: git push -q -u origin fix/batch-create-and-design-parity 2>&1 | tail -2; echo pushed
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T00:40:47Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: K=android/src/main/kotlin/com/shikkhokplus/app/feature; for f in overview/OverviewUiState.kt roster/RosterUiState.kt dues/DuesUiState.kt; do echo "=== $f"; grep
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T00:41:10Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/android/src/test/kotlin/com/shikkhokplus/app/render
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T00:41:42Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: D=/private/tmp/claude-502/-Users-shohag-Desktop-Development-shikkhok-plus/602d453a-cecc-4a7d-ad6f-1f22d6052b2a/scratchpad/artifact-files/08870a1d-3766-4531-ae6f
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T00:41:58Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: D=/private/tmp/claude-502/-Users-shohag-Desktop-Development-shikkhok-plus/602d453a-cecc-4a7d-ad6f-1f22d6052b2a/scratchpad/artifact-files/08870a1d-3766-4531-ae6f
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T00:42:12Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '270,290p' android/src/main/kotlin/com/shikkhokplus/app/feature/roster/ui/RosterScreen.kt; echo "=== mapper sets displayLabel / statusLabel ==="; grep -n
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T00:42:18Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '98,112p' android/src/main/kotlin/com/shikkhokplus/app/feature/roster/RosterStateMapper.kt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T00:42:24Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '80,97p' android/src/main/kotlin/com/shikkhokplus/app/feature/roster/RosterStateMapper.kt | grep -E "label|\"" ; python3 - <<'PY'\np='android/src/test/kot
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T00:42:30Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: S=/private/tmp/claude-502/-Users-shohag-Desktop-Development-shikkhok-plus/602d453a-cecc-4a7d-ad6f-1f22d6052b2a/scratchpad; RENDER_OUT=$S/render ./gradlew :andro
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T00:43:09Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: D=/private/tmp/claude-502/-Users-shohag-Desktop-Development-shikkhok-plus/602d453a-cecc-4a7d-ad6f-1f22d6052b2a/scratchpad/artifact-files/08870a1d-3766-4531-ae6f
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T00:43:35Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: grep -n "class EnrollmentCreateBody\|data class .*Enrollment.*Body" -A 8 android/src/main/kotlin/com/shikkhokplus/app/core/network/*.kt | grep -E "class|val "; 
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T00:43:53Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: grep -rln "student_phone" app/ | head; echo ---; grep -rn "student_phone" app/ --include=*.py 2>/dev/null | grep -v "^app/schemas" | head -8 || grep -rn "studen
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T00:44:14Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '140,175p;285,310p' app/accounts/service.py
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T00:44:28Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '639,700p' app/batches/service.py | grep -vE '^\s*$' | grep -vE '^\s+:param|^\s+"""|^\s+[A-Z*].*[a-z]\.$' | head -40; echo "=== enrollment columns ==="; 
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T00:44:37Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/android/src/test/kotlin/com/shikkhokplus/app/render/RenderHarness.kt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T00:44:58Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: /private/tmp/claude-502/-Users-shohag-Desktop-Development-shikkhok-plus/602d453a-cecc-4a7d-ad6f-1f22d6052b2a/pr2.md
+
+---
