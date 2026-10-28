@@ -31,12 +31,17 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.schemas.money import MoneyField
 
 __all__ = [
+    "ClaimQueueItemResponse",
     "ClaimResponse",
     "ClaimSubmitRequest",
     "FeeCycleResponse",
     "FeeHistoryResponse",
     "PaymentDestinationResponse",
+    "RecentDecisionResponse",
     "RosterFeeRowResponse",
+    "ShortfallPreviewRequest",
+    "ShortfallPreviewResponse",
+    "VerificationQueueResponse",
     "VerificationRequest",
 ]
 
@@ -260,3 +265,131 @@ class PaymentDestinationResponse(BaseModel):
     collection_number: str
     collection_channel: str | None = None
     channels: list[str]
+
+
+#: How a claim stands against what its period charged.
+ClaimComparison = Literal["matches", "short", "over"]
+
+#: Who sent a claim.
+Submitter = Literal["student", "guardian"]
+
+
+class DuplicateClaimResponse(BaseModel):
+    """The earlier claim that quoted the same transaction id.
+
+    :ivar claim_id: That claim
+    :ivar display_name: Whose seat it was on, as the teacher typed it
+    :ivar status: How it was decided
+    :ivar amount: What was approved, else what was claimed
+    :ivar decided_at: When it was decided, or null
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    claim_id: uuid.UUID
+    display_name: str
+    status: ClaimStatus
+    amount: MoneyField
+    decided_at: dt.datetime | None = None
+
+
+class ClaimQueueItemResponse(BaseModel):
+    """One claim waiting for the teacher (T4).
+
+    **The comparison is the server's.** ``comparison`` and
+    ``difference`` are measured against what the period CHARGED
+    [BR5.3]; the client shows them and never subtracts.
+
+    :ivar claim_id: The claim
+    :ivar enrollment_id: The seat it is against
+    :ivar display_name: The student, as the teacher typed the name
+    :ivar batch_name: The batch
+    :ivar period: The period the claim resolved to
+    :ivar claimed_amount: What the payer says they sent
+    :ivar charged: What that period charged
+    :ivar comparison: ``matches``, ``short`` or ``over``
+    :ivar difference: How far from the charge, never negative
+    :ivar channel: The service the money moved through
+    :ivar transaction_id: The reference quoted, if any
+    :ivar submitted_at: When it was sent
+    :ivar submitted_by: ``student`` or ``guardian``, or null
+    :ivar submitter_phone: The number the teacher holds for them
+    :ivar duplicate_of: The earlier claim quoting the same reference
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    claim_id: uuid.UUID
+    enrollment_id: uuid.UUID
+    display_name: str
+    batch_name: str
+    period: str
+    claimed_amount: MoneyField
+    charged: MoneyField
+    comparison: ClaimComparison
+    difference: MoneyField
+    channel: str
+    transaction_id: str | None = None
+    submitted_at: dt.datetime
+    submitted_by: Submitter | None = None
+    submitter_phone: str | None = None
+    duplicate_of: DuplicateClaimResponse | None = None
+
+
+class RecentDecisionResponse(BaseModel):
+    """A claim decided in the last day.
+
+    :ivar claim_id: The claim
+    :ivar display_name: The student
+    :ivar batch_name: The batch
+    :ivar status: How it was decided
+    :ivar amount: What was approved, else what was claimed
+    :ivar decided_at: When
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    claim_id: uuid.UUID
+    display_name: str
+    batch_name: str
+    status: ClaimStatus
+    amount: MoneyField
+    decided_at: dt.datetime
+
+
+class VerificationQueueResponse(BaseModel):
+    """The teacher's payment queue.
+
+    :ivar pending: Waiting claims, oldest first
+    :ivar decided_recently: Claims decided in the last day, newest first
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    pending: list[ClaimQueueItemResponse]
+    decided_recently: list[RecentDecisionResponse]
+
+
+class ShortfallPreviewRequest(BaseModel):
+    """An amount the teacher is about to approve.
+
+    :ivar approved_amount: The amount being considered
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    approved_amount: MoneyField
+
+
+class ShortfallPreviewResponse(BaseModel):
+    """What that approval would leave short, and whether to ask about it.
+
+    :ivar shortfall: ``charged - approved``, floored at zero
+    :ivar disposition_required: Whether the teacher must choose carry or
+        waive, which the decision itself will insist on
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    shortfall: MoneyField
+    disposition_required: bool

@@ -59,6 +59,7 @@ __all__ = [
     "assert_claim_is_verifiable",
     "batch_fee_overview",
     "claim_detail",
+    "claim_status",
     "enrollment_fee_history",
     "payment_destination",
 ]
@@ -79,7 +80,7 @@ def _refuse() -> AuthorizationError:
     )
 
 
-def _claim_status(stored: str) -> ClaimStatus:
+def claim_status(stored: str) -> ClaimStatus:
     """Narrow a stored status onto the closed set, checking it.
 
     **A real check rather than a cast, and mypy agrees it is one.**
@@ -492,7 +493,7 @@ def claim_detail(
         period=claim.period,
         claimed_amount=claim.claimed_amount,
         approved_amount=claim.approved_amount,
-        status=_claim_status(claim.status),
+        status=claim_status(claim.status),
         shortfall_disposition=_disposition(claim.shortfall_disposition),
         channel=claim.channel,
         submitted_at=claim.submitted_at,

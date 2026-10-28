@@ -40,7 +40,7 @@ from app.fees.ledger_writer import append_carry_pair, append_entry, supersede
 from app.fees.periods import Period
 from app.money import Money
 
-__all__ = ["VerificationOutcome", "reject_claim", "verify_claim"]
+__all__ = ["VerificationOutcome", "reject_claim", "shortfall_of", "verify_claim"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -234,6 +234,23 @@ def _reverse_prior_entries(
         supersede(session, original=entry, compensation=compensation)
 
 
+def shortfall_of(charged: Money, approved: Money) -> Money:
+    """Compute what an approval leaves unpaid of a cycle's charge [BR5.3].
+
+    **The formula, in one place**, so the teacher's preview and the
+    decision itself cannot disagree: ``charged``, never the claimed
+    amount, because a claim is an assertion and the charge is the
+    obligation. Floored at zero; an approval above the charge leaves
+    nothing short.
+
+    :param charged: What the cycle charged
+    :param approved: What the teacher accepts
+    :return: The shortfall, never negative
+    """
+    raw = charged - approved
+    return Money.ZERO if raw.is_negative() else raw
+
+
 def verify_claim(
     session: Session,
     *,
@@ -306,9 +323,7 @@ def verify_claim(
     derived = derive_for_enrollment(session, claim.enrollment_id)
     charged = derived.per_cycle.get(period, Money.ZERO)
 
-    # THE FORMULA. `charged`, never `claim.claimed_amount`.
-    raw_shortfall = charged - approved_amount
-    shortfall = Money.ZERO if raw_shortfall.is_negative() else raw_shortfall
+    shortfall = shortfall_of(charged, approved_amount)
 
     if shortfall.is_positive():
         if shortfall_disposition is None:

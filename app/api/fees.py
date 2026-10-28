@@ -30,23 +30,30 @@ from app.api.deps import get_session, guardian_lens, student_lens, teacher_lens
 from app.authz.lenses import GuardianLens, StudentLens, TeacherLens
 from app.fees import views
 from app.fees.claims import submit_claim
+from app.fees.queue import QueueItem, shortfall_preview, verification_queue
 from app.fees.verification import reject_claim, verify_claim
 from app.money import Money as DomainMoney
 from app.money.wire import parse, to_wire
 from app.schemas.errors import ErrorEnvelope
 from app.schemas.fees import (
+    ClaimQueueItemResponse,
     ClaimResponse,
     ClaimSubmitRequest,
+    DuplicateClaimResponse,
     FeeCycleResponse,
     FeeHistoryResponse,
     PaymentDestinationResponse,
+    RecentDecisionResponse,
     RejectionRequest,
     RosterFeeRowResponse,
+    ShortfallPreviewRequest,
+    ShortfallPreviewResponse,
+    VerificationQueueResponse,
     VerificationRequest,
 )
 from app.schemas.money import Money as WireMoney
 
-__all__ = ["router"]
+__all__ = ["queue_item_response", "router"]
 
 router = APIRouter(prefix="/v1", tags=["fees"])
 
@@ -342,6 +349,109 @@ def create_claim(
         transaction_id=body.transaction_id,
     )
     return _claim_response(views.claim_detail(session, lens=lens, claim_id=claim.id))
+
+
+def queue_item_response(item: QueueItem) -> ClaimQueueItemResponse:
+    """Render one waiting claim for the wire.
+
+    :param item: The claim as the queue described it
+    :return: The response body
+    """
+    duplicate = item.duplicate_of
+    return ClaimQueueItemResponse(
+        claim_id=item.claim_id,
+        enrollment_id=item.enrollment_id,
+        display_name=item.display_name,
+        batch_name=item.batch_name,
+        period=item.period,
+        claimed_amount=_to_wire(item.claimed_amount),
+        charged=_to_wire(item.charged),
+        comparison=item.comparison,
+        difference=_to_wire(item.difference),
+        channel=item.channel,
+        transaction_id=item.transaction_id,
+        submitted_at=item.submitted_at,
+        submitted_by=item.submitted_by,
+        submitter_phone=item.submitter_phone,
+        duplicate_of=(
+            None
+            if duplicate is None
+            else DuplicateClaimResponse(
+                claim_id=duplicate.claim_id,
+                display_name=duplicate.display_name,
+                status=duplicate.status,
+                amount=_to_wire(duplicate.amount),
+                decided_at=duplicate.decided_at,
+            )
+        ),
+    )
+
+
+# Declared before "/claims/{claim_id}": that route parses its segment as
+# a uuid, so "queue" would reach it first and be refused with a 422.
+@router.get(
+    "/claims/queue",
+    response_model=VerificationQueueResponse,
+    responses=_AUTH_ERRORS,
+)
+def read_verification_queue(
+    session: Annotated[Session, Depends(get_session)],
+    lens: Annotated[TeacherLens, Depends(teacher_lens)],
+) -> VerificationQueueResponse:
+    """List the claims waiting for this teacher, and recent decisions (T4).
+
+    :param session: The request-scoped session
+    :param lens: The teacher lens
+    :return: Waiting claims and the last day's decisions
+    """
+    queue = verification_queue(session, lens=lens)
+    return VerificationQueueResponse(
+        pending=[queue_item_response(item) for item in queue.pending],
+        decided_recently=[
+            RecentDecisionResponse(
+                claim_id=decision.claim_id,
+                display_name=decision.display_name,
+                batch_name=decision.batch_name,
+                status=decision.status,
+                amount=_to_wire(decision.amount),
+                decided_at=decision.decided_at,
+            )
+            for decision in queue.decided_recently
+        ],
+    )
+
+
+@router.post(
+    "/claims/{claim_id}/shortfall",
+    response_model=ShortfallPreviewResponse,
+    responses=_WRITE_ERRORS,
+)
+def preview_shortfall(
+    claim_id: uuid.UUID,
+    body: ShortfallPreviewRequest,
+    session: Annotated[Session, Depends(get_session)],
+    lens: Annotated[TeacherLens, Depends(teacher_lens)],
+) -> ShortfallPreviewResponse:
+    """Say what approving an amount would leave short, before deciding.
+
+    A read, posted only because it carries an amount: nothing is written.
+
+    :param claim_id: The claim, from the route path
+    :param body: The amount the teacher is considering
+    :param session: The request-scoped session
+    :param lens: The teacher lens
+    :return: The shortfall and whether carry-or-waive must be chosen
+    """
+    shortfall = shortfall_preview(
+        session,
+        lens=lens,
+        claim_id=claim_id,
+        approved_amount=parse(body.approved_amount.root),
+    )
+    return ShortfallPreviewResponse(
+        shortfall=_to_wire(shortfall),
+        disposition_required=shortfall.is_positive(),
+    )
 
 
 @router.get(
