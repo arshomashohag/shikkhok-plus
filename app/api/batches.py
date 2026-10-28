@@ -31,6 +31,7 @@ from app.schemas.batches import (
     GuardianChildResponse,
     InactiveFromRequest,
     RosterRowResponse,
+    SubjectOption,
 )
 from app.schemas.money import Money as WireMoney
 
@@ -66,6 +67,40 @@ def _from_wire(amount: WireMoney | None) -> DomainMoney | None:
     if amount is None:
         return None
     return parse(amount.root)
+
+
+def _batch_response(summary: service.BatchSummary) -> BatchResponse:
+    """Render one batch, the same way for the create and the list.
+
+    **One builder for both**, so the response to creating a batch and
+    the list it then appears in cannot describe it differently. They
+    were two hand-written constructions, and when ``subject_options``
+    was added it would have needed adding twice.
+
+    :param summary: The batch with its subjects and seat counts
+    :return: The wire form
+    """
+    batch = summary.batch
+    return BatchResponse(
+        id=batch.id,
+        name=batch.name,
+        subjects=summary.subjects,
+        subject_options=[
+            SubjectOption(id=subject_id, name=name)
+            for subject_id, name in zip(
+                summary.subject_ids, summary.subjects, strict=True
+            )
+        ],
+        teacher_display_name=batch.teacher_display_name,
+        default_fee=_to_wire(batch.default_fee),
+        fee_due_day=batch.fee_due_day,
+        collection_number=batch.collection_number,
+        collection_channel=batch.collection_channel,
+        marksheet_visible=batch.marksheet_visible,
+        active=batch.active,
+        enrollment_count=summary.enrollment_count,
+        accepted_count=summary.accepted_count,
+    )
 
 
 def _roster_status(row: service.RosterRow) -> str:
@@ -131,7 +166,7 @@ def create_batch(
     :param session: The request-scoped session
     :return: The created batch
     """
-    batch = service.create_batch(
+    summary = service.create_batch(
         session,
         lens=lens,
         name=body.name,
@@ -142,23 +177,7 @@ def create_batch(
         collection_number=body.collection_number,
         collection_channel=body.collection_channel,
     )
-    return BatchResponse(
-        id=batch.id,
-        name=batch.name,
-        subjects=sorted(body.subjects),
-        teacher_display_name=batch.teacher_display_name,
-        default_fee=_to_wire(batch.default_fee),
-        fee_due_day=batch.fee_due_day,
-        collection_number=batch.collection_number,
-        collection_channel=batch.collection_channel,
-        marksheet_visible=batch.marksheet_visible,
-        active=batch.active,
-        # A new batch holds no seats, so both numbers are zero and the
-        # count renders from the first moment -- a teacher meets the
-        # shape of "0 of 0" rather than meeting it later [W1].
-        enrollment_count=0,
-        accepted_count=0,
-    )
+    return _batch_response(summary)
 
 
 @router.get("/batches", response_model=list[BatchResponse])
@@ -179,21 +198,7 @@ def list_batches(
     :return: One entry per batch, newest first
     """
     return [
-        BatchResponse(
-            id=summary.batch.id,
-            name=summary.batch.name,
-            subjects=summary.subjects,
-            teacher_display_name=summary.batch.teacher_display_name,
-            default_fee=_to_wire(summary.batch.default_fee),
-            fee_due_day=summary.batch.fee_due_day,
-            collection_number=summary.batch.collection_number,
-            collection_channel=summary.batch.collection_channel,
-            marksheet_visible=summary.batch.marksheet_visible,
-            active=summary.batch.active,
-            enrollment_count=summary.enrollment_count,
-            accepted_count=summary.accepted_count,
-        )
-        for summary in service.list_batches(session, lens=lens)
+        _batch_response(summary) for summary in service.list_batches(session, lens=lens)
     ]
 
 

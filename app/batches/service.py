@@ -497,6 +497,7 @@ class BatchSummary:
 
     :ivar batch: The batch row
     :ivar subjects: The subjects taught
+    :ivar subject_ids: Each subject's key, parallel to ``subjects``
     :ivar enrollment_count: How many seats, computed server-side. The
         DENOMINATOR, and it excludes nothing
     :ivar accepted_count: How many of those seats at least one link has
@@ -506,6 +507,7 @@ class BatchSummary:
 
     batch: Batch
     subjects: list[str]
+    subject_ids: list[uuid.UUID]
     enrollment_count: int
     accepted_count: int
 
@@ -521,7 +523,7 @@ def create_batch(
     fee_due_day: int | None = None,
     collection_number: str | None = None,
     collection_channel: str | None = None,
-) -> Batch:
+) -> BatchSummary:
     """Create a batch owned by this lens's owner.
 
     :param session: The session to write through
@@ -533,7 +535,9 @@ def create_batch(
     :param fee_due_day: Day of month 1-31
     :param collection_number: Where payments are sent
     :param collection_channel: Which service that number belongs to
-    :return: The new batch
+    :return: The new batch as the list describes it, so the create
+        response and the list cannot describe one batch differently --
+        including the subject keys an exam or a class is created against
     :raises ValidationError: No subject was named
     """
     if not subjects:
@@ -558,10 +562,20 @@ def create_batch(
     session.add(batch)
     session.flush()
 
-    for subject in subjects:
-        session.add(BatchSubject(batch_id=batch.id, name=subject))
+    rows = [BatchSubject(batch_id=batch.id, name=subject) for subject in subjects]
+    session.add_all(rows)
+    session.flush()
     session.commit()
-    return batch
+    ordered = sorted(rows, key=lambda row: (row.name, row.id))
+    return BatchSummary(
+        batch=batch,
+        subjects=[row.name for row in ordered],
+        subject_ids=[row.id for row in ordered],
+        # A new batch holds no seats, so both numbers are zero and the
+        # count renders from the first moment [W1].
+        enrollment_count=0,
+        accepted_count=0,
+    )
 
 
 def list_batches(session: Session, *, lens: TeacherLens) -> list[BatchSummary]:
@@ -618,17 +632,24 @@ def list_batches(session: Session, *, lens: TeacherLens) -> list[BatchSummary]:
     counts = {batch_id: total for batch_id, total, _ in counted}
     accepted = {batch_id: taken for batch_id, _, taken in counted}
     subjects: dict[uuid.UUID, list[str]] = {batch_id: [] for batch_id in batch_ids}
-    for batch_id, subject_name in session.execute(
-        sa.select(BatchSubject.batch_id, BatchSubject.name)
+    subject_ids: dict[uuid.UUID, list[uuid.UUID]] = {
+        batch_id: [] for batch_id in batch_ids
+    }
+    # The key travels with the name in the same ordered statement, so
+    # the two lists cannot fall out of step.
+    for batch_id, subject_id, subject_name in session.execute(
+        sa.select(BatchSubject.batch_id, BatchSubject.id, BatchSubject.name)
         .where(BatchSubject.batch_id.in_(batch_ids))
-        .order_by(BatchSubject.name)
+        .order_by(BatchSubject.name, BatchSubject.id)
     ).all():
         subjects[batch_id].append(subject_name)
+        subject_ids[batch_id].append(subject_id)
 
     return [
         BatchSummary(
             batch=batch,
             subjects=subjects[batch.id],
+            subject_ids=subject_ids[batch.id],
             enrollment_count=counts.get(batch.id, 0),
             accepted_count=accepted.get(batch.id, 0),
         )

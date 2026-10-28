@@ -368,3 +368,90 @@ def test_a_roster_fee_of_null_means_inherit_not_zero(
     )
 
     assert response.json()[0]["fee_amount"] is None
+
+
+def test_a_created_batch_carries_its_subject_keys(
+    client: TestClient, owner_session: Session, teacher: TeacherFixture
+) -> None:
+    """The create response names each subject by the key writes take.
+
+    **The gap this closes.** Exams and classes name a subject by
+    ``batch_subject_id``, and no response carried one, so a client had
+    nothing to send and exam creation could not be built.
+
+    :param client: The test client
+    :param owner_session: A session able to arrange fixture data
+    :param teacher: The teacher
+    :return: None
+    """
+    response = client.post(
+        "/v1/batches",
+        json={"name": "Batch Z", "subjects": ["Physics", "Chemistry"]},
+        headers=_auth(client, owner_session, teacher.account_id),
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert [option["name"] for option in body["subject_options"]] == body["subjects"]
+    assert all(uuid.UUID(option["id"]) for option in body["subject_options"])
+
+
+def test_the_list_and_the_create_agree_on_subject_keys(
+    client: TestClient, owner_session: Session, teacher: TeacherFixture
+) -> None:
+    """A batch is described the same way when created and when listed.
+
+    :param client: The test client
+    :param owner_session: A session able to arrange fixture data
+    :param teacher: The teacher
+    :return: None
+    """
+    headers = _auth(client, owner_session, teacher.account_id)
+    created = client.post(
+        "/v1/batches",
+        json={"name": "Batch Y", "subjects": ["Maths"]},
+        headers=headers,
+    ).json()
+
+    listed = next(
+        batch
+        for batch in client.get("/v1/batches", headers=headers).json()
+        if batch["id"] == created["id"]
+    )
+
+    assert listed["subject_options"] == created["subject_options"]
+
+
+def test_a_subject_key_from_the_batch_list_creates_an_exam(
+    client: TestClient, owner_session: Session, teacher: TeacherFixture
+) -> None:
+    """The key the list hands out is one the exam route accepts.
+
+    End to end, because the property that matters is the round trip:
+    a key that parsed as a UUID but named nothing the exam route
+    recognised would pass both tests above and still block the feature.
+
+    :param client: The test client
+    :param owner_session: A session able to arrange fixture data
+    :param teacher: The teacher
+    :return: None
+    """
+    headers = _auth(client, owner_session, teacher.account_id)
+    batch = client.post(
+        "/v1/batches",
+        json={"name": "Batch X", "subjects": ["Physics"]},
+        headers=headers,
+    ).json()
+
+    response = client.post(
+        f"/v1/batches/{batch['id']}/exams",
+        json={
+            "title": "Weekly test 1",
+            "date": dt.date.today().isoformat(),
+            "total_marks": 50,
+            "batch_subject_id": batch["subject_options"][0]["id"],
+        },
+        headers=headers,
+    )
+
+    assert response.status_code in (200, 201), response.text

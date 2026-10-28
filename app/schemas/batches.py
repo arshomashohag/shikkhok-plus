@@ -85,12 +85,34 @@ class BatchUpdateRequest(BaseModel):
     active: bool | None = None
 
 
+class SubjectOption(BaseModel):
+    """One subject of a batch, with the key that names it.
+
+    **Why the key is on the wire at all.** Creating an exam and adding a
+    class both name a subject by ``batch_subject_id``, and no response
+    carried one: the batch list sent subject NAMES only, so a client had
+    nothing to send and exam creation could not be built. Additive,
+    beside the existing ``subjects`` strings, because ``/v1`` endpoints
+    only ever grow [D-26].
+
+    :ivar id: The ``batch_subject_id`` exam and session writes take
+    :ivar name: The subject's name, as the teacher typed it
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: uuid.UUID
+    name: str
+
+
 class BatchResponse(BaseModel):
     """A batch as its owner sees it.
 
     :ivar id: The batch
     :ivar name: The teacher's name for the class
     :ivar subjects: The subjects taught
+    :ivar subject_options: The same subjects with their keys, in the same
+        order, for the writes that name one
     :ivar teacher_display_name: What students see the teacher called
     :ivar default_fee: The inherited fee
     :ivar fee_due_day: Day of month 1-31
@@ -111,6 +133,7 @@ class BatchResponse(BaseModel):
     id: uuid.UUID
     name: str
     subjects: list[str]
+    subject_options: list[SubjectOption]
     teacher_display_name: str | None
     default_fee: MoneyField | None
     fee_due_day: int | None

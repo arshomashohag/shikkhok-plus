@@ -322,7 +322,7 @@
         "type": "object"
       },
       "BatchResponse": {
-        "description": "A batch as its owner sees it.\n\n:ivar id: The batch\n:ivar name: The teacher's name for the class\n:ivar subjects: The subjects taught\n:ivar teacher_display_name: What students see the teacher called\n:ivar default_fee: The inherited fee\n:ivar fee_due_day: Day of month 1-31\n:ivar collection_number: Where payments are sent\n:ivar collection_channel: Which service that number belongs to\n:ivar marksheet_visible: U6's toggle\n:ivar active: False means read-only history\n:ivar enrollment_count: How many seats, computed server-side. The\n    **denominator** of \"9 of 12 accepted\", and it counts every seat\n    the teacher created including declined ones [BR1.4]\n:ivar accepted_count: How many of those seats at least one link has\n    accepted [BR1.2], computed server-side and **never counted by\n    the client** [BR1.3, TC-9]. A client counting rows is a client\n    deciding what counts as accepted, and it is wrong the moment the\n    roster paginates because it can only count the rows it holds",
+        "description": "A batch as its owner sees it.\n\n:ivar id: The batch\n:ivar name: The teacher's name for the class\n:ivar subjects: The subjects taught\n:ivar subject_options: The same subjects with their keys, in the same\n    order, for the writes that name one\n:ivar teacher_display_name: What students see the teacher called\n:ivar default_fee: The inherited fee\n:ivar fee_due_day: Day of month 1-31\n:ivar collection_number: Where payments are sent\n:ivar collection_channel: Which service that number belongs to\n:ivar marksheet_visible: U6's toggle\n:ivar active: False means read-only history\n:ivar enrollment_count: How many seats, computed server-side. The\n    **denominator** of \"9 of 12 accepted\", and it counts every seat\n    the teacher created including declined ones [BR1.4]\n:ivar accepted_count: How many of those seats at least one link has\n    accepted [BR1.2], computed server-side and **never counted by\n    the client** [BR1.3, TC-9]. A client counting rows is a client\n    deciding what counts as accepted, and it is wrong the moment the\n    roster paginates because it can only count the rows it holds",
         "properties": {
           "accepted_count": {
             "title": "Accepted Count",
@@ -392,6 +392,13 @@
             "title": "Name",
             "type": "string"
           },
+          "subject_options": {
+            "items": {
+              "$ref": "#/components/schemas/SubjectOption"
+            },
+            "title": "Subject Options",
+            "type": "array"
+          },
           "subjects": {
             "items": {
               "type": "string"
@@ -422,6 +429,7 @@
           "id",
           "marksheet_visible",
           "name",
+          "subject_options",
           "subjects",
           "teacher_display_name"
         ],
@@ -2234,6 +2242,27 @@
           "code_sent_to"
         ],
         "title": "SignupResponse",
+        "type": "object"
+      },
+      "SubjectOption": {
+        "additionalProperties": false,
+        "description": "One subject of a batch, with the key that names it.\n\n**Why the key is on the wire at all.** Creating an exam and adding a\nclass both name a subject by ``batch_subject_id``, and no response\ncarried one: the batch list sent subject NAMES only, so a client had\nnothing to send and exam creation could not be built. Additive,\nbeside the existing ``subjects`` strings, because ``/v1`` endpoints\nonly ever grow [D-26].\n\n:ivar id: The ``batch_subject_id`` exam and session writes take\n:ivar name: The subject's name, as the teacher typed it",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "SubjectOption",
         "type": "object"
       },
       "SuppressedMarksheetResponse": {
