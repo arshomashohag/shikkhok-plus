@@ -34,7 +34,7 @@ class NotificationResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     notification_id: uuid.UUID
-    kind: Literal["fee_reminder"]
+    kind: Literal["fee_reminder", "payment_approved", "payment_rejected"]
     enrollment_id: uuid.UUID | None = None
     batch_name: str
     period: str | None = Field(default=None, pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")

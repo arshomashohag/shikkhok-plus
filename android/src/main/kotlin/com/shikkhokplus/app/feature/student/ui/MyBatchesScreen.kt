@@ -1,5 +1,8 @@
 package com.shikkhokplus.app.feature.student.ui
 
+import com.shikkhokplus.app.core.designsystem.PrimaryButton
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -30,6 +33,9 @@ import com.shikkhokplus.app.feature.student.StudentBatchRow
 /** The loading placeholder. */
 const val TAG_MY_BATCHES_LOADING: String = "my_batches_loading"
 
+/** The "Pay a fee" button. */
+const val TAG_MY_BATCHES_PAY: String = "my_batches_pay"
+
 /** The empty state, shown before any teacher has added the student. */
 const val TAG_MY_BATCHES_EMPTY: String = "my_batches_empty"
 
@@ -53,6 +59,7 @@ const val TAG_MY_BATCHES_RETRY: String = "my_batches_retry"
  * @param onRetry Called when the student asks to try again
  * @param modifier The layout modifier
  * @param barActions Icons at the bar's end, such as the inbox bell
+ * @param onPay Called to pay a fee (S3)
  * @param bottomBar The lens's tab bar
  */
 @Composable
@@ -63,11 +70,23 @@ fun MyBatchesScreen(
     modifier: Modifier = Modifier,
     bottomBar: @Composable () -> Unit = {},
     barActions: @Composable RowScope.() -> Unit = {},
+    onPay: () -> Unit = {},
 ) {
     ListScreenScaffold(
         title = stringResource(R.string.my_batches_title),
         modifier = modifier,
-        bottomBar = bottomBar,
+        bottomBar = {
+            Column {
+                if (state is MyBatchesUiState.Loaded) {
+                    PrimaryButton(
+                        text = stringResource(R.string.pay_open),
+                        onClick = onPay,
+                        modifier = Modifier.fillMaxWidth().padding(16.dp).testTag(TAG_MY_BATCHES_PAY),
+                    )
+                }
+                bottomBar()
+            }
+        },
         actions = barActions,
     ) {
         when (state) {

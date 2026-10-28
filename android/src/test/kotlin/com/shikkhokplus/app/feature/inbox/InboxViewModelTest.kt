@@ -83,6 +83,21 @@ class InboxViewModelTest {
     }
 
     @Test
+    fun `payment decisions are their own kinds`() {
+        val loaded =
+            assertIs<InboxUiState.Loaded>(
+                InboxMapper.afterLoad(
+                    InboxDto(
+                        listOf(message("n-1", kind = "payment_approved"), message("n-2", kind = "payment_rejected")),
+                        2,
+                    ),
+                ),
+            )
+
+        assertEquals(listOf(InboxKind.PAYMENT_APPROVED, InboxKind.PAYMENT_REJECTED), loaded.messages.map { it.kind })
+    }
+
+    @Test
     fun `a kind this version does not know is left out`() {
         val loaded =
             assertIs<InboxUiState.Loaded>(

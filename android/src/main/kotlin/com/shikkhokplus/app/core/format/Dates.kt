@@ -55,6 +55,36 @@ fun todayAsUtcMillis(): Long {
 fun isoDate(utcMillis: Long): String = utcFormat("yyyy-MM-dd").format(utcMillis)
 
 /**
+ * A date as a line of copy says it: `20 Oct`.
+ *
+ * Month in the phone's language, day in Latin digits per the numeral
+ * rule.
+ *
+ * @param iso `yyyy-MM-dd`
+ * @return The short date, or the input if it cannot be read
+ */
+fun shortDate(iso: String): String =
+    isoToUtcMillis(iso)?.let { millis ->
+        val day = utcFormat("d").format(millis)
+        val month = SimpleDateFormat("MMM", Locale.getDefault()).apply { timeZone = TimeZone.getTimeZone("UTC") }
+        "$day ${month.format(millis)}"
+    } ?: iso
+
+/**
+ * A server timestamp in the phone's time as `17 Oct, 3:22 pm`.
+ *
+ * @param iso The server's timestamp
+ * @return The label, or the input if it cannot be read
+ */
+fun dateTimeLabel(iso: String): String =
+    parseInstant(iso)?.let { millis ->
+        val day = SimpleDateFormat("d", Locale.ENGLISH).format(millis)
+        val month = SimpleDateFormat("MMM", Locale.getDefault()).format(millis)
+        val time = SimpleDateFormat("h:mm a", Locale.ENGLISH).format(millis).lowercase(Locale.ENGLISH)
+        "$day $month, $time"
+    } ?: iso
+
+/**
  * A `yyyy-MM-dd` date as the picker counts it: UTC midnight.
  *
  * @param iso The date, as the server sends it

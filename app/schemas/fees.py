@@ -36,6 +36,8 @@ __all__ = [
     "ClaimSubmitRequest",
     "FeeCycleResponse",
     "FeeHistoryResponse",
+    "PayableResponse",
+    "PayablesResponse",
     "PaymentDestinationResponse",
     "RecentDecisionResponse",
     "ReminderRequest",
@@ -45,6 +47,7 @@ __all__ = [
     "ShortfallPreviewResponse",
     "VerificationQueueResponse",
     "VerificationRequest",
+    "WaitingPaymentResponse",
 ]
 
 #: The four statuses a cycle reports [BR6.1]. A ``Literal`` rather than
@@ -263,6 +266,7 @@ class PaymentDestinationResponse(BaseModel):
 
     :ivar collection_number: Where payments are sent
     :ivar collection_channel: Which service that number belongs to
+    :ivar teacher_display_name: Who the money goes to, or null
     :ivar channels: The channel set, server-supplied so adding one is a
         data change rather than an app release
     """
@@ -272,6 +276,7 @@ class PaymentDestinationResponse(BaseModel):
     collection_number: str
     collection_channel: str | None = None
     channels: list[str]
+    teacher_display_name: str | None = None
 
 
 #: How a claim stands against what its period charged.
@@ -425,3 +430,48 @@ class ReminderResponse(BaseModel):
 
     sent: int = Field(ge=0)
     skipped: int = Field(ge=0)
+
+
+class PayableResponse(BaseModel):
+    """One month a student can pay for (S3).
+
+    :ivar enrollment_id: Their seat; the claim is posted against it
+    :ivar batch_name: The batch
+    :ivar period: The month a claim would be recorded against
+    :ivar amount_due: What is still owed on it
+    :ivar due_date: When it was due, or null
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    enrollment_id: uuid.UUID
+    batch_name: str
+    period: str = Field(pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")
+    amount_due: MoneyField
+    due_date: dt.date | None = None
+
+
+class WaitingPaymentResponse(BaseModel):
+    """A seat not offered because its payment is being checked.
+
+    :ivar batch_name: The batch
+    :ivar period: The month the waiting payment is for
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    batch_name: str
+    period: str = Field(pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")
+
+
+class PayablesResponse(BaseModel):
+    """What the "Pay a fee" screen offers, and what it explains.
+
+    :ivar payable: Months to pay for, earliest due first
+    :ivar waiting: Seats whose payment is already being checked
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    payable: list[PayableResponse] = Field(default_factory=list)
+    waiting: list[WaitingPaymentResponse] = Field(default_factory=list)

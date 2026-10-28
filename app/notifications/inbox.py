@@ -26,6 +26,8 @@ from app.money import Money
 __all__ = [
     "FEE_REMINDER",
     "INBOX_LIMIT",
+    "PAYMENT_APPROVED",
+    "PAYMENT_REJECTED",
     "Inbox",
     "InboxItem",
     "deliver",
@@ -35,6 +37,12 @@ __all__ = [
 
 #: The kind a fee reminder is stored under.
 FEE_REMINDER: Final[str] = "fee_reminder"
+
+#: A payment the teacher approved, in whole or in part.
+PAYMENT_APPROVED: Final[str] = "payment_approved"
+
+#: A payment the teacher rejected.
+PAYMENT_REJECTED: Final[str] = "payment_rejected"
 
 #: How many messages one read returns. An inbox is read on open, and a
 #: year of weekly reminders across two batches stays under it.

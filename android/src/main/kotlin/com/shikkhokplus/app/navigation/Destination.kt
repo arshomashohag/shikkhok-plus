@@ -326,6 +326,23 @@ sealed interface Destination {
         override val route: String = "me/batches"
     }
 
+    /** Pay a fee (S3), optionally opened on one seat's fee. */
+    data object Pay : Destination {
+        override val route: String = "me/pay?seat={seat}"
+
+        /** The optional seat argument's name. */
+        const val ARG_SEAT: String = "seat"
+
+        /**
+         * Build a concrete route.
+         *
+         * @param enrollmentId The seat to open on, or null to choose
+         * @return The route to navigate to
+         */
+        fun of(enrollmentId: String? = null): String =
+            if (enrollmentId == null) "me/pay" else "me/pay?seat=$enrollmentId"
+    }
+
     /** One of the student's batches (S2). */
     data object StudentBatch : Destination {
         override val route: String = "me/batches/{enrollmentId}"

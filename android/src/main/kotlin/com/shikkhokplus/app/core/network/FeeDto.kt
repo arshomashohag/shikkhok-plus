@@ -143,12 +143,14 @@ data class ClaimDto(
  *   Kotlin choice and it is the wrong one here: adding a channel
  *   server-side would then require an app release, and an installed
  *   Android app cannot be forced to update
+ * @property teacherDisplayName Who the money goes to, or null
  */
 @Serializable
 data class PaymentDestinationDto(
     @SerialName("collection_number") val collectionNumber: String,
     @SerialName("collection_channel") val collectionChannel: String? = null,
     val channels: List<String> = emptyList(),
+    @SerialName("teacher_display_name") val teacherDisplayName: String? = null,
 )
 
 /**

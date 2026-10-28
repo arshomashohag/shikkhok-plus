@@ -94,6 +94,10 @@ NON_MONEY_FIELDS: Final[dict[tuple[str, str], str]] = {
     ("BatchUpdateRequest", "fee_due_day"): (
         "The same value on the edit path [AC2.3.1]."
     ),
+    ("PayableResponse", "due_date"): (
+        "A DATE, not an amount: when the month offered for payment was "
+        "due. Its money property, `amount_due`, references Money."
+    ),
     ("FeeCycleResponse", "due_date"): (
         "A DATE crossing the wire, not an amount [BR2.2]. It is the "
         "computed due date after the short-month clamp. The schema it "

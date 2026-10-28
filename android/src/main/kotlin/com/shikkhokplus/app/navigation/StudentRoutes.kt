@@ -1,5 +1,9 @@
 package com.shikkhokplus.app.navigation
 
+import com.shikkhokplus.app.feature.pay.ui.PayScreen
+import com.shikkhokplus.app.feature.pay.ui.PayActions
+import com.shikkhokplus.app.feature.pay.PayViewModel
+import com.shikkhokplus.app.core.network.HttpPayRepository
 import com.shikkhokplus.app.core.network.HttpInboxRepository
 import com.shikkhokplus.app.feature.inbox.InboxUiState
 import com.shikkhokplus.app.feature.inbox.InboxViewModel
@@ -52,6 +56,38 @@ internal fun NavGraphBuilder.studentRoutes(
             onRetry = model::retry,
             bottomBar = bottomBar,
             barActions = { InboxBellFor(client) { navController.navigate(Destination.Inbox.route) } },
+            onPay = { navController.navigate(Destination.Pay.of()) },
+        )
+    }
+
+    composable(
+        route = Destination.Pay.route,
+        arguments =
+            listOf(
+                navArgument(Destination.Pay.ARG_SEAT) {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+            ),
+    ) { entry ->
+        val seat = entry.arguments?.getString(Destination.Pay.ARG_SEAT)
+        val model: PayViewModel = viewModel { PayViewModel(HttpPayRepository(client)) }
+        val state by model.state.collectAsState()
+
+        LaunchedEffect(seat) { model.load(seat) }
+
+        PayScreen(
+            state = state,
+            actions =
+                PayActions(
+                    onClose = { navController.popBackStack() },
+                    onChoose = model::choose,
+                    onChange = model::change,
+                    onType = model::type,
+                    onSend = model::send,
+                    onRetry = { model.load(seat) },
+                ),
         )
     }
 

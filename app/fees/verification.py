@@ -33,12 +33,19 @@ from dataclasses import dataclass
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
-from app.db.models import DISPOSITION_VALUES, LedgerEntryRow, PaymentClaim
+from app.db.models import (
+    DISPOSITION_VALUES,
+    Batch,
+    Enrollment,
+    LedgerEntryRow,
+    PaymentClaim,
+)
 from app.errors import ConflictError, ValidationError
 from app.fees.balances import derive_for_enrollment
 from app.fees.ledger_writer import append_carry_pair, append_entry, supersede
 from app.fees.periods import Period
 from app.money import Money
+from app.notifications.inbox import PAYMENT_APPROVED, PAYMENT_REJECTED, deliver
 
 __all__ = ["VerificationOutcome", "reject_claim", "shortfall_of", "verify_claim"]
 
@@ -400,6 +407,7 @@ def verify_claim(
     if previous is not None:
         claim.previous_decision = previous
 
+    _tell_the_payer(session, claim, kind=PAYMENT_APPROVED, amount=approved_amount)
     session.commit()
     return VerificationOutcome(claim=claim, shortfall=shortfall)
 
@@ -447,5 +455,39 @@ def reject_claim(
     if previous is not None:
         claim.previous_decision = previous
 
+    _tell_the_payer(session, claim, kind=PAYMENT_REJECTED, amount=claim.claimed_amount)
     session.commit()
     return claim
+
+
+def _tell_the_payer(
+    session: Session, claim: PaymentClaim, *, kind: str, amount: Money
+) -> None:
+    """Put the decision in the payer's inbox, in the decision's transaction.
+
+    The board promises the payer a notice when their payment is checked.
+    Nobody to tell when the payer has since deleted their account.
+
+    :param session: The session the decision is written through
+    :param claim: The decided claim
+    :param kind: Which decision
+    :param amount: What was approved, or what was claimed if rejected
+    :return: None
+    """
+    if claim.submitted_by_account_id is None:
+        return
+    batch_name = session.scalars(
+        sa.select(Batch.name)
+        .join(Enrollment, Enrollment.batch_id == Batch.id)
+        .where(Enrollment.id == claim.enrollment_id)
+    ).one()
+    deliver(
+        session,
+        account_ids=[claim.submitted_by_account_id],
+        kind=kind,
+        batch_name=batch_name,
+        now=dt.datetime.now(tz=dt.UTC),
+        enrollment_id=claim.enrollment_id,
+        period=claim.period,
+        amount=amount,
+    )

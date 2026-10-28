@@ -2126,7 +2126,11 @@
             "title": "Enrollment Id"
           },
           "kind": {
-            "const": "fee_reminder",
+            "enum": [
+              "fee_reminder",
+              "payment_approved",
+              "payment_rejected"
+            ],
             "title": "Kind",
             "type": "string"
           },
@@ -2228,9 +2232,74 @@
         "title": "OverviewResponse",
         "type": "object"
       },
+      "PayableResponse": {
+        "additionalProperties": false,
+        "description": "One month a student can pay for (S3).\n\n:ivar enrollment_id: Their seat; the claim is posted against it\n:ivar batch_name: The batch\n:ivar period: The month a claim would be recorded against\n:ivar amount_due: What is still owed on it\n:ivar due_date: When it was due, or null",
+        "properties": {
+          "amount_due": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "batch_name": {
+            "title": "Batch Name",
+            "type": "string"
+          },
+          "due_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due Date"
+          },
+          "enrollment_id": {
+            "format": "uuid",
+            "title": "Enrollment Id",
+            "type": "string"
+          },
+          "period": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
+            "title": "Period",
+            "type": "string"
+          }
+        },
+        "required": [
+          "amount_due",
+          "batch_name",
+          "enrollment_id",
+          "period"
+        ],
+        "title": "PayableResponse",
+        "type": "object"
+      },
+      "PayablesResponse": {
+        "additionalProperties": false,
+        "description": "What the \"Pay a fee\" screen offers, and what it explains.\n\n:ivar payable: Months to pay for, earliest due first\n:ivar waiting: Seats whose payment is already being checked",
+        "properties": {
+          "payable": {
+            "items": {
+              "$ref": "#/components/schemas/PayableResponse"
+            },
+            "title": "Payable",
+            "type": "array"
+          },
+          "waiting": {
+            "items": {
+              "$ref": "#/components/schemas/WaitingPaymentResponse"
+            },
+            "title": "Waiting",
+            "type": "array"
+          }
+        },
+        "title": "PayablesResponse",
+        "type": "object"
+      },
       "PaymentDestinationResponse": {
         "additionalProperties": false,
-        "description": "Where to send a payment, and through what.\n\n**The ONE response in the product carrying the collection number**\n[BR6.4, NFR14.32]. The allowlist test asserts that as an equality\nagainst a one-element set, so the field spreading to a second\nresponse fails the build rather than passing a membership check.\n\nWhere the teacher set no number the route returns **no object at\nall** rather than this model with a null in it [NFR14.34]: a null\ninvites a client-side placeholder, and an absent object leaves the\nclient nothing to render while the copy tells the person to ask the\nteacher how to pay.\n\n:ivar collection_number: Where payments are sent\n:ivar collection_channel: Which service that number belongs to\n:ivar channels: The channel set, server-supplied so adding one is a\n    data change rather than an app release",
+        "description": "Where to send a payment, and through what.\n\n**The ONE response in the product carrying the collection number**\n[BR6.4, NFR14.32]. The allowlist test asserts that as an equality\nagainst a one-element set, so the field spreading to a second\nresponse fails the build rather than passing a membership check.\n\nWhere the teacher set no number the route returns **no object at\nall** rather than this model with a null in it [NFR14.34]: a null\ninvites a client-side placeholder, and an absent object leaves the\nclient nothing to render while the copy tells the person to ask the\nteacher how to pay.\n\n:ivar collection_number: Where payments are sent\n:ivar collection_channel: Which service that number belongs to\n:ivar teacher_display_name: Who the money goes to, or null\n:ivar channels: The channel set, server-supplied so adding one is a\n    data change rather than an app release",
         "properties": {
           "channels": {
             "items": {
@@ -2253,6 +2322,17 @@
           "collection_number": {
             "title": "Collection Number",
             "type": "string"
+          },
+          "teacher_display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Teacher Display Name"
           }
         },
         "required": [
@@ -3674,6 +3754,27 @@
           "phone"
         ],
         "title": "VerifyRequest",
+        "type": "object"
+      },
+      "WaitingPaymentResponse": {
+        "additionalProperties": false,
+        "description": "A seat not offered because its payment is being checked.\n\n:ivar batch_name: The batch\n:ivar period: The month the waiting payment is for",
+        "properties": {
+          "batch_name": {
+            "title": "Batch Name",
+            "type": "string"
+          },
+          "period": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
+            "title": "Period",
+            "type": "string"
+          }
+        },
+        "required": [
+          "batch_name",
+          "period"
+        ],
+        "title": "WaitingPaymentResponse",
         "type": "object"
       }
     }
@@ -7215,6 +7316,48 @@
         "summary": "Read Overview",
         "tags": [
           "analytics"
+        ]
+      }
+    },
+    "/v1/me/payables": {
+      "get": {
+        "description": "List what this student can pay for now, and what is being checked (S3).\n\n:param session: The request-scoped session\n:param lens: The student lens\n:return: The payable months and the waiting seats",
+        "operationId": "read_payables_v1_me_payables_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PayablesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          }
+        },
+        "summary": "Read Payables",
+        "tags": [
+          "fees"
         ]
       }
     },

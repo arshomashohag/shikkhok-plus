@@ -18,7 +18,13 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import authenticated_account, get_session
 from app.money.wire import to_wire
-from app.notifications.inbox import FEE_REMINDER, inbox, mark_read
+from app.notifications.inbox import (
+    FEE_REMINDER,
+    PAYMENT_APPROVED,
+    PAYMENT_REJECTED,
+    inbox,
+    mark_read,
+)
 from app.schemas.money import Money as WireMoney
 from app.schemas.notifications import InboxResponse, NotificationResponse
 
@@ -27,7 +33,19 @@ __all__ = ["router"]
 router = APIRouter(prefix="/v1", tags=["notifications"])
 
 
-def _kind(stored: str) -> Literal["fee_reminder"]:
+#: The kinds the contract publishes, each to itself.
+_PUBLISHED: dict[
+    str, Literal["fee_reminder", "payment_approved", "payment_rejected"]
+] = {
+    FEE_REMINDER: "fee_reminder",
+    PAYMENT_APPROVED: "payment_approved",
+    PAYMENT_REJECTED: "payment_rejected",
+}
+
+
+def _kind(
+    stored: str,
+) -> Literal["fee_reminder", "payment_approved", "payment_rejected"]:
     """Narrow a stored kind onto the published set, checking it.
 
     A kind added to the table without a decision here raises rather
@@ -37,9 +55,10 @@ def _kind(stored: str) -> Literal["fee_reminder"]:
     :return: The published kind
     :raises ValueError: The kind is not one the contract publishes
     """
-    if stored == FEE_REMINDER:
-        return "fee_reminder"
-    raise ValueError(f"unpublished notification kind: {stored}")
+    published = _PUBLISHED.get(stored)
+    if published is None:
+        raise ValueError(f"unpublished notification kind: {stored}")
+    return published
 
 
 @router.get("/me/notifications", response_model=InboxResponse)

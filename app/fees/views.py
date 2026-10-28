@@ -215,11 +215,14 @@ class PaymentDestination:
     :ivar collection_number: Where payments are sent
     :ivar collection_channel: Which service that number belongs to
     :ivar channels: The channel set, server-supplied [BR6.5]
+    :ivar teacher_display_name: Who the money goes to, as the teacher
+        named themselves for students -- "Send money to ..."
     """
 
     collection_number: str
     collection_channel: str | None
     channels: tuple[str, ...]
+    teacher_display_name: str | None = None
 
 
 def _owned_batch(session: Session, *, lens: TeacherLens, batch_id: uuid.UUID) -> Batch:
@@ -594,4 +597,5 @@ def payment_destination(
         collection_number=batch.collection_number,
         collection_channel=batch.collection_channel,
         channels=CHANNELS,
+        teacher_display_name=batch.teacher_display_name,
     )

@@ -2,8 +2,20 @@ package com.shikkhokplus.app.feature.inbox
 
 import com.shikkhokplus.app.core.model.Money
 
+/** What a message is about, as the server named it. */
+enum class InboxKind {
+    /** A teacher's reminder that a fee is owed. */
+    FEE_REMINDER,
+
+    /** A payment the teacher approved. */
+    PAYMENT_APPROVED,
+
+    /** A payment the teacher did not accept. */
+    PAYMENT_REJECTED,
+}
+
 /**
- * One fee reminder, as the inbox shows it.
+ * One message, as the inbox shows it.
  *
  * @property id The message
  * @property batchName The batch it is about
@@ -11,6 +23,7 @@ import com.shikkhokplus.app.core.model.Money
  * @property period The period the debt starts in, if any
  * @property sentAt When it was sent
  * @property unread Whether it arrived since the inbox was last opened
+ * @property kind What it is about
  */
 data class InboxMessage(
     val id: String,
@@ -19,6 +32,7 @@ data class InboxMessage(
     val period: String?,
     val sentAt: String,
     val unread: Boolean,
+    val kind: InboxKind = InboxKind.FEE_REMINDER,
 )
 
 /** Everything the inbox screen and the bell render. */

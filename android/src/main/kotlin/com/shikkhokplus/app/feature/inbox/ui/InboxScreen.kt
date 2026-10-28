@@ -37,6 +37,7 @@ import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.core.format.monthName
 import com.shikkhokplus.app.core.ui.ago
 import com.shikkhokplus.app.feature.auth.MessageKeys
+import com.shikkhokplus.app.feature.inbox.InboxKind
 import com.shikkhokplus.app.feature.inbox.InboxMessage
 import com.shikkhokplus.app.feature.inbox.InboxUiState
 
@@ -175,7 +176,7 @@ private fun MessageRow(message: InboxMessage) {
         }
         Column(Modifier.weight(1f)) {
             Text(
-                stringResource(R.string.inbox_fee_reminder_title, Numerals.freeText(message.batchName)),
+                stringResource(titleOf(message.kind), Numerals.freeText(message.batchName)),
                 style =
                     MaterialTheme.typography.bodyLarge.copy(
                         fontWeight = if (message.unread) FontWeight.Bold else FontWeight.Normal,
@@ -201,7 +202,20 @@ private fun MessageRow(message: InboxMessage) {
 }
 
 /**
- * "৳1,200 is due, from Oct."
+ * A message's heading, by what it is about.
+ *
+ * @param kind What it is about
+ * @return Its string resource
+ */
+private fun titleOf(kind: InboxKind): Int =
+    when (kind) {
+        InboxKind.FEE_REMINDER -> R.string.inbox_fee_reminder_title
+        InboxKind.PAYMENT_APPROVED -> R.string.inbox_payment_approved_title
+        InboxKind.PAYMENT_REJECTED -> R.string.inbox_payment_rejected_title
+    }
+
+/**
+ * "৳1,200 is due, from Oct." or what happened to a payment.
  *
  * @param message The message
  * @return The line, or null when it carries no amount
@@ -210,6 +224,14 @@ private fun MessageRow(message: InboxMessage) {
 private fun body(message: InboxMessage): String? {
     val amount = message.amount ?: return null
     val period = message.period
+    if (message.kind != InboxKind.FEE_REMINDER && period != null) {
+        val month = monthName(period, short = false)
+        return if (message.kind == InboxKind.PAYMENT_APPROVED) {
+            stringResource(R.string.inbox_payment_approved_body, Numerals.money(amount), month)
+        } else {
+            stringResource(R.string.inbox_payment_rejected_body, Numerals.money(amount), month)
+        }
+    }
     return if (period == null) {
         stringResource(R.string.inbox_fee_reminder_body_no_period, Numerals.money(amount))
     } else {

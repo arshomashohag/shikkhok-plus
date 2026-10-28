@@ -12,8 +12,13 @@ object InboxMapper {
     /** The key shown when the device cannot reach the server at all. */
     const val OFFLINE_KEY: String = "error.network.unreachable"
 
-    /** The one kind this app knows how to show. */
-    private const val FEE_REMINDER: String = "fee_reminder"
+    /** The kinds this app knows how to show, by their wire names. */
+    private val KINDS: Map<String, InboxKind> =
+        mapOf(
+            "fee_reminder" to InboxKind.FEE_REMINDER,
+            "payment_approved" to InboxKind.PAYMENT_APPROVED,
+            "payment_rejected" to InboxKind.PAYMENT_REJECTED,
+        )
 
     /**
      * Map a loaded inbox, in the server's order.
@@ -25,7 +30,7 @@ object InboxMapper {
      * @return The state to render
      */
     fun afterLoad(dto: InboxDto): InboxUiState =
-        InboxUiState.Loaded(dto.items.filter { it.kind == FEE_REMINDER }.map(::toMessage), dto.unread)
+        InboxUiState.Loaded(dto.items.mapNotNull(::toMessage), dto.unread)
 
     /**
      * Map a server error envelope.
@@ -47,15 +52,18 @@ object InboxMapper {
      * Convert one message.
      *
      * @param dto The server's message
-     * @return The message to render
+     * @return The message to render, or null for a kind this app does not know
      */
-    private fun toMessage(dto: NotificationDto): InboxMessage =
-        InboxMessage(
+    private fun toMessage(dto: NotificationDto): InboxMessage? =
+        KINDS[dto.kind]?.let { kind ->
+            InboxMessage(
             id = dto.notificationId,
             batchName = dto.batchName,
             amount = dto.amount,
             period = dto.period,
             sentAt = dto.createdAt,
             unread = !dto.read,
+            kind = kind,
         )
+        }
 }

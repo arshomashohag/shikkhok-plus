@@ -30,6 +30,7 @@ from app.api.deps import get_session, guardian_lens, student_lens, teacher_lens
 from app.authz.lenses import GuardianLens, StudentLens, TeacherLens
 from app.fees import views
 from app.fees.claims import submit_claim
+from app.fees.payables import payables
 from app.fees.queue import QueueItem, shortfall_preview, verification_queue
 from app.fees.reminders import remind
 from app.fees.verification import reject_claim, verify_claim
@@ -43,6 +44,8 @@ from app.schemas.fees import (
     DuplicateClaimResponse,
     FeeCycleResponse,
     FeeHistoryResponse,
+    PayableResponse,
+    PayablesResponse,
     PaymentDestinationResponse,
     RecentDecisionResponse,
     RejectionRequest,
@@ -53,6 +56,7 @@ from app.schemas.fees import (
     ShortfallPreviewResponse,
     VerificationQueueResponse,
     VerificationRequest,
+    WaitingPaymentResponse,
 )
 from app.schemas.money import Money as WireMoney
 
@@ -318,6 +322,41 @@ def read_payment_destination(
         collection_number=destination.collection_number,
         collection_channel=destination.collection_channel,
         channels=list(destination.channels),
+        teacher_display_name=destination.teacher_display_name,
+    )
+
+
+@router.get(
+    "/me/payables",
+    response_model=PayablesResponse,
+    responses=_AUTH_ERRORS,
+)
+def read_payables(
+    session: Annotated[Session, Depends(get_session)],
+    lens: Annotated[StudentLens, Depends(student_lens)],
+) -> PayablesResponse:
+    """List what this student can pay for now, and what is being checked (S3).
+
+    :param session: The request-scoped session
+    :param lens: The student lens
+    :return: The payable months and the waiting seats
+    """
+    found = payables(session, lens=lens)
+    return PayablesResponse(
+        payable=[
+            PayableResponse(
+                enrollment_id=row.enrollment_id,
+                batch_name=row.batch_name,
+                period=row.period,
+                amount_due=_to_wire(row.amount_due),
+                due_date=row.due_date,
+            )
+            for row in found.payable
+        ],
+        waiting=[
+            WaitingPaymentResponse(batch_name=row.batch_name, period=row.period)
+            for row in found.waiting
+        ],
     )
 
 
