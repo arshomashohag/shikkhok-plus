@@ -502,7 +502,6 @@
       into this string: the sentence has to read correctly for one
       class and for ten.
     -->
-    <string name="governance_deletion_owns_batches">You still have batches on ShikkhokPlus. Hand them over or close them first, then delete your account.</string>
     <string name="screen_title_create_batch">New batch</string>
     <string name="screen_title_batch_fees">Fees</string>
     <string name="screen_title_claim_status">Payment status</string>
@@ -795,4 +794,10 @@
     <string name="mark_history_title">Marks recorded for %1$s</string>
     <string name="mark_history_replaced">Replaced · recorded %1$s</string>
     <string name="mark_history_current">Current · recorded %1$s</string>
+    <string name="delete_teacher_summary">You have %1$s batches with %2$s students.</string>
+    <string name="delete_teacher_body">Their attendance, marks and fee history belong to those records. Deleting your account removes your access to them.</string>
+    <string name="delete_teacher_access">Your access to all %1$s batches and their records</string>
+    <string name="delete_teacher_kept_heading">Kept</string>
+    <string name="delete_teacher_students_keep">Your %1$s students keep their own attendance, marks and fee history</string>
+    <string name="delete_teacher_owed">%1$s recorded as owed stays on those records. You will not be able to collect or correct it.</string>
 </resources>

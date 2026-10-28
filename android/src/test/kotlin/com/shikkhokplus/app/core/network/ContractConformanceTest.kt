@@ -56,6 +56,7 @@ class ContractConformanceTest {
             Contract("/v1/me/today", TodayDto.serializer()),
             Contract("/v1/me/dues", DuesResponseDto.serializer()),
             Contract("/v1/me/notifications", InboxDto.serializer()),
+            Contract("/v1/me/deletion-summary", DeletionSummaryDto.serializer()),
             Contract(
                 "/v1/exams/{exam_id}/marks/{enrollment_id}/history",
                 ListSerializer(CorrectionDto.serializer()),

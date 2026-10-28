@@ -1,5 +1,7 @@
 package com.shikkhokplus.app.feature.profile
 
+import com.shikkhokplus.app.core.model.Money
+
 /**
  * Where deleting one's own account stands (O5).
  *
@@ -39,6 +41,20 @@ sealed interface DeletionState {
         val retryable: Boolean,
     ) : DeletionState
 }
+
+/**
+ * What a teacher's deletion leaves behind, as the server counted it.
+ *
+ * @property batchCount Their batches, which stay with their students
+ * @property studentCount The students in them
+ * @property outstanding What is still recorded as owed, which stays on
+ *   those records and can no longer be collected
+ */
+data class TeacherFootprint(
+    val batchCount: Int,
+    val studentCount: Int,
+    val outstanding: Money,
+)
 
 /** How many digits a Bangladeshi mobile number has without its country code. */
 private const val LOCAL_NUMBER_DIGITS = 11

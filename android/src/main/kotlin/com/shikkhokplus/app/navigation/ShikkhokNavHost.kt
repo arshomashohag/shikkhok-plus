@@ -653,8 +653,10 @@ fun ShikkhokNavHost(
                 viewModel(parent) { ProfileViewModel(HttpProfileRepository(client)) }
             val deletion by model.deletion.collectAsState()
 
+            val footprint by model.footprint.collectAsState()
             DeleteAccountScreen(
                 state = deletion,
+                footprint = footprint,
                 onDelete = model::deleteAccount,
                 onKeep = {
                     model.cancelDeletion()

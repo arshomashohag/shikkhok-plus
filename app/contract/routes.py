@@ -146,6 +146,11 @@ LENS_EXEMPT_AUTHENTICATED: frozenset[tuple[str, str]] = frozenset(
         # precisely what the reminder is about.
         ("GET", "/v1/me/notifications"),
         ("POST", "/v1/me/notifications/read"),
+        # What stays if the caller deletes their account, added
+        # 2026-10-28 on DELETE /v1/me's reasoning: it reads only what the
+        # authenticated account itself owns, and an account owning
+        # nothing must get zeros rather than a lens refusal.
+        ("GET", "/v1/me/deletion-summary"),
     }
 )
 

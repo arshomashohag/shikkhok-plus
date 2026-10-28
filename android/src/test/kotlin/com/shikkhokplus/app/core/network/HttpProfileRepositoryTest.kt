@@ -47,8 +47,8 @@ class HttpProfileRepositoryTest {
             MockEngine {
                 respond(
                     """
-                    {"error":{"code":"DELETION_REFUSED",
-                    "message_key":"governance.deletion.owns_batches","retryable":false}}
+                    {"error":{"code":"NOT_AVAILABLE",
+                    "message_key":"authz.lens.not_available","retryable":false}}
                     """.trimIndent(),
                     HttpStatusCode.Conflict,
                     headersOf("Content-Type", ContentType.Application.Json.toString()),
@@ -57,7 +57,7 @@ class HttpProfileRepositoryTest {
 
         val refused = assertIs<AuthResult.Refused>(repo(engine).deleteAccount())
 
-        assertEquals("governance.deletion.owns_batches", refused.envelope.error.messageKey)
+        assertEquals("authz.lens.not_available", refused.envelope.error.messageKey)
     }
 
     @Test

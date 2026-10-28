@@ -447,7 +447,6 @@
       সংখ্যাটি ত্রুটির details-এ আসে, এই বাক্যে বসানো হয় না: একটি
       ক্লাস হোক বা দশটি, বাক্যটি ঠিকই পড়তে হবে।
     -->
-    <string name="governance_deletion_owns_batches">ShikkhokPlus-এ আপনার ব্যাচ রয়ে গেছে। আগে সেগুলো হস্তান্তর করুন বা বন্ধ করুন, তারপর অ্যাকাউন্ট মুছুন।</string>
     <string name="screen_title_create_batch">নতুন ব্যাচ</string>
     <string name="screen_title_batch_fees">ফি</string>
     <string name="screen_title_claim_status">পেমেন্টের অবস্থা</string>
@@ -740,4 +739,10 @@
     <string name="mark_history_title">%1$s-এর জন্য রেকর্ড করা নম্বর</string>
     <string name="mark_history_replaced">বদলানো হয়েছে · রেকর্ড %1$s</string>
     <string name="mark_history_current">বর্তমান · রেকর্ড %1$s</string>
+    <string name="delete_teacher_summary">আপনার %1$sটি ব্যাচে %2$s জন শিক্ষার্থী আছে।</string>
+    <string name="delete_teacher_body">তাদের উপস্থিতি, নম্বর ও বেতনের ইতিহাস সেই রেকর্ডেরই অংশ। অ্যাকাউন্ট মুছলে আপনি সেগুলো আর দেখতে পারবেন না।</string>
+    <string name="delete_teacher_access">সব %1$sটি ব্যাচ ও তাদের রেকর্ডে আপনার প্রবেশাধিকার</string>
+    <string name="delete_teacher_kept_heading">থেকে যাবে</string>
+    <string name="delete_teacher_students_keep">আপনার %1$s জন শিক্ষার্থী তাদের উপস্থিতি, নম্বর ও বেতনের ইতিহাস রাখবে</string>
+    <string name="delete_teacher_owed">বকেয়া হিসেবে রেকর্ড করা %1$s সেই রেকর্ডে থেকে যাবে। আপনি তা আদায় বা সংশোধন করতে পারবেন না।</string>
 </resources>

@@ -1,5 +1,8 @@
 package com.shikkhokplus.app.feature.profile
 
+import com.shikkhokplus.app.feature.profile.ui.TAG_DELETE_TEACHER
+import com.shikkhokplus.app.core.model.Money
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -100,5 +103,29 @@ class DeleteAccountScreenTest {
         compose.onNodeWithTag(TAG_DELETE_CLOSE).performScrollTo().performClick()
 
         assertEquals(1, done)
+    }
+
+    @Test
+    fun `a teacher is told how many batches and students stay, and what is owed`() {
+        compose.setContent {
+            DeleteAccountScreen(
+                confirming,
+                onDelete = {},
+                onKeep = {},
+                onDone = {},
+                footprint = TeacherFootprint(3, 31, Money.of("8400.00")),
+            )
+        }
+
+        compose.onNodeWithTag(TAG_DELETE_TEACHER).assertExists()
+        compose.onNodeWithText("You have 3 batches with 31 students.").assertExists()
+        compose.onNodeWithText("৳8,400", substring = true).assertExists()
+    }
+
+    @Test
+    fun `anyone else sees the plain confirmation`() {
+        compose.setContent { DeleteAccountScreen(confirming, onDelete = {}, onKeep = {}, onDone = {}) }
+
+        compose.onNodeWithTag(TAG_DELETE_TEACHER).assertDoesNotExist()
     }
 }

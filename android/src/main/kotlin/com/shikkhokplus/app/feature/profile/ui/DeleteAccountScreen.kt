@@ -1,5 +1,7 @@
 package com.shikkhokplus.app.feature.profile.ui
 
+import com.shikkhokplus.app.feature.profile.TeacherFootprint
+import com.shikkhokplus.app.core.format.Numerals
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -45,6 +47,9 @@ const val TAG_DELETE_KEEP: String = "delete_keep"
 /** Why the server refused. */
 const val TAG_DELETE_ERROR: String = "delete_error"
 
+/** The teacher's summary line. */
+const val TAG_DELETE_TEACHER: String = "delete_teacher"
+
 /** The done screen. */
 const val TAG_DELETE_DONE: String = "delete_done"
 
@@ -80,6 +85,7 @@ fun DeleteAccountScreen(
     onDelete: (String) -> Unit,
     onKeep: () -> Unit,
     onDone: () -> Unit,
+    footprint: TeacherFootprint? = null,
 ) {
     if (state == DeletionState.Deleted) {
         DeletedBody(onDone)
@@ -112,6 +118,7 @@ fun DeleteAccountScreen(
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.error,
                 )
+                footprint?.let { TeacherWarning(it) }
                 Text(stringResource(R.string.delete_type_number))
                 OutlinedTextField(
                     value = typed,
@@ -125,15 +132,23 @@ fun DeleteAccountScreen(
             }
         }
 
-        ListCard(
-            heading = R.string.delete_deleted_heading,
-            lines = listOf(R.string.delete_deleted_login, R.string.delete_deleted_payments),
-        )
-        ListCard(
-            heading = R.string.delete_kept_heading,
-            lines = listOf(R.string.delete_kept_records),
-            note = R.string.delete_kept_note,
-        )
+        if (footprint == null) {
+            ListCard(
+                heading = stringResource(R.string.delete_deleted_heading),
+                lines =
+                    listOf(
+                        stringResource(R.string.delete_deleted_login),
+                        stringResource(R.string.delete_deleted_payments),
+                    ),
+            )
+            ListCard(
+                heading = stringResource(R.string.delete_kept_heading),
+                lines = listOf(stringResource(R.string.delete_kept_records)),
+                note = stringResource(R.string.delete_kept_note),
+            )
+        } else {
+            TeacherCards(footprint)
+        }
 
         (state as? DeletionState.Failed)?.let {
             Text(
@@ -170,6 +185,51 @@ fun DeleteAccountScreen(
 }
 
 /**
+ * "You have 3 batches with 31 students", and what that means.
+ *
+ * @param footprint What the server counted
+ */
+@Composable
+private fun TeacherWarning(footprint: TeacherFootprint) {
+    Text(
+        stringResource(
+            R.string.delete_teacher_summary,
+            Numerals.count(footprint.batchCount),
+            Numerals.count(footprint.studentCount),
+        ),
+        style = MaterialTheme.typography.bodyLarge,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.testTag(TAG_DELETE_TEACHER),
+    )
+    Text(stringResource(R.string.delete_teacher_body), color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
+/**
+ * The teacher's "Deleted" and "Kept" cards, from the O5 board.
+ *
+ * @param footprint What the server counted
+ */
+@Composable
+private fun TeacherCards(footprint: TeacherFootprint) {
+    ListCard(
+        heading = stringResource(R.string.delete_deleted_heading),
+        lines =
+            listOf(
+                stringResource(R.string.delete_deleted_login),
+                stringResource(R.string.delete_teacher_access, Numerals.count(footprint.batchCount)),
+            ),
+    )
+    ListCard(
+        heading = stringResource(R.string.delete_teacher_kept_heading),
+        lines =
+            listOf(
+                stringResource(R.string.delete_teacher_students_keep, Numerals.count(footprint.studentCount)),
+                stringResource(R.string.delete_teacher_owed, Numerals.money(footprint.outstanding)),
+            ),
+    )
+}
+
+/**
  * One "Deleted" or "Kept" card.
  *
  * @param heading The card's heading
@@ -177,17 +237,17 @@ fun DeleteAccountScreen(
  * @param note A closing note, or null
  */
 @Composable
-private fun ListCard(heading: Int, lines: List<Int>, note: Int? = null) {
+private fun ListCard(heading: String, lines: List<String>, note: String? = null) {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(
             Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Text(stringResource(heading), style = MaterialTheme.typography.titleMedium)
-            lines.forEach { Text("· " + stringResource(it)) }
+            Text(heading, style = MaterialTheme.typography.titleMedium)
+            lines.forEach { Text("· $it") }
             note?.let {
                 Text(
-                    stringResource(it),
+                    it,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

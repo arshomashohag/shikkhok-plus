@@ -1,5 +1,7 @@
 package com.shikkhokplus.app.feature.profile
 
+import com.shikkhokplus.app.core.model.Money
+import com.shikkhokplus.app.core.network.DeletionSummaryDto
 import com.shikkhokplus.app.core.network.ErrorBody
 import com.shikkhokplus.app.core.network.ErrorEnvelope
 import com.shikkhokplus.app.core.network.MeDto
@@ -52,6 +54,11 @@ class ProfileViewModelTest {
             deletes++
             return deleteResult
         }
+
+        var summary: AuthResult<DeletionSummaryDto> =
+            AuthResult.Ok(DeletionSummaryDto(batchCount = 0, studentCount = 0, outstanding = Money.of("0.00")))
+
+        override suspend fun deletionSummary(): AuthResult<DeletionSummaryDto> = summary
 
         var reads = 0
         var saves = 0
@@ -246,15 +253,15 @@ class ProfileViewModelTest {
 
     @Test
     fun `a refusal is shown and the person can try again`() = runTest(dispatcher) {
-        // A teacher who still owns batches is refused by the server.
+        // Any server refusal, carried as the server named it.
         val repository = FakeRepository()
         repository.deleteResult =
             AuthResult.Refused(
                 ErrorEnvelope(
                     ErrorBody(
-                        "DELETION_REFUSED",
+                        "NOT_AVAILABLE",
                         false,
-                        "governance.deletion.owns_batches",
+                        "authz.lens.not_available",
                     ),
                 ),
             )
@@ -264,7 +271,7 @@ class ProfileViewModelTest {
         advanceUntilIdle()
 
         val failed = assertIs<DeletionState.Failed>(model.deletion.value)
-        assertEquals("governance.deletion.owns_batches", failed.messageKey)
+        assertEquals("authz.lens.not_available", failed.messageKey)
         assertEquals("+8801611477203", failed.phone, "kept so a retry can match")
     }
 
@@ -288,5 +295,27 @@ class ProfileViewModelTest {
         model.cancelDeletion()
 
         assertEquals(DeletionState.Idle, model.deletion.value)
+    }
+
+    @Test
+    fun `a teacher's confirmation carries what stays behind`() = runTest(dispatcher) {
+        val repository = FakeRepository()
+        repository.summary =
+            AuthResult.Ok(DeletionSummaryDto(batchCount = 3, studentCount = 31, outstanding = Money.of("8400.00")))
+        val model = confirming(repository)
+        advanceUntilIdle()
+
+        assertEquals(TeacherFootprint(3, 31, Money.of("8400.00")), model.footprint.value)
+    }
+
+    @Test
+    fun `anyone owning no batch, or a failed read, gets the plain confirmation`() = runTest(dispatcher) {
+        val none = confirming(FakeRepository())
+        val failing = FakeRepository().apply { summary = AuthResult.TransportFailure }
+        val failed = confirming(failing)
+        advanceUntilIdle()
+
+        assertEquals(null, none.footprint.value)
+        assertEquals(null, failed.footprint.value)
     }
 }

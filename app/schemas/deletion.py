@@ -18,12 +18,14 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.money import MoneyField
 from app.schemas.phone import PhoneField
 
 __all__ = [
     "DeletionOutcome",
     "DeletionRequest",
     "DeletionResponse",
+    "DeletionSummaryResponse",
 ]
 
 
@@ -83,3 +85,22 @@ class DeletionResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     status: Literal["deleted"] = "deleted"
+
+
+class DeletionSummaryResponse(BaseModel):
+    """What stays after this account is deleted, for the confirm screen.
+
+    Zeros for anyone who owns no batch: the screen then shows the plain
+    variant rather than a refusal.
+
+    :ivar batch_count: Batches the account owns
+    :ivar student_count: Students in them
+    :ivar outstanding: What those students still owe; it stays on their
+        records and can no longer be collected
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    batch_count: int = Field(ge=0)
+    student_count: int = Field(ge=0)
+    outstanding: MoneyField

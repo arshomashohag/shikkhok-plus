@@ -148,7 +148,6 @@ actually does, and our build fails if the two stop matching.
 | One-time sign-in codes, stored only as hashes | 7 days |
 | Session tokens, stored only as hashes | 30 days after it expires |
 | Test-only message records, never used in production | 7 days |
-| The record that you are a teacher | no time limit |
 | Which classes you have hidden from your own view | no time limit |
 | Your own name, photo and address | no time limit |
 | Your phone number and account record | no time limit |
@@ -169,6 +168,7 @@ actually does, and our build fails if the two stop matching.
 | A subject within a class | no time limit |
 | Amounts charged, paid and waived | no time limit |
 | An exam a teacher set | no time limit |
+| The link between a class and the teacher who runs it | no time limit |
 | The record that a fee was due for a month | no time limit |
 | Whether a student attended a class | no time limit |
 
@@ -183,7 +183,9 @@ These records are about how the service itself is running, not about any person.
 
 **The name a teacher typed for you stays in that teacher's record.** When a teacher invites someone to a class they enter a name for that place themselves. That name belongs to the teacher's own record of the class, so it remains after you delete your account -- and it remains even if you declined the invitation and never used the app. It is not shown to anyone but that teacher. If you want it removed, contact us at the address at the top of this page and we will raise it with the teacher concerned.
 
-<!-- governance manifest digest: 5237993ab8a1f4b65256fda9119921d2fd350d362caed3f083feef57ca0f52dd
+**A teacher's classes stay with their students.** If you are a teacher and delete your account, your sign-in, your own name and address are removed, and so are your name and payment number on each of your classes. The classes themselves stay as read-only history for your students and their guardians: their record of who came to each class, their results and fee records are theirs too. No new fees fall due on those classes, and amounts already recorded as owed stay on the records, where nobody can collect them.
+
+<!-- governance manifest digest: 2ebeaccde0b2c5854384dd47e76e891c86d2ece2fe6e3da286116f7eb6e7bee3
      Covers every disposition, retention class and basis, so a
      change to any of them fails the drift gate even when it
      does not alter the text above. Regenerate; do not edit. -->

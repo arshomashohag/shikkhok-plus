@@ -534,17 +534,19 @@ class Owner(Base):
     application code [BR6.3].
 
     :ivar id: Surrogate key
-    :ivar account_id: The account that owns batches
+    :ivar account_id: The account that owns batches, or NULL once that
+        teacher deleted their account: the batches stay as history that
+        no lens can write to [BR1.6 amended, 0010]
     :ivar created_at: When ownership was recorded
     """
 
     __tablename__ = "owner"
 
     id: Mapped[uuid.UUID] = _uuid_column()
-    account_id: Mapped[uuid.UUID] = mapped_column(
+    account_id: Mapped[uuid.UUID | None] = mapped_column(
         PgUUID(as_uuid=True),
-        ForeignKey("account.id", ondelete="CASCADE"),
-        nullable=False,
+        ForeignKey("account.id", ondelete="SET NULL"),
+        nullable=True,
     )
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), nullable=False

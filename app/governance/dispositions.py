@@ -197,9 +197,15 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
         ),
     ),
     "owner": TableGovernance(
-        disposition=Disposition.HARD_DELETE,
+        disposition=Disposition.RETAIN_WITH_BASIS,
         retention=RetentionClass.LIFE_OF_ACCOUNT,
-        basis="U4 owns this table's behaviour; U3 declares its shape only.",
+        basis=(
+            "The link from a teacher to their batches. When the teacher "
+            "deletes their account the link to the account is cleared "
+            "and the row stays, because the batches beneath it are their "
+            "students' attendance, marks and fee history. It then names "
+            "nobody."
+        ),
     ),
     "enrollment": TableGovernance(
         disposition=Disposition.RETAIN_WITH_BASIS,

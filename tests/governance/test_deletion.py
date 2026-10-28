@@ -27,7 +27,6 @@ from sqlalchemy.orm import Session
 
 from app.governance.deletion import (
     HARD_DELETE_SCOPES,
-    DeletionRefused,
     Scope,
     delete_account,
     hard_delete_tables,
@@ -461,135 +460,113 @@ def test_the_counters_are_not_cleared_by_a_deletion(
 
 
 # ---------------------------------------------------------------------------
-# THE REFUSAL, which is a precondition and not a cleanup. [BR1.6]
+# A TEACHER'S DELETION. [BR1.6, as amended 2026-10-28]
+#
+# BR1.6 refused while a teacher owned a batch, and nothing in the app
+# could close or hand over a batch, so a teacher could never delete. The
+# amended rule follows the O5 board: the teacher's login and profile go,
+# and every batch stays with its students as read-only history.
 # ---------------------------------------------------------------------------
 
 
-def test_a_teacher_owning_a_batch_is_refused(
+def _batch_row(session: Session, batch_id: uuid.UUID) -> sa.Row[tuple[object, ...]]:
+    """Read what a deletion changes on a batch.
+
+    :param session: A session able to read everything
+    :param batch_id: The batch
+    :return: Its owner's account, active flag, teacher name and number
+    """
+    return session.execute(
+        sa.text(
+            "SELECT o.account_id, b.active, b.teacher_display_name, "
+            "b.collection_number "
+            "FROM batch b JOIN owner o ON o.id = b.owner_id WHERE b.id = :id"
+        ),
+        {"id": batch_id},
+    ).one()
+
+
+def test_a_teacher_owning_a_batch_can_delete(
     owner_session: Session, populated_seat: PopulatedSeat
 ) -> None:
-    """The refusal, and the account row still exists afterwards.
-
-    The second half is what catches a partial: a refusal raised AFTER
-    some rows are gone passes a refusal-only test.
+    """The account goes; the batch and its owner row stay, unlinked.
 
     :param owner_session: A session able to read everything
     :param populated_seat: The fixture
     :return: None
     """
-    with pytest.raises(DeletionRefused) as refused:
-        delete_account(owner_session, populated_seat.teacher_phone)
+    result = delete_account(owner_session, populated_seat.teacher_phone)
 
-    assert refused.value.batch_count == 1
-
-    still_there = owner_session.execute(
+    gone = owner_session.execute(
         sa.text("SELECT count(*) FROM account WHERE id = :id"),
         {"id": populated_seat.teacher_account_id},
     ).scalar_one()
-    assert still_there == 1
+    assert result.existed is True
+    assert gone == 0
+    assert _batch_row(owner_session, populated_seat.batch_id)[0] is None
 
 
-def test_the_refusal_destroyed_nothing_at_all(
+def test_a_teachers_deletion_keeps_every_students_records(
     owner_session: Session, populated_seat: PopulatedSeat
 ) -> None:
-    """Every row on the ``owner -> batch`` chain is intact.
+    """Every retained row survives, the teacher's chain included.
 
-    **This is the assertion that catches a cleanup-shaped
-    implementation.** Seven of the retained tables are reachable from
-    ``account`` only through that chain, which ``0007`` does not touch,
-    so a refusal arriving after the first DELETE would destroy other
-    people's records and still satisfy a refusal-only test.
+    **The assertion the old refusal existed for.** Seven retained tables
+    hang off ``owner -> batch``; a cascade from the account would take
+    them all, so the count is taken across every retained table.
 
     :param owner_session: A session able to read everything
     :param populated_seat: The fixture
     :return: None
     """
     before = _retained_counts(owner_session)
-    before_hard = _rows_for_account(
-        owner_session,
-        populated_seat.teacher_account_id,
-        populated_seat.teacher_phone,
-    )
 
-    with pytest.raises(DeletionRefused):
-        delete_account(owner_session, populated_seat.teacher_phone)
-
-    owner_session.rollback()
-    owner_session.expire_all()
+    delete_account(owner_session, populated_seat.teacher_phone)
 
     assert _retained_counts(owner_session) == before
-    assert (
-        _rows_for_account(
-            owner_session,
-            populated_seat.teacher_account_id,
-            populated_seat.teacher_phone,
-        )
-        == before_hard
-    )
 
 
-def test_a_teacher_owning_no_batch_can_delete(
+def test_a_teachers_batch_stops_and_forgets_the_teacher(
     owner_session: Session, populated_seat: PopulatedSeat
 ) -> None:
-    """The refusal is not over-broad.
+    """Inactive, so no new fee falls due; no name, no payment number.
 
-    An account with an ``owner`` row but no batches is not blocked:
-    the rule is about the records hanging off batches, not about having
-    ever been a teacher.
+    Charges already made stay owed on the records. A new one would be a
+    debt nobody can collect, and a payment number left in place would
+    send a student's money to an account that no longer exists.
 
     :param owner_session: A session able to read everything
     :param populated_seat: The fixture
     :return: None
     """
     owner_session.execute(
-        sa.text("DELETE FROM batch WHERE id = :id"),
+        sa.text(
+            "UPDATE batch SET teacher_display_name = 'Sir', "
+            "collection_number = '01700000000' WHERE id = :id"
+        ),
         {"id": populated_seat.batch_id},
     )
     owner_session.commit()
 
-    result = delete_account(owner_session, populated_seat.teacher_phone)
-    assert result.existed is True
+    delete_account(owner_session, populated_seat.teacher_phone)
+
+    _, active, name, number = _batch_row(owner_session, populated_seat.batch_id)
+    assert (active, name, number) == (False, None, None)
 
 
-def test_the_refusal_carries_a_message_key(
+def test_a_students_deletion_leaves_the_teachers_batch_alone(
     owner_session: Session, populated_seat: PopulatedSeat
 ) -> None:
-    """Not a contentless refusal, unlike every other one on this path.
-
-    The caller has already proven ownership of the number, so
-    enumeration resistance does not apply -- and a contentless refusal
-    would leave a teacher concluding the feature is broken.
+    """Only a teacher's own deletion retires their batches.
 
     :param owner_session: A session able to read everything
     :param populated_seat: The fixture
     :return: None
     """
-    with pytest.raises(DeletionRefused) as refused:
-        delete_account(owner_session, populated_seat.teacher_phone)
+    delete_account(owner_session, populated_seat.student_phone)
 
-    assert refused.value.message_key == "governance.deletion.owns_batches"
-    assert refused.value.code == "DELETION_BLOCKED_BY_BATCHES"
-    assert refused.value.details == {"batch_count": "1"}
-
-
-def test_the_refusal_names_no_batch_name(
-    owner_session: Session, populated_seat: PopulatedSeat
-) -> None:
-    """The count, not the names.
-
-    The names are the teacher's own data and are already on their
-    screen; putting a list of class names into an error envelope that
-    may be logged buys nothing.
-
-    :param owner_session: A session able to read everything
-    :param populated_seat: The fixture
-    :return: None
-    """
-    with pytest.raises(DeletionRefused) as refused:
-        delete_account(owner_session, populated_seat.teacher_phone)
-
-    rendered = str(refused.value.details) + refused.value.message_key
-    assert "Deletion fixture" not in rendered
+    account, active, _, _ = _batch_row(owner_session, populated_seat.batch_id)
+    assert (account, active) == (populated_seat.teacher_account_id, True)
 
 
 def test_not_personal_scoping_and_not_personal_disposition_agree() -> None:

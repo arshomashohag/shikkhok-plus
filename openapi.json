@@ -990,6 +990,32 @@
         "title": "DeletionResponse",
         "type": "object"
       },
+      "DeletionSummaryResponse": {
+        "additionalProperties": false,
+        "description": "What stays after this account is deleted, for the confirm screen.\n\nZeros for anyone who owns no batch: the screen then shows the plain\nvariant rather than a refusal.\n\n:ivar batch_count: Batches the account owns\n:ivar student_count: Students in them\n:ivar outstanding: What those students still owe; it stays on their\n    records and can no longer be collected",
+        "properties": {
+          "batch_count": {
+            "minimum": 0.0,
+            "title": "Batch Count",
+            "type": "integer"
+          },
+          "outstanding": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "student_count": {
+            "minimum": 0.0,
+            "title": "Student Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "batch_count",
+          "outstanding",
+          "student_count"
+        ],
+        "title": "DeletionSummaryResponse",
+        "type": "object"
+      },
       "DuesGroupResponse": {
         "additionalProperties": false,
         "description": "One group on the Dues screen, totalled by the server.\n\n:ivar bucket: Which group: more than 30 days late, 1-30 days late,\n    or due and not yet late\n:ivar total: What its rows owe together\n:ivar count: How many rows\n:ivar share: Its total as a whole percent of everything owed, so the\n    app draws the bar without dividing money",
@@ -3681,7 +3707,7 @@
         ]
       },
       "post": {
-        "description": "Send a deletion code, or delete once one is presented.\n\n**One route with two steps rather than two routes**, and that is a\ndeliberate consequence of the allowlist rather than a convenience.\n``PUBLIC_ROUTES`` declares exactly two external deletion entries,\nits count is asserted at eight, and D6's stated job is to land\nhandlers against entries already under review -- not to add a public\nroute in the commit that implements one. A separate\n``/account-deletion/code`` would have been a ninth public entry,\nwhich is a diff against a stated number [BR3.2].\n\nThe step is chosen by whether ``code`` is present, which is also how\nthe page's single form behaves: submit a number to be sent a code,\nsubmit it again with the code to confirm.\n\n``verify`` is CALLED rather than reimplemented, which is what gives\nthis route the single-use rule, the expiry and the attempt ceiling\nwithout a second copy of any of them [NFR14.81]. Reimplementing it\nis the obvious shortcut for a route living in a different module.\n\n:param body: The request body\n:param request: The incoming request\n:param session: The request-scoped session\n:param gateway: The configured SMS gateway\n:return: ``requested`` after a code is sent, ``deleted`` after one\n    is spent\n:raises CeilingBreach: A deletion ceiling refused this send\n:raises ValidationError: The code is wrong, expired, used or was\n    issued for a different purpose\n:raises DeletionRefused: The account owns at least one batch",
+        "description": "Send a deletion code, or delete once one is presented.\n\n**One route with two steps rather than two routes**, and that is a\ndeliberate consequence of the allowlist rather than a convenience.\n``PUBLIC_ROUTES`` declares exactly two external deletion entries,\nits count is asserted at eight, and D6's stated job is to land\nhandlers against entries already under review -- not to add a public\nroute in the commit that implements one. A separate\n``/account-deletion/code`` would have been a ninth public entry,\nwhich is a diff against a stated number [BR3.2].\n\nThe step is chosen by whether ``code`` is present, which is also how\nthe page's single form behaves: submit a number to be sent a code,\nsubmit it again with the code to confirm.\n\n``verify`` is CALLED rather than reimplemented, which is what gives\nthis route the single-use rule, the expiry and the attempt ceiling\nwithout a second copy of any of them [NFR14.81]. Reimplementing it\nis the obvious shortcut for a route living in a different module.\n\n:param body: The request body\n:param request: The incoming request\n:param session: The request-scoped session\n:param gateway: The configured SMS gateway\n:return: ``requested`` after a code is sent, ``deleted`` after one\n    is spent\n:raises CeilingBreach: A deletion ceiling refused this send\n:raises ValidationError: The code is wrong, expired, used or was\n    issued for a different purpose",
         "operationId": "external_deletion_account_deletion_post",
         "requestBody": {
           "content": {
@@ -6665,7 +6691,7 @@
     },
     "/v1/me": {
       "delete": {
-        "description": "Delete the authenticated account.\n\n**The same deletion function the external route calls** [BR3.1].\nThe access token is the ownership proof here, where the external\nroute uses a verified code, and that is the ONLY difference between\nthe two paths -- the outcome is identical row for row, which the\ntest asserts by comparing the surviving row sets rather than each\nagainst a hand-written expectation.\n\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:return: The acknowledgement\n:raises DeletionRefused: The account owns at least one batch",
+        "description": "Delete the authenticated account.\n\n**The same deletion function the external route calls** [BR3.1].\nThe access token is the ownership proof here, where the external\nroute uses a verified code, and that is the ONLY difference between\nthe two paths -- the outcome is identical row for row, which the\ntest asserts by comparing the surviving row sets rather than each\nagainst a hand-written expectation.\n\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:return: The acknowledgement",
         "operationId": "delete_own_account_v1_me_delete",
         "responses": {
           "200": {
@@ -6806,6 +6832,28 @@
         "summary": "Read My Batch Teaching",
         "tags": [
           "teaching"
+        ]
+      }
+    },
+    "/v1/me/deletion-summary": {
+      "get": {
+        "description": "Tell the caller what stays if they delete their account.\n\nLens-exempt on ``DELETE /v1/me``'s reasoning: it reads only what the\nauthenticated account itself owns.\n\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:return: Batches, students and money still owed; zeros when none",
+        "operationId": "read_deletion_summary_v1_me_deletion_summary_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeletionSummaryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Read Deletion Summary",
+        "tags": [
+          "deletion"
         ]
       }
     },

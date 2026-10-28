@@ -188,8 +188,6 @@ object MessageKeys {
         // the caller has proven they own the number, and a contentless
         // refusal would leave a teacher concluding the feature is
         // broken rather than that they must deal with their classes.
-        "governance.deletion.owns_batches" to
-            R.string.governance_deletion_owns_batches,
     )
 
     /**

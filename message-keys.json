@@ -24,7 +24,6 @@
     "fees.verification.disposition_not_applicable",
     "fees.verification.disposition_required",
     "fees.verification.disposition_unknown",
-    "governance.deletion.owns_batches",
     "marks.exam.total_below_recorded",
     "marks.exam.total_invalid",
     "marks.out_of_range",

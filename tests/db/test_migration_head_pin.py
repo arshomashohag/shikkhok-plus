@@ -33,11 +33,12 @@ VERSIONS: Final[pathlib.Path] = (
 #: is what this file used to be named for. ``0008`` -- canonical phone
 #: numbers and ``enrollment.student_phone`` -- moves it again, for the
 #: student-linking gap found in the end-to-end audit. ``0009`` -- the
-#: in-app notification inbox -- moves it once more.
-EXPECTED_REVISIONS: Final[int] = 9
+#: in-app notification inbox -- moves it once more, and ``0010`` --
+#: a teacher's deletion keeping their batches -- again.
+EXPECTED_REVISIONS: Final[int] = 10
 
-#: The head ``0009`` leaves behind.
-EXPECTED_HEAD: Final[str] = "0009"
+#: The head ``0010`` leaves behind.
+EXPECTED_HEAD: Final[str] = "0010"
 
 
 def _revision_files() -> list[pathlib.Path]:

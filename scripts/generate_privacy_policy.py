@@ -134,7 +134,7 @@ _TABLE_DESCRIPTION: Final[dict[str, str]] = {
     "rate_limit_counter": "Counters that limit sign-in attempts",
     "auth_audit_log": "A sign-in audit record carrying no name or code",
     "staging_sms_outbox": "Test-only message records, never used in production",
-    "owner": "The record that you are a teacher",
+    "owner": "The link between a class and the teacher who runs it",
     "batch": "A class a teacher runs",
     "batch_subject": "A subject within a class",
     "schedule_slot": "A class's weekly timetable",
@@ -236,6 +236,35 @@ def disclosure() -> str:
         "but that teacher. If you want it removed, contact us at the "
         "address at the top of this page and we will raise it with the "
         "teacher concerned."
+    )
+
+
+def teacher_disclosure() -> str:
+    """Say what happens to a teacher's classes when they delete.
+
+    **Derived from the manifest, like :func:`disclosure`.** Emitted as a
+    retention statement because ``owner`` is ``RETAIN_WITH_BASIS``; were
+    it ever ``HARD_DELETE``, the classes would go with the teacher and the
+    page would say so instead.
+
+    :return: The paragraph
+    :raises KeyError: If the manifest has no ``owner`` entry
+    """
+    if DISPOSITIONS["owner"].disposition is Disposition.HARD_DELETE:
+        return (
+            "When a teacher deletes their account, their classes and "
+            "every record in them are removed with it."
+        )
+
+    return (
+        "**A teacher's classes stay with their students.** If you are a "
+        "teacher and delete your account, your sign-in, your own name "
+        "and address are removed, and so are your name and payment number on each "
+        "of your classes. The classes themselves stay as read-only "
+        "history for your students and their guardians: their "
+        "record of who came to each class, their results and fee records are theirs too. No new fees "
+        "fall due on those classes, and amounts already recorded as "
+        "owed stay on the records, where nobody can collect them."
     )
 
 
@@ -378,7 +407,7 @@ def render() -> str:
         ]
         lines.append("")
 
-    lines += [disclosure(), "", _manifest_digest_line(), ""]
+    lines += [disclosure(), "", teacher_disclosure(), "", _manifest_digest_line(), ""]
     return "\n".join(lines)
 
 

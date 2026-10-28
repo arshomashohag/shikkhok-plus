@@ -110,7 +110,7 @@ def test_public_routes_contains_the_contracted_entries() -> None:
 
 
 def test_lens_exempt_set_holds_exactly_the_known_routes() -> None:
-    """``LENS_EXEMPT_AUTHENTICATED`` holds exactly these seven routes.
+    """``LENS_EXEMPT_AUTHENTICATED`` holds exactly these routes.
 
     Kept separate from ``PUBLIC_ROUTES`` for a concrete reason: with one
     combined list, whoever first hits a failing refresh route takes the
@@ -138,7 +138,9 @@ def test_lens_exempt_set_holds_exactly_the_known_routes() -> None:
       itself, which is the account with the least reason to stay;
     - the inbox pair reads and marks only the caller's own messages and
       takes no id from the request, and a lens would hide a reminder
-      from the guardian it is about.
+      from the guardian it is about;
+    - the deletion summary reads only what the caller owns, and must
+      answer zeros, not a refusal, for an account owning nothing.
 
     :return: None
     """
@@ -155,6 +157,7 @@ def test_lens_exempt_set_holds_exactly_the_known_routes() -> None:
             ("DELETE", "/v1/me"),
             ("GET", "/v1/me/notifications"),
             ("POST", "/v1/me/notifications/read"),
+            ("GET", "/v1/me/deletion-summary"),
         }
     )
 

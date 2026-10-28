@@ -2,6 +2,7 @@ package com.shikkhokplus.app.feature.profile
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.shikkhokplus.app.core.network.DeletionSummaryDto
 import com.shikkhokplus.app.core.network.MeDto
 import com.shikkhokplus.app.feature.auth.AuthResult
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,6 +36,13 @@ interface ProfileRepository {
      * @return Nothing on success, or why the server refused
      */
     suspend fun deleteAccount(): AuthResult<Unit>
+
+    /**
+     * Read what stays if this account is deleted.
+     *
+     * @return Batches, students and money owed; zeros when none
+     */
+    suspend fun deletionSummary(): AuthResult<DeletionSummaryDto>
 }
 
 /**
@@ -53,6 +61,11 @@ class ProfileViewModel(
     val state: StateFlow<ProfileUiState> = _state.asStateFlow()
 
     private val _deletion = MutableStateFlow<DeletionState>(DeletionState.Idle)
+
+    private val _footprint = MutableStateFlow<TeacherFootprint?>(null)
+
+    /** What a teacher would leave behind, or null for anyone else. */
+    val footprint: StateFlow<TeacherFootprint?> = _footprint.asStateFlow()
 
     /** Where deleting this account stands. */
     val deletion: StateFlow<DeletionState> = _deletion.asStateFlow()
@@ -151,9 +164,23 @@ class ProfileViewModel(
         lastAction?.invoke()
     }
 
-    /** Open the deletion confirmation, with the number to type back. */
+    /**
+     * Open the deletion confirmation, with the number to type back, and
+     * read what a teacher would leave behind.
+     *
+     * The plain confirmation shows until the read answers; a teacher's
+     * variant replaces it when the server reports batches. A failed read
+     * leaves the plain one, and the deletion itself is unaffected.
+     */
     fun startDeletion() {
         _deletion.value = DeletionState.Confirming(phone)
+        _footprint.value = null
+        viewModelScope.launch {
+            _footprint.value =
+                (repository.deletionSummary() as? AuthResult.Ok)?.value?.takeIf { it.batchCount > 0 }?.let {
+                    TeacherFootprint(it.batchCount, it.studentCount, it.outstanding)
+                }
+        }
     }
 
     /** Back out of deleting. */

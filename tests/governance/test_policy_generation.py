@@ -559,9 +559,9 @@ def test_no_raw_table_name_appears_in_the_generated_region() -> None:
     than over the description map -- so a table name reaching the page
     by some other route is caught too.
 
-    ``session`` and ``account`` are excluded from the check because both
-    are ordinary English words a policy legitimately uses; the other
-    twenty-three are not.
+    Table names that are ordinary English words a policy legitimately
+    uses -- ``session``, ``account`` and the rest of the set below -- are
+    excluded; every other table name is not.
 
     :return: None
     """
