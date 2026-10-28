@@ -60498,3 +60498,1187 @@ nfr-requirements D3 collecting-fees: seven artifacts written. Recomputed every N
 **Details**: git status --short && git add aidlc/ && git commit -q -m "chore(aidlc): record the gap-audit events\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>" ; 
 
 ---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T02:32:40Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 -c "\nimport json; d=json.load(open('openapi.json'))\nS=d['components']['schemas']\nprint('schemas with batch_subject_id:', [n for n,s in S.items() if 'bat
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T02:32:52Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '497,515p;555,575p;600,640p' app/batches/service.py; sed -n '702,726p' app/db/models.py | grep -vE '^\s*$'
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T02:33:08Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '86,90p;104,111p' app/schemas/batches.py
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T02:33:22Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\nimport re\n# --- schema\np='app/schemas/batches.py'\ns=open(p).read()\ns=s.replace('''class BatchResponse(BaseModel):\n    """A batch as its owner s
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T02:33:33Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '515,560p' app/batches/service.py | grep -nE "\) -> |:return:|:raises"
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T02:33:42Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='app/batches/service.py'\ns=open(p).read()\ni=s.index('def create_batch(')\nhead,tail=s[:i],s[i:]\ntail=tail.replace(') -> Batch:',') -> BatchSum
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T02:33:48Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: git diff app/api/batches.py | grep -E "^-" | sed -n '/BatchResponse(/,/^-\s*)/p' | head -30; grep -n "^def _to_wire\|^def _from_wire\|^def _roster_response\|^de
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T02:33:57Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='app/api/batches.py'\ns=open(p).read()\nhelper='''def _batch_response(summary: service.BatchSummary) -> BatchResponse:\n    """Render one batch,
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T02:34:02Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/s/^    RosterRowResponse,/n)/X
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T02:34:17Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '1,72p' tests/batches/test_endpoints.py | grep -vE '^\s*$' | head -60
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T02:34:30Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/tests/batches/test_endpoints.py
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T02:34:44Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 -m pytest tests/batches/test_endpoints.py -q -p no:cacheprovider 2>&1 | grep -E "passed|failed|error" | tail -3
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T02:34:56Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 -m pytest tests/batches/test_endpoints.py -p no:cacheprovider -rA 2>&1 | grep -E "PASSED|FAILED|ERROR|SKIPPED|skipped|Docker" | tail -14
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T02:35:42Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/1)\nopen(p,w).write(s)\nPY\nsed -n 
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T02:35:57Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/=
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T02:36:06Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='android/src/main/kotlin/com/shikkhokplus/app/core/network/HttpMarksRepository.kt'\ns=open(p).read()\ns=s.replace('''    /**\n     * Create an e
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T02:37:01Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Write
+**Details**: <project-dir>/android/src/main/kotlin/com/shikkhokplus/app/feature/marks/ui/ExamCreateForm.kt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T02:37:03Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: for k in action_ok action_cancel exam_create_title screen_title_create_exam; do printf "%-26s %s\n" $k "$(grep -c "name=\"$k\"" android/src/main/res/values/stri
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T02:37:11Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\ndef add(p,pairs):\n    s=open(p,encoding='utf-8').read()\n    for k,_ in pairs: assert f'name="{k}"' not in s,k\n    s=s.replace('</resources>',''
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T02:37:21Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\ndef add(p,pairs):\n    s=open(p,encoding='utf-8').read()\n    for k,_ in pairs: assert f'name="{k}"' not in s,k\n    s=s.replace('</resources>',''
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T02:37:36Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/navController.navigate
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T02:38:22Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/android/src/test/kotlin/com/shikkhokplus/app/feature/marks/ExamCreateFormTest.kt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T02:38:34Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='android/src/main/kotlin/com/shikkhokplus/app/feature/marks/ui/ExamCreateForm.kt'\ns=open(p).read()\nold=''' * **Formatted in UTC**, because th
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T02:39:18Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/android/src/test/kotlin/com/shikkhokplus/app/feature/marks/MarksViewModelWriteTest.kt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T02:39:36Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: git add app/api/batches.py app/batches/service.py app/schemas/batches.py openapi.json tests/batches/test_endpoints.py && git commit -q -m "feat(api): expose eac
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T02:39:41Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '1,140p' android/src/main/kotlin/com/shikkhokplus/app/core/queue/QueueSync.kt | grep -vE '^\s*$'
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T02:39:53Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '20,60p' android/release-gates.gradle.kts
+
+---
+
+## Human Turn
+**Timestamp**: 2026-10-28T02:43:26Z
+**Event**: HUMAN_TURN
+**Session**: 602d453a-cecc-4a7d-ad6f-1f22d6052b2a
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T02:43:43Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '/    fun submit(/,/^    }/p' android/src/main/kotlin/com/shikkhokplus/app/feature/attendance/AttendanceViewModel.kt; grep -n "interface AttendanceReposi
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T02:43:54Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: grep -n "fun isAutomaticallySendable" -B 12 -A 8 android/src/main/kotlin/com/shikkhokplus/app/core/queue/*.kt | grep -vE "^\S+-\s*$" | head -26; grep -n "class 
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T02:44:05Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '205,245p' android/src/main/kotlin/com/shikkhokplus/app/feature/attendance/AttendanceViewModel.kt; sed -n '85,100p' android/src/main/kotlin/com/shikkhokp
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T02:44:19Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/item.copy
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T02:44:59Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/android/src/main/kotlin/com/shikkhokplus/app/core/queue/QueueSync.kt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T02:45:22Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '1,60p' android/src/test/kotlin/com/shikkhokplus/app/core/queue/QueueSyncTest.kt | grep -vE '^\s*\*|^\s*/\*\*|^\s*$' | head -40
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T02:45:40Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='android/src/test/kotlin/com/shikkhokplus/app/core/queue/QueueSyncTest.kt'\ns=open(p).read()\ns=s.rstrip()[:-1]+'''\n    private fun refusal(ret
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T02:45:57Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='android/src/test/kotlin/com/shikkhokplus/app/core/queue/QueueSyncTest.kt'\ns=open(p).read()\ns=s.replace('''                .encodeToString(li
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T02:46:15Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\nimport re,html\nt=open('android/build/test-results/testDebugUnitTest/TEST-com.shikkhokplus.app.core.queue.QueueSyncTest.xml').read()\nm=re.search
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T02:46:25Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '205,225p' android/src/main/kotlin/com/shikkhokplus/app/core/queue/QueueStore.kt; grep -n "fun read" -A 14 android/src/main/kotlin/com/shikkhokplus/app/c
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T02:46:34Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='android/src/test/kotlin/com/shikkhokplus/app/core/queue/QueueSyncTest.kt'\ns=open(p).read()\nold=s[s.index('        val file = File(folder.roo
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T02:46:49Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: git add android/ && git commit -q -m "fix(android): send attendance saved offline once the app is open again\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T02:47:01Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: grep -rnE 'delete\(\s*"/me"|"/me",' app/api/*.py | head; python3 -c "\nimport json; d=json.load(open('openapi.json')); o=d['paths']['/v1/me']['delete']\nprint('su
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T02:47:26Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: grep -n "class Account(Base)" -A 30 app/db/models.py | grep -E "Mapped|tablename" | head -8; sed -n '/class MeResponse/,/^def \|^@router/p' app/api/me.py | grep
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T02:47:45Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '55,72p' app/api/me.py; grep -n "^from app.db.models import\|^from app" app/api/me.py
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T02:47:57Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='app/api/me.py'\ns=open(p).read()\ns=s.replace('''        returned HERE because this is the owner reading their own row\n    """\n\n    lenses: li
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:46:16Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '1,58p' tests/accounts/test_profile_api.py | grep -vE '^\s*$' | head -45
+
+---
+
+## Human Turn
+**Timestamp**: 2026-10-28T03:46:16Z
+**Event**: HUMAN_TURN
+**Session**: 602d453a-cecc-4a7d-ad6f-1f22d6052b2a
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:46:31Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/tests/accounts/test_profile_api.py
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:46:47Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 -m pytest tests/accounts/test_profile_api.py tests/contract -p no:cacheprovider -rA 2>&1 | grep -cE "^PASSED"; python3 -m pytest tests/accounts/test_pro
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:47:37Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: grep -nE "^\s+fun [a-z]+\(" android/src/main/kotlin/com/shikkhokplus/app/core/queue/QueueStore.kt; sed -n '181,200p' android/src/main/kotlin/com/shikkhokplus/ap
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:47:46Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/\n# insert clear() before reads
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:48:01Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '1,70p' android/src/main/kotlin/com/shikkhokplus/app/core/network/HttpProfileRepository.kt | grep -vE '^\s*$' | tail -25; grep -n "class ProfileViewModel
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:48:18Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\n# DTO\np='android/src/main/kotlin/com/shikkhokplus/app/core/network/ProfileDto.kt'\ns=open(p).read()\ns=s.replace(''' * @property address Their ad
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:48:34Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/android/src/main/kotlin/com/shikkhokplus/app/feature/profile/DeletionState.kt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:48:50Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='android/src/main/kotlin/com/shikkhokplus/app/feature/profile/DeletionState.kt'\ns=open(p).read()\nold='''    return theirs.length >= LOCAL_NUM
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:49:01Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='android/src/main/kotlin/com/shikkhokplus/app/feature/profile/ProfileViewModel.kt'\ns=open(p).read()\ns=s.replace('''                    is Aut
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:49:32Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\ndef add(p,pairs):\n    s=open(p,encoding='utf-8').read()\n    for k,_ in pairs: assert f'name="{k}"' not in s,k\n    s=s.replace('</resources>',''
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:49:49Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='android/src/main/kotlin/com/shikkhokplus/app/feature/profile/ui/ProfileScreen.kt'\ns=open(p).read()\ns=s.replace('''/** The switch-role action
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:49:57Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='android/src/main/kotlin/com/shikkhokplus/app/feature/profile/ui/ProfileScreen.kt'\ns=open(p).read()\ns=s.replace('''private fun ProfileField(l
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:50:16Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='android/src/main/kotlin/com/shikkhokplus/app/feature/profile/ui/ProfileScreen.kt'\ns=open(p).read()\ns=s.replace(''' * @param modifier The lay
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:50:44Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Write
+**Details**: <project-dir>/android/src/main/kotlin/com/shikkhokplus/app/feature/profile/ui/DeleteAccountScreen.kt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:50:46Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: grep -n "fun ScreenScaffold(" -A 9 android/src/main/kotlin/com/shikkhokplus/app/core/designsystem/ScreenScaffold.kt | head -11; ./gradlew :android:compileDebugK
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:51:18Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/Unit
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:51:31Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '/    val navController = rememberNavController()/,/^}/p' android/src/main/kotlin/com/shikkhokplus/app/MainActivity.kt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:51:44Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='android/src/main/kotlin/com/shikkhokplus/app/MainActivity.kt'\ns=open(p).read()\nold=s[s.index('    val navController = rememberNavController(
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:52:00Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: grep -rln ": ProfileRepository" android/src/test/kotlin; ./gradlew :android:compileDebugUnitTestKotlin --no-daemon -q 2>&1 | grep -E "^e: " | sed 's|.*/kotlin/|
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:52:13Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '38,75p' android/src/test/kotlin/com/shikkhokplus/app/feature/profile/ProfileViewModelTest.kt; grep -nE "^import|^class|@Test" android/src/test/kotlin/co
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:52:34Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/android/src/test/kotlin/com/shikkhokplus/app/feature/profile/NumberMatchesTest.kt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:52:56Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '1,60p' android/src/test/kotlin/com/shikkhokplus/app/feature/profile/ProfileScreenTest.kt | grep -vE '^\s*\*|^\s*/\*\*|^\s*$' | head -40
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:53:20Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/android/src/test/kotlin/com/shikkhokplus/app/feature/profile/DeleteAccountScreenTest.kt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:53:40Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: for n in feature.profile.DeleteAccountScreenTest feature.profile.ProfileScreenTest; do python3 - "android/build/test-results/testDebugUnitTest/TEST-com.shikkhok
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:53:46Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '76,92p' android/src/test/kotlin/com/shikkhokplus/app/feature/profile/ProfileScreenTest.kt; sed -n '1,30p' android/src/test/kotlin/com/shikkhokplus/app/f
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:53:50Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '20,40p' android/src/test/kotlin/com/shikkhokplus/app/feature/profile/ProfileScreenTest.kt; git log --format='%h %s' -S'the edit half offers no deletion 
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:54:08Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\nimport re\np='android/src/test/kotlin/com/shikkhokplus/app/feature/profile/ProfileScreenTest.kt'\ns=open(p).read()\ns=s.replace(''' * * **No delet
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:54:36Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/android/src/test/kotlin/com/shikkhokplus/app/core/network/HttpProfileRepositoryTest.kt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:54:45Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '89,105p' android/src/test/kotlin/com/shikkhokplus/app/feature/auth/AuthViewModelTest.kt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:54:52Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='android/src/test/kotlin/com/shikkhokplus/app/feature/auth/AuthViewModelTest.kt'\ns=open(p).read()\ns=s.replace('''    @Test\n    fun `a transpo
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:55:07Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: git add app/api/me.py openapi.json tests/accounts/test_profile_api.py && git commit -q -m "feat(api): return the owner's sign-in number from /v1/me\n\nCo-Authored
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:55:22Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 -c "\nimport json; d=json.load(open('openapi.json')); o=d['paths']['/v1/enrollments/{enrollment_id}/inactive-from']['patch']\nprint((o.get('description') 
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:55:33Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '50,58p' android/src/main/kotlin/com/shikkhokplus/app/feature/roster/RosterViewModel.kt; sed -n '/    fun remove(row: RosterRow) {/,/^    }/p' android/sr
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:55:54Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/android/src/main/kotlin/com/shikkhokplus/app/core/format/Dates.kt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:56:12Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '18,46p' android/src/main/kotlin/com/shikkhokplus/app/core/network/HttpRosterRepository.kt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:56:19Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='android/src/main/kotlin/com/shikkhokplus/app/core/network/HttpRosterRepository.kt'\ns=open(p).read()\nold='''/** The add-student body. */\n@Ser
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:56:24Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '78,100p' android/src/test/kotlin/com/shikkhokplus/app/feature/roster/RosterViewModelTest.kt; grep -n "private fun uiRow\|fun uiRow" -A 3 android/src/tes
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:56:33Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='android/src/test/kotlin/com/shikkhokplus/app/feature/roster/RosterViewModelTest.kt'\ns=open(p).read()\ns=s.replace('''        override suspend
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:56:38Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n '160,175p' android/src/test/kotlin/com/shikkhokplus/app/core/network/HttpRepositoryTest.kt; grep -nE "private fun client|private fun json|fun ok\(" andro
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:56:45Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'PY'\np='android/src/test/kotlin/com/shikkhokplus/app/core/network/HttpRepositoryTest.kt'\ns=open(p).read()\ns=s.rstrip()[:-1].rstrip()+'''\n\n    @Test\n
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:57:10Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: make check 2>&1 | grep -E "FAILED|tests completed|Kotlin line|Committed floor|ROSE|DROPPED|All gates|\.kt:[0-9]+:|\.py:[0-9]+|make: \*\*\*|Required test coverag
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:57:14Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 -m ruff check app tests 2>&1 | head -12
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T03:57:22Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/s/            "date": dt.date.today().isoformat(),/            "date": "2026-11-04",
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:01:18Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/s/^val QUEUE_RETRY_INTERVAL_MS: Long = 30_000L/const val QUEUE_RETRY_INTERVAL_MS: Long = 30_000L
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:01:55Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/android/coverage-floor.txt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T04:05:28Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: git add android/ tests/batches/test_endpoints.py && git commit -q -m "feat(android): remove a student or mark them inactive from the roster\n\nCo-Authored-By: Cla
+
+---
