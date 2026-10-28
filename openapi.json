@@ -975,6 +975,56 @@
         "title": "ExamCreateRequest",
         "type": "object"
       },
+      "ExamListItemResponse": {
+        "additionalProperties": false,
+        "description": "One exam on the teacher's list, with its marking progress.\n\nCounted server-side, so the client never tallies a rows list to\ndecide what counts as entered.\n\n:ivar entered_count: Seats with a mark or an absence entered\n:ivar expected_count: Seats that could have sat the exam",
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "entered_count": {
+            "minimum": 0.0,
+            "title": "Entered Count",
+            "type": "integer"
+          },
+          "exam_id": {
+            "format": "uuid",
+            "title": "Exam Id",
+            "type": "string"
+          },
+          "expected_count": {
+            "minimum": 0.0,
+            "title": "Expected Count",
+            "type": "integer"
+          },
+          "subject_name": {
+            "title": "Subject Name",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "total_marks": {
+            "minimum": 1.0,
+            "title": "Total Marks",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "entered_count",
+          "exam_id",
+          "expected_count",
+          "subject_name",
+          "title",
+          "total_marks"
+        ],
+        "title": "ExamListItemResponse",
+        "type": "object"
+      },
       "ExamResponse": {
         "additionalProperties": false,
         "description": "One assessment.\n\n:ivar exam_id: The exam\n:ivar title: The teacher's name for it\n:ivar date: When it was sat\n:ivar total_marks: The denominator, an integer COUNT\n:ivar subject_name: The subject assessed",
@@ -1018,7 +1068,7 @@
         "description": "One exam's results, with the exam and whether it may be written.\n\n**A wrapper rather than a bare array, and `writable` is why.** The\nscreen must know whether to offer mark entry at all, and that is a\nserver decision [BR5.5]: an exam in an inactive batch is read-only\nand the write is refused with `teaching.batch.inactive`. Without\nit the client either guesses, or offers an entry field that fails\non save — which is the failure a person blames on the app.\n\nThe exam travels with the results because the screen shows its\ntitle and total alongside them, and a second request to learn what\nthe first was about is a round trip the server can spare.\n\n:ivar exam: The exam these results belong to\n:ivar results: One row per seat [BR4.3]\n:ivar writable: Whether marks may be entered, decided server-side",
         "properties": {
           "exam": {
-            "$ref": "#/components/schemas/ExamResponse"
+            "$ref": "#/components/schemas/ExamListItemResponse"
           },
           "results": {
             "items": {
@@ -1699,7 +1749,7 @@
       },
       "PublishedMarksheetResponse": {
         "additionalProperties": false,
-        "description": "A marksheet with its comparison [BR6.2].\n\n**No per-student collection.** ``bands`` holds counts rather than\npeople, and a test over the generated document asserts that no\nproperty of this schema is a collection of student-shaped\nobjects.\n\n:ivar published: Always true; the discriminator a client switches\n    on\n:ivar viewer_marks: The viewer's own mark, or null if absent\n:ivar viewer_rank: Their rank among marked results, or null\n:ivar average: The mean of marked results\n:ivar highest: The highest marked result\n:ivar marked_count: How many results were marked\n:ivar bands: The merged distribution",
+        "description": "A marksheet with its comparison [BR6.2].\n\n**No per-student collection.** ``bands`` holds counts rather than\npeople, and a test over the generated document asserts that no\nproperty of this schema is a collection of student-shaped\nobjects.\n\n:ivar published: Always true; the discriminator a client switches\n    on\n:ivar exam_title: The exam's title\n:ivar total_marks: Its denominator\n:ivar viewer_result_state: The viewer's own result state\n:ivar viewer_marks: The viewer's own mark, or null if absent\n:ivar viewer_rank: Their rank among marked results, or null\n:ivar average: The mean of marked results\n:ivar highest: The highest marked result\n:ivar marked_count: How many results were marked\n:ivar bands: The merged distribution",
         "properties": {
           "average": {
             "title": "Average",
@@ -1711,6 +1761,10 @@
             },
             "title": "Bands",
             "type": "array"
+          },
+          "exam_title": {
+            "title": "Exam Title",
+            "type": "string"
           },
           "highest": {
             "title": "Highest",
@@ -1725,6 +1779,11 @@
             "default": true,
             "title": "Published",
             "type": "boolean"
+          },
+          "total_marks": {
+            "minimum": 1.0,
+            "title": "Total Marks",
+            "type": "integer"
           },
           "viewer_marks": {
             "anyOf": [
@@ -1747,13 +1806,26 @@
               }
             ],
             "title": "Viewer Rank"
+          },
+          "viewer_result_state": {
+            "enum": [
+              "absent",
+              "joined_after",
+              "marked",
+              "not_entered"
+            ],
+            "title": "Viewer Result State",
+            "type": "string"
           }
         },
         "required": [
           "average",
           "bands",
+          "exam_title",
           "highest",
-          "marked_count"
+          "marked_count",
+          "total_marks",
+          "viewer_result_state"
         ],
         "title": "PublishedMarksheetResponse",
         "type": "object"
@@ -2239,7 +2311,7 @@
       },
       "SessionRosterResponse": {
         "additionalProperties": false,
-        "description": "One session's roster, with the version it is at.\n\n**A wrapper rather than a bare array, and the version is why.**\nAttendance writes carry a `base_attendance_version` and a stale\none is refused with a 409 [TC-8, D-9]. After that refusal the app\nre-reads the roster to show what changed — and without the current\nversion here it cannot compose the next write, so a conflict\nbecomes a dead end rather than something a person can resolve.\n\n:ivar seats: One row per seat on the roster\n:ivar attendance_version: The roster's current version",
+        "description": "One session's roster, with the version it is at.\n\n**A wrapper rather than a bare array, and the version is why.**\nAttendance writes carry a `base_attendance_version` and a stale\none is refused with a 409 [TC-8, D-9]. After that refusal the app\nre-reads the roster to show what changed — and without the current\nversion here it cannot compose the next write, so a conflict\nbecomes a dead end rather than something a person can resolve.\n\n:ivar seats: One row per seat on the roster\n:ivar attendance_version: The roster's current version\n:ivar writable: Whether a roster write would be accepted now,\n    decided by the write path's own refusals [BR1.6, BR5.5]",
         "properties": {
           "attendance_version": {
             "title": "Attendance Version",
@@ -2251,11 +2323,16 @@
             },
             "title": "Seats",
             "type": "array"
+          },
+          "writable": {
+            "title": "Writable",
+            "type": "boolean"
           }
         },
         "required": [
           "attendance_version",
-          "seats"
+          "seats",
+          "writable"
         ],
         "title": "SessionRosterResponse",
         "type": "object"
@@ -2429,8 +2506,12 @@
       },
       "SuppressedMarksheetResponse": {
         "additionalProperties": false,
-        "description": "A marksheet with no comparison at all [BR6.4].\n\nA **distinct shape** rather than the published one with nulls: a\nrank of null beside an average of zero would read as a real\nresult.\n\n:ivar published: Always false; the discriminator\n:ivar viewer_marks: The viewer's own mark, or null\n:ivar reason: Why no comparison was published",
+        "description": "A marksheet with no comparison at all [BR6.4].\n\nA **distinct shape** rather than the published one with nulls: a\nrank of null beside an average of zero would read as a real\nresult.\n\n:ivar published: Always false; the discriminator\n:ivar exam_title: The exam's title\n:ivar total_marks: Its denominator\n:ivar viewer_result_state: The viewer's own result state\n:ivar viewer_marks: The viewer's own mark, or null\n:ivar reason: Why no comparison was published",
         "properties": {
+          "exam_title": {
+            "title": "Exam Title",
+            "type": "string"
+          },
           "published": {
             "const": false,
             "default": false,
@@ -2445,6 +2526,11 @@
             "title": "Reason",
             "type": "string"
           },
+          "total_marks": {
+            "minimum": 1.0,
+            "title": "Total Marks",
+            "type": "integer"
+          },
           "viewer_marks": {
             "anyOf": [
               {
@@ -2455,10 +2541,23 @@
               }
             ],
             "title": "Viewer Marks"
+          },
+          "viewer_result_state": {
+            "enum": [
+              "absent",
+              "joined_after",
+              "marked",
+              "not_entered"
+            ],
+            "title": "Viewer Result State",
+            "type": "string"
           }
         },
         "required": [
-          "reason"
+          "exam_title",
+          "reason",
+          "total_marks",
+          "viewer_result_state"
         ],
         "title": "SuppressedMarksheetResponse",
         "type": "object"
@@ -3421,7 +3520,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/ExamResponse"
+                    "$ref": "#/components/schemas/ExamListItemResponse"
                   },
                   "title": "Response Read Batch Exams V1 Batches  Batch Id  Exams Get",
                   "type": "array"

@@ -181,12 +181,15 @@ class SessionRosterResponse(BaseModel):
 
     :ivar seats: One row per seat on the roster
     :ivar attendance_version: The roster's current version
+    :ivar writable: Whether a roster write would be accepted now,
+        decided by the write path's own refusals [BR1.6, BR5.5]
     """
 
     model_config = ConfigDict(extra="forbid")
 
     seats: list[RosterSeatResponse]
     attendance_version: int
+    writable: bool
 
 
 class SeatMarkRequest(BaseModel):

@@ -36,10 +36,32 @@ from app.teaching.roster import readable_enrollment, refuse
 
 __all__ = [
     "ProgressEntry",
+    "SeatMarksheet",
     "guardian_progress",
     "seat_marksheet",
     "set_marksheet_visible",
 ]
+
+
+@dataclass(frozen=True, slots=True)
+class SeatMarksheet:
+    """One seat's marksheet with the heading the screen shows above it.
+
+    The heading travels with the sheet so the screen can be opened from
+    any list -- progress, a notification, the teacher's results --
+    without each caller having to carry the exam's title along.
+
+    :ivar exam_title: The exam's title
+    :ivar total_marks: Its denominator
+    :ivar viewer_result_state: The viewer's own result, one of the four
+        states, so an absence reads as an absence and not as no mark
+    :ivar sheet: The published comparison, or the suppressed sheet
+    """
+
+    exam_title: str
+    total_marks: int
+    viewer_result_state: str
+    sheet: Marksheet
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,7 +109,7 @@ def seat_marksheet(
     lens: Lens,
     enrollment_id: uuid.UUID,
     exam_id: uuid.UUID,
-) -> Marksheet:
+) -> SeatMarksheet:
     """Compute one seat's marksheet for one exam [BR6.2, BR5.4].
 
     **The refusal when the toggle is off is the shared
@@ -100,7 +122,7 @@ def seat_marksheet(
         their own decision column
     :param enrollment_id: The seat whose marksheet this is
     :param exam_id: The exam
-    :return: The published comparison, or a suppressed marksheet
+    :return: The marksheet with its heading
     :raises AuthorizationError: This lens does not reach the seat, the
         exam is not that seat's batch's, or the toggle is off
     """
@@ -132,7 +154,12 @@ def seat_marksheet(
             marks=None,
         ),
     )
-    return compute_marksheet(results, total_marks=exam.total_marks, viewer=viewer)
+    return SeatMarksheet(
+        exam_title=exam.title,
+        total_marks=exam.total_marks,
+        viewer_result_state=viewer.result_state,
+        sheet=compute_marksheet(results, total_marks=exam.total_marks, viewer=viewer),
+    )
 
 
 def set_marksheet_visible(

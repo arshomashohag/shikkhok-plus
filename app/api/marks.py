@@ -22,14 +22,21 @@ from app.api.deps import get_session, guardian_lens, student_lens, teacher_lens
 from app.authz.lenses import GuardianLens, StudentLens, TeacherLens
 from app.marks import views
 from app.marks.entry import correction_history, exam_is_writable, record_mark
-from app.marks.exams import create_exam, list_exams, read_exam_row, update_exam
-from app.marks.marksheet import Marksheet, Published
-from app.marks.results import exam_results
+from app.marks.exams import create_exam, read_exam_row, update_exam
+from app.marks.marksheet import Published
+from app.marks.results import (
+    ExamProgress,
+    exam_results,
+    list_exam_progress,
+    progress_of,
+)
+from app.marks.views import SeatMarksheet
 from app.schemas.errors import ErrorEnvelope
 from app.schemas.marks import (
     BandResponse,
     CorrectionEntryResponse,
     ExamCreateRequest,
+    ExamListItemResponse,
     ExamResponse,
     ExamResultsResponse,
     MarksheetResponse,
@@ -111,18 +118,40 @@ def _result_state(stored: str) -> ResultState:
     return stored
 
 
-def _marksheet_response(sheet: Marksheet) -> MarksheetResponse:
+def _exam_list_item(entry: ExamProgress) -> ExamListItemResponse:
+    """Render one exam with its marking progress for the wire.
+
+    :param entry: The exam and its counts
+    :return: The response body
+    """
+    return ExamListItemResponse(
+        exam_id=entry.exam.exam_id,
+        title=entry.exam.title,
+        date=entry.exam.date,
+        total_marks=entry.exam.total_marks,
+        subject_name=entry.exam.subject_name,
+        entered_count=entry.entered_count,
+        expected_count=entry.expected_count,
+    )
+
+
+def _marksheet_response(seat: SeatMarksheet) -> MarksheetResponse:
     """Render a marksheet for the wire.
 
     The two outcomes are **distinct shapes** rather than one with
     nulls: a rank of null beside an average of zero would read as a
     real result [BR6.4].
 
-    :param sheet: The computed marksheet
+    :param seat: The computed marksheet with its heading
     :return: The response body
     """
+    sheet = seat.sheet
+    state = _result_state(seat.viewer_result_state)
     if isinstance(sheet, Published):
         return PublishedMarksheetResponse(
+            exam_title=seat.exam_title,
+            total_marks=seat.total_marks,
+            viewer_result_state=state,
             viewer_marks=sheet.viewer_marks,
             viewer_rank=sheet.viewer_rank,
             average=sheet.average,
@@ -139,6 +168,9 @@ def _marksheet_response(sheet: Marksheet) -> MarksheetResponse:
             "app.marks.marksheet and app.schemas.marks have diverged."
         )
     return SuppressedMarksheetResponse(
+        exam_title=seat.exam_title,
+        total_marks=seat.total_marks,
+        viewer_result_state=state,
         viewer_marks=sheet.viewer_marks,
         reason=sheet.reason,
     )
@@ -146,14 +178,14 @@ def _marksheet_response(sheet: Marksheet) -> MarksheetResponse:
 
 @router.get(
     "/batches/{batch_id}/exams",
-    response_model=list[ExamResponse],
+    response_model=list[ExamListItemResponse],
     responses=_AUTH_ERRORS,
 )
 def read_batch_exams(
     batch_id: uuid.UUID,
     session: Annotated[DbSession, Depends(get_session)],
     lens: Annotated[TeacherLens, Depends(teacher_lens)],
-) -> list[ExamResponse]:
+) -> list[ExamListItemResponse]:
     """List one batch's exams, oldest first.
 
     :param batch_id: The batch, from the route path
@@ -162,14 +194,8 @@ def read_batch_exams(
     :return: One row per exam
     """
     return [
-        ExamResponse(
-            exam_id=row.exam_id,
-            title=row.title,
-            date=row.date,
-            total_marks=row.total_marks,
-            subject_name=row.subject_name,
-        )
-        for row in list_exams(session, lens=lens, batch_id=batch_id)
+        _exam_list_item(entry)
+        for entry in list_exam_progress(session, lens=lens, batch_id=batch_id)
     ]
 
 
@@ -278,14 +304,9 @@ def read_exam_results(
     :return: The exam, one row per seat, and whether it is writable
     """
     exam = read_exam_row(session, lens=lens, exam_id=exam_id)
+    results = exam_results(session, lens=lens, exam_id=exam_id)
     return ExamResultsResponse(
-        exam=ExamResponse(
-            exam_id=exam.exam_id,
-            title=exam.title,
-            date=exam.date,
-            total_marks=exam.total_marks,
-            subject_name=exam.subject_name,
-        ),
+        exam=_exam_list_item(progress_of(exam, results)),
         results=[
             SeatResultResponse(
                 enrollment_id=row.enrollment_id,
@@ -293,7 +314,7 @@ def read_exam_results(
                 result_state=_result_state(row.result_state),
                 marks=row.marks,
             )
-            for row in exam_results(session, lens=lens, exam_id=exam_id)
+            for row in results
         ],
         writable=exam_is_writable(session, exam_id=exam_id),
     )

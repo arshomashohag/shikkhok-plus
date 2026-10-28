@@ -37,7 +37,7 @@ from sqlalchemy.orm import Session as DbSession
 
 from app.authz.lenses import GuardianLens, Lens, StudentLens, TeacherLens
 from app.db.models import Batch, Enrollment, Session
-from app.errors import AuthorizationError
+from app.errors import AuthorizationError, ConflictError
 from app.errors.codes import NOT_AVAILABLE
 
 __all__ = [
@@ -47,6 +47,7 @@ __all__ = [
     "refuse",
     "session_roster",
     "writable_session",
+    "write_refusal",
 ]
 
 
@@ -144,12 +145,26 @@ def writable_session(
     :raises ConflictError: The session is cancelled, or its batch is
         inactive
     """
-    from app.errors import ConflictError
-
     row = readable_session(session, lens=lens, session_id=session_id)
+    refusal = write_refusal(session, row)
+    if refusal is not None:
+        raise refusal
+    return row
 
+
+def write_refusal(session: DbSession, row: Session) -> ConflictError | None:
+    """Say why a write to this session would be refused, if it would.
+
+    **The one place the two state refusals live**, so the roster read's
+    ``writable`` flag and the write path cannot disagree: the app hides
+    the marking controls on exactly the sessions a write would refuse.
+
+    :param session: The session to read through
+    :param row: A session the caller has already authorized
+    :return: The refusal, or None when a write would be accepted
+    """
     if row.status == "cancelled":
-        raise ConflictError(
+        return ConflictError(
             code="SESSION_CANCELLED",
             message_key="teaching.session.cancelled",
         )
@@ -158,11 +173,11 @@ def writable_session(
         sa.select(Batch.active).where(Batch.id == row.batch_id)
     ).one()
     if not active:
-        raise ConflictError(
+        return ConflictError(
             code="BATCH_INACTIVE",
             message_key="teaching.batch.inactive",
         )
-    return row
+    return None
 
 
 def readable_enrollment(

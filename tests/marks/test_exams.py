@@ -28,6 +28,7 @@ from app.db.models import BatchSubject
 from app.errors import AuthorizationError, ConflictError, ValidationError
 from app.marks.entry import record_mark
 from app.marks.exams import create_exam, list_exams, update_exam
+from app.marks.results import list_exam_progress
 from tests.batches.conftest import TeacherFixture, make_teacher
 from tests.marks.conftest import EXAM_DATE, TOTAL_MARKS
 
@@ -335,3 +336,44 @@ def test_another_teacher_cannot_edit_this_exam(
         )
 
     assert refusal.value.code == "NOT_AVAILABLE"
+
+
+def test_the_list_counts_entered_results_against_expected_ones(
+    restricted_session: DbSession,
+    teacher_lens: TeacherLens,
+    teacher: TeacherFixture,
+    exam: uuid.UUID,
+    seat_factory: Callable[..., uuid.UUID],
+) -> None:
+    """The exam list's "entered 2 of 3", counted by the server.
+
+    A mark and an absence are both entered; a seat not yet reached is
+    expected and not entered; a seat that joined after the exam could
+    not have sat it and is in neither count.
+
+    :param restricted_session: The application-role session
+    :param teacher_lens: The teacher's lens
+    :param teacher: The batch's owner
+    :param exam: An exam on the batch
+    :param seat_factory: Makes seats
+    :return: None
+    """
+    marked = seat_factory("Asha")
+    absent = seat_factory("Bilal")
+    seat_factory("Chandni")
+    seat_factory("Dipu", joined_on=EXAM_DATE + dt.timedelta(days=1))
+    for seat, state, marks in ((marked, "marked", 70), (absent, "absent", None)):
+        record_mark(
+            restricted_session,
+            lens=teacher_lens,
+            exam_id=exam,
+            enrollment_id=seat,
+            result_state=state,
+            marks=marks,
+        )
+
+    [row] = list_exam_progress(
+        restricted_session, lens=teacher_lens, batch_id=teacher.batch_id
+    )
+
+    assert (row.entered_count, row.expected_count) == (2, 3)

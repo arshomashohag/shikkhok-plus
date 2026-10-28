@@ -49,7 +49,7 @@ from app.schemas.teaching import (
 from app.teaching import announcements as notes
 from app.teaching import schedule
 from app.teaching import sessions as session_service
-from app.teaching.roster import session_roster
+from app.teaching.roster import readable_session, session_roster, write_refusal
 from app.teaching.schedule import Slot
 from app.teaching.submissions import SeatMark, submit_roster, write_topic
 
@@ -477,22 +477,19 @@ def read_session_roster(
     :param lens: The teacher lens
     :return: The seats, and the version they are at
     """
+    seats = session_roster(session, lens=lens, session_id=session_id)
+    row = readable_session(session, lens=lens, session_id=session_id)
     return SessionRosterResponse(
         seats=[
             RosterSeatResponse(
-                enrollment_id=row.enrollment_id,
-                display_name=row.display_name,
-                present=row.present,
+                enrollment_id=seat.enrollment_id,
+                display_name=seat.display_name,
+                present=seat.present,
             )
-            for row in session_roster(session, lens=lens, session_id=session_id)
+            for seat in seats
         ],
-        # `session_service`, not the bare name: this module has its
-        # own `read_session` HANDLER, and the unqualified call
-        # resolved to that instead — caught by mypy as a Session
-        # passed where a UUID was expected.
-        attendance_version=session_service.read_session(
-            session, lens=lens, session_id=session_id
-        ).attendance_version,
+        attendance_version=row.attendance_version,
+        writable=write_refusal(session, row) is None,
     )
 
 

@@ -31,6 +31,7 @@ __all__ = [
     "BandResponse",
     "CorrectionEntryResponse",
     "ExamCreateRequest",
+    "ExamListItemResponse",
     "ExamResponse",
     "ExamResultsResponse",
     "MarkWriteRequest",
@@ -72,6 +73,20 @@ class ExamResponse(BaseModel):
     date: dt.date
     total_marks: int = Field(ge=1)
     subject_name: str
+
+
+class ExamListItemResponse(ExamResponse):
+    """One exam on the teacher's list, with its marking progress.
+
+    Counted server-side, so the client never tallies a rows list to
+    decide what counts as entered.
+
+    :ivar entered_count: Seats with a mark or an absence entered
+    :ivar expected_count: Seats that could have sat the exam
+    """
+
+    entered_count: int = Field(ge=0)
+    expected_count: int = Field(ge=0)
 
 
 class ExamCreateRequest(BaseModel):
@@ -156,7 +171,7 @@ class ExamResultsResponse(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    exam: ExamResponse
+    exam: ExamListItemResponse
     results: list[SeatResultResponse]
     writable: bool
 
@@ -207,6 +222,9 @@ class PublishedMarksheetResponse(BaseModel):
 
     :ivar published: Always true; the discriminator a client switches
         on
+    :ivar exam_title: The exam's title
+    :ivar total_marks: Its denominator
+    :ivar viewer_result_state: The viewer's own result state
     :ivar viewer_marks: The viewer's own mark, or null if absent
     :ivar viewer_rank: Their rank among marked results, or null
     :ivar average: The mean of marked results
@@ -218,6 +236,9 @@ class PublishedMarksheetResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     published: Literal[True] = True
+    exam_title: str
+    total_marks: int = Field(ge=1)
+    viewer_result_state: ResultState
     viewer_marks: int | None = None
     viewer_rank: int | None = None
     average: float
@@ -234,6 +255,9 @@ class SuppressedMarksheetResponse(BaseModel):
     result.
 
     :ivar published: Always false; the discriminator
+    :ivar exam_title: The exam's title
+    :ivar total_marks: Its denominator
+    :ivar viewer_result_state: The viewer's own result state
     :ivar viewer_marks: The viewer's own mark, or null
     :ivar reason: Why no comparison was published
     """
@@ -241,6 +265,9 @@ class SuppressedMarksheetResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     published: Literal[False] = False
+    exam_title: str
+    total_marks: int = Field(ge=1)
+    viewer_result_state: ResultState
     viewer_marks: int | None = None
     reason: SuppressionReason
 

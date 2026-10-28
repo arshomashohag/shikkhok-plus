@@ -121,6 +121,17 @@ NON_MONEY_FIELDS: Final[dict[tuple[str, str], str]] = {
         "The same count on the guardian progress series, carried so a "
         "client can render '60 out of 80' without a second lookup."
     ),
+    ("ExamListItemResponse", "total_marks"): (
+        "The same count on the teacher's exam list, which extends the "
+        "exam read with its marking progress."
+    ),
+    ("PublishedMarksheetResponse", "total_marks"): (
+        "The same count as the marksheet's heading, so the screen can "
+        "say what the viewer's mark is out of."
+    ),
+    ("SuppressedMarksheetResponse", "total_marks"): (
+        "The same heading count on the suppressed marksheet."
+    ),
     ("CurrentFeeResponse", "due_date"): (
         "The same computed date on the student's batch list (S1), for "
         "their latest period. Its sibling `outstanding` is real money "

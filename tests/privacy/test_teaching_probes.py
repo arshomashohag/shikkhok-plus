@@ -465,14 +465,19 @@ def test_a_student_reads_their_own_marksheet(
         marks=70,
     )
 
-    sheet = seat_marksheet(
+    seat = seat_marksheet(
         restricted_session,
         lens=StudentLens(account_id=mine),
         enrollment_id=my_seat,
         exam_id=exam_a,
     )
 
-    assert sheet.viewer_marks == 70
+    assert seat.sheet.viewer_marks == 70
+    # The heading travels with the sheet, so the screen opened from any
+    # list renders without a second read.
+    assert seat.viewer_result_state == "marked"
+    assert seat.total_marks > 0
+    assert seat.exam_title
 
 
 def test_a_guardian_cannot_read_a_non_child_progress_series(

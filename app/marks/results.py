@@ -23,9 +23,19 @@ from sqlalchemy.orm import Session as DbSession
 from app.authz.lenses import TeacherLens
 from app.db.models import Enrollment, Exam
 from app.marks.entry import live_marks_for_exam
-from app.marks.exams import readable_exam
+from app.marks.exams import ExamRow, list_exams, readable_exam
 
-__all__ = ["SeatResult", "exam_results", "results_for_exam"]
+__all__ = [
+    "ExamProgress",
+    "SeatResult",
+    "exam_results",
+    "list_exam_progress",
+    "progress_of",
+    "results_for_exam",
+]
+
+#: The states a teacher has typed; the other two are derived.
+ENTERED_STATES = frozenset({"marked", "absent"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -135,3 +145,59 @@ def results_for_exam(session: DbSession, *, exam: Exam) -> list[SeatResult]:
             )
         )
     return results
+
+
+@dataclass(frozen=True, slots=True)
+class ExamProgress:
+    """One exam with how far its marking has got.
+
+    :ivar exam: The exam
+    :ivar entered_count: Seats with a mark or an absence entered
+    :ivar expected_count: Seats that could have sat it, which leaves
+        out a seat that joined after the exam date
+    """
+
+    exam: ExamRow
+    entered_count: int
+    expected_count: int
+
+
+def list_exam_progress(
+    session: DbSession,
+    *,
+    lens: TeacherLens,
+    batch_id: uuid.UUID,
+) -> list[ExamProgress]:
+    """List a batch's exams, each with its marking progress.
+
+    Counted from :func:`results_for_exam`, so the list and the results
+    screen cannot disagree about which seats are still to mark.
+
+    :param session: The session to read through
+    :param lens: The teacher lens
+    :param batch_id: The batch
+    :return: One entry per exam, oldest first
+    :raises AuthorizationError: This lens does not own the batch
+    """
+    progress: list[ExamProgress] = []
+    for row in list_exams(session, lens=lens, batch_id=batch_id):
+        exam = session.get(Exam, row.exam_id)
+        if exam is None:
+            continue
+        progress.append(progress_of(row, results_for_exam(session, exam=exam)))
+    return progress
+
+
+def progress_of(exam: ExamRow, results: list[SeatResult]) -> ExamProgress:
+    """Count how far one exam's marking has got.
+
+    :param exam: The exam
+    :param results: Its four-state results
+    :return: The exam with its counts
+    """
+    states = [result.result_state for result in results]
+    return ExamProgress(
+        exam=exam,
+        entered_count=sum(state in ENTERED_STATES for state in states),
+        expected_count=sum(state != "joined_after" for state in states),
+    )
