@@ -303,4 +303,20 @@ class HttpRepositoryTest {
         assertIs<AuthResult.TransportFailure>(result)
         assertEquals(false, called)
     }
+
+    @Test
+    fun `marking inactive patches the seat with its first inactive day`() = runTest {
+        val engine = MockEngine { respond("", HttpStatusCode.NoContent, jsonHeaders()) }
+
+        val result = HttpRosterRepository(client(engine)).markInactive("e-1", "2026-10-28")
+
+        assertEquals(AuthResult.Ok(Unit), result)
+        val sent = engine.requestHistory.single()
+        assertEquals(io.ktor.http.HttpMethod.Patch, sent.method)
+        assertEquals("/v1/enrollments/e-1/inactive-from", sent.url.encodedPath)
+        assertEquals(
+            """{"inactive_from":"2026-10-28"}""",
+            (sent.body as io.ktor.http.content.TextContent).text,
+        )
+    }
 }

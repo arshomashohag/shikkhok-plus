@@ -95,6 +95,16 @@ class RosterViewModelTest {
             return removeResult
         }
 
+        var inactive: Pair<String, String>? = null
+
+        override suspend fun markInactive(
+            enrollmentId: String,
+            fromDate: String,
+        ): AuthResult<Unit> {
+            inactive = enrollmentId to fromDate
+            return AuthResult.Ok(Unit)
+        }
+
         var addedFee: String? = "sentinel"
         var addResult: AuthResult<Unit> = AuthResult.Ok(Unit)
 
@@ -304,6 +314,22 @@ class RosterViewModelTest {
         advanceUntilIdle()
 
         assertEquals(WriteState.Saved, viewModel.writeState.value)
+        assertEquals(2, repository.rosterCalls)
+    }
+
+    @Test
+    fun `marking inactive sends today's date and reloads`() = runTest(dispatcher) {
+        // The remedy for a seat someone accepted: the history stays and
+        // the server stops future fee cycles from this date [PU-2.9].
+        val repository = FakeRepository()
+        val viewModel = RosterViewModel(repository, today = { "2026-10-28" })
+        viewModel.load("b-1")
+        advanceUntilIdle()
+
+        viewModel.markInactive(uiRow("Rahim"))
+        advanceUntilIdle()
+
+        assertEquals("e-Rahim" to "2026-10-28", repository.inactive)
         assertEquals(2, repository.rosterCalls)
     }
 

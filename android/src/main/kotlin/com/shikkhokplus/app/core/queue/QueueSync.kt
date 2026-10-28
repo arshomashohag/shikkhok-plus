@@ -170,7 +170,7 @@ class QueueSync(
 }
 
 /** How often the foreground loop retries while something is waiting. */
-val QUEUE_RETRY_INTERVAL_MS: Long = 30_000L
+const val QUEUE_RETRY_INTERVAL_MS: Long = 30_000L
 
 /**
  * Keep the queue draining for as long as the caller stays active.

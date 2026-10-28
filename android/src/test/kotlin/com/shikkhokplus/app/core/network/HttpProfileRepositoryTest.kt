@@ -46,7 +46,10 @@ class HttpProfileRepositoryTest {
         val engine =
             MockEngine {
                 respond(
-                    """{"error":{"code":"DELETION_REFUSED","message_key":"governance.deletion.owns_batches","retryable":false}}""",
+                    """
+                    {"error":{"code":"DELETION_REFUSED",
+                    "message_key":"governance.deletion.owns_batches","retryable":false}}
+                    """.trimIndent(),
                     HttpStatusCode.Conflict,
                     headersOf("Content-Type", ContentType.Application.Json.toString()),
                 )

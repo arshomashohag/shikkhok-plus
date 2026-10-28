@@ -447,7 +447,7 @@ def test_a_subject_key_from_the_batch_list_creates_an_exam(
         f"/v1/batches/{batch['id']}/exams",
         json={
             "title": "Weekly test 1",
-            "date": dt.date.today().isoformat(),
+            "date": "2026-11-04",
             "total_marks": 50,
             "batch_subject_id": batch["subject_options"][0]["id"],
         },

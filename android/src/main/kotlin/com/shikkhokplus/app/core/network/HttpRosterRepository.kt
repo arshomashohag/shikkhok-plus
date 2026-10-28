@@ -7,6 +7,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
+import io.ktor.client.request.patch
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
@@ -27,6 +28,16 @@ private data class BatchCreateBody(
     val subjects: List<String>,
     @SerialName("default_fee") val defaultFee: String? = null,
     @SerialName("fee_due_day") val feeDueDay: Int? = null,
+)
+
+/**
+ * The mark-inactive body.
+ *
+ * Nullable on purpose: null reactivates the seat on the server.
+ */
+@Serializable
+private data class InactiveFromBody(
+    @SerialName("inactive_from") val inactiveFrom: String?,
 )
 
 /** The add-student body. */
@@ -110,6 +121,16 @@ class HttpRosterRepository(
             }
         } catch (_: Exception) {
             AuthResult.TransportFailure
+        }
+
+    override suspend fun markInactive(
+        enrollmentId: String,
+        fromDate: String,
+    ): AuthResult<Unit> =
+        callDiscardingBody {
+            client.patch("/v1/enrollments/$enrollmentId/inactive-from") {
+                setBody(InactiveFromBody(inactiveFrom = fromDate))
+            }
         }
 
     override suspend fun removeEnrollment(

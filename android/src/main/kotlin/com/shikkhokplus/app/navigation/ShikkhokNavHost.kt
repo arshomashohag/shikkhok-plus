@@ -386,6 +386,13 @@ fun ShikkhokNavHost(
                     navController.navigate(Destination.Sessions.of(id, name))
                 },
                 onOpenExams = { navController.navigate(Destination.Exams.of(id, name)) },
+                // The removal flow was built in full and these were left
+                // at their defaults, so Remove did nothing.
+                onRemove = model::confirmRemoval,
+                onConfirmRemoval = model::remove,
+                onCancelRemoval = model::cancelRemoval,
+                onMarkInactive = model::markInactive,
+                onDismissRefusal = model::dismissRefusal,
             )
         }
 
