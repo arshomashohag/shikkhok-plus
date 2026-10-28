@@ -541,4 +541,20 @@
     <string name="session_add_date">তারিখ · %1$s</string>
     <string name="session_add_confirm">ক্লাস যোগ করুন</string>
     <string name="session_add_note">সাপ্তাহিক সময়সূচির বাইরে একবারের একটি ক্লাস।</string>
+    <!-- The student's home (S1) and batch view (S2). -->
+    <string name="enrollment_student_already_in_batch">এই শিক্ষার্থী আগে থেকেই এই ব্যাচে আছে।</string>
+    <string name="nav_my_batches">আমার ব্যাচ</string>
+    <string name="my_batches_title">আমার ব্যাচ</string>
+    <string name="my_batches_empty_title">আপনি এখনও কোনো ব্যাচে নেই</string>
+    <string name="my_batches_empty_body">শিক্ষক আপনার ফোন নম্বর দিয়ে আপনাকে যুক্ত করবেন। তাঁকে এই নম্বরটি দিন: %1$s</string>
+    <string name="my_batches_empty_body_no_phone">শিক্ষক আপনার ফোন নম্বর দিয়ে আপনাকে যুক্ত করবেন। যুক্ত হলে এই পাতা নিজেই বদলে যাবে।</string>
+    <string name="my_batches_fee_period">বেতন · %1$s</string>
+    <string name="student_next_class">পরের ক্লাস</string>
+    <string name="student_no_next_class">এখনও কোনো ক্লাস ঠিক হয়নি</string>
+    <string name="student_fee_due">শেষ তারিখ %1$s · বাকি %2$s</string>
+    <string name="student_results">ফলাফল</string>
+    <string name="student_results_empty">এখনও কোনো পরীক্ষা নেই। শিক্ষক নম্বর প্রকাশ করলে এখানে দেখা যাবে।</string>
+    <string name="student_latest_notice">সর্বশেষ নোটিশ</string>
+    <string name="student_topics">যা পড়ানো হয়েছে</string>
+    <string name="student_topics_empty">প্রতিটি ক্লাসের পর শিক্ষক কী পড়ালেন তা এখানে দেখা যাবে।</string>
 </resources>

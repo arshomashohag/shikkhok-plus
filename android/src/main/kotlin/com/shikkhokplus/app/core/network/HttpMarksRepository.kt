@@ -193,14 +193,28 @@ class HttpMarksRepository(
         }
 
     /**
-     * Read a child's progress across exams [BR6.6].
+     * Read one seat's progress across exams [BR6.6].
      *
-     * @param enrollmentId The child's seat, from the path and never
-     *   from a client hint [BR7.2]
+     * Two paths for the same reason as [marksheet]: each resolves its
+     * own lens over the seat named in it.
+     *
+     * @param enrollmentId The seat, from the path and never from a
+     *   client hint [BR7.2]
+     * @param reader Which lens is asking
      * @return The series in the server's date order
      */
-    override suspend fun progress(enrollmentId: String): AuthResult<ProgressDto> =
-        call { client.get("/v1/children/$enrollmentId/progress") }
+    override suspend fun progress(
+        enrollmentId: String,
+        reader: MarksheetReader,
+    ): AuthResult<List<ProgressEntryDto>> =
+        call {
+            when (reader) {
+                MarksheetReader.SELF ->
+                    client.get("/v1/me/enrollments/$enrollmentId/progress")
+                MarksheetReader.CHILD ->
+                    client.get("/v1/children/$enrollmentId/progress")
+            }
+        }
 
     /**
      * Set a batch's marksheet visibility [BR5.4].

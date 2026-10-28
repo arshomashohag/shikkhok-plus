@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.shikkhokplus.app.core.network.ConflictDetailDto
 import com.shikkhokplus.app.core.network.SessionDetailDto
+import com.shikkhokplus.app.core.network.SessionRosterDto
 import com.shikkhokplus.app.core.queue.AttendanceEntry
 import com.shikkhokplus.app.core.queue.QueueState
 import com.shikkhokplus.app.core.queue.QueueStore
@@ -33,12 +34,12 @@ interface AttendanceRepository {
     suspend fun submit(item: QueuedWrite): SendOutcome
 
     /**
-     * Read the conflict detail the server returned with a refusal.
+     * Read the roster as it stands now, after a refusal.
      *
      * @param sessionId The session in dispute
      * @return The current version and roster
      */
-    suspend fun conflictDetail(sessionId: String): AuthResult<ConflictDetailDto>
+    suspend fun currentRoster(sessionId: String): AuthResult<SessionRosterDto>
 }
 
 /**
@@ -252,13 +253,18 @@ class AttendanceViewModel(
         item: QueuedWrite,
         outcome: SendOutcome.Conflicted,
     ) {
-        val fetched = repository.conflictDetail(item.sessionId)
+        val fetched = repository.currentRoster(item.sessionId)
         if (fetched is AuthResult.Ok) {
             _state.value =
                 AttendanceStateMapper.afterConflict(
                     item = item,
                     dateLabel = detail?.session?.date.orEmpty(),
-                    detail = fetched.value,
+                    detail =
+                        ConflictDetailDto(
+                            expectedVersion = item.baseVersion,
+                            currentVersion = fetched.value.attendanceVersion,
+                            currentState = fetched.value.seats,
+                        ),
                     envelope = outcome.envelope,
                 )
         }

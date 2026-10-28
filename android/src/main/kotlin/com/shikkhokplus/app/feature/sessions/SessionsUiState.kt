@@ -29,7 +29,6 @@ package com.shikkhokplus.app.feature.sessions
  *   exists to keep apart — making it impossible to tell a class nobody
  *   logged from one logged as nothing
  * @property topic The topic text, or null when never written
- * @property attendanceRecorded Whether a roster has been submitted
  * @property attendanceVersion The version a roster write composes
  *   against [BR3.3]
  * @property topicVersion The version a topic write composes against
@@ -44,7 +43,6 @@ data class SessionRow(
     val isAdHoc: Boolean,
     val topicLogged: Boolean,
     val topic: String?,
-    val attendanceRecorded: Boolean,
     val attendanceVersion: Int,
     val topicVersion: Int,
 )

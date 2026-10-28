@@ -596,4 +596,20 @@
     <string name="session_add_date">Date · %1$s</string>
     <string name="session_add_confirm">Add class</string>
     <string name="session_add_note">A one-off class, outside the weekly schedule.</string>
+    <!-- The student's home (S1) and batch view (S2). -->
+    <string name="enrollment_student_already_in_batch">This student is already in this batch.</string>
+    <string name="nav_my_batches">My batches</string>
+    <string name="my_batches_title">My batches</string>
+    <string name="my_batches_empty_title">You\'re not in a batch yet</string>
+    <string name="my_batches_empty_body">Your teacher adds you using your phone number. Give them this number: %1$s</string>
+    <string name="my_batches_empty_body_no_phone">Your teacher adds you using your phone number. This screen updates once you\'re added.</string>
+    <string name="my_batches_fee_period">Fee · %1$s</string>
+    <string name="student_next_class">Next class</string>
+    <string name="student_no_next_class">No class scheduled yet</string>
+    <string name="student_fee_due">Due %1$s · %2$s outstanding</string>
+    <string name="student_results">Results</string>
+    <string name="student_results_empty">No exams yet. Marks appear here once your teacher publishes them.</string>
+    <string name="student_latest_notice">Latest notice</string>
+    <string name="student_topics">Topics covered</string>
+    <string name="student_topics_empty">After each class, the teacher\'s note on what was covered shows here.</string>
 </resources>

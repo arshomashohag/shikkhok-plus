@@ -4,7 +4,7 @@ import com.shikkhokplus.app.core.network.ErrorBody
 import com.shikkhokplus.app.core.network.ErrorEnvelope
 import com.shikkhokplus.app.core.network.ExamDto
 import com.shikkhokplus.app.core.network.MarksheetDto
-import com.shikkhokplus.app.core.network.ProgressDto
+import com.shikkhokplus.app.core.network.ProgressEntryDto
 import com.shikkhokplus.app.core.network.SubjectOptionDto
 import com.shikkhokplus.app.core.ui.WriteState
 import com.shikkhokplus.app.feature.auth.AuthResult
@@ -75,8 +75,10 @@ class MarksViewModelWriteTest {
             reader: MarksheetReader,
         ): AuthResult<MarksheetDto> = AuthResult.TransportFailure
 
-        override suspend fun progress(enrollmentId: String): AuthResult<ProgressDto> =
-            AuthResult.TransportFailure
+        override suspend fun progress(
+            enrollmentId: String,
+            reader: MarksheetReader,
+        ): AuthResult<List<ProgressEntryDto>> = AuthResult.TransportFailure
 
         override suspend fun setMarksheetVisible(batchId: String, visible: Boolean) =
             AuthResult.TransportFailure

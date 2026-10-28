@@ -97,7 +97,6 @@ object SessionsStateMapper {
             // exact distinction the rule exists to preserve.
             topicLogged = dto.topicLogged,
             topic = dto.topic,
-            attendanceRecorded = dto.attendanceRecorded,
             attendanceVersion = dto.attendanceVersion,
             topicVersion = dto.topicVersion,
         )

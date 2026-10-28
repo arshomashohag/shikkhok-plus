@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.feature.marks.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -83,6 +84,7 @@ const val TAG_PROGRESS_RETRY: String = "progress_retry"
 fun ProgressScreen(
     state: MarksUiState,
     onRetry: () -> Unit = {},
+    onOpenExam: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     ListScreenScaffold(
@@ -111,7 +113,9 @@ fun ProgressScreen(
                     )
                 } else {
                     LazyColumn(Modifier.testTag(TAG_PROGRESS_LIST)) {
-                        items(state.entries) { entry -> ProgressRowView(entry) }
+                        items(state.entries) { entry ->
+                            ProgressRowView(entry, onOpen = { onOpenExam(entry.examId) })
+                        }
                     }
                 }
             }
@@ -140,10 +144,11 @@ fun ProgressScreen(
  * One exam in the series.
  *
  * @param entry The exam and its result
+ * @param onOpen Called when tapped, to open the exam's marksheet
  */
 @Composable
-private fun ProgressRowView(entry: ProgressRow) {
-    Column(Modifier.fillMaxWidth().testTag(TAG_PROGRESS_ROW)) {
+private fun ProgressRowView(entry: ProgressRow, onOpen: () -> Unit) {
+    Column(Modifier.fillMaxWidth().clickable(onClick = onOpen).testTag(TAG_PROGRESS_ROW)) {
         Row(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,

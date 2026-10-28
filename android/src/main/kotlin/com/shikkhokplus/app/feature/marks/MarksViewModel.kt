@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.shikkhokplus.app.core.network.ExamDto
 import com.shikkhokplus.app.core.network.ExamResultDto
 import com.shikkhokplus.app.core.network.MarksheetDto
-import com.shikkhokplus.app.core.network.ProgressDto
+import com.shikkhokplus.app.core.network.ProgressEntryDto
 import com.shikkhokplus.app.core.network.SubjectOptionDto
 import com.shikkhokplus.app.core.ui.WriteState
 import com.shikkhokplus.app.feature.auth.AuthResult
@@ -135,13 +135,17 @@ interface MarksRepository {
     ): AuthResult<MarksheetDto>
 
     /**
-     * Read a child's progress across exams [BR6.6].
+     * Read one seat's progress across exams [BR6.6].
      *
-     * @param enrollmentId The child's seat, from the path and never
-     *   from a client hint [BR7.2]
+     * @param enrollmentId The seat, from the path and never from a
+     *   client hint [BR7.2]
+     * @param reader Which lens is asking, which chooses the route
      * @return The series in the server's date order
      */
-    suspend fun progress(enrollmentId: String): AuthResult<ProgressDto>
+    suspend fun progress(
+        enrollmentId: String,
+        reader: MarksheetReader,
+    ): AuthResult<List<ProgressEntryDto>>
 
     /**
      * Set a batch's marksheet visibility [BR5.4].
@@ -209,6 +213,10 @@ class MarksViewModel(
     // than degrading into a reload.
     private var lastWrite: (suspend () -> AuthResult<Unit>)? = null
 
+    // The marksheet or progress read on screen, so `retry` repeats it
+    // rather than reloading an exam list this screen never showed.
+    private var lastRead: (() -> Unit)? = null
+
     /**
      * Load a batch's exams.
      *
@@ -219,6 +227,7 @@ class MarksViewModel(
         lastBatchId = batchId
         lastBatchName = batchName
         lastWrite = null
+        lastRead = null
         _state.value = MarksUiState.Loading
         viewModelScope.launch {
             _state.value =
@@ -358,6 +367,7 @@ class MarksViewModel(
         enrollmentId: String,
         reader: MarksheetReader,
     ) {
+        lastRead = { loadMarksheet(examId, enrollmentId, reader) }
         _state.value = MarksUiState.Loading
         viewModelScope.launch {
             _state.value =
@@ -390,17 +400,31 @@ class MarksViewModel(
     }
 
     /**
-     * Load a child's progress across exams [BR6.6].
+     * Load one seat's progress across exams [BR6.6].
      *
-     * @param enrollmentId The child's seat, which arrives as a path
-     *   parameter and never from a client hint [BR7.2]
+     * @param enrollmentId The seat, which arrives as a path parameter
+     *   and never from a client hint [BR7.2]
+     * @param reader Which lens is asking
+     * @param childDisplayName Whose series, for the heading
+     * @param batchName Which class, for the heading
      */
-    fun loadProgress(enrollmentId: String) {
+    fun loadProgress(
+        enrollmentId: String,
+        reader: MarksheetReader,
+        childDisplayName: String,
+        batchName: String,
+    ) {
+        lastRead = { loadProgress(enrollmentId, reader, childDisplayName, batchName) }
         _state.value = MarksUiState.Loading
         viewModelScope.launch {
             _state.value =
-                when (val result = repository.progress(enrollmentId)) {
-                    is AuthResult.Ok -> MarksStateMapper.afterProgress(result.value)
+                when (val result = repository.progress(enrollmentId, reader)) {
+                    is AuthResult.Ok ->
+                        MarksStateMapper.afterProgress(
+                            result.value,
+                            childDisplayName,
+                            batchName,
+                        )
                     is AuthResult.Refused -> MarksStateMapper.afterError(result.envelope)
                     AuthResult.TransportFailure ->
                         MarksStateMapper.afterTransportFailure()
@@ -454,6 +478,10 @@ class MarksViewModel(
      * leave the seat unmarked with nothing on screen to say so.
      */
     fun retry() {
+        lastRead?.let { read ->
+            read()
+            return
+        }
         val write = lastWrite
         if (write != null) {
             val examId = lastExamId

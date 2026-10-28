@@ -91,8 +91,9 @@ class DestinationTest {
                 Destination.CreateExam.of("b-1"),
                 Destination.BatchSchedule.of("b-1"),
                 Destination.Marksheet.of("x-1", "e-1", "SELF"),
-                Destination.Progress.of("e-1"),
+                Destination.Progress.of("e-1", "CHILD", "Rafi Ahmed", "Class 9"),
                 Destination.FeeHistory.of("e-1", "GUARDIAN"),
+                Destination.StudentBatch.of("e-1"),
             )
 
         built.forEach {

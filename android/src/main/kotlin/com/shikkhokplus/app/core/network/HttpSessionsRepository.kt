@@ -48,14 +48,35 @@ class HttpSessionsRepository(
         call { client.get("/v1/batches/$batchId/sessions") }
 
     /**
-     * Read one session with its seats.
+     * Read one session with its seats, from the server's two paths.
+     *
+     * The session first, then its roster; a refusal or transport
+     * failure on either is the result, so a half-read never renders.
      *
      * @param sessionId The session to read
      * @return The detail, an error envelope, or a transport failure
      */
-    override suspend fun sessionDetail(
-        sessionId: String,
-    ): AuthResult<SessionDetailDto> = call { client.get("/v1/sessions/$sessionId") }
+    override suspend fun sessionDetail(sessionId: String): AuthResult<SessionDetailDto> {
+        val session: AuthResult<SessionDto> = call { client.get("/v1/sessions/$sessionId") }
+        val roster: AuthResult<SessionRosterDto> =
+            when (session) {
+                is AuthResult.Ok -> call { client.get("/v1/sessions/$sessionId/attendance") }
+                is AuthResult.Refused -> return session
+                AuthResult.TransportFailure -> return AuthResult.TransportFailure
+            }
+        return when (roster) {
+            is AuthResult.Ok ->
+                AuthResult.Ok(
+                    SessionDetailDto(
+                        session = (session as AuthResult.Ok).value,
+                        seats = roster.value.seats,
+                        writable = roster.value.writable,
+                    ),
+                )
+            is AuthResult.Refused -> roster
+            AuthResult.TransportFailure -> AuthResult.TransportFailure
+        }
+    }
 
     /**
      * Add a session the recurring schedule did not generate.

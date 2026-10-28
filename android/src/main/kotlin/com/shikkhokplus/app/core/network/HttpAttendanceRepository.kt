@@ -104,13 +104,14 @@ class HttpAttendanceRepository(
         }
 
     /**
-     * Read what the session looks like now, after a conflict.
+     * Read the roster as it stands now, after a conflict.
      *
      * @param sessionId The session that conflicted
-     * @return The current state, a refusal, or a transport failure
+     * @return The current roster and version, a refusal, or a
+     *   transport failure
      */
-    override suspend fun conflictDetail(
+    override suspend fun currentRoster(
         sessionId: String,
-    ): AuthResult<ConflictDetailDto> =
+    ): AuthResult<SessionRosterDto> =
         call { client.get("/v1/sessions/$sessionId/attendance") }
 }

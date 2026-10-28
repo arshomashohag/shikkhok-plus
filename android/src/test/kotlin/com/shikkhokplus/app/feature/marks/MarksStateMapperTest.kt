@@ -6,7 +6,6 @@ import com.shikkhokplus.app.core.network.ExamDto
 import com.shikkhokplus.app.core.network.ExamResultDto
 import com.shikkhokplus.app.core.network.MarkBandDto
 import com.shikkhokplus.app.core.network.MarksheetDto
-import com.shikkhokplus.app.core.network.ProgressDto
 import com.shikkhokplus.app.core.network.ProgressEntryDto
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -34,7 +33,7 @@ class MarksStateMapperTest {
             date = "12 May",
             totalMarks = 100,
             enteredCount = entered,
-            seatCount = seats,
+            expectedCount = seats,
         )
 
     private fun result(
@@ -52,23 +51,25 @@ class MarksStateMapperTest {
     private fun marksheet(
         ownState: String = "marked",
         ownMarks: Int? = 74,
+        published: Boolean = false,
         rank: Int? = null,
         markedCount: Int? = null,
-        average: String? = null,
+        average: Double? = null,
         highest: Int? = null,
         bands: List<MarkBandDto> = emptyList(),
     ): MarksheetDto =
         MarksheetDto(
-            examId = "x-1",
+            published = published,
             examTitle = "Mid-term",
             totalMarks = 100,
-            ownResultState = ownState,
-            ownMarks = ownMarks,
-            rank = rank,
+            viewerResultState = ownState,
+            viewerMarks = ownMarks,
+            viewerRank = rank,
             markedCount = markedCount,
             average = average,
             highest = highest,
             bands = bands,
+            reason = if (published) null else "too_few_results",
         )
 
     // ------------------------------------------------------------------
@@ -210,9 +211,10 @@ class MarksStateMapperTest {
             assertIs<MarksUiState.MarksheetLoaded>(
                 MarksStateMapper.afterMarksheet(
                     marksheet(
+                        published = true,
                         rank = 4,
                         markedCount = 9,
-                        average = "64.67",
+                        average = 64.666_666,
                         highest = 92,
                         bands =
                             listOf(
@@ -227,8 +229,8 @@ class MarksStateMapperTest {
         val comparison = requireNotNull(loaded.comparison)
         assertEquals(4, comparison.rank)
         assertEquals(9, comparison.markedCount)
-        // The server's own rendering, not reconstructed from a float.
-        assertEquals("64.67", comparison.average)
+        // One decimal place, Latin digits: display formatting only.
+        assertEquals("64.7", comparison.average)
         assertEquals(92, comparison.highest)
         assertEquals(
             listOf("80-100", "60-79", "0-59"),
@@ -247,9 +249,10 @@ class MarksStateMapperTest {
             assertIs<MarksUiState.MarksheetLoaded>(
                 MarksStateMapper.afterMarksheet(
                     marksheet(
+                        published = true,
                         rank = 1,
                         markedCount = 6,
-                        average = "70.00",
+                        average = 70.0,
                         highest = 90,
                         bands = listOf(MarkBandDto(60, 100, 3), MarkBandDto(0, 59, 3)),
                     ),
@@ -268,11 +271,42 @@ class MarksStateMapperTest {
         val loaded =
             assertIs<MarksUiState.MarksheetLoaded>(
                 MarksStateMapper.afterMarksheet(
-                    marksheet(rank = 4, markedCount = 9, average = null, highest = 92),
+                    marksheet(
+                        published = true,
+                        rank = 4,
+                        markedCount = 9,
+                        average = null,
+                        highest = 92,
+                    ),
                 ),
             )
 
         assertNull(loaded.comparison)
+    }
+
+    @Test
+    fun `an absent viewer still sees the batch's published figures, without a rank`() {
+        // The server publishes the comparison with no rank for a viewer
+        // who has no mark to rank. Dropping the whole comparison for a
+        // null rank would hide figures the viewer is entitled to.
+        val loaded =
+            assertIs<MarksUiState.MarksheetLoaded>(
+                MarksStateMapper.afterMarksheet(
+                    marksheet(
+                        ownState = "absent",
+                        ownMarks = null,
+                        published = true,
+                        rank = null,
+                        markedCount = 6,
+                        average = 70.0,
+                        highest = 90,
+                    ),
+                ),
+            )
+
+        val comparison = requireNotNull(loaded.comparison)
+        assertNull(comparison.rank)
+        assertEquals("mark.state.absent", loaded.ownStateLabel)
     }
 
     @Test
@@ -359,16 +393,13 @@ class MarksStateMapperTest {
         val loaded =
             assertIs<MarksUiState.ProgressLoaded>(
                 MarksStateMapper.afterProgress(
-                    ProgressDto(
-                        childDisplayName = "Rahim",
-                        batchName = "Physics",
-                        entries =
-                            listOf(
-                                ProgressEntryDto("x-1", "First", "01 Mar", 100, "marked", 70),
-                                ProgressEntryDto("x-2", "Second", "01 Apr", 100, "absent", null),
-                                ProgressEntryDto("x-3", "Third", "01 May", 100, "marked", 80),
-                            ),
+                    listOf(
+                        ProgressEntryDto("x-1", "First", "01 Mar", 100, "marked", 70),
+                        ProgressEntryDto("x-2", "Second", "01 Apr", 100, "absent", null),
+                        ProgressEntryDto("x-3", "Third", "01 May", 100, "marked", 80),
                     ),
+                    childDisplayName = "Rahim",
+                    batchName = "Physics",
                 ),
             )
 
@@ -383,15 +414,12 @@ class MarksStateMapperTest {
         val loaded =
             assertIs<MarksUiState.ProgressLoaded>(
                 MarksStateMapper.afterProgress(
-                    ProgressDto(
-                        childDisplayName = "Rahim",
-                        batchName = "Physics",
-                        entries =
-                            listOf(
-                                ProgressEntryDto("x-1", "First", "01 Mar", 100, "marked", 70),
-                                ProgressEntryDto("x-2", "Second", "01 Mar", 100, "marked", 80),
-                            ),
+                    listOf(
+                        ProgressEntryDto("x-1", "First", "01 Mar", 100, "marked", 70),
+                        ProgressEntryDto("x-2", "Second", "01 Mar", 100, "marked", 80),
                     ),
+                    childDisplayName = "Rahim",
+                    batchName = "Physics",
                 ),
             )
 
@@ -412,7 +440,7 @@ class MarksStateMapperTest {
             )
 
         assertEquals(5, loaded.exams.single().enteredCount)
-        assertEquals(8, loaded.exams.single().seatCount)
+        assertEquals(8, loaded.exams.single().expectedCount)
     }
 
     @Test

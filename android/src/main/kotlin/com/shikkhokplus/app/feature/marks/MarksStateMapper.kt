@@ -5,7 +5,8 @@ import com.shikkhokplus.app.core.network.ExamDto
 import com.shikkhokplus.app.core.network.ExamResultDto
 import com.shikkhokplus.app.core.network.MarkBandDto
 import com.shikkhokplus.app.core.network.MarksheetDto
-import com.shikkhokplus.app.core.network.ProgressDto
+import com.shikkhokplus.app.core.network.ProgressEntryDto
+import java.util.Locale
 
 /**
  * Maps server responses to a [MarksUiState].
@@ -72,7 +73,7 @@ object MarksStateMapper {
                     totalMarks = dto.totalMarks,
                     // Carried through, never `rows.count { ... }`.
                     enteredCount = dto.enteredCount,
-                    seatCount = dto.seatCount,
+                    expectedCount = dto.expectedCount,
                 )
             },
         )
@@ -140,14 +141,14 @@ object MarksStateMapper {
      * @return The state the screen renders
      */
     fun afterMarksheet(dto: MarksheetDto): MarksUiState {
-        val ownLabel = RESULT_STATE_KEYS[dto.ownResultState]
+        val ownLabel = RESULT_STATE_KEYS[dto.viewerResultState]
             ?: return MarksUiState.Failed(UNEXPECTED_KEY, retryable = false)
 
         return MarksUiState.MarksheetLoaded(
             examTitle = dto.examTitle,
             totalMarks = dto.totalMarks,
             ownStateLabel = ownLabel,
-            ownMarks = dto.ownMarks,
+            ownMarks = dto.viewerMarks,
             comparison = toComparison(dto),
         )
     }
@@ -156,33 +157,31 @@ object MarksStateMapper {
      * The comparison the server published, or null when it published
      * none [BR6.4].
      *
-     * **The four figures are one unit.** The server withholds rank,
-     * average, highest and bands together — below five marked results,
-     * and again while any seat is still `not_entered`. A partial set is
-     * therefore a shape the contract does not define, and this returns
-     * null for it rather than rendering a rank beside a missing
+     * **[MarksheetDto.published] decides, not the fields.** The
+     * server withholds the figures together; a published sheet missing
+     * one is a shape the contract does not define, and this returns
+     * null for it rather than rendering a count beside a missing
      * average, which would be the client inventing the missing half.
      *
-     * Written as a `let` chain rather than a four-way `&&` so each
-     * field's non-null value is named once and the "all or nothing"
-     * structure is visible in the shape of the code.
+     * The rank alone may be null on a published sheet: a viewer who
+     * was absent has no mark to rank, and the batch's figures are
+     * still theirs to see.
      *
      * @param dto The marksheet the server returned
-     * @return The aggregates, or null when any is absent
+     * @return The aggregates, or null when none were published
      */
     private fun toComparison(dto: MarksheetDto): MarksheetComparison? {
-        val rank = dto.rank ?: return null
+        if (!dto.published) return null
         val markedCount = dto.markedCount ?: return null
-        // The server's own rendering of the figure. Parsing it to a
-        // number and reformatting would be lossy and would move the
-        // rounding decision to the client.
         val average = dto.average ?: return null
         val highest = dto.highest ?: return null
 
         return MarksheetComparison(
-            rank = rank,
+            rank = dto.viewerRank,
             markedCount = markedCount,
-            average = average,
+            // Display formatting only, one decimal place in Latin
+            // digits per the numeral rule. Nothing is decided from it.
+            average = String.format(Locale.ENGLISH, "%.1f", average),
             highest = highest,
             bands = dto.bands.map(::toBand),
         )
@@ -201,7 +200,7 @@ object MarksStateMapper {
         MarkBand(
             // Formatting only. The boundaries and the count are the
             // server's, already merged [BR6.3].
-            rangeLabel = "${dto.lowerBound}-${dto.upperBound}",
+            rangeLabel = "${dto.low}-${dto.high}",
             count = dto.count,
         )
 
@@ -212,34 +211,50 @@ object MarksStateMapper {
      * the query; a client sort would differ from the server's tiebreak
      * the moment two exams share a date.
      *
-     * @param dto The series
+     * @param entries The series
+     * @param childDisplayName Whose series, for the heading
+     * @param batchName Which class, for the heading
      * @return The state the screen renders
      */
-    fun afterProgress(dto: ProgressDto): MarksUiState {
-        val entries =
-            dto.entries.map { entry ->
-                val label = RESULT_STATE_KEYS[entry.resultState]
-                    ?: return MarksUiState.Failed(UNEXPECTED_KEY, retryable = false)
-
-                ProgressRow(
-                    examTitle = entry.examTitle,
-                    dateLabel = entry.date,
-                    totalMarks = entry.totalMarks,
-                    stateLabel = label,
-                    // **Null for an absence, never zero** [BR6.6]. The
-                    // temptation is `entry.marks ?: 0` so the renderer
-                    // has a number for every point; that plots a
-                    // collapse that did not happen.
-                    marks = entry.marks,
-                )
-            }
+    fun afterProgress(
+        entries: List<ProgressEntryDto>,
+        childDisplayName: String,
+        batchName: String,
+    ): MarksUiState {
+        val rows = progressRows(entries) ?: return MarksUiState.Failed(UNEXPECTED_KEY, retryable = false)
 
         return MarksUiState.ProgressLoaded(
-            childDisplayName = dto.childDisplayName,
-            batchName = dto.batchName,
-            entries = entries,
+            childDisplayName = childDisplayName,
+            batchName = batchName,
+            entries = rows,
         )
     }
+
+    /**
+     * Convert a progress series into rows, in the server's order.
+     *
+     * Shared by the guardian's progress screen and the student's batch
+     * view, so the two cannot render a result state differently.
+     *
+     * @param entries The series
+     * @return The rows, or null when a state is outside the known four
+     */
+    fun progressRows(entries: List<ProgressEntryDto>): List<ProgressRow>? =
+        entries.map { entry ->
+            val label = RESULT_STATE_KEYS[entry.resultState] ?: return null
+            ProgressRow(
+                examId = entry.examId,
+                examTitle = entry.title,
+                dateLabel = entry.date,
+                totalMarks = entry.totalMarks,
+                stateLabel = label,
+                // **Null for an absence, never zero** [BR6.6]. The
+                // temptation is `entry.marks ?: 0` so the renderer
+                // has a number for every point; that plots a
+                // collapse that did not happen.
+                marks = entry.marks,
+            )
+        }
 
     /**
      * Map a server error envelope.

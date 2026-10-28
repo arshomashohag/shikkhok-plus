@@ -10,7 +10,8 @@ package com.shikkhokplus.app.feature.marks
  * @property totalMarks Its total
  * @property enteredCount How many seats have a live mark, **counted by
  *   the server** [TC-9]
- * @property seatCount How many seats are on the roster
+ * @property expectedCount How many seats could have sat it, which leaves
+ *   out a seat that joined after the exam date
  */
 data class ExamRow(
     val examId: String,
@@ -19,7 +20,7 @@ data class ExamRow(
     val subjectName: String?,
     val totalMarks: Int,
     val enteredCount: Int,
-    val seatCount: Int,
+    val expectedCount: Int,
 )
 
 /**
@@ -71,14 +72,15 @@ data class MarkBand(
  * render a rank beside a missing average, which is a shape the server
  * never sends and which the client would have had to invent.
  *
- * @property rank The viewer's rank among marked results
+ * @property rank The viewer's rank among marked results, or null when
+ *   the viewer has no mark to rank (absent, or joined after)
  * @property markedCount What the rank is out of
- * @property average The batch average, as the **server** formatted it
+ * @property average The batch average, formatted for display
  * @property highest The highest marked result
  * @property bands The merged distribution
  */
 data class MarksheetComparison(
-    val rank: Int,
+    val rank: Int?,
     val markedCount: Int,
     val average: String,
     val highest: Int,
@@ -200,6 +202,7 @@ sealed interface MarksUiState {
 /**
  * One exam in a child's progress series [BR6.6].
  *
+ * @property examId The exam, so a row opens its marksheet
  * @property examTitle Which exam
  * @property dateLabel Its date, as the server formatted it
  * @property totalMarks Its total
@@ -212,6 +215,7 @@ sealed interface MarksUiState {
  *   wrongly. The null is what keeps it out of any trend
  */
 data class ProgressRow(
+    val examId: String,
     val examTitle: String,
     val dateLabel: String,
     val totalMarks: Int,

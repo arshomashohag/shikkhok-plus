@@ -241,20 +241,45 @@ sealed interface Destination {
         ): String = "marksheet/$examId/$enrollmentId?reader=$reader"
     }
 
-    /** A child's marks across exams [BR6.6]. */
+    /**
+     * One seat's marks across exams [BR6.6], for the student or a
+     * guardian. The heading names travel in the route because the
+     * series itself carries none.
+     */
     data object Progress : Destination {
-        override val route: String = "children/{enrollmentId}/progress"
+        override val route: String =
+            "progress/{enrollmentId}?reader={reader}&child={child}&batch={batch}"
 
         /** The seat argument's name. */
         const val ARG_SEAT: String = "enrollmentId"
 
+        /** The reader argument's name. */
+        const val ARG_READER: String = "reader"
+
+        /** Whose series, for the heading. */
+        const val ARG_CHILD: String = "child"
+
+        /** Which class, for the heading. */
+        const val ARG_BATCH: String = "batch"
+
         /**
-         * Build a concrete route for one child.
+         * Build a concrete route for one seat.
          *
-         * @param enrollmentId The child's seat
+         * @param enrollmentId The seat
+         * @param reader `SELF` or `CHILD`
+         * @param child Whose series
+         * @param batch Which class
          * @return The route to navigate to
          */
-        fun of(enrollmentId: String): String = "children/$enrollmentId/progress"
+        fun of(
+            enrollmentId: String,
+            reader: String,
+            child: String,
+            batch: String,
+        ): String =
+            "progress/$enrollmentId?reader=$reader" +
+                "&child=${java.net.URLEncoder.encode(child, "UTF-8")}" +
+                "&batch=${java.net.URLEncoder.encode(batch, "UTF-8")}"
     }
 
     /**
@@ -284,6 +309,27 @@ sealed interface Destination {
             enrollmentId: String,
             reader: String,
         ): String = "fees/$enrollmentId?reader=$reader"
+    }
+
+    /** A student's batches (S1). The start destination for that lens. */
+    data object MyBatches : Destination {
+        override val route: String = "me/batches"
+    }
+
+    /** One of the student's batches (S2). */
+    data object StudentBatch : Destination {
+        override val route: String = "me/batches/{enrollmentId}"
+
+        /** The seat argument's name. */
+        const val ARG_SEAT: String = "enrollmentId"
+
+        /**
+         * Build a concrete route for one seat.
+         *
+         * @param enrollmentId The student's own seat
+         * @return The route to navigate to
+         */
+        fun of(enrollmentId: String): String = "me/batches/$enrollmentId"
     }
 
     /** A guardian's children. The start destination for that lens. */
