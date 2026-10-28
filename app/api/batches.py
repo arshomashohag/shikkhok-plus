@@ -248,6 +248,7 @@ def add_enrollment(
         batch_id=batch_id,
         display_name=body.display_name,
         guardian_phone=body.guardian_phone,
+        student_phone=body.student_phone,
         fee_amount=_from_wire(body.fee_amount),
         joined_on=body.joined_on,
     )

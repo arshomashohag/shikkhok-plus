@@ -1,6 +1,7 @@
 package com.shikkhokplus.app.core.ui
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -34,11 +35,12 @@ class CreateFormsTest {
         var captured: String? = "sentinel"
         compose.setContent {
             StudentAddForm(
-                onAdd = { _, _, fee -> captured = fee },
+                onAdd = { _, _, _, fee -> captured = fee },
                 onCancel = {},
             )
         }
 
+        compose.onNodeWithTag(TAG_FORM_STUDENT_PHONE).performTextInput("01711-234567")
         compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Rahim")
         compose.onNodeWithTag(TAG_FORM_SUBMIT).performClick()
 
@@ -54,9 +56,10 @@ class CreateFormsTest {
         // was then silently never created.
         var captured: String? = null
         compose.setContent {
-            StudentAddForm(onAdd = { _, _, fee -> captured = fee }, onCancel = {})
+            StudentAddForm(onAdd = { _, _, _, fee -> captured = fee }, onCancel = {})
         }
 
+        compose.onNodeWithTag(TAG_FORM_STUDENT_PHONE).performTextInput("01711-234567")
         compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Rahim")
         compose.onNodeWithTag(TAG_FORM_FEE).performTextInput("1200")
         compose.onNodeWithTag(TAG_FORM_SUBMIT).performClick()
@@ -131,7 +134,7 @@ class CreateFormsTest {
     fun `a refusal is shown on the form`() {
         // It used to have nowhere to appear: the form closed on the tap.
         compose.setContent {
-            StudentAddForm(onAdd = { _, _, _ -> }, onCancel = {}, error = "Could not save")
+            StudentAddForm(onAdd = { _, _, _, _ -> }, onCancel = {}, error = "Could not save")
         }
 
         compose.onNodeWithTag(TAG_FORM_ERROR).assertIsDisplayed()
@@ -140,7 +143,7 @@ class CreateFormsTest {
     @Test
     fun `no error is shown when there is none`() {
         compose.setContent {
-            StudentAddForm(onAdd = { _, _, _ -> }, onCancel = {})
+            StudentAddForm(onAdd = { _, _, _, _ -> }, onCancel = {})
         }
 
         compose.onNodeWithTag(TAG_FORM_ERROR).assertDoesNotExist()
@@ -151,15 +154,72 @@ class CreateFormsTest {
         var captured: String? = "sentinel"
         compose.setContent {
             StudentAddForm(
-                onAdd = { _, guardian, _ -> captured = guardian },
+                onAdd = { _, _, guardian, _ -> captured = guardian },
                 onCancel = {},
             )
         }
 
+        compose.onNodeWithTag(TAG_FORM_STUDENT_PHONE).performTextInput("01711-234567")
         compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Rahim")
         compose.onNodeWithTag(TAG_FORM_SUBMIT).performClick()
 
         assertNull(captured)
+    }
+
+    @Test
+    fun `the student's phone is sent as typed, beside the name`() {
+        // **The field that did not exist.** Without it no student a
+        // teacher added could ever reach their own seat. Sent as typed:
+        // the server canonicalises, so the client never needs to.
+        var sent: Pair<String, String>? = null
+        compose.setContent {
+            StudentAddForm(onAdd = { name, phone, _, _ -> sent = name to phone }, onCancel = {})
+        }
+
+        compose.onNodeWithTag(TAG_FORM_STUDENT_PHONE).performTextInput("01711-234567")
+        compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Rahim")
+        compose.onNodeWithTag(TAG_FORM_SUBMIT).performClick()
+
+        assertEquals("Rahim" to "01711-234567", sent)
+    }
+
+    @Test
+    fun `a student needs a phone before they can be added`() {
+        compose.setContent {
+            StudentAddForm(onAdd = { _, _, _, _ -> }, onCancel = {})
+        }
+
+        compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Rahim")
+
+        compose.onNodeWithTag(TAG_FORM_SUBMIT).assertIsNotEnabled()
+    }
+
+    @Test
+    fun `a ten-digit phone is caught while typing`() {
+        // T8's error state: "This one has 10" -- caught before a round
+        // trip rather than refused by the server after one.
+        compose.setContent {
+            StudentAddForm(onAdd = { _, _, _, _ -> }, onCancel = {})
+        }
+
+        compose.onNodeWithTag(TAG_FORM_STUDENT_PHONE).performTextInput("0171123456")
+        compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Rahim")
+
+        compose.onNodeWithTag(TAG_FORM_SUBMIT).assertIsNotEnabled()
+    }
+
+    @Test
+    fun `a malformed guardian phone blocks submit, a blank one does not`() {
+        compose.setContent {
+            StudentAddForm(onAdd = { _, _, _, _ -> }, onCancel = {})
+        }
+        compose.onNodeWithTag(TAG_FORM_STUDENT_PHONE).performTextInput("01711-234567")
+        compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Rahim")
+        compose.onNodeWithTag(TAG_FORM_SUBMIT).assertIsEnabled()
+
+        compose.onNodeWithTag(TAG_FORM_GUARDIAN).performTextInput("12345")
+
+        compose.onNodeWithTag(TAG_FORM_SUBMIT).assertIsNotEnabled()
     }
 
     @Test
@@ -170,7 +230,7 @@ class CreateFormsTest {
         // rule living on the client.
         var called = false
         compose.setContent {
-            StudentAddForm(onAdd = { _, _, _ -> called = true }, onCancel = {})
+            StudentAddForm(onAdd = { _, _, _, _ -> called = true }, onCancel = {})
         }
 
         compose.onNodeWithTag(TAG_FORM_SUBMIT).performClick()

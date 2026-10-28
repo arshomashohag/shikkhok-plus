@@ -27,6 +27,9 @@ import com.shikkhokplus.app.core.model.Money
 /** Stable test identifiers. Not user-visible text. */
 const val TAG_FORM_NAME: String = "form_name"
 
+/** The student's phone field on the add-student form. */
+const val TAG_FORM_STUDENT_PHONE: String = "form_student_phone"
+
 /** The due-day field on the class form. */
 const val TAG_FORM_DUE_DAY: String = "form_due_day"
 
@@ -231,6 +234,35 @@ internal fun canonicalFee(raw: String): String? =
  */
 internal fun feeIsValid(raw: String): Boolean = raw.isBlank() || Money.fromTyped(raw) != null
 
+/** Bangla digit zero; the nine after it are contiguous. */
+private const val BANGLA_ZERO = '\u09E6'
+
+/** A Bangladeshi mobile number once its country code is removed. */
+private val LOCAL_MOBILE = Regex("01[3-9][0-9]{8}")
+
+/**
+ * Whether a phone field holds a Bangladeshi mobile number.
+ *
+ * **Format only, mirroring the server's own check**, so a teacher learns
+ * about a ten-digit number while typing rather than after a round trip.
+ * The server canonicalises and decides; this only spares the wait.
+ * Accepts the same spellings: separators, `+880`/`880`/`00880`, and
+ * Bangla digits.
+ *
+ * @param raw The field as typed
+ * @return True when it is a mobile number in any accepted spelling
+ */
+internal fun phoneIsValid(raw: String): Boolean {
+    var text =
+        raw
+            .map { char -> if (char - BANGLA_ZERO in 0..9) '0' + (char - BANGLA_ZERO) else char }
+            .filterNot { it.isWhitespace() || it in "-()." }
+            .joinToString("")
+    text = text.removePrefix("+").let { if (it.startsWith("00")) it.drop(2) else it }
+    if (text.startsWith("880")) text = "0" + text.drop(3)
+    return LOCAL_MOBILE.matches(text)
+}
+
 /** The range a due day may take, as the server states it. */
 private val DUE_DAYS: IntRange = 1..31
 
@@ -254,8 +286,8 @@ internal fun dueDayIsValid(raw: String): Boolean =
  * sends null when blank rather than "0.00", because zero is a waiver
  * and defaulting to it would silently waive every student's fee.
  *
- * @param onAdd Called with the entered values, the fee already in
- *   canonical form
+ * @param onAdd Called with name, the student's phone, the guardian's
+ *   phone or null, and the fee in canonical form or null
  * @param onCancel Called when the teacher backs out
  * @param modifier The layout modifier
  * @param saving True while the write is in flight
@@ -263,21 +295,46 @@ internal fun dueDayIsValid(raw: String): Boolean =
  */
 @Composable
 fun StudentAddForm(
-    onAdd: (String, String?, String?) -> Unit,
+    onAdd: (String, String, String?, String?) -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
     saving: Boolean = false,
     error: String? = null,
 ) {
+    var phone by remember { mutableStateOf("") }
     var name by remember { mutableStateOf("") }
     var guardian by remember { mutableStateOf("") }
     var fee by remember { mutableStateOf("") }
+    val guardianOk = guardian.isBlank() || phoneIsValid(guardian)
 
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-
+        // **The student's number comes first, as T8 draws it.** It is
+        // what links this seat to the student's own account; without it
+        // the student could never reach their seat, which is how this
+        // form shipped.
+        OutlinedTextField(
+            value = phone,
+            onValueChange = { phone = it },
+            label = { Text(stringResource(R.string.student_add_student_phone)) },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+            isError = phone.isNotBlank() && !phoneIsValid(phone),
+            supportingText = {
+                Text(
+                    stringResource(
+                        if (phone.isBlank() || phoneIsValid(phone)) {
+                            R.string.student_add_student_phone_help
+                        } else {
+                            R.string.phone_invalid
+                        },
+                    ),
+                )
+            },
+            modifier = Modifier.fillMaxWidth().testTag(TAG_FORM_STUDENT_PHONE),
+        )
         OutlinedTextField(
             value = name,
             onValueChange = { name = it },
@@ -291,6 +348,13 @@ fun StudentAddForm(
             label = { Text(stringResource(R.string.student_add_guardian)) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+            isError = !guardianOk,
+            supportingText =
+                if (guardianOk) {
+                    null
+                } else {
+                    { Text(stringResource(R.string.phone_invalid)) }
+                },
             modifier = Modifier.fillMaxWidth().testTag(TAG_FORM_GUARDIAN),
         )
         OutlinedTextField(
@@ -327,11 +391,17 @@ fun StudentAddForm(
                 onClick = {
                     onAdd(
                         name.trim(),
+                        phone.trim(),
                         guardian.trim().ifBlank { null },
                         canonicalFee(fee),
                     )
                 },
-                enabled = !saving && name.isNotBlank() && feeIsValid(fee),
+                enabled =
+                    !saving &&
+                        name.isNotBlank() &&
+                        phoneIsValid(phone) &&
+                        guardianOk &&
+                        feeIsValid(fee),
                 modifier = Modifier.testTag(TAG_FORM_SUBMIT),
             ) {
                 Text(stringResource(R.string.student_add_submit))

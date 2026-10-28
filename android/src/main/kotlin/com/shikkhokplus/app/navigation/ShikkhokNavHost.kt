@@ -436,8 +436,13 @@ fun ShikkhokNavHost(
                 onBack = { leave() },
             ) {
                 StudentAddForm(
-                    onAdd = { name, guardian, fee ->
-                        model.addStudent(name, guardian, fee)
+                    onAdd = { name, studentPhone, guardian, fee ->
+                        model.addStudent(
+                            displayName = name,
+                            studentPhone = studentPhone,
+                            guardianPhone = guardian,
+                            feeAmount = fee,
+                        )
                     },
                     onCancel = { leave() },
                     saving = write == WriteState.Saving,

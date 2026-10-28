@@ -573,4 +573,7 @@
     <string name="delete_done_body">Your login, name and address are gone. Nothing else about you stays on this phone.</string>
     <string name="delete_done_kept">Your teachers keep the attendance, marks and fee records they wrote.</string>
     <string name="delete_done_close">Close</string>
+    <string name="student_add_student_phone">Student\'s phone</string>
+    <string name="student_add_student_phone_help">They sign in with this number.</string>
+    <string name="phone_invalid">Enter an 11-digit mobile number, like 01711-234567</string>
 </resources>

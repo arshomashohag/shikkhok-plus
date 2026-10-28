@@ -44,9 +44,7 @@ def test_every_spelling_of_one_number_is_the_same_number(typed: str) -> None:
     assert canonical_phone(typed) == CANONICAL
 
 
-@pytest.mark.parametrize(
-    "prefix", ["013", "014", "015", "016", "017", "018", "019"]
-)
+@pytest.mark.parametrize("prefix", ["013", "014", "015", "016", "017", "018", "019"])
 def test_every_mobile_operator_prefix_is_accepted(prefix: str) -> None:
     """Each Bangladeshi mobile prefix in use is a valid number.
 

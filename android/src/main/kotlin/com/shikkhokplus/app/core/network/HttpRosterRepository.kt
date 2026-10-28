@@ -40,10 +40,17 @@ private data class InactiveFromBody(
     @SerialName("inactive_from") val inactiveFrom: String?,
 )
 
-/** The add-student body. */
+/**
+ * The add-student body.
+ *
+ * `student_phone` is what links the seat to the student's own account.
+ * It was never sent, so no student a teacher added could reach their
+ * seat; the server canonicalises it, so it is sent as typed.
+ */
 @Serializable
 private data class EnrollmentCreateBody(
     @SerialName("display_name") val displayName: String,
+    @SerialName("student_phone") val studentPhone: String? = null,
     @SerialName("guardian_phone") val guardianPhone: String? = null,
     @SerialName("fee_amount") val feeAmount: String? = null,
 )
@@ -95,6 +102,7 @@ class HttpRosterRepository(
     override suspend fun addEnrollment(
         batchId: String,
         displayName: String,
+        studentPhone: String?,
         guardianPhone: String?,
         feeAmount: String?,
     ): AuthResult<Unit> =
@@ -104,6 +112,7 @@ class HttpRosterRepository(
                     setBody(
                         EnrollmentCreateBody(
                             displayName = displayName,
+                            studentPhone = studentPhone?.ifBlank { null },
                             guardianPhone = guardianPhone?.ifBlank { null },
                             // A canonical money STRING or nothing. Null
                             // means inherit the batch default; zero is a

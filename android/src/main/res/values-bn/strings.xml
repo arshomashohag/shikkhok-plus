@@ -518,4 +518,7 @@
     <string name="delete_done_body">আপনার লগইন, নাম ও ঠিকানা মুছে গেছে। আপনার আর কিছুই এই ফোনে থাকছে না।</string>
     <string name="delete_done_kept">আপনার শিক্ষকেরা তাঁদের লেখা হাজিরা, নম্বর ও ফি-এর রেকর্ড রেখে দেবেন।</string>
     <string name="delete_done_close">বন্ধ করুন</string>
+    <string name="student_add_student_phone">শিক্ষার্থীর ফোন</string>
+    <string name="student_add_student_phone_help">এই নম্বর দিয়ে তারা সাইন ইন করবে।</string>
+    <string name="phone_invalid">01711-234567 এর মতো 11 সংখ্যার একটি মোবাইল নম্বর লিখুন</string>
 </resources>

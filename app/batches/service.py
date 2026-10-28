@@ -28,7 +28,7 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from app.authz.lenses import GuardianLens, TeacherLens
-from app.db.models import Batch, BatchSubject, Enrollment
+from app.db.models import Account, Batch, BatchSubject, Enrollment
 from app.errors import AuthorizationError, ConflictError, ValidationError
 from app.money import Money
 
@@ -657,6 +657,24 @@ def list_batches(session: Session, *, lens: TeacherLens) -> list[BatchSummary]:
     ]
 
 
+def _account_for(session: Session, phone: str | None) -> uuid.UUID | None:
+    """Find the account a canonical number signs in with, if any.
+
+    Exact comparison is correct only because every stored and incoming
+    number is canonical [0008, ``app.schemas.phone``]; before that it
+    missed every number typed in a different spelling.
+
+    :param session: The session to query through
+    :param phone: A canonical number, or None
+    :return: The account's id, or None
+    """
+    if phone is None:
+        return None
+    return session.execute(
+        sa.select(Account.id).where(Account.phone == phone)
+    ).scalar_one_or_none()
+
+
 def add_enrollment(
     session: Session,
     *,
@@ -666,6 +684,7 @@ def add_enrollment(
     student_account_id: uuid.UUID | None = None,
     guardian_account_id: uuid.UUID | None = None,
     guardian_phone: str | None = None,
+    student_phone: str | None = None,
     fee_amount: Money | None = None,
     joined_on: dt.date | None = None,
 ) -> RosterRow:
@@ -685,6 +704,7 @@ def add_enrollment(
     :param student_account_id: The student, or None for a dormant seat
     :param guardian_account_id: The guardian, if one is recorded
     :param guardian_phone: The teacher-typed guardian contact
+    :param student_phone: The teacher-typed student number, canonical
     :param fee_amount: This seat's fee, or None to inherit
     :param joined_on: When the student joined
     :return: The new seat, as the roster describes it
@@ -692,12 +712,24 @@ def add_enrollment(
     """
     _owned_batch(session, lens=lens, batch_id=batch_id)
 
+    # **Link to a person who is ALREADY signed up** [BR5.1]. A number with
+    # no account waits on the seat and links at sign-up instead. Before
+    # this, a guardian who signed up first was never linked at all, and a
+    # student could not be linked by any route.
+    #
+    # Linking is not agreeing: both decisions are stated `pending` below
+    # whatever this finds, so the person is offered an invitation and
+    # granted nothing. Nothing the teacher reads changes either -- the
+    # roster reports decisions, not links -- so this reveals to no
+    # teacher whether a number has an account.
     record = Enrollment(
         batch_id=batch_id,
-        student_account_id=student_account_id,
-        guardian_account_id=guardian_account_id,
+        student_account_id=student_account_id or _account_for(session, student_phone),
+        guardian_account_id=guardian_account_id
+        or _account_for(session, guardian_phone),
         display_name=display_name,
         guardian_phone=guardian_phone,
+        student_phone=student_phone,
         fee_amount=fee_amount,
         joined_on=joined_on,
         # STATED, because the columns carry no default [ADR-013]. A seat

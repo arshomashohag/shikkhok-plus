@@ -98,7 +98,7 @@ sealed interface AddStudentUiState {
 @Composable
 fun AddStudentScreen(
     state: AddStudentUiState,
-    onAdd: (String, String?, String?) -> Unit,
+    onAdd: (String, String, String?, String?) -> Unit,
     onCancel: () -> Unit,
     onRetry: () -> Unit = {},
     onDone: () -> Unit = {},

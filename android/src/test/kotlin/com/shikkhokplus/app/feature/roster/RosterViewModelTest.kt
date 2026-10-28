@@ -111,6 +111,7 @@ class RosterViewModelTest {
         override suspend fun addEnrollment(
             batchId: String,
             displayName: String,
+            studentPhone: String?,
             guardianPhone: String?,
             feeAmount: String?,
         ): AuthResult<Unit> {
@@ -270,7 +271,7 @@ class RosterViewModelTest {
 
             viewModel.load("b-1")
             advanceUntilIdle()
-            viewModel.addStudent("Rahim", null, null)
+            viewModel.addStudent("Rahim", "01711-234567", null, null)
             advanceUntilIdle()
 
             assertEquals(null, repository.addedFee)
@@ -296,7 +297,7 @@ class RosterViewModelTest {
         viewModel.load("b-1")
         advanceUntilIdle()
 
-        viewModel.addStudent("Rahim", null, "1500.00")
+        viewModel.addStudent("Rahim", "01711-234567", null, "1500.00")
         viewModel.load("b-1")
         advanceUntilIdle()
 
@@ -310,7 +311,7 @@ class RosterViewModelTest {
         viewModel.load("b-1")
         advanceUntilIdle()
 
-        viewModel.addStudent("Rahim", null, null)
+        viewModel.addStudent("Rahim", "01711-234567", null, null)
         advanceUntilIdle()
 
         assertEquals(WriteState.Saved, viewModel.writeState.value)

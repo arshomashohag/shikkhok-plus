@@ -319,4 +319,22 @@ class HttpRepositoryTest {
             (sent.body as io.ktor.http.content.TextContent).text,
         )
     }
+
+    @Test
+    fun `adding a student sends the student's phone`() = runTest {
+        // It was never in the body, so the server -- which links a seat
+        // to its student by this number -- never received it.
+        val engine = MockEngine { respond("{}", HttpStatusCode.Created, jsonHeaders()) }
+
+        HttpRosterRepository(client(engine)).addEnrollment(
+            batchId = "b-1",
+            displayName = "Rahim",
+            studentPhone = "01711-234567",
+            guardianPhone = null,
+            feeAmount = null,
+        )
+
+        val body = (engine.requestHistory.single().body as io.ktor.http.content.TextContent).text
+        kotlin.test.assertTrue(""""student_phone":"01711-234567"""" in body, body)
+    }
 }

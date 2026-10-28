@@ -80,6 +80,7 @@ interface RosterRepository {
     suspend fun addEnrollment(
         batchId: String,
         displayName: String,
+        studentPhone: String?,
         guardianPhone: String?,
         feeAmount: String?,
     ): AuthResult<Unit>
@@ -262,12 +263,14 @@ class RosterViewModel(
      * cannot add the same student twice.
      *
      * @param displayName The teacher-typed name
+     * @param studentPhone The student's number, as typed
      * @param guardianPhone The guardian's number, or null
      * @param feeAmount This seat's fee in canonical form, or null to
      *   inherit
      */
     fun addStudent(
         displayName: String,
+        studentPhone: String?,
         guardianPhone: String?,
         feeAmount: String?,
     ) {
@@ -278,7 +281,13 @@ class RosterViewModel(
             _writeState.value =
                 when (
                     val result =
-                        repository.addEnrollment(batchId, displayName, guardianPhone, feeAmount)
+                        repository.addEnrollment(
+                            batchId = batchId,
+                            displayName = displayName,
+                            studentPhone = studentPhone,
+                            guardianPhone = guardianPhone,
+                            feeAmount = feeAmount,
+                        )
                 ) {
                     is AuthResult.Ok -> {
                         load(batchId, lastBatchName)
