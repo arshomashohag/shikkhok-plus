@@ -45,7 +45,7 @@
     <string name="roster_status_active">Active</string>
     <string name="roster_status_inactive">Left</string>
     <string name="roster_fetched_at">Showing saved data from %1$s</string>
-    <string name="batch_not_found">That class could not be found.</string>
+    <string name="batch_not_found">That batch could not be found.</string>
     <string name="batch_create_subject_required">Add at least one subject.</string>
     <string name="enrollment_remove_claimed">This student has accepted their place and has a record. Mark them as left instead of removing them.</string>
     <string name="enrollment_remove_erased">This place records someone\'s request to erase their data. Add the number again to create a new, separate record.</string>
@@ -56,20 +56,20 @@
     <string name="staging_outbox_empty">No staging message for that number.</string>
 
     <!-- The batch list (B5a: the device walkthrough). -->
-    <string name="batches_title">Your classes</string>
-    <string name="batches_empty">No classes yet. Create one to get started.</string>
+    <string name="batches_title">Batches</string>
+    <string name="batches_empty">No batches yet. Create one to get started.</string>
     <plurals name="batches_student_count">
         <item quantity="one">%1$d student</item>
         <item quantity="other">%1$d students</item>
     </plurals>
 
     <!-- Creating a class and adding a student. -->
-    <string name="batch_create_title">New class</string>
-    <string name="batch_create_name">Class name (required)</string>
+    <string name="batch_create_title">New batch</string>
+    <string name="batch_create_name">Batch name (required)</string>
     <string name="batch_create_subjects">Subjects, separated by commas (required)</string>
     <string name="batch_create_fee">Monthly fee (optional)</string>
     <string name="batch_create_due_day">Due day of month (optional)</string>
-    <string name="batch_create_submit">Create class</string>
+    <string name="batch_create_submit">Create batch</string>
     <string name="student_add_title">Add student</string>
     <string name="student_add_name">Student name</string>
     <string name="student_add_guardian">Guardian phone (optional)</string>
@@ -77,7 +77,7 @@
     <string name="student_add_submit">Add student</string>
     <string name="action_cancel">Cancel</string>
     <string name="action_back">Back</string>
-    <string name="fee_inherits">Uses the class fee</string>
+    <string name="fee_inherits">Uses the batch fee</string>
 
     <!-- Batch list, from the design system's T6 artboard. The empty
          state explains what a batch IS, because a teacher seeing this
@@ -161,7 +161,7 @@
          in the product with NO locale helper, so it is the first row
          to check in the Bangla layout table [NFR3.3]. -->
     <string name="roster_accepted_count">%1$s of %2$s accepted</string>
-    <string name="roster_title_fallback">Class</string>
+    <string name="roster_title_fallback">Batch</string>
 
     <!-- Per-link state on a roster row [BR2.1]. A seat shows BOTH,
          separately, and appears once: a student who accepted beside a
@@ -185,7 +185,7 @@
          removed rather than asking about nothing in particular. -->
     <string name="roster_remove">Remove</string>
     <string name="roster_remove_confirm_title">Remove this place?</string>
-    <string name="roster_remove_confirm_body">%1$s will be removed from this class. Nothing they have recorded is affected, because nobody has accepted this place.</string>
+    <string name="roster_remove_confirm_body">%1$s will be removed from this batch. Nothing they have recorded is affected, because nobody has accepted this place.</string>
     <string name="roster_remove_confirm">Remove</string>
     <!-- TWO refusals, TWO remedies [BR3.2]. One message for both would
          leave a teacher trying the one that cannot work. Neither
@@ -201,7 +201,7 @@
          validation is FORMAT only; whether a number is already on this
          batch is a SERVER decision and arrives as a failure state. -->
     <string name="batch_create_submitting">Creating…</string>
-    <string name="batch_create_created">Class created.</string>
+    <string name="batch_create_created">Batch created.</string>
     <string name="student_add_submitting">Adding…</string>
     <string name="student_add_added">Student added.</string>
     <string name="student_add_guardian_hint">Optional. The guardian sees this student\'s records once they accept.</string>
@@ -272,7 +272,7 @@
          app builds: the cross-surface gate publishes the backend's
          keys and asserts a string for every one. -->
     <string name="fees_not_available">That is not available.</string>
-    <string name="fees_resolution_not_set">No fee has been set for this class.</string>
+    <string name="fees_resolution_not_set">No fee has been set for this batch.</string>
     <string name="fees_claim_no_open_cycle">There is nothing outstanding to pay right now.</string>
     <string name="fees_claim_amount_not_positive">Enter an amount greater than zero.</string>
     <string name="fees_claim_channel_unknown">Choose how you paid.</string>
@@ -437,11 +437,11 @@
     <string name="topic_version_conflict">Someone saved a different topic for this class after you wrote yours. Nothing has been changed yet - look at what it says now before saving again.</string>
 
     <!-- State-based refusals: retrying unchanged cannot succeed. -->
-    <string name="teaching_batch_inactive">This class has been closed, so it can no longer be changed. You can still look at its records.</string>
+    <string name="teaching_batch_inactive">This batch has been closed, so it can no longer be changed. You can still look at its records.</string>
     <string name="teaching_session_cancelled">This class was cancelled, so attendance and topics cannot be recorded for it.</string>
     <string name="teaching_session_already_exists">There is already a class for that date and time.</string>
     <string name="teaching_announcement_deleted">This announcement has been deleted.</string>
-    <string name="teaching_seat_not_on_roster">Some students on this list are no longer in the class. Reload the attendance list and record it again.</string>
+    <string name="teaching_seat_not_on_roster">Some students on this list are no longer in the batch. Reload the attendance list and record it again.</string>
     <string name="teaching_mutation_id_already_used">This saved item was already used for a different change. Reload the class and record it again.</string>
 
     <!-- Marks. -->
@@ -467,7 +467,7 @@
       describing an absence.
     -->
     <string name="dues_title">Who owes you</string>
-    <string name="dues_nobody_owes">Nobody owes anything right now. Every student across all your classes is paid up.</string>
+    <string name="dues_nobody_owes">Nobody owes anything right now. Every student across all your batches is paid up.</string>
     <string name="dues_since">Since %1$s</string>
     <string name="dues_retry">Try again</string>
 
@@ -502,8 +502,8 @@
       into this string: the sentence has to read correctly for one
       class and for ten.
     -->
-    <string name="governance_deletion_owns_batches">You still have classes on ShikkhokPlus. Hand them over or close them first, then delete your account.</string>
-    <string name="screen_title_create_batch">New class</string>
+    <string name="governance_deletion_owns_batches">You still have batches on ShikkhokPlus. Hand them over or close them first, then delete your account.</string>
+    <string name="screen_title_create_batch">New batch</string>
     <string name="screen_title_batch_fees">Fees</string>
     <string name="screen_title_claim_status">Payment status</string>
     <string name="screen_title_fee_history">Fee history</string>
@@ -531,7 +531,7 @@
     <string name="lens_teacher">Teacher</string>
     <string name="lens_student">Student</string>
     <string name="lens_guardian">Guardian</string>
-    <string name="lens_teacher_count">%1$s classes</string>
+    <string name="lens_teacher_count">%1$s batches</string>
     <string name="lens_student_count">%1$s enrolments</string>
     <string name="lens_guardian_count">%1$s children</string>
     <string name="lens_switch">Switch role</string>
@@ -539,4 +539,6 @@
     <string name="nav_children">Children</string>
     <string name="nav_invitations">Invitations</string>
     <string name="nav_fees">Fees</string>
+    <string name="fee_invalid">Enter an amount such as 1500 or 1500.50</string>
+    <string name="due_day_invalid">Enter a day from 1 to 31</string>
 </resources>
