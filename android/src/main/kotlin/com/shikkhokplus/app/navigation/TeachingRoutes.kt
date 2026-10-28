@@ -19,6 +19,7 @@ import com.shikkhokplus.app.core.network.HttpAttendanceRepository
 import com.shikkhokplus.app.core.network.HttpMarksRepository
 import com.shikkhokplus.app.core.network.HttpScheduleRepository
 import com.shikkhokplus.app.core.network.HttpSessionsRepository
+import com.shikkhokplus.app.core.network.HttpVerificationRepository
 import com.shikkhokplus.app.core.queue.QueueStore
 import com.shikkhokplus.app.core.ui.WriteState
 import com.shikkhokplus.app.feature.attendance.AttendanceUiState
@@ -35,6 +36,8 @@ import com.shikkhokplus.app.feature.schedule.ui.ScheduleScreen
 import com.shikkhokplus.app.feature.sessions.SessionsViewModel
 import com.shikkhokplus.app.feature.sessions.ui.AddSessionDialog
 import com.shikkhokplus.app.feature.sessions.ui.SessionListScreen
+import com.shikkhokplus.app.feature.verify.VerifyViewModel
+import com.shikkhokplus.app.feature.verify.ui.VerifyScreen
 import io.ktor.client.HttpClient
 
 /**
@@ -56,6 +59,28 @@ internal fun NavGraphBuilder.teachingRoutes(
     queue: QueueStore,
     navController: NavHostController,
 ) {
+    composable(Destination.Verify.route) {
+        val model: VerifyViewModel = viewModel { VerifyViewModel(HttpVerificationRepository(client)) }
+        val state by model.state.collectAsState()
+        val sheet by model.sheet.collectAsState()
+
+        LaunchedEffect(Unit) { model.load() }
+
+        VerifyScreen(
+            state = state,
+            sheet = sheet,
+            onBack = { navController.popBackStack() },
+            onApprove = model::approve,
+            onPartial = model::openPartial,
+            onReject = model::reject,
+            onRetry = model::retry,
+            onTypePartial = model::typePartial,
+            onChoose = model::choose,
+            onConfirmPartial = model::confirmPartial,
+            onClosePartial = model::closePartial,
+        )
+    }
+
     composable(
         route = Destination.Sessions.route,
         arguments =

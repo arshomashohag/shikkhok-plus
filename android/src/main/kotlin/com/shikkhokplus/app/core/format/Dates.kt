@@ -63,6 +63,58 @@ fun isoDate(utcMillis: Long): String = utcFormat("yyyy-MM-dd").format(utcMillis)
 fun displayDate(utcMillis: Long): String = utcFormat("d MMM yyyy").format(utcMillis)
 
 /**
+ * Read a timestamp the server wrote, such as `2026-10-28T10:15:02.48Z`.
+ *
+ * Fractional seconds are dropped and a `Z` read as UTC, because
+ * `SimpleDateFormat` on API 24 cannot parse either directly.
+ *
+ * @param iso The server's ISO-8601 timestamp
+ * @return Milliseconds since the epoch, or null if it cannot be read
+ */
+fun parseInstant(iso: String): Long? {
+    val normalised =
+        iso
+            .replace(Regex("""\.\d+"""), "")
+            .replace(Regex("Z$"), "+00:00")
+    return runCatching {
+        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.ENGLISH).parse(normalised)?.time
+    }.getOrNull()
+}
+
+/**
+ * Name the month of a fee period, in the phone's language.
+ *
+ * Month names carry no digits, so the numeral rule does not apply.
+ *
+ * @param period `YYYY-MM`
+ * @param short `Oct` rather than `October`
+ * @return The month's name, or the period unchanged if unreadable
+ */
+fun monthName(period: String, short: Boolean = true): String =
+    runCatching {
+        val date = SimpleDateFormat("yyyy-MM", Locale.ENGLISH).parse(period) ?: return period
+        SimpleDateFormat(if (short) "MMM" else "MMMM", Locale.getDefault()).format(date)
+    }.getOrDefault(period)
+
+/**
+ * A day as Today's heading says it: `Saturday, 17 Oct`.
+ *
+ * Weekday and month in the phone's language, the day number in Latin
+ * digits per the numeral rule.
+ *
+ * @param isoDate `YYYY-MM-DD`
+ * @return The heading, or the date unchanged if unreadable
+ */
+fun dayHeading(isoDate: String): String =
+    runCatching {
+        val date = SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).parse(isoDate) ?: return isoDate
+        val weekday = SimpleDateFormat("EEEE", Locale.getDefault()).format(date)
+        val month = SimpleDateFormat("MMM", Locale.getDefault()).format(date)
+        val day = SimpleDateFormat("d", Locale.ENGLISH).format(date)
+        "$weekday, $day $month"
+    }.getOrDefault(isoDate)
+
+/**
  * A formatter fixed to UTC and English, so digits are always Latin.
  *
  * @param pattern The date pattern

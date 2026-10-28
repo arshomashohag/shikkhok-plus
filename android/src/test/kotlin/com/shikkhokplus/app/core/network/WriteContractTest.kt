@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.core.network
 
+import com.shikkhokplus.app.core.model.Money
 import com.shikkhokplus.app.core.queue.AttendanceEntry
 import com.shikkhokplus.app.core.queue.QueuedWrite
 import com.shikkhokplus.app.core.queue.SendOutcome
@@ -107,6 +108,15 @@ class WriteContractTest {
             },
             Write("post", "/v1/exams/{exam_id}/marks") {
                 HttpMarksRepository(it).writeMark(ID, ID, "marked", 70)
+            },
+            Write("post", "/v1/claims/{claim_id}/shortfall") {
+                HttpVerificationRepository(it).preview(ID, Money.of("800.00"))
+            },
+            Write("post", "/v1/claims/{claim_id}/verification") {
+                HttpVerificationRepository(it).approve(ID, Money.of("800.00"), "carried")
+            },
+            Write("post", "/v1/claims/{claim_id}/rejection") {
+                HttpVerificationRepository(it).reject(ID)
             },
             Write("put", "/v1/batches/{batch_id}/marksheet-visibility") {
                 HttpMarksRepository(it).setMarksheetVisible(ID, visible = true)

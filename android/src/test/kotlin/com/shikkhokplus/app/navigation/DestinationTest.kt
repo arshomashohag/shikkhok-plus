@@ -163,7 +163,7 @@ class DestinationTest {
         // and the failure would be silent: the tab simply would not
         // open.
         listOf(
-            Destination.Overview,
+            Destination.Today,
             Destination.Batches,
             Destination.Dues,
             Destination.Profile,

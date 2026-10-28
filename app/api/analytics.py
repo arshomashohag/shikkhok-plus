@@ -24,7 +24,7 @@ queries for one screen.
 from __future__ import annotations
 
 import datetime as dt
-from typing import Annotated, Final
+from typing import Annotated, Final, Literal
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -32,8 +32,10 @@ from sqlalchemy.orm import Session
 from app.analytics.dues import dues_rows
 from app.analytics.earnings import MonthlyEarnings, period_totals, trend
 from app.analytics.seats import ledger_for_seats, owned_seats
+from app.analytics.today import today_view
 from app.analytics.upcoming import next_exam
 from app.api.deps import get_session, teacher_lens
+from app.api.fees import queue_item_response
 from app.authz.lenses import TeacherLens
 from app.money import Money as DomainMoney
 from app.money.wire import to_wire
@@ -42,7 +44,10 @@ from app.schemas.analytics import (
     DuesRowResponse,
     MonthlyEarningsResponse,
     NextExamResponse,
+    OutstandingResponse,
     OverviewResponse,
+    TodayClassResponse,
+    TodayResponse,
 )
 from app.schemas.errors import ErrorEnvelope
 from app.schemas.money import Money as WireMoney
@@ -219,3 +224,75 @@ def read_overview(
             )
         ),
     )
+
+
+@router.get(
+    "/me/today",
+    response_model=TodayResponse,
+    responses=_AUTH_ERRORS,
+)
+def read_today(
+    session: Annotated[Session, Depends(get_session)],
+    lens: Annotated[TeacherLens, Depends(teacher_lens)],
+) -> TodayResponse:
+    """Read the teacher's Today screen in one request (T1).
+
+    :param session: The request-scoped session
+    :param lens: The teacher lens
+    :return: Money owed, today's classes and payments waiting
+    """
+    view = today_view(session, lens=lens)
+    owed = view.outstanding
+    return TodayResponse(
+        date=view.date,
+        outstanding=OutstandingResponse(
+            total=WireMoney(to_wire(owed.total)),
+            overdue=WireMoney(to_wire(owed.overdue)),
+            overdue_students=owed.overdue_students,
+            batch_count=owed.batch_count,
+        ),
+        classes=[
+            TodayClassResponse(
+                session_id=row.session_id,
+                batch_id=row.batch_id,
+                batch_name=row.batch_name,
+                subject_name=row.subject_name,
+                start_time=row.start_time,
+                end_time=row.end_time,
+                status=_session_status(row.status),
+                topic=row.topic,
+                topic_logged=row.topic_logged,
+                attendance_version=row.attendance_version,
+                topic_version=row.topic_version,
+                is_next=row.is_next,
+                starts_in_minutes=row.starts_in_minutes,
+                exam_id=row.exam_id,
+                exam_title=row.exam_title,
+            )
+            for row in view.classes
+        ],
+        to_verify_count=view.to_verify_count,
+        to_verify=[queue_item_response(item) for item in view.to_verify],
+        has_batches=view.has_batches,
+    )
+
+
+#: The session statuses the Today response publishes.
+_SESSION_STATUSES: Final[tuple[Literal["scheduled", "held", "cancelled"], ...]] = (
+    "scheduled",
+    "held",
+    "cancelled",
+)
+
+
+def _session_status(stored: str) -> Literal["scheduled", "held", "cancelled"]:
+    """Narrow a stored session status onto the published set.
+
+    :param stored: The value read from the column
+    :return: The same value, narrowed
+    :raises ValueError: The stored value is outside the set
+    """
+    for status in _SESSION_STATUSES:
+        if stored == status:
+            return status
+    raise ValueError(f"{stored!r} is not a session status")

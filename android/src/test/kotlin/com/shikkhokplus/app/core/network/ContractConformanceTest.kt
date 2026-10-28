@@ -53,7 +53,7 @@ class ContractConformanceTest {
             Contract("/v1/invitations", ListSerializer(InvitationDto.serializer())),
             Contract("/v1/invitations/{enrollment_id}", InvitationDto.serializer()),
             Contract("/v1/accounts/already-added", AlreadyAddedDto.serializer()),
-            Contract("/v1/me/overview", OverviewDto.serializer()),
+            Contract("/v1/me/today", TodayDto.serializer()),
             Contract("/v1/me/dues", DuesResponseDto.serializer()),
             Contract("/v1/guardian/children", ListSerializer(GuardianChildDto.serializer())),
             Contract("/v1/batches/{batch_id}/sessions", ListSerializer(SessionDto.serializer())),
@@ -75,6 +75,7 @@ class ContractConformanceTest {
                 ListSerializer(ProgressEntryDto.serializer()),
             ),
             Contract("/v1/me/enrollments", ListSerializer(StudentBatchDto.serializer())),
+            Contract("/v1/claims/queue", VerificationQueueDto.serializer()),
             Contract("/v1/me/batches/{enrollment_id}/teaching", FamilyBatchViewDto.serializer()),
             Contract("/v1/children/{enrollment_id}/teaching", FamilyBatchViewDto.serializer()),
         )

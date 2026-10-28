@@ -183,6 +183,9 @@ def test_the_real_application_needs_the_allowlist() -> None:
     each is exempted separately for the same reason. ``marks`` itself
     matches no token at all, which is why it is absent here.
 
+    ``overdue_students`` joined them with Today (T1): a COUNT of students
+    with anything overdue, beside the money field ``overdue``.
+
     :return: None
     """
     from app.main import create_app
@@ -195,6 +198,7 @@ def test_the_real_application_needs_the_allowlist() -> None:
     assert {v.field for v in without} == {
         "fee_due_day",
         "due_date",
+        "overdue_students",
         "total_marks",
     }
 

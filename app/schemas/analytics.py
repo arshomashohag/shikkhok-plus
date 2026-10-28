@@ -43,9 +43,11 @@ from __future__ import annotations
 
 import datetime as dt
 import uuid
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.fees import ClaimQueueItemResponse
 from app.schemas.money import MoneyField
 
 __all__ = [
@@ -53,7 +55,10 @@ __all__ = [
     "DuesRowResponse",
     "MonthlyEarningsResponse",
     "NextExamResponse",
+    "OutstandingResponse",
     "OverviewResponse",
+    "TodayClassResponse",
+    "TodayResponse",
 ]
 
 
@@ -166,3 +171,84 @@ class OverviewResponse(BaseModel):
     earnings: MonthlyEarningsResponse
     trend: list[MonthlyEarningsResponse] | None = None
     next_exam: NextExamResponse | None = None
+
+
+class OutstandingResponse(BaseModel):
+    """What students owe across every batch, and how much is late (T1).
+
+    **``overdue`` is the server's decision**: owing on a period whose
+    due date has passed in Bangladesh. The client never compares a due
+    date with its clock.
+
+    :ivar total: Everything still owed
+    :ivar overdue: The part owed on periods past their due date
+    :ivar overdue_students: Seats with anything overdue
+    :ivar batch_count: Batches with anything owing
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    total: MoneyField
+    overdue: MoneyField
+    overdue_students: int
+    batch_count: int
+
+
+class TodayClassResponse(BaseModel):
+    """One class today (T1).
+
+    :ivar session_id: The class
+    :ivar batch_id: Its batch
+    :ivar batch_name: The batch's name
+    :ivar subject_name: The subject, where one is set
+    :ivar start_time: When it starts
+    :ivar end_time: When it ends, where set
+    :ivar status: ``scheduled``, ``held`` or ``cancelled``
+    :ivar topic: The logged topic, where one was written
+    :ivar topic_logged: Whether a topic was written at all
+    :ivar attendance_version: The version a roster write composes against
+    :ivar topic_version: The version a topic write composes against
+    :ivar is_next: The first class still to start
+    :ivar starts_in_minutes: Minutes until it starts, or null once begun
+    :ivar exam_id: An exam this batch sits today
+    :ivar exam_title: That exam's title
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    session_id: uuid.UUID
+    batch_id: uuid.UUID
+    batch_name: str
+    subject_name: str | None = None
+    start_time: dt.time
+    end_time: dt.time | None = None
+    status: Literal["scheduled", "held", "cancelled"]
+    topic: str | None = None
+    topic_logged: bool
+    attendance_version: int
+    topic_version: int
+    is_next: bool
+    starts_in_minutes: int | None = None
+    exam_id: uuid.UUID | None = None
+    exam_title: str | None = None
+
+
+class TodayResponse(BaseModel):
+    """The teacher's Today screen in one read (T1).
+
+    :ivar date: Today, in Bangladesh
+    :ivar outstanding: Money owed and overdue
+    :ivar classes: Today's classes, by start time
+    :ivar to_verify_count: How many payments wait to be checked
+    :ivar to_verify: The first few of them
+    :ivar has_batches: Whether the teacher has made a batch yet
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    date: dt.date
+    outstanding: OutstandingResponse
+    classes: list[TodayClassResponse]
+    to_verify_count: int
+    to_verify: list[ClaimQueueItemResponse]
+    has_batches: bool

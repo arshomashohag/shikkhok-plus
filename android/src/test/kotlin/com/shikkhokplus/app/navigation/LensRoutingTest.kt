@@ -93,7 +93,7 @@ class LensRoutingTest {
         val teacherOnly =
             setOf(
                 Destination.Batches.route,
-                Destination.Overview.route,
+                Destination.Today.route,
                 Destination.Dues.route,
             )
 

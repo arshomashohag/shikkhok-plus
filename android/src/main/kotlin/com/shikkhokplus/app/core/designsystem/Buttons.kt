@@ -54,6 +54,8 @@ private val PillPadding = PaddingValues(horizontal = 20.dp)
  * @param modifier The layout modifier
  * @param enabled Whether it can be tapped
  * @param leading Drawn before the label, such as a spinner
+ * @param compact The 48dp size the boards use for actions inside a
+ *   card (T4), rather than a screen's own 56dp main action
  */
 @Composable
 fun PrimaryButton(
@@ -62,6 +64,7 @@ fun PrimaryButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     leading: @Composable RowScope.() -> Unit = {},
+    compact: Boolean = false,
 ) {
     Button(
         onClick = onClick,
@@ -73,10 +76,10 @@ fun PrimaryButton(
                 disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                 disabledContentColor = MaterialTheme.colorScheme.outline,
             ),
-        modifier = modifier.heightIn(min = Reach.moneyButton),
+        modifier = modifier.heightIn(min = if (compact) Reach.touch else Reach.moneyButton),
     ) {
         leading()
-        Text(text, style = LargeButtonText)
+        Text(text, style = if (compact) ButtonText else LargeButtonText)
     }
 }
 

@@ -36,9 +36,9 @@ sealed interface Destination {
         override val route: String = "signup"
     }
 
-    /** Today's summary. The first tab. */
-    data object Overview : Destination {
-        override val route: String = "overview"
+    /** The teacher's day (T1). The start of that lens's tab bar. */
+    data object Today : Destination {
+        override val route: String = "today"
     }
 
     /** A teacher's classes. The start destination once signed in. */
@@ -309,6 +309,11 @@ sealed interface Destination {
             enrollmentId: String,
             reader: String,
         ): String = "fees/$enrollmentId?reader=$reader"
+    }
+
+    /** Payments waiting for the teacher to check (T4). */
+    data object Verify : Destination {
+        override val route: String = "verify"
     }
 
     /** A student's batches (S1). The start destination for that lens. */

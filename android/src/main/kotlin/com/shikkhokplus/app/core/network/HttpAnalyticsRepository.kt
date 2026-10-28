@@ -2,12 +2,12 @@ package com.shikkhokplus.app.core.network
 
 import com.shikkhokplus.app.feature.auth.AuthResult
 import com.shikkhokplus.app.feature.dues.DuesRepository
-import com.shikkhokplus.app.feature.overview.OverviewRepository
+import com.shikkhokplus.app.feature.today.TodayRepository
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 
 /**
- * The overview and dues repositories, over HTTP.
+ * The Today and dues repositories, over HTTP.
  *
  * **Both routes are `/v1/me/...` and carry no identifier.** The server
  * resolves what to show from the authenticated account's own lens, so
@@ -21,15 +21,14 @@ import io.ktor.client.request.get
  */
 class HttpAnalyticsRepository(
     private val client: HttpClient,
-) : OverviewRepository, DuesRepository {
+) : TodayRepository, DuesRepository {
 
     /**
-     * Read today's summary for whoever is signed in.
+     * Read the Today screen for whoever is signed in (T1).
      *
-     * @return The overview, an error envelope, or a transport failure
+     * @return The day's view, an error envelope, or a transport failure
      */
-    override suspend fun overview(): AuthResult<OverviewDto> =
-        call { client.get("/v1/me/overview") }
+    override suspend fun today(): AuthResult<TodayDto> = call { client.get("/v1/me/today") }
 
     /**
      * Read who owes money, across every batch.

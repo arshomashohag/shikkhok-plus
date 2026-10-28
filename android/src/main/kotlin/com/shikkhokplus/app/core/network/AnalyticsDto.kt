@@ -56,67 +56,78 @@ data class DuesResponseDto(
 )
 
 /**
- * Money received in one calendar month.
+ * What students owe across every batch, and how much is late (T1).
  *
- * @property period The month as `YYYY-MM`
- * @property received What arrived that month, as a [Money]
+ * **[overdue] is the server's decision** — owing on a period past its
+ * due date in Bangladesh. The client never compares a date itself.
+ *
+ * @property total Everything still owed
+ * @property overdue The part owed on periods past their due date
+ * @property overdueStudents Seats with anything overdue
+ * @property batchCount Batches with anything owing
  */
 @Serializable
-data class MonthlyEarningsDto(
-    val period: String,
-    val received: Money,
+data class OutstandingDto(
+    val total: Money,
+    val overdue: Money,
+    @SerialName("overdue_students") val overdueStudents: Int,
+    @SerialName("batch_count") val batchCount: Int,
 )
 
 /**
- * The soonest exam dated today or later.
+ * One class today (T1).
  *
- * @property examId The exam
- * @property title The teacher's name for it
- * @property batchName Which class sits it
- * @property subjectName The subject assessed
- * @property date When it is sat, as `YYYY-MM-DD`
- * @property daysRemaining Whole days, **computed server-side**. A
- *   client deriving it from [date] would use the device clock, which
- *   this product rules out for decisions, and would disagree across
- *   time zones
+ * @property sessionId The class
+ * @property batchId Its batch
+ * @property batchName The batch's name
+ * @property subjectName The subject, where set
+ * @property startTime When it starts, `HH:MM:SS`
+ * @property endTime When it ends, where set
+ * @property status `scheduled`, `held` or `cancelled`
+ * @property topic The logged topic, where written
+ * @property topicLogged Whether a topic was written at all [BR2.2]
+ * @property attendanceVersion The version a roster write composes against
+ * @property topicVersion The version a topic write composes against
+ * @property isNext The first class still to start, decided by the server
+ * @property startsInMinutes Minutes until it starts, by the server's clock
+ * @property examId An exam this batch sits today
+ * @property examTitle That exam's title
  */
 @Serializable
-data class NextExamDto(
-    @SerialName("exam_id") val examId: String,
-    val title: String,
+data class TodayClassDto(
+    @SerialName("session_id") val sessionId: String,
+    @SerialName("batch_id") val batchId: String,
     @SerialName("batch_name") val batchName: String,
-    @SerialName("subject_name") val subjectName: String,
-    val date: String,
-    @SerialName("days_remaining") val daysRemaining: Int,
+    @SerialName("subject_name") val subjectName: String? = null,
+    @SerialName("start_time") val startTime: String,
+    @SerialName("end_time") val endTime: String? = null,
+    val status: String,
+    val topic: String? = null,
+    @SerialName("topic_logged") val topicLogged: Boolean,
+    @SerialName("attendance_version") val attendanceVersion: Int,
+    @SerialName("topic_version") val topicVersion: Int,
+    @SerialName("is_next") val isNext: Boolean,
+    @SerialName("starts_in_minutes") val startsInMinutes: Int? = null,
+    @SerialName("exam_id") val examId: String? = null,
+    @SerialName("exam_title") val examTitle: String? = null,
 )
 
 /**
- * The teacher overview's three blocks.
+ * The teacher's Today screen in one read (T1).
  *
- * **Two of the three are nullable and one is not, and the asymmetry is
- * the contract rather than an oversight:**
- *
- * - [earnings] is **never absent**. A month with no receipts carries a
- *   zero VALUE, because zero earned is a fact about the month and
- *   rendering it as "no data" would tell a teacher their records are
- *   missing when they are complete;
- * - [trend] is **null under two months of history**, not a one-point
- *   list. A single point implies a direction it cannot know;
- * - [nextExam] is **null when nothing is scheduled**, which the screen
- *   renders as a defined empty state rather than a failure.
- *
- * **Absent and zero are different wire shapes and encoding either as
- * the other is the defect**, which is why [earnings] carries no
- * nullability for a mapper to collapse.
- *
- * @property earnings This month's money received; never absent
- * @property trend The monthly series ascending, or null under two
- *   months
- * @property nextExam The soonest upcoming exam, or null
+ * @property date Today in Bangladesh, `YYYY-MM-DD`
+ * @property outstanding Money owed and overdue
+ * @property classes Today's classes, by start time
+ * @property toVerifyCount How many payments wait to be checked
+ * @property toVerify The first few of them
+ * @property hasBatches Whether the teacher has made a batch yet
  */
 @Serializable
-data class OverviewDto(
-    val earnings: MonthlyEarningsDto,
-    val trend: List<MonthlyEarningsDto>? = null,
-    @SerialName("next_exam") val nextExam: NextExamDto? = null,
+data class TodayDto(
+    val date: String,
+    val outstanding: OutstandingDto,
+    val classes: List<TodayClassDto> = emptyList(),
+    @SerialName("to_verify_count") val toVerifyCount: Int,
+    @SerialName("to_verify") val toVerify: List<ClaimQueueItemDto> = emptyList(),
+    @SerialName("has_batches") val hasBatches: Boolean,
 )

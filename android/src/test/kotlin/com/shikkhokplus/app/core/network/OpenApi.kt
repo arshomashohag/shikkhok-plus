@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.core.network
 
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.descriptors.PolymorphicKind
 import kotlinx.serialization.descriptors.PrimitiveKind
 import kotlinx.serialization.descriptors.SerialDescriptor
@@ -27,6 +28,7 @@ import java.io.File
  * server generates, so checking the app against it is checking the app
  * against the server.
  */
+@OptIn(ExperimentalSerializationApi::class)
 object OpenApi {
 
     /** Deeper than any body nests; a guard against a cycle. */

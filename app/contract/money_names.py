@@ -132,6 +132,10 @@ NON_MONEY_FIELDS: Final[dict[tuple[str, str], str]] = {
     ("SuppressedMarksheetResponse", "total_marks"): (
         "The same heading count on the suppressed marksheet."
     ),
+    ("OutstandingResponse", "overdue_students"): (
+        "A COUNT of students with anything overdue on Today (T1), not an "
+        "amount. The amount beside it, `overdue`, is the money field."
+    ),
     ("CurrentFeeResponse", "due_date"): (
         "The same computed date on the student's batch list (S1), for "
         "their latest period. Its sibling `outstanding` is real money "

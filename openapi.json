@@ -452,6 +452,123 @@
         "title": "BatchResponse",
         "type": "object"
       },
+      "ClaimQueueItemResponse": {
+        "additionalProperties": false,
+        "description": "One claim waiting for the teacher (T4).\n\n**The comparison is the server's.** ``comparison`` and\n``difference`` are measured against what the period CHARGED\n[BR5.3]; the client shows them and never subtracts.\n\n:ivar claim_id: The claim\n:ivar enrollment_id: The seat it is against\n:ivar display_name: The student, as the teacher typed the name\n:ivar batch_name: The batch\n:ivar period: The period the claim resolved to\n:ivar claimed_amount: What the payer says they sent\n:ivar charged: What that period charged\n:ivar comparison: ``matches``, ``short`` or ``over``\n:ivar difference: How far from the charge, never negative\n:ivar channel: The service the money moved through\n:ivar transaction_id: The reference quoted, if any\n:ivar submitted_at: When it was sent\n:ivar submitted_by: ``student`` or ``guardian``, or null\n:ivar submitter_phone: The number the teacher holds for them\n:ivar duplicate_of: The earlier claim quoting the same reference",
+        "properties": {
+          "batch_name": {
+            "title": "Batch Name",
+            "type": "string"
+          },
+          "channel": {
+            "title": "Channel",
+            "type": "string"
+          },
+          "charged": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "claim_id": {
+            "format": "uuid",
+            "title": "Claim Id",
+            "type": "string"
+          },
+          "claimed_amount": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "comparison": {
+            "enum": [
+              "matches",
+              "over",
+              "short"
+            ],
+            "title": "Comparison",
+            "type": "string"
+          },
+          "difference": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "duplicate_of": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DuplicateClaimResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "enrollment_id": {
+            "format": "uuid",
+            "title": "Enrollment Id",
+            "type": "string"
+          },
+          "period": {
+            "title": "Period",
+            "type": "string"
+          },
+          "submitted_at": {
+            "format": "date-time",
+            "title": "Submitted At",
+            "type": "string"
+          },
+          "submitted_by": {
+            "anyOf": [
+              {
+                "enum": [
+                  "guardian",
+                  "student"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted By"
+          },
+          "submitter_phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitter Phone"
+          },
+          "transaction_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transaction Id"
+          }
+        },
+        "required": [
+          "batch_name",
+          "channel",
+          "charged",
+          "claim_id",
+          "claimed_amount",
+          "comparison",
+          "difference",
+          "display_name",
+          "enrollment_id",
+          "period",
+          "submitted_at"
+        ],
+        "title": "ClaimQueueItemResponse",
+        "type": "object"
+      },
       "ClaimResponse": {
         "additionalProperties": false,
         "description": "A claim and its decision, as its submitter sees it.\n\n``previous_decision`` is carried deliberately: a corrected\nverification is visible to the teacher **and** to that student and\nguardian, never hidden from either party [BR5.7, FR9.2]. It is typed\nas a map of strings because every value in it -- including the\namount -- is a string, so a money value inside it crosses the wire\nunder the same rule as every other [BR6.2].\n\n:ivar claim_id: The claim\n:ivar period: The period it resolved to at submission\n:ivar claimed_amount: What was claimed\n:ivar approved_amount: What was accepted, or null while pending\n:ivar status: One of the four server-set values\n:ivar shortfall_disposition: Carried or waived, where one applies\n:ivar channel: Which service the money moved through\n:ivar submitted_at: When it was submitted\n:ivar verified_at: When it was decided, or null\n:ivar previous_decision: The prior decision, on a correction",
@@ -817,6 +934,54 @@
           "outstanding"
         ],
         "title": "DuesRowResponse",
+        "type": "object"
+      },
+      "DuplicateClaimResponse": {
+        "additionalProperties": false,
+        "description": "The earlier claim that quoted the same transaction id.\n\n:ivar claim_id: That claim\n:ivar display_name: Whose seat it was on, as the teacher typed it\n:ivar status: How it was decided\n:ivar amount: What was approved, else what was claimed\n:ivar decided_at: When it was decided, or null",
+        "properties": {
+          "amount": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "claim_id": {
+            "format": "uuid",
+            "title": "Claim Id",
+            "type": "string"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "approved_full",
+              "approved_partial",
+              "pending",
+              "rejected"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "amount",
+          "claim_id",
+          "display_name",
+          "status"
+        ],
+        "title": "DuplicateClaimResponse",
         "type": "object"
       },
       "EnrollmentCreateRequest": {
@@ -1588,6 +1753,34 @@
         "title": "NextExamResponse",
         "type": "object"
       },
+      "OutstandingResponse": {
+        "additionalProperties": false,
+        "description": "What students owe across every batch, and how much is late (T1).\n\n**``overdue`` is the server's decision**: owing on a period whose\ndue date has passed in Bangladesh. The client never compares a due\ndate with its clock.\n\n:ivar total: Everything still owed\n:ivar overdue: The part owed on periods past their due date\n:ivar overdue_students: Seats with anything overdue\n:ivar batch_count: Batches with anything owing",
+        "properties": {
+          "batch_count": {
+            "title": "Batch Count",
+            "type": "integer"
+          },
+          "overdue": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "overdue_students": {
+            "title": "Overdue Students",
+            "type": "integer"
+          },
+          "total": {
+            "$ref": "#/components/schemas/Money"
+          }
+        },
+        "required": [
+          "batch_count",
+          "overdue",
+          "overdue_students",
+          "total"
+        ],
+        "title": "OutstandingResponse",
+        "type": "object"
+      },
       "OverviewResponse": {
         "additionalProperties": false,
         "description": "The three blocks of the teacher overview, each independently absent.\n\n**``earnings`` is never absent and ``trend`` and ``next_exam``\nmay be**, which is the distinction this model exists to publish:\n\n* ``earnings`` carries a **zero value** in a month with no receipts\n  [BR2.2]. Rendering zero as \"no data\" tells a teacher their records\n  are missing when they are complete, in the month they most need to\n  know the number is really zero;\n* ``trend`` is **null under two months of history** [BR2.3], not a\n  one-point series -- a single point implies a direction it cannot\n  know;\n* ``next_exam`` is **null when nothing is scheduled** [BR3.4], which\n  the client renders as a defined empty state rather than a failure.\n\n:ivar earnings: This month's money received; never absent\n:ivar trend: The monthly series ascending, or null under two months\n:ivar next_exam: The soonest upcoming exam, or null",
@@ -1828,6 +2021,53 @@
           "viewer_result_state"
         ],
         "title": "PublishedMarksheetResponse",
+        "type": "object"
+      },
+      "RecentDecisionResponse": {
+        "additionalProperties": false,
+        "description": "A claim decided in the last day.\n\n:ivar claim_id: The claim\n:ivar display_name: The student\n:ivar batch_name: The batch\n:ivar status: How it was decided\n:ivar amount: What was approved, else what was claimed\n:ivar decided_at: When",
+        "properties": {
+          "amount": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "batch_name": {
+            "title": "Batch Name",
+            "type": "string"
+          },
+          "claim_id": {
+            "format": "uuid",
+            "title": "Claim Id",
+            "type": "string"
+          },
+          "decided_at": {
+            "format": "date-time",
+            "title": "Decided At",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "approved_full",
+              "approved_partial",
+              "pending",
+              "rejected"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "amount",
+          "batch_name",
+          "claim_id",
+          "decided_at",
+          "display_name",
+          "status"
+        ],
+        "title": "RecentDecisionResponse",
         "type": "object"
       },
       "RefreshRequest": {
@@ -2357,6 +2597,39 @@
         "title": "SessionSubjectRequest",
         "type": "object"
       },
+      "ShortfallPreviewRequest": {
+        "additionalProperties": false,
+        "description": "An amount the teacher is about to approve.\n\n:ivar approved_amount: The amount being considered",
+        "properties": {
+          "approved_amount": {
+            "$ref": "#/components/schemas/Money"
+          }
+        },
+        "required": [
+          "approved_amount"
+        ],
+        "title": "ShortfallPreviewRequest",
+        "type": "object"
+      },
+      "ShortfallPreviewResponse": {
+        "additionalProperties": false,
+        "description": "What that approval would leave short, and whether to ask about it.\n\n:ivar shortfall: ``charged - approved``, floored at zero\n:ivar disposition_required: Whether the teacher must choose carry or\n    waive, which the decision itself will insist on",
+        "properties": {
+          "disposition_required": {
+            "title": "Disposition Required",
+            "type": "boolean"
+          },
+          "shortfall": {
+            "$ref": "#/components/schemas/Money"
+          }
+        },
+        "required": [
+          "disposition_required",
+          "shortfall"
+        ],
+        "title": "ShortfallPreviewResponse",
+        "type": "object"
+      },
       "SignupRequest": {
         "additionalProperties": false,
         "description": "Create an account for a number nobody has registered.\n\nThe number is **typed by the person** and never read from the SIM\n[TC-4, D-35]: there is no device-side source for this field, here\nor anywhere in this product.\n\n:ivar phone: The number this identity is keyed on\n:ivar role: The claimed role; nothing verifies it [BR4.2]\n:ivar self_name: The name the person chose for themselves. Lands on\n    ``Profile.self_name`` and never on an ``Enrollment.display_name``\n    [BR3.1]\n:ivar address: Owner-private, and optional because the\n    already-added path reaches signup with no address yet",
@@ -2562,6 +2835,183 @@
         "title": "SuppressedMarksheetResponse",
         "type": "object"
       },
+      "TodayClassResponse": {
+        "additionalProperties": false,
+        "description": "One class today (T1).\n\n:ivar session_id: The class\n:ivar batch_id: Its batch\n:ivar batch_name: The batch's name\n:ivar subject_name: The subject, where one is set\n:ivar start_time: When it starts\n:ivar end_time: When it ends, where set\n:ivar status: ``scheduled``, ``held`` or ``cancelled``\n:ivar topic: The logged topic, where one was written\n:ivar topic_logged: Whether a topic was written at all\n:ivar attendance_version: The version a roster write composes against\n:ivar topic_version: The version a topic write composes against\n:ivar is_next: The first class still to start\n:ivar starts_in_minutes: Minutes until it starts, or null once begun\n:ivar exam_id: An exam this batch sits today\n:ivar exam_title: That exam's title",
+        "properties": {
+          "attendance_version": {
+            "title": "Attendance Version",
+            "type": "integer"
+          },
+          "batch_id": {
+            "format": "uuid",
+            "title": "Batch Id",
+            "type": "string"
+          },
+          "batch_name": {
+            "title": "Batch Name",
+            "type": "string"
+          },
+          "end_time": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Time"
+          },
+          "exam_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exam Id"
+          },
+          "exam_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exam Title"
+          },
+          "is_next": {
+            "title": "Is Next",
+            "type": "boolean"
+          },
+          "session_id": {
+            "format": "uuid",
+            "title": "Session Id",
+            "type": "string"
+          },
+          "start_time": {
+            "format": "time",
+            "title": "Start Time",
+            "type": "string"
+          },
+          "starts_in_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Starts In Minutes"
+          },
+          "status": {
+            "enum": [
+              "cancelled",
+              "held",
+              "scheduled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "subject_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Name"
+          },
+          "topic": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Topic"
+          },
+          "topic_logged": {
+            "title": "Topic Logged",
+            "type": "boolean"
+          },
+          "topic_version": {
+            "title": "Topic Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "attendance_version",
+          "batch_id",
+          "batch_name",
+          "is_next",
+          "session_id",
+          "start_time",
+          "status",
+          "topic_logged",
+          "topic_version"
+        ],
+        "title": "TodayClassResponse",
+        "type": "object"
+      },
+      "TodayResponse": {
+        "additionalProperties": false,
+        "description": "The teacher's Today screen in one read (T1).\n\n:ivar date: Today, in Bangladesh\n:ivar outstanding: Money owed and overdue\n:ivar classes: Today's classes, by start time\n:ivar to_verify_count: How many payments wait to be checked\n:ivar to_verify: The first few of them\n:ivar has_batches: Whether the teacher has made a batch yet",
+        "properties": {
+          "classes": {
+            "items": {
+              "$ref": "#/components/schemas/TodayClassResponse"
+            },
+            "title": "Classes",
+            "type": "array"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "has_batches": {
+            "title": "Has Batches",
+            "type": "boolean"
+          },
+          "outstanding": {
+            "$ref": "#/components/schemas/OutstandingResponse"
+          },
+          "to_verify": {
+            "items": {
+              "$ref": "#/components/schemas/ClaimQueueItemResponse"
+            },
+            "title": "To Verify",
+            "type": "array"
+          },
+          "to_verify_count": {
+            "title": "To Verify Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "classes",
+          "date",
+          "has_batches",
+          "outstanding",
+          "to_verify",
+          "to_verify_count"
+        ],
+        "title": "TodayResponse",
+        "type": "object"
+      },
       "TokenResponse": {
         "additionalProperties": false,
         "description": "A freshly issued token pair.\n\n**No lens and no role here either.** The response says nothing about\nwhat the account may do; that is resolved per request from the data\n[BR1.1].\n\n:ivar access_token: The short-lived bearer token\n:ivar refresh_token: The long-lived rotation token\n:ivar expires_in: Access-token lifetime in seconds",
@@ -2668,6 +3118,32 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "VerificationQueueResponse": {
+        "additionalProperties": false,
+        "description": "The teacher's payment queue.\n\n:ivar pending: Waiting claims, oldest first\n:ivar decided_recently: Claims decided in the last day, newest first",
+        "properties": {
+          "decided_recently": {
+            "items": {
+              "$ref": "#/components/schemas/RecentDecisionResponse"
+            },
+            "title": "Decided Recently",
+            "type": "array"
+          },
+          "pending": {
+            "items": {
+              "$ref": "#/components/schemas/ClaimQueueItemResponse"
+            },
+            "title": "Pending",
+            "type": "array"
+          }
+        },
+        "required": [
+          "decided_recently",
+          "pending"
+        ],
+        "title": "VerificationQueueResponse",
         "type": "object"
       },
       "VerificationRequest": {
@@ -4470,6 +4946,48 @@
         ]
       }
     },
+    "/v1/claims/queue": {
+      "get": {
+        "description": "List the claims waiting for this teacher, and recent decisions (T4).\n\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: Waiting claims and the last day's decisions",
+        "operationId": "read_verification_queue_v1_claims_queue_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerificationQueueResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          }
+        },
+        "summary": "Read Verification Queue",
+        "tags": [
+          "fees"
+        ]
+      }
+    },
     "/v1/claims/{claim_id}": {
       "get": {
         "description": "Read one of this claimant's own claims and its outcome.\n\nThe rejection the submitter must see [BR5.6] and the prior decision\na correction retained [BR5.7] are both carried here.\n\n:param claim_id: The claim, from the route path\n:param session: The request-scoped session\n:param lens: The student lens\n:return: The claim and its decision",
@@ -4630,6 +5148,100 @@
           }
         },
         "summary": "Record Rejection",
+        "tags": [
+          "fees"
+        ]
+      }
+    },
+    "/v1/claims/{claim_id}/shortfall": {
+      "post": {
+        "description": "Say what approving an amount would leave short, before deciding.\n\nA read, posted only because it carries an amount: nothing is written.\n\n:param claim_id: The claim, from the route path\n:param body: The amount the teacher is considering\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: The shortfall and whether carry-or-waive must be chosen",
+        "operationId": "preview_shortfall_v1_claims__claim_id__shortfall_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "claim_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Claim Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShortfallPreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShortfallPreviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview Shortfall",
         "tags": [
           "fees"
         ]
@@ -6015,6 +6627,48 @@
           }
         },
         "summary": "Read Overview",
+        "tags": [
+          "analytics"
+        ]
+      }
+    },
+    "/v1/me/today": {
+      "get": {
+        "description": "Read the teacher's Today screen in one request (T1).\n\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: Money owed, today's classes and payments waiting",
+        "operationId": "read_today_v1_me_today_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TodayResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "This account holds no teacher lens."
+          }
+        },
+        "summary": "Read Today",
         "tags": [
           "analytics"
         ]
