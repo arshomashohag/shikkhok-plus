@@ -89,6 +89,7 @@ class DestinationTest {
                 Destination.Exams.of("b-1", "Class 9"),
                 Destination.MarkEntry.of("x-1"),
                 Destination.CreateExam.of("b-1"),
+                Destination.BatchSchedule.of("b-1"),
                 Destination.Marksheet.of("x-1", "e-1", "SELF"),
                 Destination.Progress.of("e-1"),
                 Destination.FeeHistory.of("e-1", "GUARDIAN"),

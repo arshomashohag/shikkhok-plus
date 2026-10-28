@@ -521,4 +521,24 @@
     <string name="student_add_student_phone">শিক্ষার্থীর ফোন</string>
     <string name="student_add_student_phone_help">এই নম্বর দিয়ে তারা সাইন ইন করবে।</string>
     <string name="phone_invalid">01711-234567 এর মতো 11 সংখ্যার একটি মোবাইল নম্বর লিখুন</string>
+    <string name="schedule_duplicate_slot">একই ক্লাস দুবার দেওয়া হয়েছে। একটি সরিয়ে দিন।</string>
+    <string name="schedule_days">ক্লাসের দিন</string>
+    <string name="schedule_start">শুরু · %1$s</string>
+    <string name="schedule_end">শেষ · %1$s</string>
+    <string name="schedule_end_before_start">ক্লাস শুরুর পরে শেষ হতে হবে।</string>
+    <string name="schedule_none">এখনও কোনো ক্লাসের দিন নেই। দিন ঠিক করলে হাজিরার জন্য ক্লাস দেখা যাবে।</string>
+    <string name="screen_title_schedule">ক্লাসের সময়সূচি</string>
+    <string name="schedule_save">সময়সূচি সংরক্ষণ করুন</string>
+    <string name="schedule_keeps_sessions">আগে থেকে তালিকায় থাকা ক্লাসগুলো যেমন আছে তেমনই থাকবে। যেগুলো আর নেবেন না, ক্লাসের তালিকা থেকে বাতিল করুন।</string>
+    <string name="roster_open_schedule">সময়সূচি</string>
+    <string name="weekday_sat">শনি</string>
+    <string name="weekday_sun">রবি</string>
+    <string name="weekday_mon">সোম</string>
+    <string name="weekday_tue">মঙ্গল</string>
+    <string name="weekday_wed">বুধ</string>
+    <string name="weekday_thu">বৃহঃ</string>
+    <string name="weekday_fri">শুক্র</string>
+    <string name="session_add_date">তারিখ · %1$s</string>
+    <string name="session_add_confirm">ক্লাস যোগ করুন</string>
+    <string name="session_add_note">সাপ্তাহিক সময়সূচির বাইরে একবারের একটি ক্লাস।</string>
 </resources>

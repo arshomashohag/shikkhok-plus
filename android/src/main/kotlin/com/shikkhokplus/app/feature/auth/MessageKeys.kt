@@ -22,6 +22,7 @@ object MessageKeys {
         // A number that is not a Bangladeshi mobile, refused by the
         // server's canonicalisation on any route that takes a number.
         "phone.invalid" to R.string.phone_invalid,
+        "schedule.duplicate_slot" to R.string.schedule_duplicate_slot,
         "auth.otp.not_valid" to R.string.auth_otp_not_valid,
         "auth.otp.temporarily_unavailable" to
             R.string.auth_otp_temporarily_unavailable,

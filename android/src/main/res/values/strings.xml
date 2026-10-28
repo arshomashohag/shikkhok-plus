@@ -576,4 +576,24 @@
     <string name="student_add_student_phone">Student\'s phone</string>
     <string name="student_add_student_phone_help">They sign in with this number.</string>
     <string name="phone_invalid">Enter an 11-digit mobile number, like 01711-234567</string>
+    <string name="schedule_duplicate_slot">The same class is listed twice. Remove one.</string>
+    <string name="schedule_days">Class days</string>
+    <string name="schedule_start">Starts · %1$s</string>
+    <string name="schedule_end">Ends · %1$s</string>
+    <string name="schedule_end_before_start">A class must end after it starts.</string>
+    <string name="schedule_none">No class days yet. Classes appear for attendance once days are set.</string>
+    <string name="screen_title_schedule">Class schedule</string>
+    <string name="schedule_save">Save schedule</string>
+    <string name="schedule_keeps_sessions">Classes already listed stay as they are. Cancel any you no longer hold from the class list.</string>
+    <string name="roster_open_schedule">Schedule</string>
+    <string name="weekday_sat">Sat</string>
+    <string name="weekday_sun">Sun</string>
+    <string name="weekday_mon">Mon</string>
+    <string name="weekday_tue">Tue</string>
+    <string name="weekday_wed">Wed</string>
+    <string name="weekday_thu">Thu</string>
+    <string name="weekday_fri">Fri</string>
+    <string name="session_add_date">Date · %1$s</string>
+    <string name="session_add_confirm">Add class</string>
+    <string name="session_add_note">A one-off class, outside the weekly schedule.</string>
 </resources>

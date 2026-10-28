@@ -31,7 +31,7 @@ class CreateBatchScreenTest {
         compose.setContent {
             CreateBatchScreen(
                 state = CreateBatchUiState.Form,
-                onCreate = { _, _, _, _ -> },
+                onCreate = { _, _, _, _, _ -> },
                 onCancel = {},
             )
         }
@@ -47,7 +47,7 @@ class CreateBatchScreenTest {
         compose.setContent {
             CreateBatchScreen(
                 state = CreateBatchUiState.Submitting,
-                onCreate = { _, _, _, _ -> },
+                onCreate = { _, _, _, _, _ -> },
                 onCancel = {},
             )
         }
@@ -64,7 +64,7 @@ class CreateBatchScreenTest {
                     "batch.create.subject_required",
                     retryable = false,
                 ),
-                onCreate = { _, _, _, _ -> },
+                onCreate = { _, _, _, _, _ -> },
                 onCancel = {},
             )
         }
@@ -83,7 +83,7 @@ class CreateBatchScreenTest {
                     "batch.create.subject_required",
                     retryable = false,
                 ),
-                onCreate = { _, _, _, _ -> },
+                onCreate = { _, _, _, _, _ -> },
                 onCancel = {},
             )
         }
@@ -96,7 +96,7 @@ class CreateBatchScreenTest {
         compose.setContent {
             CreateBatchScreen(
                 state = CreateBatchUiState.Created("Physics"),
-                onCreate = { _, _, _, _ -> },
+                onCreate = { _, _, _, _, _ -> },
                 onCancel = {},
             )
         }

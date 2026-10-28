@@ -123,6 +123,19 @@ sealed interface Destination {
                 java.net.URLEncoder.encode(name, "UTF-8")
     }
 
+    /** One batch's weekly classes, which sessions are generated from. */
+    data object BatchSchedule : Destination {
+        override val route: String = "batches/{batchId}/schedule"
+
+        /**
+         * Build a concrete route for one batch.
+         *
+         * @param id The batch
+         * @return The route to navigate to
+         */
+        fun of(id: String): String = "batches/$id/schedule"
+    }
+
     /** Marking one session's roster [BR3.5]. */
     data object Attendance : Destination {
         override val route: String = "sessions/{sessionId}/attendance"

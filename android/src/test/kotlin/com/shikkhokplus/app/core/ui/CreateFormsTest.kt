@@ -4,6 +4,12 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.Modifier
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.Column
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
@@ -71,16 +77,21 @@ class CreateFormsTest {
     fun `a fee typed in Bangla digits is sent in Latin canonical form`() {
         var captured: String? = null
         compose.setContent {
-            BatchCreateForm(
-                onCreate = { _, _, fee, _ -> captured = fee },
-                onCancel = {},
-            )
+            // Hosted in a scroll, as ScreenScaffold hosts it in the app:
+            // with the schedule editor the button sits below a 414dp
+            // window, and a tap on an off-screen node is lost.
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                BatchCreateForm(
+                    onCreate = { _, _, fee, _, _ -> captured = fee },
+                    onCancel = {},
+                )
+            }
         }
 
         compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Class 9")
         compose.onNodeWithTag(TAG_FORM_SUBJECTS).performTextInput("Physics")
         compose.onNodeWithTag(TAG_FORM_FEE).performTextInput("১,৫০০")
-        compose.onNodeWithTag(TAG_FORM_SUBMIT).performClick()
+        compose.onNodeWithTag(TAG_FORM_SUBMIT).performScrollTo().performClick()
 
         assertEquals("1500.00", captured)
     }
@@ -89,7 +100,7 @@ class CreateFormsTest {
     fun `a fee that is not an amount blocks submit rather than being sent`() {
         var called = false
         compose.setContent {
-            BatchCreateForm(onCreate = { _, _, _, _ -> called = true }, onCancel = {})
+            BatchCreateForm(onCreate = { _, _, _, _, _ -> called = true }, onCancel = {})
         }
 
         compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Class 9")
@@ -106,7 +117,7 @@ class CreateFormsTest {
         // The field accepted any two digits; the server refuses 0 and
         // anything past 31.
         compose.setContent {
-            BatchCreateForm(onCreate = { _, _, _, _ -> }, onCancel = {})
+            BatchCreateForm(onCreate = { _, _, _, _, _ -> }, onCancel = {})
         }
 
         compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Class 9")
@@ -121,7 +132,7 @@ class CreateFormsTest {
         // The form now stays open until the server answers, so it must
         // not be able to start a second write meanwhile.
         compose.setContent {
-            BatchCreateForm(onCreate = { _, _, _, _ -> }, onCancel = {}, saving = true)
+            BatchCreateForm(onCreate = { _, _, _, _, _ -> }, onCancel = {}, saving = true)
         }
 
         compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Class 9")
@@ -298,12 +309,33 @@ class CreateFormsTest {
     fun `cancel does not submit`() {
         var called = false
         compose.setContent {
-            BatchCreateForm(onCreate = { _, _, _, _ -> called = true }, onCancel = {})
+            BatchCreateForm(onCreate = { _, _, _, _, _ -> called = true }, onCancel = {})
         }
 
         compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Class 9")
         compose.onNodeWithTag(TAG_FORM_CANCEL).performClick()
 
         assertEquals(false, called)
+    }
+
+    @Test
+    fun `the class days chosen are sent with the new batch`() {
+        // A batch created without them had no schedule, so no session
+        // was ever generated for it.
+        var sent: List<com.shikkhokplus.app.core.network.ScheduleSlotDto>? = null
+        compose.setContent {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                BatchCreateForm(onCreate = { _, _, _, _, schedule -> sent = schedule }, onCancel = {})
+            }
+        }
+        compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Batch A")
+        compose.onNodeWithTag(TAG_FORM_SUBJECTS).performTextInput("Physics")
+
+        // Saturday then Monday, by the chips' week order (Sat, Sun, Mon...).
+        compose.onAllNodesWithTag(TAG_SCHEDULE_DAY)[0].performScrollTo().performClick()
+        compose.onAllNodesWithTag(TAG_SCHEDULE_DAY)[2].performScrollTo().performClick()
+        compose.onNodeWithTag(TAG_FORM_SUBMIT).performScrollTo().performClick()
+
+        assertEquals(listOf(5, 0), sent?.map { it.weekday })
     }
 }

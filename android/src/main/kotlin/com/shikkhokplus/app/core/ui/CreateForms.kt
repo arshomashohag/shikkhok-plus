@@ -23,6 +23,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
 import com.shikkhokplus.app.core.model.Money
+import com.shikkhokplus.app.core.network.ScheduleSlotDto
 
 /** Stable test identifiers. Not user-visible text. */
 const val TAG_FORM_NAME: String = "form_name"
@@ -74,8 +75,8 @@ fun splitSubjects(raw: String): List<String> =
  * check with no server counterpart would be a business rule living on
  * the client.
  *
- * @param onCreate Called with the entered values, the fee already in
- *   canonical form
+ * @param onCreate Called with name, subjects, the fee in canonical form,
+ *   the due day, and the weekly classes (possibly none)
  * @param onCancel Called when the teacher backs out
  * @param modifier The layout modifier
  * @param saving True while the write is in flight; the form stays open
@@ -85,7 +86,7 @@ fun splitSubjects(raw: String): List<String> =
  */
 @Composable
 fun BatchCreateForm(
-    onCreate: (String, List<String>, String?, Int?) -> Unit,
+    onCreate: (String, List<String>, String?, Int?, List<ScheduleSlotDto>) -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
     saving: Boolean = false,
@@ -95,6 +96,7 @@ fun BatchCreateForm(
     var subjects by remember { mutableStateOf("") }
     var fee by remember { mutableStateOf("") }
     var dueDay by remember { mutableStateOf("") }
+    var schedule by remember { mutableStateOf(ScheduleDraft()) }
 
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -153,6 +155,11 @@ fun BatchCreateForm(
                 },
             modifier = Modifier.fillMaxWidth().testTag(TAG_FORM_DUE_DAY),
         )
+        // **Class days, so the batch has sessions from the start.** A
+        // batch created without them had no schedule, so no session was
+        // ever generated and attendance could not be taken (T0: "name the
+        // batch and pick its class days, time and monthly fee").
+        ScheduleEditor(draft = schedule, onChange = { schedule = it })
 
         // **Shown on the form, beside what was typed.** The form used
         // to close before the server answered, so a refusal had nowhere
@@ -174,6 +181,7 @@ fun BatchCreateForm(
                         splitSubjects(subjects),
                         canonicalFee(fee),
                         dueDay.trim().toIntOrNull(),
+                        schedule.toSlots(),
                     )
                 },
                 // **`subjects` too, not just the name.** The server
@@ -192,7 +200,8 @@ fun BatchCreateForm(
                         name.isNotBlank() &&
                         splitSubjects(subjects).isNotEmpty() &&
                         feeIsValid(fee) &&
-                        dueDayIsValid(dueDay),
+                        dueDayIsValid(dueDay) &&
+                        schedule.isValid,
                 modifier = Modifier.testTag(TAG_FORM_SUBMIT),
             ) {
                 Text(stringResource(R.string.batch_create_submit))

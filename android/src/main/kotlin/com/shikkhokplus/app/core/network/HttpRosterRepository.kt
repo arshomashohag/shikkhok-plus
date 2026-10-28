@@ -9,6 +9,7 @@ import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.patch
 import io.ktor.client.request.post
+import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.http.isSuccess
@@ -28,6 +29,13 @@ private data class BatchCreateBody(
     val subjects: List<String>,
     @SerialName("default_fee") val defaultFee: String? = null,
     @SerialName("fee_due_day") val feeDueDay: Int? = null,
+    val schedule: List<ScheduleSlotDto> = emptyList(),
+)
+
+/** The replace-schedule body. */
+@Serializable
+private data class ScheduleBody(
+    val slots: List<ScheduleSlotDto>,
 )
 
 /**
@@ -171,6 +179,7 @@ class HttpBatchesRepository(
         subjects: List<String>,
         defaultFee: String?,
         feeDueDay: Int?,
+        schedule: List<ScheduleSlotDto>,
     ): AuthResult<BatchDto> =
         try {
             val response =
@@ -181,6 +190,7 @@ class HttpBatchesRepository(
                             subjects = subjects,
                             defaultFee = defaultFee?.ifBlank { null },
                             feeDueDay = feeDueDay,
+                            schedule = schedule,
                         ),
                     )
                 }
@@ -203,5 +213,30 @@ class HttpBatchesRepository(
             }
         } catch (_: Exception) {
             AuthResult.TransportFailure
+        }
+}
+
+/**
+ * A batch's weekly schedule, over HTTP.
+ *
+ * Saving REPLACES the schedule and the server generates the batch's
+ * sessions at once, so attendance can be taken without waiting for the
+ * nightly job.
+ *
+ * @property client The authenticated HTTP client
+ */
+class HttpScheduleRepository(
+    private val client: HttpClient,
+) : com.shikkhokplus.app.feature.schedule.ScheduleRepository {
+
+    override suspend fun schedule(batchId: String): AuthResult<List<ScheduleSlotDto>> =
+        call { client.get("/v1/batches/$batchId/schedule") }
+
+    override suspend fun save(
+        batchId: String,
+        slots: List<ScheduleSlotDto>,
+    ): AuthResult<List<ScheduleSlotDto>> =
+        call {
+            client.put("/v1/batches/$batchId/schedule") { setBody(ScheduleBody(slots)) }
         }
 }

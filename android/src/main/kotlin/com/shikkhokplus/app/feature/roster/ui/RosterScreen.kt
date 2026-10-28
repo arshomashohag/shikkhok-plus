@@ -57,6 +57,9 @@ const val TAG_ROSTER_SESSIONS: String = "roster_sessions"
 /** The marks entry point. */
 const val TAG_ROSTER_EXAMS: String = "roster_exams"
 
+/** The schedule entry point. */
+const val TAG_ROSTER_SCHEDULE: String = "roster_schedule"
+
 /** The accepted-of-total count for this batch. */
 const val TAG_ROSTER_ACCEPTED_COUNT: String = "roster_accepted_count"
 
@@ -115,6 +118,7 @@ fun RosterScreen(
     onAddStudent: () -> Unit = {},
     onOpenSessions: () -> Unit = {},
     onOpenExams: () -> Unit = {},
+    onOpenSchedule: () -> Unit = {},
     onRemove: (RosterRow) -> Unit = {},
     onConfirmRemoval: (RosterRow) -> Unit = {},
     onCancelRemoval: () -> Unit = {},
@@ -158,7 +162,7 @@ fun RosterScreen(
             }
 
             is RosterUiState.Loaded ->
-                RosterList(state, onAddStudent, onOpenSessions, onOpenExams, onRemove)
+                RosterList(state, onAddStudent, onOpenSessions, onOpenExams, onOpenSchedule, onRemove)
 
             // Both removal states are drawn by `RemoveSeatConfirm.kt`,
             // so the confirmation and its two refusals are one
@@ -206,6 +210,7 @@ private fun RosterList(
     onAddStudent: () -> Unit,
     onOpenSessions: () -> Unit,
     onOpenExams: () -> Unit,
+    onOpenSchedule: () -> Unit,
     onRemove: (RosterRow) -> Unit,
 ) {
     // **"9 of 12 accepted"** [AC1.3.5a]. The count is at BATCH level
@@ -238,6 +243,11 @@ private fun RosterList(
     }
     Button(onClick = onOpenExams, modifier = Modifier.testTag(TAG_ROSTER_EXAMS)) {
         Text(stringResource(R.string.roster_open_exams))
+    }
+    // Without a schedule a batch has no sessions, so this sits beside
+    // Attendance, which is empty until it is set.
+    Button(onClick = onOpenSchedule, modifier = Modifier.testTag(TAG_ROSTER_SCHEDULE)) {
+        Text(stringResource(R.string.roster_open_schedule))
     }
     state.fetchedAtLabel?.let { label ->
         // The cache is a READ cache, and saying so is part of the

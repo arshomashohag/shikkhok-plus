@@ -1,13 +1,13 @@
 package com.shikkhokplus.app.navigation
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import com.shikkhokplus.app.feature.profile.ui.DeleteAccountScreen
 import com.shikkhokplus.app.core.format.Numerals
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
@@ -48,7 +48,6 @@ import com.shikkhokplus.app.feature.batches.BatchesViewModel
 import com.shikkhokplus.app.feature.batches.ui.BatchesScreen
 import com.shikkhokplus.app.feature.roster.RosterViewModel
 import com.shikkhokplus.app.feature.roster.ui.RosterScreen
-import com.shikkhokplus.app.core.network.HttpAttendanceRepository
 import com.shikkhokplus.app.core.queue.QueueStore
 import com.shikkhokplus.app.core.session.Lens
 import com.shikkhokplus.app.core.network.HttpFeesRepository
@@ -56,11 +55,6 @@ import com.shikkhokplus.app.core.network.HttpGuardianRepository
 import com.shikkhokplus.app.core.network.HttpInvitationsRepository
 import com.shikkhokplus.app.core.network.HttpMarksRepository
 import com.shikkhokplus.app.core.network.HttpProfileRepository
-import com.shikkhokplus.app.core.network.HttpSessionsRepository
-import com.shikkhokplus.app.feature.attendance.AttendanceUiState
-import com.shikkhokplus.app.feature.attendance.AttendanceViewModel
-import com.shikkhokplus.app.feature.attendance.ui.AttendanceScreen
-import com.shikkhokplus.app.feature.attendance.ui.ConflictScreen
 import com.shikkhokplus.app.feature.fees.FeeReader
 import com.shikkhokplus.app.feature.fees.FeesViewModel
 import com.shikkhokplus.app.feature.fees.ui.FeeHistoryScreen
@@ -72,15 +66,10 @@ import com.shikkhokplus.app.feature.invitations.InvitationsViewModel
 import com.shikkhokplus.app.feature.invitations.ui.InvitationsScreen
 import com.shikkhokplus.app.feature.marks.MarksViewModel
 import com.shikkhokplus.app.feature.marks.MarksheetReader
-import com.shikkhokplus.app.feature.marks.ui.ExamCreateForm
-import com.shikkhokplus.app.feature.marks.ui.ExamListScreen
-import com.shikkhokplus.app.feature.marks.ui.MarkEntryScreen
 import com.shikkhokplus.app.feature.marks.ui.MarksheetScreen
 import com.shikkhokplus.app.feature.marks.ui.ProgressScreen
 import com.shikkhokplus.app.feature.profile.ProfileViewModel
 import com.shikkhokplus.app.feature.profile.ui.ProfileScreen
-import com.shikkhokplus.app.feature.sessions.SessionsViewModel
-import com.shikkhokplus.app.feature.sessions.ui.SessionListScreen
 import io.ktor.client.HttpClient
 
 /**
@@ -348,8 +337,8 @@ fun ShikkhokNavHost(
                 onBack = { leave() },
             ) {
                 BatchCreateForm(
-                    onCreate = { name, subjects, fee, dueDay ->
-                        model.create(name, subjects, fee, dueDay)
+                    onCreate = { name, subjects, fee, dueDay, schedule ->
+                        model.create(name, subjects, fee, dueDay, schedule)
                     },
                     onCancel = { leave() },
                     saving = write == WriteState.Saving,
@@ -386,6 +375,7 @@ fun ShikkhokNavHost(
                     navController.navigate(Destination.Sessions.of(id, name))
                 },
                 onOpenExams = { navController.navigate(Destination.Exams.of(id, name)) },
+                onOpenSchedule = { navController.navigate(Destination.BatchSchedule.of(id)) },
                 // The removal flow was built in full and these were left
                 // at their defaults, so Remove did nothing.
                 onRemove = model::confirmRemoval,
@@ -451,209 +441,7 @@ fun ShikkhokNavHost(
             }
         }
 
-        composable(
-            route = Destination.Sessions.route,
-            arguments =
-                listOf(
-                    navArgument(Destination.Roster.ARG_ID) { type = NavType.StringType },
-                    navArgument(Destination.Roster.ARG_NAME) {
-                        type = NavType.StringType
-                        defaultValue = ""
-                    },
-                ),
-        ) { entry ->
-            val id = entry.arguments?.getString(Destination.Roster.ARG_ID).orEmpty()
-            val name = entry.arguments?.getString(Destination.Roster.ARG_NAME).orEmpty()
-
-            val model: SessionsViewModel =
-                viewModel(key = id) { SessionsViewModel(HttpSessionsRepository(client)) }
-            val state by model.state.collectAsState()
-
-            LaunchedEffect(id) { model.load(id, name) }
-
-            SessionListScreen(
-                state = state,
-                onOpen = { row ->
-                    navController.navigate(Destination.Attendance.of(row.sessionId))
-                },
-                onRetry = model::retry,
-            )
-        }
-
-        composable(
-            route = Destination.Attendance.route,
-            arguments =
-                listOf(
-                    navArgument(Destination.Attendance.ARG_SESSION) {
-                        type = NavType.StringType
-                    },
-                ),
-        ) { entry ->
-            val sessionId =
-                entry.arguments?.getString(Destination.Attendance.ARG_SESSION).orEmpty()
-
-            val model: AttendanceViewModel =
-                viewModel(key = sessionId) {
-                    AttendanceViewModel(
-                        HttpAttendanceRepository(client),
-                        HttpSessionsRepository(client),
-                        queue,
-                    )
-                }
-            val state by model.state.collectAsState()
-
-            LaunchedEffect(sessionId) { model.load(sessionId) }
-
-            // **A conflict is its own screen, not a banner.** The
-            // teacher is choosing between two rosters that disagree,
-            // and that decision needs both of them side by side
-            // [BR3.6]. Rendering it inside the marking screen would
-            // put a destructive choice next to the controls that
-            // caused it.
-            val conflict = state
-            if (conflict is AttendanceUiState.Conflicted) {
-                ConflictScreen(
-                    state = conflict,
-                    onReapply = model::reapply,
-                    onDiscard = model::discard,
-                )
-            } else {
-                val marking = state as? AttendanceUiState.Marking
-                AttendanceScreen(
-                    state = state,
-                    onToggle = { seat, present -> model.toggle(seat, present) },
-                    onSubmit = {
-                        // The version comes from the state the roster
-                        // was COMPOSED against, never from a fresh
-                        // read: re-reading it here would resolve every
-                        // conflict by silently winning [BR3.7].
-                        marking?.let {
-                            model.submit(
-                                sessionId = it.sessionId,
-                                baseVersion = it.attendanceVersion,
-                                seats = it.seats,
-                            )
-                        }
-                    },
-                    onRetry = model::retry,
-                )
-            }
-        }
-
-        composable(
-            route = Destination.Exams.route,
-            arguments =
-                listOf(
-                    navArgument(Destination.Roster.ARG_ID) { type = NavType.StringType },
-                    navArgument(Destination.Roster.ARG_NAME) {
-                        type = NavType.StringType
-                        defaultValue = ""
-                    },
-                ),
-        ) { entry ->
-            val id = entry.arguments?.getString(Destination.Roster.ARG_ID).orEmpty()
-            val name = entry.arguments?.getString(Destination.Roster.ARG_NAME).orEmpty()
-
-            val model: MarksViewModel =
-                viewModel(key = id) { MarksViewModel(HttpMarksRepository(client)) }
-            val state by model.state.collectAsState()
-
-            LaunchedEffect(id) { model.loadExams(id, name) }
-
-            ExamListScreen(
-                state = state,
-                onOpen = { row ->
-                    navController.navigate(Destination.MarkEntry.of(row.examId))
-                },
-                // Was left at its default, so the button did nothing and
-                // no exam could ever be created -- which left marks
-                // entry with nothing to open.
-                onCreate = { navController.navigate(Destination.CreateExam.of(id)) },
-                onRetry = model::retry,
-            )
-        }
-
-        composable(
-            route = Destination.CreateExam.route,
-            arguments =
-                listOf(
-                    navArgument(Destination.Roster.ARG_ID) { type = NavType.StringType },
-                ),
-        ) { entry ->
-            val id = entry.arguments?.getString(Destination.Roster.ARG_ID).orEmpty()
-
-            // The EXAM LIST's ViewModel, as CreateBatch shares the batch
-            // list's: the created exam is in the list this returns to.
-            val parent =
-                remember(entry) { navController.getBackStackEntry(Destination.Exams.route) }
-            val model: MarksViewModel =
-                viewModel(parent, key = id) { MarksViewModel(HttpMarksRepository(client)) }
-            val write by model.writeState.collectAsState()
-            val subjects by model.subjectOptions.collectAsState()
-
-            LaunchedEffect(id) { model.loadSubjectOptions(id) }
-
-            // Close on the server's answer, never on the tap. See
-            // WriteState for the race that closing on the tap caused.
-            LaunchedEffect(write) {
-                if (write == WriteState.Saved) {
-                    model.acknowledgeWrite()
-                    navController.popBackStack()
-                }
-            }
-            val leave = {
-                model.acknowledgeWrite()
-                navController.popBackStack()
-            }
-
-            ScreenScaffold(
-                title = stringResource(R.string.screen_title_create_exam),
-                onBack = { leave() },
-            ) {
-                ExamCreateForm(
-                    subjects = subjects,
-                    onCreate = { title, date, total, subjectId ->
-                        model.createExam(title, date, total, subjectId)
-                    },
-                    onCancel = { leave() },
-                    saving = write == WriteState.Saving,
-                    error = writeError(write),
-                )
-            }
-        }
-
-        composable(
-            route = Destination.MarkEntry.route,
-            arguments =
-                listOf(
-                    navArgument(Destination.MarkEntry.ARG_EXAM) {
-                        type = NavType.StringType
-                    },
-                ),
-        ) { entry ->
-            val examId =
-                entry.arguments?.getString(Destination.MarkEntry.ARG_EXAM).orEmpty()
-
-            val model: MarksViewModel =
-                viewModel(key = examId) { MarksViewModel(HttpMarksRepository(client)) }
-            val state by model.state.collectAsState()
-
-            LaunchedEffect(examId) { model.loadResults(examId) }
-
-            MarkEntryScreen(
-                state = state,
-                onMark = { row, marks ->
-                    model.writeMark(row.enrollmentId, resultState = "marked", marks = marks)
-                },
-                // **Absent carries no marks at all.** A zero is a mark,
-                // and publishing one where the teacher recorded an
-                // absence is the conflation [BR4.3] forbids.
-                onAbsent = { row ->
-                    model.writeMark(row.enrollmentId, resultState = "absent", marks = null)
-                },
-                onRetry = model::retry,
-            )
-        }
+        teachingRoutes(client, queue, navController)
 
         composable(
             route = Destination.Marksheet.route,
@@ -927,7 +715,7 @@ private fun SignOutDialog(unsent: Int, onConfirm: () -> Unit, onDismiss: () -> U
  * @return The message, or null when there is nothing to report
  */
 @Composable
-private fun writeError(write: WriteState): String? =
+internal fun writeError(write: WriteState): String? =
     (write as? WriteState.Failed)?.let { stringResource(MessageKeys.resolve(it.messageKey)) }
 
 /**

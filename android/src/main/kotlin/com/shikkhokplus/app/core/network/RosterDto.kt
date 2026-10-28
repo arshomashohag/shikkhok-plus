@@ -86,11 +86,29 @@ data class BatchDto(
     val name: String,
     val subjects: List<String> = emptyList(),
     @SerialName("subject_options") val subjectOptions: List<SubjectOptionDto> = emptyList(),
+    val schedule: List<ScheduleSlotDto> = emptyList(),
     @SerialName("default_fee") val defaultFee: Money? = null,
     @SerialName("fee_due_day") val feeDueDay: Int? = null,
     val active: Boolean = true,
     @SerialName("enrollment_count") val enrollmentCount: Int = 0,
     @SerialName("accepted_count") val acceptedCount: Int = 0,
+)
+
+/**
+ * One weekly class of a batch.
+ *
+ * Times are `HH:MM`, 24-hour, exactly as the server sends them; the
+ * screen formats them for display.
+ *
+ * @property weekday 0-6, Monday through Sunday
+ * @property startTime When it starts
+ * @property endTime When it ends
+ */
+@Serializable
+data class ScheduleSlotDto(
+    val weekday: Int,
+    @SerialName("start_time") val startTime: String,
+    @SerialName("end_time") val endTime: String,
 )
 
 /**

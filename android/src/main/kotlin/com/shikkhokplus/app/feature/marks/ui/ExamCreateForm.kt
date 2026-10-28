@@ -30,15 +30,14 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
 import com.shikkhokplus.app.core.designsystem.LogoLoader
+import com.shikkhokplus.app.core.format.displayDate
+import com.shikkhokplus.app.core.format.isoDate
+import com.shikkhokplus.app.core.format.todayAsUtcMillis
 import com.shikkhokplus.app.core.network.SubjectOptionDto
 import com.shikkhokplus.app.core.ui.TAG_FORM_CANCEL
 import com.shikkhokplus.app.core.ui.TAG_FORM_ERROR
 import com.shikkhokplus.app.core.ui.TAG_FORM_NAME
 import com.shikkhokplus.app.core.ui.TAG_FORM_SUBMIT
-import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Locale
-import java.util.TimeZone
 
 /** The total-marks field. */
 const val TAG_EXAM_TOTAL: String = "exam_total"
@@ -210,54 +209,3 @@ fun ExamCreateForm(
         ) { DatePicker(state = picker) }
     }
 }
-
-/**
- * Today's date as the date picker counts it: UTC midnight.
- *
- * The picker speaks UTC midnights. Today must be the LOCAL calendar
- * date expressed that way, or a teacher in Bangladesh (UTC+6) opening
- * the form before 6 am would be offered yesterday.
- *
- * @return Midnight UTC of today's local date
- */
-internal fun todayAsUtcMillis(): Long {
-    val local = Calendar.getInstance()
-    val utc = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
-    utc.clear()
-    utc.set(
-        local.get(Calendar.YEAR),
-        local.get(Calendar.MONTH),
-        local.get(Calendar.DAY_OF_MONTH),
-    )
-    return utc.timeInMillis
-}
-
-/**
- * The wire form of a picked date.
- *
- * **Formatted in UTC**, because the picker's millis are UTC midnight.
- * Formatted in local time they read correctly east of UTC -- so a test
- * run in Dhaka would pass -- and show the previous day anywhere west of
- * it. Formatting in UTC is right in every zone.
- *
- * @param utcMillis A date as the picker reports it
- * @return `yyyy-MM-dd`
- */
-internal fun isoDate(utcMillis: Long): String = utcFormat("yyyy-MM-dd").format(utcMillis)
-
-/**
- * A picked date for display, with Latin digits per the numeral rule.
- *
- * @param utcMillis A date as the picker reports it
- * @return e.g. `4 Nov 2026`
- */
-internal fun displayDate(utcMillis: Long): String = utcFormat("d MMM yyyy").format(utcMillis)
-
-/**
- * A formatter fixed to UTC and English, so digits are always Latin.
- *
- * @param pattern The date pattern
- * @return The formatter
- */
-private fun utcFormat(pattern: String): SimpleDateFormat =
-    SimpleDateFormat(pattern, Locale.ENGLISH).apply { timeZone = TimeZone.getTimeZone("UTC") }

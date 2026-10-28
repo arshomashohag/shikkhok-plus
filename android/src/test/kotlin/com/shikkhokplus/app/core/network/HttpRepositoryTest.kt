@@ -337,4 +337,28 @@ class HttpRepositoryTest {
         val body = (engine.requestHistory.single().body as io.ktor.http.content.TextContent).text
         kotlin.test.assertTrue(""""student_phone":"01711-234567"""" in body, body)
     }
+
+    @Test
+    fun `saving a schedule replaces it with a PUT of every slot`() = runTest {
+        val engine =
+            MockEngine {
+                respond(
+                    """[{"weekday":0,"start_time":"16:00","end_time":"17:00"}]""",
+                    HttpStatusCode.OK,
+                    jsonHeaders(),
+                )
+            }
+
+        val result =
+            HttpScheduleRepository(client(engine)).save("b-1", listOf(ScheduleSlotDto(0, "16:00", "17:00")))
+
+        kotlin.test.assertIs<AuthResult.Ok<List<ScheduleSlotDto>>>(result)
+        val sent = engine.requestHistory.single()
+        assertEquals(io.ktor.http.HttpMethod.Put, sent.method)
+        assertEquals("/v1/batches/b-1/schedule", sent.url.encodedPath)
+        assertEquals(
+            """{"slots":[{"weekday":0,"start_time":"16:00","end_time":"17:00"}]}""",
+            (sent.body as io.ktor.http.content.TextContent).text,
+        )
+    }
 }
