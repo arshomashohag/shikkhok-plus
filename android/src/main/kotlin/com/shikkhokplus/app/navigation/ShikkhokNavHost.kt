@@ -443,6 +443,14 @@ fun ShikkhokNavHost(
 
         teachingRoutes(client, queue, navController)
 
+        studentRoutes(client, navController) {
+            BottomNav(
+                destinations = tabsFor(session.lens),
+                selectedIndex = tabIndexOf(session.lens, Destination.MyBatches.route),
+                onSelect = { navController.switchTab(it, session.lens) },
+            )
+        }
+
         composable(
             route = Destination.Marksheet.route,
             arguments =
@@ -486,17 +494,41 @@ fun ShikkhokNavHost(
                     navArgument(Destination.Progress.ARG_SEAT) {
                         type = NavType.StringType
                     },
+                    navArgument(Destination.Progress.ARG_READER) {
+                        type = NavType.StringType
+                        defaultValue = MarksheetReader.CHILD.name
+                    },
+                    navArgument(Destination.Progress.ARG_CHILD) {
+                        type = NavType.StringType
+                        defaultValue = ""
+                    },
+                    navArgument(Destination.Progress.ARG_BATCH) {
+                        type = NavType.StringType
+                        defaultValue = ""
+                    },
                 ),
         ) { entry ->
-            val seat = entry.arguments?.getString(Destination.Progress.ARG_SEAT).orEmpty()
+            val args = entry.arguments
+            val seat = args?.getString(Destination.Progress.ARG_SEAT).orEmpty()
+            val reader = readerOrSelf(args?.getString(Destination.Progress.ARG_READER))
+            val child = args?.getString(Destination.Progress.ARG_CHILD).orEmpty()
+            val batch = args?.getString(Destination.Progress.ARG_BATCH).orEmpty()
 
             val model: MarksViewModel =
                 viewModel(key = seat) { MarksViewModel(HttpMarksRepository(client)) }
             val state by model.state.collectAsState()
 
-            LaunchedEffect(seat) { model.loadProgress(seat) }
+            LaunchedEffect(seat) { model.loadProgress(seat, reader, child, batch) }
 
-            ProgressScreen(state = state, onRetry = model::retry)
+            ProgressScreen(
+                state = state,
+                onRetry = model::retry,
+                onOpenExam = { examId ->
+                    navController.navigate(
+                        Destination.Marksheet.of(examId, seat, reader.name),
+                    )
+                },
+            )
         }
 
         composable(
@@ -537,7 +569,14 @@ fun ShikkhokNavHost(
             GuardianHomeScreen(
                 state = state,
                 onSelectChild = { child ->
-                    navController.navigate(Destination.Progress.of(child.enrollmentId))
+                    navController.navigate(
+                        Destination.Progress.of(
+                            child.enrollmentId,
+                            MarksheetReader.CHILD.name,
+                            child.displayName,
+                            child.batchName,
+                        ),
+                    )
                 },
                 onRetry = model::retry,
             )
@@ -764,9 +803,8 @@ internal fun homeFor(lens: Lens?): String =
     when (lens) {
         Lens.TEACHER -> Destination.Batches.route
         Lens.GUARDIAN -> Destination.GuardianHome.route
-        // A student's own seats are what they came for, and
-        // invitations is where an unaccepted one appears.
-        Lens.STUDENT -> Destination.Invitations.route
+        // A student's own seats are what they came for (S1).
+        Lens.STUDENT -> Destination.MyBatches.route
         null -> Destination.Invitations.route
     }
 
@@ -823,7 +861,13 @@ internal fun routesFor(lens: Lens?): List<String> =
                 Destination.Invitations.route,
                 Destination.Profile.route,
             )
-        Lens.STUDENT, null ->
+        Lens.STUDENT ->
+            listOf(
+                Destination.MyBatches.route,
+                Destination.Invitations.route,
+                Destination.Profile.route,
+            )
+        null ->
             listOf(
                 Destination.Invitations.route,
                 Destination.Profile.route,
@@ -867,7 +911,25 @@ private fun tabsFor(lens: Lens?): List<NavDestination> =
                     tag = "nav_tab_more",
                 ),
             )
-        Lens.STUDENT, null ->
+        Lens.STUDENT ->
+            listOf(
+                NavDestination(
+                    label = stringResource(R.string.nav_my_batches),
+                    icon = painterResource(R.drawable.ic_nav_today),
+                    tag = "nav_tab_my_batches",
+                ),
+                NavDestination(
+                    label = stringResource(R.string.nav_invitations),
+                    icon = painterResource(R.drawable.ic_nav_batches),
+                    tag = "nav_tab_invitations",
+                ),
+                NavDestination(
+                    label = stringResource(R.string.nav_more),
+                    icon = painterResource(R.drawable.ic_nav_more),
+                    tag = "nav_tab_more",
+                ),
+            )
+        null ->
             listOf(
                 NavDestination(
                     label = stringResource(R.string.nav_invitations),

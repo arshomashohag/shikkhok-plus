@@ -48,6 +48,9 @@ val WEEK_ORDER: List<Int> = listOf(5, 6, 0, 1, 2, 3, 4)
 /** Noon, the boundary between am and pm. */
 private const val NOON = 12
 
+/** `HH:MM` out of a time the server may send as `HH:MM:SS`. */
+private const val HHMM_LENGTH = 5
+
 /**
  * A schedule being edited: some days, one time range for all of them.
  *
@@ -105,6 +108,23 @@ fun displayTime(hhmm: String): String {
     val twelve = if (hour % NOON == 0) NOON else hour % NOON
     val half = if (hour < NOON) "am" else "pm"
     return "%d:%02d %s".format(java.util.Locale.ENGLISH, twelve, minute, half)
+}
+
+/**
+ * A schedule in one line, as the cards show it: `Sat · Mon · 4:00 pm`.
+ *
+ * Days in Bangladeshi week order and the first slot's start, since the
+ * app writes one time for every day; empty when there are no slots.
+ *
+ * @param slots The weekly classes
+ * @return The line
+ */
+@Composable
+fun scheduleSummary(slots: List<ScheduleSlotDto>): String {
+    val first = slots.firstOrNull() ?: return ""
+    val days = WEEK_ORDER.filter { day -> slots.any { it.weekday == day } }
+    val names = days.map { stringResource(dayName(it)) }
+    return (names + displayTime(first.startTime.take(HHMM_LENGTH))).joinToString(" · ")
 }
 
 /**
