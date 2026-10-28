@@ -271,4 +271,134 @@ class QueueSyncTest {
         assertEquals("", blank.topic)
         assertNotEquals(null, blank.topic)
     }
+
+    private fun refusal(retryable: Boolean): ErrorEnvelope =
+        ErrorEnvelope(
+            ErrorBody(
+                code = "SESSION_CANCELLED",
+                retryable = retryable,
+                messageKey = "teaching.session.cancelled",
+            ),
+        )
+
+    /**
+     * Run the loop for a fixed number of cycles, in virtual time.
+     *
+     * The loop never returns on its own -- it runs while the app is
+     * open -- so the test stops it by throwing from the injected delay.
+     */
+    private suspend fun cycles(sync: QueueSync, store: QueueStore, count: Int) {
+        var left = count
+        try {
+            keepDraining(sync, store) {
+                left -= 1
+                if (left == 0) throw StopLoop()
+            }
+        } catch (_: StopLoop) {
+            // The loop ran `count` times.
+        }
+    }
+
+    private class StopLoop : RuntimeException()
+
+    @Test
+    fun `the loop sends a waiting roster without being asked`() = runTest {
+        // **The trigger that did not exist.** The drain was built and
+        // never called, so a roster saved offline stayed on the phone.
+        val queue = store()
+        queue.enqueue(roster())
+        val transport = RecordingTransport(mutableListOf())
+
+        cycles(QueueSync(queue, transport), queue, count = 1)
+
+        assertEquals(1, transport.sent.size)
+        assertTrue(queue.read().isEmpty(), "an applied roster leaves the phone")
+    }
+
+    @Test
+    fun `a transport failure is retried on the next cycle`() = runTest {
+        val queue = store()
+        queue.enqueue(roster())
+        val transport = RecordingTransport(mutableListOf(SendOutcome.Failed(null)))
+
+        cycles(QueueSync(queue, transport), queue, count = 2)
+
+        assertEquals(2, transport.sent.size, "nothing arrived, so try again")
+        assertTrue(queue.read().isEmpty())
+    }
+
+    @Test
+    fun `a refusal the server calls final is not resent every cycle`() = runTest {
+        // A cancelled session refuses attendance for good. Re-sending it
+        // every thirty seconds would be refused every time [TC-9].
+        val queue = store()
+        queue.enqueue(roster())
+        val transport =
+            RecordingTransport(mutableListOf(SendOutcome.Failed(refusal(retryable = false))))
+
+        cycles(QueueSync(queue, transport), queue, count = 4)
+
+        assertEquals(1, transport.sent.size)
+        val kept = queue.read().single()
+        assertEquals(QueueState.FAILED, kept.state, "kept for the teacher to see")
+        assertEquals(false, kept.serverRetryable)
+    }
+
+    @Test
+    fun `a refusal the server calls retryable is tried again`() = runTest {
+        val queue = store()
+        queue.enqueue(roster())
+        val transport =
+            RecordingTransport(mutableListOf(SendOutcome.Failed(refusal(retryable = true))))
+
+        cycles(QueueSync(queue, transport), queue, count = 2)
+
+        assertEquals(2, transport.sent.size)
+    }
+
+    @Test
+    fun `a conflict is never retried by the loop`() = runTest {
+        // [BR3.6]: only the teacher moves a conflicted item.
+        val queue = store()
+        queue.enqueue(roster())
+        val transport =
+            RecordingTransport(
+                mutableListOf(SendOutcome.Conflicted(9, envelope("VERSION_CONFLICT"))),
+            )
+
+        cycles(QueueSync(queue, transport), queue, count = 4)
+
+        assertEquals(1, transport.sent.size)
+        assertEquals(QueueState.CONFLICTED, queue.read().single().state)
+    }
+
+    @Test
+    fun `an empty queue sends nothing`() = runTest {
+        val queue = store()
+        val transport = RecordingTransport(mutableListOf())
+
+        cycles(QueueSync(queue, transport), queue, count = 3)
+
+        assertTrue(transport.sent.isEmpty())
+    }
+
+    @Test
+    fun `a queue file from before the retryable field still drains`() = runTest {
+        // The field defaults to true, so an old FAILED item is retried
+        // rather than stranded by an upgrade.
+        // Written through the real store, then the new field stripped
+        // from the text: a hand-built file would test a format the
+        // store does not write.
+        val file = File(folder.root, QueueStore.FILE_NAME)
+        QueueStore(file).enqueue(roster().copy(state = QueueState.FAILED))
+        file.writeText(file.readText().replace(Regex(""",?\s*"server_retryable"\s*:\s*true"""), ""))
+        assertTrue("server_retryable" !in file.readText(), "the fixture must be old-shaped")
+        val queue = QueueStore(file)
+        assertEquals(1, queue.read().size, "the old-shaped file must still decode")
+
+        val transport = RecordingTransport(mutableListOf())
+        cycles(QueueSync(queue, transport), queue, count = 1)
+
+        assertEquals(1, transport.sent.size)
+    }
 }

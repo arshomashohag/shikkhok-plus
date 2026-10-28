@@ -28,6 +28,12 @@ import com.shikkhokplus.app.core.designsystem.FullScreenLoader
 import com.shikkhokplus.app.core.designsystem.ShikkhokTheme
 import com.shikkhokplus.app.core.network.ApiClient
 import com.shikkhokplus.app.core.queue.QueueStore
+import com.shikkhokplus.app.core.network.HttpAttendanceRepository
+import com.shikkhokplus.app.core.queue.keepDraining
+import com.shikkhokplus.app.core.queue.QueueSync
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.lifecycle.Lifecycle
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import com.shikkhokplus.app.core.session.Lens
 import com.shikkhokplus.app.core.session.SessionUiState
 import com.shikkhokplus.app.core.session.SessionViewModel
@@ -229,6 +235,21 @@ private fun AppRoot() {
         }
     } else {
         lens = null
+    }
+
+    // **The queue drains while the app is open and someone is signed
+    // in.** It was built and never started, so attendance saved offline
+    // or after a failed send never left the phone [BR3.1]. Keyed on
+    // `signedIn` so it starts at sign-in and stops at sign-out; scoped
+    // to STARTED so it never runs in the background.
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(signedIn) {
+        if (signedIn) {
+            val sync = QueueSync(queue, HttpAttendanceRepository(client)::submit)
+            lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                keepDraining(sync, queue)
+            }
+        }
     }
 
     val navController = rememberNavController()

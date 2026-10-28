@@ -222,7 +222,7 @@ class AttendanceViewModel(
             }
 
             is SendOutcome.Failed -> {
-                store.replace(item.copy(state = QueueState.FAILED))
+                store.replace(item.failed(outcome.envelope))
                 _state.value =
                     outcome.envelope
                         ?.let { AttendanceStateMapper.afterError(it, item.id) }
