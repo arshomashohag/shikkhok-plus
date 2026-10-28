@@ -65,6 +65,7 @@ import com.shikkhokplus.app.feature.invitations.InvitationsViewModel
 import com.shikkhokplus.app.feature.invitations.ui.InvitationsScreen
 import com.shikkhokplus.app.feature.marks.MarksViewModel
 import com.shikkhokplus.app.feature.marks.MarksheetReader
+import com.shikkhokplus.app.feature.marks.ui.ExamCreateForm
 import com.shikkhokplus.app.feature.marks.ui.ExamListScreen
 import com.shikkhokplus.app.feature.marks.ui.MarkEntryScreen
 import com.shikkhokplus.app.feature.marks.ui.MarksheetScreen
@@ -545,8 +546,61 @@ fun ShikkhokNavHost(
                 onOpen = { row ->
                     navController.navigate(Destination.MarkEntry.of(row.examId))
                 },
+                // Was left at its default, so the button did nothing and
+                // no exam could ever be created -- which left marks
+                // entry with nothing to open.
+                onCreate = { navController.navigate(Destination.CreateExam.of(id)) },
                 onRetry = model::retry,
             )
+        }
+
+        composable(
+            route = Destination.CreateExam.route,
+            arguments =
+                listOf(
+                    navArgument(Destination.Roster.ARG_ID) { type = NavType.StringType },
+                ),
+        ) { entry ->
+            val id = entry.arguments?.getString(Destination.Roster.ARG_ID).orEmpty()
+
+            // The EXAM LIST's ViewModel, as CreateBatch shares the batch
+            // list's: the created exam is in the list this returns to.
+            val parent =
+                remember(entry) { navController.getBackStackEntry(Destination.Exams.route) }
+            val model: MarksViewModel =
+                viewModel(parent, key = id) { MarksViewModel(HttpMarksRepository(client)) }
+            val write by model.writeState.collectAsState()
+            val subjects by model.subjectOptions.collectAsState()
+
+            LaunchedEffect(id) { model.loadSubjectOptions(id) }
+
+            // Close on the server's answer, never on the tap. See
+            // WriteState for the race that closing on the tap caused.
+            LaunchedEffect(write) {
+                if (write == WriteState.Saved) {
+                    model.acknowledgeWrite()
+                    navController.popBackStack()
+                }
+            }
+            val leave = {
+                model.acknowledgeWrite()
+                navController.popBackStack()
+            }
+
+            ScreenScaffold(
+                title = stringResource(R.string.screen_title_create_exam),
+                onBack = { leave() },
+            ) {
+                ExamCreateForm(
+                    subjects = subjects,
+                    onCreate = { title, date, total, subjectId ->
+                        model.createExam(title, date, total, subjectId)
+                    },
+                    onCancel = { leave() },
+                    saving = write == WriteState.Saving,
+                    error = writeError(write),
+                )
+            }
         }
 
         composable(

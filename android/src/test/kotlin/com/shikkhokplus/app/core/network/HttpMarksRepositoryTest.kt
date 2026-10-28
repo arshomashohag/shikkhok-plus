@@ -212,4 +212,34 @@ class HttpMarksRepositoryTest {
         assertEquals("/v1/batches/b-1/marksheet-visibility", sent.url.encodedPath)
         assertTrue((sent.body as TextContent).text.contains("\"visible\":true"))
     }
+
+    @Test
+    fun `subject options come from this batch, keys included`() = runTest {
+        // The key is the point: exam creation was impossible because
+        // no response carried one.
+        val engine =
+            ok(
+                """
+                [{"id":"b-1","name":"A","subjects":["Physics"],
+                  "subject_options":[{"id":"bs-1","name":"Physics"}]},
+                 {"id":"b-2","name":"B","subjects":["Maths"],
+                  "subject_options":[{"id":"bs-9","name":"Maths"}]}]
+                """.trimIndent(),
+            )
+
+        val result = repo(engine).subjectOptions("b-2")
+
+        val ok = assertIs<AuthResult.Ok<List<SubjectOptionDto>>>(result)
+        assertEquals(listOf(SubjectOptionDto("bs-9", "Maths")), ok.value)
+        assertEquals("/v1/batches", engine.requestHistory.single().url.encodedPath)
+    }
+
+    @Test
+    fun `a batch missing from the list yields no subjects`() = runTest {
+        val engine = ok("""[{"id":"b-1","name":"A","subject_options":[]}]""")
+
+        val ok = assertIs<AuthResult.Ok<List<SubjectOptionDto>>>(repo(engine).subjectOptions("gone"))
+
+        assertEquals(emptyList(), ok.value)
+    }
 }

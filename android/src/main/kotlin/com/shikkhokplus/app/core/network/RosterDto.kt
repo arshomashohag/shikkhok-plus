@@ -85,11 +85,27 @@ data class BatchDto(
     val id: String,
     val name: String,
     val subjects: List<String> = emptyList(),
+    @SerialName("subject_options") val subjectOptions: List<SubjectOptionDto> = emptyList(),
     @SerialName("default_fee") val defaultFee: Money? = null,
     @SerialName("fee_due_day") val feeDueDay: Int? = null,
     val active: Boolean = true,
     @SerialName("enrollment_count") val enrollmentCount: Int = 0,
     @SerialName("accepted_count") val acceptedCount: Int = 0,
+)
+
+/**
+ * One subject of a batch, with the key exam and class writes take.
+ *
+ * The batch list used to carry subject NAMES only, so there was no key
+ * to send and an exam could not be created from the app at all.
+ *
+ * @property id The `batch_subject_id`
+ * @property name The subject's name, as the teacher typed it
+ */
+@Serializable
+data class SubjectOptionDto(
+    val id: String,
+    val name: String,
 )
 
 /**

@@ -43,6 +43,34 @@ class HttpMarksRepository(
         call { client.get("/v1/batches/$batchId/exams") }
 
     /**
+     * List one batch's subjects with their keys.
+     *
+     * **Read from the batch list, filtered here.** No per-batch read
+     * exists, and adding one to save a few rows on a teacher's list --
+     * a handful of batches -- would be a second route describing a
+     * batch that could drift from the first. Filtering by id is not a
+     * business rule: it selects the batch the person is already in.
+     *
+     * A batch absent from the list is answered as no subjects, which
+     * the form shows as a failure to load rather than as an empty
+     * choice.
+     *
+     * @param batchId The batch
+     * @return Its subjects, or a refusal
+     */
+    override suspend fun subjectOptions(batchId: String): AuthResult<List<SubjectOptionDto>> {
+        val batches: AuthResult<List<BatchDto>> = call { client.get("/v1/batches") }
+        return when (batches) {
+            is AuthResult.Ok ->
+                AuthResult.Ok(
+                    batches.value.firstOrNull { it.id == batchId }?.subjectOptions.orEmpty(),
+                )
+            is AuthResult.Refused -> AuthResult.Refused(batches.envelope)
+            AuthResult.TransportFailure -> AuthResult.TransportFailure
+        }
+    }
+
+    /**
      * Create an exam [BR4.1].
      *
      * @param batchId The batch

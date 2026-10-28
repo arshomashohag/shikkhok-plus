@@ -541,4 +541,12 @@
     <string name="nav_fees">Fees</string>
     <string name="fee_invalid">Enter an amount such as 1500 or 1500.50</string>
     <string name="due_day_invalid">Enter a day from 1 to 31</string>
+    <string name="action_ok">OK</string>
+    <string name="screen_title_create_exam">New exam</string>
+    <string name="exam_create_title">Exam title</string>
+    <string name="exam_create_date">Date · %1$s</string>
+    <string name="exam_create_total">Total marks</string>
+    <string name="exam_create_subject">Subject</string>
+    <string name="exam_create_subjects_failed">This batch\'s subjects could not be loaded. Go back and try again.</string>
+    <string name="exam_create_submit">Create exam</string>
 </resources>

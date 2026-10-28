@@ -158,6 +158,24 @@ sealed interface Destination {
                 java.net.URLEncoder.encode(name, "UTF-8")
     }
 
+    /**
+     * The create-exam form, scoped to one batch.
+     *
+     * Nested under [Exams] so the form can share that list's
+     * ViewModel: the exam appears in the list the form returns to.
+     */
+    data object CreateExam : Destination {
+        override val route: String = "batches/{batchId}/exams/new"
+
+        /**
+         * Build a concrete route for one batch.
+         *
+         * @param id The batch the exam is for
+         * @return The route to navigate to
+         */
+        fun of(id: String): String = "batches/$id/exams/new"
+    }
+
     /** Entering one exam's marks [BR4.2]. */
     data object MarkEntry : Destination {
         override val route: String = "exams/{examId}/marks"

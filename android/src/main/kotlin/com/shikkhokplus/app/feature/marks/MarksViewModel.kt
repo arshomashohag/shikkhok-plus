@@ -6,6 +6,8 @@ import com.shikkhokplus.app.core.network.ExamDto
 import com.shikkhokplus.app.core.network.ExamResultDto
 import com.shikkhokplus.app.core.network.MarksheetDto
 import com.shikkhokplus.app.core.network.ProgressDto
+import com.shikkhokplus.app.core.network.SubjectOptionDto
+import com.shikkhokplus.app.core.ui.WriteState
 import com.shikkhokplus.app.feature.auth.AuthResult
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -50,6 +52,14 @@ interface MarksRepository {
      * @return The exams
      */
     suspend fun exams(batchId: String): AuthResult<List<ExamDto>>
+
+    /**
+     * List the subjects an exam in this batch can be set on.
+     *
+     * @param batchId The batch
+     * @return Its subjects with their keys, or a refusal
+     */
+    suspend fun subjectOptions(batchId: String): AuthResult<List<SubjectOptionDto>>
 
     /**
      * Create an exam [BR4.1].
@@ -170,6 +180,27 @@ class MarksViewModel(
     /** What the screen renders. */
     val state: StateFlow<MarksUiState> = _state.asStateFlow()
 
+    private val _writeState = MutableStateFlow<WriteState>(WriteState.Idle)
+
+    /**
+     * Where the create-exam form's write stands, apart from the list.
+     *
+     * The form closes only on [WriteState.Saved]: see [WriteState] for
+     * the race closing on the tap caused on the batch and student forms.
+     */
+    val writeState: StateFlow<WriteState> = _writeState.asStateFlow()
+
+    private val _subjects = MutableStateFlow<List<SubjectOptionDto>?>(null)
+
+    /**
+     * The subjects the create-exam form offers, or null while loading.
+     *
+     * Empty is a real answer -- a batch always has at least one subject
+     * [AC2.1.1], so empty means the read failed, and the form says so
+     * rather than offering nothing to choose.
+     */
+    val subjectOptions: StateFlow<List<SubjectOptionDto>?> = _subjects.asStateFlow()
+
     private var lastBatchId: String? = null
     private var lastBatchName: String = ""
     private var lastExamId: String? = null
@@ -220,9 +251,53 @@ class MarksViewModel(
         batchSubjectId: String,
     ) {
         val batchId = lastBatchId ?: return
-        runWrite({ repository.createExam(batchId, title, date, totalMarks, batchSubjectId) }) {
-            loadExams(batchId, lastBatchName)
+        if (_writeState.value == WriteState.Saving) return
+        _writeState.value = WriteState.Saving
+        viewModelScope.launch {
+            _writeState.value =
+                when (
+                    val result =
+                        repository.createExam(batchId, title, date, totalMarks, batchSubjectId)
+                ) {
+                    is AuthResult.Ok -> {
+                        loadExams(batchId, lastBatchName)
+                        WriteState.Saved
+                    }
+                    is AuthResult.Refused ->
+                        WriteState.Failed(
+                            messageKey = result.envelope.error.messageKey,
+                            retryable = result.envelope.error.retryable,
+                        )
+                    AuthResult.TransportFailure ->
+                        WriteState.Failed(
+                            messageKey = MarksStateMapper.OFFLINE_KEY,
+                            retryable = true,
+                        )
+                }
         }
+    }
+
+    /**
+     * Read the subjects the create-exam form offers.
+     *
+     * @param batchId The batch the exam is for
+     */
+    fun loadSubjectOptions(batchId: String) {
+        _subjects.value = null
+        viewModelScope.launch {
+            _subjects.value =
+                when (val result = repository.subjectOptions(batchId)) {
+                    is AuthResult.Ok -> result.value
+                    else -> emptyList()
+                }
+        }
+    }
+
+    /**
+     * Mark a finished write as seen, so the form does not close twice.
+     */
+    fun acknowledgeWrite() {
+        if (_writeState.value != WriteState.Saving) _writeState.value = WriteState.Idle
     }
 
     /**

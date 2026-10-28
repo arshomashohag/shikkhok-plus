@@ -486,4 +486,12 @@
     <string name="nav_fees">ফি</string>
     <string name="fee_invalid">1500 বা 1500.50 এর মতো একটি পরিমাণ লিখুন</string>
     <string name="due_day_invalid">1 থেকে 31 এর মধ্যে একটি দিন লিখুন</string>
+    <string name="action_ok">ঠিক আছে</string>
+    <string name="screen_title_create_exam">নতুন পরীক্ষা</string>
+    <string name="exam_create_title">পরীক্ষার নাম</string>
+    <string name="exam_create_date">তারিখ · %1$s</string>
+    <string name="exam_create_total">মোট নম্বর</string>
+    <string name="exam_create_subject">বিষয়</string>
+    <string name="exam_create_subjects_failed">এই ব্যাচের বিষয়গুলো লোড করা যায়নি। ফিরে গিয়ে আবার চেষ্টা করুন।</string>
+    <string name="exam_create_submit">পরীক্ষা তৈরি করুন</string>
 </resources>
