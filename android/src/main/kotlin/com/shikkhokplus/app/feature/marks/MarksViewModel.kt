@@ -318,22 +318,30 @@ class MarksViewModel(
         lastExamId = examId
         lastWrite = null
         _state.value = MarksUiState.Loading
-        viewModelScope.launch {
-            _state.value =
-                when (val result = repository.results(examId)) {
-                    is AuthResult.Ok ->
-                        MarksStateMapper.afterResults(
-                            examId = result.value.exam.examId,
-                            examTitle = result.value.exam.title,
-                            totalMarks = result.value.exam.totalMarks,
-                            results = result.value.results,
-                            writable = result.value.writable,
-                        )
-                    is AuthResult.Refused -> MarksStateMapper.afterError(result.envelope)
-                    AuthResult.TransportFailure ->
-                        MarksStateMapper.afterTransportFailure()
-                }
-        }
+        viewModelScope.launch { refreshResults(examId) }
+    }
+
+    /**
+     * Read an exam's results into the screen without blanking it, so a
+     * saved mark updates its row in place.
+     *
+     * @param examId The exam
+     */
+    private suspend fun refreshResults(examId: String) {
+        _state.value =
+            when (val result = repository.results(examId)) {
+                is AuthResult.Ok ->
+                    MarksStateMapper.afterResults(
+                        examId = result.value.exam.examId,
+                        examTitle = result.value.exam.title,
+                        totalMarks = result.value.exam.totalMarks,
+                        results = result.value.results,
+                        writable = result.value.writable,
+                    )
+                is AuthResult.Refused -> MarksStateMapper.afterError(result.envelope)
+                AuthResult.TransportFailure ->
+                    MarksStateMapper.afterTransportFailure()
+            }
     }
 
     /**
@@ -350,8 +358,20 @@ class MarksViewModel(
      */
     fun writeMark(enrollmentId: String, resultState: String, marks: Int?) {
         val examId = lastExamId ?: return
-        runWrite({ repository.writeMark(examId, enrollmentId, resultState, marks) }) {
-            loadResults(examId)
+        val write = suspend { repository.writeMark(examId, enrollmentId, resultState, marks) }
+        lastWrite = write
+        // **No loader.** The list stays while the mark saves, and the
+        // saved row updates in place: blanking the screen on every
+        // save made continuous entry impossible.
+        viewModelScope.launch {
+            when (val result = write()) {
+                is AuthResult.Ok -> {
+                    lastWrite = null
+                    refreshResults(examId)
+                }
+                is AuthResult.Refused -> _state.value = MarksStateMapper.afterError(result.envelope)
+                AuthResult.TransportFailure -> _state.value = MarksStateMapper.afterTransportFailure()
+            }
         }
     }
 
@@ -478,8 +498,9 @@ class MarksViewModel(
      * leave the seat unmarked with nothing on screen to say so.
      */
     fun retry() {
-        lastRead?.let { read ->
-            read()
+        val pending = lastRead.takeIf { lastWrite == null }
+        if (pending != null) {
+            pending()
             return
         }
         val write = lastWrite

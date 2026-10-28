@@ -99,6 +99,9 @@ class WriteContractTest {
                     QueuedWrite.attendance(ID, 3, listOf(AttendanceEntry(ID, present = true))),
                 )
             },
+            Write("put", "/v1/sessions/{session_id}/topic") {
+                HttpAttendanceRepository(it).submit(QueuedWrite.topic(ID, 2, "Thermodynamics"))
+            },
             Write("post", "/v1/batches/{batch_id}/exams") {
                 HttpMarksRepository(it).createExam(ID, "Mid-term", "2026-11-04", 100, ID)
             },

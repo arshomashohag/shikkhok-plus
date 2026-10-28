@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -58,6 +59,12 @@ const val TAG_GUARDIAN_ERROR: String = "guardian_error"
 /** The retry control, shown only when the server said retryable. */
 const val TAG_GUARDIAN_RETRY: String = "guardian_retry"
 
+/** Opens the shown child's results. */
+const val TAG_GUARDIAN_PROGRESS: String = "guardian_progress"
+
+/** Opens the shown child's payments. */
+const val TAG_GUARDIAN_FEES: String = "guardian_fees"
+
 /**
  * A guardian's children, and the switcher between them [`G1`, US2.6].
  *
@@ -80,6 +87,9 @@ const val TAG_GUARDIAN_RETRY: String = "guardian_retry"
  *
  * @param state What to render
  * @param onSelectChild Called with the child to show instead
+ * @param onOpenProgress Called with the shown child, to open their results
+ * @param onOpenFees Called with the shown child, to open their payments
+ * @param bottomBar The lens's tab bar
  * @param onRetry Called when the user asks to retry
  * @param modifier The layout modifier
  */
@@ -89,10 +99,14 @@ fun GuardianHomeScreen(
     onSelectChild: (GuardianChild) -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
+    onOpenProgress: (GuardianChild) -> Unit = {},
+    onOpenFees: (GuardianChild) -> Unit = {},
+    bottomBar: @Composable () -> Unit = {},
 ) {
     ScreenScaffold(
         title = stringResource(R.string.guardian_home_title),
         modifier = modifier,
+        bottomBar = bottomBar,
     ) {
         // The title is in the app bar. It was rendered here too,
         // so every screen showed its name twice.
@@ -105,7 +119,7 @@ fun GuardianHomeScreen(
 
             // **No switcher drawn.** There is nothing to switch
             // between, and a control offering one option is noise.
-            is GuardianUiState.OneChild -> SelectedChild(state.child)
+            is GuardianUiState.OneChild -> SelectedChild(state.child, onOpenProgress, onOpenFees)
 
             is GuardianUiState.SeveralChildren -> {
                 Text(stringResource(R.string.guardian_switch_label))
@@ -125,7 +139,7 @@ fun GuardianHomeScreen(
                         )
                     }
                 }
-                SelectedChild(state.selected)
+                SelectedChild(state.selected, onOpenProgress, onOpenFees)
             }
 
             GuardianUiState.Empty -> {
@@ -165,7 +179,11 @@ fun GuardianHomeScreen(
  * @param child The child being shown
  */
 @Composable
-private fun SelectedChild(child: GuardianChild) {
+private fun SelectedChild(
+    child: GuardianChild,
+    onOpenProgress: (GuardianChild) -> Unit,
+    onOpenFees: (GuardianChild) -> Unit,
+) {
     Column(Modifier.fillMaxWidth().testTag(TAG_GUARDIAN_SELECTED)) {
         Text(
             // Text a teacher typed, shown exactly as typed.
@@ -186,5 +204,15 @@ private fun SelectedChild(child: GuardianChild) {
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(
+                onClick = { onOpenProgress(child) },
+                modifier = Modifier.testTag(TAG_GUARDIAN_PROGRESS),
+            ) { Text(stringResource(R.string.guardian_open_progress)) }
+            OutlinedButton(
+                onClick = { onOpenFees(child) },
+                modifier = Modifier.testTag(TAG_GUARDIAN_FEES),
+            ) { Text(stringResource(R.string.guardian_open_fees)) }
+        }
     }
 }

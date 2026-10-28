@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.feature.invitations
 
+import com.shikkhokplus.app.core.model.AcceptanceState
 import com.shikkhokplus.app.core.network.DecisionDto
 import com.shikkhokplus.app.core.network.ErrorBody
 import com.shikkhokplus.app.core.network.ErrorEnvelope
@@ -215,5 +216,26 @@ class InvitationsViewModelTest {
 
         val state = assertIs<InvitationsUiState.Failed>(model.state.value)
         assertEquals("error.forbidden", state.messageKey)
+    }
+
+    @Test
+    fun `a decision names its batch, and declining says declined`() = runTest(dispatcher) {
+        val repo =
+            FakeRepository(
+                listResult = AuthResult.Ok(listOf(seat("student"))),
+                decisionResult = AuthResult.Ok(DecisionDto("e-1", "declined")),
+            )
+        val model = InvitationsViewModel(repo)
+        model.load()
+        advanceUntilIdle()
+
+        model.confirmDecline("e-1")
+        model.decline("e-1")
+        advanceUntilIdle()
+
+        val decided = assertIs<InvitationsUiState.Decided>(model.state.value)
+        assertEquals("Physics", decided.batchName)
+        assertEquals(AcceptanceState.DECLINED, decided.state)
+        assertEquals(1, repo.declineCalls)
     }
 }

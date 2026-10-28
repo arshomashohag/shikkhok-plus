@@ -557,4 +557,10 @@
     <string name="student_latest_notice">সর্বশেষ নোটিশ</string>
     <string name="student_topics">যা পড়ানো হয়েছে</string>
     <string name="student_topics_empty">প্রতিটি ক্লাসের পর শিক্ষক কী পড়ালেন তা এখানে দেখা যাবে।</string>
+    <string name="invitation_declined_confirmation">আপনি %1$s প্রত্যাখ্যান করেছেন। চাইলে আমন্ত্রণ থেকে এখনও গ্রহণ করতে পারেন।</string>
+    <string name="invitations_back_to_list">আমন্ত্রণে ফিরে যান</string>
+    <string name="guardian_open_progress">ফলাফল</string>
+    <string name="guardian_open_fees">বেতন</string>
+    <string name="auth_change_number">নম্বর বদলান</string>
+    <string name="auth_checking_code">কোড যাচাই হচ্ছে…</string>
 </resources>

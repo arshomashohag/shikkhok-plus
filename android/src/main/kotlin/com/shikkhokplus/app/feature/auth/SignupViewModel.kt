@@ -80,6 +80,10 @@ class SignupViewModel(
 
     private var lastAction: (() -> Unit)? = null
 
+
+    // The last complete number looked up, so it is asked about once.
+    private var lookedUp: String? = null
+
     /**
      * Look up a number before showing the form.
      *
@@ -110,9 +114,14 @@ class SignupViewModel(
         // finished.
         val invalid = SignupStateMapper.validate(phone, selfName = "placeholder")
         if (invalid != null && SignupStateMapper.PHONE_KEY in invalid.fieldKeys) {
-            _state.value = SignupUiState.Empty
+            lookedUp = null
+            if (_state.value !is SignupUiState.Empty) _state.value = SignupUiState.Empty
             return
         }
+        // **Once per complete number.** Further keystrokes that leave
+        // the same number valid ask nothing new.
+        if (phone == lookedUp) return
+        lookedUp = phone
 
         _state.value = SignupUiState.CheckingNumber
         viewModelScope.launch {

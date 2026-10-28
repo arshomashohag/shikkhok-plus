@@ -612,4 +612,10 @@
     <string name="student_latest_notice">Latest notice</string>
     <string name="student_topics">Topics covered</string>
     <string name="student_topics_empty">After each class, the teacher\'s note on what was covered shows here.</string>
+    <string name="invitation_declined_confirmation">You declined %1$s. You can still accept it from your invitations.</string>
+    <string name="invitations_back_to_list">Back to invitations</string>
+    <string name="guardian_open_progress">Results</string>
+    <string name="guardian_open_fees">Payments</string>
+    <string name="auth_change_number">Change number</string>
+    <string name="auth_checking_code">Checking the code…</string>
 </resources>

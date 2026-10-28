@@ -174,6 +174,8 @@ fun ShikkhokNavHost(
                 onSubmitCode = authModel::submitCode,
                 onRetry = authModel::retry,
                 onGoToSignup = { navController.navigate(Destination.Signup.route) },
+                onResendCode = authModel::resendCode,
+                onChangeNumber = authModel::changeNumber,
             )
         }
 
@@ -223,6 +225,7 @@ fun ShikkhokNavHost(
                 // already on the stack.
                 onGoToLogin = { navController.popBackStack() },
                 onRetry = model::retry,
+                onLookup = model::lookup,
             )
         }
 
@@ -568,7 +571,12 @@ fun ShikkhokNavHost(
 
             GuardianHomeScreen(
                 state = state,
-                onSelectChild = { child ->
+                // **Selection, not navigation** [BR4.2]: switching child
+                // replaces the shown child, so Back cannot reach the
+                // previous one's data. Results and payments are pushes
+                // the guardian asks for explicitly.
+                onSelectChild = model::selectChild,
+                onOpenProgress = { child ->
                     navController.navigate(
                         Destination.Progress.of(
                             child.enrollmentId,
@@ -576,6 +584,18 @@ fun ShikkhokNavHost(
                             child.displayName,
                             child.batchName,
                         ),
+                    )
+                },
+                onOpenFees = { child ->
+                    navController.navigate(
+                        Destination.FeeHistory.of(child.enrollmentId, FeeReader.GUARDIAN.name),
+                    )
+                },
+                bottomBar = {
+                    BottomNav(
+                        destinations = tabsFor(session.lens),
+                        selectedIndex = tabIndexOf(session.lens, Destination.GuardianHome.route),
+                        onSelect = { navController.switchTab(it, session.lens) },
                     )
                 },
                 onRetry = model::retry,
@@ -611,8 +631,9 @@ fun ShikkhokNavHost(
                 state = state,
                 onOpen = model::open,
                 onAccept = model::accept,
-                onDeclineRequested = model::decline,
-                onDeclineConfirmed = model::confirmDecline,
+                onDeclineRequested = model::confirmDecline,
+                onDeclineConfirmed = model::decline,
+                onBackToList = model::load,
                 onDismissSheet = model::dismissSheet,
                 onRetry = model::retry,
             )

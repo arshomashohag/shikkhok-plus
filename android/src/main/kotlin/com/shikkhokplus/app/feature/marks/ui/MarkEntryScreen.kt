@@ -18,6 +18,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
@@ -173,6 +177,12 @@ private fun MarkRowView(
     var typed by remember(row.enrollmentId, row.marks) {
         mutableStateOf(row.marks?.toString().orEmpty())
     }
+    var focused by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
+    val commit = {
+        focused = false
+        typed.toIntOrNull()?.takeIf { it != row.marks }?.let { onMark(row, it) }
+    }
 
     Column(Modifier.fillMaxWidth().testTag(TAG_MARK_ENTRY_ROW)) {
         Text(Numerals.freeText(row.displayName))
@@ -203,10 +213,7 @@ private fun MarkRowView(
                     // RANGE is the server's check [BR4.2], and a
                     // client bound would diverge from it the moment an
                     // exam's total is edited.
-                    if (entered.all(Char::isDigit)) {
-                        typed = entered
-                        entered.toIntOrNull()?.let { onMark(row, it) }
-                    }
+                    if (entered.all(Char::isDigit)) typed = entered
                 },
                 label = { Text(stringResource(R.string.mark_entry_label)) },
                 singleLine = true,
@@ -215,7 +222,21 @@ private fun MarkRowView(
                         keyboardType = KeyboardType.Number,
                         imeAction = ImeAction.Next,
                     ),
-                modifier = Modifier.weight(1f).testTag(TAG_MARK_ENTRY_FIELD),
+                // **Saved once, when the teacher moves on**: Next, or
+                // leaving the field. Saving every keystroke sent "2"
+                // before "22" and blanked the list on each save.
+                keyboardActions =
+                    KeyboardActions(onNext = {
+                        commit()
+                        focusManager.moveFocus(FocusDirection.Down)
+                    }),
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .onFocusChanged { focus ->
+                            if (focus.isFocused) focused = true else if (focused) commit()
+                        }
+                        .testTag(TAG_MARK_ENTRY_FIELD),
             )
 
             // **Absent is its own action, not an empty field.** An
