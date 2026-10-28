@@ -82,6 +82,7 @@ object TodayStateMapper {
                 batchName = dto.batchName,
                 subjectName = dto.subjectName,
                 startTime = dto.startTime.take(HHMM),
+                topicVersion = dto.topicVersion,
                 status = status,
                 // A topic saved blank is logged with nothing to show [BR2.2].
                 topic = dto.topic?.takeIf { dto.topicLogged && it.isNotBlank() },

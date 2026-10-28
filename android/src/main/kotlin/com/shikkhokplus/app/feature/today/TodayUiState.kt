@@ -40,6 +40,7 @@ data class OwedSummary(
  * @property batchName The batch
  * @property subjectName The subject, where set
  * @property startTime `HH:MM`
+ * @property topicVersion The version a topic write composes against
  * @property status Where it stands
  * @property topic What was covered, where logged with text
  * @property isNext The first class still to start
@@ -53,6 +54,7 @@ data class ClassRow(
     val batchName: String,
     val subjectName: String?,
     val startTime: String,
+    val topicVersion: Int,
     val status: ClassStatus,
     val topic: String?,
     val isNext: Boolean,

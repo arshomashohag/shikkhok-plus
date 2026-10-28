@@ -688,4 +688,18 @@
     <string name="today_create_batch">Create batch</string>
     <string name="today_classes_empty">Your classes for the day will show here, with a Record button on each.</string>
     <string name="today_to_verify_empty">Payments students submit will wait here for you to approve.</string>
+    <!-- T2: recording a class. -->
+    <string name="record_title">Record class</string>
+    <string name="record_subtitle">%1$s · today %2$s</string>
+    <string name="record_question">What did you cover?</string>
+    <string name="record_help">Write in any language. From the next class we\'ll suggest where you left off.</string>
+    <string name="record_continue">Continue: %1$s</string>
+    <string name="record_only_subject">Subject: %1$s</string>
+    <string name="record_save">Save</string>
+    <string name="record_take_attendance">Take attendance</string>
+    <string name="record_saved">Topic saved.</string>
+    <string name="record_queued">Saved on the phone. It sends when the connection returns.</string>
+    <string name="record_conflicted">Someone saved a different topic for this class first. Nothing was changed.</string>
+    <string name="record_ok">OK</string>
+    <string name="today_saved_not_sent">Saved on phone · not sent</string>
 </resources>

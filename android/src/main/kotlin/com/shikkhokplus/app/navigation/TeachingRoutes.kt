@@ -17,6 +17,7 @@ import com.shikkhokplus.app.R
 import com.shikkhokplus.app.core.designsystem.ScreenScaffold
 import com.shikkhokplus.app.core.network.HttpAttendanceRepository
 import com.shikkhokplus.app.core.network.HttpMarksRepository
+import com.shikkhokplus.app.core.network.HttpRecordRepository
 import com.shikkhokplus.app.core.network.HttpScheduleRepository
 import com.shikkhokplus.app.core.network.HttpSessionsRepository
 import com.shikkhokplus.app.core.network.HttpVerificationRepository
@@ -28,6 +29,9 @@ import com.shikkhokplus.app.feature.attendance.ui.AttendanceScreen
 import com.shikkhokplus.app.feature.attendance.ui.ConflictScreen
 import com.shikkhokplus.app.feature.auth.MessageKeys
 import com.shikkhokplus.app.feature.marks.MarksViewModel
+import com.shikkhokplus.app.feature.record.RecordClassViewModel
+import com.shikkhokplus.app.feature.record.RecordTarget
+import com.shikkhokplus.app.feature.record.ui.RecordClassSheet
 import com.shikkhokplus.app.feature.marks.ui.ExamCreateForm
 import com.shikkhokplus.app.feature.marks.ui.ExamListScreen
 import com.shikkhokplus.app.feature.marks.ui.MarkEntryScreen
@@ -98,6 +102,30 @@ internal fun NavGraphBuilder.teachingRoutes(
         val model: SessionsViewModel =
             viewModel(key = id) { SessionsViewModel(HttpSessionsRepository(client)) }
         val state by model.state.collectAsState()
+        val recorder: RecordClassViewModel =
+            viewModel(key = "record-$id") { RecordClassViewModel(HttpRecordRepository(client), queue) }
+        val recording by recorder.sheet.collectAsState()
+        val saved by recorder.saved.collectAsState()
+        LaunchedEffect(saved) {
+            if (saved != null) {
+                recorder.acknowledge()
+                model.load(id, name)
+            }
+        }
+        recording?.let { open ->
+            RecordClassSheet(
+                sheet = open,
+                onType = recorder::type,
+                onChoose = recorder::choose,
+                onSuggestion = recorder::useSuggestion,
+                onSave = recorder::save,
+                onAttendance = {
+                    recorder.close()
+                    navController.navigate(Destination.Attendance.of(open.target.sessionId))
+                },
+                onDismiss = recorder::close,
+            )
+        }
 
         LaunchedEffect(id) { model.load(id, name) }
 
@@ -118,6 +146,18 @@ internal fun NavGraphBuilder.teachingRoutes(
             onAddSession = { adding = true },
             onOpen = { row ->
                 navController.navigate(Destination.Attendance.of(row.sessionId))
+            },
+            onRecord = { row ->
+                recorder.open(
+                    RecordTarget(
+                        sessionId = row.sessionId,
+                        batchId = id,
+                        title = listOfNotNull(row.subjectName, name).joinToString(" · "),
+                        startTime = row.timeLabel.take(HHMM_LENGTH),
+                        topicVersion = row.topicVersion,
+                        subjectName = row.subjectName,
+                    ),
+                )
             },
             onRetry = model::retry,
         )
@@ -334,3 +374,6 @@ internal fun NavGraphBuilder.teachingRoutes(
         )
     }
 }
+
+/** `HH:MM` out of the server's `HH:MM:SS`. */
+private const val HHMM_LENGTH = 5

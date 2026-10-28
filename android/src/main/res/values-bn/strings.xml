@@ -633,4 +633,18 @@
     <string name="today_create_batch">ব্যাচ তৈরি করুন</string>
     <string name="today_classes_empty">দিনের ক্লাস এখানে দেখা যাবে, প্রতিটিতে একটি রেকর্ড বোতাম থাকবে।</string>
     <string name="today_to_verify_empty">শিক্ষার্থীদের জমা দেওয়া পেমেন্ট আপনার অনুমোদনের জন্য এখানে অপেক্ষা করবে।</string>
+    <!-- T2: recording a class. -->
+    <string name="record_title">ক্লাস রেকর্ড</string>
+    <string name="record_subtitle">%1$s · আজ %2$s</string>
+    <string name="record_question">আজ কী পড়ালেন?</string>
+    <string name="record_help">যেকোনো ভাষায় লিখুন। পরের ক্লাস থেকে আমরা যেখানে থেমেছিলেন তা দেখাব।</string>
+    <string name="record_continue">চালিয়ে যান: %1$s</string>
+    <string name="record_only_subject">বিষয়: %1$s</string>
+    <string name="record_save">সংরক্ষণ</string>
+    <string name="record_take_attendance">হাজিরা নিন</string>
+    <string name="record_saved">বিষয় সংরক্ষিত হয়েছে।</string>
+    <string name="record_queued">ফোনে সংরক্ষিত। সংযোগ ফিরলে পাঠানো হবে।</string>
+    <string name="record_conflicted">এই ক্লাসের জন্য অন্য কেউ আগে ভিন্ন বিষয় সংরক্ষণ করেছেন। কিছুই বদলানো হয়নি।</string>
+    <string name="record_ok">ঠিক আছে</string>
+    <string name="today_saved_not_sent">ফোনে সংরক্ষিত · পাঠানো হয়নি</string>
 </resources>

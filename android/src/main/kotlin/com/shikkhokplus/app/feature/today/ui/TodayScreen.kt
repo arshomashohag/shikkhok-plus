@@ -87,6 +87,8 @@ private const val NOON = 12
  * @param onRetry Called to read the day again
  * @param modifier The layout modifier
  * @param bottomBar The teacher's tab bar
+ * @param pending Topics saved on the phone and not yet sent, by class
+ * @param notice A line to show above the day, such as a save result
  */
 @Composable
 fun TodayScreen(
@@ -99,6 +101,8 @@ fun TodayScreen(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
     bottomBar: @Composable () -> Unit = {},
+    pending: Map<String, String> = emptyMap(),
+    notice: @Composable () -> Unit = {},
 ) {
     val date =
         when (state) {
@@ -112,6 +116,7 @@ fun TodayScreen(
         modifier = modifier,
         bottomBar = bottomBar,
     ) {
+        notice()
         when (state) {
             TodayUiState.Loading -> {
                 Section(stringResource(R.string.today_classes))
@@ -120,7 +125,7 @@ fun TodayScreen(
                 SkeletonList(rows = 2)
             }
             is TodayUiState.FirstRun -> FirstRun(onCreateBatch)
-            is TodayUiState.Loaded -> Day(state, onOpenDues, onRecord, onMarks, onVerifyAll)
+            is TodayUiState.Loaded -> Day(state, pending, onOpenDues, onRecord, onMarks, onVerifyAll)
             is TodayUiState.Failed ->
                 ErrorCard(
                     title = stringResource(R.string.today_load_failed),
@@ -136,6 +141,7 @@ fun TodayScreen(
  * The loaded day, top to bottom as T1 orders it.
  *
  * @param state The day
+ * @param pending Topics saved on the phone and not yet sent, by class
  * @param onOpenDues Called to open Dues
  * @param onRecord Called with a class to record
  * @param onMarks Called with an exam id
@@ -144,6 +150,7 @@ fun TodayScreen(
 @Composable
 private fun ColumnScope.Day(
     state: TodayUiState.Loaded,
+    pending: Map<String, String>,
     onOpenDues: () -> Unit,
     onRecord: (ClassRow) -> Unit,
     onMarks: (String) -> Unit,
@@ -158,7 +165,7 @@ private fun ColumnScope.Day(
         RowCard {
             state.classes.forEachIndexed { index, row ->
                 if (index > 0) Divider()
-                ClassRowView(row, onRecord, onMarks)
+                ClassRowView(row, pending[row.sessionId], onRecord, onMarks)
             }
         }
     }
@@ -224,11 +231,17 @@ private fun OwedCard(owed: OwedSummary, onOpen: () -> Unit) {
  * One class: its time, what it is, where it stands, and its action.
  *
  * @param row The class
+ * @param unsent A topic saved on the phone and not yet sent, if any
  * @param onRecord Called to record it
  * @param onMarks Called with its exam id
  */
 @Composable
-private fun ClassRowView(row: ClassRow, onRecord: (ClassRow) -> Unit, onMarks: (String) -> Unit) {
+private fun ClassRowView(
+    row: ClassRow,
+    unsent: String?,
+    onRecord: (ClassRow) -> Unit,
+    onMarks: (String) -> Unit,
+) {
     val cancelled = row.status == ClassStatus.CANCELLED
     ListRow(
         modifier =
@@ -244,7 +257,23 @@ private fun ClassRowView(row: ClassRow, onRecord: (ClassRow) -> Unit, onMarks: (
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            ClassStatusLine(row, cancelled)
+            if (unsent != null) {
+                Text(
+                    stringResource(R.string.today_saved_not_sent),
+                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (unsent.isNotBlank()) {
+                    Text(
+                        Numerals.freeText(unsent),
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            } else {
+                ClassStatusLine(row, cancelled)
+            }
         }
         val examId = row.examId
         when {
@@ -254,7 +283,7 @@ private fun ClassRowView(row: ClassRow, onRecord: (ClassRow) -> Unit, onMarks: (
                     { onMarks(examId) },
                     Modifier.testTag(TAG_TODAY_MARKS),
                 )
-            !cancelled && row.topic == null ->
+            !cancelled && row.topic == null && unsent == null ->
                 TonalButton(
                     stringResource(R.string.today_record),
                     { onRecord(row) },

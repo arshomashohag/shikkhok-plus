@@ -28,8 +28,6 @@ import com.shikkhokplus.app.core.designsystem.ScreenScaffold
 import com.shikkhokplus.app.core.network.HttpAnalyticsRepository
 import com.shikkhokplus.app.feature.dues.DuesViewModel
 import com.shikkhokplus.app.feature.dues.ui.DuesScreen
-import com.shikkhokplus.app.feature.today.TodayViewModel
-import com.shikkhokplus.app.feature.today.ui.TodayScreen
 import com.shikkhokplus.app.core.network.HttpBatchesRepository
 import com.shikkhokplus.app.core.network.HttpRosterRepository
 import com.shikkhokplus.app.core.network.HttpSignupRepository
@@ -259,30 +257,18 @@ fun ShikkhokNavHost(
             )
         }
 
-        composable(Destination.Today.route) {
-            val model: TodayViewModel =
-                viewModel { TodayViewModel(HttpAnalyticsRepository(client)) }
-            val state by model.state.collectAsState()
-
-            LaunchedEffect(Unit) { model.load() }
-
-            TodayScreen(
-                state = state,
-                onRetry = model::retry,
-                onOpenDues = {
-                    navController.switchTab(routesFor(session.lens).indexOf(Destination.Dues.route), session.lens)
-                },
-                onRecord = { row -> navController.navigate(Destination.Attendance.of(row.sessionId)) },
-                onMarks = { examId -> navController.navigate(Destination.MarkEntry.of(examId)) },
-                onVerifyAll = { navController.navigate(Destination.Verify.route) },
-                onCreateBatch = { navController.navigate(Destination.CreateBatch.route) },
-                bottomBar = {
-                    BottomNav(
-                        destinations = tabsFor(session.lens),
-                        selectedIndex = tabIndexOf(session.lens, Destination.Today.route),
-                        onSelect = { navController.switchTab(it, session.lens) },
-                    )
-                },
+        todayRoute(
+            client = client,
+            queue = queue,
+            navController = navController,
+            onOpenDues = {
+                navController.switchTab(routesFor(session.lens).indexOf(Destination.Dues.route), session.lens)
+            },
+        ) {
+            BottomNav(
+                destinations = tabsFor(session.lens),
+                selectedIndex = tabIndexOf(session.lens, Destination.Today.route),
+                onSelect = { navController.switchTab(it, session.lens) },
             )
         }
 

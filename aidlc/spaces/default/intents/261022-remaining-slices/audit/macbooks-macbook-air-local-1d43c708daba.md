@@ -70277,3 +70277,227 @@ nfr-requirements D3 collecting-fees: seven artifacts written. Recomputed every N
 **Details**: <project-dir>/android/coverage-floor.txt
 
 ---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T12:49:14Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: cd <project-dir>/android/src/main/kotlin/com/shikkhokplus/app && grep -n "fun \|class QueueStore" core/queue/QueueStore.kt | h
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T12:49:30Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: mkdir -p <project-dir>/android/src/main/kotlin/com/shikkhokplus/app/feature/record/ui && cd /Users/shohag/Desktop/Development/
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T12:50:03Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/android/src/main/kotlin/com/shikkhokplus/app/feature/record/RecordRepository.kt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T12:50:26Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Write
+**Details**: <project-dir>/android/src/main/kotlin/com/shikkhokplus/app/feature/record/ui/RecordClassSheet.kt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T12:50:54Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/android/src/main/kotlin/com/shikkhokplus/app/Continue
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T12:51:16Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/android/src/main/kotlin/com/shikkhokplus/app/navigation/TodayRoute.kt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T12:51:36Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: cd <project-dir>/android/src && sed -n 60,90p main/kotlin/com/shikkhokplus/app/core/queue/QueueStore.kt; grep -rn "QueueStore(
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T12:52:05Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/android/src/feature/record/RecordClassViewModelTest.kt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T12:52:24Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: python3 - <<'EOF'\np='android/src/test/kotlin/com/shikkhokplus/app/feature/record/RecordClassViewModelTest.kt'\ns=open(p).read()\ns=s.replace('''    private val ta
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T12:52:44Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: cd <project-dir>/android/src/main/kotlin/com/shikkhokplus/app && grep -n "fun SessionListScreen" -A16 feature/sessions/ui/Sess
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T12:52:52Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: grep -n "timeLabel =" feature/sessions/SessionsStateMapper.kt; sed -n 100,120p navigation/TeachingRoutes.kt; grep -n "TextButton\|onOpen(" feature/sessions/ui/S
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T12:52:57Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: sed -n 140,215p feature/sessions/ui/SessionListScreen.kt; sed -n 85,100p navigation/TeachingRoutes.kt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T12:53:19Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/android/src/main/kotlin/com/shikkhokplus/app/RecordClassSheet
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T12:53:51Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: /private/tmp/claude-502/-Users-shohag-Desktop-Development-shikkhok-plus/602d453a-cecc-4a7d-ad6f-1f22d6052b2a/scratchpad/check.log
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T12:54:00Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: grep -n "announcement" app/api/teaching.py | grep -E "@router|def |\"/" ; python3 - <<'EOF'\nimport json\ns=json.load(open('openapi.json'))\nfor p,ops in s['paths'
+
+---
+
+## Subagent Completed
+**Timestamp**: 2026-10-28T12:57:25Z
+**Event**: SUBAGENT_COMPLETED
+**Agent Type**: unknown
+**Agent ID**: a93d81993f2e5c611
+**Message**: Goal: every teacher operation working end to end, with server and screens matching the design. Payment verification and the Today screen are committed; class-topic recording is done and its full check
+
+---
+
+## Human Turn
+**Timestamp**: 2026-10-28T12:59:02Z
+**Event**: HUMAN_TURN
+**Session**: 602d453a-cecc-4a7d-ad6f-1f22d6052b2a
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-10-28T12:59:13Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: grant
+**Grant**: turn-marker
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/android/coverage-floor.txt
+
+---
