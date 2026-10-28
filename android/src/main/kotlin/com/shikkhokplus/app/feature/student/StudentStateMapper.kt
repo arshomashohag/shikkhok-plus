@@ -5,6 +5,7 @@ import com.shikkhokplus.app.core.network.ErrorEnvelope
 import com.shikkhokplus.app.core.network.FamilyBatchViewDto
 import com.shikkhokplus.app.core.network.ProgressEntryDto
 import com.shikkhokplus.app.core.network.StudentBatchDto
+import com.shikkhokplus.app.core.network.UpcomingSessionDto
 import com.shikkhokplus.app.feature.fees.FeeStateMapper
 import com.shikkhokplus.app.feature.marks.MarksStateMapper
 
@@ -25,13 +26,14 @@ object StudentStateMapper {
      * Map the student's batch list.
      *
      * @param rows What the server returned
+     * @param name The student's own name, for S1's subtitle
      * @param phone The student's own number, for the empty state
      * @return The state S1 renders
      */
-    fun afterBatches(rows: List<StudentBatchDto>, phone: String?): MyBatchesUiState {
+    fun afterBatches(rows: List<StudentBatchDto>, phone: String?, name: String? = null): MyBatchesUiState {
         if (rows.isEmpty()) return MyBatchesUiState.Empty(phone)
         val batches = rows.map { toRow(it) ?: return MyBatchesUiState.Failed(UNEXPECTED_KEY, false) }
-        return MyBatchesUiState.Loaded(batches)
+        return MyBatchesUiState.Loaded(batches, name, phone)
     }
 
     /**
@@ -57,13 +59,17 @@ object StudentStateMapper {
                 nextClassDate = view.nextSessionDate,
                 nextClassStart = view.nextSessionStartTime?.take(HHMM),
                 results = results,
+                next = view.nextSession?.let(::toNextClass),
+                following = view.followingSessions.map(::toNextClass),
+                upcomingExam =
+                    view.upcomingExam?.let { UpcomingExam(it.title, it.date, it.totalMarks, it.subjectName) },
                 notices = view.announcements.map { NoticeRow(it.body, it.postedAt) },
                 // `topicLogged` is the server's: a topic saved blank is
                 // logged, and has nothing to show.
                 topics =
                     view.pastSessions
                         .filter { it.topicLogged && !it.topic.isNullOrBlank() }
-                        .map { TopicRow(it.date, it.topic.orEmpty()) },
+                        .map { TopicRow(it.date, it.topic.orEmpty(), it.subjectName) },
             ),
         )
     }
@@ -98,8 +104,27 @@ object StudentStateMapper {
             teacherName = dto.teacherDisplayName,
             schedule = dto.schedule,
             fee = fee,
+            nextClass = dto.nextSession?.let(::toNextClass),
+            isNext = dto.isNext,
+            lastResult = dto.lastResult?.let { LastResult(it.title, it.marks, it.totalMarks, it.rank) },
         )
     }
+
+    /**
+     * Convert one coming class, trimming the times to `HH:MM`.
+     *
+     * @param dto The server's class
+     * @return The class to show
+     */
+    private fun toNextClass(dto: UpcomingSessionDto): NextClass =
+        NextClass(
+            date = dto.date,
+            startTime = dto.startTime.take(HHMM),
+            endTime = dto.endTime?.take(HHMM),
+            startsInMinutes = dto.startsInMinutes,
+            moved = dto.moved,
+            subjectName = dto.subjectName,
+        )
 
     /**
      * Convert a fee period.
@@ -109,7 +134,7 @@ object StudentStateMapper {
      */
     private fun toFee(dto: CurrentFeeDto): FeeLine? =
         FeeStateMapper.statusKey(dto.status)?.let { key ->
-            FeeLine(dto.period, key, dto.dueDate, dto.outstanding)
+            FeeLine(dto.period, key, dto.dueDate, dto.outstanding, dto.charged, dto.verifying, dto.paidOn)
         }
 
     /** `HH:MM` out of the server's `HH:MM:SS`. */

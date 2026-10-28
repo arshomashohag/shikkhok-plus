@@ -201,6 +201,7 @@ def test_the_real_application_needs_the_allowlist() -> None:
         "days_overdue",
         "due_date",
         "overdue_students",
+        "paid_on",
         "total_marks",
     }
 

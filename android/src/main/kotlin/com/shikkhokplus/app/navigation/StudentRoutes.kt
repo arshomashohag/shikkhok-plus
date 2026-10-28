@@ -119,6 +119,7 @@ internal fun NavGraphBuilder.studentRoutes(
             },
             onOpenFees = { navController.navigate(Destination.FeeHistory.of(seat, FeeReader.STUDENT.name)) },
             onRetry = model::retry,
+            onPay = { navController.navigate(Destination.Pay.of(seat)) },
         )
     }
 }

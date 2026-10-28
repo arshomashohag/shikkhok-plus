@@ -1,5 +1,8 @@
 package com.shikkhokplus.app.feature.student
 
+import com.shikkhokplus.app.core.network.UpcomingSessionDto
+import com.shikkhokplus.app.core.network.UpcomingExamDto
+import com.shikkhokplus.app.core.network.LastResultDto
 import com.shikkhokplus.app.core.model.Money
 import com.shikkhokplus.app.core.network.AnnouncementDto
 import com.shikkhokplus.app.core.network.AttendanceEntryDto
@@ -107,5 +110,70 @@ class StudentStateMapperTest {
      * @return The state
      */
     @Suppress("TestFunctionName")
+    @Test
+    fun `a row carries its next class, whether it is THE next, its last result and fee details`() {
+        val dto =
+            StudentBatchDto(
+                "e-1",
+                "Physics A",
+                currentFee =
+                    CurrentFeeDto(
+                        "2026-10",
+                        "paid",
+                        "2026-10-10",
+                        Money.of("0.00"),
+                        Money.of("1200.00"),
+                        false,
+                        "2026-10-08",
+                    ),
+                nextSession = UpcomingSessionDto("2026-10-17", "16:00:00", "17:30:00", 35, moved = true),
+                isNext = true,
+                lastResult = LastResultDto("Weekly test 4", 44, 50, 5),
+            )
+
+        val row = (StudentStateMapper.afterBatches(listOf(dto), "+8801611477203", "Tasnim") as MyBatchesUiState.Loaded)
+
+        assertEquals("Tasnim", row.name)
+        val only = row.rows.single()
+        assertEquals(NextClass("2026-10-17", "16:00", "17:30", 35, true, null), only.nextClass)
+        assertEquals(true, only.isNext)
+        assertEquals(LastResult("Weekly test 4", 44, 50, 5), only.lastResult)
+        assertEquals(Money.of("1200.00"), only.fee?.charged)
+        assertEquals("2026-10-08", only.fee?.paidOn)
+    }
+
+    @Test
+    fun `the batch page carries the following classes, the coming exam and each topic's subject`() {
+        val view =
+            FamilyBatchViewDto(
+                servedAt = "2026-10-28T09:00:00Z",
+                nextSession = UpcomingSessionDto("2026-10-17", "16:00:00"),
+                followingSessions = listOf(UpcomingSessionDto("2026-10-21", "18:00:00", moved = true)),
+                upcomingExam = UpcomingExamDto("Monthly test", "2026-10-31", 100, "1st paper"),
+                pastSessions =
+                    listOf(
+                        AttendanceEntryDto(
+                            "s-1",
+                            "2026-10-14",
+                            "16:00:00",
+                            topic = "Heat",
+                            topicLogged = true,
+                            subjectName = "1st paper",
+                        ),
+                    ),
+            )
+        val progress =
+            listOf(ProgressEntryDto("x-1", "Weekly test 4", "2026-10-12", 50, "marked", 44, "Heat", 5, 19))
+
+        val loaded = StudentStateMapper.afterBatch(StudentBatchDto("e-1", "Physics A"), view, progress)
+
+        val page = (loaded as StudentBatchUiState.Loaded).view
+        assertEquals("16:00", page.next?.startTime)
+        assertEquals(listOf(true), page.following.map { it.moved })
+        assertEquals(UpcomingExam("Monthly test", "2026-10-31", 100, "1st paper"), page.upcomingExam)
+        assertEquals("1st paper", page.topics.single().subjectName)
+        assertEquals(5 to 19, page.results.single().let { it.rank to it.rankedOutOf })
+    }
+
     private fun StudentBatchesOf(dto: StudentBatchDto) = StudentStateMapper.afterBatches(listOf(dto), null)
 }

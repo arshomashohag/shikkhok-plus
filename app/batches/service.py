@@ -326,6 +326,7 @@ class StudentBatchRow:
     :ivar teacher_display_name: What the teacher is called, or None
     :ivar subjects: The subjects taught
     :ivar schedule: The weekly classes as (weekday, start, end)
+    :ivar batch_id: The batch, for reads keyed on it
     """
 
     enrollment_id: uuid.UUID
@@ -333,6 +334,7 @@ class StudentBatchRow:
     teacher_display_name: str | None
     subjects: list[str]
     schedule: list[tuple[int, dt.time, dt.time]]
+    batch_id: uuid.UUID | None = None
 
 
 def list_student_batches(
@@ -387,6 +389,7 @@ def list_student_batches(
             teacher_display_name=teacher,
             subjects=subjects[batch_id],
             schedule=schedules[batch_id],
+            batch_id=batch_id,
         )
         for enrollment_id, batch_id, name, teacher in rows
     ]

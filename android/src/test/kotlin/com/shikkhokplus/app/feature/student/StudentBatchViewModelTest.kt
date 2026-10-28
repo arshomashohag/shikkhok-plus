@@ -92,7 +92,7 @@ class StudentBatchViewModelTest {
     }
 
     @Test
-    fun `the account is read only when there are no batches`() = runTest(dispatcher) {
+    fun `the account is read for the subtitle and for the empty state`() = runTest(dispatcher) {
         val repository = Fake(batches = AuthResult.Ok(emptyList()))
         val model = MyBatchesViewModel(repository)
 
@@ -103,8 +103,10 @@ class StudentBatchViewModelTest {
         assertEquals(listOf("batches", "phone"), repository.reads)
 
         val withBatches = Fake()
-        MyBatchesViewModel(withBatches).load()
+        val loaded = MyBatchesViewModel(withBatches)
+        loaded.load()
         advanceUntilIdle()
-        assertEquals(listOf("batches"), withBatches.reads)
+        assertEquals(listOf("batches", "phone"), withBatches.reads)
+        assertEquals("+8801611477203", (loaded.state.value as MyBatchesUiState.Loaded).phone)
     }
 }

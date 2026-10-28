@@ -176,6 +176,9 @@ data class MarksheetDto(
  * @property resultState `marked`, `absent`, `not_entered` or
  *   `joined_after`
  * @property marks The score, non-null only when `marked`
+ * @property subjectName Which subject the exam was in
+ * @property rank The rank, only where the marksheet publishes it
+ * @property rankedOutOf How many marked results the rank is among
  */
 @Serializable
 data class ProgressEntryDto(
@@ -185,6 +188,9 @@ data class ProgressEntryDto(
     @SerialName("total_marks") val totalMarks: Int,
     @SerialName("result_state") val resultState: String,
     val marks: Int? = null,
+    @SerialName("subject_name") val subjectName: String? = null,
+    val rank: Int? = null,
+    @SerialName("ranked_out_of") val rankedOutOf: Int? = null,
 )
 
 /**

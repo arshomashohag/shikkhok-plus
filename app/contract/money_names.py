@@ -94,6 +94,11 @@ NON_MONEY_FIELDS: Final[dict[tuple[str, str], str]] = {
     ("BatchUpdateRequest", "fee_due_day"): (
         "The same value on the edit path [AC2.3.1]."
     ),
+    ("CurrentFeeResponse", "paid_on"): (
+        "A DATE, not an amount: the day the period's last approved "
+        'payment was decided ("Paid 8 Oct"). The schema\'s money '
+        "properties reference Money."
+    ),
     ("PayableResponse", "due_date"): (
         "A DATE, not an amount: when the month offered for payment was "
         "due. Its money property, `amount_due`, references Money."
@@ -122,6 +127,12 @@ NON_MONEY_FIELDS: Final[dict[tuple[str, str], str]] = {
     ),
     ("ExamUpdateRequest", "total_marks"): (
         "The same count inbound, on edit, which no longer reuses the creation body."
+    ),
+    ("LastResultResponse", "total_marks"): (
+        "The exam's mark count on S1's \"Last test 44/50\", not money."
+    ),
+    ("UpcomingExamResponse", "total_marks"): (
+        'The coming exam\'s mark count ("out of 100"), not money.'
     ),
     ("ProgressEntryResponse", "total_marks"): (
         "The same count on the guardian progress series, carried so a "

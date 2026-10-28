@@ -45,6 +45,8 @@ from app.schemas.teaching import (
     SessionSubjectRequest,
     TopicWriteRequest,
     TopicWriteResponse,
+    UpcomingExamResponse,
+    UpcomingSessionResponse,
 )
 from app.teaching import announcements as notes
 from app.teaching import schedule
@@ -52,6 +54,7 @@ from app.teaching import sessions as session_service
 from app.teaching.roster import readable_session, session_roster, write_refusal
 from app.teaching.schedule import Slot
 from app.teaching.submissions import SeatMark, submit_roster, write_topic
+from app.teaching.upcoming import UpcomingSession
 
 __all__ = ["router"]
 
@@ -700,9 +703,38 @@ def _family_view(view: notes.FamilyBatchView) -> FamilyBatchViewResponse:
                 topic=entry.topic,
                 topic_logged=entry.topic_logged,
                 present=entry.present,
+                subject_name=entry.subject_name,
             )
             for entry in view.past_sessions
         ],
         announcements=[_announcement_response(row) for row in view.announcements],
         served_at=view.served_at,
+        next_session=upcoming_response(view.coming[0]) if view.coming else None,
+        following_sessions=[upcoming_response(row) for row in view.coming[1:]],
+        upcoming_exam=(
+            None
+            if view.upcoming_exam is None
+            else UpcomingExamResponse(
+                title=view.upcoming_exam.title,
+                date=view.upcoming_exam.date,
+                total_marks=view.upcoming_exam.total_marks,
+                subject_name=view.upcoming_exam.subject_name,
+            )
+        ),
+    )
+
+
+def upcoming_response(row: UpcomingSession) -> UpcomingSessionResponse:
+    """Render one coming class for the wire.
+
+    :param row: The class
+    :return: The response body
+    """
+    return UpcomingSessionResponse(
+        date=row.date,
+        start_time=row.start_time,
+        end_time=row.end_time,
+        starts_in_minutes=row.starts_in_minutes,
+        moved=row.moved,
+        subject_name=row.subject_name,
     )

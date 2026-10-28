@@ -94,7 +94,7 @@
       },
       "AttendanceEntryResponse": {
         "additionalProperties": false,
-        "description": "One past session, as a student or guardian sees it.\n\n:ivar session_id: The session\n:ivar date: When it met\n:ivar start_time: When it started\n:ivar topic: What was covered, or null if never logged\n:ivar topic_logged: Whether a topic was ever written\n:ivar present: What was recorded for THIS seat, or null",
+        "description": "One past session, as a student or guardian sees it.\n\n:ivar session_id: The session\n:ivar date: When it met\n:ivar start_time: When it started\n:ivar topic: What was covered, or null if never logged\n:ivar topic_logged: Whether a topic was ever written\n:ivar present: What was recorded for THIS seat, or null\n:ivar subject_name: What the class taught, or null",
         "properties": {
           "date": {
             "format": "date",
@@ -121,6 +121,17 @@
             "format": "time",
             "title": "Start Time",
             "type": "string"
+          },
+          "subject_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Name"
           },
           "topic": {
             "anyOf": [
@@ -875,8 +886,18 @@
       },
       "CurrentFeeResponse": {
         "additionalProperties": false,
-        "description": "A seat's latest fee period, as the student sees it on S1.\n\nThe status is the server's [TC-9]; the app renders it and decides\nnothing from the amounts.\n\n:ivar period: ``YYYY-MM``\n:ivar status: The period's status\n:ivar due_date: When it is due\n:ivar outstanding: What is still owed for it",
+        "description": "A seat's latest fee period, as the student sees it on S1.\n\nThe status is the server's [TC-9]; the app renders it and decides\nnothing from the amounts.\n\n:ivar period: ``YYYY-MM``\n:ivar status: The period's status\n:ivar due_date: When it is due\n:ivar outstanding: What is still owed for it\n:ivar charged: What the period charged (\"October fee · ৳1,200\")\n:ivar verifying: Whether a payment for it is waiting to be checked\n:ivar paid_on: The day the last approved payment for it was\n    decided, in Bangladesh, or null",
         "properties": {
+          "charged": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "due_date": {
             "format": "date",
             "title": "Due Date",
@@ -885,6 +906,18 @@
           "outstanding": {
             "$ref": "#/components/schemas/Money"
           },
+          "paid_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paid On"
+          },
           "period": {
             "title": "Period",
             "type": "string"
@@ -892,6 +925,11 @@
           "status": {
             "title": "Status",
             "type": "string"
+          },
+          "verifying": {
+            "default": false,
+            "title": "Verifying",
+            "type": "boolean"
           }
         },
         "required": [
@@ -1571,7 +1609,7 @@
       },
       "FamilyBatchViewResponse": {
         "additionalProperties": false,
-        "description": "What a student or guardian sees of one batch [BR7.2].\n\n``served_at`` is BR7.3's server timestamp, so a client rendering\nthis from cache can state its age without consulting the device\nclock -- which is the thing excluded from decisions.\n\n:ivar next_session_date: The next scheduled session's date, or\n    null\n:ivar next_session_start_time: Its start time, or null\n:ivar past_sessions: Past sessions with topics and attendance\n:ivar announcements: The batch's visible notes\n:ivar served_at: When the server computed this",
+        "description": "What a student or guardian sees of one batch [BR7.2].\n\n``served_at`` is BR7.3's server timestamp, so a client rendering\nthis from cache can state its age without consulting the device\nclock -- which is the thing excluded from decisions.\n\n:ivar next_session_date: The next scheduled session's date, or\n    null\n:ivar next_session_start_time: Its start time, or null\n:ivar past_sessions: Past sessions with topics and attendance\n:ivar announcements: The batch's visible notes\n:ivar served_at: When the server computed this\n:ivar next_session: The next class, or null\n:ivar following_sessions: The classes after it, soonest first\n:ivar upcoming_exam: The next exam still to be sat, or null",
         "properties": {
           "announcements": {
             "items": {
@@ -1579,6 +1617,23 @@
             },
             "title": "Announcements",
             "type": "array"
+          },
+          "following_sessions": {
+            "items": {
+              "$ref": "#/components/schemas/UpcomingSessionResponse"
+            },
+            "title": "Following Sessions",
+            "type": "array"
+          },
+          "next_session": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UpcomingSessionResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "next_session_date": {
             "anyOf": [
@@ -1615,6 +1670,16 @@
             "format": "date-time",
             "title": "Served At",
             "type": "string"
+          },
+          "upcoming_exam": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UpcomingExamResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -1902,6 +1967,45 @@
           }
         },
         "title": "IssueResponse",
+        "type": "object"
+      },
+      "LastResultResponse": {
+        "additionalProperties": false,
+        "description": "A student's latest marked result in one batch (\"Last test 44/50\").\n\n:ivar title: The exam\n:ivar marks: The mark\n:ivar total_marks: Out of how many\n:ivar rank: The rank, only where the marksheet publishes it",
+        "properties": {
+          "marks": {
+            "minimum": 0.0,
+            "title": "Marks",
+            "type": "integer"
+          },
+          "rank": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rank"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "total_marks": {
+            "minimum": 1.0,
+            "title": "Total Marks",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "marks",
+          "title",
+          "total_marks"
+        ],
+        "title": "LastResultResponse",
         "type": "object"
       },
       "LensEntry": {
@@ -2376,7 +2480,7 @@
       },
       "ProgressEntryResponse": {
         "additionalProperties": false,
-        "description": "One exam in a child's progress series [BR6.6].\n\n**An absence carries no numeric value**, rather than a zero: an\nabsence plotted as zero shows a collapse in performance that did\nnot happen.\n\n:ivar exam_id: The exam\n:ivar title: Its title\n:ivar date: When it was sat\n:ivar total_marks: Its denominator\n:ivar result_state: One of the four states\n:ivar marks: The number, or null",
+        "description": "One exam in a child's progress series [BR6.6].\n\n**An absence carries no numeric value**, rather than a zero: an\nabsence plotted as zero shows a collapse in performance that did\nnot happen.\n\n:ivar exam_id: The exam\n:ivar title: Its title\n:ivar date: When it was sat\n:ivar total_marks: Its denominator\n:ivar result_state: One of the four states\n:ivar marks: The number, or null\n:ivar subject_name: Which subject the exam was in\n:ivar rank: The viewer's rank, only where the marksheet publishes\n    its comparison [BR6.4]; else null\n:ivar ranked_out_of: How many marked results the rank is among",
         "properties": {
           "date": {
             "format": "date",
@@ -2399,6 +2503,30 @@
             ],
             "title": "Marks"
           },
+          "rank": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rank"
+          },
+          "ranked_out_of": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ranked Out Of"
+          },
           "result_state": {
             "enum": [
               "absent",
@@ -2408,6 +2536,17 @@
             ],
             "title": "Result State",
             "type": "string"
+          },
+          "subject_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Name"
           },
           "title": {
             "title": "Title",
@@ -3251,7 +3390,7 @@
       },
       "StudentBatchResponse": {
         "additionalProperties": false,
-        "description": "One batch a student is in (S1).\n\n:ivar enrollment_id: Their seat; every other student read takes it\n:ivar batch_name: The batch\n:ivar teacher_display_name: What the teacher is called, or None\n:ivar subjects: The subjects taught\n:ivar schedule: The weekly classes\n:ivar current_fee: The latest fee period, or None before the first",
+        "description": "One batch a student is in (S1).\n\n:ivar enrollment_id: Their seat; every other student read takes it\n:ivar batch_name: The batch\n:ivar teacher_display_name: What the teacher is called, or None\n:ivar subjects: The subjects taught\n:ivar schedule: The weekly classes\n:ivar current_fee: The latest fee period, or None before the first\n:ivar next_session: This batch's next class, or null\n:ivar is_next: Whether that class is the student's next one across\n    every batch -- true on at most one row\n:ivar last_result: The latest marked result, or null",
         "properties": {
           "batch_name": {
             "title": "Batch Name",
@@ -3271,6 +3410,31 @@
             "format": "uuid",
             "title": "Enrollment Id",
             "type": "string"
+          },
+          "is_next": {
+            "default": false,
+            "title": "Is Next",
+            "type": "boolean"
+          },
+          "last_result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LastResultResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "next_session": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UpcomingSessionResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "schedule": {
             "items": {
@@ -3631,6 +3795,100 @@
           "topic_version"
         ],
         "title": "TopicWriteResponse",
+        "type": "object"
+      },
+      "UpcomingExamResponse": {
+        "additionalProperties": false,
+        "description": "The next exam a student will sit (\"Coming up\").\n\n:ivar title: Its title\n:ivar date: When\n:ivar total_marks: Out of how many\n:ivar subject_name: Which subject",
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "subject_name": {
+            "title": "Subject Name",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "total_marks": {
+            "minimum": 1.0,
+            "title": "Total Marks",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "subject_name",
+          "title",
+          "total_marks"
+        ],
+        "title": "UpcomingExamResponse",
+        "type": "object"
+      },
+      "UpcomingSessionResponse": {
+        "additionalProperties": false,
+        "description": "A class still to come, with the server's comparisons made.\n\n:ivar date: Its date\n:ivar start_time: When it starts\n:ivar end_time: When it ends, or null\n:ivar starts_in_minutes: Minutes until it starts when that is today\n    in Bangladesh, else null\n:ivar moved: Whether the teacher moved it from its usual time\n:ivar subject_name: What it teaches, or null",
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "end_time": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Time"
+          },
+          "moved": {
+            "title": "Moved",
+            "type": "boolean"
+          },
+          "start_time": {
+            "format": "time",
+            "title": "Start Time",
+            "type": "string"
+          },
+          "starts_in_minutes": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Starts In Minutes"
+          },
+          "subject_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Name"
+          }
+        },
+        "required": [
+          "date",
+          "moved",
+          "start_time"
+        ],
+        "title": "UpcomingSessionResponse",
         "type": "object"
       },
       "ValidationError": {

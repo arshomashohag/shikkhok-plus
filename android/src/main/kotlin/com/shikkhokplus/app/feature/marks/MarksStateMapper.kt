@@ -280,6 +280,9 @@ object MarksStateMapper {
                 // has a number for every point; that plots a
                 // collapse that did not happen.
                 marks = entry.marks,
+                subjectName = entry.subjectName,
+                rank = entry.rank,
+                rankedOutOf = entry.rankedOutOf,
             )
         }
 

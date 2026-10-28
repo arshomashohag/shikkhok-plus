@@ -25,6 +25,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.schemas.money import MoneyField
 from app.schemas.phone import PhoneField
 from app.schemas.schedule import ScheduleSlotWire
+from app.schemas.teaching import UpcomingSessionResponse
 
 __all__ = [
     "BatchCreateRequest",
@@ -33,6 +34,7 @@ __all__ = [
     "EnrollmentCreateRequest",
     "GuardianChildResponse",
     "InactiveFromRequest",
+    "LastResultResponse",
     "RosterRowResponse",
 ]
 
@@ -166,6 +168,10 @@ class CurrentFeeResponse(BaseModel):
     :ivar status: The period's status
     :ivar due_date: When it is due
     :ivar outstanding: What is still owed for it
+    :ivar charged: What the period charged ("October fee · ৳1,200")
+    :ivar verifying: Whether a payment for it is waiting to be checked
+    :ivar paid_on: The day the last approved payment for it was
+        decided, in Bangladesh, or null
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -174,6 +180,26 @@ class CurrentFeeResponse(BaseModel):
     status: str
     due_date: dt.date
     outstanding: MoneyField
+    charged: MoneyField | None = None
+    verifying: bool = False
+    paid_on: dt.date | None = None
+
+
+class LastResultResponse(BaseModel):
+    """A student's latest marked result in one batch ("Last test 44/50").
+
+    :ivar title: The exam
+    :ivar marks: The mark
+    :ivar total_marks: Out of how many
+    :ivar rank: The rank, only where the marksheet publishes it
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    title: str
+    marks: int = Field(ge=0)
+    total_marks: int = Field(ge=1)
+    rank: int | None = Field(default=None, ge=1)
 
 
 class StudentBatchResponse(BaseModel):
@@ -185,6 +211,10 @@ class StudentBatchResponse(BaseModel):
     :ivar subjects: The subjects taught
     :ivar schedule: The weekly classes
     :ivar current_fee: The latest fee period, or None before the first
+    :ivar next_session: This batch's next class, or null
+    :ivar is_next: Whether that class is the student's next one across
+        every batch -- true on at most one row
+    :ivar last_result: The latest marked result, or null
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -195,6 +225,9 @@ class StudentBatchResponse(BaseModel):
     subjects: list[str]
     schedule: list[ScheduleSlotWire]
     current_fee: CurrentFeeResponse | None
+    next_session: UpcomingSessionResponse | None = None
+    is_next: bool = False
+    last_result: LastResultResponse | None = None
 
 
 class EnrollmentCreateRequest(BaseModel):

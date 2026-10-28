@@ -56,6 +56,8 @@ __all__ = [
     "SessionSubjectRequest",
     "TopicWriteRequest",
     "TopicWriteResponse",
+    "UpcomingExamResponse",
+    "UpcomingSessionResponse",
 ]
 
 #: FR3.3's three states, as a closed set the generated document
@@ -327,6 +329,7 @@ class AttendanceEntryResponse(BaseModel):
     :ivar topic: What was covered, or null if never logged
     :ivar topic_logged: Whether a topic was ever written
     :ivar present: What was recorded for THIS seat, or null
+    :ivar subject_name: What the class taught, or null
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -337,6 +340,46 @@ class AttendanceEntryResponse(BaseModel):
     topic: str | None = None
     topic_logged: bool
     present: bool | None = None
+    subject_name: str | None = None
+
+
+class UpcomingSessionResponse(BaseModel):
+    """A class still to come, with the server's comparisons made.
+
+    :ivar date: Its date
+    :ivar start_time: When it starts
+    :ivar end_time: When it ends, or null
+    :ivar starts_in_minutes: Minutes until it starts when that is today
+        in Bangladesh, else null
+    :ivar moved: Whether the teacher moved it from its usual time
+    :ivar subject_name: What it teaches, or null
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    date: dt.date
+    start_time: dt.time
+    end_time: dt.time | None = None
+    starts_in_minutes: int | None = Field(default=None, ge=0)
+    moved: bool
+    subject_name: str | None = None
+
+
+class UpcomingExamResponse(BaseModel):
+    """The next exam a student will sit ("Coming up").
+
+    :ivar title: Its title
+    :ivar date: When
+    :ivar total_marks: Out of how many
+    :ivar subject_name: Which subject
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    title: str
+    date: dt.date
+    total_marks: int = Field(ge=1)
+    subject_name: str
 
 
 class FamilyBatchViewResponse(BaseModel):
@@ -352,6 +395,9 @@ class FamilyBatchViewResponse(BaseModel):
     :ivar past_sessions: Past sessions with topics and attendance
     :ivar announcements: The batch's visible notes
     :ivar served_at: When the server computed this
+    :ivar next_session: The next class, or null
+    :ivar following_sessions: The classes after it, soonest first
+    :ivar upcoming_exam: The next exam still to be sat, or null
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -361,6 +407,9 @@ class FamilyBatchViewResponse(BaseModel):
     past_sessions: list[AttendanceEntryResponse]
     announcements: list[AnnouncementResponse]
     served_at: dt.datetime
+    next_session: UpcomingSessionResponse | None = None
+    following_sessions: list[UpcomingSessionResponse] = Field(default_factory=list)
+    upcoming_exam: UpcomingExamResponse | None = None
 
 
 class MarksheetToggleRequest(BaseModel):

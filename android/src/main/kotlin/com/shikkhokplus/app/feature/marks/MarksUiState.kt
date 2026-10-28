@@ -221,6 +221,9 @@ sealed interface MarksUiState {
  *   plotted as zero shows a collapse in performance that did not
  *   happen, which is the single most alarming thing this screen can say
  *   wrongly. The null is what keeps it out of any trend
+ * @property subjectName Which subject, or null
+ * @property rank The rank, only where the marksheet publishes it
+ * @property rankedOutOf How many marked results the rank is among
  */
 data class ProgressRow(
     val examId: String,
@@ -229,6 +232,9 @@ data class ProgressRow(
     val totalMarks: Int,
     val stateLabel: String,
     val marks: Int?,
+    val subjectName: String? = null,
+    val rank: Int? = null,
+    val rankedOutOf: Int? = null,
 )
 
 /**

@@ -25,8 +25,8 @@ class MyBatchesViewModel(
     /**
      * Load the student's batches.
      *
-     * The account is read only when there are none, for the number the
-     * empty state asks the student to give their teacher.
+     * The account is read too: its name and number head the list, and
+     * the empty state asks the student to give their teacher the number.
      */
     fun load() {
         _state.value = MyBatchesUiState.Loading
@@ -34,13 +34,10 @@ class MyBatchesViewModel(
             _state.value =
                 when (val result = repository.batches()) {
                     is AuthResult.Ok -> {
-                        val phone =
-                            if (result.value.isEmpty()) {
-                                (repository.phone() as? AuthResult.Ok)?.value?.phone
-                            } else {
-                                null
-                            }
-                        StudentStateMapper.afterBatches(result.value, phone)
+                        // The account, for S1's subtitle and the empty
+                        // state's number. Its failure costs only those.
+                        val me = (repository.phone() as? AuthResult.Ok)?.value
+                        StudentStateMapper.afterBatches(result.value, me?.phone, me?.selfName)
                     }
                     is AuthResult.Refused -> {
                         val (key, retryable) = StudentStateMapper.failure(result.envelope)

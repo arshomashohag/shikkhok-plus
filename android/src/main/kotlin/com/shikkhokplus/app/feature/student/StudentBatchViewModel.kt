@@ -73,9 +73,12 @@ class StudentBatchViewModel(
                 is AuthResult.Ok -> result.value
                 else -> return failed(result)
             }
+        // A refusal here is the teacher hiding marksheets from families:
+        // the page still shows, with no results, rather than failing whole.
         return when (val result = repository.progress(batch.enrollmentId)) {
             is AuthResult.Ok -> StudentStateMapper.afterBatch(batch, view, result.value)
-            else -> failed(result)
+            is AuthResult.Refused -> StudentStateMapper.afterBatch(batch, view, emptyList())
+            AuthResult.TransportFailure -> failed(result)
         }
     }
 

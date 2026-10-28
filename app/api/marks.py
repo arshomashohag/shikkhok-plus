@@ -499,6 +499,9 @@ def read_child_progress(
             total_marks=entry.total_marks,
             result_state=_result_state(entry.result_state),
             marks=entry.marks,
+            subject_name=entry.subject_name,
+            rank=entry.rank,
+            ranked_out_of=entry.ranked_out_of,
         )
         for entry in views.guardian_progress(
             session, lens=lens, enrollment_id=enrollment_id
@@ -540,6 +543,9 @@ def read_my_progress(
             total_marks=entry.total_marks,
             result_state=_result_state(entry.result_state),
             marks=entry.marks,
+            subject_name=entry.subject_name,
+            rank=entry.rank,
+            ranked_out_of=entry.ranked_out_of,
         )
         for entry in views.guardian_progress(
             session, lens=lens, enrollment_id=enrollment_id

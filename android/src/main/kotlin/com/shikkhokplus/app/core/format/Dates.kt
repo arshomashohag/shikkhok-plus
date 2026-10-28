@@ -71,6 +71,18 @@ fun shortDate(iso: String): String =
     } ?: iso
 
 /**
+ * A date with its weekday, as a schedule line says it: `Mon 19 Oct`.
+ *
+ * @param iso `yyyy-MM-dd`
+ * @return The label, or the input if it cannot be read
+ */
+fun dayLabel(iso: String): String =
+    isoToUtcMillis(iso)?.let { millis ->
+        val weekday = SimpleDateFormat("EEE", Locale.getDefault()).apply { timeZone = TimeZone.getTimeZone("UTC") }
+        "${weekday.format(millis)} ${shortDate(iso)}"
+    } ?: iso
+
+/**
  * A server timestamp in the phone's time as `17 Oct, 3:22 pm`.
  *
  * @param iso The server's timestamp

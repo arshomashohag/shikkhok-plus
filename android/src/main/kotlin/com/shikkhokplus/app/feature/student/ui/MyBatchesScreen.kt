@@ -1,5 +1,10 @@
 package com.shikkhokplus.app.feature.student.ui
 
+import com.shikkhokplus.app.core.ui.displayTime
+import com.shikkhokplus.app.core.format.monthName
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Spacer
 import com.shikkhokplus.app.core.designsystem.PrimaryButton
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Column
@@ -74,6 +79,7 @@ fun MyBatchesScreen(
 ) {
     ListScreenScaffold(
         title = stringResource(R.string.my_batches_title),
+        subtitle = subtitleOf(state),
         modifier = modifier,
         bottomBar = {
             Column {
@@ -104,9 +110,26 @@ fun MyBatchesScreen(
 
             is MyBatchesUiState.Loaded ->
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    state.rows.firstOrNull { it.isNext }?.let { row ->
+                        val next = row.nextClass
+                        if (next != null) {
+                            item(key = "next") {
+                                NextClassHero(
+                                    next,
+                                    listOfNotNull(
+                                        Numerals.freeText(row.batchName),
+                                        row.teacherName?.let(Numerals::freeText),
+                                    )
+                                        .joinToString(" · "),
+                                    withEnd = false,
+                                )
+                            }
+                        }
+                    }
                     items(state.rows, key = { it.enrollmentId }) { row ->
                         StudentBatchCard(row, onOpen = { onOpen(row.enrollmentId) })
                     }
+                    item { Spacer(Modifier.height(8.dp)) }
                 }
 
             is MyBatchesUiState.Failed -> {
@@ -125,7 +148,25 @@ fun MyBatchesScreen(
 }
 
 /**
- * One batch as a card: name, teacher and days, and the latest fee.
+ * The bar's second line: the student's name and number, as far as known.
+ *
+ * @param state What is shown
+ * @return The line, or null
+ */
+@Composable
+private fun subtitleOf(state: MyBatchesUiState): String? =
+    when (state) {
+        is MyBatchesUiState.Loaded ->
+            listOfNotNull(state.name?.let(Numerals::freeText), state.phone?.let(Numerals::phone))
+                .joinToString(" · ")
+                .ifEmpty { null }
+        is MyBatchesUiState.Empty -> state.phone?.let(Numerals::phone)
+        else -> null
+    }
+
+/**
+ * One batch as a card: name, then teacher and days -- or that today's
+ * class moved -- then the last test and this month's fee.
  *
  * @param row The batch
  * @param onOpen Called when tapped
@@ -135,20 +176,52 @@ private fun StudentBatchCard(row: StudentBatchRow, onOpen: () -> Unit) {
     ShikkhokCard(modifier = Modifier.testTag(TAG_MY_BATCH_ROW), onClick = onOpen) {
         Text(
             text = Numerals.freeText(row.batchName),
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodyLarge,
             fontWeight = FontWeight.SemiBold,
         )
-        val byline =
-            listOfNotNull(row.teacherName?.let(Numerals::freeText), scheduleSummary(row.schedule).ifEmpty { null })
-        if (byline.isNotEmpty()) {
+        val next = row.nextClass
+        if (next != null && next.moved && next.startsInMinutes != null) {
             Text(
-                text = byline.joinToString(" · "),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                stringResource(R.string.student_today_moved, displayTime(next.startTime)),
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary,
             )
+        } else {
+            val byline =
+                listOfNotNull(row.teacherName?.let(Numerals::freeText), scheduleSummary(row.schedule).ifEmpty { null })
+            if (byline.isNotEmpty()) {
+                Text(
+                    text = byline.joinToString(" · "),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
-        row.fee?.let { FeeSummary(it) }
+        HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainerHigh)
+        Row(Modifier.fillMaxWidth()) {
+            Column(Modifier.weight(1f)) {
+                Caption(stringResource(R.string.student_last_test))
+                LastResultText(row.lastResult)
+            }
+            row.fee?.let { fee ->
+                Column(Modifier.weight(1f).testTag(TAG_MY_BATCH_FEE)) {
+                    Caption(stringResource(R.string.student_fee_month, monthName(fee.period, short = false)))
+                    FeeChip(fee)
+                }
+            }
+        }
     }
+}
+
+/**
+ * A small grey label over a value.
+ *
+ * @param text The label
+ */
+@Composable
+private fun Caption(text: String) {
+    Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 /**

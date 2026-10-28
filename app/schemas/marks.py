@@ -312,6 +312,10 @@ class ProgressEntryResponse(BaseModel):
     :ivar total_marks: Its denominator
     :ivar result_state: One of the four states
     :ivar marks: The number, or null
+    :ivar subject_name: Which subject the exam was in
+    :ivar rank: The viewer's rank, only where the marksheet publishes
+        its comparison [BR6.4]; else null
+    :ivar ranked_out_of: How many marked results the rank is among
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -322,3 +326,6 @@ class ProgressEntryResponse(BaseModel):
     total_marks: int = Field(ge=1)
     result_state: ResultState
     marks: int | None = None
+    subject_name: str | None = None
+    rank: int | None = Field(default=None, ge=1)
+    ranked_out_of: int | None = Field(default=None, ge=1)

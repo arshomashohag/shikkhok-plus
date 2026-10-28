@@ -14,6 +14,9 @@ import kotlinx.serialization.Serializable
  * @property status `paid`, `partly_paid`, `unpaid` or `waived`
  * @property dueDate When it is due, as the server formatted it
  * @property outstanding What is still owed for it
+ * @property charged What the period charged
+ * @property verifying Whether a payment for it is being checked
+ * @property paidOn The day it was last approved, `yyyy-MM-dd`, or null
  */
 @Serializable
 data class CurrentFeeDto(
@@ -21,6 +24,9 @@ data class CurrentFeeDto(
     val status: String,
     @SerialName("due_date") val dueDate: String,
     val outstanding: Money,
+    val charged: Money? = null,
+    val verifying: Boolean = false,
+    @SerialName("paid_on") val paidOn: String? = null,
 )
 
 /**
@@ -32,6 +38,9 @@ data class CurrentFeeDto(
  * @property subjects The subjects taught
  * @property schedule The weekly classes
  * @property currentFee The latest fee period, or null before the first
+ * @property nextSession This batch's next class, or null
+ * @property isNext Whether that is the student's next class across every batch
+ * @property lastResult The latest marked result, or null
  */
 @Serializable
 data class StudentBatchDto(
@@ -41,6 +50,9 @@ data class StudentBatchDto(
     val subjects: List<String> = emptyList(),
     val schedule: List<ScheduleSlotDto> = emptyList(),
     @SerialName("current_fee") val currentFee: CurrentFeeDto? = null,
+    @SerialName("next_session") val nextSession: UpcomingSessionDto? = null,
+    @SerialName("is_next") val isNext: Boolean = false,
+    @SerialName("last_result") val lastResult: LastResultDto? = null,
 )
 
 /**
@@ -53,6 +65,7 @@ data class StudentBatchDto(
  *   attendance was not taken
  * @property topic What was covered, or null
  * @property topicLogged Whether the teacher recorded a topic
+ * @property subjectName What the class taught, or null
  */
 @Serializable
 data class AttendanceEntryDto(
@@ -62,6 +75,7 @@ data class AttendanceEntryDto(
     val present: Boolean? = null,
     val topic: String? = null,
     @SerialName("topic_logged") val topicLogged: Boolean = false,
+    @SerialName("subject_name") val subjectName: String? = null,
 )
 
 /**
@@ -72,6 +86,9 @@ data class AttendanceEntryDto(
  * @property pastSessions Classes held, newest first as the server orders
  * @property announcements The batch's notices
  * @property servedAt When the server produced this
+ * @property nextSession The next class, or null
+ * @property followingSessions The classes after it
+ * @property upcomingExam The next exam to sit, or null
  */
 @Serializable
 data class FamilyBatchViewDto(
@@ -80,6 +97,9 @@ data class FamilyBatchViewDto(
     @SerialName("past_sessions") val pastSessions: List<AttendanceEntryDto> = emptyList(),
     val announcements: List<AnnouncementDto> = emptyList(),
     @SerialName("served_at") val servedAt: String,
+    @SerialName("next_session") val nextSession: UpcomingSessionDto? = null,
+    @SerialName("following_sessions") val followingSessions: List<UpcomingSessionDto> = emptyList(),
+    @SerialName("upcoming_exam") val upcomingExam: UpcomingExamDto? = null,
 )
 
 /**
@@ -97,4 +117,56 @@ data class SessionRosterDto(
     val seats: List<RosterSeatDto> = emptyList(),
     @SerialName("attendance_version") val attendanceVersion: Int,
     val writable: Boolean,
+)
+
+/**
+ * A class still to come, with the server's comparisons made.
+ *
+ * @property date Its date
+ * @property startTime When it starts
+ * @property endTime When it ends, or null
+ * @property startsInMinutes Minutes until it starts when that is today, else null
+ * @property moved Whether the teacher moved it from its usual time
+ * @property subjectName What it teaches, or null
+ */
+@Serializable
+data class UpcomingSessionDto(
+    val date: String,
+    @SerialName("start_time") val startTime: String,
+    @SerialName("end_time") val endTime: String? = null,
+    @SerialName("starts_in_minutes") val startsInMinutes: Int? = null,
+    val moved: Boolean = false,
+    @SerialName("subject_name") val subjectName: String? = null,
+)
+
+/**
+ * The latest marked result on a seat ("Last test 44/50 · rank 5").
+ *
+ * @property title The exam
+ * @property marks The mark
+ * @property totalMarks Out of how many
+ * @property rank The rank, only where the marksheet publishes it
+ */
+@Serializable
+data class LastResultDto(
+    val title: String,
+    val marks: Int,
+    @SerialName("total_marks") val totalMarks: Int,
+    val rank: Int? = null,
+)
+
+/**
+ * The next exam to sit ("Coming up").
+ *
+ * @property title The exam
+ * @property date When
+ * @property totalMarks Out of how many
+ * @property subjectName Which subject
+ */
+@Serializable
+data class UpcomingExamDto(
+    val title: String,
+    val date: String,
+    @SerialName("total_marks") val totalMarks: Int,
+    @SerialName("subject_name") val subjectName: String,
 )
