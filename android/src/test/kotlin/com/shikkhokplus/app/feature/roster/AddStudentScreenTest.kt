@@ -32,7 +32,7 @@ class AddStudentScreenTest {
         compose.setContent {
             AddStudentScreen(
                 state = AddStudentUiState.Form,
-                onAdd = { _, _, _ -> },
+                onAdd = { _, _, _, _ -> },
                 onCancel = {},
             )
         }
@@ -45,7 +45,7 @@ class AddStudentScreenTest {
         compose.setContent {
             AddStudentScreen(
                 state = AddStudentUiState.Submitting,
-                onAdd = { _, _, _ -> },
+                onAdd = { _, _, _, _ -> },
                 onCancel = {},
             )
         }
@@ -71,7 +71,7 @@ class AddStudentScreenTest {
                     "batch.not_found",
                     retryable = false,
                 ),
-                onAdd = { _, _, _ -> },
+                onAdd = { _, _, _, _ -> },
                 onCancel = {},
             )
         }
@@ -89,7 +89,7 @@ class AddStudentScreenTest {
         compose.setContent {
             AddStudentScreen(
                 state = AddStudentUiState.Added("Rahim"),
-                onAdd = { _, _, _ -> },
+                onAdd = { _, _, _, _ -> },
                 onCancel = {},
             )
         }
@@ -107,7 +107,7 @@ class AddStudentScreenTest {
         compose.setContent {
             AddStudentScreen(
                 state = AddStudentUiState.Form,
-                onAdd = { _, _, _ -> },
+                onAdd = { _, _, _, _ -> },
                 onCancel = {},
             )
         }

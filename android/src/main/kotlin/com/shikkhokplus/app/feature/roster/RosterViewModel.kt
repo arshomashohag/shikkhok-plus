@@ -2,6 +2,7 @@ package com.shikkhokplus.app.feature.roster
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.shikkhokplus.app.core.format.todayIso
 import com.shikkhokplus.app.core.network.RosterRowDto
 import com.shikkhokplus.app.core.ui.WriteState
 import com.shikkhokplus.app.feature.auth.AuthResult
@@ -54,6 +55,19 @@ interface RosterRepository {
     suspend fun removeEnrollment(enrollmentId: String): AuthResult<Unit>
 
     /**
+     * Mark a seat inactive from a date [AC2.4.1, FR1.9i].
+     *
+     * The remedy when removal is refused because someone accepted the
+     * seat: the history stays, and the server stops future fee cycles
+     * from that date while existing dues stand [PU-2.9].
+     *
+     * @param enrollmentId The seat
+     * @param fromDate The first inactive day, `yyyy-MM-dd`
+     * @return Nothing on success, or why the server refused
+     */
+    suspend fun markInactive(enrollmentId: String, fromDate: String): AuthResult<Unit>
+
+    /**
      * Add a student to a batch.
      *
      * @param batchId The batch to add to
@@ -66,6 +80,7 @@ interface RosterRepository {
     suspend fun addEnrollment(
         batchId: String,
         displayName: String,
+        studentPhone: String?,
         guardianPhone: String?,
         feeAmount: String?,
     ): AuthResult<Unit>
@@ -86,6 +101,7 @@ interface RosterRepository {
  */
 class RosterViewModel(
     private val repository: RosterRepository,
+    private val today: () -> String = ::todayIso,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<RosterUiState>(RosterUiState.Idle)
@@ -204,6 +220,34 @@ class RosterViewModel(
     }
 
     /**
+     * Mark a seat inactive from today, then reload [FR1.9i].
+     *
+     * Offered only on a refused removal whose remedy is
+     * [RemovalRemedy.MARK_INACTIVE]: somebody accepted the seat, so its
+     * history must stay. **What inactive means is the server's**
+     * [PU-2.9] -- future fee cycles stop, existing dues stand, other
+     * batches are untouched -- and nothing here computes any of it.
+     *
+     * @param row The seat
+     */
+    fun markInactive(row: RosterRow) {
+        val batchId = lastBatchId ?: return
+        _state.value = RosterUiState.Loading
+        viewModelScope.launch {
+            when (val result = repository.markInactive(row.enrollmentId, today())) {
+                is AuthResult.Ok -> {
+                    removingRow = null
+                    pendingRemoval = null
+                    load(batchId, lastBatchName)
+                }
+                is AuthResult.Refused -> _state.value = RosterStateMapper.afterError(result.envelope)
+                AuthResult.TransportFailure ->
+                    _state.value = RosterStateMapper.afterTransportFailure()
+            }
+        }
+    }
+
+    /**
      * Add a student, then reload the roster.
      *
      * **No optimistic insert**, for the same reason removal has no
@@ -219,12 +263,14 @@ class RosterViewModel(
      * cannot add the same student twice.
      *
      * @param displayName The teacher-typed name
+     * @param studentPhone The student's number, as typed
      * @param guardianPhone The guardian's number, or null
      * @param feeAmount This seat's fee in canonical form, or null to
      *   inherit
      */
     fun addStudent(
         displayName: String,
+        studentPhone: String?,
         guardianPhone: String?,
         feeAmount: String?,
     ) {
@@ -235,7 +281,13 @@ class RosterViewModel(
             _writeState.value =
                 when (
                     val result =
-                        repository.addEnrollment(batchId, displayName, guardianPhone, feeAmount)
+                        repository.addEnrollment(
+                            batchId = batchId,
+                            displayName = displayName,
+                            studentPhone = studentPhone,
+                            guardianPhone = guardianPhone,
+                            feeAmount = feeAmount,
+                        )
                 ) {
                     is AuthResult.Ok -> {
                         load(batchId, lastBatchName)

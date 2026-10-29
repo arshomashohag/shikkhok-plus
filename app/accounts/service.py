@@ -161,6 +161,19 @@ _LINK_GUARDIAN_SEATS = sa.text(
 )
 
 
+#: The student half of :data:`_LINK_GUARDIAN_SEATS`, under the same rules:
+#: the link and NOT the decision [BR5.1], and never a blocked seat [BR6.2].
+_LINK_STUDENT_SEATS = sa.text(
+    """
+    UPDATE enrollment
+    SET student_account_id = :account_id
+    WHERE student_phone = :phone
+      AND student_account_id IS NULL
+      AND student_relink_blocked_at IS NULL
+    """
+)
+
+
 def already_added(session: Session, phone: str) -> AlreadyAdded:
     """Report whether a teacher recorded this number, and nothing more.
 
@@ -289,12 +302,15 @@ def _link_existing_seats(
     point: signing up is not accepting, so the person is offered an
     invitation rather than a lens.
 
-    The student link is attached through ``Enrollment.guardian_phone``
-    only for the guardian case; a student seat carries no typed number
-    column of its own, so a teacher creating one for an unregistered
-    number records the guardian contact and the student link attaches
-    when the roster's number is corrected. That is D2's screen and this
-    Unit changes nothing about it.
+    **Both links, by the number the teacher typed.** This used to attach
+    only the guardian: a seat had no column for its student's number, so
+    the student link was left to "D2's screen", which was never built --
+    and no student a teacher added could reach their own seat. ``0008``
+    added ``Enrollment.student_phone``, and the student link now attaches
+    here exactly as the guardian's does.
+
+    Both statements skip a seat whose relink is blocked: a number whose
+    account was erased must not reattach to the records it left [BR6.2].
 
     :param session: The session to write through
     :param account_id: The account just created
@@ -302,3 +318,4 @@ def _link_existing_seats(
     :return: None
     """
     session.execute(_LINK_GUARDIAN_SEATS, {"account_id": account_id, "phone": phone})
+    session.execute(_LINK_STUDENT_SEATS, {"account_id": account_id, "phone": phone})

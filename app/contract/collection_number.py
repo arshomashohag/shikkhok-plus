@@ -42,34 +42,37 @@ __all__ = [
 #: The field name this gate tracks.
 COLLECTION_NUMBER_FIELD: Final = "collection_number"
 
-#: The routes permitted to carry it, and **exactly three**. An equality
-#: against this set is what the gate asserts, so a fourth entry is a
-#: deliberate diff against a stated allowlist rather than a line
-#: appended to a growing one.
+#: The routes permitted to carry it. An equality against this set is
+#: what the gate asserts, so a new entry is a deliberate diff against a
+#: stated allowlist rather than a line appended to a growing one.
 #:
 #: **The security design predicted one and the built application has
-#: three, and the difference is not a weakening.** That document was
+#: more, and the difference is not a weakening.** That document was
 #: written against a schema in which D2's batch routes did not yet
 #: exist; its single entry is the DOWNWARD disclosure -- the one
 #: response that shows a teacher's number to somebody who is not that
 #: teacher. The other two are the teacher reading and writing **their
-#: own** number on **their own** batch, which discloses it to nobody.
+#: own** number on **their own** batch, which discloses it to nobody;
+#: the batch edit (PATCH) joined them in the same category.
 #: Recorded here rather than silently widened, because a reader meeting
 #: the design's `== {one route}` and this set needs to know which is
 #: current and why.
 #:
 #: The distinction the gate cannot make on its own is therefore made
 #: here, and the test makes it mechanical: the downward route is
-#: asserted to resolve NO teacher lens, and the two batch routes are
-#: asserted to resolve ONLY a teacher lens. A fourth route carrying the
+#: asserted to resolve NO teacher lens, and the batch routes are
+#: asserted to resolve ONLY a teacher lens. Any other route carrying the
 #: field fails the equality whichever direction it faces.
 PERMITTED_ROUTES: Final[frozenset[tuple[str, str]]] = frozenset(
     {
         # Downward: a student or guardian reads where to pay [BR6.4].
         ("GET", "/v1/enrollments/{enrollment_id}/payment-destination"),
+        # Downward, the guardian's own route to the same answer (G3).
+        ("GET", "/v1/children/{enrollment_id}/payment-destination"),
         # The teacher's own batch, read and written by its owner.
         ("GET", "/v1/batches"),
         ("POST", "/v1/batches"),
+        ("PATCH", "/v1/batches/{batch_id}"),
     }
 )
 
@@ -77,7 +80,10 @@ PERMITTED_ROUTES: Final[frozenset[tuple[str, str]]] = frozenset(
 #: who is not the teacher who authored it. This is the entry the
 #: security design named, and the one whose lens must not be a teacher's.
 DOWNWARD_ROUTES: Final[frozenset[tuple[str, str]]] = frozenset(
-    {("GET", "/v1/enrollments/{enrollment_id}/payment-destination")}
+    {
+        ("GET", "/v1/enrollments/{enrollment_id}/payment-destination"),
+        ("GET", "/v1/children/{enrollment_id}/payment-destination"),
+    }
 )
 
 

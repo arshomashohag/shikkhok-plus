@@ -18,6 +18,18 @@ import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.feature.roster.RemovalRemedy
 import com.shikkhokplus.app.feature.roster.RosterRow
 
+/** The removal confirmation. */
+const val TAG_ROSTER_REMOVE_CONFIRM: String = "roster_remove_confirm"
+
+/** The refusal shown when removal was not permitted. */
+const val TAG_ROSTER_REMOVE_REFUSED: String = "roster_remove_refused"
+
+/** The remedy offered with a refusal. */
+const val TAG_ROSTER_REMEDY: String = "roster_remedy"
+
+/** The mark-inactive action, offered for a CLAIMED refusal only. */
+const val TAG_ROSTER_MARK_INACTIVE: String = "roster_mark_inactive"
+
 /**
  * Confirm removing a seat [W4].
  *

@@ -31,8 +31,10 @@ __all__ = [
     "BandResponse",
     "CorrectionEntryResponse",
     "ExamCreateRequest",
+    "ExamListItemResponse",
     "ExamResponse",
     "ExamResultsResponse",
+    "ExamUpdateRequest",
     "MarkWriteRequest",
     "MarksheetResponse",
     "ProgressEntryResponse",
@@ -74,6 +76,23 @@ class ExamResponse(BaseModel):
     subject_name: str
 
 
+class ExamListItemResponse(ExamResponse):
+    """One exam on the teacher's list, with its marking progress.
+
+    Counted server-side, so the client never tallies a rows list to
+    decide what counts as entered.
+
+    :ivar entered_count: Seats with a mark or an absence entered
+    :ivar expected_count: Seats that could have sat the exam
+    :ivar state: ``upcoming``, ``needs_marks`` or ``complete``, decided
+        by the server so the client never compares a date or a count
+    """
+
+    entered_count: int = Field(ge=0)
+    expected_count: int = Field(ge=0)
+    state: Literal["upcoming", "needs_marks", "complete"]
+
+
 class ExamCreateRequest(BaseModel):
     """Create or edit an assessment [BR4.1].
 
@@ -86,6 +105,25 @@ class ExamCreateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     batch_subject_id: uuid.UUID
+    title: str = Field(min_length=1, max_length=200)
+    date: dt.date
+    total_marks: int = Field(ge=1)
+
+
+class ExamUpdateRequest(BaseModel):
+    """Edit an assessment: what it is called, when, and out of how much.
+
+    No subject: an edit names what changes, and the exam stays in the
+    subject it was set in.
+
+    :ivar title: The teacher's name for it
+    :ivar date: When it was sat
+    :ivar total_marks: The denominator, at least 1, and not below any
+        mark already recorded
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
     title: str = Field(min_length=1, max_length=200)
     date: dt.date
     total_marks: int = Field(ge=1)
@@ -156,7 +194,7 @@ class ExamResultsResponse(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    exam: ExamResponse
+    exam: ExamListItemResponse
     results: list[SeatResultResponse]
     writable: bool
 
@@ -207,6 +245,9 @@ class PublishedMarksheetResponse(BaseModel):
 
     :ivar published: Always true; the discriminator a client switches
         on
+    :ivar exam_title: The exam's title
+    :ivar total_marks: Its denominator
+    :ivar viewer_result_state: The viewer's own result state
     :ivar viewer_marks: The viewer's own mark, or null if absent
     :ivar viewer_rank: Their rank among marked results, or null
     :ivar average: The mean of marked results
@@ -218,6 +259,9 @@ class PublishedMarksheetResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     published: Literal[True] = True
+    exam_title: str
+    total_marks: int = Field(ge=1)
+    viewer_result_state: ResultState
     viewer_marks: int | None = None
     viewer_rank: int | None = None
     average: float
@@ -234,6 +278,9 @@ class SuppressedMarksheetResponse(BaseModel):
     result.
 
     :ivar published: Always false; the discriminator
+    :ivar exam_title: The exam's title
+    :ivar total_marks: Its denominator
+    :ivar viewer_result_state: The viewer's own result state
     :ivar viewer_marks: The viewer's own mark, or null
     :ivar reason: Why no comparison was published
     """
@@ -241,6 +288,9 @@ class SuppressedMarksheetResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     published: Literal[False] = False
+    exam_title: str
+    total_marks: int = Field(ge=1)
+    viewer_result_state: ResultState
     viewer_marks: int | None = None
     reason: SuppressionReason
 
@@ -262,6 +312,11 @@ class ProgressEntryResponse(BaseModel):
     :ivar total_marks: Its denominator
     :ivar result_state: One of the four states
     :ivar marks: The number, or null
+    :ivar subject_name: Which subject the exam was in
+    :ivar rank: The viewer's rank, only where the marksheet publishes
+        its comparison [BR6.4]; else null
+    :ivar ranked_out_of: How many marked results the rank is among
+    :ivar batch_average: The batch's average mark, on the same condition
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -272,3 +327,7 @@ class ProgressEntryResponse(BaseModel):
     total_marks: int = Field(ge=1)
     result_state: ResultState
     marks: int | None = None
+    subject_name: str | None = None
+    rank: int | None = Field(default=None, ge=1)
+    ranked_out_of: int | None = Field(default=None, ge=1)
+    batch_average: float | None = Field(default=None, ge=0)

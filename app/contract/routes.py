@@ -138,6 +138,19 @@ LENS_EXEMPT_AUTHENTICATED: frozenset[tuple[str, str]] = frozenset(
         # is the `/account-deletion` pair, and it proves ownership with
         # a verified code instead.
         ("DELETE", "/v1/me"),
+        # The reader's own inbox, added 2026-10-28, exempt on exactly
+        # GET /v1/me's reasoning. Both read and write only rows WHERE
+        # account_id is the authenticated account, and take no id from
+        # the request. A lens would scope nothing, and requiring one
+        # would hide a fee reminder from a guardian whose seat is
+        # precisely what the reminder is about.
+        ("GET", "/v1/me/notifications"),
+        ("POST", "/v1/me/notifications/read"),
+        # What stays if the caller deletes their account, added
+        # 2026-10-28 on DELETE /v1/me's reasoning: it reads only what the
+        # authenticated account itself owns, and an account owning
+        # nothing must get zeros rather than a lens refusal.
+        ("GET", "/v1/me/deletion-summary"),
     }
 )
 

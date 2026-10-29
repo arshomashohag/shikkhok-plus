@@ -1,10 +1,17 @@
 package com.shikkhokplus.app.navigation
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import com.shikkhokplus.app.feature.profile.ui.DeleteAccountScreen
+import com.shikkhokplus.app.core.format.Numerals
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.Text
+import androidx.compose.material3.AlertDialog
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
@@ -20,9 +27,8 @@ import com.shikkhokplus.app.core.designsystem.NavDestination
 import com.shikkhokplus.app.core.designsystem.ScreenScaffold
 import com.shikkhokplus.app.core.network.HttpAnalyticsRepository
 import com.shikkhokplus.app.feature.dues.DuesViewModel
+import com.shikkhokplus.app.feature.dues.ui.DuesActions
 import com.shikkhokplus.app.feature.dues.ui.DuesScreen
-import com.shikkhokplus.app.feature.overview.OverviewViewModel
-import com.shikkhokplus.app.feature.overview.ui.OverviewScreen
 import com.shikkhokplus.app.core.network.HttpBatchesRepository
 import com.shikkhokplus.app.core.network.HttpRosterRepository
 import com.shikkhokplus.app.core.network.HttpSignupRepository
@@ -40,8 +46,6 @@ import com.shikkhokplus.app.feature.batches.BatchesUiState
 import com.shikkhokplus.app.feature.batches.BatchesViewModel
 import com.shikkhokplus.app.feature.batches.ui.BatchesScreen
 import com.shikkhokplus.app.feature.roster.RosterViewModel
-import com.shikkhokplus.app.feature.roster.ui.RosterScreen
-import com.shikkhokplus.app.core.network.HttpAttendanceRepository
 import com.shikkhokplus.app.core.queue.QueueStore
 import com.shikkhokplus.app.core.session.Lens
 import com.shikkhokplus.app.core.network.HttpFeesRepository
@@ -49,15 +53,11 @@ import com.shikkhokplus.app.core.network.HttpGuardianRepository
 import com.shikkhokplus.app.core.network.HttpInvitationsRepository
 import com.shikkhokplus.app.core.network.HttpMarksRepository
 import com.shikkhokplus.app.core.network.HttpProfileRepository
-import com.shikkhokplus.app.core.network.HttpSessionsRepository
-import com.shikkhokplus.app.feature.attendance.AttendanceUiState
-import com.shikkhokplus.app.feature.attendance.AttendanceViewModel
-import com.shikkhokplus.app.feature.attendance.ui.AttendanceScreen
-import com.shikkhokplus.app.feature.attendance.ui.ConflictScreen
 import com.shikkhokplus.app.feature.fees.FeeReader
 import com.shikkhokplus.app.feature.fees.FeesViewModel
 import com.shikkhokplus.app.feature.fees.ui.FeeHistoryScreen
 import com.shikkhokplus.app.feature.guardian.GuardianViewModel
+import com.shikkhokplus.app.feature.guardian.ui.GuardianActions
 import com.shikkhokplus.app.feature.guardian.ui.GuardianHomeScreen
 import com.shikkhokplus.app.core.model.AcceptanceState
 import com.shikkhokplus.app.feature.invitations.InvitationsUiState
@@ -65,14 +65,10 @@ import com.shikkhokplus.app.feature.invitations.InvitationsViewModel
 import com.shikkhokplus.app.feature.invitations.ui.InvitationsScreen
 import com.shikkhokplus.app.feature.marks.MarksViewModel
 import com.shikkhokplus.app.feature.marks.MarksheetReader
-import com.shikkhokplus.app.feature.marks.ui.ExamListScreen
-import com.shikkhokplus.app.feature.marks.ui.MarkEntryScreen
 import com.shikkhokplus.app.feature.marks.ui.MarksheetScreen
 import com.shikkhokplus.app.feature.marks.ui.ProgressScreen
 import com.shikkhokplus.app.feature.profile.ProfileViewModel
 import com.shikkhokplus.app.feature.profile.ui.ProfileScreen
-import com.shikkhokplus.app.feature.sessions.SessionsViewModel
-import com.shikkhokplus.app.feature.sessions.ui.SessionListScreen
 import io.ktor.client.HttpClient
 
 /**
@@ -177,6 +173,8 @@ fun ShikkhokNavHost(
                 onSubmitCode = authModel::submitCode,
                 onRetry = authModel::retry,
                 onGoToSignup = { navController.navigate(Destination.Signup.route) },
+                onResendCode = authModel::resendCode,
+                onChangeNumber = authModel::changeNumber,
             )
         }
 
@@ -226,6 +224,7 @@ fun ShikkhokNavHost(
                 // already on the stack.
                 onGoToLogin = { navController.popBackStack() },
                 onRetry = model::retry,
+                onLookup = model::lookup,
             )
         }
 
@@ -259,23 +258,18 @@ fun ShikkhokNavHost(
             )
         }
 
-        composable(Destination.Overview.route) {
-            val model: OverviewViewModel =
-                viewModel { OverviewViewModel(HttpAnalyticsRepository(client)) }
-            val state by model.state.collectAsState()
-
-            LaunchedEffect(Unit) { model.load() }
-
-            OverviewScreen(
-                state = state,
-                onRetry = model::retry,
-                bottomBar = {
-                    BottomNav(
-                        destinations = tabsFor(session.lens),
-                        selectedIndex = tabIndexOf(session.lens, Destination.Overview.route),
-                        onSelect = { navController.switchTab(it, session.lens) },
-                    )
-                },
+        todayRoute(
+            client = client,
+            queue = queue,
+            navController = navController,
+            onOpenDues = {
+                navController.switchTab(routesFor(session.lens).indexOf(Destination.Dues.route), session.lens)
+            },
+        ) {
+            BottomNav(
+                destinations = tabsFor(session.lens),
+                selectedIndex = tabIndexOf(session.lens, Destination.Today.route),
+                onSelect = { navController.switchTab(it, session.lens) },
             )
         }
 
@@ -288,7 +282,15 @@ fun ShikkhokNavHost(
 
             DuesScreen(
                 state = state,
-                onRetry = model::retry,
+                actions =
+                    DuesActions(
+                        onRetry = model::retry,
+                        onFilter = model::filter,
+                        onNarrow = model::narrow,
+                        onAskRemind = model::askToRemind,
+                        onRemind = model::remind,
+                        onDismissRemind = model::dismissRemind,
+                    ),
                 bottomBar = {
                     BottomNav(
                         destinations = tabsFor(session.lens),
@@ -340,8 +342,8 @@ fun ShikkhokNavHost(
                 onBack = { leave() },
             ) {
                 BatchCreateForm(
-                    onCreate = { name, subjects, fee, dueDay ->
-                        model.create(name, subjects, fee, dueDay)
+                    onCreate = { name, subjects, fee, dueDay, schedule ->
+                        model.create(name, subjects, fee, dueDay, schedule)
                     },
                     onCancel = { leave() },
                     saving = write == WriteState.Saving,
@@ -350,36 +352,7 @@ fun ShikkhokNavHost(
             }
         }
 
-        composable(
-            route = Destination.Roster.route,
-            arguments =
-                listOf(
-                    navArgument(Destination.Roster.ARG_ID) { type = NavType.StringType },
-                    navArgument(Destination.Roster.ARG_NAME) {
-                        type = NavType.StringType
-                        defaultValue = ""
-                    },
-                ),
-        ) { entry ->
-            val id = entry.arguments?.getString(Destination.Roster.ARG_ID).orEmpty()
-            val name = entry.arguments?.getString(Destination.Roster.ARG_NAME).orEmpty()
-
-            val model: RosterViewModel =
-                viewModel(key = id) { RosterViewModel(HttpRosterRepository(client)) }
-            val state by model.state.collectAsState()
-
-            LaunchedEffect(id) { model.load(id, name) }
-
-            RosterScreen(
-                state = state,
-                onRetry = model::retry,
-                onAddStudent = { navController.navigate(Destination.AddStudent.of(id)) },
-                onOpenSessions = {
-                    navController.navigate(Destination.Sessions.of(id, name))
-                },
-                onOpenExams = { navController.navigate(Destination.Exams.of(id, name)) },
-            )
-        }
+        batchDetailRoute(client, queue, navController)
 
         composable(
             route = Destination.AddStudent.route,
@@ -421,8 +394,13 @@ fun ShikkhokNavHost(
                 onBack = { leave() },
             ) {
                 StudentAddForm(
-                    onAdd = { name, guardian, fee ->
-                        model.addStudent(name, guardian, fee)
+                    onAdd = { name, studentPhone, guardian, fee ->
+                        model.addStudent(
+                            displayName = name,
+                            studentPhone = studentPhone,
+                            guardianPhone = guardian,
+                            feeAmount = fee,
+                        )
                     },
                     onCancel = { leave() },
                     saving = write == WriteState.Saving,
@@ -431,154 +409,13 @@ fun ShikkhokNavHost(
             }
         }
 
-        composable(
-            route = Destination.Sessions.route,
-            arguments =
-                listOf(
-                    navArgument(Destination.Roster.ARG_ID) { type = NavType.StringType },
-                    navArgument(Destination.Roster.ARG_NAME) {
-                        type = NavType.StringType
-                        defaultValue = ""
-                    },
-                ),
-        ) { entry ->
-            val id = entry.arguments?.getString(Destination.Roster.ARG_ID).orEmpty()
-            val name = entry.arguments?.getString(Destination.Roster.ARG_NAME).orEmpty()
+        teachingRoutes(client, queue, navController)
 
-            val model: SessionsViewModel =
-                viewModel(key = id) { SessionsViewModel(HttpSessionsRepository(client)) }
-            val state by model.state.collectAsState()
-
-            LaunchedEffect(id) { model.load(id, name) }
-
-            SessionListScreen(
-                state = state,
-                onOpen = { row ->
-                    navController.navigate(Destination.Attendance.of(row.sessionId))
-                },
-                onRetry = model::retry,
-            )
-        }
-
-        composable(
-            route = Destination.Attendance.route,
-            arguments =
-                listOf(
-                    navArgument(Destination.Attendance.ARG_SESSION) {
-                        type = NavType.StringType
-                    },
-                ),
-        ) { entry ->
-            val sessionId =
-                entry.arguments?.getString(Destination.Attendance.ARG_SESSION).orEmpty()
-
-            val model: AttendanceViewModel =
-                viewModel(key = sessionId) {
-                    AttendanceViewModel(
-                        HttpAttendanceRepository(client),
-                        HttpSessionsRepository(client),
-                        queue,
-                    )
-                }
-            val state by model.state.collectAsState()
-
-            LaunchedEffect(sessionId) { model.load(sessionId) }
-
-            // **A conflict is its own screen, not a banner.** The
-            // teacher is choosing between two rosters that disagree,
-            // and that decision needs both of them side by side
-            // [BR3.6]. Rendering it inside the marking screen would
-            // put a destructive choice next to the controls that
-            // caused it.
-            val conflict = state
-            if (conflict is AttendanceUiState.Conflicted) {
-                ConflictScreen(
-                    state = conflict,
-                    onReapply = model::reapply,
-                    onDiscard = model::discard,
-                )
-            } else {
-                val marking = state as? AttendanceUiState.Marking
-                AttendanceScreen(
-                    state = state,
-                    onToggle = { seat, present -> model.toggle(seat, present) },
-                    onSubmit = {
-                        // The version comes from the state the roster
-                        // was COMPOSED against, never from a fresh
-                        // read: re-reading it here would resolve every
-                        // conflict by silently winning [BR3.7].
-                        marking?.let {
-                            model.submit(
-                                sessionId = it.sessionId,
-                                baseVersion = it.attendanceVersion,
-                                seats = it.seats,
-                            )
-                        }
-                    },
-                    onRetry = model::retry,
-                )
-            }
-        }
-
-        composable(
-            route = Destination.Exams.route,
-            arguments =
-                listOf(
-                    navArgument(Destination.Roster.ARG_ID) { type = NavType.StringType },
-                    navArgument(Destination.Roster.ARG_NAME) {
-                        type = NavType.StringType
-                        defaultValue = ""
-                    },
-                ),
-        ) { entry ->
-            val id = entry.arguments?.getString(Destination.Roster.ARG_ID).orEmpty()
-            val name = entry.arguments?.getString(Destination.Roster.ARG_NAME).orEmpty()
-
-            val model: MarksViewModel =
-                viewModel(key = id) { MarksViewModel(HttpMarksRepository(client)) }
-            val state by model.state.collectAsState()
-
-            LaunchedEffect(id) { model.loadExams(id, name) }
-
-            ExamListScreen(
-                state = state,
-                onOpen = { row ->
-                    navController.navigate(Destination.MarkEntry.of(row.examId))
-                },
-                onRetry = model::retry,
-            )
-        }
-
-        composable(
-            route = Destination.MarkEntry.route,
-            arguments =
-                listOf(
-                    navArgument(Destination.MarkEntry.ARG_EXAM) {
-                        type = NavType.StringType
-                    },
-                ),
-        ) { entry ->
-            val examId =
-                entry.arguments?.getString(Destination.MarkEntry.ARG_EXAM).orEmpty()
-
-            val model: MarksViewModel =
-                viewModel(key = examId) { MarksViewModel(HttpMarksRepository(client)) }
-            val state by model.state.collectAsState()
-
-            LaunchedEffect(examId) { model.loadResults(examId) }
-
-            MarkEntryScreen(
-                state = state,
-                onMark = { row, marks ->
-                    model.writeMark(row.enrollmentId, resultState = "marked", marks = marks)
-                },
-                // **Absent carries no marks at all.** A zero is a mark,
-                // and publishing one where the teacher recorded an
-                // absence is the conflation [BR4.3] forbids.
-                onAbsent = { row ->
-                    model.writeMark(row.enrollmentId, resultState = "absent", marks = null)
-                },
-                onRetry = model::retry,
+        studentRoutes(client, navController) {
+            BottomNav(
+                destinations = tabsFor(session.lens),
+                selectedIndex = tabIndexOf(session.lens, Destination.MyBatches.route),
+                onSelect = { navController.switchTab(it, session.lens) },
             )
         }
 
@@ -625,17 +462,41 @@ fun ShikkhokNavHost(
                     navArgument(Destination.Progress.ARG_SEAT) {
                         type = NavType.StringType
                     },
+                    navArgument(Destination.Progress.ARG_READER) {
+                        type = NavType.StringType
+                        defaultValue = MarksheetReader.CHILD.name
+                    },
+                    navArgument(Destination.Progress.ARG_CHILD) {
+                        type = NavType.StringType
+                        defaultValue = ""
+                    },
+                    navArgument(Destination.Progress.ARG_BATCH) {
+                        type = NavType.StringType
+                        defaultValue = ""
+                    },
                 ),
         ) { entry ->
-            val seat = entry.arguments?.getString(Destination.Progress.ARG_SEAT).orEmpty()
+            val args = entry.arguments
+            val seat = args?.getString(Destination.Progress.ARG_SEAT).orEmpty()
+            val reader = readerOrSelf(args?.getString(Destination.Progress.ARG_READER))
+            val child = args?.getString(Destination.Progress.ARG_CHILD).orEmpty()
+            val batch = args?.getString(Destination.Progress.ARG_BATCH).orEmpty()
 
             val model: MarksViewModel =
                 viewModel(key = seat) { MarksViewModel(HttpMarksRepository(client)) }
             val state by model.state.collectAsState()
 
-            LaunchedEffect(seat) { model.loadProgress(seat) }
+            LaunchedEffect(seat) { model.loadProgress(seat, reader, child, batch) }
 
-            ProgressScreen(state = state, onRetry = model::retry)
+            ProgressScreen(
+                state = state,
+                onRetry = model::retry,
+                onOpenExam = { examId ->
+                    navController.navigate(
+                        Destination.Marksheet.of(examId, seat, reader.name),
+                    )
+                },
+            )
         }
 
         composable(
@@ -675,12 +536,32 @@ fun ShikkhokNavHost(
 
             GuardianHomeScreen(
                 state = state,
-                onSelectChild = { child ->
-                    navController.navigate(Destination.Progress.of(child.enrollmentId))
+                // **Selection, not navigation** [BR4.2]: switching child
+                // replaces the shown child, so Back cannot reach the
+                // previous one's data. Results and payments are pushes
+                // the guardian asks for explicitly.
+                actions =
+                    GuardianActions(
+                        onSelect = model::select,
+                        onPay = { option -> navController.navigate(Destination.ChildPay.of(option.enrollmentId)) },
+                        onPayments = { seat -> navController.navigate(Destination.ChildPayments.of(seat)) },
+                        onResult = { result, _ ->
+                            navController.navigate(Destination.ChildProgress.of(result.enrollmentId))
+                        },
+                        onRetry = model::retry,
+                    ),
+                bottomBar = {
+                    BottomNav(
+                        destinations = tabsFor(session.lens),
+                        selectedIndex = tabIndexOf(session.lens, Destination.GuardianHome.route),
+                        onSelect = { navController.switchTab(it, session.lens) },
+                    )
                 },
-                onRetry = model::retry,
+                barActions = { InboxBellFor(client) { navController.navigate(Destination.Inbox.route) } },
             )
         }
+
+        guardianRoutes(client, navController)
 
         composable(Destination.Invitations.route) {
             val model: InvitationsViewModel =
@@ -711,8 +592,9 @@ fun ShikkhokNavHost(
                 state = state,
                 onOpen = model::open,
                 onAccept = model::accept,
-                onDeclineRequested = model::decline,
-                onDeclineConfirmed = model::confirmDecline,
+                onDeclineRequested = model::confirmDecline,
+                onDeclineConfirmed = model::decline,
+                onBackToList = model::load,
                 onDismissSheet = model::dismissSheet,
                 onRetry = model::retry,
             )
@@ -722,6 +604,7 @@ fun ShikkhokNavHost(
             val model: ProfileViewModel =
                 viewModel { ProfileViewModel(HttpProfileRepository(client)) }
             val state by model.state.collectAsState()
+            var confirmingSignOut by remember { mutableStateOf(false) }
 
             LaunchedEffect(Unit) { model.load() }
 
@@ -738,6 +621,48 @@ fun ShikkhokNavHost(
                     )
                 },
                 onSwitchLens = session.onSwitch,
+                onDeleteAccount = {
+                    model.startDeletion()
+                    navController.navigate(Destination.DeleteAccount.route)
+                },
+                onSignOut = { confirmingSignOut = true },
+            )
+
+            if (confirmingSignOut) {
+                SignOutDialog(
+                    unsent = remember { session.unsentWrites() },
+                    onConfirm = {
+                        confirmingSignOut = false
+                        session.onEndSession()
+                    },
+                    onDismiss = { confirmingSignOut = false },
+                )
+            }
+        }
+
+        composable(Destination.DeleteAccount.route) { entry ->
+            // The PROFILE's ViewModel: it holds the number the person
+            // must type back, read when the profile loaded.
+            val parent =
+                remember(entry) { navController.getBackStackEntry(Destination.Profile.route) }
+            val model: ProfileViewModel =
+                viewModel(parent) { ProfileViewModel(HttpProfileRepository(client)) }
+            val deletion by model.deletion.collectAsState()
+
+            val footprint by model.footprint.collectAsState()
+            DeleteAccountScreen(
+                state = deletion,
+                footprint = footprint,
+                onDelete = model::deleteAccount,
+                onKeep = {
+                    model.cancelDeletion()
+                    navController.popBackStack()
+                },
+                // **The account is gone, so the session ends here** --
+                // tokens, queue and every screen holding its data. Back
+                // from the done screen never returns to a deleted
+                // account's profile (AC9.4.2, last row).
+                onDone = session.onEndSession,
             )
         }
     }
@@ -772,13 +697,48 @@ private fun feeReaderOrStudent(raw: String?): FeeReader =
     FeeReader.entries.firstOrNull { it.name == raw } ?: FeeReader.STUDENT
 
 /**
+ * Confirm signing out, and say what it would discard.
+ *
+ * **Never silent about unsent work.** Ending the session clears the
+ * device's queue -- the next person to sign in must not send this
+ * account's rosters under their own token -- so attendance saved and not
+ * yet sent is lost, and the dialog says how much before it happens.
+ *
+ * @param unsent How many saved writes have not been sent
+ * @param onConfirm Called to sign out
+ * @param onDismiss Called to stay signed in
+ */
+@Composable
+private fun SignOutDialog(unsent: Int, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.sign_out_title)) },
+        text = {
+            Text(
+                if (unsent > 0) {
+                    stringResource(R.string.sign_out_unsent, Numerals.count(unsent))
+                } else {
+                    stringResource(R.string.sign_out_body)
+                },
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) { Text(stringResource(R.string.sign_out_confirm)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+        },
+    )
+}
+
+/**
  * Resolve a failed write to the text its form shows, or null.
  *
  * @param write Where the form's write stands
  * @return The message, or null when there is nothing to report
  */
 @Composable
-private fun writeError(write: WriteState): String? =
+internal fun writeError(write: WriteState): String? =
     (write as? WriteState.Failed)?.let { stringResource(MessageKeys.resolve(it.messageKey)) }
 
 /**
@@ -827,9 +787,8 @@ internal fun homeFor(lens: Lens?): String =
     when (lens) {
         Lens.TEACHER -> Destination.Batches.route
         Lens.GUARDIAN -> Destination.GuardianHome.route
-        // A student's own seats are what they came for, and
-        // invitations is where an unaccepted one appears.
-        Lens.STUDENT -> Destination.Invitations.route
+        // A student's own seats are what they came for (S1).
+        Lens.STUDENT -> Destination.MyBatches.route
         null -> Destination.Invitations.route
     }
 
@@ -875,7 +834,7 @@ internal fun routesFor(lens: Lens?): List<String> =
     when (lens) {
         Lens.TEACHER ->
             listOf(
-                Destination.Overview.route,
+                Destination.Today.route,
                 Destination.Batches.route,
                 Destination.Dues.route,
                 Destination.Profile.route,
@@ -886,7 +845,13 @@ internal fun routesFor(lens: Lens?): List<String> =
                 Destination.Invitations.route,
                 Destination.Profile.route,
             )
-        Lens.STUDENT, null ->
+        Lens.STUDENT ->
+            listOf(
+                Destination.MyBatches.route,
+                Destination.Invitations.route,
+                Destination.Profile.route,
+            )
+        null ->
             listOf(
                 Destination.Invitations.route,
                 Destination.Profile.route,
@@ -930,7 +895,25 @@ private fun tabsFor(lens: Lens?): List<NavDestination> =
                     tag = "nav_tab_more",
                 ),
             )
-        Lens.STUDENT, null ->
+        Lens.STUDENT ->
+            listOf(
+                NavDestination(
+                    label = stringResource(R.string.nav_my_batches),
+                    icon = painterResource(R.drawable.ic_nav_today),
+                    tag = "nav_tab_my_batches",
+                ),
+                NavDestination(
+                    label = stringResource(R.string.nav_invitations),
+                    icon = painterResource(R.drawable.ic_nav_batches),
+                    tag = "nav_tab_invitations",
+                ),
+                NavDestination(
+                    label = stringResource(R.string.nav_more),
+                    icon = painterResource(R.drawable.ic_nav_more),
+                    tag = "nav_tab_more",
+                ),
+            )
+        null ->
             listOf(
                 NavDestination(
                     label = stringResource(R.string.nav_invitations),

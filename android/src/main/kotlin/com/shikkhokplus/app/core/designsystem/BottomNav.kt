@@ -86,7 +86,8 @@ fun BottomNav(
         color = MaterialTheme.colorScheme.surface,
     ) {
         Column {
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            // The boards draw this line at #E4E8EE, lighter than a list divider.
+            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainerHigh)
             Row(
                 modifier =
                     Modifier
@@ -173,7 +174,7 @@ private fun NavItem(
         Text(
             text = destination.label,
             style = MaterialTheme.typography.labelSmall,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
             color =
                 when {
                     // `outline` is the design's 4.6:1 token and is for

@@ -252,8 +252,8 @@ def test_every_finite_retention_class_has_a_window(
         f"these tables carry a finite retention class but no purge "
         f"window: {sorted(finite - set(WINDOWS))}"
     )
-    assert len(finite) == 7, (
-        f"the manifest now carries {len(finite)} finite windows, not 7."
+    assert len(finite) == 8, (
+        f"the manifest now carries {len(finite)} finite windows, not 8."
     )
 
 
@@ -352,6 +352,15 @@ def _plant(
             ),
             shared | {"enrollment_id": enrollment_id, "account_id": account_id},
         )
+    elif table == "notification":
+        session.execute(
+            sa.text(
+                "INSERT INTO notification "
+                "(id, account_id, kind, batch_name, created_at) "
+                "VALUES (:id, :account_id, 'fee_reminder', 'Aged', :at)"
+            ),
+            shared | {"account_id": account_id},
+        )
     elif table == "refresh_token":
         session.execute(
             sa.text(
@@ -381,6 +390,7 @@ def _plant(
         "occurred_at",
         "sent_at",
         "expires_at",
+        "created_at",
     }, f"{table} is planted at an age column this helper does not set"
     return row_id
 

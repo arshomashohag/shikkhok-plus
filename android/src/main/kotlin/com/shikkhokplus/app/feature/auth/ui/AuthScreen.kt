@@ -15,6 +15,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -63,6 +64,8 @@ fun AuthScreen(
     onRetry: () -> Unit,
     onGoToSignup: () -> Unit = {},
     modifier: Modifier = Modifier,
+    onResendCode: () -> Unit = {},
+    onChangeNumber: () -> Unit = {},
 ) {
     var phone by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
@@ -153,10 +156,22 @@ fun AuthScreen(
                         label = stringResource(R.string.auth_sending),
                     )
 
-                    AuthUiState.AwaitingCode -> CodeEntry(
+                    AuthUiState.AwaitingCode,
+                    AuthUiState.CheckingCode,
+                    is AuthUiState.CodeRejected,
+                    -> CodeEntry(
                         code = code,
+                        state = state,
                         onCodeChange = { code = it },
                         onSubmit = { onSubmitCode(code) },
+                        onResend = {
+                            code = ""
+                            onResendCode()
+                        },
+                        onChangeNumber = {
+                            code = ""
+                            onChangeNumber()
+                        },
                     )
 
                     AuthUiState.SignedIn -> Text(
@@ -296,8 +311,11 @@ private fun PhoneEntry(
 @Composable
 private fun CodeEntry(
     code: String,
+    state: AuthUiState,
     onCodeChange: (String) -> Unit,
     onSubmit: () -> Unit,
+    onResend: () -> Unit,
+    onChangeNumber: () -> Unit,
 ) {
     // Shown for ANY number, known or not: the server's response is
     // identical either way, and the copy says "if that number is
@@ -316,15 +334,46 @@ private fun CodeEntry(
         code = code,
         onCodeChange = onCodeChange,
         onComplete = onSubmit,
-        state = OtpFieldState.EDITING,
+        state =
+            when (state) {
+                AuthUiState.CheckingCode -> OtpFieldState.CHECKING
+                is AuthUiState.CodeRejected -> OtpFieldState.WRONG
+                else -> OtpFieldState.EDITING
+            },
         modifier = Modifier.fillMaxWidth(),
     )
 
-    Text(
-        text = stringResource(R.string.auth_code_auto_checks),
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
+    when (state) {
+        AuthUiState.CheckingCode ->
+            Text(
+                text = stringResource(R.string.auth_checking_code),
+                modifier = Modifier.testTag(TAG_CHECKING_CODE),
+            )
+        is AuthUiState.CodeRejected ->
+            Text(
+                text = stringResource(MessageKeys.resolve(state.messageKey)),
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier.testTag(TAG_CODE_ERROR),
+            )
+        else ->
+            Text(
+                text = stringResource(R.string.auth_code_auto_checks),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+    }
+
+    if (state != AuthUiState.CheckingCode) {
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.tight)) {
+            TextButton(onClick = onResend, modifier = Modifier.testTag(TAG_RESEND_CODE)) {
+                Text(stringResource(R.string.auth_resend))
+            }
+            TextButton(onClick = onChangeNumber, modifier = Modifier.testTag(TAG_CHANGE_NUMBER)) {
+                Text(stringResource(R.string.auth_change_number))
+            }
+        }
+    }
 }
 
 const val TAG_PHONE_FIELD = "auth_phone_field"
@@ -332,6 +381,10 @@ const val TAG_REQUEST_CODE = "auth_request_code"
 const val TAG_RETRY = "auth_retry"
 const val TAG_ERROR = "auth_error"
 const val TAG_SENDING = "auth_sending"
+const val TAG_CHECKING_CODE = "auth_checking_code"
+const val TAG_CODE_ERROR = "auth_code_error"
+const val TAG_RESEND_CODE = "auth_resend_code"
+const val TAG_CHANGE_NUMBER = "auth_change_number"
 
 /** The link to self-registration, for a number no teacher recorded. */
 const val TAG_GO_TO_SIGNUP = "auth_go_to_signup"

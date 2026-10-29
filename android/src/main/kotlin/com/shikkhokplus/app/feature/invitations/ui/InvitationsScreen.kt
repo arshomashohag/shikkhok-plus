@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
 import com.shikkhokplus.app.core.designsystem.LogoLoader
 import com.shikkhokplus.app.core.designsystem.ListScreenScaffold
+import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.core.model.AcceptanceState
 import com.shikkhokplus.app.feature.auth.MessageKeys
 import com.shikkhokplus.app.feature.invitations.DeclineSheet
@@ -73,6 +74,7 @@ fun InvitationsScreen(
     onDismissSheet: () -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
+    onBackToList: () -> Unit = {},
 ) {
     ListScreenScaffold(
         title = stringResource(R.string.invitations_title),
@@ -122,11 +124,21 @@ fun InvitationsScreen(
                 onDismiss = onDismissSheet,
             )
 
-            is InvitationsUiState.Decided -> Text(
-                text = stringResource(
-                    R.string.invitation_accepted_confirmation,
-                ),
-            )
+            is InvitationsUiState.Decided -> {
+                Text(
+                    text = stringResource(
+                        if (state.state == AcceptanceState.ACCEPTED) {
+                            R.string.invitation_accepted_confirmation
+                        } else {
+                            R.string.invitation_declined_confirmation
+                        },
+                        Numerals.freeText(state.batchName),
+                    ),
+                )
+                OutlinedButton(onClick = onBackToList) {
+                    Text(stringResource(R.string.invitations_back_to_list))
+                }
+            }
 
             is InvitationsUiState.Failed -> {
                 Text(
@@ -193,7 +205,7 @@ private fun InvitationCard(
                 Text(
                     text = stringResource(
                         R.string.invitation_fee_per_month,
-                        fee.toString(),
+                        Numerals.money(fee),
                     ),
                 )
             }

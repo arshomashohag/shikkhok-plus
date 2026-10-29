@@ -1,5 +1,7 @@
 package com.shikkhokplus.app.feature.profile
 
+import com.shikkhokplus.app.core.model.Money
+import com.shikkhokplus.app.core.network.DeletionSummaryDto
 import com.shikkhokplus.app.core.network.ErrorBody
 import com.shikkhokplus.app.core.network.ErrorEnvelope
 import com.shikkhokplus.app.core.network.MeDto
@@ -41,8 +43,23 @@ class ProfileViewModelTest {
 
     private class FakeRepository(
         var result: AuthResult<MeDto> =
-            AuthResult.Ok(MeDto(selfName = "Rahim", address = "Dhaka 1205")),
+            AuthResult.Ok(
+                MeDto(selfName = "Rahim", address = "Dhaka 1205", phone = "+8801611477203"),
+            ),
     ) : ProfileRepository {
+        var deleteResult: AuthResult<Unit> = AuthResult.Ok(Unit)
+        var deletes = 0
+
+        override suspend fun deleteAccount(): AuthResult<Unit> {
+            deletes++
+            return deleteResult
+        }
+
+        var summary: AuthResult<DeletionSummaryDto> =
+            AuthResult.Ok(DeletionSummaryDto(batchCount = 0, studentCount = 0, outstanding = Money.of("0.00")))
+
+        override suspend fun deletionSummary(): AuthResult<DeletionSummaryDto> = summary
+
         var reads = 0
         var saves = 0
         var sentName: String? = "unset"
@@ -190,4 +207,115 @@ class ProfileViewModelTest {
             advanceUntilIdle()
             assertEquals(2, repo.saves, "retry must repeat the save, not a read")
         }
+
+    private suspend fun kotlinx.coroutines.test.TestScope.confirming(
+        repository: FakeRepository,
+    ): ProfileViewModel {
+        val model = ProfileViewModel(repository)
+        model.load()
+        advanceUntilIdle()
+        model.startDeletion()
+        return model
+    }
+
+    @Test
+    fun `deletion asks for the number the profile read`() = runTest(dispatcher) {
+        val model = confirming(FakeRepository())
+
+        assertEquals(DeletionState.Confirming("+8801611477203"), model.deletion.value)
+    }
+
+    @Test
+    fun `a wrong number deletes nothing`() = runTest(dispatcher) {
+        // The confirmation exists so one stray tap cannot delete an
+        // account; a mismatch must not reach the server at all.
+        val repository = FakeRepository()
+        val model = confirming(repository)
+
+        model.deleteAccount("01711-000000")
+        advanceUntilIdle()
+
+        assertEquals(0, repository.deletes)
+        assertIs<DeletionState.Confirming>(model.deletion.value)
+    }
+
+    @Test
+    fun `the right number deletes the account`() = runTest(dispatcher) {
+        val repository = FakeRepository()
+        val model = confirming(repository)
+
+        model.deleteAccount("01611-477203")
+        advanceUntilIdle()
+
+        assertEquals(1, repository.deletes)
+        assertEquals(DeletionState.Deleted, model.deletion.value)
+    }
+
+    @Test
+    fun `a refusal is shown and the person can try again`() = runTest(dispatcher) {
+        // Any server refusal, carried as the server named it.
+        val repository = FakeRepository()
+        repository.deleteResult =
+            AuthResult.Refused(
+                ErrorEnvelope(
+                    ErrorBody(
+                        "NOT_AVAILABLE",
+                        false,
+                        "authz.lens.not_available",
+                    ),
+                ),
+            )
+        val model = confirming(repository)
+
+        model.deleteAccount("01611477203")
+        advanceUntilIdle()
+
+        val failed = assertIs<DeletionState.Failed>(model.deletion.value)
+        assertEquals("authz.lens.not_available", failed.messageKey)
+        assertEquals("+8801611477203", failed.phone, "kept so a retry can match")
+    }
+
+    @Test
+    fun `deleting is impossible without first confirming`() = runTest(dispatcher) {
+        val repository = FakeRepository()
+        val model = ProfileViewModel(repository)
+        model.load()
+        advanceUntilIdle()
+
+        model.deleteAccount("01611477203")
+        advanceUntilIdle()
+
+        assertEquals(0, repository.deletes)
+    }
+
+    @Test
+    fun `backing out returns to idle`() = runTest(dispatcher) {
+        val model = confirming(FakeRepository())
+
+        model.cancelDeletion()
+
+        assertEquals(DeletionState.Idle, model.deletion.value)
+    }
+
+    @Test
+    fun `a teacher's confirmation carries what stays behind`() = runTest(dispatcher) {
+        val repository = FakeRepository()
+        repository.summary =
+            AuthResult.Ok(DeletionSummaryDto(batchCount = 3, studentCount = 31, outstanding = Money.of("8400.00")))
+        val model = confirming(repository)
+        advanceUntilIdle()
+
+        assertEquals(TeacherFootprint(3, 31, Money.of("8400.00")), model.footprint.value)
+    }
+
+    @Test
+    fun `anyone owning no batch, or a failed read, gets the plain confirmation`() = runTest(dispatcher) {
+        val none = confirming(FakeRepository())
+        val failing = FakeRepository().apply { summary = AuthResult.TransportFailure }
+        val failed = confirming(failing)
+        advanceUntilIdle()
+
+        assertEquals(null, none.footprint.value)
+        assertEquals(null, failed.footprint.value)
+    }
 }

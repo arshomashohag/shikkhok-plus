@@ -96,9 +96,7 @@ def previous_tag() -> str | None:
     if head_tags:
         command.append("HEAD^")
 
-    result = subprocess.run(
-        command, capture_output=True, text=True, check=False
-    )
+    result = subprocess.run(command, capture_output=True, text=True, check=False)
     return result.stdout.strip() or None
 
 
@@ -169,9 +167,7 @@ def changelog_section(version: str, changes: list[Change]) -> str:
             lines += [f"- {c.rendered()}" for c in items]
             lines.append("")
 
-    internal = [
-        c for c in changes if c.section in INTERNAL and not c.breaking
-    ]
+    internal = [c for c in changes if c.section in INTERNAL and not c.breaking]
     if internal:
         lines += ["### Internal", ""]
         lines += [f"- {c.rendered()}" for c in internal]
@@ -256,10 +252,14 @@ def main() -> int:
     import pathlib
 
     path = pathlib.Path(args.changelog)
-    existing = path.read_text() if path.exists() else (
-        "# Changelog\n\n"
-        "Generated from conventional commits by "
-        "`scripts/release_notes.py`.\n\n"
+    existing = (
+        path.read_text()
+        if path.exists()
+        else (
+            "# Changelog\n\n"
+            "Generated from conventional commits by "
+            "`scripts/release_notes.py`.\n\n"
+        )
     )
     header, _, body = existing.partition("\n\n")
     intro, _, rest = body.partition("\n\n")

@@ -31,6 +31,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.money import MoneyField
+from app.schemas.phone import PhoneField
 
 __all__ = [
     "AlreadyAddedResponse",
@@ -67,7 +68,7 @@ class SignupRequest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    phone: str = Field(min_length=8, max_length=20)
+    phone: PhoneField
     role: RoleName
     self_name: str = Field(min_length=1, max_length=120)
     address: str | None = Field(default=None, max_length=500)

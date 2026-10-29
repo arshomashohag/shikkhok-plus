@@ -28,18 +28,40 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Session as DbSession
 
 from app.authz.lenses import GuardianLens, Lens, StudentLens, TeacherLens
-from app.db.models import Batch, Enrollment, Exam, Mark
+from app.db.models import Batch, BatchSubject, Enrollment, Exam, Mark
 from app.errors import ConflictError
-from app.marks.marksheet import Marksheet, compute_marksheet
+from app.marks.marksheet import Marksheet, Published, compute_marksheet
 from app.marks.results import SeatResult, results_for_exam
 from app.teaching.roster import readable_enrollment, refuse
 
 __all__ = [
     "ProgressEntry",
+    "SeatMarksheet",
     "guardian_progress",
     "seat_marksheet",
     "set_marksheet_visible",
 ]
+
+
+@dataclass(frozen=True, slots=True)
+class SeatMarksheet:
+    """One seat's marksheet with the heading the screen shows above it.
+
+    The heading travels with the sheet so the screen can be opened from
+    any list -- progress, a notification, the teacher's results --
+    without each caller having to carry the exam's title along.
+
+    :ivar exam_title: The exam's title
+    :ivar total_marks: Its denominator
+    :ivar viewer_result_state: The viewer's own result, one of the four
+        states, so an absence reads as an absence and not as no mark
+    :ivar sheet: The published comparison, or the suppressed sheet
+    """
+
+    exam_title: str
+    total_marks: int
+    viewer_result_state: str
+    sheet: Marksheet
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,6 +79,12 @@ class ProgressEntry:
     :ivar total_marks: Its denominator
     :ivar result_state: One of the four states
     :ivar marks: The number, or None for the other three states
+    :ivar subject_name: Which subject the exam was in
+    :ivar rank: The viewer's rank among marked results, only where the
+        exam's marksheet publishes its comparison [BR6.4]; else None
+    :ivar ranked_out_of: How many marked results the rank is among, on
+        the same condition
+    :ivar batch_average: The batch's average mark, on the same condition
     """
 
     exam_id: uuid.UUID
@@ -65,6 +93,10 @@ class ProgressEntry:
     total_marks: int
     result_state: str
     marks: int | None
+    subject_name: str | None = None
+    rank: int | None = None
+    ranked_out_of: int | None = None
+    batch_average: float | None = None
 
 
 def _marksheet_is_visible(session: DbSession, *, batch_id: uuid.UUID) -> bool:
@@ -87,7 +119,7 @@ def seat_marksheet(
     lens: Lens,
     enrollment_id: uuid.UUID,
     exam_id: uuid.UUID,
-) -> Marksheet:
+) -> SeatMarksheet:
     """Compute one seat's marksheet for one exam [BR6.2, BR5.4].
 
     **The refusal when the toggle is off is the shared
@@ -100,7 +132,7 @@ def seat_marksheet(
         their own decision column
     :param enrollment_id: The seat whose marksheet this is
     :param exam_id: The exam
-    :return: The published comparison, or a suppressed marksheet
+    :return: The marksheet with its heading
     :raises AuthorizationError: This lens does not reach the seat, the
         exam is not that seat's batch's, or the toggle is off
     """
@@ -132,7 +164,12 @@ def seat_marksheet(
             marks=None,
         ),
     )
-    return compute_marksheet(results, total_marks=exam.total_marks, viewer=viewer)
+    return SeatMarksheet(
+        exam_title=exam.title,
+        total_marks=exam.total_marks,
+        viewer_result_state=viewer.result_state,
+        sheet=compute_marksheet(results, total_marks=exam.total_marks, viewer=viewer),
+    )
 
 
 def set_marksheet_visible(
@@ -209,8 +246,10 @@ def guardian_progress(
             Mark.result_state,
             Mark.marks,
             Enrollment.joined_on,
+            BatchSubject.name,
         )
         .select_from(Exam)
+        .join(BatchSubject, BatchSubject.id == Exam.batch_subject_id)
         .outerjoin(
             Mark,
             sa.and_(
@@ -226,7 +265,7 @@ def guardian_progress(
     ).all()
 
     entries: list[ProgressEntry] = []
-    for exam_id, title, date, total, state, marks, joined_on in rows:
+    for exam_id, title, date, total, state, marks, joined_on, subject in rows:
         if state is None:
             # The same derivation results.py performs, and for the
             # same reason: a seat that joined later could not have sat
@@ -244,9 +283,15 @@ def guardian_progress(
                     total_marks=total,
                     result_state=derived,
                     marks=None,
+                    subject_name=subject,
                 )
             )
             continue
+        rank, out_of, average = (
+            _published_rank(session, exam_id=exam_id, enrollment_id=enrollment_id)
+            if state == "marked"
+            else (None, None, None)
+        )
         entries.append(
             ProgressEntry(
                 exam_id=exam_id,
@@ -255,6 +300,36 @@ def guardian_progress(
                 total_marks=total,
                 result_state=state,
                 marks=marks,
+                subject_name=subject,
+                rank=rank,
+                ranked_out_of=out_of,
+                batch_average=average,
             )
         )
     return entries
+
+
+def _published_rank(
+    session: DbSession, *, exam_id: uuid.UUID, enrollment_id: uuid.UUID
+) -> tuple[int | None, int | None, float | None]:
+    """Return a seat's rank, field size and the average, where published.
+
+    The same computation the marksheet itself makes, so the two cannot
+    disagree: a suppressed marksheet discloses no rank here either.
+
+    :param session: The session to read through
+    :param exam_id: The exam, already reached by the caller's lens
+    :param enrollment_id: The seat
+    :return: Rank, how many it is among and the average, or all None
+    """
+    exam = session.get(Exam, exam_id)
+    if exam is None:
+        return None, None, None
+    results = results_for_exam(session, exam=exam)
+    viewer = next((row for row in results if row.enrollment_id == enrollment_id), None)
+    if viewer is None:
+        return None, None, None
+    sheet = compute_marksheet(results, total_marks=exam.total_marks, viewer=viewer)
+    if not isinstance(sheet, Published) or sheet.viewer_rank is None:
+        return None, None, None
+    return sheet.viewer_rank, sheet.marked_count, sheet.average

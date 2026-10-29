@@ -88,7 +88,7 @@ fun LogoLoader(
     )
 
     val teacher = MaterialTheme.colorScheme.primary
-    val student = MaterialTheme.colorScheme.secondary
+    val student = BrandStudent
     val ground = MaterialTheme.colorScheme.background
 
     // **Centred in whatever space it is given, both ways.** Reported

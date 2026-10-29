@@ -36,6 +36,11 @@ class LensRoutingTest {
     }
 
     @Test
+    fun `a student lands on their own batches`() {
+        assertEquals(Destination.MyBatches.route, homeFor(Lens.STUDENT))
+    }
+
+    @Test
     fun `no lens lands somewhere that works without one`() {
         // **The fresh-signup case.** Invitations is lens-exempt on the
         // server for exactly this reason [BR1.3]: it is the route that
@@ -88,7 +93,7 @@ class LensRoutingTest {
         val teacherOnly =
             setOf(
                 Destination.Batches.route,
-                Destination.Overview.route,
+                Destination.Today.route,
                 Destination.Dues.route,
             )
 

@@ -196,10 +196,11 @@ def test_health_reports_the_migration_revision(client: TestClient) -> None:
     # health endpoint reporting database connectivity and applied
     # migration revision" part of the set that decides whether a deploy
     # is done. Left stale, the smoke check asserts an old revision
-    # against a freshly migrated host. Moved with 0007 deliberately
-    # rather than discovered as a surprise CI failure, which is the
-    # pressure under which a constant gets edited to make a test pass.
-    assert body["migration_revision"] == "0007"
+    # against a freshly migrated host. Moved with 0007, and with 0008
+    # (canonical phones), deliberately rather than discovered as a
+    # surprise CI failure -- which is the pressure under which a
+    # constant gets edited to make a test pass.
+    assert body["migration_revision"] == "0010"
 
 
 def test_health_discloses_nothing_beyond_its_three_fields(

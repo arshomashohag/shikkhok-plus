@@ -58,7 +58,7 @@ def account(owner_session: Session) -> uuid.UUID:
     :return: The account's id
     """
     record = Account(
-        phone=f"+8801{uuid.uuid4().int % 10**9:09d}",
+        phone=f"+88017{uuid.uuid4().int % 10**8:08d}",
         created_at=dt.datetime.now(tz=dt.UTC),
     )
     owner_session.add(record)
@@ -237,7 +237,7 @@ def test_a_failed_audit_write_does_not_destroy_the_callers_work(
     # Fail-open means the authentication SURVIVES its unrecorded audit,
     # so the assertion is on the caller's row, not on the absence of a
     # raise.
-    phone = f"+8801{uuid.uuid4().int % 10**9:09d}"
+    phone = f"+88017{uuid.uuid4().int % 10**8:08d}"
     restricted_session.execute(
         sa.text(
             "INSERT INTO otp_request "
@@ -316,7 +316,7 @@ def test_family_invalidation_survives_a_failed_audit_write(
     monkeypatch.setenv(JWT_ACTIVE_KID_ENV, "k1")
 
     record = Account(
-        phone=f"+8801{uuid.uuid4().int % 10**9:09d}",
+        phone=f"+88017{uuid.uuid4().int % 10**8:08d}",
         created_at=dt.datetime.now(tz=dt.UTC),
     )
     with owner_engine.begin() as connection:

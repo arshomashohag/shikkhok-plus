@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.core.network
 
+import com.shikkhokplus.app.core.queue.QueueTarget
 import com.shikkhokplus.app.core.queue.QueuedWrite
 import com.shikkhokplus.app.core.queue.SendOutcome
 import com.shikkhokplus.app.feature.attendance.AttendanceRepository
@@ -8,6 +9,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.get
 import io.ktor.client.request.post
+import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.isSuccess
@@ -35,6 +37,18 @@ private data class SubmitBody(
 @Serializable
 private data class SubmitResponse(
     @SerialName("attendance_version") val attendanceVersion: Int,
+)
+
+@Serializable
+private data class TopicBody(
+    @SerialName("base_topic_version") val baseTopicVersion: Int,
+    @SerialName("client_mutation_id") val clientMutationId: String,
+    val topic: String,
+)
+
+@Serializable
+private data class TopicResponse(
+    @SerialName("topic_version") val topicVersion: Int,
 )
 
 /**
@@ -66,24 +80,37 @@ class HttpAttendanceRepository(
      */
     override suspend fun submit(item: QueuedWrite): SendOutcome =
         try {
+            // **Each queued write goes to its own endpoint.** Both kinds
+            // share the queue; sending a topic to the attendance path
+            // would be refused, or worse, read as an empty roster.
             val response =
-                client.post("/v1/sessions/${item.sessionId}/attendance") {
-                    setBody(
-                        SubmitBody(
-                            baseAttendanceVersion = item.baseVersion,
-                            clientMutationId = item.clientMutationId,
-                            seats =
-                                item.entries.map {
-                                    SeatBody(it.enrollmentId, it.present)
-                                },
-                        ),
-                    )
+                when (item.target) {
+                    QueueTarget.TOPIC ->
+                        client.put("/v1/sessions/${item.sessionId}/topic") {
+                            setBody(TopicBody(item.baseVersion, item.clientMutationId, item.topic.orEmpty()))
+                        }
+                    QueueTarget.ATTENDANCE ->
+                        client.post("/v1/sessions/${item.sessionId}/attendance") {
+                            setBody(
+                                SubmitBody(
+                                    baseAttendanceVersion = item.baseVersion,
+                                    clientMutationId = item.clientMutationId,
+                                    seats =
+                                        item.entries.map {
+                                            SeatBody(it.enrollmentId, it.present)
+                                        },
+                                ),
+                            )
+                        }
                 }
 
             when {
                 response.status.isSuccess() ->
                     SendOutcome.Applied(
-                        response.body<SubmitResponse>().attendanceVersion,
+                        when (item.target) {
+                            QueueTarget.TOPIC -> response.body<TopicResponse>().topicVersion
+                            QueueTarget.ATTENDANCE -> response.body<SubmitResponse>().attendanceVersion
+                        },
                     )
 
                 // **409 is a conflict, not a failure.** Treating it as
@@ -104,13 +131,14 @@ class HttpAttendanceRepository(
         }
 
     /**
-     * Read what the session looks like now, after a conflict.
+     * Read the roster as it stands now, after a conflict.
      *
      * @param sessionId The session that conflicted
-     * @return The current state, a refusal, or a transport failure
+     * @return The current roster and version, a refusal, or a
+     *   transport failure
      */
-    override suspend fun conflictDetail(
+    override suspend fun currentRoster(
         sessionId: String,
-    ): AuthResult<ConflictDetailDto> =
+    ): AuthResult<SessionRosterDto> =
         call { client.get("/v1/sessions/$sessionId/attendance") }
 }

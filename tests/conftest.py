@@ -14,13 +14,17 @@ extra cost.
 from __future__ import annotations
 
 import os
+import uuid
 from collections.abc import Iterator
 
 import pytest
 import sqlalchemy as sa
+from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.auth.hashing import OTP_HMAC_KEY_ENV
+from app.auth.tokens import JWT_ACTIVE_KID_ENV, JWT_KEYS_ENV, issue_pair
 from app.db.roles import APP_ROLE
 
 #: The password the restricted role connects with inside the test
@@ -215,3 +219,36 @@ def _clean_tables(request: pytest.FixtureRequest) -> Iterator[None]:
             connection.execute(
                 sa.text(f"TRUNCATE {', '.join(tables)} RESTART IDENTITY CASCADE")
             )
+
+
+@pytest.fixture
+def api_client(
+    restricted_engine: Engine, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[TestClient]:
+    """Build a client whose app uses the restricted test engine.
+
+    :param restricted_engine: The non-superuser engine
+    :param monkeypatch: The patcher
+    :return: A context manager yielding the client
+    """
+    monkeypatch.setenv(OTP_HMAC_KEY_ENV, "test-only-hmac-key")
+    monkeypatch.setenv(JWT_KEYS_ENV, "k1:test-signing-key-padded-to-thirty-two")
+    monkeypatch.setenv(JWT_ACTIVE_KID_ENV, "k1")
+    monkeypatch.setenv("SHIKKHOKPLUS_SMS_APP_HASH", "AAAAAAAAAAA")
+    from app.main import create_app
+
+    app = create_app()
+    app.state.engine = restricted_engine
+    with TestClient(app) as test_client:
+        yield test_client
+
+
+def bearer(session: Session, account_id: uuid.UUID) -> dict[str, str]:
+    """Authorize as an account.
+
+    :param session: A session to write the token family through
+    :param account_id: The account
+    :return: The header mapping
+    """
+    pair = issue_pair(session, account_id=account_id, correlation_id=uuid.uuid4())
+    return {"Authorization": f"Bearer {pair.access_token}"}

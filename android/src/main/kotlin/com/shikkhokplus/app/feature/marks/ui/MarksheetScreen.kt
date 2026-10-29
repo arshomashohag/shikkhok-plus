@@ -177,17 +177,18 @@ fun MarksheetScreen(
  */
 @Composable
 private fun ComparisonBody(comparison: MarksheetComparison) {
-    Text(
-        stringResource(
-            R.string.marksheet_rank,
-            Numerals.count(comparison.rank),
-            Numerals.count(comparison.markedCount),
-        ),
-        Modifier.testTag(TAG_MARKSHEET_RANK),
-    )
-    // The server's own rendering of the average. Parsing and
-    // reformatting it here would be lossy and would move the rounding
-    // decision to the client.
+    // No rank for a viewer with no mark to rank; the batch's figures
+    // below are still theirs to see.
+    comparison.rank?.let { rank ->
+        Text(
+            stringResource(
+                R.string.marksheet_rank,
+                Numerals.count(rank),
+                Numerals.count(comparison.markedCount),
+            ),
+            Modifier.testTag(TAG_MARKSHEET_RANK),
+        )
+    }
     Text(
         stringResource(R.string.marksheet_average, Numerals.freeText(comparison.average)),
         Modifier.testTag(TAG_MARKSHEET_AVERAGE),

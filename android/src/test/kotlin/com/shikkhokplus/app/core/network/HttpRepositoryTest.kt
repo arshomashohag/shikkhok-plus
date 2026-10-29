@@ -303,4 +303,62 @@ class HttpRepositoryTest {
         assertIs<AuthResult.TransportFailure>(result)
         assertEquals(false, called)
     }
+
+    @Test
+    fun `marking inactive patches the seat with its first inactive day`() = runTest {
+        val engine = MockEngine { respond("", HttpStatusCode.NoContent, jsonHeaders()) }
+
+        val result = HttpRosterRepository(client(engine)).markInactive("e-1", "2026-10-28")
+
+        assertEquals(AuthResult.Ok(Unit), result)
+        val sent = engine.requestHistory.single()
+        assertEquals(io.ktor.http.HttpMethod.Patch, sent.method)
+        assertEquals("/v1/enrollments/e-1/inactive-from", sent.url.encodedPath)
+        assertEquals(
+            """{"inactive_from":"2026-10-28"}""",
+            (sent.body as io.ktor.http.content.TextContent).text,
+        )
+    }
+
+    @Test
+    fun `adding a student sends the student's phone`() = runTest {
+        // It was never in the body, so the server -- which links a seat
+        // to its student by this number -- never received it.
+        val engine = MockEngine { respond("{}", HttpStatusCode.Created, jsonHeaders()) }
+
+        HttpRosterRepository(client(engine)).addEnrollment(
+            batchId = "b-1",
+            displayName = "Rahim",
+            studentPhone = "01711-234567",
+            guardianPhone = null,
+            feeAmount = null,
+        )
+
+        val body = (engine.requestHistory.single().body as io.ktor.http.content.TextContent).text
+        kotlin.test.assertTrue(""""student_phone":"01711-234567"""" in body, body)
+    }
+
+    @Test
+    fun `saving a schedule replaces it with a PUT of every slot`() = runTest {
+        val engine =
+            MockEngine {
+                respond(
+                    """[{"weekday":0,"start_time":"16:00","end_time":"17:00"}]""",
+                    HttpStatusCode.OK,
+                    jsonHeaders(),
+                )
+            }
+
+        val result =
+            HttpScheduleRepository(client(engine)).save("b-1", listOf(ScheduleSlotDto(0, "16:00", "17:00")))
+
+        kotlin.test.assertIs<AuthResult.Ok<List<ScheduleSlotDto>>>(result)
+        val sent = engine.requestHistory.single()
+        assertEquals(io.ktor.http.HttpMethod.Put, sent.method)
+        assertEquals("/v1/batches/b-1/schedule", sent.url.encodedPath)
+        assertEquals(
+            """{"slots":[{"weekday":0,"start_time":"16:00","end_time":"17:00"}]}""",
+            (sent.body as io.ktor.http.content.TextContent).text,
+        )
+    }
 }

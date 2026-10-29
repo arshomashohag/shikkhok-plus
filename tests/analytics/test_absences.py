@@ -64,7 +64,8 @@ def test_nobody_owing_is_an_empty_collection_with_a_200(
     )
 
     assert response.status_code == 200
-    assert response.json() == {"rows": []}
+    assert response.json()["rows"] == []
+    assert response.json()["summary"]["total"] == "0.00"
 
 
 def test_nothing_received_is_a_zero_value_and_not_an_absence(

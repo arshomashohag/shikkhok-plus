@@ -97,6 +97,21 @@ class AuthViewModelTest {
     }
 
     @Test
+    fun `signing out returns to the phone screen`() = runTest {
+        // Sign-out and account deletion both end here. Idle is the
+        // state the number field renders from.
+        val model = AuthViewModel(FakeRepository())
+        model.requestCode("+8801711111111")
+        advanceUntilIdle()
+        model.submitCode("123456")
+        advanceUntilIdle()
+
+        model.signOut()
+
+        assertEquals(AuthUiState.Idle, model.state.value)
+    }
+
+    @Test
     fun `a transport failure surfaces an explicit retry`() = runTest {
         // THE RETRY PATH. No local queue and no silent retry: the user
         // is shown the failure and asks for the retry themselves.
@@ -184,7 +199,9 @@ class AuthViewModelTest {
         model.submitCode("000000")
         advanceUntilIdle()
 
-        val failed = assertIs<AuthUiState.Failed>(model.state.value)
+        // The code screen stays up with the refusal beside it, rather
+        // than sending the person back to type their number again.
+        val failed = assertIs<AuthUiState.CodeRejected>(model.state.value)
         assertEquals("auth.otp.not_valid", failed.messageKey)
     }
 
@@ -261,5 +278,46 @@ class AuthViewModelTest {
         advanceUntilIdle()
 
         assertEquals(AuthUiState.Idle, model.state.value)
+    }
+
+    @Test
+    fun `a new code goes to the same number, and only when asked`() = runTest {
+        val repository = FakeRepository()
+        val model = AuthViewModel(repository)
+
+        model.requestCode("+8801711111111")
+        advanceUntilIdle()
+        model.resendCode()
+        advanceUntilIdle()
+
+        assertEquals(2, repository.issueCalls)
+        assertEquals(AuthUiState.AwaitingCode, model.state.value)
+    }
+
+    @Test
+    fun `changing the number returns to the number field and sends nothing`() = runTest {
+        val repository = FakeRepository()
+        val model = AuthViewModel(repository)
+        model.requestCode("+8801711111111")
+        advanceUntilIdle()
+
+        model.changeNumber()
+
+        assertEquals(AuthUiState.Idle, model.state.value)
+        assertEquals(1, repository.issueCalls)
+    }
+
+    @Test
+    fun `a code that cannot reach the server stays on the code screen`() = runTest {
+        val repository = FakeRepository(verifyResult = AuthResult.TransportFailure)
+        val model = AuthViewModel(repository)
+        model.requestCode("+8801711111111")
+        advanceUntilIdle()
+
+        model.submitCode("123456")
+        advanceUntilIdle()
+
+        val rejected = assertIs<AuthUiState.CodeRejected>(model.state.value)
+        assertEquals(true, rejected.retryable)
     }
 }

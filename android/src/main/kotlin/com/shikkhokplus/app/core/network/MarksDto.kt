@@ -21,7 +21,10 @@ import kotlinx.serialization.Serializable
  *   server-side. **Never a tally over a rows list here** — the client
  *   counting is the client deciding what counts as entered, and it is
  *   wrong the moment the list paginates
- * @property seatCount How many seats are on the roster
+ * @property expectedCount How many seats could have sat it, which leaves
+ *   out a seat that joined after the exam date
+ * @property state `upcoming`, `needs_marks` or `complete`, decided by the
+ *   server so the client never compares a date or a count
  */
 @Serializable
 data class ExamDto(
@@ -31,7 +34,8 @@ data class ExamDto(
     @SerialName("subject_name") val subjectName: String? = null,
     @SerialName("total_marks") val totalMarks: Int,
     @SerialName("entered_count") val enteredCount: Int = 0,
-    @SerialName("seat_count") val seatCount: Int = 0,
+    @SerialName("expected_count") val expectedCount: Int = 0,
+    val state: String = "complete",
 )
 
 /**
@@ -86,29 +90,6 @@ data class MarkWriteBody(
 )
 
 /**
- * One entry in a mark's correction history [BR4.4].
- *
- * Every correction appends a row and supersedes the old one; nothing is
- * updated in place or deleted, because an in-place update destroys the
- * fact that a mark changed — and on a shared marksheet a silently
- * changed mark is the one a student will dispute.
- *
- * @property resultState What this row recorded
- * @property marks The score it recorded, if any
- * @property recordedAt When, as the server formatted it
- * @property live Whether this is the current row, **decided
- *   server-side** rather than inferred from a null `superseded_by_id`
- *   the client would have to be sent
- */
-@Serializable
-data class MarkHistoryEntryDto(
-    @SerialName("result_state") val resultState: String,
-    val marks: Int? = null,
-    @SerialName("recorded_at") val recordedAt: String,
-    val live: Boolean = false,
-)
-
-/**
  * One published band of the distribution [BR6.3].
  *
  * **Every published band holds at least three results.** The merging
@@ -118,14 +99,14 @@ data class MarkHistoryEntryDto(
  * and renders them; it never merges, and never decides whether a band
  * is safe to show.
  *
- * @property lowerBound The band's lowest mark, inclusive
- * @property upperBound The band's highest mark, inclusive
+ * @property low The band's lowest mark, inclusive
+ * @property high The band's highest mark, inclusive
  * @property count How many results fall in it, always three or more
  */
 @Serializable
 data class MarkBandDto(
-    @SerialName("lower_bound") val lowerBound: Int,
-    @SerialName("upper_bound") val upperBound: Int,
+    val low: Int,
+    val high: Int,
     val count: Int,
 )
 
@@ -139,43 +120,41 @@ data class MarkBandDto(
  * declaration. What arrives is the viewer's own mark named, plus
  * aggregates.
  *
- * **The four comparison fields are null together or present together**
- * [BR6.4]. The server withholds all of them below five marked results,
- * and withholds them again while any seat is still `not_entered` — two
- * separate conditions, either of which suppresses the comparison. The
- * client renders what it is given and tests neither condition: a
- * `results.size < 5` here would be the client holding the disclosure
- * rule.
+ * **One class for the server's two shapes**, discriminated by
+ * [published]. A published marksheet carries the comparison; a
+ * suppressed one carries only the viewer's own result and [reason].
+ * The server withholds the comparison below five marked results and
+ * again while any seat is still `not_entered` [BR6.4]; the client
+ * reads [published] and tests neither condition.
  *
- * @property examId The exam
- * @property examTitle Its title
+ * @property published Whether a comparison was published
+ * @property examTitle The exam's title
  * @property totalMarks Its total
- * @property ownResultState The viewer's own result state [BR4.3]
- * @property ownMarks The viewer's own score, if marked
- * @property rank The viewer's rank among marked results, or null when
- *   no comparison is published
- * @property markedCount How many results the rank is out of, or null
- * @property average The batch average over marked results only, as a
- *   server-formatted string. **A string and not a number**: it is a
- *   rendered figure the server rounded, and reconstructing 64.67 from a
- *   float on the client is both lossy and a computation the client must
- *   not perform [TC-9]
- * @property highest The highest marked result, or null
- * @property bands The merged distribution, empty when no comparison is
- *   published [BR6.3]
+ * @property viewerResultState The viewer's own result state [BR4.3]
+ * @property viewerMarks The viewer's own score, if marked
+ * @property viewerRank Their rank among marked results; null when
+ *   nothing was published, or when the viewer was not marked
+ * @property markedCount How many results the rank is out of
+ * @property average The mean of marked results. A marks average, not
+ *   money, so a `Double` is the right type; the screen formats it and
+ *   decides nothing from it
+ * @property highest The highest marked result
+ * @property bands The merged distribution [BR6.3]
+ * @property reason Why nothing was published, on the suppressed shape
  */
 @Serializable
 data class MarksheetDto(
-    @SerialName("exam_id") val examId: String,
+    val published: Boolean,
     @SerialName("exam_title") val examTitle: String,
     @SerialName("total_marks") val totalMarks: Int,
-    @SerialName("own_result_state") val ownResultState: String,
-    @SerialName("own_marks") val ownMarks: Int? = null,
-    val rank: Int? = null,
+    @SerialName("viewer_result_state") val viewerResultState: String,
+    @SerialName("viewer_marks") val viewerMarks: Int? = null,
+    @SerialName("viewer_rank") val viewerRank: Int? = null,
     @SerialName("marked_count") val markedCount: Int? = null,
-    val average: String? = null,
+    val average: Double? = null,
     val highest: Int? = null,
     val bands: List<MarkBandDto> = emptyList(),
+    val reason: String? = null,
 )
 
 /**
@@ -191,36 +170,30 @@ data class MarksheetDto(
  * the single most alarming thing this screen can say wrongly.
  *
  * @property examId The exam
- * @property examTitle Its title
+ * @property title Its title
  * @property date Its date, as the server formatted it
  * @property totalMarks Its total
  * @property resultState `marked`, `absent`, `not_entered` or
  *   `joined_after`
  * @property marks The score, non-null only when `marked`
+ * @property subjectName Which subject the exam was in
+ * @property rank The rank, only where the marksheet publishes it
+ * @property rankedOutOf How many marked results the rank is among
+ * @property batchAverage The batch's average mark, where published; a
+ *   count of marks, never money, so a Double is right here
  */
 @Serializable
 data class ProgressEntryDto(
     @SerialName("exam_id") val examId: String,
-    @SerialName("exam_title") val examTitle: String,
+    val title: String,
     val date: String,
     @SerialName("total_marks") val totalMarks: Int,
     @SerialName("result_state") val resultState: String,
     val marks: Int? = null,
-)
-
-/**
- * A child's results across exams, in date order [BR6.6].
- *
- * @property childDisplayName Which child, so the screen can attribute
- *   the series even when the guardian watches only one [AC2.8.5]
- * @property batchName Which class
- * @property entries The series, oldest first as the server ordered it
- */
-@Serializable
-data class ProgressDto(
-    @SerialName("child_display_name") val childDisplayName: String,
-    @SerialName("batch_name") val batchName: String,
-    val entries: List<ProgressEntryDto> = emptyList(),
+    @SerialName("subject_name") val subjectName: String? = null,
+    val rank: Int? = null,
+    @SerialName("ranked_out_of") val rankedOutOf: Int? = null,
+    @SerialName("batch_average") val batchAverage: Double? = null,
 )
 
 /**
@@ -259,6 +232,40 @@ data class ExamCreateRequestDto(
     val date: String,
     @SerialName("total_marks") val totalMarks: Int,
     @SerialName("batch_subject_id") val batchSubjectId: String,
+)
+
+/**
+ * The body of an exam edit. No subject: the exam stays in the subject
+ * it was set in.
+ *
+ * @property title The new title
+ * @property date The new date
+ * @property totalMarks The new total; the server refuses one below a
+ *   mark already recorded
+ */
+@Serializable
+data class ExamUpdateRequestDto(
+    val title: String,
+    val date: String,
+    @SerialName("total_marks") val totalMarks: Int,
+)
+
+/**
+ * One row of a seat's mark history, oldest first [FR9.2].
+ *
+ * @property markId The row
+ * @property resultState `marked` or `absent`, as recorded
+ * @property marks The score, when marked
+ * @property recordedAt When it was recorded
+ * @property superseded Whether a later correction replaced it
+ */
+@Serializable
+data class CorrectionDto(
+    @SerialName("mark_id") val markId: String,
+    @SerialName("result_state") val resultState: String,
+    val marks: Int? = null,
+    @SerialName("recorded_at") val recordedAt: String,
+    val superseded: Boolean,
 )
 
 /**

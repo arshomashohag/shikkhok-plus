@@ -534,17 +534,19 @@ class Owner(Base):
     application code [BR6.3].
 
     :ivar id: Surrogate key
-    :ivar account_id: The account that owns batches
+    :ivar account_id: The account that owns batches, or NULL once that
+        teacher deleted their account: the batches stay as history that
+        no lens can write to [BR1.6 amended, 0010]
     :ivar created_at: When ownership was recorded
     """
 
     __tablename__ = "owner"
 
     id: Mapped[uuid.UUID] = _uuid_column()
-    account_id: Mapped[uuid.UUID] = mapped_column(
+    account_id: Mapped[uuid.UUID | None] = mapped_column(
         PgUUID(as_uuid=True),
-        ForeignKey("account.id", ondelete="CASCADE"),
-        nullable=False,
+        ForeignKey("account.id", ondelete="SET NULL"),
+        nullable=True,
     )
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
@@ -578,6 +580,9 @@ class Enrollment(Base):
     :ivar guardian_account_id: The guardian recorded for this seat, if any
     :ivar display_name: The teacher-typed name
     :ivar guardian_phone: The teacher-typed guardian contact
+    :ivar student_phone: The teacher-typed STUDENT number, canonical. What
+        links the seat to the student's account, at creation when that
+        account exists and at sign-up when it does not [0008]
     :ivar fee_amount: This seat's fee, or NULL to inherit the batch
         default. Zero is a real fee of zero, which is a waiver
     :ivar joined_on: When the student joined
@@ -616,6 +621,7 @@ class Enrollment(Base):
     )
     display_name: Mapped[str] = mapped_column(Text, nullable=False)
     guardian_phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    student_phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
     fee_amount: Mapped[Money | None] = mapped_column(MoneyColumn, nullable=True)
     joined_on: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
     inactive_from: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
@@ -640,6 +646,7 @@ class Enrollment(Base):
         Index("ix_enrollment_account_id", "student_account_id"),
         Index("ix_enrollment_batch_id", "batch_id"),
         Index("ix_enrollment_guardian_account_id", "guardian_account_id"),
+        Index("ix_enrollment_student_phone", "student_phone"),
         Index(
             "uq_enrollment_batch_student",
             "batch_id",
@@ -1592,3 +1599,54 @@ class Announcement(Base):
     )
 
     __table_args__ = (Index("ix_announcement_batch_id", "batch_id"),)
+
+
+class Notification(Base):
+    """A message in one account's in-app inbox.
+
+    **Addressed to an account, read only by that account.** Every read is
+    scoped by the authenticated caller's id, never by an id taken from a
+    request, so there is no lens to resolve [0009].
+
+    ``batch_name`` is copied at send time rather than joined, so the
+    message reads the same after the batch is renamed or the seat is
+    removed -- it is a record of what was said.
+
+    :ivar id: Surrogate key
+    :ivar account_id: Whose inbox it sits in
+    :ivar enrollment_id: The seat it is about, if any
+    :ivar kind: What produced it, such as ``fee_reminder``
+    :ivar batch_name: The batch it concerns, as named when sent
+    :ivar period: The period it concerns, as ``YYYY-MM``, if any
+    :ivar amount: The money it concerns, if any
+    :ivar created_at: When it was sent
+    :ivar read_at: When its owner opened the inbox after it arrived
+    """
+
+    __tablename__ = "notification"
+
+    id: Mapped[uuid.UUID] = _uuid_column()
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("account.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    enrollment_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("enrollment.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    batch_name: Mapped[str] = mapped_column(Text, nullable=False)
+    period: Mapped[str | None] = mapped_column(String(7), nullable=True)
+    amount: Mapped[Money | None] = mapped_column(MoneyColumn, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    read_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    __table_args__ = (
+        Index("ix_notification_account_created", "account_id", "created_at"),
+    )

@@ -253,4 +253,24 @@ class SignupViewModelTest {
 
         assertEquals("+8801711111111", model.lastPhone)
     }
+
+    @Test
+    fun `a complete number is looked up once, however often the field changes`() =
+        runTest(dispatcher) {
+            val repo = FakeRepository()
+            val model = SignupViewModel(repo)
+
+            model.lookup("+8801711111111")
+            advanceUntilIdle()
+            model.lookup("+8801711111111")
+            advanceUntilIdle()
+
+            assertEquals(1, repo.lookupCalls)
+
+            model.lookup("+88017")
+            advanceUntilIdle()
+            model.lookup("+8801711111111")
+            advanceUntilIdle()
+            assertEquals(2, repo.lookupCalls, "a number edited back to complete is asked again")
+        }
 }

@@ -15,12 +15,12 @@ over it [BR1.2]:
     account deletion -- and a cascade deletes it.
 
 **Reachability is transitive and the first draft of this was not.**
-Eleven ``RETAIN_WITH_BASIS`` tables are reachable from ``account`` by
-cascade, seven of them only through ``owner -> batch`` -- a chain
-``0007`` does not touch at all. That number is why BR1.6's
-teacher-with-batches refusal is load-bearing rather than
-belt-and-braces: without it, ``0007`` alone leaves a teacher's deletion
-destroying seven kinds of retained record.
+Until ``0010`` several ``RETAIN_WITH_BASIS`` tables were reachable from
+``account`` only through ``owner -> batch``, and BR1.6's refusal of a
+teacher's deletion was what made that chain unreachable. ``0010``
+amended BR1.6 -- a teacher may delete and their batches stay -- and set
+``owner.account_id`` to ``SET NULL``, so the property asserted here is
+now the unqualified one: no retained table is reachable at all.
 
 **The query carries the path**, because a failure saying only "a
 contradiction exists" sends the next reader to ``models.py`` to work out
@@ -128,27 +128,12 @@ def _retained_reachable(reachable: dict[str, list[str]]) -> dict[str, list[str]]
 
 
 def _contradictions(reachable: dict[str, list[str]]) -> list[str]:
-    """Describe every retained table reachable WITHOUT going via ``owner``.
+    """Describe every retained table a deletion would cascade into.
 
-    **The ``owner`` qualifier is the correction this file exists to
-    record, and it is not a weakening.** An earlier reading of the
-    design expected zero retained tables reachable at all after
-    ``0007``. Measured against the migrated schema, nine remain -- every
-    one of them through ``account -> owner -> batch``, which ``0007``
-    deliberately does not touch, because nulling that chain is not
-    available: a batch with no owner is not a batch, and the rows
-    beneath it lose the scoping value every lens resolves through.
-
-    What makes that chain safe is **BR1.6's refusal**, not the schema:
-    an account owning any batch cannot be deleted, so the cascade is
-    unreachable rather than corrected. That is the stronger property --
-    it does not depend on six constraints all staying right -- and it is
-    exactly why this function filters on ``owner`` instead of reporting
-    those nine as failures a reader would then learn to ignore.
-
-    A retained table reachable by any OTHER chain is a real
-    contradiction: no refusal covers it, and ``0007``'s fix would be
-    incomplete again.
+    **No qualifier.** Before ``0010`` this skipped chains through
+    ``owner``, because BR1.6 refused any deletion that would reach them.
+    That refusal is gone, so every reached retained table is a real
+    contradiction.
 
     :param reachable: Table-to-path mapping from the catalog walk
     :return: One human-readable line per contradiction, path included
@@ -156,16 +141,11 @@ def _contradictions(reachable: dict[str, list[str]]) -> list[str]:
     return [
         f"{' -> '.join(path)}  ({table})"
         for table, path in sorted(_retained_reachable(reachable).items())
-        if "owner" not in path
     ]
 
 
 def test_no_cascade_reaches_a_retained_table(restricted_session: Session) -> None:
     """A cascade to a ``RETAIN_WITH_BASIS`` table is a contradiction.
-
-    Scoped to chains BR1.6's refusal does not already make unreachable;
-    see :func:`_contradictions` for why that qualifier is the design
-    rather than an exemption.
 
     :param restricted_session: The non-superuser session
     :return: None
@@ -174,9 +154,8 @@ def test_no_cascade_reaches_a_retained_table(restricted_session: Session) -> Non
 
     assert contradictions == [], (
         "deleting an account would CASCADE into tables the governance "
-        "manifest says must survive that deletion, by a chain BR1.6's "
-        "teacher refusal does NOT cover [BR1.2]. Each line is the chain "
-        "that reaches it:\n  " + "\n  ".join(contradictions)
+        "manifest says must survive that deletion [BR1.2]. Each line is "
+        "the chain that reaches it:\n  " + "\n  ".join(contradictions)
     )
 
 
@@ -211,68 +190,47 @@ def test_the_walk_reaches_a_known_table_at_depth_one(
     )
 
 
-def test_the_walk_reaches_a_table_only_through_owner_and_batch(
+def test_before_0010_the_walk_reached_retained_tables_through_owner(
+    postgres_url: str,
+) -> None:
+    """Transitive reach, exercised on the schema that still had it.
+
+    At ``0009`` ``attendance`` hangs off ``enrollment``, off ``batch``,
+    off ``owner``, and is reachable only through that chain -- exactly
+    the shape a non-recursive query reports as clean. Asserting it there
+    proves the walk recurses, and that ``0010`` is what cleared it.
+
+    :param postgres_url: The container's owner URL
+    :return: None
+    """
+    with stage_at(postgres_url, "0009") as staged:
+        with staged.connect() as connection:
+            reachable = _cascade_reachable(Session(bind=connection))
+
+    path = reachable.get("attendance")
+    assert path is not None, (
+        "the walk does not reach `attendance` at 0009, so it is not "
+        f"recursing. Reached: {sorted(reachable)}"
+    )
+    assert path[:3] == [ROOT_TABLE, "owner", "batch"]
+    assert _contradictions(reachable) != [], (
+        "at 0009 a teacher's deletion cascaded into retained tables; the "
+        "walk reports none, so the gate is vacuous."
+    )
+
+
+def test_after_0010_the_owner_chain_no_longer_cascades(
     restricted_session: Session,
 ) -> None:
-    """Transitive reach, which a depth-one query would miss entirely.
-
-    ``attendance`` hangs off ``enrollment``, which hangs off ``batch``,
-    which hangs off ``owner``. **It is reachable only through that
-    chain**, which is exactly the shape a non-recursive query reports as
-    clean -- and it is why BR1.6's refusal exists rather than a second
-    migration.
+    """``owner`` and everything beneath it is out of the walk at head.
 
     :param restricted_session: The non-superuser session
     :return: None
     """
     reachable = _cascade_reachable(restricted_session)
-    path = reachable.get("attendance")
 
-    assert path is not None, (
-        "the walk does not reach `attendance`, so it is not recursing: a "
-        "depth-one query would report this schema clean while a teacher's "
-        f"deletion destroyed every child's marks. Reached: {sorted(reachable)}"
-    )
-    assert path[:3] == [ROOT_TABLE, "owner", "batch"], (
-        f"`attendance` is reached by {' -> '.join(path)}, which is not the "
-        "owner -> batch chain this assertion is about."
-    )
-
-
-def test_the_walk_reaches_the_retained_tables_only_through_owner(
-    restricted_session: Session,
-) -> None:
-    """Every retained table still reached goes through ``owner``.
-
-    **This is the assertion that makes the first test meaningful.** The
-    first test passes over a non-empty reachable set because every
-    retained table in it is unreachable in practice -- BR1.6 refuses a
-    deletion by any account owning a batch. That claim is checked here
-    rather than assumed: if a retained table were ever reachable WITHOUT
-    passing through ``owner``, the refusal would no longer cover it and
-    ``0007``'s fix would be incomplete again.
-
-    :param restricted_session: The non-superuser session
-    :return: None
-    """
-    retained = _retained_reachable(_cascade_reachable(restricted_session))
-
-    assert retained != {}, (
-        "no retained table is reachable at all, which means the walk "
-        "found nothing and every assertion in this file is vacuous."
-    )
-
-    not_through_owner = {
-        table: path for table, path in retained.items() if "owner" not in path
-    }
-    assert not_through_owner == {}, (
-        "these retained tables are reachable WITHOUT passing through "
-        "`owner`, so BR1.6's teacher refusal does not cover them and the "
-        "cascade fix is incomplete:\n  "
-        + "\n  ".join(
-            f"{' -> '.join(path)}" for path in sorted(not_through_owner.values())
-        )
-    )
+    assert "owner" not in reachable
+    assert "attendance" not in reachable
 
 
 def test_the_walk_is_bounded_by_the_manifest(

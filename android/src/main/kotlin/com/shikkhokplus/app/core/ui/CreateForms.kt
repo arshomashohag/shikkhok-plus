@@ -23,9 +23,13 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
 import com.shikkhokplus.app.core.model.Money
+import com.shikkhokplus.app.core.network.ScheduleSlotDto
 
 /** Stable test identifiers. Not user-visible text. */
 const val TAG_FORM_NAME: String = "form_name"
+
+/** The student's phone field on the add-student form. */
+const val TAG_FORM_STUDENT_PHONE: String = "form_student_phone"
 
 /** The due-day field on the class form. */
 const val TAG_FORM_DUE_DAY: String = "form_due_day"
@@ -62,7 +66,22 @@ fun splitSubjects(raw: String): List<String> =
     raw.split(",").map(String::trim).filter(String::isNotEmpty)
 
 /**
- * Create a class.
+ * What the batch form starts from, when it edits rather than creates.
+ *
+ * @property name The batch's name
+ * @property subjects Its subjects, comma-separated as typed
+ * @property fee Its fee as the canonical string, or blank
+ * @property dueDay Its due day, or blank
+ */
+data class BatchFormValues(
+    val name: String = "",
+    val subjects: String = "",
+    val fee: String = "",
+    val dueDay: String = "",
+)
+
+/**
+ * Create a class, or edit one.
  *
  * **Client-side validation is FORMAT only, never policy** [layering
  * rules]. The submit button is disabled until a name exists, which is
@@ -71,27 +90,35 @@ fun splitSubjects(raw: String): List<String> =
  * check with no server counterpart would be a business rule living on
  * the client.
  *
- * @param onCreate Called with the entered values, the fee already in
- *   canonical form
+ * @param onCreate Called with name, subjects, the fee in canonical form,
+ *   the due day, and the weekly classes (possibly none)
  * @param onCancel Called when the teacher backs out
  * @param modifier The layout modifier
  * @param saving True while the write is in flight; the form stays open
  *   and cannot submit twice
  * @param error Why the last write failed, already resolved to text, or
  *   null. The typed values stay in the fields beside it
+ * @param initial What the fields start with; blank to create
+ * @param withSchedule Whether to offer class days. An edit leaves them
+ *   to the batch's own schedule screen
+ * @param submitLabel The submit button's words
  */
 @Composable
 fun BatchCreateForm(
-    onCreate: (String, List<String>, String?, Int?) -> Unit,
+    onCreate: (String, List<String>, String?, Int?, List<ScheduleSlotDto>) -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
     saving: Boolean = false,
     error: String? = null,
+    initial: BatchFormValues = BatchFormValues(),
+    withSchedule: Boolean = true,
+    submitLabel: String = stringResource(R.string.batch_create_submit),
 ) {
-    var name by remember { mutableStateOf("") }
-    var subjects by remember { mutableStateOf("") }
-    var fee by remember { mutableStateOf("") }
-    var dueDay by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf(initial.name) }
+    var subjects by remember { mutableStateOf(initial.subjects) }
+    var fee by remember { mutableStateOf(initial.fee) }
+    var dueDay by remember { mutableStateOf(initial.dueDay) }
+    var schedule by remember { mutableStateOf(ScheduleDraft()) }
 
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -150,6 +177,11 @@ fun BatchCreateForm(
                 },
             modifier = Modifier.fillMaxWidth().testTag(TAG_FORM_DUE_DAY),
         )
+        // **Class days, so the batch has sessions from the start.** A
+        // batch created without them had no schedule, so no session was
+        // ever generated and attendance could not be taken (T0: "name the
+        // batch and pick its class days, time and monthly fee").
+        if (withSchedule) ScheduleEditor(draft = schedule, onChange = { schedule = it })
 
         // **Shown on the form, beside what was typed.** The form used
         // to close before the server answered, so a refusal had nowhere
@@ -171,6 +203,7 @@ fun BatchCreateForm(
                         splitSubjects(subjects),
                         canonicalFee(fee),
                         dueDay.trim().toIntOrNull(),
+                        schedule.toSlots(),
                     )
                 },
                 // **`subjects` too, not just the name.** The server
@@ -189,10 +222,11 @@ fun BatchCreateForm(
                         name.isNotBlank() &&
                         splitSubjects(subjects).isNotEmpty() &&
                         feeIsValid(fee) &&
-                        dueDayIsValid(dueDay),
+                        dueDayIsValid(dueDay) &&
+                        schedule.isValid,
                 modifier = Modifier.testTag(TAG_FORM_SUBMIT),
             ) {
-                Text(stringResource(R.string.batch_create_submit))
+                Text(submitLabel)
             }
             TextButton(onClick = onCancel, modifier = Modifier.testTag(TAG_FORM_CANCEL)) {
                 Text(stringResource(R.string.action_cancel))
@@ -231,6 +265,35 @@ internal fun canonicalFee(raw: String): String? =
  */
 internal fun feeIsValid(raw: String): Boolean = raw.isBlank() || Money.fromTyped(raw) != null
 
+/** Bangla digit zero; the nine after it are contiguous. */
+private const val BANGLA_ZERO = '\u09E6'
+
+/** A Bangladeshi mobile number once its country code is removed. */
+private val LOCAL_MOBILE = Regex("01[3-9][0-9]{8}")
+
+/**
+ * Whether a phone field holds a Bangladeshi mobile number.
+ *
+ * **Format only, mirroring the server's own check**, so a teacher learns
+ * about a ten-digit number while typing rather than after a round trip.
+ * The server canonicalises and decides; this only spares the wait.
+ * Accepts the same spellings: separators, `+880`/`880`/`00880`, and
+ * Bangla digits.
+ *
+ * @param raw The field as typed
+ * @return True when it is a mobile number in any accepted spelling
+ */
+internal fun phoneIsValid(raw: String): Boolean {
+    var text =
+        raw
+            .map { char -> if (char - BANGLA_ZERO in 0..9) '0' + (char - BANGLA_ZERO) else char }
+            .filterNot { it.isWhitespace() || it in "-()." }
+            .joinToString("")
+    text = text.removePrefix("+").let { if (it.startsWith("00")) it.drop(2) else it }
+    if (text.startsWith("880")) text = "0" + text.drop(3)
+    return LOCAL_MOBILE.matches(text)
+}
+
 /** The range a due day may take, as the server states it. */
 private val DUE_DAYS: IntRange = 1..31
 
@@ -254,8 +317,8 @@ internal fun dueDayIsValid(raw: String): Boolean =
  * sends null when blank rather than "0.00", because zero is a waiver
  * and defaulting to it would silently waive every student's fee.
  *
- * @param onAdd Called with the entered values, the fee already in
- *   canonical form
+ * @param onAdd Called with name, the student's phone, the guardian's
+ *   phone or null, and the fee in canonical form or null
  * @param onCancel Called when the teacher backs out
  * @param modifier The layout modifier
  * @param saving True while the write is in flight
@@ -263,21 +326,46 @@ internal fun dueDayIsValid(raw: String): Boolean =
  */
 @Composable
 fun StudentAddForm(
-    onAdd: (String, String?, String?) -> Unit,
+    onAdd: (String, String, String?, String?) -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
     saving: Boolean = false,
     error: String? = null,
 ) {
+    var phone by remember { mutableStateOf("") }
     var name by remember { mutableStateOf("") }
     var guardian by remember { mutableStateOf("") }
     var fee by remember { mutableStateOf("") }
+    val guardianOk = guardian.isBlank() || phoneIsValid(guardian)
 
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-
+        // **The student's number comes first, as T8 draws it.** It is
+        // what links this seat to the student's own account; without it
+        // the student could never reach their seat, which is how this
+        // form shipped.
+        OutlinedTextField(
+            value = phone,
+            onValueChange = { phone = it },
+            label = { Text(stringResource(R.string.student_add_student_phone)) },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+            isError = phone.isNotBlank() && !phoneIsValid(phone),
+            supportingText = {
+                Text(
+                    stringResource(
+                        if (phone.isBlank() || phoneIsValid(phone)) {
+                            R.string.student_add_student_phone_help
+                        } else {
+                            R.string.phone_invalid
+                        },
+                    ),
+                )
+            },
+            modifier = Modifier.fillMaxWidth().testTag(TAG_FORM_STUDENT_PHONE),
+        )
         OutlinedTextField(
             value = name,
             onValueChange = { name = it },
@@ -291,6 +379,13 @@ fun StudentAddForm(
             label = { Text(stringResource(R.string.student_add_guardian)) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+            isError = !guardianOk,
+            supportingText =
+                if (guardianOk) {
+                    null
+                } else {
+                    { Text(stringResource(R.string.phone_invalid)) }
+                },
             modifier = Modifier.fillMaxWidth().testTag(TAG_FORM_GUARDIAN),
         )
         OutlinedTextField(
@@ -327,11 +422,17 @@ fun StudentAddForm(
                 onClick = {
                     onAdd(
                         name.trim(),
+                        phone.trim(),
                         guardian.trim().ifBlank { null },
                         canonicalFee(fee),
                     )
                 },
-                enabled = !saving && name.isNotBlank() && feeIsValid(fee),
+                enabled =
+                    !saving &&
+                        name.isNotBlank() &&
+                        phoneIsValid(phone) &&
+                        guardianOk &&
+                        feeIsValid(fee),
                 modifier = Modifier.testTag(TAG_FORM_SUBMIT),
             ) {
                 Text(stringResource(R.string.student_add_submit))

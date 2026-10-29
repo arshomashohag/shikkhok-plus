@@ -22,17 +22,18 @@ from __future__ import annotations
 
 import datetime as dt
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
-from app.authz.lenses import GuardianLens, TeacherLens
-from app.db.models import Batch, BatchSubject, Enrollment
+from app.authz.lenses import GuardianLens, StudentLens, TeacherLens
+from app.db.models import Account, Batch, BatchSubject, Enrollment, Exam, ScheduleSlot
 from app.errors import AuthorizationError, ConflictError, ValidationError
 from app.money import Money
 
 __all__ = [
+    "BatchChanges",
     "BatchNotFound",
     "BatchSummary",
     "EnrollmentNotRemovable",
@@ -43,8 +44,10 @@ __all__ = [
     "list_batches",
     "list_guardian_children",
     "list_roster",
+    "list_student_batches",
     "remove_enrollment",
     "set_inactive_from",
+    "update_batch",
 ]
 
 
@@ -314,6 +317,84 @@ def list_roster(
     return [_roster_row(row) for row in rows]
 
 
+@dataclass(frozen=True)
+class StudentBatchRow:
+    """One batch a student has accepted a seat in.
+
+    :ivar enrollment_id: Their seat, which every student read is keyed on
+    :ivar batch_name: The batch
+    :ivar teacher_display_name: What the teacher is called, or None
+    :ivar subjects: The subjects taught
+    :ivar schedule: The weekly classes as (weekday, start, end)
+    :ivar batch_id: The batch, for reads keyed on it
+    """
+
+    enrollment_id: uuid.UUID
+    batch_name: str
+    teacher_display_name: str | None
+    subjects: list[str]
+    schedule: list[tuple[int, dt.time, dt.time]]
+    batch_id: uuid.UUID | None = None
+
+
+def list_student_batches(
+    session: Session, *, lens: StudentLens
+) -> list[StudentBatchRow]:
+    """List the batches this student has ACCEPTED a seat in (S1).
+
+    **The acceptance predicate is in this query**, not inherited from
+    the lens. The guardian list once relied on the lens instead and
+    leaked linked-but-unaccepted seats, because the lens is granted by
+    ANY accepted link rather than per seat [BR1.1].
+
+    :param session: The session to query through
+    :param lens: The student lens carrying the authenticated account
+    :return: One row per accepted seat, ordered by batch name
+    """
+    rows = session.execute(
+        sa.select(Enrollment.id, Batch.id, Batch.name, Batch.teacher_display_name)
+        .join(Batch, Batch.id == Enrollment.batch_id)
+        .where(
+            Enrollment.student_account_id == lens.account_id,
+            Enrollment.student_decision == "accepted",
+        )
+        .order_by(Batch.name, Enrollment.id)
+    ).all()
+    batch_ids = [batch_id for _, batch_id, _, _ in rows]
+    subjects: dict[uuid.UUID, list[str]] = {batch_id: [] for batch_id in batch_ids}
+    for batch_id, name in session.execute(
+        sa.select(BatchSubject.batch_id, BatchSubject.name)
+        .where(BatchSubject.batch_id.in_(batch_ids))
+        .order_by(BatchSubject.name)
+    ).all():
+        subjects[batch_id].append(name)
+    schedules: dict[uuid.UUID, list[tuple[int, dt.time, dt.time]]] = {
+        batch_id: [] for batch_id in batch_ids
+    }
+    for batch_id, weekday, start, end in session.execute(
+        sa.select(
+            ScheduleSlot.batch_id,
+            ScheduleSlot.weekday,
+            ScheduleSlot.start_time,
+            ScheduleSlot.end_time,
+        )
+        .where(ScheduleSlot.batch_id.in_(batch_ids))
+        .order_by(ScheduleSlot.weekday, ScheduleSlot.start_time)
+    ).all():
+        schedules[batch_id].append((weekday, start, end))
+    return [
+        StudentBatchRow(
+            enrollment_id=enrollment_id,
+            batch_name=name,
+            teacher_display_name=teacher,
+            subjects=subjects[batch_id],
+            schedule=schedules[batch_id],
+            batch_id=batch_id,
+        )
+        for enrollment_id, batch_id, name, teacher in rows
+    ]
+
+
 def list_guardian_children(
     session: Session, *, lens: GuardianLens
 ) -> list[GuardianChildRow]:
@@ -325,13 +406,15 @@ def list_guardian_children(
     records: a guardian recorded by teacher A would see teacher B's batch
     for the same child.
 
-    **Safe after D1 only TRANSITIVELY, which is recorded so it is a
-    decision rather than a later discovery** [rules.md sweep]. This
-    query has no decision predicate of its own: it is correct because
-    ``GuardianLens`` stops being granted for an unaccepted link
-    [BR1.1], so it never runs for one. A reader who later removes the
-    lens requirement, or calls this from somewhere the lens did not
-    come from, inherits a query that would list seats nobody accepted.
+    **Filtered to ACCEPTED links here, not transitively.** This used to
+    carry no decision predicate, on the reasoning that ``GuardianLens``
+    is withheld for an unaccepted link. It is not withheld per SEAT: the
+    lens is granted by ANY accepted guardian link, so a guardian who
+    accepted their own child's seat also saw every seat merely linked to
+    their number -- including one a teacher created by mistyping a digit:
+    a stranger's child's name and batch [BR1.1]. Linking at seat creation
+    made that common. The fee and marks reads check acceptance per seat
+    and were never exposed; this list now does the same.
 
     :param session: The session to query through
     :param lens: The guardian lens carrying the authenticated account
@@ -340,7 +423,10 @@ def list_guardian_children(
     rows = session.execute(
         sa.select(Enrollment, Batch.name)
         .join(Batch, Batch.id == Enrollment.batch_id)
-        .where(Enrollment.guardian_account_id == lens.account_id)
+        .where(
+            Enrollment.guardian_account_id == lens.account_id,
+            Enrollment.guardian_decision == "accepted",
+        )
         .order_by(Batch.name, Enrollment.display_name, Enrollment.id)
     ).all()
 
@@ -497,6 +583,9 @@ class BatchSummary:
 
     :ivar batch: The batch row
     :ivar subjects: The subjects taught
+    :ivar subject_ids: Each subject's key, parallel to ``subjects``
+    :ivar schedule: The weekly classes as (weekday, start, end), in
+        weekday then time order
     :ivar enrollment_count: How many seats, computed server-side. The
         DENOMINATOR, and it excludes nothing
     :ivar accepted_count: How many of those seats at least one link has
@@ -506,8 +595,10 @@ class BatchSummary:
 
     batch: Batch
     subjects: list[str]
+    subject_ids: list[uuid.UUID]
     enrollment_count: int
     accepted_count: int
+    schedule: list[tuple[int, dt.time, dt.time]] = field(default_factory=list)
 
 
 def create_batch(
@@ -521,7 +612,7 @@ def create_batch(
     fee_due_day: int | None = None,
     collection_number: str | None = None,
     collection_channel: str | None = None,
-) -> Batch:
+) -> BatchSummary:
     """Create a batch owned by this lens's owner.
 
     :param session: The session to write through
@@ -533,7 +624,9 @@ def create_batch(
     :param fee_due_day: Day of month 1-31
     :param collection_number: Where payments are sent
     :param collection_channel: Which service that number belongs to
-    :return: The new batch
+    :return: The new batch as the list describes it, so the create
+        response and the list cannot describe one batch differently --
+        including the subject keys an exam or a class is created against
     :raises ValidationError: No subject was named
     """
     if not subjects:
@@ -558,10 +651,20 @@ def create_batch(
     session.add(batch)
     session.flush()
 
-    for subject in subjects:
-        session.add(BatchSubject(batch_id=batch.id, name=subject))
+    rows = [BatchSubject(batch_id=batch.id, name=subject) for subject in subjects]
+    session.add_all(rows)
+    session.flush()
     session.commit()
-    return batch
+    ordered = sorted(rows, key=lambda row: (row.name, row.id))
+    return BatchSummary(
+        batch=batch,
+        subjects=[row.name for row in ordered],
+        subject_ids=[row.id for row in ordered],
+        # A new batch holds no seats, so both numbers are zero and the
+        # count renders from the first moment [W1].
+        enrollment_count=0,
+        accepted_count=0,
+    )
 
 
 def list_batches(session: Session, *, lens: TeacherLens) -> list[BatchSummary]:
@@ -618,22 +721,107 @@ def list_batches(session: Session, *, lens: TeacherLens) -> list[BatchSummary]:
     counts = {batch_id: total for batch_id, total, _ in counted}
     accepted = {batch_id: taken for batch_id, _, taken in counted}
     subjects: dict[uuid.UUID, list[str]] = {batch_id: [] for batch_id in batch_ids}
-    for batch_id, subject_name in session.execute(
-        sa.select(BatchSubject.batch_id, BatchSubject.name)
+    subject_ids: dict[uuid.UUID, list[uuid.UUID]] = {
+        batch_id: [] for batch_id in batch_ids
+    }
+    # The key travels with the name in the same ordered statement, so
+    # the two lists cannot fall out of step.
+    for batch_id, subject_id, subject_name in session.execute(
+        sa.select(BatchSubject.batch_id, BatchSubject.id, BatchSubject.name)
         .where(BatchSubject.batch_id.in_(batch_ids))
-        .order_by(BatchSubject.name)
+        .order_by(BatchSubject.name, BatchSubject.id)
     ).all():
         subjects[batch_id].append(subject_name)
+        subject_ids[batch_id].append(subject_id)
+    # The schedule in one grouped statement too, for T6's card line. Read
+    # from the model directly: the teaching module owns the WRITE, and
+    # importing it here would close a cycle (it imports this module).
+    schedules: dict[uuid.UUID, list[tuple[int, dt.time, dt.time]]] = {
+        batch_id: [] for batch_id in batch_ids
+    }
+    for batch_id, weekday, start, end in session.execute(
+        sa.select(
+            ScheduleSlot.batch_id,
+            ScheduleSlot.weekday,
+            ScheduleSlot.start_time,
+            ScheduleSlot.end_time,
+        )
+        .where(ScheduleSlot.batch_id.in_(batch_ids))
+        .order_by(ScheduleSlot.weekday, ScheduleSlot.start_time)
+    ).all():
+        schedules[batch_id].append((weekday, start, end))
 
     return [
         BatchSummary(
             batch=batch,
             subjects=subjects[batch.id],
+            subject_ids=subject_ids[batch.id],
             enrollment_count=counts.get(batch.id, 0),
             accepted_count=accepted.get(batch.id, 0),
+            schedule=schedules[batch.id],
         )
         for batch in batches
     ]
+
+
+def _account_for(session: Session, phone: str | None) -> uuid.UUID | None:
+    """Find the account a canonical number signs in with, if any.
+
+    Exact comparison is correct only because every stored and incoming
+    number is canonical [0008, ``app.schemas.phone``]; before that it
+    missed every number typed in a different spelling.
+
+    :param session: The session to query through
+    :param phone: A canonical number, or None
+    :return: The account's id, or None
+    """
+    if phone is None:
+        return None
+    return session.execute(
+        sa.select(Account.id).where(Account.phone == phone)
+    ).scalar_one_or_none()
+
+
+def _refuse_second_seat(
+    session: Session,
+    *,
+    batch_id: uuid.UUID,
+    student_phone: str | None,
+    student_account_id: uuid.UUID | None,
+) -> None:
+    """Refuse a second seat for one student in one batch.
+
+    **A clear refusal instead of a 500.** A student holds at most one seat
+    per batch (``uq_enrollment_batch_student``). Once seats link to
+    accounts by number, adding the same student twice -- an easy slip --
+    hit that constraint as a server error. Refusing on the NUMBER too,
+    not only on a linked account, also keeps two waiting seats from
+    colliding when that student later signs up.
+
+    :param session: The session to query through
+    :param batch_id: The batch
+    :param student_phone: The typed student number, canonical, or None
+    :param student_account_id: The account it resolves to, or None
+    :return: None
+    :raises ConflictError: That student already has a seat here
+    """
+    clauses = []
+    if student_phone is not None:
+        clauses.append(Enrollment.student_phone == student_phone)
+    if student_account_id is not None:
+        clauses.append(Enrollment.student_account_id == student_account_id)
+    if not clauses:
+        return
+    taken = session.execute(
+        sa.select(Enrollment.id).where(
+            Enrollment.batch_id == batch_id, sa.or_(*clauses)
+        )
+    ).first()
+    if taken is not None:
+        raise ConflictError(
+            code="ENROLLMENT_STUDENT_ALREADY_SEATED",
+            message_key="enrollment.student_already_in_batch",
+        )
 
 
 def add_enrollment(
@@ -645,6 +833,7 @@ def add_enrollment(
     student_account_id: uuid.UUID | None = None,
     guardian_account_id: uuid.UUID | None = None,
     guardian_phone: str | None = None,
+    student_phone: str | None = None,
     fee_amount: Money | None = None,
     joined_on: dt.date | None = None,
 ) -> RosterRow:
@@ -664,19 +853,41 @@ def add_enrollment(
     :param student_account_id: The student, or None for a dormant seat
     :param guardian_account_id: The guardian, if one is recorded
     :param guardian_phone: The teacher-typed guardian contact
+    :param student_phone: The teacher-typed student number, canonical
     :param fee_amount: This seat's fee, or None to inherit
     :param joined_on: When the student joined
     :return: The new seat, as the roster describes it
     :raises BatchNotFound: The batch is not this lens's to write
+    :raises ConflictError: That student already has a seat in the batch
     """
     _owned_batch(session, lens=lens, batch_id=batch_id)
 
+    student_account = student_account_id or _account_for(session, student_phone)
+    _refuse_second_seat(
+        session,
+        batch_id=batch_id,
+        student_phone=student_phone,
+        student_account_id=student_account,
+    )
+
+    # **Link to a person who is ALREADY signed up** [BR5.1]. A number with
+    # no account waits on the seat and links at sign-up instead. Before
+    # this, a guardian who signed up first was never linked at all, and a
+    # student could not be linked by any route.
+    #
+    # Linking is not agreeing: both decisions are stated `pending` below
+    # whatever this finds, so the person is offered an invitation and
+    # granted nothing. Nothing the teacher reads changes either -- the
+    # roster reports decisions, not links -- so this reveals to no
+    # teacher whether a number has an account.
     record = Enrollment(
         batch_id=batch_id,
-        student_account_id=student_account_id,
-        guardian_account_id=guardian_account_id,
+        student_account_id=student_account_id or _account_for(session, student_phone),
+        guardian_account_id=guardian_account_id
+        or _account_for(session, guardian_phone),
         display_name=display_name,
         guardian_phone=guardian_phone,
+        student_phone=student_phone,
         fee_amount=fee_amount,
         joined_on=joined_on,
         # STATED, because the columns carry no default [ADR-013]. A seat
@@ -690,3 +901,134 @@ def add_enrollment(
     session.add(record)
     session.commit()
     return _roster_row(record)
+
+
+@dataclass(frozen=True, slots=True)
+class BatchChanges:
+    """What an edit names. ``None`` means leave it as it is.
+
+    :ivar name: The teacher's name for the class
+    :ivar subjects: The full list of subjects to keep, or None
+    :ivar teacher_display_name: What students see the teacher called
+    :ivar default_fee: The inherited fee, for cycles not yet generated
+    :ivar fee_due_day: Day of month 1-31
+    :ivar collection_number: Where payments are sent
+    :ivar collection_channel: Which service that number belongs to
+    :ivar marksheet_visible: U6's toggle
+    :ivar active: False collapses the batch to read-only history
+    """
+
+    name: str | None = None
+    subjects: list[str] | None = None
+    teacher_display_name: str | None = None
+    default_fee: Money | None = None
+    fee_due_day: int | None = None
+    collection_number: str | None = None
+    collection_channel: str | None = None
+    marksheet_visible: bool | None = None
+    active: bool | None = None
+
+
+def update_batch(
+    session: Session,
+    *,
+    lens: TeacherLens,
+    batch_id: uuid.UUID,
+    changes: BatchChanges,
+) -> BatchSummary:
+    """Edit a batch this lens owns [AC2.3.1].
+
+    **A fee change is forward-only.** A charge is a ledger entry written
+    when its cycle generated, so a new ``default_fee`` reaches only the
+    cycles generated after it; nothing already owed is rewritten.
+
+    **Subjects are the full list to keep.** A name already present keeps
+    its key, so sessions and exams naming it are untouched; a new name
+    is added; a name left out is removed -- unless an exam was set in it,
+    which refuses the whole edit, because the exam would lose what it
+    was a test of. A class that named a removed subject keeps its record
+    and loses only the subject label.
+
+    :param session: The session to write through
+    :param lens: The teacher lens carrying the owner id
+    :param batch_id: The batch
+    :param changes: What to change
+    :return: The batch as the list describes it
+    :raises BatchNotFound: No such batch, or another owner's
+    :raises ValidationError: The subject list is empty
+    :raises ConflictError: A subject to remove has an exam
+    """
+    batch = _owned_batch(session, lens=lens, batch_id=batch_id)
+    if changes.subjects is not None:
+        _replace_subjects(session, lens=lens, batch_id=batch.id, names=changes.subjects)
+
+    for column in (
+        "name",
+        "teacher_display_name",
+        "default_fee",
+        "fee_due_day",
+        "collection_number",
+        "collection_channel",
+        "marksheet_visible",
+        "active",
+    ):
+        value = getattr(changes, column)
+        if value is not None:
+            setattr(batch, column, value)
+    session.commit()
+
+    return next(
+        summary
+        for summary in list_batches(session, lens=lens)
+        if summary.batch.id == batch.id
+    )
+
+
+def _replace_subjects(
+    session: Session, *, lens: TeacherLens, batch_id: uuid.UUID, names: list[str]
+) -> None:
+    """Make a batch's subjects exactly these names, keeping existing keys.
+
+    Re-checks ownership itself rather than trusting its caller, so the
+    write sweep in ``test_every_write_is_scoped.py`` sees it scoped.
+
+    :param session: The session to write through
+    :param lens: The teacher lens carrying the owner id
+    :param batch_id: The batch
+    :param names: The subjects to keep
+    :raises ValidationError: The list is empty
+    :raises ConflictError: A subject to remove has an exam
+    """
+    batch_id = _owned_batch(session, lens=lens, batch_id=batch_id).id
+    wanted = list(dict.fromkeys(name.strip() for name in names if name.strip()))
+    if not wanted:
+        raise ValidationError(
+            code="BATCH_NEEDS_A_SUBJECT",
+            message_key="batch.create.subject_required",
+        )
+    existing = list(
+        session.scalars(
+            sa.select(BatchSubject).where(BatchSubject.batch_id == batch_id)
+        )
+    )
+    dropped = [row for row in existing if row.name not in wanted]
+    examined = session.scalar(
+        sa.select(sa.func.count())
+        .select_from(Exam)
+        .where(Exam.batch_subject_id.in_([row.id for row in dropped]))
+    )
+    if dropped and examined:
+        session.rollback()
+        raise ConflictError(
+            code="SUBJECT_HAS_EXAMS",
+            message_key="batch.subject_in_use",
+        )
+    for row in dropped:
+        session.delete(row)
+    kept = {row.name for row in existing}
+    session.add_all(
+        BatchSubject(batch_id=batch_id, name=name)
+        for name in wanted
+        if name not in kept
+    )
+    session.flush()

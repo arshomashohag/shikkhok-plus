@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.shikkhokplus.app.core.network.ScheduleSlotDto
 import com.shikkhokplus.app.R
 import com.shikkhokplus.app.core.designsystem.LogoLoader
 import com.shikkhokplus.app.core.designsystem.ScreenScaffold
@@ -90,7 +91,7 @@ sealed interface CreateBatchUiState {
 @Composable
 fun CreateBatchScreen(
     state: CreateBatchUiState,
-    onCreate: (String, List<String>, String?, Int?) -> Unit,
+    onCreate: (String, List<String>, String?, Int?, List<ScheduleSlotDto>) -> Unit,
     onCancel: () -> Unit,
     onRetry: () -> Unit = {},
     onDone: () -> Unit = {},

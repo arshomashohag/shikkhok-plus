@@ -23,6 +23,9 @@ import uuid
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.money import MoneyField
+from app.schemas.phone import PhoneField
+from app.schemas.schedule import ScheduleSlotWire
+from app.schemas.teaching import UpcomingSessionResponse
 
 __all__ = [
     "BatchCreateRequest",
@@ -31,6 +34,7 @@ __all__ = [
     "EnrollmentCreateRequest",
     "GuardianChildResponse",
     "InactiveFromRequest",
+    "LastResultResponse",
     "RosterRowResponse",
 ]
 
@@ -39,6 +43,8 @@ class BatchCreateRequest(BaseModel):
     """Create a batch [AC2.1.1, AC2.1.2].
 
     :ivar name: The teacher's name for the class
+    :ivar schedule: The weekly classes, so a batch can be created with its
+        class days and sessions follow at once; optional
     :ivar subjects: One or more subjects taught
     :ivar teacher_display_name: What students see the teacher called
     :ivar default_fee: The fee an enrollment inherits when it sets none
@@ -51,6 +57,7 @@ class BatchCreateRequest(BaseModel):
 
     name: str = Field(min_length=1, max_length=120)
     subjects: list[str] = Field(min_length=1)
+    schedule: list[ScheduleSlotWire] = Field(default_factory=list, max_length=21)
     teacher_display_name: str | None = Field(default=None, max_length=120)
     default_fee: MoneyField | None = None
     fee_due_day: int | None = Field(default=None, ge=1, le=31)
@@ -64,8 +71,10 @@ class BatchUpdateRequest(BaseModel):
     Every field optional, because a PATCH names only what changes.
 
     :ivar name: The teacher's name for the class
+    :ivar subjects: The full list of subjects to keep; one with an exam
+        cannot be left out
     :ivar teacher_display_name: What students see the teacher called
-    :ivar default_fee: The inherited fee
+    :ivar default_fee: The inherited fee, for cycles not yet generated
     :ivar fee_due_day: Day of month 1-31
     :ivar collection_number: Where payments are sent
     :ivar collection_channel: Which service that number belongs to
@@ -76,6 +85,7 @@ class BatchUpdateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str | None = Field(default=None, min_length=1, max_length=120)
+    subjects: list[str] | None = Field(default=None, min_length=1)
     teacher_display_name: str | None = Field(default=None, max_length=120)
     default_fee: MoneyField | None = None
     fee_due_day: int | None = Field(default=None, ge=1, le=31)
@@ -85,12 +95,36 @@ class BatchUpdateRequest(BaseModel):
     active: bool | None = None
 
 
+class SubjectOption(BaseModel):
+    """One subject of a batch, with the key that names it.
+
+    **Why the key is on the wire at all.** Creating an exam and adding a
+    class both name a subject by ``batch_subject_id``, and no response
+    carried one: the batch list sent subject NAMES only, so a client had
+    nothing to send and exam creation could not be built. Additive,
+    beside the existing ``subjects`` strings, because ``/v1`` endpoints
+    only ever grow [D-26].
+
+    :ivar id: The ``batch_subject_id`` exam and session writes take
+    :ivar name: The subject's name, as the teacher typed it
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: uuid.UUID
+    name: str
+
+
 class BatchResponse(BaseModel):
     """A batch as its owner sees it.
 
     :ivar id: The batch
     :ivar name: The teacher's name for the class
     :ivar subjects: The subjects taught
+    :ivar subject_options: The same subjects with their keys, in the same
+        order, for the writes that name one
+    :ivar schedule: The weekly classes, in weekday then time order -- the
+        "Mon Wed · 4:00 pm" line on the batch list (T6)
     :ivar teacher_display_name: What students see the teacher called
     :ivar default_fee: The inherited fee
     :ivar fee_due_day: Day of month 1-31
@@ -111,6 +145,8 @@ class BatchResponse(BaseModel):
     id: uuid.UUID
     name: str
     subjects: list[str]
+    subject_options: list[SubjectOption]
+    schedule: list[ScheduleSlotWire]
     teacher_display_name: str | None
     default_fee: MoneyField | None
     fee_due_day: int | None
@@ -120,6 +156,78 @@ class BatchResponse(BaseModel):
     active: bool
     enrollment_count: int
     accepted_count: int
+
+
+class CurrentFeeResponse(BaseModel):
+    """A seat's latest fee period, as the student sees it on S1.
+
+    The status is the server's [TC-9]; the app renders it and decides
+    nothing from the amounts.
+
+    :ivar period: ``YYYY-MM``
+    :ivar status: The period's status
+    :ivar due_date: When it is due
+    :ivar outstanding: What is still owed for it
+    :ivar charged: What the period charged ("October fee · ৳1,200")
+    :ivar verifying: Whether a payment for it is waiting to be checked
+    :ivar paid_on: The day the last approved payment for it was
+        decided, in Bangladesh, or null
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    period: str
+    status: str
+    due_date: dt.date
+    outstanding: MoneyField
+    charged: MoneyField | None = None
+    verifying: bool = False
+    paid_on: dt.date | None = None
+
+
+class LastResultResponse(BaseModel):
+    """A student's latest marked result in one batch ("Last test 44/50").
+
+    :ivar title: The exam
+    :ivar marks: The mark
+    :ivar total_marks: Out of how many
+    :ivar rank: The rank, only where the marksheet publishes it
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    title: str
+    marks: int = Field(ge=0)
+    total_marks: int = Field(ge=1)
+    rank: int | None = Field(default=None, ge=1)
+
+
+class StudentBatchResponse(BaseModel):
+    """One batch a student is in (S1).
+
+    :ivar enrollment_id: Their seat; every other student read takes it
+    :ivar batch_name: The batch
+    :ivar teacher_display_name: What the teacher is called, or None
+    :ivar subjects: The subjects taught
+    :ivar schedule: The weekly classes
+    :ivar current_fee: The latest fee period, or None before the first
+    :ivar next_session: This batch's next class, or null
+    :ivar is_next: Whether that class is the student's next one across
+        every batch -- true on at most one row
+    :ivar last_result: The latest marked result, or null
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    enrollment_id: uuid.UUID
+    batch_name: str
+    teacher_display_name: str | None
+    subjects: list[str]
+    schedule: list[ScheduleSlotWire]
+    current_fee: CurrentFeeResponse | None
+    next_session: UpcomingSessionResponse | None = None
+    is_next: bool = False
+    last_result: LastResultResponse | None = None
 
 
 class EnrollmentCreateRequest(BaseModel):
@@ -140,8 +248,8 @@ class EnrollmentCreateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     display_name: str = Field(min_length=1, max_length=120)
-    student_phone: str | None = Field(default=None, max_length=20)
-    guardian_phone: str | None = Field(default=None, max_length=20)
+    student_phone: PhoneField | None = None
+    guardian_phone: PhoneField | None = None
     fee_amount: MoneyField | None = None
     joined_on: dt.date | None = None
 

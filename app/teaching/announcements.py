@@ -25,15 +25,24 @@ from __future__ import annotations
 
 import datetime as dt
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import sqlalchemy as sa
 from sqlalchemy.orm import Session as DbSession
 
 from app.authz.lenses import Lens, TeacherLens
-from app.db.models import Announcement, Attendance, Batch, Session
+from app.db.models import (
+    Announcement,
+    Attendance,
+    Batch,
+    BatchSubject,
+    Exam,
+    Session,
+)
 from app.errors import ConflictError
+from app.local_time import bangladesh_today
 from app.teaching.roster import readable_enrollment, refuse
+from app.teaching.upcoming import UpcomingSession, upcoming_sessions
 
 __all__ = [
     "AnnouncementRow",
@@ -73,6 +82,7 @@ class AttendanceEntry:
     :ivar topic: What was covered, or None if never logged
     :ivar topic_logged: Whether a topic was ever written [BR2.2]
     :ivar present: What was recorded, or None where nothing was
+    :ivar subject_name: What the class taught, if set
     """
 
     session_id: uuid.UUID
@@ -81,6 +91,7 @@ class AttendanceEntry:
     topic: str | None
     topic_logged: bool
     present: bool | None
+    subject_name: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,6 +107,9 @@ class FamilyBatchView:
     :ivar past_sessions: Past sessions with topics and attendance
     :ivar announcements: The batch's visible announcements
     :ivar served_at: When the server computed this [BR7.3]
+    :ivar coming: The next classes, soonest first: the first is "Next
+        class", the rest are "Then ..."
+    :ivar upcoming_exam: The next exam still to be sat, if any
     """
 
     next_session_date: dt.date | None
@@ -103,6 +117,24 @@ class FamilyBatchView:
     past_sessions: list[AttendanceEntry]
     announcements: list[AnnouncementRow]
     served_at: dt.datetime
+    coming: list[UpcomingSession] = field(default_factory=list)
+    upcoming_exam: UpcomingExam | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class UpcomingExam:
+    """The next exam a student will sit ("Coming up").
+
+    :ivar title: Its title
+    :ivar date: When
+    :ivar total_marks: Out of how many
+    :ivar subject_name: Which subject
+    """
+
+    title: str
+    date: dt.date
+    total_marks: int
+    subject_name: str
 
 
 def _writable_batch(
@@ -329,19 +361,9 @@ def family_batch_view(
     """
     seat = readable_enrollment(session, lens=lens, enrollment_id=enrollment_id)
     now = dt.datetime.now(tz=dt.UTC)
-    when = today or now.date()
-
-    upcoming = session.execute(
-        sa.select(Session.date, Session.start_time)
-        .where(
-            Session.batch_id == seat.batch_id,
-            Session.date >= when,
-            Session.status == "scheduled",
-        )
-        .order_by(Session.date, Session.start_time)
-        .limit(1)
-    ).one_or_none()
-
+    when = today or bangladesh_today()
+    coming = upcoming_sessions(session, batch_ids=[seat.batch_id])[seat.batch_id]
+    upcoming = (coming[0].date, coming[0].start_time) if coming else None
     past = session.execute(
         sa.select(
             Session.id,
@@ -349,8 +371,10 @@ def family_batch_view(
             Session.start_time,
             Session.topic,
             Attendance.present,
+            BatchSubject.name,
         )
         .select_from(Session)
+        .outerjoin(BatchSubject, BatchSubject.id == Session.batch_subject_id)
         .outerjoin(
             Attendance,
             sa.and_(
@@ -381,10 +405,37 @@ def family_batch_view(
                 topic=entry[3],
                 topic_logged=entry[3] is not None,
                 present=entry[4],
+                subject_name=entry[5],
             )
             for entry in past
         ],
         announcements=_visible_announcements(session, batch_id=seat.batch_id),
         # BR7.3: the client cannot state an age the server never sent.
         served_at=now,
+        coming=coming,
+        upcoming_exam=_next_exam(session, batch_id=seat.batch_id, today=when),
+    )
+
+
+def _next_exam(
+    session: DbSession, *, batch_id: uuid.UUID, today: dt.date
+) -> UpcomingExam | None:
+    """Return the batch's next exam still to be sat, today included.
+
+    :param session: The session to read through
+    :param batch_id: The batch, already reached by the caller's lens
+    :param today: Bangladesh's date
+    :return: The exam, or None when none is coming
+    """
+    row = session.execute(
+        sa.select(Exam.title, Exam.date, Exam.total_marks, BatchSubject.name)
+        .join(BatchSubject, BatchSubject.id == Exam.batch_subject_id)
+        .where(Exam.batch_id == batch_id, Exam.date >= today)
+        .order_by(Exam.date, Exam.id)
+        .limit(1)
+    ).one_or_none()
+    if row is None:
+        return None
+    return UpcomingExam(
+        title=row[0], date=row[1], total_marks=row[2], subject_name=row[3]
     )

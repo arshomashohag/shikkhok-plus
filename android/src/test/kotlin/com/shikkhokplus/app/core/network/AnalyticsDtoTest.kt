@@ -77,81 +77,13 @@ class AnalyticsDtoTest {
 
     @Test
     fun `an empty dues response decodes to an empty list, not a failure`() {
-        val decoded = json.decodeFromString<DuesResponseDto>("""{"rows": []}""")
+        val decoded =
+            json.decodeFromString<DuesResponseDto>(
+                """{"summary":{"total":"0.00","count":0,"late_total":"0.00",
+                "remindable":0,"groups":[]},"rows": []}""",
+            )
 
         assertEquals(emptyList(), decoded.rows)
-    }
-
-    @Test
-    fun `the earnings figure decodes from a JSON string`() {
-        val decoded =
-            json.decodeFromString<MonthlyEarningsDto>(
-                """{"period": "2027-06", "received": "4500.00"}""",
-            )
-
-        assertEquals(Money.of("4500.00"), decoded.received)
-    }
-
-    @Test
-    fun `the earnings figure REFUSES a JSON number`() {
-        assertFailsWith<Exception> {
-            json.decodeFromString<MonthlyEarningsDto>(
-                """{"period": "2027-06", "received": 4500.00}""",
-            )
-        }
-    }
-
-    @Test
-    fun `a zero month decodes as a value rather than as an absence`() {
-        val decoded =
-            json.decodeFromString<MonthlyEarningsDto>(
-                """{"period": "2027-06", "received": "0.00"}""",
-            )
-
-        assertEquals(Money.of("0.00"), decoded.received)
-    }
-
-    @Test
-    fun `an overview without a trend decodes it as null, not an empty list`() {
-        // The wire distinction this whole feature rests on: an absent
-        // `trend` key means under two months of history. Decoding it
-        // as an empty list would lose the difference before the mapper
-        // ever sees it.
-        val decoded =
-            json.decodeFromString<OverviewDto>(
-                """{"earnings": {"period": "2027-06", "received": "0.00"}}""",
-            )
-
-        assertNull(decoded.trend)
-        assertNull(decoded.nextExam)
-    }
-
-    @Test
-    fun `an overview with a trend decodes every point`() {
-        val decoded =
-            json.decodeFromString<OverviewDto>(
-                """
-                {
-                  "earnings": {"period": "2027-06", "received": "4500.00"},
-                  "trend": [
-                    {"period": "2027-05", "received": "3000.00"},
-                    {"period": "2027-06", "received": "4500.00"}
-                  ],
-                  "next_exam": {
-                    "exam_id": "exam-1",
-                    "title": "Mid-term",
-                    "batch_name": "Physics",
-                    "subject_name": "Mechanics",
-                    "date": "2027-06-20",
-                    "days_remaining": 5
-                  }
-                }
-                """,
-            )
-
-        assertEquals(2, decoded.trend?.size)
-        assertEquals(Money.of("3000.00"), decoded.trend?.get(0)?.received)
-        assertEquals(5, decoded.nextExam?.daysRemaining)
     }
 
     @Test
@@ -160,16 +92,52 @@ class AnalyticsDtoTest {
         // parse, because /v1/ endpoints stay additive and an installed
         // app cannot be forced to update [D-26].
         val decoded =
-            json.decodeFromString<MonthlyEarningsDto>(
+            json.decodeFromString<OutstandingDto>(
                 """
                 {
-                  "period": "2027-06",
-                  "received": "4500.00",
+                  "total": "4500.00",
+                  "overdue": "1200.00",
+                  "overdue_students": 1,
+                  "batch_count": 2,
                   "collection_rate": "0.82"
                 }
                 """,
             )
 
-        assertEquals(Money.of("4500.00"), decoded.received)
+        assertEquals(Money.of("4500.00"), decoded.total)
+    }
+
+    @Test
+    fun `today's owed figures decode from JSON strings`() {
+        val decoded =
+            json.decodeFromString<OutstandingDto>(
+                """{"total":"48600.00","overdue":"31200.00","overdue_students":12,"batch_count":7}""",
+            )
+
+        assertEquals(Money.of("48600.00"), decoded.total)
+        assertEquals(Money.of("31200.00"), decoded.overdue)
+    }
+
+    @Test
+    fun `today's owed figures REFUSE a JSON number`() {
+        assertFailsWith<Exception> {
+            json.decodeFromString<OutstandingDto>(
+                """{"total":48600.00,"overdue":"0.00","overdue_students":0,"batch_count":0}""",
+            )
+        }
+    }
+
+    @Test
+    fun `a payment to check REFUSES its amounts as JSON numbers`() {
+        assertFailsWith<Exception> {
+            json.decodeFromString<ClaimQueueItemDto>(
+                """
+                {"claim_id":"c","enrollment_id":"e","display_name":"A","batch_name":"B",
+                 "period":"2026-10","claimed_amount":800,"charged":"1200.00",
+                 "comparison":"short","difference":"400.00","channel":"bKash",
+                 "submitted_at":"2026-10-28T10:00:00Z"}
+                """,
+            )
+        }
     }
 }

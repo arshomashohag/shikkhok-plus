@@ -14,18 +14,34 @@ showing as absent from an April exam reads as a record of truancy.
 
 from __future__ import annotations
 
+import datetime as dt
 import uuid
 from dataclasses import dataclass
+from typing import Literal
 
 import sqlalchemy as sa
 from sqlalchemy.orm import Session as DbSession
 
 from app.authz.lenses import TeacherLens
 from app.db.models import Enrollment, Exam
+from app.local_time import bangladesh_today
 from app.marks.entry import live_marks_for_exam
-from app.marks.exams import readable_exam
+from app.marks.exams import ExamRow, list_exams, readable_exam
 
-__all__ = ["SeatResult", "exam_results", "results_for_exam"]
+__all__ = [
+    "ExamProgress",
+    "SeatResult",
+    "exam_results",
+    "list_exam_progress",
+    "progress_of",
+    "results_for_exam",
+]
+
+#: Where an exam stands, as T7's Exams tab groups it.
+ExamState = Literal["upcoming", "needs_marks", "complete"]
+
+#: The states a teacher has typed; the other two are derived.
+ENTERED_STATES = frozenset({"marked", "absent"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -135,3 +151,79 @@ def results_for_exam(session: DbSession, *, exam: Exam) -> list[SeatResult]:
             )
         )
     return results
+
+
+@dataclass(frozen=True, slots=True)
+class ExamProgress:
+    """One exam with how far its marking has got.
+
+    :ivar exam: The exam
+    :ivar entered_count: Seats with a mark or an absence entered
+    :ivar expected_count: Seats that could have sat it, which leaves
+        out a seat that joined after the exam date
+    :ivar state: ``upcoming`` before its date in Bangladesh,
+        ``needs_marks`` while a seat that could have sat it has no
+        result, ``complete`` otherwise -- T7 groups exams by it
+    """
+
+    exam: ExamRow
+    entered_count: int
+    expected_count: int
+    state: ExamState = "complete"
+
+
+def list_exam_progress(
+    session: DbSession,
+    *,
+    lens: TeacherLens,
+    batch_id: uuid.UUID,
+    today: dt.date | None = None,
+) -> list[ExamProgress]:
+    """List a batch's exams, each with its marking progress.
+
+    Counted from :func:`results_for_exam`, so the list and the results
+    screen cannot disagree about which seats are still to mark.
+
+    :param session: The session to read through
+    :param lens: The teacher lens
+    :param batch_id: The batch
+    :param today: The date "upcoming" is measured on; Bangladesh's by default
+    :return: One entry per exam, oldest first
+    :raises AuthorizationError: This lens does not own the batch
+    """
+    on = today or bangladesh_today()
+    progress: list[ExamProgress] = []
+    for row in list_exams(session, lens=lens, batch_id=batch_id):
+        exam = session.get(Exam, row.exam_id)
+        if exam is None:
+            continue
+        progress.append(progress_of(row, results_for_exam(session, exam=exam), on))
+    return progress
+
+
+def progress_of(
+    exam: ExamRow, results: list[SeatResult], today: dt.date | None = None
+) -> ExamProgress:
+    """Count how far one exam's marking has got.
+
+    :param exam: The exam
+    :param results: Its four-state results
+    :param today: The date "upcoming" is measured on; Bangladesh's by default
+    :return: The exam with its counts
+    """
+    states = [result.result_state for result in results]
+    entered = sum(state in ENTERED_STATES for state in states)
+    expected = sum(state != "joined_after" for state in states)
+    stage: ExamState
+    if exam.date > (today or bangladesh_today()):
+        stage = "upcoming"
+    elif entered < expected:
+        stage = "needs_marks"
+    else:
+        stage = "complete"
+    return ExamProgress(
+        exam=exam,
+        entered_count=entered,
+        expected_count=expected,
+        state=stage,
+    )

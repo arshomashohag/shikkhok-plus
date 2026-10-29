@@ -76,10 +76,13 @@ object Reach {
  *
  * Mapped onto M3's [Shapes] slots so `MaterialTheme.shapes` carries
  * them and a component picks the right one by default:
- * fields 8 (small), cards 12 (medium), chips and sheets 16 (large).
+ * fields 8 (extraSmall and small), cards 12 (medium), chips and
+ * sheets 16 (large).
  */
 internal val ShikkhokShapes = Shapes(
-    extraSmall = RoundedCornerShape(4.dp),
+    // 8, not M3's 4: OutlinedTextField reads extraSmall, and the design
+    // draws every field at 8.
+    extraSmall = RoundedCornerShape(8.dp),
     small = RoundedCornerShape(8.dp),
     medium = RoundedCornerShape(12.dp),
     large = RoundedCornerShape(16.dp),

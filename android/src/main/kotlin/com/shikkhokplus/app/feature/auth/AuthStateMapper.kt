@@ -81,4 +81,17 @@ object AuthStateMapper {
      */
     fun afterTransportFailure(): AuthUiState =
         AuthUiState.Failed(OFFLINE_KEY, retryable = true)
+
+    /**
+     * Keep a failed code check on the code screen.
+     *
+     * @param failed What the server or transport said
+     * @return The same failure, shown beside the code boxes
+     */
+    fun codeRejected(failed: AuthUiState): AuthUiState =
+        if (failed is AuthUiState.Failed) {
+            AuthUiState.CodeRejected(failed.messageKey, failed.retryable)
+        } else {
+            failed
+        }
 }

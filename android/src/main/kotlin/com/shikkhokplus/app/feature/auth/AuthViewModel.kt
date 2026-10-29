@@ -161,14 +161,32 @@ class AuthViewModel(
      */
     fun submitCode(code: String) {
         lastAction = { submitCode(code) }
-        _state.value = AuthUiState.Sending
+        _state.value = AuthUiState.CheckingCode
         viewModelScope.launch {
             _state.value = when (val result = repository.verify(lastPhone, code)) {
                 is AuthResult.Ok -> AuthStateMapper.afterVerify(result.value)
-                is AuthResult.Refused -> AuthStateMapper.afterError(result.envelope)
-                AuthResult.TransportFailure -> AuthStateMapper.afterTransportFailure()
+                is AuthResult.Refused ->
+                    AuthStateMapper.codeRejected(AuthStateMapper.afterError(result.envelope))
+                AuthResult.TransportFailure ->
+                    AuthStateMapper.codeRejected(AuthStateMapper.afterTransportFailure())
             }
         }
+    }
+
+    /**
+     * Ask for a new code to the same number, at the person's request.
+     *
+     * Never automatic: each one is an SMS the server pays for, and the
+     * server's own ceilings decide whether it is sent.
+     */
+    fun resendCode() {
+        if (lastPhone.isNotEmpty()) requestCode(lastPhone)
+    }
+
+    /** Go back to the number field, to correct a mistyped number. */
+    fun changeNumber() {
+        lastAction = null
+        _state.value = AuthUiState.Idle
     }
 
     /**
@@ -182,5 +200,18 @@ class AuthViewModel(
         val failed = _state.value as? AuthUiState.Failed ?: return
         if (!failed.retryable) return
         lastAction?.invoke()
+    }
+
+    /**
+     * Return to the signed-out state.
+     *
+     * **State only.** Clearing the stored tokens and the device's queue
+     * is the caller's, because this ViewModel does not own them; the
+     * app's one `endSession` action does all three together so none
+     * can be forgotten.
+     */
+    fun signOut() {
+        lastAction = null
+        _state.value = AuthUiState.Idle
     }
 }

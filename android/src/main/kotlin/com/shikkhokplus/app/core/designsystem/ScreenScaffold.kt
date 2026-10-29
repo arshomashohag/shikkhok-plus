@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -53,12 +54,15 @@ import com.shikkhokplus.app.R
  * @param scrollable Whether the content scrolls. A form must, because
  *   the keyboard takes half the screen; a list must not, because the
  *   list scrolls itself and nesting two scrollers breaks both
+ * @param onBack Shows a back arrow calling this, on a pushed screen
  * @param leading Something small before the title — `O1` puts the
  *   logo mark there
  * @param bottomBar The navigation bar, on a screen that is a tab
  *   destination. Empty by default: a screen pushed onto the stack
  *   shows no tabs, because tapping one from there would leave a
  *   half-finished task behind the bar.
+ * @param subtitle A line under the title, inside the bar
+ * @param actions Icons at the bar's end, such as "Edit batch"
  * @param content The screen's own contents, in a column
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -70,6 +74,8 @@ fun ScreenScaffold(
     onBack: (() -> Unit)? = null,
     leading: @Composable (() -> Unit)? = null,
     bottomBar: @Composable () -> Unit = {},
+    subtitle: String? = null,
+    actions: @Composable RowScope.() -> Unit = {},
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Scaffold(
@@ -77,55 +83,7 @@ fun ScreenScaffold(
         // A tab destination can be a form-shaped screen: the overview
         // scrolls as one column and is still a tab.
         bottomBar = bottomBar,
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleLarge,
-                    )
-                },
-                // **A back arrow when the screen was pushed.** A form
-                // reached from a list needs a way out that is not the
-                // system gesture alone: a device with three-button
-                // navigation has one, but the affordance should be on
-                // screen either way.
-                navigationIcon = {
-                    // `O1` pairs a small mark with the title rather
-                    // than a back arrow: it is reached from sign-in,
-                    // which the alternative link returns to.
-                    if (leading != null) {
-                        leading()
-                    }
-                    if (onBack != null) {
-                        IconButton(
-                            onClick = onBack,
-                            modifier = Modifier.testTag(TAG_SCAFFOLD_BACK),
-                        ) {
-                            // **An inline vector, not a Material icon.**
-                            // `material-icons-extended` is not a
-                            // dependency here, and adding it would mean
-                            // regenerating the Gradle lockfile and 581
-                            // checksums for one arrow.
-                            BackArrow(
-                                contentDescription =
-                                    stringResource(R.string.action_back),
-                            )
-                        }
-                    }
-                },
-                colors =
-                    TopAppBarDefaults.topAppBarColors(
-                        // The page tone, not a raised surface: this
-                        // design carries depth as tone and has no
-                        // elevations outside bottom sheets.
-                        containerColor = MaterialTheme.colorScheme.background,
-                        titleContentColor = MaterialTheme.colorScheme.onSurface,
-                        navigationIconContentColor =
-                            MaterialTheme.colorScheme.onSurface,
-                    ),
-            )
-        },
+        topBar = { ShikkhokTopBar(title, subtitle, onBack, leading, actions) },
         containerColor = MaterialTheme.colorScheme.background,
     ) { inner ->
         ScreenBody(
@@ -156,12 +114,14 @@ fun ScreenScaffold(
  *   as the design's `.ab` block draws it
  * @param header Anything fixed above the list — a staleness notice,
  *   say — which does not scroll with it
- * @param leading Something small before the title — `O1` puts the
- *   logo mark there
  * @param bottomBar The navigation bar, on a screen that is a tab
  *   destination. Empty by default: a screen pushed onto the stack
  *   shows no tabs, because tapping one from there would leave a
  *   half-finished task behind the bar.
+ * @param onBack Shows a back arrow calling this, on a pushed list —
+ *   a batch's roster, a progress series — which had no way back on
+ *   screen
+ * @param actions Icons at the bar's end
  * @param content The list, and anything else that scrolls with it
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -172,6 +132,8 @@ fun ListScreenScaffold(
     subtitle: String? = null,
     header: @Composable ColumnScope.() -> Unit = {},
     bottomBar: @Composable () -> Unit = {},
+    onBack: (() -> Unit)? = null,
+    actions: @Composable RowScope.() -> Unit = {},
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Scaffold(
@@ -180,35 +142,11 @@ fun ListScreenScaffold(
         // Placed inside the column it would scroll away with the list,
         // and the list's own bottom inset would be wrong.
         bottomBar = bottomBar,
-        topBar = {
-            TopAppBar(
-                title = {
-                    // **The count sits INSIDE the bar, under the
-                    // title.** The design draws `.ab` as one 64dp
-                    // block holding `.h1` and `.sub` together; as a
-                    // separate band below the bar it read as a second
-                    // header rather than part of the first.
-                    Column {
-                        Text(
-                            text = title,
-                            style = MaterialTheme.typography.titleLarge,
-                        )
-                        if (subtitle != null) {
-                            Text(
-                                text = subtitle,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                },
-                colors =
-                    TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.background,
-                        titleContentColor = MaterialTheme.colorScheme.onSurface,
-                    ),
-            )
-        },
+        // **The count sits INSIDE the bar, under the title.** The
+        // design draws `.ab` as one 64dp block holding `.h1` and `.sub`
+        // together; as a separate band below the bar it read as a
+        // second header rather than part of the first.
+        topBar = { ShikkhokTopBar(title, subtitle, onBack, null, actions) },
         containerColor = MaterialTheme.colorScheme.background,
     ) { inner ->
         Column(
@@ -231,6 +169,67 @@ fun ListScreenScaffold(
             }
         }
     }
+}
+
+/**
+ * The app bar both scaffolds share: title with an optional subtitle,
+ * an optional back arrow or leading mark, and optional end actions.
+ *
+ * @param title What this screen is
+ * @param subtitle A line under the title, or null
+ * @param onBack Shows a back arrow calling this, or null
+ * @param leading Something small before the title, or null
+ * @param actions Icons at the bar's end
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ShikkhokTopBar(
+    title: String,
+    subtitle: String?,
+    onBack: (() -> Unit)?,
+    leading: @Composable (() -> Unit)?,
+    actions: @Composable RowScope.() -> Unit,
+) {
+    TopAppBar(
+        title = {
+            Column {
+                Text(text = title, style = MaterialTheme.typography.titleLarge)
+                if (subtitle != null) {
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        },
+        // **A back arrow when the screen was pushed.** A screen reached
+        // from a list needs a way out that is not the system gesture
+        // alone. `O1` pairs a small mark with the title instead.
+        navigationIcon = {
+            if (leading != null) leading()
+            if (onBack != null) {
+                IconButton(onClick = onBack, modifier = Modifier.testTag(TAG_SCAFFOLD_BACK)) {
+                    // **An inline vector, not a Material icon.**
+                    // `material-icons-extended` is not a dependency, and
+                    // adding it would mean regenerating the Gradle
+                    // lockfile and its checksums for one arrow.
+                    BackArrow(contentDescription = stringResource(R.string.action_back))
+                }
+            }
+        },
+        actions = actions,
+        colors =
+            TopAppBarDefaults.topAppBarColors(
+                // The page tone, not a raised surface: this design
+                // carries depth as tone and has no elevations outside
+                // bottom sheets.
+                containerColor = MaterialTheme.colorScheme.background,
+                titleContentColor = MaterialTheme.colorScheme.onSurface,
+                navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
+                actionIconContentColor = MaterialTheme.colorScheme.onSurface,
+            ),
+    )
 }
 
 /**

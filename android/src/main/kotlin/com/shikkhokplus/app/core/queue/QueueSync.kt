@@ -102,7 +102,7 @@ class QueueSync(
     suspend fun drain(): List<QueuedWrite> {
         var queue = store.read()
 
-        for (item in queue.filter { it.state.isAutomaticallySendable() }) {
+        for (item in queue.filter { it.isAutomaticallySendable() }) {
             val updated = when (val outcome = transport.send(item)) {
                 is SendOutcome.Applied -> null
 
@@ -112,7 +112,7 @@ class QueueSync(
                         conflictCurrentVersion = outcome.currentVersion,
                     )
 
-                is SendOutcome.Failed -> item.copy(state = QueueState.FAILED)
+                is SendOutcome.Failed -> item.failed(outcome.envelope)
             }
 
             queue = if (updated == null) {
@@ -167,4 +167,44 @@ class QueueSync(
      * @return The queue afterwards
      */
     fun discard(itemId: String): List<QueuedWrite> = store.remove(itemId)
+}
+
+/** How often the foreground loop retries while something is waiting. */
+const val QUEUE_RETRY_INTERVAL_MS: Long = 30_000L
+
+/**
+ * Keep the queue draining for as long as the caller stays active.
+ *
+ * **The trigger [QueueSync] never had.** The drain was written and
+ * tested and nothing called it, so a roster that failed to send, or was
+ * recorded offline, stayed on the phone indefinitely -- while the
+ * screen said it was saved there and would send by itself [BR3.1].
+ *
+ * Drains at once, then every [intervalMs] while an item can still be
+ * sent automatically, and idles cheaply otherwise. It is run only while
+ * the app is in the foreground and someone is signed in, so it never
+ * wakes a closed app and never sends without a token.
+ *
+ * **A timer rather than a connectivity callback**, deliberately:
+ * listening for the network needs `ACCESS_NETWORK_STATE`, and the
+ * release manifest's permission allowlist is a decision rather than a
+ * log. Within an open app the two differ by at most one interval.
+ *
+ * @param sync The drain
+ * @param store The queue it drains
+ * @param intervalMs The pause between attempts
+ * @param delayMs How to wait; injected so a test runs in virtual time
+ */
+suspend fun keepDraining(
+    sync: QueueSync,
+    store: QueueStore,
+    intervalMs: Long = QUEUE_RETRY_INTERVAL_MS,
+    delayMs: suspend (Long) -> Unit = { kotlinx.coroutines.delay(it) },
+) {
+    while (true) {
+        if (store.read().any { it.isAutomaticallySendable() }) {
+            sync.drain()
+        }
+        delayMs(intervalMs)
+    }
 }

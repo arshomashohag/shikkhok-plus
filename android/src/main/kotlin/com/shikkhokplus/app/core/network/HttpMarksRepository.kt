@@ -43,6 +43,34 @@ class HttpMarksRepository(
         call { client.get("/v1/batches/$batchId/exams") }
 
     /**
+     * List one batch's subjects with their keys.
+     *
+     * **Read from the batch list, filtered here.** No per-batch read
+     * exists, and adding one to save a few rows on a teacher's list --
+     * a handful of batches -- would be a second route describing a
+     * batch that could drift from the first. Filtering by id is not a
+     * business rule: it selects the batch the person is already in.
+     *
+     * A batch absent from the list is answered as no subjects, which
+     * the form shows as a failure to load rather than as an empty
+     * choice.
+     *
+     * @param batchId The batch
+     * @return Its subjects, or a refusal
+     */
+    override suspend fun subjectOptions(batchId: String): AuthResult<List<SubjectOptionDto>> {
+        val batches: AuthResult<List<BatchDto>> = call { client.get("/v1/batches") }
+        return when (batches) {
+            is AuthResult.Ok ->
+                AuthResult.Ok(
+                    batches.value.firstOrNull { it.id == batchId }?.subjectOptions.orEmpty(),
+                )
+            is AuthResult.Refused -> AuthResult.Refused(batches.envelope)
+            AuthResult.TransportFailure -> AuthResult.TransportFailure
+        }
+    }
+
+    /**
      * Create an exam [BR4.1].
      *
      * @param batchId The batch
@@ -52,6 +80,19 @@ class HttpMarksRepository(
      * @param batchSubjectId Which of the batch's subjects
      * @return Nothing on success, or why the server refused
      */
+    override suspend fun editExam(
+        examId: String,
+        title: String,
+        date: String,
+        totalMarks: Int,
+    ): AuthResult<Unit> =
+        callDiscardingBody {
+            client.put("/v1/exams/$examId") { setBody(ExamUpdateRequestDto(title, date, totalMarks)) }
+        }
+
+    override suspend fun markHistory(examId: String, enrollmentId: String): AuthResult<List<CorrectionDto>> =
+        call { client.get("/v1/exams/$examId/marks/$enrollmentId/history") }
+
     override suspend fun createExam(
         batchId: String,
         title: String,
@@ -165,14 +206,28 @@ class HttpMarksRepository(
         }
 
     /**
-     * Read a child's progress across exams [BR6.6].
+     * Read one seat's progress across exams [BR6.6].
      *
-     * @param enrollmentId The child's seat, from the path and never
-     *   from a client hint [BR7.2]
+     * Two paths for the same reason as [marksheet]: each resolves its
+     * own lens over the seat named in it.
+     *
+     * @param enrollmentId The seat, from the path and never from a
+     *   client hint [BR7.2]
+     * @param reader Which lens is asking
      * @return The series in the server's date order
      */
-    override suspend fun progress(enrollmentId: String): AuthResult<ProgressDto> =
-        call { client.get("/v1/children/$enrollmentId/progress") }
+    override suspend fun progress(
+        enrollmentId: String,
+        reader: MarksheetReader,
+    ): AuthResult<List<ProgressEntryDto>> =
+        call {
+            when (reader) {
+                MarksheetReader.SELF ->
+                    client.get("/v1/me/enrollments/$enrollmentId/progress")
+                MarksheetReader.CHILD ->
+                    client.get("/v1/children/$enrollmentId/progress")
+            }
+        }
 
     /**
      * Set a batch's marksheet visibility [BR5.4].

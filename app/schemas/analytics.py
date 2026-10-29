@@ -43,17 +43,24 @@ from __future__ import annotations
 
 import datetime as dt
 import uuid
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.fees import ClaimQueueItemResponse
 from app.schemas.money import MoneyField
 
 __all__ = [
+    "DuesGroupResponse",
     "DuesResponse",
     "DuesRowResponse",
+    "DuesSummaryResponse",
     "MonthlyEarningsResponse",
     "NextExamResponse",
+    "OutstandingResponse",
     "OverviewResponse",
+    "TodayClassResponse",
+    "TodayResponse",
 ]
 
 
@@ -73,6 +80,12 @@ class DuesRowResponse(BaseModel):
     :ivar outstanding: What this seat still owes
     :ivar oldest_unpaid_period: Which period the debt starts in, or
         null
+    :ivar latest_unpaid_period: Which period it runs to, or null
+    :ivar days_late: Days since the oldest late due date, or null when
+        nothing is past due
+    :ivar bucket: Which group the row belongs in
+    :ivar last_reminded_at: When a reminder last went out, if ever
+    :ivar remindable: Whether "Remind" would reach this seat now
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -85,6 +98,51 @@ class DuesRowResponse(BaseModel):
     oldest_unpaid_period: str | None = Field(
         default=None, pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$"
     )
+    latest_unpaid_period: str | None = Field(
+        default=None, pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$"
+    )
+    days_late: int | None = Field(default=None, ge=1)
+    bucket: Literal["over_30", "late", "not_late"]
+    last_reminded_at: dt.datetime | None = None
+    remindable: bool
+
+
+class DuesGroupResponse(BaseModel):
+    """One group on the Dues screen, totalled by the server.
+
+    :ivar bucket: Which group: more than 30 days late, 1-30 days late,
+        or due and not yet late
+    :ivar total: What its rows owe together
+    :ivar count: How many rows
+    :ivar share: Its total as a whole percent of everything owed, so the
+        app draws the bar without dividing money
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    bucket: Literal["over_30", "late", "not_late"]
+    total: MoneyField
+    count: int = Field(ge=0)
+    share: int = Field(ge=0, le=100)
+
+
+class DuesSummaryResponse(BaseModel):
+    """The Dues screen's headline, so the app adds up nothing [TC-9].
+
+    :ivar total: Everything owed
+    :ivar count: How many seats owe it
+    :ivar late_total: What is owed past its due date
+    :ivar remindable: How many seats a "Remind" would reach
+    :ivar groups: One per bucket, latest first, empty ones included
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    total: MoneyField
+    count: int = Field(ge=0)
+    late_total: MoneyField
+    remindable: int = Field(ge=0)
+    groups: list[DuesGroupResponse]
 
 
 class DuesResponse(BaseModel):
@@ -95,12 +153,14 @@ class DuesResponse(BaseModel):
     getting the best possible news, and a failure shape would make the
     app render a retry prompt for it.
 
-    :ivar rows: One entry per owing seat, largest debt first, possibly
+    :ivar summary: The totals, overall and per group
+    :ivar rows: One entry per owing seat, latest debt first, possibly
         empty
     """
 
     model_config = ConfigDict(extra="forbid")
 
+    summary: DuesSummaryResponse
     rows: list[DuesRowResponse] = Field(default_factory=list)
 
 
@@ -166,3 +226,84 @@ class OverviewResponse(BaseModel):
     earnings: MonthlyEarningsResponse
     trend: list[MonthlyEarningsResponse] | None = None
     next_exam: NextExamResponse | None = None
+
+
+class OutstandingResponse(BaseModel):
+    """What students owe across every batch, and how much is late (T1).
+
+    **``overdue`` is the server's decision**: owing on a period whose
+    due date has passed in Bangladesh. The client never compares a due
+    date with its clock.
+
+    :ivar total: Everything still owed
+    :ivar overdue: The part owed on periods past their due date
+    :ivar overdue_students: Seats with anything overdue
+    :ivar batch_count: Batches with anything owing
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    total: MoneyField
+    overdue: MoneyField
+    overdue_students: int
+    batch_count: int
+
+
+class TodayClassResponse(BaseModel):
+    """One class today (T1).
+
+    :ivar session_id: The class
+    :ivar batch_id: Its batch
+    :ivar batch_name: The batch's name
+    :ivar subject_name: The subject, where one is set
+    :ivar start_time: When it starts
+    :ivar end_time: When it ends, where set
+    :ivar status: ``scheduled``, ``held`` or ``cancelled``
+    :ivar topic: The logged topic, where one was written
+    :ivar topic_logged: Whether a topic was written at all
+    :ivar attendance_version: The version a roster write composes against
+    :ivar topic_version: The version a topic write composes against
+    :ivar is_next: The first class still to start
+    :ivar starts_in_minutes: Minutes until it starts, or null once begun
+    :ivar exam_id: An exam this batch sits today
+    :ivar exam_title: That exam's title
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    session_id: uuid.UUID
+    batch_id: uuid.UUID
+    batch_name: str
+    subject_name: str | None = None
+    start_time: dt.time
+    end_time: dt.time | None = None
+    status: Literal["scheduled", "held", "cancelled"]
+    topic: str | None = None
+    topic_logged: bool
+    attendance_version: int
+    topic_version: int
+    is_next: bool
+    starts_in_minutes: int | None = None
+    exam_id: uuid.UUID | None = None
+    exam_title: str | None = None
+
+
+class TodayResponse(BaseModel):
+    """The teacher's Today screen in one read (T1).
+
+    :ivar date: Today, in Bangladesh
+    :ivar outstanding: Money owed and overdue
+    :ivar classes: Today's classes, by start time
+    :ivar to_verify_count: How many payments wait to be checked
+    :ivar to_verify: The first few of them
+    :ivar has_batches: Whether the teacher has made a batch yet
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    date: dt.date
+    outstanding: OutstandingResponse
+    classes: list[TodayClassResponse]
+    to_verify_count: int
+    to_verify: list[ClaimQueueItemResponse]
+    has_batches: bool

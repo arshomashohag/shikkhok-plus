@@ -1,116 +1,138 @@
 package com.shikkhokplus.app.feature.guardian
 
+import com.shikkhokplus.app.core.network.ChildResultDto
+import com.shikkhokplus.app.core.network.ChildSummaryDto
 import com.shikkhokplus.app.core.network.ErrorEnvelope
-import com.shikkhokplus.app.core.network.GuardianChildDto
+import com.shikkhokplus.app.core.network.GuardianHomeDto
+import com.shikkhokplus.app.core.network.PayableDto
+import com.shikkhokplus.app.core.network.UpcomingSessionDto
+import com.shikkhokplus.app.feature.pay.PayOption
+import com.shikkhokplus.app.feature.student.NextClass
 
 /**
- * Maps server responses to a [GuardianUiState].
- *
- * **This object is the unit under test**, rather than "the ViewModel".
- * It is pure: no network, no storage, no clock. A decision needing any
- * of those would be a business rule, and business rules are server-side
- * [TC-9, D-31].
+ * Maps the guardian home response to a [GuardianUiState]. Pure: every
+ * decision -- what to pay next, how a result trends -- is the server's.
  */
 object GuardianStateMapper {
     /** The key shown when the device cannot reach the server at all. */
     const val OFFLINE_KEY: String = "error.network.unreachable"
 
-    /** The key shown when a response cannot be understood. */
-    const val UNEXPECTED_KEY: String = "error.unexpected"
+    /** `HH:MM` out of `HH:MM:SS`. */
+    private const val HHMM = 5
 
     /**
-     * Map a loaded child list.
+     * Map a loaded home.
      *
-     * **The one-versus-several split is decided HERE** [frontend-
-     * components]. A composable writing `if (children.size > 1)` would
-     * be deciding whether a switcher is needed; the states are separate
-     * so that decision is testable and made once.
-     *
-     * @param rows The seats the server returned
-     * @return The state the screen renders
+     * @param dto The server's children
+     * @param phone The guardian's number, for the empty state
+     * @return The state to render
      */
-    fun afterLoad(rows: List<GuardianChildDto>): GuardianUiState {
-        val children = rows.map(::toChild)
-        return when (children.size) {
-            0 -> GuardianUiState.Empty
-            1 -> GuardianUiState.OneChild(children.single())
-            // The first reachable child is selected, matching the lens's
-            // own `child_enrollment_id` so a guardian lands somewhere
-            // rather than on a chooser they did not ask for.
-            else -> GuardianUiState.SeveralChildren(children, children.first())
+    fun afterLoad(dto: GuardianHomeDto, phone: String?): GuardianUiState =
+        if (dto.children.isEmpty()) {
+            GuardianUiState.Empty(phone)
+        } else {
+            GuardianUiState.Loaded(dto.children.map(::toCard))
         }
-    }
 
     /**
-     * Switch to another child, **replacing** the current view.
+     * Show another child, replacing the one shown [BR4.2].
      *
-     * **The whole of [BR4.2, NFR14.30], and it is an absence as much as
-     * a behaviour.** This returns a new [GuardianUiState.SeveralChildren]
-     * with a different `selected`; it pushes nothing, stacks nothing and
-     * records no history. Back therefore cannot reach the previous
-     * child's data, because there is no previous destination to go back
-     * to — only a previous value of a field that has been overwritten.
-     *
-     * No server-side control can observe this [NFR23.6]: both requests
-     * are legitimately authorized, the lens is correct in both, and
-     * neither response is anomalous. The rendering test is the only
-     * mechanism, so it is not optional and not a review note.
-     *
-     * A child not in this guardian's own list is refused rather than
-     * selected. The authorization that matters is the server's — every
-     * subsequent request names the child as a path parameter and is
-     * scoped by the lens [BR4.1] — but selecting a seat this guardian
-     * cannot reach would put a child's name on screen before the
-     * server ever refused the data behind it.
-     *
-     * @param state The current several-children state
-     * @param child The child to show instead
-     * @return The state with that child selected, or a failure
+     * @param state The current state
+     * @param index The child to show
+     * @return The new state; unchanged for an index out of range
      */
-    fun afterChildSelected(
-        state: GuardianUiState.SeveralChildren,
-        child: GuardianChild,
-    ): GuardianUiState {
-        if (child !in state.children) {
-            return GuardianUiState.Failed(UNEXPECTED_KEY, retryable = false)
+    fun select(state: GuardianUiState.Loaded, index: Int): GuardianUiState.Loaded =
+        if (index in state.children.indices && index != state.selected) {
+            state.copy(selected = index, switched = true)
+        } else {
+            state
         }
-        return state.copy(selected = child)
-    }
 
     /**
      * Map a server error envelope.
      *
-     * `retryable` is **read from the envelope**, never inferred from a
-     * status code [TC-9].
-     *
      * @param envelope The server's error
-     * @return The state the screen renders
+     * @return The failure state
      */
     fun afterError(envelope: ErrorEnvelope): GuardianUiState =
-        GuardianUiState.Failed(
-            messageKey = envelope.error.messageKey,
-            retryable = envelope.error.retryable,
-        )
+        GuardianUiState.Failed(envelope.error.messageKey, envelope.error.retryable)
 
     /**
-     * Map a transport failure, where no envelope was received.
+     * Map a transport failure.
      *
      * @return The offline state
      */
-    fun afterTransportFailure(): GuardianUiState =
-        GuardianUiState.Failed(OFFLINE_KEY, retryable = true)
+    fun afterTransportFailure(): GuardianUiState = GuardianUiState.Failed(OFFLINE_KEY, retryable = true)
 
     /**
-     * Convert one reachable seat.
+     * The fee option a payable offers, for the pay flow.
      *
-     * @param dto The seat the server returned
-     * @return The child the screen renders
+     * @param dto The server's payable
+     * @return The option
      */
-    private fun toChild(dto: GuardianChildDto): GuardianChild =
-        GuardianChild(
+    fun option(dto: PayableDto): PayOption =
+        PayOption(dto.enrollmentId, dto.batchName, dto.period, dto.amountDue, dto.dueDate)
+
+    /**
+     * Convert one child.
+     *
+     * @param dto The server's child
+     * @return The card
+     */
+    private fun toCard(dto: ChildSummaryDto): ChildCard =
+        ChildCard(
+            key = dto.key,
+            name = dto.displayName,
+            batchCount = dto.batchCount,
+            payment =
+                dto.nextPayment?.let {
+                    GuardianPayment(option(it), it.totalDue ?: it.amountDue, it.laterPeriods, it.daysLate)
+                },
+            waiting = dto.waiting.map { WaitingCard(it.batchName, it.period, it.amount, it.channel, it.submittedAt) },
+            results = dto.latestResults.map(::toResult),
+            batches =
+                dto.batches.map {
+                    ChildBatch(it.enrollmentId, it.batchName, it.teacherDisplayName, it.nextSession?.let(::toNext))
+                },
+        )
+
+    /**
+     * Convert one result, naming the server's trend.
+     *
+     * @param dto The server's result
+     * @return The card
+     */
+    private fun toResult(dto: ChildResultDto): ResultCard =
+        ResultCard(
             enrollmentId = dto.enrollmentId,
-            displayName = dto.displayName,
             batchName = dto.batchName,
-            teacherDisplayName = dto.teacherDisplayName,
+            title = dto.title,
+            date = dto.date,
+            marks = dto.marks,
+            totalMarks = dto.totalMarks,
+            previousMarks = dto.previousMarks,
+            trend =
+                when (dto.trend) {
+                    "up" -> Trend.UP
+                    "down" -> Trend.DOWN
+                    "same" -> Trend.SAME
+                    else -> Trend.FIRST
+                },
+        )
+
+    /**
+     * Convert one coming class.
+     *
+     * @param dto The server's class
+     * @return The class
+     */
+    private fun toNext(dto: UpcomingSessionDto): NextClass =
+        NextClass(
+            dto.date,
+            dto.startTime.take(HHMM),
+            dto.endTime?.take(HHMM),
+            dto.startsInMinutes,
+            dto.moved,
+            dto.subjectName,
         )
 }

@@ -30,25 +30,49 @@ from __future__ import annotations
 import datetime as dt
 import logging
 import uuid
+from dataclasses import dataclass
 
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
-from app.db.models import ReminderEvent
+from app.analytics.seats import ledger_for_seats
+from app.authz.lenses import TeacherLens
+from app.db.models import Batch, Enrollment, ReminderEvent
+from app.errors import AuthorizationError
+from app.errors.codes import NOT_AVAILABLE
+from app.money import derive
 from app.notifications.fcm import (
     DeliveryOutcome,
     PushAdapter,
     PushMessage,
     build_push_adapter,
 )
+from app.notifications.inbox import FEE_REMINDER, deliver
 
-__all__ = ["PUSH_CHANNEL", "latest_reminder", "send_fee_reminder"]
+__all__ = [
+    "IN_APP_CHANNEL",
+    "PUSH_CHANNEL",
+    "REMIND_AGAIN_AFTER",
+    "ReminderBatch",
+    "latest_reminder",
+    "remind",
+    "send_fee_reminder",
+]
 
 _log = logging.getLogger(__name__)
 
 #: V1 ships one channel. The column exists so a second is data rather
 #: than a migration.
 PUSH_CHANNEL = "push"
+
+#: The inbox channel: the message is a row the recipient reads in the
+#: app, so delivery cannot fail the way a push can and the event is
+#: recorded as ``sent`` in the same transaction as the message.
+IN_APP_CHANNEL = "in_app"
+
+#: How soon one seat may be reminded again. A teacher tapping "Remind"
+#: twice should not send the same nudge twice.
+REMIND_AGAIN_AFTER = dt.timedelta(hours=24)
 
 #: How an outcome maps onto the stored value. A dictionary rather than
 #: a name comparison, so an outcome added to the adapter without a
@@ -167,3 +191,121 @@ def latest_reminder(
         .order_by(ReminderEvent.sent_at.desc())
         .limit(1)
     ).one_or_none()
+
+
+@dataclass(frozen=True, slots=True)
+class ReminderBatch:
+    """What one "Remind" tap did.
+
+    :ivar sent: Seats whose student or guardian was reminded
+    :ivar skipped: Seats left alone: owing nothing, reminded within
+        :data:`REMIND_AGAIN_AFTER`, or with nobody who has accepted
+    """
+
+    sent: int
+    skipped: int
+
+
+def remind(
+    session: Session,
+    *,
+    lens: TeacherLens,
+    enrollment_ids: list[uuid.UUID],
+    now: dt.datetime | None = None,
+) -> ReminderBatch:
+    """Remind the people on these seats what they owe, in the app.
+
+    **Every seat must be this teacher's, or nothing is sent.** One
+    stranger's seat in the list refuses the whole request, the same
+    refusal as a missing seat, so a probe learns nothing and no partial
+    send needs explaining.
+
+    **Only accounts that ACCEPTED the seat receive it** [BR1.1, BR5.2].
+    A number a teacher typed is not that person's agreement, and a
+    reminder names a batch and an amount.
+
+    **The amount is the server's fold** over the seat's ledger, read in
+    one statement for every seat; a seat owing nothing is skipped.
+
+    :param session: The session to write through
+    :param lens: The teacher sending it
+    :param enrollment_ids: The seats to remind
+    :param now: When it is sent; the current time by default
+    :return: How many seats were reminded and how many skipped
+    :raises AuthorizationError: A seat is not this teacher's, or does
+        not exist
+    """
+    sent_at = now or dt.datetime.now(tz=dt.UTC)
+    wanted = list(dict.fromkeys(enrollment_ids))
+    seats = session.execute(
+        sa.select(Enrollment, Batch.name)
+        .join(Batch, Batch.id == Enrollment.batch_id)
+        .where(Enrollment.id.in_(wanted), Batch.owner_id == lens.owner_id)
+    ).all()
+    if len(seats) != len(wanted):
+        raise AuthorizationError(code=NOT_AVAILABLE, message_key="fees.not_available")
+
+    recent = set(
+        session.scalars(
+            sa.select(ReminderEvent.enrollment_id).where(
+                ReminderEvent.enrollment_id.in_(wanted),
+                ReminderEvent.channel == IN_APP_CHANNEL,
+                ReminderEvent.sent_at > sent_at - REMIND_AGAIN_AFTER,
+            )
+        )
+    )
+    ledger = ledger_for_seats(session, wanted)
+
+    sent = 0
+    for seat, batch_name in seats:
+        derived = derive(ledger[seat.id])
+        recipients = _accepted_accounts(seat)
+        owing = sorted(
+            period
+            for period, balance in derived.per_cycle.items()
+            if balance.is_positive()
+        )
+        if seat.id in recent or not recipients or not owing:
+            continue
+
+        session.add(
+            ReminderEvent(
+                enrollment_id=seat.id,
+                period=owing[0],
+                channel=IN_APP_CHANNEL,
+                sent_at=sent_at,
+                sent_by_account_id=lens.account_id,
+                outcome="sent",
+            )
+        )
+        deliver(
+            session,
+            account_ids=recipients,
+            kind=FEE_REMINDER,
+            batch_name=batch_name,
+            now=sent_at,
+            enrollment_id=seat.id,
+            period=owing[0],
+            amount=derived.total_outstanding,
+        )
+        sent += 1
+
+    session.commit()
+    return ReminderBatch(sent=sent, skipped=len(wanted) - sent)
+
+
+def _accepted_accounts(seat: Enrollment) -> list[uuid.UUID]:
+    """List the accounts on a seat that have accepted it.
+
+    :param seat: The seat
+    :return: The student and guardian accounts that accepted, if any
+    """
+    links = (
+        (seat.student_account_id, seat.student_decision),
+        (seat.guardian_account_id, seat.guardian_decision),
+    )
+    return [
+        account
+        for account, decision in links
+        if account is not None and decision == "accepted"
+    ]

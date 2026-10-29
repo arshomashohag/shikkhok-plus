@@ -135,6 +135,7 @@ sealed interface InvitationsUiState {
     data class Decided(
         val enrollmentId: String,
         val state: AcceptanceState,
+        val batchName: String = "",
     ) : InvitationsUiState
 
     /**

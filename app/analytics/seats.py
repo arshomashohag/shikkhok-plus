@@ -32,6 +32,7 @@ checking a table rather than the code.
 
 from __future__ import annotations
 
+import datetime as dt
 import uuid
 from dataclasses import dataclass
 
@@ -39,10 +40,16 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from app.authz.lenses import TeacherLens
-from app.db.models import Batch, Enrollment, LedgerEntryRow
+from app.db.models import Batch, Enrollment, FeeCycle, LedgerEntryRow, ReminderEvent
 from app.money import LedgerEntry, LedgerEntryKind
 
-__all__ = ["OwnedSeat", "ledger_for_seats", "owned_seats"]
+__all__ = [
+    "OwnedSeat",
+    "due_dates_for_seats",
+    "last_reminders_for_seats",
+    "ledger_for_seats",
+    "owned_seats",
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,12 +65,16 @@ class OwnedSeat:
     :ivar batch_name: That batch's name, because the same person may
         owe in two
     :ivar display_name: What the TEACHER recorded
+    :ivar reachable: Whether a student or guardian has ACCEPTED the
+        seat, so an in-app reminder has somewhere to go. A yes or no,
+        never which account [ADR-001]
     """
 
     enrollment_id: uuid.UUID
     batch_id: uuid.UUID
     batch_name: str
     display_name: str
+    reachable: bool = False
 
 
 def owned_seats(session: Session, lens: TeacherLens) -> list[OwnedSeat]:
@@ -96,6 +107,16 @@ def owned_seats(session: Session, lens: TeacherLens) -> list[OwnedSeat]:
             Enrollment.batch_id,
             Batch.name,
             Enrollment.display_name,
+            sa.or_(
+                sa.and_(
+                    Enrollment.student_account_id.is_not(None),
+                    Enrollment.student_decision == "accepted",
+                ),
+                sa.and_(
+                    Enrollment.guardian_account_id.is_not(None),
+                    Enrollment.guardian_decision == "accepted",
+                ),
+            ),
         )
         .join(Batch, Batch.id == Enrollment.batch_id)
         .where(
@@ -111,6 +132,7 @@ def owned_seats(session: Session, lens: TeacherLens) -> list[OwnedSeat]:
             batch_id=row[1],
             batch_name=row[2],
             display_name=row[3],
+            reachable=bool(row[4]),
         )
         for row in rows
     ]
@@ -154,3 +176,50 @@ def ledger_for_seats(
             LedgerEntry(kind=LedgerEntryKind(row[1]), period=row[2], amount=row[3])
         )
     return ledger
+
+
+def due_dates_for_seats(
+    session: Session, seat_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, dict[str, dt.date]]:
+    """Read every cycle's due date for these seats in ONE statement.
+
+    :param session: The session to read through
+    :param seat_ids: The seats
+    :return: Due date per period, per seat; every seat is present
+    """
+    due: dict[uuid.UUID, dict[str, dt.date]] = {key: {} for key in seat_ids}
+    if not seat_ids:
+        return due
+    for enrollment_id, period, due_date in session.execute(
+        sa.select(FeeCycle.enrollment_id, FeeCycle.period, FeeCycle.due_date).where(
+            FeeCycle.enrollment_id.in_(seat_ids)
+        )
+    ):
+        due[enrollment_id][period] = due_date
+    return due
+
+
+def last_reminders_for_seats(
+    session: Session, seat_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, dt.datetime]:
+    """Read when each seat was last reminded, in ONE statement.
+
+    Only reminders that went out count: a failed push reminded nobody.
+
+    :param session: The session to read through
+    :param seat_ids: The seats
+    :return: The latest sent reminder per seat; absent where none was
+    """
+    if not seat_ids:
+        return {}
+    return {
+        enrollment_id: sent_at
+        for enrollment_id, sent_at in session.execute(
+            sa.select(ReminderEvent.enrollment_id, sa.func.max(ReminderEvent.sent_at))
+            .where(
+                ReminderEvent.enrollment_id.in_(seat_ids),
+                ReminderEvent.outcome == "sent",
+            )
+            .group_by(ReminderEvent.enrollment_id)
+        )
+    }

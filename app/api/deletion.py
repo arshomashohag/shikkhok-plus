@@ -57,11 +57,15 @@ from app.gateway.outbox import record_outbox
 from app.gateway.sms import SmsGateway
 from app.gateway.template import render_otp_message
 from app.governance.deletion import delete_account
+from app.governance.footprint import teacher_footprint
+from app.money.wire import to_wire
 from app.schemas.deletion import (
     DeletionOutcome,
     DeletionRequest,
     DeletionResponse,
+    DeletionSummaryResponse,
 )
+from app.schemas.money import Money as WireMoney
 
 __all__ = ["DELETION_PAGE", "router"]
 
@@ -107,8 +111,10 @@ DELETION_PAGE = """<!DOCTYPE html>
   the full list.
 </p>
 <p>
-  If you teach classes on ShikkhokPlus, hand them over or close them
-  before deleting your account.
+  If you teach classes on ShikkhokPlus, they stay with your students
+  as read-only history: your name and payment number are removed from
+  them, no new fees fall due, and amounts already owed stay on the
+  records.
 </p>
 <form method="post" action="/account-deletion">
   <label for="phone">Phone number</label>
@@ -171,7 +177,6 @@ def external_deletion(
     :raises CeilingBreach: A deletion ceiling refused this send
     :raises ValidationError: The code is wrong, expired, used or was
         issued for a different purpose
-    :raises DeletionRefused: The account owns at least one batch
     """
     correlation_id = correlation_of(request)
 
@@ -227,6 +232,28 @@ def external_deletion(
     return DeletionOutcome(status="deleted")
 
 
+@router.get("/v1/me/deletion-summary", response_model=DeletionSummaryResponse)
+def read_deletion_summary(
+    account_id: Annotated[uuid.UUID, Depends(authenticated_account)],
+    session: Annotated[Session, Depends(get_session)],
+) -> DeletionSummaryResponse:
+    """Tell the caller what stays if they delete their account.
+
+    Lens-exempt on ``DELETE /v1/me``'s reasoning: it reads only what the
+    authenticated account itself owns.
+
+    :param account_id: The authenticated account
+    :param session: The request-scoped session
+    :return: Batches, students and money still owed; zeros when none
+    """
+    found = teacher_footprint(session, account_id)
+    return DeletionSummaryResponse(
+        batch_count=found.batch_count,
+        student_count=found.student_count,
+        outstanding=WireMoney(to_wire(found.outstanding)),
+    )
+
+
 @router.delete("/v1/me", response_model=DeletionResponse)
 def delete_own_account(
     account_id: Annotated[uuid.UUID, Depends(authenticated_account)],
@@ -244,7 +271,6 @@ def delete_own_account(
     :param account_id: The authenticated account
     :param session: The request-scoped session
     :return: The acknowledgement
-    :raises DeletionRefused: The account owns at least one batch
     """
     phone: str | None = session.execute(
         _PHONE_OF_ACCOUNT, {"account_id": account_id}

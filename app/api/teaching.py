@@ -27,6 +27,7 @@ from sqlalchemy.orm import Session as DbSession
 from app.api.deps import get_session, guardian_lens, student_lens, teacher_lens
 from app.authz.lenses import GuardianLens, StudentLens, TeacherLens
 from app.schemas.errors import ErrorEnvelope
+from app.schemas.schedule import ScheduleRequest, ScheduleSlotWire
 from app.schemas.teaching import (
     AnnouncementBodyRequest,
     AnnouncementResponse,
@@ -44,11 +45,16 @@ from app.schemas.teaching import (
     SessionSubjectRequest,
     TopicWriteRequest,
     TopicWriteResponse,
+    UpcomingExamResponse,
+    UpcomingSessionResponse,
 )
 from app.teaching import announcements as notes
+from app.teaching import schedule
 from app.teaching import sessions as session_service
-from app.teaching.roster import session_roster
+from app.teaching.roster import readable_session, session_roster, write_refusal
+from app.teaching.schedule import Slot
 from app.teaching.submissions import SeatMark, submit_roster, write_topic
+from app.teaching.upcoming import UpcomingSession
 
 __all__ = ["router"]
 
@@ -180,6 +186,74 @@ def _announcement_response(
         created_at=row.created_at,
         edited=row.edited,
     )
+
+
+def _wire_slots(slots: list[Slot]) -> list[ScheduleSlotWire]:
+    """Render slots for the wire, times to the minute.
+
+    :param slots: The domain slots
+    :return: The wire slots
+    """
+    return [
+        ScheduleSlotWire(
+            weekday=slot.weekday,
+            start_time=slot.start_time.strftime("%H:%M"),
+            end_time=slot.end_time.strftime("%H:%M"),
+        )
+        for slot in slots
+    ]
+
+
+@router.get(
+    "/batches/{batch_id}/schedule",
+    response_model=list[ScheduleSlotWire],
+    responses=_AUTH_ERRORS,
+)
+def read_batch_schedule(
+    batch_id: uuid.UUID,
+    session: Annotated[DbSession, Depends(get_session)],
+    lens: Annotated[TeacherLens, Depends(teacher_lens)],
+) -> list[ScheduleSlotWire]:
+    """Read one of this teacher's batches' weekly classes.
+
+    :param batch_id: The batch, from the route path
+    :param session: The request-scoped session
+    :param lens: The teacher lens carrying the owner id
+    :return: The slots, in weekday then time order
+    """
+    return _wire_slots(schedule.read_schedule(session, lens=lens, batch_id=batch_id))
+
+
+@router.put(
+    "/batches/{batch_id}/schedule",
+    response_model=list[ScheduleSlotWire],
+    responses=_WRITE_ERRORS,
+)
+def write_batch_schedule(
+    batch_id: uuid.UUID,
+    body: ScheduleRequest,
+    session: Annotated[DbSession, Depends(get_session)],
+    lens: Annotated[TeacherLens, Depends(teacher_lens)],
+) -> list[ScheduleSlotWire]:
+    """Replace one batch's weekly classes; its sessions follow at once.
+
+    **The writer that did not exist**, so no batch had sessions and
+    attendance could not be reached. Existing sessions are left alone
+    when the schedule changes [BR1.2].
+
+    :param batch_id: The batch, from the route path
+    :param body: The complete new schedule
+    :param session: The request-scoped session
+    :param lens: The teacher lens carrying the owner id
+    :return: The schedule as stored
+    """
+    stored = schedule.set_schedule(
+        session,
+        lens=lens,
+        batch_id=batch_id,
+        slots=[schedule.slot_of(wire) for wire in body.slots],
+    )
+    return _wire_slots(stored)
 
 
 @router.get(
@@ -406,22 +480,19 @@ def read_session_roster(
     :param lens: The teacher lens
     :return: The seats, and the version they are at
     """
+    seats = session_roster(session, lens=lens, session_id=session_id)
+    row = readable_session(session, lens=lens, session_id=session_id)
     return SessionRosterResponse(
         seats=[
             RosterSeatResponse(
-                enrollment_id=row.enrollment_id,
-                display_name=row.display_name,
-                present=row.present,
+                enrollment_id=seat.enrollment_id,
+                display_name=seat.display_name,
+                present=seat.present,
             )
-            for row in session_roster(session, lens=lens, session_id=session_id)
+            for seat in seats
         ],
-        # `session_service`, not the bare name: this module has its
-        # own `read_session` HANDLER, and the unqualified call
-        # resolved to that instead — caught by mypy as a Session
-        # passed where a UUID was expected.
-        attendance_version=session_service.read_session(
-            session, lens=lens, session_id=session_id
-        ).attendance_version,
+        attendance_version=row.attendance_version,
+        writable=write_refusal(session, row) is None,
     )
 
 
@@ -632,9 +703,38 @@ def _family_view(view: notes.FamilyBatchView) -> FamilyBatchViewResponse:
                 topic=entry.topic,
                 topic_logged=entry.topic_logged,
                 present=entry.present,
+                subject_name=entry.subject_name,
             )
             for entry in view.past_sessions
         ],
         announcements=[_announcement_response(row) for row in view.announcements],
         served_at=view.served_at,
+        next_session=upcoming_response(view.coming[0]) if view.coming else None,
+        following_sessions=[upcoming_response(row) for row in view.coming[1:]],
+        upcoming_exam=(
+            None
+            if view.upcoming_exam is None
+            else UpcomingExamResponse(
+                title=view.upcoming_exam.title,
+                date=view.upcoming_exam.date,
+                total_marks=view.upcoming_exam.total_marks,
+                subject_name=view.upcoming_exam.subject_name,
+            )
+        ),
+    )
+
+
+def upcoming_response(row: UpcomingSession) -> UpcomingSessionResponse:
+    """Render one coming class for the wire.
+
+    :param row: The class
+    :return: The response body
+    """
+    return UpcomingSessionResponse(
+        date=row.date,
+        start_time=row.start_time,
+        end_time=row.end_time,
+        starts_in_minutes=row.starts_in_minutes,
+        moved=row.moved,
+        subject_name=row.subject_name,
     )

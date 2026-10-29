@@ -1,41 +1,121 @@
 package com.shikkhokplus.app.feature.guardian
 
+import com.shikkhokplus.app.core.model.Money
+import com.shikkhokplus.app.feature.pay.PayOption
+import com.shikkhokplus.app.feature.student.NextClass
+
 /**
- * One child a guardian can reach, as the screen renders it.
+ * The most urgent fee for a child, as the server chose it.
  *
- * **Reached through this guardian's own link, never through the child**
- * [BR4.1, NFR14.29]. The query that produces these rows scopes on
- * `guardian_account_id`; resolving by child and then that child's
- * enrollments would show a guardian recorded by teacher A the batch
- * teacher B keeps for the same child — two teachers' records merged.
- *
- * `batchName` is carried even in the single-child case [AC2.8.5],
- * because that is where attribution is most needed: there is no
- * selection list to have shown it.
- *
- * @property enrollmentId The seat, which every subsequent request names
- *   as a **path parameter** rather than a client-supplied hint
- * @property displayName The teacher-typed name for the child
- * @property batchName Which class
- * @property teacherDisplayName Which teacher recorded this, if named
+ * @property option The month to pay, with its amount and due date
+ * @property totalDue Everything that batch owes
+ * @property laterPeriods How many later months also owe
+ * @property daysLate Days late, or null when not yet late
  */
-data class GuardianChild(
-    val enrollmentId: String,
-    val displayName: String,
-    val batchName: String,
-    val teacherDisplayName: String?,
+data class GuardianPayment(
+    val option: PayOption,
+    val totalDue: Money,
+    val laterPeriods: Int,
+    val daysLate: Int?,
 )
 
 /**
- * Everything the guardian's home screen renders.
+ * A payment sent and being checked.
  *
- * **[OneChild] and [SeveralChildren] are separate states** rather than
- * a list whose length the screen checks — the same rule that makes
- * `Empty` separate from a `Loaded` with no rows. A composable writing
- * `if (children.size > 1)` would be deciding whether a switcher is
- * needed, which is a decision and belongs in the mapper. The
- * single-child case is also the common one and goes straight through
- * with no switcher drawn at all.
+ * @property batchName The batch
+ * @property period The month
+ * @property amount What was sent, if known
+ * @property channel Which app
+ * @property sentAt When it was sent, if known
+ */
+data class WaitingCard(
+    val batchName: String,
+    val period: String,
+    val amount: Money?,
+    val channel: String,
+    val sentAt: String?,
+)
+
+/** How a result compares with the one before, as the server said. */
+enum class Trend {
+    /** Better than the last test, as a share of its total. */
+    UP,
+
+    /** Worse. */
+    DOWN,
+
+    /** The same. */
+    SAME,
+
+    /** The batch's first test. */
+    FIRST,
+}
+
+/**
+ * A child's latest result in one batch.
+ *
+ * @property enrollmentId The seat, which opens G2
+ * @property batchName The batch
+ * @property title The exam
+ * @property date `yyyy-MM-dd`
+ * @property marks The mark
+ * @property totalMarks Out of how many
+ * @property previousMarks The mark before it, or null
+ * @property trend How it compares
+ */
+data class ResultCard(
+    val enrollmentId: String,
+    val batchName: String,
+    val title: String,
+    val date: String,
+    val marks: Int,
+    val totalMarks: Int,
+    val previousMarks: Int?,
+    val trend: Trend,
+)
+
+/**
+ * One of a child's batches.
+ *
+ * @property enrollmentId The seat
+ * @property batchName The batch
+ * @property teacherName The teacher, or null
+ * @property next The next class, or null
+ */
+data class ChildBatch(
+    val enrollmentId: String,
+    val batchName: String,
+    val teacherName: String?,
+    val next: NextClass?,
+)
+
+/**
+ * One child, as G1 shows them.
+ *
+ * @property key The child's first seat
+ * @property name The teacher-typed name
+ * @property batchCount How many batches
+ * @property payment The most urgent fee, or null
+ * @property waiting Payments being checked
+ * @property results Each batch's latest result
+ * @property batches The batches
+ */
+data class ChildCard(
+    val key: String,
+    val name: String,
+    val batchCount: Int,
+    val payment: GuardianPayment?,
+    val waiting: List<WaitingCard>,
+    val results: List<ResultCard>,
+    val batches: List<ChildBatch>,
+)
+
+/**
+ * Everything the guardian home renders.
+ *
+ * **Switching child replaces the shown child** [BR4.2]: one child's
+ * figures are never shown under another's name, and Back cannot reach
+ * the previous child.
  */
 sealed interface GuardianUiState {
     /** Nothing has been asked for yet. */
@@ -45,52 +125,34 @@ sealed interface GuardianUiState {
     data object Loading : GuardianUiState
 
     /**
-     * This guardian reaches exactly one child.
+     * The guardian's children, one shown.
      *
-     * The switcher is **not drawn**: there is nothing to switch
-     * between, and a control offering one option is noise.
-     *
-     * @property child The one reachable seat
+     * @property children Every child, by name
+     * @property selected The shown child's index
+     * @property switched Whether the guardian has just switched child,
+     *   which the screen says out loud
      */
-    data class OneChild(val child: GuardianChild) : GuardianUiState
+    data class Loaded(
+        val children: List<ChildCard>,
+        val selected: Int = 0,
+        val switched: Boolean = false,
+    ) : GuardianUiState {
+        /** The shown child. */
+        val child: ChildCard get() = children[selected]
+    }
 
     /**
-     * This guardian reaches more than one child.
+     * No child linked yet.
      *
-     * @property children Every reachable seat, in the server's order
-     * @property selected The child currently being shown.
-     *
-     *   **Selection, not navigation** [BR4.2, NFR14.30, AC9.4.2].
-     *   Switching child REPLACES this value within one screen; it never
-     *   pushes a destination. That is what makes Back unable to reach
-     *   the previous child's data — a privacy case wearing navigation's
-     *   clothes, and the one back-stack obligation in D2 worth testing
-     *   rather than assuming.
+     * @property phone The guardian's number, for the teacher, or null
      */
-    data class SeveralChildren(
-        val children: List<GuardianChild>,
-        val selected: GuardianChild,
-    ) : GuardianUiState
-
-    /**
-     * This guardian reaches nothing.
-     *
-     * A separate state rather than an empty list, because "nothing to
-     * show yet" needs an explanation and a blank screen gives none. A
-     * declined guardian link lands here: the seat stays in that
-     * guardian's invitations, where they may still accept it [BR5.4].
-     */
-    data object Empty : GuardianUiState
+    data class Empty(val phone: String?) : GuardianUiState
 
     /**
      * Something failed.
      *
-     * @property messageKey Names a string resource, never English text
-     *   from the server [TC-15, D-43]
-     * @property retryable Read from the envelope, never inferred [TC-9]
+     * @property messageKey Names a string resource
+     * @property retryable Read from the server's envelope [TC-9]
      */
-    data class Failed(
-        val messageKey: String,
-        val retryable: Boolean,
-    ) : GuardianUiState
+    data class Failed(val messageKey: String, val retryable: Boolean) : GuardianUiState
 }

@@ -7,7 +7,9 @@ import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
+import io.ktor.client.request.patch
 import io.ktor.client.request.post
+import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.http.isSuccess
@@ -27,12 +29,36 @@ private data class BatchCreateBody(
     val subjects: List<String>,
     @SerialName("default_fee") val defaultFee: String? = null,
     @SerialName("fee_due_day") val feeDueDay: Int? = null,
+    val schedule: List<ScheduleSlotDto> = emptyList(),
 )
 
-/** The add-student body. */
+/** The replace-schedule body. */
+@Serializable
+private data class ScheduleBody(
+    val slots: List<ScheduleSlotDto>,
+)
+
+/**
+ * The mark-inactive body.
+ *
+ * Nullable on purpose: null reactivates the seat on the server.
+ */
+@Serializable
+private data class InactiveFromBody(
+    @SerialName("inactive_from") val inactiveFrom: String?,
+)
+
+/**
+ * The add-student body.
+ *
+ * `student_phone` is what links the seat to the student's own account.
+ * It was never sent, so no student a teacher added could reach their
+ * seat; the server canonicalises it, so it is sent as typed.
+ */
 @Serializable
 private data class EnrollmentCreateBody(
     @SerialName("display_name") val displayName: String,
+    @SerialName("student_phone") val studentPhone: String? = null,
     @SerialName("guardian_phone") val guardianPhone: String? = null,
     @SerialName("fee_amount") val feeAmount: String? = null,
 )
@@ -84,6 +110,7 @@ class HttpRosterRepository(
     override suspend fun addEnrollment(
         batchId: String,
         displayName: String,
+        studentPhone: String?,
         guardianPhone: String?,
         feeAmount: String?,
     ): AuthResult<Unit> =
@@ -93,6 +120,7 @@ class HttpRosterRepository(
                     setBody(
                         EnrollmentCreateBody(
                             displayName = displayName,
+                            studentPhone = studentPhone?.ifBlank { null },
                             guardianPhone = guardianPhone?.ifBlank { null },
                             // A canonical money STRING or nothing. Null
                             // means inherit the batch default; zero is a
@@ -110,6 +138,16 @@ class HttpRosterRepository(
             }
         } catch (_: Exception) {
             AuthResult.TransportFailure
+        }
+
+    override suspend fun markInactive(
+        enrollmentId: String,
+        fromDate: String,
+    ): AuthResult<Unit> =
+        callDiscardingBody {
+            client.patch("/v1/enrollments/$enrollmentId/inactive-from") {
+                setBody(InactiveFromBody(inactiveFrom = fromDate))
+            }
         }
 
     override suspend fun removeEnrollment(
@@ -141,6 +179,7 @@ class HttpBatchesRepository(
         subjects: List<String>,
         defaultFee: String?,
         feeDueDay: Int?,
+        schedule: List<ScheduleSlotDto>,
     ): AuthResult<BatchDto> =
         try {
             val response =
@@ -151,6 +190,7 @@ class HttpBatchesRepository(
                             subjects = subjects,
                             defaultFee = defaultFee?.ifBlank { null },
                             feeDueDay = feeDueDay,
+                            schedule = schedule,
                         ),
                     )
                 }
@@ -173,5 +213,30 @@ class HttpBatchesRepository(
             }
         } catch (_: Exception) {
             AuthResult.TransportFailure
+        }
+}
+
+/**
+ * A batch's weekly schedule, over HTTP.
+ *
+ * Saving REPLACES the schedule and the server generates the batch's
+ * sessions at once, so attendance can be taken without waiting for the
+ * nightly job.
+ *
+ * @property client The authenticated HTTP client
+ */
+class HttpScheduleRepository(
+    private val client: HttpClient,
+) : com.shikkhokplus.app.feature.schedule.ScheduleRepository {
+
+    override suspend fun schedule(batchId: String): AuthResult<List<ScheduleSlotDto>> =
+        call { client.get("/v1/batches/$batchId/schedule") }
+
+    override suspend fun save(
+        batchId: String,
+        slots: List<ScheduleSlotDto>,
+    ): AuthResult<List<ScheduleSlotDto>> =
+        call {
+            client.put("/v1/batches/$batchId/schedule") { setBody(ScheduleBody(slots)) }
         }
 }

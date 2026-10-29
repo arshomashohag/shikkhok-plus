@@ -19,13 +19,14 @@ import uuid
 from collections.abc import Callable, Iterator
 
 import pytest
+import sqlalchemy as sa
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session as DbSession
 
 from app.auth.hashing import OTP_HMAC_KEY_ENV
 from app.auth.tokens import JWT_ACTIVE_KID_ENV, JWT_KEYS_ENV, issue_pair
-from app.db.models import Session
+from app.db.models import Batch, Session
 from tests.batches.conftest import TeacherFixture, enroll
 
 SESSION_DATE = dt.date(2027, 4, 12)
@@ -135,6 +136,7 @@ def test_the_roster_round_trips_through_the_api(
             }
         ],
         "attendance_version": 0,
+        "writable": True,
     }
 
     applied = client.post(
@@ -450,6 +452,61 @@ def test_a_cancelled_session_refuses_a_roster_with_409(
 
     assert refused.status_code == 409
     assert refused.json()["error"]["code"] == "SESSION_CANCELLED"
+
+
+def test_the_roster_read_says_whether_a_write_would_be_accepted(
+    owner_session: DbSession,
+    client: TestClient,
+    teacher: TeacherFixture,
+    api_session: uuid.UUID,
+) -> None:
+    """``writable`` mirrors the write path's own refusals [BR1.6, BR5.5].
+
+    The app reads it to decide whether to offer the marking controls,
+    so a cancelled session must read false rather than letting the
+    teacher mark a whole class and then be refused.
+
+    :param owner_session: An arranging session
+    :param client: The test client
+    :param teacher: The batch's teacher
+    :param api_session: A session in that batch
+    :return: None
+    """
+    headers = _bearer(owner_session, teacher.account_id)
+    url = f"/v1/sessions/{api_session}/attendance"
+
+    before = client.get(url, headers=headers).json()["writable"]
+    client.post(f"/v1/sessions/{api_session}/cancellation", headers=headers)
+    after = client.get(url, headers=headers).json()["writable"]
+
+    assert (before, after) == (True, False)
+
+
+def test_an_inactive_batch_reads_as_not_writable(
+    owner_session: DbSession,
+    client: TestClient,
+    teacher: TeacherFixture,
+    api_session: uuid.UUID,
+) -> None:
+    """The second refusal the write path makes, read the same way.
+
+    :param owner_session: An arranging session
+    :param client: The test client
+    :param teacher: The batch's teacher
+    :param api_session: A session in that batch
+    :return: None
+    """
+    owner_session.execute(
+        sa.update(Batch).where(Batch.id == teacher.batch_id).values(active=False)
+    )
+    owner_session.commit()
+
+    read = client.get(
+        f"/v1/sessions/{api_session}/attendance",
+        headers=_bearer(owner_session, teacher.account_id),
+    )
+
+    assert read.json()["writable"] is False
 
 
 def test_a_body_with_an_unknown_field_is_refused(

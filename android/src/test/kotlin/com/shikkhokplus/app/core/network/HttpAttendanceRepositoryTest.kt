@@ -135,22 +135,22 @@ class HttpAttendanceRepositoryTest {
     }
 
     @Test
-    fun `the conflict detail reads the session's current state`() = runTest {
+    fun `after a conflict the current roster is re-read`() = runTest {
         val engine =
             MockEngine {
                 respond(
-                    """{"expected_version":3,"current_version":5,"current_state":[]}""",
+                    """{"seats":[],"attendance_version":5,"writable":true}""",
                     HttpStatusCode.OK,
                     jsonHeaders(),
                 )
             }
 
-        val result = HttpAttendanceRepository(client(engine)).conflictDetail("s-1")
+        val result = HttpAttendanceRepository(client(engine)).currentRoster("s-1")
 
-        val ok = assertIs<com.shikkhokplus.app.feature.auth.AuthResult.Ok<ConflictDetailDto>>(
+        val ok = assertIs<com.shikkhokplus.app.feature.auth.AuthResult.Ok<SessionRosterDto>>(
             result,
         )
-        assertEquals(5, ok.value.currentVersion)
+        assertEquals(5, ok.value.attendanceVersion)
         assertEquals(
             "/v1/sessions/s-1/attendance",
             engine.requestHistory.single().url.encodedPath,

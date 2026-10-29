@@ -94,6 +94,19 @@ NON_MONEY_FIELDS: Final[dict[tuple[str, str], str]] = {
     ("BatchUpdateRequest", "fee_due_day"): (
         "The same value on the edit path [AC2.3.1]."
     ),
+    ("CurrentFeeResponse", "paid_on"): (
+        "A DATE, not an amount: the day the period's last approved "
+        'payment was decided ("Paid 8 Oct"). The schema\'s money '
+        "properties reference Money."
+    ),
+    ("PaymentLineResponse", "due_date"): (
+        "A DATE, not an amount: when a month on G3's payment history "
+        "was due. The line's money property, `amount`, references Money."
+    ),
+    ("PayableResponse", "due_date"): (
+        "A DATE, not an amount: when the month offered for payment was "
+        "due. Its money property, `amount_due`, references Money."
+    ),
     ("FeeCycleResponse", "due_date"): (
         "A DATE crossing the wire, not an amount [BR2.2]. It is the "
         "computed due date after the short-month clamp. The schema it "
@@ -114,12 +127,51 @@ NON_MONEY_FIELDS: Final[dict[tuple[str, str], str]] = {
         "It is the denominator a score is out of."
     ),
     ("ExamCreateRequest", "total_marks"): (
-        "The same count inbound, on creation and on edit. A request "
-        "schema reaches the gate too."
+        "The same count inbound, on creation. A request schema reaches the gate too."
+    ),
+    ("ExamUpdateRequest", "total_marks"): (
+        "The same count inbound, on edit, which no longer reuses the creation body."
+    ),
+    ("ChildResultResponse", "total_marks"): (
+        "The exam's mark count on G1's latest results, not money."
+    ),
+    ("ProgressSummaryResponse", "total_marks"): (
+        "The last test's mark count on G2's summary line, not money."
+    ),
+    ("LastResultResponse", "total_marks"): (
+        "The exam's mark count on S1's \"Last test 44/50\", not money."
+    ),
+    ("UpcomingExamResponse", "total_marks"): (
+        'The coming exam\'s mark count ("out of 100"), not money.'
     ),
     ("ProgressEntryResponse", "total_marks"): (
         "The same count on the guardian progress series, carried so a "
         "client can render '60 out of 80' without a second lookup."
+    ),
+    ("ExamListItemResponse", "total_marks"): (
+        "The same count on the teacher's exam list, which extends the "
+        "exam read with its marking progress."
+    ),
+    ("PublishedMarksheetResponse", "total_marks"): (
+        "The same count as the marksheet's heading, so the screen can "
+        "say what the viewer's mark is out of."
+    ),
+    ("SuppressedMarksheetResponse", "total_marks"): (
+        "The same heading count on the suppressed marksheet."
+    ),
+    ("OutstandingResponse", "overdue_students"): (
+        "A COUNT of students with anything overdue on Today (T1), not an "
+        "amount. The amount beside it, `overdue`, is the money field."
+    ),
+    ("RosterFeeRowResponse", "days_overdue"): (
+        "A COUNT of days since the oldest unpaid period fell due, for "
+        "T7's fee chip. The amounts beside it are money fields."
+    ),
+    ("CurrentFeeResponse", "due_date"): (
+        "The same computed date on the student's batch list (S1), for "
+        "their latest period. Its sibling `outstanding` is real money "
+        "and references the shared Money component, so it is still "
+        "checked."
     ),
     ("RosterFeeRowResponse", "due_date"): (
         "The same computed date on the teacher's roster view. Named "

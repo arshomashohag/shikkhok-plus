@@ -126,7 +126,7 @@ class InvitationsScreenTest {
         compose.onNodeWithText("Class 9 Physics").assertIsDisplayed()
         compose.onNodeWithText("Physics").assertIsDisplayed()
         compose
-            .onNodeWithText("1200.00", substring = true)
+            .onNodeWithText("৳1,200", substring = true)
             .assertIsDisplayed()
     }
 

@@ -19,9 +19,17 @@ import com.shikkhokplus.app.core.session.Lens
  * @property onLensesChanged Re-reads the lens list after an action
  *   that can change it, such as accepting a seat. Quiet by contract:
  *   it must not tear down the screen that triggered it [AC9.4.2]
+ * @property onEndSession Ends the session: wipes the stored tokens and
+ *   the device's write queue, and returns to sign-in. Sign-out and
+ *   account deletion both end here, so neither can leave half of it
+ *   undone
+ * @property unsentWrites How many saved writes have not reached the
+ *   server, so sign-out can say what ending the session would discard
  */
 data class SessionBinding(
     val lens: Lens?,
     val onSwitch: (() -> Unit)?,
     val onLensesChanged: () -> Unit,
+    val onEndSession: () -> Unit = {},
+    val unsentWrites: () -> Int = { 0 },
 )
