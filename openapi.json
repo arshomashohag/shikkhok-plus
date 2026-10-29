@@ -4600,10 +4600,12 @@
         "operationId": "lookup_already_added_v1_accounts_already_added_get",
         "parameters": [
           {
+            "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
             "in": "query",
             "name": "phone",
             "required": true,
             "schema": {
+              "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
               "title": "Phone",
               "type": "string"
             }
