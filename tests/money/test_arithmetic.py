@@ -204,3 +204,31 @@ class TestComparison:
 
     def test_equality_with_non_money_is_false(self) -> None:
         assert Money("1.00") != "1.00"
+
+
+class TestPercentOf:
+    """Whole-percent share of a total, for the Dues screen's bar.
+
+    Expected values computed by hand: 18000 of 48600 is 37.04%, 13200 is
+    27.16%, 17400 is 35.80%. Rounded half-up to whole percents.
+    """
+
+    def test_shares_of_the_board_total(self) -> None:
+        total = Money("48600.00")
+        assert Money("18000.00").percent_of(total) == 37
+        assert Money("13200.00").percent_of(total) == 27
+        assert Money("17400.00").percent_of(total) == 36
+
+    def test_half_rounds_up(self) -> None:
+        assert Money("1.00").percent_of(Money("8.00")) == 13
+
+    def test_whole_of_itself_is_one_hundred(self) -> None:
+        assert Money("250.00").percent_of(Money("250.00")) == 100
+
+    def test_share_of_zero_total_is_zero(self) -> None:
+        """Nothing owed is no share, never a division error."""
+        assert Money.ZERO.percent_of(Money.ZERO) == 0
+
+    def test_negative_total_is_refused(self) -> None:
+        with pytest.raises(MoneyValidationError):
+            Money("1.00").percent_of(Money("-5.00"))

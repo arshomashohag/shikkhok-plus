@@ -157,14 +157,14 @@ def test_with_the_toggle_off_the_teachers_own_view_is_unaffected(
         visible=False,
     )
 
-    sheet = seat_marksheet(
+    seat = seat_marksheet(
         restricted_session,
         lens=teacher_lens,
         enrollment_id=seats[0],
         exam_id=exam,
     )
 
-    assert isinstance(sheet, Published)
+    assert isinstance(seat.sheet, Published)
 
 
 def test_a_non_owner_teacher_cannot_write_the_toggle(
@@ -455,7 +455,7 @@ def test_the_marksheet_never_spans_two_batches(
         lens=StudentLens(account_id=account),
         enrollment_id=seat,
         exam_id=exam,
-    )
+    ).sheet
 
     assert isinstance(sheet, Published)
     assert sheet.average == 50.0, (

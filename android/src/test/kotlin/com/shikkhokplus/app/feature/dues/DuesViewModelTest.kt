@@ -1,8 +1,7 @@
 package com.shikkhokplus.app.feature.dues
 
-import com.shikkhokplus.app.core.model.Money
 import com.shikkhokplus.app.core.network.DuesResponseDto
-import com.shikkhokplus.app.core.network.DuesRowDto
+import com.shikkhokplus.app.core.network.ReminderResultDto
 import com.shikkhokplus.app.core.network.ErrorBody
 import com.shikkhokplus.app.core.network.ErrorEnvelope
 import com.shikkhokplus.app.feature.auth.AuthResult
@@ -47,24 +46,28 @@ class DuesViewModelTest {
     }
 
     private class FakeRepository(
-        var result: AuthResult<DuesResponseDto> = AuthResult.Ok(DuesResponseDto(
-            rows =
-                listOf(
-                    DuesRowDto(
-                        enrollmentId = "e-1",
-                        batchId = "b-1",
-                        batchName = "HSC Physics",
-                        displayName = "Rahim",
-                        outstanding = Money.of("1200.00"),
-                    ),
+        var result: AuthResult<DuesResponseDto> =
+            AuthResult.Ok(
+                duesResponse(
+                    duesRow("Rahim", bucket = "late", remindable = true),
+                    duesRow("Karim", bucket = "late", batch = "b-2"),
+                    duesRow("Salma"),
+                    remindable = 1,
                 ),
-        )),
+            ),
+        var reminded: AuthResult<ReminderResultDto> = AuthResult.Ok(ReminderResultDto(sent = 1, skipped = 0)),
     ) : DuesRepository {
         var calls = 0
+        val sentTo = mutableListOf<List<String>>()
 
         override suspend fun dues(): AuthResult<DuesResponseDto> {
             calls++
             return result
+        }
+
+        override suspend fun remind(enrollmentIds: List<String>): AuthResult<ReminderResultDto> {
+            sentTo += enrollmentIds
+            return reminded
         }
     }
 
@@ -147,5 +150,80 @@ class DuesViewModelTest {
             model.load()
 
             assertEquals(DuesUiState.Loading, model.state.value)
+        }
+
+    @Test
+    fun `a filter narrows the rows and survives a reload`() =
+        runTest(dispatcher) {
+            val model = DuesViewModel(FakeRepository())
+            model.load()
+            advanceUntilIdle()
+
+            model.filter(DuesFilter.LATE_ONLY)
+            model.narrow(DuesBatch("b-2", "Batch b-2"))
+            val narrowed = assertIs<DuesUiState.Loaded>(model.state.value)
+            model.load()
+            advanceUntilIdle()
+            val reloaded = assertIs<DuesUiState.Loaded>(model.state.value)
+
+            assertEquals(listOf("Karim"), narrowed.rows.map { it.displayName })
+            assertEquals(listOf("Karim"), reloaded.rows.map { it.displayName })
+            assertEquals(DuesFilter.LATE_ONLY, reloaded.filter)
+        }
+
+    @Test
+    fun `a confirmed reminder goes to the marked seats, then reloads`() =
+        runTest(dispatcher) {
+            val repo = FakeRepository()
+            val model = DuesViewModel(repo)
+            model.load()
+            advanceUntilIdle()
+
+            model.askToRemind()
+            assertEquals(RemindState.Confirming, assertIs<DuesUiState.Loaded>(model.state.value).remind)
+            model.remind()
+            advanceUntilIdle()
+
+            assertEquals(listOf(listOf("seat-Rahim")), repo.sentTo)
+            assertEquals(2, repo.calls)
+            assertEquals(RemindState.Sent(1), assertIs<DuesUiState.Loaded>(model.state.value).remind)
+
+            model.dismissRemind()
+            assertEquals(RemindState.Idle, assertIs<DuesUiState.Loaded>(model.state.value).remind)
+        }
+
+    @Test
+    fun `a failed reminder says why and does not reload`() =
+        runTest(dispatcher) {
+            val repo = FakeRepository(reminded = AuthResult.TransportFailure)
+            val model = DuesViewModel(repo)
+            model.load()
+            advanceUntilIdle()
+
+            model.remind()
+            advanceUntilIdle()
+
+            assertEquals(1, repo.calls)
+            assertEquals(
+                RemindState.Failed(DuesStateMapper.OFFLINE_KEY),
+                assertIs<DuesUiState.Loaded>(model.state.value).remind,
+            )
+        }
+
+    @Test
+    fun `a refused reminder carries the server's key`() =
+        runTest(dispatcher) {
+            val repo = FakeRepository(reminded = AuthResult.Refused(refused("fees.not_available", false)))
+            val model = DuesViewModel(repo)
+            model.load()
+            advanceUntilIdle()
+
+            model.remind()
+            advanceUntilIdle()
+
+            assertEquals(
+                RemindState.Failed("fees.not_available"),
+                assertIs<DuesUiState.Loaded>(model.state.value).remind,
+            )
         }
 }

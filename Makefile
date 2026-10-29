@@ -180,13 +180,13 @@ test:
 	@# gate exists to prevent, reproduced inside the gate.
 	$(PY) -m pytest tests -q -p no:cacheprovider \
 		--cov=app.money \
-		--cov=app.accounts --cov=app.analytics \
+		--cov=app.accounts --cov=app.analytics --cov=app.guardians \
 		--cov=app.api --cov=app.audit --cov=app.auth --cov=app.authz \
 		--cov=app.batches \
 		--cov=app.config --cov=app.contract --cov=app.db --cov=app.errors \
 		--cov=app.fees \
 		--cov=app.gateway --cov=app.governance \
-		--cov=app.logging_setup --cov=app.main \
+		--cov=app.local_time --cov=app.logging_setup --cov=app.main \
 		--cov=app.marks \
 		--cov=app.notifications \
 		--cov=app.schemas \

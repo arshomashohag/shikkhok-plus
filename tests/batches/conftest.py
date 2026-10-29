@@ -41,7 +41,7 @@ def _account(session: Session) -> uuid.UUID:
     :return: The new account's id
     """
     account = Account(
-        phone=f"+8801{uuid.uuid4().int % 10**9:09d}",
+        phone=f"+88017{uuid.uuid4().int % 10**8:08d}",
         created_at=dt.datetime.now(tz=dt.UTC),
     )
     session.add(account)

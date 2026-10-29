@@ -486,14 +486,13 @@ def test_both_paths_leave_the_same_rows_behind(
     assert in_app["mark"] == 1
 
 
-def test_the_in_app_path_refuses_a_teacher_too(
+def test_the_in_app_path_deletes_a_teacher_too(
     client: TestClient, owner_session: Session, populated_seat: PopulatedSeat
 ) -> None:
-    """BR1.6 holds on BOTH paths, not only the external one.
+    """A teacher's in-app deletion goes through and keeps the batch.
 
-    A refusal implemented in one route handler rather than in the
-    deletion function would pass every external test and leave the
-    in-app path destroying seven kinds of retained record.
+    The same function as the external route, so the batch outcome is
+    asserted on this path too rather than assumed.
 
     :param client: The test client
     :param owner_session: A session able to read everything
@@ -509,16 +508,16 @@ def test_the_in_app_path_refuses_a_teacher_too(
         headers={"Authorization": f"Bearer {pair.access_token}"},
     )
 
-    assert response.status_code == 409, response.text
-    body = response.json()
-    assert body["error"]["message_key"] == "governance.deletion.owns_batches"
-
+    assert response.status_code == 200, response.text
     owner_session.expire_all()
-    still_there = owner_session.execute(
-        sa.text("SELECT count(*) FROM account WHERE id = :id"),
-        {"id": populated_seat.teacher_account_id},
-    ).scalar_one()
-    assert still_there == 1
+    accounts, batches = owner_session.execute(
+        sa.text(
+            "SELECT (SELECT count(*) FROM account WHERE id = :id), "
+            "(SELECT count(*) FROM batch WHERE id = :batch)"
+        ),
+        {"id": populated_seat.teacher_account_id, "batch": populated_seat.batch_id},
+    ).one()
+    assert (accounts, batches) == (0, 1)
 
 
 def test_the_in_app_route_requires_a_token(client: TestClient) -> None:

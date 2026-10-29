@@ -194,3 +194,45 @@ def test_a_patch_cannot_set_a_role(client: TestClient, owner_session: Session) -
     )
 
     assert response.status_code == 422
+
+
+def test_me_returns_the_readers_own_sign_in_number(
+    client: TestClient, owner_session: Session
+) -> None:
+    """The profile shows the login number; deletion asks for it back.
+
+    Through the RESTRICTED engine, deliberately: the account row is read
+    under row-level security, and a policy that hid it would return a
+    null here rather than fail loudly.
+
+    :param client: A client against the restricted engine
+    :param owner_session: A session able to arrange fixture data
+    :return: None
+    """
+    account = make_account(owner_session, phone="+8801611477203")
+
+    response = client.get("/v1/me", headers=auth_header(owner_session, account))
+
+    assert response.status_code == 200
+    assert response.json()["phone"] == "+8801611477203"
+
+
+def test_a_patch_still_returns_the_number(
+    client: TestClient, owner_session: Session
+) -> None:
+    """The write answers with the same shape as the read.
+
+    :param client: A client against the restricted engine
+    :param owner_session: A session able to arrange fixture data
+    :return: None
+    """
+    account = make_account(owner_session, phone="+8801712345678")
+
+    response = client.patch(
+        "/v1/me",
+        json={"self_name": "Rahim"},
+        headers=auth_header(owner_session, account),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["phone"] == "+8801712345678"

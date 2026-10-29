@@ -41,15 +41,16 @@ class HttpMarksRepositoryTest {
     private val resultsBody =
         """
         {"exam":{"exam_id":"x-1","title":"Mid-term","date":"2026-03-04",
-        "total_marks":100,"entered_count":2,"seat_count":5},
+        "total_marks":100,"entered_count":2,"expected_count":5},
         "results":[{"enrollment_id":"e-1","display_name":"Rafi",
         "result_state":"marked","marks":72}],"writable":false}
         """.trimIndent()
 
     private val marksheetBody =
         """
-        {"exam_id":"x-1","exam_title":"Mid","total_marks":100,
-        "own_result_state":"marked","own_marks":72}
+        {"published":false,"exam_title":"Mid","total_marks":100,
+        "viewer_result_state":"marked","viewer_marks":72,
+        "reason":"too_few_results"}
         """.trimIndent()
 
     @Test
@@ -187,17 +188,25 @@ class HttpMarksRepositoryTest {
     }
 
     @Test
-    fun `progress reads the child's seat from the path`() = runTest {
-        val engine =
-            ok("""{"child_display_name":"Rafi","batch_name":"Class 9","entries":[]}""")
+    fun `progress reads the seat from the reader's own path`() = runTest {
+        val body =
+            """[{"exam_id":"x-1","title":"Mid","date":"2026-03-04","total_marks":100,""" +
+                """"result_state":"marked","marks":72}]"""
+        val childEngine = ok(body)
+        val selfEngine = ok(body)
 
-        val result = repo(engine).progress("e-1")
+        val result = repo(childEngine).progress("e-1", MarksheetReader.CHILD)
+        repo(selfEngine).progress("e-1", MarksheetReader.SELF)
 
-        val ok = assertIs<AuthResult.Ok<ProgressDto>>(result)
-        assertEquals("Rafi", ok.value.childDisplayName)
+        val ok = assertIs<AuthResult.Ok<List<ProgressEntryDto>>>(result)
+        assertEquals("Mid", ok.value.single().title)
         assertEquals(
             "/v1/children/e-1/progress",
-            engine.requestHistory.single().url.encodedPath,
+            childEngine.requestHistory.single().url.encodedPath,
+        )
+        assertEquals(
+            "/v1/me/enrollments/e-1/progress",
+            selfEngine.requestHistory.single().url.encodedPath,
         )
     }
 
@@ -211,5 +220,35 @@ class HttpMarksRepositoryTest {
         assertEquals(HttpMethod.Put, sent.method)
         assertEquals("/v1/batches/b-1/marksheet-visibility", sent.url.encodedPath)
         assertTrue((sent.body as TextContent).text.contains("\"visible\":true"))
+    }
+
+    @Test
+    fun `subject options come from this batch, keys included`() = runTest {
+        // The key is the point: exam creation was impossible because
+        // no response carried one.
+        val engine =
+            ok(
+                """
+                [{"id":"b-1","name":"A","subjects":["Physics"],
+                  "subject_options":[{"id":"bs-1","name":"Physics"}]},
+                 {"id":"b-2","name":"B","subjects":["Maths"],
+                  "subject_options":[{"id":"bs-9","name":"Maths"}]}]
+                """.trimIndent(),
+            )
+
+        val result = repo(engine).subjectOptions("b-2")
+
+        val ok = assertIs<AuthResult.Ok<List<SubjectOptionDto>>>(result)
+        assertEquals(listOf(SubjectOptionDto("bs-9", "Maths")), ok.value)
+        assertEquals("/v1/batches", engine.requestHistory.single().url.encodedPath)
+    }
+
+    @Test
+    fun `a batch missing from the list yields no subjects`() = runTest {
+        val engine = ok("""[{"id":"b-1","name":"A","subject_options":[]}]""")
+
+        val ok = assertIs<AuthResult.Ok<List<SubjectOptionDto>>>(repo(engine).subjectOptions("gone"))
+
+        assertEquals(emptyList(), ok.value)
     }
 }

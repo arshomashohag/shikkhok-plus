@@ -69,6 +69,21 @@ internal val OutlineLight = Color(0xFF6E7682)
 /** Dividers only. */
 internal val OutlineVariantLight = Color(0xFFC9CED6)
 
+/** Error banners (O1, O2, O3, T8): a refusal the person must read. */
+internal val ErrorContainerLight = Color(0xFFFCE3E1)
+
+/** Text on [ErrorContainerLight]. */
+internal val OnErrorContainerLight = Color(0xFF6A110C)
+
+/** Snackbars and the "now showing" notice (G1). */
+internal val InverseSurfaceLight = Color(0xFF2A2F36)
+
+/** Text on [InverseSurfaceLight]. */
+internal val InverseOnSurfaceLight = Color(0xFFEEF1F5)
+
+/** Information banners (O1 "added already", T7 acceptance count). */
+val InfoContainerLight = Color(0xFFEEF3FC)
+
 // Dark ----------------------------------------------------------------
 
 /** Action blue, dark. 10.3:1. */
@@ -110,6 +125,15 @@ internal val OutlineDark = Color(0xFF8A929E)
 /** Dividers only, dark. */
 internal val OutlineVariantDark = Color(0xFF343B45)
 
+/** Error banners, dark. */
+internal val ErrorContainerDark = Color(0xFF5C1712)
+
+/** Text on [ErrorContainerDark]. */
+internal val OnErrorContainerDark = Color(0xFFFFDAD6)
+
+/** Information banners, dark. */
+val InfoContainerDark = Color(0xFF1A2A44)
+
 /**
  * The light scheme.
  *
@@ -136,12 +160,32 @@ internal val ShikkhokLightColors = lightColorScheme(
     surfaceContainerHigh = SurfaceContainerHighLight,
     outline = OutlineLight,
     outlineVariant = OutlineVariantLight,
+    // **Every remaining role set**, rather than left at M3's purple
+    // defaults: a stock Card read surfaceContainerHighest, a selected
+    // chip secondaryContainer, and both came out lavender.
+    secondaryContainer = BlueContainerLight,
+    onSecondaryContainer = OnBlueContainerLight,
+    tertiary = BluePrimaryLight,
+    onTertiary = SurfaceLight,
+    tertiaryContainer = InfoContainerLight,
+    onTertiaryContainer = OnBlueContainerLight,
+    errorContainer = ErrorContainerLight,
+    onErrorContainer = OnErrorContainerLight,
+    surfaceContainerLowest = SurfaceLight,
+    surfaceContainerLow = SurfaceLight,
+    surfaceContainerHighest = SurfaceContainerHighLight,
+    surfaceDim = BackgroundLight,
+    surfaceBright = SurfaceLight,
+    inverseSurface = InverseSurfaceLight,
+    inverseOnSurface = InverseOnSurfaceLight,
+    inversePrimary = BluePrimaryDark,
+    scrim = Color(0xFF000000),
 )
 
 /** The dark scheme. Same roles, same contrast policy. */
 internal val ShikkhokDarkColors = darkColorScheme(
     primary = BluePrimaryDark,
-    onPrimary = Color(0xFF0B2447),
+    onPrimary = Color(0xFF0B2A55),
     primaryContainer = BlueContainerDark,
     onPrimaryContainer = OnBlueContainerDark,
     secondary = SlateSecondaryDark,
@@ -158,4 +202,21 @@ internal val ShikkhokDarkColors = darkColorScheme(
     surfaceContainerHigh = SurfaceContainerHighDark,
     outline = OutlineDark,
     outlineVariant = OutlineVariantDark,
+    secondaryContainer = BlueContainerDark,
+    onSecondaryContainer = OnBlueContainerDark,
+    tertiary = BluePrimaryDark,
+    onTertiary = Color(0xFF0B2A55),
+    tertiaryContainer = InfoContainerDark,
+    onTertiaryContainer = OnBlueContainerDark,
+    errorContainer = ErrorContainerDark,
+    onErrorContainer = OnErrorContainerDark,
+    surfaceContainerLowest = SurfaceDark,
+    surfaceContainerLow = SurfaceDark,
+    surfaceContainerHighest = SurfaceContainerHighDark,
+    surfaceDim = BackgroundDark,
+    surfaceBright = SurfaceContainerHighDark,
+    inverseSurface = OnSurfaceDark,
+    inverseOnSurface = SurfaceDark,
+    inversePrimary = BluePrimaryLight,
+    scrim = Color(0xFF000000),
 )

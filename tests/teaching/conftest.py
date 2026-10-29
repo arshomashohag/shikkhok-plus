@@ -108,7 +108,7 @@ def account_factory(owner_session: DbSession) -> Callable[[], uuid.UUID]:
 
     def make() -> uuid.UUID:
         account = Account(
-            phone=f"+8801{uuid.uuid4().int % 10**9:09d}",
+            phone=f"+88017{uuid.uuid4().int % 10**8:08d}",
             created_at=dt.datetime.now(tz=dt.UTC),
         )
         owner_session.add(account)

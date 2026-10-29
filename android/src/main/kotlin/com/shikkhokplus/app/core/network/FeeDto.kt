@@ -70,6 +70,9 @@ data class FeeHistoryDto(
  * @property currentPeriod The latest generated period, or null
  * @property currentStatus That period's status, or null
  * @property dueDate That period's due date, or null
+ * @property daysOverdue How late the oldest unpaid period is, decided by
+ *   the server against Bangladesh's date, or null
+ * @property verifying The total of claims waiting for the teacher, or null
  */
 @Serializable
 data class RosterFeeRowDto(
@@ -79,6 +82,8 @@ data class RosterFeeRowDto(
     @SerialName("current_period") val currentPeriod: String? = null,
     @SerialName("current_status") val currentStatus: String? = null,
     @SerialName("due_date") val dueDate: String? = null,
+    @SerialName("days_overdue") val daysOverdue: Int? = null,
+    val verifying: Money? = null,
 )
 
 /**
@@ -138,12 +143,14 @@ data class ClaimDto(
  *   Kotlin choice and it is the wrong one here: adding a channel
  *   server-side would then require an app release, and an installed
  *   Android app cannot be forced to update
+ * @property teacherDisplayName Who the money goes to, or null
  */
 @Serializable
 data class PaymentDestinationDto(
     @SerialName("collection_number") val collectionNumber: String,
     @SerialName("collection_channel") val collectionChannel: String? = null,
     val channels: List<String> = emptyList(),
+    @SerialName("teacher_display_name") val teacherDisplayName: String? = null,
 )
 
 /**

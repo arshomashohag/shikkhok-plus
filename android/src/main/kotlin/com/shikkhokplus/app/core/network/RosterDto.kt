@@ -85,11 +85,45 @@ data class BatchDto(
     val id: String,
     val name: String,
     val subjects: List<String> = emptyList(),
+    @SerialName("subject_options") val subjectOptions: List<SubjectOptionDto> = emptyList(),
+    val schedule: List<ScheduleSlotDto> = emptyList(),
     @SerialName("default_fee") val defaultFee: Money? = null,
     @SerialName("fee_due_day") val feeDueDay: Int? = null,
     val active: Boolean = true,
     @SerialName("enrollment_count") val enrollmentCount: Int = 0,
     @SerialName("accepted_count") val acceptedCount: Int = 0,
+)
+
+/**
+ * One weekly class of a batch.
+ *
+ * Times are `HH:MM`, 24-hour, exactly as the server sends them; the
+ * screen formats them for display.
+ *
+ * @property weekday 0-6, Monday through Sunday
+ * @property startTime When it starts
+ * @property endTime When it ends
+ */
+@Serializable
+data class ScheduleSlotDto(
+    val weekday: Int,
+    @SerialName("start_time") val startTime: String,
+    @SerialName("end_time") val endTime: String,
+)
+
+/**
+ * One subject of a batch, with the key exam and class writes take.
+ *
+ * The batch list used to carry subject NAMES only, so there was no key
+ * to send and an exam could not be created from the app at all.
+ *
+ * @property id The `batch_subject_id`
+ * @property name The subject's name, as the teacher typed it
+ */
+@Serializable
+data class SubjectOptionDto(
+    val id: String,
+    val name: String,
 )
 
 /**
@@ -110,4 +144,22 @@ data class GuardianChildDto(
     @SerialName("display_name") val displayName: String,
     @SerialName("batch_name") val batchName: String,
     @SerialName("teacher_display_name") val teacherDisplayName: String? = null,
+)
+
+/**
+ * An edit to a batch. Only what is set is sent: `explicitNulls` is off,
+ * so a null field is left out and the server leaves it alone.
+ *
+ * @property name The teacher's name for the class
+ * @property subjects The full list of subjects to keep
+ * @property defaultFee The monthly fee as the canonical string, for
+ *   cycles not yet generated
+ * @property feeDueDay Day of month 1-31
+ */
+@Serializable
+data class BatchEdit(
+    val name: String? = null,
+    val subjects: List<String>? = null,
+    @SerialName("default_fee") val defaultFee: String? = null,
+    @SerialName("fee_due_day") val feeDueDay: Int? = null,
 )

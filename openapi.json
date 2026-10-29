@@ -94,7 +94,7 @@
       },
       "AttendanceEntryResponse": {
         "additionalProperties": false,
-        "description": "One past session, as a student or guardian sees it.\n\n:ivar session_id: The session\n:ivar date: When it met\n:ivar start_time: When it started\n:ivar topic: What was covered, or null if never logged\n:ivar topic_logged: Whether a topic was ever written\n:ivar present: What was recorded for THIS seat, or null",
+        "description": "One past session, as a student or guardian sees it.\n\n:ivar session_id: The session\n:ivar date: When it met\n:ivar start_time: When it started\n:ivar topic: What was covered, or null if never logged\n:ivar topic_logged: Whether a topic was ever written\n:ivar present: What was recorded for THIS seat, or null\n:ivar subject_name: What the class taught, or null",
         "properties": {
           "date": {
             "format": "date",
@@ -121,6 +121,17 @@
             "format": "time",
             "title": "Start Time",
             "type": "string"
+          },
+          "subject_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Name"
           },
           "topic": {
             "anyOf": [
@@ -238,7 +249,7 @@
       },
       "BatchCreateRequest": {
         "additionalProperties": false,
-        "description": "Create a batch [AC2.1.1, AC2.1.2].\n\n:ivar name: The teacher's name for the class\n:ivar subjects: One or more subjects taught\n:ivar teacher_display_name: What students see the teacher called\n:ivar default_fee: The fee an enrollment inherits when it sets none\n:ivar fee_due_day: Day of month 1-31; 29-31 clamp at generation\n:ivar collection_number: Where payments are sent\n:ivar collection_channel: Which service that number belongs to",
+        "description": "Create a batch [AC2.1.1, AC2.1.2].\n\n:ivar name: The teacher's name for the class\n:ivar schedule: The weekly classes, so a batch can be created with its\n    class days and sessions follow at once; optional\n:ivar subjects: One or more subjects taught\n:ivar teacher_display_name: What students see the teacher called\n:ivar default_fee: The fee an enrollment inherits when it sets none\n:ivar fee_due_day: Day of month 1-31; 29-31 clamp at generation\n:ivar collection_number: Where payments are sent\n:ivar collection_channel: Which service that number belongs to",
         "properties": {
           "collection_channel": {
             "anyOf": [
@@ -293,6 +304,14 @@
             "title": "Name",
             "type": "string"
           },
+          "schedule": {
+            "items": {
+              "$ref": "#/components/schemas/ScheduleSlotWire"
+            },
+            "maxItems": 21,
+            "title": "Schedule",
+            "type": "array"
+          },
           "subjects": {
             "items": {
               "type": "string"
@@ -322,7 +341,7 @@
         "type": "object"
       },
       "BatchResponse": {
-        "description": "A batch as its owner sees it.\n\n:ivar id: The batch\n:ivar name: The teacher's name for the class\n:ivar subjects: The subjects taught\n:ivar teacher_display_name: What students see the teacher called\n:ivar default_fee: The inherited fee\n:ivar fee_due_day: Day of month 1-31\n:ivar collection_number: Where payments are sent\n:ivar collection_channel: Which service that number belongs to\n:ivar marksheet_visible: U6's toggle\n:ivar active: False means read-only history\n:ivar enrollment_count: How many seats, computed server-side. The\n    **denominator** of \"9 of 12 accepted\", and it counts every seat\n    the teacher created including declined ones [BR1.4]\n:ivar accepted_count: How many of those seats at least one link has\n    accepted [BR1.2], computed server-side and **never counted by\n    the client** [BR1.3, TC-9]. A client counting rows is a client\n    deciding what counts as accepted, and it is wrong the moment the\n    roster paginates because it can only count the rows it holds",
+        "description": "A batch as its owner sees it.\n\n:ivar id: The batch\n:ivar name: The teacher's name for the class\n:ivar subjects: The subjects taught\n:ivar subject_options: The same subjects with their keys, in the same\n    order, for the writes that name one\n:ivar schedule: The weekly classes, in weekday then time order -- the\n    \"Mon Wed · 4:00 pm\" line on the batch list (T6)\n:ivar teacher_display_name: What students see the teacher called\n:ivar default_fee: The inherited fee\n:ivar fee_due_day: Day of month 1-31\n:ivar collection_number: Where payments are sent\n:ivar collection_channel: Which service that number belongs to\n:ivar marksheet_visible: U6's toggle\n:ivar active: False means read-only history\n:ivar enrollment_count: How many seats, computed server-side. The\n    **denominator** of \"9 of 12 accepted\", and it counts every seat\n    the teacher created including declined ones [BR1.4]\n:ivar accepted_count: How many of those seats at least one link has\n    accepted [BR1.2], computed server-side and **never counted by\n    the client** [BR1.3, TC-9]. A client counting rows is a client\n    deciding what counts as accepted, and it is wrong the moment the\n    roster paginates because it can only count the rows it holds",
         "properties": {
           "accepted_count": {
             "title": "Accepted Count",
@@ -392,6 +411,20 @@
             "title": "Name",
             "type": "string"
           },
+          "schedule": {
+            "items": {
+              "$ref": "#/components/schemas/ScheduleSlotWire"
+            },
+            "title": "Schedule",
+            "type": "array"
+          },
+          "subject_options": {
+            "items": {
+              "$ref": "#/components/schemas/SubjectOption"
+            },
+            "title": "Subject Options",
+            "type": "array"
+          },
           "subjects": {
             "items": {
               "type": "string"
@@ -422,10 +455,412 @@
           "id",
           "marksheet_visible",
           "name",
+          "schedule",
+          "subject_options",
           "subjects",
           "teacher_display_name"
         ],
         "title": "BatchResponse",
+        "type": "object"
+      },
+      "BatchUpdateRequest": {
+        "additionalProperties": false,
+        "description": "Edit a batch [AC2.3.1].\n\nEvery field optional, because a PATCH names only what changes.\n\n:ivar name: The teacher's name for the class\n:ivar subjects: The full list of subjects to keep; one with an exam\n    cannot be left out\n:ivar teacher_display_name: What students see the teacher called\n:ivar default_fee: The inherited fee, for cycles not yet generated\n:ivar fee_due_day: Day of month 1-31\n:ivar collection_number: Where payments are sent\n:ivar collection_channel: Which service that number belongs to\n:ivar marksheet_visible: U6's toggle\n:ivar active: False collapses the batch to read-only history",
+        "properties": {
+          "active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active"
+          },
+          "collection_channel": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Collection Channel"
+          },
+          "collection_number": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Collection Number"
+          },
+          "default_fee": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fee_due_day": {
+            "anyOf": [
+              {
+                "maximum": 31.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fee Due Day"
+          },
+          "marksheet_visible": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Marksheet Visible"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "subjects": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subjects"
+          },
+          "teacher_display_name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Teacher Display Name"
+          }
+        },
+        "title": "BatchUpdateRequest",
+        "type": "object"
+      },
+      "ChildBatchResponse": {
+        "additionalProperties": false,
+        "description": "One of the child's batches, with its next class.\n\n:ivar enrollment_id: The seat\n:ivar batch_name: The batch\n:ivar teacher_display_name: The teacher, or null\n:ivar next_session: The next class, or null",
+        "properties": {
+          "batch_name": {
+            "title": "Batch Name",
+            "type": "string"
+          },
+          "enrollment_id": {
+            "format": "uuid",
+            "title": "Enrollment Id",
+            "type": "string"
+          },
+          "next_session": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UpcomingSessionResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "teacher_display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Teacher Display Name"
+          }
+        },
+        "required": [
+          "batch_name",
+          "enrollment_id"
+        ],
+        "title": "ChildBatchResponse",
+        "type": "object"
+      },
+      "ChildResultResponse": {
+        "additionalProperties": false,
+        "description": "A child's latest marked result in one batch, with its trend.\n\n:ivar enrollment_id: The seat\n:ivar batch_name: The batch\n:ivar title: The exam\n:ivar date: When it was sat\n:ivar marks: The mark\n:ivar total_marks: Out of how many\n:ivar previous_marks: The mark before it in the same batch, or null\n:ivar trend: ``up``, ``down`` or ``same`` against the previous\n    mark as a share of its total, or ``first``",
+        "properties": {
+          "batch_name": {
+            "title": "Batch Name",
+            "type": "string"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "enrollment_id": {
+            "format": "uuid",
+            "title": "Enrollment Id",
+            "type": "string"
+          },
+          "marks": {
+            "minimum": 0.0,
+            "title": "Marks",
+            "type": "integer"
+          },
+          "previous_marks": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Marks"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "total_marks": {
+            "minimum": 1.0,
+            "title": "Total Marks",
+            "type": "integer"
+          },
+          "trend": {
+            "enum": [
+              "down",
+              "first",
+              "same",
+              "up"
+            ],
+            "title": "Trend",
+            "type": "string"
+          }
+        },
+        "required": [
+          "batch_name",
+          "date",
+          "enrollment_id",
+          "marks",
+          "title",
+          "total_marks",
+          "trend"
+        ],
+        "title": "ChildResultResponse",
+        "type": "object"
+      },
+      "ChildSummaryResponse": {
+        "additionalProperties": false,
+        "description": "One child on G1.\n\n:ivar key: The child's first seat, which names them in other reads\n:ivar display_name: The teacher-typed name\n:ivar batch_count: How many batches\n:ivar next_payment: The most urgent fee to pay, or null\n:ivar waiting: Payments sent and being checked\n:ivar latest_results: Each batch's latest marked result\n:ivar batches: The batches, with their next classes",
+        "properties": {
+          "batch_count": {
+            "minimum": 1.0,
+            "title": "Batch Count",
+            "type": "integer"
+          },
+          "batches": {
+            "items": {
+              "$ref": "#/components/schemas/ChildBatchResponse"
+            },
+            "title": "Batches",
+            "type": "array"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "key": {
+            "format": "uuid",
+            "title": "Key",
+            "type": "string"
+          },
+          "latest_results": {
+            "items": {
+              "$ref": "#/components/schemas/ChildResultResponse"
+            },
+            "title": "Latest Results",
+            "type": "array"
+          },
+          "next_payment": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PayableResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "waiting": {
+            "items": {
+              "$ref": "#/components/schemas/WaitingPaymentResponse"
+            },
+            "title": "Waiting",
+            "type": "array"
+          }
+        },
+        "required": [
+          "batch_count",
+          "display_name",
+          "key"
+        ],
+        "title": "ChildSummaryResponse",
+        "type": "object"
+      },
+      "ClaimQueueItemResponse": {
+        "additionalProperties": false,
+        "description": "One claim waiting for the teacher (T4).\n\n**The comparison is the server's.** ``comparison`` and\n``difference`` are measured against what the period CHARGED\n[BR5.3]; the client shows them and never subtracts.\n\n:ivar claim_id: The claim\n:ivar enrollment_id: The seat it is against\n:ivar display_name: The student, as the teacher typed the name\n:ivar batch_name: The batch\n:ivar period: The period the claim resolved to\n:ivar claimed_amount: What the payer says they sent\n:ivar charged: What that period charged\n:ivar comparison: ``matches``, ``short`` or ``over``\n:ivar difference: How far from the charge, never negative\n:ivar channel: The service the money moved through\n:ivar transaction_id: The reference quoted, if any\n:ivar submitted_at: When it was sent\n:ivar submitted_by: ``student`` or ``guardian``, or null\n:ivar submitter_phone: The number the teacher holds for them\n:ivar duplicate_of: The earlier claim quoting the same reference",
+        "properties": {
+          "batch_name": {
+            "title": "Batch Name",
+            "type": "string"
+          },
+          "channel": {
+            "title": "Channel",
+            "type": "string"
+          },
+          "charged": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "claim_id": {
+            "format": "uuid",
+            "title": "Claim Id",
+            "type": "string"
+          },
+          "claimed_amount": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "comparison": {
+            "enum": [
+              "matches",
+              "over",
+              "short"
+            ],
+            "title": "Comparison",
+            "type": "string"
+          },
+          "difference": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "duplicate_of": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DuplicateClaimResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "enrollment_id": {
+            "format": "uuid",
+            "title": "Enrollment Id",
+            "type": "string"
+          },
+          "period": {
+            "title": "Period",
+            "type": "string"
+          },
+          "submitted_at": {
+            "format": "date-time",
+            "title": "Submitted At",
+            "type": "string"
+          },
+          "submitted_by": {
+            "anyOf": [
+              {
+                "enum": [
+                  "guardian",
+                  "student"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted By"
+          },
+          "submitter_phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitter Phone"
+          },
+          "transaction_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transaction Id"
+          }
+        },
+        "required": [
+          "batch_name",
+          "channel",
+          "charged",
+          "claim_id",
+          "claimed_amount",
+          "comparison",
+          "difference",
+          "display_name",
+          "enrollment_id",
+          "period",
+          "submitted_at"
+        ],
+        "title": "ClaimQueueItemResponse",
         "type": "object"
       },
       "ClaimResponse": {
@@ -615,6 +1050,63 @@
         "title": "CorrectionEntryResponse",
         "type": "object"
       },
+      "CurrentFeeResponse": {
+        "additionalProperties": false,
+        "description": "A seat's latest fee period, as the student sees it on S1.\n\nThe status is the server's [TC-9]; the app renders it and decides\nnothing from the amounts.\n\n:ivar period: ``YYYY-MM``\n:ivar status: The period's status\n:ivar due_date: When it is due\n:ivar outstanding: What is still owed for it\n:ivar charged: What the period charged (\"October fee · ৳1,200\")\n:ivar verifying: Whether a payment for it is waiting to be checked\n:ivar paid_on: The day the last approved payment for it was\n    decided, in Bangladesh, or null",
+        "properties": {
+          "charged": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "due_date": {
+            "format": "date",
+            "title": "Due Date",
+            "type": "string"
+          },
+          "outstanding": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "paid_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paid On"
+          },
+          "period": {
+            "title": "Period",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "verifying": {
+            "default": false,
+            "title": "Verifying",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "due_date",
+          "outstanding",
+          "period",
+          "status"
+        ],
+        "title": "CurrentFeeResponse",
+        "type": "object"
+      },
       "DecisionResponse": {
         "additionalProperties": false,
         "description": "The seat's state after this holder decided [BR5.2].\n\nReports **this holder's own** decision. The other link's state is\ndeliberately absent: it belongs to another person, and a seat whose\nstudent and guardian are different people shows each state only to\nits own holder. The teacher's roster is where both appear side by\nside, and that screen is D2's [AC1.10.7].\n\n:ivar enrollment_id: The seat decided on\n:ivar decision: This holder's decision after the write",
@@ -677,8 +1169,7 @@
             "title": "Code"
           },
           "phone": {
-            "maxLength": 20,
-            "minLength": 8,
+            "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
             "title": "Phone",
             "type": "string"
           }
@@ -703,9 +1194,72 @@
         "title": "DeletionResponse",
         "type": "object"
       },
+      "DeletionSummaryResponse": {
+        "additionalProperties": false,
+        "description": "What stays after this account is deleted, for the confirm screen.\n\nZeros for anyone who owns no batch: the screen then shows the plain\nvariant rather than a refusal.\n\n:ivar batch_count: Batches the account owns\n:ivar student_count: Students in them\n:ivar outstanding: What those students still owe; it stays on their\n    records and can no longer be collected",
+        "properties": {
+          "batch_count": {
+            "minimum": 0.0,
+            "title": "Batch Count",
+            "type": "integer"
+          },
+          "outstanding": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "student_count": {
+            "minimum": 0.0,
+            "title": "Student Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "batch_count",
+          "outstanding",
+          "student_count"
+        ],
+        "title": "DeletionSummaryResponse",
+        "type": "object"
+      },
+      "DuesGroupResponse": {
+        "additionalProperties": false,
+        "description": "One group on the Dues screen, totalled by the server.\n\n:ivar bucket: Which group: more than 30 days late, 1-30 days late,\n    or due and not yet late\n:ivar total: What its rows owe together\n:ivar count: How many rows\n:ivar share: Its total as a whole percent of everything owed, so the\n    app draws the bar without dividing money",
+        "properties": {
+          "bucket": {
+            "enum": [
+              "late",
+              "not_late",
+              "over_30"
+            ],
+            "title": "Bucket",
+            "type": "string"
+          },
+          "count": {
+            "minimum": 0.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "share": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Share",
+            "type": "integer"
+          },
+          "total": {
+            "$ref": "#/components/schemas/Money"
+          }
+        },
+        "required": [
+          "bucket",
+          "count",
+          "share",
+          "total"
+        ],
+        "title": "DuesGroupResponse",
+        "type": "object"
+      },
       "DuesResponse": {
         "additionalProperties": false,
-        "description": "Everyone who owes this teacher money, across every batch.\n\n**An empty ``rows`` is the defined empty state** [BR1.5], never a\n404 and never an error: a teacher whose students have all paid is\ngetting the best possible news, and a failure shape would make the\napp render a retry prompt for it.\n\n:ivar rows: One entry per owing seat, largest debt first, possibly\n    empty",
+        "description": "Everyone who owes this teacher money, across every batch.\n\n**An empty ``rows`` is the defined empty state** [BR1.5], never a\n404 and never an error: a teacher whose students have all paid is\ngetting the best possible news, and a failure shape would make the\napp render a retry prompt for it.\n\n:ivar summary: The totals, overall and per group\n:ivar rows: One entry per owing seat, latest debt first, possibly\n    empty",
         "properties": {
           "rows": {
             "items": {
@@ -713,14 +1267,20 @@
             },
             "title": "Rows",
             "type": "array"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/DuesSummaryResponse"
           }
         },
+        "required": [
+          "summary"
+        ],
         "title": "DuesResponse",
         "type": "object"
       },
       "DuesRowResponse": {
         "additionalProperties": false,
-        "description": "One person who owes money, in one batch [FR7.1].\n\nThe key is ``enrollment_id`` and never an account id [ADR-001], and\n``display_name`` is the TEACHER's record rather than anything the\nstudent or guardian wrote [TC-13]. Both are asserted schema-wide by\nthe built privacy gate rather than by remembering it here.\n\n:ivar enrollment_id: The teacher-facing key\n:ivar batch_id: The batch the debt sits in\n:ivar batch_name: That batch's name, because the same person may\n    owe in two\n:ivar display_name: The teacher-typed name\n:ivar outstanding: What this seat still owes\n:ivar oldest_unpaid_period: Which period the debt starts in, or\n    null",
+        "description": "One person who owes money, in one batch [FR7.1].\n\nThe key is ``enrollment_id`` and never an account id [ADR-001], and\n``display_name`` is the TEACHER's record rather than anything the\nstudent or guardian wrote [TC-13]. Both are asserted schema-wide by\nthe built privacy gate rather than by remembering it here.\n\n:ivar enrollment_id: The teacher-facing key\n:ivar batch_id: The batch the debt sits in\n:ivar batch_name: That batch's name, because the same person may\n    owe in two\n:ivar display_name: The teacher-typed name\n:ivar outstanding: What this seat still owes\n:ivar oldest_unpaid_period: Which period the debt starts in, or\n    null\n:ivar latest_unpaid_period: Which period it runs to, or null\n:ivar days_late: Days since the oldest late due date, or null when\n    nothing is past due\n:ivar bucket: Which group the row belongs in\n:ivar last_reminded_at: When a reminder last went out, if ever\n:ivar remindable: Whether \"Remind\" would reach this seat now",
         "properties": {
           "batch_id": {
             "format": "uuid",
@@ -731,6 +1291,27 @@
             "title": "Batch Name",
             "type": "string"
           },
+          "bucket": {
+            "enum": [
+              "late",
+              "not_late",
+              "over_30"
+            ],
+            "title": "Bucket",
+            "type": "string"
+          },
+          "days_late": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days Late"
+          },
           "display_name": {
             "title": "Display Name",
             "type": "string"
@@ -739,6 +1320,30 @@
             "format": "uuid",
             "title": "Enrollment Id",
             "type": "string"
+          },
+          "last_reminded_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Reminded At"
+          },
+          "latest_unpaid_period": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Unpaid Period"
           },
           "oldest_unpaid_period": {
             "anyOf": [
@@ -754,16 +1359,108 @@
           },
           "outstanding": {
             "$ref": "#/components/schemas/Money"
+          },
+          "remindable": {
+            "title": "Remindable",
+            "type": "boolean"
           }
         },
         "required": [
           "batch_id",
           "batch_name",
+          "bucket",
           "display_name",
           "enrollment_id",
-          "outstanding"
+          "outstanding",
+          "remindable"
         ],
         "title": "DuesRowResponse",
+        "type": "object"
+      },
+      "DuesSummaryResponse": {
+        "additionalProperties": false,
+        "description": "The Dues screen's headline, so the app adds up nothing [TC-9].\n\n:ivar total: Everything owed\n:ivar count: How many seats owe it\n:ivar late_total: What is owed past its due date\n:ivar remindable: How many seats a \"Remind\" would reach\n:ivar groups: One per bucket, latest first, empty ones included",
+        "properties": {
+          "count": {
+            "minimum": 0.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/DuesGroupResponse"
+            },
+            "title": "Groups",
+            "type": "array"
+          },
+          "late_total": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "remindable": {
+            "minimum": 0.0,
+            "title": "Remindable",
+            "type": "integer"
+          },
+          "total": {
+            "$ref": "#/components/schemas/Money"
+          }
+        },
+        "required": [
+          "count",
+          "groups",
+          "late_total",
+          "remindable",
+          "total"
+        ],
+        "title": "DuesSummaryResponse",
+        "type": "object"
+      },
+      "DuplicateClaimResponse": {
+        "additionalProperties": false,
+        "description": "The earlier claim that quoted the same transaction id.\n\n:ivar claim_id: That claim\n:ivar display_name: Whose seat it was on, as the teacher typed it\n:ivar status: How it was decided\n:ivar amount: What was approved, else what was claimed\n:ivar decided_at: When it was decided, or null",
+        "properties": {
+          "amount": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "claim_id": {
+            "format": "uuid",
+            "title": "Claim Id",
+            "type": "string"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "approved_full",
+              "approved_partial",
+              "pending",
+              "rejected"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "amount",
+          "claim_id",
+          "display_name",
+          "status"
+        ],
+        "title": "DuplicateClaimResponse",
         "type": "object"
       },
       "EnrollmentCreateRequest": {
@@ -789,7 +1486,7 @@
           "guardian_phone": {
             "anyOf": [
               {
-                "maxLength": 20,
+                "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
                 "type": "string"
               },
               {
@@ -813,7 +1510,7 @@
           "student_phone": {
             "anyOf": [
               {
-                "maxLength": 20,
+                "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
                 "type": "string"
               },
               {
@@ -922,6 +1619,66 @@
         "title": "ExamCreateRequest",
         "type": "object"
       },
+      "ExamListItemResponse": {
+        "additionalProperties": false,
+        "description": "One exam on the teacher's list, with its marking progress.\n\nCounted server-side, so the client never tallies a rows list to\ndecide what counts as entered.\n\n:ivar entered_count: Seats with a mark or an absence entered\n:ivar expected_count: Seats that could have sat the exam\n:ivar state: ``upcoming``, ``needs_marks`` or ``complete``, decided\n    by the server so the client never compares a date or a count",
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "entered_count": {
+            "minimum": 0.0,
+            "title": "Entered Count",
+            "type": "integer"
+          },
+          "exam_id": {
+            "format": "uuid",
+            "title": "Exam Id",
+            "type": "string"
+          },
+          "expected_count": {
+            "minimum": 0.0,
+            "title": "Expected Count",
+            "type": "integer"
+          },
+          "state": {
+            "enum": [
+              "complete",
+              "needs_marks",
+              "upcoming"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "subject_name": {
+            "title": "Subject Name",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "total_marks": {
+            "minimum": 1.0,
+            "title": "Total Marks",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "entered_count",
+          "exam_id",
+          "expected_count",
+          "state",
+          "subject_name",
+          "title",
+          "total_marks"
+        ],
+        "title": "ExamListItemResponse",
+        "type": "object"
+      },
       "ExamResponse": {
         "additionalProperties": false,
         "description": "One assessment.\n\n:ivar exam_id: The exam\n:ivar title: The teacher's name for it\n:ivar date: When it was sat\n:ivar total_marks: The denominator, an integer COUNT\n:ivar subject_name: The subject assessed",
@@ -965,7 +1722,7 @@
         "description": "One exam's results, with the exam and whether it may be written.\n\n**A wrapper rather than a bare array, and `writable` is why.** The\nscreen must know whether to offer mark entry at all, and that is a\nserver decision [BR5.5]: an exam in an inactive batch is read-only\nand the write is refused with `teaching.batch.inactive`. Without\nit the client either guesses, or offers an entry field that fails\non save — which is the failure a person blames on the app.\n\nThe exam travels with the results because the screen shows its\ntitle and total alongside them, and a second request to learn what\nthe first was about is a round trip the server can spare.\n\n:ivar exam: The exam these results belong to\n:ivar results: One row per seat [BR4.3]\n:ivar writable: Whether marks may be entered, decided server-side",
         "properties": {
           "exam": {
-            "$ref": "#/components/schemas/ExamResponse"
+            "$ref": "#/components/schemas/ExamListItemResponse"
           },
           "results": {
             "items": {
@@ -987,9 +1744,38 @@
         "title": "ExamResultsResponse",
         "type": "object"
       },
+      "ExamUpdateRequest": {
+        "additionalProperties": false,
+        "description": "Edit an assessment: what it is called, when, and out of how much.\n\nNo subject: an edit names what changes, and the exam stays in the\nsubject it was set in.\n\n:ivar title: The teacher's name for it\n:ivar date: When it was sat\n:ivar total_marks: The denominator, at least 1, and not below any\n    mark already recorded",
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "total_marks": {
+            "minimum": 1.0,
+            "title": "Total Marks",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "title",
+          "total_marks"
+        ],
+        "title": "ExamUpdateRequest",
+        "type": "object"
+      },
       "FamilyBatchViewResponse": {
         "additionalProperties": false,
-        "description": "What a student or guardian sees of one batch [BR7.2].\n\n``served_at`` is BR7.3's server timestamp, so a client rendering\nthis from cache can state its age without consulting the device\nclock -- which is the thing excluded from decisions.\n\n:ivar next_session_date: The next scheduled session's date, or\n    null\n:ivar next_session_start_time: Its start time, or null\n:ivar past_sessions: Past sessions with topics and attendance\n:ivar announcements: The batch's visible notes\n:ivar served_at: When the server computed this",
+        "description": "What a student or guardian sees of one batch [BR7.2].\n\n``served_at`` is BR7.3's server timestamp, so a client rendering\nthis from cache can state its age without consulting the device\nclock -- which is the thing excluded from decisions.\n\n:ivar next_session_date: The next scheduled session's date, or\n    null\n:ivar next_session_start_time: Its start time, or null\n:ivar past_sessions: Past sessions with topics and attendance\n:ivar announcements: The batch's visible notes\n:ivar served_at: When the server computed this\n:ivar next_session: The next class, or null\n:ivar following_sessions: The classes after it, soonest first\n:ivar upcoming_exam: The next exam still to be sat, or null",
         "properties": {
           "announcements": {
             "items": {
@@ -997,6 +1783,23 @@
             },
             "title": "Announcements",
             "type": "array"
+          },
+          "following_sessions": {
+            "items": {
+              "$ref": "#/components/schemas/UpcomingSessionResponse"
+            },
+            "title": "Following Sessions",
+            "type": "array"
+          },
+          "next_session": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UpcomingSessionResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "next_session_date": {
             "anyOf": [
@@ -1033,6 +1836,16 @@
             "format": "date-time",
             "title": "Served At",
             "type": "string"
+          },
+          "upcoming_exam": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UpcomingExamResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -1143,6 +1956,21 @@
         "title": "GuardianChildResponse",
         "type": "object"
       },
+      "GuardianHomeResponse": {
+        "additionalProperties": false,
+        "description": "Every child this guardian has accepted, by name.\n\n:ivar children: The children; empty before any is linked",
+        "properties": {
+          "children": {
+            "items": {
+              "$ref": "#/components/schemas/ChildSummaryResponse"
+            },
+            "title": "Children",
+            "type": "array"
+          }
+        },
+        "title": "GuardianHomeResponse",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -1213,6 +2041,29 @@
         "title": "InactiveFromRequest",
         "type": "object"
       },
+      "InboxResponse": {
+        "additionalProperties": false,
+        "description": "The reader's inbox, newest first.\n\n:ivar items: The messages\n:ivar unread: How many have not been seen, over the whole inbox",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "unread": {
+            "minimum": 0.0,
+            "title": "Unread",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "unread"
+        ],
+        "title": "InboxResponse",
+        "type": "object"
+      },
       "InvitationResponse": {
         "additionalProperties": false,
         "description": "One unaccepted seat, in exactly the width BR1.4 permits.\n\nBatch name, subject and fee amount -- all teacher-authored, so this\nread crosses no privacy boundary -- plus the seat's own id, which\nthe accept and decline routes are keyed on, and this holder's own\ndecision so the screen can offer the right action without deciding\nwhat ``declined`` means for itself [TC-9].\n\n**There is no attendance, no mark, no other enrollment and no\nfurther batch field**, and no write action but accept and decline\non the link that names the holder [AC1.10.2].\n\n:ivar enrollment_id: The seat, which the decision routes are keyed on\n:ivar batch_name: The class being joined\n:ivar subject: The subjects taught, as the teacher named them\n:ivar fee_amount: This seat's fee, or None when it inherits the\n    batch default. None is NOT zero: zero is a waiver\n:ivar decision: This holder's own decision, ``pending`` or\n    ``declined``\n:ivar role: Which link this account holds on the seat. Present\n    because the DECLINE CONFIRMATION differs by role [BR5.2]: a\n    student's decline stops their fee, a guardian's leaves the\n    student's obligation entirely intact. The client had no\n    trustworthy way to tell them apart, and one confirmation shown\n    to both told a guardian a debt was cancelled when it was not.\n\n    This discloses nothing new -- the holder is on this seat -- and\n    it is decided server-side rather than inferred from a lens hint\n    the client supplied [TC-11, D-2]",
@@ -1275,8 +2126,7 @@
         "description": "Ask for a code to be sent to a number.\n\nThe number is **typed by the user** and never read from the SIM\n[AC1.1.6]: there is no device-side source for this field.\n\n:ivar phone: The destination number in international form",
         "properties": {
           "phone": {
-            "maxLength": 20,
-            "minLength": 8,
+            "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
             "title": "Phone",
             "type": "string"
           }
@@ -1298,6 +2148,45 @@
           }
         },
         "title": "IssueResponse",
+        "type": "object"
+      },
+      "LastResultResponse": {
+        "additionalProperties": false,
+        "description": "A student's latest marked result in one batch (\"Last test 44/50\").\n\n:ivar title: The exam\n:ivar marks: The mark\n:ivar total_marks: Out of how many\n:ivar rank: The rank, only where the marksheet publishes it",
+        "properties": {
+          "marks": {
+            "minimum": 0.0,
+            "title": "Marks",
+            "type": "integer"
+          },
+          "rank": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rank"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "total_marks": {
+            "minimum": 1.0,
+            "title": "Total Marks",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "marks",
+          "title",
+          "total_marks"
+        ],
+        "title": "LastResultResponse",
         "type": "object"
       },
       "LensEntry": {
@@ -1372,7 +2261,7 @@
         "type": "object"
       },
       "MeResponse": {
-        "description": "Everything this account can be.\n\n**No role, and no default lens.** The list says what is available;\nwhich one the person wants is their choice, and a server-chosen\ndefault would be a stored role by another name. A single-entry\nlist is the app's cue to skip the picker.\n\n:ivar lenses: Every available lens, teacher first\n:ivar self_name: The name this person chose for themselves, or\n    None before they have set one\n:ivar address: Their address, or None. **Owner-private** [BR3.4]:\n    it sits in `OWNER_PRIVATE_FIELDS` and reaches no teacher-lens\n    response, which the schema-wide privacy gate asserts. It is\n    returned HERE because this is the owner reading their own row",
+        "description": "Everything this account can be.\n\n**No role, and no default lens.** The list says what is available;\nwhich one the person wants is their choice, and a server-chosen\ndefault would be a stored role by another name. A single-entry\nlist is the app's cue to skip the picker.\n\n:ivar lenses: Every available lens, teacher first\n:ivar self_name: The name this person chose for themselves, or\n    None before they have set one\n:ivar address: Their address, or None. **Owner-private** [BR3.4]:\n    it sits in `OWNER_PRIVATE_FIELDS` and reaches no teacher-lens\n    response, which the schema-wide privacy gate asserts. It is\n    returned HERE because this is the owner reading their own row\n:ivar phone: The number this account signs in with. The owner's own\n    login, read by the owner on a lens-exempt route; the profile\n    shows it read-only, and in-app deletion asks the person to type\n    it back as confirmation, which needs the app to know it",
         "properties": {
           "address": {
             "anyOf": [
@@ -1391,6 +2280,17 @@
             },
             "title": "Lenses",
             "type": "array"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
           },
           "self_name": {
             "anyOf": [
@@ -1475,6 +2375,110 @@
         "title": "NextExamResponse",
         "type": "object"
       },
+      "NotificationResponse": {
+        "additionalProperties": false,
+        "description": "One message in the reader's own inbox.\n\n:ivar notification_id: The message\n:ivar kind: What produced it\n:ivar enrollment_id: The seat it is about, if any\n:ivar batch_name: The batch, as named when it was sent\n:ivar period: The period it concerns, as ``YYYY-MM``, if any\n:ivar amount: The money it concerns, if any\n:ivar created_at: When it was sent\n:ivar read: Whether the reader has opened the inbox since",
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "batch_name": {
+            "title": "Batch Name",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "enrollment_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enrollment Id"
+          },
+          "kind": {
+            "enum": [
+              "fee_reminder",
+              "payment_approved",
+              "payment_rejected"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "notification_id": {
+            "format": "uuid",
+            "title": "Notification Id",
+            "type": "string"
+          },
+          "period": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period"
+          },
+          "read": {
+            "title": "Read",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "batch_name",
+          "created_at",
+          "kind",
+          "notification_id",
+          "read"
+        ],
+        "title": "NotificationResponse",
+        "type": "object"
+      },
+      "OutstandingResponse": {
+        "additionalProperties": false,
+        "description": "What students owe across every batch, and how much is late (T1).\n\n**``overdue`` is the server's decision**: owing on a period whose\ndue date has passed in Bangladesh. The client never compares a due\ndate with its clock.\n\n:ivar total: Everything still owed\n:ivar overdue: The part owed on periods past their due date\n:ivar overdue_students: Seats with anything overdue\n:ivar batch_count: Batches with anything owing",
+        "properties": {
+          "batch_count": {
+            "title": "Batch Count",
+            "type": "integer"
+          },
+          "overdue": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "overdue_students": {
+            "title": "Overdue Students",
+            "type": "integer"
+          },
+          "total": {
+            "$ref": "#/components/schemas/Money"
+          }
+        },
+        "required": [
+          "batch_count",
+          "overdue",
+          "overdue_students",
+          "total"
+        ],
+        "title": "OutstandingResponse",
+        "type": "object"
+      },
       "OverviewResponse": {
         "additionalProperties": false,
         "description": "The three blocks of the teacher overview, each independently absent.\n\n**``earnings`` is never absent and ``trend`` and ``next_exam``\nmay be**, which is the distinction this model exists to publish:\n\n* ``earnings`` carries a **zero value** in a month with no receipts\n  [BR2.2]. Rendering zero as \"no data\" tells a teacher their records\n  are missing when they are complete, in the month they most need to\n  know the number is really zero;\n* ``trend`` is **null under two months of history** [BR2.3], not a\n  one-point series -- a single point implies a direction it cannot\n  know;\n* ``next_exam`` is **null when nothing is scheduled** [BR3.4], which\n  the client renders as a defined empty state rather than a failure.\n\n:ivar earnings: This month's money received; never absent\n:ivar trend: The monthly series ascending, or null under two months\n:ivar next_exam: The soonest upcoming exam, or null",
@@ -1513,9 +2517,96 @@
         "title": "OverviewResponse",
         "type": "object"
       },
+      "PayableResponse": {
+        "additionalProperties": false,
+        "description": "One month a student can pay for (S3).\n\n:ivar enrollment_id: Their seat; the claim is posted against it\n:ivar batch_name: The batch\n:ivar period: The month a claim would be recorded against\n:ivar amount_due: What is still owed on it\n:ivar due_date: When it was due, or null\n:ivar total_due: Everything the seat owes, that month included\n:ivar later_periods: How many later months also owe\n:ivar days_late: Days past the oldest late due date, or null",
+        "properties": {
+          "amount_due": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "batch_name": {
+            "title": "Batch Name",
+            "type": "string"
+          },
+          "days_late": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days Late"
+          },
+          "due_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due Date"
+          },
+          "enrollment_id": {
+            "format": "uuid",
+            "title": "Enrollment Id",
+            "type": "string"
+          },
+          "later_periods": {
+            "minimum": 0.0,
+            "title": "Later Periods",
+            "type": "integer"
+          },
+          "period": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
+            "title": "Period",
+            "type": "string"
+          },
+          "total_due": {
+            "$ref": "#/components/schemas/Money"
+          }
+        },
+        "required": [
+          "amount_due",
+          "batch_name",
+          "enrollment_id",
+          "later_periods",
+          "period",
+          "total_due"
+        ],
+        "title": "PayableResponse",
+        "type": "object"
+      },
+      "PayablesResponse": {
+        "additionalProperties": false,
+        "description": "What the \"Pay a fee\" screen offers, and what it explains.\n\n:ivar payable: Months to pay for, earliest due first\n:ivar waiting: Seats whose payment is already being checked",
+        "properties": {
+          "payable": {
+            "items": {
+              "$ref": "#/components/schemas/PayableResponse"
+            },
+            "title": "Payable",
+            "type": "array"
+          },
+          "waiting": {
+            "items": {
+              "$ref": "#/components/schemas/WaitingPaymentResponse"
+            },
+            "title": "Waiting",
+            "type": "array"
+          }
+        },
+        "title": "PayablesResponse",
+        "type": "object"
+      },
       "PaymentDestinationResponse": {
         "additionalProperties": false,
-        "description": "Where to send a payment, and through what.\n\n**The ONE response in the product carrying the collection number**\n[BR6.4, NFR14.32]. The allowlist test asserts that as an equality\nagainst a one-element set, so the field spreading to a second\nresponse fails the build rather than passing a membership check.\n\nWhere the teacher set no number the route returns **no object at\nall** rather than this model with a null in it [NFR14.34]: a null\ninvites a client-side placeholder, and an absent object leaves the\nclient nothing to render while the copy tells the person to ask the\nteacher how to pay.\n\n:ivar collection_number: Where payments are sent\n:ivar collection_channel: Which service that number belongs to\n:ivar channels: The channel set, server-supplied so adding one is a\n    data change rather than an app release",
+        "description": "Where to send a payment, and through what.\n\n**The ONE response in the product carrying the collection number**\n[BR6.4, NFR14.32]. The allowlist test asserts that as an equality\nagainst a one-element set, so the field spreading to a second\nresponse fails the build rather than passing a membership check.\n\nWhere the teacher set no number the route returns **no object at\nall** rather than this model with a null in it [NFR14.34]: a null\ninvites a client-side placeholder, and an absent object leaves the\nclient nothing to render while the copy tells the person to ask the\nteacher how to pay.\n\n:ivar collection_number: Where payments are sent\n:ivar collection_channel: Which service that number belongs to\n:ivar teacher_display_name: Who the money goes to, or null\n:ivar channels: The channel set, server-supplied so adding one is a\n    data change rather than an app release",
         "properties": {
           "channels": {
             "items": {
@@ -1538,6 +2629,17 @@
           "collection_number": {
             "title": "Collection Number",
             "type": "string"
+          },
+          "teacher_display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Teacher Display Name"
           }
         },
         "required": [
@@ -1545,6 +2647,139 @@
           "collection_number"
         ],
         "title": "PaymentDestinationResponse",
+        "type": "object"
+      },
+      "PaymentLineResponse": {
+        "additionalProperties": false,
+        "description": "One batch's fee in one month, and where its payment stands (G3).\n\n:ivar enrollment_id: The seat\n:ivar batch_name: The batch\n:ivar amount: What the month charged\n:ivar state: ``paid``, ``partly_paid``, ``waived``, ``verifying`` or\n    ``due``\n:ivar due_date: When it was due\n:ivar sent_on: When the latest payment for it was sent, or null\n:ivar decided_on: When that payment was approved, or null\n:ivar channel: Which app it moved through, or null",
+        "properties": {
+          "amount": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "batch_name": {
+            "title": "Batch Name",
+            "type": "string"
+          },
+          "channel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channel"
+          },
+          "decided_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided On"
+          },
+          "due_date": {
+            "format": "date",
+            "title": "Due Date",
+            "type": "string"
+          },
+          "enrollment_id": {
+            "format": "uuid",
+            "title": "Enrollment Id",
+            "type": "string"
+          },
+          "sent_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sent On"
+          },
+          "state": {
+            "enum": [
+              "due",
+              "paid",
+              "partly_paid",
+              "verifying",
+              "waived"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "amount",
+          "batch_name",
+          "due_date",
+          "enrollment_id",
+          "state"
+        ],
+        "title": "PaymentLineResponse",
+        "type": "object"
+      },
+      "PaymentMonthResponse": {
+        "additionalProperties": false,
+        "description": "One month's fees across the child's batches.\n\n:ivar period: ``YYYY-MM``\n:ivar lines: One per batch charged that month",
+        "properties": {
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/PaymentLineResponse"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "period": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
+            "title": "Period",
+            "type": "string"
+          }
+        },
+        "required": [
+          "lines",
+          "period"
+        ],
+        "title": "PaymentMonthResponse",
+        "type": "object"
+      },
+      "PaymentsResponse": {
+        "additionalProperties": false,
+        "description": "A child's fee history, newest month first (G3).\n\n:ivar display_name: The child\n:ivar year: The year the total covers\n:ivar paid_this_year: What payments approved this year came to\n:ivar months: The months, newest first",
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "months": {
+            "items": {
+              "$ref": "#/components/schemas/PaymentMonthResponse"
+            },
+            "title": "Months",
+            "type": "array"
+          },
+          "paid_this_year": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "year": {
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "display_name",
+          "paid_this_year",
+          "year"
+        ],
+        "title": "PaymentsResponse",
         "type": "object"
       },
       "ProfileUpdateRequest": {
@@ -1581,8 +2816,20 @@
       },
       "ProgressEntryResponse": {
         "additionalProperties": false,
-        "description": "One exam in a child's progress series [BR6.6].\n\n**An absence carries no numeric value**, rather than a zero: an\nabsence plotted as zero shows a collapse in performance that did\nnot happen.\n\n:ivar exam_id: The exam\n:ivar title: Its title\n:ivar date: When it was sat\n:ivar total_marks: Its denominator\n:ivar result_state: One of the four states\n:ivar marks: The number, or null",
+        "description": "One exam in a child's progress series [BR6.6].\n\n**An absence carries no numeric value**, rather than a zero: an\nabsence plotted as zero shows a collapse in performance that did\nnot happen.\n\n:ivar exam_id: The exam\n:ivar title: Its title\n:ivar date: When it was sat\n:ivar total_marks: Its denominator\n:ivar result_state: One of the four states\n:ivar marks: The number, or null\n:ivar subject_name: Which subject the exam was in\n:ivar rank: The viewer's rank, only where the marksheet publishes\n    its comparison [BR6.4]; else null\n:ivar ranked_out_of: How many marked results the rank is among\n:ivar batch_average: The batch's average mark, on the same condition",
         "properties": {
+          "batch_average": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch Average"
+          },
           "date": {
             "format": "date",
             "title": "Date",
@@ -1604,6 +2851,30 @@
             ],
             "title": "Marks"
           },
+          "rank": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rank"
+          },
+          "ranked_out_of": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ranked Out Of"
+          },
           "result_state": {
             "enum": [
               "absent",
@@ -1613,6 +2884,17 @@
             ],
             "title": "Result State",
             "type": "string"
+          },
+          "subject_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Name"
           },
           "title": {
             "title": "Title",
@@ -1634,9 +2916,64 @@
         "title": "ProgressEntryResponse",
         "type": "object"
       },
+      "ProgressSummaryResponse": {
+        "additionalProperties": false,
+        "description": "G2's reading of a child's latest run of results in one batch.\n\n:ivar direction: ``up``, ``down`` or ``same``\n:ivar run: How many tests the run spans\n:ivar first_marks: The run's first mark\n:ivar last_marks: Its last mark\n:ivar total_marks: The last test's total\n:ivar above_average: Whether the last mark beats the published batch\n    average, or null where none was published",
+        "properties": {
+          "above_average": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Above Average"
+          },
+          "direction": {
+            "enum": [
+              "down",
+              "same",
+              "up"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "first_marks": {
+            "minimum": 0.0,
+            "title": "First Marks",
+            "type": "integer"
+          },
+          "last_marks": {
+            "minimum": 0.0,
+            "title": "Last Marks",
+            "type": "integer"
+          },
+          "run": {
+            "minimum": 2.0,
+            "title": "Run",
+            "type": "integer"
+          },
+          "total_marks": {
+            "minimum": 1.0,
+            "title": "Total Marks",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "direction",
+          "first_marks",
+          "last_marks",
+          "run",
+          "total_marks"
+        ],
+        "title": "ProgressSummaryResponse",
+        "type": "object"
+      },
       "PublishedMarksheetResponse": {
         "additionalProperties": false,
-        "description": "A marksheet with its comparison [BR6.2].\n\n**No per-student collection.** ``bands`` holds counts rather than\npeople, and a test over the generated document asserts that no\nproperty of this schema is a collection of student-shaped\nobjects.\n\n:ivar published: Always true; the discriminator a client switches\n    on\n:ivar viewer_marks: The viewer's own mark, or null if absent\n:ivar viewer_rank: Their rank among marked results, or null\n:ivar average: The mean of marked results\n:ivar highest: The highest marked result\n:ivar marked_count: How many results were marked\n:ivar bands: The merged distribution",
+        "description": "A marksheet with its comparison [BR6.2].\n\n**No per-student collection.** ``bands`` holds counts rather than\npeople, and a test over the generated document asserts that no\nproperty of this schema is a collection of student-shaped\nobjects.\n\n:ivar published: Always true; the discriminator a client switches\n    on\n:ivar exam_title: The exam's title\n:ivar total_marks: Its denominator\n:ivar viewer_result_state: The viewer's own result state\n:ivar viewer_marks: The viewer's own mark, or null if absent\n:ivar viewer_rank: Their rank among marked results, or null\n:ivar average: The mean of marked results\n:ivar highest: The highest marked result\n:ivar marked_count: How many results were marked\n:ivar bands: The merged distribution",
         "properties": {
           "average": {
             "title": "Average",
@@ -1648,6 +2985,10 @@
             },
             "title": "Bands",
             "type": "array"
+          },
+          "exam_title": {
+            "title": "Exam Title",
+            "type": "string"
           },
           "highest": {
             "title": "Highest",
@@ -1662,6 +3003,11 @@
             "default": true,
             "title": "Published",
             "type": "boolean"
+          },
+          "total_marks": {
+            "minimum": 1.0,
+            "title": "Total Marks",
+            "type": "integer"
           },
           "viewer_marks": {
             "anyOf": [
@@ -1684,15 +3030,75 @@
               }
             ],
             "title": "Viewer Rank"
+          },
+          "viewer_result_state": {
+            "enum": [
+              "absent",
+              "joined_after",
+              "marked",
+              "not_entered"
+            ],
+            "title": "Viewer Result State",
+            "type": "string"
           }
         },
         "required": [
           "average",
           "bands",
+          "exam_title",
           "highest",
-          "marked_count"
+          "marked_count",
+          "total_marks",
+          "viewer_result_state"
         ],
         "title": "PublishedMarksheetResponse",
+        "type": "object"
+      },
+      "RecentDecisionResponse": {
+        "additionalProperties": false,
+        "description": "A claim decided in the last day.\n\n:ivar claim_id: The claim\n:ivar display_name: The student\n:ivar batch_name: The batch\n:ivar status: How it was decided\n:ivar amount: What was approved, else what was claimed\n:ivar decided_at: When",
+        "properties": {
+          "amount": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "batch_name": {
+            "title": "Batch Name",
+            "type": "string"
+          },
+          "claim_id": {
+            "format": "uuid",
+            "title": "Claim Id",
+            "type": "string"
+          },
+          "decided_at": {
+            "format": "date-time",
+            "title": "Decided At",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "approved_full",
+              "approved_partial",
+              "pending",
+              "rejected"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "amount",
+          "batch_name",
+          "claim_id",
+          "decided_at",
+          "display_name",
+          "status"
+        ],
+        "title": "RecentDecisionResponse",
         "type": "object"
       },
       "RefreshRequest": {
@@ -1725,9 +3131,52 @@
         "title": "RejectionRequest",
         "type": "object"
       },
+      "ReminderRequest": {
+        "additionalProperties": false,
+        "description": "The seats a teacher wants reminded about what they owe.\n\n:ivar enrollment_ids: The seats; every one must be this teacher's",
+        "properties": {
+          "enrollment_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Enrollment Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "enrollment_ids"
+        ],
+        "title": "ReminderRequest",
+        "type": "object"
+      },
+      "ReminderResponse": {
+        "additionalProperties": false,
+        "description": "What the reminder did.\n\n:ivar sent: Seats whose student or guardian was reminded in the app\n:ivar skipped: Seats left alone -- owing nothing, already reminded\n    today, or with nobody who has accepted the seat",
+        "properties": {
+          "sent": {
+            "minimum": 0.0,
+            "title": "Sent",
+            "type": "integer"
+          },
+          "skipped": {
+            "minimum": 0.0,
+            "title": "Skipped",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sent",
+          "skipped"
+        ],
+        "title": "ReminderResponse",
+        "type": "object"
+      },
       "RosterFeeRowResponse": {
         "additionalProperties": false,
-        "description": "One seat's fee position, as its teacher sees it.\n\nThe key is ``enrollment_id`` and never an account id [ADR-001],\nasserted schema-wide by the built privacy gate.\n\n**No ``collection_number``.** The teacher's payment destination is\ncarried by exactly one response and this is not it [NFR14.33].\n\n:ivar enrollment_id: The teacher-facing key\n:ivar display_name: The teacher-typed name\n:ivar outstanding: What this seat owes across every period\n:ivar current_period: The latest generated period, or null\n:ivar current_status: That period's status, or null\n:ivar due_date: That period's due date, or null",
+        "description": "One seat's fee position, as its teacher sees it.\n\nThe key is ``enrollment_id`` and never an account id [ADR-001],\nasserted schema-wide by the built privacy gate.\n\n**No ``collection_number``.** The teacher's payment destination is\ncarried by exactly one response and this is not it [NFR14.33].\n\n:ivar enrollment_id: The teacher-facing key\n:ivar display_name: The teacher-typed name\n:ivar outstanding: What this seat owes across every period\n:ivar current_period: The latest generated period, or null\n:ivar current_status: That period's status, or null\n:ivar due_date: That period's due date, or null\n:ivar days_overdue: How late the oldest unpaid period is, decided by\n    the server against Bangladesh's date, or null\n:ivar verifying: The total of claims still waiting for the teacher",
         "properties": {
           "current_period": {
             "anyOf": [
@@ -1757,6 +3206,17 @@
             ],
             "title": "Current Status"
           },
+          "days_overdue": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days Overdue"
+          },
           "display_name": {
             "title": "Display Name",
             "type": "string"
@@ -1780,6 +3240,16 @@
           },
           "outstanding": {
             "$ref": "#/components/schemas/Money"
+          },
+          "verifying": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -1896,6 +3366,54 @@
           "enrollment_id"
         ],
         "title": "RosterSeatResponse",
+        "type": "object"
+      },
+      "ScheduleRequest": {
+        "additionalProperties": false,
+        "description": "A batch's complete weekly schedule, replacing the old one.\n\n:ivar slots: Every weekly class; empty clears the schedule",
+        "properties": {
+          "slots": {
+            "items": {
+              "$ref": "#/components/schemas/ScheduleSlotWire"
+            },
+            "maxItems": 21,
+            "title": "Slots",
+            "type": "array"
+          }
+        },
+        "required": [
+          "slots"
+        ],
+        "title": "ScheduleRequest",
+        "type": "object"
+      },
+      "ScheduleSlotWire": {
+        "additionalProperties": false,
+        "description": "One weekly class.\n\n:ivar weekday: 0-6, Monday through Sunday\n:ivar start_time: When it starts, ``HH:MM``\n:ivar end_time: When it ends, ``HH:MM``, after the start",
+        "properties": {
+          "end_time": {
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+            "title": "End Time",
+            "type": "string"
+          },
+          "start_time": {
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+            "title": "Start Time",
+            "type": "string"
+          },
+          "weekday": {
+            "maximum": 6.0,
+            "minimum": 0.0,
+            "title": "Weekday",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "end_time",
+          "start_time",
+          "weekday"
+        ],
+        "title": "ScheduleSlotWire",
         "type": "object"
       },
       "SeatMarkRequest": {
@@ -2128,7 +3646,7 @@
       },
       "SessionRosterResponse": {
         "additionalProperties": false,
-        "description": "One session's roster, with the version it is at.\n\n**A wrapper rather than a bare array, and the version is why.**\nAttendance writes carry a `base_attendance_version` and a stale\none is refused with a 409 [TC-8, D-9]. After that refusal the app\nre-reads the roster to show what changed — and without the current\nversion here it cannot compose the next write, so a conflict\nbecomes a dead end rather than something a person can resolve.\n\n:ivar seats: One row per seat on the roster\n:ivar attendance_version: The roster's current version",
+        "description": "One session's roster, with the version it is at.\n\n**A wrapper rather than a bare array, and the version is why.**\nAttendance writes carry a `base_attendance_version` and a stale\none is refused with a 409 [TC-8, D-9]. After that refusal the app\nre-reads the roster to show what changed — and without the current\nversion here it cannot compose the next write, so a conflict\nbecomes a dead end rather than something a person can resolve.\n\n:ivar seats: One row per seat on the roster\n:ivar attendance_version: The roster's current version\n:ivar writable: Whether a roster write would be accepted now,\n    decided by the write path's own refusals [BR1.6, BR5.5]",
         "properties": {
           "attendance_version": {
             "title": "Attendance Version",
@@ -2140,11 +3658,16 @@
             },
             "title": "Seats",
             "type": "array"
+          },
+          "writable": {
+            "title": "Writable",
+            "type": "boolean"
           }
         },
         "required": [
           "attendance_version",
-          "seats"
+          "seats",
+          "writable"
         ],
         "title": "SessionRosterResponse",
         "type": "object"
@@ -2169,6 +3692,39 @@
         "title": "SessionSubjectRequest",
         "type": "object"
       },
+      "ShortfallPreviewRequest": {
+        "additionalProperties": false,
+        "description": "An amount the teacher is about to approve.\n\n:ivar approved_amount: The amount being considered",
+        "properties": {
+          "approved_amount": {
+            "$ref": "#/components/schemas/Money"
+          }
+        },
+        "required": [
+          "approved_amount"
+        ],
+        "title": "ShortfallPreviewRequest",
+        "type": "object"
+      },
+      "ShortfallPreviewResponse": {
+        "additionalProperties": false,
+        "description": "What that approval would leave short, and whether to ask about it.\n\n:ivar shortfall: ``charged - approved``, floored at zero\n:ivar disposition_required: Whether the teacher must choose carry or\n    waive, which the decision itself will insist on",
+        "properties": {
+          "disposition_required": {
+            "title": "Disposition Required",
+            "type": "boolean"
+          },
+          "shortfall": {
+            "$ref": "#/components/schemas/Money"
+          }
+        },
+        "required": [
+          "disposition_required",
+          "shortfall"
+        ],
+        "title": "ShortfallPreviewResponse",
+        "type": "object"
+      },
       "SignupRequest": {
         "additionalProperties": false,
         "description": "Create an account for a number nobody has registered.\n\nThe number is **typed by the person** and never read from the SIM\n[TC-4, D-35]: there is no device-side source for this field, here\nor anywhere in this product.\n\n:ivar phone: The number this identity is keyed on\n:ivar role: The claimed role; nothing verifies it [BR4.2]\n:ivar self_name: The name the person chose for themselves. Lands on\n    ``Profile.self_name`` and never on an ``Enrollment.display_name``\n    [BR3.1]\n:ivar address: Owner-private, and optional because the\n    already-added path reaches signup with no address yet",
@@ -2186,8 +3742,7 @@
             "title": "Address"
           },
           "phone": {
-            "maxLength": 20,
-            "minLength": 8,
+            "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
             "title": "Phone",
             "type": "string"
           },
@@ -2236,10 +3791,120 @@
         "title": "SignupResponse",
         "type": "object"
       },
+      "StudentBatchResponse": {
+        "additionalProperties": false,
+        "description": "One batch a student is in (S1).\n\n:ivar enrollment_id: Their seat; every other student read takes it\n:ivar batch_name: The batch\n:ivar teacher_display_name: What the teacher is called, or None\n:ivar subjects: The subjects taught\n:ivar schedule: The weekly classes\n:ivar current_fee: The latest fee period, or None before the first\n:ivar next_session: This batch's next class, or null\n:ivar is_next: Whether that class is the student's next one across\n    every batch -- true on at most one row\n:ivar last_result: The latest marked result, or null",
+        "properties": {
+          "batch_name": {
+            "title": "Batch Name",
+            "type": "string"
+          },
+          "current_fee": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CurrentFeeResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "enrollment_id": {
+            "format": "uuid",
+            "title": "Enrollment Id",
+            "type": "string"
+          },
+          "is_next": {
+            "default": false,
+            "title": "Is Next",
+            "type": "boolean"
+          },
+          "last_result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LastResultResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "next_session": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UpcomingSessionResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "schedule": {
+            "items": {
+              "$ref": "#/components/schemas/ScheduleSlotWire"
+            },
+            "title": "Schedule",
+            "type": "array"
+          },
+          "subjects": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Subjects",
+            "type": "array"
+          },
+          "teacher_display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Teacher Display Name"
+          }
+        },
+        "required": [
+          "batch_name",
+          "current_fee",
+          "enrollment_id",
+          "schedule",
+          "subjects",
+          "teacher_display_name"
+        ],
+        "title": "StudentBatchResponse",
+        "type": "object"
+      },
+      "SubjectOption": {
+        "additionalProperties": false,
+        "description": "One subject of a batch, with the key that names it.\n\n**Why the key is on the wire at all.** Creating an exam and adding a\nclass both name a subject by ``batch_subject_id``, and no response\ncarried one: the batch list sent subject NAMES only, so a client had\nnothing to send and exam creation could not be built. Additive,\nbeside the existing ``subjects`` strings, because ``/v1`` endpoints\nonly ever grow [D-26].\n\n:ivar id: The ``batch_subject_id`` exam and session writes take\n:ivar name: The subject's name, as the teacher typed it",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "SubjectOption",
+        "type": "object"
+      },
       "SuppressedMarksheetResponse": {
         "additionalProperties": false,
-        "description": "A marksheet with no comparison at all [BR6.4].\n\nA **distinct shape** rather than the published one with nulls: a\nrank of null beside an average of zero would read as a real\nresult.\n\n:ivar published: Always false; the discriminator\n:ivar viewer_marks: The viewer's own mark, or null\n:ivar reason: Why no comparison was published",
+        "description": "A marksheet with no comparison at all [BR6.4].\n\nA **distinct shape** rather than the published one with nulls: a\nrank of null beside an average of zero would read as a real\nresult.\n\n:ivar published: Always false; the discriminator\n:ivar exam_title: The exam's title\n:ivar total_marks: Its denominator\n:ivar viewer_result_state: The viewer's own result state\n:ivar viewer_marks: The viewer's own mark, or null\n:ivar reason: Why no comparison was published",
         "properties": {
+          "exam_title": {
+            "title": "Exam Title",
+            "type": "string"
+          },
           "published": {
             "const": false,
             "default": false,
@@ -2254,6 +3919,11 @@
             "title": "Reason",
             "type": "string"
           },
+          "total_marks": {
+            "minimum": 1.0,
+            "title": "Total Marks",
+            "type": "integer"
+          },
           "viewer_marks": {
             "anyOf": [
               {
@@ -2264,12 +3934,202 @@
               }
             ],
             "title": "Viewer Marks"
+          },
+          "viewer_result_state": {
+            "enum": [
+              "absent",
+              "joined_after",
+              "marked",
+              "not_entered"
+            ],
+            "title": "Viewer Result State",
+            "type": "string"
           }
         },
         "required": [
-          "reason"
+          "exam_title",
+          "reason",
+          "total_marks",
+          "viewer_result_state"
         ],
         "title": "SuppressedMarksheetResponse",
+        "type": "object"
+      },
+      "TodayClassResponse": {
+        "additionalProperties": false,
+        "description": "One class today (T1).\n\n:ivar session_id: The class\n:ivar batch_id: Its batch\n:ivar batch_name: The batch's name\n:ivar subject_name: The subject, where one is set\n:ivar start_time: When it starts\n:ivar end_time: When it ends, where set\n:ivar status: ``scheduled``, ``held`` or ``cancelled``\n:ivar topic: The logged topic, where one was written\n:ivar topic_logged: Whether a topic was written at all\n:ivar attendance_version: The version a roster write composes against\n:ivar topic_version: The version a topic write composes against\n:ivar is_next: The first class still to start\n:ivar starts_in_minutes: Minutes until it starts, or null once begun\n:ivar exam_id: An exam this batch sits today\n:ivar exam_title: That exam's title",
+        "properties": {
+          "attendance_version": {
+            "title": "Attendance Version",
+            "type": "integer"
+          },
+          "batch_id": {
+            "format": "uuid",
+            "title": "Batch Id",
+            "type": "string"
+          },
+          "batch_name": {
+            "title": "Batch Name",
+            "type": "string"
+          },
+          "end_time": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Time"
+          },
+          "exam_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exam Id"
+          },
+          "exam_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exam Title"
+          },
+          "is_next": {
+            "title": "Is Next",
+            "type": "boolean"
+          },
+          "session_id": {
+            "format": "uuid",
+            "title": "Session Id",
+            "type": "string"
+          },
+          "start_time": {
+            "format": "time",
+            "title": "Start Time",
+            "type": "string"
+          },
+          "starts_in_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Starts In Minutes"
+          },
+          "status": {
+            "enum": [
+              "cancelled",
+              "held",
+              "scheduled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "subject_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Name"
+          },
+          "topic": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Topic"
+          },
+          "topic_logged": {
+            "title": "Topic Logged",
+            "type": "boolean"
+          },
+          "topic_version": {
+            "title": "Topic Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "attendance_version",
+          "batch_id",
+          "batch_name",
+          "is_next",
+          "session_id",
+          "start_time",
+          "status",
+          "topic_logged",
+          "topic_version"
+        ],
+        "title": "TodayClassResponse",
+        "type": "object"
+      },
+      "TodayResponse": {
+        "additionalProperties": false,
+        "description": "The teacher's Today screen in one read (T1).\n\n:ivar date: Today, in Bangladesh\n:ivar outstanding: Money owed and overdue\n:ivar classes: Today's classes, by start time\n:ivar to_verify_count: How many payments wait to be checked\n:ivar to_verify: The first few of them\n:ivar has_batches: Whether the teacher has made a batch yet",
+        "properties": {
+          "classes": {
+            "items": {
+              "$ref": "#/components/schemas/TodayClassResponse"
+            },
+            "title": "Classes",
+            "type": "array"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "has_batches": {
+            "title": "Has Batches",
+            "type": "boolean"
+          },
+          "outstanding": {
+            "$ref": "#/components/schemas/OutstandingResponse"
+          },
+          "to_verify": {
+            "items": {
+              "$ref": "#/components/schemas/ClaimQueueItemResponse"
+            },
+            "title": "To Verify",
+            "type": "array"
+          },
+          "to_verify_count": {
+            "title": "To Verify Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "classes",
+          "date",
+          "has_batches",
+          "outstanding",
+          "to_verify",
+          "to_verify_count"
+        ],
+        "title": "TodayResponse",
         "type": "object"
       },
       "TokenResponse": {
@@ -2340,6 +4200,100 @@
         "title": "TopicWriteResponse",
         "type": "object"
       },
+      "UpcomingExamResponse": {
+        "additionalProperties": false,
+        "description": "The next exam a student will sit (\"Coming up\").\n\n:ivar title: Its title\n:ivar date: When\n:ivar total_marks: Out of how many\n:ivar subject_name: Which subject",
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "subject_name": {
+            "title": "Subject Name",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "total_marks": {
+            "minimum": 1.0,
+            "title": "Total Marks",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "subject_name",
+          "title",
+          "total_marks"
+        ],
+        "title": "UpcomingExamResponse",
+        "type": "object"
+      },
+      "UpcomingSessionResponse": {
+        "additionalProperties": false,
+        "description": "A class still to come, with the server's comparisons made.\n\n:ivar date: Its date\n:ivar start_time: When it starts\n:ivar end_time: When it ends, or null\n:ivar starts_in_minutes: Minutes until it starts when that is today\n    in Bangladesh, else null\n:ivar moved: Whether the teacher moved it from its usual time\n:ivar subject_name: What it teaches, or null",
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "end_time": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Time"
+          },
+          "moved": {
+            "title": "Moved",
+            "type": "boolean"
+          },
+          "start_time": {
+            "format": "time",
+            "title": "Start Time",
+            "type": "string"
+          },
+          "starts_in_minutes": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Starts In Minutes"
+          },
+          "subject_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Name"
+          }
+        },
+        "required": [
+          "date",
+          "moved",
+          "start_time"
+        ],
+        "title": "UpcomingSessionResponse",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -2378,6 +4332,32 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "VerificationQueueResponse": {
+        "additionalProperties": false,
+        "description": "The teacher's payment queue.\n\n:ivar pending: Waiting claims, oldest first\n:ivar decided_recently: Claims decided in the last day, newest first",
+        "properties": {
+          "decided_recently": {
+            "items": {
+              "$ref": "#/components/schemas/RecentDecisionResponse"
+            },
+            "title": "Decided Recently",
+            "type": "array"
+          },
+          "pending": {
+            "items": {
+              "$ref": "#/components/schemas/ClaimQueueItemResponse"
+            },
+            "title": "Pending",
+            "type": "array"
+          }
+        },
+        "required": [
+          "decided_recently",
+          "pending"
+        ],
+        "title": "VerificationQueueResponse",
         "type": "object"
       },
       "VerificationRequest": {
@@ -2425,8 +4405,7 @@
             "type": "string"
           },
           "phone": {
-            "maxLength": 20,
-            "minLength": 8,
+            "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
             "title": "Phone",
             "type": "string"
           }
@@ -2436,6 +4415,48 @@
           "phone"
         ],
         "title": "VerifyRequest",
+        "type": "object"
+      },
+      "WaitingPaymentResponse": {
+        "additionalProperties": false,
+        "description": "A seat not offered because its payment is being checked.\n\n:ivar batch_name: The batch\n:ivar period: The month the waiting payment is for\n:ivar amount: What was claimed\n:ivar channel: Which app it moved through\n:ivar submitted_at: When it was sent",
+        "properties": {
+          "amount": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "batch_name": {
+            "title": "Batch Name",
+            "type": "string"
+          },
+          "channel": {
+            "title": "Channel",
+            "type": "string"
+          },
+          "period": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
+            "title": "Period",
+            "type": "string"
+          },
+          "submitted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted At"
+          }
+        },
+        "required": [
+          "amount",
+          "batch_name",
+          "channel",
+          "period"
+        ],
+        "title": "WaitingPaymentResponse",
         "type": "object"
       }
     }
@@ -2469,7 +4490,7 @@
         ]
       },
       "post": {
-        "description": "Send a deletion code, or delete once one is presented.\n\n**One route with two steps rather than two routes**, and that is a\ndeliberate consequence of the allowlist rather than a convenience.\n``PUBLIC_ROUTES`` declares exactly two external deletion entries,\nits count is asserted at eight, and D6's stated job is to land\nhandlers against entries already under review -- not to add a public\nroute in the commit that implements one. A separate\n``/account-deletion/code`` would have been a ninth public entry,\nwhich is a diff against a stated number [BR3.2].\n\nThe step is chosen by whether ``code`` is present, which is also how\nthe page's single form behaves: submit a number to be sent a code,\nsubmit it again with the code to confirm.\n\n``verify`` is CALLED rather than reimplemented, which is what gives\nthis route the single-use rule, the expiry and the attempt ceiling\nwithout a second copy of any of them [NFR14.81]. Reimplementing it\nis the obvious shortcut for a route living in a different module.\n\n:param body: The request body\n:param request: The incoming request\n:param session: The request-scoped session\n:param gateway: The configured SMS gateway\n:return: ``requested`` after a code is sent, ``deleted`` after one\n    is spent\n:raises CeilingBreach: A deletion ceiling refused this send\n:raises ValidationError: The code is wrong, expired, used or was\n    issued for a different purpose\n:raises DeletionRefused: The account owns at least one batch",
+        "description": "Send a deletion code, or delete once one is presented.\n\n**One route with two steps rather than two routes**, and that is a\ndeliberate consequence of the allowlist rather than a convenience.\n``PUBLIC_ROUTES`` declares exactly two external deletion entries,\nits count is asserted at eight, and D6's stated job is to land\nhandlers against entries already under review -- not to add a public\nroute in the commit that implements one. A separate\n``/account-deletion/code`` would have been a ninth public entry,\nwhich is a diff against a stated number [BR3.2].\n\nThe step is chosen by whether ``code`` is present, which is also how\nthe page's single form behaves: submit a number to be sent a code,\nsubmit it again with the code to confirm.\n\n``verify`` is CALLED rather than reimplemented, which is what gives\nthis route the single-use rule, the expiry and the attempt ceiling\nwithout a second copy of any of them [NFR14.81]. Reimplementing it\nis the obvious shortcut for a route living in a different module.\n\n:param body: The request body\n:param request: The incoming request\n:param session: The request-scoped session\n:param gateway: The configured SMS gateway\n:return: ``requested`` after a code is sent, ``deleted`` after one\n    is spent\n:raises CeilingBreach: A deletion ceiling refused this send\n:raises ValidationError: The code is wrong, expired, used or was\n    issued for a different purpose",
         "operationId": "external_deletion_account_deletion_post",
         "requestBody": {
           "content": {
@@ -2575,14 +4596,16 @@
     },
     "/v1/accounts/already-added": {
       "get": {
-        "description": "Report whether a teacher recorded this number, and nothing more.\n\n**This route discloses that a seat exists, deliberately**\n[BR2.3, AC1.12.2]. That is its purpose, and it is why BR2.2's\nbyte-identical requirement applies to the OTP endpoint and not to\nthis one. What is bounded is the WIDTH -- never the teacher, never\nthe batch -- and the rate, through signup's own ceilings.\n\nPublic, and in ``PUBLIC_ROUTES``: it is called while the signup\nform renders, before any account exists.\n\n:param phone: The number typed into the form\n:param request: The incoming request\n:param session: The request-scoped session\n:return: Existence, the name to pre-fill and the role to lock\n:raises CeilingBreach: A signup ceiling refused this request",
+        "description": "Report whether a teacher recorded this number, and nothing more.\n\n**This route discloses that a seat exists, deliberately**\n[BR2.3, AC1.12.2]. That is its purpose, and it is why BR2.2's\nbyte-identical requirement applies to the OTP endpoint and not to\nthis one. What is bounded is the WIDTH -- never the teacher, never\nthe batch -- and the rate, through signup's own ceilings.\n\nPublic, and in ``PUBLIC_ROUTES``: it is called while the signup\nform renders, before any account exists.\n\n:param phone: The number typed into the form, canonicalised on the\n    way in like every other number, so the ceiling and the lookup\n    both see one spelling\n:param request: The incoming request\n:param session: The request-scoped session\n:return: Existence, the name to pre-fill and the role to lock\n:raises CeilingBreach: A signup ceiling refused this request",
         "operationId": "lookup_already_added_v1_accounts_already_added_get",
         "parameters": [
           {
+            "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
             "in": "query",
             "name": "phone",
             "required": true,
             "schema": {
+              "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
               "title": "Phone",
               "type": "string"
             }
@@ -2995,6 +5018,60 @@
         ]
       }
     },
+    "/v1/batches/{batch_id}": {
+      "patch": {
+        "description": "Edit a batch's name, subjects, fee or due day [AC2.3.1].\n\nA new fee reaches only cycles generated after it; what is already\nowed is never rewritten.\n\n:param batch_id: The batch, from the route path\n:param body: What changes; an omitted field is left alone\n:param lens: The teacher lens carrying the owner id\n:param session: The request-scoped session\n:return: The batch as the list describes it",
+        "operationId": "update_batch_v1_batches__batch_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Batch",
+        "tags": [
+          "batches"
+        ]
+      }
+    },
     "/v1/batches/{batch_id}/announcements": {
       "get": {
         "description": "List a batch's visible announcements, for its teacher.\n\n:param batch_id: The batch, from the route path\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: The visible notes, newest first",
@@ -3231,7 +5308,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/ExamResponse"
+                    "$ref": "#/components/schemas/ExamListItemResponse"
                   },
                   "title": "Response Read Batch Exams V1 Batches  Batch Id  Exams Get",
                   "type": "array"
@@ -3579,6 +5656,170 @@
         ]
       }
     },
+    "/v1/batches/{batch_id}/schedule": {
+      "get": {
+        "description": "Read one of this teacher's batches' weekly classes.\n\n:param batch_id: The batch, from the route path\n:param session: The request-scoped session\n:param lens: The teacher lens carrying the owner id\n:return: The slots, in weekday then time order",
+        "operationId": "read_batch_schedule_v1_batches__batch_id__schedule_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ScheduleSlotWire"
+                  },
+                  "title": "Response Read Batch Schedule V1 Batches  Batch Id  Schedule Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Batch Schedule",
+        "tags": [
+          "teaching"
+        ]
+      },
+      "put": {
+        "description": "Replace one batch's weekly classes; its sessions follow at once.\n\n**The writer that did not exist**, so no batch had sessions and\nattendance could not be reached. Existing sessions are left alone\nwhen the schedule changes [BR1.2].\n\n:param batch_id: The batch, from the route path\n:param body: The complete new schedule\n:param session: The request-scoped session\n:param lens: The teacher lens carrying the owner id\n:return: The schedule as stored",
+        "operationId": "write_batch_schedule_v1_batches__batch_id__schedule_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScheduleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ScheduleSlotWire"
+                  },
+                  "title": "Response Write Batch Schedule V1 Batches  Batch Id  Schedule Put",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide. On a version conflict the details carry the current version and the current roster, which is why this is unreachable before authorization."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Write Batch Schedule",
+        "tags": [
+          "teaching"
+        ]
+      }
+    },
     "/v1/batches/{batch_id}/sessions": {
       "get": {
         "description": "List one of this teacher's batches' sessions.\n\n:param batch_id: The batch, from the route path\n:param session: The request-scoped session\n:param lens: The teacher lens carrying the owner id\n:return: One row per session, oldest first",
@@ -3739,6 +5980,80 @@
         ]
       }
     },
+    "/v1/children/{enrollment_id}/claims": {
+      "post": {
+        "description": "Record a guardian's payment for their child's oldest unpaid month.\n\n:param enrollment_id: The seat\n:param body: The claimed amount, channel and reference\n:param session: The request-scoped session\n:param lens: The guardian lens\n:return: The pending claim",
+        "operationId": "create_child_claim_v1_children__enrollment_id__claims_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enrollment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enrollment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClaimSubmitRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Child Claim",
+        "tags": [
+          "guardian"
+        ]
+      }
+    },
     "/v1/children/{enrollment_id}/exams/{exam_id}/marksheet": {
       "get": {
         "description": "Read one child's marksheet, for their recorded guardian.\n\n:param enrollment_id: The child's seat, from the route path\n:param exam_id: The exam, from the route path\n:param session: The request-scoped session\n:param lens: The guardian lens\n:return: The published comparison, or a suppressed marksheet",
@@ -3885,6 +6200,206 @@
         ]
       }
     },
+    "/v1/children/{enrollment_id}/payables": {
+      "get": {
+        "description": "List what can be paid for the child holding this seat.\n\n:param enrollment_id: Any one of the child's seats\n:param session: The request-scoped session\n:param lens: The guardian lens\n:return: The payable months and the waiting batches",
+        "operationId": "read_child_payables_v1_children__enrollment_id__payables_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enrollment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enrollment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PayablesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Child Payables",
+        "tags": [
+          "guardian"
+        ]
+      }
+    },
+    "/v1/children/{enrollment_id}/payment-destination": {
+      "get": {
+        "description": "Return where to pay for this seat, for its guardian.\n\nThe second downward disclosure of the collection number, to the\naccepted guardian of a seat in that teacher's batch.\n\n:param enrollment_id: The seat\n:param session: The request-scoped session\n:param lens: The guardian lens\n:return: The destination, or None where the teacher set no number",
+        "operationId": "read_child_payment_destination_v1_children__enrollment_id__payment_destination_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enrollment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enrollment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/PaymentDestinationResponse"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Read Child Payment Destination V1 Children  Enrollment Id  Payment Destination Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Child Payment Destination",
+        "tags": [
+          "guardian"
+        ]
+      }
+    },
+    "/v1/children/{enrollment_id}/payments": {
+      "get": {
+        "description": "Return a child's fee history, newest month first, with this year's total.\n\n:param enrollment_id: Any one of the child's seats\n:param session: The request-scoped session\n:param lens: The guardian lens\n:return: The history",
+        "operationId": "read_child_payments_v1_children__enrollment_id__payments_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enrollment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enrollment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Child Payments",
+        "tags": [
+          "guardian"
+        ]
+      }
+    },
     "/v1/children/{enrollment_id}/progress": {
       "get": {
         "description": "Read one child's results across exams, in date order [BR6.6].\n\n**Ordered by the server**, not the client, and an absence carries\nno numeric value: plotted as zero it would show a collapse in\nperformance that did not happen.\n\n:param enrollment_id: The child's seat, from the route path\n:param session: The request-scoped session\n:param lens: The guardian lens\n:return: One entry per exam, oldest first",
@@ -3953,6 +6468,78 @@
         ]
       }
     },
+    "/v1/children/{enrollment_id}/progress/summary": {
+      "get": {
+        "description": "Read a child's latest run of results in one batch (G2).\n\n:param enrollment_id: The seat\n:param session: The request-scoped session\n:param lens: The guardian lens\n:return: The run, or None with fewer than two marked results",
+        "operationId": "read_child_progress_summary_v1_children__enrollment_id__progress_summary_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enrollment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enrollment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ProgressSummaryResponse"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Read Child Progress Summary V1 Children  Enrollment Id  Progress Summary Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Child Progress Summary",
+        "tags": [
+          "guardian"
+        ]
+      }
+    },
     "/v1/children/{enrollment_id}/teaching": {
       "get": {
         "description": "Return what this guardian sees of their child's batch [BR7.2].\n\nThe child arrives as a **path parameter**, never from a\nclient-supplied lens hint.\n\n:param enrollment_id: The child's seat, from the route path\n:param session: The request-scoped session\n:param lens: The guardian lens\n:return: The batch view, with its server timestamp",
@@ -4014,6 +6601,48 @@
         "summary": "Read Child Batch Teaching",
         "tags": [
           "teaching"
+        ]
+      }
+    },
+    "/v1/claims/queue": {
+      "get": {
+        "description": "List the claims waiting for this teacher, and recent decisions (T4).\n\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: Waiting claims and the last day's decisions",
+        "operationId": "read_verification_queue_v1_claims_queue_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerificationQueueResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          }
+        },
+        "summary": "Read Verification Queue",
+        "tags": [
+          "fees"
         ]
       }
     },
@@ -4177,6 +6806,100 @@
           }
         },
         "summary": "Record Rejection",
+        "tags": [
+          "fees"
+        ]
+      }
+    },
+    "/v1/claims/{claim_id}/shortfall": {
+      "post": {
+        "description": "Say what approving an amount would leave short, before deciding.\n\nA read, posted only because it carries an amount: nothing is written.\n\n:param claim_id: The claim, from the route path\n:param body: The amount the teacher is considering\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: The shortfall and whether carry-or-waive must be chosen",
+        "operationId": "preview_shortfall_v1_claims__claim_id__shortfall_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "claim_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Claim Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShortfallPreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShortfallPreviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview Shortfall",
         "tags": [
           "fees"
         ]
@@ -4610,7 +7333,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ExamCreateRequest"
+                "$ref": "#/components/schemas/ExamUpdateRequest"
               }
             }
           },
@@ -4939,6 +7662,48 @@
         ]
       }
     },
+    "/v1/guardian/home": {
+      "get": {
+        "description": "Every child, with what to pay next, what is checking and latest results (G1).\n\n:param session: The request-scoped session\n:param lens: The guardian lens\n:return: The children, by name",
+        "operationId": "read_guardian_home_v1_guardian_home_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GuardianHomeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this."
+          }
+        },
+        "summary": "Read Guardian Home",
+        "tags": [
+          "guardian"
+        ]
+      }
+    },
     "/v1/invitations": {
       "get": {
         "description": "List every unaccepted seat this account holds [BR1.3, BR5.5].\n\n**Lens-exempt for the same reason ``GET /v1/me`` is**, and recorded\nin ``LENS_EXEMPT_AUTHENTICATED`` rather than left to infer: this is\nthe route that REPORTS which invitation lenses exist, so requiring\none would mean a person had to already know which seats they were\noffered in order to ask. Every row it returns is derived from the\nauthenticated account id and it reads nothing another account could\nown.\n\nA **declined** seat stays in this list with its state, because its\nholder may change their mind [BR5.4, AC1.13.1]. A seat whose links\nthis account holds BOTH appears once [BR5.3].\n\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:return: One entry per unaccepted seat, oldest first",
@@ -5099,7 +7864,7 @@
     },
     "/v1/me": {
       "delete": {
-        "description": "Delete the authenticated account.\n\n**The same deletion function the external route calls** [BR3.1].\nThe access token is the ownership proof here, where the external\nroute uses a verified code, and that is the ONLY difference between\nthe two paths -- the outcome is identical row for row, which the\ntest asserts by comparing the surviving row sets rather than each\nagainst a hand-written expectation.\n\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:return: The acknowledgement\n:raises DeletionRefused: The account owns at least one batch",
+        "description": "Delete the authenticated account.\n\n**The same deletion function the external route calls** [BR3.1].\nThe access token is the ownership proof here, where the external\nroute uses a verified code, and that is the ONLY difference between\nthe two paths -- the outcome is identical row for row, which the\ntest asserts by comparing the surviving row sets rather than each\nagainst a hand-written expectation.\n\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:return: The acknowledgement",
         "operationId": "delete_own_account_v1_me_delete",
         "responses": {
           "200": {
@@ -5243,9 +8008,31 @@
         ]
       }
     },
+    "/v1/me/deletion-summary": {
+      "get": {
+        "description": "Tell the caller what stays if they delete their account.\n\nLens-exempt on ``DELETE /v1/me``'s reasoning: it reads only what the\nauthenticated account itself owns.\n\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:return: Batches, students and money still owed; zeros when none",
+        "operationId": "read_deletion_summary_v1_me_deletion_summary_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeletionSummaryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Read Deletion Summary",
+        "tags": [
+          "deletion"
+        ]
+      }
+    },
     "/v1/me/dues": {
       "get": {
-        "description": "Everyone who owes this teacher money, across every batch [FR7.1].\n\n**Two statements whatever the teacher's size**: one for the seats,\none for the ledger, then a fold in memory [BR1.6]. The oldest unpaid\nperiod comes from that same fold rather than from\n``app/fees/balances.py``'s ``oldest_unpaid_period``, which takes one\nenrollment and would be one query per row.\n\n**Computed on open** [BR1.4]: no generate step, no refresh action,\nno materialised rollup. A stale figure about money is worse than a\nslow one -- a teacher chases a debt already paid, or fails to chase\none just incurred.\n\n**No parameter of any kind.** The lens's ``owner_id`` is the only\nscoping value, so there is nothing to validate and nothing to\nforget.\n\n:param session: The request-scoped session, which is also what makes\n    both statements read ONE snapshot [NFR6.62]\n:param lens: The teacher lens carrying the owner id\n:return: One row per owing seat, largest first, possibly empty",
+        "description": "Everyone who owes this teacher money, across every batch [FR7.1].\n\n**Four statements whatever the teacher's size**: the seats, the\nledger, the due dates and the last reminders, then a fold in memory\n[BR1.6]. The oldest unpaid\nperiod comes from that same fold rather than from\n``app/fees/balances.py``'s ``oldest_unpaid_period``, which takes one\nenrollment and would be one query per row.\n\n**Computed on open** [BR1.4]: no generate step, no refresh action,\nno materialised rollup. A stale figure about money is worse than a\nslow one -- a teacher chases a debt already paid, or fails to chase\none just incurred.\n\n**No parameter of any kind.** The lens's ``owner_id`` is the only\nscoping value, so there is nothing to validate and nothing to\nforget.\n\n:param session: The request-scoped session, which is also what makes\n    both statements read ONE snapshot [NFR6.62]\n:param lens: The teacher lens carrying the owner id\n:return: One row per owing seat, largest first, possibly empty",
         "operationId": "read_dues_v1_me_dues_get",
         "responses": {
           "200": {
@@ -5282,6 +8069,32 @@
         "summary": "Read Dues",
         "tags": [
           "analytics"
+        ]
+      }
+    },
+    "/v1/me/enrollments": {
+      "get": {
+        "description": "List the batches this student has accepted (S1) [AC2.6.1].\n\n**The route that did not exist.** Every student read is keyed on a\nseat, and nothing listed a student's seats once accepted -- so a\nstudent who accepted their invitation could not reach it again.\n\n:param lens: The student lens carrying the authenticated account\n:param session: The request-scoped session\n:return: One entry per accepted seat",
+        "operationId": "list_my_batches_v1_me_enrollments_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/StudentBatchResponse"
+                  },
+                  "title": "Response List My Batches V1 Me Enrollments Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List My Batches",
+        "tags": [
+          "batches"
         ]
       }
     },
@@ -5367,6 +8180,74 @@
         ]
       }
     },
+    "/v1/me/enrollments/{enrollment_id}/progress": {
+      "get": {
+        "description": "Read this student's own results across exams [BR6.6].\n\n**The student's half of the guardian's progress read**, through the\nsame function and so the same rules: accepted seats only, the\nbatch's marksheet toggle respected, absences carrying no number.\nS2's results list is built from it; until now a student had none.\n\n**Ordered by the server**, not the client, and an absence carries\nno numeric value: plotted as zero it would show a collapse in\nperformance that did not happen.\n\n:param enrollment_id: Their own seat, from the route path\n:param session: The request-scoped session\n:param lens: The student lens\n:return: One entry per exam, oldest first",
+        "operationId": "read_my_progress_v1_me_enrollments__enrollment_id__progress_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enrollment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enrollment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProgressEntryResponse"
+                  },
+                  "title": "Response Read My Progress V1 Me Enrollments  Enrollment Id  Progress Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence, and the refusal when the marksheet toggle is off is the same one: an empty marksheet would still disclose that exams exist and how many."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read My Progress",
+        "tags": [
+          "marks"
+        ]
+      }
+    },
     "/v1/me/fees": {
       "get": {
         "description": "List this student's own periods for one of their seats.\n\nThe seat arrives as a query parameter and the grant is checked\nagainst it, never the other way round: the handler cannot reach a\nsecond seat because the view refuses one this lens does not hold.\n\n:param enrollment_id: The seat to read\n:param session: The request-scoped session\n:param lens: The student lens\n:return: One row per generated period",
@@ -5431,6 +8312,43 @@
         ]
       }
     },
+    "/v1/me/notifications": {
+      "get": {
+        "description": "Read this account's own messages, newest first.\n\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:return: The messages and the unread count",
+        "operationId": "read_inbox_v1_me_notifications_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InboxResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Read Inbox",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/v1/me/notifications/read": {
+      "post": {
+        "description": "Mark every message in this account's own inbox as read.\n\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:return: None",
+        "operationId": "read_all_v1_me_notifications_read_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Read All",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
     "/v1/me/overview": {
       "get": {
         "description": "Return this month's earnings, the trend and the next exam [FR8.1-FR8.4].\n\n**The earnings total and the trend fold the SAME ledger read**\n[performance § 2]. Two figures from one read, so they cannot\ndisagree -- a second query would be a second chance to.\n\n**Zero is a value, not an absence** [BR2.2]. A month with no\nreceipts reports ``\"0.00\"``, which is a fact about the month, and\nthe zero is supplied **here at the boundary** rather than inside the\nfold: inside, absence genuinely means zero, while at the edge it\ncould mean the read failed [reliability § 1.3]. The fold runs over\nrows already in hand, so a failure raises rather than producing an\nempty map.\n\n:param session: The request-scoped session\n:param lens: The teacher lens carrying the owner id\n:return: The three blocks, each able to be absent without the others",
@@ -5470,6 +8388,172 @@
         "summary": "Read Overview",
         "tags": [
           "analytics"
+        ]
+      }
+    },
+    "/v1/me/payables": {
+      "get": {
+        "description": "List what this student can pay for now, and what is being checked (S3).\n\n:param session: The request-scoped session\n:param lens: The student lens\n:return: The payable months and the waiting seats",
+        "operationId": "read_payables_v1_me_payables_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PayablesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          }
+        },
+        "summary": "Read Payables",
+        "tags": [
+          "fees"
+        ]
+      }
+    },
+    "/v1/me/today": {
+      "get": {
+        "description": "Read the teacher's Today screen in one request (T1).\n\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: Money owed, today's classes and payments waiting",
+        "operationId": "read_today_v1_me_today_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TodayResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "This account holds no teacher lens."
+          }
+        },
+        "summary": "Read Today",
+        "tags": [
+          "analytics"
+        ]
+      }
+    },
+    "/v1/reminders": {
+      "post": {
+        "description": "Remind the people on these seats what they owe, in the app.\n\nEvery seat must be this teacher's or nothing is sent. A seat owing\nnothing, already reminded today, or with nobody who accepted it is\nskipped and counted, not refused, so one tap over a list never\nfails on its least interesting row.\n\n:param body: The seats\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: How many were reminded and how many skipped",
+        "operationId": "send_reminders_v1_reminders_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReminderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReminderResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Send Reminders",
+        "tags": [
+          "fees"
         ]
       }
     },

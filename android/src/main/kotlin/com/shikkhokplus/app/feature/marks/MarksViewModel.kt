@@ -2,10 +2,13 @@ package com.shikkhokplus.app.feature.marks
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.shikkhokplus.app.core.network.CorrectionDto
 import com.shikkhokplus.app.core.network.ExamDto
 import com.shikkhokplus.app.core.network.ExamResultDto
 import com.shikkhokplus.app.core.network.MarksheetDto
-import com.shikkhokplus.app.core.network.ProgressDto
+import com.shikkhokplus.app.core.network.ProgressEntryDto
+import com.shikkhokplus.app.core.network.SubjectOptionDto
+import com.shikkhokplus.app.core.ui.WriteState
 import com.shikkhokplus.app.feature.auth.AuthResult
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -52,6 +55,14 @@ interface MarksRepository {
     suspend fun exams(batchId: String): AuthResult<List<ExamDto>>
 
     /**
+     * List the subjects an exam in this batch can be set on.
+     *
+     * @param batchId The batch
+     * @return Its subjects with their keys, or a refusal
+     */
+    suspend fun subjectOptions(batchId: String): AuthResult<List<SubjectOptionDto>>
+
+    /**
      * Create an exam [BR4.1].
      *
      * @param batchId The batch
@@ -68,6 +79,31 @@ interface MarksRepository {
         totalMarks: Int,
         batchSubjectId: String,
     ): AuthResult<Unit>
+
+    /**
+     * Edit an exam's title, date or total.
+     *
+     * @param examId The exam
+     * @param title Its new title
+     * @param date Its new date, `yyyy-MM-dd`
+     * @param totalMarks Its new total
+     * @return Nothing on success, or why the server refused
+     */
+    suspend fun editExam(
+        examId: String,
+        title: String,
+        date: String,
+        totalMarks: Int,
+    ): AuthResult<Unit>
+
+    /**
+     * Read every mark ever recorded for one seat in one exam.
+     *
+     * @param examId The exam
+     * @param enrollmentId The seat
+     * @return The rows, oldest first
+     */
+    suspend fun markHistory(examId: String, enrollmentId: String): AuthResult<List<CorrectionDto>>
 
     /**
      * Read one exam's results.
@@ -125,13 +161,17 @@ interface MarksRepository {
     ): AuthResult<MarksheetDto>
 
     /**
-     * Read a child's progress across exams [BR6.6].
+     * Read one seat's progress across exams [BR6.6].
      *
-     * @param enrollmentId The child's seat, from the path and never
-     *   from a client hint [BR7.2]
+     * @param enrollmentId The seat, from the path and never from a
+     *   client hint [BR7.2]
+     * @param reader Which lens is asking, which chooses the route
      * @return The series in the server's date order
      */
-    suspend fun progress(enrollmentId: String): AuthResult<ProgressDto>
+    suspend fun progress(
+        enrollmentId: String,
+        reader: MarksheetReader,
+    ): AuthResult<List<ProgressEntryDto>>
 
     /**
      * Set a batch's marksheet visibility [BR5.4].
@@ -170,6 +210,32 @@ class MarksViewModel(
     /** What the screen renders. */
     val state: StateFlow<MarksUiState> = _state.asStateFlow()
 
+    private val _writeState = MutableStateFlow<WriteState>(WriteState.Idle)
+
+    /**
+     * Where the create-exam form's write stands, apart from the list.
+     *
+     * The form closes only on [WriteState.Saved]: see [WriteState] for
+     * the race closing on the tap caused on the batch and student forms.
+     */
+    val writeState: StateFlow<WriteState> = _writeState.asStateFlow()
+
+    private val _subjects = MutableStateFlow<List<SubjectOptionDto>?>(null)
+
+    /**
+     * The subjects the create-exam form offers, or null while loading.
+     *
+     * Empty is a real answer -- a batch always has at least one subject
+     * [AC2.1.1], so empty means the read failed, and the form says so
+     * rather than offering nothing to choose.
+     */
+    val subjectOptions: StateFlow<List<SubjectOptionDto>?> = _subjects.asStateFlow()
+
+    private val _history = MutableStateFlow<MarkHistory?>(null)
+
+    /** The mark history open on the entry screen, or null when closed. */
+    val history: StateFlow<MarkHistory?> = _history.asStateFlow()
+
     private var lastBatchId: String? = null
     private var lastBatchName: String = ""
     private var lastExamId: String? = null
@@ -177,6 +243,10 @@ class MarksViewModel(
     // What last failed, so `retry` repeats the user's intent rather
     // than degrading into a reload.
     private var lastWrite: (suspend () -> AuthResult<Unit>)? = null
+
+    // The marksheet or progress read on screen, so `retry` repeats it
+    // rather than reloading an exam list this screen never showed.
+    private var lastRead: (() -> Unit)? = null
 
     /**
      * Load a batch's exams.
@@ -188,6 +258,7 @@ class MarksViewModel(
         lastBatchId = batchId
         lastBatchName = batchName
         lastWrite = null
+        lastRead = null
         _state.value = MarksUiState.Loading
         viewModelScope.launch {
             _state.value =
@@ -220,9 +291,53 @@ class MarksViewModel(
         batchSubjectId: String,
     ) {
         val batchId = lastBatchId ?: return
-        runWrite({ repository.createExam(batchId, title, date, totalMarks, batchSubjectId) }) {
-            loadExams(batchId, lastBatchName)
+        if (_writeState.value == WriteState.Saving) return
+        _writeState.value = WriteState.Saving
+        viewModelScope.launch {
+            _writeState.value =
+                when (
+                    val result =
+                        repository.createExam(batchId, title, date, totalMarks, batchSubjectId)
+                ) {
+                    is AuthResult.Ok -> {
+                        loadExams(batchId, lastBatchName)
+                        WriteState.Saved
+                    }
+                    is AuthResult.Refused ->
+                        WriteState.Failed(
+                            messageKey = result.envelope.error.messageKey,
+                            retryable = result.envelope.error.retryable,
+                        )
+                    AuthResult.TransportFailure ->
+                        WriteState.Failed(
+                            messageKey = MarksStateMapper.OFFLINE_KEY,
+                            retryable = true,
+                        )
+                }
         }
+    }
+
+    /**
+     * Read the subjects the create-exam form offers.
+     *
+     * @param batchId The batch the exam is for
+     */
+    fun loadSubjectOptions(batchId: String) {
+        _subjects.value = null
+        viewModelScope.launch {
+            _subjects.value =
+                when (val result = repository.subjectOptions(batchId)) {
+                    is AuthResult.Ok -> result.value
+                    else -> emptyList()
+                }
+        }
+    }
+
+    /**
+     * Mark a finished write as seen, so the form does not close twice.
+     */
+    fun acknowledgeWrite() {
+        if (_writeState.value != WriteState.Saving) _writeState.value = WriteState.Idle
     }
 
     /**
@@ -234,22 +349,77 @@ class MarksViewModel(
         lastExamId = examId
         lastWrite = null
         _state.value = MarksUiState.Loading
+        viewModelScope.launch { refreshResults(examId) }
+    }
+
+    /**
+     * Read an exam's results into the screen without blanking it, so a
+     * saved mark updates its row in place.
+     *
+     * @param examId The exam
+     */
+    private suspend fun refreshResults(examId: String) {
+        _state.value =
+            when (val result = repository.results(examId)) {
+                is AuthResult.Ok ->
+                    MarksStateMapper.afterResults(
+                        examId = result.value.exam.examId,
+                        examTitle = result.value.exam.title,
+                        totalMarks = result.value.exam.totalMarks,
+                        results = result.value.results,
+                        writable = result.value.writable,
+                        examDate = result.value.exam.date,
+                    )
+                is AuthResult.Refused -> MarksStateMapper.afterError(result.envelope)
+                AuthResult.TransportFailure ->
+                    MarksStateMapper.afterTransportFailure()
+            }
+    }
+
+    /**
+     * Edit the open exam's title, date or total.
+     *
+     * Uses [writeState], so the edit form closes only once the server
+     * accepts it; a total below a recorded mark is refused there.
+     *
+     * @param title Its new title
+     * @param date Its new date, `yyyy-MM-dd`
+     * @param totalMarks Its new total
+     */
+    fun editExam(title: String, date: String, totalMarks: Int) {
+        val examId = lastExamId ?: return
+        if (_writeState.value == WriteState.Saving) return
+        _writeState.value = WriteState.Saving
         viewModelScope.launch {
-            _state.value =
-                when (val result = repository.results(examId)) {
-                    is AuthResult.Ok ->
-                        MarksStateMapper.afterResults(
-                            examId = result.value.exam.examId,
-                            examTitle = result.value.exam.title,
-                            totalMarks = result.value.exam.totalMarks,
-                            results = result.value.results,
-                            writable = result.value.writable,
-                        )
-                    is AuthResult.Refused -> MarksStateMapper.afterError(result.envelope)
-                    AuthResult.TransportFailure ->
-                        MarksStateMapper.afterTransportFailure()
+            _writeState.value =
+                when (val result = repository.editExam(examId, title, date, totalMarks)) {
+                    is AuthResult.Ok -> WriteState.Saved.also { refreshResults(examId) }
+                    is AuthResult.Refused ->
+                        WriteState.Failed(result.envelope.error.messageKey, result.envelope.error.retryable)
+                    AuthResult.TransportFailure -> WriteState.Failed(MarksStateMapper.OFFLINE_KEY, retryable = true)
                 }
         }
+    }
+
+    /**
+     * Open one seat's mark history.
+     *
+     * @param row The seat
+     */
+    fun openHistory(row: MarkRow) {
+        val examId = lastExamId ?: return
+        _history.value = MarkHistory(row.displayName)
+        viewModelScope.launch {
+            val read = repository.markHistory(examId, row.enrollmentId)
+            _history.value =
+                (read as? AuthResult.Ok)?.let { MarkHistory(row.displayName, MarksStateMapper.history(it.value)) }
+                    ?: MarkHistory(row.displayName, failed = true)
+        }
+    }
+
+    /** Close the mark history. */
+    fun closeHistory() {
+        _history.value = null
     }
 
     /**
@@ -266,8 +436,20 @@ class MarksViewModel(
      */
     fun writeMark(enrollmentId: String, resultState: String, marks: Int?) {
         val examId = lastExamId ?: return
-        runWrite({ repository.writeMark(examId, enrollmentId, resultState, marks) }) {
-            loadResults(examId)
+        val write = suspend { repository.writeMark(examId, enrollmentId, resultState, marks) }
+        lastWrite = write
+        // **No loader.** The list stays while the mark saves, and the
+        // saved row updates in place: blanking the screen on every
+        // save made continuous entry impossible.
+        viewModelScope.launch {
+            when (val result = write()) {
+                is AuthResult.Ok -> {
+                    lastWrite = null
+                    refreshResults(examId)
+                }
+                is AuthResult.Refused -> _state.value = MarksStateMapper.afterError(result.envelope)
+                AuthResult.TransportFailure -> _state.value = MarksStateMapper.afterTransportFailure()
+            }
         }
     }
 
@@ -283,6 +465,7 @@ class MarksViewModel(
         enrollmentId: String,
         reader: MarksheetReader,
     ) {
+        lastRead = { loadMarksheet(examId, enrollmentId, reader) }
         _state.value = MarksUiState.Loading
         viewModelScope.launch {
             _state.value =
@@ -315,17 +498,31 @@ class MarksViewModel(
     }
 
     /**
-     * Load a child's progress across exams [BR6.6].
+     * Load one seat's progress across exams [BR6.6].
      *
-     * @param enrollmentId The child's seat, which arrives as a path
-     *   parameter and never from a client hint [BR7.2]
+     * @param enrollmentId The seat, which arrives as a path parameter
+     *   and never from a client hint [BR7.2]
+     * @param reader Which lens is asking
+     * @param childDisplayName Whose series, for the heading
+     * @param batchName Which class, for the heading
      */
-    fun loadProgress(enrollmentId: String) {
+    fun loadProgress(
+        enrollmentId: String,
+        reader: MarksheetReader,
+        childDisplayName: String,
+        batchName: String,
+    ) {
+        lastRead = { loadProgress(enrollmentId, reader, childDisplayName, batchName) }
         _state.value = MarksUiState.Loading
         viewModelScope.launch {
             _state.value =
-                when (val result = repository.progress(enrollmentId)) {
-                    is AuthResult.Ok -> MarksStateMapper.afterProgress(result.value)
+                when (val result = repository.progress(enrollmentId, reader)) {
+                    is AuthResult.Ok ->
+                        MarksStateMapper.afterProgress(
+                            result.value,
+                            childDisplayName,
+                            batchName,
+                        )
                     is AuthResult.Refused -> MarksStateMapper.afterError(result.envelope)
                     AuthResult.TransportFailure ->
                         MarksStateMapper.afterTransportFailure()
@@ -379,6 +576,11 @@ class MarksViewModel(
      * leave the seat unmarked with nothing on screen to say so.
      */
     fun retry() {
+        val pending = lastRead.takeIf { lastWrite == null }
+        if (pending != null) {
+            pending()
+            return
+        }
         val write = lastWrite
         if (write != null) {
             val examId = lastExamId

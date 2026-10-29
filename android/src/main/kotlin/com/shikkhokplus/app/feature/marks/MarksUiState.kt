@@ -10,7 +10,10 @@ package com.shikkhokplus.app.feature.marks
  * @property totalMarks Its total
  * @property enteredCount How many seats have a live mark, **counted by
  *   the server** [TC-9]
- * @property seatCount How many seats are on the roster
+ * @property expectedCount How many seats could have sat it, which leaves
+ *   out a seat that joined after the exam date
+ * @property state `upcoming`, `needs_marks` or `complete`, the server's
+ *   grouping for T7's Exams tab
  */
 data class ExamRow(
     val examId: String,
@@ -19,7 +22,8 @@ data class ExamRow(
     val subjectName: String?,
     val totalMarks: Int,
     val enteredCount: Int,
-    val seatCount: Int,
+    val expectedCount: Int,
+    val state: String = "complete",
 )
 
 /**
@@ -35,6 +39,8 @@ data class ExamRow(
  * @property isEditable Whether this seat can be marked, **decided
  *   server-side**. A seat that joined after the exam cannot be
  *   [BR4.3], and the client is told rather than comparing dates
+ * @property hasHistory Whether anything was ever recorded for the seat,
+ *   so its history has something to show
  */
 data class MarkRow(
     val enrollmentId: String,
@@ -42,6 +48,7 @@ data class MarkRow(
     val stateLabel: String,
     val marks: Int?,
     val isEditable: Boolean,
+    val hasHistory: Boolean = false,
 )
 
 /**
@@ -71,14 +78,15 @@ data class MarkBand(
  * render a rank beside a missing average, which is a shape the server
  * never sends and which the client would have had to invent.
  *
- * @property rank The viewer's rank among marked results
+ * @property rank The viewer's rank among marked results, or null when
+ *   the viewer has no mark to rank (absent, or joined after)
  * @property markedCount What the rank is out of
- * @property average The batch average, as the **server** formatted it
+ * @property average The batch average, formatted for display
  * @property highest The highest marked result
  * @property bands The merged distribution
  */
 data class MarksheetComparison(
-    val rank: Int,
+    val rank: Int?,
     val markedCount: Int,
     val average: String,
     val highest: Int,
@@ -120,6 +128,7 @@ sealed interface MarksUiState {
      * @property rows One row per seat
      * @property writable Whether marks may be written, **decided
      *   server-side** [BR5.5]
+     * @property examDate Its date, `yyyy-MM-dd`, for the edit form
      */
     data class EntryLoaded(
         val examId: String,
@@ -127,6 +136,7 @@ sealed interface MarksUiState {
         val totalMarks: Int,
         val rows: List<MarkRow>,
         val writable: Boolean,
+        val examDate: String = "",
     ) : MarksUiState
 
     /**
@@ -200,6 +210,7 @@ sealed interface MarksUiState {
 /**
  * One exam in a child's progress series [BR6.6].
  *
+ * @property examId The exam, so a row opens its marksheet
  * @property examTitle Which exam
  * @property dateLabel Its date, as the server formatted it
  * @property totalMarks Its total
@@ -210,11 +221,46 @@ sealed interface MarksUiState {
  *   plotted as zero shows a collapse in performance that did not
  *   happen, which is the single most alarming thing this screen can say
  *   wrongly. The null is what keeps it out of any trend
+ * @property subjectName Which subject, or null
+ * @property rank The rank, only where the marksheet publishes it
+ * @property rankedOutOf How many marked results the rank is among
  */
 data class ProgressRow(
+    val examId: String,
     val examTitle: String,
     val dateLabel: String,
     val totalMarks: Int,
     val stateLabel: String,
     val marks: Int?,
+    val subjectName: String? = null,
+    val rank: Int? = null,
+    val rankedOutOf: Int? = null,
+)
+
+/**
+ * One recorded mark in a seat's history.
+ *
+ * @property stateLabel Names the recorded result state's string resource
+ * @property marks The score, when marked
+ * @property recordedAt When it was recorded
+ * @property superseded Whether a later correction replaced it
+ */
+data class HistoryEntry(
+    val stateLabel: String,
+    val marks: Int?,
+    val recordedAt: String,
+    val superseded: Boolean,
+)
+
+/**
+ * A seat's mark history, as the sheet shows it.
+ *
+ * @property displayName Whose marks
+ * @property entries Oldest first, or null while reading
+ * @property failed Whether the read failed
+ */
+data class MarkHistory(
+    val displayName: String,
+    val entries: List<HistoryEntry>? = null,
+    val failed: Boolean = false,
 )

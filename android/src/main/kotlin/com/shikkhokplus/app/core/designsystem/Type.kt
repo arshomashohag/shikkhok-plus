@@ -3,9 +3,12 @@ package com.shikkhokplus.app.core.designsystem
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.sp
+import com.shikkhokplus.app.R
 
 /**
  * The type scale, set for Bangla rather than for Latin.
@@ -69,11 +72,31 @@ private val BanglaSafeLineHeight = LineHeightStyle(
 @Suppress("DEPRECATION")
 private val NoExtraPadding = PlatformTextStyle(includeFontPadding = false)
 
+/**
+ * Noto Sans with Noto Sans Bengali, the design's typeface on every board.
+ *
+ * **One font file per weight holds both scripts** (built by
+ * `android/fonts/build_fonts.py`). Compose picks one font per weight and
+ * leaves any glyph it lacks to the system, so a Latin-only Noto would
+ * still have rendered Bangla in whatever the phone's maker ships, and
+ * the app rendered everything in Roboto before this was bundled — with
+ * SemiBold synthesised, since Roboto has no 600.
+ */
+val NotoSans: FontFamily =
+    FontFamily(
+        Font(R.font.noto_regular, FontWeight.Normal),
+        Font(R.font.noto_medium, FontWeight.Medium),
+        Font(R.font.noto_semibold, FontWeight.SemiBold),
+        Font(R.font.noto_bold, FontWeight.Bold),
+        Font(R.font.noto_extrabold, FontWeight.ExtraBold),
+    )
+
 private fun banglaSafe(
     sizeSp: Int,
     lineHeightSp: Int,
     weight: FontWeight,
 ): TextStyle = TextStyle(
+    fontFamily = NotoSans,
     fontSize = sizeSp.sp,
     lineHeight = lineHeightSp.sp,
     fontWeight = weight,

@@ -1,8 +1,15 @@
 package com.shikkhokplus.app.core.ui
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.Modifier
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.Column
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
@@ -34,11 +41,12 @@ class CreateFormsTest {
         var captured: String? = "sentinel"
         compose.setContent {
             StudentAddForm(
-                onAdd = { _, _, fee -> captured = fee },
+                onAdd = { _, _, _, fee -> captured = fee },
                 onCancel = {},
             )
         }
 
+        compose.onNodeWithTag(TAG_FORM_STUDENT_PHONE).performTextInput("01711-234567")
         compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Rahim")
         compose.onNodeWithTag(TAG_FORM_SUBMIT).performClick()
 
@@ -54,9 +62,10 @@ class CreateFormsTest {
         // was then silently never created.
         var captured: String? = null
         compose.setContent {
-            StudentAddForm(onAdd = { _, _, fee -> captured = fee }, onCancel = {})
+            StudentAddForm(onAdd = { _, _, _, fee -> captured = fee }, onCancel = {})
         }
 
+        compose.onNodeWithTag(TAG_FORM_STUDENT_PHONE).performTextInput("01711-234567")
         compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Rahim")
         compose.onNodeWithTag(TAG_FORM_FEE).performTextInput("1200")
         compose.onNodeWithTag(TAG_FORM_SUBMIT).performClick()
@@ -68,16 +77,21 @@ class CreateFormsTest {
     fun `a fee typed in Bangla digits is sent in Latin canonical form`() {
         var captured: String? = null
         compose.setContent {
-            BatchCreateForm(
-                onCreate = { _, _, fee, _ -> captured = fee },
-                onCancel = {},
-            )
+            // Hosted in a scroll, as ScreenScaffold hosts it in the app:
+            // with the schedule editor the button sits below a 414dp
+            // window, and a tap on an off-screen node is lost.
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                BatchCreateForm(
+                    onCreate = { _, _, fee, _, _ -> captured = fee },
+                    onCancel = {},
+                )
+            }
         }
 
         compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Class 9")
         compose.onNodeWithTag(TAG_FORM_SUBJECTS).performTextInput("Physics")
         compose.onNodeWithTag(TAG_FORM_FEE).performTextInput("১,৫০০")
-        compose.onNodeWithTag(TAG_FORM_SUBMIT).performClick()
+        compose.onNodeWithTag(TAG_FORM_SUBMIT).performScrollTo().performClick()
 
         assertEquals("1500.00", captured)
     }
@@ -86,7 +100,7 @@ class CreateFormsTest {
     fun `a fee that is not an amount blocks submit rather than being sent`() {
         var called = false
         compose.setContent {
-            BatchCreateForm(onCreate = { _, _, _, _ -> called = true }, onCancel = {})
+            BatchCreateForm(onCreate = { _, _, _, _, _ -> called = true }, onCancel = {})
         }
 
         compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Class 9")
@@ -103,7 +117,7 @@ class CreateFormsTest {
         // The field accepted any two digits; the server refuses 0 and
         // anything past 31.
         compose.setContent {
-            BatchCreateForm(onCreate = { _, _, _, _ -> }, onCancel = {})
+            BatchCreateForm(onCreate = { _, _, _, _, _ -> }, onCancel = {})
         }
 
         compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Class 9")
@@ -118,7 +132,7 @@ class CreateFormsTest {
         // The form now stays open until the server answers, so it must
         // not be able to start a second write meanwhile.
         compose.setContent {
-            BatchCreateForm(onCreate = { _, _, _, _ -> }, onCancel = {}, saving = true)
+            BatchCreateForm(onCreate = { _, _, _, _, _ -> }, onCancel = {}, saving = true)
         }
 
         compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Class 9")
@@ -131,7 +145,7 @@ class CreateFormsTest {
     fun `a refusal is shown on the form`() {
         // It used to have nowhere to appear: the form closed on the tap.
         compose.setContent {
-            StudentAddForm(onAdd = { _, _, _ -> }, onCancel = {}, error = "Could not save")
+            StudentAddForm(onAdd = { _, _, _, _ -> }, onCancel = {}, error = "Could not save")
         }
 
         compose.onNodeWithTag(TAG_FORM_ERROR).assertIsDisplayed()
@@ -140,7 +154,7 @@ class CreateFormsTest {
     @Test
     fun `no error is shown when there is none`() {
         compose.setContent {
-            StudentAddForm(onAdd = { _, _, _ -> }, onCancel = {})
+            StudentAddForm(onAdd = { _, _, _, _ -> }, onCancel = {})
         }
 
         compose.onNodeWithTag(TAG_FORM_ERROR).assertDoesNotExist()
@@ -151,15 +165,72 @@ class CreateFormsTest {
         var captured: String? = "sentinel"
         compose.setContent {
             StudentAddForm(
-                onAdd = { _, guardian, _ -> captured = guardian },
+                onAdd = { _, _, guardian, _ -> captured = guardian },
                 onCancel = {},
             )
         }
 
+        compose.onNodeWithTag(TAG_FORM_STUDENT_PHONE).performTextInput("01711-234567")
         compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Rahim")
         compose.onNodeWithTag(TAG_FORM_SUBMIT).performClick()
 
         assertNull(captured)
+    }
+
+    @Test
+    fun `the student's phone is sent as typed, beside the name`() {
+        // **The field that did not exist.** Without it no student a
+        // teacher added could ever reach their own seat. Sent as typed:
+        // the server canonicalises, so the client never needs to.
+        var sent: Pair<String, String>? = null
+        compose.setContent {
+            StudentAddForm(onAdd = { name, phone, _, _ -> sent = name to phone }, onCancel = {})
+        }
+
+        compose.onNodeWithTag(TAG_FORM_STUDENT_PHONE).performTextInput("01711-234567")
+        compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Rahim")
+        compose.onNodeWithTag(TAG_FORM_SUBMIT).performClick()
+
+        assertEquals("Rahim" to "01711-234567", sent)
+    }
+
+    @Test
+    fun `a student needs a phone before they can be added`() {
+        compose.setContent {
+            StudentAddForm(onAdd = { _, _, _, _ -> }, onCancel = {})
+        }
+
+        compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Rahim")
+
+        compose.onNodeWithTag(TAG_FORM_SUBMIT).assertIsNotEnabled()
+    }
+
+    @Test
+    fun `a ten-digit phone is caught while typing`() {
+        // T8's error state: "This one has 10" -- caught before a round
+        // trip rather than refused by the server after one.
+        compose.setContent {
+            StudentAddForm(onAdd = { _, _, _, _ -> }, onCancel = {})
+        }
+
+        compose.onNodeWithTag(TAG_FORM_STUDENT_PHONE).performTextInput("0171123456")
+        compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Rahim")
+
+        compose.onNodeWithTag(TAG_FORM_SUBMIT).assertIsNotEnabled()
+    }
+
+    @Test
+    fun `a malformed guardian phone blocks submit, a blank one does not`() {
+        compose.setContent {
+            StudentAddForm(onAdd = { _, _, _, _ -> }, onCancel = {})
+        }
+        compose.onNodeWithTag(TAG_FORM_STUDENT_PHONE).performTextInput("01711-234567")
+        compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Rahim")
+        compose.onNodeWithTag(TAG_FORM_SUBMIT).assertIsEnabled()
+
+        compose.onNodeWithTag(TAG_FORM_GUARDIAN).performTextInput("12345")
+
+        compose.onNodeWithTag(TAG_FORM_SUBMIT).assertIsNotEnabled()
     }
 
     @Test
@@ -170,7 +241,7 @@ class CreateFormsTest {
         // rule living on the client.
         var called = false
         compose.setContent {
-            StudentAddForm(onAdd = { _, _, _ -> called = true }, onCancel = {})
+            StudentAddForm(onAdd = { _, _, _, _ -> called = true }, onCancel = {})
         }
 
         compose.onNodeWithTag(TAG_FORM_SUBMIT).performClick()
@@ -238,12 +309,33 @@ class CreateFormsTest {
     fun `cancel does not submit`() {
         var called = false
         compose.setContent {
-            BatchCreateForm(onCreate = { _, _, _, _ -> called = true }, onCancel = {})
+            BatchCreateForm(onCreate = { _, _, _, _, _ -> called = true }, onCancel = {})
         }
 
         compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Class 9")
         compose.onNodeWithTag(TAG_FORM_CANCEL).performClick()
 
         assertEquals(false, called)
+    }
+
+    @Test
+    fun `the class days chosen are sent with the new batch`() {
+        // A batch created without them had no schedule, so no session
+        // was ever generated for it.
+        var sent: List<com.shikkhokplus.app.core.network.ScheduleSlotDto>? = null
+        compose.setContent {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                BatchCreateForm(onCreate = { _, _, _, _, schedule -> sent = schedule }, onCancel = {})
+            }
+        }
+        compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Batch A")
+        compose.onNodeWithTag(TAG_FORM_SUBJECTS).performTextInput("Physics")
+
+        // Saturday then Monday, by the chips' week order (Sat, Sun, Mon...).
+        compose.onAllNodesWithTag(TAG_SCHEDULE_DAY)[0].performScrollTo().performClick()
+        compose.onAllNodesWithTag(TAG_SCHEDULE_DAY)[2].performScrollTo().performClick()
+        compose.onNodeWithTag(TAG_FORM_SUBMIT).performScrollTo().performClick()
+
+        assertEquals(listOf(5, 0), sent?.map { it.weekday })
     }
 }

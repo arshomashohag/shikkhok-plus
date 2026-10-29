@@ -3,6 +3,7 @@ package com.shikkhokplus.app.feature.batches
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.shikkhokplus.app.core.network.BatchDto
+import com.shikkhokplus.app.core.network.ScheduleSlotDto
 import com.shikkhokplus.app.core.ui.WriteState
 import com.shikkhokplus.app.feature.auth.AuthResult
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,6 +27,7 @@ interface BatchesRepository {
      * @param subjects One or more subjects taught
      * @param defaultFee The inherited fee as a canonical string, or null
      * @param feeDueDay Day of month 1-31, or null
+     * @param schedule The weekly classes, possibly none
      * @return The created batch, an envelope, or a transport failure
      */
     suspend fun createBatch(
@@ -33,6 +35,7 @@ interface BatchesRepository {
         subjects: List<String>,
         defaultFee: String?,
         feeDueDay: Int?,
+        schedule: List<ScheduleSlotDto>,
     ): AuthResult<BatchDto>
 }
 
@@ -101,18 +104,23 @@ class BatchesViewModel(
      * @param subjects One or more subjects taught
      * @param defaultFee The inherited fee in canonical form, or null
      * @param feeDueDay Day of month 1-31, or null
+     * @param schedule The weekly classes; sessions follow at once
      */
     fun create(
         name: String,
         subjects: List<String>,
         defaultFee: String?,
         feeDueDay: Int?,
+        schedule: List<ScheduleSlotDto> = emptyList(),
     ) {
         if (_writeState.value == WriteState.Saving) return
         _writeState.value = WriteState.Saving
         viewModelScope.launch {
             _writeState.value =
-                when (val result = repository.createBatch(name, subjects, defaultFee, feeDueDay)) {
+                when (
+                    val result =
+                        repository.createBatch(name, subjects, defaultFee, feeDueDay, schedule)
+                ) {
                     is AuthResult.Ok -> {
                         load()
                         WriteState.Saved

@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_session
 from app.errors import ValidationError
 from app.gateway.outbox import read_outbox
+from app.schemas.phone import PhoneField
 
 __all__ = ["router"]
 
@@ -29,7 +30,7 @@ router = APIRouter(prefix="/staging", tags=["staging"])
 
 @router.get("/last-otp")
 def last_otp(
-    phone: Annotated[str, Query(min_length=6, max_length=20)],
+    phone: Annotated[PhoneField, Query()],
     session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, str]:
     """Return the most recent unsent message for a number.

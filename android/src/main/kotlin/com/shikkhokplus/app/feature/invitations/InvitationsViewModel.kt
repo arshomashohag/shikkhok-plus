@@ -117,7 +117,7 @@ class InvitationsViewModel(
      */
     fun accept(enrollmentId: String) {
         lastAction = { accept(enrollmentId) }
-        decide { repository.accept(enrollmentId) }
+        decide(enrollmentId) { repository.accept(enrollmentId) }
     }
 
     /**
@@ -144,7 +144,7 @@ class InvitationsViewModel(
      */
     fun decline(enrollmentId: String) {
         lastAction = { decline(enrollmentId) }
-        decide { repository.decline(enrollmentId) }
+        decide(enrollmentId) { repository.decline(enrollmentId) }
     }
 
     /** Close the confirmation without deciding. */
@@ -163,6 +163,18 @@ class InvitationsViewModel(
     fun retry() {
         lastAction?.invoke()
     }
+
+    /**
+     * The batch a decision is about, from any state that shows it.
+     *
+     * @param enrollmentId The seat being decided
+     * @return Its batch name, or empty when no state holds it
+     */
+    private fun batchNameOf(enrollmentId: String): String =
+        when (val current = _state.value) {
+            is InvitationsUiState.ConfirmingDecline -> current.row.batchName
+            else -> rowFor(enrollmentId)?.batchName.orEmpty()
+        }
 
     /**
      * Find the row a confirmation is about.
@@ -184,14 +196,16 @@ class InvitationsViewModel(
     /**
      * Run a decision call and map its outcome.
      *
+     * @param enrollmentId The seat being decided
      * @param call The accept or decline request
      */
-    private fun decide(call: suspend () -> AuthResult<DecisionDto>) {
+    private fun decide(enrollmentId: String, call: suspend () -> AuthResult<DecisionDto>) {
+        val batchName = batchNameOf(enrollmentId)
         _state.value = InvitationsUiState.Loading
         viewModelScope.launch {
             _state.value =
                 when (val result = call()) {
-                    is AuthResult.Ok -> InvitationsStateMapper.afterDecision(result.value)
+                    is AuthResult.Ok -> InvitationsStateMapper.afterDecision(result.value, batchName)
                     is AuthResult.Refused ->
                         InvitationsStateMapper.afterError(result.envelope)
                     AuthResult.TransportFailure ->

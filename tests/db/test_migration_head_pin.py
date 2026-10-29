@@ -28,13 +28,17 @@ VERSIONS: Final[pathlib.Path] = (
     pathlib.Path(__file__).resolve().parents[2] / "migrations" / "versions"
 )
 
-#: Every revision on disk. D6 adds ``0007`` -- the cascade fix -- and is
-#: the first unit since D4 to move this number. D5 deliberately added
-#: none, which is what this file used to be named for.
-EXPECTED_REVISIONS: Final[int] = 7
+#: Every revision on disk. D6 added ``0007`` -- the cascade fix -- the
+#: first since D4 to move this number; D5 deliberately added none, which
+#: is what this file used to be named for. ``0008`` -- canonical phone
+#: numbers and ``enrollment.student_phone`` -- moves it again, for the
+#: student-linking gap found in the end-to-end audit. ``0009`` -- the
+#: in-app notification inbox -- moves it once more, and ``0010`` --
+#: a teacher's deletion keeping their batches -- again.
+EXPECTED_REVISIONS: Final[int] = 10
 
-#: The head D6 leaves behind.
-EXPECTED_HEAD: Final[str] = "0007"
+#: The head ``0010`` leaves behind.
+EXPECTED_HEAD: Final[str] = "0010"
 
 
 def _revision_files() -> list[pathlib.Path]:

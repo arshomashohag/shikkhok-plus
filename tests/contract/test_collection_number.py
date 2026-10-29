@@ -50,7 +50,7 @@ def _teacher_lens() -> TeacherLens:
 
 def test_exactly_the_allowlisted_routes_carry_the_collection_number() -> None:
     # An EQUALITY. A membership test passes the moment the field
-    # spreads to a fourth response, and NFR14.33's "never in a listing"
+    # spreads to another response, and NFR14.33's "never in a listing"
     # falls out of this rather than needing its own assertion.
     assert collection_number_routes(create_app()) == set(PERMITTED_ROUTES)
 

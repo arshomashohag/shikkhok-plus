@@ -30,23 +30,37 @@ from app.api.deps import get_session, guardian_lens, student_lens, teacher_lens
 from app.authz.lenses import GuardianLens, StudentLens, TeacherLens
 from app.fees import views
 from app.fees.claims import submit_claim
+from app.fees.payables import Payables, payables
+from app.fees.queue import QueueItem, shortfall_preview, verification_queue
+from app.fees.reminders import remind
 from app.fees.verification import reject_claim, verify_claim
 from app.money import Money as DomainMoney
 from app.money.wire import parse, to_wire
 from app.schemas.errors import ErrorEnvelope
 from app.schemas.fees import (
+    ClaimQueueItemResponse,
     ClaimResponse,
     ClaimSubmitRequest,
+    DuplicateClaimResponse,
     FeeCycleResponse,
     FeeHistoryResponse,
+    PayableResponse,
+    PayablesResponse,
     PaymentDestinationResponse,
+    RecentDecisionResponse,
     RejectionRequest,
+    ReminderRequest,
+    ReminderResponse,
     RosterFeeRowResponse,
+    ShortfallPreviewRequest,
+    ShortfallPreviewResponse,
+    VerificationQueueResponse,
     VerificationRequest,
+    WaitingPaymentResponse,
 )
 from app.schemas.money import Money as WireMoney
 
-__all__ = ["router"]
+__all__ = ["claim_response", "payables_response", "queue_item_response", "router"]
 
 router = APIRouter(prefix="/v1", tags=["fees"])
 
@@ -123,7 +137,7 @@ def _cycle_response(row: views.FeeCycleRow) -> FeeCycleResponse:
     )
 
 
-def _claim_response(detail: views.ClaimDetail) -> ClaimResponse:
+def claim_response(detail: views.ClaimDetail) -> ClaimResponse:
     """Render one claim for the wire.
 
     :param detail: The claim as the view described it
@@ -176,6 +190,8 @@ def read_batch_fees(
             current_period=row.current_period,
             current_status=row.current_status,
             due_date=row.due_date,
+            days_overdue=row.days_overdue,
+            verifying=_optional_wire(row.verifying),
         )
         for row in views.batch_fee_overview(session, lens=lens, batch_id=batch_id)
     ]
@@ -306,6 +322,58 @@ def read_payment_destination(
         collection_number=destination.collection_number,
         collection_channel=destination.collection_channel,
         channels=list(destination.channels),
+        teacher_display_name=destination.teacher_display_name,
+    )
+
+
+@router.get(
+    "/me/payables",
+    response_model=PayablesResponse,
+    responses=_AUTH_ERRORS,
+)
+def read_payables(
+    session: Annotated[Session, Depends(get_session)],
+    lens: Annotated[StudentLens, Depends(student_lens)],
+) -> PayablesResponse:
+    """List what this student can pay for now, and what is being checked (S3).
+
+    :param session: The request-scoped session
+    :param lens: The student lens
+    :return: The payable months and the waiting seats
+    """
+    return payables_response(payables(session, lens=lens))
+
+
+def payables_response(found: Payables) -> PayablesResponse:
+    """Render what can be paid, and what is waiting, for the wire.
+
+    :param found: The payables
+    :return: The response body
+    """
+    return PayablesResponse(
+        payable=[
+            PayableResponse(
+                enrollment_id=row.enrollment_id,
+                batch_name=row.batch_name,
+                period=row.period,
+                amount_due=_to_wire(row.amount_due),
+                due_date=row.due_date,
+                total_due=_to_wire(row.total_due),
+                later_periods=row.later_periods,
+                days_late=row.days_late,
+            )
+            for row in found.payable
+        ],
+        waiting=[
+            WaitingPaymentResponse(
+                batch_name=row.batch_name,
+                period=row.period,
+                amount=_to_wire(row.amount),
+                channel=row.channel,
+                submitted_at=row.submitted_at,
+            )
+            for row in found.waiting
+        ],
     )
 
 
@@ -341,7 +409,110 @@ def create_claim(
         channel=body.channel,
         transaction_id=body.transaction_id,
     )
-    return _claim_response(views.claim_detail(session, lens=lens, claim_id=claim.id))
+    return claim_response(views.claim_detail(session, lens=lens, claim_id=claim.id))
+
+
+def queue_item_response(item: QueueItem) -> ClaimQueueItemResponse:
+    """Render one waiting claim for the wire.
+
+    :param item: The claim as the queue described it
+    :return: The response body
+    """
+    duplicate = item.duplicate_of
+    return ClaimQueueItemResponse(
+        claim_id=item.claim_id,
+        enrollment_id=item.enrollment_id,
+        display_name=item.display_name,
+        batch_name=item.batch_name,
+        period=item.period,
+        claimed_amount=_to_wire(item.claimed_amount),
+        charged=_to_wire(item.charged),
+        comparison=item.comparison,
+        difference=_to_wire(item.difference),
+        channel=item.channel,
+        transaction_id=item.transaction_id,
+        submitted_at=item.submitted_at,
+        submitted_by=item.submitted_by,
+        submitter_phone=item.submitter_phone,
+        duplicate_of=(
+            None
+            if duplicate is None
+            else DuplicateClaimResponse(
+                claim_id=duplicate.claim_id,
+                display_name=duplicate.display_name,
+                status=duplicate.status,
+                amount=_to_wire(duplicate.amount),
+                decided_at=duplicate.decided_at,
+            )
+        ),
+    )
+
+
+# Declared before "/claims/{claim_id}": that route parses its segment as
+# a uuid, so "queue" would reach it first and be refused with a 422.
+@router.get(
+    "/claims/queue",
+    response_model=VerificationQueueResponse,
+    responses=_AUTH_ERRORS,
+)
+def read_verification_queue(
+    session: Annotated[Session, Depends(get_session)],
+    lens: Annotated[TeacherLens, Depends(teacher_lens)],
+) -> VerificationQueueResponse:
+    """List the claims waiting for this teacher, and recent decisions (T4).
+
+    :param session: The request-scoped session
+    :param lens: The teacher lens
+    :return: Waiting claims and the last day's decisions
+    """
+    queue = verification_queue(session, lens=lens)
+    return VerificationQueueResponse(
+        pending=[queue_item_response(item) for item in queue.pending],
+        decided_recently=[
+            RecentDecisionResponse(
+                claim_id=decision.claim_id,
+                display_name=decision.display_name,
+                batch_name=decision.batch_name,
+                status=decision.status,
+                amount=_to_wire(decision.amount),
+                decided_at=decision.decided_at,
+            )
+            for decision in queue.decided_recently
+        ],
+    )
+
+
+@router.post(
+    "/claims/{claim_id}/shortfall",
+    response_model=ShortfallPreviewResponse,
+    responses=_WRITE_ERRORS,
+)
+def preview_shortfall(
+    claim_id: uuid.UUID,
+    body: ShortfallPreviewRequest,
+    session: Annotated[Session, Depends(get_session)],
+    lens: Annotated[TeacherLens, Depends(teacher_lens)],
+) -> ShortfallPreviewResponse:
+    """Say what approving an amount would leave short, before deciding.
+
+    A read, posted only because it carries an amount: nothing is written.
+
+    :param claim_id: The claim, from the route path
+    :param body: The amount the teacher is considering
+    :param session: The request-scoped session
+    :param lens: The teacher lens
+    :return: The shortfall and whether carry-or-waive must be chosen
+    """
+    shortfall = shortfall_preview(
+        session,
+        lens=lens,
+        claim_id=claim_id,
+        approved_amount=parse(body.approved_amount.root),
+    )
+    return ShortfallPreviewResponse(
+        shortfall=_to_wire(shortfall),
+        disposition_required=shortfall.is_positive(),
+    )
 
 
 @router.get(
@@ -364,7 +535,7 @@ def read_claim(
     :param lens: The student lens
     :return: The claim and its decision
     """
-    return _claim_response(views.claim_detail(session, lens=lens, claim_id=claim_id))
+    return claim_response(views.claim_detail(session, lens=lens, claim_id=claim_id))
 
 
 @router.post(
@@ -403,7 +574,7 @@ def record_verification(
         verified_by_account_id=lens.account_id,
         correcting=body.correcting,
     )
-    return _claim_response(
+    return claim_response(
         views.claim_detail(session, lens=lens, claim_id=outcome.claim.id)
     )
 
@@ -439,4 +610,30 @@ def record_rejection(
         verified_by_account_id=lens.account_id,
         correcting=body.correcting if body is not None else False,
     )
-    return _claim_response(views.claim_detail(session, lens=lens, claim_id=claim.id))
+    return claim_response(views.claim_detail(session, lens=lens, claim_id=claim.id))
+
+
+@router.post(
+    "/reminders",
+    response_model=ReminderResponse,
+    responses=_WRITE_ERRORS,
+)
+def send_reminders(
+    body: ReminderRequest,
+    session: Annotated[Session, Depends(get_session)],
+    lens: Annotated[TeacherLens, Depends(teacher_lens)],
+) -> ReminderResponse:
+    """Remind the people on these seats what they owe, in the app.
+
+    Every seat must be this teacher's or nothing is sent. A seat owing
+    nothing, already reminded today, or with nobody who accepted it is
+    skipped and counted, not refused, so one tap over a list never
+    fails on its least interesting row.
+
+    :param body: The seats
+    :param session: The request-scoped session
+    :param lens: The teacher lens
+    :return: How many were reminded and how many skipped
+    """
+    outcome = remind(session, lens=lens, enrollment_ids=body.enrollment_ids)
+    return ReminderResponse(sent=outcome.sent, skipped=outcome.skipped)

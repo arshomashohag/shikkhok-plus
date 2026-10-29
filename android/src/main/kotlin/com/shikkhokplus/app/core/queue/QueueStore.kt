@@ -77,6 +77,20 @@ class QueueStore(
 ) {
 
     /**
+     * Discard every queued write, when an account's session ends.
+     *
+     * **Only at sign-out or deletion, and never silently.** Unsent
+     * attendance is the teacher's work; the profile says how many items
+     * will be lost before sign-out runs this. It is called at all
+     * because the queue belongs to the account that wrote it: left in
+     * place, the next person to sign in on this phone would send the
+     * previous account's rosters under their own token.
+     */
+    fun clear() {
+        write(emptyList())
+    }
+
+    /**
      * Read every queued item, oldest first.
      *
      * **A missing file is an empty queue, not an error.** That is the

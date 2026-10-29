@@ -9,9 +9,12 @@ What the function does, in order, with every destructive step in one
 transaction (:func:`delete_account`'s own docstring describes the
 second commit point, on the branch where no account exists):
 
-1. **Refuse if the account owns any batch** [BR1.6]. Before anything is
-   destroyed, because a deletion that removes half an account and then
-   refuses is worse than either outcome.
+1. **Retire every batch the account owns** [BR1.6, amended 2026-10-28].
+   Each stays as its students' history: marked inactive, so no new fee
+   falls due, and stripped of the teacher's name and payment number, so
+   nothing of the departed teacher remains and no payment goes to a
+   number that no longer answers. ``0010`` set ``owner.account_id`` to
+   ``SET NULL``, so the account's removal unlinks rather than destroys.
 2. **Delete the rows this account owns** that the manifest marks
    ``HARD_DELETE``.
 3. **Delete the account row.** Everything else follows from the database
@@ -58,17 +61,14 @@ from typing import Final
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
-from app.errors import ConflictError
 from app.governance.dispositions import DISPOSITIONS, Disposition
 
 __all__ = [
     "HARD_DELETE_SCOPES",
-    "DeletionRefused",
     "DeletionResult",
     "Scope",
     "delete_account",
     "hard_delete_tables",
-    "owned_batch_names",
 ]
 
 
@@ -146,15 +146,6 @@ HARD_DELETE_SCOPES: Final[dict[str, _Target]] = {
         column="account_id",
         note="Self-authored and owner-private; nobody else has a claim.",
     ),
-    "owner": _Target(
-        scope=Scope.ACCOUNT_COLUMN,
-        column="account_id",
-        note=(
-            "Reachable only once BR1.6's refusal passes, which means the "
-            "account owns no batch -- so this deletes an owner row with "
-            "nothing hanging off it."
-        ),
-    ),
     "refresh_token": _Target(
         scope=Scope.ACCOUNT_COLUMN,
         column="account_id",
@@ -172,6 +163,11 @@ HARD_DELETE_SCOPES: Final[dict[str, _Target]] = {
             "The record that a TEACHER nudged someone. Reachable only "
             "after the batch refusal passes, like `owner`."
         ),
+    ),
+    "notification": _Target(
+        scope=Scope.ACCOUNT_COLUMN,
+        column="account_id",
+        note="The account's own inbox, addressed to nobody else.",
     ),
     "otp_request": _Target(
         scope=Scope.PHONE_COLUMN,
@@ -221,43 +217,6 @@ HARD_DELETE_SCOPES: Final[dict[str, _Target]] = {
 }
 
 
-class DeletionRefused(ConflictError):
-    """A teacher owning batches asked to delete their account [BR1.6].
-
-    **This refusal is not contentless, and this is the one place in the
-    deletion path where that is right.** Enumeration resistance protects
-    a number's existence from a stranger; here the caller has already
-    proven ownership of the number by verifying a code sent to it. A
-    contentless refusal would tell a teacher their deletion "failed"
-    with no route forward, and they would conclude the feature is broken
-    rather than that they must first hand over or close their batches.
-
-    A :class:`~app.errors.ConflictError` rather than a
-    :class:`~app.errors.ValidationError`: the request is well formed and
-    the current state forbids it, so the caller refetches and decides
-    rather than fixing and resubmitting. Non-retryable as-is, which is
-    correct -- retrying changes nothing until the batches are gone.
-    """
-
-    def __init__(self, batch_count: int) -> None:
-        """Refuse, naming how much is blocking.
-
-        The COUNT and not the names. The names are the teacher's own
-        data and they already have them on screen; the count is what
-        turns "it failed" into "you have three classes to deal with
-        first" without putting a list of class names into an error
-        envelope that may be logged.
-
-        :param batch_count: How many batches the account owns
-        """
-        super().__init__(
-            code="DELETION_BLOCKED_BY_BATCHES",
-            message_key="governance.deletion.owns_batches",
-            details={"batch_count": str(batch_count)},
-        )
-        self.batch_count = batch_count
-
-
 @dataclass(frozen=True, slots=True)
 class DeletionResult:
     """What one deletion did.
@@ -270,26 +229,12 @@ class DeletionResult:
     rows_deleted: dict[str, int]
 
 
-def owned_batch_names(session: Session, account_id: uuid.UUID) -> list[str]:
-    """List the batches this account owns, by name.
-
-    Read through ``owner`` rather than from any cached role, like every
-    other authorization fact in this product [TC-11].
-
-    :param session: The session to query through
-    :param account_id: The account being examined
-    :return: The batch names, ordered, empty when none are owned
-    """
-    rows = session.execute(
-        sa.text(
-            "SELECT b.name FROM batch b "
-            "JOIN owner o ON o.id = b.owner_id "
-            "WHERE o.account_id = :account_id "
-            "ORDER BY b.name"
-        ),
-        {"account_id": account_id},
-    ).scalars()
-    return list(rows)
+#: Retires every batch an account owns, in the deletion's transaction.
+_RETIRE_OWNED_BATCHES: Final = sa.text(
+    "UPDATE batch SET active = false, teacher_display_name = NULL, "
+    "collection_number = NULL, collection_channel = NULL "
+    "WHERE owner_id IN (SELECT id FROM owner WHERE account_id = :account_id)"
+)
 
 
 def delete_account(session: Session, phone: str) -> DeletionResult:
@@ -324,13 +269,12 @@ def delete_account(session: Session, phone: str) -> DeletionResult:
     account-scoped work above that return would turn a safe early commit
     into the partial deletion this function exists to avoid.
 
-    The precondition refusal in :class:`DeletionRefused` is raised
-    before either commit, so a refused deletion writes nothing at all.
+    A teacher's batches are retired inside the same transaction, before
+    the account row goes, so a failure leaves them exactly as they were.
 
     :param session: The session to work through
     :param phone: The number whose account is being deleted
     :return: What was deleted
-    :raises DeletionRefused: The account owns at least one batch
     """
     account_id: uuid.UUID | None = session.execute(
         sa.text("SELECT id FROM account WHERE phone = :phone"),
@@ -338,16 +282,6 @@ def delete_account(session: Session, phone: str) -> DeletionResult:
     ).scalar_one_or_none()
 
     rows_deleted: dict[str, int] = {}
-
-    # THE PRECONDITION, checked before anything is destroyed and inside
-    # the same transaction as the destruction [BR1.6]. Seven of the
-    # retained tables are reachable from `account` only through
-    # `owner -> batch`, a chain `0007` does not touch, so this refusal
-    # is what makes those records safe -- not belt and braces.
-    if account_id is not None:
-        owned = owned_batch_names(session, account_id)
-        if owned:
-            raise DeletionRefused(batch_count=len(owned))
 
     # The phone-scoped tables go FIRST, while the number is still known
     # and before the account row disappears. Nothing reaches them by
@@ -361,6 +295,10 @@ def delete_account(session: Session, phone: str) -> DeletionResult:
     if account_id is None:
         session.commit()
         return DeletionResult(existed=False, rows_deleted=rows_deleted)
+
+    # A teacher's batches stay with their students [BR1.6 amended].
+    # Retired before the account row goes, in the same transaction.
+    session.execute(_RETIRE_OWNED_BATCHES, {"account_id": account_id})
 
     for table, target in sorted(HARD_DELETE_SCOPES.items()):
         if target.scope is not Scope.ACCOUNT_COLUMN or table == "account":

@@ -65,13 +65,14 @@ object InvitationsStateMapper {
      * Map a recorded decision.
      *
      * @param dto The server's answer
+     * @param batchName Which batch was decided, for the confirmation
      * @return The decided state, or a failure for an unknown decision
      */
-    fun afterDecision(dto: DecisionDto): InvitationsUiState {
+    fun afterDecision(dto: DecisionDto, batchName: String = ""): InvitationsUiState {
         val state =
             AcceptanceState.fromWire(dto.decision)
                 ?: return InvitationsUiState.Failed(UNEXPECTED_KEY, retryable = false)
-        return InvitationsUiState.Decided(dto.enrollmentId, state)
+        return InvitationsUiState.Decided(dto.enrollmentId, state, batchName)
     }
 
     /**

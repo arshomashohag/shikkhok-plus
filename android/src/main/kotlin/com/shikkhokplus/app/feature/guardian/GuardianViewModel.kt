@@ -2,37 +2,42 @@ package com.shikkhokplus.app.feature.guardian
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.shikkhokplus.app.core.network.GuardianChildDto
+import com.shikkhokplus.app.core.network.GuardianHomeDto
+import com.shikkhokplus.app.core.network.MeDto
 import com.shikkhokplus.app.feature.auth.AuthResult
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-/** What the guardian repository must provide. */
+/** What the guardian home needs from the network. */
 interface GuardianRepository {
     /**
-     * List the seats this guardian was recorded on.
+     * Read every child this guardian accepted, with their summaries.
      *
-     * Resolved server-side through `guardian_account_id`, never through
-     * the child [BR4.1, NFR14.29].
+     * The route names no child: the server resolves the seats from the
+     * authenticated account [BR4.1, NFR14.29].
      *
      * @return The children, an error envelope, or a transport failure
      */
-    suspend fun children(): AuthResult<List<GuardianChildDto>>
+    suspend fun home(): AuthResult<GuardianHomeDto>
+
+    /**
+     * Read the guardian's own account, for the empty state's number.
+     *
+     * @return The account, or a failure
+     */
+    suspend fun me(): AuthResult<MeDto>
 }
 
 /**
  * Holds the guardian home's state. Holds no business logic [TC-9, D-31].
  *
- * Every decision is delegated to [GuardianStateMapper], which is the
- * unit the tests target. This class owns the coroutine and the state
- * holder and nothing else.
- *
  * **It owns no back stack, deliberately** [BR4.2, NFR14.30]. Switching
- * child replaces a field of the current state; there is nothing here
- * that could push a destination, which is what makes the Back
- * obligation satisfiable rather than merely asserted.
+ * child replaces a field of the current state; nothing here could push
+ * a destination.
+ *
+ * @property repository The network
  */
 class GuardianViewModel(
     private val repository: GuardianRepository,
@@ -43,35 +48,41 @@ class GuardianViewModel(
     /** What the screen renders. */
     val state: StateFlow<GuardianUiState> = _state.asStateFlow()
 
-    /** Load this guardian's children. */
+    /** Load this guardian's children, keeping the shown child if still there. */
     fun load() {
+        val shown = (_state.value as? GuardianUiState.Loaded)?.child?.key
         _state.value = GuardianUiState.Loading
         viewModelScope.launch {
             _state.value =
-                when (val result = repository.children()) {
-                    is AuthResult.Ok -> GuardianStateMapper.afterLoad(result.value)
+                when (val result = repository.home()) {
+                    is AuthResult.Ok -> {
+                        val phone =
+                            if (result.value.children.isEmpty()) {
+                                (repository.me() as? AuthResult.Ok)?.value?.phone
+                            } else {
+                                null
+                            }
+                        val loaded = GuardianStateMapper.afterLoad(result.value, phone)
+                        if (loaded is GuardianUiState.Loaded && shown != null) {
+                            GuardianStateMapper.select(loaded, loaded.children.indexOfFirst { it.key == shown })
+                        } else {
+                            loaded
+                        }
+                    }
                     is AuthResult.Refused -> GuardianStateMapper.afterError(result.envelope)
-                    AuthResult.TransportFailure ->
-                        GuardianStateMapper.afterTransportFailure()
+                    AuthResult.TransportFailure -> GuardianStateMapper.afterTransportFailure()
                 }
         }
     }
 
     /**
-     * Show a different child, **replacing** the current view.
+     * Show a different child, **replacing** the current one [BR4.2].
      *
-     * No request is made and nothing is pushed: this is a selection
-     * within one screen [BR4.2]. A call arriving in any state other
-     * than [GuardianUiState.SeveralChildren] is ignored rather than
-     * guessed at — there is no switcher drawn in those states, so such
-     * a call did not come from the user.
-     *
-     * @param child The child to show instead
+     * @param index The child's place in the list
      */
-    fun selectChild(child: GuardianChild) {
-        val current = _state.value
-        if (current !is GuardianUiState.SeveralChildren) return
-        _state.value = GuardianStateMapper.afterChildSelected(current, child)
+    fun select(index: Int) {
+        val current = _state.value as? GuardianUiState.Loaded ?: return
+        _state.value = GuardianStateMapper.select(current, index)
     }
 
     /** Repeat the load, and only when the user asks [TC-8, D-9]. */

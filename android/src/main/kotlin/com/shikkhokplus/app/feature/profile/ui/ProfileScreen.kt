@@ -8,6 +8,9 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -32,6 +35,15 @@ const val TAG_PROFILE_ADDRESS: String = "profile_address"
 
 /** Test tag for the save control. */
 const val TAG_PROFILE_SAVE: String = "profile_save"
+
+/** The read-only sign-in number. */
+const val TAG_PROFILE_PHONE: String = "profile_phone"
+
+/** The delete-account action (O5). */
+const val TAG_PROFILE_DELETE: String = "profile_delete"
+
+/** The sign-out action. */
+const val TAG_PROFILE_SIGN_OUT: String = "profile_sign_out"
 
 /** The switch-role action. Absent for a person with one lens. */
 const val TAG_PROFILE_SWITCH_LENS: String = "profile_switch_lens"
@@ -76,6 +88,8 @@ fun ProfileScreen(
     modifier: Modifier = Modifier,
     bottomBar: @Composable () -> Unit = {},
     onSwitchLens: (() -> Unit)? = null,
+    onDeleteAccount: () -> Unit = {},
+    onSignOut: () -> Unit = {},
 ) {
     ScreenScaffold(
         title = stringResource(R.string.profile_title),
@@ -97,6 +111,19 @@ fun ProfileScreen(
                     labelRes = R.string.profile_address_label,
                     value = state.address,
                 )
+                // **Read-only, and said so** (O5). The number is the
+                // login; changing it goes through the OTP path, never
+                // a profile edit.
+                ProfileField(
+                    labelRes = R.string.profile_phone_label,
+                    value = state.phone,
+                    modifier = Modifier.testTag(TAG_PROFILE_PHONE),
+                )
+                Text(
+                    text = stringResource(R.string.profile_phone_note),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 Text(
                     text = stringResource(R.string.profile_teacher_name_note),
                     style = MaterialTheme.typography.bodySmall,
@@ -108,6 +135,26 @@ fun ProfileScreen(
                 // A greyed-out "Switch role" tells someone with one
                 // role that they are missing something; nothing to
                 // switch to is better said by saying nothing.
+                TextButton(
+                    onClick = onSignOut,
+                    modifier = Modifier.fillMaxWidth().testTag(TAG_PROFILE_SIGN_OUT),
+                ) {
+                    Text(stringResource(R.string.profile_sign_out))
+                }
+                // **Outlined in the error colour, not filled** (O5). The
+                // destructive step is the confirmation that follows; this
+                // only opens it, so it must not read as the act itself.
+                OutlinedButton(
+                    onClick = onDeleteAccount,
+                    border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.error),
+                    colors =
+                        ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error,
+                        ),
+                    modifier = Modifier.fillMaxWidth().testTag(TAG_PROFILE_DELETE),
+                ) {
+                    Text(stringResource(R.string.profile_delete))
+                }
                 onSwitchLens?.let { switch ->
                     TextButton(
                         onClick = switch,
@@ -173,14 +220,15 @@ fun ProfileScreen(
  *
  * @param labelRes The string resource labelling the field
  * @param value The value, or null when unset
+ * @param modifier The layout modifier, for the value line
  */
 @Composable
-private fun ProfileField(labelRes: Int, value: String?) {
+private fun ProfileField(labelRes: Int, value: String?, modifier: Modifier = Modifier) {
     Text(
         text = stringResource(labelRes),
         style = MaterialTheme.typography.labelMedium,
     )
-    Text(text = value.orEmpty())
+    Text(text = value.orEmpty(), modifier = modifier)
 }
 
 /**

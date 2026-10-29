@@ -27,7 +27,6 @@ import kotlinx.serialization.Serializable
  * @property attendanceVersion The version a roster write must be
  *   composed against [BR3.3]
  * @property topicVersion The version a topic write guards [BR2.1]
- * @property attendanceRecorded Whether a roster has been submitted
  */
 @Serializable
 data class SessionDto(
@@ -41,7 +40,6 @@ data class SessionDto(
     @SerialName("topic_logged") val topicLogged: Boolean = false,
     @SerialName("attendance_version") val attendanceVersion: Int = 0,
     @SerialName("topic_version") val topicVersion: Int = 0,
-    @SerialName("attendance_recorded") val attendanceRecorded: Boolean = false,
 )
 
 /**
@@ -75,6 +73,13 @@ data class RosterSeatDto(
 /**
  * A session with its roster, for the marking screen.
  *
+ * **Not a wire shape.** The repository composes it from two reads,
+ * `GET /v1/sessions/{id}` and `GET /v1/sessions/{id}/attendance`,
+ * because the server keeps the session and its roster on separate
+ * paths. An earlier version decoded this from the first path alone,
+ * which carries neither `seats` nor `writable`, so the marking screen
+ * could never load.
+ *
  * @property session The session being marked
  * @property seats The roster [BR1.5]
  * @property writable Whether a roster write would be accepted,
@@ -85,7 +90,6 @@ data class RosterSeatDto(
  *   which would be right today and wrong the moment a third refusing
  *   condition appears on the server
  */
-@Serializable
 data class SessionDetailDto(
     val session: SessionDto,
     val seats: List<RosterSeatDto> = emptyList(),
@@ -93,86 +97,11 @@ data class SessionDetailDto(
 )
 
 /**
- * The body of a queued attendance write [BR3.3, § B.8].
+ * What a version conflict looks like to the resolution screen [BR3.10].
  *
- * **The version travels in the BODY, not an `If-Match` header.** A
- * queued write is serialized into the device's queue and replayed hours
- * later; a body field survives that naturally, where a header is a
- * second thing the queue must remember and the first thing a retry
- * wrapper drops.
- *
- * @property baseAttendanceVersion The version this roster was composed
- *   against
- * @property clientMutationId The replay key [BR3.8]. **Freshly
- *   generated for a re-apply** [BR3.7] — reusing one returns the
- *   original stored result with 200 and writes nothing
- * @property entries One entry per seat, written atomically [BR3.5]
- */
-@Serializable
-data class AttendanceWriteBody(
-    @SerialName("base_attendance_version") val baseAttendanceVersion: Int,
-    @SerialName("client_mutation_id") val clientMutationId: String,
-    val entries: List<AttendanceEntryBody>,
-)
-
-/**
- * One seat in an attendance write.
- *
- * @property enrollmentId The seat
- * @property present Whether the student was there
- */
-@Serializable
-data class AttendanceEntryBody(
-    @SerialName("enrollment_id") val enrollmentId: String,
-    val present: Boolean,
-)
-
-/**
- * The body of a queued topic write [BR2.1].
- *
- * @property baseTopicVersion The version this write guards
- * @property clientMutationId The replay key
- * @property topic The topic text. May be empty — a deliberately blank
- *   topic is a logged topic [BR2.2] — but never null, because "do not
- *   write" is expressed by not sending the request
- */
-@Serializable
-data class TopicWriteBody(
-    @SerialName("base_topic_version") val baseTopicVersion: Int,
-    @SerialName("client_mutation_id") val clientMutationId: String,
-    val topic: String,
-)
-
-/**
- * What the server returns when a queued write applies.
- *
- * **No `queue_state` field, here or anywhere** [BR3.9]. The states are
- * client-side vocabulary; the server cannot know whether an item is
- * queued on a device it has never heard from.
- *
- * @property attendanceVersion The version the server now holds, for an
- *   attendance write
- * @property topicVersion The version the server now holds, for a topic
- *   write
- */
-@Serializable
-data class WriteAppliedDto(
-    @SerialName("attendance_version") val attendanceVersion: Int? = null,
-    @SerialName("topic_version") val topicVersion: Int? = null,
-)
-
-/**
- * The detail a version conflict carries [BR3.10].
- *
- * **Reachable only after authorization.** A descriptive conflict code
- * returned before the lens check would be an existence oracle: a caller
- * probes session ids and reads the difference between "not yours" and
- * "yours but stale". The server refuses an unreachable session with the
- * shared `NOT_AVAILABLE` first, so this shape never reaches a stranger.
- *
- * That matters here specifically because `currentState` **is the
- * roster** — the detail that makes a mis-ordered refusal a disclosure
- * rather than a nuisance.
+ * **Not a wire shape.** Built from the refused write and a re-read of
+ * `GET /v1/sessions/{id}/attendance`: the 409's own details carry the
+ * roster as a flat string meant for logs, not for rendering.
  *
  * @property expectedVersion What the refused write was composed against
  * @property currentVersion What the server holds now, which a re-apply
@@ -180,11 +109,10 @@ data class WriteAppliedDto(
  * @property currentState The roster as it now stands, so the
  *   conflict-resolution screen can show it beside the teacher's own
  */
-@Serializable
 data class ConflictDetailDto(
-    @SerialName("expected_version") val expectedVersion: Int,
-    @SerialName("current_version") val currentVersion: Int,
-    @SerialName("current_state") val currentState: List<RosterSeatDto> = emptyList(),
+    val expectedVersion: Int,
+    val currentVersion: Int,
+    val currentState: List<RosterSeatDto> = emptyList(),
 )
 
 /**
@@ -197,7 +125,9 @@ data class ConflictDetailDto(
  *
  * @property announcementId The announcement
  * @property body The text
- * @property postedAt When it was posted, as the server formatted it
+ * @property postedAt When it was posted, as the server formatted it.
+ *   The wire name is `created_at`: this was `posted_at`, which the
+ *   server never sent, and nothing caught it until the contract gate
  * @property edited Whether it has been edited, **decided server-side**
  *   rather than inferred from an `edited_at` comparison
  */
@@ -205,6 +135,6 @@ data class ConflictDetailDto(
 data class AnnouncementDto(
     @SerialName("announcement_id") val announcementId: String,
     val body: String,
-    @SerialName("posted_at") val postedAt: String,
+    @SerialName("created_at") val postedAt: String,
     val edited: Boolean = false,
 )

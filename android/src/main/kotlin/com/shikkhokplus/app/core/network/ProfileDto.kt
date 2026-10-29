@@ -29,12 +29,15 @@ data class LensEntryDto(
  * @property lenses Every available lens, teacher first
  * @property selfName The name this person chose, or null
  * @property address Their address, or null
+ * @property phone The number this account signs in with, shown
+ *   read-only and typed back to confirm deletion
  */
 @Serializable
 data class MeDto(
     val lenses: List<LensEntryDto> = emptyList(),
     @SerialName("self_name") val selfName: String? = null,
     val address: String? = null,
+    val phone: String? = null,
 )
 
 /**

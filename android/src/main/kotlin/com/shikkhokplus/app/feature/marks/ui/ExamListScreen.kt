@@ -143,7 +143,7 @@ private fun ExamRowView(exam: ExamRow, onOpen: (ExamRow) -> Unit) {
             stringResource(
                 R.string.exam_entered_count,
                 Numerals.count(exam.enteredCount),
-                Numerals.count(exam.seatCount),
+                Numerals.count(exam.expectedCount),
             ),
             Modifier.testTag(TAG_EXAM_ENTERED_COUNT),
         )

@@ -19,12 +19,20 @@ object MessageKeys {
     private val resources: Map<String, Int> = mapOf(
         "error.network.unreachable" to R.string.error_network_unreachable,
         "error.unexpected" to R.string.error_unexpected,
+        // A number that is not a Bangladeshi mobile, refused by the
+        // server's canonicalisation on any route that takes a number.
+        "phone.invalid" to R.string.phone_invalid,
+        "signup.phone.invalid" to R.string.signup_phone_invalid,
+        "signup.name.required" to R.string.signup_name_required,
+        "schedule.duplicate_slot" to R.string.schedule_duplicate_slot,
+        "enrollment.student_already_in_batch" to R.string.enrollment_student_already_in_batch,
         "auth.otp.not_valid" to R.string.auth_otp_not_valid,
         "auth.otp.temporarily_unavailable" to
             R.string.auth_otp_temporarily_unavailable,
         "auth.token.not_valid" to R.string.auth_token_not_valid,
         // U4: batches, enrollment seats and the guardian's children.
         "batch.not_found" to R.string.batch_not_found,
+        "batch.subject_in_use" to R.string.batch_subject_in_use,
         "batch.create.subject_required" to
             R.string.batch_create_subject_required,
         "enrollment.remove.claimed" to R.string.enrollment_remove_claimed,
@@ -180,8 +188,6 @@ object MessageKeys {
         // the caller has proven they own the number, and a contentless
         // refusal would leave a teacher concluding the feature is
         // broken rather than that they must deal with their classes.
-        "governance.deletion.owns_batches" to
-            R.string.governance_deletion_owns_batches,
     )
 
     /**

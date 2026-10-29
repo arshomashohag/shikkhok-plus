@@ -25,7 +25,7 @@ import os
 import uuid
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.accounts import decisions, service
@@ -55,6 +55,7 @@ from app.schemas.accounts import (
     SignupResponse,
 )
 from app.schemas.money import Money as WireMoney
+from app.schemas.phone import PhoneField
 
 __all__ = ["router"]
 
@@ -218,7 +219,7 @@ def sign_up(
 
 @router.get("/accounts/already-added", response_model=AlreadyAddedResponse)
 def lookup_already_added(
-    phone: str,
+    phone: Annotated[PhoneField, Query()],
     request: Request,
     session: Annotated[Session, Depends(get_session)],
 ) -> AlreadyAddedResponse:
@@ -233,7 +234,9 @@ def lookup_already_added(
     Public, and in ``PUBLIC_ROUTES``: it is called while the signup
     form renders, before any account exists.
 
-    :param phone: The number typed into the form
+    :param phone: The number typed into the form, canonicalised on the
+        way in like every other number, so the ceiling and the lookup
+        both see one spelling
     :param request: The incoming request
     :param session: The request-scoped session
     :return: Existence, the name to pre-fill and the role to lock

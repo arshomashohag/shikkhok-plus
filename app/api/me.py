@@ -29,7 +29,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import authenticated_account, get_session
 from app.authz.rls import set_account_context
 from app.authz.summary import LensSummary, lens_summary
-from app.db.models import Profile
+from app.db.models import Account, Profile
 
 router = APIRouter(prefix="/v1", tags=["me"])
 
@@ -60,11 +60,16 @@ class MeResponse(BaseModel):
         it sits in `OWNER_PRIVATE_FIELDS` and reaches no teacher-lens
         response, which the schema-wide privacy gate asserts. It is
         returned HERE because this is the owner reading their own row
+    :ivar phone: The number this account signs in with. The owner's own
+        login, read by the owner on a lens-exempt route; the profile
+        shows it read-only, and in-app deletion asks the person to type
+        it back as confirmation, which needs the app to know it
     """
 
     lenses: list[LensEntry] = Field(default_factory=list)
     self_name: str | None = None
     address: str | None = None
+    phone: str | None = None
 
 
 class ProfileUpdateRequest(BaseModel):
@@ -108,6 +113,23 @@ def _entries(summary: LensSummary) -> list[LensEntry]:
     return entries
 
 
+def _me(session: Session, account_id: uuid.UUID, profile: Profile | None) -> MeResponse:
+    """Describe this account to its owner, the same way for read and write.
+
+    :param session: The session to query through
+    :param account_id: The authenticated account
+    :param profile: Its profile row, or None before one exists
+    :return: The lenses, the profile and the sign-in number
+    """
+    account = session.get(Account, account_id)
+    return MeResponse(
+        lenses=_entries(lens_summary(session, account_id)),
+        self_name=profile.self_name if profile else None,
+        address=profile.address if profile else None,
+        phone=account.phone if account else None,
+    )
+
+
 @router.get("/me", response_model=MeResponse)
 def read_me(
     account_id: Annotated[uuid.UUID, Depends(authenticated_account)],
@@ -126,11 +148,7 @@ def read_me(
     set_account_context(session, account_id)
 
     profile = session.get(Profile, account_id)
-    return MeResponse(
-        lenses=_entries(lens_summary(session, account_id)),
-        self_name=profile.self_name if profile else None,
-        address=profile.address if profile else None,
-    )
+    return _me(session, account_id, profile)
 
 
 @router.patch("/me", response_model=MeResponse)
@@ -184,8 +202,4 @@ def update_me(
 
     session.commit()
 
-    return MeResponse(
-        lenses=_entries(lens_summary(session, account_id)),
-        self_name=profile.self_name,
-        address=profile.address,
-    )
+    return _me(session, account_id, profile)

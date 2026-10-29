@@ -56,6 +56,7 @@ class BatchesViewModelTest {
             subjects: List<String>,
             defaultFee: String?,
             feeDueDay: Int?,
+            schedule: List<com.shikkhokplus.app.core.network.ScheduleSlotDto>,
         ): AuthResult<BatchDto> {
             created = Triple(name, subjects, defaultFee)
             return createResult
@@ -251,6 +252,7 @@ class BatchesViewModelTest {
                     subjects: List<String>,
                     defaultFee: String?,
                     feeDueDay: Int?,
+                    schedule: List<com.shikkhokplus.app.core.network.ScheduleSlotDto>,
                 ): AuthResult<BatchDto> {
                     creates += 1
                     return AuthResult.Ok(BatchDto(id = "b", name = name))

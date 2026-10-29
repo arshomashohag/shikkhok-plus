@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -28,6 +29,12 @@ import com.shikkhokplus.app.core.designsystem.FullScreenLoader
 import com.shikkhokplus.app.core.designsystem.ShikkhokTheme
 import com.shikkhokplus.app.core.network.ApiClient
 import com.shikkhokplus.app.core.queue.QueueStore
+import com.shikkhokplus.app.core.network.HttpAttendanceRepository
+import com.shikkhokplus.app.core.queue.keepDraining
+import com.shikkhokplus.app.core.queue.QueueSync
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.lifecycle.Lifecycle
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import com.shikkhokplus.app.core.session.Lens
 import com.shikkhokplus.app.core.session.SessionUiState
 import com.shikkhokplus.app.core.session.SessionViewModel
@@ -231,22 +238,55 @@ private fun AppRoot() {
         lens = null
     }
 
-    val navController = rememberNavController()
+    // **The queue drains while the app is open and someone is signed
+    // in.** It was built and never started, so attendance saved offline
+    // or after a failed send never left the phone [BR3.1]. Keyed on
+    // `signedIn` so it starts at sign-in and stops at sign-out; scoped
+    // to STARTED so it never runs in the background.
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(signedIn) {
+        if (signedIn) {
+            val sync = QueueSync(queue, HttpAttendanceRepository(client)::submit)
+            lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                keepDraining(sync, queue)
+            }
+        }
+    }
 
-    ShikkhokNavHost(
-        client = client,
-        queue = queue,
-        session =
-            SessionBinding(
-                lens = lens,
-                onSwitch = if (multiLens) sessionModel::switchLens else null,
-                onLensesChanged = sessionModel::refreshLenses,
-            ),
-        // Read ONCE, now that it is settled. A live value here would
-        // rebuild the whole NavHost the moment the state changed,
-        // discarding the back stack with it.
-        signedIn = remember { signedIn },
-        navController = navController,
-        authModel = authModel,
-    )
+    // **One way to end a session, used by sign-out and deletion.** It
+    // wipes the stored tokens and the device's queue -- left in place,
+    // the next person to sign in on this phone would send this
+    // account's rosters under their own token -- and returns to sign-in.
+    val endSession = {
+        queue.clear()
+        tokens.clear()
+        authModel.signOut()
+    }
+
+    // **Keyed on `signedIn`, so a session change rebuilds the graph.**
+    // Only then: within a session the start destination is still read
+    // once, for the reason below. When a session ends, every screen and
+    // ViewModel holding the old account's data is discarded with the
+    // back stack, rather than left one Back press away.
+    key(signedIn) {
+        val navController = rememberNavController()
+
+        ShikkhokNavHost(
+            client = client,
+            queue = queue,
+            session =
+                SessionBinding(
+                    lens = lens,
+                    onSwitch = if (multiLens) sessionModel::switchLens else null,
+                    onLensesChanged = sessionModel::refreshLenses,
+                    onEndSession = endSession,
+                    unsentWrites = { queue.read().size },
+                ),
+            // Read ONCE per session. A live value here would rebuild the
+            // whole NavHost on every change, discarding the back stack.
+            signedIn = remember { signedIn },
+            navController = navController,
+            authModel = authModel,
+        )
+    }
 }

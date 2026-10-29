@@ -14,6 +14,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -84,6 +85,7 @@ fun SignupScreen(
     onGoToLogin: () -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
+    onLookup: (String) -> Unit = {},
 ) {
     var phone by remember { mutableStateOf("") }
     var name by remember { mutableStateOf("") }
@@ -105,19 +107,19 @@ fun SignupScreen(
         )
 
         when (state) {
-            // **No lookup while typing.** This called onPhoneLookup on
-            // every keystroke, so an 11-digit number made four network
-            // requests once it passed the length floor — and the
-            // earlier prefixes each produced a state change the person
-            // could see. Signup now sends one request, on the button.
-            //
-            // The already-added path still works: the server answers
-            // the signup POST with its own refusal when a teacher has
-            // already recorded the number, which is the same answer
-            // the lookup was fetching early.
-            SignupUiState.Empty -> SignupForm(
+            // **Looked up once the number is complete** [AC1.12.2], so a
+            // student a teacher already added sees their name filled
+            // in and their role set. The ViewModel ignores incomplete
+            // numbers and asks about each complete one only once, and
+            // the form stays on screen while it checks.
+            SignupUiState.Empty,
+            SignupUiState.CheckingNumber,
+            -> SignupForm(
                 phone = phone,
-                onPhoneChange = { phone = it },
+                onPhoneChange = {
+                    phone = it
+                    onLookup(it)
+                },
                 name = name,
                 onNameChange = { name = it },
                 address = address,
@@ -129,10 +131,10 @@ fun SignupScreen(
                 invalidFieldKeys = emptyList(),
             )
 
-            SignupUiState.CheckingNumber ->
-                Progress(R.string.signup_checking_number)
-
             is SignupUiState.AlreadyAdded -> {
+                // Seeded once from the teacher's name, then the person's
+                // own edits win [AC1.12.2: "You can correct it"].
+                LaunchedEffect(state.prefilledName) { name = state.prefilledName }
                 Text(
                     text = stringResource(R.string.signup_already_added_notice),
                 )
@@ -142,8 +144,11 @@ fun SignupScreen(
                 )
                 SignupForm(
                     phone = phone,
-                    onPhoneChange = { phone = it },
-                    name = state.prefilledName,
+                    onPhoneChange = {
+                        phone = it
+                        onLookup(it)
+                    },
+                    name = name,
                     onNameChange = { name = it },
                     address = address,
                     onAddressChange = { address = it },

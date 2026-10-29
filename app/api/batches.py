@@ -14,25 +14,46 @@ due, written in a composable where it looks like presentation.
 from __future__ import annotations
 
 import uuid
+from dataclasses import replace
 from typing import Annotated
 
+import sqlalchemy as sa
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_session, guardian_lens, teacher_lens
-from app.authz.lenses import GuardianLens, TeacherLens
+from app.api.deps import get_session, guardian_lens, student_lens, teacher_lens
+from app.api.teaching import upcoming_response
+from app.authz.lenses import GuardianLens, StudentLens, TeacherLens
 from app.batches import service
+from app.db.models import PaymentClaim
+from app.errors import AuthorizationError
+from app.fees.views import enrollment_fee_history
+from app.local_time import DHAKA
+from app.marks.views import guardian_progress
 from app.money import Money as DomainMoney
 from app.money.wire import parse, to_wire
 from app.schemas.batches import (
     BatchCreateRequest,
     BatchResponse,
+    BatchUpdateRequest,
+    CurrentFeeResponse,
     EnrollmentCreateRequest,
     GuardianChildResponse,
     InactiveFromRequest,
+    LastResultResponse,
     RosterRowResponse,
+    StudentBatchResponse,
+    SubjectOption,
 )
 from app.schemas.money import Money as WireMoney
+from app.schemas.schedule import ScheduleSlotWire
+from app.teaching.schedule import (
+    refuse_duplicate_slots,
+    set_schedule,
+    slot_of,
+    slots_of,
+)
+from app.teaching.upcoming import upcoming_sessions
 
 __all__ = ["router"]
 
@@ -66,6 +87,48 @@ def _from_wire(amount: WireMoney | None) -> DomainMoney | None:
     if amount is None:
         return None
     return parse(amount.root)
+
+
+def _batch_response(summary: service.BatchSummary) -> BatchResponse:
+    """Render one batch, the same way for the create and the list.
+
+    **One builder for both**, so the response to creating a batch and
+    the list it then appears in cannot describe it differently. They
+    were two hand-written constructions, and when ``subject_options``
+    was added it would have needed adding twice.
+
+    :param summary: The batch with its subjects and seat counts
+    :return: The wire form
+    """
+    batch = summary.batch
+    return BatchResponse(
+        id=batch.id,
+        name=batch.name,
+        subjects=summary.subjects,
+        schedule=[
+            ScheduleSlotWire(
+                weekday=weekday,
+                start_time=start.strftime("%H:%M"),
+                end_time=end.strftime("%H:%M"),
+            )
+            for weekday, start, end in summary.schedule
+        ],
+        subject_options=[
+            SubjectOption(id=subject_id, name=name)
+            for subject_id, name in zip(
+                summary.subject_ids, summary.subjects, strict=True
+            )
+        ],
+        teacher_display_name=batch.teacher_display_name,
+        default_fee=_to_wire(batch.default_fee),
+        fee_due_day=batch.fee_due_day,
+        collection_number=batch.collection_number,
+        collection_channel=batch.collection_channel,
+        marksheet_visible=batch.marksheet_visible,
+        active=batch.active,
+        enrollment_count=summary.enrollment_count,
+        accepted_count=summary.accepted_count,
+    )
 
 
 def _roster_status(row: service.RosterRow) -> str:
@@ -131,7 +194,11 @@ def create_batch(
     :param session: The request-scoped session
     :return: The created batch
     """
-    batch = service.create_batch(
+    # Refused BEFORE the batch is written, so a duplicated slot cannot
+    # leave a batch behind with no schedule and an error in its place.
+    slots = [slot_of(wire) for wire in body.schedule]
+    refuse_duplicate_slots(slots)
+    summary = service.create_batch(
         session,
         lens=lens,
         name=body.name,
@@ -142,22 +209,53 @@ def create_batch(
         collection_number=body.collection_number,
         collection_channel=body.collection_channel,
     )
-    return BatchResponse(
-        id=batch.id,
-        name=batch.name,
-        subjects=sorted(body.subjects),
-        teacher_display_name=batch.teacher_display_name,
-        default_fee=_to_wire(batch.default_fee),
-        fee_due_day=batch.fee_due_day,
-        collection_number=batch.collection_number,
-        collection_channel=batch.collection_channel,
-        marksheet_visible=batch.marksheet_visible,
-        active=batch.active,
-        # A new batch holds no seats, so both numbers are zero and the
-        # count renders from the first moment -- a teacher meets the
-        # shape of "0 of 0" rather than meeting it later [W1].
-        enrollment_count=0,
-        accepted_count=0,
+    if slots:
+        set_schedule(session, lens=lens, batch_id=summary.batch.id, slots=slots)
+        summary = replace(
+            summary,
+            schedule=[
+                (slot.weekday, slot.start_time, slot.end_time)
+                for slot in slots_of(session, summary.batch.id)
+            ],
+        )
+    return _batch_response(summary)
+
+
+@router.patch("/batches/{batch_id}", response_model=BatchResponse)
+def update_batch(
+    batch_id: uuid.UUID,
+    body: BatchUpdateRequest,
+    lens: Annotated[TeacherLens, Depends(teacher_lens)],
+    session: Annotated[Session, Depends(get_session)],
+) -> BatchResponse:
+    """Edit a batch's name, subjects, fee or due day [AC2.3.1].
+
+    A new fee reaches only cycles generated after it; what is already
+    owed is never rewritten.
+
+    :param batch_id: The batch, from the route path
+    :param body: What changes; an omitted field is left alone
+    :param lens: The teacher lens carrying the owner id
+    :param session: The request-scoped session
+    :return: The batch as the list describes it
+    """
+    return _batch_response(
+        service.update_batch(
+            session,
+            lens=lens,
+            batch_id=batch_id,
+            changes=service.BatchChanges(
+                name=body.name,
+                subjects=body.subjects,
+                teacher_display_name=body.teacher_display_name,
+                default_fee=_from_wire(body.default_fee),
+                fee_due_day=body.fee_due_day,
+                collection_number=body.collection_number,
+                collection_channel=body.collection_channel,
+                marksheet_visible=body.marksheet_visible,
+                active=body.active,
+            ),
+        )
     )
 
 
@@ -179,21 +277,7 @@ def list_batches(
     :return: One entry per batch, newest first
     """
     return [
-        BatchResponse(
-            id=summary.batch.id,
-            name=summary.batch.name,
-            subjects=summary.subjects,
-            teacher_display_name=summary.batch.teacher_display_name,
-            default_fee=_to_wire(summary.batch.default_fee),
-            fee_due_day=summary.batch.fee_due_day,
-            collection_number=summary.batch.collection_number,
-            collection_channel=summary.batch.collection_channel,
-            marksheet_visible=summary.batch.marksheet_visible,
-            active=summary.batch.active,
-            enrollment_count=summary.enrollment_count,
-            accepted_count=summary.accepted_count,
-        )
-        for summary in service.list_batches(session, lens=lens)
+        _batch_response(summary) for summary in service.list_batches(session, lens=lens)
     ]
 
 
@@ -243,6 +327,7 @@ def add_enrollment(
         batch_id=batch_id,
         display_name=body.display_name,
         guardian_phone=body.guardian_phone,
+        student_phone=body.student_phone,
         fee_amount=_from_wire(body.fee_amount),
         joined_on=body.joined_on,
     )
@@ -294,6 +379,120 @@ def remove_enrollment(
     :return: None
     """
     service.remove_enrollment(session, lens=lens, enrollment_id=enrollment_id)
+
+
+@router.get("/me/enrollments", response_model=list[StudentBatchResponse])
+def list_my_batches(
+    lens: Annotated[StudentLens, Depends(student_lens)],
+    session: Annotated[Session, Depends(get_session)],
+) -> list[StudentBatchResponse]:
+    """List the batches this student has accepted (S1) [AC2.6.1].
+
+    **The route that did not exist.** Every student read is keyed on a
+    seat, and nothing listed a student's seats once accepted -- so a
+    student who accepted their invitation could not reach it again.
+
+    :param lens: The student lens carrying the authenticated account
+    :param session: The request-scoped session
+    :return: One entry per accepted seat
+    """
+    rows = service.list_student_batches(session, lens=lens)
+    coming = upcoming_sessions(
+        session, batch_ids=[row.batch_id for row in rows if row.batch_id is not None]
+    )
+    nexts = {
+        row.enrollment_id: coming[row.batch_id][0]
+        for row in rows
+        if row.batch_id is not None and coming[row.batch_id]
+    }
+    soonest = min(
+        nexts, key=lambda seat: (nexts[seat].date, nexts[seat].start_time), default=None
+    )
+    return [
+        StudentBatchResponse(
+            enrollment_id=row.enrollment_id,
+            batch_name=row.batch_name,
+            teacher_display_name=row.teacher_display_name,
+            subjects=row.subjects,
+            schedule=[
+                ScheduleSlotWire(
+                    weekday=weekday,
+                    start_time=start.strftime("%H:%M"),
+                    end_time=end.strftime("%H:%M"),
+                )
+                for weekday, start, end in row.schedule
+            ],
+            current_fee=_current_fee(session, lens, row.enrollment_id),
+            next_session=(
+                upcoming_response(nexts[row.enrollment_id])
+                if row.enrollment_id in nexts
+                else None
+            ),
+            is_next=row.enrollment_id == soonest,
+            last_result=_last_result(session, lens, row.enrollment_id),
+        )
+        for row in rows
+    ]
+
+
+def _last_result(
+    session: Session, lens: StudentLens, enrollment_id: uuid.UUID
+) -> LastResultResponse | None:
+    """Return the student's latest marked result on one seat.
+
+    None where nothing is marked yet, and None where the teacher has
+    hidden marksheets from families: the same toggle governs both.
+
+    :param session: The session to read through
+    :param lens: The student lens
+    :param enrollment_id: The seat
+    :return: The latest marked result, or None
+    """
+    try:
+        entries = guardian_progress(session, lens=lens, enrollment_id=enrollment_id)
+    except AuthorizationError:
+        return None
+    marked = [(entry, entry.marks) for entry in entries if entry.marks is not None]
+    if not marked:
+        return None
+    last, marks = marked[-1]
+    return LastResultResponse(
+        title=last.title, marks=marks, total_marks=last.total_marks, rank=last.rank
+    )
+
+
+def _current_fee(
+    session: Session, lens: StudentLens, enrollment_id: uuid.UUID
+) -> CurrentFeeResponse | None:
+    """Read the seat's latest fee period through the fee module's rules.
+
+    :param session: The session to read through
+    :param lens: The student lens, which the fee read re-authorizes
+    :param enrollment_id: The seat
+    :return: The latest period, or None before the first is generated
+    """
+    history = enrollment_fee_history(session, lens=lens, enrollment_id=enrollment_id)
+    if not history.cycles:
+        return None
+    latest = history.cycles[-1]
+    claims = session.execute(
+        sa.select(PaymentClaim.status, PaymentClaim.verified_at).where(
+            PaymentClaim.enrollment_id == enrollment_id,
+            PaymentClaim.period == latest.period,
+        )
+    ).all()
+    approvals = [
+        when for status, when in claims if status.startswith("approved") and when
+    ]
+    return CurrentFeeResponse(
+        period=latest.period,
+        status=latest.status,
+        due_date=latest.due_date,
+        outstanding=WireMoney(to_wire(latest.outstanding)),
+        charged=WireMoney(to_wire(latest.charged)),
+        verifying=any(status == "pending" for status, _ in claims),
+        paid_on=max(approvals).astimezone(DHAKA).date() if approvals else None,
+    )
 
 
 @router.get("/guardian/children", response_model=list[GuardianChildResponse])

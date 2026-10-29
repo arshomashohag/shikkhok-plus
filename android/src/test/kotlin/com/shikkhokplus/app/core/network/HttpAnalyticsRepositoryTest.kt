@@ -13,7 +13,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 /**
- * The overview and dues repositories, over a mock transport.
+ * The Today and dues repositories, over a mock transport.
  *
  * **These assert the ROUTE and the BYTES**, not a decoded object. A
  * repository that reads the right data from the wrong route, or
@@ -29,29 +29,16 @@ class HttpAnalyticsRepositoryTest {
         ApiClient.build("https://staging.example", engine, TokenStore.InMemory())
 
     @Test
-    fun `the overview route carries no identifier`() = runTest {
-        // **The property that matters, and it is an absence.** The
-        // server resolves what to show from the authenticated
-        // account's own lens, so there is nothing a caller could point
-        // at someone else's data.
+    fun `the dues route carries no identifier either`() = runTest {
         val engine =
             MockEngine {
                 respond(
-                    """{"earnings":{"period":"2026-10","received":"4800.00"}}""",
+                    """{"summary":{"total":"0.00","count":0,"late_total":"0.00",
+                    "remindable":0,"groups":[]},"rows":[]}""",
                     HttpStatusCode.OK,
                     jsonHeaders(),
                 )
             }
-        val result = HttpAnalyticsRepository(client(engine)).overview()
-
-        assertIs<AuthResult.Ok<OverviewDto>>(result)
-        assertEquals("/v1/me/overview", engine.requestHistory.single().url.encodedPath)
-    }
-
-    @Test
-    fun `the dues route carries no identifier either`() = runTest {
-        val engine =
-            MockEngine { respond("""{"rows":[]}""", HttpStatusCode.OK, jsonHeaders()) }
         val result = HttpAnalyticsRepository(client(engine)).dues()
 
         assertIs<AuthResult.Ok<DuesResponseDto>>(result)
@@ -65,7 +52,7 @@ class HttpAnalyticsRepositoryTest {
         val engine =
             MockEngine {
                 respond(
-                    """{"rows":[{"enrollment_id":"e-1","batch_id":"b-1",
+                    """{"summary":{"total":"0.00","count":0,"late_total":"0.00","remindable":0,"groups":[]},"rows":[{"enrollment_id":"e-1","batch_id":"b-1",
                        "batch_name":"HSC Physics","display_name":"Rahim",
                        "outstanding":"1200.00"}]}""".trimIndent(),
                     HttpStatusCode.OK,
@@ -86,7 +73,7 @@ class HttpAnalyticsRepositoryTest {
         val engine =
             MockEngine {
                 respond(
-                    """{"rows":[{"enrollment_id":"e-1","batch_id":"b-1",
+                    """{"summary":{"total":"0.00","count":0,"late_total":"0.00","remindable":0,"groups":[]},"rows":[{"enrollment_id":"e-1","batch_id":"b-1",
                        "batch_name":"HSC Physics","display_name":"Rahim",
                        "outstanding":1200.00}]}""".trimIndent(),
                     HttpStatusCode.OK,
@@ -110,7 +97,7 @@ class HttpAnalyticsRepositoryTest {
                     jsonHeaders(),
                 )
             }
-        val result = HttpAnalyticsRepository(client(engine)).overview()
+        val result = HttpAnalyticsRepository(client(engine)).today()
 
         val refused = assertIs<AuthResult.Refused>(result)
         assertEquals("error.forbidden", refused.envelope.error.messageKey)
@@ -122,5 +109,16 @@ class HttpAnalyticsRepositoryTest {
         val result = HttpAnalyticsRepository(client(engine)).dues()
 
         assertIs<AuthResult.TransportFailure>(result)
+    }
+
+    @Test
+    fun `a reminder posts the seats and reads what it did`() = runTest {
+        val engine =
+            MockEngine { respond("""{"sent":1,"skipped":0}""", HttpStatusCode.OK, jsonHeaders()) }
+        val result = HttpAnalyticsRepository(client(engine)).remind(listOf("e-1"))
+
+        val ok = assertIs<AuthResult.Ok<ReminderResultDto>>(result)
+        assertEquals(1, ok.value.sent)
+        assertEquals("/v1/reminders", engine.requestHistory.single().url.encodedPath)
     }
 }

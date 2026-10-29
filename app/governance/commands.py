@@ -112,6 +112,7 @@ _AGE_COLUMN: Final[dict[str, str]] = {
     "rate_limit_counter": "window_start",
     "auth_audit_log": "occurred_at",
     "reminder_event": "sent_at",
+    "notification": "created_at",
     "refresh_token": "expires_at",
 }
 

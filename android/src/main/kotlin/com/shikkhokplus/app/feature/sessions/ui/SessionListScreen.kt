@@ -16,6 +16,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
+import com.shikkhokplus.app.core.designsystem.TonalButton
 import com.shikkhokplus.app.core.designsystem.LogoLoader
 import com.shikkhokplus.app.core.designsystem.ListScreenScaffold
 import com.shikkhokplus.app.core.format.Numerals
@@ -87,6 +88,7 @@ fun SessionListScreen(
     onAddSession: () -> Unit = {},
     onRetry: () -> Unit = {},
     modifier: Modifier = Modifier,
+    onRecord: (SessionRow) -> Unit = {},
 ) {
     ListScreenScaffold(
         title = stringResource(R.string.screen_title_sessions),
@@ -124,7 +126,7 @@ fun SessionListScreen(
                 }
                 LazyColumn(Modifier.testTag(TAG_SESSIONS_LIST)) {
                     items(state.rows, key = { it.sessionId }) { row ->
-                        SessionRowView(row, onOpen)
+                        SessionRowView(row, onOpen, onRecord)
                     }
                 }
             }
@@ -152,9 +154,10 @@ fun SessionListScreen(
  *
  * @param row The session to render
  * @param onOpen Called when the teacher taps it
+ * @param onRecord Called to record what it covered
  */
 @Composable
-private fun SessionRowView(row: SessionRow, onOpen: (SessionRow) -> Unit) {
+private fun SessionRowView(row: SessionRow, onOpen: (SessionRow) -> Unit, onRecord: (SessionRow) -> Unit) {
     Column(Modifier.fillMaxWidth().testTag(TAG_SESSION_ROW)) {
         TextButton(onClick = { onOpen(row) }) {
             Text(
@@ -204,5 +207,15 @@ private fun SessionRowView(row: SessionRow, onOpen: (SessionRow) -> Unit) {
                 Modifier.testTag(TAG_SESSION_TOPIC_UNLOGGED),
             )
         }
+        if (!row.isCancelled) {
+            TonalButton(
+                text = stringResource(R.string.today_record),
+                onClick = { onRecord(row) },
+                modifier = Modifier.testTag(TAG_SESSION_RECORD),
+            )
+        }
     }
 }
+
+/** A class's Record button, which opens the "Record class" sheet. */
+const val TAG_SESSION_RECORD: String = "session_record"

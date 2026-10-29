@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.core.queue
 
+import com.shikkhokplus.app.core.network.ErrorEnvelope
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.util.UUID
@@ -85,6 +86,13 @@ data class AttendanceEntry(
  * @property conflictCurrentVersion The version the server said was
  *   current when it refused, or null when this item has not conflicted.
  *   Carried so re-apply can compose against it [BR3.7]
+ * @property serverRetryable Whether the last failed send was one the
+ *   server said may be retried. **Read from the envelope, never
+ *   inferred** [TC-9]; true when no answer arrived at all. The
+ *   automatic sync skips a FAILED item the server called final, which
+ *   would otherwise be re-sent every cycle and refused every time.
+ *   Defaults to true, so a queue file written before this field existed
+ *   still drains
  */
 @Serializable
 data class QueuedWrite(
@@ -97,7 +105,36 @@ data class QueuedWrite(
     val topic: String? = null,
     val state: QueueState = QueueState.QUEUED,
     @SerialName("conflict_current_version") val conflictCurrentVersion: Int? = null,
+    @SerialName("server_retryable") val serverRetryable: Boolean = true,
 ) {
+    /**
+     * Mark this item failed, recording whether the server allows a retry.
+     *
+     * One function for both senders -- the screen's own send and the
+     * background drain -- so they cannot record a failure differently.
+     *
+     * @param envelope The refusal, or null when nothing arrived
+     * @return The failed item
+     */
+    fun failed(envelope: ErrorEnvelope?): QueuedWrite =
+        copy(
+            state = QueueState.FAILED,
+            serverRetryable = envelope?.error?.retryable ?: true,
+        )
+
+    /**
+     * Whether the automatic sync may send this without being asked.
+     *
+     * The state decides first ([QueueState.isAutomaticallySendable]);
+     * a FAILED item is then sent only if the server said a retry could
+     * help. The teacher can still retry it by hand.
+     *
+     * @return True when the background drain should try it
+     */
+    fun isAutomaticallySendable(): Boolean =
+        state.isAutomaticallySendable() &&
+            (state != QueueState.FAILED || serverRetryable)
+
 
     /**
      * Compose the NEW write a re-apply sends [BR3.7].

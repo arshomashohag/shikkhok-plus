@@ -31,13 +31,23 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.schemas.money import MoneyField
 
 __all__ = [
+    "ClaimQueueItemResponse",
     "ClaimResponse",
     "ClaimSubmitRequest",
     "FeeCycleResponse",
     "FeeHistoryResponse",
+    "PayableResponse",
+    "PayablesResponse",
     "PaymentDestinationResponse",
+    "RecentDecisionResponse",
+    "ReminderRequest",
+    "ReminderResponse",
     "RosterFeeRowResponse",
+    "ShortfallPreviewRequest",
+    "ShortfallPreviewResponse",
+    "VerificationQueueResponse",
     "VerificationRequest",
+    "WaitingPaymentResponse",
 ]
 
 #: The four statuses a cycle reports [BR6.1]. A ``Literal`` rather than
@@ -112,6 +122,9 @@ class RosterFeeRowResponse(BaseModel):
     :ivar current_period: The latest generated period, or null
     :ivar current_status: That period's status, or null
     :ivar due_date: That period's due date, or null
+    :ivar days_overdue: How late the oldest unpaid period is, decided by
+        the server against Bangladesh's date, or null
+    :ivar verifying: The total of claims still waiting for the teacher
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -122,6 +135,8 @@ class RosterFeeRowResponse(BaseModel):
     current_period: str | None = None
     current_status: FeeStatus | None = None
     due_date: dt.date | None = None
+    days_overdue: int | None = None
+    verifying: MoneyField | None = None
 
 
 class ClaimSubmitRequest(BaseModel):
@@ -251,6 +266,7 @@ class PaymentDestinationResponse(BaseModel):
 
     :ivar collection_number: Where payments are sent
     :ivar collection_channel: Which service that number belongs to
+    :ivar teacher_display_name: Who the money goes to, or null
     :ivar channels: The channel set, server-supplied so adding one is a
         data change rather than an app release
     """
@@ -260,3 +276,214 @@ class PaymentDestinationResponse(BaseModel):
     collection_number: str
     collection_channel: str | None = None
     channels: list[str]
+    teacher_display_name: str | None = None
+
+
+#: How a claim stands against what its period charged.
+ClaimComparison = Literal["matches", "short", "over"]
+
+#: Who sent a claim.
+Submitter = Literal["student", "guardian"]
+
+
+class DuplicateClaimResponse(BaseModel):
+    """The earlier claim that quoted the same transaction id.
+
+    :ivar claim_id: That claim
+    :ivar display_name: Whose seat it was on, as the teacher typed it
+    :ivar status: How it was decided
+    :ivar amount: What was approved, else what was claimed
+    :ivar decided_at: When it was decided, or null
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    claim_id: uuid.UUID
+    display_name: str
+    status: ClaimStatus
+    amount: MoneyField
+    decided_at: dt.datetime | None = None
+
+
+class ClaimQueueItemResponse(BaseModel):
+    """One claim waiting for the teacher (T4).
+
+    **The comparison is the server's.** ``comparison`` and
+    ``difference`` are measured against what the period CHARGED
+    [BR5.3]; the client shows them and never subtracts.
+
+    :ivar claim_id: The claim
+    :ivar enrollment_id: The seat it is against
+    :ivar display_name: The student, as the teacher typed the name
+    :ivar batch_name: The batch
+    :ivar period: The period the claim resolved to
+    :ivar claimed_amount: What the payer says they sent
+    :ivar charged: What that period charged
+    :ivar comparison: ``matches``, ``short`` or ``over``
+    :ivar difference: How far from the charge, never negative
+    :ivar channel: The service the money moved through
+    :ivar transaction_id: The reference quoted, if any
+    :ivar submitted_at: When it was sent
+    :ivar submitted_by: ``student`` or ``guardian``, or null
+    :ivar submitter_phone: The number the teacher holds for them
+    :ivar duplicate_of: The earlier claim quoting the same reference
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    claim_id: uuid.UUID
+    enrollment_id: uuid.UUID
+    display_name: str
+    batch_name: str
+    period: str
+    claimed_amount: MoneyField
+    charged: MoneyField
+    comparison: ClaimComparison
+    difference: MoneyField
+    channel: str
+    transaction_id: str | None = None
+    submitted_at: dt.datetime
+    submitted_by: Submitter | None = None
+    submitter_phone: str | None = None
+    duplicate_of: DuplicateClaimResponse | None = None
+
+
+class RecentDecisionResponse(BaseModel):
+    """A claim decided in the last day.
+
+    :ivar claim_id: The claim
+    :ivar display_name: The student
+    :ivar batch_name: The batch
+    :ivar status: How it was decided
+    :ivar amount: What was approved, else what was claimed
+    :ivar decided_at: When
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    claim_id: uuid.UUID
+    display_name: str
+    batch_name: str
+    status: ClaimStatus
+    amount: MoneyField
+    decided_at: dt.datetime
+
+
+class VerificationQueueResponse(BaseModel):
+    """The teacher's payment queue.
+
+    :ivar pending: Waiting claims, oldest first
+    :ivar decided_recently: Claims decided in the last day, newest first
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    pending: list[ClaimQueueItemResponse]
+    decided_recently: list[RecentDecisionResponse]
+
+
+class ShortfallPreviewRequest(BaseModel):
+    """An amount the teacher is about to approve.
+
+    :ivar approved_amount: The amount being considered
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    approved_amount: MoneyField
+
+
+class ShortfallPreviewResponse(BaseModel):
+    """What that approval would leave short, and whether to ask about it.
+
+    :ivar shortfall: ``charged - approved``, floored at zero
+    :ivar disposition_required: Whether the teacher must choose carry or
+        waive, which the decision itself will insist on
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    shortfall: MoneyField
+    disposition_required: bool
+
+
+class ReminderRequest(BaseModel):
+    """The seats a teacher wants reminded about what they owe.
+
+    :ivar enrollment_ids: The seats; every one must be this teacher's
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    enrollment_ids: list[uuid.UUID] = Field(min_length=1, max_length=500)
+
+
+class ReminderResponse(BaseModel):
+    """What the reminder did.
+
+    :ivar sent: Seats whose student or guardian was reminded in the app
+    :ivar skipped: Seats left alone -- owing nothing, already reminded
+        today, or with nobody who has accepted the seat
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    sent: int = Field(ge=0)
+    skipped: int = Field(ge=0)
+
+
+class PayableResponse(BaseModel):
+    """One month a student can pay for (S3).
+
+    :ivar enrollment_id: Their seat; the claim is posted against it
+    :ivar batch_name: The batch
+    :ivar period: The month a claim would be recorded against
+    :ivar amount_due: What is still owed on it
+    :ivar due_date: When it was due, or null
+    :ivar total_due: Everything the seat owes, that month included
+    :ivar later_periods: How many later months also owe
+    :ivar days_late: Days past the oldest late due date, or null
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    enrollment_id: uuid.UUID
+    batch_name: str
+    period: str = Field(pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")
+    amount_due: MoneyField
+    due_date: dt.date | None = None
+    total_due: MoneyField
+    later_periods: int = Field(ge=0)
+    days_late: int | None = Field(default=None, ge=1)
+
+
+class WaitingPaymentResponse(BaseModel):
+    """A seat not offered because its payment is being checked.
+
+    :ivar batch_name: The batch
+    :ivar period: The month the waiting payment is for
+    :ivar amount: What was claimed
+    :ivar channel: Which app it moved through
+    :ivar submitted_at: When it was sent
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    batch_name: str
+    period: str = Field(pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")
+    amount: MoneyField
+    channel: str
+    submitted_at: dt.datetime | None = None
+
+
+class PayablesResponse(BaseModel):
+    """What the "Pay a fee" screen offers, and what it explains.
+
+    :ivar payable: Months to pay for, earliest due first
+    :ivar waiting: Seats whose payment is already being checked
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    payable: list[PayableResponse] = Field(default_factory=list)
+    waiting: list[WaitingPaymentResponse] = Field(default_factory=list)

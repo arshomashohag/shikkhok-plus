@@ -185,6 +185,9 @@ def test_the_suppressed_marksheet_is_a_distinct_shape() -> None:
 
     assert set(suppressed["properties"]) == {
         "published",
+        "exam_title",
+        "total_marks",
+        "viewer_result_state",
         "viewer_marks",
         "reason",
     }

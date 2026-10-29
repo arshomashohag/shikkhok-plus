@@ -43,6 +43,22 @@ sealed interface AuthUiState {
      */
     data object AwaitingCode : AuthUiState
 
+    /** The six digits are with the server; the code boxes stay up. */
+    data object CheckingCode : AuthUiState
+
+    /**
+     * The code was refused or could not be checked. The code boxes stay
+     * up, so the person can type it again, ask for a new one, or
+     * change the number, rather than being sent back to the start.
+     *
+     * @property messageKey Names a string resource
+     * @property retryable Read from the server's envelope [TC-9]
+     */
+    data class CodeRejected(
+        val messageKey: String,
+        val retryable: Boolean,
+    ) : AuthUiState
+
     /** The code was accepted and a session exists. */
     data object SignedIn : AuthUiState
 

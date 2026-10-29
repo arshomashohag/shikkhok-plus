@@ -4,6 +4,7 @@ import com.shikkhokplus.app.core.network.ConflictDetailDto
 import com.shikkhokplus.app.core.network.ErrorBody
 import com.shikkhokplus.app.core.network.ErrorEnvelope
 import com.shikkhokplus.app.core.network.RosterSeatDto
+import com.shikkhokplus.app.core.network.SessionRosterDto
 import com.shikkhokplus.app.core.network.SessionDetailDto
 import com.shikkhokplus.app.core.network.SessionDto
 import com.shikkhokplus.app.core.queue.QueueState
@@ -104,8 +105,10 @@ class AttendanceViewModelTest {
             return outcomes.removeFirstOrNull() ?: SendOutcome.Applied(item.baseVersion + 1)
         }
 
-        override suspend fun conflictDetail(sessionId: String) =
-            detail?.let { AuthResult.Ok(it) } ?: AuthResult.TransportFailure
+        override suspend fun currentRoster(sessionId: String) =
+            detail?.let {
+                AuthResult.Ok(SessionRosterDto(it.currentState, it.currentVersion, writable = true))
+            } ?: AuthResult.TransportFailure
     }
 
     private fun conflictEnvelope(): ErrorEnvelope =

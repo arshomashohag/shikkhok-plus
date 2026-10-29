@@ -1,159 +1,81 @@
 package com.shikkhokplus.app.feature.guardian
 
+import com.shikkhokplus.app.core.model.Money
 import com.shikkhokplus.app.core.network.ErrorBody
 import com.shikkhokplus.app.core.network.ErrorEnvelope
-import com.shikkhokplus.app.core.network.GuardianChildDto
+import com.shikkhokplus.app.core.network.GuardianHomeDto
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 
 /**
- * The guardian home's mapping decisions.
- *
- * Targeting the mapper rather than "the ViewModel", per `team.md`.
+ * The guardian home's mapping: children, what to pay, how results moved,
+ * and that switching replaces rather than stacks [BR4.2].
  */
 class GuardianStateMapperTest {
 
-    private fun dto(
-        id: String,
-        name: String,
-        batch: String = "Physics",
-        teacher: String? = "Karim Sir",
-    ): GuardianChildDto =
-        GuardianChildDto(
-            enrollmentId = id,
-            displayName = name,
-            batchName = batch,
-            teacherDisplayName = teacher,
-        )
-
     @Test
-    fun `one child is OneChild, not a list of length one`() {
-        // [frontend-components]. A composable writing
-        // `if (children.size > 1)` would be deciding whether a switcher
-        // is needed. The states are separate so that decision is made
-        // once, here, where a test can reach it.
-        val state = GuardianStateMapper.afterLoad(listOf(dto("e-1", "Rahim")))
-
-        val one = assertIs<GuardianUiState.OneChild>(state)
-        assertEquals("Rahim", one.child.displayName)
-    }
-
-    @Test
-    fun `several children is a separate state carrying the selection`() {
-        val state =
-            GuardianStateMapper.afterLoad(
-                listOf(dto("e-1", "Rahim"), dto("e-2", "Karima")),
+    fun `children carry the server's payment, waiting, trend and next class`() {
+        val loaded =
+            assertIs<GuardianUiState.Loaded>(
+                GuardianStateMapper.afterLoad(GuardianHomeDto(listOf(childDto("Tasnim"))), null),
             )
 
-        val several = assertIs<GuardianUiState.SeveralChildren>(state)
-        assertEquals(2, several.children.size)
-        // A guardian lands somewhere rather than on a chooser they did
-        // not ask for, matching the lens's own `child_enrollment_id`.
-        assertEquals("e-1", several.selected.enrollmentId)
+        val child = loaded.child
+        assertEquals("Tasnim", child.name)
+        val payment = child.payment
+        assertEquals(Money.of("1000.00"), payment?.option?.amountDue)
+        assertEquals(Money.of("2000.00"), payment?.totalDue)
+        assertEquals(1 to 37, payment?.let { it.laterPeriods to it.daysLate })
+        assertEquals("Nagad", child.waiting.single().channel)
+        assertEquals(Trend.UP to 39, child.results.single().let { it.trend to it.previousMarks })
+        assertEquals("16:00", child.batches.single().next?.startTime)
     }
 
     @Test
-    fun `no children is Empty, not a Loaded with none`() {
-        // "Nothing to show yet" needs an explanation and a blank screen
-        // gives none. A declined guardian link lands here: the seat
-        // stays in that guardian's invitations [BR5.4].
+    fun `no children is Empty with the guardian's number`() {
         assertEquals(
-            GuardianUiState.Empty,
-            GuardianStateMapper.afterLoad(emptyList()),
+            GuardianUiState.Empty("+8801819552041"),
+            GuardianStateMapper.afterLoad(GuardianHomeDto(), "+8801819552041"),
         )
     }
 
     @Test
-    fun `the batch is carried even in the single-child case`() {
-        // [AC2.8.5]. That is where attribution is MOST needed: there is
-        // no selection list to have shown it.
-        val one =
-            assertIs<GuardianUiState.OneChild>(
-                GuardianStateMapper.afterLoad(
-                    listOf(dto("e-1", "Rahim", batch = "Chemistry")),
-                ),
-            )
+    fun `switching child REPLACES the shown child and says so`() {
+        val loaded =
+            GuardianStateMapper.afterLoad(GuardianHomeDto(listOf(childDto("Tasnim"), childDto("Ayan"))), null)
+                as GuardianUiState.Loaded
 
-        assertEquals("Chemistry", one.child.batchName)
+        val switched = GuardianStateMapper.select(loaded, 1)
+
+        assertEquals("Ayan", switched.child.name)
+        assertEquals(true, switched.switched)
+        assertEquals(switched, GuardianStateMapper.select(switched, 1), "selecting the shown child changes nothing")
+        assertEquals(
+            switched,
+            GuardianStateMapper.select(switched, 7),
+            "an index the guardian does not reach is refused",
+        )
     }
 
     @Test
-    fun `switching child REPLACES the selection rather than stacking`() {
-        // [BR4.2, NFR14.30, AC9.4.2]. The state after a switch carries
-        // the SAME children and a different selection: there is no
-        // history, no stack and no previous destination. That absence
-        // is what makes Back unable to reach the previous child's data.
-        val before =
-            assertIs<GuardianUiState.SeveralChildren>(
-                GuardianStateMapper.afterLoad(
-                    listOf(dto("e-1", "Rahim"), dto("e-2", "Karima")),
-                ),
-            )
+    fun `an unknown trend reads as a first test, never as a direction`() {
+        val dto =
+            childDto("Tasnim").let { it.copy(latestResults = it.latestResults.map { r -> r.copy(trend = "sideways") }) }
 
-        val after =
-            assertIs<GuardianUiState.SeveralChildren>(
-                GuardianStateMapper.afterChildSelected(before, before.children[1]),
-            )
+        val loaded = GuardianStateMapper.afterLoad(GuardianHomeDto(listOf(dto)), null) as GuardianUiState.Loaded
 
-        assertEquals("Karima", after.selected.displayName)
-        assertEquals(before.children, after.children)
-        // The previous selection is GONE from the new state, not
-        // recorded beside it. A field holding "where we came from"
-        // would be the back stack this design does not have.
-        assertEquals(false, after.selected == before.selected)
+        assertEquals(Trend.FIRST, loaded.child.results.single().trend)
     }
 
     @Test
-    fun `selecting a child this guardian does not reach is refused`() {
-        // The authorization that matters is the server's — every
-        // request names the child as a path parameter and is scoped by
-        // the lens [BR4.1] — but selecting an unreachable seat would
-        // put a child's name on screen before the server ever refused
-        // the data behind it.
-        val state =
-            assertIs<GuardianUiState.SeveralChildren>(
-                GuardianStateMapper.afterLoad(
-                    listOf(dto("e-1", "Rahim"), dto("e-2", "Karima")),
-                ),
-            )
+    fun `failures carry the server's key, and offline is retryable`() {
+        val envelope = ErrorEnvelope(ErrorBody("X", false, "error.not_available"))
 
-        val result =
-            GuardianStateMapper.afterChildSelected(
-                state,
-                GuardianChild("e-99", "Someone else", "Physics", null),
-            )
-
-        assertIs<GuardianUiState.Failed>(result)
-    }
-
-    @Test
-    fun `retryable is read from the envelope, never inferred`() {
-        val failed =
-            assertIs<GuardianUiState.Failed>(
-                GuardianStateMapper.afterError(
-                    ErrorEnvelope(
-                        ErrorBody(
-                            code = "AUTHZ_LENS_NOT_AVAILABLE",
-                            retryable = false,
-                            messageKey = "authz.lens.not_available",
-                        ),
-                    ),
-                ),
-            )
-
-        assertEquals("authz.lens.not_available", failed.messageKey)
-        assertEquals(false, failed.retryable)
-    }
-
-    @Test
-    fun `a transport failure is retryable`() {
-        val failed =
-            assertIs<GuardianUiState.Failed>(
-                GuardianStateMapper.afterTransportFailure(),
-            )
-
-        assertEquals(GuardianStateMapper.OFFLINE_KEY, failed.messageKey)
-        assertEquals(true, failed.retryable)
+        assertEquals(GuardianUiState.Failed("error.not_available", false), GuardianStateMapper.afterError(envelope))
+        assertEquals(
+            GuardianUiState.Failed(GuardianStateMapper.OFFLINE_KEY, true),
+            GuardianStateMapper.afterTransportFailure(),
+        )
     }
 }

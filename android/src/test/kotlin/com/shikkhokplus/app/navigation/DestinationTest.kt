@@ -88,9 +88,12 @@ class DestinationTest {
                 Destination.Attendance.of("s-1"),
                 Destination.Exams.of("b-1", "Class 9"),
                 Destination.MarkEntry.of("x-1"),
+                Destination.CreateExam.of("b-1"),
+                Destination.BatchSchedule.of("b-1"),
                 Destination.Marksheet.of("x-1", "e-1", "SELF"),
-                Destination.Progress.of("e-1"),
+                Destination.Progress.of("e-1", "CHILD", "Rafi Ahmed", "Class 9"),
                 Destination.FeeHistory.of("e-1", "GUARDIAN"),
+                Destination.StudentBatch.of("e-1"),
             )
 
         built.forEach {
@@ -160,7 +163,7 @@ class DestinationTest {
         // and the failure would be silent: the tab simply would not
         // open.
         listOf(
-            Destination.Overview,
+            Destination.Today,
             Destination.Batches,
             Destination.Dues,
             Destination.Profile,

@@ -1,5 +1,11 @@
 package com.shikkhokplus.app.feature.marks.ui
 
+import com.shikkhokplus.app.core.designsystem.TextAction
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Icon
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,6 +24,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
@@ -65,6 +75,12 @@ const val TAG_MARK_ENTRY_ERROR: String = "mark_entry_error"
 /** The retry button. */
 const val TAG_MARK_ENTRY_RETRY: String = "mark_entry_retry"
 
+/** The pencil that opens the exam's edit form. */
+const val TAG_MARK_ENTRY_EDIT_EXAM: String = "mark_entry_edit_exam"
+
+/** The link to one seat's mark history. */
+const val TAG_MARK_ENTRY_HISTORY: String = "mark_entry_history"
+
 /**
  * Mark entry for one exam [FR4.2, FR4.3].
  *
@@ -99,10 +115,23 @@ fun MarkEntryScreen(
     onAbsent: (MarkRow) -> Unit = {},
     onRetry: () -> Unit = {},
     modifier: Modifier = Modifier,
+    onEditExam: () -> Unit = {},
+    onHistory: (MarkRow) -> Unit = {},
 ) {
     ListScreenScaffold(
         title = stringResource(R.string.screen_title_mark_entry),
         modifier = modifier,
+        actions = {
+            if (state is MarksUiState.EntryLoaded && state.writable) {
+                IconButton(onClick = onEditExam, modifier = Modifier.testTag(TAG_MARK_ENTRY_EDIT_EXAM)) {
+                    Icon(
+                        painterResource(R.drawable.ic_edit),
+                        stringResource(R.string.exam_edit_title),
+                        Modifier.size(22.dp),
+                    )
+                }
+            }
+        },
     ) {
         when (state) {
             MarksUiState.Loading ->
@@ -128,7 +157,7 @@ fun MarkEntryScreen(
 
                 LazyColumn(Modifier.testTag(TAG_MARK_ENTRY_LIST)) {
                     items(state.rows, key = { it.enrollmentId }) { row ->
-                        MarkRowView(row, onMark, onAbsent)
+                        MarkRowView(row, onMark, onAbsent, onHistory)
                     }
                 }
             }
@@ -159,12 +188,14 @@ fun MarkEntryScreen(
  * @param row The seat
  * @param onMark Called with the score the teacher entered
  * @param onAbsent Called when the teacher marks the seat absent
+ * @param onHistory Called to see every mark recorded for the seat
  */
 @Composable
 private fun MarkRowView(
     row: MarkRow,
     onMark: (MarkRow, Int) -> Unit,
     onAbsent: (MarkRow) -> Unit,
+    onHistory: (MarkRow) -> Unit,
 ) {
     // The typed text, held locally while the teacher types. Seeded
     // from the server's value so an existing mark is editable rather
@@ -173,13 +204,28 @@ private fun MarkRowView(
     var typed by remember(row.enrollmentId, row.marks) {
         mutableStateOf(row.marks?.toString().orEmpty())
     }
+    var focused by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
+    val commit = {
+        focused = false
+        typed.toIntOrNull()?.takeIf { it != row.marks }?.let { onMark(row, it) }
+    }
 
     Column(Modifier.fillMaxWidth().testTag(TAG_MARK_ENTRY_ROW)) {
         Text(Numerals.freeText(row.displayName))
-        Text(
-            stringResource(MessageKeys.resolve(row.stateLabel)),
-            Modifier.testTag(TAG_MARK_ENTRY_STATE),
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                stringResource(MessageKeys.resolve(row.stateLabel)),
+                Modifier.weight(1f).testTag(TAG_MARK_ENTRY_STATE),
+            )
+            if (row.hasHistory) {
+                TextAction(
+                    stringResource(R.string.mark_history_open),
+                    { onHistory(row) },
+                    Modifier.testTag(TAG_MARK_ENTRY_HISTORY),
+                )
+            }
+        }
 
         // **`isEditable` is the mapper's decision** from the server's
         // state [BR4.3]. A seat that joined after the exam date cannot
@@ -203,10 +249,7 @@ private fun MarkRowView(
                     // RANGE is the server's check [BR4.2], and a
                     // client bound would diverge from it the moment an
                     // exam's total is edited.
-                    if (entered.all(Char::isDigit)) {
-                        typed = entered
-                        entered.toIntOrNull()?.let { onMark(row, it) }
-                    }
+                    if (entered.all(Char::isDigit)) typed = entered
                 },
                 label = { Text(stringResource(R.string.mark_entry_label)) },
                 singleLine = true,
@@ -215,7 +258,21 @@ private fun MarkRowView(
                         keyboardType = KeyboardType.Number,
                         imeAction = ImeAction.Next,
                     ),
-                modifier = Modifier.weight(1f).testTag(TAG_MARK_ENTRY_FIELD),
+                // **Saved once, when the teacher moves on**: Next, or
+                // leaving the field. Saving every keystroke sent "2"
+                // before "22" and blanked the list on each save.
+                keyboardActions =
+                    KeyboardActions(onNext = {
+                        commit()
+                        focusManager.moveFocus(FocusDirection.Down)
+                    }),
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .onFocusChanged { focus ->
+                            if (focus.isFocused) focused = true else if (focused) commit()
+                        }
+                        .testTag(TAG_MARK_ENTRY_FIELD),
             )
 
             // **Absent is its own action, not an empty field.** An

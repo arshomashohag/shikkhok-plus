@@ -53,6 +53,14 @@ object FeeStateMapper {
         )
 
     /**
+     * The message key for one server-decided fee status.
+     *
+     * @param status `paid`, `partly_paid`, `unpaid` or `waived`
+     * @return Its key, or null for a status outside the four
+     */
+    fun statusKey(status: String): String? = STATUS_KEYS[status]
+
+    /**
      * The statuses meaning nothing is still owed for that period.
      *
      * Derived from the server's ENUM rather than from the amount, which

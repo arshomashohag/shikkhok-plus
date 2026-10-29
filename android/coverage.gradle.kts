@@ -137,6 +137,20 @@ val coverageExclusions = listOf(
     // register link are ALL reachable on a 320x414 screen, which is
     // the case a fixed hero plus a weighted body silently broke.
     "**/designsystem/BrandHeroKt*",
+    // **The shared buttons and text field, same reason, measured.**
+    //
+    // *(Added 2026-10-28.)* `ButtonsKt` recorded 0 covered against 85
+    // missed and `FieldsKt` 0 against 91, while `ComponentsTest` pressed
+    // every button kind and typed into the phone field. They are
+    // composables and nothing else: heights, pills, borders.
+    //
+    // What `ComponentsTest` verifies is the behaviour a screen relies
+    // on: that a disabled main action cannot be pressed, that every
+    // button kind reports its press, that the phone field shows `+88`
+    // and passes what is typed, and that a refused field says so to a
+    // screen reader as well as in red.
+    "**/designsystem/ButtonsKt*",
+    "**/designsystem/FieldsKt*",
 )
 
 tasks.register<JacocoReport>("jacocoDebugReport") {
