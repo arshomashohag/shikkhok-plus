@@ -262,6 +262,48 @@ dependencies {
     androidTestImplementation(libs.compose.ui.test.junit4)
 }
 
+// **Robolectric's Android runtime arrives through Gradle, not mid-test.**
+// Left alone, Robolectric downloads android-all-instrumented from Maven
+// Central the first time a test needs it, outside Gradle: no retry, no
+// build cache, no checksum verification. A dropped connection on the CI
+// runner then failed whichever test happened to trigger the download, as
+// a ConnectException that reads like a broken test. Resolving the jars as
+// dependencies puts them under verification-metadata.xml and the Gradle
+// cache, and offline mode makes a missing jar fail loudly instead of
+// reaching for the network. Which jars, and why two, is recorded beside
+// their versions in libs.versions.toml.
+//
+// One configuration per jar, because both are versions of the same module:
+// in a single configuration Gradle's conflict resolution keeps the newer
+// and silently drops the other.
+val robolectricRuntimeSdk34: Configuration by configurations.creating {
+    isTransitive = false
+}
+val robolectricRuntimeSdk35: Configuration by configurations.creating {
+    isTransitive = false
+}
+
+dependencies {
+    robolectricRuntimeSdk34(libs.robolectric.android.all.sdk34)
+    robolectricRuntimeSdk35(libs.robolectric.android.all.sdk35)
+}
+
+val robolectricJarDir = layout.buildDirectory.dir("robolectric-jars")
+
+val syncRobolectricJars by tasks.registering(Sync::class) {
+    from(robolectricRuntimeSdk34, robolectricRuntimeSdk35)
+    into(robolectricJarDir)
+}
+
+tasks.withType<Test>().configureEach {
+    dependsOn(syncRobolectricJars)
+    systemProperty("robolectric.offline", "true")
+    systemProperty(
+        "robolectric.dependency.dir",
+        robolectricJarDir.get().asFile.absolutePath,
+    )
+}
+
 // The two release-build gates team.md requires: the merged-manifest
 // permission allowlist and the minified-DEX identifier scan.
 apply(from = "release-gates.gradle.kts")
