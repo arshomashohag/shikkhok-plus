@@ -176,17 +176,22 @@ def test_both_branches_issue_the_same_statements(
     )
 
 
-def test_the_unknown_branch_leaves_no_row_behind(
+def test_the_unknown_branch_keeps_a_row_that_can_never_verify(
     restricted_session: Session,
 ) -> None:
-    # Equivalent WORK, not an equivalent outcome. The write happens and
-    # is rolled back.
-    issue(restricted_session, UNKNOWN, CORRELATION)
+    # The row is KEPT so verify answers an unknown number exactly as it
+    # answers a known one (tries left, expiry) [BR2.7]. Its code was
+    # never sent, and even the right digits authenticate nobody.
+    issued = issue(restricted_session, UNKNOWN, CORRELATION)
     rows = restricted_session.execute(
         sa.text("SELECT count(*) FROM otp_request WHERE phone = :phone"),
         {"phone": UNKNOWN},
     ).scalar_one()
-    assert rows == 0
+    assert rows == 1
+
+    with pytest.raises(ValidationError) as refused:
+        verify(restricted_session, UNKNOWN, issued.code, CORRELATION)
+    assert refused.value.message_key == "auth.otp.not_valid"
 
 
 def test_the_known_branch_stores_its_row(
@@ -330,6 +335,95 @@ def test_every_refusal_returns_the_same_code(
         verify(restricted_session, KNOWN, issued.code, CORRELATION, now=late)
 
     assert wrong.value.code == expired.value.code
+
+
+def test_a_wrong_code_says_how_many_tries_are_left(
+    restricted_session: Session, known_account: uuid.UUID
+) -> None:
+    issue(restricted_session, KNOWN, CORRELATION)
+
+    with pytest.raises(ValidationError) as first:
+        verify(restricted_session, KNOWN, "000000", CORRELATION)
+    with pytest.raises(ValidationError) as second:
+        verify(restricted_session, KNOWN, "000000", CORRELATION)
+
+    assert first.value.message_key == "auth.otp.wrong"
+    assert first.value.details == {"attempts_left": str(ATTEMPT_CEILING - 1)}
+    assert second.value.details == {"attempts_left": str(ATTEMPT_CEILING - 2)}
+
+
+def test_the_last_wrong_try_says_none_are_left(
+    restricted_session: Session, known_account: uuid.UUID
+) -> None:
+    issue(restricted_session, KNOWN, CORRELATION)
+    for _ in range(ATTEMPT_CEILING - 1):
+        with pytest.raises(ValidationError):
+            verify(restricted_session, KNOWN, "000000", CORRELATION)
+
+    with pytest.raises(ValidationError) as last:
+        verify(restricted_session, KNOWN, "000000", CORRELATION)
+
+    assert last.value.message_key == "auth.otp.no_tries_left"
+    assert last.value.details is None
+
+
+def test_an_expired_code_says_it_expired(
+    restricted_session: Session, known_account: uuid.UUID
+) -> None:
+    now = dt.datetime.now(tz=dt.UTC)
+    issued = issue(restricted_session, KNOWN, CORRELATION, now=now)
+
+    late = now + CODE_LIFETIME + dt.timedelta(seconds=1)
+    with pytest.raises(ValidationError) as refused:
+        verify(restricted_session, KNOWN, issued.code, CORRELATION, now=late)
+
+    assert refused.value.message_key == "auth.otp.expired"
+
+
+def test_a_used_code_is_not_called_expired(
+    restricted_session: Session, known_account: uuid.UUID
+) -> None:
+    now = dt.datetime.now(tz=dt.UTC)
+    issued = issue(restricted_session, KNOWN, CORRELATION, now=now)
+    verify(restricted_session, KNOWN, issued.code, CORRELATION, now=now)
+
+    late = now + CODE_LIFETIME + dt.timedelta(seconds=1)
+    with pytest.raises(ValidationError) as refused:
+        verify(restricted_session, KNOWN, issued.code, CORRELATION, now=late)
+
+    assert refused.value.message_key == "auth.otp.not_valid"
+
+
+def _refusal(session: Session, phone: str, now: dt.datetime) -> tuple[object, ...]:
+    """Run one wrong verify and one expired verify, keeping each answer.
+
+    :param session: The session to work through
+    :param phone: The number to probe
+    :param now: The moment the code is issued
+    :return: The two refusals' observable parts
+    """
+    issue(session, phone, CORRELATION, now=now)
+    seen: list[object] = []
+    for moment in (now, now + CODE_LIFETIME + dt.timedelta(seconds=1)):
+        with pytest.raises(ValidationError) as refused:
+            verify(session, phone, "000000", CORRELATION, now=moment)
+        seen.append(
+            (refused.value.code, refused.value.message_key, refused.value.details)
+        )
+    return tuple(seen)
+
+
+def test_every_answer_is_the_same_with_or_without_an_account(
+    restricted_session: Session, known_account: uuid.UUID
+) -> None:
+    # THE ORACLE THE TRIES-LEFT COUNT COULD HAVE OPENED [BR2.7]. A count
+    # for a registered number and none for an unregistered one would
+    # answer "is this number registered?" for anyone who asks.
+    now = dt.datetime.now(tz=dt.UTC)
+
+    assert _refusal(restricted_session, KNOWN, now) == _refusal(
+        restricted_session, UNKNOWN, now
+    )
 
 
 def test_a_dormant_account_activates_on_first_verify(

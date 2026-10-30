@@ -40,7 +40,7 @@ import uuid
 from typing import Annotated
 
 import sqlalchemy as sa
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
@@ -145,6 +145,7 @@ def deletion_page() -> HTMLResponse:
 def external_deletion(
     body: DeletionRequest,
     request: Request,
+    background: BackgroundTasks,
     session: Annotated[Session, Depends(get_session)],
     gateway: Annotated[SmsGateway, Depends(get_gateway)],
 ) -> DeletionOutcome:
@@ -170,6 +171,7 @@ def external_deletion(
 
     :param body: The request body
     :param request: The incoming request
+    :param background: Runs the SMS send after the response is written
     :param session: The request-scoped session
     :param gateway: The configured SMS gateway
     :return: ``requested`` after a code is sent, ``deleted`` after one
@@ -195,7 +197,14 @@ def external_deletion(
             purpose=otp.DELETION_PURPOSE,
         )
         message = render_otp_message(issued.code, os.environ.get(APP_HASH_ENV, ""))
-        gateway.send(body.phone, message, correlation_id)
+
+        # Only a number with an account is texted, and only after the
+        # response, for the reasons the sign-in route gives: a code sent
+        # to a number with no account can confirm nothing, and sending
+        # inline would make the known branch slower by a gateway round
+        # trip, which is a timing oracle [BR2.7].
+        if issued.account_exists:
+            background.add_task(gateway.send, body.phone, message, correlation_id)
 
         # Records the message a staging host did NOT text, exactly as
         # the sign-in route does, and GUARDED ON `account_exists` for
