@@ -55,6 +55,8 @@ object ApiClient {
      * @param baseUrl The backend's origin, `https` in every real build
      * @param engine The engine, overridden by tests with a mock
      * @param tokenStore Supplies the access token for each request
+     * @param onSessionEnded Called when an expired session cannot be
+     *   renewed because the server refused the stored refresh token
      * @return The configured client
      * @throws IllegalArgumentException If [baseUrl] is not https
      */
@@ -62,6 +64,7 @@ object ApiClient {
         baseUrl: String,
         engine: HttpClientEngine = OkHttp.create(),
         tokenStore: TokenStore = TokenStore.InMemory(),
+        onSessionEnded: () -> Unit = {},
     ): HttpClient {
         val url = io.ktor.http.Url(baseUrl)
         require(url.protocol == URLProtocol.HTTPS || isLoopback(url.host)) {
@@ -70,7 +73,7 @@ object ApiClient {
                 "local development."
         }
 
-        return HttpClient(engine) {
+        val client = HttpClient(engine) {
             // A failed request returns a response rather than throwing,
             // so the repository maps it through the taxonomy instead of
             // catching an exception for an ordinary 404.
@@ -86,6 +89,11 @@ object ApiClient {
                 }
             }
         }
+
+        // An expired request is renewed and repeated, mid-session, the
+        // way a cold start renews: see `SessionRenewal`.
+        SessionRenewal(baseUrl, tokenStore, onSessionEnded).install(client)
+        return client
     }
 
     /**
