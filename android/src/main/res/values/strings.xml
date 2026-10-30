@@ -18,11 +18,11 @@
     <string name="auth_phone_label">Mobile number</string>
     <string name="auth_phone_hint">01XXXXXXXXX</string>
     <string name="auth_request_code">Send code</string>
-    <string name="auth_headline">Sign in</string>
-    <string name="auth_subhead">Enter your number and we will send a code.</string>
-    <string name="auth_go_to_signup">New here? Create an account</string>
+    <string name="auth_headline">Log in with your mobile number</string>
+    <string name="auth_subhead">We\'ll send a 6-digit code by SMS. No password needed.</string>
+    <string name="auth_go_to_signup">Create account</string>
     <string name="auth_code_label">Enter the code</string>
-    <string name="auth_code_sent">If that number is registered, a code has been sent.</string>
+    <string name="auth_code_sent">If this number has an account, we sent it a 6-digit code by SMS.</string>
     <string name="auth_verify">Sign in</string>
     <string name="auth_resend">Send a new code</string>
     <string name="auth_retry">Try again</string>
@@ -95,10 +95,10 @@
          teacher NOR the batch [BR2.3, AC1.12.2] — saying "your teacher
          Mr Karim added you to Physics" would make this screen an oracle
          for who teaches whom. -->
-    <string name="signup_title">Create your account</string>
+    <string name="signup_title">Create account</string>
     <string name="signup_subhead">We will send a code to confirm your number.</string>
     <string name="signup_phone_label">Mobile number</string>
-    <string name="signup_name_label">Your name</string>
+    <string name="signup_name_label">Full name</string>
     <string name="signup_address_label">Address (optional)</string>
     <string name="signup_role_label">I am a</string>
     <string name="signup_role_teacher">Teacher</string>
@@ -110,11 +110,11 @@
     <string name="signup_role_locked_note">Your role was set when you were added.</string>
     <string name="signup_checking_number">Checking…</string>
     <string name="signup_submitting">Creating your account…</string>
-    <string name="signup_code_sent">We sent a code to %1$s.</string>
+    <string name="signup_code_sent">We sent a code to your number.</string>
     <string name="signup_go_to_login">Log in instead</string>
     <string name="signup_phone_invalid">Enter a valid mobile number.</string>
     <string name="signup_name_required">Please enter your name.</string>
-    <string name="signup_number_already_registered">This number already has an account. Log in instead.</string>
+    <string name="signup_number_already_registered">This number already has an account.</string>
     <string name="signup_temporarily_unavailable">Sign-up is temporarily unavailable. Please try again later.</string>
 
     <!-- D1: invitations (O4). Accepting is what grants access; signing
@@ -616,6 +616,8 @@
     <string name="guardian_open_progress">Results</string>
     <string name="guardian_open_fees">Payments</string>
     <string name="auth_change_number">Change number</string>
+    <string name="auth_no_code_hint">No code? If you are new, or a teacher added your number, create your account first.</string>
+    <string name="auth_create_account">Create account</string>
     <string name="auth_checking_code">Checking the code…</string>
     <!-- T4: verifying payments. -->
     <string name="verify_title">Verify payments</string>
@@ -912,4 +914,23 @@
     <string name="progress_rank_of">%1$s of %2$s</string>
     <string name="progress_single_rank">Rank %1$s of %2$s · batch average %3$s</string>
     <string name="progress_line_after_second">A progress line appears after the second test.</string>
+    <string name="auth_new_here">New to ShikkhokPlus?</string>
+    <string name="auth_sending_note">Usually arrives within 30 seconds</string>
+    <string name="auth_change">Change</string>
+    <string name="auth_code_autofill_hint">If the SMS arrives on this phone, Android offers to fill the code for you.</string>
+    <string name="auth_resend_in">Resend code in %1$s</string>
+    <string name="auth_otp_wrong">That code isn\'t right. %1$s tries left.</string>
+    <string name="auth_otp_wrong_hint">Tapping any box clears all six so you can type again.</string>
+    <string name="auth_otp_expired">This code has expired</string>
+    <string name="auth_otp_expired_body">Codes last 5 minutes. Ask for a new one.</string>
+    <string name="auth_otp_no_tries_left">That code isn\'t right, and no tries are left. Ask for a new code.</string>
+    <string name="signup_name_help">In Bangla or English, as you\'d like teachers to see it</string>
+    <string name="signup_name_help_prefilled">Filled in by your teacher. You can correct it.</string>
+    <string name="signup_phone_help">This is your login. We\'ll text a code to it.</string>
+    <string name="signup_role_help_teacher">You run batches, record classes and collect fees.</string>
+    <string name="signup_role_help_student">You see your classes, marks and fees.</string>
+    <string name="signup_role_help_guardian">You follow your child\'s classes, marks and fees.</string>
+    <string name="signup_already_added_title">You\'ve been added already</string>
+    <string name="signup_have_account">Already have an account?</string>
+    <string name="signup_log_in">Log in</string>
 </resources>

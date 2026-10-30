@@ -86,11 +86,15 @@ object AuthStateMapper {
      * Keep a failed code check on the code screen.
      *
      * @param failed What the server or transport said
+     * @param attemptsLeft The server's tries-left count, or null
      * @return The same failure, shown beside the code boxes
      */
-    fun codeRejected(failed: AuthUiState): AuthUiState =
+    fun codeRejected(
+        failed: AuthUiState,
+        attemptsLeft: String? = null,
+    ): AuthUiState =
         if (failed is AuthUiState.Failed) {
-            AuthUiState.CodeRejected(failed.messageKey, failed.retryable)
+            AuthUiState.CodeRejected(failed.messageKey, failed.retryable, attemptsLeft)
         } else {
             failed
         }

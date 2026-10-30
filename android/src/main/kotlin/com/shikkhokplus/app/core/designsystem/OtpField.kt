@@ -2,6 +2,7 @@ package com.shikkhokplus.app.core.designsystem
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -21,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -123,8 +125,17 @@ fun OtpField(
             },
         )
 
+        // **Tapping any box clears all six after a wrong code** (O3), so
+        // the person types the new attempt into empty boxes rather than
+        // deleting six digits one by one. Otherwise a tap only brings
+        // the keyboard back, which a dismissed keyboard otherwise hides.
         Row(
-            Modifier.fillMaxWidth(),
+            Modifier
+                .fillMaxWidth()
+                .clickable(enabled = enabled, onClickLabel = null) {
+                    if (state == OtpFieldState.WRONG) onCodeChange("")
+                    runCatching { focus.requestFocus() }
+                },
             horizontalArrangement = Arrangement.spacedBy(Spacing.tight),
         ) {
             repeat(OTP_LENGTH) { index ->
@@ -167,9 +178,12 @@ private fun OtpBox(
         focused -> scheme.primary
         else -> scheme.outlineVariant
     }
+    // The board's pale fills are drawn on a white page; on a dark one
+    // they would glare, so the dark theme keeps its own containers.
+    val light = scheme.surface.luminance() > HALF
     val fill = when (state) {
-        OtpFieldState.WRONG -> scheme.errorContainer
-        OtpFieldState.CHECKING -> scheme.surface
+        OtpFieldState.WRONG -> if (light) OtpWrongFill else scheme.errorContainer
+        OtpFieldState.CHECKING -> if (light) OtpOkFill else scheme.surface
         OtpFieldState.EDITING -> scheme.surface
     }
     val width = if (state == OtpFieldState.EDITING && !focused) 1.5.dp else 2.dp
@@ -194,6 +208,15 @@ private fun OtpBox(
 
 /** The confirming green from the design's OTP artboard. */
 private val OtpOk = Color(0xFF0F5427)
+
+/** The checking boxes' fill on the O3 board. */
+private val OtpOkFill = Color(0xFFF2FAF4)
+
+/** The wrong-code boxes' fill on the O3 board. */
+private val OtpWrongFill = Color(0xFFFFF6F5)
+
+/** Above this luminance a surface is a light theme's. */
+private const val HALF = 0.5f
 
 /** Stable test identifier for the code input. Not user-visible text. */
 const val TAG_OTP_FIELD: String = "auth_code_field"

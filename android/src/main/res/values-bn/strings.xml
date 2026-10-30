@@ -19,11 +19,11 @@
     <string name="auth_phone_label">মোবাইল নম্বর</string>
     <string name="auth_phone_hint">01XXXXXXXXX</string>
     <string name="auth_request_code">কোড পাঠান</string>
-    <string name="auth_headline">সাইন ইন</string>
-    <string name="auth_subhead">আপনার নম্বর দিন, আমরা একটি কোড পাঠাব।</string>
-    <string name="auth_go_to_signup">নতুন? অ্যাকাউন্ট তৈরি করুন</string>
+    <string name="auth_headline">মোবাইল নম্বর দিয়ে লগ ইন করুন</string>
+    <string name="auth_subhead">এসএমএসে 6 সংখ্যার একটি কোড পাঠানো হবে। কোনো পাসওয়ার্ড লাগবে না।</string>
+    <string name="auth_go_to_signup">অ্যাকাউন্ট খুলুন</string>
     <string name="auth_code_label">কোডটি লিখুন</string>
-    <string name="auth_code_sent">নম্বরটি নিবন্ধিত থাকলে একটি কোড পাঠানো হয়েছে।</string>
+    <string name="auth_code_sent">এই নম্বরে অ্যাকাউন্ট থাকলে, এসএমএসে 6 সংখ্যার একটি কোড পাঠানো হয়েছে।</string>
     <string name="auth_verify">সাইন ইন করুন</string>
     <string name="auth_resend">নতুন কোড পাঠান</string>
     <string name="auth_retry">আবার চেষ্টা করুন</string>
@@ -88,10 +88,10 @@
     <string name="auth_code_auto_checks">ছয়টি সংখ্যা দেওয়ার পর নিজেই যাচাই হবে। কোনও বাটন চাপতে হবে না।</string>
 
     <!-- D1: সাইন-আপ (O1)। শিক্ষক বা ব্যাচের নাম কখনও দেখানো হয় না। -->
-    <string name="signup_title">আপনার অ্যাকাউন্ট তৈরি করুন</string>
+    <string name="signup_title">অ্যাকাউন্ট খুলুন</string>
     <string name="signup_subhead">আপনার নম্বর নিশ্চিত করতে আমরা একটি কোড পাঠাব।</string>
     <string name="signup_phone_label">মোবাইল নম্বর</string>
-    <string name="signup_name_label">আপনার নাম</string>
+    <string name="signup_name_label">পুরো নাম</string>
     <string name="signup_address_label">ঠিকানা (ঐচ্ছিক)</string>
     <string name="signup_role_label">আমি একজন</string>
     <string name="signup_role_teacher">শিক্ষক</string>
@@ -103,11 +103,11 @@
     <string name="signup_role_locked_note">আপনাকে যোগ করার সময় আপনার ভূমিকা নির্ধারিত হয়েছে।</string>
     <string name="signup_checking_number">দেখা হচ্ছে…</string>
     <string name="signup_submitting">আপনার অ্যাকাউন্ট তৈরি হচ্ছে…</string>
-    <string name="signup_code_sent">আমরা %1$s নম্বরে একটি কোড পাঠিয়েছি।</string>
+    <string name="signup_code_sent">আপনার নম্বরে একটি কোড পাঠানো হয়েছে।</string>
     <string name="signup_go_to_login">বরং লগ ইন করুন</string>
     <string name="signup_phone_invalid">সঠিক মোবাইল নম্বর দিন।</string>
     <string name="signup_name_required">অনুগ্রহ করে আপনার নাম লিখুন।</string>
-    <string name="signup_number_already_registered">এই নম্বরে ইতিমধ্যে একটি অ্যাকাউন্ট আছে। বরং লগ ইন করুন।</string>
+    <string name="signup_number_already_registered">এই নম্বরে আগেই একটি অ্যাকাউন্ট আছে।</string>
     <string name="signup_temporarily_unavailable">সাইন-আপ এখন সাময়িকভাবে বন্ধ আছে। অনুগ্রহ করে পরে চেষ্টা করুন।</string>
 
     <!-- D1: আমন্ত্রণ (O4)। প্রত্যাখ্যান করা জায়গা তালিকায় থেকে যায়। -->
@@ -561,6 +561,8 @@
     <string name="guardian_open_progress">ফলাফল</string>
     <string name="guardian_open_fees">বেতন</string>
     <string name="auth_change_number">নম্বর বদলান</string>
+    <string name="auth_no_code_hint">কোড পাননি? আপনি নতুন হলে, বা শিক্ষক আপনার নম্বর যোগ করে থাকলে, আগে অ্যাকাউন্ট তৈরি করুন।</string>
+    <string name="auth_create_account">অ্যাকাউন্ট খুলুন</string>
     <string name="auth_checking_code">কোড যাচাই হচ্ছে…</string>
     <!-- T4: verifying payments. -->
     <string name="verify_title">পেমেন্ট যাচাই</string>
@@ -857,4 +859,23 @@
     <string name="progress_rank_of">%2$s জনে %1$s</string>
     <string name="progress_single_rank">অবস্থান %2$s জনে %1$s · ব্যাচের গড় %3$s</string>
     <string name="progress_line_after_second">দ্বিতীয় পরীক্ষার পর অগ্রগতির রেখা দেখা যাবে।</string>
+    <string name="auth_new_here">শিক্ষকপ্লাসে নতুন?</string>
+    <string name="auth_sending_note">সাধারণত 30 সেকেন্ডের মধ্যে পৌঁছায়</string>
+    <string name="auth_change">বদলান</string>
+    <string name="auth_code_autofill_hint">এসএমএসটি এই ফোনে এলে Android নিজেই কোডটি বসিয়ে দিতে চাইবে।</string>
+    <string name="auth_resend_in">%1$s পরে আবার কোড পাঠানো যাবে</string>
+    <string name="auth_otp_wrong">কোডটি সঠিক নয়। আর %1$s বার চেষ্টা করা যাবে।</string>
+    <string name="auth_otp_wrong_hint">যেকোনো ঘরে চাপ দিলে ছয়টি ঘরই মুছে যাবে, আবার লিখতে পারবেন।</string>
+    <string name="auth_otp_expired">কোডটির মেয়াদ শেষ</string>
+    <string name="auth_otp_expired_body">কোড 5 মিনিট কাজ করে। নতুন একটি কোড নিন।</string>
+    <string name="auth_otp_no_tries_left">কোডটি সঠিক নয়, আর চেষ্টা করা যাবে না। নতুন একটি কোড নিন।</string>
+    <string name="signup_name_help">বাংলা বা ইংরেজিতে, শিক্ষকেরা যেভাবে দেখবেন</string>
+    <string name="signup_name_help_prefilled">আপনার শিক্ষক লিখে দিয়েছেন। চাইলে ঠিক করে নিন।</string>
+    <string name="signup_phone_help">এটিই আপনার লগ ইন। এই নম্বরে কোড পাঠানো হবে।</string>
+    <string name="signup_role_help_teacher">আপনি ব্যাচ চালান, ক্লাসের হিসাব রাখেন ও বেতন তোলেন।</string>
+    <string name="signup_role_help_student">আপনি নিজের ক্লাস, নম্বর ও বেতন দেখেন।</string>
+    <string name="signup_role_help_guardian">আপনি সন্তানের ক্লাস, নম্বর ও বেতনের খোঁজ রাখেন।</string>
+    <string name="signup_already_added_title">আপনাকে আগেই যোগ করা হয়েছে</string>
+    <string name="signup_have_account">আগেই অ্যাকাউন্ট আছে?</string>
+    <string name="signup_log_in">লগ ইন</string>
 </resources>

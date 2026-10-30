@@ -100,15 +100,11 @@ class SignupViewModel(
         lastAction = { lookup(phone) }
 
         // **A number still being typed is not a wrong number.** The
-        // screen calls this on every keystroke, so "1" arrives before
-        // "01711…" does. Reporting the length rule against a prefix
-        // told the person their number was invalid while they were
-        // still entering it — the first character produced an error
-        // and it never cleared, because every subsequent keystroke was
-        // also too short.
-        //
-        // So an incomplete number returns the form to its resting
-        // state rather than raising anything. The rule is NOT weakened:
+        // screen now calls this only when the number field is left
+        // holding a well-formed number, and judging the number is the
+        // field's job, not this one's. A malformed number reaching here
+        // anyway returns the form to its resting state rather than
+        // raising anything. The rule is NOT weakened:
         // `submit` runs the same validation, and a genuinely malformed
         // number is refused there, where the person has said they are
         // finished.
@@ -133,6 +129,25 @@ class SignupViewModel(
                     AuthResult.TransportFailure ->
                         SignupStateMapper.afterTransportFailure()
                 }
+        }
+    }
+
+    /**
+     * Forget what was said about the number, because it is being changed.
+     *
+     * **Not a check.** Nothing about the new number is judged here; that
+     * waits until the person leaves the field. This only stops an answer
+     * about the PREVIOUS number -- a locked role, a pre-filled name, a
+     * refusal -- from standing beside a number it was never about.
+     */
+    fun numberEdited() {
+        lookedUp = null
+        when (_state.value) {
+            is SignupUiState.AlreadyAdded,
+            is SignupUiState.Invalid,
+            is SignupUiState.Failed,
+            -> _state.value = SignupUiState.Empty
+            else -> Unit
         }
     }
 

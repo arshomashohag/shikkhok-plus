@@ -77,6 +77,62 @@ class SignupViewModelTest {
     ) = ErrorEnvelope(ErrorBody(code = "REFUSED", messageKey = key, retryable = retryable))
 
     @Test
+    fun `editing the number drops what was said about the old one`() = runTest(dispatcher) {
+        // A locked role or a refusal about the previous number must not
+        // stand beside a number it was never about.
+        val repo =
+            FakeRepository(
+                lookupResult =
+                    AuthResult.Ok(AlreadyAddedDto(alreadyAdded = true, displayName = "Rahim", role = "student")),
+            )
+        val model = SignupViewModel(repo)
+        model.lookup("+8801700000000")
+        advanceUntilIdle()
+        assertIs<SignupUiState.AlreadyAdded>(model.state.value)
+
+        model.numberEdited()
+
+        assertEquals(SignupUiState.Empty, model.state.value)
+    }
+
+    @Test
+    fun `editing the number lets the same number be looked up again`() = runTest(dispatcher) {
+        val repo = FakeRepository()
+        val model = SignupViewModel(repo)
+        model.lookup("+8801700000000")
+        advanceUntilIdle()
+
+        model.numberEdited()
+        model.lookup("+8801700000000")
+        advanceUntilIdle()
+
+        assertEquals(2, repo.lookupCalls)
+    }
+
+    @Test
+    fun `editing the number while it is being checked changes nothing`() = runTest(dispatcher) {
+        val model = SignupViewModel(FakeRepository())
+        model.lookup("+8801700000000")
+
+        model.numberEdited()
+
+        assertEquals(SignupUiState.CheckingNumber, model.state.value)
+    }
+
+    @Test
+    fun `a refusal about the old number is dropped when it is edited`() = runTest(dispatcher) {
+        val model =
+            SignupViewModel(FakeRepository(lookupResult = AuthResult.Refused(refused("phone.invalid", false))))
+        model.lookup("+8801700000000")
+        advanceUntilIdle()
+        assertIs<SignupUiState.Failed>(model.state.value)
+
+        model.numberEdited()
+
+        assertEquals(SignupUiState.Empty, model.state.value)
+    }
+
+    @Test
     fun `a number with no seat gives the empty form`() = runTest(dispatcher) {
         val repo = FakeRepository()
         val model = SignupViewModel(repo)

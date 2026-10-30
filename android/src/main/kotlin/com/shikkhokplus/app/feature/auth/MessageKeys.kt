@@ -27,6 +27,11 @@ object MessageKeys {
         "schedule.duplicate_slot" to R.string.schedule_duplicate_slot,
         "enrollment.student_already_in_batch" to R.string.enrollment_student_already_in_batch,
         "auth.otp.not_valid" to R.string.auth_otp_not_valid,
+        // Takes the tries-left count as its argument; the code screen
+        // formats it from `CodeRejected.attemptsLeft`.
+        "auth.otp.wrong" to R.string.auth_otp_wrong,
+        "auth.otp.expired" to R.string.auth_otp_expired,
+        "auth.otp.no_tries_left" to R.string.auth_otp_no_tries_left,
         "auth.otp.temporarily_unavailable" to
             R.string.auth_otp_temporarily_unavailable,
         "auth.token.not_valid" to R.string.auth_token_not_valid,
