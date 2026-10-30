@@ -112,8 +112,8 @@ fun CreateBatchScreen(
             CreateBatchUiState.Submitting -> {
                 LogoLoader(
                     Modifier.testTag(TAG_CREATE_BATCH_SUBMITTING),
+                    label = stringResource(R.string.batch_create_submitting),
                 )
-                Text(stringResource(R.string.batch_create_submitting))
             }
 
             is CreateBatchUiState.Failed -> {

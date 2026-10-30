@@ -121,8 +121,8 @@ fun AddStudentScreen(
             AddStudentUiState.Submitting -> {
                 LogoLoader(
                     Modifier.testTag(TAG_ADD_STUDENT_SUBMITTING),
+                    label = stringResource(R.string.student_add_submitting),
                 )
-                Text(stringResource(R.string.student_add_submitting))
             }
 
             is AddStudentUiState.Failed -> {

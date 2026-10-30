@@ -175,8 +175,7 @@ fun ProfileScreen(
             )
 
             ProfileUiState.Saving -> {
-                LogoLoader()
-                Text(text = stringResource(R.string.profile_saving))
+                LogoLoader(label = stringResource(R.string.profile_saving))
             }
 
             is ProfileUiState.Saved -> {
