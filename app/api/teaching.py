@@ -35,6 +35,8 @@ from app.schemas.teaching import (
     AttendanceSubmitRequest,
     AttendanceSubmitResponse,
     FamilyBatchViewResponse,
+    FamilyExamResponse,
+    FamilyTeacherResponse,
     RosterSeatResponse,
     SessionCreateRequest,
     SessionOrigin,
@@ -721,6 +723,28 @@ def _family_view(view: notes.FamilyBatchView) -> FamilyBatchViewResponse:
                 subject_name=view.upcoming_exam.subject_name,
             )
         ),
+        teacher=FamilyTeacherResponse(
+            display_name=view.teacher.display_name,
+            subjects=view.teacher.subjects,
+        ),
+        exams=[family_exam_response(exam) for exam in view.exams],
+    )
+
+
+def family_exam_response(exam: notes.FamilyExam) -> FamilyExamResponse:
+    """Render one family exam for the wire.
+
+    :param exam: The exam as the view described it
+    :return: The response body
+    """
+    return FamilyExamResponse(
+        exam_id=exam.exam_id,
+        title=exam.title,
+        date=exam.date,
+        subject_name=exam.subject_name,
+        total_marks=exam.total_marks,
+        topics=exam.topics,
+        state=exam.state,
     )
 
 

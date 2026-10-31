@@ -1854,13 +1854,20 @@
       },
       "FamilyBatchViewResponse": {
         "additionalProperties": false,
-        "description": "What a student or guardian sees of one batch [BR7.2].\n\n``served_at`` is BR7.3's server timestamp, so a client rendering\nthis from cache can state its age without consulting the device\nclock -- which is the thing excluded from decisions.\n\n:ivar next_session_date: The next scheduled session's date, or\n    null\n:ivar next_session_start_time: Its start time, or null\n:ivar past_sessions: Past sessions with topics and attendance\n:ivar announcements: The batch's visible notes\n:ivar served_at: When the server computed this\n:ivar next_session: The next class, or null\n:ivar following_sessions: The classes after it, soonest first\n:ivar upcoming_exam: The next exam still to be sat, or null",
+        "description": "What a student or guardian sees of one batch [BR7.2].\n\n``served_at`` is BR7.3's server timestamp, so a client rendering\nthis from cache can state its age without consulting the device\nclock -- which is the thing excluded from decisions.\n\n:ivar next_session_date: The next scheduled session's date, or\n    null\n:ivar next_session_start_time: Its start time, or null\n:ivar past_sessions: Past sessions with topics and attendance\n:ivar announcements: The batch's visible notes\n:ivar served_at: When the server computed this\n:ivar next_session: The next class, or null\n:ivar following_sessions: The classes after it, soonest first\n:ivar upcoming_exam: The next exam still to be sat, or null\n:ivar teacher: The teacher's display name and subjects\n:ivar exams: Every exam, upcoming soonest first then done newest first",
         "properties": {
           "announcements": {
             "items": {
               "$ref": "#/components/schemas/AnnouncementResponse"
             },
             "title": "Announcements",
+            "type": "array"
+          },
+          "exams": {
+            "items": {
+              "$ref": "#/components/schemas/FamilyExamResponse"
+            },
+            "title": "Exams",
             "type": "array"
           },
           "following_sessions": {
@@ -1916,6 +1923,9 @@
             "title": "Served At",
             "type": "string"
           },
+          "teacher": {
+            "$ref": "#/components/schemas/FamilyTeacherResponse"
+          },
           "upcoming_exam": {
             "anyOf": [
               {
@@ -1933,6 +1943,90 @@
           "served_at"
         ],
         "title": "FamilyBatchViewResponse",
+        "type": "object"
+      },
+      "FamilyExamResponse": {
+        "additionalProperties": false,
+        "description": "One exam as a student or guardian sees it.\n\n:ivar exam_id: The exam\n:ivar title: Its title\n:ivar date: When\n:ivar subject_name: Which subject\n:ivar total_marks: Out of how many\n:ivar topics: What it covers\n:ivar state: ``done`` once past or once this seat has a mark",
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "exam_id": {
+            "format": "uuid",
+            "title": "Exam Id",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "done",
+              "upcoming"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "subject_name": {
+            "title": "Subject Name",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "topics": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Topics",
+            "type": "array"
+          },
+          "total_marks": {
+            "minimum": 1.0,
+            "title": "Total Marks",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "exam_id",
+          "state",
+          "subject_name",
+          "title",
+          "topics",
+          "total_marks"
+        ],
+        "title": "FamilyExamResponse",
+        "type": "object"
+      },
+      "FamilyTeacherResponse": {
+        "additionalProperties": false,
+        "description": "The teacher as a family sees them: no phone, no address.\n\n:ivar display_name: What the teacher is called, or null\n:ivar subjects: The batch's subject names",
+        "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "subjects": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Subjects",
+            "type": "array"
+          }
+        },
+        "required": [
+          "subjects"
+        ],
+        "title": "FamilyTeacherResponse",
         "type": "object"
       },
       "FeeCycleResponse": {
@@ -6425,6 +6519,80 @@
         ]
       }
     },
+    "/v1/children/{enrollment_id}/exams/{exam_id}": {
+      "get": {
+        "description": "Read one exam of a child's batch, for their recorded guardian.\n\n:param enrollment_id: The child's seat, from the route path\n:param exam_id: The exam, from the route path\n:param session: The request-scoped session\n:param lens: The guardian lens\n:return: The exam",
+        "operationId": "read_child_exam_v1_children__enrollment_id__exams__exam_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enrollment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enrollment Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "exam_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Exam Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FamilyExamResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence, and the refusal when the marksheet toggle is off is the same one: an empty marksheet would still disclose that exams exist and how many."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Child Exam",
+        "tags": [
+          "marks"
+        ]
+      }
+    },
     "/v1/children/{enrollment_id}/exams/{exam_id}/marksheet": {
       "get": {
         "description": "Read one child's marksheet, for their recorded guardian.\n\n:param enrollment_id: The child's seat, from the route path\n:param exam_id: The exam, from the route path\n:param session: The request-scoped session\n:param lens: The guardian lens\n:return: The published comparison, or a suppressed marksheet",
@@ -8466,6 +8634,80 @@
         "summary": "List My Batches",
         "tags": [
           "batches"
+        ]
+      }
+    },
+    "/v1/me/enrollments/{enrollment_id}/exams/{exam_id}": {
+      "get": {
+        "description": "Read one exam of this student's batch, topics included.\n\n:param enrollment_id: Their seat, from the route path\n:param exam_id: The exam, from the route path\n:param session: The request-scoped session\n:param lens: The student lens\n:return: The exam",
+        "operationId": "read_my_exam_v1_me_enrollments__enrollment_id__exams__exam_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enrollment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enrollment Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "exam_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Exam Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FamilyExamResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence, and the refusal when the marksheet toggle is off is the same one: an empty marksheet would still disclose that exams exist and how many."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read My Exam",
+        "tags": [
+          "marks"
         ]
       }
     },
