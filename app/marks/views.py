@@ -28,10 +28,12 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Session as DbSession
 
 from app.authz.lenses import GuardianLens, Lens, StudentLens, TeacherLens
-from app.db.models import Batch, BatchSubject, Enrollment, Exam, Mark
+from app.db.models import Batch, BatchSubject, Enrollment, Exam, Mark, Notification
 from app.errors import ConflictError
+from app.marks.entry import announce_result
 from app.marks.marksheet import Marksheet, Published, compute_marksheet
 from app.marks.results import SeatResult, results_for_exam
+from app.notifications.inbox import MARKS_AVAILABLE
 from app.teaching.roster import readable_enrollment, refuse
 
 __all__ = [
@@ -203,9 +205,45 @@ def set_marksheet_visible(
             message_key="teaching.batch.inactive",
         )
 
+    was_visible = row.marksheet_visible
     row.marksheet_visible = visible
+    session.flush()
+    if visible and not was_visible:
+        _announce_held_results(session, batch_id=batch_id)
     session.commit()
     return row.marksheet_visible
+
+
+def _announce_held_results(session: DbSession, *, batch_id: uuid.UUID) -> None:
+    """Tell families about results entered while the sheet was hidden.
+
+    Every seat with a live result on an exam of the batch is told once
+    per exam: a seat that already has the item is skipped, so showing,
+    hiding and showing again adds nothing. Does not commit.
+
+    :param session: The caller's session
+    :param batch_id: The batch whose sheet was just shown
+    :return: None
+    """
+    now = dt.datetime.now(tz=dt.UTC)
+    pairs = session.execute(
+        sa.select(Exam, Mark.enrollment_id)
+        .join(Mark, Mark.exam_id == Exam.id)
+        .where(Exam.batch_id == batch_id, Mark.superseded_by_id.is_(None))
+        .order_by(Exam.id, Mark.enrollment_id)
+    ).all()
+    for exam, enrollment_id in pairs:
+        already = session.scalar(
+            sa.select(sa.func.count())
+            .select_from(Notification)
+            .where(
+                Notification.kind == MARKS_AVAILABLE,
+                Notification.source_id == exam.id,
+                Notification.enrollment_id == enrollment_id,
+            )
+        )
+        if not already:
+            announce_result(session, exam=exam, enrollment_id=enrollment_id, now=now)
 
 
 def guardian_progress(
