@@ -791,6 +791,7 @@
     <string name="inbox_claim_to_verify_title">যাচাইয়ের অপেক্ষায় পেমেন্ট · %1$s</string>
     <string name="inbox_claim_to_verify_body">%2$s মাসের %1$s পেমেন্ট আপনার যাচাইয়ের অপেক্ষায় আছে।</string>
     <string name="inbox_item_unavailable">এই আপডেটটি আর পাওয়া যাচ্ছে না।</string>
+    <string name="inbox_mark_all_read">সব পড়া হয়েছে</string>
     <string name="inbox_detail_title">বিজ্ঞপ্তি</string>
     <string name="inbox_notice_edited">সম্পাদিত %1$s</string>
     <string name="inbox_exam_date">তারিখ</string>

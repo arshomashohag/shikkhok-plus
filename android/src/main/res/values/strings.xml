@@ -846,6 +846,7 @@
     <string name="inbox_claim_to_verify_title">Payment to check · %1$s</string>
     <string name="inbox_claim_to_verify_body">%1$s for %2$s is waiting for your check.</string>
     <string name="inbox_item_unavailable">This update is no longer available.</string>
+    <string name="inbox_mark_all_read">Mark all read</string>
     <string name="inbox_detail_title">Notification</string>
     <string name="inbox_notice_edited">Edited %1$s</string>
     <string name="inbox_exam_date">Date</string>

@@ -21,6 +21,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,6 +52,9 @@ const val TAG_INBOX_BADGE: String = "inbox_badge"
 /** One message. */
 const val TAG_INBOX_ITEM: String = "inbox_item"
 
+/** The mark-all-read action. */
+const val TAG_INBOX_MARK_ALL: String = "inbox_mark_all"
+
 /** The empty inbox. */
 const val TAG_INBOX_EMPTY: String = "inbox_empty"
 
@@ -68,6 +72,7 @@ private const val BADGE_MAX = 9
  * @param onRetry Called to read again after a failure
  * @param modifier The layout modifier
  * @param onSelect Called with the item the reader taps
+ * @param onMarkAllRead Called to mark every message read
  */
 @Composable
 fun InboxScreen(
@@ -76,11 +81,19 @@ fun InboxScreen(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
     onSelect: (InboxMessage) -> Unit = {},
+    onMarkAllRead: () -> Unit = {},
 ) {
     ListScreenScaffold(
         title = stringResource(R.string.inbox_title),
         modifier = modifier,
         onBack = onBack,
+        actions = {
+            if (state is InboxUiState.Loaded && state.unread > 0) {
+                TextButton(onClick = onMarkAllRead, modifier = Modifier.testTag(TAG_INBOX_MARK_ALL)) {
+                    Text(stringResource(R.string.inbox_mark_all_read))
+                }
+            }
+        },
     ) {
         when (state) {
             InboxUiState.Loading -> SkeletonList(modifier = Modifier.padding(top = 8.dp))

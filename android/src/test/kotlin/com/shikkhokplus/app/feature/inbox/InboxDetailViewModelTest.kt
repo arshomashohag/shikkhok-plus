@@ -61,6 +61,8 @@ class InboxDetailViewModelTest {
 
         override suspend fun detail(id: String): AuthResult<NotificationDetailDto> = result
 
+        override suspend fun markAllRead(): AuthResult<Unit> = AuthResult.Ok(Unit)
+
         override suspend fun markRead(id: String): AuthResult<Unit> = AuthResult.Ok(Unit)
     }
 

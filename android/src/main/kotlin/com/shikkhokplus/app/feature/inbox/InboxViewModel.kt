@@ -28,6 +28,13 @@ interface InboxRepository {
     suspend fun detail(id: String): AuthResult<NotificationDetailDto>
 
     /**
+     * Mark every message read.
+     *
+     * @return Done, a refusal, or a transport failure
+     */
+    suspend fun markAllRead(): AuthResult<Unit>
+
+    /**
      * Mark one message read.
      *
      * @param id The message
@@ -64,6 +71,14 @@ class InboxViewModel(
     fun open() {
         _state.value = InboxUiState.Loading
         load()
+    }
+
+    /** Mark every message read, then read the inbox again. */
+    fun markAllRead() {
+        viewModelScope.launch {
+            repository.markAllRead()
+            _state.value = read()
+        }
     }
 
     /**

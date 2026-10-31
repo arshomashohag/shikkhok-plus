@@ -105,6 +105,7 @@ internal fun NavGraphBuilder.studentRoutes(
             onBack = { navController.popBackStack() },
             onRetry = model::open,
             onSelect = { message -> model.select(message) { navController.navigate(it.route()) } },
+            onMarkAllRead = model::markAllRead,
         )
     }
 

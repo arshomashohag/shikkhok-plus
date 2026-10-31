@@ -58,10 +58,16 @@ class InboxViewModelTest {
         var result: AuthResult<InboxDto>,
     ) : InboxRepository {
         val marked = mutableListOf<String>()
+        var markedAll = 0
 
         override suspend fun inbox(): AuthResult<InboxDto> = result
 
         override suspend fun detail(id: String): AuthResult<NotificationDetailDto> = AuthResult.TransportFailure
+
+        override suspend fun markAllRead(): AuthResult<Unit> {
+            markedAll++
+            return AuthResult.Ok(Unit)
+        }
 
         override suspend fun markRead(id: String): AuthResult<Unit> {
             marked += id
@@ -136,6 +142,21 @@ class InboxViewModelTest {
 
         assertEquals(listOf("n-1"), repo.marked)
         assertEquals(listOf<InboxTarget>(InboxTarget.Detail("n-1")), tapped)
+    }
+
+    @Test
+    fun `mark all read calls the server then reloads the inbox`() = runTest(dispatcher) {
+        val repo = FakeRepository(AuthResult.Ok(InboxDto(listOf(message("n-1")), 1)))
+        val model = InboxViewModel(repo)
+        model.open()
+        advanceUntilIdle()
+        repo.result = AuthResult.Ok(InboxDto(listOf(message("n-1", read = true)), 0))
+
+        model.markAllRead()
+        advanceUntilIdle()
+
+        assertEquals(1, repo.markedAll)
+        assertEquals(0, assertIs<InboxUiState.Loaded>(model.state.value).unread)
     }
 
     @Test

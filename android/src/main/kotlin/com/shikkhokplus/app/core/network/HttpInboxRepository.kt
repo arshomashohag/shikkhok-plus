@@ -35,6 +35,14 @@ class HttpInboxRepository(
         call { client.get("/v1/me/notifications/$id") }
 
     /**
+     * Mark every message read.
+     *
+     * @return Done, an error envelope, or a transport failure
+     */
+    override suspend fun markAllRead(): AuthResult<Unit> =
+        callDiscardingBody { client.post("/v1/me/notifications/read") }
+
+    /**
      * Mark one message read.
      *
      * @param id The message
