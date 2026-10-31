@@ -231,6 +231,7 @@
     <!-- D3-এর সার্ভার বার্তা-কী। অ্যাপ বিল্ড হওয়ার আগেই প্রতিটির
          জন্য এখানে একটি স্ট্রিং থাকতে হবে। -->
     <string name="fees_not_available">এটি পাওয়া যাচ্ছে না।</string>
+    <string name="inbox_not_available">এই আপডেটটি আর পাওয়া যাচ্ছে না।</string>
     <string name="fees_resolution_not_set">এই ব্যাচের জন্য কোনও ফি ঠিক করা হয়নি।</string>
     <string name="fees_claim_no_open_cycle">এই মুহূর্তে পরিশোধ করার মতো কিছু বাকি নেই।</string>
     <string name="fees_claim_amount_not_positive">শূন্যের চেয়ে বেশি পরিমাণ লিখুন।</string>

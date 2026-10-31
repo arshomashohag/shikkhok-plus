@@ -84,7 +84,7 @@ def test_guardian_of_two_children_gets_two_recipients(
 def test_inactive_seat_is_excluded_after_inactive_from(
     owner_session: Session, account_factory: Callable[[], uuid.UUID]
 ) -> None:
-    """A seat left yesterday is out; one leaving today is still in."""
+    """A seat inactive from today is out; one inactive from tomorrow is in."""
     teacher = make_teacher(owner_session)
     gone = enroll(
         owner_session,
@@ -100,8 +100,8 @@ def test_inactive_seat_is_excluded_after_inactive_from(
         student_account_id=account_factory(),
         student_decision="accepted",
     )
-    owner_session.get(Enrollment, gone).inactive_from = TODAY - dt.timedelta(days=1)
-    owner_session.get(Enrollment, leaving).inactive_from = TODAY
+    owner_session.get(Enrollment, gone).inactive_from = TODAY
+    owner_session.get(Enrollment, leaving).inactive_from = TODAY + dt.timedelta(days=1)
     owner_session.commit()
 
     found = family_recipients(owner_session, batch_id=teacher.batch_id, on=TODAY)
@@ -244,3 +244,25 @@ def test_teacher_recipient_is_batch_owner_account(owner_session: Session) -> Non
         == teacher.account_id
     )
     assert teacher_recipient(owner_session, batch_id=uuid.uuid4()) is None
+
+
+def test_a_teacher_is_a_recipient_only_where_they_are_the_guardian(
+    owner_session: Session,
+) -> None:
+    """Owning batch X does not make T1 a recipient there; guarding in Y does."""
+    t1 = make_teacher(owner_session, name="X")
+    t2 = make_teacher(owner_session, name="Y")
+    seat = enroll(
+        owner_session,
+        batch_id=t2.batch_id,
+        display_name="Rahim",
+        guardian_account_id=t1.account_id,
+        guardian_decision="accepted",
+    )
+
+    in_x = family_recipients(owner_session, batch_id=t1.batch_id, on=TODAY)
+    in_y = family_recipients(owner_session, batch_id=t2.batch_id, on=TODAY)
+
+    assert t1.account_id not in [r.account_id for r in in_x]
+    assert in_y == [Recipient(t1.account_id, seat, "Rahim")]
+    assert teacher_recipient(owner_session, batch_id=t2.batch_id) == t2.account_id

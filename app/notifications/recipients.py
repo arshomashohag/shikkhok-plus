@@ -88,7 +88,7 @@ def family_recipients(
         sa.select(Enrollment)
         .where(
             Enrollment.batch_id == batch_id,
-            sa.or_(Enrollment.inactive_from.is_(None), Enrollment.inactive_from >= on),
+            sa.or_(Enrollment.inactive_from.is_(None), Enrollment.inactive_from > on),
         )
         .order_by(Enrollment.id)
     ).all()

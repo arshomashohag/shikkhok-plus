@@ -272,6 +272,7 @@
          app builds: the cross-surface gate publishes the backend's
          keys and asserts a string for every one. -->
     <string name="fees_not_available">That is not available.</string>
+    <string name="inbox_not_available">This update is no longer available.</string>
     <string name="fees_resolution_not_set">No fee has been set for this batch.</string>
     <string name="fees_claim_no_open_cycle">There is nothing outstanding to pay right now.</string>
     <string name="fees_claim_amount_not_positive">Enter an amount greater than zero.</string>
