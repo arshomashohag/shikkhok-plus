@@ -34,11 +34,12 @@ VERSIONS: Final[pathlib.Path] = (
 #: numbers and ``enrollment.student_phone`` -- moves it again, for the
 #: student-linking gap found in the end-to-end audit. ``0009`` -- the
 #: in-app notification inbox -- moves it once more, and ``0010`` --
-#: a teacher's deletion keeping their batches -- again.
-EXPECTED_REVISIONS: Final[int] = 10
+#: a teacher's deletion keeping their batches -- again, and ``0011`` --
+#: inbox sources, exam topics and rejection reasons -- once more.
+EXPECTED_REVISIONS: Final[int] = 11
 
-#: The head ``0010`` leaves behind.
-EXPECTED_HEAD: Final[str] = "0010"
+#: The head ``0011`` leaves behind.
+EXPECTED_HEAD: Final[str] = "0011"
 
 
 def _revision_files() -> list[pathlib.Path]:

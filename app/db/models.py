@@ -38,6 +38,7 @@ from sqlalchemy import (
     UniqueConstraint,
     text,
 )
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.dialects.postgresql import ENUM as PgEnum
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -892,6 +893,7 @@ class PaymentClaim(Base):
     :ivar verified_at: When they decided
     :ivar previous_decision: The prior decision, retained on a correction
         and visible to the teacher AND to the student and guardian
+    :ivar rejection_reason: Why the teacher rejected it; null otherwise
     """
 
     __tablename__ = "payment_claim"
@@ -943,6 +945,7 @@ class PaymentClaim(Base):
     previous_decision: Mapped[dict[str, object] | None] = mapped_column(
         JSON, nullable=True
     )
+    rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     __table_args__ = (
         CheckConstraint(
@@ -1432,6 +1435,7 @@ class Exam(Base):
     :ivar title: The teacher's name for the assessment
     :ivar date: The exam date, compared against ``joined_on`` [BR4.3]
     :ivar total_marks: The denominator, at least 1
+    :ivar topics: What the exam covers, empty when the teacher named none
     :ivar created_at: When the exam was created
     """
 
@@ -1454,6 +1458,9 @@ class Exam(Base):
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     date: Mapped[dt.date] = mapped_column(Date, nullable=False)
     total_marks: Mapped[int] = mapped_column(Integer, nullable=False)
+    topics: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), nullable=False, server_default=text("'{}'")
+    )
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )
@@ -1619,6 +1626,10 @@ class Notification(Base):
     :ivar batch_name: The batch it concerns, as named when sent
     :ivar period: The period it concerns, as ``YYYY-MM``, if any
     :ivar amount: The money it concerns, if any
+    :ivar source_id: The notice, exam or claim it points at; no foreign
+        key, because the target table depends on ``kind``
+    :ivar child_name: The seat's display name, set for guardian recipients
+    :ivar preview: The first 140 characters of a notice, or an exam title
     :ivar created_at: When it was sent
     :ivar read_at: When its owner opened the inbox after it arrived
     """
@@ -1640,6 +1651,11 @@ class Notification(Base):
     batch_name: Mapped[str] = mapped_column(Text, nullable=False)
     period: Mapped[str | None] = mapped_column(String(7), nullable=True)
     amount: Mapped[Money | None] = mapped_column(MoneyColumn, nullable=True)
+    source_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), nullable=True
+    )
+    child_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    preview: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )
@@ -1649,4 +1665,5 @@ class Notification(Base):
 
     __table_args__ = (
         Index("ix_notification_account_created", "account_id", "created_at"),
+        Index("ix_notification_source", "kind", "source_id"),
     )
