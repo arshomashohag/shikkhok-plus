@@ -73,6 +73,9 @@ data class ErrorBody(
     @SerialName("code") val code: String,
     @SerialName("retryable") val retryable: Boolean,
     @SerialName("message_key") val messageKey: String,
+    // Typed per code and rendered, never interpreted: for a wrong sign-in
+    // code it carries `attempts_left`, which the code screen shows.
+    @SerialName("details") val details: Map<String, String>? = null,
 )
 
 /** The envelope wrapping [ErrorBody]. */

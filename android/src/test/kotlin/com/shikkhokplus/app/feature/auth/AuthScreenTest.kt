@@ -1,8 +1,12 @@
 package com.shikkhokplus.app.feature.auth
 
 import androidx.compose.ui.test.assertIsDisplayed
+import com.shikkhokplus.app.feature.auth.ui.TAG_RESEND_CODE
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import com.shikkhokplus.app.core.designsystem.TAG_BRAND_HERO
@@ -11,6 +15,7 @@ import com.shikkhokplus.app.feature.auth.ui.AuthScreen
 import com.shikkhokplus.app.core.designsystem.TAG_OTP_FIELD as TAG_CODE_FIELD
 import com.shikkhokplus.app.feature.auth.ui.TAG_ERROR
 import com.shikkhokplus.app.feature.auth.ui.TAG_GO_TO_SIGNUP
+import com.shikkhokplus.app.feature.auth.ui.TAG_NO_CODE_SIGNUP
 import com.shikkhokplus.app.feature.auth.ui.TAG_PHONE_FIELD
 import com.shikkhokplus.app.feature.auth.ui.TAG_REQUEST_CODE
 import com.shikkhokplus.app.feature.auth.ui.TAG_RETRY
@@ -84,10 +89,60 @@ class AuthScreenTest {
     }
 
     @Test
-    fun `the sending state shows progress and no field`() {
+    fun `a malformed number is named under the field and not sent`() {
+        var requested: String? = null
+        render(AuthUiState.Idle, onRequestCode = { requested = it })
+
+        compose.onNodeWithTag(TAG_PHONE_FIELD).performTextInput("0171")
+        compose.onNodeWithTag(TAG_REQUEST_CODE).performClick()
+
+        assertEquals(null, requested)
+        compose
+            .onNodeWithText("Enter an 11-digit mobile number, like 01711-234567")
+            .assertExists()
+        compose.onNodeWithTag(TAG_PHONE_FIELD).assertIsDisplayed()
+    }
+
+    @Test
+    fun `the sending state shows progress over a form that cannot resend`() {
+        // O2's loading board keeps the form on screen beneath the
+        // progress, and "Send code" cannot be pressed a second time.
         render(AuthUiState.Sending)
         compose.onNodeWithTag(TAG_SENDING).assertIsDisplayed()
-        compose.onNodeWithTag(TAG_PHONE_FIELD).assertDoesNotExist()
+        compose.onNodeWithTag(TAG_REQUEST_CODE).assertIsNotEnabled()
+    }
+
+    @Test
+    fun `a wrong code shows the tries the server says are left`() {
+        render(AuthUiState.CodeRejected("auth.otp.wrong", retryable = false, attemptsLeft = "3"))
+        compose.onNodeWithText("That code isn't right. 3 tries left.").assertExists()
+    }
+
+    @Test
+    fun `an expired code says so and offers a new one`() {
+        var resent = 0
+        compose.setContent {
+            ShikkhokTheme {
+                AuthScreen(
+                    state = AuthUiState.CodeRejected("auth.otp.expired", retryable = false),
+                    onRequestCode = {},
+                    onSubmitCode = {},
+                    onRetry = {},
+                    onResendCode = { resent++ },
+                )
+            }
+        }
+        compose.onNodeWithText("This code has expired").assertExists()
+        compose.onNodeWithTag(TAG_RESEND_CODE).performScrollTo().performClick()
+        assertEquals(1, resent)
+    }
+
+    @Test
+    fun `the code step never repeats the number back`() {
+        render(AuthUiState.AwaitingCode)
+        compose
+            .onNodeWithText("If this number has an account, we sent it a 6-digit code by SMS.")
+            .assertExists()
     }
 
     @Test
@@ -196,12 +251,25 @@ class AuthScreenTest {
     }
 
     @Test
-    fun `the register link is absent once a code has been sent`() {
-        // Registering mid-verification would abandon a code already
-        // sent, and the person at this point has a number the server
-        // accepted -- so the path out is the code, not a new account.
-        render(AuthUiState.AwaitingCode)
-        compose.onNodeWithTag(TAG_GO_TO_SIGNUP).assertDoesNotExist()
+    fun `the code screen tells a new person to create an account`() {
+        // **Reported from a device.** A student a teacher had added
+        // pressed Sign in rather than Sign up, and this screen was
+        // where they were left. The server answers every number the
+        // same way, so reaching it says nothing about whether the
+        // number is registered -- and an unregistered number is now
+        // sent no code at all. The way out has to be on this screen.
+        var opened = 0
+        render(AuthUiState.AwaitingCode, onGoToSignup = { opened++ })
+
+        compose.onNodeWithTag(TAG_NO_CODE_SIGNUP).assertIsDisplayed()
+        compose.onNodeWithTag(TAG_NO_CODE_SIGNUP).performClick()
+        assertEquals(1, opened)
+    }
+
+    @Test
+    fun `a rejected code still offers the way to create an account`() {
+        render(AuthUiState.CodeRejected("auth.otp.not_valid", retryable = false))
+        compose.onNodeWithTag(TAG_NO_CODE_SIGNUP).performScrollTo().assertIsDisplayed()
     }
 
     @Test

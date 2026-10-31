@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -27,9 +28,14 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.error
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 /**
  * The design's text field (Components.dc.html, "Inputs").
@@ -56,6 +62,8 @@ import androidx.compose.ui.unit.dp
  * @param keyboardOptions Overrides [keyboardType] when given
  * @param keyboardActions What the keyboard's action key does
  * @param fieldModifier Applied to the editable text itself, for a test tag
+ * @param large The log-in board's field (O2): 60dp tall, radius 10, its
+ *   digits at 22sp Medium, for the one field a screen is about
  */
 @Composable
 fun ShikkhokTextField(
@@ -74,6 +82,7 @@ fun ShikkhokTextField(
     keyboardOptions: KeyboardOptions? = null,
     keyboardActions: KeyboardActions = KeyboardActions.Default,
     fieldModifier: Modifier = Modifier,
+    large: Boolean = false,
 ) {
     val colors = MaterialTheme.colorScheme
     val interaction = remember { MutableInteractionSource() }
@@ -81,8 +90,9 @@ fun ShikkhokTextField(
     val refused = error != null
     val borderColour = if (refused) colors.error else if (focused) colors.primary else colors.outline
     val borderWidth = if (refused || focused) 2.dp else 1.5.dp
-    val shape = MaterialTheme.shapes.small
-    val textStyle = MaterialTheme.typography.bodyLarge.copy(color = colors.onSurface)
+    val shape = fieldShape(large)
+    val textStyle = fieldTextStyle(large)
+    val height = if (large) LARGE_FIELD_HEIGHT else FIELD_HEIGHT
 
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(label, style = MaterialTheme.typography.labelLarge, color = colors.onSurface)
@@ -108,12 +118,12 @@ fun ShikkhokTextField(
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .heightIn(min = FIELD_HEIGHT)
+                        .heightIn(min = height)
                         .background(colors.surface, shape)
                         .border(borderWidth, borderColour, shape),
                     verticalAlignment = if (singleLine) Alignment.CenterVertically else Alignment.Top,
                 ) {
-                    prefix?.let { PrefixSegment(it) }
+                    prefix?.let { PrefixSegment(it, height, large) }
                     Box(
                         Modifier
                             .weight(1f)
@@ -128,6 +138,32 @@ fun ShikkhokTextField(
             },
         )
         FieldNote(help = help, error = error)
+    }
+}
+
+/**
+ * The box's corner: radius 10 on the log-in board's field, else the theme's.
+ *
+ * @param large Whether this is the log-in board's field
+ * @return The shape
+ */
+@Composable
+private fun fieldShape(large: Boolean): Shape =
+    if (large) RoundedCornerShape(10.dp) else MaterialTheme.shapes.small
+
+/**
+ * The typed text's style: 22sp Medium digits on the log-in board's field.
+ *
+ * @param large Whether this is the log-in board's field
+ * @return The style
+ */
+@Composable
+private fun fieldTextStyle(large: Boolean): TextStyle {
+    val base = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface)
+    return if (large) {
+        base.copy(fontSize = 22.sp, lineHeight = 32.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.44.sp)
+    } else {
+        base
     }
 }
 
@@ -162,6 +198,8 @@ private fun FieldNote(help: String?, error: String?) {
  * @param error A refusal under the box, or null
  * @param enabled Whether it can be edited
  * @param fieldModifier Applied to the editable text, for a test tag
+ * @param large The log-in board's larger field
+ * @param keyboardActions What the keyboard's Done key does
  */
 @Composable
 fun PhoneField(
@@ -173,6 +211,8 @@ fun PhoneField(
     error: String? = null,
     enabled: Boolean = true,
     fieldModifier: Modifier = Modifier,
+    large: Boolean = false,
+    keyboardActions: KeyboardActions = KeyboardActions.Default,
 ) {
     ShikkhokTextField(
         value = value,
@@ -184,8 +224,10 @@ fun PhoneField(
         placeholder = PHONE_PLACEHOLDER,
         prefix = PHONE_PREFIX,
         enabled = enabled,
-        keyboardType = KeyboardType.Phone,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Done),
+        keyboardActions = keyboardActions,
         fieldModifier = fieldModifier,
+        large = large,
     )
 }
 
@@ -193,29 +235,43 @@ fun PhoneField(
  * The fixed segment at the start of a field.
  *
  * @param text What it shows
+ * @param height The field's height, which the segment fills
+ * @param large Whether this is the log-in board's larger field
  */
 @Composable
-private fun PrefixSegment(text: String) {
+private fun PrefixSegment(text: String, height: Dp, large: Boolean) {
     Row(
         Modifier
             .fillMaxHeight()
-            .heightIn(min = FIELD_HEIGHT)
+            .heightIn(min = height)
             .background(MaterialTheme.colorScheme.background, MaterialTheme.shapes.small)
-            .padding(start = 14.dp, end = 10.dp),
+            .padding(start = if (large) 16.dp else 14.dp, end = if (large) 12.dp else 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            text,
+            style =
+                if (large) {
+                    MaterialTheme.typography.bodyLarge.copy(fontSize = 18.sp, lineHeight = 28.sp)
+                } else {
+                    MaterialTheme.typography.bodyMedium
+                },
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
     Box(
         Modifier
             .width(1.dp)
-            .heightIn(min = FIELD_HEIGHT)
+            .heightIn(min = height)
             .background(MaterialTheme.colorScheme.outlineVariant),
     )
 }
 
 /** The design's field height. */
 private val FIELD_HEIGHT = 52.dp
+
+/** The log-in board's field height (O2). */
+private val LARGE_FIELD_HEIGHT = 60.dp
 
 /**
  * The country code shown before a Bangladeshi number. Decorative: the

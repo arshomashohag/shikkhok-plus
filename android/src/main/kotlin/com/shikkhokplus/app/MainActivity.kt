@@ -17,7 +17,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -136,8 +138,19 @@ private fun AppRoot() {
     // queued on one would be invisible to the retry on another.
     val queue =
         remember { QueueStore(java.io.File(context.filesDir, "attendance-queue.json")) }
+    // Raised from the network layer, off the main thread, when an
+    // expired session could not be renewed; handled below by the same
+    // `endSession` sign-out uses. A snapshot state is safe to write
+    // from any thread, which is why it is the bridge.
+    var sessionLapsed by remember { mutableStateOf(false) }
     val client =
-        remember { ApiClient.build(BuildConfig.API_BASE_URL, tokenStore = tokens) }
+        remember {
+            ApiClient.build(
+                BuildConfig.API_BASE_URL,
+                tokenStore = tokens,
+                onSessionEnded = { sessionLapsed = true },
+            )
+        }
     val repository = remember { HttpAuthRepository(client = client, tokens = tokens) }
 
     val authModel: AuthViewModel = viewModel { AuthViewModel(repository) }
@@ -261,6 +274,16 @@ private fun AppRoot() {
         queue.clear()
         tokens.clear()
         authModel.signOut()
+    }
+
+    // **A session the server will not renew ends here, cleanly.** Left
+    // signed in with a dead credential, every screen fails and nothing
+    // says why; ending it routes to sign-in, as sign-out does.
+    LaunchedEffect(sessionLapsed) {
+        if (sessionLapsed) {
+            endSession()
+            sessionLapsed = false
+        }
     }
 
     // **Keyed on `signedIn`, so a session change rebuilds the graph.**

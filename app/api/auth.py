@@ -20,7 +20,7 @@ import os
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, Request
 from sqlalchemy.orm import Session
 
 from app.auth import otp
@@ -92,6 +92,7 @@ def ip_prefix_of(request: Request) -> str:
 def issue_code(
     body: IssueRequest,
     request: Request,
+    background: BackgroundTasks,
     session: Annotated[Session, Depends(get_session)],
     gateway: Annotated[SmsGateway, Depends(get_gateway)],
 ) -> IssueResponse:
@@ -99,6 +100,7 @@ def issue_code(
 
     :param body: The request body
     :param request: The incoming request
+    :param background: Runs the SMS send after the response is written
     :param session: The request-scoped session
     :param gateway: The configured SMS gateway
     :return: The contentless acknowledgement
@@ -114,7 +116,20 @@ def issue_code(
     issued = otp.issue(session, body.phone, correlation_id, purpose=otp.OTP_PURPOSE)
 
     message = render_otp_message(issued.code, os.environ.get(APP_HASH_ENV, ""))
-    gateway.send(body.phone, message, correlation_id)
+
+    # **Only a number with an account is texted.** The unknown branch
+    # rolls its OTP row back, so a code sent to it could never verify:
+    # reported from a device, a student a teacher had added pressed
+    # Sign in rather than Sign up and had every correct code refused.
+    #
+    # **After the response, not before it**, and that placement is what
+    # keeps this branch from becoming a timing oracle [BR2.7]. Sending
+    # inline would make the known branch slower by one gateway round
+    # trip; deferred, both branches return having done the same work.
+    # The gateway never raises and its result was already unread, so
+    # deferral loses nothing the response carried.
+    if issued.account_exists:
+        background.add_task(gateway.send, body.phone, message, correlation_id)
 
     # Records the message a staging host did NOT text, so a person can
     # read it and sign in on a device. A NO-OP unless the environment

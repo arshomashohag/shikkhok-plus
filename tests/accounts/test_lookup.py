@@ -115,6 +115,93 @@ def test_a_recorded_number_reports_the_name_and_the_role(
     assert found.role is SignupRole.GUARDIAN
 
 
+def test_a_guardian_contact_is_found_before_any_account_exists(
+    restricted_session: Session, owner_session: Session
+) -> None:
+    """The lookup's real order: it runs BEFORE signup [BR4.5].
+
+    The test above creates the account first and only then asks, which
+    is the one order the form never uses -- the lookup is called while
+    the signup form renders, when no account exists yet. Asked in that
+    order it must still find the teacher-typed number on the seat.
+
+    :param restricted_session: A session as the application role
+    :param owner_session: A session able to arrange fixture data
+    :return: None
+    """
+    teacher = make_teacher(owner_session, name="Physics")
+    phone = _phone()
+    _guardian_seat(owner_session, teacher=teacher, guardian_phone=phone)
+
+    found = already_added(restricted_session, phone)
+
+    assert found.exists is True
+    assert found.display_name == "Rahim Uddin"
+    assert found.role is SignupRole.GUARDIAN
+
+
+def test_a_student_number_is_found_before_any_account_exists(
+    restricted_session: Session, owner_session: Session
+) -> None:
+    """A student seat locks the form to Student [BR4.5].
+
+    :param restricted_session: A session as the application role
+    :param owner_session: A session able to arrange fixture data
+    :return: None
+    """
+    teacher = make_teacher(owner_session, name="Physics")
+    phone = _phone()
+    owner_session.add(
+        Enrollment(
+            batch_id=teacher.batch_id,
+            display_name="Karim Hossain",
+            student_phone=phone,
+            student_decision="pending",
+            guardian_decision="pending",
+            created_at=dt.datetime.now(tz=dt.UTC),
+        )
+    )
+    owner_session.commit()
+
+    found = already_added(restricted_session, phone)
+
+    assert found.exists is True
+    assert found.display_name == "Karim Hossain"
+    assert found.role is SignupRole.STUDENT
+
+
+def test_a_relink_blocked_seat_is_not_reported(
+    restricted_session: Session, owner_session: Session
+) -> None:
+    """An erased number is not offered its old seat back [BR6.2].
+
+    Signup will not relink a blocked seat, so pre-filling from one
+    would promise a link that never happens.
+
+    :param restricted_session: A session as the application role
+    :param owner_session: A session able to arrange fixture data
+    :return: None
+    """
+    teacher = make_teacher(owner_session, name="Physics")
+    phone = _phone()
+    owner_session.add(
+        Enrollment(
+            batch_id=teacher.batch_id,
+            display_name="Karim Hossain",
+            student_phone=phone,
+            student_decision="pending",
+            guardian_decision="pending",
+            student_relink_blocked_at=dt.datetime.now(tz=dt.UTC),
+            created_at=dt.datetime.now(tz=dt.UTC),
+        )
+    )
+    owner_session.commit()
+
+    found = already_added(restricted_session, phone)
+
+    assert found.exists is False
+
+
 def test_the_lookup_response_names_neither_teacher_nor_batch(
     restricted_session: Session, owner_session: Session
 ) -> None:

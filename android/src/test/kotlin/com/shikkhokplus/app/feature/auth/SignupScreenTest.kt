@@ -3,15 +3,19 @@ package com.shikkhokplus.app.feature.auth
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
 import com.shikkhokplus.app.core.model.SignupRole
 import com.shikkhokplus.app.feature.auth.ui.SignupScreen
+import com.shikkhokplus.app.feature.auth.ui.TAG_SIGNUP_NAME
+import com.shikkhokplus.app.feature.auth.ui.TAG_SIGNUP_PHONE
 import com.shikkhokplus.app.feature.auth.ui.TAG_SIGNUP_SUBMIT
+import com.shikkhokplus.app.feature.auth.ui.TAG_SIGNUP_SUBMITTING
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -116,17 +120,21 @@ class SignupScreenTest {
             ),
         )
 
-        compose.onNodeWithText("Rahim").assertIsDisplayed()
+        // Scrolled to: the board puts the notice, the role cards and the
+        // number above the name, which a short test viewport cannot fit.
+        compose.onNodeWithText("Rahim").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Rahim").assertIsEnabled()
     }
 
     @Test
-    fun `the code-sent state names the number the code went to`() {
+    fun `the code-sent state never repeats the number back`() {
         render(SignupUiState.CodeSent(codeSentTo = "01712345678"))
 
+        compose.onNodeWithText("We sent a code to your number.").assertExists()
         compose
-            .onNodeWithText("01712345678", substring = true)
-            .assertIsDisplayed()
+            .onAllNodesWithText("01712345678", substring = true)
+            .fetchSemanticsNodes()
+            .let { assertEquals(0, it.size) }
     }
 
     @Test
@@ -140,9 +148,9 @@ class SignupScreenTest {
             onGoToLogin = { wentToLogin = true },
         )
 
-        // Matched exactly: the error message also contains "Log in",
-        // so a substring match finds the text and the button both.
-        compose.onNodeWithText("Log in instead").performClick()
+        // Under the number, beside the refusal (O1's error board).
+        compose.onNodeWithText("This number already has an account.").assertExists()
+        compose.onNodeWithText("Log in").performScrollTo().performClick()
         assertEquals(true, wentToLogin)
     }
 
@@ -162,6 +170,35 @@ class SignupScreenTest {
     }
 
     @Test
+    fun `a refused number keeps the form and says so under the field`() {
+        // **Reported from a device: the whole form went blank.** A
+        // refusal of the number replaced the form with an error, so the
+        // person lost what they had typed to learn one field was wrong.
+        render(
+            SignupUiState.Failed(
+                messageKey = "phone.invalid",
+                retryable = false,
+            ),
+        )
+
+        compose.onNodeWithTag(TAG_SIGNUP_PHONE).assertExists()
+        compose.onNodeWithTag(TAG_SIGNUP_SUBMIT).assertExists()
+        compose
+            .onNodeWithText("Enter an 11-digit mobile number, like 01711-234567")
+            .assertExists()
+    }
+
+    @Test
+    fun `a submit-time check names the number under its field`() {
+        render(SignupUiState.Invalid(listOf("signup.phone.invalid")))
+
+        compose.onNodeWithTag(TAG_SIGNUP_SUBMIT).assertExists()
+        compose
+            .onNodeWithText("Enter an 11-digit mobile number, like 01711-234567")
+            .assertExists()
+    }
+
+    @Test
     fun `a retryable failure offers a retry the server permitted`() {
         var retried = false
         render(
@@ -177,12 +214,34 @@ class SignupScreenTest {
     }
 
     @Test
-    fun `submitting shows progress and no submit control`() {
+    fun `submitting shows progress over a form that cannot resubmit`() {
         render(SignupUiState.Submitting)
 
-        compose
-            .onAllNodes(hasTestTag(TAG_SIGNUP_SUBMIT))
-            .fetchSemanticsNodes()
-            .let { assertEquals(0, it.size) }
+        compose.onNodeWithTag(TAG_SIGNUP_SUBMITTING).assertIsDisplayed()
+        compose.onNodeWithTag(TAG_SIGNUP_SUBMIT).assertIsNotEnabled()
+    }
+
+    @Test
+    fun `no role is chosen for the person, so the form cannot be sent yet`() {
+        render(SignupUiState.Empty)
+        compose.onNodeWithTag(TAG_SIGNUP_NAME).performTextInput("Rahim")
+        compose.onNodeWithTag(TAG_SIGNUP_PHONE).performTextInput("01711-234567")
+
+        compose.onNodeWithTag(TAG_SIGNUP_SUBMIT).assertIsNotEnabled()
+
+        compose.onNodeWithText("Teacher").performClick()
+        compose.onNodeWithTag(TAG_SIGNUP_SUBMIT).performScrollTo().assertIsEnabled()
+    }
+
+    @Test
+    fun `the chosen role is what is submitted`() {
+        var submitted: SignupRole? = null
+        render(SignupUiState.Empty, onSubmit = { _, _, _, role -> submitted = role })
+        compose.onNodeWithText("Guardian").performClick()
+        compose.onNodeWithTag(TAG_SIGNUP_NAME).performTextInput("Rokshana")
+        compose.onNodeWithTag(TAG_SIGNUP_PHONE).performTextInput("01819-552041")
+        compose.onNodeWithTag(TAG_SIGNUP_SUBMIT).performScrollTo().performClick()
+
+        assertEquals(SignupRole.GUARDIAN, submitted)
     }
 }

@@ -53,10 +53,13 @@ sealed interface AuthUiState {
      *
      * @property messageKey Names a string resource
      * @property retryable Read from the server's envelope [TC-9]
+     * @property attemptsLeft The server's count of tries left for this
+     *   code, shown as it arrived; null when the refusal carries none
      */
     data class CodeRejected(
         val messageKey: String,
         val retryable: Boolean,
+        val attemptsLeft: String? = null,
     ) : AuthUiState
 
     /** The code was accepted and a session exists. */

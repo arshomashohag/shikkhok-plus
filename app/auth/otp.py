@@ -133,7 +133,17 @@ def issue(
         "expires_at": moment + CODE_LIFETIME,
     }
 
-    savepoint = session.begin_nested()
+    # **Kept for an unknown number too, and never sent to it.** This
+    # write used to be rolled back on the unknown branch, which was
+    # enough while every refusal looked the same. Verify now says how
+    # many tries are left and whether the code expired [BR2.3], and
+    # without a row an unknown number would answer neither -- a wrong
+    # code at a registered number would say "4 tries left" and at an
+    # unregistered one would not, which is the existence oracle in a
+    # new place [BR2.7]. With the row kept, both numbers run the same
+    # verify path to the same answers, and the code can never match
+    # because nobody was told it. The row ages out under
+    # ``otp_request``'s seven-day retention like any other.
     session.execute(
         sa.text(
             "INSERT INTO otp_request "
@@ -143,12 +153,6 @@ def issue(
         ),
         parameters,
     )
-    if account_id is None:
-        # The equivalent write, rolled back. The statements issued are
-        # identical to the known branch's; only the outcome differs.
-        savepoint.rollback()
-    else:
-        savepoint.commit()
 
     # account_id is nullable here BY DESIGN: a placeholder would
     # reintroduce the oracle this path exists to close.
@@ -221,7 +225,7 @@ def verify(
     ).one_or_none()
 
     if row is None:
-        raise _refused()
+        raise ValidationError(code=REFUSAL_CODE, message_key="auth.otp.not_valid")
 
     attempts = session.execute(
         sa.text("SELECT count(*) FROM verify_attempt WHERE otp_request_id = :id"),
@@ -236,7 +240,11 @@ def verify(
         _record_attempt(session, row.id, moment, succeeded=False)
         _audit_failure(session, phone, correlation_id, moment)
         session.commit()
-        raise _refused()
+        # Expiry is named because its remedy is specific: the code was
+        # right and too slow. A used or dead code is "ask for a new one".
+        if expired and not consumed and not exhausted:
+            raise ValidationError(code=REFUSAL_CODE, message_key="auth.otp.expired")
+        raise ValidationError(code=REFUSAL_CODE, message_key="auth.otp.not_valid")
 
     matched = verify_otp(code, phone, row.otp_hash)
     _record_attempt(session, row.id, moment, succeeded=matched)
@@ -245,14 +253,23 @@ def verify(
         # THE CODE DIES at the ceiling, not merely the attempt. An
         # implementation that counts without invalidating passes the
         # confirmatory half and leaves brute force open.
-        if attempts + 1 >= ATTEMPT_CEILING:
+        remaining = ATTEMPT_CEILING - (attempts + 1)
+        if remaining <= 0:
             session.execute(
                 sa.text("UPDATE otp_request SET consumed_at = :now WHERE id = :id"),
                 {"now": moment, "id": row.id},
             )
         _audit_failure(session, phone, correlation_id, moment)
         session.commit()
-        raise _refused()
+        if remaining <= 0:
+            raise ValidationError(
+                code=REFUSAL_CODE, message_key="auth.otp.no_tries_left"
+            )
+        raise ValidationError(
+            code=REFUSAL_CODE,
+            message_key="auth.otp.wrong",
+            details={"attempts_left": str(remaining)},
+        )
 
     session.execute(
         sa.text("UPDATE otp_request SET consumed_at = :now WHERE id = :id"),
@@ -269,7 +286,7 @@ def verify(
 
     if account_id is None:
         session.commit()
-        raise _refused()
+        raise ValidationError(code=REFUSAL_CODE, message_key="auth.otp.not_valid")
 
     # Activate if dormant. This is what lets a student or guardian claim
     # a record a teacher created, without being invited [AC1.2.1].
@@ -348,18 +365,13 @@ def _audit_failure(
     )
 
 
-def _refused() -> ValidationError:
-    """Build the one refusal every failed verify returns.
-
-    **One message for every cause.** Distinguishing "expired" from
-    "wrong" from "too many attempts" tells an attacker which of their
-    assumptions was right, and tells a legitimate user nothing they can
-    act on differently -- the remedy is "request a new code" in all
-    three cases.
-
-    :return: The error to raise
-    """
-    return ValidationError(
-        code="OTP_NOT_VALID",
-        message_key="auth.otp.not_valid",
-    )
+#: The machine value every refused code carries, whatever the cause.
+#:
+#: **One machine code, and a message per remedy.** The person is told what
+#: to do next -- type it again with so many tries left, or ask for a new
+#: code because this one expired or is spent -- which the sign-in design
+#: shows and one identical message could not. That is safe only because
+#: an unknown number keeps its code row too (see :func:`issue`), so every
+#: answer is the same for a number with an account and one without
+#: [BR2.7].
+REFUSAL_CODE: Final = "OTP_NOT_VALID"

@@ -128,15 +128,35 @@ class AlreadyAdded:
 #: not joined at all -- not filtered out afterwards, not selected and
 #: discarded -- so there is no column here that a later edit could
 #: accidentally surface [BR2.3].
+#: The seat a number was recorded on, preferring a student seat.
+#:
+#: **Matched on the teacher-typed number, not only on a linked
+#: account.** The lookup runs while the signup form renders, which is
+#: BEFORE the account exists, so a match that needs an account found
+#: nothing on exactly the path it serves. The account half stays for a
+#: seat created after its person had signed up, where the link was made
+#: at once and no typed number need be present.
+#:
+#: A relink-blocked seat is excluded on both halves: signup will not
+#: relink it [BR6.2], so pre-filling from it would promise a link that
+#: never happens.
 _LOOKUP_QUERY = sa.text(
     """
-    SELECT
-        e.display_name AS display_name,
-        (a.id = e.student_account_id) AS is_student
-    FROM enrollment e
-    JOIN account a ON a.phone = :phone
-    WHERE a.id IN (e.student_account_id, e.guardian_account_id)
-    ORDER BY (a.id = e.student_account_id) DESC, e.created_at, e.id
+    SELECT display_name, is_student
+    FROM (
+        SELECT e.display_name, TRUE AS is_student, e.created_at, e.id
+        FROM enrollment e
+        LEFT JOIN account a ON a.id = e.student_account_id
+        WHERE (e.student_phone = :phone OR a.phone = :phone)
+          AND e.student_relink_blocked_at IS NULL
+        UNION ALL
+        SELECT e.display_name, FALSE AS is_student, e.created_at, e.id
+        FROM enrollment e
+        LEFT JOIN account a ON a.id = e.guardian_account_id
+        WHERE (e.guardian_phone = :phone OR a.phone = :phone)
+          AND e.guardian_relink_blocked_at IS NULL
+    ) seat
+    ORDER BY is_student DESC, created_at, id
     LIMIT 1
     """
 )

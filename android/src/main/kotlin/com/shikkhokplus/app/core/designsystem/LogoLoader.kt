@@ -7,6 +7,11 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Surface
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -91,21 +96,41 @@ fun LogoLoader(
     val student = BrandStudent
     val ground = MaterialTheme.colorScheme.background
 
-    // **Centred in whatever space it is given, both ways.** Reported
-    // from a device: the loader sat at the top of the sign-in screen
-    // while the one on app startup was correctly in the middle. The
-    // difference was that the startup one is wrapped in a
-    // `FullScreenLoader` and these were bare, so they took only the
-    // height of their own content and landed wherever the parent
-    // column happened to put them — the top.
+    // **An overlay, centred on the WINDOW, not on its parent.**
+    // Reported from a device, twice. A first fix centred the loader in
+    // "whatever space it is given" -- but most screens place it inside
+    // a scrolling column, where `fillMaxSize` has no height to fill, so
+    // it still sat at the top. A loader that depends on its parent's
+    // layout will always be wrong in some parent.
     //
-    // `fillMaxSize` and a centred Box make every use centre on its own
-    // rather than depending on the caller remembering to wrap it.
+    // So it draws in its own window, over the whole screen, centred
+    // both ways, with a scrim over the content beneath. Back still
+    // works: dismissing does nothing, but the request is the screen's
+    // and finishes or fails on its own.
+    Dialog(
+        onDismissRequest = {},
+        properties =
+            DialogProperties(
+                usePlatformDefaultWidth = false,
+                dismissOnClickOutside = false,
+                decorFitsSystemWindows = false,
+            ),
+    ) {
     Box(
-        modifier = modifier.fillMaxSize().testTag(TAG_LOGO_LOADER),
+        modifier =
+            modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.scrim.copy(alpha = SCRIM_ALPHA))
+                .testTag(TAG_LOGO_LOADER),
         contentAlignment = Alignment.Center,
     ) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 2.dp,
+    ) {
         Column(
+        modifier = Modifier.padding(Spacing.section),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(Spacing.listItem),
     ) {
@@ -130,7 +155,12 @@ fun LogoLoader(
         }
         }
     }
+    }
+    }
 }
+
+/** How strongly the overlay dims what is beneath it. */
+private const val SCRIM_ALPHA = 0.32f
 
 /**
  * A full-screen loader, for the moment before the app knows where to go.

@@ -1,7 +1,10 @@
 package com.shikkhokplus.app.core.designsystem
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.shape.CircleShape
@@ -13,6 +16,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -221,3 +225,49 @@ fun TextAction(
 
 /** The design greys a disabled destructive button by fading its red. */
 private const val DISABLED_DESTRUCTIVE = 0.45f
+
+/**
+ * A grey question followed by a bold link, centred under a main action.
+ *
+ * O1 and O2 end their bar with one: "New to ShikkhokPlus? **Create
+ * account**", "Already have an account? **Log in**". The link is a 48dp
+ * target although it reads as inline text, so it is no harder to hit
+ * than a button.
+ *
+ * @param prompt The grey question
+ * @param link The bold link's text
+ * @param onClick Called when the link is tapped
+ * @param modifier The layout modifier, for the whole line
+ * @param linkModifier Applied to the link, for a test tag
+ */
+@Composable
+fun PromptLink(
+    prompt: String,
+    link: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    linkModifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            prompt,
+            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Normal),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        TextButton(
+            onClick = onClick,
+            contentPadding = PaddingValues(horizontal = 4.dp),
+            modifier = linkModifier.heightIn(min = Reach.touch),
+        ) {
+            Text(
+                link,
+                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+    }
+}

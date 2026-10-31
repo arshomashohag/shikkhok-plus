@@ -166,7 +166,10 @@ class AuthViewModel(
             _state.value = when (val result = repository.verify(lastPhone, code)) {
                 is AuthResult.Ok -> AuthStateMapper.afterVerify(result.value)
                 is AuthResult.Refused ->
-                    AuthStateMapper.codeRejected(AuthStateMapper.afterError(result.envelope))
+                    AuthStateMapper.codeRejected(
+                        AuthStateMapper.afterError(result.envelope),
+                        result.envelope.error.details?.get(ATTEMPTS_LEFT),
+                    )
                 AuthResult.TransportFailure ->
                     AuthStateMapper.codeRejected(AuthStateMapper.afterTransportFailure())
             }
@@ -215,3 +218,6 @@ class AuthViewModel(
         _state.value = AuthUiState.Idle
     }
 }
+
+/** The detail a wrong sign-in code carries: how many tries are left. */
+private const val ATTEMPTS_LEFT = "attempts_left"

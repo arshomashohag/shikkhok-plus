@@ -132,6 +132,57 @@ def test_the_full_sign_in_path_returns_a_working_token_pair(
     assert rotated.json()["refresh_token"] != pair["refresh_token"]
 
 
+def _capture_sends(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """Record the number of every SMS the null gateway is asked to send.
+
+    :param monkeypatch: The patcher
+    :return: The list each send appends its number to
+    """
+    numbers: list[str] = []
+
+    from app.gateway.null import NullGateway
+
+    original = NullGateway.send
+
+    def capture(
+        self: NullGateway, number: str, message: str, correlation_id: str
+    ) -> object:
+        numbers.append(number)
+        return original(self, number, message, correlation_id)
+
+    monkeypatch.setattr(NullGateway, "send", capture)
+    return numbers
+
+
+def test_an_unknown_number_is_sent_no_sms(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Reported from a device: a student a teacher had added pressed
+    # Sign in rather than Sign up, received a real SMS, and every code
+    # in it was refused -- the unknown branch rolls its OTP row back,
+    # so the code it texted could never verify. A code that cannot
+    # work must not be sent: it spends the SMS budget and tells the
+    # person their correct code is wrong.
+    numbers = _capture_sends(monkeypatch)
+
+    response = client.post("/v1/auth/otp", json={"phone": UNKNOWN})
+
+    assert response.status_code == 200
+    assert numbers == []
+
+
+def test_a_known_number_is_still_sent_its_code(
+    client: TestClient, known_account: uuid.UUID, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The other half: without it, the test above passes against a
+    # handler that sends nothing to anyone.
+    numbers = _capture_sends(monkeypatch)
+
+    client.post("/v1/auth/otp", json={"phone": KNOWN})
+
+    assert numbers == [KNOWN]
+
+
 def test_a_replayed_refresh_token_is_refused_over_http(
     client: TestClient, known_account: uuid.UUID, monkeypatch: pytest.MonkeyPatch
 ) -> None:

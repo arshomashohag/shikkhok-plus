@@ -225,6 +225,7 @@ fun ShikkhokNavHost(
                 onGoToLogin = { navController.popBackStack() },
                 onRetry = model::retry,
                 onLookup = model::lookup,
+                onNumberEdited = model::numberEdited,
             )
         }
 

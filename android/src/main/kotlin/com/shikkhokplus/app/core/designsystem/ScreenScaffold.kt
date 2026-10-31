@@ -285,7 +285,7 @@ const val TAG_SCAFFOLD_BACK: String = "scaffold_back"
  * @param contentDescription What TalkBack announces
  */
 @Composable
-private fun BackArrow(contentDescription: String) {
+internal fun BackArrow(contentDescription: String) {
     Icon(
         painter =
             rememberVectorPainter(
