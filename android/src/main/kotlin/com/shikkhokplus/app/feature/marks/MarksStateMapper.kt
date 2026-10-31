@@ -92,6 +92,7 @@ object MarksStateMapper {
      * @param totalMarks Its total
      * @param results One per seat
      * @param writable Whether marks may be written [BR5.5]
+     * @param examTopics What the exam covers, for the edit form
      * @return The state the screen renders
      */
     fun afterResults(
@@ -101,6 +102,7 @@ object MarksStateMapper {
         results: List<ExamResultDto>,
         writable: Boolean = true,
         examDate: String = "",
+        examTopics: List<String> = emptyList(),
     ): MarksUiState {
         val rows =
             results.map { dto ->
@@ -124,7 +126,7 @@ object MarksStateMapper {
                 )
             }
 
-        return MarksUiState.EntryLoaded(examId, examTitle, totalMarks, rows, writable, examDate)
+        return MarksUiState.EntryLoaded(examId, examTitle, totalMarks, rows, writable, examDate, examTopics)
     }
 
     /**

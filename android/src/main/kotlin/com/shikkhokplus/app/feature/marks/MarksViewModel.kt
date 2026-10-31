@@ -70,6 +70,7 @@ interface MarksRepository {
      * @param date The exam date
      * @param totalMarks The total, at least one
      * @param batchSubjectId Which of the batch's subjects
+     * @param topics What the exam covers
      * @return Nothing on success, or why the server refused
      */
     suspend fun createExam(
@@ -78,6 +79,7 @@ interface MarksRepository {
         date: String,
         totalMarks: Int,
         batchSubjectId: String,
+        topics: List<String>,
     ): AuthResult<Unit>
 
     /**
@@ -87,6 +89,7 @@ interface MarksRepository {
      * @param title Its new title
      * @param date Its new date, `yyyy-MM-dd`
      * @param totalMarks Its new total
+     * @param topics The full list; the server replaces its own
      * @return Nothing on success, or why the server refused
      */
     suspend fun editExam(
@@ -94,6 +97,7 @@ interface MarksRepository {
         title: String,
         date: String,
         totalMarks: Int,
+        topics: List<String>,
     ): AuthResult<Unit>
 
     /**
@@ -283,12 +287,14 @@ class MarksViewModel(
      * @param date The exam date
      * @param totalMarks The total, at least one
      * @param batchSubjectId Which subject
+     * @param topics What the exam covers
      */
     fun createExam(
         title: String,
         date: String,
         totalMarks: Int,
         batchSubjectId: String,
+        topics: List<String>,
     ) {
         val batchId = lastBatchId ?: return
         if (_writeState.value == WriteState.Saving) return
@@ -297,7 +303,7 @@ class MarksViewModel(
             _writeState.value =
                 when (
                     val result =
-                        repository.createExam(batchId, title, date, totalMarks, batchSubjectId)
+                        repository.createExam(batchId, title, date, totalMarks, batchSubjectId, topics)
                 ) {
                     is AuthResult.Ok -> {
                         loadExams(batchId, lastBatchName)
@@ -369,6 +375,7 @@ class MarksViewModel(
                         results = result.value.results,
                         writable = result.value.writable,
                         examDate = result.value.exam.date,
+                        examTopics = result.value.exam.topics,
                     )
                 is AuthResult.Refused -> MarksStateMapper.afterError(result.envelope)
                 AuthResult.TransportFailure ->
@@ -385,14 +392,15 @@ class MarksViewModel(
      * @param title Its new title
      * @param date Its new date, `yyyy-MM-dd`
      * @param totalMarks Its new total
+     * @param topics The full current list; an edit replaces, never merges
      */
-    fun editExam(title: String, date: String, totalMarks: Int) {
+    fun editExam(title: String, date: String, totalMarks: Int, topics: List<String>) {
         val examId = lastExamId ?: return
         if (_writeState.value == WriteState.Saving) return
         _writeState.value = WriteState.Saving
         viewModelScope.launch {
             _writeState.value =
-                when (val result = repository.editExam(examId, title, date, totalMarks)) {
+                when (val result = repository.editExam(examId, title, date, totalMarks, topics)) {
                     is AuthResult.Ok -> WriteState.Saved.also { refreshResults(examId) }
                     is AuthResult.Refused ->
                         WriteState.Failed(result.envelope.error.messageKey, result.envelope.error.retryable)

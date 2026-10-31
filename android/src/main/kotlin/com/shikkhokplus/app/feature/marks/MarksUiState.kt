@@ -129,6 +129,7 @@ sealed interface MarksUiState {
      * @property writable Whether marks may be written, **decided
      *   server-side** [BR5.5]
      * @property examDate Its date, `yyyy-MM-dd`, for the edit form
+     * @property examTopics What it covers, for the edit form
      */
     data class EntryLoaded(
         val examId: String,
@@ -137,6 +138,7 @@ sealed interface MarksUiState {
         val rows: List<MarkRow>,
         val writable: Boolean,
         val examDate: String = "",
+        val examTopics: List<String> = emptyList(),
     ) : MarksUiState
 
     /**

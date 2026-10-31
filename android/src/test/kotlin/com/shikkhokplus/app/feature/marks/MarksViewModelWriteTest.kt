@@ -56,6 +56,7 @@ class MarksViewModelWriteTest {
             date: String,
             totalMarks: Int,
             batchSubjectId: String,
+            topics: List<String>,
         ): AuthResult<Unit> {
             creates++
             return createResult
@@ -63,6 +64,7 @@ class MarksViewModelWriteTest {
 
         var editResult: AuthResult<Unit> = AuthResult.Ok(Unit)
         val edits = mutableListOf<Triple<String, String, Int>>()
+        val editTopics = mutableListOf<List<String>>()
         var resultReads = 0
         var historyResult: AuthResult<List<CorrectionDto>> =
             AuthResult.Ok(
@@ -77,8 +79,10 @@ class MarksViewModelWriteTest {
             title: String,
             date: String,
             totalMarks: Int,
+            topics: List<String>,
         ): AuthResult<Unit> {
             edits += Triple(title, date, totalMarks)
+            editTopics += topics
             return editResult
         }
 
@@ -120,7 +124,7 @@ class MarksViewModelWriteTest {
         val model = loaded(repository)
         advanceUntilIdle()
 
-        model.createExam("Weekly test", "2026-11-04", 50, "bs-1")
+        model.createExam("Weekly test", "2026-11-04", 50, "bs-1", emptyList())
         advanceUntilIdle()
 
         assertEquals(WriteState.Saved, model.writeState.value)
@@ -137,7 +141,7 @@ class MarksViewModelWriteTest {
         val model = loaded(repository)
         advanceUntilIdle()
 
-        model.createExam("Weekly test", "2026-11-04", 50, "bs-1")
+        model.createExam("Weekly test", "2026-11-04", 50, "bs-1", emptyList())
         advanceUntilIdle()
 
         val failed = assertIs<WriteState.Failed>(model.writeState.value)
@@ -151,8 +155,8 @@ class MarksViewModelWriteTest {
         val model = loaded(repository)
         advanceUntilIdle()
 
-        model.createExam("Weekly test", "2026-11-04", 50, "bs-1")
-        model.createExam("Weekly test", "2026-11-04", 50, "bs-1")
+        model.createExam("Weekly test", "2026-11-04", 50, "bs-1", emptyList())
+        model.createExam("Weekly test", "2026-11-04", 50, "bs-1", emptyList())
         advanceUntilIdle()
 
         assertEquals(1, repository.creates)
@@ -175,10 +179,11 @@ class MarksViewModelWriteTest {
         val model = MarksViewModel(repository).also { it.loadResults("x-1") }
         advanceUntilIdle()
 
-        model.editExam("Mid-term", "2026-11-04", 50)
+        model.editExam("Mid-term", "2026-11-04", 50, listOf("Motion"))
         advanceUntilIdle()
 
         assertEquals(listOf(Triple("Mid-term", "2026-11-04", 50)), repository.edits)
+        assertEquals(listOf(listOf("Motion")), repository.editTopics)
         assertEquals(WriteState.Saved, model.writeState.value)
         assertEquals(2, repository.resultReads)
     }
@@ -191,7 +196,7 @@ class MarksViewModelWriteTest {
         val model = MarksViewModel(repository).also { it.loadResults("x-1") }
         advanceUntilIdle()
 
-        model.editExam("Mid-term", "2026-11-04", 10)
+        model.editExam("Mid-term", "2026-11-04", 10, emptyList())
         advanceUntilIdle()
 
         assertEquals(WriteState.Failed("marks.exam.total_below_recorded", false), model.writeState.value)

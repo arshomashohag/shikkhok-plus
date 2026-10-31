@@ -74,6 +74,7 @@ class HttpMarksRepositoryTest {
             date = "2026-03-04",
             totalMarks = 50,
             batchSubjectId = "bs-7",
+            topics = listOf("Motion", "Force"),
         )
 
         val sent = engine.requestHistory.single()
@@ -82,6 +83,7 @@ class HttpMarksRepositoryTest {
         assertEquals("/v1/batches/b-1/exams", sent.url.encodedPath)
         assertTrue(body.contains("\"total_marks\":50"), body)
         assertTrue(body.contains("\"batch_subject_id\":\"bs-7\""), body)
+        assertTrue(body.contains("\"topics\":[\"Motion\",\"Force\"]"), body)
     }
 
     @Test

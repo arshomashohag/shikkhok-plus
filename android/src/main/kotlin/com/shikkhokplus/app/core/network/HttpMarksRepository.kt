@@ -85,9 +85,10 @@ class HttpMarksRepository(
         title: String,
         date: String,
         totalMarks: Int,
+        topics: List<String>,
     ): AuthResult<Unit> =
         callDiscardingBody {
-            client.put("/v1/exams/$examId") { setBody(ExamUpdateRequestDto(title, date, totalMarks)) }
+            client.put("/v1/exams/$examId") { setBody(ExamUpdateRequestDto(title, date, totalMarks, topics)) }
         }
 
     override suspend fun markHistory(examId: String, enrollmentId: String): AuthResult<List<CorrectionDto>> =
@@ -99,6 +100,7 @@ class HttpMarksRepository(
         date: String,
         totalMarks: Int,
         batchSubjectId: String,
+        topics: List<String>,
     ): AuthResult<Unit> =
         callDiscardingBody {
             client.post("/v1/batches/$batchId/exams") {
@@ -108,6 +110,7 @@ class HttpMarksRepository(
                         date = date,
                         totalMarks = totalMarks,
                         batchSubjectId = batchSubjectId,
+                        topics = topics,
                     ),
                 )
             }

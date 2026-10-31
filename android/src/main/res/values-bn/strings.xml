@@ -494,6 +494,8 @@
     <string name="exam_create_subject">বিষয়</string>
     <string name="exam_create_subjects_failed">এই ব্যাচের বিষয়গুলো লোড করা যায়নি। ফিরে গিয়ে আবার চেষ্টা করুন।</string>
     <string name="exam_create_submit">পরীক্ষা তৈরি করুন</string>
+    <string name="exam_topics_label">বিষয়বস্তু (প্রতি লাইনে একটি)</string>
+    <string name="exam_topics_too_long">সর্বোচ্চ 20টি বিষয়বস্তু, প্রতিটি সর্বোচ্চ 120 অক্ষর।</string>
     <string name="profile_phone_label">মোবাইল নম্বর</string>
     <string name="profile_phone_note">এটি আপনার লগইন, বদলানো যাবে না।</string>
     <string name="profile_delete">আমার অ্যাকাউন্ট মুছুন</string>

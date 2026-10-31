@@ -549,6 +549,8 @@
     <string name="exam_create_subject">Subject</string>
     <string name="exam_create_subjects_failed">This batch\'s subjects could not be loaded. Go back and try again.</string>
     <string name="exam_create_submit">Create exam</string>
+    <string name="exam_topics_label">Topics (one per line)</string>
+    <string name="exam_topics_too_long">Up to 20 topics, each up to 120 characters.</string>
     <string name="profile_phone_label">Mobile number</string>
     <string name="profile_phone_note">This is your login and cannot be changed.</string>
     <string name="profile_delete">Delete my account</string>

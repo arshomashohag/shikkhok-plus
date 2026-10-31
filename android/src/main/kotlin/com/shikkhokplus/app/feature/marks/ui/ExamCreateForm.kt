@@ -49,11 +49,21 @@ const val TAG_EXAM_DATE: String = "exam_date"
 /** One subject chip. */
 const val TAG_EXAM_SUBJECT: String = "exam_subject"
 
+/** The topics field, one topic per line. */
+const val TAG_EXAM_TOPICS: String = "exam_topics"
+
+/** Shown when the topics break the format limits. */
+const val TAG_EXAM_TOPICS_ERROR: String = "exam_topics_error"
+
 /** Shown when the batch's subjects could not be read. */
 const val TAG_EXAM_SUBJECTS_FAILED: String = "exam_subjects_failed"
 
 /** The largest total a teacher can type; the server has the final say. */
 private const val MAX_TOTAL_DIGITS = 4
+
+/** Format limits on topics; the server has the final say. */
+private const val MAX_TOPICS = 20
+private const val MAX_TOPIC_LENGTH = 120
 
 /**
  * Create an exam in one batch [BR4.1].
@@ -69,7 +79,8 @@ private const val MAX_TOTAL_DIGITS = 4
  * belongs to the batch is the server's check.
  *
  * @param subjects The batch's subjects, or null while they load
- * @param onCreate Called with title, ISO date, total and subject key
+ * @param onCreate Called with title, ISO date, total, subject key and
+ *   topics
  * @param onCancel Called when the teacher backs out
  * @param modifier The layout modifier
  * @param saving True while the write is in flight
@@ -84,7 +95,7 @@ private const val MAX_TOTAL_DIGITS = 4
 @Composable
 fun ExamCreateForm(
     subjects: List<SubjectOptionDto>?,
-    onCreate: (String, String, Int, String) -> Unit,
+    onCreate: (String, String, Int, String, List<String>) -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
     saving: Boolean = false,
@@ -95,6 +106,7 @@ fun ExamCreateForm(
     var title by remember { mutableStateOf(editing?.title.orEmpty()) }
     var total by remember { mutableStateOf(editing?.totalMarks?.toString().orEmpty()) }
     var dateMillis by remember { mutableStateOf(editing?.date?.let(::isoToUtcMillis) ?: todayUtcMillis) }
+    var topicsText by remember { mutableStateOf(editing?.topics?.joinToString("\n").orEmpty()) }
     var picking by remember { mutableStateOf(false) }
     var chosen by remember(subjects) {
         // One subject means there is nothing to choose: pre-select it
@@ -135,6 +147,25 @@ fun ExamCreateForm(
             modifier = Modifier.fillMaxWidth().testTag(TAG_EXAM_TOTAL),
         )
 
+        val topics = topicsOf(topicsText)
+        val topicsValid = topics.size <= MAX_TOPICS && topics.all { it.length <= MAX_TOPIC_LENGTH }
+        OutlinedTextField(
+            value = topicsText,
+            onValueChange = { topicsText = it },
+            label = { Text(stringResource(R.string.exam_topics_label)) },
+            isError = !topicsValid,
+            minLines = 3,
+            modifier = Modifier.fillMaxWidth().testTag(TAG_EXAM_TOPICS),
+        )
+        if (!topicsValid) {
+            Text(
+                text = stringResource(R.string.exam_topics_too_long),
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.testTag(TAG_EXAM_TOPICS_ERROR),
+            )
+        }
+
         if (editing == null) SubjectChoice(subjects, chosen) { chosen = it }
 
         error?.let {
@@ -148,7 +179,9 @@ fun ExamCreateForm(
 
         ExamFormActions(
             submitLabel = stringResource(if (editing == null) R.string.exam_create_submit else R.string.exam_edit_save),
-            submit = submitOf(title, total, dateMillis, if (editing == null) chosen else "").takeUnless { saving },
+            submit = submitOf(title, total, dateMillis, if (editing == null) chosen else "", topics)
+                .takeIf { topicsValid }
+                .takeUnless { saving },
             onCreate = onCreate,
             onCancel = onCancel,
         )
@@ -181,11 +214,14 @@ fun ExamCreateForm(
  * @property title The exam's title
  * @property date Its date, `yyyy-MM-dd`
  * @property totalMarks Its total
+ * @property topics What it covers; resent whole on every save because the
+ *   server replaces the list
  */
 data class ExamFormValues(
     val title: String,
     val date: String,
     val totalMarks: Int,
+    val topics: List<String> = emptyList(),
 )
 
 /**
@@ -238,12 +274,19 @@ private fun SubjectChoice(
  * @param total The typed total
  * @param dateMillis The picked date
  * @param subjectId The chosen subject's key, or null
- * @return Title, ISO date, total and subject key, or null
+ * @param topics The parsed topics
+ * @return Title, ISO date, total, subject key and topics, or null
  */
-private fun submitOf(title: String, total: String, dateMillis: Long, subjectId: String?): ExamSubmission? {
+private fun submitOf(
+    title: String,
+    total: String,
+    dateMillis: Long,
+    subjectId: String?,
+    topics: List<String>,
+): ExamSubmission? {
     val totalMarks = total.toIntOrNull()?.takeIf { it >= 1 } ?: return null
     if (title.isBlank() || subjectId == null) return null
-    return ExamSubmission(title.trim(), isoDate(dateMillis), totalMarks, subjectId)
+    return ExamSubmission(title.trim(), isoDate(dateMillis), totalMarks, subjectId, topics)
 }
 
 /**
@@ -253,12 +296,14 @@ private fun submitOf(title: String, total: String, dateMillis: Long, subjectId: 
  * @property date The ISO date
  * @property totalMarks The total
  * @property subjectId The subject key, empty when editing
+ * @property topics The trimmed, non-blank topics
  */
 private data class ExamSubmission(
     val title: String,
     val date: String,
     val totalMarks: Int,
     val subjectId: String,
+    val topics: List<String>,
 )
 
 /**
@@ -266,19 +311,20 @@ private data class ExamSubmission(
  *
  * @param submitLabel The submit button's words
  * @param submit What to send, or null to keep submit disabled
- * @param onCreate Called with title, ISO date, total and subject key
+ * @param onCreate Called with title, ISO date, total, subject key and
+ *   topics
  * @param onCancel Called when the teacher backs out
  */
 @Composable
 private fun ExamFormActions(
     submitLabel: String,
     submit: ExamSubmission?,
-    onCreate: (String, String, Int, String) -> Unit,
+    onCreate: (String, String, Int, String, List<String>) -> Unit,
     onCancel: () -> Unit,
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Button(
-            onClick = { submit?.let { onCreate(it.title, it.date, it.totalMarks, it.subjectId) } },
+            onClick = { submit?.let { onCreate(it.title, it.date, it.totalMarks, it.subjectId, it.topics) } },
             enabled = submit != null,
             modifier = Modifier.testTag(TAG_FORM_SUBMIT),
         ) {
@@ -289,3 +335,12 @@ private fun ExamFormActions(
         }
     }
 }
+
+/**
+ * One topic per line, each trimmed, blank lines dropped.
+ *
+ * @param text The topics field as typed
+ * @return The topics to send, in order
+ */
+private fun topicsOf(text: String): List<String> =
+    text.lines().map(String::trim).filter(String::isNotEmpty)

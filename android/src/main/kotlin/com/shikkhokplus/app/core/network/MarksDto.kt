@@ -25,6 +25,7 @@ import kotlinx.serialization.Serializable
  *   out a seat that joined after the exam date
  * @property state `upcoming`, `needs_marks` or `complete`, decided by the
  *   server so the client never compares a date or a count
+ * @property topics What the exam covers, in the teacher's order
  */
 @Serializable
 data class ExamDto(
@@ -36,6 +37,7 @@ data class ExamDto(
     @SerialName("entered_count") val enteredCount: Int = 0,
     @SerialName("expected_count") val expectedCount: Int = 0,
     val state: String = "complete",
+    val topics: List<String> = emptyList(),
 )
 
 /**
@@ -225,6 +227,7 @@ data class ExamResultsResponseDto(
  * @property totalMarks The total, at least one
  * @property batchSubjectId Which of the batch's subjects. The
  *   belongs-to-batch check is the server's
+ * @property topics What the exam covers, one per entry
  */
 @Serializable
 data class ExamCreateRequestDto(
@@ -232,6 +235,7 @@ data class ExamCreateRequestDto(
     val date: String,
     @SerialName("total_marks") val totalMarks: Int,
     @SerialName("batch_subject_id") val batchSubjectId: String,
+    val topics: List<String>,
 )
 
 /**
@@ -242,12 +246,14 @@ data class ExamCreateRequestDto(
  * @property date The new date
  * @property totalMarks The new total; the server refuses one below a
  *   mark already recorded
+ * @property topics The full list; the server replaces what it held
  */
 @Serializable
 data class ExamUpdateRequestDto(
     val title: String,
     val date: String,
     @SerialName("total_marks") val totalMarks: Int,
+    val topics: List<String>,
 )
 
 /**

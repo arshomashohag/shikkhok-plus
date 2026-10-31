@@ -116,7 +116,7 @@ class WriteContractTest {
                 HttpRecordRepository(it).setSubject(ID, ID)
             },
             Write("post", "/v1/batches/{batch_id}/exams") {
-                HttpMarksRepository(it).createExam(ID, "Mid-term", "2026-11-04", 100, ID)
+                HttpMarksRepository(it).createExam(ID, "Mid-term", "2026-11-04", 100, ID, listOf("Motion"))
             },
             Write("post", "/v1/exams/{exam_id}/marks") {
                 HttpMarksRepository(it).writeMark(ID, ID, "marked", 70)
@@ -134,7 +134,7 @@ class WriteContractTest {
                 HttpBatchDetailRepository(it).editBatch(ID, BatchEdit(name = "Physics B", subjects = listOf("Optics")))
             },
             Write("put", "/v1/exams/{exam_id}") {
-                HttpMarksRepository(it).editExam(ID, "Mid-term", "2026-11-04", 50)
+                HttpMarksRepository(it).editExam(ID, "Mid-term", "2026-11-04", 50, listOf("Motion"))
             },
             Write("post", "/v1/enrollments/{enrollment_id}/claims") {
                 HttpPayRepository(it).submit(ID, ClaimSubmitDto(Money.of("1500.00"), "bKash", "DJ62K0LQ7V"))
