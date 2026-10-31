@@ -306,12 +306,18 @@ internal fun NavGraphBuilder.teachingRoutes(
     ) { entry ->
         val id = entry.arguments?.getString(Destination.Roster.ARG_ID).orEmpty()
 
-        // The EXAM LIST's ViewModel, as CreateBatch shares the batch
-        // list's: the created exam is in the list this returns to.
+        // The BATCH SCREEN's exams ViewModel, as AddStudent shares its
+        // roster's: the created exam is in the Exams tab this returns
+        // to. Reported from a device: this looked up the standalone
+        // Exams route, which nothing opens since the batch screen took
+        // over, so `getBackStackEntry` threw and New exam crashed. The
+        // batch screen is registered under `Roster.route`, and its
+        // exams model is keyed `exams-<id>` -- the same key here is
+        // what makes `createExam` find the batch it already loaded.
         val parent =
-            remember(entry) { navController.getBackStackEntry(Destination.Exams.route) }
+            remember(entry) { navController.getBackStackEntry(Destination.Roster.route) }
         val model: MarksViewModel =
-            viewModel(parent, key = id) { MarksViewModel(HttpMarksRepository(client)) }
+            viewModel(parent, key = "exams-$id") { MarksViewModel(HttpMarksRepository(client)) }
         val write by model.writeState.collectAsState()
         val subjects by model.subjectOptions.collectAsState()
 
