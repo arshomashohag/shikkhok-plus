@@ -643,6 +643,8 @@
     <string name="verify_duplicate_body">Used before for %1$s (%2$s, %3$s). Check before approving.</string>
     <string name="verify_reject_title">Reject this payment?</string>
     <string name="verify_reject_body">%1$s\'s claim of %2$s will be marked as not received. They will see that it was rejected.</string>
+    <string name="verify_reject_reason">Reason (optional)</string>
+    <string name="verify_reject_reason_count">%1$d/%2$d</string>
     <string name="verify_all_caught_up">All caught up</string>
     <string name="verify_all_caught_up_body">When a student or guardian submits a payment, it shows up here.</string>
     <string name="verify_decided_today">Decided today</string>

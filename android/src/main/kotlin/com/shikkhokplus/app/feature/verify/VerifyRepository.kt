@@ -37,7 +37,8 @@ interface VerifyRepository {
      * Reject a claim, recording nothing as received.
      *
      * @param claimId The claim
+     * @param reason Why, or null when the teacher gave none
      * @return Nothing on success, or why the server refused
      */
-    suspend fun reject(claimId: String): AuthResult<Unit>
+    suspend fun reject(claimId: String, reason: String?): AuthResult<Unit>
 }

@@ -587,6 +587,8 @@
     <string name="verify_duplicate_title">এই আইডি আগেও ব্যবহার হয়েছে।</string>
     <string name="verify_duplicate_body">আগে %1$s এর জন্য ব্যবহার হয়েছে (%2$s, %3$s)। অনুমোদনের আগে দেখে নিন।</string>
     <string name="verify_reject_title">এই পেমেন্ট বাতিল করবেন?</string>
+    <string name="verify_reject_reason">কারণ (ঐচ্ছিক)</string>
+    <string name="verify_reject_reason_count">%1$d/%2$d</string>
     <string name="verify_reject_body">%1$s এর %2$s দাবি পাওয়া যায়নি হিসেবে চিহ্নিত হবে। তিনি দেখবেন যে এটি বাতিল হয়েছে।</string>
     <string name="verify_all_caught_up">সব দেখা হয়ে গেছে</string>
     <string name="verify_all_caught_up_body">শিক্ষার্থী বা অভিভাবক পেমেন্ট জমা দিলে তা এখানে দেখা যাবে।</string>

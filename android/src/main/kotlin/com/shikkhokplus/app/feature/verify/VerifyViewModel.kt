@@ -10,6 +10,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
+/** The most characters a rejection reason may hold. */
+const val REJECT_REASON_MAX: Int = 500
+
 /**
  * Holds T4's state. Decisions about money are the server's [TC-9].
  *
@@ -62,9 +65,10 @@ class VerifyViewModel(
      * Reject a claim, once the teacher has confirmed.
      *
      * @param card The claim
+     * @param reason What the teacher typed; blank is sent as no reason
      */
-    fun reject(card: ClaimCard) {
-        decide(card.claimId) { repository.reject(card.claimId) }
+    fun reject(card: ClaimCard, reason: String) {
+        decide(card.claimId) { repository.reject(card.claimId, reason.takeIf { it.isNotBlank() }) }
     }
 
     /**

@@ -128,7 +128,7 @@ class WriteContractTest {
                 HttpVerificationRepository(it).approve(ID, Money.of("800.00"), "carried")
             },
             Write("post", "/v1/claims/{claim_id}/rejection") {
-                HttpVerificationRepository(it).reject(ID)
+                HttpVerificationRepository(it).reject(ID, "Not received")
             },
             Write("patch", "/v1/batches/{batch_id}") {
                 HttpBatchDetailRepository(it).editBatch(ID, BatchEdit(name = "Physics B", subjects = listOf("Optics")))

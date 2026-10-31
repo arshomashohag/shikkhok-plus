@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -28,6 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.shikkhokplus.app.R
+import com.shikkhokplus.app.feature.verify.REJECT_REASON_MAX
 import com.shikkhokplus.app.core.designsystem.Banner
 import com.shikkhokplus.app.core.designsystem.BannerTone
 import com.shikkhokplus.app.core.designsystem.BodyCompact
@@ -63,6 +65,9 @@ const val TAG_VERIFY_PARTIAL: String = "verify_partial"
 /** A card's reject button. */
 const val TAG_VERIFY_REJECT: String = "verify_reject"
 
+/** The reject confirmation's reason field. */
+const val TAG_VERIFY_REJECT_REASON: String = "verify_reject_reason"
+
 /** The reject confirmation's confirm button. */
 const val TAG_VERIFY_REJECT_CONFIRM: String = "verify_reject_confirm"
 
@@ -86,7 +91,7 @@ const val TAG_VERIFY_ERROR: String = "verify_error"
  * @param onBack Called to leave
  * @param onApprove Called with a claim to approve as sent
  * @param onPartial Called with a claim to approve in part
- * @param onReject Called with a claim the teacher confirmed rejecting
+ * @param onReject Called with a claim the teacher confirmed rejecting, and the reason typed
  * @param onRetry Called to read the queue again
  * @param onTypePartial Called with the partial amount as typed
  * @param onChoose Called with `carried` or `waived`
@@ -101,7 +106,7 @@ fun VerifyScreen(
     onBack: () -> Unit,
     onApprove: (ClaimCard) -> Unit,
     onPartial: (ClaimCard) -> Unit,
-    onReject: (ClaimCard) -> Unit,
+    onReject: (ClaimCard, String) -> Unit,
     onRetry: () -> Unit,
     onTypePartial: (String) -> Unit,
     onChoose: (String) -> Unit,
@@ -110,6 +115,7 @@ fun VerifyScreen(
     modifier: Modifier = Modifier,
 ) {
     var rejecting by remember { mutableStateOf<ClaimCard?>(null) }
+    var reason by remember { mutableStateOf("") }
 
     ListScreenScaffold(
         title = stringResource(R.string.verify_title),
@@ -137,7 +143,10 @@ fun VerifyScreen(
                             busy = state.busyClaimId != null,
                             onApprove = { onApprove(card) },
                             onPartial = { onPartial(card) },
-                            onReject = { rejecting = card },
+                            onReject = {
+                                reason = ""
+                                rejecting = card
+                            },
                         )
                     }
                     if (state.recent.isNotEmpty()) item { RecentList(state.recent) }
@@ -168,19 +177,34 @@ fun VerifyScreen(
             onDismissRequest = { rejecting = null },
             title = { Text(stringResource(R.string.verify_reject_title)) },
             text = {
-                Text(
-                    stringResource(
-                        R.string.verify_reject_body,
-                        Numerals.freeText(card.displayName),
-                        Numerals.money(card.claimedAmount),
-                    ),
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        stringResource(
+                            R.string.verify_reject_body,
+                            Numerals.freeText(card.displayName),
+                            Numerals.money(card.claimedAmount),
+                        ),
+                    )
+                    OutlinedTextField(
+                        value = reason,
+                        onValueChange = { reason = it.take(REJECT_REASON_MAX) },
+                        label = { Text(stringResource(R.string.verify_reject_reason)) },
+                        supportingText = {
+                            Text(
+                                stringResource(R.string.verify_reject_reason_count, reason.length, REJECT_REASON_MAX),
+                            )
+                        },
+                        minLines = 3,
+                        maxLines = 6,
+                        modifier = Modifier.fillMaxWidth().testTag(TAG_VERIFY_REJECT_REASON),
+                    )
+                }
             },
             confirmButton = {
                 TextButton(
                     onClick = {
                         rejecting = null
-                        onReject(card)
+                        onReject(card, reason)
                     },
                     modifier = Modifier.testTag(TAG_VERIFY_REJECT_CONFIRM),
                 ) { Text(stringResource(R.string.verify_reject), color = MaterialTheme.colorScheme.error) }
