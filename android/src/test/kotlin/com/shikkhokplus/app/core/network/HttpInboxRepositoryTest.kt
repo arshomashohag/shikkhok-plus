@@ -38,14 +38,34 @@ class HttpInboxRepositoryTest {
     }
 
     @Test
-    fun `marking read posts to the reader's own route`() = runTest {
+    fun `marking one item read posts to that item's route`() = runTest {
         val engine = MockEngine { respond("", HttpStatusCode.NoContent) }
 
-        val result = HttpInboxRepository(client(engine)).markRead()
+        val result = HttpInboxRepository(client(engine)).markRead("n-1")
 
         assertIs<AuthResult.Ok<Unit>>(result)
         val request = engine.requestHistory.single()
         assertEquals(HttpMethod.Post, request.method)
-        assertEquals("/v1/me/notifications/read", request.url.encodedPath)
+        assertEquals("/v1/me/notifications/n-1/read", request.url.encodedPath)
+    }
+
+    @Test
+    fun `the detail is read from the item's route with its blocks`() = runTest {
+        val engine =
+            MockEngine {
+                respond(
+                    """{"notification_id":"n-1","kind":"payment_partial","batch_name":"Physics",
+                    "created_at":"2026-10-17T06:00:00Z","read":true,"available":true,
+                    "payment":{"claim_id":"c-1","period":"2026-10","claimed":"1200.00",
+                    "approved":"800.00","outcome":"partial","reason":"Short"}}""",
+                    HttpStatusCode.OK,
+                    headersOf("Content-Type", listOf(ContentType.Application.Json.toString())),
+                )
+            }
+
+        val ok = assertIs<AuthResult.Ok<NotificationDetailDto>>(HttpInboxRepository(client(engine)).detail("n-1"))
+
+        assertEquals("800.00", ok.value.payment?.approved.toString())
+        assertEquals("/v1/me/notifications/n-1", engine.requestHistory.single().url.encodedPath)
     }
 }

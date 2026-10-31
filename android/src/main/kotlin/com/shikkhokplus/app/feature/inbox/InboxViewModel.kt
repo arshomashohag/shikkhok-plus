@@ -3,6 +3,7 @@ package com.shikkhokplus.app.feature.inbox
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.shikkhokplus.app.core.network.InboxDto
+import com.shikkhokplus.app.core.network.NotificationDetailDto
 import com.shikkhokplus.app.feature.auth.AuthResult
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,16 +20,25 @@ interface InboxRepository {
     suspend fun inbox(): AuthResult<InboxDto>
 
     /**
-     * Mark every message read.
+     * Read one message and what it opens to.
      *
+     * @param id The message
+     * @return The detail, a refusal, or a transport failure
+     */
+    suspend fun detail(id: String): AuthResult<NotificationDetailDto>
+
+    /**
+     * Mark one message read.
+     *
+     * @param id The message
      * @return Done, a refusal, or a transport failure
      */
-    suspend fun markRead(): AuthResult<Unit>
+    suspend fun markRead(id: String): AuthResult<Unit>
 }
 
 /**
  * Holds the inbox: for the bell's badge on a home screen, and for the
- * inbox screen itself, which marks what it showed as read.
+ * inbox screen itself, where opening an item marks that item read.
  *
  * @property repository The inbox
  */
@@ -47,17 +57,25 @@ class InboxViewModel(
     }
 
     /**
-     * Read the inbox and, once shown, mark it read on the server.
+     * Read the inbox for the screen.
      *
-     * The messages keep their unread look for this visit, so the reader
-     * can see which are new; the next read shows them as seen.
+     * Nothing is marked read here: only an item the reader opens is.
      */
     fun open() {
         _state.value = InboxUiState.Loading
+        load()
+    }
+
+    /**
+     * Open one item: mark it read, then say where it leads.
+     *
+     * @param message The item tapped
+     * @param navigate Called with where the item leads
+     */
+    fun select(message: InboxMessage, navigate: (InboxTarget) -> Unit) {
         viewModelScope.launch {
-            val shown = read()
-            _state.value = shown
-            if (shown is InboxUiState.Loaded && shown.unread > 0) repository.markRead()
+            repository.markRead(message.id)
+            navigate(InboxMapper.targetOf(message))
         }
     }
 

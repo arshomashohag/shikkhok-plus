@@ -10,8 +10,23 @@ enum class InboxKind {
     /** A payment the teacher approved. */
     PAYMENT_APPROVED,
 
+    /** A payment the teacher accepted in part. */
+    PAYMENT_PARTIAL,
+
     /** A payment the teacher did not accept. */
     PAYMENT_REJECTED,
+
+    /** A notice a teacher posted. */
+    NOTICE,
+
+    /** An exam a teacher scheduled. */
+    EXAM_SCHEDULED,
+
+    /** Marks a teacher released. */
+    MARKS_AVAILABLE,
+
+    /** A payment waiting for the teacher to check. */
+    CLAIM_TO_VERIFY,
 }
 
 /**
@@ -24,6 +39,10 @@ enum class InboxKind {
  * @property sentAt When it was sent
  * @property unread Whether it arrived since the inbox was last opened
  * @property kind What it is about
+ * @property enrollmentId The seat it is about, if any
+ * @property sourceId The record that produced it, if any
+ * @property childName Which child it is about, on a guardian's copy
+ * @property preview A short line of its content, if any
  */
 data class InboxMessage(
     val id: String,
@@ -33,7 +52,41 @@ data class InboxMessage(
     val sentAt: String,
     val unread: Boolean,
     val kind: InboxKind = InboxKind.FEE_REMINDER,
+    val enrollmentId: String? = null,
+    val sourceId: String? = null,
+    val childName: String? = null,
+    val preview: String? = null,
 )
+
+/** Where tapping an item leads, decided from the server's fields. */
+sealed interface InboxTarget {
+    /**
+     * The item's own detail screen.
+     *
+     * @property id The message
+     */
+    data class Detail(val id: String) : InboxTarget
+
+    /**
+     * A marksheet.
+     *
+     * @property examId The exam
+     * @property enrollmentId The seat
+     * @property guardian True on a guardian's copy
+     */
+    data class Marksheet(val examId: String, val enrollmentId: String, val guardian: Boolean) : InboxTarget
+
+    /**
+     * A seat's fee history.
+     *
+     * @property enrollmentId The seat
+     * @property guardian True on a guardian's copy
+     */
+    data class Fees(val enrollmentId: String, val guardian: Boolean) : InboxTarget
+
+    /** The teacher's payments to check. */
+    data object Verify : InboxTarget
+}
 
 /** Everything the inbox screen and the bell render. */
 sealed interface InboxUiState {

@@ -5,7 +5,10 @@ import com.shikkhokplus.app.feature.pay.ui.PayActions
 import com.shikkhokplus.app.feature.pay.PayViewModel
 import com.shikkhokplus.app.core.network.HttpPayRepository
 import com.shikkhokplus.app.core.network.HttpInboxRepository
+import com.shikkhokplus.app.feature.inbox.InboxDetailViewModel
+import com.shikkhokplus.app.feature.inbox.InboxTarget
 import com.shikkhokplus.app.feature.inbox.InboxUiState
+import com.shikkhokplus.app.feature.inbox.ui.InboxDetailScreen
 import com.shikkhokplus.app.feature.inbox.InboxViewModel
 import com.shikkhokplus.app.feature.inbox.ui.InboxBell
 import com.shikkhokplus.app.feature.inbox.ui.InboxScreen
@@ -97,7 +100,25 @@ internal fun NavGraphBuilder.studentRoutes(
 
         LaunchedEffect(Unit) { model.open() }
 
-        InboxScreen(state = state, onBack = { navController.popBackStack() }, onRetry = model::open)
+        InboxScreen(
+            state = state,
+            onBack = { navController.popBackStack() },
+            onRetry = model::open,
+            onSelect = { message -> model.select(message) { navController.navigate(it.route()) } },
+        )
+    }
+
+    composable(
+        route = Destination.InboxDetail.route,
+        arguments = listOf(navArgument(Destination.InboxDetail.ARG_ID) { type = NavType.StringType }),
+    ) { entry ->
+        val id = entry.arguments?.getString(Destination.InboxDetail.ARG_ID).orEmpty()
+        val model: InboxDetailViewModel = viewModel(key = id) { InboxDetailViewModel(HttpInboxRepository(client)) }
+        val state by model.state.collectAsState()
+
+        LaunchedEffect(id) { model.load(id) }
+
+        InboxDetailScreen(state = state, onBack = { navController.popBackStack() }, onRetry = { model.load(id) })
     }
 
     composable(
@@ -141,3 +162,22 @@ internal fun InboxBellFor(client: HttpClient, onOpen: () -> Unit) {
 
     InboxBell(unread = (state as? InboxUiState.Loaded)?.unread ?: 0, onClick = onOpen)
 }
+
+/**
+ * The route an inbox target opens.
+ *
+ * @return The route to navigate to
+ */
+internal fun InboxTarget.route(): String =
+    when (this) {
+        is InboxTarget.Detail -> Destination.InboxDetail.of(id)
+        is InboxTarget.Marksheet ->
+            Destination.Marksheet.of(
+                examId,
+                enrollmentId,
+                (if (guardian) MarksheetReader.CHILD else MarksheetReader.SELF).name,
+            )
+        is InboxTarget.Fees ->
+            Destination.FeeHistory.of(enrollmentId, (if (guardian) FeeReader.GUARDIAN else FeeReader.STUDENT).name)
+        InboxTarget.Verify -> Destination.Verify.route
+    }

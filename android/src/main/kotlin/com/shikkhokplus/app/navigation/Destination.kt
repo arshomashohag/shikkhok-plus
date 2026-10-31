@@ -321,6 +321,26 @@ sealed interface Destination {
         override val route: String = "me/notifications"
     }
 
+    /**
+     * One inbox item opened to its detail.
+     *
+     * Its own destination so its back arrow pops to [Inbox].
+     */
+    data object InboxDetail : Destination {
+        override val route: String = "inbox/{notificationId}"
+
+        /** The message argument's name. */
+        const val ARG_ID: String = "notificationId"
+
+        /**
+         * Build a concrete route.
+         *
+         * @param id The message
+         * @return The route to navigate to
+         */
+        fun of(id: String): String = "inbox/$id"
+    }
+
     /** A student's batches (S1). The start destination for that lens. */
     data object MyBatches : Destination {
         override val route: String = "me/batches"
