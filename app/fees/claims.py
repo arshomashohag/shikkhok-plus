@@ -27,10 +27,12 @@ import uuid
 
 from sqlalchemy.orm import Session
 
-from app.db.models import PaymentClaim
+from app.db.models import Batch, Enrollment, PaymentClaim
 from app.errors import ValidationError
 from app.fees.balances import oldest_unpaid_period
 from app.money import Money
+from app.notifications.inbox import CLAIM_TO_VERIFY, deliver
+from app.notifications.recipients import teacher_recipient
 
 __all__ = ["CHANNELS", "NoOpenCycle", "submit_claim"]
 
@@ -109,5 +111,37 @@ def submit_claim(
         status="pending",
     )
     session.add(claim)
+    session.flush()
+    _tell_the_teacher(session, claim)
     session.commit()
     return claim
+
+
+def _tell_the_teacher(session: Session, claim: PaymentClaim) -> None:
+    """Tell the batch's teacher a claim awaits verification.
+
+    Adds to the submission's transaction and does not commit.
+
+    :param session: The session the claim is written through
+    :param claim: The new pending claim
+    :return: None
+    """
+    seat = session.get(Enrollment, claim.enrollment_id)
+    if seat is None:
+        return
+    teacher = teacher_recipient(session, batch_id=seat.batch_id)
+    if teacher is None:
+        return
+    batch = session.get(Batch, seat.batch_id)
+    deliver(
+        session,
+        account_ids=[teacher],
+        kind=CLAIM_TO_VERIFY,
+        batch_name=batch.name if batch is not None else "",
+        now=dt.datetime.now(tz=dt.UTC),
+        enrollment_id=seat.id,
+        period=claim.period,
+        amount=claim.claimed_amount,
+        source_id=claim.id,
+        child_names={teacher: seat.display_name},
+    )

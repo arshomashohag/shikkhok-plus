@@ -207,11 +207,13 @@ class RejectionRequest(BaseModel):
     body.
 
     :ivar correcting: True when deliberately revising a decided claim
+    :ivar reason: Why the claim is rejected, shown to the family
     """
 
     model_config = ConfigDict(extra="forbid")
 
     correcting: bool = False
+    reason: str | None = Field(default=None, max_length=500)
 
 
 class ClaimResponse(BaseModel):

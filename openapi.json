@@ -3120,12 +3120,24 @@
       },
       "RejectionRequest": {
         "additionalProperties": false,
-        "description": "Reject a claim, optionally as a correction [BR5.6, BR5.7].\n\nA body with one optional field rather than no body at all, because\nrejection is correctable for the same reason approval is: a teacher\nwho rejected the wrong claim must be able to say so, and FR9.2 makes\nno exception for the rejection path.\n\nEvery field defaults, so an ordinary rejection may still send no\nbody.\n\n:ivar correcting: True when deliberately revising a decided claim",
+        "description": "Reject a claim, optionally as a correction [BR5.6, BR5.7].\n\nA body with one optional field rather than no body at all, because\nrejection is correctable for the same reason approval is: a teacher\nwho rejected the wrong claim must be able to say so, and FR9.2 makes\nno exception for the rejection path.\n\nEvery field defaults, so an ordinary rejection may still send no\nbody.\n\n:ivar correcting: True when deliberately revising a decided claim\n:ivar reason: Why the claim is rejected, shown to the family",
         "properties": {
           "correcting": {
             "default": false,
             "title": "Correcting",
             "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
           }
         },
         "title": "RejectionRequest",
