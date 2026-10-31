@@ -46,7 +46,12 @@ import com.shikkhokplus.app.core.network.EncryptedTokenStore
 import com.shikkhokplus.app.core.network.HttpAuthRepository
 import com.shikkhokplus.app.feature.auth.AuthUiState
 import com.shikkhokplus.app.feature.auth.AuthViewModel
+import com.shikkhokplus.app.core.notify.ui.OpenInboxEffect
+import com.shikkhokplus.app.core.notify.ui.UnreadCheckEffects
+import com.shikkhokplus.app.core.notify.UnreadNotifier
+import com.shikkhokplus.app.core.notify.UnreadSchedule
 import com.shikkhokplus.app.navigation.SessionBinding
+import android.content.Intent
 import com.shikkhokplus.app.navigation.ShikkhokNavHost
 
 /**
@@ -70,8 +75,17 @@ import com.shikkhokplus.app.navigation.ShikkhokNavHost
  *   so on screen instead of failing with a network error.
  */
 class MainActivity : ComponentActivity() {
+    private var openInbox by mutableStateOf(false)
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (UnreadNotifier.wantsInbox(intent)) openInbox = true
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        openInbox = UnreadNotifier.wantsInbox(intent)
         setContent {
             ShikkhokTheme {
                 Surface(
@@ -91,7 +105,10 @@ class MainActivity : ComponentActivity() {
                     if (BuildConfig.API_BASE_URL.isBlank()) {
                         UnconfiguredNotice()
                     } else {
-                        AppRoot()
+                        AppRoot(
+                            openInbox = openInbox,
+                            onInboxOpened = { openInbox = false },
+                        )
                     }
                 }
             }
@@ -129,7 +146,7 @@ private fun UnconfiguredNotice() {
  * graph.
  */
 @Composable
-private fun AppRoot() {
+private fun AppRoot(openInbox: Boolean, onInboxOpened: () -> Unit) {
     val context = LocalContext.current
     val tokens = remember { EncryptedTokenStore.create(context) }
     // **One queue for the whole app, not one per screen.** The pending
@@ -266,11 +283,18 @@ private fun AppRoot() {
         }
     }
 
+    // **The 15-minute unread check runs only while signed in**, and the
+    // notification permission is asked once, after sign-in; a refusal is
+    // remembered and not asked again. The tray entry is cleared whenever
+    // the app comes to the front.
+    UnreadCheckEffects(signedIn)
+
     // **One way to end a session, used by sign-out and deletion.** It
     // wipes the stored tokens and the device's queue -- left in place,
     // the next person to sign in on this phone would send this
     // account's rosters under their own token -- and returns to sign-in.
     val endSession = {
+        UnreadSchedule.stop(context)
         queue.clear()
         tokens.clear()
         authModel.signOut()
@@ -311,5 +335,7 @@ private fun AppRoot() {
             navController = navController,
             authModel = authModel,
         )
+
+        OpenInboxEffect(navController, openInbox && signedIn, onInboxOpened)
     }
 }

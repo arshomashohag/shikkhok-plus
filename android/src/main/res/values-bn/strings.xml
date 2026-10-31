@@ -926,4 +926,6 @@
     <string name="family_exam_topics">বিষয়সমূহ</string>
     <string name="family_exam_no_topics">এখনও কোনো টপিক দেওয়া হয়নি।</string>
     <string name="family_notice_edited">সম্পাদিত</string>
+    <string name="tray_updates">%d টি নতুন আপডেট</string>
+    <string name="tray_channel_name">আপডেট</string>
 </resources>

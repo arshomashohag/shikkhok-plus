@@ -68,7 +68,7 @@ class AuthSurfaceRulesTest {
     }
 
     @Test
-    fun `the permission allowlist holds exactly INTERNET`() {
+    fun `the source manifest holds exactly INTERNET and POST_NOTIFICATIONS`() {
         // An EXACT set, not a floor. B3 asserted zero so the first
         // permission would be a diff against a stated number rather
         // than a line appended to a growing list -- and that is exactly
@@ -81,7 +81,10 @@ class AuthSurfaceRulesTest {
         // way: a permission is a Families-policy decision, never a
         // convenience.
         assertEquals(
-            listOf("android.permission.INTERNET"),
+            listOf(
+                "android.permission.INTERNET",
+                "android.permission.POST_NOTIFICATIONS",
+            ),
             declaredPermissions(),
         )
     }

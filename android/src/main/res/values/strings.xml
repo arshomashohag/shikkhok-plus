@@ -981,4 +981,6 @@
     <string name="family_exam_topics">Topics</string>
     <string name="family_exam_no_topics">No topics listed yet.</string>
     <string name="family_notice_edited">Edited</string>
+    <string name="tray_updates">%d new updates</string>
+    <string name="tray_channel_name">Updates</string>
 </resources>
