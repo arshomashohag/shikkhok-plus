@@ -48,6 +48,7 @@ from app.notifications.fcm import (
     build_push_adapter,
 )
 from app.notifications.inbox import FEE_REMINDER, deliver
+from app.notifications.recipients import accepted_accounts
 
 __all__ = [
     "IN_APP_CHANNEL",
@@ -259,7 +260,7 @@ def remind(
     sent = 0
     for seat, batch_name in seats:
         derived = derive(ledger[seat.id])
-        recipients = _accepted_accounts(seat)
+        recipients = accepted_accounts(seat)
         owing = sorted(
             period
             for period, balance in derived.per_cycle.items()
@@ -292,20 +293,3 @@ def remind(
 
     session.commit()
     return ReminderBatch(sent=sent, skipped=len(wanted) - sent)
-
-
-def _accepted_accounts(seat: Enrollment) -> list[uuid.UUID]:
-    """List the accounts on a seat that have accepted it.
-
-    :param seat: The seat
-    :return: The student and guardian accounts that accepted, if any
-    """
-    links = (
-        (seat.student_account_id, seat.student_decision),
-        (seat.guardian_account_id, seat.guardian_decision),
-    )
-    return [
-        account
-        for account, decision in links
-        if account is not None and decision == "accepted"
-    ]
