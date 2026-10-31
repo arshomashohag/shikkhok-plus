@@ -43,11 +43,10 @@ from app.errors import ConflictError
 from app.local_time import bangladesh_today
 from app.notifications.inbox import (
     NOTICE,
-    deliver,
     mark_unread_for_source,
     remove_for_source,
 )
-from app.notifications.recipients import family_recipients
+from app.notifications.recipients import deliver_to_families
 from app.teaching.roster import readable_enrollment, refuse
 from app.teaching.upcoming import UpcomingSession, upcoming_sessions
 
@@ -213,44 +212,6 @@ def _reachable_announcement(
 PREVIEW_LENGTH = 140
 
 
-def _deliver_to_families(
-    session: DbSession, *, batch: Batch, record: Announcement, now: dt.datetime
-) -> None:
-    """Put a notice in every accepted family member's inbox.
-
-    One call per seat, so a guardian of two children gets two rows,
-    each naming its child. Adds to the caller's transaction.
-
-    :param session: The caller's session
-    :param batch: The batch the notice is for
-    :param record: The notice, already flushed so it has an id
-    :param now: When it is sent
-    :return: None
-    """
-    by_seat: dict[uuid.UUID, list[uuid.UUID]] = {}
-    names: dict[uuid.UUID, dict[uuid.UUID, str]] = {}
-    for recipient in family_recipients(
-        session, batch_id=batch.id, on=bangladesh_today()
-    ):
-        by_seat.setdefault(recipient.enrollment_id, []).append(recipient.account_id)
-        if recipient.child_name is not None:
-            names.setdefault(recipient.enrollment_id, {})[recipient.account_id] = (
-                recipient.child_name
-            )
-    for enrollment_id, accounts in by_seat.items():
-        deliver(
-            session,
-            account_ids=accounts,
-            kind=NOTICE,
-            batch_name=batch.name,
-            now=now,
-            enrollment_id=enrollment_id,
-            source_id=record.id,
-            preview=record.body[:PREVIEW_LENGTH],
-            child_names=names.get(enrollment_id),
-        )
-
-
 def post_announcement(
     session: DbSession,
     *,
@@ -281,7 +242,14 @@ def post_announcement(
     )
     session.add(record)
     session.flush()
-    _deliver_to_families(session, batch=batch, record=record, now=now)
+    deliver_to_families(
+        session,
+        batch=batch,
+        kind=NOTICE,
+        source_id=record.id,
+        preview=record.body[:PREVIEW_LENGTH],
+        now=now,
+    )
     session.commit()
     return _row(record)
 

@@ -19,10 +19,13 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from app.db.models import Batch, Enrollment, Owner
+from app.local_time import bangladesh_today
+from app.notifications.inbox import deliver
 
 __all__ = [
     "Recipient",
     "accepted_accounts",
+    "deliver_to_families",
     "family_recipients",
     "seat_recipients",
     "teacher_recipient",
@@ -121,3 +124,50 @@ def teacher_recipient(session: Session, *, batch_id: uuid.UUID) -> uuid.UUID | N
         .join(Batch, Batch.owner_id == Owner.id)
         .where(Batch.id == batch_id)
     )
+
+
+def deliver_to_families(
+    session: Session,
+    *,
+    batch: Batch,
+    kind: str,
+    source_id: uuid.UUID,
+    preview: str,
+    now: dt.datetime,
+) -> None:
+    """Put one message in every accepted family member's inbox.
+
+    One call per seat, so a guardian of two children gets two rows,
+    each naming its child. Membership is as of today in Bangladesh.
+    Adds to the caller's transaction and does not commit.
+
+    :param session: The caller's session
+    :param batch: The batch the message is for
+    :param kind: What produced it
+    :param source_id: The record it came from, already flushed
+    :param preview: A short line of its content
+    :param now: When it is sent
+    :return: None
+    """
+    by_seat: dict[uuid.UUID, list[uuid.UUID]] = {}
+    names: dict[uuid.UUID, dict[uuid.UUID, str]] = {}
+    for recipient in family_recipients(
+        session, batch_id=batch.id, on=bangladesh_today()
+    ):
+        by_seat.setdefault(recipient.enrollment_id, []).append(recipient.account_id)
+        if recipient.child_name is not None:
+            names.setdefault(recipient.enrollment_id, {})[recipient.account_id] = (
+                recipient.child_name
+            )
+    for enrollment_id, accounts in by_seat.items():
+        deliver(
+            session,
+            account_ids=accounts,
+            kind=kind,
+            batch_name=batch.name,
+            now=now,
+            enrollment_id=enrollment_id,
+            source_id=source_id,
+            preview=preview,
+            child_names=names.get(enrollment_id),
+        )

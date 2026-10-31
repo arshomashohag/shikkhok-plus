@@ -23,9 +23,9 @@ from __future__ import annotations
 
 import datetime as dt
 import uuid
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 __all__ = [
     "BandResponse",
@@ -57,6 +57,11 @@ EnterableState = Literal["marked", "absent"]
 SuppressionReason = Literal["too_few_results", "marking_incomplete"]
 
 
+ExamTopic = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)
+]
+
+
 class ExamResponse(BaseModel):
     """One assessment.
 
@@ -65,6 +70,7 @@ class ExamResponse(BaseModel):
     :ivar date: When it was sat
     :ivar total_marks: The denominator, an integer COUNT
     :ivar subject_name: The subject assessed
+    :ivar topics: What it covers, in the order the teacher gave
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -74,6 +80,7 @@ class ExamResponse(BaseModel):
     date: dt.date
     total_marks: int = Field(ge=1)
     subject_name: str
+    topics: list[str] = Field(default_factory=list)
 
 
 class ExamListItemResponse(ExamResponse):
@@ -100,6 +107,7 @@ class ExamCreateRequest(BaseModel):
     :ivar title: The teacher's name for it
     :ivar date: When it was sat
     :ivar total_marks: The denominator, at least 1
+    :ivar topics: What it covers: at most 20, each 1 to 120 characters
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -108,6 +116,7 @@ class ExamCreateRequest(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     date: dt.date
     total_marks: int = Field(ge=1)
+    topics: list[ExamTopic] = Field(default_factory=list, max_length=20)
 
 
 class ExamUpdateRequest(BaseModel):
@@ -120,6 +129,7 @@ class ExamUpdateRequest(BaseModel):
     :ivar date: When it was sat
     :ivar total_marks: The denominator, at least 1, and not below any
         mark already recorded
+    :ivar topics: What it covers, replacing the old list
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -127,6 +137,7 @@ class ExamUpdateRequest(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     date: dt.date
     total_marks: int = Field(ge=1)
+    topics: list[ExamTopic] = Field(default_factory=list, max_length=20)
 
 
 class MarkWriteRequest(BaseModel):

@@ -1586,7 +1586,7 @@
       },
       "ExamCreateRequest": {
         "additionalProperties": false,
-        "description": "Create or edit an assessment [BR4.1].\n\n:ivar batch_subject_id: One of the batch's own subjects\n:ivar title: The teacher's name for it\n:ivar date: When it was sat\n:ivar total_marks: The denominator, at least 1",
+        "description": "Create or edit an assessment [BR4.1].\n\n:ivar batch_subject_id: One of the batch's own subjects\n:ivar title: The teacher's name for it\n:ivar date: When it was sat\n:ivar total_marks: The denominator, at least 1\n:ivar topics: What it covers: at most 20, each 1 to 120 characters",
         "properties": {
           "batch_subject_id": {
             "format": "uuid",
@@ -1603,6 +1603,16 @@
             "minLength": 1,
             "title": "Title",
             "type": "string"
+          },
+          "topics": {
+            "items": {
+              "maxLength": 120,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Topics",
+            "type": "array"
           },
           "total_marks": {
             "minimum": 1.0,
@@ -1660,6 +1670,13 @@
             "title": "Title",
             "type": "string"
           },
+          "topics": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Topics",
+            "type": "array"
+          },
           "total_marks": {
             "minimum": 1.0,
             "title": "Total Marks",
@@ -1681,7 +1698,7 @@
       },
       "ExamResponse": {
         "additionalProperties": false,
-        "description": "One assessment.\n\n:ivar exam_id: The exam\n:ivar title: The teacher's name for it\n:ivar date: When it was sat\n:ivar total_marks: The denominator, an integer COUNT\n:ivar subject_name: The subject assessed",
+        "description": "One assessment.\n\n:ivar exam_id: The exam\n:ivar title: The teacher's name for it\n:ivar date: When it was sat\n:ivar total_marks: The denominator, an integer COUNT\n:ivar subject_name: The subject assessed\n:ivar topics: What it covers, in the order the teacher gave",
         "properties": {
           "date": {
             "format": "date",
@@ -1700,6 +1717,13 @@
           "title": {
             "title": "Title",
             "type": "string"
+          },
+          "topics": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Topics",
+            "type": "array"
           },
           "total_marks": {
             "minimum": 1.0,
@@ -1746,7 +1770,7 @@
       },
       "ExamUpdateRequest": {
         "additionalProperties": false,
-        "description": "Edit an assessment: what it is called, when, and out of how much.\n\nNo subject: an edit names what changes, and the exam stays in the\nsubject it was set in.\n\n:ivar title: The teacher's name for it\n:ivar date: When it was sat\n:ivar total_marks: The denominator, at least 1, and not below any\n    mark already recorded",
+        "description": "Edit an assessment: what it is called, when, and out of how much.\n\nNo subject: an edit names what changes, and the exam stays in the\nsubject it was set in.\n\n:ivar title: The teacher's name for it\n:ivar date: When it was sat\n:ivar total_marks: The denominator, at least 1, and not below any\n    mark already recorded\n:ivar topics: What it covers, replacing the old list",
         "properties": {
           "date": {
             "format": "date",
@@ -1758,6 +1782,16 @@
             "minLength": 1,
             "title": "Title",
             "type": "string"
+          },
+          "topics": {
+            "items": {
+              "maxLength": 120,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Topics",
+            "type": "array"
           },
           "total_marks": {
             "minimum": 1.0,

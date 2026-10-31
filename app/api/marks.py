@@ -131,6 +131,7 @@ def _exam_list_item(entry: ExamProgress) -> ExamListItemResponse:
         date=entry.exam.date,
         total_marks=entry.exam.total_marks,
         subject_name=entry.exam.subject_name,
+        topics=entry.exam.topics,
         entered_count=entry.entered_count,
         expected_count=entry.expected_count,
         state=entry.state,
@@ -234,6 +235,7 @@ def create_batch_exam(
         title=body.title,
         date=body.date,
         total_marks=body.total_marks,
+        topics=body.topics,
     )
     return ExamResponse(
         exam_id=row.exam_id,
@@ -241,6 +243,7 @@ def create_batch_exam(
         date=row.date,
         total_marks=row.total_marks,
         subject_name=row.subject_name,
+        topics=row.topics,
     )
 
 
@@ -270,6 +273,7 @@ def update_batch_exam(
         title=body.title,
         date=body.date,
         total_marks=body.total_marks,
+        topics=body.topics,
     )
     return ExamResponse(
         exam_id=row.exam_id,
@@ -277,6 +281,7 @@ def update_batch_exam(
         date=row.date,
         total_marks=row.total_marks,
         subject_name=row.subject_name,
+        topics=row.topics,
     )
 
 
