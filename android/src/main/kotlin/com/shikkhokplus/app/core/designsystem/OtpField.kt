@@ -23,6 +23,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -84,6 +85,18 @@ fun OtpField(
     enabled: Boolean = true,
 ) {
     val focus = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+
+    // **Focus AND an explicit show.** Reported from a device: once the
+    // keyboard was dismissed it never came back. Dismissing it leaves
+    // the hidden field focused, and asking an already-focused field for
+    // focus changes nothing, so the keypad stayed down and no code
+    // could be typed. Showing the keyboard outright does not depend on
+    // focus having moved.
+    val summonKeyboard = {
+        runCatching { focus.requestFocus() }
+        keyboard?.show()
+    }
 
     Box(modifier) {
         BasicTextField(
@@ -134,7 +147,7 @@ fun OtpField(
                 .fillMaxWidth()
                 .clickable(enabled = enabled, onClickLabel = null) {
                     if (state == OtpFieldState.WRONG) onCodeChange("")
-                    runCatching { focus.requestFocus() }
+                    summonKeyboard()
                 },
             horizontalArrangement = Arrangement.spacedBy(Spacing.tight),
         ) {
@@ -149,7 +162,10 @@ fun OtpField(
         }
     }
 
-    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+    // Keyed on `enabled`, not Unit: the field is disabled while a code
+    // is checked, which drops its focus, so a refused code would
+    // otherwise leave the person with no keyboard to type the next one.
+    LaunchedEffect(enabled) { if (enabled) summonKeyboard() }
 }
 
 /**
