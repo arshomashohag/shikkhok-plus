@@ -79,6 +79,7 @@ const val TAG_SESSIONS_RETRY: String = "sessions_retry"
  * @param onOpen Called with the session the teacher tapped
  * @param onAddSession Called when the teacher wants an ad-hoc class
  * @param onRetry Called when the teacher asks to retry
+ * @param onBack Called by the back arrow
  * @param modifier Layout modifier
  */
 @Composable
@@ -87,11 +88,13 @@ fun SessionListScreen(
     onOpen: (SessionRow) -> Unit,
     onAddSession: () -> Unit = {},
     onRetry: () -> Unit = {},
+    onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     onRecord: (SessionRow) -> Unit = {},
 ) {
     ListScreenScaffold(
         title = stringResource(R.string.screen_title_sessions),
+        onBack = onBack,
         modifier = modifier,
     ) {
         when (state) {

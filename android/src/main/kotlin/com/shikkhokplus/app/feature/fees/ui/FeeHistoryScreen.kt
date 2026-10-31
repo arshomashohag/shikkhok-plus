@@ -68,15 +68,22 @@ const val TAG_FEES_RETRY: String = "fees_retry"
  * Amounts are rendered through [Numerals], which emits Latin digits
  * under every locale — agreeing with the server's `Money.format`
  * rather than deciding independently [BR6.6].
+ *
+ * @param state What to render
+ * @param onRetry Called when the viewer asks to retry
+ * @param onBack Called by the back arrow
+ * @param modifier Layout modifier
  */
 @Composable
 fun FeeHistoryScreen(
     state: FeeUiState,
     onRetry: () -> Unit,
+    onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     ListScreenScaffold(
         title = stringResource(R.string.screen_title_fee_history),
+        onBack = onBack,
         modifier = modifier,
     ) {
         when (state) {

@@ -453,7 +453,11 @@ fun ShikkhokNavHost(
 
             LaunchedEffect(examId, seat) { model.loadMarksheet(examId, seat, reader) }
 
-            MarksheetScreen(state = state, onRetry = model::retry)
+            MarksheetScreen(
+                state = state,
+                onRetry = model::retry,
+                onBack = { navController.popBackStack() },
+            )
         }
 
         composable(
@@ -492,6 +496,7 @@ fun ShikkhokNavHost(
             ProgressScreen(
                 state = state,
                 onRetry = model::retry,
+                onBack = { navController.popBackStack() },
                 onOpenExam = { examId ->
                     navController.navigate(
                         Destination.Marksheet.of(examId, seat, reader.name),
@@ -525,7 +530,11 @@ fun ShikkhokNavHost(
 
             LaunchedEffect(seat, reader) { model.load(seat, reader) }
 
-            FeeHistoryScreen(state = state, onRetry = model::retry)
+            FeeHistoryScreen(
+                state = state,
+                onRetry = model::retry,
+                onBack = { navController.popBackStack() },
+            )
         }
 
         composable(Destination.GuardianHome.route) {

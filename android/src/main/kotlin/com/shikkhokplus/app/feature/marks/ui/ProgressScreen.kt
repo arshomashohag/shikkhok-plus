@@ -78,6 +78,7 @@ const val TAG_PROGRESS_RETRY: String = "progress_retry"
  *
  * @param state What to render
  * @param onRetry Called when the guardian asks to retry
+ * @param onBack Called by the back arrow
  * @param modifier Layout modifier
  */
 @Composable
@@ -85,10 +86,12 @@ fun ProgressScreen(
     state: MarksUiState,
     onRetry: () -> Unit = {},
     onOpenExam: (String) -> Unit = {},
+    onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     ListScreenScaffold(
         title = stringResource(R.string.screen_title_progress),
+        onBack = onBack,
         modifier = modifier,
     ) {
         when (state) {

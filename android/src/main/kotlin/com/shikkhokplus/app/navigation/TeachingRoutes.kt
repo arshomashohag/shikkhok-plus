@@ -165,6 +165,7 @@ internal fun NavGraphBuilder.teachingRoutes(
                 )
             },
             onRetry = model::retry,
+            onBack = { navController.popBackStack() },
         )
     }
 
@@ -260,6 +261,7 @@ internal fun NavGraphBuilder.teachingRoutes(
                     }
                 },
                 onRetry = model::retry,
+                onBack = { navController.popBackStack() },
             )
         }
     }
@@ -294,6 +296,7 @@ internal fun NavGraphBuilder.teachingRoutes(
             // entry with nothing to open.
             onCreate = { navController.navigate(Destination.CreateExam.of(id)) },
             onRetry = model::retry,
+            onBack = { navController.popBackStack() },
         )
     }
 
