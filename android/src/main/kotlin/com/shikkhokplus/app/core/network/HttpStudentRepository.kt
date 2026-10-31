@@ -48,6 +48,26 @@ class HttpStudentRepository(
             FamilyReader.GUARDIAN -> call { client.get("/v1/children/$enrollmentId/exams/$examId") }
         }
 
+    override suspend fun seatFee(enrollmentId: String): AuthResult<CurrentFeeDto?> =
+        when (reader) {
+            FamilyReader.SELF -> AuthResult.Ok(null)
+            FamilyReader.GUARDIAN ->
+                when (val history = call<FeeHistoryDto> { client.get("/v1/children/$enrollmentId/fees") }) {
+                    is AuthResult.Ok -> AuthResult.Ok(history.value.cycles.lastOrNull()?.let(::latestPeriod))
+                    is AuthResult.Refused -> history
+                    AuthResult.TransportFailure -> AuthResult.TransportFailure
+                }
+        }
+
+    /**
+     * The newest period of a history, which the server lists oldest first.
+     *
+     * @param cycle The period
+     * @return The same period as the header's fee line
+     */
+    private fun latestPeriod(cycle: FeeCycleDto): CurrentFeeDto =
+        CurrentFeeDto(cycle.period, cycle.status, cycle.dueDate, cycle.outstanding, cycle.charged)
+
     /**
      * A guardian's seats, flattened from the home read so the batch
      * screen finds its seat the way a student's does.

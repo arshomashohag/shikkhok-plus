@@ -73,13 +73,7 @@ fun ClassDetailScreen(past: PastClass?, onBack: () -> Unit, modifier: Modifier =
         )
         Section(stringResource(R.string.family_attendance))
         Text(
-            stringResource(
-                when (past.present) {
-                    true -> R.string.family_present
-                    false -> R.string.family_absent
-                    null -> R.string.family_not_marked
-                },
-            ),
+            stringResource(attendanceLabel(past.present)),
             modifier = Modifier.testTag(TAG_FAMILY_DETAIL_ATTENDANCE),
         )
     }

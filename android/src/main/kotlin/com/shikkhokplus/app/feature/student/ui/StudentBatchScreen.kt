@@ -38,7 +38,10 @@ import com.shikkhokplus.app.feature.auth.MessageKeys
 import com.shikkhokplus.app.feature.student.FamilyTab
 import com.shikkhokplus.app.feature.student.FeeLine
 import com.shikkhokplus.app.feature.student.StudentBatchUiState
+import com.shikkhokplus.app.feature.student.NextClass
 import com.shikkhokplus.app.feature.student.StudentBatchView
+import com.shikkhokplus.app.core.format.dayLabel
+import com.shikkhokplus.app.core.ui.displayTime
 
 /** The loading placeholder. */
 const val TAG_STUDENT_BATCH_LOADING: String = "student_batch_loading"
@@ -107,7 +110,7 @@ fun StudentBatchScreen(
         onBack = onBack,
         header = {
             if (state is StudentBatchUiState.Loaded) {
-                FeeHeader(state.view, onOpenFees, onPay)
+                BatchHeader(state.view, onOpenFees, onPay)
                 FamilyTabs(tab, onSelect)
             }
         },
@@ -133,18 +136,55 @@ fun StudentBatchScreen(
 }
 
 /**
- * The fee, which stays above the tabs.
+ * What stays above the tabs on every one: the subjects, the next
+ * class and the fee with its Pay action.
  *
  * @param view The batch
  * @param onOpenFees Called to open the fee history
  * @param onPay Called to pay this batch's fee
  */
 @Composable
-private fun FeeHeader(view: StudentBatchView, onOpenFees: () -> Unit, onPay: () -> Unit) {
+private fun BatchHeader(view: StudentBatchView, onOpenFees: () -> Unit, onPay: () -> Unit) {
+    if (view.teacher.subjects.isNotEmpty()) {
+        Quiet(view.teacher.subjects.joinToString(" · ") { Numerals.freeText(it) })
+    }
+    val next = view.next
+    if (next == null) {
+        ShikkhokCard(Modifier.testTag(TAG_STUDENT_NEXT_CLASS)) {
+            Text(stringResource(R.string.student_no_next_class), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    } else {
+        NextClassHero(
+            next,
+            thenLine(view.following),
+            withEnd = true,
+            modifier = Modifier.testTag(TAG_STUDENT_NEXT_CLASS),
+        )
+    }
     view.batch.fee?.let { fee -> FeeCard(fee, onOpenFees, onPay) }
         ?: TextButton(onClick = onOpenFees, modifier = Modifier.testTag(TAG_STUDENT_FEES)) {
             Text(stringResource(R.string.screen_title_fee_history))
         }
+}
+
+/**
+ * "Then Mon 19 Oct, Wed 21 Oct (moved to 6:00 pm)", or null with none.
+ *
+ * @param following The classes after the next
+ * @return The line
+ */
+@Composable
+private fun thenLine(following: List<NextClass>): String? {
+    if (following.isEmpty()) return null
+    val days =
+        following.map { next ->
+            if (next.moved) {
+                stringResource(R.string.student_moved_to, dayLabel(next.date), displayTime(next.startTime))
+            } else {
+                dayLabel(next.date)
+            }
+        }
+    return stringResource(R.string.student_then, days.joinToString(", "))
 }
 
 /**

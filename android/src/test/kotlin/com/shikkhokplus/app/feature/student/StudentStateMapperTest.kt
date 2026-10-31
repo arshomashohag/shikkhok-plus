@@ -248,4 +248,24 @@ class StudentStateMapperTest {
 
         assertEquals("Tasnim", (state as StudentBatchUiState.Loaded).view.batch.childName)
     }
+
+    @Test
+    fun `a blank teacher name is no name`() {
+        listOf("", "  ").forEach { blank ->
+            val page =
+                (
+                    StudentStateMapper.afterBatch(
+                        seat(),
+                        FamilyBatchViewDto(
+                            servedAt = "2026-10-28T09:00:00Z",
+                            teacher = FamilyTeacherDto(blank, emptyList()),
+                        ),
+                        emptyList(),
+                    ) as StudentBatchUiState.Loaded
+                ).view
+
+            assertNull(page.teacher.displayName)
+            assertNull(page.teacher.initials)
+        }
+    }
 }

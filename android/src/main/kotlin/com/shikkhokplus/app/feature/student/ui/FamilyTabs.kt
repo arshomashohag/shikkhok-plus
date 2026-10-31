@@ -35,17 +35,18 @@ import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.core.format.dayLabel
 import com.shikkhokplus.app.core.format.shortDate
 import com.shikkhokplus.app.core.ui.ago
-import com.shikkhokplus.app.core.ui.displayTime
 import com.shikkhokplus.app.feature.auth.MessageKeys
 import com.shikkhokplus.app.feature.marks.ProgressRow
 import com.shikkhokplus.app.feature.student.FamilyExam
 import com.shikkhokplus.app.feature.student.FamilyTeacher
-import com.shikkhokplus.app.feature.student.NextClass
 import com.shikkhokplus.app.feature.student.PastClass
 import com.shikkhokplus.app.feature.student.StudentBatchView
 
 /** One past class, which opens its detail. */
 const val TAG_FAMILY_CLASS: String = "family_class"
+
+/** A past class's attendance line. */
+const val TAG_FAMILY_CLASS_ATTENDANCE: String = "family_class_attendance"
 
 /** One upcoming exam, which opens its detail. */
 const val TAG_FAMILY_EXAM_UPCOMING: String = "family_exam_upcoming"
@@ -69,27 +70,14 @@ const val TAG_FAMILY_TEACHER_ICON: String = "family_teacher_icon"
 const val TAG_FAMILY_TEACHER_SUBJECT: String = "family_teacher_subject"
 
 /**
- * The Classes tab: the next class, then past classes newest first.
+ * The Classes tab: past classes newest first, each with this seat's
+ * attendance. The next class lives in the header, on every tab.
  *
  * @param view The batch
  * @param onOpen Called with a past class's session id
  */
 @Composable
 fun ColumnScope.ClassesTab(view: StudentBatchView, onOpen: (String) -> Unit) {
-    val next = view.next
-    if (next == null) {
-        ShikkhokCard(Modifier.testTag(TAG_STUDENT_NEXT_CLASS)) {
-            Text(stringResource(R.string.student_no_next_class), color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    } else {
-        NextClassHero(
-            next,
-            thenLine(view.following),
-            withEnd = true,
-            modifier = Modifier.testTag(TAG_STUDENT_NEXT_CLASS),
-        )
-    }
-
     Section(stringResource(R.string.family_past_classes))
     if (view.classes.isEmpty()) {
         Quiet(stringResource(R.string.student_topics_empty))
@@ -101,26 +89,6 @@ fun ColumnScope.ClassesTab(view: StudentBatchView, onOpen: (String) -> Unit) {
             }
         }
     }
-}
-
-/**
- * "Then Mon 19 Oct, Wed 21 Oct (moved to 6:00 pm)", or null with none.
- *
- * @param following The classes after the next
- * @return The line
- */
-@Composable
-private fun thenLine(following: List<NextClass>): String? {
-    if (following.isEmpty()) return null
-    val days =
-        following.map { next ->
-            if (next.moved) {
-                stringResource(R.string.student_moved_to, dayLabel(next.date), displayTime(next.startTime))
-            } else {
-                dayLabel(next.date)
-            }
-        }
-    return stringResource(R.string.student_then, days.joinToString(", "))
 }
 
 /**
@@ -151,6 +119,12 @@ private fun PastClassRow(past: PastClass, onOpen: () -> Unit) {
                 color = if (past.topic == null) MaterialTheme.colorScheme.onSurfaceVariant else Color.Unspecified,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                stringResource(attendanceLabel(past.present)),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.testTag(TAG_FAMILY_CLASS_ATTENDANCE),
             )
         }
     }
@@ -334,3 +308,16 @@ fun ColumnScope.TeacherTab(teacher: FamilyTeacher) {
         }
     }
 }
+
+/**
+ * The words for this seat's attendance at a class.
+ *
+ * @param present Whether it attended, or null when not marked
+ * @return The string resource
+ */
+internal fun attendanceLabel(present: Boolean?): Int =
+    when (present) {
+        true -> R.string.family_present
+        false -> R.string.family_absent
+        null -> R.string.family_not_marked
+    }

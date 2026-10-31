@@ -5,6 +5,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavGraphBuilder
@@ -18,6 +19,7 @@ import com.shikkhokplus.app.feature.marks.MarksheetReader
 import com.shikkhokplus.app.feature.student.FamilyExamViewModel
 import com.shikkhokplus.app.feature.student.FamilyReader
 import com.shikkhokplus.app.feature.student.StudentBatchUiState
+import com.shikkhokplus.app.feature.student.StudentRepository
 import com.shikkhokplus.app.feature.student.StudentBatchView
 import com.shikkhokplus.app.feature.student.StudentBatchViewModel
 import com.shikkhokplus.app.feature.student.ui.ClassDetailScreen
@@ -100,26 +102,83 @@ internal fun FamilyBatchRoute(
 }
 
 /**
- * The batch's loaded view, read from the batch screen under a detail.
+ * The batch's loaded view, held by [owner] and loaded if nobody has yet.
  *
+ * After process death the batch screen's store is empty and a detail
+ * can be the first to ask, so the model is built here with the same
+ * initializer the batch screen uses and loads the seat itself.
+ *
+ * @param owner The store the model lives in
+ * @param reader Who is reading
+ * @param seat The seat
+ * @param repository Builds the repository the model reads with
+ * @return The view, or null until it is loaded
+ */
+@Composable
+internal fun familyViewOf(
+    owner: ViewModelStoreOwner,
+    reader: FamilyReader,
+    seat: String,
+    repository: () -> StudentRepository,
+): StudentBatchView? {
+    val model: StudentBatchViewModel =
+        viewModel(owner, key = familyKey(reader, seat)) { StudentBatchViewModel(repository()) }
+    val state by model.state.collectAsState()
+
+    LaunchedEffect(seat) { model.ensureLoaded(seat) }
+
+    return (state as? StudentBatchUiState.Loaded)?.view
+}
+
+/**
+ * The batch screen's entry for this very seat, or the detail's own.
+ *
+ * The entry below the detail is taken only when it is this reader's
+ * batch screen for this seat; a route pattern alone could match
+ * another seat's.
+ *
+ * @param navController The controller to search
+ * @param entry The detail's own back-stack entry
+ * @param reader Who is reading
+ * @param seat The seat
+ * @return The owner to hold the batch's model
+ */
+private fun ownerFor(
+    navController: NavHostController,
+    entry: NavBackStackEntry,
+    reader: FamilyReader,
+    seat: String,
+): NavBackStackEntry {
+    val argument =
+        when (reader) {
+            FamilyReader.SELF -> Destination.StudentBatch.ARG_SEAT
+            FamilyReader.GUARDIAN -> Destination.ChildBatch.ARG_SEAT
+        }
+    return navController.previousBackStackEntry?.takeIf {
+        it.destination.route == batchRoute(reader) && it.arguments?.getString(argument) == seat
+    } ?: entry
+}
+
+/**
+ * The view behind a detail screen.
+ *
+ * @param client The authenticated HTTP client
  * @param navController The controller to find the batch screen with
  * @param entry The detail's own back-stack entry
  * @param reader Who is reading
  * @param seat The seat
- * @return The view, or null when the batch screen is not loaded
+ * @return The view, or null until it is loaded
  */
 @Composable
 private fun parentView(
+    client: HttpClient,
     navController: NavHostController,
     entry: NavBackStackEntry,
     reader: FamilyReader,
     seat: String,
 ): StudentBatchView? {
-    val parent = remember(entry) { runCatching { navController.getBackStackEntry(batchRoute(reader)) }.getOrNull() }
-        ?: return null
-    val model: StudentBatchViewModel = viewModel(parent, key = familyKey(reader, seat))
-    val state by model.state.collectAsState()
-    return (state as? StudentBatchUiState.Loaded)?.view
+    val owner = remember(entry) { ownerFor(navController, entry, reader, seat) }
+    return familyViewOf(owner, reader, seat) { HttpStudentRepository(client, reader) }
 }
 
 /**
@@ -164,13 +223,13 @@ internal fun NavGraphBuilder.familyRoutes(client: HttpClient, navController: Nav
 
     composable(Destination.FamilyClass.route, arguments) { entry ->
         val (reader, seat, id) = detailArgs(entry)
-        val view = parentView(navController, entry, reader, seat)
+        val view = parentView(client, navController, entry, reader, seat)
         ClassDetailScreen(view?.pastClass(id), onBack = { navController.popBackStack() })
     }
 
     composable(Destination.FamilyNotice.route, arguments) { entry ->
         val (reader, seat, id) = detailArgs(entry)
-        val view = parentView(navController, entry, reader, seat)
+        val view = parentView(client, navController, entry, reader, seat)
         NoticeDetailScreen(view?.notice(id), onBack = { navController.popBackStack() })
     }
 

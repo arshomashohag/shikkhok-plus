@@ -1,5 +1,7 @@
 package com.shikkhokplus.app.feature.student
 
+import com.shikkhokplus.app.core.model.Money
+import com.shikkhokplus.app.core.network.CurrentFeeDto
 import com.shikkhokplus.app.core.network.FamilyBatchViewDto
 import com.shikkhokplus.app.core.network.FamilyExamDto
 import com.shikkhokplus.app.core.network.MeDto
@@ -50,6 +52,11 @@ class StudentBatchViewModelTest {
         override suspend fun progress(enrollmentId: String): AuthResult<List<ProgressEntryDto>> =
             AuthResult.Ok<List<ProgressEntryDto>>(emptyList()).also { reads += "progress" }
 
+        var fee: CurrentFeeDto? = null
+
+        override suspend fun seatFee(enrollmentId: String): AuthResult<CurrentFeeDto?> =
+            AuthResult.Ok(fee).also { reads += "fee" }
+
         override suspend fun exam(enrollmentId: String, examId: String): AuthResult<FamilyExamDto> =
             AuthResult.Ok(FamilyExamDto(examId, "Monthly", "2026-11-02", "Physics", 50, listOf("Heat"), "upcoming"))
                 .also { reads += "exam" }
@@ -64,7 +71,7 @@ class StudentBatchViewModelTest {
         advanceUntilIdle()
 
         assertIs<StudentBatchUiState.Loaded>(model.state.value)
-        assertEquals(listOf("batches", "view", "progress"), repository.reads)
+        assertEquals(listOf("batches", "fee", "view", "progress"), repository.reads)
     }
 
     @Test
@@ -88,7 +95,7 @@ class StudentBatchViewModelTest {
         advanceUntilIdle()
         val failed = assertIs<StudentBatchUiState.Failed>(model.state.value)
         assertEquals(true, failed.retryable)
-        assertEquals(listOf("batches", "view"), repository.reads)
+        assertEquals(listOf("batches", "fee", "view"), repository.reads)
 
         repository.view = AuthResult.Ok(FamilyBatchViewDto(servedAt = "2026-10-28T09:00:00Z"))
         model.retry()
@@ -138,5 +145,31 @@ class StudentBatchViewModelTest {
         val loaded = assertIs<FamilyExamUiState.Loaded>(model.state.value)
         assertEquals(listOf("Heat"), loaded.exam.topics)
         assertEquals(listOf("exam"), repository.reads)
+    }
+
+    @Test
+    fun `a seat whose list carries no fee gets the latest period from the fee read`() = runTest(dispatcher) {
+        val repository = Fake()
+        repository.fee = CurrentFeeDto("2026-10", "unpaid", "2026-10-10", Money.of("1200.00"), Money.of("1200.00"))
+        val model = StudentBatchViewModel(repository)
+
+        model.load("e-1")
+        advanceUntilIdle()
+
+        val fee = (model.state.value as StudentBatchUiState.Loaded).view.batch.fee
+        assertEquals("fees.status.unpaid", fee?.statusKey)
+    }
+
+    @Test
+    fun `ensureLoaded loads once for a seat and not again`() = runTest(dispatcher) {
+        val repository = Fake()
+        val model = StudentBatchViewModel(repository)
+
+        model.ensureLoaded("e-1")
+        advanceUntilIdle()
+        model.ensureLoaded("e-1")
+        advanceUntilIdle()
+
+        assertEquals(1, repository.reads.count { it == "batches" })
     }
 }

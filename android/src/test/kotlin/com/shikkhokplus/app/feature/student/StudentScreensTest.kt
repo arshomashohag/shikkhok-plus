@@ -1,6 +1,12 @@
 package com.shikkhokplus.app.feature.student
 
 import androidx.activity.ComponentActivity
+import com.shikkhokplus.app.feature.student.ui.TAG_STUDENT_PAY
+import com.shikkhokplus.app.feature.student.ui.TAG_STUDENT_FEES
+import com.shikkhokplus.app.feature.student.ui.TAG_FAMILY_CLASS_ATTENDANCE
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -16,6 +22,7 @@ import com.shikkhokplus.app.feature.student.ui.StudentBatchScreen
 import com.shikkhokplus.app.feature.student.ui.TAG_STUDENT_NEXT_CLASS
 import com.shikkhokplus.app.feature.student.ui.TAG_FAMILY_TEACHER_ICON
 import com.shikkhokplus.app.feature.student.ui.TAG_FAMILY_TAB
+import com.shikkhokplus.app.feature.student.ui.TAG_FAMILY_TEACHER_SUBJECT
 import com.shikkhokplus.app.feature.student.ui.TAG_FAMILY_NOTICE
 import com.shikkhokplus.app.feature.student.ui.TAG_FAMILY_EXAM_UPCOMING
 import com.shikkhokplus.app.feature.student.ui.TAG_FAMILY_EXAM_DONE
@@ -161,7 +168,7 @@ class StudentScreensTest {
 
         compose.onNodeWithText("Your teacher").assertExists()
         compose.onNodeWithTag(TAG_FAMILY_TEACHER_ICON, useUnmergedTree = true).assertExists()
-        compose.onNodeWithText("Physics").assertExists()
+        compose.onAllNodesWithTag(TAG_FAMILY_TEACHER_SUBJECT).fetchSemanticsNodes().let { assertEquals(1, it.size) }
     }
 
     @Test
@@ -187,5 +194,58 @@ class StudentScreensTest {
         show(StudentBatchView(row, null, null, emptyList(), emptyList(), emptyList()), FamilyTab.NOTICES)
 
         compose.onNodeWithText("No notices yet.").assertExists()
+    }
+
+    @Test
+    fun `a past class row shows this seat's attendance`() {
+        show(view(), FamilyTab.CLASSES)
+
+        compose.onNodeWithTag(TAG_FAMILY_CLASS_ATTENDANCE, useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("Present", useUnmergedTree = true).assertExists()
+    }
+
+    @Test
+    fun `the header keeps the subjects, the next class and the fee on every tab`() {
+        val next = NextClass("2026-11-03", "16:00", "17:30", null, false, "Physics")
+        val withNext = view(teacher = FamilyTeacher("Karim", listOf("Physics", "Chemistry"))).copy(next = next)
+        var tab by mutableStateOf(FamilyTab.CLASSES)
+        compose.setContent {
+            StudentBatchScreen(
+                StudentBatchUiState.Loaded(withNext),
+                onBack = {},
+                onOpenFees = {},
+                onRetry = {},
+                tab = tab,
+            )
+        }
+        FamilyTab.entries.forEach { each ->
+            tab = each
+            compose.waitForIdle()
+            compose.onNodeWithText("Physics · Chemistry").assertExists()
+            compose.onNodeWithTag(TAG_STUDENT_NEXT_CLASS).assertExists()
+            compose.onNodeWithTag(TAG_STUDENT_FEES).assertExists()
+        }
+    }
+
+    @Test
+    fun `a guardian's header shows the fee and Pay when something is owed`() {
+        var paid = 0
+        val owed = FeeLine("2026-10", "fees.status.unpaid", "2026-10-10", Money.of("1200.00"), Money.of("1200.00"))
+        val guardianRow = row.copy(fee = owed, childName = "Tasnim")
+        compose.setContent {
+            StudentBatchScreen(
+                StudentBatchUiState.Loaded(view().copy(batch = guardianRow)),
+                onBack = {},
+                onOpenFees = {},
+                onRetry = {},
+                onPay = { paid++ },
+                tab = FamilyTab.TEACHER,
+            )
+        }
+
+        compose.onNodeWithText("Tasnim").assertExists()
+        compose.onNodeWithTag(TAG_STUDENT_FEES).assertExists()
+        compose.onNodeWithTag(TAG_STUDENT_PAY).performClick()
+        assertEquals(1, paid)
     }
 }

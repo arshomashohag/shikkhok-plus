@@ -80,7 +80,10 @@ object StudentStateMapper {
                 upcomingExams = view.exams.filter { it.state == UPCOMING }.map(::toExam),
                 doneExams = view.exams.filter { it.state == DONE }.map(::toExam),
                 teacher =
-                    FamilyTeacher(view.teacher?.displayName, view.teacher?.subjects.orEmpty()),
+                    FamilyTeacher(
+                        view.teacher?.displayName?.takeIf { it.isNotBlank() },
+                        view.teacher?.subjects.orEmpty(),
+                    ),
                 // `topicLogged` is the server's: a topic saved blank is
                 // logged, and has nothing to show.
                 topics =

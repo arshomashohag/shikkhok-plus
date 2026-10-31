@@ -54,6 +54,16 @@ class StudentBatchViewModel(
         _tab.value = tab
     }
 
+    /**
+     * Load a seat only if this model has not already, for a detail
+     * screen that may be the first to build it.
+     *
+     * @param enrollmentId The seat
+     */
+    fun ensureLoaded(enrollmentId: String) {
+        if (lastSeat != enrollmentId) load(enrollmentId)
+    }
+
     /** Repeat the load, only when asked [TC-8, D-9]. */
     fun retry() {
         lastSeat?.let(::load)
@@ -72,7 +82,21 @@ class StudentBatchViewModel(
                 else -> return failed(result)
             }
         val batch = batches.firstOrNull { it.enrollmentId == seat } ?: return StudentStateMapper.notFound()
-        return readSeat(batch)
+        return readSeat(withFee(batch))
+    }
+
+    /**
+     * Add the seat's latest fee when the list did not carry one. A
+     * failed fee read leaves the header with the fee-history link
+     * rather than failing the whole page.
+     *
+     * @param batch The seat's row
+     * @return The row, with a fee line where one was read
+     */
+    private suspend fun withFee(batch: StudentBatchDto): StudentBatchDto {
+        if (batch.currentFee != null) return batch
+        val fee = (repository.seatFee(batch.enrollmentId) as? AuthResult.Ok)?.value
+        return if (fee == null) batch else batch.copy(currentFee = fee)
     }
 
     /**
