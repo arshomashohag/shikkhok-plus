@@ -13,6 +13,7 @@ import androidx.compose.ui.test.performScrollTo
 import com.shikkhokplus.app.core.designsystem.ShikkhokTheme
 import com.shikkhokplus.app.core.network.GuardianHomeDto
 import com.shikkhokplus.app.feature.guardian.ui.GuardianActions
+import com.shikkhokplus.app.feature.guardian.ui.TAG_GUARDIAN_BATCH
 import com.shikkhokplus.app.feature.guardian.ui.GuardianHomeScreen
 import com.shikkhokplus.app.feature.guardian.ui.TAG_GUARDIAN_CHIP
 import com.shikkhokplus.app.feature.guardian.ui.TAG_GUARDIAN_EMPTY
@@ -49,6 +50,18 @@ class GuardianHomeScreenTest {
         compose.onNodeWithTag(TAG_GUARDIAN_PAY).performScrollTo().performClick()
 
         assertEquals("seat-Tasnim", paid.single().enrollmentId)
+    }
+
+    @Test
+    fun `a child's batch row opens that batch by its seat`() {
+        var opened: String? = null
+        compose.setContent {
+            ShikkhokTheme { GuardianHomeScreen(loaded("Tasnim"), GuardianActions(onBatch = { opened = it })) }
+        }
+
+        compose.onNodeWithTag(TAG_GUARDIAN_BATCH).performScrollTo().performClick()
+
+        assertEquals("seat-Tasnim", opened)
     }
 
     @Test

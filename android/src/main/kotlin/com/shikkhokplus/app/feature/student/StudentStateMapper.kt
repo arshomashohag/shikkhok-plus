@@ -3,6 +3,7 @@ package com.shikkhokplus.app.feature.student
 import com.shikkhokplus.app.core.network.CurrentFeeDto
 import com.shikkhokplus.app.core.network.ErrorEnvelope
 import com.shikkhokplus.app.core.network.FamilyBatchViewDto
+import com.shikkhokplus.app.core.network.FamilyExamDto
 import com.shikkhokplus.app.core.network.ProgressEntryDto
 import com.shikkhokplus.app.core.network.StudentBatchDto
 import com.shikkhokplus.app.core.network.UpcomingSessionDto
@@ -63,7 +64,23 @@ object StudentStateMapper {
                 following = view.followingSessions.map(::toNextClass),
                 upcomingExam =
                     view.upcomingExam?.let { UpcomingExam(it.title, it.date, it.totalMarks, it.subjectName) },
-                notices = view.announcements.map { NoticeRow(it.body, it.postedAt) },
+                notices =
+                    view.announcements.map { NoticeRow(it.body, it.postedAt, it.announcementId, it.edited) },
+                classes =
+                    view.pastSessions.map {
+                        PastClass(
+                            it.sessionId,
+                            it.date,
+                            it.startTime.take(HHMM),
+                            it.topic?.takeIf { text -> it.topicLogged && text.isNotBlank() },
+                            it.subjectName,
+                            it.present,
+                        )
+                    },
+                upcomingExams = view.exams.filter { it.state == UPCOMING }.map(::toExam),
+                doneExams = view.exams.filter { it.state == DONE }.map(::toExam),
+                teacher =
+                    FamilyTeacher(view.teacher?.displayName, view.teacher?.subjects.orEmpty()),
                 // `topicLogged` is the server's: a topic saved blank is
                 // logged, and has nothing to show.
                 topics =
@@ -73,6 +90,14 @@ object StudentStateMapper {
             ),
         )
     }
+
+    /**
+     * Map one exam's detail.
+     *
+     * @param dto The exam the server returned
+     * @return The exam to show
+     */
+    fun afterExam(dto: FamilyExamDto): FamilyExamUiState.Loaded = FamilyExamUiState.Loaded(toExam(dto))
 
     /**
      * A seat that is not in the student's own list.
@@ -107,8 +132,18 @@ object StudentStateMapper {
             nextClass = dto.nextSession?.let(::toNextClass),
             isNext = dto.isNext,
             lastResult = dto.lastResult?.let { LastResult(it.title, it.marks, it.totalMarks, it.rank) },
+            childName = dto.childName,
         )
     }
+
+    /**
+     * Convert one exam, keeping the server's word on its state.
+     *
+     * @param dto The server's exam
+     * @return The exam to show
+     */
+    private fun toExam(dto: FamilyExamDto): FamilyExam =
+        FamilyExam(dto.examId, dto.title, dto.date, dto.subjectName, dto.totalMarks, dto.topics, dto.state == DONE)
 
     /**
      * Convert one coming class, trimming the times to `HH:MM`.
@@ -136,6 +171,12 @@ object StudentStateMapper {
         FeeStateMapper.statusKey(dto.status)?.let { key ->
             FeeLine(dto.period, key, dto.dueDate, dto.outstanding, dto.charged, dto.verifying, dto.paidOn)
         }
+
+    /** The server's state for an exam still to sit. */
+    private const val UPCOMING = "upcoming"
+
+    /** The server's state for an exam past or marked. */
+    private const val DONE = "done"
 
     /** `HH:MM` out of the server's `HH:MM:SS`. */
     private const val HHMM = 5

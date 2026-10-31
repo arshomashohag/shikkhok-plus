@@ -26,9 +26,8 @@ import com.shikkhokplus.app.core.network.HttpStudentRepository
 import com.shikkhokplus.app.feature.fees.FeeReader
 import com.shikkhokplus.app.feature.marks.MarksheetReader
 import com.shikkhokplus.app.feature.student.MyBatchesViewModel
-import com.shikkhokplus.app.feature.student.StudentBatchViewModel
+import com.shikkhokplus.app.feature.student.FamilyReader
 import com.shikkhokplus.app.feature.student.ui.MyBatchesScreen
-import com.shikkhokplus.app.feature.student.ui.StudentBatchScreen
 import io.ktor.client.HttpClient
 
 /**
@@ -127,23 +126,10 @@ internal fun NavGraphBuilder.studentRoutes(
         arguments = listOf(navArgument(Destination.StudentBatch.ARG_SEAT) { type = NavType.StringType }),
     ) { entry ->
         val seat = entry.arguments?.getString(Destination.StudentBatch.ARG_SEAT).orEmpty()
-        val model: StudentBatchViewModel =
-            viewModel(key = seat) { StudentBatchViewModel(HttpStudentRepository(client)) }
-        val state by model.state.collectAsState()
-
-        LaunchedEffect(seat) { model.load(seat) }
-
-        StudentBatchScreen(
-            state = state,
-            onBack = { navController.popBackStack() },
-            onOpenExam = { examId ->
-                navController.navigate(Destination.Marksheet.of(examId, seat, MarksheetReader.SELF.name))
-            },
-            onOpenFees = { navController.navigate(Destination.FeeHistory.of(seat, FeeReader.STUDENT.name)) },
-            onRetry = model::retry,
-            onPay = { navController.navigate(Destination.Pay.of(seat)) },
-        )
+        FamilyBatchRoute(client, navController, FamilyReader.SELF, seat)
     }
+
+    familyRoutes(client, navController)
 }
 
 

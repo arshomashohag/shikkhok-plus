@@ -558,6 +558,7 @@ fun ShikkhokNavHost(
                         onResult = { result, _ ->
                             navController.navigate(Destination.ChildProgress.of(result.enrollmentId))
                         },
+                        onBatch = { seat -> navController.navigate(Destination.ChildBatch.of(seat)) },
                         onRetry = model::retry,
                     ),
                 bottomBar = {

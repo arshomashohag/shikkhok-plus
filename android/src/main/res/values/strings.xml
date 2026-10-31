@@ -958,4 +958,23 @@
     <string name="signup_already_added_title">You\'ve been added already</string>
     <string name="signup_have_account">Already have an account?</string>
     <string name="signup_log_in">Log in</string>
+
+    <string name="family_tab_teacher">Teacher</string>
+    <string name="family_past_classes">Past classes</string>
+    <string name="family_exams_done">Done</string>
+    <string name="family_notices_empty">No notices yet.</string>
+    <string name="family_teacher_unnamed">Your teacher</string>
+    <string name="family_teacher_subjects">Subjects</string>
+    <string name="family_teacher_no_subjects">No subjects listed yet.</string>
+    <string name="family_class_title">Class</string>
+    <string name="family_exam_title">Exam</string>
+    <string name="family_notice_title">Notice</string>
+    <string name="family_detail_missing">This is no longer available.</string>
+    <string name="family_attendance">Attendance</string>
+    <string name="family_present">Present</string>
+    <string name="family_absent">Absent</string>
+    <string name="family_not_marked">Not marked</string>
+    <string name="family_exam_topics">Topics</string>
+    <string name="family_exam_no_topics">No topics listed yet.</string>
+    <string name="family_notice_edited">Edited</string>
 </resources>

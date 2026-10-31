@@ -903,4 +903,23 @@
     <string name="signup_already_added_title">আপনাকে আগেই যোগ করা হয়েছে</string>
     <string name="signup_have_account">আগেই অ্যাকাউন্ট আছে?</string>
     <string name="signup_log_in">লগ ইন</string>
+
+    <string name="family_tab_teacher">শিক্ষক</string>
+    <string name="family_past_classes">আগের ক্লাস</string>
+    <string name="family_exams_done">সম্পন্ন</string>
+    <string name="family_notices_empty">এখনও কোনো নোটিশ নেই।</string>
+    <string name="family_teacher_unnamed">আপনার শিক্ষক</string>
+    <string name="family_teacher_subjects">বিষয়</string>
+    <string name="family_teacher_no_subjects">এখনও কোনো বিষয় দেওয়া হয়নি।</string>
+    <string name="family_class_title">ক্লাস</string>
+    <string name="family_exam_title">পরীক্ষা</string>
+    <string name="family_notice_title">নোটিশ</string>
+    <string name="family_detail_missing">এটি আর পাওয়া যাচ্ছে না।</string>
+    <string name="family_attendance">উপস্থিতি</string>
+    <string name="family_present">উপস্থিত</string>
+    <string name="family_absent">অনুপস্থিত</string>
+    <string name="family_not_marked">চিহ্নিত করা হয়নি</string>
+    <string name="family_exam_topics">বিষয়সমূহ</string>
+    <string name="family_exam_no_topics">এখনও কোনো টপিক দেওয়া হয়নি।</string>
+    <string name="family_notice_edited">সম্পাদিত</string>
 </resources>

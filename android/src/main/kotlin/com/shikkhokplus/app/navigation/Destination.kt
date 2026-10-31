@@ -427,6 +427,94 @@ sealed interface Destination {
         fun of(enrollmentId: String): String = "me/batches/$enrollmentId"
     }
 
+    /** One child's batch, from the guardian's side. */
+    data object ChildBatch : Destination {
+        override val route: String = "children/{seat}/batch"
+
+        /** The seat argument's name. */
+        const val ARG_SEAT: String = "seat"
+
+        /**
+         * Build a concrete route.
+         *
+         * @param seat The child's seat in the batch
+         * @return The route to navigate to
+         */
+        fun of(seat: String): String = "children/$seat/batch"
+    }
+
+    /** A past class's detail, opened from a family batch screen. */
+    data object FamilyClass : Destination {
+        override val route: String = "family/{reader}/{seat}/class/{id}"
+
+        /** The reader argument's name. */
+        const val ARG_READER: String = "reader"
+
+        /** The seat argument's name. */
+        const val ARG_SEAT: String = "seat"
+
+        /** The item argument's name. */
+        const val ARG_ID: String = "id"
+
+        /**
+         * Build a concrete route.
+         *
+         * @param reader `SELF` or `GUARDIAN`
+         * @param seat The seat
+         * @param id The class's session id
+         * @return The route to navigate to
+         */
+        fun of(reader: String, seat: String, id: String): String = "family/$reader/$seat/class/$id"
+    }
+
+    /** An upcoming exam's detail, opened from a family batch screen. */
+    data object FamilyExam : Destination {
+        override val route: String = "family/{reader}/{seat}/exam/{id}"
+
+        /** The reader argument's name. */
+        const val ARG_READER: String = "reader"
+
+        /** The seat argument's name. */
+        const val ARG_SEAT: String = "seat"
+
+        /** The item argument's name. */
+        const val ARG_ID: String = "id"
+
+        /**
+         * Build a concrete route.
+         *
+         * @param reader `SELF` or `GUARDIAN`
+         * @param seat The seat
+         * @param id The exam
+         * @return The route to navigate to
+         */
+        fun of(reader: String, seat: String, id: String): String = "family/$reader/$seat/exam/$id"
+    }
+
+    /** A notice's detail, opened from a family batch screen. */
+    data object FamilyNotice : Destination {
+        override val route: String = "family/{reader}/{seat}/notice/{id}"
+
+        /** The reader argument's name. */
+        const val ARG_READER: String = "reader"
+
+        /** The seat argument's name. */
+        const val ARG_SEAT: String = "seat"
+
+        /** The item argument's name. */
+        const val ARG_ID: String = "id"
+
+        /**
+         * Build a concrete route.
+         *
+         * @param reader `SELF` or `GUARDIAN`
+         * @param seat The seat
+         * @param id The notice
+         * @return The route to navigate to
+         */
+        fun of(reader: String, seat: String, id: String): String = "family/$reader/$seat/notice/$id"
+    }
+
     /** A guardian's children. The start destination for that lens. */
     data object GuardianHome : Destination {
         override val route: String = "children"

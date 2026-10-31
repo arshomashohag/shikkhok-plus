@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
- * Holds S2's state: one batch from the student's side.
+ * Holds S2's state: one batch from the student's or a guardian's side.
  *
  * Three reads, in order, and the first failure is the result: a half-
  * loaded batch would show a fee with no classes, or classes with no
@@ -27,6 +27,11 @@ class StudentBatchViewModel(
     /** What the screen renders. */
     val state: StateFlow<StudentBatchUiState> = _state.asStateFlow()
 
+    private val _tab = MutableStateFlow(FamilyTab.CLASSES)
+
+    /** The open tab, which survives the screen being rebuilt. */
+    val tab: StateFlow<FamilyTab> = _tab.asStateFlow()
+
     private var lastSeat: String? = null
 
     /**
@@ -38,6 +43,15 @@ class StudentBatchViewModel(
         lastSeat = enrollmentId
         _state.value = StudentBatchUiState.Loading
         viewModelScope.launch { _state.value = read(enrollmentId) }
+    }
+
+    /**
+     * Open a tab.
+     *
+     * @param tab The tab to show
+     */
+    fun select(tab: FamilyTab) {
+        _tab.value = tab
     }
 
     /** Repeat the load, only when asked [TC-8, D-9]. */

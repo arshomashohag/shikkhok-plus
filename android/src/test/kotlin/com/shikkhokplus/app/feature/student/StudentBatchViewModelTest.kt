@@ -1,6 +1,7 @@
 package com.shikkhokplus.app.feature.student
 
 import com.shikkhokplus.app.core.network.FamilyBatchViewDto
+import com.shikkhokplus.app.core.network.FamilyExamDto
 import com.shikkhokplus.app.core.network.MeDto
 import com.shikkhokplus.app.core.network.ProgressEntryDto
 import com.shikkhokplus.app.core.network.StudentBatchDto
@@ -48,6 +49,10 @@ class StudentBatchViewModelTest {
 
         override suspend fun progress(enrollmentId: String): AuthResult<List<ProgressEntryDto>> =
             AuthResult.Ok<List<ProgressEntryDto>>(emptyList()).also { reads += "progress" }
+
+        override suspend fun exam(enrollmentId: String, examId: String): AuthResult<FamilyExamDto> =
+            AuthResult.Ok(FamilyExamDto(examId, "Monthly", "2026-11-02", "Physics", 50, listOf("Heat"), "upcoming"))
+                .also { reads += "exam" }
     }
 
     @Test
@@ -108,5 +113,30 @@ class StudentBatchViewModelTest {
         advanceUntilIdle()
         assertEquals(listOf("batches", "phone"), withBatches.reads)
         assertEquals("+8801611477203", (loaded.state.value as MyBatchesUiState.Loaded).phone)
+    }
+
+    @Test
+    fun `the open tab lives in the model, starting on classes`() = runTest(dispatcher) {
+        val model = StudentBatchViewModel(Fake())
+
+        assertEquals(FamilyTab.CLASSES, model.tab.value)
+        model.select(FamilyTab.TEACHER)
+        assertEquals(FamilyTab.TEACHER, model.tab.value)
+        model.load("e-1")
+        advanceUntilIdle()
+        assertEquals(FamilyTab.TEACHER, model.tab.value)
+    }
+
+    @Test
+    fun `an exam detail loads from the exam route, and retry repeats a failure`() = runTest(dispatcher) {
+        val repository = Fake()
+        val model = FamilyExamViewModel(repository)
+
+        model.load("e-1", "x-9")
+        advanceUntilIdle()
+
+        val loaded = assertIs<FamilyExamUiState.Loaded>(model.state.value)
+        assertEquals(listOf("Heat"), loaded.exam.topics)
+        assertEquals(listOf("exam"), repository.reads)
     }
 }
