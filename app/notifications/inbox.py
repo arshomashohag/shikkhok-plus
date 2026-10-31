@@ -275,7 +275,11 @@ def mark_one_read(
 
 
 def mark_unread_for_source(
-    session: Session, *, kind: str, source_id: uuid.UUID
+    session: Session,
+    *,
+    kind: str,
+    source_id: uuid.UUID,
+    preview: str | None = None,
 ) -> None:
     """Make every recipient's copy of a record unread again.
 
@@ -285,12 +289,16 @@ def mark_unread_for_source(
     :param session: The caller's session
     :param kind: What produced the messages
     :param source_id: The record they came from
+    :param preview: The record's new preview line; left as is when None
     :return: None
     """
+    values: dict[str, object] = {"read_at": None}
+    if preview is not None:
+        values["preview"] = preview
     session.execute(
         sa.update(Notification)
         .where(Notification.kind == kind, Notification.source_id == source_id)
-        .values(read_at=None)
+        .values(**values)
     )
 
 
