@@ -1584,6 +1584,51 @@
         "title": "ErrorEnvelope",
         "type": "object"
       },
+      "ExamBlock": {
+        "additionalProperties": false,
+        "description": "An exam as it stands now.\n\n:ivar exam_id: The exam\n:ivar title: The teacher's name for it\n:ivar date: When it is held\n:ivar subject_name: The subject\n:ivar total_marks: The denominator\n:ivar topics: What it covers",
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "exam_id": {
+            "format": "uuid",
+            "title": "Exam Id",
+            "type": "string"
+          },
+          "subject_name": {
+            "title": "Subject Name",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "topics": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Topics",
+            "type": "array"
+          },
+          "total_marks": {
+            "title": "Total Marks",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "exam_id",
+          "subject_name",
+          "title",
+          "topics",
+          "total_marks"
+        ],
+        "title": "ExamBlock",
+        "type": "object"
+      },
       "ExamCreateRequest": {
         "additionalProperties": false,
         "description": "Create or edit an assessment [BR4.1].\n\n:ivar batch_subject_id: One of the batch's own subjects\n:ivar title: The teacher's name for it\n:ivar date: When it was sat\n:ivar total_marks: The denominator, at least 1\n:ivar topics: What it covers: at most 20, each 1 to 120 characters",
@@ -2409,9 +2454,192 @@
         "title": "NextExamResponse",
         "type": "object"
       },
+      "NoticeBlock": {
+        "additionalProperties": false,
+        "description": "A notice as it reads now.\n\n:ivar body: The current text\n:ivar posted_at: When it was posted\n:ivar edited_at: When it was last edited, if ever",
+        "properties": {
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "edited_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Edited At"
+          },
+          "posted_at": {
+            "format": "date-time",
+            "title": "Posted At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "body",
+          "posted_at"
+        ],
+        "title": "NoticeBlock",
+        "type": "object"
+      },
+      "NotificationDetailResponse": {
+        "additionalProperties": false,
+        "description": "One message and what it opens to, as its source stands now.\n\n:ivar available: False once the source is gone or the seat unreachable\n:ivar notice: Set for an available notice\n:ivar exam: Set for an available exam\n:ivar payment: Set for an available payment result",
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "batch_name": {
+            "title": "Batch Name",
+            "type": "string"
+          },
+          "child_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Child Name"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "enrollment_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enrollment Id"
+          },
+          "exam": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExamBlock"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "enum": [
+              "claim_to_verify",
+              "exam_scheduled",
+              "fee_reminder",
+              "marks_available",
+              "notice",
+              "payment_approved",
+              "payment_partial",
+              "payment_rejected"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "notice": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NoticeBlock"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "notification_id": {
+            "format": "uuid",
+            "title": "Notification Id",
+            "type": "string"
+          },
+          "payment": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PaymentBlock"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "period": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period"
+          },
+          "preview": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preview"
+          },
+          "read": {
+            "title": "Read",
+            "type": "boolean"
+          },
+          "source_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Id"
+          }
+        },
+        "required": [
+          "available",
+          "batch_name",
+          "created_at",
+          "kind",
+          "notification_id",
+          "read"
+        ],
+        "title": "NotificationDetailResponse",
+        "type": "object"
+      },
       "NotificationResponse": {
         "additionalProperties": false,
-        "description": "One message in the reader's own inbox.\n\n:ivar notification_id: The message\n:ivar kind: What produced it\n:ivar enrollment_id: The seat it is about, if any\n:ivar batch_name: The batch, as named when it was sent\n:ivar period: The period it concerns, as ``YYYY-MM``, if any\n:ivar amount: The money it concerns, if any\n:ivar created_at: When it was sent\n:ivar read: Whether the reader has opened the inbox since",
+        "description": "One message in the reader's own inbox.\n\n:ivar notification_id: The message\n:ivar kind: What produced it\n:ivar enrollment_id: The seat it is about, if any\n:ivar batch_name: The batch, as named when it was sent\n:ivar period: The period it concerns, as ``YYYY-MM``, if any\n:ivar amount: The money it concerns, if any\n:ivar created_at: When it was sent\n:ivar read: Whether the reader has opened the inbox since\n:ivar source_id: The record that produced it, if any\n:ivar child_name: Which child it is about, for a guardian's copy\n:ivar preview: A short line of its content, if any",
         "properties": {
           "amount": {
             "anyOf": [
@@ -2426,6 +2654,17 @@
           "batch_name": {
             "title": "Batch Name",
             "type": "string"
+          },
+          "child_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Child Name"
           },
           "created_at": {
             "format": "date-time",
@@ -2446,8 +2685,13 @@
           },
           "kind": {
             "enum": [
+              "claim_to_verify",
+              "exam_scheduled",
               "fee_reminder",
+              "marks_available",
+              "notice",
               "payment_approved",
+              "payment_partial",
               "payment_rejected"
             ],
             "title": "Kind",
@@ -2470,9 +2714,32 @@
             ],
             "title": "Period"
           },
+          "preview": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preview"
+          },
           "read": {
             "title": "Read",
             "type": "boolean"
+          },
+          "source_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Id"
           }
         },
         "required": [
@@ -2636,6 +2903,64 @@
           }
         },
         "title": "PayablesResponse",
+        "type": "object"
+      },
+      "PaymentBlock": {
+        "additionalProperties": false,
+        "description": "A payment claim and how it was decided.\n\n:ivar claim_id: The claim\n:ivar period: The period it paid toward, as ``YYYY-MM``\n:ivar claimed: What was claimed\n:ivar approved: What the teacher accepted, once decided\n:ivar outcome: Where the decision stands\n:ivar reason: Why it was rejected, if it was",
+        "properties": {
+          "approved": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "claim_id": {
+            "format": "uuid",
+            "title": "Claim Id",
+            "type": "string"
+          },
+          "claimed": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "outcome": {
+            "enum": [
+              "approved",
+              "partial",
+              "pending",
+              "rejected"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "period": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
+            "title": "Period",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "claim_id",
+          "claimed",
+          "outcome",
+          "period"
+        ],
+        "title": "PaymentBlock",
         "type": "object"
       },
       "PaymentDestinationResponse": {
@@ -8390,6 +8715,87 @@
           }
         },
         "summary": "Read All",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/v1/me/notifications/{notification_id}": {
+      "get": {
+        "description": "Open one of this account's own messages.\n\nDoes not mark it read; the client does that on its own call.\n\n:param notification_id: The message\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:return: The message and what it opens to\n:raises AuthorizationError: The id is missing or another account's",
+        "operationId": "read_item_v1_me_notifications__notification_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "notification_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Notification Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Item",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/v1/me/notifications/{notification_id}/read": {
+      "post": {
+        "description": "Mark one of this account's own messages as read.\n\n:param notification_id: The message\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:return: None",
+        "operationId": "read_one_v1_me_notifications__notification_id__read_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "notification_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Notification Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read One",
         "tags": [
           "notifications"
         ]

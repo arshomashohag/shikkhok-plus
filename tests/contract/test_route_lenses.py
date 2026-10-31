@@ -157,6 +157,8 @@ def test_lens_exempt_set_holds_exactly_the_known_routes() -> None:
             ("DELETE", "/v1/me"),
             ("GET", "/v1/me/notifications"),
             ("POST", "/v1/me/notifications/read"),
+            ("GET", "/v1/me/notifications/{notification_id}"),
+            ("POST", "/v1/me/notifications/{notification_id}/read"),
             ("GET", "/v1/me/deletion-summary"),
         }
     )
