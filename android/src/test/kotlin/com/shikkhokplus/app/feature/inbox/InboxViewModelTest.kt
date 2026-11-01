@@ -4,6 +4,7 @@ import com.shikkhokplus.app.core.model.Money
 import com.shikkhokplus.app.core.network.ErrorBody
 import com.shikkhokplus.app.core.network.ErrorEnvelope
 import com.shikkhokplus.app.core.network.InboxDto
+import com.shikkhokplus.app.core.network.NotificationDetailDto
 import com.shikkhokplus.app.core.network.NotificationDto
 import com.shikkhokplus.app.feature.auth.AuthResult
 import kotlinx.coroutines.Dispatchers
@@ -56,12 +57,20 @@ class InboxViewModelTest {
     private class FakeRepository(
         var result: AuthResult<InboxDto>,
     ) : InboxRepository {
-        var marked = 0
+        val marked = mutableListOf<String>()
+        var markedAll = 0
 
         override suspend fun inbox(): AuthResult<InboxDto> = result
 
-        override suspend fun markRead(): AuthResult<Unit> {
-            marked++
+        override suspend fun detail(id: String): AuthResult<NotificationDetailDto> = AuthResult.TransportFailure
+
+        override suspend fun markAllRead(): AuthResult<Unit> {
+            markedAll++
+            return AuthResult.Ok(Unit)
+        }
+
+        override suspend fun markRead(id: String): AuthResult<Unit> {
+            marked += id
             return AuthResult.Ok(Unit)
         }
     }
@@ -79,7 +88,7 @@ class InboxViewModelTest {
         assertEquals(listOf(true, false), loaded.messages.map { it.unread })
         assertEquals(1, loaded.unread)
         assertEquals(Money.of("1200.00"), loaded.messages.first().amount)
-        assertEquals(0, repo.marked, "the bell's read must not mark anything read")
+        assertEquals(emptyList(), repo.marked, "the bell's read must not mark anything read")
     }
 
     @Test
@@ -109,26 +118,45 @@ class InboxViewModelTest {
     }
 
     @Test
-    fun `opening the inbox marks it read once it has shown unread messages`() = runTest(dispatcher) {
+    fun `opening the inbox marks nothing read`() = runTest(dispatcher) {
         val repo = FakeRepository(AuthResult.Ok(InboxDto(listOf(message("n-1")), 1)))
         val model = InboxViewModel(repo)
 
         model.open()
         advanceUntilIdle()
 
-        assertEquals(1, repo.marked)
+        assertEquals(emptyList(), repo.marked)
         assertEquals(true, assertIs<InboxUiState.Loaded>(model.state.value).messages.single().unread)
     }
 
     @Test
-    fun `opening an inbox with nothing unread marks nothing`() = runTest(dispatcher) {
-        val repo = FakeRepository(AuthResult.Ok(InboxDto(listOf(message("n-1", read = true)), 0)))
+    fun `tapping a row marks that one item read once, then navigates`() = runTest(dispatcher) {
+        val repo = FakeRepository(AuthResult.Ok(InboxDto(listOf(message("n-1", kind = "notice")), 1)))
         val model = InboxViewModel(repo)
-
         model.open()
         advanceUntilIdle()
+        val tapped = mutableListOf<InboxTarget>()
 
-        assertEquals(0, repo.marked)
+        model.select(assertIs<InboxUiState.Loaded>(model.state.value).messages.single()) { tapped += it }
+        advanceUntilIdle()
+
+        assertEquals(listOf("n-1"), repo.marked)
+        assertEquals(listOf<InboxTarget>(InboxTarget.Detail("n-1")), tapped)
+    }
+
+    @Test
+    fun `mark all read calls the server then reloads the inbox`() = runTest(dispatcher) {
+        val repo = FakeRepository(AuthResult.Ok(InboxDto(listOf(message("n-1")), 1)))
+        val model = InboxViewModel(repo)
+        model.open()
+        advanceUntilIdle()
+        repo.result = AuthResult.Ok(InboxDto(listOf(message("n-1", read = true)), 0))
+
+        model.markAllRead()
+        advanceUntilIdle()
+
+        assertEquals(1, repo.markedAll)
+        assertEquals(0, assertIs<InboxUiState.Loaded>(model.state.value).unread)
     }
 
     @Test
@@ -149,6 +177,6 @@ class InboxViewModelTest {
 
         assertEquals(InboxUiState.Failed("auth.expired", false), refusedModel.state.value)
         assertEquals(InboxUiState.Failed(InboxMapper.OFFLINE_KEY, true), offlineModel.state.value)
-        assertEquals(0, refused.marked + offline.marked)
+        assertEquals(emptyList(), refused.marked + offline.marked)
     }
 }

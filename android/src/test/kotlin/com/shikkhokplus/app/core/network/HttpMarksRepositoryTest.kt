@@ -74,6 +74,7 @@ class HttpMarksRepositoryTest {
             date = "2026-03-04",
             totalMarks = 50,
             batchSubjectId = "bs-7",
+            topics = listOf("Motion", "Force"),
         )
 
         val sent = engine.requestHistory.single()
@@ -82,6 +83,26 @@ class HttpMarksRepositoryTest {
         assertEquals("/v1/batches/b-1/exams", sent.url.encodedPath)
         assertTrue(body.contains("\"total_marks\":50"), body)
         assertTrue(body.contains("\"batch_subject_id\":\"bs-7\""), body)
+        assertTrue(body.contains("\"topics\":[\"Motion\",\"Force\"]"), body)
+    }
+
+    @Test
+    fun `editing an exam always sends its topics, even when there are none`() = runTest {
+        // The server reads a missing `topics` as "keep the old ones" [D-26],
+        // so this app must send the list it means, including an empty one,
+        // or a teacher clearing every topic would see them come back.
+        val engine = MockEngine { respond("", HttpStatusCode.OK, jsonHeaders()) }
+
+        repo(engine).editExam("x-9", "Unit test", "2026-03-04", 50, listOf("Motion", "Force"))
+        repo(engine).editExam("x-9", "Unit test", "2026-03-04", 50, emptyList())
+
+        val (withTopics, cleared) = engine.requestHistory
+        assertEquals(HttpMethod.Put, withTopics.method)
+        assertEquals("/v1/exams/x-9", withTopics.url.encodedPath)
+        val first = (withTopics.body as TextContent).text
+        assertTrue(first.contains("\"topics\":[\"Motion\",\"Force\"]"), first)
+        val second = (cleared.body as TextContent).text
+        assertTrue(second.contains("\"topics\":[]"), second)
     }
 
     @Test

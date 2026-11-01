@@ -13,7 +13,11 @@ import com.shikkhokplus.app.core.format.todayAsUtcMillis
 import com.shikkhokplus.app.core.network.SubjectOptionDto
 import com.shikkhokplus.app.core.ui.TAG_FORM_NAME
 import com.shikkhokplus.app.core.ui.TAG_FORM_SUBMIT
+import androidx.compose.ui.test.assertTextContains
 import com.shikkhokplus.app.feature.marks.ui.ExamCreateForm
+import com.shikkhokplus.app.feature.marks.ui.ExamFormValues
+import com.shikkhokplus.app.feature.marks.ui.TAG_EXAM_TOPICS
+import com.shikkhokplus.app.feature.marks.ui.TAG_EXAM_TOPICS_ERROR
 import com.shikkhokplus.app.feature.marks.ui.TAG_EXAM_SUBJECT
 import com.shikkhokplus.app.feature.marks.ui.TAG_EXAM_SUBJECTS_FAILED
 import com.shikkhokplus.app.feature.marks.ui.TAG_EXAM_TOTAL
@@ -35,7 +39,7 @@ import kotlin.test.assertNull
  * carried the subject key an exam needs.
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34])
+@Config(sdk = [34], qualifiers = "w411dp-h1600dp")
 class ExamCreateFormTest {
 
     @get:Rule
@@ -53,7 +57,7 @@ class ExamCreateFormTest {
         compose.setContent {
             ExamCreateForm(
                 subjects = listOf(physics),
-                onCreate = { t, d, n, s -> sent = listOf(t, d, n, s) },
+                onCreate = { t, d, n, s, tp -> sent = listOf(t, d, n, s, tp) },
                 onCancel = {},
                 todayUtcMillis = nov4,
             )
@@ -64,7 +68,7 @@ class ExamCreateFormTest {
         compose.onNodeWithTag(TAG_FORM_SUBMIT).performClick()
 
         // One subject is pre-selected: there is nothing to choose.
-        assertEquals(listOf("Weekly test 5", "2026-11-04", 50, "bs-1"), sent)
+        assertEquals(listOf("Weekly test 5", "2026-11-04", 50, "bs-1", emptyList<String>()), sent)
     }
 
     @Test
@@ -72,7 +76,7 @@ class ExamCreateFormTest {
         compose.setContent {
             ExamCreateForm(
                 subjects = listOf(physics, chemistry),
-                onCreate = { _, _, _, _ -> },
+                onCreate = { _, _, _, _, _ -> },
                 onCancel = {},
                 todayUtcMillis = nov4,
             )
@@ -92,7 +96,7 @@ class ExamCreateFormTest {
         compose.setContent {
             ExamCreateForm(
                 subjects = listOf(physics),
-                onCreate = { _, _, _, _ -> },
+                onCreate = { _, _, _, _, _ -> },
                 onCancel = {},
                 todayUtcMillis = nov4,
             )
@@ -109,7 +113,7 @@ class ExamCreateFormTest {
         compose.setContent {
             ExamCreateForm(
                 subjects = emptyList(),
-                onCreate = { _, _, _, _ -> },
+                onCreate = { _, _, _, _, _ -> },
                 onCancel = {},
                 todayUtcMillis = nov4,
             )
@@ -125,7 +129,7 @@ class ExamCreateFormTest {
         compose.setContent {
             ExamCreateForm(
                 subjects = listOf(physics),
-                onCreate = { _, _, _, _ -> calls++ },
+                onCreate = { _, _, _, _, _ -> calls++ },
                 onCancel = {},
                 saving = true,
                 todayUtcMillis = nov4,
@@ -176,7 +180,7 @@ class ExamCreateFormTest {
         compose.setContent {
             ExamCreateForm(
                 subjects = listOf(physics),
-                onCreate = { t, _, _, _ -> sent = t },
+                onCreate = { t, _, _, _, _ -> sent = t },
                 onCancel = {},
                 todayUtcMillis = nov4,
             )
@@ -184,5 +188,80 @@ class ExamCreateFormTest {
         compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Quiz")
 
         assertNull(sent)
+    }
+
+    @Test
+    fun `typed lines become topics, blanks dropped and each trimmed`() {
+        var topics: List<String>? = null
+        compose.setContent {
+            ExamCreateForm(
+                subjects = listOf(physics),
+                onCreate = { _, _, _, _, tp -> topics = tp },
+                onCancel = {},
+                todayUtcMillis = nov4,
+            )
+        }
+        compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Quiz")
+        compose.onNodeWithTag(TAG_EXAM_TOTAL).performTextInput("20")
+        compose.onNodeWithTag(TAG_EXAM_TOPICS)
+            .performTextInput("Motion\n\n  Force  \nEnergy")
+        compose.onNodeWithTag(TAG_FORM_SUBMIT).performClick()
+
+        assertEquals(listOf("Motion", "Force", "Energy"), topics)
+    }
+
+    @Test
+    fun `editing pre-fills the topics one per line and resends them`() {
+        var topics: List<String>? = null
+        compose.setContent {
+            ExamCreateForm(
+                subjects = emptyList(),
+                onCreate = { _, _, _, _, tp -> topics = tp },
+                onCancel = {},
+                todayUtcMillis = nov4,
+                editing = ExamFormValues("Quiz", "2026-11-04", 20, listOf("Motion", "Force")),
+            )
+        }
+        compose.onNodeWithTag(TAG_EXAM_TOPICS).assertTextContains("Motion\nForce")
+        compose.onNodeWithTag(TAG_FORM_SUBMIT).performClick()
+
+        assertEquals(listOf("Motion", "Force"), topics)
+    }
+
+    @Test
+    fun `twenty-one topics disable submit and show the error`() {
+        compose.setContent {
+            ExamCreateForm(
+                subjects = listOf(physics),
+                onCreate = { _, _, _, _, _ -> },
+                onCancel = {},
+                todayUtcMillis = nov4,
+            )
+        }
+        compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Quiz")
+        compose.onNodeWithTag(TAG_EXAM_TOTAL).performTextInput("20")
+        compose.onNodeWithTag(TAG_EXAM_TOPICS)
+            .performTextInput((1..21).joinToString("\n") { "T$it" })
+
+        compose.onNodeWithTag(TAG_FORM_SUBMIT).assertIsNotEnabled()
+        compose.onNodeWithTag(TAG_EXAM_TOPICS_ERROR).assertIsDisplayed()
+    }
+
+    @Test
+    fun `a topic over 120 characters disables submit`() {
+        compose.setContent {
+            ExamCreateForm(
+                subjects = listOf(physics),
+                onCreate = { _, _, _, _, _ -> },
+                onCancel = {},
+                todayUtcMillis = nov4,
+            )
+        }
+        compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Quiz")
+        compose.onNodeWithTag(TAG_EXAM_TOTAL).performTextInput("20")
+        compose.onNodeWithTag(TAG_EXAM_TOPICS).performTextInput("x".repeat(121))
+
+        compose.onNodeWithTag(TAG_FORM_SUBMIT).assertIsNotEnabled()
+        compose.onNodeWithTag(TAG_EXAM_TOPICS_ERROR).assertIsDisplayed()
     }
 }

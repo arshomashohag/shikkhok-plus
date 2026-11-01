@@ -77,6 +77,7 @@ data class UpcomingExam(val title: String, val date: String, val totalMarks: Int
  * @property nextClass This batch's next class, or null
  * @property isNext Whether that is the student's next class anywhere
  * @property lastResult The latest marked result, or null
+ * @property childName Whose seat, when a guardian is reading; else null
  */
 data class StudentBatchRow(
     val enrollmentId: String,
@@ -87,6 +88,7 @@ data class StudentBatchRow(
     val nextClass: NextClass? = null,
     val isNext: Boolean = false,
     val lastResult: LastResult? = null,
+    val childName: String? = null,
 )
 
 /** Everything S1, "My batches", renders. */
@@ -136,10 +138,94 @@ data class TopicRow(val date: String, val topic: String, val subjectName: String
 /**
  * One notice.
  *
- * @property body The text
+ * @property body The text, as the teacher typed it
  * @property postedAt When, as the server formatted it
+ * @property noticeId The notice, which its detail is opened by
+ * @property edited Whether the teacher changed it after posting
  */
-data class NoticeRow(val body: String, val postedAt: String)
+data class NoticeRow(
+    val body: String,
+    val postedAt: String,
+    val noticeId: String = "",
+    val edited: Boolean = false,
+)
+
+/**
+ * One past class, as the Classes tab lists it and its detail shows it.
+ *
+ * @property sessionId The class
+ * @property date `yyyy-MM-dd`
+ * @property startTime `HH:MM`
+ * @property topic What was covered, or null when none was logged
+ * @property subjectName What it taught, or null
+ * @property present Whether the seat attended, or null when not marked
+ */
+data class PastClass(
+    val sessionId: String,
+    val date: String,
+    val startTime: String,
+    val topic: String?,
+    val subjectName: String?,
+    val present: Boolean?,
+)
+
+/**
+ * One exam, with the server's word on where it stands.
+ *
+ * @property examId The exam
+ * @property title Its title
+ * @property date `yyyy-MM-dd`
+ * @property subjectName Which subject
+ * @property totalMarks Out of how many
+ * @property topics What it covers, as the teacher typed it
+ * @property done Whether the server calls it `done` [TC-9]
+ */
+data class FamilyExam(
+    val examId: String,
+    val title: String,
+    val date: String,
+    val subjectName: String,
+    val totalMarks: Int,
+    val topics: List<String>,
+    val done: Boolean,
+)
+
+/**
+ * The batch's teacher as a family sees them.
+ *
+ * @property displayName What they are called, or null
+ * @property subjects The batch's subjects
+ */
+data class FamilyTeacher(val displayName: String?, val subjects: List<String>) {
+    /** The first letters of the first two words of the name, or null with no name. */
+    val initials: String?
+        get() =
+            displayName
+                ?.split(' ')
+                ?.filter { it.isNotBlank() }
+                ?.take(INITIALS)
+                ?.joinToString("") { it.take(1).uppercase() }
+                ?.takeIf { it.isNotEmpty() }
+
+    private companion object {
+        const val INITIALS = 2
+    }
+}
+
+/** The four tabs of a batch, as a student or guardian sees it. */
+enum class FamilyTab {
+    /** The next class and the past ones. */
+    CLASSES,
+
+    /** Exams, upcoming then done. */
+    EXAMS,
+
+    /** The teacher's notices. */
+    NOTICES,
+
+    /** The teacher's name and subjects. */
+    TEACHER,
+}
 
 /**
  * One batch from the student's side (S2).
@@ -154,6 +240,10 @@ data class NoticeRow(val body: String, val postedAt: String)
  * @property next The next class, or null
  * @property following The classes after it
  * @property upcomingExam The next exam to sit, or null
+ * @property classes Every past class, newest first
+ * @property upcomingExams Exams the server calls `upcoming`, in its order
+ * @property doneExams Exams the server calls `done`, in its order
+ * @property teacher The teacher
  */
 data class StudentBatchView(
     val batch: StudentBatchRow,
@@ -165,7 +255,27 @@ data class StudentBatchView(
     val next: NextClass? = null,
     val following: List<NextClass> = emptyList(),
     val upcomingExam: UpcomingExam? = null,
-)
+    val classes: List<PastClass> = emptyList(),
+    val upcomingExams: List<FamilyExam> = emptyList(),
+    val doneExams: List<FamilyExam> = emptyList(),
+    val teacher: FamilyTeacher = FamilyTeacher(null, emptyList()),
+) {
+    /**
+     * One past class, by id.
+     *
+     * @param sessionId The class
+     * @return The class, or null when it is not in this batch
+     */
+    fun pastClass(sessionId: String): PastClass? = classes.firstOrNull { it.sessionId == sessionId }
+
+    /**
+     * One notice, by id.
+     *
+     * @param noticeId The notice
+     * @return The notice, or null when it is not in this batch
+     */
+    fun notice(noticeId: String): NoticeRow? = notices.firstOrNull { it.noticeId == noticeId }
+}
 
 /** Everything S2 renders. */
 sealed interface StudentBatchUiState {
@@ -186,4 +296,25 @@ sealed interface StudentBatchUiState {
      * @property retryable Read from the server's envelope [TC-9]
      */
     data class Failed(val messageKey: String, val retryable: Boolean) : StudentBatchUiState
+}
+
+/** Everything one exam's detail renders. */
+sealed interface FamilyExamUiState {
+    /** A request is in flight. */
+    data object Loading : FamilyExamUiState
+
+    /**
+     * The exam, loaded.
+     *
+     * @property exam What the screen shows
+     */
+    data class Loaded(val exam: FamilyExam) : FamilyExamUiState
+
+    /**
+     * Something failed.
+     *
+     * @property messageKey Names a string resource
+     * @property retryable Read from the server's envelope [TC-9]
+     */
+    data class Failed(val messageKey: String, val retryable: Boolean) : FamilyExamUiState
 }

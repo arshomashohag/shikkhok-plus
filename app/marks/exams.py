@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import datetime as dt
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import sqlalchemy as sa
 from sqlalchemy.orm import Session as DbSession
@@ -23,6 +23,11 @@ from sqlalchemy.orm import Session as DbSession
 from app.authz.lenses import TeacherLens
 from app.db.models import Batch, BatchSubject, Exam
 from app.errors import ConflictError, ValidationError
+from app.notifications.inbox import EXAM_SCHEDULED
+from app.notifications.recipients import (
+    deliver_to_families,
+    mark_unread_for_families,
+)
 from app.teaching.roster import refuse
 
 __all__ = ["ExamRow", "create_exam", "list_exams", "readable_exam", "update_exam"]
@@ -39,6 +44,7 @@ class ExamRow:
     :ivar date: When it was sat
     :ivar total_marks: The denominator
     :ivar subject_name: The subject assessed
+    :ivar topics: What it covers, in the teacher's order
     """
 
     exam_id: uuid.UUID
@@ -46,6 +52,7 @@ class ExamRow:
     date: dt.date
     total_marks: int
     subject_name: str
+    topics: list[str] = field(default_factory=list)
 
 
 def _owned_active_batch(
@@ -140,6 +147,7 @@ def create_exam(
     title: str,
     date: dt.date,
     total_marks: int,
+    topics: list[str] | None = None,
 ) -> ExamRow:
     """Create one exam on one of this teacher's batches [BR4.1].
 
@@ -150,13 +158,14 @@ def create_exam(
     :param title: The teacher's name for it
     :param date: When it was sat
     :param total_marks: The denominator, at least 1
+    :param topics: What it covers, kept in order; none by default
     :return: The new exam
     :raises AuthorizationError: This lens does not own the batch, or
         the subject is not that batch's
     :raises ConflictError: The batch is inactive
     :raises ValidationError: The total is below one
     """
-    _owned_active_batch(session, lens=lens, batch_id=batch_id)
+    batch = _owned_active_batch(session, lens=lens, batch_id=batch_id)
     subject = _subject_of_batch(
         session, batch_id=batch_id, batch_subject_id=batch_subject_id
     )
@@ -168,9 +177,19 @@ def create_exam(
         title=title,
         date=date,
         total_marks=total_marks,
+        topics=list(topics or []),
         created_at=dt.datetime.now(tz=dt.UTC),
     )
     session.add(row)
+    session.flush()
+    deliver_to_families(
+        session,
+        batch=batch,
+        kind=EXAM_SCHEDULED,
+        source_id=row.id,
+        preview=row.title,
+        now=row.created_at,
+    )
     session.commit()
 
     return ExamRow(
@@ -179,6 +198,7 @@ def create_exam(
         date=row.date,
         total_marks=row.total_marks,
         subject_name=subject.name,
+        topics=list(row.topics),
     )
 
 
@@ -190,6 +210,7 @@ def update_exam(
     title: str,
     date: dt.date,
     total_marks: int,
+    topics: list[str] | None = None,
 ) -> ExamRow:
     """Edit an exam's title, date or total.
 
@@ -203,6 +224,7 @@ def update_exam(
     :param title: Its new title
     :param date: Its new date
     :param total_marks: Its new denominator
+    :param topics: Its new topics, replacing the old list; None keeps them
     :return: The updated exam
     :raises AuthorizationError: This lens does not reach the exam
     :raises ConflictError: The batch is inactive, or a live mark
@@ -233,9 +255,20 @@ def update_exam(
             message_key="marks.exam.total_below_recorded",
         )
 
+    new_topics = list(row.topics) if topics is None else list(topics)
+    changed = (row.title, row.date, list(row.topics)) != (title, date, new_topics)
     row.title = title
     row.date = date
     row.total_marks = total_marks
+    row.topics = new_topics
+    if changed:
+        mark_unread_for_families(
+            session,
+            batch_id=row.batch_id,
+            kind=EXAM_SCHEDULED,
+            source_id=row.id,
+            preview=title,
+        )
     session.commit()
 
     name = session.scalars(
@@ -247,6 +280,7 @@ def update_exam(
         date=row.date,
         total_marks=row.total_marks,
         subject_name=name,
+        topics=list(row.topics),
     )
 
 
@@ -279,6 +313,7 @@ def read_exam_row(
         date=exam.date,
         total_marks=exam.total_marks,
         subject_name=subject or "",
+        topics=list(exam.topics),
     )
 
 
@@ -315,6 +350,7 @@ def list_exams(
             date=entry[0].date,
             total_marks=entry[0].total_marks,
             subject_name=entry[1],
+            topics=list(entry[0].topics),
         )
         for entry in rows
     ]

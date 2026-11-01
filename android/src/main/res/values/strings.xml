@@ -272,6 +272,7 @@
          app builds: the cross-surface gate publishes the backend's
          keys and asserts a string for every one. -->
     <string name="fees_not_available">That is not available.</string>
+    <string name="inbox_not_available">This update is no longer available.</string>
     <string name="fees_resolution_not_set">No fee has been set for this batch.</string>
     <string name="fees_claim_no_open_cycle">There is nothing outstanding to pay right now.</string>
     <string name="fees_claim_amount_not_positive">Enter an amount greater than zero.</string>
@@ -548,6 +549,8 @@
     <string name="exam_create_subject">Subject</string>
     <string name="exam_create_subjects_failed">This batch\'s subjects could not be loaded. Go back and try again.</string>
     <string name="exam_create_submit">Create exam</string>
+    <string name="exam_topics_label">Topics (one per line)</string>
+    <string name="exam_topics_too_long">Up to 20 topics, each up to 120 characters.</string>
     <string name="profile_phone_label">Mobile number</string>
     <string name="profile_phone_note">This is your login and cannot be changed.</string>
     <string name="profile_delete">Delete my account</string>
@@ -640,6 +643,8 @@
     <string name="verify_duplicate_body">Used before for %1$s (%2$s, %3$s). Check before approving.</string>
     <string name="verify_reject_title">Reject this payment?</string>
     <string name="verify_reject_body">%1$s\'s claim of %2$s will be marked as not received. They will see that it was rejected.</string>
+    <string name="verify_reject_reason">Reason (optional)</string>
+    <string name="verify_reject_reason_count">%1$d/%2$d</string>
     <string name="verify_all_caught_up">All caught up</string>
     <string name="verify_all_caught_up_body">When a student or guardian submits a payment, it shows up here.</string>
     <string name="verify_decided_today">Decided today</string>
@@ -837,6 +842,30 @@
     <string name="inbox_payment_approved_body">%1$s for %2$s was approved.</string>
     <string name="inbox_payment_rejected_title">Payment not accepted · %1$s</string>
     <string name="inbox_payment_rejected_body">Your %1$s payment for %2$s was not accepted. Check with your teacher.</string>
+    <string name="inbox_payment_partial_title">Payment partly approved · %1$s</string>
+    <string name="inbox_payment_partial_body">%1$s for %2$s was partly approved.</string>
+    <string name="inbox_notice_title">Notice · %1$s</string>
+    <string name="inbox_exam_scheduled_title">Exam scheduled · %1$s</string>
+    <string name="inbox_marks_available_title">Marks available · %1$s</string>
+    <string name="inbox_claim_to_verify_title">Payment to check · %1$s</string>
+    <string name="inbox_claim_to_verify_body">%1$s for %2$s is waiting for your check.</string>
+    <string name="inbox_item_unavailable">This update is no longer available.</string>
+    <string name="inbox_mark_all_read">Mark all read</string>
+    <string name="inbox_detail_title">Notification</string>
+    <string name="inbox_notice_edited">Edited %1$s</string>
+    <string name="inbox_exam_date">Date</string>
+    <string name="inbox_exam_subject">Subject</string>
+    <string name="inbox_exam_total">Total marks</string>
+    <string name="inbox_exam_topics">Topics</string>
+    <string name="inbox_payment_period">Month</string>
+    <string name="inbox_payment_claimed">Claimed</string>
+    <string name="inbox_payment_approved_amount">Approved</string>
+    <string name="inbox_payment_outcome">Outcome</string>
+    <string name="inbox_payment_reason">Reason</string>
+    <string name="inbox_outcome_approved">Approved</string>
+    <string name="inbox_outcome_partial">Partly approved</string>
+    <string name="inbox_outcome_rejected">Not accepted</string>
+    <string name="inbox_outcome_pending">Waiting for a decision</string>
     <string name="student_next_in_min">Next class · in %1$s min</string>
     <string name="student_next_in_hours">Next class · in %1$s h %2$s min</string>
     <string name="student_today_at">Today, %1$s</string>
@@ -933,4 +962,28 @@
     <string name="signup_already_added_title">You\'ve been added already</string>
     <string name="signup_have_account">Already have an account?</string>
     <string name="signup_log_in">Log in</string>
+
+    <string name="family_tab_teacher">Teacher</string>
+    <string name="family_past_classes">Past classes</string>
+    <string name="family_exams_done">Done</string>
+    <string name="family_notices_empty">No notices yet.</string>
+    <string name="family_teacher_unnamed">Your teacher</string>
+    <string name="family_teacher_subjects">Subjects</string>
+    <string name="family_teacher_no_subjects">No subjects listed yet.</string>
+    <string name="family_class_title">Class</string>
+    <string name="family_exam_title">Exam</string>
+    <string name="family_notice_title">Notice</string>
+    <string name="family_detail_missing">This is no longer available.</string>
+    <string name="family_attendance">Attendance</string>
+    <string name="family_present">Present</string>
+    <string name="family_absent">Absent</string>
+    <string name="family_not_marked">Not marked</string>
+    <string name="family_exam_topics">Topics</string>
+    <string name="family_exam_no_topics">No topics listed yet.</string>
+    <string name="family_notice_edited">Edited</string>
+    <plurals name="tray_updates">
+        <item quantity="one">%1$d new update</item>
+        <item quantity="other">%1$d new updates</item>
+    </plurals>
+    <string name="tray_channel_name">Updates</string>
 </resources>

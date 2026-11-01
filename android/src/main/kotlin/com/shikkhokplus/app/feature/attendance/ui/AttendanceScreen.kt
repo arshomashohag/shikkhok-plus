@@ -90,6 +90,7 @@ const val TAG_ATTENDANCE_RETRY: String = "attendance_retry"
  * @param onToggle Called with the seat whose mark changed
  * @param onSubmit Called when the teacher commits the roster
  * @param onRetry Called with the failed item the teacher wants resent
+ * @param onBack Called by the back arrow
  * @param modifier Layout modifier
  */
 @Composable
@@ -98,10 +99,12 @@ fun AttendanceScreen(
     onToggle: (AttendanceSeat, Boolean) -> Unit = { _, _ -> },
     onSubmit: () -> Unit = {},
     onRetry: (String) -> Unit = {},
+    onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     ListScreenScaffold(
         title = stringResource(R.string.screen_title_attendance),
+        onBack = onBack,
         modifier = modifier,
     ) {
         when (state) {

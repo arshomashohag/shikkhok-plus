@@ -1,6 +1,7 @@
 package com.shikkhokplus.app.feature.student
 
 import com.shikkhokplus.app.core.network.FamilyBatchViewDto
+import com.shikkhokplus.app.core.network.FamilyExamDto
 import com.shikkhokplus.app.core.network.MeDto
 import com.shikkhokplus.app.core.network.ProgressEntryDto
 import com.shikkhokplus.app.core.network.StudentBatchDto
@@ -39,4 +40,13 @@ interface StudentRepository {
      * @return The series, a refusal, or a transport failure
      */
     suspend fun progress(enrollmentId: String): AuthResult<List<ProgressEntryDto>>
+
+    /**
+     * Read one exam of the seat's batch, with the topics it covers.
+     *
+     * @param enrollmentId The seat
+     * @param examId The exam
+     * @return The exam, a refusal, or a transport failure
+     */
+    suspend fun exam(enrollmentId: String, examId: String): AuthResult<FamilyExamDto>
 }

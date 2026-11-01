@@ -609,6 +609,7 @@ def record_rejection(
         claim_id=claim_id,
         verified_by_account_id=lens.account_id,
         correcting=body.correcting if body is not None else False,
+        reason=body.reason if body is not None else None,
     )
     return claim_response(views.claim_detail(session, lens=lens, claim_id=claim.id))
 

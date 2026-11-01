@@ -8,6 +8,8 @@ import com.shikkhokplus.app.core.network.AnnouncementDto
 import com.shikkhokplus.app.core.network.AttendanceEntryDto
 import com.shikkhokplus.app.core.network.CurrentFeeDto
 import com.shikkhokplus.app.core.network.FamilyBatchViewDto
+import com.shikkhokplus.app.core.network.FamilyExamDto
+import com.shikkhokplus.app.core.network.FamilyTeacherDto
 import com.shikkhokplus.app.core.network.ProgressEntryDto
 import com.shikkhokplus.app.core.network.ScheduleSlotDto
 import com.shikkhokplus.app.core.network.StudentBatchDto
@@ -176,4 +178,94 @@ class StudentStateMapperTest {
     }
 
     private fun StudentBatchesOf(dto: StudentBatchDto) = StudentStateMapper.afterBatches(listOf(dto), null)
+
+    @Test
+    fun `exams are grouped by the server's state and never by comparing dates`() {
+        val exams =
+            listOf(
+                FamilyExamDto("x-1", "Past but upcoming", "2020-01-01", "Physics", 50, listOf("Heat"), "upcoming"),
+                FamilyExamDto("x-2", "Future but done", "2099-01-01", "Physics", 50, emptyList(), "done"),
+            )
+
+        val page =
+            (
+                StudentStateMapper.afterBatch(
+                    StudentBatchDto("e-1", "Physics A"),
+                    FamilyBatchViewDto(servedAt = "2026-10-28T09:00:00Z", exams = exams),
+                    emptyList(),
+                ) as StudentBatchUiState.Loaded
+            ).view
+
+        assertEquals(listOf("x-1"), page.upcomingExams.map { it.examId })
+        assertEquals(listOf("x-2"), page.doneExams.map { it.examId })
+        assertEquals(listOf("Heat"), page.upcomingExams.single().topics)
+    }
+
+    @Test
+    fun `classes and notices keep their ids, and a blank topic is no topic`() {
+        val past =
+            listOf(
+                AttendanceEntryDto("s-1", "2026-10-14", "16:00:00", true, "Heat", topicLogged = true),
+                AttendanceEntryDto("s-2", "2026-10-12", "16:00:00", false, "", topicLogged = true),
+            )
+        val page =
+            (StudentStateMapper.afterBatch(seat(), view(past), emptyList()) as StudentBatchUiState.Loaded).view
+
+        assertEquals(listOf("Heat", null), page.classes.map { it.topic })
+        assertEquals(false, page.pastClass("s-2")?.present)
+        assertEquals("Bring a calculator", page.notice("a-1")?.body)
+        assertNull(page.notice("nope"))
+    }
+
+    @Test
+    fun `the teacher is carried and initials come from the first two words`() {
+        val page =
+            (
+                StudentStateMapper.afterBatch(
+                    seat(),
+                    FamilyBatchViewDto(
+                        servedAt = "2026-10-28T09:00:00Z",
+                        teacher = FamilyTeacherDto("md. abdul karim", listOf("Physics")),
+                    ),
+                    emptyList(),
+                ) as StudentBatchUiState.Loaded
+            ).view
+
+        assertEquals("MA", page.teacher.initials)
+        assertEquals(listOf("Physics"), page.teacher.subjects)
+        assertNull(FamilyTeacher(null, emptyList()).initials)
+        assertEquals("ক", FamilyTeacher("করিম", emptyList()).initials)
+    }
+
+    @Test
+    fun `a guardian's child name reaches the row`() {
+        val state =
+            StudentStateMapper.afterBatch(
+                StudentBatchDto("e-1", "Physics A", childName = "Tasnim"),
+                FamilyBatchViewDto(servedAt = "2026-10-28T09:00:00Z"),
+                emptyList(),
+            )
+
+        assertEquals("Tasnim", (state as StudentBatchUiState.Loaded).view.batch.childName)
+    }
+
+    @Test
+    fun `a blank teacher name is no name`() {
+        listOf("", "  ").forEach { blank ->
+            val page =
+                (
+                    StudentStateMapper.afterBatch(
+                        seat(),
+                        FamilyBatchViewDto(
+                            servedAt = "2026-10-28T09:00:00Z",
+                            teacher = FamilyTeacherDto(blank, emptyList()),
+                        ),
+                        emptyList(),
+                    ) as StudentBatchUiState.Loaded
+                ).view
+
+            assertNull(page.teacher.displayName)
+            assertNull(page.teacher.initials)
+        }
+    }
 }

@@ -231,6 +231,7 @@
     <!-- D3-এর সার্ভার বার্তা-কী। অ্যাপ বিল্ড হওয়ার আগেই প্রতিটির
          জন্য এখানে একটি স্ট্রিং থাকতে হবে। -->
     <string name="fees_not_available">এটি পাওয়া যাচ্ছে না।</string>
+    <string name="inbox_not_available">এই আপডেটটি আর পাওয়া যাচ্ছে না।</string>
     <string name="fees_resolution_not_set">এই ব্যাচের জন্য কোনও ফি ঠিক করা হয়নি।</string>
     <string name="fees_claim_no_open_cycle">এই মুহূর্তে পরিশোধ করার মতো কিছু বাকি নেই।</string>
     <string name="fees_claim_amount_not_positive">শূন্যের চেয়ে বেশি পরিমাণ লিখুন।</string>
@@ -493,6 +494,8 @@
     <string name="exam_create_subject">বিষয়</string>
     <string name="exam_create_subjects_failed">এই ব্যাচের বিষয়গুলো লোড করা যায়নি। ফিরে গিয়ে আবার চেষ্টা করুন।</string>
     <string name="exam_create_submit">পরীক্ষা তৈরি করুন</string>
+    <string name="exam_topics_label">বিষয়বস্তু (প্রতি লাইনে একটি)</string>
+    <string name="exam_topics_too_long">সর্বোচ্চ 20টি বিষয়বস্তু, প্রতিটি সর্বোচ্চ 120 অক্ষর।</string>
     <string name="profile_phone_label">মোবাইল নম্বর</string>
     <string name="profile_phone_note">এটি আপনার লগইন, বদলানো যাবে না।</string>
     <string name="profile_delete">আমার অ্যাকাউন্ট মুছুন</string>
@@ -584,6 +587,8 @@
     <string name="verify_duplicate_title">এই আইডি আগেও ব্যবহার হয়েছে।</string>
     <string name="verify_duplicate_body">আগে %1$s এর জন্য ব্যবহার হয়েছে (%2$s, %3$s)। অনুমোদনের আগে দেখে নিন।</string>
     <string name="verify_reject_title">এই পেমেন্ট বাতিল করবেন?</string>
+    <string name="verify_reject_reason">কারণ (ঐচ্ছিক)</string>
+    <string name="verify_reject_reason_count">%1$d/%2$d</string>
     <string name="verify_reject_body">%1$s এর %2$s দাবি পাওয়া যায়নি হিসেবে চিহ্নিত হবে। তিনি দেখবেন যে এটি বাতিল হয়েছে।</string>
     <string name="verify_all_caught_up">সব দেখা হয়ে গেছে</string>
     <string name="verify_all_caught_up_body">শিক্ষার্থী বা অভিভাবক পেমেন্ট জমা দিলে তা এখানে দেখা যাবে।</string>
@@ -782,6 +787,30 @@
     <string name="inbox_payment_approved_body">%2$s মাসের %1$s অনুমোদিত হয়েছে।</string>
     <string name="inbox_payment_rejected_title">পেমেন্ট গৃহীত হয়নি · %1$s</string>
     <string name="inbox_payment_rejected_body">%2$s মাসের আপনার %1$s পেমেন্ট গৃহীত হয়নি। শিক্ষকের সাথে কথা বলুন।</string>
+    <string name="inbox_payment_partial_title">পেমেন্ট আংশিক গৃহীত · %1$s</string>
+    <string name="inbox_payment_partial_body">%2$s মাসের %1$s পেমেন্ট আংশিক গৃহীত হয়েছে।</string>
+    <string name="inbox_notice_title">নোটিশ · %1$s</string>
+    <string name="inbox_exam_scheduled_title">পরীক্ষা নির্ধারিত · %1$s</string>
+    <string name="inbox_marks_available_title">নম্বর পাওয়া যাচ্ছে · %1$s</string>
+    <string name="inbox_claim_to_verify_title">যাচাইয়ের অপেক্ষায় পেমেন্ট · %1$s</string>
+    <string name="inbox_claim_to_verify_body">%2$s মাসের %1$s পেমেন্ট আপনার যাচাইয়ের অপেক্ষায় আছে।</string>
+    <string name="inbox_item_unavailable">এই আপডেটটি আর পাওয়া যাচ্ছে না।</string>
+    <string name="inbox_mark_all_read">সব পড়া হয়েছে</string>
+    <string name="inbox_detail_title">বিজ্ঞপ্তি</string>
+    <string name="inbox_notice_edited">সম্পাদিত %1$s</string>
+    <string name="inbox_exam_date">তারিখ</string>
+    <string name="inbox_exam_subject">বিষয়</string>
+    <string name="inbox_exam_total">পূর্ণমান</string>
+    <string name="inbox_exam_topics">আলোচ্য বিষয়</string>
+    <string name="inbox_payment_period">মাস</string>
+    <string name="inbox_payment_claimed">দাবি করা</string>
+    <string name="inbox_payment_approved_amount">গৃহীত</string>
+    <string name="inbox_payment_outcome">ফলাফল</string>
+    <string name="inbox_payment_reason">কারণ</string>
+    <string name="inbox_outcome_approved">গৃহীত</string>
+    <string name="inbox_outcome_partial">আংশিক গৃহীত</string>
+    <string name="inbox_outcome_rejected">গৃহীত হয়নি</string>
+    <string name="inbox_outcome_pending">সিদ্ধান্তের অপেক্ষায়</string>
     <string name="student_next_in_min">পরের ক্লাস · %1$s মিনিট পর</string>
     <string name="student_next_in_hours">পরের ক্লাস · %1$s ঘণ্টা %2$s মিনিট পর</string>
     <string name="student_today_at">আজ, %1$s</string>
@@ -878,4 +907,28 @@
     <string name="signup_already_added_title">আপনাকে আগেই যোগ করা হয়েছে</string>
     <string name="signup_have_account">আগেই অ্যাকাউন্ট আছে?</string>
     <string name="signup_log_in">লগ ইন</string>
+
+    <string name="family_tab_teacher">শিক্ষক</string>
+    <string name="family_past_classes">আগের ক্লাস</string>
+    <string name="family_exams_done">সম্পন্ন</string>
+    <string name="family_notices_empty">এখনও কোনো নোটিশ নেই।</string>
+    <string name="family_teacher_unnamed">আপনার শিক্ষক</string>
+    <string name="family_teacher_subjects">বিষয়</string>
+    <string name="family_teacher_no_subjects">এখনও কোনো বিষয় দেওয়া হয়নি।</string>
+    <string name="family_class_title">ক্লাস</string>
+    <string name="family_exam_title">পরীক্ষা</string>
+    <string name="family_notice_title">নোটিশ</string>
+    <string name="family_detail_missing">এটি আর পাওয়া যাচ্ছে না।</string>
+    <string name="family_attendance">উপস্থিতি</string>
+    <string name="family_present">উপস্থিত</string>
+    <string name="family_absent">অনুপস্থিত</string>
+    <string name="family_not_marked">চিহ্নিত করা হয়নি</string>
+    <string name="family_exam_topics">বিষয়সমূহ</string>
+    <string name="family_exam_no_topics">এখনও কোনো টপিক দেওয়া হয়নি।</string>
+    <string name="family_notice_edited">সম্পাদিত</string>
+    <plurals name="tray_updates">
+        <item quantity="one">%1$d টি নতুন আপডেট</item>
+        <item quantity="other">%1$d টি নতুন আপডেট</item>
+    </plurals>
+    <string name="tray_channel_name">আপডেট</string>
 </resources>

@@ -17,18 +17,15 @@ import uuid
 from dataclasses import replace
 from typing import Annotated
 
-import sqlalchemy as sa
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_session, guardian_lens, student_lens, teacher_lens
+from app.api.fee_line import current_fee
 from app.api.teaching import upcoming_response
 from app.authz.lenses import GuardianLens, StudentLens, TeacherLens
 from app.batches import service
-from app.db.models import PaymentClaim
 from app.errors import AuthorizationError
-from app.fees.views import enrollment_fee_history
-from app.local_time import DHAKA
 from app.marks.views import guardian_progress
 from app.money import Money as DomainMoney
 from app.money.wire import parse, to_wire
@@ -36,7 +33,6 @@ from app.schemas.batches import (
     BatchCreateRequest,
     BatchResponse,
     BatchUpdateRequest,
-    CurrentFeeResponse,
     EnrollmentCreateRequest,
     GuardianChildResponse,
     InactiveFromRequest,
@@ -422,7 +418,7 @@ def list_my_batches(
                 )
                 for weekday, start, end in row.schedule
             ],
-            current_fee=_current_fee(session, lens, row.enrollment_id),
+            current_fee=current_fee(session, lens, row.enrollment_id),
             next_session=(
                 upcoming_response(nexts[row.enrollment_id])
                 if row.enrollment_id in nexts
@@ -458,40 +454,6 @@ def _last_result(
     last, marks = marked[-1]
     return LastResultResponse(
         title=last.title, marks=marks, total_marks=last.total_marks, rank=last.rank
-    )
-
-
-def _current_fee(
-    session: Session, lens: StudentLens, enrollment_id: uuid.UUID
-) -> CurrentFeeResponse | None:
-    """Read the seat's latest fee period through the fee module's rules.
-
-    :param session: The session to read through
-    :param lens: The student lens, which the fee read re-authorizes
-    :param enrollment_id: The seat
-    :return: The latest period, or None before the first is generated
-    """
-    history = enrollment_fee_history(session, lens=lens, enrollment_id=enrollment_id)
-    if not history.cycles:
-        return None
-    latest = history.cycles[-1]
-    claims = session.execute(
-        sa.select(PaymentClaim.status, PaymentClaim.verified_at).where(
-            PaymentClaim.enrollment_id == enrollment_id,
-            PaymentClaim.period == latest.period,
-        )
-    ).all()
-    approvals = [
-        when for status, when in claims if status.startswith("approved") and when
-    ]
-    return CurrentFeeResponse(
-        period=latest.period,
-        status=latest.status,
-        due_date=latest.due_date,
-        outstanding=WireMoney(to_wire(latest.outstanding)),
-        charged=WireMoney(to_wire(latest.charged)),
-        verifying=any(status == "pending" for status, _ in claims),
-        paid_on=max(approvals).astimezone(DHAKA).date() if approvals else None,
     )
 
 

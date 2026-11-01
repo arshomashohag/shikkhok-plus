@@ -126,6 +126,12 @@ NON_MONEY_FIELDS: Final[dict[tuple[str, str], str]] = {
         "An INTEGER COUNT of marks on the exam read, not an amount. "
         "It is the denominator a score is out of."
     ),
+    ("FamilyExamResponse", "total_marks"): (
+        "The same count on a family's exam list and detail, not money."
+    ),
+    ("ExamBlock", "total_marks"): (
+        "The same count on an inbox item's exam detail, not money."
+    ),
     ("ExamCreateRequest", "total_marks"): (
         "The same count inbound, on creation. A request schema reaches the gate too."
     ),

@@ -61,6 +61,7 @@ const val TAG_EXAMS_RETRY: String = "exams_retry"
  * @param onOpen Called with the exam the teacher tapped
  * @param onCreate Called when the teacher wants a new exam
  * @param onRetry Called when the teacher asks to retry
+ * @param onBack Called by the back arrow
  * @param modifier Layout modifier
  */
 @Composable
@@ -69,10 +70,12 @@ fun ExamListScreen(
     onOpen: (ExamRow) -> Unit,
     onCreate: () -> Unit = {},
     onRetry: () -> Unit = {},
+    onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     ListScreenScaffold(
         title = stringResource(R.string.screen_title_exam_list),
+        onBack = onBack,
         modifier = modifier,
     ) {
         when (state) {

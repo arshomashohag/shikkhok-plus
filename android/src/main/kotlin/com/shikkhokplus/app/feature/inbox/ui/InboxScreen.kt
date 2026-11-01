@@ -1,6 +1,7 @@
 package com.shikkhokplus.app.feature.inbox.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +21,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,6 +52,9 @@ const val TAG_INBOX_BADGE: String = "inbox_badge"
 /** One message. */
 const val TAG_INBOX_ITEM: String = "inbox_item"
 
+/** The mark-all-read action. */
+const val TAG_INBOX_MARK_ALL: String = "inbox_mark_all"
+
 /** The empty inbox. */
 const val TAG_INBOX_EMPTY: String = "inbox_empty"
 
@@ -66,6 +71,8 @@ private const val BADGE_MAX = 9
  * @param onBack Called to leave
  * @param onRetry Called to read again after a failure
  * @param modifier The layout modifier
+ * @param onSelect Called with the item the reader taps
+ * @param onMarkAllRead Called to mark every message read
  */
 @Composable
 fun InboxScreen(
@@ -73,11 +80,20 @@ fun InboxScreen(
     onBack: () -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
+    onSelect: (InboxMessage) -> Unit = {},
+    onMarkAllRead: () -> Unit = {},
 ) {
     ListScreenScaffold(
         title = stringResource(R.string.inbox_title),
         modifier = modifier,
         onBack = onBack,
+        actions = {
+            if (state is InboxUiState.Loaded && state.unread > 0) {
+                TextButton(onClick = onMarkAllRead, modifier = Modifier.testTag(TAG_INBOX_MARK_ALL)) {
+                    Text(stringResource(R.string.inbox_mark_all_read))
+                }
+            }
+        },
     ) {
         when (state) {
             InboxUiState.Loading -> SkeletonList(modifier = Modifier.padding(top = 8.dp))
@@ -97,7 +113,7 @@ fun InboxScreen(
                         modifier = Modifier.padding(top = 8.dp).testTag(TAG_INBOX_EMPTY),
                     )
                 } else {
-                    Messages(state.messages)
+                    Messages(state.messages, onSelect)
                 }
         }
     }
@@ -107,9 +123,10 @@ fun InboxScreen(
  * The messages, in one white card.
  *
  * @param messages Newest first
+ * @param onSelect Called with the item tapped
  */
 @Composable
-private fun Messages(messages: List<InboxMessage>) {
+private fun Messages(messages: List<InboxMessage>, onSelect: (InboxMessage) -> Unit) {
     LazyColumn(Modifier.padding(top = 8.dp)) {
         itemsIndexed(messages, key = { _, message -> message.id }) { index, message ->
             Column(
@@ -123,7 +140,7 @@ private fun Messages(messages: List<InboxMessage>) {
                         color = MaterialTheme.colorScheme.surfaceContainerHigh,
                     )
                 }
-                MessageRow(message)
+                MessageRow(message, onSelect)
             }
         }
     }
@@ -149,12 +166,14 @@ private fun rowShape(index: Int, count: Int) =
  * One reminder: bell, batch, what is owed, and when it came.
  *
  * @param message The message
+ * @param onSelect Called when the row is tapped
  */
 @Composable
-private fun MessageRow(message: InboxMessage) {
+private fun MessageRow(message: InboxMessage, onSelect: (InboxMessage) -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
+            .clickable { onSelect(message) }
             .heightIn(min = 72.dp)
             .padding(horizontal = 16.dp, vertical = 12.dp)
             .testTag(TAG_INBOX_ITEM),
@@ -176,13 +195,13 @@ private fun MessageRow(message: InboxMessage) {
         }
         Column(Modifier.weight(1f)) {
             Text(
-                stringResource(titleOf(message.kind), Numerals.freeText(message.batchName)),
+                inboxTitle(message.kind, message.childName, message.batchName),
                 style =
                     MaterialTheme.typography.bodyLarge.copy(
                         fontWeight = if (message.unread) FontWeight.Bold else FontWeight.Normal,
                     ),
             )
-            body(message)?.let {
+            (message.preview?.let(Numerals::freeText) ?: body(message))?.let {
                 Text(
                     it,
                     style = MaterialTheme.typography.bodyMedium,
@@ -202,7 +221,21 @@ private fun MessageRow(message: InboxMessage) {
 }
 
 /**
- * A message's heading, by what it is about.
+ * A message's heading: what it is, then who and which batch.
+ *
+ * @param kind What it is about
+ * @param childName Which child, on a guardian's copy
+ * @param batchName The batch
+ * @return The heading, such as `Fee reminder · Rahim · Physics`
+ */
+@Composable
+internal fun inboxTitle(kind: InboxKind, childName: String?, batchName: String): String {
+    val subject = listOfNotNull(childName, batchName).joinToString(" · ")
+    return stringResource(titleOf(kind), Numerals.freeText(subject))
+}
+
+/**
+ * A message's heading template, by what it is about.
  *
  * @param kind What it is about
  * @return Its string resource
@@ -211,7 +244,12 @@ private fun titleOf(kind: InboxKind): Int =
     when (kind) {
         InboxKind.FEE_REMINDER -> R.string.inbox_fee_reminder_title
         InboxKind.PAYMENT_APPROVED -> R.string.inbox_payment_approved_title
+        InboxKind.PAYMENT_PARTIAL -> R.string.inbox_payment_partial_title
         InboxKind.PAYMENT_REJECTED -> R.string.inbox_payment_rejected_title
+        InboxKind.NOTICE -> R.string.inbox_notice_title
+        InboxKind.EXAM_SCHEDULED -> R.string.inbox_exam_scheduled_title
+        InboxKind.MARKS_AVAILABLE -> R.string.inbox_marks_available_title
+        InboxKind.CLAIM_TO_VERIFY -> R.string.inbox_claim_to_verify_title
     }
 
 /**
@@ -224,18 +262,24 @@ private fun titleOf(kind: InboxKind): Int =
 private fun body(message: InboxMessage): String? {
     val amount = message.amount ?: return null
     val period = message.period
-    if (message.kind != InboxKind.FEE_REMINDER && period != null) {
-        val month = monthName(period, short = false)
-        return if (message.kind == InboxKind.PAYMENT_APPROVED) {
-            stringResource(R.string.inbox_payment_approved_body, Numerals.money(amount), month)
-        } else {
-            stringResource(R.string.inbox_payment_rejected_body, Numerals.money(amount), month)
-        }
-    }
-    return if (period == null) {
-        stringResource(R.string.inbox_fee_reminder_body_no_period, Numerals.money(amount))
-    } else {
-        stringResource(R.string.inbox_fee_reminder_body, Numerals.money(amount), monthName(period, short = false))
+    val money = Numerals.money(amount)
+    val month = period?.let { monthName(it, short = false) }
+    return when {
+        month == null && message.kind == InboxKind.FEE_REMINDER ->
+            stringResource(R.string.inbox_fee_reminder_body_no_period, money)
+        month == null -> null
+        else ->
+            stringResource(
+                when (message.kind) {
+                    InboxKind.PAYMENT_APPROVED -> R.string.inbox_payment_approved_body
+                    InboxKind.PAYMENT_PARTIAL -> R.string.inbox_payment_partial_body
+                    InboxKind.PAYMENT_REJECTED -> R.string.inbox_payment_rejected_body
+                    InboxKind.CLAIM_TO_VERIFY -> R.string.inbox_claim_to_verify_body
+                    else -> R.string.inbox_fee_reminder_body
+                },
+                money,
+                month,
+            )
     }
 }
 

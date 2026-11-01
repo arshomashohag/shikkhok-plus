@@ -42,9 +42,7 @@ import com.shikkhokplus.app.feature.auth.SignupUiState
 import com.shikkhokplus.app.feature.auth.SignupViewModel
 import com.shikkhokplus.app.feature.auth.ui.AuthScreen
 import com.shikkhokplus.app.feature.auth.ui.SignupScreen
-import com.shikkhokplus.app.feature.batches.BatchesUiState
 import com.shikkhokplus.app.feature.batches.BatchesViewModel
-import com.shikkhokplus.app.feature.batches.ui.BatchesScreen
 import com.shikkhokplus.app.feature.roster.RosterViewModel
 import com.shikkhokplus.app.core.queue.QueueStore
 import com.shikkhokplus.app.core.session.Lens
@@ -229,33 +227,11 @@ fun ShikkhokNavHost(
             )
         }
 
-        composable(Destination.Batches.route) {
-            val model: BatchesViewModel =
-                viewModel { BatchesViewModel(HttpBatchesRepository(client)) }
-            val state by model.state.collectAsState()
-
-            LaunchedEffect(Unit) { model.load() }
-
-            BatchesScreen(
-                state = state,
-                bottomBar = {
-                    BottomNav(
-                        destinations = tabsFor(session.lens),
-                        selectedIndex = tabIndexOf(session.lens, Destination.Batches.route),
-                        onSelect = { navController.switchTab(it, session.lens) },
-                    )
-                },
-                onOpen = { id ->
-                    val name =
-                        (state as? BatchesUiState.Loaded)
-                            ?.rows
-                            ?.firstOrNull { it.id == id }
-                            ?.name
-                            .orEmpty()
-                    navController.navigate(Destination.Roster.of(id, name))
-                },
-                onRetry = model::retry,
-                onCreate = { navController.navigate(Destination.CreateBatch.route) },
+        batchesRoute(client, navController) {
+            BottomNav(
+                destinations = tabsFor(session.lens),
+                selectedIndex = tabIndexOf(session.lens, Destination.Batches.route),
+                onSelect = { navController.switchTab(it, session.lens) },
             )
         }
 
@@ -453,7 +429,11 @@ fun ShikkhokNavHost(
 
             LaunchedEffect(examId, seat) { model.loadMarksheet(examId, seat, reader) }
 
-            MarksheetScreen(state = state, onRetry = model::retry)
+            MarksheetScreen(
+                state = state,
+                onRetry = model::retry,
+                onBack = { navController.popBackStack() },
+            )
         }
 
         composable(
@@ -492,6 +472,7 @@ fun ShikkhokNavHost(
             ProgressScreen(
                 state = state,
                 onRetry = model::retry,
+                onBack = { navController.popBackStack() },
                 onOpenExam = { examId ->
                     navController.navigate(
                         Destination.Marksheet.of(examId, seat, reader.name),
@@ -525,7 +506,11 @@ fun ShikkhokNavHost(
 
             LaunchedEffect(seat, reader) { model.load(seat, reader) }
 
-            FeeHistoryScreen(state = state, onRetry = model::retry)
+            FeeHistoryScreen(
+                state = state,
+                onRetry = model::retry,
+                onBack = { navController.popBackStack() },
+            )
         }
 
         composable(Destination.GuardianHome.route) {
@@ -549,6 +534,7 @@ fun ShikkhokNavHost(
                         onResult = { result, _ ->
                             navController.navigate(Destination.ChildProgress.of(result.enrollmentId))
                         },
+                        onBatch = { seat -> navController.navigate(Destination.ChildBatch.of(seat)) },
                         onRetry = model::retry,
                     ),
                 bottomBar = {

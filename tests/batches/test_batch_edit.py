@@ -19,7 +19,13 @@ from sqlalchemy.orm import Session
 from app.authz.lenses import TeacherLens
 from app.batches import service
 from app.batches.service import BatchChanges
-from app.db.models import Batch, BatchSubject, Exam, LedgerEntryRow
+from app.db.models import (
+    Batch,
+    BatchSubject,
+    Enrollment,
+    Exam,
+    LedgerEntryRow,
+)
 from app.errors import AuthorizationError, ConflictError, ValidationError
 from app.fees.generation import generate_due_cycles
 from app.money import Money
@@ -97,6 +103,9 @@ def test_a_new_fee_leaves_charges_already_made_alone(
 ) -> None:
     """October was charged 1500; raising the fee to 1600 charges November.
 
+    The seat starts on 1 October, before the generation date, so the test
+    does not depend on today's date.
+
     :param owner_session: An arranging session
     :param restricted_session: The application-role session
     :param teacher: The batch's owner
@@ -108,6 +117,10 @@ def test_a_new_fee_leaves_charges_already_made_alone(
         display_name="Rahim",
         student_decision="pending",
     )
+    seat_row = owner_session.get(Enrollment, seat)
+    assert seat_row is not None
+    seat_row.joined_on = dt.date(2026, 10, 1)
+    owner_session.commit()
     generate_due_cycles(owner_session, today=dt.date(2026, 10, 15))
 
     service.update_batch(

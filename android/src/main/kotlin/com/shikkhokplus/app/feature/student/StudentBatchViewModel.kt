@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
- * Holds S2's state: one batch from the student's side.
+ * Holds S2's state: one batch from the student's or a guardian's side.
  *
  * Three reads, in order, and the first failure is the result: a half-
  * loaded batch would show a fee with no classes, or classes with no
@@ -27,6 +27,11 @@ class StudentBatchViewModel(
     /** What the screen renders. */
     val state: StateFlow<StudentBatchUiState> = _state.asStateFlow()
 
+    private val _tab = MutableStateFlow(FamilyTab.CLASSES)
+
+    /** The open tab, which survives the screen being rebuilt. */
+    val tab: StateFlow<FamilyTab> = _tab.asStateFlow()
+
     private var lastSeat: String? = null
 
     /**
@@ -38,6 +43,25 @@ class StudentBatchViewModel(
         lastSeat = enrollmentId
         _state.value = StudentBatchUiState.Loading
         viewModelScope.launch { _state.value = read(enrollmentId) }
+    }
+
+    /**
+     * Open a tab.
+     *
+     * @param tab The tab to show
+     */
+    fun select(tab: FamilyTab) {
+        _tab.value = tab
+    }
+
+    /**
+     * Load a seat only if this model has not already, for a detail
+     * screen that may be the first to build it.
+     *
+     * @param enrollmentId The seat
+     */
+    fun ensureLoaded(enrollmentId: String) {
+        if (lastSeat != enrollmentId) load(enrollmentId)
     }
 
     /** Repeat the load, only when asked [TC-8, D-9]. */
@@ -73,11 +97,14 @@ class StudentBatchViewModel(
                 is AuthResult.Ok -> result.value
                 else -> return failed(result)
             }
+        // The header's fee is the view's: the server's line for this seat,
+        // for a guardian as for a student, never one picked from a list.
+        val seat = batch.copy(currentFee = view.currentFee ?: batch.currentFee)
         // A refusal here is the teacher hiding marksheets from families:
         // the page still shows, with no results, rather than failing whole.
         return when (val result = repository.progress(batch.enrollmentId)) {
-            is AuthResult.Ok -> StudentStateMapper.afterBatch(batch, view, result.value)
-            is AuthResult.Refused -> StudentStateMapper.afterBatch(batch, view, emptyList())
+            is AuthResult.Ok -> StudentStateMapper.afterBatch(seat, view, result.value)
+            is AuthResult.Refused -> StudentStateMapper.afterBatch(seat, view, emptyList())
             AuthResult.TransportFailure -> failed(result)
         }
     }

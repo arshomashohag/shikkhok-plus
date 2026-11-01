@@ -26,6 +26,7 @@ from __future__ import annotations
 import datetime as dt
 import uuid
 from dataclasses import dataclass, field
+from typing import Literal
 
 import sqlalchemy as sa
 from sqlalchemy.orm import Session as DbSession
@@ -37,10 +38,16 @@ from app.db.models import (
     Batch,
     BatchSubject,
     Exam,
+    Mark,
     Session,
 )
 from app.errors import ConflictError
 from app.local_time import bangladesh_today
+from app.notifications.inbox import NOTICE, remove_for_source
+from app.notifications.recipients import (
+    deliver_to_families,
+    mark_unread_for_families,
+)
 from app.teaching.roster import readable_enrollment, refuse
 from app.teaching.upcoming import UpcomingSession, upcoming_sessions
 
@@ -48,9 +55,12 @@ __all__ = [
     "AnnouncementRow",
     "AttendanceEntry",
     "FamilyBatchView",
+    "FamilyExam",
+    "FamilyTeacher",
     "delete_announcement",
     "edit_announcement",
     "family_batch_view",
+    "family_exam",
     "list_announcements",
     "post_announcement",
 ]
@@ -95,6 +105,42 @@ class AttendanceEntry:
 
 
 @dataclass(frozen=True, slots=True)
+class FamilyTeacher:
+    """The teacher as a family sees them: a name and what they teach.
+
+    Never a phone, an address or the owner's private profile.
+
+    :ivar display_name: What the teacher is called, or None
+    :ivar subjects: The batch's subject names
+    """
+
+    display_name: str | None
+    subjects: list[str]
+
+
+@dataclass(frozen=True, slots=True)
+class FamilyExam:
+    """One exam as a family sees it.
+
+    :ivar exam_id: The exam
+    :ivar title: Its title
+    :ivar date: When
+    :ivar subject_name: Which subject
+    :ivar total_marks: Out of how many
+    :ivar topics: What it covers
+    :ivar state: ``done`` once past or once this seat has a live mark
+    """
+
+    exam_id: uuid.UUID
+    title: str
+    date: dt.date
+    subject_name: str
+    total_marks: int
+    topics: list[str]
+    state: Literal["upcoming", "done"]
+
+
+@dataclass(frozen=True, slots=True)
 class FamilyBatchView:
     """What a student or guardian sees of one batch [BR7.2].
 
@@ -110,6 +156,9 @@ class FamilyBatchView:
     :ivar coming: The next classes, soonest first: the first is "Next
         class", the rest are "Then ..."
     :ivar upcoming_exam: The next exam still to be sat, if any
+    :ivar teacher: The teacher's display name and subjects
+    :ivar exams: Every exam, upcoming soonest first then done newest
+        first
     """
 
     next_session_date: dt.date | None
@@ -119,6 +168,10 @@ class FamilyBatchView:
     served_at: dt.datetime
     coming: list[UpcomingSession] = field(default_factory=list)
     upcoming_exam: UpcomingExam | None = None
+    teacher: FamilyTeacher = field(
+        default_factory=lambda: FamilyTeacher(display_name=None, subjects=[])
+    )
+    exams: list[FamilyExam] = field(default_factory=list)
 
 
 @dataclass(frozen=True, slots=True)
@@ -202,6 +255,10 @@ def _reachable_announcement(
     return row
 
 
+#: How much of a notice the inbox row carries.
+PREVIEW_LENGTH = 140
+
+
 def post_announcement(
     session: DbSession,
     *,
@@ -219,17 +276,27 @@ def post_announcement(
     :raises AuthorizationError: This lens does not own the batch
     :raises ConflictError: The batch is inactive
     """
-    _writable_batch(session, lens=lens, batch_id=batch_id)
+    batch = _writable_batch(session, lens=lens, batch_id=batch_id)
 
+    now = dt.datetime.now(tz=dt.UTC)
     record = Announcement(
         batch_id=batch_id,
         body=body,
-        created_at=dt.datetime.now(tz=dt.UTC),
+        created_at=now,
         edited_at=None,
         deleted_at=None,
         posted_by_account_id=lens.account_id,
     )
     session.add(record)
+    session.flush()
+    deliver_to_families(
+        session,
+        batch=batch,
+        kind=NOTICE,
+        source_id=record.id,
+        preview=record.body[:PREVIEW_LENGTH],
+        now=now,
+    )
     session.commit()
     return _row(record)
 
@@ -264,6 +331,13 @@ def edit_announcement(
 
     record.body = body
     record.edited_at = dt.datetime.now(tz=dt.UTC)
+    mark_unread_for_families(
+        session,
+        batch_id=record.batch_id,
+        kind=NOTICE,
+        source_id=record.id,
+        preview=body[:PREVIEW_LENGTH],
+    )
     session.commit()
     return _row(record)
 
@@ -293,6 +367,7 @@ def delete_announcement(
 
     if record.deleted_at is None:
         record.deleted_at = dt.datetime.now(tz=dt.UTC)
+        remove_for_source(session, kind=NOTICE, source_id=record.id)
         session.commit()
 
 
@@ -414,7 +489,122 @@ def family_batch_view(
         served_at=now,
         coming=coming,
         upcoming_exam=_next_exam(session, batch_id=seat.batch_id, today=when),
+        teacher=_family_teacher(session, batch_id=seat.batch_id),
+        exams=_family_exams(
+            session, batch_id=seat.batch_id, enrollment_id=enrollment_id, today=when
+        ),
     )
+
+
+def _family_teacher(session: DbSession, *, batch_id: uuid.UUID) -> FamilyTeacher:
+    """Read the teacher block: display name and subjects, nothing else.
+
+    The ``profile`` table is deliberately never touched.
+
+    :param session: The session to read through
+    :param batch_id: The batch, already reached by the caller's lens
+    :return: The teacher block
+    """
+    name = session.scalars(
+        sa.select(Batch.teacher_display_name).where(Batch.id == batch_id)
+    ).one_or_none()
+    subjects = session.scalars(
+        sa.select(BatchSubject.name)
+        .where(BatchSubject.batch_id == batch_id)
+        .order_by(BatchSubject.name, BatchSubject.id)
+    ).all()
+    return FamilyTeacher(
+        display_name=(name.strip() or None) if name else None,
+        subjects=list(subjects),
+    )
+
+
+def _family_exams(
+    session: DbSession,
+    *,
+    batch_id: uuid.UUID,
+    enrollment_id: uuid.UUID,
+    today: dt.date,
+    exam_id: uuid.UUID | None = None,
+) -> list[FamilyExam]:
+    """Read a batch's exams as one seat sees them.
+
+    :param session: The session to read through
+    :param batch_id: The batch, already reached by the caller's lens
+    :param enrollment_id: The seat whose live marks decide ``done``
+    :param today: Bangladesh's date
+    :param exam_id: Restrict to one exam, if given
+    :return: Upcoming soonest first, then done newest first
+    """
+    query = (
+        sa.select(Exam, BatchSubject.name)
+        .join(BatchSubject, BatchSubject.id == Exam.batch_subject_id)
+        .where(Exam.batch_id == batch_id)
+    )
+    if exam_id is not None:
+        query = query.where(Exam.id == exam_id)
+    marked = set(
+        session.scalars(
+            sa.select(Mark.exam_id).where(
+                Mark.enrollment_id == enrollment_id,
+                Mark.superseded_by_id.is_(None),
+            )
+        ).all()
+    )
+    rows = [
+        FamilyExam(
+            exam_id=exam.id,
+            title=exam.title,
+            date=exam.date,
+            subject_name=subject,
+            total_marks=exam.total_marks,
+            topics=list(exam.topics),
+            state="done" if exam.date < today or exam.id in marked else "upcoming",
+        )
+        for exam, subject in session.execute(query).all()
+    ]
+    upcoming = sorted(
+        (row for row in rows if row.state == "upcoming"),
+        key=lambda row: (row.date, str(row.exam_id)),
+    )
+    done = sorted(
+        (row for row in rows if row.state == "done"),
+        key=lambda row: (row.date, str(row.exam_id)),
+        reverse=True,
+    )
+    return upcoming + done
+
+
+def family_exam(
+    session: DbSession,
+    *,
+    lens: Lens,
+    enrollment_id: uuid.UUID,
+    exam_id: uuid.UUID,
+    today: dt.date | None = None,
+) -> FamilyExam:
+    """Return one exam of the seat's batch.
+
+    :param session: The session to read through
+    :param lens: The student or guardian lens
+    :param enrollment_id: The seat, from the route path
+    :param exam_id: The exam, from the route path
+    :param today: The day to compute state from; the real one by default
+    :return: The exam
+    :raises AuthorizationError: The seat is unreachable or the exam is
+        another batch's
+    """
+    seat = readable_enrollment(session, lens=lens, enrollment_id=enrollment_id)
+    found = _family_exams(
+        session,
+        batch_id=seat.batch_id,
+        enrollment_id=enrollment_id,
+        today=today or bangladesh_today(),
+        exam_id=exam_id,
+    )
+    if not found:
+        raise refuse()
+    return found[0]
 
 
 def _next_exam(

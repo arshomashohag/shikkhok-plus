@@ -64,6 +64,7 @@ object MessageKeys {
         // failure that looks like a working error message and is
         // therefore never reported.
         "fees.not_available" to R.string.fees_not_available,
+        "inbox.not_available" to R.string.inbox_not_available,
         "fees.resolution.not_set" to R.string.fees_resolution_not_set,
         "fees.claim.no_open_cycle" to R.string.fees_claim_no_open_cycle,
         "fees.claim.amount_not_positive" to

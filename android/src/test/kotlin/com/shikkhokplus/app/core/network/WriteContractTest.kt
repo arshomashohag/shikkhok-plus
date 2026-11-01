@@ -116,7 +116,7 @@ class WriteContractTest {
                 HttpRecordRepository(it).setSubject(ID, ID)
             },
             Write("post", "/v1/batches/{batch_id}/exams") {
-                HttpMarksRepository(it).createExam(ID, "Mid-term", "2026-11-04", 100, ID)
+                HttpMarksRepository(it).createExam(ID, "Mid-term", "2026-11-04", 100, ID, listOf("Motion"))
             },
             Write("post", "/v1/exams/{exam_id}/marks") {
                 HttpMarksRepository(it).writeMark(ID, ID, "marked", 70)
@@ -128,13 +128,13 @@ class WriteContractTest {
                 HttpVerificationRepository(it).approve(ID, Money.of("800.00"), "carried")
             },
             Write("post", "/v1/claims/{claim_id}/rejection") {
-                HttpVerificationRepository(it).reject(ID)
+                HttpVerificationRepository(it).reject(ID, "Not received")
             },
             Write("patch", "/v1/batches/{batch_id}") {
                 HttpBatchDetailRepository(it).editBatch(ID, BatchEdit(name = "Physics B", subjects = listOf("Optics")))
             },
             Write("put", "/v1/exams/{exam_id}") {
-                HttpMarksRepository(it).editExam(ID, "Mid-term", "2026-11-04", 50)
+                HttpMarksRepository(it).editExam(ID, "Mid-term", "2026-11-04", 50, listOf("Motion"))
             },
             Write("post", "/v1/enrollments/{enrollment_id}/claims") {
                 HttpPayRepository(it).submit(ID, ClaimSubmitDto(Money.of("1500.00"), "bKash", "DJ62K0LQ7V"))
@@ -143,7 +143,8 @@ class WriteContractTest {
                 HttpChildPayRepository(it, ID).submit(ID, ClaimSubmitDto(Money.of("1500.00"), "bKash", "DJ62K0LQ7V"))
             },
             Write("post", "/v1/reminders") { HttpAnalyticsRepository(it).remind(listOf(ID)) },
-            Write("post", "/v1/me/notifications/read") { HttpInboxRepository(it).markRead() },
+            Write("post", "/v1/me/notifications/read") { HttpInboxRepository(it).markAllRead() },
+            Write("post", "/v1/me/notifications/{notification_id}/read") { HttpInboxRepository(it).markRead(ID) },
             Write("put", "/v1/batches/{batch_id}/marksheet-visibility") {
                 HttpMarksRepository(it).setMarksheetVisible(ID, visible = true)
             },

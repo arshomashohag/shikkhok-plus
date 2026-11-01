@@ -111,7 +111,7 @@ private fun EntryRow(entry: HistoryEntry) {
  *
  * @param values The exam as it stands
  * @param write Where the save stands
- * @param onSave Called with title, ISO date and total
+ * @param onSave Called with title, ISO date, total and topics
  * @param onClose Called to leave
  * @param modifier The layout modifier
  */
@@ -119,7 +119,7 @@ private fun EntryRow(entry: HistoryEntry) {
 fun EditExamScreen(
     values: ExamFormValues,
     write: WriteState,
-    onSave: (String, String, Int) -> Unit,
+    onSave: (String, String, Int, List<String>) -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -129,7 +129,7 @@ fun EditExamScreen(
     ScreenScaffold(title = stringResource(R.string.exam_edit_title), modifier = modifier, onBack = onClose) {
         ExamCreateForm(
             subjects = emptyList(),
-            onCreate = { title, date, total, _ -> onSave(title, date, total) },
+            onCreate = { title, date, total, _, topics -> onSave(title, date, total, topics) },
             onCancel = onClose,
             modifier = Modifier.testTag(TAG_EXAM_EDIT),
             saving = write == WriteState.Saving,

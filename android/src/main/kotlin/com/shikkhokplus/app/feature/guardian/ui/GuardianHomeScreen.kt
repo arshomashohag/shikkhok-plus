@@ -81,6 +81,9 @@ const val TAG_GUARDIAN_FEES: String = "guardian_fees"
 /** One latest result, which opens G2. */
 const val TAG_GUARDIAN_RESULT: String = "guardian_result"
 
+/** One batch of the shown child, which opens its screen. */
+const val TAG_GUARDIAN_BATCH: String = "guardian_batch"
+
 /** A payment being checked. */
 const val TAG_GUARDIAN_WAITING: String = "guardian_waiting"
 
@@ -91,6 +94,7 @@ const val TAG_GUARDIAN_WAITING: String = "guardian_waiting"
  * @property onPay Pay a fee for the shown child
  * @property onPayments Open the shown child's payments, by one of their seats
  * @property onResult Open a batch's progress, by its seat
+ * @property onBatch Open a child's batch screen, by its seat
  * @property onRetry Read again
  */
 data class GuardianActions(
@@ -98,6 +102,7 @@ data class GuardianActions(
     val onPay: (PayOption) -> Unit = {},
     val onPayments: (String) -> Unit = {},
     val onResult: (ResultCard, String) -> Unit = { _, _ -> },
+    val onBatch: (String) -> Unit = {},
     val onRetry: () -> Unit = {},
 )
 
@@ -202,7 +207,7 @@ private fun ColumnScope.Loaded(state: GuardianUiState.Loaded, actions: GuardianA
         Card {
             child.batches.forEachIndexed { index, batch ->
                 if (index > 0) InsetDivider()
-                BatchRow(batch)
+                BatchRow(batch) { actions.onBatch(batch.enrollmentId) }
             }
         }
     }
@@ -464,10 +469,18 @@ private fun trendLine(result: ResultCard): String {
  * One batch: name, then teacher and the next class.
  *
  * @param batch The batch
+ * @param onOpen Called to open the batch screen
  */
 @Composable
-private fun BatchRow(batch: ChildBatch) {
-    Column(Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(horizontal = 16.dp, vertical = 12.dp)) {
+private fun BatchRow(batch: ChildBatch, onOpen: () -> Unit) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onOpen)
+            .heightIn(min = 64.dp)
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .testTag(TAG_GUARDIAN_BATCH),
+    ) {
         Text(Numerals.freeText(batch.batchName), style = MaterialTheme.typography.titleMedium)
         val next = batch.next
         val upcoming =

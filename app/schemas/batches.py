@@ -22,6 +22,7 @@ import uuid
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.fees import CurrentFeeResponse
 from app.schemas.money import MoneyField
 from app.schemas.phone import PhoneField
 from app.schemas.schedule import ScheduleSlotWire
@@ -156,33 +157,6 @@ class BatchResponse(BaseModel):
     active: bool
     enrollment_count: int
     accepted_count: int
-
-
-class CurrentFeeResponse(BaseModel):
-    """A seat's latest fee period, as the student sees it on S1.
-
-    The status is the server's [TC-9]; the app renders it and decides
-    nothing from the amounts.
-
-    :ivar period: ``YYYY-MM``
-    :ivar status: The period's status
-    :ivar due_date: When it is due
-    :ivar outstanding: What is still owed for it
-    :ivar charged: What the period charged ("October fee · ৳1,200")
-    :ivar verifying: Whether a payment for it is waiting to be checked
-    :ivar paid_on: The day the last approved payment for it was
-        decided, in Bangladesh, or null
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    period: str
-    status: str
-    due_date: dt.date
-    outstanding: MoneyField
-    charged: MoneyField | None = None
-    verifying: bool = False
-    paid_on: dt.date | None = None
 
 
 class LastResultResponse(BaseModel):

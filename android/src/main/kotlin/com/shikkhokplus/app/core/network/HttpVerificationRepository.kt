@@ -21,6 +21,11 @@ private data class ApproveBody(
     @SerialName("shortfall_disposition") val shortfallDisposition: String? = null,
 )
 
+@Serializable
+private data class RejectBody(
+    val reason: String? = null,
+)
+
 /**
  * The teacher's payment checks, over HTTP (T4).
  *
@@ -49,6 +54,8 @@ class HttpVerificationRepository(
             }
         }
 
-    override suspend fun reject(claimId: String): AuthResult<Unit> =
-        callDiscardingBody { client.post("/v1/claims/$claimId/rejection") }
+    override suspend fun reject(claimId: String, reason: String?): AuthResult<Unit> =
+        callDiscardingBody {
+            client.post("/v1/claims/$claimId/rejection") { setBody(RejectBody(reason)) }
+        }
 }

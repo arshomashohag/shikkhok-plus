@@ -56,6 +56,7 @@ class ContractConformanceTest {
             Contract("/v1/me/today", TodayDto.serializer()),
             Contract("/v1/me/dues", DuesResponseDto.serializer()),
             Contract("/v1/me/notifications", InboxDto.serializer()),
+            Contract("/v1/me/notifications/{notification_id}", NotificationDetailDto.serializer()),
             Contract("/v1/me/deletion-summary", DeletionSummaryDto.serializer()),
             Contract("/v1/me/payables", PayablesDto.serializer()),
             Contract("/v1/guardian/home", GuardianHomeDto.serializer()),
@@ -99,6 +100,8 @@ class ContractConformanceTest {
             Contract("/v1/batches/{batch_id}/announcements", ListSerializer(AnnouncementDto.serializer())),
             Contract("/v1/me/batches/{enrollment_id}/teaching", FamilyBatchViewDto.serializer()),
             Contract("/v1/children/{enrollment_id}/teaching", FamilyBatchViewDto.serializer()),
+            Contract("/v1/me/enrollments/{enrollment_id}/exams/{exam_id}", FamilyExamDto.serializer()),
+            Contract("/v1/children/{enrollment_id}/exams/{exam_id}", FamilyExamDto.serializer()),
         )
 
     @Test

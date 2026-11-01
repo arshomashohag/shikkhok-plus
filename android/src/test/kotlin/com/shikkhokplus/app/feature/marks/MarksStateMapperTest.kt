@@ -504,4 +504,18 @@ class MarksStateMapperTest {
 
         assertEquals("future", entries.single().stateLabel)
     }
+
+    @Test
+    fun `the exam's topics reach the entry state for the edit form`() {
+        val state =
+            MarksStateMapper.afterResults(
+                "x-1",
+                "Mid-term",
+                100,
+                emptyList(),
+                examTopics = listOf("Motion", "Force"),
+            )
+
+        assertEquals(listOf("Motion", "Force"), assertIs<MarksUiState.EntryLoaded>(state).examTopics)
+    }
 }

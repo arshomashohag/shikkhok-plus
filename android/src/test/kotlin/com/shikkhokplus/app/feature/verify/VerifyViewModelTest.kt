@@ -70,6 +70,7 @@ class VerifyViewModelTest {
     ) : VerifyRepository {
         val approvals = mutableListOf<Triple<String, Money, String?>>()
         val rejections = mutableListOf<String>()
+        val reasons = mutableListOf<String?>()
         val previews = mutableListOf<Money>()
 
         override suspend fun queue(): AuthResult<VerificationQueueDto> = queue
@@ -87,8 +88,9 @@ class VerifyViewModelTest {
             return decision
         }
 
-        override suspend fun reject(claimId: String): AuthResult<Unit> {
+        override suspend fun reject(claimId: String, reason: String?): AuthResult<Unit> {
             rejections += claimId
+            reasons += reason
             return decision
         }
     }
@@ -174,13 +176,39 @@ class VerifyViewModelTest {
         advanceUntilIdle()
         val card = assertIs<VerifyUiState.Waiting>(model.state.value).pending.single()
 
-        model.reject(card)
+        model.reject(card, "")
         advanceUntilIdle()
 
         val state = assertIs<VerifyUiState.Waiting>(model.state.value)
         assertEquals("fees.claim.already_decided", state.errorKey)
         assertEquals(1, state.pending.size)
         assertEquals(listOf("c-1"), fake.rejections)
+    }
+
+    @Test
+    fun `a typed reason is sent verbatim`() = runTest(dispatcher) {
+        val fake = Fake(AuthResult.Ok(VerificationQueueDto(pending = listOf(claim()))))
+        val model = loaded(fake)
+        advanceUntilIdle()
+        val card = assertIs<VerifyUiState.Waiting>(model.state.value).pending.single()
+
+        model.reject(card, "  Not received.\nCheck the TrxID  ")
+        advanceUntilIdle()
+
+        assertEquals(listOf<String?>("  Not received.\nCheck the TrxID  "), fake.reasons)
+    }
+
+    @Test
+    fun `a blank reason is sent as null`() = runTest(dispatcher) {
+        val fake = Fake(AuthResult.Ok(VerificationQueueDto(pending = listOf(claim()))))
+        val model = loaded(fake)
+        advanceUntilIdle()
+        val card = assertIs<VerifyUiState.Waiting>(model.state.value).pending.single()
+
+        model.reject(card, " \n ")
+        advanceUntilIdle()
+
+        assertEquals(listOf<String?>(null), fake.reasons)
     }
 
     @Test

@@ -165,6 +165,7 @@ internal fun NavGraphBuilder.teachingRoutes(
                 )
             },
             onRetry = model::retry,
+            onBack = { navController.popBackStack() },
         )
     }
 
@@ -260,6 +261,7 @@ internal fun NavGraphBuilder.teachingRoutes(
                     }
                 },
                 onRetry = model::retry,
+                onBack = { navController.popBackStack() },
             )
         }
     }
@@ -294,6 +296,7 @@ internal fun NavGraphBuilder.teachingRoutes(
             // entry with nothing to open.
             onCreate = { navController.navigate(Destination.CreateExam.of(id)) },
             onRetry = model::retry,
+            onBack = { navController.popBackStack() },
         )
     }
 
@@ -342,8 +345,8 @@ internal fun NavGraphBuilder.teachingRoutes(
         ) {
             ExamCreateForm(
                 subjects = subjects,
-                onCreate = { title, date, total, subjectId ->
-                    model.createExam(title, date, total, subjectId)
+                onCreate = { title, date, total, subjectId, topics ->
+                    model.createExam(title, date, total, subjectId, topics)
                 },
                 onCancel = { leave() },
                 saving = write == WriteState.Saving,
@@ -397,7 +400,7 @@ internal fun NavGraphBuilder.teachingRoutes(
             }
             BackHandler(onBack = close)
             EditExamScreen(
-                values = ExamFormValues(open.examTitle, open.examDate, open.totalMarks),
+                values = ExamFormValues(open.examTitle, open.examDate, open.totalMarks, open.examTopics),
                 write = examWrite,
                 onSave = model::editExam,
                 onClose = close,

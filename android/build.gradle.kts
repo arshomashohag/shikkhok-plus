@@ -245,6 +245,7 @@ dependencies {
     // that could be reached, so signup existed and no one could open
     // it. The conventional Google choice, per the Android practice.
     implementation(libs.navigation.compose)
+    implementation(libs.work.runtime.ktx)
 
     testImplementation(libs.kotlin.test)
     testImplementation(libs.kotlin.test.junit)
@@ -256,6 +257,7 @@ dependencies {
     testImplementation(platform(libs.compose.bom))
     testImplementation(libs.compose.ui.test.junit4)
     testImplementation(libs.robolectric)
+    testImplementation(libs.work.testing)
     debugImplementation(libs.compose.ui.test.manifest)
 
     androidTestImplementation(platform(libs.compose.bom))

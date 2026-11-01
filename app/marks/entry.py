@@ -37,11 +37,14 @@ from app.authz.lenses import TeacherLens
 from app.db.models import Batch, Exam, Mark
 from app.errors import ConflictError, ValidationError
 from app.marks.exams import readable_exam
+from app.notifications.inbox import MARKS_AVAILABLE, deliver
+from app.notifications.recipients import child_names, seat_recipients
 from app.teaching.roster import readable_enrollment, refuse
 
 __all__ = [
     "CorrectionEntry",
     "MarkResult",
+    "announce_result",
     "correction_history",
     "live_marks_for_exam",
     "record_mark",
@@ -261,10 +264,52 @@ def record_mark(
         previous.superseded_by_id = fresh_id
         session.flush()
 
+    if previous is None:
+        announce_result(session, exam=exam, enrollment_id=enrollment_id, now=now)
+
     session.commit()
     return MarkResult(
         mark_id=fresh_id,
         superseded_id=None if previous is None else previous.id,
+    )
+
+
+def announce_result(
+    session: DbSession,
+    *,
+    exam: Exam,
+    enrollment_id: uuid.UUID,
+    now: dt.datetime,
+) -> None:
+    """Tell a seat's family its result is out, when the sheet is shown.
+
+    Nothing is sent while the batch hides its marksheet; turning the
+    sheet on later sends what was held back. Adds to the caller's
+    transaction and does not commit. An absence is a published result
+    like any other.
+
+    :param session: The caller's session
+    :param exam: The exam the result is for
+    :param enrollment_id: The seat
+    :param now: When it is sent
+    :return: None
+    """
+    batch = session.get(Batch, exam.batch_id)
+    if batch is None or not batch.marksheet_visible:
+        return
+    recipients = seat_recipients(session, enrollment_id=enrollment_id)
+    if not recipients:
+        return
+    deliver(
+        session,
+        account_ids=[r.account_id for r in recipients],
+        kind=MARKS_AVAILABLE,
+        batch_name=batch.name,
+        now=now,
+        enrollment_id=enrollment_id,
+        source_id=exam.id,
+        preview=exam.title,
+        child_names=child_names(recipients),
     )
 
 

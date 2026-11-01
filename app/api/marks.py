@@ -19,6 +19,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session as DbSession
 
 from app.api.deps import get_session, guardian_lens, student_lens, teacher_lens
+from app.api.teaching import family_exam_response
 from app.authz.lenses import GuardianLens, StudentLens, TeacherLens
 from app.marks import views
 from app.marks.entry import correction_history, exam_is_writable, record_mark
@@ -49,7 +50,8 @@ from app.schemas.marks import (
     SuppressedMarksheetResponse,
     SuppressionReason,
 )
-from app.schemas.teaching import MarksheetToggleRequest
+from app.schemas.teaching import FamilyExamResponse, MarksheetToggleRequest
+from app.teaching.announcements import family_exam
 
 __all__ = ["router"]
 
@@ -131,6 +133,7 @@ def _exam_list_item(entry: ExamProgress) -> ExamListItemResponse:
         date=entry.exam.date,
         total_marks=entry.exam.total_marks,
         subject_name=entry.exam.subject_name,
+        topics=entry.exam.topics,
         entered_count=entry.entered_count,
         expected_count=entry.expected_count,
         state=entry.state,
@@ -234,6 +237,7 @@ def create_batch_exam(
         title=body.title,
         date=body.date,
         total_marks=body.total_marks,
+        topics=body.topics,
     )
     return ExamResponse(
         exam_id=row.exam_id,
@@ -241,6 +245,7 @@ def create_batch_exam(
         date=row.date,
         total_marks=row.total_marks,
         subject_name=row.subject_name,
+        topics=row.topics,
     )
 
 
@@ -270,6 +275,7 @@ def update_batch_exam(
         title=body.title,
         date=body.date,
         total_marks=body.total_marks,
+        topics=body.topics,
     )
     return ExamResponse(
         exam_id=row.exam_id,
@@ -277,6 +283,7 @@ def update_batch_exam(
         date=row.date,
         total_marks=row.total_marks,
         subject_name=row.subject_name,
+        topics=row.topics,
     )
 
 
@@ -415,6 +422,54 @@ def set_batch_marksheet_visibility(
         visible=views.set_marksheet_visible(
             session, lens=lens, batch_id=batch_id, visible=body.visible
         )
+    )
+
+
+@router.get(
+    "/me/enrollments/{enrollment_id}/exams/{exam_id}",
+    response_model=FamilyExamResponse,
+    responses=_AUTH_ERRORS,
+)
+def read_my_exam(
+    enrollment_id: uuid.UUID,
+    exam_id: uuid.UUID,
+    session: Annotated[DbSession, Depends(get_session)],
+    lens: Annotated[StudentLens, Depends(student_lens)],
+) -> FamilyExamResponse:
+    """Read one exam of this student's batch, topics included.
+
+    :param enrollment_id: Their seat, from the route path
+    :param exam_id: The exam, from the route path
+    :param session: The request-scoped session
+    :param lens: The student lens
+    :return: The exam
+    """
+    return family_exam_response(
+        family_exam(session, lens=lens, enrollment_id=enrollment_id, exam_id=exam_id)
+    )
+
+
+@router.get(
+    "/children/{enrollment_id}/exams/{exam_id}",
+    response_model=FamilyExamResponse,
+    responses=_AUTH_ERRORS,
+)
+def read_child_exam(
+    enrollment_id: uuid.UUID,
+    exam_id: uuid.UUID,
+    session: Annotated[DbSession, Depends(get_session)],
+    lens: Annotated[GuardianLens, Depends(guardian_lens)],
+) -> FamilyExamResponse:
+    """Read one exam of a child's batch, for their recorded guardian.
+
+    :param enrollment_id: The child's seat, from the route path
+    :param exam_id: The exam, from the route path
+    :param session: The request-scoped session
+    :param lens: The guardian lens
+    :return: The exam
+    """
+    return family_exam_response(
+        family_exam(session, lens=lens, enrollment_id=enrollment_id, exam_id=exam_id)
     )
 
 

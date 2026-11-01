@@ -1,6 +1,12 @@
 package com.shikkhokplus.app.feature.student
 
 import androidx.activity.ComponentActivity
+import com.shikkhokplus.app.feature.student.ui.TAG_STUDENT_PAY
+import com.shikkhokplus.app.feature.student.ui.TAG_STUDENT_FEES
+import com.shikkhokplus.app.feature.student.ui.TAG_FAMILY_CLASS_ATTENDANCE
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -13,10 +19,18 @@ import com.shikkhokplus.app.core.network.ScheduleSlotDto
 import com.shikkhokplus.app.feature.marks.ProgressRow
 import com.shikkhokplus.app.feature.student.ui.MyBatchesScreen
 import com.shikkhokplus.app.feature.student.ui.StudentBatchScreen
+import com.shikkhokplus.app.feature.student.ui.TAG_STUDENT_NEXT_CLASS
+import com.shikkhokplus.app.feature.student.ui.TAG_FAMILY_TEACHER_ICON
+import com.shikkhokplus.app.feature.student.ui.TAG_FAMILY_TAB
+import com.shikkhokplus.app.feature.student.ui.TAG_FAMILY_TEACHER_SUBJECT
+import com.shikkhokplus.app.feature.student.ui.TAG_FAMILY_NOTICE
+import com.shikkhokplus.app.feature.student.ui.TAG_FAMILY_EXAM_UPCOMING
+import com.shikkhokplus.app.feature.student.ui.TAG_FAMILY_EXAM_DONE
+import com.shikkhokplus.app.feature.student.ui.TAG_FAMILY_CLASS
+import com.shikkhokplus.app.feature.student.ui.FamilyOpeners
 import com.shikkhokplus.app.feature.student.ui.TAG_MY_BATCHES_EMPTY
 import com.shikkhokplus.app.feature.student.ui.TAG_MY_BATCH_FEE
 import com.shikkhokplus.app.feature.student.ui.TAG_MY_BATCH_ROW
-import com.shikkhokplus.app.feature.student.ui.TAG_STUDENT_RESULT
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -65,30 +79,203 @@ class StudentScreensTest {
         compose.onAllNodesWithTag(TAG_MY_BATCH_ROW).fetchSemanticsNodes().let { assertEquals(0, it.size) }
     }
 
-    @Test
-    fun `a result opens its marksheet, and an absence shows as one`() {
-        var exam: String? = null
-        val view =
-            StudentBatchView(
-                batch = row,
-                nextClassDate = "2026-10-31",
-                nextClassStart = "16:00",
-                results = listOf(ProgressRow("x-1", "Weekly 3", "2026-10-05", 50, "mark.state.absent", null)),
-                notices = emptyList(),
-                topics = emptyList(),
-            )
+    private fun view(
+        results: List<ProgressRow> = emptyList(),
+        upcoming: List<FamilyExam> = emptyList(),
+        done: List<FamilyExam> = emptyList(),
+        teacher: FamilyTeacher = FamilyTeacher(null, emptyList()),
+    ) = StudentBatchView(
+        batch = row,
+        nextClassDate = "2026-10-31",
+        nextClassStart = "16:00",
+        results = results,
+        notices = listOf(NoticeRow("Bring a calculator", "2026-10-26T09:00:00Z", "a-1")),
+        topics = emptyList(),
+        classes = listOf(PastClass("s-1", "2026-10-14", "16:00", "Heat", "Physics", true)),
+        upcomingExams = upcoming,
+        doneExams = done,
+        teacher = teacher,
+    )
+
+    private fun show(
+        view: StudentBatchView,
+        tab: FamilyTab,
+        openers: FamilyOpeners = FamilyOpeners(),
+        onSelect: (FamilyTab) -> Unit = {},
+    ) {
         compose.setContent {
             StudentBatchScreen(
                 StudentBatchUiState.Loaded(view),
                 onBack = {},
-                onOpenExam = { exam = it },
                 onOpenFees = {},
                 onRetry = {},
+                tab = tab,
+                onSelect = onSelect,
+                openers = openers,
+            )
+        }
+    }
+
+    private val upcomingExam = FamilyExam("x-2", "Monthly", "2026-11-02", "Physics", 50, listOf("Heat"), false)
+    private val doneExam = FamilyExam("x-1", "Weekly 3", "2026-10-05", "Physics", 50, emptyList(), true)
+
+    @Test
+    fun `a done exam opens its marksheet, and an absence shows as one`() {
+        var exam: String? = null
+        val absent = ProgressRow("x-1", "Weekly 3", "2026-10-05", 50, "mark.state.absent", null)
+        show(
+            view(results = listOf(absent), done = listOf(doneExam)),
+            FamilyTab.EXAMS,
+            FamilyOpeners(onOpenExam = { exam = it }),
+        )
+
+        compose.onNodeWithTag(TAG_FAMILY_EXAM_DONE).performScrollTo().performClick()
+        assertEquals("x-1", exam)
+        compose.onNodeWithText("Absent", substring = true).assertExists()
+    }
+
+    @Test
+    fun `an upcoming exam opens its detail`() {
+        var detail: String? = null
+        show(view(upcoming = listOf(upcomingExam)), FamilyTab.EXAMS, FamilyOpeners(onOpenExamDetail = { detail = it }))
+
+        compose.onNodeWithTag(TAG_FAMILY_EXAM_UPCOMING).performClick()
+        assertEquals("x-2", detail)
+    }
+
+    @Test
+    fun `a past class opens its detail`() {
+        var opened: String? = null
+        show(view(), FamilyTab.CLASSES, FamilyOpeners(onOpenClass = { opened = it }))
+
+        compose.onNodeWithTag(TAG_STUDENT_NEXT_CLASS).assertExists()
+        compose.onNodeWithTag(TAG_FAMILY_CLASS).performScrollTo().performClick()
+        assertEquals("s-1", opened)
+    }
+
+    @Test
+    fun `a notice opens its detail`() {
+        var opened: String? = null
+        show(view(), FamilyTab.NOTICES, FamilyOpeners(onOpenNotice = { opened = it }))
+
+        compose.onNodeWithTag(TAG_FAMILY_NOTICE).performClick()
+        assertEquals("a-1", opened)
+    }
+
+    @Test
+    fun `the teacher tab says Your teacher for a null name, with the generic icon`() {
+        show(view(teacher = FamilyTeacher(null, listOf("Physics"))), FamilyTab.TEACHER)
+
+        compose.onNodeWithText("Your teacher").assertExists()
+        compose.onNodeWithTag(TAG_FAMILY_TEACHER_ICON, useUnmergedTree = true).assertExists()
+        compose.onAllNodesWithTag(TAG_FAMILY_TEACHER_SUBJECT).fetchSemanticsNodes().let { assertEquals(1, it.size) }
+    }
+
+    @Test
+    fun `the teacher tab shows initials for a named teacher`() {
+        show(view(teacher = FamilyTeacher("Abdul Karim", emptyList())), FamilyTab.TEACHER)
+
+        compose.onNodeWithText("Abdul Karim").assertExists()
+        compose.onNodeWithText("AK").assertExists()
+    }
+
+    @Test
+    fun `each tab is offered and selecting one reports it`() {
+        var selected: FamilyTab? = null
+        show(view(), FamilyTab.CLASSES, onSelect = { selected = it })
+
+        assertEquals(4, compose.onAllNodesWithTag(TAG_FAMILY_TAB).fetchSemanticsNodes().size)
+        compose.onNodeWithText("Teacher").performClick()
+        assertEquals(FamilyTab.TEACHER, selected)
+    }
+
+    @Test
+    fun `empty tabs say so`() {
+        show(StudentBatchView(row, null, null, emptyList(), emptyList(), emptyList()), FamilyTab.NOTICES)
+
+        compose.onNodeWithText("No notices yet.").assertExists()
+    }
+
+    @Test
+    fun `a past class row shows this seat's attendance`() {
+        show(view(), FamilyTab.CLASSES)
+
+        compose.onNodeWithTag(TAG_FAMILY_CLASS_ATTENDANCE, useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("Present", useUnmergedTree = true).assertExists()
+    }
+
+    @Test
+    fun `the header keeps the subjects, the next class and the fee on every tab`() {
+        val next = NextClass("2026-11-03", "16:00", "17:30", null, false, "Physics")
+        val withNext = view(teacher = FamilyTeacher("Karim", listOf("Physics", "Chemistry"))).copy(next = next)
+        var tab by mutableStateOf(FamilyTab.CLASSES)
+        compose.setContent {
+            StudentBatchScreen(
+                StudentBatchUiState.Loaded(withNext),
+                onBack = {},
+                onOpenFees = {},
+                onRetry = {},
+                tab = tab,
+            )
+        }
+        FamilyTab.entries.forEach { each ->
+            tab = each
+            compose.waitForIdle()
+            compose.onNodeWithText("Physics · Chemistry").assertExists()
+            compose.onNodeWithTag(TAG_STUDENT_NEXT_CLASS).assertExists()
+            compose.onNodeWithTag(TAG_STUDENT_FEES).assertExists()
+        }
+    }
+
+    @Test
+    fun `a guardian's header shows the fee and Pay when something is owed`() {
+        var paid = 0
+        val owed = FeeLine("2026-10", "fees.status.unpaid", "2026-10-10", Money.of("1200.00"), Money.of("1200.00"))
+        val guardianRow = row.copy(fee = owed, childName = "Tasnim")
+        compose.setContent {
+            StudentBatchScreen(
+                StudentBatchUiState.Loaded(view().copy(batch = guardianRow)),
+                onBack = {},
+                onOpenFees = {},
+                onRetry = {},
+                onPay = { paid++ },
+                tab = FamilyTab.TEACHER,
             )
         }
 
-        compose.onNodeWithTag(TAG_STUDENT_RESULT).performScrollTo().performClick()
-        assertEquals("x-1", exam)
-        compose.onNodeWithText("Absent", substring = true).assertExists()
+        compose.onNodeWithText("Tasnim").assertExists()
+        compose.onNodeWithTag(TAG_STUDENT_FEES).assertExists()
+        compose.onNodeWithTag(TAG_STUDENT_PAY).performClick()
+        assertEquals(1, paid)
+    }
+
+    @Test
+    fun `a guardian's header hides Pay while a claim is verifying, and says when it was paid`() {
+        val verifying =
+            FeeLine(
+                "2026-10",
+                "fees.status.unpaid",
+                "2026-10-10",
+                Money.of("1200.00"),
+                Money.of("1200.00"),
+                verifying = true,
+            )
+        var line by mutableStateOf(verifying)
+        compose.setContent {
+            StudentBatchScreen(
+                StudentBatchUiState.Loaded(view().copy(batch = row.copy(fee = line, childName = "Tasnim"))),
+                onBack = {},
+                onOpenFees = {},
+                onRetry = {},
+                tab = FamilyTab.TEACHER,
+            )
+        }
+
+        assertEquals(0, compose.onAllNodesWithTag(TAG_STUDENT_PAY).fetchSemanticsNodes().size)
+
+        line = verifying.copy(statusKey = "fees.status.paid", verifying = false, paidOn = "2026-10-08")
+        compose.waitForIdle()
+        compose.onNodeWithText("Paid 8 Oct").assertExists()
+        assertEquals(0, compose.onAllNodesWithTag(TAG_STUDENT_PAY).fetchSemanticsNodes().size)
     }
 }

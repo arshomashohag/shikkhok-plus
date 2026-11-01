@@ -45,7 +45,16 @@ from app.fees.balances import derive_for_enrollment
 from app.fees.ledger_writer import append_carry_pair, append_entry, supersede
 from app.fees.periods import Period
 from app.money import Money
-from app.notifications.inbox import PAYMENT_APPROVED, PAYMENT_REJECTED, deliver
+from app.notifications.inbox import (
+    CLAIM_TO_VERIFY,
+    PAYMENT_APPROVED,
+    PAYMENT_PARTIAL,
+    PAYMENT_REJECTED,
+    deliver,
+    mark_read_for_source,
+    remove_for_source,
+)
+from app.notifications.recipients import child_names, seat_recipients
 
 __all__ = ["VerificationOutcome", "reject_claim", "shortfall_of", "verify_claim"]
 
@@ -401,13 +410,21 @@ def verify_claim(
 
     claim.status = "approved_full" if shortfall.is_zero() else "approved_partial"
     claim.approved_amount = approved_amount
+    claim.rejection_reason = None
     claim.shortfall_disposition = shortfall_disposition
     claim.verified_by_account_id = verified_by_account_id
     claim.verified_at = dt.datetime.now(tz=dt.UTC)
     if previous is not None:
         claim.previous_decision = previous
 
-    _tell_the_payer(session, claim, kind=PAYMENT_APPROVED, amount=approved_amount)
+    partial = approved_amount < claim.claimed_amount
+    _tell_the_seat(
+        session,
+        claim,
+        kind=PAYMENT_PARTIAL if partial else PAYMENT_APPROVED,
+        amount=approved_amount,
+        replacing=previous is not None,
+    )
     session.commit()
     return VerificationOutcome(claim=claim, shortfall=shortfall)
 
@@ -418,6 +435,7 @@ def reject_claim(
     claim_id: uuid.UUID,
     verified_by_account_id: uuid.UUID,
     correcting: bool = False,
+    reason: str | None = None,
 ) -> PaymentClaim:
     """Reject a claim, recording nothing as received [BR5.6].
 
@@ -434,6 +452,7 @@ def reject_claim(
     :param claim_id: The claim to reject
     :param verified_by_account_id: Who rejected it
     :param correcting: True when deliberately revising a decision
+    :param reason: Why it was rejected; blank is stored as none
     :return: The rejected claim
     :raises ValidationError: No such claim
     :raises ConflictError: Already decided and not a declared correction
@@ -448,6 +467,7 @@ def reject_claim(
         )
 
     claim.status = "rejected"
+    claim.rejection_reason = (reason or "").strip() or None
     claim.approved_amount = None
     claim.shortfall_disposition = None
     claim.verified_by_account_id = verified_by_account_id
@@ -455,26 +475,47 @@ def reject_claim(
     if previous is not None:
         claim.previous_decision = previous
 
-    _tell_the_payer(session, claim, kind=PAYMENT_REJECTED, amount=claim.claimed_amount)
+    _tell_the_seat(
+        session,
+        claim,
+        kind=PAYMENT_REJECTED,
+        amount=claim.claimed_amount,
+        replacing=previous is not None,
+    )
     session.commit()
     return claim
 
 
-def _tell_the_payer(
-    session: Session, claim: PaymentClaim, *, kind: str, amount: Money
+def _tell_the_seat(
+    session: Session,
+    claim: PaymentClaim,
+    *,
+    kind: str,
+    amount: Money,
+    replacing: bool,
 ) -> None:
-    """Put the decision in the payer's inbox, in the decision's transaction.
+    """Put the decision in every accepted seat holder's inbox.
 
-    The board promises the payer a notice when their payment is checked.
-    Nobody to tell when the payer has since deleted their account.
+    Runs in the decision's transaction. The teacher's own "to verify"
+    item for the claim is marked read, and a correction first removes the
+    earlier decision's items, so the seat ends with one item showing the
+    current outcome.
 
     :param session: The session the decision is written through
     :param claim: The decided claim
     :param kind: Which decision
     :param amount: What was approved, or what was claimed if rejected
+    :param replacing: True when an earlier decision's items exist
     :return: None
     """
-    if claim.submitted_by_account_id is None:
+    # The teacher's "to verify" item is settled by the same decision, in
+    # the same transaction: a decided claim is not one still waiting.
+    mark_read_for_source(session, kind=CLAIM_TO_VERIFY, source_id=claim.id)
+    if replacing:
+        for earlier in (PAYMENT_APPROVED, PAYMENT_PARTIAL, PAYMENT_REJECTED):
+            remove_for_source(session, kind=earlier, source_id=claim.id)
+    recipients = seat_recipients(session, enrollment_id=claim.enrollment_id)
+    if not recipients:
         return
     batch_name = session.scalars(
         sa.select(Batch.name)
@@ -483,11 +524,13 @@ def _tell_the_payer(
     ).one()
     deliver(
         session,
-        account_ids=[claim.submitted_by_account_id],
+        account_ids=[r.account_id for r in recipients],
         kind=kind,
         batch_name=batch_name,
         now=dt.datetime.now(tz=dt.UTC),
         enrollment_id=claim.enrollment_id,
         period=claim.period,
         amount=amount,
+        source_id=claim.id,
+        child_names=child_names(recipients),
     )

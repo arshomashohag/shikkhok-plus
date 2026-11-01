@@ -14,6 +14,9 @@ activityCompose = "1.9.3"
 lifecycleViewmodelCompose = "2.8.7"
 navigationCompose = "2.8.5"
 coroutines = "1.9.0"
+# WorkManager runs the 15-minute unread check. Admission note:
+# android/sdk-admissions/workmanager.md
+workmanager = "2.9.1"
 # Robolectric runs Compose UI tests on the JVM, so the OTP-entry
 # obligation team.md names is checkable in `make check` rather than
 # only on a device. The device run still happens at the checkpoint;
@@ -68,6 +71,8 @@ compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4
 activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
 lifecycle-viewmodel-compose = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "lifecycleViewmodelCompose" }
 navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
+work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workmanager" }
+work-testing = { group = "androidx.work", name = "work-testing", version.ref = "workmanager" }
 coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
 robolectric-android-all-sdk34 = { group = "org.robolectric", name = "android-all-instrumented", version.ref = "robolectricAndroidAll34" }

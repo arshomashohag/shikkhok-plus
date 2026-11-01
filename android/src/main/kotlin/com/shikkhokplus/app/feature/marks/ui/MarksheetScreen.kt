@@ -97,16 +97,19 @@ const val TAG_MARKSHEET_RETRY: String = "marksheet_retry"
  *
  * @param state What to render
  * @param onRetry Called when the viewer asks to retry
+ * @param onBack Called by the back arrow
  * @param modifier Layout modifier
  */
 @Composable
 fun MarksheetScreen(
     state: MarksUiState,
     onRetry: () -> Unit = {},
+    onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     ScreenScaffold(
         title = stringResource(R.string.screen_title_marksheet),
+        onBack = onBack,
         modifier = modifier,
     ) {
         when (state) {

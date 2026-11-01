@@ -3,6 +3,7 @@ package com.shikkhokplus.app.core.network
 import com.shikkhokplus.app.core.model.Money
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 
 /**
  * A seat's latest fee period, as a student sees it on S1.
@@ -41,6 +42,7 @@ data class CurrentFeeDto(
  * @property nextSession This batch's next class, or null
  * @property isNext Whether that is the student's next class across every batch
  * @property lastResult The latest marked result, or null
+ * @property childName Whose seat this is when a guardian reads it; never on the wire
  */
 @Serializable
 data class StudentBatchDto(
@@ -53,6 +55,7 @@ data class StudentBatchDto(
     @SerialName("next_session") val nextSession: UpcomingSessionDto? = null,
     @SerialName("is_next") val isNext: Boolean = false,
     @SerialName("last_result") val lastResult: LastResultDto? = null,
+    @Transient val childName: String? = null,
 )
 
 /**
@@ -89,6 +92,10 @@ data class AttendanceEntryDto(
  * @property nextSession The next class, or null
  * @property followingSessions The classes after it
  * @property upcomingExam The next exam to sit, or null
+ * @property teacher The teacher's name and subjects, or null from an older server
+ * @property exams Every exam, grouped by the server's `state`
+ * @property currentFee The seat's latest fee period, the same line a
+ *   student's batch list carries, or null before the first
  */
 @Serializable
 data class FamilyBatchViewDto(
@@ -100,6 +107,43 @@ data class FamilyBatchViewDto(
     @SerialName("next_session") val nextSession: UpcomingSessionDto? = null,
     @SerialName("following_sessions") val followingSessions: List<UpcomingSessionDto> = emptyList(),
     @SerialName("upcoming_exam") val upcomingExam: UpcomingExamDto? = null,
+    val teacher: FamilyTeacherDto? = null,
+    val exams: List<FamilyExamDto> = emptyList(),
+    @SerialName("current_fee") val currentFee: CurrentFeeDto? = null,
+)
+
+/**
+ * The teacher as a family sees them: no phone, no address.
+ *
+ * @property displayName What the teacher is called, or null
+ * @property subjects The batch's subject names
+ */
+@Serializable
+data class FamilyTeacherDto(
+    @SerialName("display_name") val displayName: String? = null,
+    val subjects: List<String> = emptyList(),
+)
+
+/**
+ * One exam as a student or guardian sees it.
+ *
+ * @property examId The exam
+ * @property title Its title
+ * @property date When
+ * @property subjectName Which subject
+ * @property totalMarks Out of how many
+ * @property topics What it covers, as the teacher typed it
+ * @property state `done` or `upcoming`, decided by the server
+ */
+@Serializable
+data class FamilyExamDto(
+    @SerialName("exam_id") val examId: String,
+    val title: String,
+    val date: String,
+    @SerialName("subject_name") val subjectName: String,
+    @SerialName("total_marks") val totalMarks: Int,
+    val topics: List<String> = emptyList(),
+    val state: String,
 )
 
 /**

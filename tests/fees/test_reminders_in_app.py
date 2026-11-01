@@ -102,6 +102,35 @@ def test_a_reminder_reaches_the_student_and_guardian_who_accepted(
         assert note.read is False
 
 
+def test_a_guardians_reminder_names_the_child_and_a_students_does_not(
+    owner_session: Session,
+    restricted_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """A guardian's copy carries the child's name; the student's carries none.
+
+    The client routes a labelled item to the child's fee read and an
+    unlabelled one to the caller's own, so a guardian's reminder without
+    the name would open a read the guardian is refused.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application-role session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    student, guardian = account_factory(), account_factory()
+    seat = _owing_seat(owner_session, teacher, student, guardian)
+
+    remind(restricted_session, lens=_lens(teacher), enrollment_ids=[seat])
+
+    [for_guardian] = inbox(restricted_session, account_id=guardian).items
+    [for_student] = inbox(restricted_session, account_id=student).items
+    assert for_guardian.child_name == "Rahim"
+    assert for_student.child_name is None
+
+
 def test_a_guardian_who_has_not_accepted_receives_nothing(
     owner_session: Session,
     restricted_session: Session,

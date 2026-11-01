@@ -37,6 +37,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.fees import CurrentFeeResponse
+
 __all__ = [
     "AnnouncementBodyRequest",
     "AnnouncementResponse",
@@ -44,6 +46,8 @@ __all__ = [
     "AttendanceSubmitRequest",
     "AttendanceSubmitResponse",
     "FamilyBatchViewResponse",
+    "FamilyExamResponse",
+    "FamilyTeacherResponse",
     "MarksheetToggleRequest",
     "RosterSeatResponse",
     "SeatMarkRequest",
@@ -382,6 +386,42 @@ class UpcomingExamResponse(BaseModel):
     subject_name: str
 
 
+class FamilyTeacherResponse(BaseModel):
+    """The teacher as a family sees them: no phone, no address.
+
+    :ivar display_name: What the teacher is called, or null
+    :ivar subjects: The batch's subject names
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    display_name: str | None = None
+    subjects: list[str]
+
+
+class FamilyExamResponse(BaseModel):
+    """One exam as a student or guardian sees it.
+
+    :ivar exam_id: The exam
+    :ivar title: Its title
+    :ivar date: When
+    :ivar subject_name: Which subject
+    :ivar total_marks: Out of how many
+    :ivar topics: What it covers
+    :ivar state: ``done`` once past or once this seat has a mark
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    exam_id: uuid.UUID
+    title: str
+    date: dt.date
+    subject_name: str
+    total_marks: int = Field(ge=1)
+    topics: list[str]
+    state: Literal["upcoming", "done"]
+
+
 class FamilyBatchViewResponse(BaseModel):
     """What a student or guardian sees of one batch [BR7.2].
 
@@ -398,6 +438,10 @@ class FamilyBatchViewResponse(BaseModel):
     :ivar next_session: The next class, or null
     :ivar following_sessions: The classes after it, soonest first
     :ivar upcoming_exam: The next exam still to be sat, or null
+    :ivar teacher: The teacher's display name and subjects
+    :ivar exams: Every exam, upcoming soonest first then done newest first
+    :ivar current_fee: The seat's latest fee period, the same line the
+        student's batch list carries, or null before the first
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -410,6 +454,11 @@ class FamilyBatchViewResponse(BaseModel):
     next_session: UpcomingSessionResponse | None = None
     following_sessions: list[UpcomingSessionResponse] = Field(default_factory=list)
     upcoming_exam: UpcomingExamResponse | None = None
+    teacher: FamilyTeacherResponse = Field(
+        default_factory=lambda: FamilyTeacherResponse(subjects=[])
+    )
+    exams: list[FamilyExamResponse] = Field(default_factory=list)
+    current_fee: CurrentFeeResponse | None = None
 
 
 class MarksheetToggleRequest(BaseModel):

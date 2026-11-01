@@ -12,6 +12,7 @@ import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import com.shikkhokplus.app.core.designsystem.ShikkhokTheme
 import com.shikkhokplus.app.core.model.Money
 import com.shikkhokplus.app.feature.verify.ui.PartialApprovalSheet
@@ -22,6 +23,7 @@ import com.shikkhokplus.app.feature.verify.ui.TAG_VERIFY_DUPLICATE
 import com.shikkhokplus.app.feature.verify.ui.TAG_VERIFY_PARTIAL
 import com.shikkhokplus.app.feature.verify.ui.TAG_VERIFY_REJECT
 import com.shikkhokplus.app.feature.verify.ui.TAG_VERIFY_REJECT_CONFIRM
+import com.shikkhokplus.app.feature.verify.ui.TAG_VERIFY_REJECT_REASON
 import com.shikkhokplus.app.feature.verify.ui.VerifyScreen
 import org.junit.Rule
 import org.junit.Test
@@ -56,7 +58,7 @@ class VerifyScreenTest {
             duplicate = duplicate,
         )
 
-    private fun render(card: ClaimCard, actions: MutableList<String>) {
+    private fun render(card: ClaimCard, actions: MutableList<String>, reasons: MutableList<String> = mutableListOf()) {
         compose.setContent {
             ShikkhokTheme {
                 VerifyScreen(
@@ -65,7 +67,7 @@ class VerifyScreenTest {
                     onBack = {},
                     onApprove = { actions += "approve" },
                     onPartial = { actions += "partial" },
-                    onReject = { actions += "reject" },
+                    onReject = { _, reason -> actions += "reject"; reasons += reason },
                     onRetry = {},
                     onTypePartial = {},
                     onChoose = {},
@@ -97,6 +99,20 @@ class VerifyScreenTest {
         compose.onNodeWithTag(TAG_VERIFY_REJECT_CONFIRM).performClick()
 
         assertEquals(listOf("reject"), actions)
+    }
+
+    @Test
+    fun `the reason is passed on and cannot pass 500 characters`() {
+        val actions = mutableListOf<String>()
+        val reasons = mutableListOf<String>()
+        render(card(Comparison.MATCHES), actions, reasons)
+
+        compose.onNodeWithTag(TAG_VERIFY_REJECT).performClick()
+        compose.onNodeWithTag(TAG_VERIFY_REJECT_REASON).performTextInput("a".repeat(501))
+        compose.onNodeWithText("500/500").assertExists()
+        compose.onNodeWithTag(TAG_VERIFY_REJECT_CONFIRM).performClick()
+
+        assertEquals(listOf("a".repeat(500)), reasons)
     }
 
     @Test

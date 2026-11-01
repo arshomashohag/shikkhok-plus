@@ -15,6 +15,7 @@ import com.shikkhokplus.app.feature.inbox.ui.TAG_INBOX_BADGE
 import com.shikkhokplus.app.feature.inbox.ui.TAG_INBOX_BELL
 import com.shikkhokplus.app.feature.inbox.ui.TAG_INBOX_EMPTY
 import com.shikkhokplus.app.feature.inbox.ui.TAG_INBOX_ITEM
+import com.shikkhokplus.app.feature.inbox.ui.TAG_INBOX_MARK_ALL
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -67,5 +68,33 @@ class InboxScreenTest {
         compose.setContent { ShikkhokTheme { InboxBell(unread = 0, onClick = {}) } }
 
         compose.onNodeWithTag(TAG_INBOX_BADGE, useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `mark all read shows with unread items and calls back`() {
+        var called = 0
+        val message = InboxMessage("n-1", "Physics", null, null, "2026-10-17T06:00:00Z", true)
+        compose.setContent {
+            ShikkhokTheme {
+                InboxScreen(
+                    InboxUiState.Loaded(listOf(message), 1),
+                    onBack = {},
+                    onRetry = {},
+                    onMarkAllRead = { called++ },
+                )
+            }
+        }
+
+        compose.onNodeWithTag(TAG_INBOX_MARK_ALL).performClick()
+        assertEquals(1, called)
+    }
+
+    @Test
+    fun `mark all read is hidden at zero unread`() {
+        compose.setContent {
+            ShikkhokTheme { InboxScreen(InboxUiState.Loaded(emptyList(), 0), onBack = {}, onRetry = {}) }
+        }
+
+        compose.onNodeWithTag(TAG_INBOX_MARK_ALL).assertDoesNotExist()
     }
 }

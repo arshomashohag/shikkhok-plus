@@ -1,6 +1,9 @@
 package com.shikkhokplus.app.feature.student
 
+import com.shikkhokplus.app.core.model.Money
+import com.shikkhokplus.app.core.network.CurrentFeeDto
 import com.shikkhokplus.app.core.network.FamilyBatchViewDto
+import com.shikkhokplus.app.core.network.FamilyExamDto
 import com.shikkhokplus.app.core.network.MeDto
 import com.shikkhokplus.app.core.network.ProgressEntryDto
 import com.shikkhokplus.app.core.network.StudentBatchDto
@@ -48,6 +51,10 @@ class StudentBatchViewModelTest {
 
         override suspend fun progress(enrollmentId: String): AuthResult<List<ProgressEntryDto>> =
             AuthResult.Ok<List<ProgressEntryDto>>(emptyList()).also { reads += "progress" }
+
+        override suspend fun exam(enrollmentId: String, examId: String): AuthResult<FamilyExamDto> =
+            AuthResult.Ok(FamilyExamDto(examId, "Monthly", "2026-11-02", "Physics", 50, listOf("Heat"), "upcoming"))
+                .also { reads += "exam" }
     }
 
     @Test
@@ -60,6 +67,36 @@ class StudentBatchViewModelTest {
 
         assertIs<StudentBatchUiState.Loaded>(model.state.value)
         assertEquals(listOf("batches", "view", "progress"), repository.reads)
+    }
+
+    @Test
+    fun `a guardian's header takes the view's fee line, verifying and paid alike`() = runTest(dispatcher) {
+        // The guardian's row carries no fee. The header's fee is the
+        // server's line on the batch view, so a waiting claim hides Pay
+        // and a paid month says when -- neither re-derived here [TC-9].
+        val guardianRow = StudentBatchDto("e-1", "Physics A", childName = "Tasnim")
+        val checking =
+            CurrentFeeDto("2026-10", "unpaid", "2026-10-10", Money.of("1200.00"), Money.of("1200.00"), verifying = true)
+        val paid =
+            checking.copy(status = "paid", outstanding = Money.of("0.00"), verifying = false, paidOn = "2026-10-08")
+
+        for ((line, check) in listOf(
+            checking to { fee: FeeLine? -> assertEquals(true, fee?.verifying) },
+            paid to { fee: FeeLine? -> assertEquals("2026-10-08", fee?.paidOn) },
+        )) {
+            val repository =
+                Fake(
+                    batches = AuthResult.Ok(listOf(guardianRow)),
+                    view = AuthResult.Ok(FamilyBatchViewDto(servedAt = "2026-10-28T09:00:00Z", currentFee = line)),
+                )
+            val model = StudentBatchViewModel(repository)
+
+            model.load("e-1")
+            advanceUntilIdle()
+
+            check(assertIs<StudentBatchUiState.Loaded>(model.state.value).view.batch.fee)
+            assertEquals(listOf("batches", "view", "progress"), repository.reads)
+        }
     }
 
     @Test
@@ -108,5 +145,43 @@ class StudentBatchViewModelTest {
         advanceUntilIdle()
         assertEquals(listOf("batches", "phone"), withBatches.reads)
         assertEquals("+8801611477203", (loaded.state.value as MyBatchesUiState.Loaded).phone)
+    }
+
+    @Test
+    fun `the open tab lives in the model, starting on classes`() = runTest(dispatcher) {
+        val model = StudentBatchViewModel(Fake())
+
+        assertEquals(FamilyTab.CLASSES, model.tab.value)
+        model.select(FamilyTab.TEACHER)
+        assertEquals(FamilyTab.TEACHER, model.tab.value)
+        model.load("e-1")
+        advanceUntilIdle()
+        assertEquals(FamilyTab.TEACHER, model.tab.value)
+    }
+
+    @Test
+    fun `an exam detail loads from the exam route, and retry repeats a failure`() = runTest(dispatcher) {
+        val repository = Fake()
+        val model = FamilyExamViewModel(repository)
+
+        model.load("e-1", "x-9")
+        advanceUntilIdle()
+
+        val loaded = assertIs<FamilyExamUiState.Loaded>(model.state.value)
+        assertEquals(listOf("Heat"), loaded.exam.topics)
+        assertEquals(listOf("exam"), repository.reads)
+    }
+
+    @Test
+    fun `ensureLoaded loads once for a seat and not again`() = runTest(dispatcher) {
+        val repository = Fake()
+        val model = StudentBatchViewModel(repository)
+
+        model.ensureLoaded("e-1")
+        advanceUntilIdle()
+        model.ensureLoaded("e-1")
+        advanceUntilIdle()
+
+        assertEquals(1, repository.reads.count { it == "batches" })
     }
 }
