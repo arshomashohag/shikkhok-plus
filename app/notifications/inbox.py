@@ -279,25 +279,37 @@ def mark_unread_for_source(
     *,
     kind: str,
     source_id: uuid.UUID,
+    reaches: list[tuple[uuid.UUID, uuid.UUID]],
     preview: str | None = None,
 ) -> None:
-    """Make every recipient's copy of a record unread again.
+    """Make the copies of an edited record unread again, for who it reaches.
 
-    Used when the record is edited; ``created_at`` is left as sent.
-    Adds to the caller's transaction and does not commit.
+    **Only the rows of ``(account, seat)`` pairs the record still reaches
+    change.** A guardian who declined, a seat removed or one that has
+    left keeps the copy as it was: the old preview and its read state.
+    Rewriting it would put the edit in the inbox of someone who no
+    longer has access [BR5.2]. ``created_at`` is left as sent. Adds to
+    the caller's transaction and does not commit.
 
     :param session: The caller's session
     :param kind: What produced the messages
     :param source_id: The record they came from
+    :param reaches: The ``(account_id, enrollment_id)`` pairs it reaches now
     :param preview: The record's new preview line; left as is when None
     :return: None
     """
+    if not reaches:
+        return
     values: dict[str, object] = {"read_at": None}
     if preview is not None:
         values["preview"] = preview
     session.execute(
         sa.update(Notification)
-        .where(Notification.kind == kind, Notification.source_id == source_id)
+        .where(
+            Notification.kind == kind,
+            Notification.source_id == source_id,
+            sa.tuple_(Notification.account_id, Notification.enrollment_id).in_(reaches),
+        )
         .values(**values)
     )
 

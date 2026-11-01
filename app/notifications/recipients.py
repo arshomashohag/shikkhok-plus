@@ -20,13 +20,14 @@ from sqlalchemy.orm import Session
 
 from app.db.models import Batch, Enrollment, Owner
 from app.local_time import bangladesh_today
-from app.notifications.inbox import deliver
+from app.notifications.inbox import deliver, mark_unread_for_source
 
 __all__ = [
     "Recipient",
     "child_names",
     "deliver_to_families",
     "family_recipients",
+    "mark_unread_for_families",
     "seat_recipients",
     "teacher_recipient",
 ]
@@ -164,3 +165,35 @@ def deliver_to_families(
             child_names=names.get(enrollment_id),
         )
 
+
+def mark_unread_for_families(
+    session: Session,
+    *,
+    batch_id: uuid.UUID,
+    kind: str,
+    source_id: uuid.UUID,
+    preview: str,
+) -> None:
+    """Re-flag an edited batch record for the families it reaches today.
+
+    Membership is as of today in Bangladesh, the same rule
+    :func:`deliver_to_families` sends by, so an edit reaches exactly the
+    people a new record would. Adds to the caller's transaction and does
+    not commit.
+
+    :param session: The caller's session
+    :param batch_id: The batch the record belongs to
+    :param kind: What produced the messages
+    :param source_id: The edited record
+    :param preview: Its new preview line
+    :return: None
+    """
+    reaches = [
+        (recipient.account_id, recipient.enrollment_id)
+        for recipient in family_recipients(
+            session, batch_id=batch_id, on=bangladesh_today()
+        )
+    ]
+    mark_unread_for_source(
+        session, kind=kind, source_id=source_id, reaches=reaches, preview=preview
+    )

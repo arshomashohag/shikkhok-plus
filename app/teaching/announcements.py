@@ -43,12 +43,11 @@ from app.db.models import (
 )
 from app.errors import ConflictError
 from app.local_time import bangladesh_today
-from app.notifications.inbox import (
-    NOTICE,
-    mark_unread_for_source,
-    remove_for_source,
+from app.notifications.inbox import NOTICE, remove_for_source
+from app.notifications.recipients import (
+    deliver_to_families,
+    mark_unread_for_families,
 )
-from app.notifications.recipients import deliver_to_families
 from app.teaching.roster import readable_enrollment, refuse
 from app.teaching.upcoming import UpcomingSession, upcoming_sessions
 
@@ -332,8 +331,9 @@ def edit_announcement(
 
     record.body = body
     record.edited_at = dt.datetime.now(tz=dt.UTC)
-    mark_unread_for_source(
+    mark_unread_for_families(
         session,
+        batch_id=record.batch_id,
         kind=NOTICE,
         source_id=record.id,
         preview=body[:PREVIEW_LENGTH],

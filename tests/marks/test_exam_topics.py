@@ -15,9 +15,10 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session as DbSession
 
 from app.authz.lenses import TeacherLens
+from app.db.models import Enrollment
 from app.marks.exams import create_exam, update_exam
 from app.notifications.inbox import EXAM_SCHEDULED, inbox, mark_read
-from tests.batches.conftest import TeacherFixture
+from tests.batches.conftest import TeacherFixture, enroll
 from tests.conftest import bearer
 from tests.marks.conftest import EXAM_DATE, TOTAL_MARKS
 
@@ -241,3 +242,59 @@ def test_editing_nothing_leaves_it_read(
         topics=["Motion"],
     )
     assert inbox(restricted_session, account_id=student).unread == 0
+
+
+def test_editing_an_exam_leaves_a_declined_guardian_untouched(
+    owner_session: DbSession,
+    restricted_session: DbSession,
+    teacher: TeacherFixture,
+    teacher_lens: TeacherLens,
+    subject: uuid.UUID,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """A guardian who declined keeps the old preview and stays read.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application session
+    :param teacher: The batch's owner
+    :param teacher_lens: The teacher lens
+    :param subject: The subject
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    guardian = account_factory()
+    seat = enroll(
+        owner_session,
+        batch_id=teacher.batch_id,
+        display_name="Rahim",
+        student_account_id=account_factory(),
+        guardian_account_id=guardian,
+        student_decision="accepted",
+        guardian_decision="accepted",
+    )
+    row = create_exam(
+        restricted_session,
+        lens=teacher_lens,
+        batch_id=teacher.batch_id,
+        batch_subject_id=subject,
+        title="Unit test",
+        date=EXAM_DATE,
+        total_marks=TOTAL_MARKS,
+        topics=["Motion"],
+    )
+    mark_read(restricted_session, account_id=guardian)
+    owner_session.get_one(Enrollment, seat).guardian_decision = "declined"
+    owner_session.commit()
+
+    update_exam(
+        restricted_session,
+        lens=teacher_lens,
+        exam_id=row.exam_id,
+        title="Renamed",
+        date=EXAM_DATE,
+        total_marks=TOTAL_MARKS,
+        topics=["Motion", "Force"],
+    )
+
+    after = inbox(restricted_session, account_id=guardian)
+    assert (after.unread, after.items[0].preview) == (0, "Unit test")

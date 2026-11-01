@@ -6,6 +6,7 @@ edit re-flags unread, delete removes, and a refused post writes nothing.
 
 from __future__ import annotations
 
+import datetime as dt
 import uuid
 from collections.abc import Callable
 
@@ -14,7 +15,7 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Session as DbSession
 
 from app.authz.lenses import TeacherLens
-from app.db.models import Notification
+from app.db.models import Enrollment, Notification
 from app.errors import AuthorizationError
 from app.notifications.inbox import NOTICE, inbox, mark_read
 from app.teaching.announcements import (
@@ -128,6 +129,65 @@ def test_editing_a_notice_marks_it_unread_again_and_updates_preview(
     after = inbox(restricted_session, account_id=student)
     assert after.unread == 1
     assert after.items[0].preview == "new"
+
+
+def test_editing_a_notice_leaves_people_who_lost_access_untouched(
+    owner_session: DbSession,
+    restricted_session: DbSession,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """An edit reaches only the people the notice would reach today.
+
+    A guardian who declined after the notice was posted, and a seat that
+    has since left, keep their copy as it was -- old preview, still read
+    -- because an edit flagged unread to someone who lost access is the
+    new text leaking to them [BR5.2].
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application-role session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    student, guardian, leaver = account_factory(), account_factory(), account_factory()
+    kept = enroll(
+        owner_session,
+        batch_id=teacher.batch_id,
+        display_name="Rahim",
+        student_account_id=student,
+        guardian_account_id=guardian,
+        student_decision="accepted",
+        guardian_decision="accepted",
+    )
+    gone = enroll(
+        owner_session,
+        batch_id=teacher.batch_id,
+        display_name="Karim",
+        student_account_id=leaver,
+        student_decision="accepted",
+    )
+    posted = post_announcement(
+        restricted_session, lens=_lens(teacher), batch_id=teacher.batch_id, body="old"
+    )
+    for account in (student, guardian, leaver):
+        mark_read(restricted_session, account_id=account)
+    owner_session.get_one(Enrollment, kept).guardian_decision = "declined"
+    owner_session.get_one(Enrollment, gone).inactive_from = dt.date(2000, 1, 1)
+    owner_session.commit()
+
+    edit_announcement(
+        restricted_session,
+        lens=_lens(teacher),
+        announcement_id=posted.announcement_id,
+        body="new",
+    )
+
+    for lost in (guardian, leaver):
+        after = inbox(restricted_session, account_id=lost)
+        assert (after.unread, after.items[0].preview) == (0, "old")
+    still = inbox(restricted_session, account_id=student)
+    assert (still.unread, still.items[0].preview) == (1, "new")
 
 
 def test_deleting_a_read_notice_removes_it_and_unread_count_stays_correct(

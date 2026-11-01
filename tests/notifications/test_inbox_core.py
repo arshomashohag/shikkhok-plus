@@ -181,6 +181,14 @@ def test_mark_unread_for_source_resets_read(
 ) -> None:
     """An edited source becomes unread again without changing its date."""
     a = account_factory()
+    teacher = make_teacher(owner_session)
+    seat = enroll(
+        owner_session,
+        batch_id=teacher.batch_id,
+        display_name="Rahim",
+        student_account_id=a,
+        student_decision="accepted",
+    )
     source = uuid.uuid4()
     deliver(
         owner_session,
@@ -188,6 +196,7 @@ def test_mark_unread_for_source_resets_read(
         kind=NOTICE,
         batch_name="X",
         now=NOW,
+        enrollment_id=seat,
         source_id=source,
     )
     owner_session.commit()
@@ -195,7 +204,9 @@ def test_mark_unread_for_source_resets_read(
     mark_one_read(owner_session, account_id=a, notification_id=item.notification_id)
     assert inbox(owner_session, account_id=a).unread == 0
 
-    mark_unread_for_source(owner_session, kind=NOTICE, source_id=source)
+    mark_unread_for_source(
+        owner_session, kind=NOTICE, source_id=source, reaches=[(a, seat)]
+    )
     owner_session.commit()
 
     after = inbox(owner_session, account_id=a)

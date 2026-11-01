@@ -23,8 +23,11 @@ from sqlalchemy.orm import Session as DbSession
 from app.authz.lenses import TeacherLens
 from app.db.models import Batch, BatchSubject, Exam
 from app.errors import ConflictError, ValidationError
-from app.notifications.inbox import EXAM_SCHEDULED, mark_unread_for_source
-from app.notifications.recipients import deliver_to_families
+from app.notifications.inbox import EXAM_SCHEDULED
+from app.notifications.recipients import (
+    deliver_to_families,
+    mark_unread_for_families,
+)
 from app.teaching.roster import refuse
 
 __all__ = ["ExamRow", "create_exam", "list_exams", "readable_exam", "update_exam"]
@@ -259,8 +262,12 @@ def update_exam(
     row.total_marks = total_marks
     row.topics = new_topics
     if changed:
-        mark_unread_for_source(
-            session, kind=EXAM_SCHEDULED, source_id=row.id, preview=title
+        mark_unread_for_families(
+            session,
+            batch_id=row.batch_id,
+            kind=EXAM_SCHEDULED,
+            source_id=row.id,
+            preview=title,
         )
     session.commit()
 
