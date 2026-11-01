@@ -988,4 +988,29 @@
         <item quantity="other">%1$d new updates</item>
     </plurals>
     <string name="tray_channel_name">Updates</string>
+
+    <string name="calendar_prev_month">Previous month</string>
+    <string name="calendar_next_month">Next month</string>
+    <string name="calendar_pick_month">%1$s, choose a month</string>
+    <string name="calendar_picker_title">Choose a month</string>
+    <string name="calendar_picker_close">Close</string>
+    <string name="calendar_prev_year">Previous year</string>
+    <string name="calendar_next_year">Next year</string>
+    <string name="calendar_weekday_sun">Su</string>
+    <string name="calendar_weekday_mon">Mo</string>
+    <string name="calendar_weekday_tue">Tu</string>
+    <string name="calendar_weekday_wed">We</string>
+    <string name="calendar_weekday_thu">Th</string>
+    <string name="calendar_weekday_fri">Fr</string>
+    <string name="calendar_weekday_sat">Sa</string>
+    <string name="calendar_state_taken">class taken</string>
+    <string name="calendar_state_today">today</string>
+    <string name="calendar_state_upcoming">upcoming</string>
+    <string name="calendar_state_not_recorded">not recorded</string>
+    <string name="calendar_state_cancelled">cancelled</string>
+    <string name="calendar_day_description">%1$s, %2$s</string>
+    <plurals name="calendar_class_count">
+        <item quantity="one">%1$s class</item>
+        <item quantity="other">%1$s classes</item>
+    </plurals>
 </resources>

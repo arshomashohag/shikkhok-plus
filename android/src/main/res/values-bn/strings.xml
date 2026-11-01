@@ -933,4 +933,29 @@
         <item quantity="other">%1$d টি নতুন আপডেট</item>
     </plurals>
     <string name="tray_channel_name">আপডেট</string>
+
+    <string name="calendar_prev_month">আগের মাস</string>
+    <string name="calendar_next_month">পরের মাস</string>
+    <string name="calendar_pick_month">%1$s, মাস বেছে নিন</string>
+    <string name="calendar_picker_title">মাস বেছে নিন</string>
+    <string name="calendar_picker_close">বন্ধ করুন</string>
+    <string name="calendar_prev_year">আগের বছর</string>
+    <string name="calendar_next_year">পরের বছর</string>
+    <string name="calendar_weekday_sun">র</string>
+    <string name="calendar_weekday_mon">সো</string>
+    <string name="calendar_weekday_tue">ম</string>
+    <string name="calendar_weekday_wed">বু</string>
+    <string name="calendar_weekday_thu">বৃ</string>
+    <string name="calendar_weekday_fri">শু</string>
+    <string name="calendar_weekday_sat">শ</string>
+    <string name="calendar_state_taken">ক্লাস হয়েছে</string>
+    <string name="calendar_state_today">আজ</string>
+    <string name="calendar_state_upcoming">আসন্ন</string>
+    <string name="calendar_state_not_recorded">লেখা হয়নি</string>
+    <string name="calendar_state_cancelled">বাতিল</string>
+    <string name="calendar_day_description">%1$s, %2$s</string>
+    <plurals name="calendar_class_count">
+        <item quantity="one">%1$sটি ক্লাস</item>
+        <item quantity="other">%1$sটি ক্লাস</item>
+    </plurals>
 </resources>
