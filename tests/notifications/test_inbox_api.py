@@ -359,7 +359,10 @@ def test_payment_detail_carries_reason(
     teacher: TeacherFixture,
     account_factory: Callable[[], uuid.UUID],
 ) -> None:
-    """A rejected payment opens with its reason; partial and pending too.
+    """Each decision opens as it stands now, the reason only on a rejection.
+
+    The last case is an approval since reopened to pending: the item
+    still says approved, and the detail reads the claim as it is now.
 
     :param api_client: The test client
     :param owner_session: An arranging session
@@ -373,6 +376,7 @@ def test_payment_detail_carries_reason(
         (kinds.PAYMENT_REJECTED, "rejected", None, "Wrong number", "rejected"),
         (kinds.PAYMENT_PARTIAL, "approved_partial", "800.00", None, "partial"),
         (kinds.PAYMENT_APPROVED, "approved_full", "1200.00", None, "approved"),
+        (kinds.PAYMENT_APPROVED, "pending", None, None, "pending"),
     ]
     for kind, status, approved, reason, outcome in cases:
         claim = _claim(
@@ -392,6 +396,8 @@ def test_payment_detail_carries_reason(
         assert found["payment"]["reason"] == reason
         assert found["payment"]["claimed"] == "1200.00"
         assert found["payment"]["approved"] == approved
+        owner_session.execute(sa.delete(Notification))
+        owner_session.commit()
 
 
 def test_claim_to_verify_is_available_to_the_owning_teacher_only(
@@ -458,3 +464,171 @@ def test_read_one_marks_only_that_item(
     assert marked.status_code == 204
     assert after["unread"] == 1
     assert {i["notification_id"]: i["read"] for i in after["items"]}[str(first)] is True
+
+
+def _notice_item(
+    session: Session,
+    teacher: TeacherFixture,
+    *,
+    account_id: uuid.UUID,
+    seat: uuid.UUID,
+) -> uuid.UUID:
+    """Post a notice and put its item about one seat in one inbox.
+
+    :param session: An arranging session
+    :param teacher: The batch's owner
+    :param account_id: The recipient
+    :param seat: The seat the item is about
+    :return: The notification id
+    """
+    notice = Announcement(batch_id=teacher.batch_id, body="Hello", created_at=NOW)
+    session.add(notice)
+    session.flush()
+    deliver(
+        session,
+        account_ids=[account_id],
+        kind=kinds.NOTICE,
+        batch_name="Batch",
+        now=NOW,
+        enrollment_id=seat,
+        source_id=notice.id,
+    )
+    session.commit()
+    return session.scalars(
+        sa.select(Notification.id).where(
+            Notification.account_id == account_id,
+            Notification.enrollment_id == seat,
+        )
+    ).one()
+
+
+def _available(
+    api_client: TestClient, session: Session, account_id: uuid.UUID, item: uuid.UUID
+) -> bool:
+    """Open one item as its owner and say whether it is available.
+
+    :param api_client: The test client
+    :param session: A session to mint the bearer token through
+    :param account_id: The item's owner
+    :param item: The item
+    :return: The detail's ``available`` flag
+    """
+    found = api_client.get(
+        f"/v1/me/notifications/{item}", headers=bearer(session, account_id)
+    )
+    assert found.status_code == 200
+    available: bool = found.json()["available"]
+    return available
+
+
+def test_declining_one_childs_seat_closes_that_childs_items_only(
+    api_client: TestClient,
+    owner_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """A guardian lens over a kept child does not open the declined child.
+
+    The guardian still holds a guardian lens, through the second child,
+    so the refusal must come from the seat and not from the lens type.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    guardian = account_factory()
+    declined, kept = (
+        enroll(
+            owner_session,
+            batch_id=teacher.batch_id,
+            display_name=name,
+            guardian_account_id=guardian,
+            guardian_decision="accepted",
+        )
+        for name in ("Rahim", "Karim")
+    )
+    on_declined = _notice_item(
+        owner_session, teacher, account_id=guardian, seat=declined
+    )
+    on_kept = _notice_item(owner_session, teacher, account_id=guardian, seat=kept)
+    owner_session.execute(
+        sa.update(Enrollment)
+        .where(Enrollment.id == declined)
+        .values(guardian_decision="declined")
+    )
+    owner_session.commit()
+
+    assert _available(api_client, owner_session, guardian, on_declined) is False
+    assert _available(api_client, owner_session, guardian, on_kept) is True
+
+
+def test_a_teacher_lens_does_not_stand_in_for_a_lost_guardian_link(
+    api_client: TestClient,
+    owner_session: Session,
+    teacher: TeacherFixture,
+) -> None:
+    """A teacher who was a guardian in their own batch loses the item.
+
+    Their teacher lens still reaches the seat -- it is their batch -- but
+    a family item is addressed to the guardian, so once the guardian
+    link is gone the item is unavailable [_fits].
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param teacher: The batch's owner, also recorded as a guardian
+    :return: None
+    """
+    seat = enroll(
+        owner_session,
+        batch_id=teacher.batch_id,
+        display_name="Rahim",
+        guardian_account_id=teacher.account_id,
+        guardian_decision="accepted",
+    )
+    item = _notice_item(
+        owner_session, teacher, account_id=teacher.account_id, seat=seat
+    )
+    before = _available(api_client, owner_session, teacher.account_id, item)
+    owner_session.execute(
+        sa.update(Enrollment)
+        .where(Enrollment.id == seat)
+        .values(guardian_account_id=None)
+    )
+    owner_session.commit()
+
+    assert before is True
+    assert _available(api_client, owner_session, teacher.account_id, item) is False
+
+
+def test_marking_another_accounts_item_read_changes_nothing(
+    api_client: TestClient,
+    owner_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """Another account's id is a no-op, answered as a success.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    student, seat = _student_seat(owner_session, teacher, account_factory)
+    item = _deliver(
+        owner_session, account_id=student, kind=kinds.FEE_REMINDER, seat=seat
+    )
+    stranger = account_factory()
+
+    marked = api_client.post(
+        f"/v1/me/notifications/{item}/read", headers=bearer(owner_session, stranger)
+    )
+    after = api_client.get(
+        "/v1/me/notifications", headers=bearer(owner_session, student)
+    ).json()
+
+    assert marked.status_code == 204
+    assert after["unread"] == 1
+    assert after["items"][0]["read"] is False
