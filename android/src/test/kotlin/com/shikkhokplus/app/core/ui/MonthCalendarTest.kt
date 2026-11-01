@@ -51,6 +51,7 @@ class MonthCalendarTest {
         last: YearMonth = YearMonth(2026, 12),
         onPick: (YearMonth) -> Unit = {},
         onDay: (CalendarDayUi) -> Unit = {},
+        today: String? = null,
     ) {
         compose.setContent {
             ShikkhokTheme {
@@ -62,6 +63,7 @@ class MonthCalendarTest {
                     lastMonth = last,
                     onPickMonth = onPick,
                     onDay = onDay,
+                    today = today,
                 )
             }
         }
@@ -83,6 +85,26 @@ class MonthCalendarTest {
         compose.onNodeWithTag("calendar_count_2026-11-09", useUnmergedTree = true).assertExists()
         compose.onAllNodesWithTag("calendar_count_2026-11-02", useUnmergedTree = true)
             .assertCountEquals(0)
+    }
+
+    @Test
+    fun `the server's today is ringed even when its class is already taken`() {
+        render(today = "2026-11-02")
+        compose.onNodeWithTag("calendar_day_taken_2026-11-02").assertExists()
+        compose.onNodeWithTag(calendarTodayTag("2026-11-02"), useUnmergedTree = true).assertExists()
+        compose.onAllNodesWithTag(calendarTodayTag("2026-11-03"), useUnmergedTree = true).assertCountEquals(0)
+    }
+
+    @Test
+    fun `a today with no class is ringed, and no today rings nothing`() {
+        render(today = "2026-11-20")
+        compose.onNodeWithTag(calendarTodayTag("2026-11-20"), useUnmergedTree = true).assertExists()
+    }
+
+    @Test
+    fun `without a today from the server nothing is ringed`() {
+        render()
+        compose.onAllNodesWithTag(calendarTodayTag("2026-11-03"), useUnmergedTree = true).assertCountEquals(0)
     }
 
     @Test

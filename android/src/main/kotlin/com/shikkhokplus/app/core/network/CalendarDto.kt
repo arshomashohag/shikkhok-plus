@@ -21,6 +21,8 @@ import kotlinx.serialization.Serializable
  * @property plannable Whether the viewer may plan this class
  * @property recordable Whether the viewer may record this class
  * @property mark `present`, `absent`, `not_marked` or `not_enrolled`, for a student view
+ * @property topicVersion The topic log's version, which a topic write composes against
+ * @property attendanceVersion The roster's version
  */
 @Serializable
 data class CalendarClassDto(
@@ -35,6 +37,8 @@ data class CalendarClassDto(
     val plannable: Boolean = false,
     val recordable: Boolean = false,
     val mark: String? = null,
+    @SerialName("topic_version") val topicVersion: Int = 0,
+    @SerialName("attendance_version") val attendanceVersion: Int = 0,
 )
 
 /**
@@ -60,6 +64,7 @@ data class CalendarDayDto(
  * @property lastMonth Latest month worth showing, `YYYY-MM`
  * @property servedAt When the server built it
  * @property days Only the days that have a class
+ * @property today Bangladesh's date when the server built it, `YYYY-MM-DD`
  */
 @Serializable
 data class MonthViewDto(
@@ -69,4 +74,5 @@ data class MonthViewDto(
     @SerialName("last_month") val lastMonth: String,
     @SerialName("served_at") val servedAt: String? = null,
     val days: List<CalendarDayDto> = emptyList(),
+    val today: String? = null,
 )

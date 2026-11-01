@@ -12,6 +12,11 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.performTextReplacement
+import com.shikkhokplus.app.core.network.SubjectOptionDto
 import com.shikkhokplus.app.core.designsystem.ShikkhokTheme
 import com.shikkhokplus.app.core.ui.CalendarState
 import com.shikkhokplus.app.feature.attendance.AttendanceSeat
@@ -48,7 +53,7 @@ class ClassDayScreenTest {
     private fun render(state: ClassDayUiState, attendance: AttendanceUiState, onSave: () -> Unit = {}) {
         compose.setContent {
             ShikkhokTheme {
-                ClassDayScreen(state, attendance, {}, {}, { _, _ -> }, onSave, {}, {}, {}, {}, {})
+                ClassDayScreen(state, attendance, {}, {}, {}, { _, _ -> }, onSave, {}, {}, {}, {}, {})
             }
         }
     }
@@ -63,6 +68,59 @@ class ClassDayScreenTest {
         compose.onAllNodesWithTag(TAG_ATTENDANCE_SEAT).assertCountEquals(2)
         compose.onNodeWithTag(TAG_DAY_SAVE).performScrollTo().performClick()
         assertEquals(1, saved)
+    }
+
+    @Test
+    fun `topics and notes show a counter and never pass more than 2000 characters on`() {
+        var typed = ""
+        compose.setContent {
+            ShikkhokTheme {
+                ClassDayScreen(fields, marking, { typed = it }, {}, {}, { _, _ -> }, {}, {}, {}, {}, {}, {})
+            }
+        }
+
+        compose.onNodeWithTag(counterTag(TAG_DAY_TOPIC)).assertTextEquals("6 / 2000")
+        compose.onNodeWithTag(counterTag(TAG_CLASS_NOTES)).assertTextEquals("2 / 2000")
+        compose.onNodeWithTag(TAG_DAY_TOPIC).performTextReplacement("x".repeat(2100))
+        assertEquals(2000, typed.length)
+    }
+
+    @Test
+    fun `a refused topic shows its message and keeps Save, even when the roster could not load`() {
+        var saved = 0
+        val refused = fields.copy(errorKey = "teaching.session.cancelled")
+        render(refused, AttendanceUiState.Failed("error.network.unreachable", retryable = true)) { saved++ }
+
+        compose.onNodeWithTag(TAG_CLASS_ERROR).assertExists()
+        compose.onNodeWithTag(TAG_DAY_TOPIC).assertIsEnabled()
+        compose.onNodeWithTag(TAG_DAY_SAVE).performScrollTo().assertIsEnabled().performClick()
+        assertEquals(1, saved)
+    }
+
+    @Test
+    fun `Save waits for the roster's first read`() {
+        render(fields, AttendanceUiState.Loading)
+
+        compose.onNodeWithTag(TAG_DAY_SAVE).assertIsNotEnabled()
+    }
+
+    @Test
+    fun `the batch's subjects are offered and a choice is passed on`() {
+        var chosen: String? = null
+        val withSubjects =
+            fields.copy(
+                subjects = listOf(SubjectOptionDto("sub-1", "Physics"), SubjectOptionDto("sub-2", "Maths")),
+                subjectId = "sub-1",
+            )
+        compose.setContent {
+            ShikkhokTheme {
+                ClassDayScreen(withSubjects, marking, {}, {}, { chosen = it }, { _, _ -> }, {}, {}, {}, {}, {}, {})
+            }
+        }
+
+        compose.onAllNodesWithTag(TAG_CLASS_SUBJECT).assertCountEquals(2)
+        compose.onAllNodesWithTag(TAG_CLASS_SUBJECT)[1].performClick()
+        assertEquals("sub-2", chosen)
     }
 
     @Test
@@ -82,7 +140,7 @@ class ClassDayScreenTest {
         compose.setContent {
             ShikkhokTheme {
                 ClassDayScreen(
-                    state, marking, {}, {}, { _, _ -> },
+                    state, marking, {}, {}, {}, { _, _ -> },
                     {}, { state = state.copy(conflictItemId = null, notice = SaveResult.QUEUED) }, {}, {}, {}, {},
                 )
             }

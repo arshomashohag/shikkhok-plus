@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.feature.classcalendar
 
+import com.shikkhokplus.app.core.network.SubjectOptionDto
 import com.shikkhokplus.app.core.queue.QueueState
 import com.shikkhokplus.app.core.queue.QueueStore
 import com.shikkhokplus.app.core.queue.QueueTarget
@@ -44,9 +45,9 @@ class PlanClassViewModelTest {
     private fun store() = QueueStore(File(folder.root, QueueStore.FILE_NAME))
 
     private fun model(fake: FakeTopicSender, store: QueueStore) =
-        PlanClassViewModel(FakeSessions(topicVersion = 5), TopicWriter(store, fake), store)
+        PlanClassViewModel(TopicWriter(store, fake), store, ClassSubjects(fake))
 
-    private val clazz = calendarClass(topic = "Friction", notes = "Bring ramps", plannable = true)
+    private val clazz = calendarClass(topic = "Friction", notes = "Bring ramps", plannable = true, topicVersion = 5)
 
     @Test
     fun `saving enqueues a plan write against the session's topic version`() = runTest(dispatcher) {
@@ -175,6 +176,121 @@ class PlanClassViewModelTest {
 
         assertEquals("Typed by the teacher", model.state.value?.topic)
         assertEquals(5, model.state.value?.topicVersion)
+    }
+
+    @Test
+    fun `the plan saves offline from the calendar payload alone`() = runTest(dispatcher) {
+        val fake = FakeTopicSender(mutableListOf(SendOutcome.Failed(null)))
+        val store = store()
+        val model = model(fake, store)
+        model.open(calendarClass(topic = "Friction", plannable = true, topicVersion = 7))
+        advanceUntilIdle()
+        model.typeTopic("Newton's third law")
+
+        model.save()
+        advanceUntilIdle()
+
+        assertEquals(7, fake.sent.single().baseVersion)
+        assertEquals(7, store.read().single().baseVersion)
+        assertEquals(SaveResult.QUEUED, model.state.value?.result)
+    }
+
+    @Test
+    fun `a refused write is an error with the words kept, never queued`() = runTest(dispatcher) {
+        val refused = SendOutcome.Failed(envelope("error.validation.too_long", "VALIDATION"))
+        val fake = FakeTopicSender(mutableListOf(refused))
+        val store = store()
+        val model = model(fake, store)
+        model.open(clazz)
+        advanceUntilIdle()
+        model.typeTopic("Too long")
+
+        model.save()
+        advanceUntilIdle()
+
+        val state = model.state.value
+        assertNull(state?.result)
+        assertEquals("error.validation.too_long", state?.errorKey)
+        assertEquals("Too long", state?.topic)
+        assertTrue(store.read().isEmpty())
+
+        model.typeTopic("Short")
+        model.save()
+        advanceUntilIdle()
+
+        assertEquals(listOf("Too long", "Short"), fake.sent.map { it.topic })
+        assertEquals(SaveResult.SENT, model.state.value?.result)
+    }
+
+    @Test
+    fun `a cancelled class shows its own message, not the version conflict`() = runTest(dispatcher) {
+        val cancelled = SendOutcome.Conflicted(5, envelope("teaching.session.cancelled", "SESSION_CANCELLED"))
+        val store = store()
+        val model = model(FakeTopicSender(mutableListOf(cancelled)), store)
+        model.open(clazz)
+        advanceUntilIdle()
+
+        model.save()
+        advanceUntilIdle()
+
+        assertNull(model.state.value?.result)
+        assertEquals("teaching.session.cancelled", model.state.value?.errorKey)
+        assertTrue(store.read().isEmpty())
+    }
+
+    @Test
+    fun `a changed subject is set through the subject write before the plan is sent`() = runTest(dispatcher) {
+        val subjects = listOf(SubjectOptionDto("sub-1", "Physics"), SubjectOptionDto("sub-2", "Maths"))
+        val fake = FakeTopicSender(options = subjects)
+        val model = model(fake, store())
+        model.open(clazz, batchId = "b-1")
+        advanceUntilIdle()
+        assertEquals("sub-1", model.state.value?.subjectId)
+
+        model.chooseSubject("sub-2")
+        model.save()
+        advanceUntilIdle()
+
+        assertEquals<List<Pair<String, String?>>>(listOf("s-1" to "sub-2"), fake.subjectWrites)
+        assertEquals("Maths", model.state.value?.clazz?.subjectName)
+        assertEquals(1, fake.sent.size)
+    }
+
+    @Test
+    fun `an unchanged subject is not written`() = runTest(dispatcher) {
+        val fake = FakeTopicSender(options = listOf(SubjectOptionDto("sub-1", "Physics")))
+        val model = model(fake, store())
+        model.open(clazz, batchId = "b-1")
+        advanceUntilIdle()
+
+        model.save()
+        advanceUntilIdle()
+
+        assertTrue(fake.subjectWrites.isEmpty())
+    }
+
+    @Test
+    fun `the class's own day is the server's today, not the phone's`() = runTest(dispatcher) {
+        val model = model(FakeTopicSender(), store())
+
+        model.open(calendarClass(date = "2026-11-16", plannable = true), today = "2026-11-16")
+
+        assertEquals(true, model.state.value?.onClassDay)
+        model.close()
+        model.open(calendarClass(date = "2026-11-17", plannable = true), today = "2026-11-16")
+        assertEquals(false, model.state.value?.onClassDay)
+    }
+
+    @Test
+    fun `topics and notes are cut at 2000 characters`() = runTest(dispatcher) {
+        val model = model(FakeTopicSender(), store())
+        model.open(clazz)
+
+        model.typeTopic("t".repeat(2001))
+        model.typeNotes("n".repeat(2500))
+
+        assertEquals(2000, model.state.value?.topic?.length)
+        assertEquals(2000, model.state.value?.notes?.length)
     }
 
     @Test

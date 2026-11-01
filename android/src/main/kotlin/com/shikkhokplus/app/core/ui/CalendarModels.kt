@@ -66,6 +66,8 @@ enum class CalendarMark(val wire: String) {
  * @property plannable Whether the viewer may plan it
  * @property recordable Whether the viewer may record it
  * @property mark A student's standing, if the view carries one
+ * @property topicVersion The topic version a write composes against
+ * @property attendanceVersion The roster's version
  */
 data class CalendarClassUi(
     val sessionId: String,
@@ -79,6 +81,8 @@ data class CalendarClassUi(
     val plannable: Boolean,
     val recordable: Boolean,
     val mark: CalendarMark?,
+    val topicVersion: Int = 0,
+    val attendanceVersion: Int = 0,
 )
 
 /**
@@ -108,12 +112,15 @@ data class CalendarDayUi(
  * @property firstMonth Earliest month offered
  * @property lastMonth Latest month offered
  * @property days Days with classes
+ * @property today Bangladesh's date as the server read it, `YYYY-MM-DD`,
+ *   or null when it sent none
  */
 data class MonthViewUi(
     val month: YearMonth,
     val firstMonth: YearMonth,
     val lastMonth: YearMonth,
     val days: List<CalendarDayUi>,
+    val today: String? = null,
 )
 
 /** Turns the wire month into the model the calendar draws. */
@@ -136,6 +143,7 @@ object CalendarMapper {
             firstMonth = YearMonth.parseOrNull(dto.firstMonth) ?: shown,
             lastMonth = YearMonth.parseOrNull(dto.lastMonth) ?: shown,
             days = dto.days.mapNotNull(::day),
+            today = dto.today,
         )
     }
 
@@ -170,6 +178,8 @@ object CalendarMapper {
             plannable = dto.plannable,
             recordable = dto.recordable,
             mark = CalendarMark.fromWire(dto.mark),
+            topicVersion = dto.topicVersion,
+            attendanceVersion = dto.attendanceVersion,
         )
     }
 }

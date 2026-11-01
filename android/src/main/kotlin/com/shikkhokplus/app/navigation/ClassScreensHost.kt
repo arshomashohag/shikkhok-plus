@@ -26,6 +26,7 @@ import com.shikkhokplus.app.feature.classcalendar.ui.ClassDayScreen
 import com.shikkhokplus.app.feature.classcalendar.ClassDayViewModel
 import com.shikkhokplus.app.feature.classcalendar.ui.ClassPickList
 import com.shikkhokplus.app.feature.classcalendar.ui.ClassReadOnlyScreen
+import com.shikkhokplus.app.feature.classcalendar.ClassSubjects
 import com.shikkhokplus.app.feature.classcalendar.ClassTarget
 import com.shikkhokplus.app.feature.classcalendar.ui.PlanClassScreen
 import com.shikkhokplus.app.feature.classcalendar.PlanClassViewModel
@@ -54,8 +55,10 @@ internal fun ClassScreensHost(client: HttpClient, queue: QueueStore, calendar: C
         null -> Unit
         is ClassTarget.Choose ->
             ClassPickList(open.classes, onPick = calendar::chooseClass, onDismiss = calendar::closeTarget)
-        is ClassTarget.Record -> FullScreen(leave) { RecordDay(client, queue, open.clazz, leave) }
-        is ClassTarget.Plan -> FullScreen(leave) { PlanDay(client, queue, open.clazz, leave) }
+        is ClassTarget.Record ->
+            FullScreen(leave) { RecordDay(client, queue, open.clazz, calendar.batchId, leave) }
+        is ClassTarget.Plan ->
+            FullScreen(leave) { PlanDay(client, queue, open.clazz, calendar.batchId to calendar.today, leave) }
         is ClassTarget.ReadOnly -> FullScreen(leave) { ClassReadOnlyScreen(open.clazz, leave) }
     }
 }
@@ -67,18 +70,25 @@ private fun FullScreen(onBack: () -> Unit, content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun RecordDay(client: HttpClient, queue: QueueStore, clazz: CalendarClassUi, leave: () -> Unit) {
+private fun RecordDay(
+    client: HttpClient,
+    queue: QueueStore,
+    clazz: CalendarClassUi,
+    batchId: String?,
+    leave: () -> Unit,
+) {
     val attendance: AttendanceViewModel =
         viewModel(key = "classday-attendance-${clazz.sessionId}") {
             AttendanceViewModel(HttpAttendanceRepository(client), HttpSessionsRepository(client), queue)
         }
     val model: ClassDayViewModel =
         viewModel(key = "classday-${clazz.sessionId}") {
-            ClassDayViewModel(attendance, TopicWriter(queue, HttpRecordRepository(client)), queue)
+            val records = HttpRecordRepository(client)
+            ClassDayViewModel(attendance, TopicWriter(queue, records), queue, ClassSubjects(records))
         }
     val state by model.state.collectAsState()
     val roster by attendance.state.collectAsState()
-    LaunchedEffect(clazz.sessionId) { model.open(clazz) }
+    LaunchedEffect(clazz.sessionId) { model.open(clazz, batchId) }
     val close = {
         model.close()
         leave()
@@ -96,6 +106,7 @@ private fun RecordDay(client: HttpClient, queue: QueueStore, clazz: CalendarClas
         attendance = roster,
         onTopic = model::typeTopic,
         onNotes = model::typeNotes,
+        onSubject = model::chooseSubject,
         onToggle = attendance::toggle,
         onSave = model::save,
         onSaveAsCovered = model::saveAsCovered,
@@ -107,17 +118,20 @@ private fun RecordDay(client: HttpClient, queue: QueueStore, clazz: CalendarClas
 }
 
 @Composable
-private fun PlanDay(client: HttpClient, queue: QueueStore, clazz: CalendarClassUi, leave: () -> Unit) {
+private fun PlanDay(
+    client: HttpClient,
+    queue: QueueStore,
+    clazz: CalendarClassUi,
+    batchAndToday: Pair<String?, String?>,
+    leave: () -> Unit,
+) {
     val model: PlanClassViewModel =
         viewModel(key = "classplan-${clazz.sessionId}") {
-            PlanClassViewModel(
-                HttpSessionsRepository(client),
-                TopicWriter(queue, HttpRecordRepository(client)),
-                queue,
-            )
+            val records = HttpRecordRepository(client)
+            PlanClassViewModel(TopicWriter(queue, records), queue, ClassSubjects(records))
         }
     val state by model.state.collectAsState()
-    LaunchedEffect(clazz.sessionId) { model.open(clazz) }
+    LaunchedEffect(clazz.sessionId) { model.open(clazz, batchAndToday.first, batchAndToday.second) }
     val close = {
         model.close()
         leave()
@@ -133,6 +147,7 @@ private fun PlanDay(client: HttpClient, queue: QueueStore, clazz: CalendarClassU
         state = screen,
         onTopic = model::typeTopic,
         onNotes = model::typeNotes,
+        onSubject = model::chooseSubject,
         onSave = model::save,
         onSaveAsCovered = model::saveAsCovered,
         onDiscard = model::discardPlan,

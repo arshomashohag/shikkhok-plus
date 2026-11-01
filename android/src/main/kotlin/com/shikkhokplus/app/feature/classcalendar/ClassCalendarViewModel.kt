@@ -39,8 +39,18 @@ class ClassCalendarViewModel(
     /** The class screen to show, or null. */
     val target: StateFlow<ClassTarget?> = _target.asStateFlow()
 
-    private var batchId: String? = null
+    /** The batch on show, once [load] has named one. */
+    var batchId: String? = null
+        private set
+
     private var shown: YearMonth? = null
+
+    /**
+     * The server's date with the month on screen, `YYYY-MM-DD`, or null
+     * before a month has loaded.
+     */
+    val today: String?
+        get() = (_state.value as? ClassCalendarUiState.Loaded)?.view?.today
 
     /**
      * Open the calendar on the current month, or on the month already

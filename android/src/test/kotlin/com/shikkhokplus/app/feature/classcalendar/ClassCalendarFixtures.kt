@@ -23,8 +23,12 @@ fun calendarClass(
     plannable: Boolean = false,
     recordable: Boolean = false,
     subject: String? = "Physics",
+    topicVersion: Int = 0,
 ): CalendarClassUi =
-    CalendarClassUi(id, date, start, null, subject, state, topic, notes, plannable, recordable, null)
+    CalendarClassUi(
+        id, date, start, null, subject, state, topic, notes, plannable, recordable, null,
+        topicVersion = topicVersion,
+    )
 
 fun envelope(key: String, code: String = "X"): ErrorEnvelope =
     ErrorEnvelope(ErrorBody(code = code, retryable = false, messageKey = key))
@@ -55,14 +59,22 @@ class FakeSessions(private val topicVersion: Int = 5) : SessionsRepository {
     override suspend fun cancel(sessionId: String) = AuthResult.Ok(Unit)
 }
 
-class FakeTopicSender(val outcomes: MutableList<SendOutcome> = mutableListOf()) : RecordRepository {
+class FakeTopicSender(
+    val outcomes: MutableList<SendOutcome> = mutableListOf(),
+    private val options: List<SubjectOptionDto> = emptyList(),
+    private val subjectAnswer: AuthResult<Unit> = AuthResult.Ok(Unit),
+) : RecordRepository {
     val sent = mutableListOf<QueuedWrite>()
+    val subjectWrites = mutableListOf<Pair<String, String?>>()
 
-    override suspend fun subjects(batchId: String) = AuthResult.Ok(emptyList<SubjectOptionDto>())
+    override suspend fun subjects(batchId: String) = AuthResult.Ok(options)
 
     override suspend fun sessions(batchId: String) = AuthResult.Ok(emptyList<SessionDto>())
 
-    override suspend fun setSubject(sessionId: String, batchSubjectId: String?) = AuthResult.Ok(Unit)
+    override suspend fun setSubject(sessionId: String, batchSubjectId: String?): AuthResult<Unit> {
+        subjectWrites += sessionId to batchSubjectId
+        return subjectAnswer
+    }
 
     override suspend fun send(item: QueuedWrite): SendOutcome {
         sent += item

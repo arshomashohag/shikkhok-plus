@@ -22,7 +22,6 @@ import com.shikkhokplus.app.core.designsystem.Banner
 import com.shikkhokplus.app.core.designsystem.BannerTone
 import com.shikkhokplus.app.core.designsystem.ListScreenScaffold
 import com.shikkhokplus.app.core.designsystem.PrimaryButton
-import com.shikkhokplus.app.core.designsystem.ShikkhokTextField
 import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.feature.attendance.ui.TAG_CONFLICT_DISCARD
 import com.shikkhokplus.app.feature.attendance.ui.TAG_CONFLICT_EXPLANATION
@@ -61,6 +60,7 @@ const val TAG_CLASS_DONE: String = "class_done"
  * @param state The screen's state
  * @param onTopic Called with the topics as typed
  * @param onNotes Called with the notes as typed
+ * @param onSubject Called with the chosen subject's id
  * @param onSave Called to save the plan
  * @param onSaveAsCovered Called to keep a refused plan as covered
  * @param onDiscard Called to discard a refused plan
@@ -72,6 +72,7 @@ fun PlanClassScreen(
     state: PlanClassUiState,
     onTopic: (String) -> Unit,
     onNotes: (String) -> Unit,
+    onSubject: (String) -> Unit,
     onSave: () -> Unit,
     onSaveAsCovered: () -> Unit,
     onDiscard: () -> Unit,
@@ -86,7 +87,7 @@ fun PlanClassScreen(
         if (state.conflictItemId != null) {
             StartedConflict(onSaveAsCovered, onDiscard)
         } else {
-            PlanForm(state, onTopic, onNotes, onSave, onDone)
+            PlanForm(state, onTopic, onNotes, onSubject, onSave, onDone)
         }
     }
 }
@@ -96,6 +97,7 @@ private fun PlanForm(
     state: PlanClassUiState,
     onTopic: (String) -> Unit,
     onNotes: (String) -> Unit,
+    onSubject: (String) -> Unit,
     onSave: () -> Unit,
     onDone: () -> Unit,
 ) {
@@ -103,24 +105,24 @@ private fun PlanForm(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        ShikkhokTextField(
+        val editable = state.result == null
+        SubjectChooser(state.subjects, state.subjectId, editable && !state.saving, onSubject)
+        CappedClassField(
             value = state.topic,
             onValueChange = onTopic,
             label = stringResource(R.string.classplan_topics),
-            help = stringResource(R.string.classplan_hint),
-            singleLine = false,
+            tag = TAG_PLAN_TOPIC,
+            enabled = editable,
             minLines = 3,
-            enabled = state.result == null,
-            fieldModifier = Modifier.testTag(TAG_PLAN_TOPIC),
+            help = stringResource(R.string.classplan_hint),
         )
-        ShikkhokTextField(
+        CappedClassField(
             value = state.notes,
             onValueChange = onNotes,
             label = stringResource(R.string.classday_notes),
-            singleLine = false,
+            tag = TAG_CLASS_NOTES,
+            enabled = editable,
             minLines = 2,
-            enabled = state.result == null,
-            fieldModifier = Modifier.testTag(TAG_CLASS_NOTES),
         )
         Text(
             stringResource(R.string.classplan_attendance_heading),
@@ -128,16 +130,20 @@ private fun PlanForm(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
-            stringResource(R.string.classplan_attendance_later),
+            stringResource(
+                if (state.onClassDay) R.string.classplan_attendance_at_start else R.string.classplan_attendance_later,
+            ),
             Modifier.testTag(TAG_PLAN_ATTENDANCE_LATER),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        state.errorKey?.let { Banner(stringResource(MessageKeys.resolve(it)), tone = BannerTone.ERROR) }
+        state.errorKey?.let {
+            Banner(stringResource(MessageKeys.resolve(it)), Modifier.testTag(TAG_CLASS_ERROR), tone = BannerTone.ERROR)
+        }
         ResultAndAction(
             result = state.result,
             saving = state.saving,
-            ready = state.topicVersion != null,
+            ready = true,
             saveLabel = R.string.classplan_save,
             onSave = onSave,
             onDone = onDone,

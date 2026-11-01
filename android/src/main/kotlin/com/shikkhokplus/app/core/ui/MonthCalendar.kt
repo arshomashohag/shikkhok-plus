@@ -71,6 +71,14 @@ private val OnGreenFillDark = Color(0xFF08210F)
 fun calendarDayTag(state: CalendarState, date: String): String = "calendar_day_${state.wire}_$date"
 
 /**
+ * The calendar's tag for the ring marking the server's today.
+ *
+ * @param date `YYYY-MM-DD`
+ * @return The test tag
+ */
+fun calendarTodayTag(date: String): String = "calendar_today_$date"
+
+/**
  * A month as a Sunday-first grid.
  *
  * **Draws the state the server sent.** The composable never compares a
@@ -86,6 +94,8 @@ fun calendarDayTag(state: CalendarState, date: String): String = "calendar_day_$
  * @param onPickMonth Called with the month the person moved to
  * @param onDay Called when a day with classes is tapped
  * @param modifier Layout modifier
+ * @param today The server's date, `YYYY-MM-DD`, ringed whatever its
+ *   classes' state; null rings nothing
  */
 @Composable
 fun MonthCalendar(
@@ -97,6 +107,7 @@ fun MonthCalendar(
     onPickMonth: (YearMonth) -> Unit,
     onDay: (CalendarDayUi) -> Unit,
     modifier: Modifier = Modifier,
+    today: String? = null,
 ) {
     val shown = YearMonth(year, month)
     var picking by remember { mutableStateOf(false) }
@@ -110,7 +121,7 @@ fun MonthCalendar(
             onOpenPicker = { picking = true },
         )
         WeekdayRow()
-        CalendarGrid(shown, days.associateBy { it.date }, onDay)
+        CalendarGrid(shown, days.associateBy { it.date }, today, onDay)
     }
     if (picking) {
         MonthPicker(
@@ -211,6 +222,7 @@ private fun WeekdayRow() {
 private fun CalendarGrid(
     shown: YearMonth,
     byDate: Map<String, CalendarDayUi>,
+    today: String?,
     onDay: (CalendarDayUi) -> Unit,
 ) {
     val leading = shown.leadingBlanks()
@@ -224,7 +236,7 @@ private fun CalendarGrid(
                     Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
                         if (dayNumber in 1..length) {
                             val date = shown.isoDay(dayNumber)
-                            DayCell(dayNumber, byDate[date], date, onDay)
+                            DayCell(dayNumber, byDate[date], date, date == today, onDay)
                         } else {
                             Box(modifier = Modifier.heightIn(min = Reach.touch))
                         }
@@ -241,10 +253,12 @@ private fun DayCell(
     number: Int,
     day: CalendarDayUi?,
     date: String,
+    isToday: Boolean,
     onDay: (CalendarDayUi) -> Unit,
 ) {
     if (day == null) {
-        Box(modifier = Modifier.heightIn(min = Reach.touch), contentAlignment = Alignment.Center) {
+        Box(modifier = Modifier.size(Reach.touch), contentAlignment = Alignment.Center) {
+            if (isToday) TodayRing(date)
             Text(
                 number.toString(),
                 style = MaterialTheme.typography.bodyMedium,
@@ -305,6 +319,7 @@ private fun DayCell(
                 }
             }
         }
+        if (isToday) TodayRing(date)
         if (count > 1) {
             Text(
                 count.toString(),
@@ -317,6 +332,24 @@ private fun DayCell(
             )
         }
     }
+}
+
+/**
+ * The ring around the server's today, drawn over whatever the day's
+ * state paints, so a recorded class keeps its tick and still reads as
+ * today.
+ *
+ * @param date `YYYY-MM-DD`
+ */
+@Composable
+private fun TodayRing(date: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(1.dp)
+            .border(BorderStroke(2.dp, MaterialTheme.colorScheme.primary), cellShape)
+            .testTag(calendarTodayTag(date)),
+    )
 }
 
 /** How a day state is painted. */

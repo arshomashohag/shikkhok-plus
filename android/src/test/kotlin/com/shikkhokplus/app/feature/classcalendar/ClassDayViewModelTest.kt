@@ -1,6 +1,7 @@
 package com.shikkhokplus.app.feature.classcalendar
 
 import com.shikkhokplus.app.core.network.RosterSeatDto
+import com.shikkhokplus.app.core.network.SubjectOptionDto
 import com.shikkhokplus.app.core.network.SessionDetailDto
 import com.shikkhokplus.app.core.network.SessionDto
 import com.shikkhokplus.app.core.network.SessionRosterDto
@@ -83,7 +84,11 @@ class ClassDayViewModelTest {
 
     private fun store() = QueueStore(File(folder.root, QueueStore.FILE_NAME))
 
-    private val today = calendarClass(state = CalendarState.TODAY, topic = "Newton", notes = "hw", recordable = true)
+    private fun dayModel(roster: AttendanceViewModel, store: QueueStore) =
+        ClassDayViewModel(roster, TopicWriter(store, FakeTopicSender()), store, ClassSubjects(FakeTopicSender()))
+
+    private val today =
+        calendarClass(state = CalendarState.TODAY, topic = "Newton", notes = "hw", recordable = true, topicVersion = 3)
 
     @Test
     fun `Save sends the topic with plan off and notes, and the whole roster`() = runTest(dispatcher) {
@@ -91,7 +96,7 @@ class ClassDayViewModelTest {
         val topics = FakeTopicSender()
         val attendance = Attendance()
         val roster = AttendanceViewModel(attendance, Sessions(), store)
-        val model = ClassDayViewModel(roster, TopicWriter(store, topics), store)
+        val model = ClassDayViewModel(roster, TopicWriter(store, topics), store, ClassSubjects(FakeTopicSender()))
 
         model.open(today)
         advanceUntilIdle()
@@ -120,7 +125,7 @@ class ClassDayViewModelTest {
         val store = store()
         val topics = FakeTopicSender()
         val roster = AttendanceViewModel(Attendance(), Sessions(), store)
-        val model = ClassDayViewModel(roster, TopicWriter(store, topics), store)
+        val model = ClassDayViewModel(roster, TopicWriter(store, topics), store, ClassSubjects(FakeTopicSender()))
 
         model.open(today)
         model.save()
@@ -141,7 +146,7 @@ class ClassDayViewModelTest {
                 override suspend fun currentRoster(sessionId: String) = AuthResult.TransportFailure
             }
         val roster = AttendanceViewModel(offline, Sessions(), store)
-        val model = ClassDayViewModel(roster, TopicWriter(store, topics), store)
+        val model = ClassDayViewModel(roster, TopicWriter(store, topics), store, ClassSubjects(FakeTopicSender()))
         model.open(today)
         advanceUntilIdle()
 
@@ -170,7 +175,7 @@ class ClassDayViewModelTest {
         val store = store()
         val refused = refusedPlan(store)
         val roster = AttendanceViewModel(Attendance(), Sessions(), store)
-        val model = ClassDayViewModel(roster, TopicWriter(store, FakeTopicSender()), store)
+        val model = dayModel(roster, store)
 
         model.open(started)
         advanceUntilIdle()
@@ -186,7 +191,7 @@ class ClassDayViewModelTest {
             val refused = refusedPlan(store)
             val topics = FakeTopicSender(mutableListOf(SendOutcome.Failed(null)))
             val roster = AttendanceViewModel(Attendance(), Sessions(), store)
-            val model = ClassDayViewModel(roster, TopicWriter(store, topics), store)
+            val model = ClassDayViewModel(roster, TopicWriter(store, topics), store, ClassSubjects(FakeTopicSender()))
             model.open(started)
             advanceUntilIdle()
 
@@ -211,7 +216,7 @@ class ClassDayViewModelTest {
         refusedPlan(store)
         val topics = FakeTopicSender()
         val roster = AttendanceViewModel(Attendance(), Sessions(), store)
-        val model = ClassDayViewModel(roster, TopicWriter(store, topics), store)
+        val model = ClassDayViewModel(roster, TopicWriter(store, topics), store, ClassSubjects(FakeTopicSender()))
         model.open(started)
         advanceUntilIdle()
 
@@ -227,7 +232,7 @@ class ClassDayViewModelTest {
         runTest(dispatcher) {
             val store = store()
             val roster = AttendanceViewModel(Attendance(), Sessions(), store)
-            val model = ClassDayViewModel(roster, TopicWriter(store, FakeTopicSender()), store)
+            val model = dayModel(roster, store)
             model.open(today)
             advanceUntilIdle()
             model.typeTopic("Typed")
@@ -249,7 +254,7 @@ class ClassDayViewModelTest {
             val topics = FakeTopicSender(mutableListOf(SendOutcome.Failed(null)))
             val attendance = Attendance()
             val roster = AttendanceViewModel(attendance, Sessions(), store)
-            val model = ClassDayViewModel(roster, TopicWriter(store, topics), store)
+            val model = ClassDayViewModel(roster, TopicWriter(store, topics), store, ClassSubjects(FakeTopicSender()))
             model.open(started)
             advanceUntilIdle()
 
@@ -280,7 +285,7 @@ class ClassDayViewModelTest {
         val topics = FakeTopicSender()
         val attendance = Attendance()
         val roster = AttendanceViewModel(attendance, Sessions(), store)
-        val model = ClassDayViewModel(roster, TopicWriter(store, topics), store)
+        val model = ClassDayViewModel(roster, TopicWriter(store, topics), store, ClassSubjects(FakeTopicSender()))
         model.open(started)
         advanceUntilIdle()
         model.saveAsCovered()
@@ -301,7 +306,7 @@ class ClassDayViewModelTest {
             refusedPlan(store)
             val topics = FakeTopicSender(mutableListOf(SendOutcome.Failed(null), SendOutcome.Failed(null)))
             val roster = AttendanceViewModel(Attendance(), Sessions(), store)
-            val model = ClassDayViewModel(roster, TopicWriter(store, topics), store)
+            val model = ClassDayViewModel(roster, TopicWriter(store, topics), store, ClassSubjects(FakeTopicSender()))
             model.open(started)
             advanceUntilIdle()
             model.saveAsCovered()
@@ -316,12 +321,138 @@ class ClassDayViewModelTest {
         }
 
     @Test
+    fun `the topic saves offline from the calendar payload when the roster cannot load`() =
+        runTest(dispatcher) {
+            val store = store()
+            val topics = FakeTopicSender(mutableListOf(SendOutcome.Failed(null)))
+            val offline =
+                object : SessionsRepository by FakeSessions() {
+                    override suspend fun sessionDetail(sessionId: String) = AuthResult.TransportFailure
+                }
+            val roster = AttendanceViewModel(Attendance(), offline, store)
+            val model = ClassDayViewModel(roster, TopicWriter(store, topics), store, ClassSubjects(FakeTopicSender()))
+            model.open(calendarClass(state = CalendarState.TODAY, recordable = true, topicVersion = 4))
+            advanceUntilIdle()
+            model.typeTopic("Newton")
+
+            model.save()
+            advanceUntilIdle()
+
+            assertEquals(4, topics.sent.single().baseVersion)
+            assertEquals(listOf(QueueTarget.TOPIC), store.read().map { it.target })
+            assertEquals(SaveResult.QUEUED, model.state.value?.result)
+        }
+
+    @Test
+    fun `Save of unchanged queued words reports queued, not sent`() = runTest(dispatcher) {
+        val store = store()
+        store.enqueue(QueuedWrite.topic("s-1", 3, "Queued words", notes = "Queued notes"))
+        val topics = FakeTopicSender()
+        val roster = AttendanceViewModel(Attendance(), Sessions(), store)
+        val model = ClassDayViewModel(roster, TopicWriter(store, topics), store, ClassSubjects(FakeTopicSender()))
+        model.open(today)
+        advanceUntilIdle()
+
+        model.save()
+        advanceUntilIdle()
+
+        assertEquals(0, topics.sent.size)
+        assertEquals(SaveResult.QUEUED, model.state.value?.result)
+    }
+
+    @Test
+    fun `a refused topic is an error with the words kept, and Save works again after editing`() =
+        runTest(dispatcher) {
+            val store = store()
+            val cancelled = SendOutcome.Conflicted(3, envelope("teaching.session.cancelled", "SESSION_CANCELLED"))
+            val topics = FakeTopicSender(mutableListOf(cancelled))
+            val roster = AttendanceViewModel(Attendance(), Sessions(), store)
+            val model = ClassDayViewModel(roster, TopicWriter(store, topics), store, ClassSubjects(topics))
+            model.open(today)
+            advanceUntilIdle()
+            model.typeTopic("Gravity")
+
+            model.save()
+            advanceUntilIdle()
+
+            assertNull(model.state.value?.result)
+            assertEquals("teaching.session.cancelled", model.state.value?.errorKey)
+            assertEquals("Gravity", model.state.value?.topic)
+            assertTrue(store.read().none { it.target == QueueTarget.TOPIC })
+
+            model.typeTopic("Gravity, again")
+            model.save()
+            advanceUntilIdle()
+
+            assertEquals(listOf("Gravity", "Gravity, again"), topics.sent.map { it.topic })
+            assertEquals(SaveResult.SENT, model.state.value?.result)
+            assertNull(model.state.value?.errorKey)
+        }
+
+    @Test
+    fun `a changed subject is written before the topic`() = runTest(dispatcher) {
+        val store = store()
+        val subjects = listOf(SubjectOptionDto("sub-1", "Physics"), SubjectOptionDto("sub-2", "Maths"))
+        val topics = FakeTopicSender(options = subjects)
+        val roster = AttendanceViewModel(Attendance(), Sessions(), store)
+        val model = ClassDayViewModel(roster, TopicWriter(store, topics), store, ClassSubjects(topics))
+        model.open(today, batchId = "b-1")
+        advanceUntilIdle()
+        assertEquals("sub-1", model.state.value?.subjectId)
+
+        model.chooseSubject("sub-2")
+        model.save()
+        advanceUntilIdle()
+
+        assertEquals<List<Pair<String, String?>>>(listOf("s-1" to "sub-2"), topics.subjectWrites)
+        assertEquals("Maths", model.state.value?.clazz?.subjectName)
+        assertEquals(SaveResult.SENT, model.state.value?.result)
+    }
+
+    @Test
+    fun `a subject the server refuses is shown, and the topic still saves`() = runTest(dispatcher) {
+        val store = store()
+        val subjects = listOf(SubjectOptionDto("sub-1", "Physics"), SubjectOptionDto("sub-2", "Maths"))
+        val topics =
+            FakeTopicSender(
+                options = subjects,
+                subjectAnswer = AuthResult.Refused(envelope("teaching.subject.not_in_batch")),
+            )
+        val roster = AttendanceViewModel(Attendance(), Sessions(), store)
+        val model = ClassDayViewModel(roster, TopicWriter(store, topics), store, ClassSubjects(topics))
+        model.open(today, batchId = "b-1")
+        advanceUntilIdle()
+
+        model.chooseSubject("sub-2")
+        model.save()
+        advanceUntilIdle()
+
+        assertEquals("teaching.subject.not_in_batch", model.state.value?.errorKey)
+        assertEquals("Physics", model.state.value?.clazz?.subjectName)
+        assertEquals(1, topics.sent.size)
+    }
+
+    @Test
+    fun `topics and notes are cut at 2000 characters`() = runTest(dispatcher) {
+        val store = store()
+        val roster = AttendanceViewModel(Attendance(), Sessions(), store)
+        val model = dayModel(roster, store)
+        model.open(today)
+
+        model.typeTopic("t".repeat(2001))
+        model.typeNotes("n".repeat(2500))
+
+        assertEquals(2000, model.state.value?.topic?.length)
+        assertEquals(2000, model.state.value?.notes?.length)
+    }
+
+    @Test
     fun `reopening a class with a queued topic shows the queued words, not the server's`() =
         runTest(dispatcher) {
             val store = store()
             store.enqueue(QueuedWrite.topic("s-1", 3, "Queued words", notes = "Queued notes"))
             val roster = AttendanceViewModel(Attendance(), Sessions(), store)
-            val model = ClassDayViewModel(roster, TopicWriter(store, FakeTopicSender()), store)
+            val model = dayModel(roster, store)
 
             model.open(calendarClass(state = CalendarState.TODAY, topic = "Stale", recordable = true))
             advanceUntilIdle()

@@ -24,7 +24,6 @@ import com.shikkhokplus.app.core.designsystem.Banner
 import com.shikkhokplus.app.core.designsystem.BannerTone
 import com.shikkhokplus.app.core.designsystem.ListScreenScaffold
 import com.shikkhokplus.app.core.designsystem.LogoLoader
-import com.shikkhokplus.app.core.designsystem.ShikkhokTextField
 import com.shikkhokplus.app.core.designsystem.TextAction
 import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.core.ui.CalendarState
@@ -48,6 +47,9 @@ const val TAG_CLASS_NOTICE: String = "class_notice"
 /** The attendance outcome after a save. */
 const val TAG_DAY_ATTENDANCE_RESULT: String = "day_attendance_result"
 
+/** A refusal of the topic write; the form stays open to change and save again. */
+const val TAG_CLASS_ERROR: String = "class_error"
+
 /**
  * The class screen for today or a past class: topics, notes,
  * attendance and one Save.
@@ -60,6 +62,7 @@ const val TAG_DAY_ATTENDANCE_RESULT: String = "day_attendance_result"
  * @param attendance The roster's state
  * @param onTopic Called with the topics as typed
  * @param onNotes Called with the notes as typed
+ * @param onSubject Called with the chosen subject's id
  * @param onToggle Called with a seat whose mark changed
  * @param onSave Called to save the class
  * @param onSaveAsCovered Called to keep a refused plan as covered
@@ -74,6 +77,7 @@ fun ClassDayScreen(
     attendance: AttendanceUiState,
     onTopic: (String) -> Unit,
     onNotes: (String) -> Unit,
+    onSubject: (String) -> Unit,
     onToggle: (AttendanceSeat, Boolean) -> Unit,
     onSave: () -> Unit,
     onSaveAsCovered: () -> Unit,
@@ -101,32 +105,38 @@ fun ClassDayScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             val editable = state.result == null
-            ShikkhokTextField(
+            SubjectChooser(state.subjects, state.subjectId, editable && !state.saving, onSubject)
+            CappedClassField(
                 value = state.topic,
                 onValueChange = onTopic,
                 label = stringResource(R.string.classday_topics_covered),
-                singleLine = false,
-                minLines = 3,
+                tag = TAG_DAY_TOPIC,
                 enabled = editable,
-                fieldModifier = Modifier.testTag(TAG_DAY_TOPIC),
+                minLines = 3,
             )
-            ShikkhokTextField(
+            CappedClassField(
                 value = state.notes,
                 onValueChange = onNotes,
                 label = stringResource(R.string.classday_notes),
-                singleLine = false,
-                minLines = 2,
+                tag = TAG_CLASS_NOTES,
                 enabled = editable,
-                fieldModifier = Modifier.testTag(TAG_CLASS_NOTES),
+                minLines = 2,
             )
             if (editable) {
                 state.notice?.let { NoticeBanner(it) }
+            }
+            state.errorKey?.let {
+                Banner(
+                    stringResource(MessageKeys.resolve(it)),
+                    Modifier.testTag(TAG_CLASS_ERROR),
+                    tone = BannerTone.ERROR,
+                )
             }
             AttendanceSection(attendance, editable, onToggle, onRetry)
             ResultAndAction(
                 result = state.result,
                 saving = state.saving,
-                ready = attendance is AttendanceUiState.Marking,
+                ready = attendance !is AttendanceUiState.Idle && attendance !is AttendanceUiState.Loading,
                 saveLabel = R.string.classday_save,
                 onSave = onSave,
                 onDone = onDone,

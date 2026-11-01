@@ -64,6 +64,7 @@ fun ClassesTab(
                     onPickMonth = onPickMonth,
                     onDay = onDay,
                     modifier = Modifier.padding(vertical = 8.dp),
+                    today = state.view.today,
                 )
                 Column(Modifier.heightIn(min = 88.dp)) {}
             }

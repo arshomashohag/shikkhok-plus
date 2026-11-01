@@ -5,6 +5,7 @@ import com.shikkhokplus.app.feature.classcalendar.calendarClass
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.assertTextEquals
 import com.shikkhokplus.app.core.designsystem.ShikkhokTheme
 import com.shikkhokplus.app.feature.attendance.ui.TAG_CONFLICT_DISCARD
 import com.shikkhokplus.app.feature.attendance.ui.TAG_CONFLICT_REAPPLY
@@ -29,7 +30,7 @@ class PlanClassScreenTest {
     private fun render(state: PlanClassUiState, covered: () -> Unit = {}, discard: () -> Unit = {}) {
         compose.setContent {
             ShikkhokTheme {
-                PlanClassScreen(state, {}, {}, {}, covered, discard, {}, {})
+                PlanClassScreen(state, {}, {}, {}, {}, covered, discard, {}, {})
             }
         }
     }
@@ -42,6 +43,29 @@ class PlanClassScreenTest {
         compose.onNodeWithTag(TAG_CLASS_NOTES).assertExists()
         compose.onNodeWithTag(TAG_PLAN_ATTENDANCE_LATER).assertExists()
         compose.onNodeWithTag(TAG_PLAN_SAVE).assertExists()
+    }
+
+    @Test
+    fun `on the class's own day attendance opens when the class starts`() {
+        render(state().copy(onClassDay = true))
+
+        compose.onNodeWithTag(TAG_PLAN_ATTENDANCE_LATER).assertTextEquals("Opens when the class starts")
+    }
+
+    @Test
+    fun `before the class's day attendance opens on the day`() {
+        render(state())
+
+        compose.onNodeWithTag(TAG_PLAN_ATTENDANCE_LATER).assertTextEquals("Opens on the day of the class")
+    }
+
+    @Test
+    fun `a refused plan's message shows with the form still open`() {
+        render(state().copy(errorKey = "teaching.session.cancelled"))
+
+        compose.onNodeWithTag(TAG_CLASS_ERROR).assertExists()
+        compose.onNodeWithTag(TAG_PLAN_SAVE).assertExists()
+        compose.onNodeWithTag(counterTag(TAG_PLAN_TOPIC)).assertTextEquals("8 / 2000")
     }
 
     @Test

@@ -39,6 +39,22 @@ class CalendarMapperTest {
     }
 
     @Test
+    fun `versions and the server's today are carried`() {
+        val dto =
+            json.decodeFromString<MonthViewDto>(
+                """{"year":2026,"month":11,"first_month":"2026-09","last_month":"2026-12","today":"2026-11-05",
+                    "days":[{"date":"2026-11-05","state":"today","classes":[{"session_id":"s1",
+                    "date":"2026-11-05","start_time":"16:00:00","state":"today","plannable":true,
+                    "recordable":false,"topic_version":4,"attendance_version":2}]}]}""",
+            )
+        val ui = CalendarMapper.toUi(dto)
+        assertEquals("2026-11-05", ui.today)
+        val clazz = ui.days.single().classes.single()
+        assertEquals(4, clazz.topicVersion)
+        assertEquals(2, clazz.attendanceVersion)
+    }
+
+    @Test
     fun `a day with an unknown state is dropped`() {
         val ui = CalendarMapper.toUi(
             month(

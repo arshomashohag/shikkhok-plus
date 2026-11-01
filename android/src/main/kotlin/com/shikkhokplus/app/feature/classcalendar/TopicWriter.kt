@@ -28,6 +28,16 @@ sealed interface TopicOutcome {
 
     /** Someone saved a different topic first; nothing was overwritten. */
     data object VersionConflict : TopicOutcome
+
+    /**
+     * The server refused the write and a retry as-is cannot help: the
+     * class was cancelled, the batch closed, or the words were refused.
+     * The write is taken off the phone; the teacher's words stay in the
+     * field, so they can change them and save again.
+     *
+     * @property messageKey The refusal's key, from the server's envelope
+     */
+    data class Refused(val messageKey: String) : TopicOutcome
 }
 
 /**
@@ -66,17 +76,28 @@ class TopicWriter(
                 TopicOutcome.Sent(outcome.resultingVersion)
             }
             is SendOutcome.Conflicted -> afterConflict(item, outcome)
-            is SendOutcome.Failed -> {
-                outcome.envelope?.let { store.replace(item.failed(it)) }
-                TopicOutcome.Queued
-            }
+            is SendOutcome.Failed -> afterFailure(item, outcome)
         }
+
+    private fun afterFailure(item: QueuedWrite, outcome: SendOutcome.Failed): TopicOutcome {
+        val envelope = outcome.envelope ?: return TopicOutcome.Queued
+        if (envelope.error.retryable) {
+            store.replace(item.failed(envelope))
+            return TopicOutcome.Queued
+        }
+        store.remove(item.id)
+        return TopicOutcome.Refused(envelope.error.messageKey)
+    }
 
     private fun afterConflict(item: QueuedWrite, outcome: SendOutcome.Conflicted): TopicOutcome {
         val key = outcome.envelope.error.messageKey
-        if (key != CLASS_STARTED_KEY) {
+        if (key == VERSION_CONFLICT_KEY) {
             store.remove(item.id)
             return TopicOutcome.VersionConflict
+        }
+        if (key != CLASS_STARTED_KEY) {
+            store.remove(item.id)
+            return TopicOutcome.Refused(key)
         }
         val conflicted =
             item.copy(
@@ -91,5 +112,8 @@ class TopicWriter(
     companion object {
         /** The server's key for a plan sent after the class started. */
         const val CLASS_STARTED_KEY: String = "teaching.topic.class_started"
+
+        /** The server's key for a topic composed against a stale version. */
+        const val VERSION_CONFLICT_KEY: String = "error.topic_version_conflict"
     }
 }
