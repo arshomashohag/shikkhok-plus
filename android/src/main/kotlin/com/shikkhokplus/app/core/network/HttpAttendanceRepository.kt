@@ -15,6 +15,11 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.isSuccess
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 @Serializable
 private data class SeatBody(
@@ -39,12 +44,26 @@ private data class SubmitResponse(
     @SerialName("attendance_version") val attendanceVersion: Int,
 )
 
-@Serializable
-private data class TopicBody(
-    @SerialName("base_topic_version") val baseTopicVersion: Int,
-    @SerialName("client_mutation_id") val clientMutationId: String,
-    val topic: String,
-)
+/**
+ * The body of a queued topic write.
+ *
+ * **Built by hand because `null` carries meaning here.** The client's
+ * JSON omits null properties, but the server reads an absent `notes`
+ * as "leave them" and an explicit null as "clear them" (D-26), and a
+ * null `topic` clears a plan. So `notes` is written only when the item
+ * carries it, and a blank one goes out as an explicit null.
+ *
+ * @param item The queued topic write
+ * @return The JSON body
+ */
+internal fun topicBody(item: QueuedWrite): JsonObject =
+    buildJsonObject {
+        put("base_topic_version", item.baseVersion)
+        put("client_mutation_id", item.clientMutationId)
+        put("topic", item.topic?.let(::JsonPrimitive) ?: JsonNull)
+        put("plan", item.plan)
+        item.notes?.let { put("notes", it.ifBlank { null }?.let(::JsonPrimitive) ?: JsonNull) }
+    }
 
 @Serializable
 private data class TopicResponse(
@@ -87,7 +106,7 @@ class HttpAttendanceRepository(
                 when (item.target) {
                     QueueTarget.TOPIC ->
                         client.put("/v1/sessions/${item.sessionId}/topic") {
-                            setBody(TopicBody(item.baseVersion, item.clientMutationId, item.topic.orEmpty()))
+                            setBody(topicBody(item))
                         }
                     QueueTarget.ATTENDANCE ->
                         client.post("/v1/sessions/${item.sessionId}/attendance") {

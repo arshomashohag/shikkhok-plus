@@ -156,4 +156,35 @@ class HttpAttendanceRepositoryTest {
             engine.requestHistory.single().url.encodedPath,
         )
     }
+
+    private suspend fun sentTopicBody(item: QueuedWrite): String {
+        val engine =
+            MockEngine { respond("""{"topic_version":3}""", HttpStatusCode.OK, jsonHeaders()) }
+        HttpAttendanceRepository(client(engine)).submit(item)
+        return (engine.requestHistory.single().body as io.ktor.http.content.TextContent).text
+    }
+
+    @Test
+    fun `a plan goes out with plan true and a clearable topic`() = runTest {
+        val body = sentTopicBody(QueuedWrite.topic("s-1", 3, null, plan = true))
+
+        assertTrue("\"plan\":true" in body, body)
+        assertTrue("\"topic\":null" in body, body)
+        assertTrue("notes" !in body, "absent notes leave them unchanged: $body")
+    }
+
+    @Test
+    fun `notes the teacher cleared go out as an explicit null`() = runTest {
+        val body = sentTopicBody(QueuedWrite.topic("s-1", 3, "x", notes = ""))
+
+        assertTrue("\"notes\":null" in body, body)
+        assertTrue("\"plan\":false" in body, body)
+    }
+
+    @Test
+    fun `notes the teacher wrote go out verbatim`() = runTest {
+        val body = sentTopicBody(QueuedWrite.topic("s-1", 3, "x", notes = "Homework: ex 4"))
+
+        assertTrue("\"notes\":\"Homework: ex 4\"" in body, body)
+    }
 }

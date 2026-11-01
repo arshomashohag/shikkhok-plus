@@ -1013,4 +1013,24 @@
         <item quantity="one">%1$s class</item>
         <item quantity="other">%1$s classes</item>
     </plurals>
+
+    <string name="classday_title_today">Today\'s class</string>
+    <string name="classday_topics_covered">Topics covered</string>
+    <string name="classday_notes">Notes (optional)</string>
+    <string name="classday_attendance">Attendance · %1$s students</string>
+    <string name="classday_save">Save class</string>
+    <string name="classday_done">Done</string>
+    <string name="classday_attendance_saved">Attendance saved.</string>
+    <string name="classplan_topics">Planned topics</string>
+    <string name="classplan_hint">Editable until the class starts. Students and guardians see the plan.</string>
+    <string name="classplan_attendance_heading">Attendance</string>
+    <string name="classplan_attendance_later">Opens on the day of the class</string>
+    <string name="classplan_save">Save plan</string>
+    <string name="classplan_started_title">This class has started</string>
+    <string name="classplan_save_covered">Save as covered</string>
+    <string name="classplan_discard">Discard plan</string>
+    <string name="classpick_title">Choose a class</string>
+    <string name="classpick_close">Close</string>
+    <string name="classread_nothing">Nothing has been added for this class.</string>
+    <string name="classread_title">Class</string>
 </resources>

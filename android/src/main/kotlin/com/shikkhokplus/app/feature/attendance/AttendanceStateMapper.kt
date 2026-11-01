@@ -102,6 +102,7 @@ object AttendanceStateMapper {
             // refuses.
             writable = detail.writable,
             queued = badge,
+            topicVersion = detail.session.topicVersion,
         )
     }
 

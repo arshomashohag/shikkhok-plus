@@ -93,6 +93,15 @@ data class AttendanceEntry(
  *   would otherwise be re-sent every cycle and refused every time.
  *   Defaults to true, so a queue file written before this field existed
  *   still drains
+ * @property plan True when this topic write plans a class that has not
+ *   started, false when it records what a class covered
+ * @property notes The teacher's notes on the class. **Null means the
+ *   write says nothing about notes**, so the server leaves them as they
+ *   are (D-26); an empty string means the teacher cleared them, which is
+ *   sent as an explicit null
+ * @property conflictKey The server's `message_key` for the last
+ *   conflict, so the screen can tell a class that already started from
+ *   a topic someone else saved first
  */
 @Serializable
 data class QueuedWrite(
@@ -106,6 +115,9 @@ data class QueuedWrite(
     val state: QueueState = QueueState.QUEUED,
     @SerialName("conflict_current_version") val conflictCurrentVersion: Int? = null,
     @SerialName("server_retryable") val serverRetryable: Boolean = true,
+    val plan: Boolean = false,
+    val notes: String? = null,
+    @SerialName("conflict_key") val conflictKey: String? = null,
 ) {
     /**
      * Mark this item failed, recording whether the server allows a retry.
@@ -179,8 +191,22 @@ data class QueuedWrite(
             clientMutationId = freshMutationId,
             state = QueueState.QUEUED,
             conflictCurrentVersion = null,
+            conflictKey = null,
         )
     }
+
+    /**
+     * Turn a refused plan into a record of what the class covered.
+     *
+     * A plan sent after the class started is refused. The teacher can
+     * keep the same words as a covered topic, which is a new decision:
+     * a fresh mutation id, the current version, and `plan` off.
+     *
+     * @param freshMutationId The new replay key
+     * @return A fresh queued item recording the topic as covered
+     */
+    fun coveredInstead(freshMutationId: String = newMutationId()): QueuedWrite =
+        reapplied(freshMutationId = freshMutationId).copy(plan = false)
 
     companion object {
         /**
@@ -230,14 +256,18 @@ data class QueuedWrite(
          *
          * @param sessionId The session being logged
          * @param baseVersion The `topic_version` it was composed against
-         * @param topic The topic text, which may be empty but not null —
-         *   an empty string is a topic deliberately saved blank [BR2.2]
+         * @param topic The topic text. An empty string is a topic
+         *   deliberately saved blank [BR2.2]; null clears a plan
+         * @param plan True to plan a class that has not started
+         * @param notes The notes, or null to leave them untouched
          * @return A queued item
          */
         fun topic(
             sessionId: String,
             baseVersion: Int,
-            topic: String,
+            topic: String?,
+            plan: Boolean = false,
+            notes: String? = null,
         ): QueuedWrite =
             QueuedWrite(
                 id = newItemId(),
@@ -246,6 +276,8 @@ data class QueuedWrite(
                 baseVersion = baseVersion,
                 clientMutationId = newMutationId(),
                 topic = topic,
+                plan = plan,
+                notes = notes,
             )
     }
 }

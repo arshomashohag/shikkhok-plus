@@ -958,4 +958,24 @@
         <item quantity="one">%1$sটি ক্লাস</item>
         <item quantity="other">%1$sটি ক্লাস</item>
     </plurals>
+
+    <string name="classday_title_today">আজকের ক্লাস</string>
+    <string name="classday_topics_covered">যে বিষয়গুলো পড়ানো হয়েছে</string>
+    <string name="classday_notes">নোট (ঐচ্ছিক)</string>
+    <string name="classday_attendance">উপস্থিতি · %1$s জন শিক্ষার্থী</string>
+    <string name="classday_save">ক্লাস সংরক্ষণ করুন</string>
+    <string name="classday_done">ঠিক আছে</string>
+    <string name="classday_attendance_saved">উপস্থিতি সংরক্ষিত হয়েছে।</string>
+    <string name="classplan_topics">পরিকল্পিত বিষয়</string>
+    <string name="classplan_hint">ক্লাস শুরু না হওয়া পর্যন্ত বদলানো যাবে। শিক্ষার্থী ও অভিভাবকেরা পরিকল্পনাটি দেখতে পান।</string>
+    <string name="classplan_attendance_heading">উপস্থিতি</string>
+    <string name="classplan_attendance_later">ক্লাসের দিনে খুলবে</string>
+    <string name="classplan_save">পরিকল্পনা সংরক্ষণ করুন</string>
+    <string name="classplan_started_title">এই ক্লাস শুরু হয়ে গেছে</string>
+    <string name="classplan_save_covered">পড়ানো হয়েছে হিসেবে সংরক্ষণ করুন</string>
+    <string name="classplan_discard">পরিকল্পনা বাদ দিন</string>
+    <string name="classpick_title">একটি ক্লাস বেছে নিন</string>
+    <string name="classpick_close">বন্ধ করুন</string>
+    <string name="classread_nothing">এই ক্লাসে কিছু যোগ করা হয়নি।</string>
+    <string name="classread_title">ক্লাস</string>
 </resources>
