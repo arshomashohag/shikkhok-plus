@@ -20,7 +20,8 @@ import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.core.format.dayLabel
 import com.shikkhokplus.app.core.ui.CalendarClassUi
 import com.shikkhokplus.app.core.ui.CalendarMark
-import com.shikkhokplus.app.core.ui.CalendarState
+import com.shikkhokplus.app.core.ui.classTopicsEmpty
+import com.shikkhokplus.app.core.ui.classTopicsHeading
 import com.shikkhokplus.app.core.ui.ago
 import com.shikkhokplus.app.core.ui.displayTime
 import com.shikkhokplus.app.feature.auth.MessageKeys
@@ -78,11 +79,10 @@ fun ClassDetailScreen(
         }
         Heading(clazz.subjectName?.let(Numerals::freeText) ?: dayLabel(clazz.date))
         Quiet("${dayLabel(clazz.date)} · ${displayTime(clazz.startTime.take(HHMM))}")
-        val planned = clazz.state == CalendarState.UPCOMING
-        Section(stringResource(if (planned) R.string.family_planned_topics else R.string.classday_topics_covered))
+        Section(stringResource(classTopicsHeading(clazz.state)))
         val topic = clazz.topic?.takeIf { it.isNotBlank() }
         Text(
-            topic?.let(Numerals::freeText) ?: stringResource(R.string.session_topic_unlogged),
+            topic?.let(Numerals::freeText) ?: stringResource(classTopicsEmpty(clazz.state)),
             color = if (topic == null) MaterialTheme.colorScheme.onSurfaceVariant else Color.Unspecified,
             modifier = Modifier.testTag(TAG_FAMILY_DETAIL_TOPIC),
         )

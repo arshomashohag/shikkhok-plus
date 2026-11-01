@@ -16,6 +16,8 @@ import com.shikkhokplus.app.R
 import com.shikkhokplus.app.core.designsystem.ListScreenScaffold
 import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.core.ui.CalendarClassUi
+import com.shikkhokplus.app.core.ui.classTopicsEmpty
+import com.shikkhokplus.app.core.ui.classTopicsHeading
 
 /** The read-only class's topics. */
 const val TAG_CLASS_READ_TOPIC: String = "class_read_topic"
@@ -23,7 +25,7 @@ const val TAG_CLASS_READ_TOPIC: String = "class_read_topic"
 /** The read-only class's notes. */
 const val TAG_CLASS_READ_NOTES: String = "class_read_notes"
 
-/** Shown when a read-only class has neither topics nor notes. */
+/** Shown in place of the topics when a read-only class has none. */
 const val TAG_CLASS_READ_EMPTY: String = "class_read_empty"
 
 /**
@@ -43,16 +45,19 @@ fun ClassReadOnlyScreen(clazz: CalendarClassUi, onBack: () -> Unit) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             val topic = clazz.topic?.takeIf { it.isNotBlank() }
             val notes = clazz.notes?.takeIf { it.isNotBlank() }
-            topic?.let {
-                Text(stringResource(R.string.classday_topics_covered), style = MaterialTheme.typography.labelLarge)
-                Text(Numerals.freeText(it), Modifier.padding(bottom = 12.dp).testTag(TAG_CLASS_READ_TOPIC))
+            Text(stringResource(classTopicsHeading(clazz.state)), style = MaterialTheme.typography.labelLarge)
+            if (topic != null) {
+                Text(Numerals.freeText(topic), Modifier.padding(bottom = 12.dp).testTag(TAG_CLASS_READ_TOPIC))
+            } else {
+                Text(
+                    stringResource(classTopicsEmpty(clazz.state)),
+                    Modifier.padding(bottom = 12.dp).testTag(TAG_CLASS_READ_EMPTY),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             notes?.let {
                 Text(stringResource(R.string.classday_notes), style = MaterialTheme.typography.labelLarge)
                 Text(Numerals.freeText(it), Modifier.testTag(TAG_CLASS_READ_NOTES))
-            }
-            if (topic == null && notes == null) {
-                Text(stringResource(R.string.classread_nothing), Modifier.testTag(TAG_CLASS_READ_EMPTY))
             }
         }
     }

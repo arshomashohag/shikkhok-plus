@@ -911,7 +911,6 @@
     <string name="signup_log_in">লগ ইন</string>
 
     <string name="family_tab_teacher">শিক্ষক</string>
-    <string name="family_past_classes">আগের ক্লাস</string>
     <string name="family_exams_done">সম্পন্ন</string>
     <string name="family_notices_empty">এখনও কোনো নোটিশ নেই।</string>
     <string name="family_teacher_unnamed">আপনার শিক্ষক</string>
@@ -979,6 +978,9 @@
     <string name="classplan_discard">পরিকল্পনা বাদ দিন</string>
     <string name="classpick_title">একটি ক্লাস বেছে নিন</string>
     <string name="classpick_close">বন্ধ করুন</string>
-    <string name="classread_nothing">এই ক্লাসে কিছু যোগ করা হয়নি।</string>
+    <string name="classplan_attendance_at_start">ক্লাস শুরু হলে খুলবে</string>
+    <string name="class_no_topics_planned">এখনও কোনও বিষয় পরিকল্পনা করা হয়নি</string>
+    <string name="class_subject_label">বিষয়</string>
+    <string name="class_text_counter">%1$s / %2$s</string>
     <string name="classread_title">ক্লাস</string>
 </resources>

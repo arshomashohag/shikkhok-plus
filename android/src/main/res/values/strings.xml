@@ -966,7 +966,6 @@
     <string name="signup_log_in">Log in</string>
 
     <string name="family_tab_teacher">Teacher</string>
-    <string name="family_past_classes">Past classes</string>
     <string name="family_exams_done">Done</string>
     <string name="family_notices_empty">No notices yet.</string>
     <string name="family_teacher_unnamed">Your teacher</string>
@@ -1034,6 +1033,9 @@
     <string name="classplan_discard">Discard plan</string>
     <string name="classpick_title">Choose a class</string>
     <string name="classpick_close">Close</string>
-    <string name="classread_nothing">Nothing has been added for this class.</string>
+    <string name="classplan_attendance_at_start">Opens when the class starts</string>
+    <string name="class_no_topics_planned">No topics planned yet</string>
+    <string name="class_subject_label">Subject</string>
+    <string name="class_text_counter">%1$s / %2$s</string>
     <string name="classread_title">Class</string>
 </resources>

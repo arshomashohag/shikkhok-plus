@@ -64,6 +64,27 @@ class FamilyDetailScreensTest {
     }
 
     @Test
+    fun `only a taken class is labelled covered, every other state is a plan`() {
+        val cases =
+            listOf(
+                Triple(CalendarState.TAKEN, "Topics covered", "No topic logged yet"),
+                Triple(CalendarState.TODAY, "Planned topics", "No topics planned yet"),
+                Triple(CalendarState.UPCOMING, "Planned topics", "No topics planned yet"),
+                Triple(CalendarState.NOT_RECORDED, "Planned topics", "No topics planned yet"),
+                Triple(CalendarState.CANCELLED, "Planned topics", "No topics planned yet"),
+            )
+        val shown = mutableStateOf(clazz(topic = null))
+        compose.setContent { ClassDetailScreen(shown.value, onBack = {}) }
+
+        for ((state, heading, empty) in cases) {
+            shown.value = clazz(state = state, topic = null)
+            compose.waitForIdle()
+            compose.onNodeWithText(heading).assertExists()
+            compose.onNodeWithTag(TAG_FAMILY_DETAIL_TOPIC).assertTextEquals(empty)
+        }
+    }
+
+    @Test
     fun `each mark has its own label`() {
         val shown = mutableStateOf(CalendarMark.PRESENT as CalendarMark?)
         compose.setContent { ClassDetailScreen(clazz(mark = shown.value), onBack = {}) }
