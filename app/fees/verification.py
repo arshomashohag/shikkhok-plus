@@ -46,10 +46,12 @@ from app.fees.ledger_writer import append_carry_pair, append_entry, supersede
 from app.fees.periods import Period
 from app.money import Money
 from app.notifications.inbox import (
+    CLAIM_TO_VERIFY,
     PAYMENT_APPROVED,
     PAYMENT_PARTIAL,
     PAYMENT_REJECTED,
     deliver,
+    mark_read_for_source,
     remove_for_source,
 )
 from app.notifications.recipients import child_names, seat_recipients
@@ -494,7 +496,8 @@ def _tell_the_seat(
 ) -> None:
     """Put the decision in every accepted seat holder's inbox.
 
-    Runs in the decision's transaction. A correction first removes the
+    Runs in the decision's transaction. The teacher's own "to verify"
+    item for the claim is marked read, and a correction first removes the
     earlier decision's items, so the seat ends with one item showing the
     current outcome.
 
@@ -505,6 +508,9 @@ def _tell_the_seat(
     :param replacing: True when an earlier decision's items exist
     :return: None
     """
+    # The teacher's "to verify" item is settled by the same decision, in
+    # the same transaction: a decided claim is not one still waiting.
+    mark_read_for_source(session, kind=CLAIM_TO_VERIFY, source_id=claim.id)
     if replacing:
         for earlier in (PAYMENT_APPROVED, PAYMENT_PARTIAL, PAYMENT_REJECTED):
             remove_for_source(session, kind=earlier, source_id=claim.id)

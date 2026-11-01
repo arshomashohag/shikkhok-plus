@@ -10,6 +10,7 @@ from __future__ import annotations
 import uuid
 from collections.abc import Callable
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
@@ -235,6 +236,59 @@ def test_submitting_a_claim_tells_the_batch_teacher_only(
     assert item.child_name == "Rahim"
     assert _kinds(restricted_session, student) == []
     assert _kinds(restricted_session, guardian) == []
+
+
+@pytest.mark.parametrize("decision", ["verify", "reject"])
+def test_deciding_a_claim_marks_the_teachers_item_read(
+    owner_session: Session,
+    restricted_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+    decision: str,
+) -> None:
+    """A decided claim no longer waits, so its item stops counting unread.
+
+    Marked in the decision's own transaction; another teacher item about
+    a claim still waiting stays unread.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application's session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :param decision: Whether the claim is verified or rejected
+    :return: None
+    """
+    student, guardian = account_factory(), account_factory()
+    seat = _family_seat(owner_session, teacher, student, guardian)
+    decided = _claim(owner_session, seat, student)
+    waiting = submit_claim(
+        owner_session,
+        enrollment_id=seat,
+        submitted_by_account_id=guardian,
+        claimed_amount=Money("100.00"),
+        channel="bKash",
+        transaction_id="TX-2",
+    )
+
+    if decision == "verify":
+        verify_claim(
+            owner_session,
+            claim_id=decided.id,
+            approved_amount=Money("1200.00"),
+            shortfall_disposition=None,
+            verified_by_account_id=teacher.account_id,
+        )
+    else:
+        reject_claim(
+            owner_session,
+            claim_id=decided.id,
+            verified_by_account_id=teacher.account_id,
+        )
+
+    items = inbox(restricted_session, account_id=teacher.account_id)
+    read = {item.source_id: item.read for item in items.items}
+    assert read == {decided.id: True, waiting.id: False}
+    assert items.unread == 1
 
 
 def test_reason_over_500_chars_is_refused_by_the_api(

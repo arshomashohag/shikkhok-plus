@@ -41,6 +41,7 @@ __all__ = [
     "inbox",
     "mark_one_read",
     "mark_read",
+    "mark_read_for_source",
     "mark_unread_for_source",
     "owned_item",
     "remove_for_source",
@@ -311,6 +312,37 @@ def mark_unread_for_source(
             sa.tuple_(Notification.account_id, Notification.enrollment_id).in_(reaches),
         )
         .values(**values)
+    )
+
+
+def mark_read_for_source(
+    session: Session,
+    *,
+    kind: str,
+    source_id: uuid.UUID,
+    now: dt.datetime | None = None,
+) -> None:
+    """Mark every unread copy of a record's messages as read.
+
+    Used when the record stops waiting on its reader: a claim the
+    teacher has decided is no longer one to verify. Rows already read
+    keep their time. Adds to the caller's transaction and does not
+    commit.
+
+    :param session: The caller's session
+    :param kind: What produced the messages
+    :param source_id: The record they came from
+    :param now: When it was settled; the current time by default
+    :return: None
+    """
+    session.execute(
+        sa.update(Notification)
+        .where(
+            Notification.kind == kind,
+            Notification.source_id == source_id,
+            Notification.read_at.is_(None),
+        )
+        .values(read_at=now or dt.datetime.now(tz=dt.UTC))
     )
 
 
