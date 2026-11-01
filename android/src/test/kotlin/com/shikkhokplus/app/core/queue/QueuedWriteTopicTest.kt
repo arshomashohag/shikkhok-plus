@@ -66,6 +66,18 @@ class QueuedWriteTopicTest {
     }
 
     @Test
+    fun `a refused plan is not a class's pending topic`() {
+        val pending = QueuedWrite.topic("s-1", 1, "Covered")
+        val refused =
+            QueuedWrite.topic("s-2", 1, "Plan", plan = true).copy(state = QueueState.CONFLICTED)
+        val roster = QueuedWrite.attendance("s-3", 1, emptyList())
+
+        val topics = QueuedWrite.pendingTopics(listOf(pending, refused, roster))
+
+        assertEquals(mapOf("s-1" to "Covered"), topics)
+    }
+
+    @Test
     fun `the sync records why a topic was refused`() = runTest {
         val store = QueueStore(File(folder.root, QueueStore.FILE_NAME))
         store.enqueue(QueuedWrite.topic("s-1", 4, "Friction", plan = true))

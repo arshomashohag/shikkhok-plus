@@ -44,7 +44,7 @@ class ClassDayScreenTest {
     private fun render(state: ClassDayUiState, attendance: AttendanceUiState, onSave: () -> Unit = {}) {
         compose.setContent {
             ShikkhokTheme {
-                ClassDayScreen(state, attendance, {}, {}, { _, _ -> }, onSave, {}, {}, {})
+                ClassDayScreen(state, attendance, {}, {}, { _, _ -> }, onSave, {}, {}, {}, {}, {})
             }
         }
     }

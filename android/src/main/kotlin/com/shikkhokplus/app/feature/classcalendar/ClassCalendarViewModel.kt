@@ -43,13 +43,15 @@ class ClassCalendarViewModel(
     private var shown: YearMonth? = null
 
     /**
-     * Open the calendar on the current month.
+     * Open the calendar on the current month, or on the month already
+     * shown if this batch is the one it was showing.
      *
      * @param batch The batch
      */
     fun load(batch: String) {
+        val keep = shown.takeIf { batchId == batch }
         batchId = batch
-        read(currentMonth())
+        read(keep ?: currentMonth())
     }
 
     /**

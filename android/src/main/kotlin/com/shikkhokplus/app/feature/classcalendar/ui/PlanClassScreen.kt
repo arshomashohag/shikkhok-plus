@@ -195,7 +195,7 @@ internal fun ResultAndAction(
 }
 
 @Composable
-private fun StartedConflict(onSaveAsCovered: () -> Unit, onDiscard: () -> Unit) {
+internal fun StartedConflict(onSaveAsCovered: () -> Unit, onDiscard: () -> Unit) {
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp),

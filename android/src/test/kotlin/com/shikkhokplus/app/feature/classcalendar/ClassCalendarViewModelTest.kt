@@ -71,6 +71,24 @@ class ClassCalendarViewModelTest {
     }
 
     @Test
+    fun `loading the same batch again keeps the month on screen`() = runTest(dispatcher) {
+        val fake = FakeCalendar()
+        val model = model(fake)
+        model.load("b-1")
+        advanceUntilIdle()
+        model.pick(YearMonth(2026, 9))
+        advanceUntilIdle()
+
+        model.load("b-1")
+        advanceUntilIdle()
+        model.load("b-2")
+        advanceUntilIdle()
+
+        assertEquals(Triple("b-1", 2026, 9), fake.asked[2])
+        assertEquals(Triple("b-2", 2026, 11), fake.asked[3])
+    }
+
+    @Test
     fun `reload asks for the month on screen again`() = runTest(dispatcher) {
         val fake = FakeCalendar()
         val model = model(fake)

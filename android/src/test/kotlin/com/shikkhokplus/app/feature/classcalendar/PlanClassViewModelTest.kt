@@ -164,20 +164,17 @@ class PlanClassViewModelTest {
     }
 
     @Test
-    fun `a plan the sync refused while the teacher was away is offered again`() = runTest(dispatcher) {
-        val store = store()
-        val refused =
-            com.shikkhokplus.app.core.queue.QueuedWrite
-                .topic("s-1", 5, "Friction", plan = true, notes = "n")
-                .copy(state = QueueState.CONFLICTED, conflictKey = TopicWriter.CLASS_STARTED_KEY)
-        store.enqueue(refused)
-        val model = model(FakeTopicSender(), store)
+    fun `opening the class that is already open keeps what was typed`() = runTest(dispatcher) {
+        val model = model(FakeTopicSender(), store())
+        model.open(clazz)
+        advanceUntilIdle()
+        model.typeTopic("Typed by the teacher")
 
-        model.open(calendarClass(plannable = true))
+        model.open(clazz)
         advanceUntilIdle()
 
-        assertEquals(refused.id, model.state.value?.conflictItemId)
-        assertEquals("Friction", model.state.value?.topic)
+        assertEquals("Typed by the teacher", model.state.value?.topic)
+        assertEquals(5, model.state.value?.topicVersion)
     }
 
     @Test

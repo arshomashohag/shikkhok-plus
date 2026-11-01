@@ -210,6 +210,21 @@ data class QueuedWrite(
 
     companion object {
         /**
+         * The topics waiting on the phone, by session, for a screen that
+         * shows a class's pending topic.
+         *
+         * A conflicted item is left out: a plan the server refused is not
+         * what the class covered.
+         *
+         * @param items The queue
+         * @return Each session's pending topic text
+         */
+        fun pendingTopics(items: List<QueuedWrite>): Map<String, String> =
+            items
+                .filter { it.target == QueueTarget.TOPIC && it.state != QueueState.CONFLICTED }
+                .associate { it.sessionId to it.topic.orEmpty() }
+
+        /**
          * A fresh replay key for a brand-new write.
          *
          * `randomUUID` and not a device identifier of any kind: no

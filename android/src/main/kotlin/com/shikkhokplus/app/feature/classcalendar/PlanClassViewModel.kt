@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.shikkhokplus.app.core.queue.QueueState
 import com.shikkhokplus.app.core.queue.QueueStore
-import com.shikkhokplus.app.core.queue.QueueTarget
 import com.shikkhokplus.app.core.queue.QueuedWrite
 import com.shikkhokplus.app.core.ui.CalendarClassUi
 import com.shikkhokplus.app.feature.auth.AuthResult
@@ -64,12 +63,13 @@ class PlanClassViewModel(
     /**
      * Open the screen for a class.
      *
-     * A plan the server refused earlier, while the teacher was away,
-     * is still in the queue; it is offered again rather than lost.
+     * Opening the class that is already open changes nothing, so a
+     * screen recreated by a configuration change keeps what was typed.
      *
      * @param clazz The class
      */
     fun open(clazz: CalendarClassUi) {
+        if (_state.value?.clazz?.sessionId == clazz.sessionId) return
         _state.value = PlanClassUiState(clazz, clazz.topic.orEmpty(), clazz.notes.orEmpty())
         viewModelScope.launch {
             val version =
@@ -78,14 +78,7 @@ class PlanClassViewModel(
                     is AuthResult.Refused -> return@launch fail(detail.envelope.error.messageKey)
                     AuthResult.TransportFailure -> return@launch fail(ClassCalendarViewModel.OFFLINE_KEY)
                 }
-            val refused = store.read().firstOrNull { it.isRefusedPlanFor(clazz.sessionId) }
-            _state.value =
-                _state.value?.copy(
-                    topicVersion = version,
-                    topic = refused?.topic ?: _state.value?.topic.orEmpty(),
-                    notes = refused?.notes ?: _state.value?.notes.orEmpty(),
-                    conflictItemId = refused?.id,
-                )
+            _state.value = _state.value?.copy(topicVersion = version)
         }
     }
 
@@ -161,11 +154,4 @@ class PlanClassViewModel(
     fun close() {
         _state.value = null
     }
-
-    private fun QueuedWrite.isRefusedPlanFor(sessionId: String): Boolean =
-        target == QueueTarget.TOPIC &&
-            this.sessionId == sessionId &&
-            state == QueueState.CONFLICTED &&
-            plan &&
-            conflictKey == TopicWriter.CLASS_STARTED_KEY
 }

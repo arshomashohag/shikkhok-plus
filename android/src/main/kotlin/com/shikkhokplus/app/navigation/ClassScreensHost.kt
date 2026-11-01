@@ -8,6 +8,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.shikkhokplus.app.core.network.HttpAttendanceRepository
@@ -71,11 +74,16 @@ private fun RecordDay(client: HttpClient, queue: QueueStore, clazz: CalendarClas
         }
     val model: ClassDayViewModel =
         viewModel(key = "classday-${clazz.sessionId}") {
-            ClassDayViewModel(attendance, TopicWriter(queue, HttpRecordRepository(client)))
+            ClassDayViewModel(attendance, TopicWriter(queue, HttpRecordRepository(client)), queue)
         }
     val state by model.state.collectAsState()
     val roster by attendance.state.collectAsState()
     LaunchedEffect(clazz.sessionId) { model.open(clazz) }
+    val close = {
+        model.close()
+        leave()
+    }
+    BackHandler(onBack = close)
 
     val fields = state ?: return
     val conflict = roster
@@ -90,9 +98,11 @@ private fun RecordDay(client: HttpClient, queue: QueueStore, clazz: CalendarClas
         onNotes = model::typeNotes,
         onToggle = attendance::toggle,
         onSave = model::save,
+        onSaveAsCovered = model::saveAsCovered,
+        onDiscardPlan = model::discardPlan,
         onRetry = attendance::retry,
-        onDone = leave,
-        onBack = leave,
+        onDone = close,
+        onBack = close,
     )
 }
 
@@ -108,12 +118,17 @@ private fun PlanDay(client: HttpClient, queue: QueueStore, clazz: CalendarClassU
         }
     val state by model.state.collectAsState()
     LaunchedEffect(clazz.sessionId) { model.open(clazz) }
-
-    val screen = state
-    if (screen == null) {
-        LaunchedEffect(Unit) { leave() }
-        return
+    val close = {
+        model.close()
+        leave()
     }
+    BackHandler(onBack = close)
+    var opened by remember { mutableStateOf(false) }
+    LaunchedEffect(state == null) {
+        if (state != null) opened = true else if (opened) leave()
+    }
+
+    val screen = state ?: return
     PlanClassScreen(
         state = screen,
         onTopic = model::typeTopic,
@@ -121,7 +136,7 @@ private fun PlanDay(client: HttpClient, queue: QueueStore, clazz: CalendarClassU
         onSave = model::save,
         onSaveAsCovered = model::saveAsCovered,
         onDiscard = model::discardPlan,
-        onDone = leave,
-        onBack = leave,
+        onDone = close,
+        onBack = close,
     )
 }

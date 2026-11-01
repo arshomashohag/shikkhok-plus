@@ -58,6 +58,8 @@ const val TAG_DAY_ATTENDANCE_RESULT: String = "day_attendance_result"
  * @param onNotes Called with the notes as typed
  * @param onToggle Called with a seat whose mark changed
  * @param onSave Called to save the class
+ * @param onSaveAsCovered Called to keep a refused plan as covered
+ * @param onDiscardPlan Called to discard a refused plan
  * @param onRetry Called with a failed attendance write to send again
  * @param onDone Called to close after a save
  * @param onBack Called by the back arrow
@@ -70,6 +72,8 @@ fun ClassDayScreen(
     onNotes: (String) -> Unit,
     onToggle: (AttendanceSeat, Boolean) -> Unit,
     onSave: () -> Unit,
+    onSaveAsCovered: () -> Unit,
+    onDiscardPlan: () -> Unit,
     onRetry: (String) -> Unit,
     onDone: () -> Unit,
     onBack: () -> Unit,
@@ -84,6 +88,10 @@ fun ClassDayScreen(
         subtitle = classHeading(state.clazz),
         onBack = onBack,
     ) {
+        if (state.conflictItemId != null) {
+            StartedConflict(onSaveAsCovered, onDiscardPlan)
+            return@ListScreenScaffold
+        }
         Column(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
