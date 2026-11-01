@@ -87,6 +87,25 @@ class HttpMarksRepositoryTest {
     }
 
     @Test
+    fun `editing an exam always sends its topics, even when there are none`() = runTest {
+        // The server reads a missing `topics` as "keep the old ones" [D-26],
+        // so this app must send the list it means, including an empty one,
+        // or a teacher clearing every topic would see them come back.
+        val engine = MockEngine { respond("", HttpStatusCode.OK, jsonHeaders()) }
+
+        repo(engine).editExam("x-9", "Unit test", "2026-03-04", 50, listOf("Motion", "Force"))
+        repo(engine).editExam("x-9", "Unit test", "2026-03-04", 50, emptyList())
+
+        val (withTopics, cleared) = engine.requestHistory
+        assertEquals(HttpMethod.Put, withTopics.method)
+        assertEquals("/v1/exams/x-9", withTopics.url.encodedPath)
+        val first = (withTopics.body as TextContent).text
+        assertTrue(first.contains("\"topics\":[\"Motion\",\"Force\"]"), first)
+        val second = (cleared.body as TextContent).text
+        assertTrue(second.contains("\"topics\":[]"), second)
+    }
+
+    @Test
     fun `writable is carried through, never re-derived`() = runTest {
         // **The field this wrapper exists for** [BR5.5]. The server
         // said false for a non-empty result list, so nothing about

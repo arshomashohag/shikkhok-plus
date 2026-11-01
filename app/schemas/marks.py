@@ -129,7 +129,9 @@ class ExamUpdateRequest(BaseModel):
     :ivar date: When it was sat
     :ivar total_marks: The denominator, at least 1, and not below any
         mark already recorded
-    :ivar topics: What it covers, replacing the old list
+    :ivar topics: What it covers, replacing the old list; omitted or null
+        keeps the existing topics, so an app built before topics existed
+        cannot wipe them by editing the title [D-26]
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -137,7 +139,7 @@ class ExamUpdateRequest(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     date: dt.date
     total_marks: int = Field(ge=1)
-    topics: list[ExamTopic] = Field(default_factory=list, max_length=20)
+    topics: list[ExamTopic] | None = Field(default=None, max_length=20)
 
 
 class MarkWriteRequest(BaseModel):

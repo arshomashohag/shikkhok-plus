@@ -298,3 +298,43 @@ def test_editing_an_exam_leaves_a_declined_guardian_untouched(
 
     after = inbox(restricted_session, account_id=guardian)
     assert (after.unread, after.items[0].preview) == (0, "Unit test")
+
+
+def test_an_edit_without_topics_keeps_them_and_stays_read(
+    api_client: TestClient,
+    owner_session: DbSession,
+    teacher: TeacherFixture,
+    subject: uuid.UUID,
+    seat_factory: Callable[..., uuid.UUID],
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """An installed older app's PUT carries no topics; it must not wipe them.
+
+    Client and server version independently [D-26], so a body without
+    the field means "unchanged", not "none", and an unchanged exam does
+    not re-flag the families' item.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param teacher: The batch's owner
+    :param subject: The subject
+    :param seat_factory: Makes accepted seats
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    student = account_factory()
+    seat_factory(student_account_id=student)
+    created = _post(
+        api_client, owner_session, teacher, subject, topics=["Motion", "Force"]
+    )
+    mark_read(owner_session, account_id=student)
+
+    edited = api_client.put(
+        f"/v1/exams/{created.json()['exam_id']}",
+        json={"title": "Unit test", "date": "2027-04-20", "total_marks": 60},
+        headers=bearer(owner_session, teacher.account_id),
+    )
+
+    assert edited.status_code == 200
+    assert edited.json()["topics"] == ["Motion", "Force"]
+    assert inbox(owner_session, account_id=student).unread == 0
