@@ -151,25 +151,6 @@ data class NoticeRow(
 )
 
 /**
- * One past class, as the Classes tab lists it and its detail shows it.
- *
- * @property sessionId The class
- * @property date `yyyy-MM-dd`
- * @property startTime `HH:MM`
- * @property topic What was covered, or null when none was logged
- * @property subjectName What it taught, or null
- * @property present Whether the seat attended, or null when not marked
- */
-data class PastClass(
-    val sessionId: String,
-    val date: String,
-    val startTime: String,
-    val topic: String?,
-    val subjectName: String?,
-    val present: Boolean?,
-)
-
-/**
  * One exam, with the server's word on where it stands.
  *
  * @property examId The exam
@@ -240,7 +221,6 @@ enum class FamilyTab {
  * @property next The next class, or null
  * @property following The classes after it
  * @property upcomingExam The next exam to sit, or null
- * @property classes Every past class, newest first
  * @property upcomingExams Exams the server calls `upcoming`, in its order
  * @property doneExams Exams the server calls `done`, in its order
  * @property teacher The teacher
@@ -255,19 +235,10 @@ data class StudentBatchView(
     val next: NextClass? = null,
     val following: List<NextClass> = emptyList(),
     val upcomingExam: UpcomingExam? = null,
-    val classes: List<PastClass> = emptyList(),
     val upcomingExams: List<FamilyExam> = emptyList(),
     val doneExams: List<FamilyExam> = emptyList(),
     val teacher: FamilyTeacher = FamilyTeacher(null, emptyList()),
 ) {
-    /**
-     * One past class, by id.
-     *
-     * @param sessionId The class
-     * @return The class, or null when it is not in this batch
-     */
-    fun pastClass(sessionId: String): PastClass? = classes.firstOrNull { it.sessionId == sessionId }
-
     /**
      * One notice, by id.
      *

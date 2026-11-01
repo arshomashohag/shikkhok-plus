@@ -66,17 +66,6 @@ object StudentStateMapper {
                     view.upcomingExam?.let { UpcomingExam(it.title, it.date, it.totalMarks, it.subjectName) },
                 notices =
                     view.announcements.map { NoticeRow(it.body, it.postedAt, it.announcementId, it.edited) },
-                classes =
-                    view.pastSessions.map {
-                        PastClass(
-                            it.sessionId,
-                            it.date,
-                            it.startTime.take(HHMM),
-                            it.topic?.takeIf { text -> it.topicLogged && text.isNotBlank() },
-                            it.subjectName,
-                            it.present,
-                        )
-                    },
                 upcomingExams = view.exams.filter { it.state == UPCOMING }.map(::toExam),
                 doneExams = view.exams.filter { it.state == DONE }.map(::toExam),
                 teacher =

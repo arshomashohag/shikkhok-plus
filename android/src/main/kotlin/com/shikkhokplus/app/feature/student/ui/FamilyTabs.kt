@@ -50,14 +50,7 @@ import com.shikkhokplus.app.feature.auth.MessageKeys
 import com.shikkhokplus.app.feature.marks.ProgressRow
 import com.shikkhokplus.app.feature.student.FamilyExam
 import com.shikkhokplus.app.feature.student.FamilyTeacher
-import com.shikkhokplus.app.feature.student.PastClass
 import com.shikkhokplus.app.feature.student.StudentBatchView
-
-/** One past class, which opens its detail. */
-const val TAG_FAMILY_CLASS: String = "family_class"
-
-/** A past class's attendance line. */
-const val TAG_FAMILY_CLASS_ATTENDANCE: String = "family_class_attendance"
 
 /** One upcoming exam, which opens its detail. */
 const val TAG_FAMILY_EXAM_UPCOMING: String = "family_exam_upcoming"
@@ -122,6 +115,7 @@ fun ColumnScope.ClassesTab(
                         else -> choosing = day.classes
                     }
                 },
+                today = calendar.view.today,
             )
     }
     choosing?.let { classes ->
@@ -314,16 +308,3 @@ fun ColumnScope.TeacherTab(teacher: FamilyTeacher) {
         }
     }
 }
-
-/**
- * The words for this seat's attendance at a class.
- *
- * @param present Whether it attended, or null when not marked
- * @return The string resource
- */
-internal fun attendanceLabel(present: Boolean?): Int =
-    when (present) {
-        true -> R.string.family_present
-        false -> R.string.family_absent
-        null -> R.string.family_not_marked
-    }

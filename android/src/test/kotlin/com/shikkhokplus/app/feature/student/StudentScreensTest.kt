@@ -97,7 +97,6 @@ class StudentScreensTest {
         results = results,
         notices = listOf(NoticeRow("Bring a calculator", "2026-10-26T09:00:00Z", "a-1")),
         topics = emptyList(),
-        classes = listOf(PastClass("s-1", "2026-10-14", "16:00", "Heat", "Physics", true)),
         upcomingExams = upcoming,
         doneExams = done,
         teacher = teacher,
