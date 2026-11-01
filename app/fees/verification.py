@@ -52,7 +52,7 @@ from app.notifications.inbox import (
     deliver,
     remove_for_source,
 )
-from app.notifications.recipients import seat_recipients
+from app.notifications.recipients import child_names, seat_recipients
 
 __all__ = ["VerificationOutcome", "reject_claim", "shortfall_of", "verify_claim"]
 
@@ -526,7 +526,5 @@ def _tell_the_seat(
         period=claim.period,
         amount=amount,
         source_id=claim.id,
-        child_names={
-            r.account_id: r.child_name for r in recipients if r.child_name is not None
-        },
+        child_names=child_names(recipients),
     )

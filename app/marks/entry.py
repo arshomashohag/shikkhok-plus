@@ -38,7 +38,7 @@ from app.db.models import Batch, Exam, Mark
 from app.errors import ConflictError, ValidationError
 from app.marks.exams import readable_exam
 from app.notifications.inbox import MARKS_AVAILABLE, deliver
-from app.notifications.recipients import seat_recipients
+from app.notifications.recipients import child_names, seat_recipients
 from app.teaching.roster import readable_enrollment, refuse
 
 __all__ = [
@@ -309,7 +309,7 @@ def announce_result(
         enrollment_id=enrollment_id,
         source_id=exam.id,
         preview=exam.title,
-        child_names={r.account_id: r.child_name for r in recipients if r.child_name},
+        child_names=child_names(recipients),
     )
 
 

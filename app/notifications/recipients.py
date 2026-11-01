@@ -24,7 +24,7 @@ from app.notifications.inbox import deliver
 
 __all__ = [
     "Recipient",
-    "accepted_accounts",
+    "child_names",
     "deliver_to_families",
     "family_recipients",
     "seat_recipients",
@@ -46,21 +46,13 @@ class Recipient:
     child_name: str | None
 
 
-def accepted_accounts(seat: Enrollment) -> list[uuid.UUID]:
-    """List the accounts on a seat that have accepted it.
+def child_names(recipients: list[Recipient]) -> dict[uuid.UUID, str]:
+    """Map each guardian recipient to the child the message is about.
 
-    :param seat: The seat
-    :return: The student and guardian accounts that accepted, if any
+    :param recipients: Who receives the message
+    :return: The child's name keyed by guardian account; students omitted
     """
-    links = (
-        (seat.student_account_id, seat.student_decision),
-        (seat.guardian_account_id, seat.guardian_decision),
-    )
-    return [
-        account
-        for account, decision in links
-        if account is not None and decision == "accepted"
-    ]
+    return {r.account_id: r.child_name for r in recipients if r.child_name is not None}
 
 
 def _recipients(seat: Enrollment) -> list[Recipient]:
@@ -171,3 +163,4 @@ def deliver_to_families(
             preview=preview,
             child_names=names.get(enrollment_id),
         )
+

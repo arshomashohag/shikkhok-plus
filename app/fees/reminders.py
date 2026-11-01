@@ -48,7 +48,7 @@ from app.notifications.fcm import (
     build_push_adapter,
 )
 from app.notifications.inbox import FEE_REMINDER, deliver
-from app.notifications.recipients import accepted_accounts
+from app.notifications.recipients import child_names, seat_recipients
 
 __all__ = [
     "IN_APP_CHANNEL",
@@ -260,7 +260,7 @@ def remind(
     sent = 0
     for seat, batch_name in seats:
         derived = derive(ledger[seat.id])
-        recipients = accepted_accounts(seat)
+        recipients = seat_recipients(session, enrollment_id=seat.id)
         owing = sorted(
             period
             for period, balance in derived.per_cycle.items()
@@ -281,13 +281,14 @@ def remind(
         )
         deliver(
             session,
-            account_ids=recipients,
+            account_ids=[r.account_id for r in recipients],
             kind=FEE_REMINDER,
             batch_name=batch_name,
             now=sent_at,
             enrollment_id=seat.id,
             period=owing[0],
             amount=derived.total_outstanding,
+            child_names=child_names(recipients),
         )
         sent += 1
 
