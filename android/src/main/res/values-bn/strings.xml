@@ -927,6 +927,7 @@
     <string name="family_exam_no_topics">এখনও কোনো টপিক দেওয়া হয়নি।</string>
     <string name="family_notice_edited">সম্পাদিত</string>
     <plurals name="tray_updates">
+        <item quantity="one">%1$d টি নতুন আপডেট</item>
         <item quantity="other">%1$d টি নতুন আপডেট</item>
     </plurals>
     <string name="tray_channel_name">আপডেট</string>
