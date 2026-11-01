@@ -43,10 +43,11 @@ import kotlinx.serialization.Serializable
  * retries with it.
  *
  * **A refused renewal ends the session; an unreachable one does not.**
- * Refused means the credential is dead, and clearing it routes the
- * person to sign-in rather than leaving them on a screen that can do
- * nothing. A transport failure says nothing about the token, so the
- * store is left alone and the original 401 goes back to the caller.
+ * Refused -- a 400, 401 or 403 -- means the credential is dead, and
+ * clearing it routes the person to sign-in rather than leaving them on
+ * a screen that can do nothing. A transport failure, a 5xx or a 429
+ * says nothing about the token, so the store is left alone and the
+ * original 401 goes back to the caller.
  *
  * @property baseUrl The backend's origin
  * @property tokens Where the pair is read and written
@@ -144,11 +145,16 @@ class SessionRenewal(
                     setBody(TextContent(body, ContentType.Application.Json))
                 }
             val response = execute(builder).response
-            if (response.status.isSuccess()) {
-                val pair = ApiClient.json.decodeFromString(TokenResponse.serializer(), response.bodyAsText())
-                Redeemed.Pair(pair.accessToken, pair.refreshToken)
-            } else {
-                Redeemed.Refused
+            when {
+                response.status.isSuccess() -> {
+                    val pair = ApiClient.json.decodeFromString(TokenResponse.serializer(), response.bodyAsText())
+                    Redeemed.Pair(pair.accessToken, pair.refreshToken)
+                }
+                // Only these say the credential itself is dead. A 5xx or a
+                // 429 is the server not answering the question, and signing
+                // the person out on it would end every session in an outage.
+                response.status in REFUSED_STATUSES -> Redeemed.Refused
+                else -> Redeemed.Unreachable
             }
         } catch (_: Exception) {
             // No response arrived, so the token's status is unknown.
@@ -165,10 +171,10 @@ class SessionRenewal(
          */
         data class Pair(val access: String, val refresh: String) : Redeemed
 
-        /** The server answered and refused: the credential is dead. */
+        /** The server answered 400, 401 or 403: the credential is dead. */
         data object Refused : Redeemed
 
-        /** No answer arrived: the credential's status is unknown. */
+        /** No answer, a 5xx or a 429: the credential's status is unknown. */
         data object Unreachable : Redeemed
     }
 
@@ -185,6 +191,9 @@ class SessionRenewal(
          * theft and answers by ending the session.
          */
         val RENEWAL_LOCK = Mutex()
+        /** The answers to a refresh that mean the credential is dead. */
+        val REFUSED_STATUSES =
+            setOf(HttpStatusCode.BadRequest, HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden)
         const val BEARER = "Bearer "
         const val AUTH_PATH = "/v1/auth/"
         const val REFRESH_PATH = "/v1/auth/refresh"

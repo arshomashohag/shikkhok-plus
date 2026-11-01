@@ -149,4 +149,41 @@ class SessionRenewalTest {
         assertEquals(List(4) { HttpStatusCode.OK }, statuses)
         assertEquals(1, refreshes)
     }
+
+    @Test
+    fun `a server error or a rate limit on renewal keeps the stored session`() = runTest {
+        // A 503 or a 429 is the server failing to answer, not refusing
+        // the credential. Clearing the pair on it would sign everyone out
+        // during an outage, and they would need a new code to get back.
+        for (status in listOf(HttpStatusCode.ServiceUnavailable, HttpStatusCode.TooManyRequests)) {
+            val tokens = TokenStore.InMemory().apply { save("stale", "r1") }
+            var ended = 0
+            val engine = MockEngine { answer(it, status) }
+            val client =
+                ApiClient.build("https://staging.example", engine, tokens, onSessionEnded = { ended++ })
+
+            val response = client.get("/v1/me")
+
+            assertEquals(HttpStatusCode.Unauthorized, response.status, status.toString())
+            assertEquals(0, ended, status.toString())
+            assertEquals("stale", tokens.accessToken(), status.toString())
+            assertEquals("r1", tokens.refreshToken(), status.toString())
+        }
+    }
+
+    @Test
+    fun `a bad request or a forbidden renewal ends the session`() = runTest {
+        for (status in listOf(HttpStatusCode.BadRequest, HttpStatusCode.Forbidden)) {
+            val tokens = TokenStore.InMemory().apply { save("stale", "r1") }
+            var ended = 0
+            val engine = MockEngine { answer(it, status) }
+            val client =
+                ApiClient.build("https://staging.example", engine, tokens, onSessionEnded = { ended++ })
+
+            client.get("/v1/me")
+
+            assertEquals(1, ended, status.toString())
+            assertNull(tokens.refreshToken(), status.toString())
+        }
+    }
 }
