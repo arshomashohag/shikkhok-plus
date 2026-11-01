@@ -35,7 +35,9 @@ class UnreadCheckWorker(
             val result = HttpInboxRepository(client).inbox()
             if (result is AuthResult.Ok) {
                 val last = UnreadSchedule.lastNotified(applicationContext)
-                val next = UnreadNotifier(applicationContext).update(result.value.unread, last)
+                // The server lists newest first, so the first unread is the newest.
+                val newest = result.value.items.firstOrNull { !it.read }?.notificationId
+                val next = UnreadNotifier(applicationContext).update(result.value.unread, newest, last)
                 UnreadSchedule.saveLastNotified(applicationContext, next)
             }
         } finally {

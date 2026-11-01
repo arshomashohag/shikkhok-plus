@@ -4,6 +4,7 @@ import android.app.Application
 import android.app.NotificationManager
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import com.shikkhokplus.app.R
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -16,7 +17,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * The tray notification posts on a rise and says nothing otherwise.
+ * The tray notification posts for a new item and says nothing otherwise.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
@@ -37,49 +38,64 @@ class UnreadNotifierTest {
 
     @Test
     fun `first unread posts with the count as the number`() {
-        assertEquals(3, notifier.update(3, 0))
+        assertEquals("n-3", notifier.update(3, "n-3", null))
         assertEquals(3, posted()!!.number)
     }
 
     @Test
-    fun `an unchanged count posts nothing`() {
-        assertEquals(3, notifier.update(3, 3))
+    fun `the same newest item posts nothing again`() {
+        assertEquals("n-3", notifier.update(3, "n-3", "n-3"))
         assertNull(posted())
     }
 
     @Test
-    fun `a rise updates to the new count`() {
-        notifier.update(3, 0)
-        assertEquals(5, notifier.update(5, 3))
+    fun `a new newest item updates to the new count`() {
+        notifier.update(3, "n-3", null)
+        assertEquals("n-5", notifier.update(5, "n-5", "n-3"))
         assertEquals(5, posted()!!.number)
     }
 
     @Test
-    fun `reading everything cancels the notification`() {
-        notifier.update(5, 0)
-        assertEquals(0, notifier.update(0, 5))
+    fun `one new item after reading three in the app still posts`() {
+        // Told about three, all read in the app, then one more arrives.
+        // A count baseline of 3 would stay silent on a count of 1; the
+        // newest unread item is new, so the person is told.
+        notifier.update(3, "n-3", null)
+        notifier.cancel()
+
+        assertEquals("n-4", notifier.update(1, "n-4", "n-3"))
+        assertEquals(1, posted()!!.number)
+    }
+
+    @Test
+    fun `reading everything cancels the notification and forgets the item`() {
+        notifier.update(5, "n-5", null)
+        assertNull(notifier.update(0, null, "n-5"))
         assertNull(posted())
     }
 
     @Test
-    fun `a fall lowers the baseline so the next rise notifies`() {
-        assertEquals(2, notifier.update(2, 5))
+    fun `fewer unread with the same newest item posts nothing`() {
+        assertEquals("n-5", notifier.update(2, "n-5", "n-5"))
         assertNull(posted())
     }
 
     @Test
-    fun `text names no person batch or amount`() {
-        notifier.update(4, 0)
+    fun `text names no person batch or amount, in the right plural`() {
+        notifier.update(4, "n-4", null)
         val text = posted()!!.extras.getCharSequence("android.text").toString()
-        assertEquals(context.getString(com.shikkhokplus.app.R.string.tray_updates, 4), text)
+        assertEquals(context.resources.getQuantityString(R.plurals.tray_updates, 4, 4), text)
+        assertEquals("4 new updates", text)
         assertFalse(text.contains("Batch", ignoreCase = true))
-        assertTrue(text.contains("4"))
+
+        notifier.update(1, "n-5", "n-4")
+        assertEquals("1 new update", posted()!!.extras.getCharSequence("android.text").toString())
     }
 
     @Test
-    fun `without the permission nothing is posted but the baseline still advances`() {
+    fun `without the permission nothing is posted but the item is still remembered`() {
         shadowOf(context).denyPermissions("android.permission.POST_NOTIFICATIONS")
-        assertEquals(3, notifier.update(3, 0))
+        assertEquals("n-3", notifier.update(3, "n-3", null))
         assertNull(posted())
     }
 

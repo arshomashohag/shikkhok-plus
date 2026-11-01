@@ -18,7 +18,7 @@ object UnreadSchedule {
     const val WORK_NAME = "unread-check"
     private const val PERIOD_MINUTES = 15L
     private const val PREFS = "unread"
-    private const val KEY_LAST = "last_notified"
+    private const val KEY_LAST = "last_notified_item"
     private const val KEY_ASKED = "permission_asked"
 
     /**
@@ -48,26 +48,26 @@ object UnreadSchedule {
     fun stop(context: Context) {
         WorkManager.getInstance(context.applicationContext).cancelUniqueWork(WORK_NAME)
         UnreadNotifier(context).cancel()
-        saveLastNotified(context, 0)
+        saveLastNotified(context, null)
     }
 
     /**
-     * The count last told to the person.
+     * The newest unread item last told to the person.
      *
      * @param context Any context
-     * @return The remembered count, zero when none
+     * @return The remembered item's id, null when none
      */
-    fun lastNotified(context: Context): Int =
-        prefs(context).getInt(KEY_LAST, 0)
+    fun lastNotified(context: Context): String? =
+        prefs(context).getString(KEY_LAST, null)
 
     /**
-     * Remember the count just told to the person.
+     * Remember the newest unread item just told to the person.
      *
      * @param context Any context
-     * @param count The count
+     * @param notificationId The item's id, or null to forget it
      */
-    fun saveLastNotified(context: Context, count: Int) {
-        prefs(context).edit().putInt(KEY_LAST, count).apply()
+    fun saveLastNotified(context: Context, notificationId: String?) {
+        prefs(context).edit().putString(KEY_LAST, notificationId).apply()
     }
 
     /**

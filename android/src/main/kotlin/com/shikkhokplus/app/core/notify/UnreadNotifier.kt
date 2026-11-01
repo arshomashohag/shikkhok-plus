@@ -18,8 +18,11 @@ import com.shikkhokplus.app.R
  * The one tray notification: how many updates are waiting.
  *
  * **The count is the server's.** This decides only whether to say it
- * again: a notification already showing that number is not re-posted,
- * so a phone does not buzz every fifteen minutes for the same unread.
+ * again, by the newest unread item rather than by the count: a count
+ * baseline missed a new item after the person had read the old ones in
+ * the app (told 3, read 3, 1 arrives: 1 is not above 3). The newest
+ * unread item's id is remembered instead, so a new item always posts and
+ * the same items never post twice, whatever the count did in between.
  *
  * **The text names no person, batch or amount.** A lock screen is read
  * by whoever holds the phone, and a child's phone is often a parent's.
@@ -30,19 +33,24 @@ class UnreadNotifier(context: Context) {
     private val context: Context = context.applicationContext
 
     /**
-     * Post, update or cancel the notification for a fresh count.
+     * Post, update or cancel the notification for a fresh read.
+     *
+     * Opening the app cancels the tray entry but keeps the remembered
+     * item: the person has not necessarily read it, and telling them
+     * again about the same items is the repeat this exists to prevent.
      *
      * @param unread The server's unread count
-     * @param lastNotified The count last told to the person
-     * @return The count to remember as last notified
+     * @param newestUnread The newest unread item's id, or null if none
+     * @param lastNotified The newest item last told to the person
+     * @return The item to remember as last notified, null when none is unread
      */
-    fun update(unread: Int, lastNotified: Int): Int {
-        if (unread <= 0) {
+    fun update(unread: Int, newestUnread: String?, lastNotified: String?): String? {
+        if (unread <= 0 || newestUnread == null) {
             cancel()
-            return 0
+            return null
         }
-        if (unread > lastNotified) post(unread)
-        return unread
+        if (newestUnread != lastNotified) post(unread)
+        return newestUnread
     }
 
     /** Remove the notification, if showing. */
@@ -75,7 +83,7 @@ class UnreadNotifier(context: Context) {
             NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setContentTitle(context.getString(R.string.app_name))
-                .setContentText(context.getString(R.string.tray_updates, unread))
+                .setContentText(context.resources.getQuantityString(R.plurals.tray_updates, unread, unread))
                 .setNumber(unread)
                 .setOnlyAlertOnce(true)
                 .setAutoCancel(true)

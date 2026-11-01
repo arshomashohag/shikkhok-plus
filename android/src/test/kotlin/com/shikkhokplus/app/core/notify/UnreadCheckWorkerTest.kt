@@ -59,14 +59,19 @@ class UnreadCheckWorkerTest {
     private fun signedIn(): TokenStore =
         TokenStore.InMemory().also { it.save("a", "r") }
 
-    private fun serving(unread: Int) {
+    private fun item(id: String, read: Boolean = false) =
+        """{"notification_id":"$id","kind":"notice","batch_name":"Physics",""" +
+            """"created_at":"2026-10-17T06:00:00Z","read":$read}"""
+
+    private fun serving(unread: Int, newest: String = "n-1", items: List<String>? = null) {
+        val body = (items ?: List(unread) { item(if (it == 0) newest else "n-old-$it") }).joinToString(",")
         UnreadCheckWorker.tokenStoreFactory = { signedIn() }
         UnreadCheckWorker.clientFactory = { _, _ ->
             HttpClient(
                 MockEngine {
                     requests++
                     respond(
-                        """{"items":[],"unread":$unread}""",
+                        """{"items":[$body],"unread":$unread}""",
                         headers = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()),
                     )
                 },
@@ -98,10 +103,35 @@ class UnreadCheckWorkerTest {
         serving(3)
         assertEquals(ListenableWorker.Result.success(), run())
         assertEquals(3, posted()!!.number)
-        assertEquals(3, UnreadSchedule.lastNotified(context))
+        assertEquals("n-1", UnreadSchedule.lastNotified(context))
         assertEquals(ListenableWorker.Result.success(), run())
         assertNotNull(posted())
         assertEquals(2, requests)
+    }
+
+    @Test
+    fun `the same items are not posted twice, even after the app cleared the tray`() {
+        serving(3)
+        run()
+        UnreadNotifier(context).cancel()
+
+        run()
+
+        assertNull(posted())
+        assertEquals("n-1", UnreadSchedule.lastNotified(context))
+    }
+
+    @Test
+    fun `three told, all read in the app, then one new item posts`() {
+        serving(3, newest = "n-3")
+        run()
+        UnreadNotifier(context).cancel()
+
+        serving(1, items = listOf(item("n-4"), item("n-3", read = true)))
+        run()
+
+        assertEquals(1, posted()!!.number)
+        assertEquals("n-4", UnreadSchedule.lastNotified(context))
     }
 
     @Test
@@ -111,7 +141,7 @@ class UnreadCheckWorkerTest {
             HttpClient(MockEngine { respond("", io.ktor.http.HttpStatusCode.InternalServerError) })
         }
         assertEquals(ListenableWorker.Result.success(), run())
-        assertEquals(0, UnreadSchedule.lastNotified(context))
+        assertNull(UnreadSchedule.lastNotified(context))
         assertNull(posted())
     }
 
@@ -128,8 +158,8 @@ class UnreadCheckWorkerTest {
     fun `a refused renewal stops the schedule and clears the tray`() {
         WorkManagerTestInitHelper.initializeTestWorkManager(context)
         UnreadSchedule.start(context)
-        UnreadNotifier(context).update(4, 0)
-        UnreadSchedule.saveLastNotified(context, 4)
+        UnreadNotifier(context).update(4, "n-4", null)
+        UnreadSchedule.saveLastNotified(context, "n-4")
         val tokens = signedIn()
         UnreadCheckWorker.tokenStoreFactory = { tokens }
         UnreadCheckWorker.clientFactory = { store, ended ->
@@ -152,7 +182,7 @@ class UnreadCheckWorkerTest {
         val infos = WorkManager.getInstance(context).getWorkInfosForUniqueWork(UnreadSchedule.WORK_NAME).get()
         assertTrue(infos.all { it.state == WorkInfo.State.CANCELLED })
         assertNull(posted())
-        assertEquals(0, UnreadSchedule.lastNotified(context))
+        assertNull(UnreadSchedule.lastNotified(context))
         assertNull(tokens.accessToken())
     }
 }
