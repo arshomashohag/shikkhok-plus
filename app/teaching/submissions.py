@@ -84,6 +84,7 @@ from sqlalchemy.orm import Session as DbSession
 from app.authz.lenses import TeacherLens
 from app.db.models import Attendance, Enrollment, QueuedSubmission, Session
 from app.errors import ConflictError
+from app.local_time import DHAKA, bangladesh_now
 from app.teaching.roster import roster_predicate, writable_session
 
 __all__ = [
@@ -464,8 +465,12 @@ def write_topic(
     session_id: uuid.UUID,
     base_version: int,
     client_mutation_id: uuid.UUID,
-    topic: str,
+    topic: str | None,
+    plan: bool = False,
+    notes: str | None = None,
+    notes_supplied: bool,
     composed_at: dt.datetime | None = None,
+    now: dt.datetime | None = None,
 ) -> TopicResult:
     """Write a session's topic, against its OWN version [BR2.1].
 
@@ -494,19 +499,29 @@ def write_topic(
     :param session_id: The session being written
     :param base_version: The ``topic_version`` it was composed against
     :param client_mutation_id: The client's replay key
-    :param topic: What was covered; '' means logged-and-blank
+    :param topic: What was covered; '' means logged-and-blank; None
+        clears a plan
+    :param plan: True writes a PLAN before the class starts and leaves
+        the class ``scheduled``; False records what was covered and
+        marks the class ``held``
+    :param notes: Free notes on the class; never change status alone
+    :param notes_supplied: False leaves the stored notes untouched, as
+        an older client that does not know the field sends no notes;
+        True writes ``notes``, where None clears them [D-26]
     :param composed_at: The device's clock, recorded and never read in
         a decision [NFR24.20]
+    :param now: The server clock, injectable for tests
     :return: The version now in force, and whether this was a replay
     :raises AuthorizationError: This lens does not reach the session
     :raises ConflictError: The session is cancelled, its batch is
         inactive, the mutation id was spent on the other queued path,
-        or the version is stale
+        the version is stale, or a plan arrives for a class that has
+        begun or is already held
     """
     # 1. AUTHORIZATION, and the state checks that follow it. Before
     #    any version is compared, and before any replay is looked up
     #    [§ 5.4].
-    writable_session(session, lens=lens, session_id=session_id)
+    row = writable_session(session, lens=lens, session_id=session_id)
 
     # 2. REPLAY, scoped by BOTH columns of the constraint.
     prior = _existing_submission(
@@ -524,6 +539,23 @@ def write_topic(
             replayed=True,
         )
 
+    if plan:
+        started_at = dt.datetime.combine(row.date, row.start_time, tzinfo=DHAKA)
+        if row.status == "held" or bangladesh_now(now) >= started_at:
+            raise ConflictError(
+                code="CLASS_STARTED",
+                message_key="teaching.topic.class_started",
+            )
+
+    values: dict[str, object] = {
+        "topic": topic,
+        "topic_version": base_version + 1,
+    }
+    if notes_supplied:
+        values["notes"] = notes
+    if not plan:
+        values["status"] = "held"
+
     updated = _rows_affected(
         session.execute(
             sa.update(Session)
@@ -531,11 +563,7 @@ def write_topic(
                 Session.id == session_id,
                 Session.topic_version == base_version,
             )
-            .values(
-                topic=topic,
-                topic_version=base_version + 1,
-                status="held",
-            )
+            .values(**values)
         )
     )
 

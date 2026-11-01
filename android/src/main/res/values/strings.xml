@@ -436,6 +436,8 @@
       different path, because the two guard different columns.
     -->
     <string name="topic_version_conflict">Someone saved a different topic for this class after you wrote yours. Nothing has been changed yet - look at what it says now before saving again.</string>
+    <string name="calendar_month_out_of_range">That month has no classes to show.</string>
+    <string name="topic_class_started">This class has started. Save the topics as covered or discard the plan.</string>
 
     <!-- State-based refusals: retrying unchanged cannot succeed. -->
     <string name="teaching_batch_inactive">This batch has been closed, so it can no longer be changed. You can still look at its records.</string>
@@ -964,7 +966,6 @@
     <string name="signup_log_in">Log in</string>
 
     <string name="family_tab_teacher">Teacher</string>
-    <string name="family_past_classes">Past classes</string>
     <string name="family_exams_done">Done</string>
     <string name="family_notices_empty">No notices yet.</string>
     <string name="family_teacher_unnamed">Your teacher</string>
@@ -977,6 +978,9 @@
     <string name="family_attendance">Attendance</string>
     <string name="family_present">Present</string>
     <string name="family_absent">Absent</string>
+    <string name="family_planned_topics">Planned topics</string>
+    <string name="family_not_enrolled_then">Not enrolled then</string>
+    <string name="family_class_notes">Notes</string>
     <string name="family_not_marked">Not marked</string>
     <string name="family_exam_topics">Topics</string>
     <string name="family_exam_no_topics">No topics listed yet.</string>
@@ -986,4 +990,52 @@
         <item quantity="other">%1$d new updates</item>
     </plurals>
     <string name="tray_channel_name">Updates</string>
+
+    <string name="calendar_prev_month">Previous month</string>
+    <string name="calendar_next_month">Next month</string>
+    <string name="calendar_pick_month">%1$s, choose a month</string>
+    <string name="calendar_picker_title">Choose a month</string>
+    <string name="calendar_picker_close">Close</string>
+    <string name="calendar_prev_year">Previous year</string>
+    <string name="calendar_next_year">Next year</string>
+    <string name="calendar_weekday_sun">Su</string>
+    <string name="calendar_weekday_mon">Mo</string>
+    <string name="calendar_weekday_tue">Tu</string>
+    <string name="calendar_weekday_wed">We</string>
+    <string name="calendar_weekday_thu">Th</string>
+    <string name="calendar_weekday_fri">Fr</string>
+    <string name="calendar_weekday_sat">Sa</string>
+    <string name="calendar_state_taken">class taken</string>
+    <string name="calendar_state_today">today</string>
+    <string name="calendar_state_upcoming">upcoming</string>
+    <string name="calendar_state_not_recorded">not recorded</string>
+    <string name="calendar_state_cancelled">cancelled</string>
+    <string name="calendar_day_description">%1$s, %2$s</string>
+    <plurals name="calendar_class_count">
+        <item quantity="one">%1$s class</item>
+        <item quantity="other">%1$s classes</item>
+    </plurals>
+
+    <string name="classday_title_today">Today\'s class</string>
+    <string name="classday_topics_covered">Topics covered</string>
+    <string name="classday_notes">Notes (optional)</string>
+    <string name="classday_attendance">Attendance · %1$s students</string>
+    <string name="classday_save">Save class</string>
+    <string name="classday_done">Done</string>
+    <string name="classday_attendance_saved">Attendance saved.</string>
+    <string name="classplan_topics">Planned topics</string>
+    <string name="classplan_hint">Editable until the class starts. Students and guardians see the plan.</string>
+    <string name="classplan_attendance_heading">Attendance</string>
+    <string name="classplan_attendance_later">Opens on the day of the class</string>
+    <string name="classplan_save">Save plan</string>
+    <string name="classplan_started_title">This class has started</string>
+    <string name="classplan_save_covered">Save as covered</string>
+    <string name="classplan_discard">Discard plan</string>
+    <string name="classpick_title">Choose a class</string>
+    <string name="classpick_close">Close</string>
+    <string name="classplan_attendance_at_start">Opens when the class starts</string>
+    <string name="class_no_topics_planned">No topics planned yet</string>
+    <string name="class_subject_label">Subject</string>
+    <string name="class_text_counter">%1$s / %2$s</string>
+    <string name="classread_title">Class</string>
 </resources>

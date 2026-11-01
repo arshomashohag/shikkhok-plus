@@ -447,6 +447,7 @@ def family_batch_view(
             Session.topic,
             Attendance.present,
             BatchSubject.name,
+            Session.status,
         )
         .select_from(Session)
         .outerjoin(BatchSubject, BatchSubject.id == Session.batch_subject_id)
@@ -477,8 +478,11 @@ def family_batch_view(
                 session_id=entry[0],
                 date=entry[1],
                 start_time=entry[2],
-                topic=entry[3],
-                topic_logged=entry[3] is not None,
+                # Only a HELD class has a covered topic. Before that the
+                # column is the teacher's plan, and this list says what
+                # was covered.
+                topic=entry[3] if entry[6] == "held" else None,
+                topic_logged=entry[6] == "held" and entry[3] is not None,
                 present=entry[4],
                 subject_name=entry[5],
             )

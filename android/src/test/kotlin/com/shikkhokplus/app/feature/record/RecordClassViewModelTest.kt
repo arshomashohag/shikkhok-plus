@@ -106,6 +106,19 @@ class RecordClassViewModelTest {
     }
 
     @Test
+    fun `a newer class's plan is never suggested as last time's topic`() = runTest(dispatcher) {
+        val planned =
+            past("s-4", "2026-10-20", "Second law").copy(status = "scheduled", topicLogged = false)
+        val fake = Fake().apply { sessions = listOf(past("s-2", "2026-10-14", "First law"), planned) }
+        val model = RecordClassViewModel(fake, store())
+
+        model.open(target)
+        advanceUntilIdle()
+
+        assertEquals("First law", requireNotNull(model.sheet.value).suggestion)
+    }
+
+    @Test
     fun `a sent topic leaves nothing queued and carries its version`() = runTest(dispatcher) {
         val fake = Fake()
         val queue = store()

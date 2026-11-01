@@ -5,6 +5,7 @@ import com.shikkhokplus.app.feature.student.FamilyReader
 import com.shikkhokplus.app.feature.student.StudentRepository
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
+import io.ktor.client.request.parameter
 
 /**
  * The family's reads of one batch, over HTTP.
@@ -47,6 +48,20 @@ class HttpStudentRepository(
             FamilyReader.SELF -> call { client.get("/v1/me/enrollments/$enrollmentId/exams/$examId") }
             FamilyReader.GUARDIAN -> call { client.get("/v1/children/$enrollmentId/exams/$examId") }
         }
+
+    override suspend fun month(enrollmentId: String, year: Int, month: Int): AuthResult<MonthViewDto> {
+        val path =
+            when (reader) {
+                FamilyReader.SELF -> "/v1/me/enrollments/$enrollmentId/calendar"
+                FamilyReader.GUARDIAN -> "/v1/children/$enrollmentId/calendar"
+            }
+        return call {
+            client.get(path) {
+                parameter("year", year)
+                parameter("month", month)
+            }
+        }
+    }
 
     /**
      * A guardian's seats, flattened from the home read so the batch

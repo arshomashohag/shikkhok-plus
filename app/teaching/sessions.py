@@ -92,8 +92,9 @@ def _row(record: Session, subject_name: str | None) -> SessionRow:
         origin=record.origin,
         topic=record.topic,
         # BR2.2: NULL is "nobody logged this"; '' is "logged as
-        # blank". The decision is computed here so no client has to.
-        topic_logged=record.topic is not None,
+        # blank". Before a class is held the column holds its PLAN,
+        # which is not a logged topic. Computed here so no client has to.
+        topic_logged=record.status == "held" and record.topic is not None,
         subject_name=subject_name,
         attendance_version=record.attendance_version,
         topic_version=record.topic_version,

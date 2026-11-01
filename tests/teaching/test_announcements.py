@@ -300,6 +300,7 @@ def test_the_family_view_shows_the_next_class_and_past_topics(
         base_version=0,
         client_mutation_id=uuid.uuid4(),
         topic="Refraction",
+        notes_supplied=False,
     )
     submit_roster(
         restricted_session,

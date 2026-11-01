@@ -17,7 +17,7 @@ import com.shikkhokplus.app.core.designsystem.TextAction
 import com.shikkhokplus.app.core.network.HttpAnalyticsRepository
 import com.shikkhokplus.app.core.network.HttpRecordRepository
 import com.shikkhokplus.app.core.queue.QueueStore
-import com.shikkhokplus.app.core.queue.QueueTarget
+import com.shikkhokplus.app.core.queue.QueuedWrite
 import com.shikkhokplus.app.feature.record.RecordClassViewModel
 import com.shikkhokplus.app.feature.record.RecordTarget
 import com.shikkhokplus.app.feature.record.SaveResult
@@ -54,11 +54,7 @@ internal fun NavGraphBuilder.todayRoute(
         // Re-read after each save, so a topic kept on the phone shows
         // on its class until the queue sends it.
         val pending =
-            remember(saved, state) {
-                queue.read()
-                    .filter { it.target == QueueTarget.TOPIC }
-                    .associate { it.sessionId to it.topic.orEmpty() }
-            }
+            remember(saved, state) { QueuedWrite.pendingTopics(queue.read()) }
 
         LaunchedEffect(Unit) { model.load() }
         LaunchedEffect(saved) { if (saved == SaveResult.SENT) model.load() }

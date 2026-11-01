@@ -2,8 +2,13 @@ package com.shikkhokplus.app.feature.student
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.shikkhokplus.app.core.format.YearMonth
 import com.shikkhokplus.app.core.network.StudentBatchDto
+import com.shikkhokplus.app.core.ui.CalendarClassUi
+import com.shikkhokplus.app.core.ui.CalendarMapper
 import com.shikkhokplus.app.feature.auth.AuthResult
+import com.shikkhokplus.app.feature.classcalendar.ClassCalendarUiState
+import com.shikkhokplus.app.feature.classcalendar.ClassCalendarViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,10 +21,15 @@ import kotlinx.coroutines.launch
  * loaded batch would show a fee with no classes, or classes with no
  * fee, and either reads as the whole truth.
  *
+ * The Classes tab's month is a fourth read, kept apart: a month that
+ * fails to load never hides the fee or the notices.
+ *
  * @property repository The student's reads
+ * @property currentMonth The month to open on; injectable for tests
  */
 class StudentBatchViewModel(
     private val repository: StudentRepository,
+    private val currentMonth: () -> YearMonth = { ClassCalendarViewModel.phoneMonth() },
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<StudentBatchUiState>(StudentBatchUiState.Loading)
@@ -32,17 +42,70 @@ class StudentBatchViewModel(
     /** The open tab, which survives the screen being rebuilt. */
     val tab: StateFlow<FamilyTab> = _tab.asStateFlow()
 
+    private val _calendar = MutableStateFlow<ClassCalendarUiState>(ClassCalendarUiState.Idle)
+
+    /** The Classes tab's month. */
+    val calendar: StateFlow<ClassCalendarUiState> = _calendar.asStateFlow()
+
     private var lastSeat: String? = null
+    private var shown: YearMonth? = null
 
     /**
-     * Load one batch.
+     * Load one batch, and its calendar on the month already shown if
+     * this seat is the one it was showing.
      *
      * @param enrollmentId The student's own seat
+     * @param month The month to open on if none is kept; the phone's
+     *   current one when null
      */
-    fun load(enrollmentId: String) {
+    fun load(enrollmentId: String, month: YearMonth? = null) {
+        val keep = shown.takeIf { lastSeat == enrollmentId }
         lastSeat = enrollmentId
         _state.value = StudentBatchUiState.Loading
         viewModelScope.launch { _state.value = read(enrollmentId) }
+        readMonth(enrollmentId, keep ?: month ?: currentMonth())
+    }
+
+    /**
+     * Move the calendar to a month the person picked.
+     *
+     * @param month The month
+     */
+    fun pickMonth(month: YearMonth) {
+        lastSeat?.let { readMonth(it, month) }
+    }
+
+    /** Read the shown month again, only when asked [TC-8, D-9]. */
+    fun retryMonth() {
+        lastSeat?.let { readMonth(it, shown ?: currentMonth()) }
+    }
+
+    /**
+     * A class of the loaded month, for its detail.
+     *
+     * @param sessionId The class
+     * @return The class, or null if the month is not loaded or lacks it
+     */
+    fun classOf(sessionId: String): CalendarClassUi? =
+        (_calendar.value as? ClassCalendarUiState.Loaded)
+            ?.view
+            ?.days
+            ?.flatMap { it.classes }
+            ?.firstOrNull { it.sessionId == sessionId }
+
+    private fun readMonth(seat: String, month: YearMonth) {
+        shown = month
+        _calendar.value = ClassCalendarUiState.Loading
+        viewModelScope.launch {
+            _calendar.value =
+                when (val result = repository.month(seat, month.year, month.month)) {
+                    is AuthResult.Ok -> ClassCalendarUiState.Loaded(CalendarMapper.toUi(result.value))
+                    is AuthResult.Refused ->
+                        ClassCalendarUiState.Failed(result.envelope.error.messageKey, result.envelope.error.retryable)
+                    AuthResult.TransportFailure ->
+                        ClassCalendarUiState.Failed(StudentStateMapper.OFFLINE_KEY, retryable = true)
+                }
+        }
     }
 
     /**
@@ -59,9 +122,10 @@ class StudentBatchViewModel(
      * screen that may be the first to build it.
      *
      * @param enrollmentId The seat
+     * @param month The month to load the calendar on if nothing is kept
      */
-    fun ensureLoaded(enrollmentId: String) {
-        if (lastSeat != enrollmentId) load(enrollmentId)
+    fun ensureLoaded(enrollmentId: String, month: YearMonth? = null) {
+        if (lastSeat != enrollmentId) load(enrollmentId, month)
     }
 
     /** Repeat the load, only when asked [TC-8, D-9]. */

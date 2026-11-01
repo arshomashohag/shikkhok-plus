@@ -202,7 +202,7 @@ class StudentStateMapperTest {
     }
 
     @Test
-    fun `classes and notices keep their ids, and a blank topic is no topic`() {
+    fun `notices keep their ids, and a blank topic is no topic`() {
         val past =
             listOf(
                 AttendanceEntryDto("s-1", "2026-10-14", "16:00:00", true, "Heat", topicLogged = true),
@@ -211,8 +211,7 @@ class StudentStateMapperTest {
         val page =
             (StudentStateMapper.afterBatch(seat(), view(past), emptyList()) as StudentBatchUiState.Loaded).view
 
-        assertEquals(listOf("Heat", null), page.classes.map { it.topic })
-        assertEquals(false, page.pastClass("s-2")?.present)
+        assertEquals(listOf("Heat"), page.topics.map { it.topic })
         assertEquals("Bring a calculator", page.notice("a-1")?.body)
         assertNull(page.notice("nope"))
     }

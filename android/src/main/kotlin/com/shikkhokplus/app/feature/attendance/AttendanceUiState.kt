@@ -70,6 +70,8 @@ sealed interface AttendanceUiState {
      *   item means the server does not have this roster, and a screen
      *   that showed a tick would be the silent queue `project.md`
      *   forbids
+     * @property topicVersion The version a topic write for this session
+     *   composes against, carried so the class screen can save both
      */
     data class Marking(
         val sessionId: String,
@@ -78,6 +80,7 @@ sealed interface AttendanceUiState {
         val attendanceVersion: Int,
         val writable: Boolean,
         val queued: QueueBadge? = null,
+        val topicVersion: Int = 0,
     ) : AttendanceUiState
 
     /**

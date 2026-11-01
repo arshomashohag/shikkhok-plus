@@ -219,7 +219,7 @@ def _classes(session: Session, lens: TeacherLens, now: dt.datetime) -> list[Toda
                 end_time=row.end_time,
                 status=row.status,
                 topic=row.topic,
-                topic_logged=row.topic is not None,
+                topic_logged=row.status == "held" and row.topic is not None,
                 attendance_version=row.attendance_version,
                 topic_version=row.topic_version,
                 is_next=is_next,

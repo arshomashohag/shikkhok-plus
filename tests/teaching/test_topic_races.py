@@ -107,6 +107,7 @@ def test_only_one_of_n_racing_topic_writes_applies(
                 base_version=0,
                 client_mutation_id=uuid.uuid4(),
                 topic=f"Topic {index:02d}",
+                notes_supplied=False,
             )
             with lock:
                 applied.append((index, result))
@@ -197,6 +198,7 @@ def test_the_same_topic_mutation_id_replayed_concurrently_writes_once(
                 base_version=0,
                 client_mutation_id=mutation,
                 topic="Refraction",
+                notes_supplied=False,
             )
             with lock:
                 versions.append(result.topic_version)

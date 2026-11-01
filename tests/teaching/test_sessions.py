@@ -95,6 +95,7 @@ def test_a_reschedule_preserves_identity_topic_and_attendance(
         base_version=0,
         client_mutation_id=uuid.uuid4(),
         topic="Newton's laws",
+        notes_supplied=False,
     )
     submit_roster(
         restricted_session,
@@ -241,6 +242,7 @@ def test_an_unwritten_topic_differs_from_one_written_empty(
         base_version=0,
         client_mutation_id=uuid.uuid4(),
         topic="",
+        notes_supplied=False,
     )
 
     never_written = read_session(
@@ -268,6 +270,7 @@ def test_a_stale_topic_version_conflicts_without_disclosing_a_roster(
         base_version=0,
         client_mutation_id=uuid.uuid4(),
         topic="First",
+        notes_supplied=False,
     )
 
     with pytest.raises(ConflictError) as refusal:
@@ -278,6 +281,7 @@ def test_a_stale_topic_version_conflicts_without_disclosing_a_roster(
             base_version=0,
             client_mutation_id=uuid.uuid4(),
             topic="Second",
+            notes_supplied=False,
         )
 
     assert refusal.value.code == "TOPIC_VERSION_CONFLICT"
@@ -322,6 +326,7 @@ def test_the_topic_and_attendance_versions_do_not_interfere(
         base_version=0,
         client_mutation_id=uuid.uuid4(),
         topic="Newton's laws",
+        notes_supplied=False,
     )
 
     assert result.topic_version == 1

@@ -445,7 +445,7 @@ sealed interface Destination {
 
     /** A past class's detail, opened from a family batch screen. */
     data object FamilyClass : Destination {
-        override val route: String = "family/{reader}/{seat}/class/{id}"
+        override val route: String = "family/{reader}/{seat}/class/{id}?month={month}"
 
         /** The reader argument's name. */
         const val ARG_READER: String = "reader"
@@ -456,15 +456,21 @@ sealed interface Destination {
         /** The item argument's name. */
         const val ARG_ID: String = "id"
 
+        /** The month argument's name: `YYYY-MM`, empty when unknown. */
+        const val ARG_MONTH: String = "month"
+
         /**
          * Build a concrete route.
          *
          * @param reader `SELF` or `GUARDIAN`
          * @param seat The seat
          * @param id The class's session id
+         * @param month The class's month, `YYYY-MM`, so the detail can
+         *   load it after process death
          * @return The route to navigate to
          */
-        fun of(reader: String, seat: String, id: String): String = "family/$reader/$seat/class/$id"
+        fun of(reader: String, seat: String, id: String, month: String = ""): String =
+            "family/$reader/$seat/class/$id?month=$month"
     }
 
     /** An upcoming exam's detail, opened from a family batch screen. */

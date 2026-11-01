@@ -15,8 +15,8 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.shikkhokplus.app.core.network.HttpBatchDetailRepository
+import com.shikkhokplus.app.core.network.HttpClassCalendarRepository
 import com.shikkhokplus.app.core.network.HttpMarksRepository
-import com.shikkhokplus.app.core.network.HttpRecordRepository
 import com.shikkhokplus.app.core.network.HttpRosterRepository
 import com.shikkhokplus.app.core.network.HttpSessionsRepository
 import com.shikkhokplus.app.core.queue.QueueStore
@@ -30,11 +30,10 @@ import com.shikkhokplus.app.feature.batchdetail.ui.ExamsTab
 import com.shikkhokplus.app.feature.batchdetail.ui.NoticesTab
 import com.shikkhokplus.app.feature.batchdetail.ui.StudentsTab
 import com.shikkhokplus.app.feature.fees.FeeReader
+import com.shikkhokplus.app.feature.classcalendar.ClassCalendarViewModel
 import com.shikkhokplus.app.feature.marks.MarksViewModel
-import com.shikkhokplus.app.feature.record.RecordClassViewModel
-import com.shikkhokplus.app.feature.record.RecordTarget
-import com.shikkhokplus.app.feature.record.ui.RecordClassSheet
 import com.shikkhokplus.app.feature.roster.RosterViewModel
+import com.shikkhokplus.app.feature.sessions.SessionsUiState
 import com.shikkhokplus.app.feature.sessions.SessionsViewModel
 import com.shikkhokplus.app.feature.sessions.ui.AddSessionDialog
 import io.ktor.client.HttpClient
@@ -75,16 +74,16 @@ internal fun NavGraphBuilder.batchDetailRoute(
         val sessions: SessionsViewModel =
             viewModel(key = "sessions-$id") { SessionsViewModel(HttpSessionsRepository(client)) }
         val exams: MarksViewModel = viewModel(key = "exams-$id") { MarksViewModel(HttpMarksRepository(client)) }
-        val recorder: RecordClassViewModel =
-            viewModel(key = "record-$id") { RecordClassViewModel(HttpRecordRepository(client), queue) }
+        val calendar: ClassCalendarViewModel =
+            viewModel(key = "calendar-$id") { ClassCalendarViewModel(HttpClassCalendarRepository(client)) }
 
         val state by detail.state.collectAsState()
         val rosterState by roster.state.collectAsState()
         val sessionsState by sessions.state.collectAsState()
         val examsState by exams.state.collectAsState()
-        val recording by recorder.sheet.collectAsState()
-        val saved by recorder.saved.collectAsState()
+        val calendarState by calendar.state.collectAsState()
         var addingClass by remember { mutableStateOf(false) }
+        var addedClass by remember { mutableStateOf(false) }
         var composingNotice by remember { mutableStateOf(false) }
         var editing by remember { mutableStateOf(false) }
 
@@ -93,12 +92,10 @@ internal fun NavGraphBuilder.batchDetailRoute(
             roster.load(id, name)
             sessions.load(id, name)
             exams.loadExams(id, name)
+            calendar.load(id)
         }
-        LaunchedEffect(saved) {
-            if (saved != null) {
-                recorder.acknowledge()
-                sessions.load(id, name)
-            }
+        LaunchedEffect(sessionsState) {
+            addedClass = afterAddingClass(sessionsState, addedClass, calendar::reload)
         }
 
         BatchDetailScreen(
@@ -136,23 +133,11 @@ internal fun NavGraphBuilder.batchDetailRoute(
                     )
                 BatchTab.CLASSES ->
                     ClassesTab(
-                        state = sessionsState,
-                        onOpen = { row -> navController.navigate(Destination.Attendance.of(row.sessionId)) },
-                        onRecord = { row ->
-                            recorder.open(
-                                RecordTarget(
-                                    sessionId = row.sessionId,
-                                    batchId = id,
-                                    title =
-                                        listOfNotNull(row.subjectName, state.header?.name ?: name)
-                                            .joinToString(" · "),
-                                    startTime = row.timeLabel.take(HHMM),
-                                    topicVersion = row.topicVersion,
-                                    subjectName = row.subjectName,
-                                ),
-                            )
-                        },
-                        onRetry = sessions::retry,
+                        state = calendarState,
+                        writeErrorKey = (sessionsState as? SessionsUiState.Failed)?.messageKey,
+                        onPickMonth = calendar::pick,
+                        onDay = calendar::tapDay,
+                        onRetry = calendar::retry,
                     )
                 BatchTab.EXAMS ->
                     ExamsTab(
@@ -179,25 +164,13 @@ internal fun NavGraphBuilder.batchDetailRoute(
             AddSessionDialog(
                 onAdd = { date, start ->
                     addingClass = false
+                    addedClass = true
                     sessions.createAdHoc(date, start)
                 },
                 onDismiss = { addingClass = false },
             )
         }
-        recording?.let { open ->
-            RecordClassSheet(
-                sheet = open,
-                onType = recorder::type,
-                onChoose = recorder::choose,
-                onSuggestion = recorder::useSuggestion,
-                onSave = recorder::save,
-                onAttendance = {
-                    recorder.close()
-                    navController.navigate(Destination.Attendance.of(open.target.sessionId))
-                },
-                onDismiss = recorder::close,
-            )
-        }
+        ClassScreensHost(client, queue, calendar)
     }
 }
 
@@ -219,5 +192,17 @@ private fun EditOverlay(detail: BatchDetailViewModel, state: BatchDetailState, o
     EditBatchScreen(header = header, write = state.batchWrite, onSave = detail::editBatch, onClose = close)
 }
 
-/** `HH:MM` out of `HH:MM:SS`. */
-private const val HHMM = 5
+/**
+ * Once a class the teacher added has been written, show it on the calendar.
+ *
+ * @param state The class list's state after the write
+ * @param adding Whether a class is still being added
+ * @param reload Reads the calendar's month again
+ * @return Whether a class is still being added
+ */
+private fun afterAddingClass(state: SessionsUiState, adding: Boolean, reload: () -> Unit): Boolean {
+    if (!adding) return false
+    val settled = state is SessionsUiState.Loaded || state is SessionsUiState.Empty
+    if (settled) reload()
+    return !settled && state !is SessionsUiState.Failed
+}

@@ -40,10 +40,12 @@
     "staging.outbox.empty",
     "teaching.announcement.deleted",
     "teaching.batch.inactive",
+    "teaching.calendar.month_out_of_range",
     "teaching.mutation_id.already_used",
     "teaching.not_available",
     "teaching.seat.not_on_roster",
     "teaching.session.already_exists",
-    "teaching.session.cancelled"
+    "teaching.session.cancelled",
+    "teaching.topic.class_started"
   ]
 }

@@ -100,6 +100,7 @@ class ContractConformanceTest {
             Contract("/v1/batches/{batch_id}/announcements", ListSerializer(AnnouncementDto.serializer())),
             Contract("/v1/me/batches/{enrollment_id}/teaching", FamilyBatchViewDto.serializer()),
             Contract("/v1/children/{enrollment_id}/teaching", FamilyBatchViewDto.serializer()),
+            Contract("/v1/batches/{batch_id}/calendar", MonthViewDto.serializer()),
             Contract("/v1/me/enrollments/{enrollment_id}/exams/{exam_id}", FamilyExamDto.serializer()),
             Contract("/v1/children/{enrollment_id}/exams/{exam_id}", FamilyExamDto.serializer()),
         )

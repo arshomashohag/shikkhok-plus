@@ -530,3 +530,98 @@ def test_a_body_with_an_unknown_field_is_refused(
     )
 
     assert response.status_code == 422
+
+
+def _topic_body(**extra: object) -> dict[str, object]:
+    """Build a topic write body.
+
+    :param extra: Fields added to the base body
+    :return: The JSON body
+    """
+    return {
+        "base_topic_version": 0,
+        "client_mutation_id": str(uuid.uuid4()),
+        **extra,
+    }
+
+
+def test_an_old_client_topic_write_leaves_notes_alone_and_null_clears(
+    owner_session: DbSession,
+    client: TestClient,
+    teacher: TeacherFixture,
+    api_session: uuid.UUID,
+) -> None:
+    headers = _bearer(owner_session, teacher.account_id)
+    url = f"/v1/sessions/{api_session}/topic"
+    row = owner_session.get_one(Session, api_session)
+    row.notes = "keep me"
+    owner_session.commit()
+
+    old = client.put(url, headers=headers, json=_topic_body(topic="Optics"))
+    assert old.status_code == 200
+    owner_session.expire_all()
+    assert owner_session.get_one(Session, api_session).notes == "keep me"
+
+    cleared = client.put(
+        url,
+        headers=headers,
+        json=_topic_body(base_topic_version=1, topic="Optics", notes=None),
+    )
+    assert cleared.status_code == 200
+    owner_session.expire_all()
+    assert owner_session.get_one(Session, api_session).notes is None
+
+
+def test_a_plan_after_start_is_409_with_its_message_key(
+    owner_session: DbSession,
+    client: TestClient,
+    teacher: TeacherFixture,
+    api_session: uuid.UUID,
+) -> None:
+    headers = _bearer(owner_session, teacher.account_id)
+    row = owner_session.get_one(Session, api_session)
+    row.date = dt.date(2020, 1, 1)
+    owner_session.commit()
+
+    response = client.put(
+        f"/v1/sessions/{api_session}/topic",
+        headers=headers,
+        json=_topic_body(topic="Optics", plan=True),
+    )
+    assert response.status_code == 409
+    assert response.json()["error"]["message_key"] == "teaching.topic.class_started"
+
+
+def test_a_plan_on_a_held_class_is_refused_even_before_start(
+    owner_session: DbSession,
+    client: TestClient,
+    teacher: TeacherFixture,
+    api_session: uuid.UUID,
+) -> None:
+    headers = _bearer(owner_session, teacher.account_id)
+    row = owner_session.get_one(Session, api_session)
+    row.status = "held"
+    owner_session.commit()
+
+    response = client.put(
+        f"/v1/sessions/{api_session}/topic",
+        headers=headers,
+        json=_topic_body(topic="Optics", plan=True),
+    )
+    assert response.status_code == 409
+    assert response.json()["error"]["message_key"] == "teaching.topic.class_started"
+
+
+def test_a_null_topic_without_plan_is_422(
+    owner_session: DbSession,
+    client: TestClient,
+    teacher: TeacherFixture,
+    api_session: uuid.UUID,
+) -> None:
+    headers = _bearer(owner_session, teacher.account_id)
+    response = client.put(
+        f"/v1/sessions/{api_session}/topic",
+        headers=headers,
+        json=_topic_body(topic=None),
+    )
+    assert response.status_code == 422

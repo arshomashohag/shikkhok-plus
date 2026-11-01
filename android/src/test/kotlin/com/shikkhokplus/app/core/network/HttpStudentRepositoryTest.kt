@@ -78,4 +78,20 @@ class HttpStudentRepositoryTest {
         assertEquals("Physics A", seat.batchName)
         assertEquals("/v1/guardian/home", engine.requestHistory.single().url.encodedPath)
     }
+
+    @Test
+    fun `each reader reads the month from its own calendar route`() = runTest {
+        val body = """{"year":2026,"month":11,"first_month":"2026-01","last_month":"2026-12","days":[]}"""
+        val own = engine(body)
+        val guardian = engine(body)
+
+        HttpStudentRepository(client(own), FamilyReader.SELF).month("e-1", 2026, 11)
+        HttpStudentRepository(client(guardian), FamilyReader.GUARDIAN).month("e-1", 2026, 11)
+
+        val ownRequest = own.requestHistory.single().url
+        assertEquals("/v1/me/enrollments/e-1/calendar", ownRequest.encodedPath)
+        assertEquals("2026", ownRequest.parameters["year"])
+        assertEquals("11", ownRequest.parameters["month"])
+        assertEquals("/v1/children/e-1/calendar", guardian.requestHistory.single().url.encodedPath)
+    }
 }

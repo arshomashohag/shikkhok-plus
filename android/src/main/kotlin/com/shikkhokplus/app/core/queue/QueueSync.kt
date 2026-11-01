@@ -110,6 +110,7 @@ class QueueSync(
                     item.copy(
                         state = QueueState.CONFLICTED,
                         conflictCurrentVersion = outcome.currentVersion,
+                        conflictKey = outcome.envelope.error.messageKey,
                     )
 
                 is SendOutcome.Failed -> item.failed(outcome.envelope)

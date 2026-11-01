@@ -580,6 +580,164 @@
         "title": "BatchUpdateRequest",
         "type": "object"
       },
+      "CalendarClassResponse": {
+        "additionalProperties": false,
+        "description": "One class on the month calendar.\n\nEvery state is the server's DECISION; the client renders it.\n\n:ivar session_id: The class\n:ivar date: Its date\n:ivar start_time: When it starts\n:ivar end_time: When it ends, or null\n:ivar subject_name: The subject, or null\n:ivar state: The class's decided state\n:ivar topic: What is planned or covered, or null\n:ivar notes: Notes on the class, or null\n:ivar plannable: Whether the teacher may still plan its topics\n:ivar recordable: Whether the teacher may record it\n:ivar mark: A family's own mark; null for a teacher\n:ivar topic_version: The topic log's version, to compose a write\n:ivar attendance_version: The roster's version, to compose a write",
+        "properties": {
+          "attendance_version": {
+            "title": "Attendance Version",
+            "type": "integer"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "end_time": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Time"
+          },
+          "mark": {
+            "anyOf": [
+              {
+                "enum": [
+                  "absent",
+                  "not_enrolled",
+                  "not_marked",
+                  "present"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mark"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "plannable": {
+            "title": "Plannable",
+            "type": "boolean"
+          },
+          "recordable": {
+            "title": "Recordable",
+            "type": "boolean"
+          },
+          "session_id": {
+            "format": "uuid",
+            "title": "Session Id",
+            "type": "string"
+          },
+          "start_time": {
+            "format": "time",
+            "title": "Start Time",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "cancelled",
+              "not_recorded",
+              "taken",
+              "today",
+              "upcoming"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "subject_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Name"
+          },
+          "topic": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Topic"
+          },
+          "topic_version": {
+            "title": "Topic Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "attendance_version",
+          "date",
+          "plannable",
+          "recordable",
+          "session_id",
+          "start_time",
+          "state",
+          "topic_version"
+        ],
+        "title": "CalendarClassResponse",
+        "type": "object"
+      },
+      "CalendarDayResponse": {
+        "additionalProperties": false,
+        "description": "A day with at least one class.\n\n:ivar date: The day\n:ivar state: The day's decided state\n:ivar classes: Its classes, earliest first",
+        "properties": {
+          "classes": {
+            "items": {
+              "$ref": "#/components/schemas/CalendarClassResponse"
+            },
+            "title": "Classes",
+            "type": "array"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "cancelled",
+              "not_recorded",
+              "taken",
+              "today",
+              "upcoming"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "classes",
+          "date",
+          "state"
+        ],
+        "title": "CalendarDayResponse",
+        "type": "object"
+      },
       "ChildBatchResponse": {
         "additionalProperties": false,
         "description": "One of the child's batches, with its next class.\n\n:ivar enrollment_id: The seat\n:ivar batch_name: The batch\n:ivar teacher_display_name: The teacher, or null\n:ivar next_session: The next class, or null",
@@ -2502,6 +2660,56 @@
         "pattern": "^[0-9]+\\.[0-9]{2}$",
         "title": "Money",
         "type": "string"
+      },
+      "MonthViewResponse": {
+        "additionalProperties": false,
+        "description": "One month of a batch's classes.\n\n:ivar year: The year shown\n:ivar month: The month shown\n:ivar first_month: The earliest readable month, ``YYYY-MM``\n:ivar last_month: The latest readable month, ``YYYY-MM``\n:ivar days: Days with classes\n:ivar served_at: When the server computed it\n:ivar today: Bangladesh's date when it was computed",
+        "properties": {
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/CalendarDayResponse"
+            },
+            "title": "Days",
+            "type": "array"
+          },
+          "first_month": {
+            "title": "First Month",
+            "type": "string"
+          },
+          "last_month": {
+            "title": "Last Month",
+            "type": "string"
+          },
+          "month": {
+            "title": "Month",
+            "type": "integer"
+          },
+          "served_at": {
+            "format": "date-time",
+            "title": "Served At",
+            "type": "string"
+          },
+          "today": {
+            "format": "date",
+            "title": "Today",
+            "type": "string"
+          },
+          "year": {
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "days",
+          "first_month",
+          "last_month",
+          "month",
+          "served_at",
+          "today",
+          "year"
+        ],
+        "title": "MonthViewResponse",
+        "type": "object"
       },
       "MonthlyEarningsResponse": {
         "additionalProperties": false,
@@ -4641,7 +4849,7 @@
       },
       "TopicWriteRequest": {
         "additionalProperties": false,
-        "description": "A session's topic [BR2.1].\n\n**The second and last D4 body carrying ``client_mutation_id``.**\n\nAn empty string is a topic logged as BLANK and is a different fact\nfrom never writing one [BR2.2].\n\n:ivar base_topic_version: The version this was composed against\n:ivar client_mutation_id: The replay key, per account\n:ivar topic: What was covered; '' means logged-and-blank",
+        "description": "A session's topic [BR2.1].\n\n**The second and last D4 body carrying ``client_mutation_id``.**\n\nAn empty string is a topic logged as BLANK and is a different fact\nfrom never writing one [BR2.2].\n\n:ivar base_topic_version: The version this was composed against\n:ivar client_mutation_id: The replay key, per account\n:ivar topic: What was covered; '' means logged-and-blank; null\n    clears a plan and is allowed only when ``plan`` is true\n:ivar plan: True plans the topic before the class starts\n:ivar notes: Free notes on the class",
         "properties": {
           "base_topic_version": {
             "minimum": 0.0,
@@ -4653,16 +4861,39 @@
             "title": "Client Mutation Id",
             "type": "string"
           },
+          "notes": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "plan": {
+            "default": false,
+            "title": "Plan",
+            "type": "boolean"
+          },
           "topic": {
-            "maxLength": 2000,
-            "title": "Topic",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Topic"
           }
         },
         "required": [
           "base_topic_version",
-          "client_mutation_id",
-          "topic"
+          "client_mutation_id"
         ],
         "title": "TopicWriteRequest",
         "type": "object"
@@ -5714,6 +5945,92 @@
         ]
       }
     },
+    "/v1/batches/{batch_id}/calendar": {
+      "get": {
+        "description": "Read one month of one of this teacher's batches.\n\n:param batch_id: The batch, from the route path\n:param year: The year, from the query\n:param month: The month, 1 to 12, from the query\n:param session: The request-scoped session\n:param lens: The teacher lens carrying the owner id\n:return: The month's days and classes",
+        "operationId": "read_batch_calendar_v1_batches__batch_id__calendar_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "year",
+            "required": true,
+            "schema": {
+              "maximum": 2100,
+              "minimum": 2000,
+              "title": "Year",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "month",
+            "required": true,
+            "schema": {
+              "maximum": 12,
+              "minimum": 1,
+              "title": "Month",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MonthViewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Batch Calendar",
+        "tags": [
+          "teaching"
+        ]
+      }
+    },
     "/v1/batches/{batch_id}/enrollments": {
       "post": {
         "description": "Add a student to a batch [AC2.2.2].\n\n:param batch_id: The batch to add to\n:param body: The seat to create\n:param lens: The teacher lens carrying the owner id\n:param session: The request-scoped session\n:return: The created seat",
@@ -6457,6 +6774,92 @@
           }
         },
         "summary": "Create Session",
+        "tags": [
+          "teaching"
+        ]
+      }
+    },
+    "/v1/children/{enrollment_id}/calendar": {
+      "get": {
+        "description": "Read one month of a child's batch, with the child's own marks.\n\n:param enrollment_id: The child's seat, from the route path\n:param year: The year, from the query\n:param month: The month, 1 to 12, from the query\n:param session: The request-scoped session\n:param lens: The guardian lens\n:return: The month's days and classes",
+        "operationId": "read_child_calendar_v1_children__enrollment_id__calendar_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enrollment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enrollment Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "year",
+            "required": true,
+            "schema": {
+              "maximum": 2100,
+              "minimum": 2000,
+              "title": "Year",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "month",
+            "required": true,
+            "schema": {
+              "maximum": 12,
+              "minimum": 1,
+              "title": "Month",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MonthViewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Child Calendar",
         "tags": [
           "teaching"
         ]
@@ -8651,6 +9054,92 @@
         "summary": "List My Batches",
         "tags": [
           "batches"
+        ]
+      }
+    },
+    "/v1/me/enrollments/{enrollment_id}/calendar": {
+      "get": {
+        "description": "Read one month of this student's batch, with their own marks.\n\n:param enrollment_id: Their seat, from the route path\n:param year: The year, from the query\n:param month: The month, 1 to 12, from the query\n:param session: The request-scoped session\n:param lens: The student lens\n:return: The month's days and classes",
+        "operationId": "read_my_calendar_v1_me_enrollments__enrollment_id__calendar_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enrollment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enrollment Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "year",
+            "required": true,
+            "schema": {
+              "maximum": 2100,
+              "minimum": 2000,
+              "title": "Year",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "month",
+            "required": true,
+            "schema": {
+              "maximum": 12,
+              "minimum": 1,
+              "title": "Month",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MonthViewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read My Calendar",
+        "tags": [
+          "teaching"
         ]
       }
     },

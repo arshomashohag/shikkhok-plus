@@ -384,6 +384,8 @@
       আলাদা।
     -->
     <string name="topic_version_conflict">আপনার লেখার পরে কেউ এই ক্লাসের জন্য অন্য একটি বিষয় সংরক্ষণ করেছেন। এখনও কিছুই বদলানো হয়নি — আবার সংরক্ষণ করার আগে দেখে নিন এখন কী লেখা আছে।</string>
+    <string name="calendar_month_out_of_range">ওই মাসে দেখানোর মতো কোনো ক্লাস নেই।</string>
+    <string name="topic_class_started">এই ক্লাস শুরু হয়ে গেছে। বিষয়গুলো পড়ানো হয়েছে হিসেবে সংরক্ষণ করুন, অথবা পরিকল্পনাটি বাদ দিন।</string>
 
     <!-- অবস্থাজনিত প্রত্যাখ্যান: আগেরটি আবার পাঠিয়ে লাভ নেই। -->
     <string name="teaching_batch_inactive">এই ব্যাচটি বন্ধ করা হয়েছে, তাই আর বদলানো যাবে না। রেকর্ড দেখা যাবে।</string>
@@ -909,7 +911,6 @@
     <string name="signup_log_in">লগ ইন</string>
 
     <string name="family_tab_teacher">শিক্ষক</string>
-    <string name="family_past_classes">আগের ক্লাস</string>
     <string name="family_exams_done">সম্পন্ন</string>
     <string name="family_notices_empty">এখনও কোনো নোটিশ নেই।</string>
     <string name="family_teacher_unnamed">আপনার শিক্ষক</string>
@@ -922,6 +923,9 @@
     <string name="family_attendance">উপস্থিতি</string>
     <string name="family_present">উপস্থিত</string>
     <string name="family_absent">অনুপস্থিত</string>
+    <string name="family_planned_topics">পরিকল্পিত বিষয়</string>
+    <string name="family_not_enrolled_then">তখন ভর্তি ছিল না</string>
+    <string name="family_class_notes">নোট</string>
     <string name="family_not_marked">চিহ্নিত করা হয়নি</string>
     <string name="family_exam_topics">বিষয়সমূহ</string>
     <string name="family_exam_no_topics">এখনও কোনো টপিক দেওয়া হয়নি।</string>
@@ -931,4 +935,52 @@
         <item quantity="other">%1$d টি নতুন আপডেট</item>
     </plurals>
     <string name="tray_channel_name">আপডেট</string>
+
+    <string name="calendar_prev_month">আগের মাস</string>
+    <string name="calendar_next_month">পরের মাস</string>
+    <string name="calendar_pick_month">%1$s, মাস বেছে নিন</string>
+    <string name="calendar_picker_title">মাস বেছে নিন</string>
+    <string name="calendar_picker_close">বন্ধ করুন</string>
+    <string name="calendar_prev_year">আগের বছর</string>
+    <string name="calendar_next_year">পরের বছর</string>
+    <string name="calendar_weekday_sun">র</string>
+    <string name="calendar_weekday_mon">সো</string>
+    <string name="calendar_weekday_tue">ম</string>
+    <string name="calendar_weekday_wed">বু</string>
+    <string name="calendar_weekday_thu">বৃ</string>
+    <string name="calendar_weekday_fri">শু</string>
+    <string name="calendar_weekday_sat">শ</string>
+    <string name="calendar_state_taken">ক্লাস হয়েছে</string>
+    <string name="calendar_state_today">আজ</string>
+    <string name="calendar_state_upcoming">আসন্ন</string>
+    <string name="calendar_state_not_recorded">লেখা হয়নি</string>
+    <string name="calendar_state_cancelled">বাতিল</string>
+    <string name="calendar_day_description">%1$s, %2$s</string>
+    <plurals name="calendar_class_count">
+        <item quantity="one">%1$sটি ক্লাস</item>
+        <item quantity="other">%1$sটি ক্লাস</item>
+    </plurals>
+
+    <string name="classday_title_today">আজকের ক্লাস</string>
+    <string name="classday_topics_covered">যে বিষয়গুলো পড়ানো হয়েছে</string>
+    <string name="classday_notes">নোট (ঐচ্ছিক)</string>
+    <string name="classday_attendance">উপস্থিতি · %1$s জন শিক্ষার্থী</string>
+    <string name="classday_save">ক্লাস সংরক্ষণ করুন</string>
+    <string name="classday_done">ঠিক আছে</string>
+    <string name="classday_attendance_saved">উপস্থিতি সংরক্ষিত হয়েছে।</string>
+    <string name="classplan_topics">পরিকল্পিত বিষয়</string>
+    <string name="classplan_hint">ক্লাস শুরু না হওয়া পর্যন্ত বদলানো যাবে। শিক্ষার্থী ও অভিভাবকেরা পরিকল্পনাটি দেখতে পান।</string>
+    <string name="classplan_attendance_heading">উপস্থিতি</string>
+    <string name="classplan_attendance_later">ক্লাসের দিনে খুলবে</string>
+    <string name="classplan_save">পরিকল্পনা সংরক্ষণ করুন</string>
+    <string name="classplan_started_title">এই ক্লাস শুরু হয়ে গেছে</string>
+    <string name="classplan_save_covered">পড়ানো হয়েছে হিসেবে সংরক্ষণ করুন</string>
+    <string name="classplan_discard">পরিকল্পনা বাদ দিন</string>
+    <string name="classpick_title">একটি ক্লাস বেছে নিন</string>
+    <string name="classpick_close">বন্ধ করুন</string>
+    <string name="classplan_attendance_at_start">ক্লাস শুরু হলে খুলবে</string>
+    <string name="class_no_topics_planned">এখনও কোনও বিষয় পরিকল্পনা করা হয়নি</string>
+    <string name="class_subject_label">বিষয়</string>
+    <string name="class_text_counter">%1$s / %2$s</string>
+    <string name="classread_title">ক্লাস</string>
 </resources>
