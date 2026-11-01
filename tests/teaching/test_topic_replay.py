@@ -102,6 +102,7 @@ def test_a_replayed_topic_write_returns_the_original_and_writes_nothing(
         base_version=0,
         client_mutation_id=mutation,
         topic="Refraction",
+        notes_supplied=False,
     )
     second = write_topic(
         restricted_session,
@@ -110,6 +111,7 @@ def test_a_replayed_topic_write_returns_the_original_and_writes_nothing(
         base_version=0,
         client_mutation_id=mutation,
         topic="Refraction",
+        notes_supplied=False,
     )
 
     assert first.replayed is False
@@ -153,6 +155,7 @@ def test_a_replayed_topic_write_leaves_created_at_unmoved(
         base_version=0,
         client_mutation_id=mutation,
         topic="Refraction",
+        notes_supplied=False,
     )
     original = restricted_session.scalars(
         sa.select(QueuedSubmission.created_at).where(
@@ -167,6 +170,7 @@ def test_a_replayed_topic_write_leaves_created_at_unmoved(
         base_version=0,
         client_mutation_id=mutation,
         topic="Refraction",
+        notes_supplied=False,
     )
 
     after = restricted_session.scalars(
@@ -198,6 +202,7 @@ def test_a_replayed_topic_write_does_not_apply_a_different_body(
         base_version=0,
         client_mutation_id=mutation,
         topic="Refraction",
+        notes_supplied=False,
     )
     write_topic(
         restricted_session,
@@ -206,6 +211,7 @@ def test_a_replayed_topic_write_does_not_apply_a_different_body(
         base_version=0,
         client_mutation_id=mutation,
         topic="Reflection",
+        notes_supplied=False,
     )
 
     stored = restricted_session.scalars(
@@ -238,6 +244,7 @@ def test_a_cross_account_topic_replay_is_refused_and_is_not_a_success(
         base_version=0,
         client_mutation_id=mutation,
         topic="Refraction",
+        notes_supplied=False,
     )
 
     other = make_teacher(owner_session, name="Chemistry")
@@ -250,6 +257,7 @@ def test_a_cross_account_topic_replay_is_refused_and_is_not_a_success(
             base_version=0,
             client_mutation_id=mutation,
             topic="Anything",
+            notes_supplied=False,
         )
 
     # The NEGATIVE half, asserted explicitly: "not a success" alone
@@ -294,6 +302,7 @@ def test_a_roster_and_a_topic_write_reaching_version_one_both_succeed(
         base_version=0,
         client_mutation_id=uuid.uuid4(),
         topic="Refraction",
+        notes_supplied=False,
     )
 
     assert roster.attendance_version == 1
@@ -344,6 +353,7 @@ def test_one_mutation_id_cannot_be_spent_on_both_queued_paths(
             base_version=0,
             client_mutation_id=mutation,
             topic="Refraction",
+            notes_supplied=False,
         )
 
     assert refusal.value.code == "MUTATION_ID_ALREADY_USED"

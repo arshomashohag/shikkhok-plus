@@ -86,6 +86,7 @@ def _write(
         plan=plan,
         notes=notes,
         now=now,
+        notes_supplied=True,
     )
 
 

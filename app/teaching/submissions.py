@@ -468,7 +468,7 @@ def write_topic(
     topic: str | None,
     plan: bool = False,
     notes: str | None = None,
-    notes_supplied: bool = True,
+    notes_supplied: bool,
     composed_at: dt.datetime | None = None,
     now: dt.datetime | None = None,
 ) -> TopicResult:
