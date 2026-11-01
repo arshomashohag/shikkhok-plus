@@ -21,7 +21,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated, Final
 
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.orm import Session as DbSession
 
 from app.api.deps import get_session, guardian_lens, student_lens, teacher_lens
@@ -36,9 +36,12 @@ from app.schemas.teaching import (
     AttendanceEntryResponse,
     AttendanceSubmitRequest,
     AttendanceSubmitResponse,
+    CalendarClassResponse,
+    CalendarDayResponse,
     FamilyBatchViewResponse,
     FamilyExamResponse,
     FamilyTeacherResponse,
+    MonthViewResponse,
     RosterSeatResponse,
     SessionCreateRequest,
     SessionOrigin,
@@ -53,6 +56,7 @@ from app.schemas.teaching import (
     UpcomingSessionResponse,
 )
 from app.teaching import announcements as notes
+from app.teaching import calendar as month_calendar
 from app.teaching import schedule
 from app.teaching import sessions as session_service
 from app.teaching.roster import readable_session, session_roster, write_refusal
@@ -176,6 +180,29 @@ def _session_response(row: session_service.SessionRow) -> SessionResponse:
     )
 
 
+def _month_response(view: month_calendar.MonthView) -> MonthViewResponse:
+    """Render a month for the wire.
+
+    :param view: The month as the calendar decided it
+    :return: The response body
+    """
+    return MonthViewResponse(
+        year=view.year,
+        month=view.month,
+        first_month=view.first_month,
+        last_month=view.last_month,
+        served_at=view.served_at,
+        days=[
+            CalendarDayResponse(
+                date=day.date,
+                state=day.state,
+                classes=[CalendarClassResponse(**vars(entry)) for entry in day.classes],
+            )
+            for day in view.days
+        ],
+    )
+
+
 def _announcement_response(
     row: notes.AnnouncementRow,
 ) -> AnnouncementResponse:
@@ -281,6 +308,94 @@ def read_batch_sessions(
         _session_response(row)
         for row in session_service.list_sessions(session, lens=lens, batch_id=batch_id)
     ]
+
+
+_Year = Annotated[int, Query(ge=2000, le=2100)]
+_Month = Annotated[int, Query(ge=1, le=12)]
+
+
+@router.get(
+    "/batches/{batch_id}/calendar",
+    response_model=MonthViewResponse,
+    responses=_AUTH_ERRORS,
+)
+def read_batch_calendar(
+    batch_id: uuid.UUID,
+    year: _Year,
+    month: _Month,
+    session: Annotated[DbSession, Depends(get_session)],
+    lens: Annotated[TeacherLens, Depends(teacher_lens)],
+) -> MonthViewResponse:
+    """Read one month of one of this teacher's batches.
+
+    :param batch_id: The batch, from the route path
+    :param year: The year, from the query
+    :param month: The month, 1 to 12, from the query
+    :param session: The request-scoped session
+    :param lens: The teacher lens carrying the owner id
+    :return: The month's days and classes
+    """
+    return _month_response(
+        month_calendar.teacher_month(
+            session, lens=lens, batch_id=batch_id, year=year, month=month
+        )
+    )
+
+
+@router.get(
+    "/me/enrollments/{enrollment_id}/calendar",
+    response_model=MonthViewResponse,
+    responses=_AUTH_ERRORS,
+)
+def read_my_calendar(
+    enrollment_id: uuid.UUID,
+    year: _Year,
+    month: _Month,
+    session: Annotated[DbSession, Depends(get_session)],
+    lens: Annotated[StudentLens, Depends(student_lens)],
+) -> MonthViewResponse:
+    """Read one month of this student's batch, with their own marks.
+
+    :param enrollment_id: Their seat, from the route path
+    :param year: The year, from the query
+    :param month: The month, 1 to 12, from the query
+    :param session: The request-scoped session
+    :param lens: The student lens
+    :return: The month's days and classes
+    """
+    return _month_response(
+        month_calendar.family_month(
+            session, lens=lens, enrollment_id=enrollment_id, year=year, month=month
+        )
+    )
+
+
+@router.get(
+    "/children/{enrollment_id}/calendar",
+    response_model=MonthViewResponse,
+    responses=_AUTH_ERRORS,
+)
+def read_child_calendar(
+    enrollment_id: uuid.UUID,
+    year: _Year,
+    month: _Month,
+    session: Annotated[DbSession, Depends(get_session)],
+    lens: Annotated[GuardianLens, Depends(guardian_lens)],
+) -> MonthViewResponse:
+    """Read one month of a child's batch, with the child's own marks.
+
+    :param enrollment_id: The child's seat, from the route path
+    :param year: The year, from the query
+    :param month: The month, 1 to 12, from the query
+    :param session: The request-scoped session
+    :param lens: The guardian lens
+    :return: The month's days and classes
+    """
+    return _month_response(
+        month_calendar.family_month(
+            session, lens=lens, enrollment_id=enrollment_id, year=year, month=month
+        )
+    )
 
 
 @router.post(

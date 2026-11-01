@@ -146,6 +146,16 @@ def _candidates(session: Session) -> list[_Candidate]:
     ]
 
 
+def seat_start(joined_on: dt.date | None, created_at: dt.datetime) -> dt.date:
+    """Return the date a seat starts: ``joined_on``, else its creation date.
+
+    :param joined_on: When the teacher recorded the seat as starting
+    :param created_at: The seat's creation, the fallback start
+    :return: The seat's first day
+    """
+    return joined_on or created_at.date()
+
+
 def _first_period(candidate: _Candidate) -> Period:
     """Return the earliest period this seat could generate for.
 
@@ -156,8 +166,7 @@ def _first_period(candidate: _Candidate) -> Period:
     :param candidate: The seat
     :return: Its first generating period
     """
-    start = candidate.joined_on or candidate.created_at.date()
-    return Period.containing(start)
+    return Period.containing(seat_start(candidate.joined_on, candidate.created_at))
 
 
 def _generates(candidate: _Candidate, period: Period) -> bool:

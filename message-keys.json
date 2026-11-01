@@ -40,6 +40,7 @@
     "staging.outbox.empty",
     "teaching.announcement.deleted",
     "teaching.batch.inactive",
+    "teaching.calendar.month_out_of_range",
     "teaching.mutation_id.already_used",
     "teaching.not_available",
     "teaching.seat.not_on_roster",

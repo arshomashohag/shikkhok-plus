@@ -486,3 +486,76 @@ class MarksheetToggleRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     visible: bool
+
+
+CalendarClassState = Literal["taken", "today", "upcoming", "not_recorded", "cancelled"]
+CalendarMark = Literal["present", "absent", "not_marked", "not_enrolled"]
+
+
+class CalendarClassResponse(BaseModel):
+    """One class on the month calendar.
+
+    Every state is the server's DECISION; the client renders it.
+
+    :ivar session_id: The class
+    :ivar date: Its date
+    :ivar start_time: When it starts
+    :ivar end_time: When it ends, or null
+    :ivar subject_name: The subject, or null
+    :ivar state: The class's decided state
+    :ivar topic: What is planned or covered, or null
+    :ivar notes: Notes on the class, or null
+    :ivar plannable: Whether the teacher may still plan its topics
+    :ivar recordable: Whether the teacher may record it
+    :ivar mark: A family's own mark; null for a teacher
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    session_id: uuid.UUID
+    date: dt.date
+    start_time: dt.time
+    end_time: dt.time | None = None
+    subject_name: str | None = None
+    state: CalendarClassState
+    topic: str | None = None
+    notes: str | None = None
+    plannable: bool
+    recordable: bool
+    mark: CalendarMark | None = None
+
+
+class CalendarDayResponse(BaseModel):
+    """A day with at least one class.
+
+    :ivar date: The day
+    :ivar state: The day's decided state
+    :ivar classes: Its classes, earliest first
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    date: dt.date
+    state: CalendarClassState
+    classes: list[CalendarClassResponse]
+
+
+class MonthViewResponse(BaseModel):
+    """One month of a batch's classes.
+
+    :ivar year: The year shown
+    :ivar month: The month shown
+    :ivar first_month: The earliest readable month, ``YYYY-MM``
+    :ivar last_month: The latest readable month, ``YYYY-MM``
+    :ivar days: Days with classes
+    :ivar served_at: When the server computed it
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    year: int
+    month: int
+    first_month: str
+    last_month: str
+    days: list[CalendarDayResponse]
+    served_at: dt.datetime
