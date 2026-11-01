@@ -34,12 +34,22 @@ class AuthSurfaceRulesTest {
      * saying nothing about the thing — is worse than no test, because
      * the obvious fix is to delete the warning.
      */
-    private fun declaredPermissions(): List<String> {
+    private fun declaredPermissions(): List<String> = permissionElements().filterValues { !it }.keys.toList()
+
+    /**
+     * Every `<uses-permission>` element, mapped to whether it REMOVES the
+     * permission from the merge (`tools:node="remove"`) rather than
+     * requesting it. A removal names a permission in order to forbid it,
+     * exactly as the comment above names AD_ID, so it is not a request.
+     */
+    private fun permissionElements(): Map<String, Boolean> {
         val manifest = File(moduleRoot, "AndroidManifest.xml").readText()
-        return Regex("""<uses-permission[^>]*android:name="([^"]+)"""")
+        return Regex("""<uses-permission\b[^>]*>""")
             .findAll(manifest)
-            .map { it.groupValues[1] }
-            .toList()
+            .associate { element ->
+                val name = Regex("""android:name="([^"]+)"""").find(element.value)!!.groupValues[1]
+                name to element.value.contains("""tools:node="remove"""")
+            }
     }
 
     @Test
@@ -65,6 +75,13 @@ class AuthSurfaceRulesTest {
         // checks it arrives with the packaging Bolt. This catches the
         // declaration added by hand, on the commit that adds it.
         assertFalse(declaredPermissions().any { it.contains("AD_ID") })
+    }
+
+    @Test
+    fun `the manifest removes WorkManager's foreground-service permission`() {
+        // Merged in for expedited work, which this app does not schedule.
+        val removed = permissionElements().filterValues { it }.keys.toList()
+        assertEquals(listOf("android.permission.FOREGROUND_SERVICE"), removed)
     }
 
     @Test

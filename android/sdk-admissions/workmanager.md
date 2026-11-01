@@ -29,8 +29,13 @@
 | `ACCESS_NETWORK_STATE` | WorkManager | Checks the network is up before running the check |
 | `WAKE_LOCK` | WorkManager | Keeps the CPU awake while one check runs |
 | `RECEIVE_BOOT_COMPLETED` | WorkManager | Re-registers the periodic check after a restart |
-| `FOREGROUND_SERVICE` | WorkManager | Declared for expedited work; this app schedules none |
 | `POST_NOTIFICATIONS` | This app | The unread tray notification (API 33+, asked once) |
+
+WorkManager also declares `FOREGROUND_SERVICE`, for expedited work.
+This app schedules none, so `AndroidManifest.xml` removes it from the
+merge with `tools:node="remove"` and it is not on the release allowlist.
+Expedited work added later would need it back, as a deliberate change
+to both.
 
 The notification text carries only a count, never a name, batch or
 amount.

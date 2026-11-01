@@ -22,8 +22,6 @@ val approvedPermissions = setOf(
     "android.permission.INTERNET",
     // WorkManager: reads whether the network is up before the 15-minute unread check runs.
     "android.permission.ACCESS_NETWORK_STATE",
-    // WorkManager: declared for expedited work, which this app does not schedule.
-    "android.permission.FOREGROUND_SERVICE",
     // The tray notification for unread updates (Android 13+, asked once after sign-in).
     "android.permission.POST_NOTIFICATIONS",
     // WorkManager: re-registers the periodic check after the phone restarts.

@@ -17,14 +17,24 @@
   Anything else WorkManager merges is listed, with its reason, in
   android/release-gates.gradle.kts and android/sdk-admissions.
 
+  FOREGROUND_SERVICE is REMOVED from the merge. WorkManager declares it
+  for expedited work, and this app schedules none: the unread check is
+  plain periodic work. A permission granted for nothing is a line on the
+  Families declaration that buys nothing, so the merger is told to drop
+  it rather than the allowlist told to accept it.
+
   There is still no android:usesCleartextTraffic and none is wanted:
   the backend is https-only, ApiClient refuses a non-https base URL in
   code, and the one exemption is a loopback host for local development.
 -->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission
+        android:name="android.permission.FOREGROUND_SERVICE"
+        tools:node="remove" />
 
     <!--
       allowBackup is FALSE deliberately. Auto Backup would copy app data
