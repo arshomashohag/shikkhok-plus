@@ -57,8 +57,6 @@ class SessionRenewal(
     private val tokens: TokenStore,
     private val onSessionEnded: () -> Unit,
 ) {
-    private val mutex = Mutex()
-
     /**
      * Attach renewal to a client's send pipeline.
      *
@@ -103,7 +101,7 @@ class SessionRenewal(
         expired: String,
         redeem: suspend (String) -> Redeemed,
     ): String? =
-        mutex.withLock {
+        RENEWAL_LOCK.withLock {
             val current = tokens.accessToken() ?: return@withLock null
 
             // Another request renewed while this one waited: use its
@@ -180,6 +178,13 @@ class SessionRenewal(
     )
 
     private companion object {
+        /**
+         * One lock for the whole process. The app and the background
+         * unread check each build their own client; separate locks let
+         * both redeem the same refresh token, which the server reads as
+         * theft and answers by ending the session.
+         */
+        val RENEWAL_LOCK = Mutex()
         const val BEARER = "Bearer "
         const val AUTH_PATH = "/v1/auth/"
         const val REFRESH_PATH = "/v1/auth/refresh"

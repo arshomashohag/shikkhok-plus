@@ -59,7 +59,7 @@ fun OpenInboxEffect(
     LaunchedEffect(requested) {
         if (requested) {
             val route = Destination.Inbox.route
-            if (navController.graph.findNode(route) != null) navController.navigate(route)
+            if (navController.graph.findNode(route) != null) navController.navigate(route) { launchSingleTop = true }
             onOpened()
         }
     }

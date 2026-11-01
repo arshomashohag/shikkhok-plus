@@ -131,4 +131,22 @@ class SessionRenewalTest {
 
         assertEquals(0, engine.requestHistory.count { it.url.encodedPath == "/v1/auth/refresh" })
     }
+
+    @Test
+    fun `two clients sharing a store redeem the refresh token once`() = runTest {
+        val tokens = TokenStore.InMemory().apply { save("stale", "r1") }
+        var refreshes = 0
+        val engine = MockEngine {
+            if (it.url.encodedPath == "/v1/auth/refresh") refreshes++
+            answer(it, HttpStatusCode.OK)
+        }
+        val app = ApiClient.build("https://staging.example", engine, tokens)
+        val worker = ApiClient.build("https://staging.example", engine, tokens)
+
+        val statuses =
+            listOf(app, worker, app, worker).map { c -> async { c.get("/v1/me").status } }.awaitAll()
+
+        assertEquals(List(4) { HttpStatusCode.OK }, statuses)
+        assertEquals(1, refreshes)
+    }
 }

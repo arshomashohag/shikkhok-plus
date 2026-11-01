@@ -82,4 +82,25 @@ class UnreadNotifierTest {
         assertEquals(3, notifier.update(3, 0))
         assertNull(posted())
     }
+
+    private fun tap() =
+        android.content.Intent().putExtra(UnreadNotifier.EXTRA_OPEN, UnreadNotifier.OPEN_INBOX)
+
+    @Test
+    fun `a fresh launch from a tap opens the inbox`() {
+        assertTrue(UnreadNotifier.opensInboxOnCreate(tap(), null))
+    }
+
+    @Test
+    fun `a recreated activity never reopens the inbox`() {
+        assertFalse(UnreadNotifier.opensInboxOnCreate(tap(), android.os.Bundle()))
+    }
+
+    @Test
+    fun `a consumed tap cannot open the inbox again`() {
+        val intent = tap()
+        UnreadNotifier.consume(intent)
+        assertFalse(UnreadNotifier.wantsInbox(intent))
+        assertFalse(UnreadNotifier.opensInboxOnCreate(intent, null))
+    }
 }

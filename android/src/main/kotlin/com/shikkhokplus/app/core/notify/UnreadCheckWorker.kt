@@ -25,12 +25,12 @@ class UnreadCheckWorker(
 
     override suspend fun doWork(): Result {
         val tokens = (tokenStoreFactory ?: { EncryptedTokenStore.create(it) })(applicationContext)
-        if (tokens.accessToken() == null) return Result.success()
+        if (tokens.accessToken() == null || AppForeground.visible) return Result.success()
 
         val client =
-            (clientFactory ?: { store ->
-                ApiClient.build(BuildConfig.API_BASE_URL, tokenStore = store)
-            })(tokens)
+            (clientFactory ?: { store, ended ->
+                ApiClient.build(BuildConfig.API_BASE_URL, tokenStore = store, onSessionEnded = ended)
+            })(tokens) { UnreadSchedule.stop(applicationContext) }
         try {
             val result = HttpInboxRepository(client).inbox()
             if (result is AuthResult.Ok) {
@@ -46,6 +46,6 @@ class UnreadCheckWorker(
 
     companion object {
         internal var tokenStoreFactory: ((Context) -> TokenStore)? = null
-        internal var clientFactory: ((TokenStore) -> HttpClient)? = null
+        internal var clientFactory: ((TokenStore, () -> Unit) -> HttpClient)? = null
     }
 }

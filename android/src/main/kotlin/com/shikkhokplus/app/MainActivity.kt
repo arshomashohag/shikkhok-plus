@@ -48,6 +48,7 @@ import com.shikkhokplus.app.feature.auth.AuthUiState
 import com.shikkhokplus.app.feature.auth.AuthViewModel
 import com.shikkhokplus.app.core.notify.ui.OpenInboxEffect
 import com.shikkhokplus.app.core.notify.ui.UnreadCheckEffects
+import com.shikkhokplus.app.core.notify.AppForeground
 import com.shikkhokplus.app.core.notify.UnreadNotifier
 import com.shikkhokplus.app.core.notify.UnreadSchedule
 import com.shikkhokplus.app.navigation.SessionBinding
@@ -77,6 +78,16 @@ import com.shikkhokplus.app.navigation.ShikkhokNavHost
 class MainActivity : ComponentActivity() {
     private var openInbox by mutableStateOf(false)
 
+    override fun onStart() {
+        super.onStart()
+        AppForeground.visible = true
+    }
+
+    override fun onStop() {
+        AppForeground.visible = false
+        super.onStop()
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
@@ -85,7 +96,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        openInbox = UnreadNotifier.wantsInbox(intent)
+        openInbox = UnreadNotifier.opensInboxOnCreate(intent, savedInstanceState)
         setContent {
             ShikkhokTheme {
                 Surface(
@@ -107,7 +118,10 @@ class MainActivity : ComponentActivity() {
                     } else {
                         AppRoot(
                             openInbox = openInbox,
-                            onInboxOpened = { openInbox = false },
+                            onInboxOpened = {
+                                UnreadNotifier.consume(intent)
+                                openInbox = false
+                            },
                         )
                     }
                 }

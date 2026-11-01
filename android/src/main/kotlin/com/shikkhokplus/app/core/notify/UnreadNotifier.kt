@@ -115,5 +115,25 @@ class UnreadNotifier(context: Context) {
          */
         fun wantsInbox(intent: Intent?): Boolean =
             intent?.getStringExtra(EXTRA_OPEN) == OPEN_INBOX
+
+        /**
+         * Whether a fresh launch should open the inbox. A recreated
+         * activity (rotation) never does: the tap was already handled.
+         *
+         * @param intent The launch intent, if any
+         * @param savedInstanceState The saved state, null on a first launch
+         * @return True when the inbox should open
+         */
+        fun opensInboxOnCreate(intent: Intent?, savedInstanceState: Any?): Boolean =
+            savedInstanceState == null && wantsInbox(intent)
+
+        /**
+         * Mark a tap handled so the same intent cannot open it again.
+         *
+         * @param intent The intent that carried the tap
+         */
+        fun consume(intent: Intent?) {
+            intent?.removeExtra(EXTRA_OPEN)
+        }
     }
 }

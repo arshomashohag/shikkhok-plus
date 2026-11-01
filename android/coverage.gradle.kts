@@ -151,19 +151,18 @@ val coverageExclusions = listOf(
     // screen reader as well as in red.
     "**/designsystem/ButtonsKt*",
     "**/designsystem/FieldsKt*",
-    // **The unread notification classes, same measured limitation.**
-    //
-    // *(Added 2026-11-01.)* `UnreadNotifier`, `UnreadSchedule` and
-    // `UnreadCheckWorker` record 0 covered against 87 missed while
-    // `UnreadNotifierTest` and `UnreadCheckWorkerTest` (10 cases) pass: they need a real Android Context and run only under
-    // Robolectric, where JaCoCo records no hits. What the tests verify
-    // is the behaviour: post on a rise, nothing on an unchanged count,
-    // cancel at zero, no request without a token, no text naming a
-    // person, batch or amount.
-    "**/core/notify/**",
-    "**/MainActivityKt\$UnreadCheckEffects*",
-    "**/MainActivityKt\$OpenInboxEffect*",
 )
+
+// **Robolectric loads app classes through its own sandbox classloader**,
+// which JaCoCo's agent skips unless told to include classes with no code
+// location. Without this, a class exercised only by a Robolectric test
+// records no hits however well it is tested.
+tasks.withType<Test>().configureEach {
+    extensions.configure<JacocoTaskExtension> {
+        isIncludeNoLocationClasses = true
+        excludes = listOf("jdk.internal.*")
+    }
+}
 
 tasks.register<JacocoReport>("jacocoDebugReport") {
     group = "verification"
