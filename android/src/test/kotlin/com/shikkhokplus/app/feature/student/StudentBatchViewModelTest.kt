@@ -77,7 +77,8 @@ class StudentBatchViewModelTest {
         val guardianRow = StudentBatchDto("e-1", "Physics A", childName = "Tasnim")
         val checking =
             CurrentFeeDto("2026-10", "unpaid", "2026-10-10", Money.of("1200.00"), Money.of("1200.00"), verifying = true)
-        val paid = checking.copy(status = "paid", outstanding = Money.of("0.00"), verifying = false, paidOn = "2026-10-08")
+        val paid =
+            checking.copy(status = "paid", outstanding = Money.of("0.00"), verifying = false, paidOn = "2026-10-08")
 
         for ((line, check) in listOf(
             checking to { fee: FeeLine? -> assertEquals(true, fee?.verifying) },
