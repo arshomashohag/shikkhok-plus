@@ -460,6 +460,7 @@ def write_session_topic(
             topic=body.topic,
             plan=body.plan,
             notes=body.notes,
+            notes_supplied="notes" in body.model_fields_set,
         ).topic_version
     )
 

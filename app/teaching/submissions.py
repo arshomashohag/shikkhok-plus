@@ -468,6 +468,7 @@ def write_topic(
     topic: str | None,
     plan: bool = False,
     notes: str | None = None,
+    notes_supplied: bool = True,
     composed_at: dt.datetime | None = None,
     now: dt.datetime | None = None,
 ) -> TopicResult:
@@ -504,6 +505,9 @@ def write_topic(
         the class ``scheduled``; False records what was covered and
         marks the class ``held``
     :param notes: Free notes on the class; never change status alone
+    :param notes_supplied: False leaves the stored notes untouched, as
+        an older client that does not know the field sends no notes;
+        True writes ``notes``, where None clears them [D-26]
     :param composed_at: The device's clock, recorded and never read in
         a decision [NFR24.20]
     :param now: The server clock, injectable for tests
@@ -511,7 +515,8 @@ def write_topic(
     :raises AuthorizationError: This lens does not reach the session
     :raises ConflictError: The session is cancelled, its batch is
         inactive, the mutation id was spent on the other queued path,
-        the version is stale, or a plan arrives after the class began
+        the version is stale, or a plan arrives for a class that has
+        begun or is already held
     """
     # 1. AUTHORIZATION, and the state checks that follow it. Before
     #    any version is compared, and before any replay is looked up
@@ -536,7 +541,7 @@ def write_topic(
 
     if plan:
         started_at = dt.datetime.combine(row.date, row.start_time, tzinfo=DHAKA)
-        if bangladesh_now(now) >= started_at:
+        if row.status == "held" or bangladesh_now(now) >= started_at:
             raise ConflictError(
                 code="CLASS_STARTED",
                 message_key="teaching.topic.class_started",
@@ -544,9 +549,10 @@ def write_topic(
 
     values: dict[str, object] = {
         "topic": topic,
-        "notes": notes,
         "topic_version": base_version + 1,
     }
+    if notes_supplied:
+        values["notes"] = notes
     if not plan:
         values["status"] = "held"
 
