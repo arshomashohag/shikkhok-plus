@@ -1211,7 +1211,7 @@ class Session(Base):
     # fact from one the teacher saved as blank, and collapsing the two
     # makes "topics covered in each" unanswerable.
     topic: Mapped[str | None] = mapped_column(String(2000), nullable=True)
-    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    notes: Mapped[str | None] = mapped_column(String(2000), nullable=True)
     status: Mapped[str] = mapped_column(_SESSION_STATUS, nullable=False)
     origin: Mapped[str] = mapped_column(_SESSION_ORIGIN, nullable=False)
     attendance_version: Mapped[int] = mapped_column(Integer, nullable=False)

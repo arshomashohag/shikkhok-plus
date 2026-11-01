@@ -55,7 +55,7 @@ def _insert_session(engine: Engine) -> uuid.UUID:
 
 
 def test_0012_adds_nullable_notes(staged: Engine) -> None:
-    """The column exists, is nullable, and old sessions read ``None``.
+    """The column exists, is nullable, bounded at 2000, and old rows read ``None``.
 
     :param staged: The engine staged at ``0011``
     :return: None
@@ -65,15 +65,17 @@ def test_0012_adds_nullable_notes(staged: Engine) -> None:
     upgrade_to_head(staged)
 
     with staged.begin() as connection:
-        nullable = connection.execute(
+        nullable, data_type, length = connection.execute(
             sa.text(
-                "SELECT is_nullable FROM information_schema.columns "
+                "SELECT is_nullable, data_type, character_maximum_length "
+                "FROM information_schema.columns "
                 "WHERE table_name = 'session' AND column_name = 'notes'"
             )
-        ).scalar_one()
+        ).one()
         notes = connection.execute(
             sa.text("SELECT notes FROM session WHERE id = :id"), {"id": session_id}
         ).scalar_one()
 
     assert nullable == "YES"
+    assert (data_type, length) == ("character varying", 2000)
     assert notes is None

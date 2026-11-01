@@ -8,7 +8,9 @@ Create Date: 2026-11-01
 back on the class calendar. It is a column on a table that already
 exists, so the ``app`` role's grants already cover it. It is nullable
 because most classes never get a note, and every session recorded
-before this revision reads as having none.
+before this revision reads as having none. It is bounded at 2000
+characters, as ``topic`` is, so the database holds the same limit the
+request schema states.
 """
 
 from __future__ import annotations
@@ -29,7 +31,7 @@ def upgrade() -> None:
 
     :return: None
     """
-    op.add_column("session", sa.Column("notes", sa.Text(), nullable=True))
+    op.add_column("session", sa.Column("notes", sa.String(2000), nullable=True))
 
 
 def downgrade() -> None:
