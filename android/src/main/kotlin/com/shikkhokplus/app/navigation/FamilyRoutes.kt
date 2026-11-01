@@ -13,7 +13,10 @@ import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import com.shikkhokplus.app.core.format.YearMonth
 import com.shikkhokplus.app.core.network.HttpStudentRepository
+import com.shikkhokplus.app.core.ui.CalendarClassUi
+import com.shikkhokplus.app.feature.classcalendar.ClassCalendarUiState
 import com.shikkhokplus.app.feature.fees.FeeReader
 import com.shikkhokplus.app.feature.marks.MarksheetReader
 import com.shikkhokplus.app.feature.student.FamilyExamViewModel
@@ -70,6 +73,7 @@ internal fun FamilyBatchRoute(
         viewModel(key = familyKey(reader, seat)) { StudentBatchViewModel(HttpStudentRepository(client, reader)) }
     val state by model.state.collectAsState()
     val tab by model.tab.collectAsState()
+    val calendar by model.calendar.collectAsState()
     val guardian = reader == FamilyReader.GUARDIAN
 
     LaunchedEffect(seat) { model.load(seat) }
@@ -88,9 +92,15 @@ internal fun FamilyBatchRoute(
         },
         tab = tab,
         onSelect = model::select,
+        calendar = calendar,
         openers =
             FamilyOpeners(
-                onOpenClass = { navController.navigate(Destination.FamilyClass.of(reader.name, seat, it)) },
+                onOpenClass = {
+                    val month = it.date.take(MONTH_CHARS)
+                    navController.navigate(Destination.FamilyClass.of(reader.name, seat, it.sessionId, month))
+                },
+                onPickMonth = model::pickMonth,
+                onRetryMonth = model::retryMonth,
                 onOpenExam = { examId ->
                     val marksheet = if (guardian) MarksheetReader.CHILD else MarksheetReader.SELF
                     navController.navigate(Destination.Marksheet.of(examId, seat, marksheet.name))
@@ -128,6 +138,44 @@ internal fun familyViewOf(
     LaunchedEffect(seat) { model.ensureLoaded(seat) }
 
     return (state as? StudentBatchUiState.Loaded)?.view
+}
+
+/** The length of `YYYY-MM`. */
+private const val MONTH_CHARS = 7
+
+/**
+ * A class of the batch's calendar, held by [owner]; the month is loaded
+ * if nobody has yet.
+ *
+ * After process death the batch screen's store is empty and the class
+ * detail can be the first to ask, so it loads the seat itself, on the
+ * class's own month when the route carries one.
+ *
+ * @param owner The store the model lives in
+ * @param reader Who is reading
+ * @param seat The seat
+ * @param month The class's month, if known
+ * @param id The class's session id
+ * @param repository Builds the repository the model reads with
+ * @return The class, or null with whether the month is still loading
+ */
+@Composable
+internal fun familyClassOf(
+    owner: ViewModelStoreOwner,
+    reader: FamilyReader,
+    seat: String,
+    month: YearMonth?,
+    id: String,
+    repository: () -> StudentRepository,
+): Pair<CalendarClassUi?, Boolean> {
+    val model: StudentBatchViewModel =
+        viewModel(owner, key = familyKey(reader, seat)) { StudentBatchViewModel(repository()) }
+    val calendar by model.calendar.collectAsState()
+
+    LaunchedEffect(seat) { model.ensureLoaded(seat, month) }
+
+    val loading = calendar is ClassCalendarUiState.Idle || calendar is ClassCalendarUiState.Loading
+    return model.classOf(id) to loading
 }
 
 /**
@@ -182,6 +230,31 @@ private fun parentView(
 }
 
 /**
+ * The view behind a class detail.
+ *
+ * @param client The authenticated HTTP client
+ * @param navController The controller to find the batch screen with
+ * @param entry The detail's own back-stack entry
+ * @param reader Who is reading
+ * @param seat The seat
+ * @param id The class's session id
+ * @return The class, or null with whether the month is still loading
+ */
+@Composable
+private fun parentClass(
+    client: HttpClient,
+    navController: NavHostController,
+    entry: NavBackStackEntry,
+    reader: FamilyReader,
+    seat: String,
+    id: String,
+): Pair<CalendarClassUi?, Boolean> {
+    val owner = remember(entry) { ownerFor(navController, entry, reader, seat) }
+    val month = YearMonth.parseOrNull(entry.arguments?.getString(Destination.FamilyClass.ARG_MONTH))
+    return familyClassOf(owner, reader, seat, month, id) { HttpStudentRepository(client, reader) }
+}
+
+/**
  * Read the detail route's three arguments.
  *
  * @param entry The detail's back-stack entry
@@ -221,10 +294,16 @@ internal fun NavGraphBuilder.familyRoutes(client: HttpClient, navController: Nav
         FamilyBatchRoute(client, navController, FamilyReader.GUARDIAN, seat)
     }
 
-    composable(Destination.FamilyClass.route, arguments) { entry ->
+    composable(
+        Destination.FamilyClass.route,
+        arguments + navArgument(Destination.FamilyClass.ARG_MONTH) {
+            type = NavType.StringType
+            defaultValue = ""
+        },
+    ) { entry ->
         val (reader, seat, id) = detailArgs(entry)
-        val view = parentView(client, navController, entry, reader, seat)
-        ClassDetailScreen(view?.pastClass(id), onBack = { navController.popBackStack() })
+        val (clazz, loading) = parentClass(client, navController, entry, reader, seat, id)
+        ClassDetailScreen(clazz, onBack = { navController.popBackStack() }, loading = loading)
     }
 
     composable(Destination.FamilyNotice.route, arguments) { entry ->

@@ -924,6 +924,9 @@
     <string name="family_attendance">উপস্থিতি</string>
     <string name="family_present">উপস্থিত</string>
     <string name="family_absent">অনুপস্থিত</string>
+    <string name="family_planned_topics">পরিকল্পিত বিষয়</string>
+    <string name="family_not_enrolled_then">তখন ভর্তি ছিল না</string>
+    <string name="family_class_notes">নোট</string>
     <string name="family_not_marked">চিহ্নিত করা হয়নি</string>
     <string name="family_exam_topics">বিষয়সমূহ</string>
     <string name="family_exam_no_topics">এখনও কোনো টপিক দেওয়া হয়নি।</string>

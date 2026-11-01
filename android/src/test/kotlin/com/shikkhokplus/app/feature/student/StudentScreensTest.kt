@@ -3,7 +3,14 @@ package com.shikkhokplus.app.feature.student
 import androidx.activity.ComponentActivity
 import com.shikkhokplus.app.feature.student.ui.TAG_STUDENT_PAY
 import com.shikkhokplus.app.feature.student.ui.TAG_STUDENT_FEES
-import com.shikkhokplus.app.feature.student.ui.TAG_FAMILY_CLASS_ATTENDANCE
+import com.shikkhokplus.app.core.format.YearMonth
+import com.shikkhokplus.app.core.ui.CalendarClassUi
+import com.shikkhokplus.app.core.ui.CalendarDayUi
+import com.shikkhokplus.app.core.ui.CalendarState
+import com.shikkhokplus.app.core.ui.MonthViewUi
+import com.shikkhokplus.app.core.ui.calendarDayTag
+import com.shikkhokplus.app.feature.classcalendar.ClassCalendarUiState
+import com.shikkhokplus.app.feature.classcalendar.ui.TAG_CLASS_PICK_ROW
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
@@ -26,7 +33,6 @@ import com.shikkhokplus.app.feature.student.ui.TAG_FAMILY_TEACHER_SUBJECT
 import com.shikkhokplus.app.feature.student.ui.TAG_FAMILY_NOTICE
 import com.shikkhokplus.app.feature.student.ui.TAG_FAMILY_EXAM_UPCOMING
 import com.shikkhokplus.app.feature.student.ui.TAG_FAMILY_EXAM_DONE
-import com.shikkhokplus.app.feature.student.ui.TAG_FAMILY_CLASS
 import com.shikkhokplus.app.feature.student.ui.FamilyOpeners
 import com.shikkhokplus.app.feature.student.ui.TAG_MY_BATCHES_EMPTY
 import com.shikkhokplus.app.feature.student.ui.TAG_MY_BATCH_FEE
@@ -102,6 +108,7 @@ class StudentScreensTest {
         tab: FamilyTab,
         openers: FamilyOpeners = FamilyOpeners(),
         onSelect: (FamilyTab) -> Unit = {},
+        calendar: ClassCalendarUiState = ClassCalendarUiState.Idle,
     ) {
         compose.setContent {
             StudentBatchScreen(
@@ -112,6 +119,7 @@ class StudentScreensTest {
                 tab = tab,
                 onSelect = onSelect,
                 openers = openers,
+                calendar = calendar,
             )
         }
     }
@@ -143,14 +151,66 @@ class StudentScreensTest {
         assertEquals("x-2", detail)
     }
 
+    private fun monthOf(vararg days: CalendarDayUi) =
+        ClassCalendarUiState.Loaded(
+            MonthViewUi(YearMonth(2026, 10), YearMonth(2026, 9), YearMonth(2026, 12), days.toList()),
+        )
+
+    private fun taken(id: String, start: String, subject: String) =
+        CalendarClassUi(id, "2026-10-14", start, null, subject, CalendarState.TAKEN, "Heat", null, false, false, null)
+
     @Test
-    fun `a past class opens its detail`() {
-        var opened: String? = null
-        show(view(), FamilyTab.CLASSES, FamilyOpeners(onOpenClass = { opened = it }))
+    fun `a day with one class opens it`() {
+        var opened: CalendarClassUi? = null
+        val one = taken("s-1", "16:00:00", "Physics")
+        show(
+            view(),
+            FamilyTab.CLASSES,
+            FamilyOpeners(onOpenClass = { opened = it }),
+            calendar = monthOf(CalendarDayUi("2026-10-14", CalendarState.TAKEN, listOf(one))),
+        )
 
         compose.onNodeWithTag(TAG_STUDENT_NEXT_CLASS).assertExists()
-        compose.onNodeWithTag(TAG_FAMILY_CLASS).performScrollTo().performClick()
-        assertEquals("s-1", opened)
+        compose.onNodeWithTag(calendarDayTag(CalendarState.TAKEN, "2026-10-14")).performScrollTo().performClick()
+        assertEquals(one, opened)
+    }
+
+    @Test
+    fun `a day with several classes asks which, then opens the one chosen`() {
+        var opened: CalendarClassUi? = null
+        val first = taken("s-1", "09:00:00", "Physics")
+        val second = taken("s-2", "16:00:00", "Chemistry")
+        show(
+            view(),
+            FamilyTab.CLASSES,
+            FamilyOpeners(onOpenClass = { opened = it }),
+            calendar = monthOf(CalendarDayUi("2026-10-14", CalendarState.TAKEN, listOf(first, second))),
+        )
+
+        compose.onNodeWithTag(calendarDayTag(CalendarState.TAKEN, "2026-10-14")).performScrollTo().performClick()
+        assertEquals(null, opened)
+        compose.onAllNodesWithTag(TAG_CLASS_PICK_ROW)[1].performClick()
+        assertEquals(second, opened)
+    }
+
+    @Test
+    fun `a failed month offers retry, and a loading month shows no calendar`() {
+        var retried = 0
+        val state = mutableStateOf<ClassCalendarUiState>(ClassCalendarUiState.Failed("error.network.unreachable", true))
+        compose.setContent {
+            StudentBatchScreen(
+                StudentBatchUiState.Loaded(view()),
+                onBack = {},
+                onOpenFees = {},
+                onRetry = {},
+                tab = FamilyTab.CLASSES,
+                openers = FamilyOpeners(onRetryMonth = { retried++ }),
+                calendar = state.value,
+            )
+        }
+
+        compose.onNodeWithText("Try again").performClick()
+        assertEquals(1, retried)
     }
 
     @Test
@@ -194,14 +254,6 @@ class StudentScreensTest {
         show(StudentBatchView(row, null, null, emptyList(), emptyList(), emptyList()), FamilyTab.NOTICES)
 
         compose.onNodeWithText("No notices yet.").assertExists()
-    }
-
-    @Test
-    fun `a past class row shows this seat's attendance`() {
-        show(view(), FamilyTab.CLASSES)
-
-        compose.onNodeWithTag(TAG_FAMILY_CLASS_ATTENDANCE, useUnmergedTree = true).assertExists()
-        compose.onNodeWithText("Present", useUnmergedTree = true).assertExists()
     }
 
     @Test

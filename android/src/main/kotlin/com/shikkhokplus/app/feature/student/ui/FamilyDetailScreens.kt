@@ -8,6 +8,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -17,13 +18,15 @@ import com.shikkhokplus.app.core.designsystem.LogoLoader
 import com.shikkhokplus.app.core.designsystem.ScreenScaffold
 import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.core.format.dayLabel
+import com.shikkhokplus.app.core.ui.CalendarClassUi
+import com.shikkhokplus.app.core.ui.CalendarMark
+import com.shikkhokplus.app.core.ui.CalendarState
 import com.shikkhokplus.app.core.ui.ago
 import com.shikkhokplus.app.core.ui.displayTime
 import com.shikkhokplus.app.feature.auth.MessageKeys
 import com.shikkhokplus.app.feature.student.FamilyExam
 import com.shikkhokplus.app.feature.student.FamilyExamUiState
 import com.shikkhokplus.app.feature.student.NoticeRow
-import com.shikkhokplus.app.feature.student.PastClass
 
 /** A detail's heading. */
 const val TAG_FAMILY_DETAIL_TITLE: String = "family_detail_title"
@@ -36,6 +39,9 @@ const val TAG_FAMILY_DETAIL_TOPIC: String = "family_detail_topic"
 
 /** The attendance line of a class. */
 const val TAG_FAMILY_DETAIL_ATTENDANCE: String = "family_detail_attendance"
+
+/** The teacher's notes on a class. */
+const val TAG_FAMILY_DETAIL_NOTES: String = "family_detail_notes"
 
 /** One topic of an exam. */
 const val TAG_FAMILY_DETAIL_EXAM_TOPIC: String = "family_detail_exam_topic"
@@ -50,34 +56,63 @@ const val TAG_FAMILY_DETAIL_LOADING: String = "family_detail_loading"
 const val TAG_FAMILY_DETAIL_ERROR: String = "family_detail_error"
 
 /**
- * One past class: when, what it taught, what was covered and whether
- * the seat attended.
+ * One class, read-only: when, what the teacher wrote, and this seat's
+ * mark. Nothing here can be edited by a family.
  *
- * @param past The class, or null when it is not in the batch any more
- * @param onBack Called to return to the batch
+ * @param clazz The class from the loaded month, or null when it is not there
+ * @param onBack Called to return to the calendar
  * @param modifier The layout modifier
+ * @param loading Whether the month is still being read
  */
 @Composable
-fun ClassDetailScreen(past: PastClass?, onBack: () -> Unit, modifier: Modifier = Modifier) {
+fun ClassDetailScreen(
+    clazz: CalendarClassUi?,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+    loading: Boolean = false,
+) {
     ScreenScaffold(title = stringResource(R.string.family_class_title), modifier = modifier, onBack = onBack) {
-        if (past == null) {
-            Missing()
+        if (clazz == null) {
+            if (loading) LogoLoader(Modifier.testTag(TAG_FAMILY_DETAIL_LOADING)) else Missing()
             return@ScreenScaffold
         }
-        Heading(past.subjectName?.let(Numerals::freeText) ?: dayLabel(past.date))
-        Quiet("${dayLabel(past.date)} · ${displayTime(past.startTime)}")
-        Section(stringResource(R.string.topic_label))
+        Heading(clazz.subjectName?.let(Numerals::freeText) ?: dayLabel(clazz.date))
+        Quiet("${dayLabel(clazz.date)} · ${displayTime(clazz.startTime.take(HHMM))}")
+        val planned = clazz.state == CalendarState.UPCOMING
+        Section(stringResource(if (planned) R.string.family_planned_topics else R.string.classday_topics_covered))
+        val topic = clazz.topic?.takeIf { it.isNotBlank() }
         Text(
-            past.topic?.let(Numerals::freeText) ?: stringResource(R.string.session_topic_unlogged),
+            topic?.let(Numerals::freeText) ?: stringResource(R.string.session_topic_unlogged),
+            color = if (topic == null) MaterialTheme.colorScheme.onSurfaceVariant else Color.Unspecified,
             modifier = Modifier.testTag(TAG_FAMILY_DETAIL_TOPIC),
         )
+        clazz.notes?.takeIf { it.isNotBlank() }?.let {
+            Section(stringResource(R.string.family_class_notes))
+            Text(Numerals.freeText(it), modifier = Modifier.testTag(TAG_FAMILY_DETAIL_NOTES))
+        }
         Section(stringResource(R.string.family_attendance))
         Text(
-            stringResource(attendanceLabel(past.present)),
+            stringResource(markLabel(clazz.mark)),
             modifier = Modifier.testTag(TAG_FAMILY_DETAIL_ATTENDANCE),
         )
     }
 }
+
+/**
+ * The words for a seat's standing in a class.
+ *
+ * @param mark The server's mark, or null when it sent none or one this build does not know
+ * @return The string resource
+ */
+internal fun markLabel(mark: CalendarMark?): Int =
+    when (mark) {
+        CalendarMark.PRESENT -> R.string.family_present
+        CalendarMark.ABSENT -> R.string.family_absent
+        CalendarMark.NOT_ENROLLED -> R.string.family_not_enrolled_then
+        CalendarMark.NOT_MARKED, null -> R.string.family_not_marked
+    }
+
+private const val HHMM = 5
 
 /**
  * One exam: its subject, date, marks and the topics it covers.

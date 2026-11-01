@@ -3,6 +3,7 @@ package com.shikkhokplus.app.feature.student
 import com.shikkhokplus.app.core.network.FamilyBatchViewDto
 import com.shikkhokplus.app.core.network.FamilyExamDto
 import com.shikkhokplus.app.core.network.MeDto
+import com.shikkhokplus.app.core.network.MonthViewDto
 import com.shikkhokplus.app.core.network.ProgressEntryDto
 import com.shikkhokplus.app.core.network.StudentBatchDto
 import com.shikkhokplus.app.feature.auth.AuthResult
@@ -49,4 +50,15 @@ interface StudentRepository {
      * @return The exam, a refusal, or a transport failure
      */
     suspend fun exam(enrollmentId: String, examId: String): AuthResult<FamilyExamDto>
+
+    /**
+     * Read one month of the seat's batch calendar, with the seat's mark
+     * on each class.
+     *
+     * @param enrollmentId The seat
+     * @param year The month's year
+     * @param month The month, 1 to 12
+     * @return The month, a refusal, or a transport failure
+     */
+    suspend fun month(enrollmentId: String, year: Int, month: Int): AuthResult<MonthViewDto>
 }

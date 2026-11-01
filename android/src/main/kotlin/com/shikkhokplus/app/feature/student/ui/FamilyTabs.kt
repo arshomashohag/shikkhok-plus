@@ -16,6 +16,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -30,7 +34,14 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.shikkhokplus.app.R
+import com.shikkhokplus.app.core.designsystem.ErrorCard
 import com.shikkhokplus.app.core.designsystem.ShikkhokCard
+import com.shikkhokplus.app.core.designsystem.SkeletonList
+import com.shikkhokplus.app.core.format.YearMonth
+import com.shikkhokplus.app.core.ui.CalendarClassUi
+import com.shikkhokplus.app.core.ui.MonthCalendar
+import com.shikkhokplus.app.feature.classcalendar.ClassCalendarUiState
+import com.shikkhokplus.app.feature.classcalendar.ui.ClassPickList
 import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.core.format.dayLabel
 import com.shikkhokplus.app.core.format.shortDate
@@ -70,63 +81,58 @@ const val TAG_FAMILY_TEACHER_ICON: String = "family_teacher_icon"
 const val TAG_FAMILY_TEACHER_SUBJECT: String = "family_teacher_subject"
 
 /**
- * The Classes tab: past classes newest first, each with this seat's
- * attendance. The next class lives in the header, on every tab.
+ * The Classes tab: the batch's month as a calendar, each day as the
+ * server decided it. A day with one class opens it; a day with several
+ * asks which first.
  *
- * @param view The batch
- * @param onOpen Called with a past class's session id
+ * @param calendar The month's state
+ * @param onPickMonth Called with the month the reader moved to
+ * @param onOpen Called with a class to open
+ * @param onRetry Called to read the month again
  */
 @Composable
-fun ColumnScope.ClassesTab(view: StudentBatchView, onOpen: (String) -> Unit) {
-    Section(stringResource(R.string.family_past_classes))
-    if (view.classes.isEmpty()) {
-        Quiet(stringResource(R.string.student_topics_empty))
-    } else {
-        RowsCard {
-            view.classes.forEachIndexed { index, past ->
-                if (index > 0) InsetDivider()
-                PastClassRow(past) { onOpen(past.sessionId) }
-            }
-        }
+fun ColumnScope.ClassesTab(
+    calendar: ClassCalendarUiState,
+    onPickMonth: (YearMonth) -> Unit,
+    onOpen: (CalendarClassUi) -> Unit,
+    onRetry: () -> Unit,
+) {
+    var choosing by remember { mutableStateOf<List<CalendarClassUi>?>(null) }
+    when (calendar) {
+        ClassCalendarUiState.Idle, ClassCalendarUiState.Loading -> SkeletonList(rows = 4)
+        is ClassCalendarUiState.Failed ->
+            ErrorCard(
+                title = stringResource(R.string.batch_classes_failed),
+                body = stringResource(MessageKeys.resolve(calendar.messageKey)),
+                retryLabel = stringResource(R.string.roster_retry).takeIf { calendar.retryable },
+                onRetry = onRetry.takeIf { calendar.retryable },
+            )
+        is ClassCalendarUiState.Loaded ->
+            MonthCalendar(
+                year = calendar.view.month.year,
+                month = calendar.view.month.month,
+                days = calendar.view.days,
+                firstMonth = calendar.view.firstMonth,
+                lastMonth = calendar.view.lastMonth,
+                onPickMonth = onPickMonth,
+                onDay = { day ->
+                    when (day.classes.size) {
+                        0 -> Unit
+                        1 -> onOpen(day.classes.single())
+                        else -> choosing = day.classes
+                    }
+                },
+            )
     }
-}
-
-/**
- * One past class: the date and weekday in a column, then the subject
- * and what was covered, as the teacher typed it.
- *
- * @param past The class
- * @param onOpen Called to open it
- */
-@Composable
-private fun PastClassRow(past: PastClass, onOpen: () -> Unit) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onOpen)
-            .padding(horizontal = 16.dp, vertical = 12.dp)
-            .testTag(TAG_FAMILY_CLASS),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Column(Modifier.width(52.dp)) {
-            Text(shortDate(past.date), style = Emphasis)
-            Quiet(dayLabel(past.date).substringBefore(" "))
-        }
-        Column(Modifier.weight(1f)) {
-            past.subjectName?.let { Text(Numerals.freeText(it), style = Emphasis) }
-            Text(
-                past.topic?.let(Numerals::freeText) ?: stringResource(R.string.session_topic_unlogged),
-                color = if (past.topic == null) MaterialTheme.colorScheme.onSurfaceVariant else Color.Unspecified,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                stringResource(attendanceLabel(past.present)),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.testTag(TAG_FAMILY_CLASS_ATTENDANCE),
-            )
-        }
+    choosing?.let { classes ->
+        ClassPickList(
+            classes,
+            onPick = {
+                choosing = null
+                onOpen(it)
+            },
+            onDismiss = { choosing = null },
+        )
     }
 }
 

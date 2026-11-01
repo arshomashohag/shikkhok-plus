@@ -37,6 +37,9 @@ import com.shikkhokplus.app.core.format.shortDate
 import com.shikkhokplus.app.feature.auth.MessageKeys
 import com.shikkhokplus.app.feature.student.FamilyTab
 import com.shikkhokplus.app.feature.student.FeeLine
+import com.shikkhokplus.app.core.format.YearMonth
+import com.shikkhokplus.app.core.ui.CalendarClassUi
+import com.shikkhokplus.app.feature.classcalendar.ClassCalendarUiState
 import com.shikkhokplus.app.feature.student.StudentBatchUiState
 import com.shikkhokplus.app.feature.student.NextClass
 import com.shikkhokplus.app.feature.student.StudentBatchView
@@ -61,13 +64,17 @@ const val TAG_STUDENT_BATCH_ERROR: String = "student_batch_error"
 /**
  * What the family batch screen's taps do.
  *
- * @property onOpenClass Open a past class's detail, by session id
+ * @property onOpenClass Open a class's detail
+ * @property onPickMonth Move the Classes calendar to a month
+ * @property onRetryMonth Read the Classes calendar's month again
  * @property onOpenExam Open a done exam's marksheet, by exam id
  * @property onOpenExamDetail Open an upcoming exam's detail, by exam id
  * @property onOpenNotice Open a notice's detail, by notice id
  */
 data class FamilyOpeners(
-    val onOpenClass: (String) -> Unit = {},
+    val onOpenClass: (CalendarClassUi) -> Unit = {},
+    val onPickMonth: (YearMonth) -> Unit = {},
+    val onRetryMonth: () -> Unit = {},
     val onOpenExam: (String) -> Unit = {},
     val onOpenExamDetail: (String) -> Unit = {},
     val onOpenNotice: (String) -> Unit = {},
@@ -89,6 +96,7 @@ data class FamilyOpeners(
  * @param tab The open tab
  * @param onSelect Called with a tab
  * @param openers What tapping a class, exam or notice does
+ * @param calendar The Classes tab's month
  */
 @Composable
 fun StudentBatchScreen(
@@ -101,6 +109,7 @@ fun StudentBatchScreen(
     tab: FamilyTab = FamilyTab.CLASSES,
     onSelect: (FamilyTab) -> Unit = {},
     openers: FamilyOpeners = FamilyOpeners(),
+    calendar: ClassCalendarUiState = ClassCalendarUiState.Idle,
 ) {
     val batch = (state as? StudentBatchUiState.Loaded)?.view?.batch
     ListScreenScaffold(
@@ -121,7 +130,7 @@ fun StudentBatchScreen(
                 Column(
                     Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(top = 8.dp, bottom = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) { FamilyTabBody(tab, state.view, openers) }
+                ) { FamilyTabBody(tab, state.view, openers, calendar) }
             is StudentBatchUiState.Failed -> {
                 Text(
                     stringResource(MessageKeys.resolve(state.messageKey)),
@@ -247,11 +256,17 @@ private fun tabLabel(tab: FamilyTab): Int =
  * @param tab The open tab
  * @param view The batch
  * @param openers What the taps do
+ * @param calendar The Classes tab's month
  */
 @Composable
-private fun ColumnScope.FamilyTabBody(tab: FamilyTab, view: StudentBatchView, openers: FamilyOpeners) {
+private fun ColumnScope.FamilyTabBody(
+    tab: FamilyTab,
+    view: StudentBatchView,
+    openers: FamilyOpeners,
+    calendar: ClassCalendarUiState,
+) {
     when (tab) {
-        FamilyTab.CLASSES -> ClassesTab(view, openers.onOpenClass)
+        FamilyTab.CLASSES -> ClassesTab(calendar, openers.onPickMonth, openers.onOpenClass, openers.onRetryMonth)
         FamilyTab.EXAMS -> ExamsTab(view, openers.onOpenExam, openers.onOpenExamDetail)
         FamilyTab.NOTICES -> NoticesTab(view, openers.onOpenNotice)
         FamilyTab.TEACHER -> TeacherTab(view.teacher)

@@ -979,6 +979,9 @@
     <string name="family_attendance">Attendance</string>
     <string name="family_present">Present</string>
     <string name="family_absent">Absent</string>
+    <string name="family_planned_topics">Planned topics</string>
+    <string name="family_not_enrolled_then">Not enrolled then</string>
+    <string name="family_class_notes">Notes</string>
     <string name="family_not_marked">Not marked</string>
     <string name="family_exam_topics">Topics</string>
     <string name="family_exam_no_topics">No topics listed yet.</string>
