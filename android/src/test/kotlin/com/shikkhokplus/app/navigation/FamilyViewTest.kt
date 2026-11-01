@@ -6,7 +6,6 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
-import com.shikkhokplus.app.core.network.CurrentFeeDto
 import com.shikkhokplus.app.core.network.FamilyBatchViewDto
 import com.shikkhokplus.app.core.network.FamilyExamDto
 import com.shikkhokplus.app.core.network.MeDto
@@ -47,7 +46,6 @@ class FamilyViewTest {
         override suspend fun progress(enrollmentId: String) =
             AuthResult.Ok<List<ProgressEntryDto>>(emptyList())
 
-        override suspend fun seatFee(enrollmentId: String) = AuthResult.Ok<CurrentFeeDto?>(null)
 
         override suspend fun exam(enrollmentId: String, examId: String): AuthResult<FamilyExamDto> =
             AuthResult.TransportFailure

@@ -78,32 +78,4 @@ class HttpStudentRepositoryTest {
         assertEquals("Physics A", seat.batchName)
         assertEquals("/v1/guardian/home", engine.requestHistory.single().url.encodedPath)
     }
-
-    @Test
-    fun `a guardian's header fee is the newest period of the child's fee read`() = runTest {
-        val engine =
-            engine(
-                """{"cycles":[
-                {"period":"2026-09","due_date":"2026-09-10","charged":"1200.00","outstanding":"0.00","status":"paid"},
-                {"period":"2026-10","due_date":"2026-10-10","charged":"1200.00","outstanding":"1200.00",
-                "status":"unpaid"}],"total_outstanding":"1200.00"}""",
-            )
-
-        val result = HttpStudentRepository(client(engine), FamilyReader.GUARDIAN).seatFee("e-1")
-
-        val fee = assertIs<AuthResult.Ok<CurrentFeeDto?>>(result).value
-        assertEquals("2026-10", fee?.period)
-        assertEquals("unpaid", fee?.status)
-        assertEquals("/v1/children/e-1/fees", engine.requestHistory.single().url.encodedPath)
-    }
-
-    @Test
-    fun `a student's header fee comes from the list, so no fee read is made`() = runTest {
-        val engine = engine("{}")
-
-        val result = HttpStudentRepository(client(engine)).seatFee("e-1")
-
-        assertEquals(null, assertIs<AuthResult.Ok<CurrentFeeDto?>>(result).value)
-        assertEquals(0, engine.requestHistory.size)
-    }
 }

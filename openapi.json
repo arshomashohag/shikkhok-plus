@@ -1861,7 +1861,7 @@
       },
       "FamilyBatchViewResponse": {
         "additionalProperties": false,
-        "description": "What a student or guardian sees of one batch [BR7.2].\n\n``served_at`` is BR7.3's server timestamp, so a client rendering\nthis from cache can state its age without consulting the device\nclock -- which is the thing excluded from decisions.\n\n:ivar next_session_date: The next scheduled session's date, or\n    null\n:ivar next_session_start_time: Its start time, or null\n:ivar past_sessions: Past sessions with topics and attendance\n:ivar announcements: The batch's visible notes\n:ivar served_at: When the server computed this\n:ivar next_session: The next class, or null\n:ivar following_sessions: The classes after it, soonest first\n:ivar upcoming_exam: The next exam still to be sat, or null\n:ivar teacher: The teacher's display name and subjects\n:ivar exams: Every exam, upcoming soonest first then done newest first",
+        "description": "What a student or guardian sees of one batch [BR7.2].\n\n``served_at`` is BR7.3's server timestamp, so a client rendering\nthis from cache can state its age without consulting the device\nclock -- which is the thing excluded from decisions.\n\n:ivar next_session_date: The next scheduled session's date, or\n    null\n:ivar next_session_start_time: Its start time, or null\n:ivar past_sessions: Past sessions with topics and attendance\n:ivar announcements: The batch's visible notes\n:ivar served_at: When the server computed this\n:ivar next_session: The next class, or null\n:ivar following_sessions: The classes after it, soonest first\n:ivar upcoming_exam: The next exam still to be sat, or null\n:ivar teacher: The teacher's display name and subjects\n:ivar exams: Every exam, upcoming soonest first then done newest first\n:ivar current_fee: The seat's latest fee period, the same line the\n    student's batch list carries, or null before the first",
         "properties": {
           "announcements": {
             "items": {
@@ -1869,6 +1869,16 @@
             },
             "title": "Announcements",
             "type": "array"
+          },
+          "current_fee": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CurrentFeeResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "exams": {
             "items": {

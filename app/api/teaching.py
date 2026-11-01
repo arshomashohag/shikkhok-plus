@@ -25,8 +25,10 @@ from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.orm import Session as DbSession
 
 from app.api.deps import get_session, guardian_lens, student_lens, teacher_lens
+from app.api.fee_line import current_fee
 from app.authz.lenses import GuardianLens, StudentLens, TeacherLens
 from app.schemas.errors import ErrorEnvelope
+from app.schemas.fees import CurrentFeeResponse
 from app.schemas.schedule import ScheduleRequest, ScheduleSlotWire
 from app.schemas.teaching import (
     AnnouncementBodyRequest,
@@ -659,7 +661,8 @@ def read_my_batch_teaching(
     :return: The batch view, with its server timestamp
     """
     return _family_view(
-        notes.family_batch_view(session, lens=lens, enrollment_id=enrollment_id)
+        notes.family_batch_view(session, lens=lens, enrollment_id=enrollment_id),
+        current_fee(session, lens, enrollment_id),
     )
 
 
@@ -684,14 +687,18 @@ def read_child_batch_teaching(
     :return: The batch view, with its server timestamp
     """
     return _family_view(
-        notes.family_batch_view(session, lens=lens, enrollment_id=enrollment_id)
+        notes.family_batch_view(session, lens=lens, enrollment_id=enrollment_id),
+        current_fee(session, lens, enrollment_id),
     )
 
 
-def _family_view(view: notes.FamilyBatchView) -> FamilyBatchViewResponse:
+def _family_view(
+    view: notes.FamilyBatchView, fee: CurrentFeeResponse | None
+) -> FamilyBatchViewResponse:
     """Render a family batch view for the wire.
 
     :param view: The view as the service described it
+    :param fee: The seat's latest fee line, read through the same lens
     :return: The response body
     """
     return FamilyBatchViewResponse(
@@ -728,6 +735,7 @@ def _family_view(view: notes.FamilyBatchView) -> FamilyBatchViewResponse:
             subjects=view.teacher.subjects,
         ),
         exams=[family_exam_response(exam) for exam in view.exams],
+        current_fee=fee,
     )
 
 

@@ -82,21 +82,7 @@ class StudentBatchViewModel(
                 else -> return failed(result)
             }
         val batch = batches.firstOrNull { it.enrollmentId == seat } ?: return StudentStateMapper.notFound()
-        return readSeat(withFee(batch))
-    }
-
-    /**
-     * Add the seat's latest fee when the list did not carry one. A
-     * failed fee read leaves the header with the fee-history link
-     * rather than failing the whole page.
-     *
-     * @param batch The seat's row
-     * @return The row, with a fee line where one was read
-     */
-    private suspend fun withFee(batch: StudentBatchDto): StudentBatchDto {
-        if (batch.currentFee != null) return batch
-        val fee = (repository.seatFee(batch.enrollmentId) as? AuthResult.Ok)?.value
-        return if (fee == null) batch else batch.copy(currentFee = fee)
+        return readSeat(batch)
     }
 
     /**
@@ -111,11 +97,14 @@ class StudentBatchViewModel(
                 is AuthResult.Ok -> result.value
                 else -> return failed(result)
             }
+        // The header's fee is the view's: the server's line for this seat,
+        // for a guardian as for a student, never one picked from a list.
+        val seat = batch.copy(currentFee = view.currentFee ?: batch.currentFee)
         // A refusal here is the teacher hiding marksheets from families:
         // the page still shows, with no results, rather than failing whole.
         return when (val result = repository.progress(batch.enrollmentId)) {
-            is AuthResult.Ok -> StudentStateMapper.afterBatch(batch, view, result.value)
-            is AuthResult.Refused -> StudentStateMapper.afterBatch(batch, view, emptyList())
+            is AuthResult.Ok -> StudentStateMapper.afterBatch(seat, view, result.value)
+            is AuthResult.Refused -> StudentStateMapper.afterBatch(seat, view, emptyList())
             AuthResult.TransportFailure -> failed(result)
         }
     }

@@ -248,4 +248,34 @@ class StudentScreensTest {
         compose.onNodeWithTag(TAG_STUDENT_PAY).performClick()
         assertEquals(1, paid)
     }
+
+    @Test
+    fun `a guardian's header hides Pay while a claim is verifying, and says when it was paid`() {
+        val verifying =
+            FeeLine(
+                "2026-10",
+                "fees.status.unpaid",
+                "2026-10-10",
+                Money.of("1200.00"),
+                Money.of("1200.00"),
+                verifying = true,
+            )
+        var line by mutableStateOf(verifying)
+        compose.setContent {
+            StudentBatchScreen(
+                StudentBatchUiState.Loaded(view().copy(batch = row.copy(fee = line, childName = "Tasnim"))),
+                onBack = {},
+                onOpenFees = {},
+                onRetry = {},
+                tab = FamilyTab.TEACHER,
+            )
+        }
+
+        assertEquals(0, compose.onAllNodesWithTag(TAG_STUDENT_PAY).fetchSemanticsNodes().size)
+
+        line = verifying.copy(statusKey = "fees.status.paid", verifying = false, paidOn = "2026-10-08")
+        compose.waitForIdle()
+        compose.onNodeWithText("Paid 8 Oct").assertExists()
+        assertEquals(0, compose.onAllNodesWithTag(TAG_STUDENT_PAY).fetchSemanticsNodes().size)
+    }
 }

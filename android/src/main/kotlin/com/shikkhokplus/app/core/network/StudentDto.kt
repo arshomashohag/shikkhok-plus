@@ -94,6 +94,8 @@ data class AttendanceEntryDto(
  * @property upcomingExam The next exam to sit, or null
  * @property teacher The teacher's name and subjects, or null from an older server
  * @property exams Every exam, grouped by the server's `state`
+ * @property currentFee The seat's latest fee period, the same line a
+ *   student's batch list carries, or null before the first
  */
 @Serializable
 data class FamilyBatchViewDto(
@@ -107,6 +109,7 @@ data class FamilyBatchViewDto(
     @SerialName("upcoming_exam") val upcomingExam: UpcomingExamDto? = null,
     val teacher: FamilyTeacherDto? = null,
     val exams: List<FamilyExamDto> = emptyList(),
+    @SerialName("current_fee") val currentFee: CurrentFeeDto? = null,
 )
 
 /**

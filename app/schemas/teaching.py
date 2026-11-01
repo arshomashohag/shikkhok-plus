@@ -37,6 +37,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.fees import CurrentFeeResponse
+
 __all__ = [
     "AnnouncementBodyRequest",
     "AnnouncementResponse",
@@ -438,6 +440,8 @@ class FamilyBatchViewResponse(BaseModel):
     :ivar upcoming_exam: The next exam still to be sat, or null
     :ivar teacher: The teacher's display name and subjects
     :ivar exams: Every exam, upcoming soonest first then done newest first
+    :ivar current_fee: The seat's latest fee period, the same line the
+        student's batch list carries, or null before the first
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -454,6 +458,7 @@ class FamilyBatchViewResponse(BaseModel):
         default_factory=lambda: FamilyTeacherResponse(subjects=[])
     )
     exams: list[FamilyExamResponse] = Field(default_factory=list)
+    current_fee: CurrentFeeResponse | None = None
 
 
 class MarksheetToggleRequest(BaseModel):

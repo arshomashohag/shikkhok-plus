@@ -242,3 +242,88 @@ def test_the_fee_line_says_charged_verifying_and_paid_on(
         False,
         dt.datetime.now(tz=DHAKA).date().isoformat(),
     )
+
+
+def test_the_family_batch_page_carries_the_same_fee_line_for_both_readers(
+    api_client: TestClient,
+    owner_session: DbSession,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """A guardian's batch header reads the same fee line as the student's.
+
+    Built on the client from the cycle list, a guardian saw Pay while a
+    claim was waiting and "Due by" on a paid month. The server decides
+    both, on the view each reader already loads [TC-9].
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    student, guardian = account_factory(), account_factory()
+    seat = enroll(
+        owner_session,
+        batch_id=teacher.batch_id,
+        display_name="Rahim",
+        student_account_id=student,
+        guardian_account_id=guardian,
+        student_decision="accepted",
+        guardian_decision="accepted",
+    )
+    append_entry(
+        owner_session,
+        enrollment_id=seat,
+        period="2026-10",
+        kind="charge",
+        amount=Money("1500.00"),
+    )
+    owner_session.add(
+        FeeCycle(
+            enrollment_id=seat,
+            period="2026-10",
+            due_date=dt.date(2026, 10, 10),
+            created_at=dt.datetime.now(tz=dt.UTC),
+        )
+    )
+    owner_session.commit()
+    paths = {
+        student: f"/v1/me/batches/{seat}/teaching",
+        guardian: f"/v1/children/{seat}/teaching",
+    }
+
+    def fees() -> list[dict[str, object]]:
+        return [
+            api_client.get(path, headers=bearer(owner_session, who)).json()[
+                "current_fee"
+            ]
+            for who, path in paths.items()
+        ]
+
+    claim = submit_claim(
+        owner_session,
+        enrollment_id=seat,
+        submitted_by_account_id=guardian,
+        claimed_amount=Money("1500.00"),
+        channel="bKash",
+        transaction_id="TX-2",
+    )
+    checking = fees()
+    verify_claim(
+        owner_session,
+        claim_id=claim.id,
+        approved_amount=Money("1500.00"),
+        shortfall_disposition=None,
+        verified_by_account_id=teacher.account_id,
+    )
+    paid = fees()
+
+    for line in checking:
+        assert (line["period"], line["verifying"]) == ("2026-10", True)
+    for line in paid:
+        assert (line["status"], line["verifying"], line["paid_on"]) == (
+            "paid",
+            False,
+            dt.datetime.now(tz=DHAKA).date().isoformat(),
+        )

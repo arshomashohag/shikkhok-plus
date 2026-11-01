@@ -1,6 +1,5 @@
 package com.shikkhokplus.app.feature.student
 
-import com.shikkhokplus.app.core.network.CurrentFeeDto
 import com.shikkhokplus.app.core.network.FamilyBatchViewDto
 import com.shikkhokplus.app.core.network.FamilyExamDto
 import com.shikkhokplus.app.core.network.MeDto
@@ -41,16 +40,6 @@ interface StudentRepository {
      * @return The series, a refusal, or a transport failure
      */
     suspend fun progress(enrollmentId: String): AuthResult<List<ProgressEntryDto>>
-
-    /**
-     * Read the seat's latest fee period for the batch header, when the
-     * batch list does not already carry it (a guardian's does not).
-     *
-     * @param enrollmentId The seat
-     * @return The latest period, null when the list's own is used or
-     *   none exists, a refusal, or a transport failure
-     */
-    suspend fun seatFee(enrollmentId: String): AuthResult<CurrentFeeDto?>
 
     /**
      * Read one exam of the seat's batch, with the topics it covers.

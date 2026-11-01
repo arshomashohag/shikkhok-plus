@@ -52,11 +52,6 @@ class StudentBatchViewModelTest {
         override suspend fun progress(enrollmentId: String): AuthResult<List<ProgressEntryDto>> =
             AuthResult.Ok<List<ProgressEntryDto>>(emptyList()).also { reads += "progress" }
 
-        var fee: CurrentFeeDto? = null
-
-        override suspend fun seatFee(enrollmentId: String): AuthResult<CurrentFeeDto?> =
-            AuthResult.Ok(fee).also { reads += "fee" }
-
         override suspend fun exam(enrollmentId: String, examId: String): AuthResult<FamilyExamDto> =
             AuthResult.Ok(FamilyExamDto(examId, "Monthly", "2026-11-02", "Physics", 50, listOf("Heat"), "upcoming"))
                 .also { reads += "exam" }
@@ -71,7 +66,36 @@ class StudentBatchViewModelTest {
         advanceUntilIdle()
 
         assertIs<StudentBatchUiState.Loaded>(model.state.value)
-        assertEquals(listOf("batches", "fee", "view", "progress"), repository.reads)
+        assertEquals(listOf("batches", "view", "progress"), repository.reads)
+    }
+
+    @Test
+    fun `a guardian's header takes the view's fee line, verifying and paid alike`() = runTest(dispatcher) {
+        // The guardian's row carries no fee. The header's fee is the
+        // server's line on the batch view, so a waiting claim hides Pay
+        // and a paid month says when -- neither re-derived here [TC-9].
+        val guardianRow = StudentBatchDto("e-1", "Physics A", childName = "Tasnim")
+        val checking =
+            CurrentFeeDto("2026-10", "unpaid", "2026-10-10", Money.of("1200.00"), Money.of("1200.00"), verifying = true)
+        val paid = checking.copy(status = "paid", outstanding = Money.of("0.00"), verifying = false, paidOn = "2026-10-08")
+
+        for ((line, check) in listOf(
+            checking to { fee: FeeLine? -> assertEquals(true, fee?.verifying) },
+            paid to { fee: FeeLine? -> assertEquals("2026-10-08", fee?.paidOn) },
+        )) {
+            val repository =
+                Fake(
+                    batches = AuthResult.Ok(listOf(guardianRow)),
+                    view = AuthResult.Ok(FamilyBatchViewDto(servedAt = "2026-10-28T09:00:00Z", currentFee = line)),
+                )
+            val model = StudentBatchViewModel(repository)
+
+            model.load("e-1")
+            advanceUntilIdle()
+
+            check(assertIs<StudentBatchUiState.Loaded>(model.state.value).view.batch.fee)
+            assertEquals(listOf("batches", "view", "progress"), repository.reads)
+        }
     }
 
     @Test
@@ -95,7 +119,7 @@ class StudentBatchViewModelTest {
         advanceUntilIdle()
         val failed = assertIs<StudentBatchUiState.Failed>(model.state.value)
         assertEquals(true, failed.retryable)
-        assertEquals(listOf("batches", "fee", "view"), repository.reads)
+        assertEquals(listOf("batches", "view"), repository.reads)
 
         repository.view = AuthResult.Ok(FamilyBatchViewDto(servedAt = "2026-10-28T09:00:00Z"))
         model.retry()
@@ -145,19 +169,6 @@ class StudentBatchViewModelTest {
         val loaded = assertIs<FamilyExamUiState.Loaded>(model.state.value)
         assertEquals(listOf("Heat"), loaded.exam.topics)
         assertEquals(listOf("exam"), repository.reads)
-    }
-
-    @Test
-    fun `a seat whose list carries no fee gets the latest period from the fee read`() = runTest(dispatcher) {
-        val repository = Fake()
-        repository.fee = CurrentFeeDto("2026-10", "unpaid", "2026-10-10", Money.of("1200.00"), Money.of("1200.00"))
-        val model = StudentBatchViewModel(repository)
-
-        model.load("e-1")
-        advanceUntilIdle()
-
-        val fee = (model.state.value as StudentBatchUiState.Loaded).view.batch.fee
-        assertEquals("fees.status.unpaid", fee?.statusKey)
     }
 
     @Test
