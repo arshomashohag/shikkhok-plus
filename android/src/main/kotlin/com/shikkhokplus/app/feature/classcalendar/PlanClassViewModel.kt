@@ -138,7 +138,7 @@ class PlanClassViewModel(
     private fun finish(outcome: TopicOutcome) {
         _state.value =
             when (outcome) {
-                TopicOutcome.Sent -> _state.value?.copy(saving = false, result = SaveResult.SENT)
+                is TopicOutcome.Sent -> _state.value?.copy(saving = false, result = SaveResult.SENT)
                 TopicOutcome.Queued -> _state.value?.copy(saving = false, result = SaveResult.QUEUED)
                 is TopicOutcome.ClassStarted ->
                     _state.value?.copy(saving = false, conflictItemId = outcome.item.id)

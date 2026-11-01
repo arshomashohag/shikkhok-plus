@@ -8,8 +8,12 @@ import com.shikkhokplus.app.feature.record.RecordRepository
 
 /** How a topic write ended. */
 sealed interface TopicOutcome {
-    /** The server has it. */
-    data object Sent : TopicOutcome
+    /**
+     * The server has it.
+     *
+     * @property version The topic version the server now holds
+     */
+    data class Sent(val version: Int) : TopicOutcome
 
     /** Kept on the phone; the queue sends it when the connection returns. */
     data object Queued : TopicOutcome
@@ -59,7 +63,7 @@ class TopicWriter(
         when (val outcome = repository.send(item)) {
             is SendOutcome.Applied -> {
                 store.remove(item.id)
-                TopicOutcome.Sent
+                TopicOutcome.Sent(outcome.resultingVersion)
             }
             is SendOutcome.Conflicted -> afterConflict(item, outcome)
             is SendOutcome.Failed -> {

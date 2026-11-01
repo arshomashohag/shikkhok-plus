@@ -240,4 +240,93 @@ class ClassDayViewModelTest {
             assertEquals("Typed", model.state.value?.topic)
             assertEquals(SaveResult.SENT, model.state.value?.result)
         }
+
+    @Test
+    fun `after Save as covered the form stays editable with the plan's words and one topic item`() =
+        runTest(dispatcher) {
+            val store = store()
+            refusedPlan(store)
+            val topics = FakeTopicSender(mutableListOf(SendOutcome.Failed(null)))
+            val attendance = Attendance()
+            val roster = AttendanceViewModel(attendance, Sessions(), store)
+            val model = ClassDayViewModel(roster, TopicWriter(store, topics), store)
+            model.open(started)
+            advanceUntilIdle()
+
+            model.saveAsCovered()
+            advanceUntilIdle()
+
+            val state = model.state.value
+            assertNull(state?.result)
+            assertEquals(SaveResult.QUEUED, state?.notice)
+            assertEquals("Newton's third law", state?.topic)
+            assertEquals("Bring ramps", state?.notes)
+            assertTrue(assertIs<AttendanceUiState.Marking>(roster.state.value).writable)
+            assertEquals(1, store.read().count { it.target == QueueTarget.TOPIC })
+
+            model.save()
+            advanceUntilIdle()
+
+            assertEquals(1, topics.sent.size)
+            assertEquals(1, attendance.sent.size)
+            assertEquals(1, store.read().count { it.target == QueueTarget.TOPIC })
+            assertEquals(SaveResult.QUEUED, model.state.value?.result)
+        }
+
+    @Test
+    fun `after a sent covered topic Save sends attendance only`() = runTest(dispatcher) {
+        val store = store()
+        refusedPlan(store)
+        val topics = FakeTopicSender()
+        val attendance = Attendance()
+        val roster = AttendanceViewModel(attendance, Sessions(), store)
+        val model = ClassDayViewModel(roster, TopicWriter(store, topics), store)
+        model.open(started)
+        advanceUntilIdle()
+        model.saveAsCovered()
+        advanceUntilIdle()
+
+        model.save()
+        advanceUntilIdle()
+
+        assertEquals(1, topics.sent.size)
+        assertEquals(1, attendance.sent.size)
+        assertTrue(store.read().none { it.target == QueueTarget.TOPIC })
+    }
+
+    @Test
+    fun `editing after a queued covered topic replaces it rather than adding another`() =
+        runTest(dispatcher) {
+            val store = store()
+            refusedPlan(store)
+            val topics = FakeTopicSender(mutableListOf(SendOutcome.Failed(null), SendOutcome.Failed(null)))
+            val roster = AttendanceViewModel(Attendance(), Sessions(), store)
+            val model = ClassDayViewModel(roster, TopicWriter(store, topics), store)
+            model.open(started)
+            advanceUntilIdle()
+            model.saveAsCovered()
+            advanceUntilIdle()
+
+            model.typeTopic("Friction")
+            model.save()
+            advanceUntilIdle()
+
+            val queued = store.read().filter { it.target == QueueTarget.TOPIC }
+            assertEquals(listOf("Friction"), queued.map { it.topic })
+        }
+
+    @Test
+    fun `reopening a class with a queued topic shows the queued words, not the server's`() =
+        runTest(dispatcher) {
+            val store = store()
+            store.enqueue(QueuedWrite.topic("s-1", 3, "Queued words", notes = "Queued notes"))
+            val roster = AttendanceViewModel(Attendance(), Sessions(), store)
+            val model = ClassDayViewModel(roster, TopicWriter(store, FakeTopicSender()), store)
+
+            model.open(calendarClass(state = CalendarState.TODAY, topic = "Stale", recordable = true))
+            advanceUntilIdle()
+
+            assertEquals("Queued words", model.state.value?.topic)
+            assertEquals("Queued notes", model.state.value?.notes)
+        }
 }

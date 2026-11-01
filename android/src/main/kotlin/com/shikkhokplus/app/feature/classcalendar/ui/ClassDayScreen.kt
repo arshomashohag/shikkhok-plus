@@ -34,12 +34,16 @@ import com.shikkhokplus.app.feature.attendance.ui.TAG_ATTENDANCE_RETRY
 import com.shikkhokplus.app.feature.attendance.ui.TAG_ATTENDANCE_SEAT
 import com.shikkhokplus.app.feature.attendance.ui.TAG_ATTENDANCE_TOGGLE
 import com.shikkhokplus.app.feature.auth.MessageKeys
+import com.shikkhokplus.app.feature.record.SaveResult
 
 /** The topics-covered field. */
 const val TAG_DAY_TOPIC: String = "day_topic"
 
 /** The save-class button. */
 const val TAG_DAY_SAVE: String = "day_save"
+
+/** A non-blocking note about a topic already sent or queued. */
+const val TAG_CLASS_NOTICE: String = "class_notice"
 
 /** The attendance outcome after a save. */
 const val TAG_DAY_ATTENDANCE_RESULT: String = "day_attendance_result"
@@ -115,6 +119,9 @@ fun ClassDayScreen(
                 enabled = editable,
                 fieldModifier = Modifier.testTag(TAG_CLASS_NOTES),
             )
+            if (editable) {
+                state.notice?.let { NoticeBanner(it) }
+            }
             AttendanceSection(attendance, editable, onToggle, onRetry)
             ResultAndAction(
                 result = state.result,
@@ -195,4 +202,19 @@ private fun SeatRow(seat: AttendanceSeat, enabled: Boolean, onToggle: (Attendanc
             modifier = Modifier.testTag(TAG_ATTENDANCE_TOGGLE),
         )
     }
+}
+
+@Composable
+private fun NoticeBanner(notice: SaveResult) {
+    val message =
+        when (notice) {
+            SaveResult.SENT -> R.string.record_saved
+            SaveResult.QUEUED -> R.string.record_queued
+            SaveResult.CONFLICTED -> R.string.record_conflicted
+        }
+    Banner(
+        stringResource(message),
+        Modifier.testTag(TAG_CLASS_NOTICE),
+        tone = if (notice == SaveResult.CONFLICTED) BannerTone.ERROR else BannerTone.INFO,
+    )
 }

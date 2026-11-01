@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.shikkhokplus.app.core.queue.QueueState
 import com.shikkhokplus.app.core.queue.QueueStore
+import com.shikkhokplus.app.core.queue.QueueTarget
 import com.shikkhokplus.app.core.queue.QueuedWrite
 import com.shikkhokplus.app.core.ui.CalendarClassUi
 import com.shikkhokplus.app.feature.attendance.AttendanceUiState
@@ -23,6 +24,12 @@ import kotlinx.coroutines.launch
  * @property saving A save is in flight
  * @property result How the topic write went, until the screen closes
  * @property conflictItemId A refused plan awaiting the teacher's choice
+ * @property notice How a topic write made before Save went, shown without
+ *   locking the form
+ * @property savedTopic The covered words already sent or queued, if any
+ * @property savedNotes The covered notes already sent or queued
+ * @property pendingItemId The queued covered-topic item still on the phone
+ * @property topicVersion The topic version after a covered write was sent
  */
 data class ClassDayUiState(
     val clazz: CalendarClassUi,
@@ -31,6 +38,11 @@ data class ClassDayUiState(
     val saving: Boolean = false,
     val result: SaveResult? = null,
     val conflictItemId: String? = null,
+    val notice: SaveResult? = null,
+    val savedTopic: String? = null,
+    val savedNotes: String = "",
+    val pendingItemId: String? = null,
+    val topicVersion: Int? = null,
 )
 
 /**
@@ -66,13 +78,25 @@ class ClassDayViewModel(
      */
     fun open(clazz: CalendarClassUi) {
         if (_state.value?.clazz?.sessionId == clazz.sessionId) return
-        val refused = refusedPlanFor(store.read(), clazz.sessionId)
+        val queue = store.read()
+        val refused = refusedPlanFor(queue, clazz.sessionId)
+        val pending =
+            queue.firstOrNull {
+                it.target == QueueTarget.TOPIC &&
+                    it.sessionId == clazz.sessionId &&
+                    it.state != QueueState.CONFLICTED &&
+                    !it.plan
+            }
+        val source = refused ?: pending
         _state.value =
             ClassDayUiState(
                 clazz = clazz,
-                topic = refused?.topic ?: clazz.topic.orEmpty(),
-                notes = refused?.notes ?: clazz.notes.orEmpty(),
+                topic = source?.topic ?: clazz.topic.orEmpty(),
+                notes = source?.notes ?: clazz.notes.orEmpty(),
                 conflictItemId = refused?.id,
+                savedTopic = pending?.topic?.trim(),
+                savedNotes = pending?.notes.orEmpty().trim(),
+                pendingItemId = pending?.id,
             )
         attendance.load(clazz.sessionId)
     }
@@ -101,20 +125,29 @@ class ClassDayViewModel(
         val marking = attendance.state.value as? AttendanceUiState.Marking ?: return
         if (current.saving) return
         _state.value = current.copy(saving = true)
-        val item =
-            QueuedWrite.topic(
-                sessionId = marking.sessionId,
-                baseVersion = marking.topicVersion,
-                topic = current.topic.trim(),
-                plan = false,
-                notes = current.notes.trim(),
-            )
+        val topic = current.topic.trim()
+        val notes = current.notes.trim()
+        val unchanged = current.savedTopic == topic && current.savedNotes == notes
         viewModelScope.launch {
-            val outcome = writer.submit(item)
+            val result =
+                if (unchanged) {
+                    current.notice ?: SaveResult.SENT
+                } else {
+                    current.pendingItemId?.let { store.remove(it) }
+                    val item =
+                        QueuedWrite.topic(
+                            sessionId = marking.sessionId,
+                            baseVersion = current.topicVersion ?: marking.topicVersion,
+                            topic = topic,
+                            plan = false,
+                            notes = notes,
+                        )
+                    writer.submit(item).asResult()
+                }
             if (marking.writable) {
                 attendance.submit(marking.sessionId, marking.attendanceVersion, marking.seats)
             }
-            _state.value = _state.value?.copy(saving = false, result = outcome.asResult())
+            _state.value = _state.value?.copy(saving = false, result = result)
         }
     }
 
@@ -128,7 +161,17 @@ class ClassDayViewModel(
         _state.value = _state.value?.copy(saving = true, conflictItemId = null)
         viewModelScope.launch {
             val outcome = writer.send(covered)
-            _state.value = _state.value?.copy(saving = false, result = outcome.asResult())
+            _state.value =
+                _state.value?.copy(
+                    saving = false,
+                    topic = covered.topic.orEmpty(),
+                    notes = covered.notes.orEmpty(),
+                    notice = outcome.asResult(),
+                    savedTopic = covered.topic.orEmpty().trim(),
+                    savedNotes = covered.notes.orEmpty().trim(),
+                    pendingItemId = covered.id.takeIf { outcome !is TopicOutcome.Sent },
+                    topicVersion = (outcome as? TopicOutcome.Sent)?.version,
+                )
         }
     }
 
@@ -152,7 +195,7 @@ class ClassDayViewModel(
 
     private fun TopicOutcome.asResult(): SaveResult =
         when (this) {
-            TopicOutcome.Sent -> SaveResult.SENT
+            is TopicOutcome.Sent -> SaveResult.SENT
             TopicOutcome.Queued -> SaveResult.QUEUED
             is TopicOutcome.ClassStarted, TopicOutcome.VersionConflict -> SaveResult.CONFLICTED
         }

@@ -2,7 +2,11 @@ package com.shikkhokplus.app.feature.classcalendar.ui
 
 import com.shikkhokplus.app.feature.classcalendar.ClassDayUiState
 import com.shikkhokplus.app.feature.classcalendar.calendarClass
+import androidx.compose.ui.test.assertAll
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
@@ -70,5 +74,28 @@ class ClassDayScreenTest {
         compose.onNodeWithTag(TAG_DAY_ATTENDANCE_RESULT).assertExists()
         compose.onNodeWithTag(TAG_CLASS_DONE).assertExists()
         compose.onAllNodesWithTag(TAG_DAY_SAVE).assertCountEquals(0)
+    }
+
+    @Test
+    fun `a refused plan shows the started choice, and after Save as covered attendance is editable`() {
+        var state by androidx.compose.runtime.mutableStateOf(fields.copy(conflictItemId = "q-1"))
+        compose.setContent {
+            ShikkhokTheme {
+                ClassDayScreen(
+                    state, marking, {}, {}, { _, _ -> },
+                    {}, { state = state.copy(conflictItemId = null, notice = SaveResult.QUEUED) }, {}, {}, {}, {},
+                )
+            }
+        }
+        compose.onNodeWithTag(com.shikkhokplus.app.feature.attendance.ui.TAG_CONFLICT_DISCARD).assertExists()
+        compose.onAllNodesWithTag(TAG_DAY_TOPIC).assertCountEquals(0)
+
+        compose.onNodeWithTag(com.shikkhokplus.app.feature.attendance.ui.TAG_CONFLICT_REAPPLY)
+            .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick)
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(TAG_CLASS_NOTICE).assertExists()
+        compose.onAllNodesWithTag(com.shikkhokplus.app.feature.attendance.ui.TAG_ATTENDANCE_TOGGLE)
+            .assertAll(androidx.compose.ui.test.isEnabled())
     }
 }
