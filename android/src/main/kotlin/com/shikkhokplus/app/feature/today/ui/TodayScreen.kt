@@ -89,6 +89,7 @@ private const val NOON = 12
  * @param bottomBar The teacher's tab bar
  * @param pending Topics saved on the phone and not yet sent, by class
  * @param notice A line to show above the day, such as a save result
+ * @param barActions Icons at the bar's end, such as the inbox bell
  */
 @Composable
 fun TodayScreen(
@@ -103,6 +104,7 @@ fun TodayScreen(
     bottomBar: @Composable () -> Unit = {},
     pending: Map<String, String> = emptyMap(),
     notice: @Composable () -> Unit = {},
+    barActions: @Composable RowScope.() -> Unit = {},
 ) {
     val date =
         when (state) {
@@ -115,6 +117,7 @@ fun TodayScreen(
         subtitle = date?.let(::dayHeading),
         modifier = modifier,
         bottomBar = bottomBar,
+        actions = barActions,
     ) {
         notice()
         when (state) {

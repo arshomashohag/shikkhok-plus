@@ -42,9 +42,7 @@ import com.shikkhokplus.app.feature.auth.SignupUiState
 import com.shikkhokplus.app.feature.auth.SignupViewModel
 import com.shikkhokplus.app.feature.auth.ui.AuthScreen
 import com.shikkhokplus.app.feature.auth.ui.SignupScreen
-import com.shikkhokplus.app.feature.batches.BatchesUiState
 import com.shikkhokplus.app.feature.batches.BatchesViewModel
-import com.shikkhokplus.app.feature.batches.ui.BatchesScreen
 import com.shikkhokplus.app.feature.roster.RosterViewModel
 import com.shikkhokplus.app.core.queue.QueueStore
 import com.shikkhokplus.app.core.session.Lens
@@ -229,33 +227,11 @@ fun ShikkhokNavHost(
             )
         }
 
-        composable(Destination.Batches.route) {
-            val model: BatchesViewModel =
-                viewModel { BatchesViewModel(HttpBatchesRepository(client)) }
-            val state by model.state.collectAsState()
-
-            LaunchedEffect(Unit) { model.load() }
-
-            BatchesScreen(
-                state = state,
-                bottomBar = {
-                    BottomNav(
-                        destinations = tabsFor(session.lens),
-                        selectedIndex = tabIndexOf(session.lens, Destination.Batches.route),
-                        onSelect = { navController.switchTab(it, session.lens) },
-                    )
-                },
-                onOpen = { id ->
-                    val name =
-                        (state as? BatchesUiState.Loaded)
-                            ?.rows
-                            ?.firstOrNull { it.id == id }
-                            ?.name
-                            .orEmpty()
-                    navController.navigate(Destination.Roster.of(id, name))
-                },
-                onRetry = model::retry,
-                onCreate = { navController.navigate(Destination.CreateBatch.route) },
+        batchesRoute(client, navController) {
+            BottomNav(
+                destinations = tabsFor(session.lens),
+                selectedIndex = tabIndexOf(session.lens, Destination.Batches.route),
+                onSelect = { navController.switchTab(it, session.lens) },
             )
         }
 

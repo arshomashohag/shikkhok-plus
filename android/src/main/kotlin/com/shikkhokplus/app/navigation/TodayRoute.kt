@@ -84,6 +84,7 @@ internal fun NavGraphBuilder.todayRoute(
             onCreateBatch = { navController.navigate(Destination.CreateBatch.route) },
             bottomBar = bottomBar,
             pending = pending,
+            barActions = { InboxBellFor(client) { navController.navigate(Destination.Inbox.route) } },
             notice = {
                 saved?.let { result ->
                     Banner(

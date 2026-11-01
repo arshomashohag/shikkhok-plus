@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -79,6 +80,7 @@ const val TAG_BATCH_ACCEPTED_COUNT: String = "batch_accepted_count"
  * @param modifier The layout modifier
  * @param bottomBar The navigation bar, supplied by the route so this
  *   screen stays renderable in a test without one
+ * @param barActions Icons at the bar's end, such as the inbox bell
  */
 @Composable
 fun BatchesScreen(
@@ -88,6 +90,7 @@ fun BatchesScreen(
     onCreate: () -> Unit,
     modifier: Modifier = Modifier,
     bottomBar: @Composable () -> Unit = {},
+    barActions: @Composable RowScope.() -> Unit = {},
 ) {
     // `BatchesHeader` stays, in the scaffold's header slot: it carries
     // the "N batches · M students" summary, which belongs above the
@@ -98,6 +101,7 @@ fun BatchesScreen(
         // "7 batches · 112 students" under the title, inside the bar.
         subtitle = batchesSubtitle(state),
         bottomBar = bottomBar,
+        actions = barActions,
     ) {
         when (state) {
             BatchesUiState.Idle -> Unit
