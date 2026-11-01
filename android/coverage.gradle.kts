@@ -61,6 +61,16 @@ val coverageExclusions = listOf(
     // was verified, which is exactly what the comment above says the
     // exclusions exist to prevent.
     //
+    // *(Superseded 2026-10-31, re-measured 2026-11-01.)* The Robolectric
+    // reason above is no longer true: `isIncludeNoLocationClasses`, below,
+    // lets JaCoCo see the sandbox's classes, and re-measured on
+    // 2026-11-01 the screens and `ui/` files record hits like any other
+    // code -- partially, not fully. The exclusion is RETAINED pending a
+    // deliberate re-baseline, not re-justified: counting them would pull
+    // the module figure well below the committed floor, and the ratchet
+    // may not go down. Bringing them back is its own step with its own
+    // floor, not a side effect of a fix.
+    //
     // The screens are NOT untested. `*ScreenTest` classes run on every
     // commit under Robolectric and assert what each state renders,
     // including the rules that are only observable as absences: that the
@@ -84,40 +94,31 @@ val coverageExclusions = listOf(
     // call site is how a route and its argument name drift apart. What
     // the composable adds beyond that is wiring Compose cannot measure
     // from bytecode.
+    //
+    // *(Superseded 2026-10-31, re-measured 2026-11-01.)* With
+    // `isIncludeNoLocationClasses` it records hits, so "can never record a
+    // hit" is no longer true. It is retained pending re-baseline for the
+    // same reason as the screens: counting it now would lower the figure,
+    // which the ratchet forbids.
     "**/navigation/*Kt*",
-    // **The screen scaffold, for the same reason as the screens.**
-    //
-    // *(Added 2026-10-26.)* `ScreenScaffold` is four composables and
-    // nothing else — a top bar, a width bound, a scroll decision. It
-    // is exercised by every `*ScreenTest` that renders a screen using
-    // it, and JaCoCo records no hits for the same Robolectric reason
-    // the screens were excluded for.
-    //
-    // Scoped to this one file rather than `**/designsystem/**`. The
-    // other composables there have been counted as uncovered since
-    // they were written, and widening the glob would raise the figure
-    // by excluding them rather than by verifying anything — which is
-    // the move this file's own comment warns against.
-    "**/designsystem/ScreenScaffoldKt*",
-    // **The bottom navigation bar, same reason, measured.**
-    //
-    // *(Added 2026-10-27.)* `BottomNavTest` renders the bar and clicks
-    // its tabs, and JaCoCo still recorded `BottomNavKt` at 0 covered
-    // against 24 missed -- the Robolectric limitation this file
-    // already documents for screens, in a component that happens to
-    // live under `designsystem/`.
-    //
-    // What the tests verify is not the line count: that all four
-    // destinations render, that an enabled tab reports its index, that
-    // a disabled one does not navigate, and that it becomes usable the
-    // moment its screen is ready.
-    "**/designsystem/BottomNavKt*",
-    // **The animated logo loader, same reason, measured.**
+    // **Removed 2026-11-01: ScreenScaffold, BottomNav, BrandHero, Buttons
+    // and Fields.** Each was excluded because JaCoCo recorded no hits under
+    // Robolectric. `isIncludeNoLocationClasses` (enabled 2026-10-31, below)
+    // made that false: re-measured, each is close to fully covered by the
+    // tests named in its old entry, so they are counted again and the
+    // floor in coverage-floor.txt was raised to the figure that includes
+    // them.
+    // **The animated logo loader, measured, and still excluded.**
     //
     // *(Added 2026-10-27.)* `LogoLoaderKt` is a Canvas drawing one
     // frame of an animation from a clock value. JaCoCo recorded 28
     // missed and 0 covered: Robolectric does not advance an infinite
     // transition, so no frame is ever drawn under test.
+    //
+    // *(Re-measured 2026-11-01.)* With `isIncludeNoLocationClasses` the
+    // "0 covered" above is superseded: the composition records hits, the
+    // frames still do not. The infinite-transition reason still holds for
+    // the uncovered part, so the exclusion stays.
     //
     // What IS testable here is tested: `LogoLoaderTest` asserts the
     // loader renders, that it carries a label when given one, and
@@ -125,32 +126,6 @@ val coverageExclusions = listOf(
     // success and failure paths — which is the behaviour the loader
     // exists to cover.
     "**/designsystem/LogoLoaderKt*",
-    // **The branding hero, same reason, measured.**
-    //
-    // *(Added 2026-10-27.)* `AuthScreenTest` renders it and asserts
-    // it is displayed, and JaCoCo still recorded `BrandHeroKt` at 0
-    // covered against 42 missed — the Robolectric limitation this
-    // file documents for every other composable.
-    //
-    // What the tests verify is the relationship the figure cannot
-    // see: that the hero, the number field, the action and the
-    // register link are ALL reachable on a 320x414 screen, which is
-    // the case a fixed hero plus a weighted body silently broke.
-    "**/designsystem/BrandHeroKt*",
-    // **The shared buttons and text field, same reason, measured.**
-    //
-    // *(Added 2026-10-28.)* `ButtonsKt` recorded 0 covered against 85
-    // missed and `FieldsKt` 0 against 91, while `ComponentsTest` pressed
-    // every button kind and typed into the phone field. They are
-    // composables and nothing else: heights, pills, borders.
-    //
-    // What `ComponentsTest` verifies is the behaviour a screen relies
-    // on: that a disabled main action cannot be pressed, that every
-    // button kind reports its press, that the phone field shows `+88`
-    // and passes what is typed, and that a refused field says so to a
-    // screen reader as well as in red.
-    "**/designsystem/ButtonsKt*",
-    "**/designsystem/FieldsKt*",
 )
 
 // **Robolectric loads app classes through its own sandbox classloader**,
