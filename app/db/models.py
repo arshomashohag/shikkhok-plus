@@ -1181,6 +1181,7 @@ class Session(Base):
     :ivar start_time: When it starts
     :ivar end_time: When it ends, or NULL
     :ivar topic: What was covered, or NULL while unlogged [BR2.2]
+    :ivar notes: Free-text note on the class, or NULL
     :ivar status: ``scheduled``, ``held`` or ``cancelled``
     :ivar origin: ``recurrence`` or ``ad_hoc``; no default [BR1.4]
     :ivar attendance_version: The roster's optimistic version
@@ -1210,6 +1211,7 @@ class Session(Base):
     # fact from one the teacher saved as blank, and collapsing the two
     # makes "topics covered in each" unanswerable.
     topic: Mapped[str | None] = mapped_column(String(2000), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(_SESSION_STATUS, nullable=False)
     origin: Mapped[str] = mapped_column(_SESSION_ORIGIN, nullable=False)
     attendance_version: Mapped[int] = mapped_column(Integer, nullable=False)
