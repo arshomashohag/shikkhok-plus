@@ -1,6 +1,12 @@
 package com.shikkhokplus.app.core.ui
 
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertHeightIsAtLeast
+import androidx.compose.ui.test.assertWidthIsAtLeast
+import androidx.compose.ui.test.getBoundsInRoot
+import androidx.compose.foundation.layout.requiredWidth
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -121,5 +127,48 @@ class MonthCalendarTest {
         compose.onNodeWithTag("calendar_picker_month_2026-09").performClick()
         assertEquals(listOf(YearMonth(2026, 9)), picked)
         compose.onAllNodesWithTag("calendar_picker_month_2026-09").assertCountEquals(0)
+    }
+
+    @Test
+    fun `a day cell is at least 48dp to touch on a 360dp phone`() {
+        compose.setContent {
+            ShikkhokTheme {
+                MonthCalendar(
+                    year = 2026,
+                    month = 11,
+                    days = days,
+                    firstMonth = YearMonth(2026, 9),
+                    lastMonth = YearMonth(2026, 12),
+                    onPickMonth = {},
+                    onDay = {},
+                    modifier = Modifier.requiredWidth(360.dp),
+                )
+            }
+        }
+        compose.onNodeWithTag("calendar_day_upcoming_2026-11-04")
+            .assertWidthIsAtLeast(48.dp)
+            .assertHeightIsAtLeast(48.dp)
+    }
+
+    @Test
+    fun `december 2026 puts day 1 in the Tuesday column`() {
+        compose.setContent {
+            ShikkhokTheme {
+                MonthCalendar(
+                    year = 2026,
+                    month = 12,
+                    days = listOf(day("2026-12-01", CalendarState.UPCOMING), day("2026-12-02", CalendarState.UPCOMING)),
+                    firstMonth = YearMonth(2026, 9),
+                    lastMonth = YearMonth(2026, 12),
+                    onPickMonth = {},
+                    onDay = {},
+                )
+            }
+        }
+        val first = compose.onNodeWithTag("calendar_day_upcoming_2026-12-01").getBoundsInRoot()
+        val second = compose.onNodeWithTag("calendar_day_upcoming_2026-12-02").getBoundsInRoot()
+        val columnWidth = second.left.value - first.left.value
+        val expectedLeft = 2 * columnWidth + (columnWidth - 48f) / 2
+        assertEquals(expectedLeft, first.left.value, 1f)
     }
 }

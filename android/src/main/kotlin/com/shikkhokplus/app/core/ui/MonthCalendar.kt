@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -266,36 +267,42 @@ private fun DayCell(
     Box(
         modifier = Modifier
             .size(Reach.touch)
-            .padding(2.dp)
-            .clip(cellShape)
-            .background(look.background)
-            .then(if (look.outline) Modifier.border(BorderStroke(1.5.dp, look.ink), cellShape) else Modifier)
-            .clickable { onDay(day) }
             .testTag(calendarDayTag(day.state, date))
-            .semantics { contentDescription = description },
+            .semantics { contentDescription = description }
+            .clickable { onDay(day) },
         contentAlignment = Alignment.Center,
     ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(2.dp)
+                .clip(cellShape)
+                .background(look.background)
+                .then(if (look.outline) Modifier.border(BorderStroke(1.5.dp, look.ink), cellShape) else Modifier),
+            contentAlignment = Alignment.Center,
+        ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (day.state == CalendarState.TAKEN) {
-                    Text("✓", color = look.ink, style = MaterialTheme.typography.labelSmall)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (day.state == CalendarState.TAKEN) {
+                        Text("✓", color = look.ink, style = MaterialTheme.typography.labelSmall)
+                    }
+                    Text(
+                        number.toString(),
+                        color = look.ink,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        textDecoration = if (day.state == CalendarState.CANCELLED) TextDecoration.LineThrough else null,
+                    )
                 }
-                Text(
-                    number.toString(),
-                    color = look.ink,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    textDecoration = if (day.state == CalendarState.CANCELLED) TextDecoration.LineThrough else null,
-                )
-            }
-            if (day.state == CalendarState.UPCOMING) {
-                Box(
-                    modifier = Modifier
-                        .padding(top = MARKER_GAP.dp)
-                        .size(DOT_SIZE.dp)
-                        .clip(CircleShape)
-                        .background(look.ink),
-                )
+                if (day.state == CalendarState.UPCOMING) {
+                    Box(
+                        modifier = Modifier
+                            .padding(top = MARKER_GAP.dp)
+                            .size(DOT_SIZE.dp)
+                            .clip(CircleShape)
+                            .background(look.ink),
+                    )
+                }
             }
         }
         if (count > 1) {

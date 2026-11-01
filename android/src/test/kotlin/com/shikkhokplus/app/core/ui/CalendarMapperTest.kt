@@ -79,4 +79,16 @@ class CalendarMapperTest {
         assertEquals("2026-03", YearMonth(2026, 3).toString())
         assertTrue(YearMonth(2026, 9) < YearMonth(2026, 11))
     }
+
+    @Test
+    fun `leading blanks follow the weekday the month starts on`() {
+        assertEquals(2, YearMonth(2026, 12).leadingBlanks())
+        assertEquals(6, YearMonth(2026, 8).leadingBlanks())
+    }
+
+    @Test
+    fun `february has 28 days in 2027 and 29 in 2028`() {
+        assertEquals(28, YearMonth(2027, 2).lengthOfMonth())
+        assertEquals(29, YearMonth(2028, 2).lengthOfMonth())
+    }
 }
