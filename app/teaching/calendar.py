@@ -66,6 +66,8 @@ class CalendarClass:
     :ivar plannable: Whether a teacher may still plan its topics
     :ivar recordable: Whether a teacher may record it
     :ivar mark: A family's mark for it; None for a teacher
+    :ivar topic_version: The topic log's version, to compose a write
+    :ivar attendance_version: The roster's version, to compose a write
     """
 
     session_id: uuid.UUID
@@ -79,6 +81,8 @@ class CalendarClass:
     plannable: bool
     recordable: bool
     mark: Mark | None
+    topic_version: int
+    attendance_version: int
 
 
 @dataclass(frozen=True)
@@ -105,6 +109,8 @@ class MonthView:
     :ivar last_month: The latest month readable, ``YYYY-MM``
     :ivar days: Days with classes, in order
     :ivar served_at: When this was computed, Bangladesh time
+    :ivar today: Bangladesh's date, so the phone never reads its own
+        clock to mark today
     """
 
     year: int
@@ -113,6 +119,7 @@ class MonthView:
     last_month: str
     days: list[CalendarDay]
     served_at: dt.datetime
+    today: dt.date
 
 
 @dataclass(frozen=True)
@@ -277,8 +284,12 @@ def _build(
                 topic=row.topic,
                 notes=row.notes,
                 plannable=open_class and row.status == "scheduled" and not started,
-                recordable=open_class and started,
+                # A class saved as covered before its start time stays
+                # correctable: held is recorded, whatever the clock says.
+                recordable=open_class and (started or row.status == "held"),
                 mark=None if seat is None else _mark(seat, row, present),
+                topic_version=row.topic_version,
+                attendance_version=row.attendance_version,
             )
         )
 
@@ -297,6 +308,7 @@ def _build(
         last_month=last,
         days=days,
         served_at=moment,
+        today=today,
     )
 
 

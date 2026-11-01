@@ -192,6 +192,7 @@ def _month_response(view: month_calendar.MonthView) -> MonthViewResponse:
         first_month=view.first_month,
         last_month=view.last_month,
         served_at=view.served_at,
+        today=view.today,
         days=[
             CalendarDayResponse(
                 date=day.date,

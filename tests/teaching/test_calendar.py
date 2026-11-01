@@ -236,7 +236,9 @@ def test_plannable_and_recordable_flip_at_start(
 def test_cancelled_held_and_closed_batch_flags(
     restricted_session, owner_session, teacher
 ) -> None:
-    """Cancelled and held are not plannable; a closed batch allows neither.
+    """Cancelled and held are not plannable; held stays recordable.
+
+    A closed batch allows neither.
 
     :param restricted_session: The restricted session
     :param owner_session: An arranging session
@@ -253,13 +255,86 @@ def test_cancelled_held_and_closed_batch_flags(
         (c.plannable, c.recordable)
         for c in _by_day(_teacher_month(restricted_session, teacher))[25].classes
     ]
-    assert flags == [(False, False), (False, False), (True, False)]
+    assert flags == [(False, False), (False, True), (True, False)]
 
     batch = owner_session.get_one(Batch, teacher.batch_id)
     batch.active = False
     owner_session.commit()
     closed = _by_day(_teacher_month(restricted_session, teacher))[25].classes
     assert [(c.plannable, c.recordable) for c in closed] == [(False, False)] * 3
+
+
+def test_a_class_held_before_its_start_stays_recordable(
+    restricted_session, owner_session, teacher
+) -> None:
+    """A class recorded early is still editable before its start time.
+
+    Written before the fix: ``recordable`` read only the clock, so a
+    teacher who saved today's class as covered at noon for a 4 pm
+    class could not correct it until 4 pm.
+
+    :param restricted_session: The restricted session
+    :param owner_session: An arranging session
+    :param teacher: The batch's owner
+    :return: None
+    """
+    _backdate(owner_session, teacher.batch_id)
+    _class(owner_session, teacher.batch_id, TODAY, dt.time(16, 0), "held")
+
+    cls = _by_day(_teacher_month(restricted_session, teacher))[10].classes[0]
+
+    assert (cls.state, cls.plannable, cls.recordable) == ("taken", False, True)
+
+
+def test_versions_and_today_are_carried(
+    restricted_session, owner_session, teacher
+) -> None:
+    """Each class carries both versions; the month carries Bangladesh's date.
+
+    The phone saves a plan or a topic from the calendar payload alone,
+    so it needs the versions the write is composed against.
+
+    :param restricted_session: The restricted session
+    :param owner_session: An arranging session
+    :param teacher: The batch's owner
+    :return: None
+    """
+    _backdate(owner_session, teacher.batch_id)
+    sid = _class(owner_session, teacher.batch_id, dt.date(2027, 5, 20))
+    row = owner_session.get_one(Session, sid)
+    row.topic_version, row.attendance_version = 3, 2
+    owner_session.commit()
+
+    view = _teacher_month(restricted_session, teacher)
+    cls = _by_day(view)[20].classes[0]
+
+    assert (cls.topic_version, cls.attendance_version) == (3, 2)
+    assert view.today == TODAY
+
+
+def test_today_is_bangladesh_date_not_utc(
+    restricted_session, owner_session, teacher
+) -> None:
+    """At 1 am in Dhaka it is still yesterday in UTC; today is Dhaka's.
+
+    :param restricted_session: The restricted session
+    :param owner_session: An arranging session
+    :param teacher: The batch's owner
+    :return: None
+    """
+    _backdate(owner_session, teacher.batch_id)
+    late = dt.datetime(2027, 5, 9, 19, 30, tzinfo=dt.UTC)
+
+    view = teacher_month(
+        restricted_session,
+        lens=_lens(teacher),
+        batch_id=teacher.batch_id,
+        year=2027,
+        month=5,
+        now=late,
+    )
+
+    assert view.today == dt.date(2027, 5, 10)
 
 
 def test_subject_topic_and_notes_are_carried(
@@ -742,3 +817,47 @@ def test_response_has_no_phone_address_or_self_name(
     assert body["days"]
     for key in _keys(body):
         assert not any(bad in key for bad in ("phone", "address", "self_name"))
+
+
+@pytest.mark.parametrize(
+    ("decision", "expected"), [("accepted", 200), ("pending", 403)]
+)
+def test_guardian_route_answers_only_an_accepted_link(
+    api_client: TestClient,
+    owner_session: DbSession,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+    decision: str,
+    expected: int,
+) -> None:
+    """The guardian route reads the child's month only for an accepted link.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param teacher: The owner
+    :param account_factory: Makes accounts
+    :param decision: The guardian's decision on the link
+    :param expected: The status the route answers
+    :return: None
+    """
+    today = bangladesh_today()
+    guardian = account_factory()
+    seat = enroll(
+        owner_session,
+        batch_id=teacher.batch_id,
+        display_name="Rahim",
+        guardian_account_id=guardian,
+        guardian_decision=decision,
+    )
+    _class(owner_session, teacher.batch_id, today)
+
+    response = api_client.get(
+        f"/v1/children/{seat}/calendar?year={today.year}&month={today.month}",
+        headers=bearer(owner_session, guardian),
+    )
+
+    assert response.status_code == expected
+    if expected == 200:
+        body = response.json()
+        assert body["today"] == today.isoformat()
+        assert body["days"][0]["classes"][0]["mark"] is not None

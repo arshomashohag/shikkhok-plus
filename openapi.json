@@ -582,8 +582,12 @@
       },
       "CalendarClassResponse": {
         "additionalProperties": false,
-        "description": "One class on the month calendar.\n\nEvery state is the server's DECISION; the client renders it.\n\n:ivar session_id: The class\n:ivar date: Its date\n:ivar start_time: When it starts\n:ivar end_time: When it ends, or null\n:ivar subject_name: The subject, or null\n:ivar state: The class's decided state\n:ivar topic: What is planned or covered, or null\n:ivar notes: Notes on the class, or null\n:ivar plannable: Whether the teacher may still plan its topics\n:ivar recordable: Whether the teacher may record it\n:ivar mark: A family's own mark; null for a teacher",
+        "description": "One class on the month calendar.\n\nEvery state is the server's DECISION; the client renders it.\n\n:ivar session_id: The class\n:ivar date: Its date\n:ivar start_time: When it starts\n:ivar end_time: When it ends, or null\n:ivar subject_name: The subject, or null\n:ivar state: The class's decided state\n:ivar topic: What is planned or covered, or null\n:ivar notes: Notes on the class, or null\n:ivar plannable: Whether the teacher may still plan its topics\n:ivar recordable: Whether the teacher may record it\n:ivar mark: A family's own mark; null for a teacher\n:ivar topic_version: The topic log's version, to compose a write\n:ivar attendance_version: The roster's version, to compose a write",
         "properties": {
+          "attendance_version": {
+            "title": "Attendance Version",
+            "type": "integer"
+          },
           "date": {
             "format": "date",
             "title": "Date",
@@ -679,15 +683,21 @@
               }
             ],
             "title": "Topic"
+          },
+          "topic_version": {
+            "title": "Topic Version",
+            "type": "integer"
           }
         },
         "required": [
+          "attendance_version",
           "date",
           "plannable",
           "recordable",
           "session_id",
           "start_time",
-          "state"
+          "state",
+          "topic_version"
         ],
         "title": "CalendarClassResponse",
         "type": "object"
@@ -2653,7 +2663,7 @@
       },
       "MonthViewResponse": {
         "additionalProperties": false,
-        "description": "One month of a batch's classes.\n\n:ivar year: The year shown\n:ivar month: The month shown\n:ivar first_month: The earliest readable month, ``YYYY-MM``\n:ivar last_month: The latest readable month, ``YYYY-MM``\n:ivar days: Days with classes\n:ivar served_at: When the server computed it",
+        "description": "One month of a batch's classes.\n\n:ivar year: The year shown\n:ivar month: The month shown\n:ivar first_month: The earliest readable month, ``YYYY-MM``\n:ivar last_month: The latest readable month, ``YYYY-MM``\n:ivar days: Days with classes\n:ivar served_at: When the server computed it\n:ivar today: Bangladesh's date when it was computed",
         "properties": {
           "days": {
             "items": {
@@ -2679,6 +2689,11 @@
             "title": "Served At",
             "type": "string"
           },
+          "today": {
+            "format": "date",
+            "title": "Today",
+            "type": "string"
+          },
           "year": {
             "title": "Year",
             "type": "integer"
@@ -2690,6 +2705,7 @@
           "last_month",
           "month",
           "served_at",
+          "today",
           "year"
         ],
         "title": "MonthViewResponse",

@@ -508,6 +508,8 @@ class CalendarClassResponse(BaseModel):
     :ivar plannable: Whether the teacher may still plan its topics
     :ivar recordable: Whether the teacher may record it
     :ivar mark: A family's own mark; null for a teacher
+    :ivar topic_version: The topic log's version, to compose a write
+    :ivar attendance_version: The roster's version, to compose a write
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -523,6 +525,8 @@ class CalendarClassResponse(BaseModel):
     plannable: bool
     recordable: bool
     mark: CalendarMark | None = None
+    topic_version: int
+    attendance_version: int
 
 
 class CalendarDayResponse(BaseModel):
@@ -549,6 +553,7 @@ class MonthViewResponse(BaseModel):
     :ivar last_month: The latest readable month, ``YYYY-MM``
     :ivar days: Days with classes
     :ivar served_at: When the server computed it
+    :ivar today: Bangladesh's date when it was computed
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -559,3 +564,4 @@ class MonthViewResponse(BaseModel):
     last_month: str
     days: list[CalendarDayResponse]
     served_at: dt.datetime
+    today: dt.date
