@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.feature.inbox
 
+import com.shikkhokplus.app.core.model.Money
 import com.shikkhokplus.app.core.network.InboxDto
 import com.shikkhokplus.app.core.network.NotificationDto
 import kotlin.test.Test
@@ -71,9 +72,20 @@ class InboxMapperTest {
 
     @Test
     fun `a fee reminder opens the fee history and a claim opens the queue`() {
+        // Shaped as the server sends a reminder: no source, no preview, a
+        // period and an amount, and the child's name on a guardian's copy
+        // only. The name is what routes it to the child's fee read.
+        fun reminder(child: String?) =
+            dto("fee_reminder", child = child, source = null)
+                .copy(period = "2026-10", amount = Money.of("1200.00"), preview = null)
+
         assertEquals(
             InboxTarget.Fees("e-1", guardian = true),
-            InboxMapper.targetOf(messages(dto("fee_reminder", child = "Rahim")).single()),
+            InboxMapper.targetOf(messages(reminder("Rahim")).single()),
+        )
+        assertEquals(
+            InboxTarget.Fees("e-1", guardian = false),
+            InboxMapper.targetOf(messages(reminder(null)).single()),
         )
         assertEquals(InboxTarget.Verify, InboxMapper.targetOf(messages(dto("claim_to_verify")).single()))
     }
