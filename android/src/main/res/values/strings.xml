@@ -436,6 +436,7 @@
       different path, because the two guard different columns.
     -->
     <string name="topic_version_conflict">Someone saved a different topic for this class after you wrote yours. Nothing has been changed yet - look at what it says now before saving again.</string>
+    <string name="topic_class_started">This class has started. Save the topics as covered or discard the plan.</string>
 
     <!-- State-based refusals: retrying unchanged cannot succeed. -->
     <string name="teaching_batch_inactive">This batch has been closed, so it can no longer be changed. You can still look at its records.</string>

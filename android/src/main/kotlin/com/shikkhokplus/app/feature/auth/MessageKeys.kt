@@ -141,6 +141,7 @@ object MessageKeys {
         "error.attendance_version_conflict" to
             R.string.attendance_version_conflict,
         "error.topic_version_conflict" to R.string.topic_version_conflict,
+        "teaching.topic.class_started" to R.string.topic_class_started,
         // D4: the four result states [BR4.3]. Two of them are derived
         // server-side rather than typed, and the wordings keep them
         // apart: conflating `not_entered` with `absent` publishes an

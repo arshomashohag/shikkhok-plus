@@ -4641,7 +4641,7 @@
       },
       "TopicWriteRequest": {
         "additionalProperties": false,
-        "description": "A session's topic [BR2.1].\n\n**The second and last D4 body carrying ``client_mutation_id``.**\n\nAn empty string is a topic logged as BLANK and is a different fact\nfrom never writing one [BR2.2].\n\n:ivar base_topic_version: The version this was composed against\n:ivar client_mutation_id: The replay key, per account\n:ivar topic: What was covered; '' means logged-and-blank",
+        "description": "A session's topic [BR2.1].\n\n**The second and last D4 body carrying ``client_mutation_id``.**\n\nAn empty string is a topic logged as BLANK and is a different fact\nfrom never writing one [BR2.2].\n\n:ivar base_topic_version: The version this was composed against\n:ivar client_mutation_id: The replay key, per account\n:ivar topic: What was covered; '' means logged-and-blank; null\n    clears a plan and is allowed only when ``plan`` is true\n:ivar plan: True plans the topic before the class starts\n:ivar notes: Free notes on the class",
         "properties": {
           "base_topic_version": {
             "minimum": 0.0,
@@ -4653,16 +4653,39 @@
             "title": "Client Mutation Id",
             "type": "string"
           },
+          "notes": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "plan": {
+            "default": false,
+            "title": "Plan",
+            "type": "boolean"
+          },
           "topic": {
-            "maxLength": 2000,
-            "title": "Topic",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Topic"
           }
         },
         "required": [
           "base_topic_version",
-          "client_mutation_id",
-          "topic"
+          "client_mutation_id"
         ],
         "title": "TopicWriteRequest",
         "type": "object"

@@ -458,6 +458,8 @@ def write_session_topic(
             base_version=body.base_topic_version,
             client_mutation_id=body.client_mutation_id,
             topic=body.topic,
+            plan=body.plan,
+            notes=body.notes,
         ).topic_version
     )
 

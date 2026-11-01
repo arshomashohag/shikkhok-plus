@@ -35,7 +35,7 @@ import datetime as dt
 import uuid
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.schemas.fees import CurrentFeeResponse
 
@@ -268,14 +268,30 @@ class TopicWriteRequest(BaseModel):
 
     :ivar base_topic_version: The version this was composed against
     :ivar client_mutation_id: The replay key, per account
-    :ivar topic: What was covered; '' means logged-and-blank
+    :ivar topic: What was covered; '' means logged-and-blank; null
+        clears a plan and is allowed only when ``plan`` is true
+    :ivar plan: True plans the topic before the class starts
+    :ivar notes: Free notes on the class
     """
 
     model_config = ConfigDict(extra="forbid")
 
     base_topic_version: int = Field(ge=0)
     client_mutation_id: uuid.UUID
-    topic: str = Field(max_length=2000)
+    topic: str | None = Field(default=None, max_length=2000)
+    plan: bool = False
+    notes: str | None = Field(default=None, max_length=2000)
+
+    @model_validator(mode="after")
+    def _topic_required_unless_planning(self) -> TopicWriteRequest:
+        """Refuse a null topic unless this is a plan.
+
+        :return: The validated request
+        :raises ValueError: The topic is null and this is not a plan
+        """
+        if self.topic is None and not self.plan:
+            raise ValueError("topic may be null only when plan is true")
+        return self
 
 
 class TopicWriteResponse(BaseModel):
