@@ -47,17 +47,29 @@ variable "apex_domain" {
 
 variable "project_subdomain" {
   description = <<-EOT
-    The label this project's own zone takes under the apex. With
-    apex_domain = "nirmatabd.com" and this = "shikkhokplus", the zone
-    is shikkhokplus.nirmatabd.com and the API is
+    The label this environment's own zone takes under the apex. Null
+    (the default) derives it from `environment`: "shikkhokplus" for
+    staging -- the name it was created with -- and "shikkhokplus-prod"
+    for production. With apex_domain = "nirmatabd.com", staging's zone
+    is shikkhokplus.nirmatabd.com and its API
     api.shikkhokplus.nirmatabd.com.
+
+    **Per environment, because both environments live in one account
+    and one apex** [OPS-10]: a shared label made the zone, the NS
+    delegation and the CloudFront alias collide. Must contain
+    "shikkhokplus" -- the CI role may change no other record names.
 
     A dedicated zone rather than records in the apex: the apex serves
     other projects, and the CDN module's `allow_overwrite` would take
     a name from one of them with the plan showing only a create.
   EOT
   type        = string
-  default     = "shikkhokplus"
+  default     = null
+
+  validation {
+    condition     = var.project_subdomain == null || can(regex("shikkhokplus", var.project_subdomain))
+    error_message = "project_subdomain must contain \"shikkhokplus\"; the CI role may change no other record names."
+  }
 }
 
 variable "api_subdomain" {

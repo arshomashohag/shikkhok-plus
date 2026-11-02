@@ -1,37 +1,37 @@
-# Adopting resources an earlier failed apply created.
+# Adopting resources an earlier failed STAGING apply created.
 #
-# **Why these exist.** Several applies failed partway -- on a
+# **Why this exists.** Several staging applies failed partway -- on a
 # permission, then on the security-group rule quota. CloudFront had
 # already been created by the time the later error aborted the run,
-# but the state write never happened, so Terraform does not know it
-# owns a distribution that exists. The next apply then tries to
-# CREATE one and AWS refuses with `CNAMEAlreadyExists`, because the
-# alias is already attached to the distribution Terraform forgot.
+# but the state write never happened, so Terraform did not know it
+# owned a distribution that existed. The next apply then tried to
+# CREATE one and AWS refused with `CNAMEAlreadyExists`, because the
+# alias was already attached to the distribution Terraform forgot.
 #
-# Importing is the cheap fix: the distribution is correct -- right
-# origin, right certificate, Deployed -- and deleting it would mean
-# disabling, waiting for propagation, and recreating, which is
-# 30-40 minutes to arrive back where we already are.
+# **Staging only, by construction** [OPS-10]. The block used to be
+# unconditional, and the state key is per environment -- so the first
+# production apply would have imported STAGING's distribution into
+# production's state, and the two environments' applies would then
+# have fought over one distribution. `for_each` on the environment
+# makes it impossible for this block to touch any other state.
 #
-# **Delete this file once the apply has run.** An import block for a
-# resource already in state is a no-op, so leaving it is harmless --
-# but it describes a one-time recovery and reads as permanent
-# configuration.
+# For a resource already in state the import is a no-op, which is what
+# it now is in staging; it stays only because removing it is a change
+# nobody can verify from here, and it is harmless where it applies.
 
 import {
+  for_each = var.environment == "staging" ? toset(["E1WAMR4H60DX9V"]) : toset([])
+
   to = module.cdn.aws_cloudfront_distribution.api
-  id = "E1WAMR4H60DX9V"
+  id = each.key
 }
 
-# **Only the distribution.** The `api.` alias records do NOT exist --
-# verified against the zone, which holds only the ACM validation
-# CNAME and the instance's self-registered `origin.` A record. The
-# apply failed before reaching them, so Terraform creating them is
-# correct rather than a conflict.
+# **Only the distribution.** The `api.` alias records did not exist --
+# verified against the zone, which held only the ACM validation CNAME
+# and the instance's self-registered `origin.` A record.
 #
-# A second hosted zone for this domain also exists
+# A second hosted zone for staging's domain also exists
 # (Z0757622VSB8RDYIC86I), created by one of the same failed applies.
-# It is not delegated -- the parent points at
-# Z047640733UWE123SQI2U, which is the one in state -- so it resolves
-# for nobody and costs USD 0.50/month. Delete it separately; it is
-# not referenced here.
+# It is not delegated -- the parent points at Z047640733UWE123SQI2U,
+# which is the one in state -- so it resolves for nobody and costs USD
+# 0.50/month. Delete it separately; it is not referenced here.

@@ -36,9 +36,29 @@ locals {
   # apply at CreateRole with AccessDenied, not silently.
   permissions_boundary_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/shikkhokplus/shikkhokplus-workload-boundary"
 
-  # The zone this project owns, e.g. shikkhokplus.nirmatabd.com.
+  # **The zone label is per ENVIRONMENT** [OPS-10]. It was one label
+  # for every environment, so a production apply would have created a
+  # second zone with staging's name, failed on the NS delegation staging
+  # already holds in the apex, and asked for CloudFront aliases staging's
+  # distribution already owns -- production could not exist beside
+  # staging at all.
+  #
+  # Staging keeps exactly the names it was created with, so its state
+  # does not churn: zone shikkhokplus.<apex>, API api.shikkhokplus.<apex>.
+  # Production gets a sibling zone directly under the apex -- NOT a
+  # child of staging's zone, whose delegation would then live in
+  # staging's state. Override with `project_subdomain` to choose the
+  # production name; the label must contain "shikkhokplus", because the
+  # CI role may only change record names that do [OPS-2].
+  default_project_subdomain = {
+    staging    = "shikkhokplus"
+    production = "shikkhokplus-prod"
+  }
+  project_subdomain = coalesce(var.project_subdomain, local.default_project_subdomain[var.environment])
+
+  # The zone this environment owns, e.g. shikkhokplus.nirmatabd.com.
   # The API is served at `${var.api_subdomain}.${this}`.
-  project_domain = "${var.project_subdomain}.${var.apex_domain}"
+  project_domain = "${local.project_subdomain}.${var.apex_domain}"
 }
 
 # **The budget is a precondition, checked before anything is created.**
@@ -232,7 +252,10 @@ module "staging_app" {
 
   permissions_boundary_arn = local.permissions_boundary_arn
 
-  name_prefix    = "shikkhokplus-rehearsal"
+  # Per environment, so a staging and a production rehearsal host
+  # cannot collide on a role, bucket or group name, and so each falls
+  # inside its environment's `shikkhokplus-<env>-*` deploy-role scope.
+  name_prefix    = "${local.name_prefix}-rehearsal"
   vpc_id         = module.network.vpc_id
   subnet_ids     = module.network.public_subnet_ids
   instance_type  = var.instance_type
