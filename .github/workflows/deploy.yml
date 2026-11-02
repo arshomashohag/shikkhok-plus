@@ -236,8 +236,9 @@ jobs:
     # only for the change-detection this replaced.
     runs-on: ubuntu-latest
     # A refresh can take 40 minutes (the readiness hook's own timeout
-    # plus one retry), and a rollback is a second refresh.
-    timeout-minutes: 100
+    # plus one retry), a rollback is a second refresh, and the snapshot
+    # wait is bounded at 30.
+    timeout-minutes: 130
     environment: ${{ inputs.environment }}
     steps:
       - uses: actions/checkout@v7
@@ -353,6 +354,66 @@ jobs:
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "Running before this deploy: ${tag:0:12}"
 
+      # **A named restore point before anything can migrate** [OPS-7].
+      #
+      # The new host runs `alembic upgrade head` at boot. RDS's
+      # automated backups give point-in-time recovery to about five
+      # minutes, but no named point that says "the database as it was
+      # before release X" -- and under pressure the difference between
+      # "restore snapshot predeploy-<sha>" and "work out the right
+      # second" is the difference between a runbook and a guess.
+      #
+      # **Fails the deploy rather than proceeding without one**, and
+      # BEFORE the deployment state is written, so a failure here
+      # changes nothing. A missing RDS instance is a failure too: this
+      # pipeline replaces the host on every deploy, and a database on
+      # the host's root volume (enable_rds = false) would be deleted
+      # with it.
+      #
+      # The newest seven pre-deploy snapshots are kept. Older ones are
+      # deleted so manual snapshots stay within the backup storage RDS
+      # includes free (up to the database's allocated size).
+      - name: Snapshot the database
+        id: snapshot
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+          SHA: ${{ needs.plan.outputs.sha }}
+        run: |
+          db="shikkhokplus-${ENVIRONMENT}-db"
+          if ! found=$(aws rds describe-db-instances \
+                --db-instance-identifier "$db" \
+                --query 'DBInstances[0].DBInstanceStatus' --output text 2>&1); then
+            echo "::error::Cannot snapshot $db before migrating: $found"
+            echo "This pipeline replaces the host on every deploy. Without"
+            echo "RDS (enable_rds = true) the database would be on the"
+            echo "host's root volume and deleted with it."
+            exit 1
+          fi
+          echo "$db is $found"
+
+          prefix="shikkhokplus-${ENVIRONMENT}-predeploy-"
+          snap="${prefix}${SHA:0:12}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          aws rds create-db-snapshot \
+            --db-instance-identifier "$db" \
+            --db-snapshot-identifier "$snap" \
+            --tags "Key=Purpose,Value=pre-deploy" "Key=Commit,Value=$SHA" >/dev/null
+          echo "Waiting for $snap..."
+          if ! aws rds wait db-snapshot-available --db-snapshot-identifier "$snap"; then
+            echo "::error::Snapshot $snap did not become available. Not deploying."
+            exit 1
+          fi
+          echo "snapshot=$snap" >> "$GITHUB_OUTPUT"
+          echo "| pre-deploy snapshot | \`$snap\` |" >> "$GITHUB_STEP_SUMMARY"
+
+          aws rds describe-db-snapshots --db-instance-identifier "$db" \
+            --snapshot-type manual \
+            --query "sort_by(DBSnapshots[?starts_with(DBSnapshotIdentifier, '$prefix')], &SnapshotCreateTime)[].DBSnapshotIdentifier" \
+            --output text | tr '\t' '\n' | sed '/^$/d' | head -n -7 \
+            | while read -r old; do
+                echo "Pruning $old"
+                aws rds delete-db-snapshot --db-snapshot-identifier "$old" >/dev/null
+              done
+
       # **Written BEFORE the refresh.** A replaced instance reads
       # these at boot. Writing them after would leave a window in
       # which a replacement comes back on the PREVIOUS image.
@@ -449,8 +510,8 @@ jobs:
       #
       # The schema is NOT rolled back. Migrations are forward-only and
       # must stay compatible with the previous release [team.md
-      # Deployment]; the pre-deploy snapshot is the recovery path when
-      # one was not, and infra/RESTORE.md is how to use it.
+      # Deployment]; the pre-deploy snapshot above is the recovery path
+      # when one was not, and infra/RESTORE.md is how to use it.
       - name: Roll back to the previous release
         if: failure() && steps.record.outcome == 'success'
         env:

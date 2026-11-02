@@ -118,6 +118,36 @@ resource "terraform_data" "budget_guard" {
   }
 }
 
+# **Production refuses a database that lives on the host** [OPS-7].
+#
+# The deploy pipeline replaces the app host on every release, and the
+# root volume is delete_on_termination = true. With enable_rds = false
+# the database would be on that volume -- so the next deploy, or any
+# failure replacement, deletes every teacher's and child's record with
+# no backup. That configuration is not a cheaper production; it is one
+# deploy away from data loss, so it is refused before anything is
+# created rather than documented and hoped about.
+#
+# Staging is not refused here, because a staging stack with no database
+# is a legitimate way to stand up the network and CDN alone. The deploy
+# workflow refuses to RELEASE to any environment without RDS -- it
+# cannot take the pre-migration snapshot -- so data is never put on a
+# host that is about to be replaced.
+resource "terraform_data" "durable_database_guard" {
+  lifecycle {
+    precondition {
+      condition     = var.environment != "production" || var.enable_rds
+      error_message = <<-EOT
+        production requires enable_rds = true.
+
+        The deploy replaces the app host on every release and its root
+        volume is deleted with it, so a database on the host would be
+        destroyed by the next deploy. See infra/RESTORE.md.
+      EOT
+    }
+  }
+}
+
 module "network" {
   source = "./modules/network"
 

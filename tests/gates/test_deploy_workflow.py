@@ -14,6 +14,10 @@ shipped, or a control whose absence would be silent:
   The refresh launches before it terminates; the smoke goes through the
   public URL; a failure after the release was recorded restores the
   previous one.
+- **No host can migrate before a named restore point exists** [OPS-7].
+  The new host runs ``alembic upgrade head`` at boot, so the snapshot
+  must be complete before the deployment state is written -- a failed
+  snapshot then changes nothing.
 """
 
 from __future__ import annotations
@@ -118,3 +122,17 @@ def test_a_failed_release_is_rolled_back() -> None:
     assert "steps.record.outcome" in str(rollback[0]["if"])
     # The previous release is captured before it is overwritten.
     assert ids.index("previous") < ids.index("record") < ids.index("roll")
+
+
+def test_the_database_is_snapshotted_before_anything_can_migrate() -> None:
+    steps = _steps("release")
+    ids = [s.get("id") for s in steps]
+
+    assert "snapshot" in ids
+    assert ids.index("snapshot") < ids.index("record") < ids.index("roll")
+    run = str(steps[ids.index("snapshot")]["run"])
+    assert "create-db-snapshot" in run
+    assert "wait db-snapshot-available" in run
+    # A step that tolerated failure would let the deploy proceed with
+    # no restore point, which is exactly the absence this exists for.
+    assert not steps[ids.index("snapshot")].get("continue-on-error")
