@@ -31,12 +31,11 @@ import com.shikkhokplus.app.core.format.shortDate
 import com.shikkhokplus.app.feature.guardian.LineState
 import com.shikkhokplus.app.feature.guardian.PaymentLine
 import com.shikkhokplus.app.feature.guardian.PaymentsUiState
-import com.shikkhokplus.app.feature.pay.PayOption
 
 /** One month's line. */
 const val TAG_PAYMENT_LINE: String = "payment_line"
 
-/** The pay button under the history. */
+/** The Send money button under the history, always shown once loaded. */
 const val TAG_PAYMENTS_PAY: String = "payments_pay"
 
 /** The "couldn't load" card, which warns against paying again. */
@@ -51,11 +50,11 @@ const val TAG_PAYMENTS_ERROR: String = "payments_error"
  *
  * @param state What to render
  * @param onBack Called to leave
- * @param onPay Called to pay the offered fee
+ * @param onPay Called to send money, offered whether or not anything is due
  * @param onRetry Called to read again
  */
 @Composable
-fun PaymentsScreen(state: PaymentsUiState, onBack: () -> Unit, onPay: (PayOption) -> Unit, onRetry: () -> Unit) {
+fun PaymentsScreen(state: PaymentsUiState, onBack: () -> Unit, onPay: () -> Unit, onRetry: () -> Unit) {
     val loaded = state as? PaymentsUiState.Loaded
     ScreenScaffold(
         title =
@@ -63,17 +62,18 @@ fun PaymentsScreen(state: PaymentsUiState, onBack: () -> Unit, onPay: (PayOption
                 ?: stringResource(R.string.guardian_open_fees),
         onBack = onBack,
         bottomBar = {
-            loaded?.next?.let { next ->
+            if (loaded != null) {
                 Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainerHigh)
+                    Text(
+                        stringResource(R.string.payments_send_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp),
+                    )
                     PrimaryButton(
-                        text =
-                            stringResource(
-                                R.string.payments_pay_for,
-                                Numerals.money(next.amountDue),
-                                Numerals.freeText(next.batchName),
-                            ),
-                        onClick = { onPay(next) },
+                        text = stringResource(R.string.payments_send_money),
+                        onClick = onPay,
                         modifier = Modifier.fillMaxWidth().padding(16.dp).testTag(TAG_PAYMENTS_PAY),
                     )
                 }

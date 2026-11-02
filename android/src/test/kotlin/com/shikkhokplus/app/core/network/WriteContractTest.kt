@@ -138,11 +138,10 @@ class WriteContractTest {
             Write("put", "/v1/exams/{exam_id}") {
                 HttpMarksRepository(it).editExam(ID, "Mid-term", "2026-11-04", 50, listOf("Motion"))
             },
-            Write("post", "/v1/enrollments/{enrollment_id}/claims") {
-                HttpPayRepository(it).submit(ID, ClaimSubmitDto(Money.of("1500.00"), "bKash", "DJ62K0LQ7V"))
-            },
-            Write("post", "/v1/children/{enrollment_id}/claims") {
-                HttpChildPayRepository(it, ID).submit(ID, ClaimSubmitDto(Money.of("1500.00"), "bKash", "DJ62K0LQ7V"))
+            Write("post", "/v1/payments") {
+                HttpPayRepository(it).submit(
+                    PaymentSubmitDto(listOf(ID), null, true, Money.of("1500.00"), "2026-11-02"),
+                )
             },
             Write("post", "/v1/payment-methods") {
                 HttpPaymentMethodsRepository(it).create(MOBILE_DRAFT)

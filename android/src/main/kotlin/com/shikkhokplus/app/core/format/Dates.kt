@@ -21,6 +21,20 @@ import java.util.TimeZone
 fun todayIso(): String = SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH).format(Date())
 
 /**
+ * Today's calendar date in Bangladesh, in the wire's `yyyy-MM-dd` form.
+ *
+ * Fixed to `Asia/Dhaka` rather than the phone's zone: the server refuses
+ * a payment dated after Bangladesh's today, so a phone set to another
+ * zone must not offer tomorrow's date.
+ *
+ * @return Today in Dhaka, e.g. `2026-11-02`
+ */
+fun dhakaTodayIso(): String =
+    SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH)
+        .apply { timeZone = TimeZone.getTimeZone("Asia/Dhaka") }
+        .format(Date())
+
+/**
  * Today's date as the date picker counts it: UTC midnight.
  *
  * The picker speaks UTC midnights. Today must be the LOCAL calendar

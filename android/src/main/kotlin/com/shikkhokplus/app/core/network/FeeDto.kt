@@ -152,20 +152,3 @@ data class PaymentDestinationDto(
     val channels: List<String> = emptyList(),
     @SerialName("teacher_display_name") val teacherDisplayName: String? = null,
 )
-
-/**
- * A claim being submitted.
- *
- * @property claimedAmount What the claimant says they paid, as a
- *   [Money] so it is serialized as a JSON **string** outbound too —
- *   the rule is both directions, not only inbound [BR6.2]
- * @property channel Which service it moved through, from the set the
- *   destination response supplied
- * @property transactionId The reference they quote, if any
- */
-@Serializable
-data class ClaimSubmitDto(
-    @SerialName("claimed_amount") val claimedAmount: Money,
-    val channel: String,
-    @SerialName("transaction_id") val transactionId: String? = null,
-)

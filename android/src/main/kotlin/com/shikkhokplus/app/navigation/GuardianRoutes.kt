@@ -9,13 +9,14 @@ import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import com.shikkhokplus.app.core.network.HttpChildPayRepository
+import com.shikkhokplus.app.core.network.HttpPayRepository
 import com.shikkhokplus.app.core.network.HttpGuardianRepository
 import com.shikkhokplus.app.feature.guardian.ChildProgressViewModel
 import com.shikkhokplus.app.feature.guardian.PaymentsViewModel
 import com.shikkhokplus.app.feature.guardian.ui.ChildProgressScreen
 import com.shikkhokplus.app.feature.guardian.ui.PaymentsScreen
 import com.shikkhokplus.app.feature.pay.PayViewModel
+import com.shikkhokplus.app.feature.student.FamilyReader
 import com.shikkhokplus.app.feature.pay.ui.PayActions
 import com.shikkhokplus.app.feature.pay.ui.PayScreen
 import io.ktor.client.HttpClient
@@ -47,7 +48,7 @@ internal fun NavGraphBuilder.guardianRoutes(
         PaymentsScreen(
             state = state,
             onBack = { navController.popBackStack() },
-            onPay = { option -> navController.navigate(Destination.ChildPay.of(option.enrollmentId)) },
+            onPay = { navController.navigate(Destination.ChildPay.of(seat)) },
             onRetry = { model.load(seat) },
         )
     }
@@ -77,7 +78,7 @@ internal fun NavGraphBuilder.guardianRoutes(
     ) { entry ->
         val seat = entry.arguments?.getString(Destination.ChildPay.ARG_SEAT).orEmpty()
         val model: PayViewModel =
-            viewModel(key = "child-pay-$seat") { PayViewModel(HttpChildPayRepository(client, seat)) }
+            viewModel(key = "child-pay-$seat") { PayViewModel(HttpPayRepository(client, FamilyReader.GUARDIAN)) }
         val state by model.state.collectAsState()
 
         LaunchedEffect(seat) { model.load(seat) }
@@ -88,7 +89,9 @@ internal fun NavGraphBuilder.guardianRoutes(
                 PayActions(
                     onClose = { navController.popBackStack() },
                     onChoose = model::choose,
-                    onChange = model::change,
+                    onBack = model::back,
+                    onBatch = model::chooseBatch,
+                    onToggleChild = model::toggleChild,
                     onType = model::type,
                     onSend = model::send,
                     onRetry = { model.load(seat) },

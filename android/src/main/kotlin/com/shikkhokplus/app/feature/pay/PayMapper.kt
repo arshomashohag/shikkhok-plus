@@ -1,15 +1,13 @@
 package com.shikkhokplus.app.feature.pay
 
 import com.shikkhokplus.app.core.model.Money
-import com.shikkhokplus.app.core.network.ClaimDto
-import com.shikkhokplus.app.core.network.ClaimSubmitDto
-import com.shikkhokplus.app.core.network.PayablesDto
-import com.shikkhokplus.app.core.network.PaymentDestinationDto
+import com.shikkhokplus.app.core.network.PaymentSubmitDto
+import com.shikkhokplus.app.core.network.StudentBatchDto
 
 /**
- * The S3 decisions that are the phone's to make: which screen, and
- * whether what was typed has the shape of a payment. Every amount and
- * every list is the server's.
+ * The decisions that are the phone's to make: how seats group into
+ * batches, and whether what was typed has the shape of a payment. Every
+ * amount and every owed figure is the server's.
  */
 object PayMapper {
     /** The key shown when the device cannot reach the server at all. */
@@ -19,62 +17,62 @@ object PayMapper {
     private const val MIN_TRANSACTION_ID = 6
 
     /**
-     * Map what can be paid: straight to the form when there is one fee
-     * and nothing to explain, otherwise the choice.
+     * Group the payer's accepted seats by batch, keeping the server's order.
      *
-     * @param dto The server's list
-     * @return The options and waiting lines
+     * @param seats The seats the server listed
+     * @return One entry per batch
      */
-    fun options(dto: PayablesDto): Pair<List<PayOption>, List<WaitingLine>> =
-        dto.payable.map { PayOption(it.enrollmentId, it.batchName, it.period, it.amountDue, it.dueDate) } to
-            dto.waiting.map { WaitingLine(it.batchName, it.period) }
+    fun batches(seats: List<StudentBatchDto>): List<PayBatch> =
+        seats
+            .groupBy { "${it.batchName}|${it.teacherDisplayName.orEmpty()}" }
+            .map { (key, group) ->
+                PayBatch(key, group.first().batchName, group.map { PaySeat(it.enrollmentId, it.childName) })
+            }
 
     /**
-     * The form for one fee, with the amount owed filled in.
+     * The seats a payment starts out covering.
      *
-     * @param option The fee
-     * @param destination Where to pay, or null when the teacher set no number
-     * @param canChange Whether other fees were on offer
-     * @return The form state
+     * @param batch The chosen batch
+     * @param preselect A seat to start on, or null
+     * @return That seat when it is in the batch, otherwise every seat
      */
-    fun filling(option: PayOption, destination: PaymentDestinationDto?, canChange: Boolean): PayUiState.Filling =
-        PayUiState.Filling(
-            option = option,
-            destination =
-                destination?.let { PayDestination(it.collectionNumber, it.collectionChannel, it.teacherDisplayName) },
-            channels = destination?.channels.orEmpty().ifEmpty { DEFAULT_CHANNELS },
-            form = PayForm(channel = destination?.collectionChannel, amount = option.amountDue.toString()),
-            canChange = canChange,
-        )
+    fun initialSelection(batch: PayBatch, preselect: String?): List<String> =
+        batch.seats.map { it.enrollmentId }.let { all ->
+            if (preselect != null && preselect in all) listOf(preselect) else all
+        }
 
     /**
      * What to send, or the format problem stopping it. Null for both
      * when a field is simply not filled yet.
      *
-     * @param form What was typed
-     * @return The claim to send, or the problem, or neither
+     * @param filling The form as it stands
+     * @return The payment to send, or the problem, or neither
      */
-    fun claimOf(form: PayForm): Pair<ClaimSubmitDto?, FormProblem?> {
-        val id = form.transactionId.trim()
+    fun requestOf(filling: PayUiState.Filling): Pair<PaymentSubmitDto?, FormProblem?> {
+        val form = filling.form
         val amount = Money.fromTyped(form.amount)
+        val reference = form.transactionId.trim()
+        val account = form.fromAccount.trim()
+        val choice = filling.choice
+        val kind = (choice as? PayChoice.Method)?.method?.kind
+        val missing =
+            amount == null || form.paidOn.isBlank() || filling.scope.selected.isEmpty() ||
+                (kind == "mobile" && reference.isEmpty()) || (kind == "bank" && account.isEmpty())
         return when {
-            id.isNotEmpty() && id.length < MIN_TRANSACTION_ID -> null to FormProblem.TRANSACTION_ID_SHORT
-            form.channel == null || id.isEmpty() || amount == null -> null to null
-            else -> ClaimSubmitDto(amount, form.channel, id) to null
+            kind == "mobile" && reference.isNotEmpty() && reference.length < MIN_TRANSACTION_ID ->
+                null to FormProblem.TRANSACTION_ID_SHORT
+            missing || amount == null -> null to null
+            else ->
+                PaymentSubmitDto(
+                    enrollmentIds = filling.scope.selected,
+                    paymentMethodId = (choice as? PayChoice.Method)?.method?.methodId,
+                    cash = choice is PayChoice.Cash,
+                    amount = amount,
+                    paidOn = form.paidOn,
+                    transactionId = reference.takeIf { kind == "mobile" },
+                    fromAccount = account.takeIf { kind == "bank" },
+                    note = form.note.trim().ifEmpty { null },
+                ) to null
         }
     }
-
-    /**
-     * The sent payment, from the server's record of it.
-     *
-     * @param claim The pending claim the server returned
-     * @param transactionId The ID that was quoted, which the claim
-     *   response does not echo
-     * @return What the "Payment sent" screen shows
-     */
-    fun sent(claim: ClaimDto, transactionId: String): SentPayment =
-        SentPayment(claim.claimedAmount, claim.channel, transactionId, claim.submittedAt)
-
-    /** The apps offered if the server named none. */
-    private val DEFAULT_CHANNELS = listOf("bKash", "Nagad", "Rocket")
 }

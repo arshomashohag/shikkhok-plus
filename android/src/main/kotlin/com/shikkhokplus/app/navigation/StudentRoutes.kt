@@ -85,7 +85,9 @@ internal fun NavGraphBuilder.studentRoutes(
                 PayActions(
                     onClose = { navController.popBackStack() },
                     onChoose = model::choose,
-                    onChange = model::change,
+                    onBack = model::back,
+                    onBatch = model::chooseBatch,
+                    onToggleChild = model::toggleChild,
                     onType = model::type,
                     onSend = model::send,
                     onRetry = { model.load(seat) },

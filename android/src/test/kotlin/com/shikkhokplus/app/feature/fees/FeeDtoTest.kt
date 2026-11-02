@@ -2,7 +2,6 @@ package com.shikkhokplus.app.feature.fees
 
 import com.shikkhokplus.app.core.model.Money
 import com.shikkhokplus.app.core.network.ClaimDto
-import com.shikkhokplus.app.core.network.ClaimSubmitDto
 import com.shikkhokplus.app.core.network.FeeCycleDto
 import com.shikkhokplus.app.core.network.PaymentDestinationDto
 import com.shikkhokplus.app.core.network.RosterFeeRowDto
@@ -252,32 +251,6 @@ class FeeDtoTest {
         val previous = decoded.previousDecision
         assertEquals("approved_full", previous?.get("status"))
         assertEquals("1000.00", previous?.get("approved_amount"))
-    }
-
-    // -----------------------------------------------------------------
-    // Outbound: the rule is BOTH directions.
-    // -----------------------------------------------------------------
-
-    @Test
-    fun `a submitted claim encodes its amount as a JSON string`() {
-        // Inbound is the half everyone tests. A client that POSTed a
-        // JSON number would hit the server's loud parser -- but the
-        // failure would surface as a rejected payment in front of a
-        // guardian, so it is asserted here instead.
-        val encoded =
-            json.encodeToString(
-                ClaimSubmitDto.serializer(),
-                ClaimSubmitDto(
-                    claimedAmount = Money.of("1500.00"),
-                    channel = "bKash",
-                    transactionId = "TX1",
-                ),
-            )
-
-        assertTrue(
-            """"claimed_amount":"1500.00"""" in encoded,
-            "the amount was not encoded as a JSON string: $encoded",
-        )
     }
 
     // -----------------------------------------------------------------

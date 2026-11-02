@@ -4,11 +4,8 @@ import com.shikkhokplus.app.feature.auth.AuthResult
 import com.shikkhokplus.app.feature.guardian.ChildProgressRepository
 import com.shikkhokplus.app.feature.guardian.GuardianRepository
 import com.shikkhokplus.app.feature.guardian.PaymentsRepository
-import com.shikkhokplus.app.feature.pay.PayRepository
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
 
 /**
  * The guardian repository, over HTTP.
@@ -39,25 +36,4 @@ class HttpGuardianRepository(
 
     override suspend fun progressSummary(seat: String): AuthResult<ProgressSummaryDto?> =
         call { client.get("/v1/children/$seat/progress/summary") }
-}
-
-/**
- * Paying for a child (G3's pay form), over HTTP: the same S3 flow, on
- * the guardian's own routes for the child holding [seat].
- *
- * @property client The authenticated HTTP client
- * @property seat Any one of the child's seats
- */
-class HttpChildPayRepository(
-    private val client: HttpClient,
-    private val seat: String,
-) : PayRepository {
-
-    override suspend fun payables(): AuthResult<PayablesDto> = call { client.get("/v1/children/$seat/payables") }
-
-    override suspend fun destination(enrollmentId: String): AuthResult<PaymentDestinationDto?> =
-        call { client.get("/v1/children/$enrollmentId/payment-destination") }
-
-    override suspend fun submit(enrollmentId: String, claim: ClaimSubmitDto): AuthResult<ClaimDto> =
-        call { client.post("/v1/children/$enrollmentId/claims") { setBody(claim) } }
 }
