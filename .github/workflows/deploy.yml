@@ -99,6 +99,38 @@ jobs:
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
           echo "Deploying $sha"
 
+      # **The release gate's CVE check: production only, and BLOCKING**
+      # [OPS-19]. The per-push scan in check.yml annotates at every
+      # severity and never blocks -- the affirmed two-speed model -- and
+      # until 2026-11-02 nothing read its results at release, so the
+      # blocking half did not exist. Here, before infrastructure or the
+      # image changes, each Critical or High finding in the commit being
+      # deployed fails the run unless .security-exceptions.md carries an
+      # unexpired entry for it; an expired entry fails it on its own; a
+      # finding whose severity cannot be looked up counts as High.
+      #
+      # Staging is not gated: it is where a fix is rehearsed, and
+      # blocking it would block the fix.
+      - uses: actions/setup-python@v7
+        if: inputs.environment == 'production'
+        with:
+          python-version: "3.12"
+
+      - name: Release gate - dependency CVEs
+        if: inputs.environment == 'production'
+        run: |
+          python -m pip install --require-hashes -r requirements.txt
+          # pip-audit exits non-zero when it finds anything; the gate
+          # below makes the decision, so its exit code is not the
+          # verdict -- but a missing report is.
+          pip-audit --requirement requirements.txt --format json \
+            --output audit.json --progress-spinner off || true
+          if [ ! -s audit.json ]; then
+            echo "::error::pip-audit produced no report; the gate cannot decide."
+            exit 1
+          fi
+          python3 deploy/cve_gate.py audit.json .security-exceptions.md
+
       - name: Fail early when the environment is not configured
         env:
           DEPLOY_ROLE: ${{ vars.AWS_DEPLOY_ROLE_ARN }}

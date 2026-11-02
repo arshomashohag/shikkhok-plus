@@ -149,3 +149,16 @@ def test_every_environment_trusts_only_the_header_nginx_overwrites() -> None:
     assert "SHIKKHOKPLUS_TRUSTED_CLIENT_IP_HEADER=X-Client-Address" in str(
         record[0]["run"]
     )
+
+
+def test_production_is_gated_on_dependency_cves_before_anything_changes() -> None:
+    # The blocking half of the two-speed CVE model [OPS-19]: in the plan
+    # job, which every other job needs, so a blocked release has applied
+    # no Terraform and pushed no image.
+    steps = _steps("plan")
+    gate = [s for s in steps if "deploy/cve_gate.py" in str(s.get("run", ""))]
+
+    assert len(gate) == 1
+    assert "production" in str(gate[0].get("if", ""))
+    assert not gate[0].get("continue-on-error")
+    assert ".security-exceptions.md" in str(gate[0]["run"])
