@@ -128,10 +128,12 @@ cat > /etc/nginx/sites-available/shikkhokplus <<'NGINX'
 # The viewer's address as CloudFront saw it, without the port.
 # CloudFront-Viewer-Address is `ip:port`; IPv6 addresses carry no
 # brackets, so the port is whatever follows the LAST colon and the
-# greedy capture takes everything before it. Absent or malformed
-# yields "", and nginx then sends no X-Client-Address at all.
+# greedy capture takes everything before it. The capture admits only
+# hex digits, colons and dots, so the result is one bare address --
+# never a list, a bracket or anything a caller smuggled in. Absent or
+# malformed yields "", and nginx then sends no X-Client-Address at all.
 map $http_cloudfront_viewer_address $shikkhok_client_ip {
-    "~^(?<addr>.+):[0-9]+$" $addr;
+    "~^(?<addr>[0-9A-Fa-f:.]+):[0-9]+$" $addr;
     default "";
 }
 
