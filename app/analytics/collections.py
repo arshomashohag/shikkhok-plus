@@ -46,6 +46,7 @@ __all__ = [
     "CollectionsReport",
     "LedgerFact",
     "MonthCollection",
+    "carried_in_by_period",
     "charged_by_period",
     "clamp_months",
     "collected_by_period",
@@ -67,12 +68,15 @@ class LedgerFact:
     :ivar superseded: A later entry compensates this one
     :ivar compensation: This row is a compensation or was written to
         undo a prior decision, not a bill or a receipt
+    :ivar reverses: Another row's ``superseded_by_id`` points here, so
+        this row is the compensation that cancels it
     """
 
     enrollment_id: uuid.UUID
     entry: LedgerEntry
     superseded: bool
     compensation: bool
+    reverses: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,6 +157,7 @@ def facts_for_seats(
             LedgerEntryRow.amount,
             LedgerEntryRow.superseded_by_id.is_not(None),
             sa.or_(targeted, LedgerEntryRow.payment_claim_id.is_not(None)),
+            targeted,
         )
         .where(LedgerEntryRow.enrollment_id.in_(list(seat_ids)))
         .order_by(LedgerEntryRow.period, LedgerEntryRow.created_at)
@@ -165,6 +170,7 @@ def facts_for_seats(
             ),
             superseded=bool(row[4]),
             compensation=bool(row[5]),
+            reverses=bool(row[6]),
         )
         for row in rows
     ]
@@ -182,6 +188,27 @@ def charged_by_period(facts: Sequence[LedgerFact]) -> dict[str, Money]:
             fact.entry.kind is LedgerEntryKind.CHARGE
             and not fact.superseded
             and not fact.compensation
+        ):
+            totals[fact.entry.period] += fact.entry.amount
+    return dict(totals)
+
+
+def carried_in_by_period(facts: Sequence[LedgerFact]) -> dict[str, Money]:
+    """Total the balances carried into each month by decisions still in force.
+
+    A ``carry_forward`` a correction superseded, and the one a
+    correction wrote to cancel a ``carried_out``, move nothing that
+    stands, so both are left out.
+
+    :param facts: Rows with their correction flags
+    :return: Carried in per period; months with none are absent
+    """
+    totals: defaultdict[str, Money] = defaultdict(lambda: Money.ZERO)
+    for fact in facts:
+        if (
+            fact.entry.kind is LedgerEntryKind.CARRY_FORWARD
+            and not fact.superseded
+            and not fact.reverses
         ):
             totals[fact.entry.period] += fact.entry.amount
     return dict(totals)

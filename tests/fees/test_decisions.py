@@ -13,6 +13,7 @@ first and Tanvir second everywhere.
 
 from __future__ import annotations
 
+import datetime as dt
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -37,7 +38,7 @@ from app.money import Money
 from app.notifications.inbox import inbox
 from tests.batches.conftest import TeacherFixture, enroll, make_teacher
 from tests.conftest import bearer
-from tests.fees.conftest import add_method, charge_period
+from tests.fees.conftest import add_method, charge_period, set_joined_on
 
 OCTOBER = "2026-10"
 
@@ -1404,3 +1405,143 @@ def test_a_full_approval_corrected_to_short_is_offered_and_accepted(
         {NOVEMBER: Money("500.00")},
         Money.ZERO,
     )
+
+
+def _october_line(
+    client: TestClient,
+    session: Session,
+    teacher: TeacherFixture,
+    seat: uuid.UUID,
+) -> dict[str, object]:
+    """Read October's history line on a seat's fee history.
+
+    :param client: The test client
+    :param session: A session to issue the token through
+    :param teacher: The seat's teacher
+    :param seat: The seat
+    :return: The history line
+    """
+    response = client.get(
+        f"/v1/enrollments/{seat}/fees",
+        headers=bearer(session, teacher.account_id),
+    )
+    assert response.status_code == 200, response.text
+    [october] = [
+        month for month in response.json()["month_states"] if month["period"] == OCTOBER
+    ]
+    line: dict[str, object] = october["history_line"]
+    return line
+
+
+def test_a_waiting_payment_shows_its_total_and_the_children_it_covers(
+    api_client: TestClient,
+    owner_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """2000 for both children, waiting: each child's line reads 2000 for both.
+
+    Each child's provisional share is not what anybody paid, and for a
+    child with a zero share it reads as nothing sent at all.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    family = _family(owner_session, teacher, account_factory)
+    _submit(api_client, owner_session, family, "2000.00")
+
+    for seat in (family.tania, family.tanvir):
+        line = _october_line(api_client, owner_session, teacher, seat)
+        assert (line["amount"], line["status"], line["covered_names"]) == (
+            "2000.00",
+            "pending",
+            ["Tania", "Tanvir"],
+        )
+
+
+def test_a_decided_payment_shows_what_was_approved_for_the_child(
+    api_client: TestClient,
+    owner_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """1500 for both, Tanvir carrying 500: Tania's line 1000, Tanvir's 500.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    family = _family(owner_session, teacher, account_factory)
+    submission = _submit(api_client, owner_session, family, "1500.00")
+    _approve(
+        api_client,
+        owner_session,
+        teacher,
+        submission,
+        "1500.00",
+        shortfall_disposition="carried",
+        carried_by_enrollment_id=family.tanvir,
+    )
+
+    tania = _october_line(api_client, owner_session, teacher, family.tania)
+    tanvir = _october_line(api_client, owner_session, teacher, family.tanvir)
+
+    assert (tania["amount"], tania["status"], tania["covered_names"]) == (
+        "1000.00",
+        "approved_full",
+        [],
+    )
+    assert (tanvir["amount"], tanvir["status"], tanvir["covered_names"]) == (
+        "500.00",
+        "approved_partial",
+        [],
+    )
+
+
+def test_a_corrected_approval_leaves_fee_history_charged_unchanged(
+    api_client: TestClient,
+    owner_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """Approve 600 of 1500 carried, then reject: October still charged 1500.
+
+    The correction writes a compensating 600 ``charge`` and a
+    compensating 900 carry into October; counted, October would read
+    3000 charged.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    family = _family(owner_session, teacher, account_factory, owed=None)
+    set_joined_on(owner_session, enrollment_id=family.tania, when=dt.date(2026, 10, 1))
+    generate_due_cycles(owner_session, today=dt.date(2026, 10, 20))
+    submission = _submit(
+        api_client, owner_session, family, "600.00", seats=[family.tania]
+    )
+    _approve(
+        api_client,
+        owner_session,
+        teacher,
+        submission,
+        "600.00",
+        shortfall_disposition="carried",
+    )
+
+    _reject_as_correction(api_client, owner_session, teacher, submission)
+
+    response = api_client.get(
+        f"/v1/enrollments/{family.tania}/fees",
+        headers=bearer(owner_session, teacher.account_id),
+    )
+    assert response.status_code == 200, response.text
+    charged = {cycle["period"]: cycle["charged"] for cycle in response.json()["cycles"]}
+    assert charged[OCTOBER] == "1500.00"

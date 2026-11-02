@@ -2540,7 +2540,7 @@
       },
       "HistoryLineResponse": {
         "additionalProperties": false,
-        "description": "The latest payment claim for one month, as data to localize.\n\n:ivar amount: What the claimant said they paid\n:ivar channel: Which service the money moved through\n:ivar paid_on: When the money was sent\n:ivar status: The claim's server-set status\n:ivar decision_note: The teacher's note on the decision, or null",
+        "description": "The latest payment claim for one month, as data to localize.\n\n:ivar amount: What was approved for the child once approved;\n    otherwise the whole payment as sent, covering ``covered_names``\n:ivar channel: Which service the money moved through\n:ivar paid_on: When the money was sent\n:ivar status: The claim's server-set status\n:ivar decision_note: The teacher's note on the decision, or null\n:ivar covered_names: The children the sent amount covered, in child\n    order; empty when the amount is the child's approved figure",
         "properties": {
           "amount": {
             "$ref": "#/components/schemas/Money"
@@ -2548,6 +2548,13 @@
           "channel": {
             "title": "Channel",
             "type": "string"
+          },
+          "covered_names": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Covered Names",
+            "type": "array"
           },
           "decision_note": {
             "anyOf": [

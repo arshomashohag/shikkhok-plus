@@ -207,6 +207,7 @@ def _history_line(line: views.HistoryLine | None) -> HistoryLineResponse | None:
         paid_on=line.paid_on,
         status=line.status,
         decision_note=line.decision_note,
+        covered_names=list(line.covered_names),
     )
 
 

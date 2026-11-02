@@ -9,6 +9,7 @@ import com.shikkhokplus.app.core.network.HistoryLineDto
 import com.shikkhokplus.app.core.network.FeeCycleDto
 import com.shikkhokplus.app.core.network.PaymentDestinationDto
 import com.shikkhokplus.app.core.network.RosterFeeRowDto
+import com.shikkhokplus.app.core.network.toHistoryLine
 import kotlinx.serialization.json.Json
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -311,6 +312,23 @@ class FeeDtoTest {
                 """{"amount": 1000, "channel": "Nagad", "paid_on": "2026-10-08", "status": "approved_full"}""",
             )
         }
+    }
+
+    @Test
+    fun `a waiting history line carries the children the whole payment covers`() {
+        val decoded =
+            json.decodeFromString<HistoryLineDto>(
+                """{"amount": "2000.00", "channel": "bKash", "paid_on": "2026-10-08", "status": "pending",
+                   "covered_names": ["Tania", "Tanvir"]}""",
+            )
+        assertEquals(Money.of("2000.00"), decoded.amount)
+        assertEquals(listOf("Tania", "Tanvir"), decoded.coveredNames)
+        assertEquals(listOf("Tania", "Tanvir"), decoded.toHistoryLine().coveredNames)
+        val approved =
+            json.decodeFromString<HistoryLineDto>(
+                """{"amount": "1000.00", "channel": "bKash", "paid_on": "2026-10-08", "status": "approved_full"}""",
+            )
+        assertEquals(emptyList(), approved.coveredNames)
     }
 
     @Test

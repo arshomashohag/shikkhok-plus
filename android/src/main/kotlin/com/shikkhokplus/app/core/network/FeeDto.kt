@@ -65,12 +65,15 @@ data class FeeHistoryDto(
  * Every field is structured: the server sends no English sentence, so
  * the phone words it in the person's language.
  *
- * @property amount What the claimant said they paid
+ * @property amount What was approved for this child once approved;
+ *   otherwise the whole payment as sent, covering [coveredNames]
  * @property channel Which service the money moved through, or `cash`
  * @property paidOn When the money was sent, `YYYY-MM-DD`
  * @property status `pending`, `approved_full`, `approved_partial` or
  *   `rejected`
  * @property decisionNote The teacher's note on the decision, if any
+ * @property coveredNames The children the sent amount covered, in the
+ *   server's order; empty when [amount] is the child's approved figure
  */
 @Serializable
 data class HistoryLineDto(
@@ -79,6 +82,7 @@ data class HistoryLineDto(
     @SerialName("paid_on") val paidOn: String,
     val status: String,
     @SerialName("decision_note") val decisionNote: String? = null,
+    @SerialName("covered_names") val coveredNames: List<String> = emptyList(),
 )
 
 /**
@@ -251,4 +255,5 @@ fun HistoryLineDto.toHistoryLine(): HistoryLine =
                 else -> ClaimOutcome.PENDING
             },
         decisionNote = decisionNote,
+        coveredNames = coveredNames,
     )

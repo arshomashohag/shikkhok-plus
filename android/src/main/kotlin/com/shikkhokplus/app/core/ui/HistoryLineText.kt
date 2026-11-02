@@ -18,9 +18,10 @@ private const val CASH_CHANNEL = "cash"
 /**
  * One month's latest payment claim, worded here from structured data.
  *
- * The server sends the amount, channel, date, status and the teacher's
- * note as separate fields, so the sentence is built in the person's
- * language and never arrives as English prose.
+ * The server sends the amount, channel, date, status, the teacher's
+ * note and the children a whole payment covered as separate fields, so
+ * the sentence is built in the person's language and never arrives as
+ * English prose.
  *
  * @param line The claim
  * @param modifier Layout modifier
@@ -45,6 +46,13 @@ fun HistoryLineText(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        if (line.coveredNames.isNotEmpty()) {
+            Text(
+                stringResource(R.string.history_line_for, line.coveredNames.joinToString(", ")),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         line.decisionNote?.let { note ->
             Text(
                 stringResource(R.string.history_note, note),

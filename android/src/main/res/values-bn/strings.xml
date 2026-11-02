@@ -1090,6 +1090,7 @@
     <string name="history_line_approved_full">%3$s তারিখে %2$s দিয়ে %1$s · অনুমোদিত</string>
     <string name="history_line_approved_partial">%3$s তারিখে %2$s দিয়ে %1$s · আংশিক অনুমোদিত</string>
     <string name="history_line_rejected">%3$s তারিখে %2$s দিয়ে %1$s · বাতিল</string>
+    <string name="history_line_for">%1$s-এর জন্য</string>
     <string name="history_note">নোট: %1$s</string>
     <string name="fee_strip_title">শেষ 6 মাস</string>
     <string name="fee_strip_legend">✓ পরিশোধিত · ½ আংশিক · ! বাকি · ○ মওকুফ · … যাচাই চলছে</string>

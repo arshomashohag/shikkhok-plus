@@ -36,6 +36,8 @@ from sqlalchemy.orm import Session
 
 from app.analytics.collections import (
     DEFAULT_MONTHS,
+    LedgerFact,
+    carried_in_by_period,
     charged_by_period,
     clamp_months,
     collected_by_period,
@@ -68,6 +70,7 @@ from app.fees.status import (
     month_state,
     status_from_entries,
 )
+from app.fees.submissions import child_order
 from app.local_time import bangladesh_today
 from app.money import LedgerEntry, LedgerEntryKind, Money, derive
 
@@ -200,11 +203,22 @@ class HistoryLine:
 
     Structured fields rather than a sentence, so the client localizes it.
 
-    :ivar amount: What the claimant said they paid
+    **The amount is one a person can recognise.** Once approved it is
+    what the teacher approved for this child. While a payment waits, or
+    once it is rejected, it is the whole payment as sent, with the
+    children it covered named: the child's provisional share is a split
+    nobody made, and for a child with a zero share it reads as nothing
+    sent at all.
+
+    :ivar amount: What was approved for the child; otherwise what was
+        sent, for every child in ``covered_names``
     :ivar channel: Which service the money moved through
     :ivar paid_on: When the money was sent
     :ivar status: One of the four server-set claim values
     :ivar decision_note: The teacher's note on the decision, or None
+    :ivar covered_names: The children the sent amount covered, in child
+        order; empty once the amount is the child's approved figure, and
+        for a claim made before payments covered several children
     """
 
     amount: Money
@@ -212,6 +226,7 @@ class HistoryLine:
     paid_on: dt.date
     status: ClaimStatus
     decision_note: str | None
+    covered_names: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True, slots=True)
@@ -536,11 +551,8 @@ def claims_by_month(
     """
     if not seat_ids:
         return {}
-    result: dict[tuple[uuid.UUID, str], MonthClaims] = {}
-    for claim, paid_on, submission_note in session.execute(
-        sa.select(
-            PaymentClaim, PaymentSubmission.paid_on, PaymentSubmission.decision_note
-        )
+    rows = session.execute(
+        sa.select(PaymentClaim, PaymentSubmission)
         .outerjoin(
             PaymentSubmission,
             PaymentSubmission.id == PaymentClaim.payment_submission_id,
@@ -549,25 +561,84 @@ def claims_by_month(
             PaymentClaim.enrollment_id.in_(seat_ids), PaymentClaim.period.in_(periods)
         )
         .order_by(PaymentClaim.submitted_at, PaymentClaim.id)
-    ).all():
+    ).all()
+    names = _covered_names(
+        session, [submission.id for _claim, submission in rows if submission]
+    )
+    result: dict[tuple[uuid.UUID, str], MonthClaims] = {}
+    for claim, submission in rows:
         key = (claim.enrollment_id, claim.period)
         waiting = claim.status == "pending" or (key in result and result[key].checking)
-        note = (
-            claim.rejection_reason
-            if claim.payment_submission_id is None
-            else submission_note
-        )
         result[key] = MonthClaims(
             checking=waiting,
-            latest=HistoryLine(
-                amount=claim.claimed_amount,
-                channel=claim.channel,
-                paid_on=paid_on or claim.submitted_at.date(),
-                status=claim_status(claim.status),
-                decision_note=note,
-            ),
+            latest=_history_line(claim, submission, names),
         )
     return result
+
+
+def _covered_names(
+    session: Session, submission_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, list[str]]:
+    """Name each submission's children, in child order, in one statement.
+
+    :param session: The session to read through
+    :param submission_ids: The submissions
+    :return: Submission id to its children's teacher-typed names
+    """
+    if not submission_ids:
+        return {}
+    seats: dict[uuid.UUID, list[Enrollment]] = {}
+    for submission_id, seat in session.execute(
+        sa.select(PaymentClaim.payment_submission_id, Enrollment)
+        .join(Enrollment, Enrollment.id == PaymentClaim.enrollment_id)
+        .where(PaymentClaim.payment_submission_id.in_(set(submission_ids)))
+    ).all():
+        if submission_id is not None:
+            seats.setdefault(submission_id, []).append(seat)
+    return {
+        submission_id: [seat.display_name for seat in sorted(found, key=child_order)]
+        for submission_id, found in seats.items()
+    }
+
+
+def _history_line(
+    claim: PaymentClaim,
+    submission: PaymentSubmission | None,
+    names: dict[uuid.UUID, list[str]],
+) -> HistoryLine:
+    """Describe one claim for a seat's month.
+
+    :param claim: The claim
+    :param submission: The payment it is a share of, or None
+    :param names: Each submission's children, in child order
+    :return: The line, amount chosen as :class:`HistoryLine` explains
+    """
+    status = claim_status(claim.status)
+    approved = status in ("approved_full", "approved_partial")
+    if submission is None:
+        return HistoryLine(
+            amount=(
+                claim.approved_amount
+                if approved and claim.approved_amount is not None
+                else claim.claimed_amount
+            ),
+            channel=claim.channel,
+            paid_on=claim.submitted_at.date(),
+            status=status,
+            decision_note=claim.rejection_reason,
+        )
+    if approved and claim.approved_amount is not None:
+        amount, covered = claim.approved_amount, []
+    else:
+        amount, covered = submission.total_amount, names.get(submission.id, [])
+    return HistoryLine(
+        amount=amount,
+        channel=claim.channel,
+        paid_on=submission.paid_on,
+        status=status,
+        decision_note=submission.decision_note,
+        covered_names=covered,
+    )
 
 
 def batch_month(
@@ -694,9 +765,10 @@ def enrollment_fee_history(
         )
     )
 
+    facts = facts_for_seats(session, [enrollment_id])
     rows: list[FeeCycleRow] = []
     for cycle in cycles:
-        charged = _charged_in(session, enrollment_id, cycle.period)
+        charged = _charged_in(facts, cycle.period)
         rows.append(
             FeeCycleRow(
                 period=cycle.period,
@@ -717,28 +789,24 @@ def enrollment_fee_history(
     )
 
 
-def _charged_in(session: Session, enrollment_id: uuid.UUID, period: str) -> Money:
-    """Total what was charged for one period.
+def _charged_in(facts: list[LedgerFact], period: str) -> Money:
+    """Total what was charged for one period, after corrections.
 
     ``charge`` and ``carry_forward`` both place an obligation on a
     period, so both count: a period that received a carried balance was
     charged that balance as surely as it was charged its own fee, and
     reporting only the ``charge`` rows would show a cycle owing more
-    than it was charged.
+    than it was charged. The rows a correction wrote or superseded are
+    left out by the collections report's own rules, so a corrected
+    decision moves neither figure.
 
-    :param session: The session to read through
-    :param enrollment_id: The seat
+    :param facts: The seat's rows with their correction flags
     :param period: The period
     :return: The total charged for it
     """
-    amounts = session.scalars(
-        sa.select(LedgerEntryRow.amount).where(
-            LedgerEntryRow.enrollment_id == enrollment_id,
-            LedgerEntryRow.period == period,
-            LedgerEntryRow.kind.in_(("charge", "carry_forward")),
-        )
-    ).all()
-    return Money.sum(amounts)
+    return charged_by_period(facts).get(period, Money.ZERO) + carried_in_by_period(
+        facts
+    ).get(period, Money.ZERO)
 
 
 def claim_detail(

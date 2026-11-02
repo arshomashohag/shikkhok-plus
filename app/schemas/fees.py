@@ -102,11 +102,14 @@ class FeeCycleResponse(BaseModel):
 class HistoryLineResponse(BaseModel):
     """The latest payment claim for one month, as data to localize.
 
-    :ivar amount: What the claimant said they paid
+    :ivar amount: What was approved for the child once approved;
+        otherwise the whole payment as sent, covering ``covered_names``
     :ivar channel: Which service the money moved through
     :ivar paid_on: When the money was sent
     :ivar status: The claim's server-set status
     :ivar decision_note: The teacher's note on the decision, or null
+    :ivar covered_names: The children the sent amount covered, in child
+        order; empty when the amount is the child's approved figure
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -116,6 +119,7 @@ class HistoryLineResponse(BaseModel):
     paid_on: dt.date
     status: ClaimStatus
     decision_note: str | None = None
+    covered_names: list[str] = Field(default_factory=list)
 
 
 class MonthStateResponse(BaseModel):

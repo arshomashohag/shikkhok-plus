@@ -1145,6 +1145,7 @@
     <string name="history_line_approved_full">%1$s by %2$s on %3$s · approved</string>
     <string name="history_line_approved_partial">%1$s by %2$s on %3$s · partly approved</string>
     <string name="history_line_rejected">%1$s by %2$s on %3$s · rejected</string>
+    <string name="history_line_for">For %1$s</string>
     <string name="history_note">Note: %1$s</string>
     <string name="fee_strip_title">Last 6 months</string>
     <string name="fee_strip_legend">✓ paid · ½ partly paid · ! unpaid · ○ waived · … being checked</string>
