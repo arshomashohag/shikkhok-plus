@@ -21,8 +21,14 @@ import sqlalchemy as sa
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.db.models import LedgerEntryRow, PaymentClaim, PaymentMethod
+from app.db.models import (
+    LedgerEntryRow,
+    PaymentClaim,
+    PaymentMethod,
+    PaymentSubmission,
+)
 from app.fees.balances import derive_for_enrollment
+from app.fees.claims import submit_claim
 from app.fees.generation import generate_due_cycles
 from app.fees.status import fee_status
 from app.local_time import bangladesh_today
@@ -684,3 +690,425 @@ def test_the_queue_lists_one_item_per_submission(
         "approved",
         "2000.00",
     )
+
+
+NOVEMBER = "2026-11"
+
+
+def _fold(session: Session, seat: uuid.UUID) -> tuple[dict[str, Money], Money]:
+    """Read a seat's non-zero per-period outstanding and its held credit.
+
+    :param session: A reading session
+    :param seat: The seat
+    :return: Period to outstanding, without zero periods, and the credit
+    """
+    derived = derive_for_enrollment(session, seat)
+    owing = {p: a for p, a in derived.per_cycle.items() if not a.is_zero()}
+    return owing, derived.available_credit
+
+
+def _two_months(
+    session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> Family:
+    """Seat the family with Tania owing October and November.
+
+    :param session: An arranging session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: The family
+    """
+    family = _family(session, teacher, account_factory)
+    charge_period(
+        session, enrollment_id=family.tania, period=NOVEMBER, amount="1000.00"
+    )
+    return family
+
+
+def _sum(entries: list[tuple[str, Money]]) -> Money:
+    """Total the amounts of some entries.
+
+    :param entries: ``(period, amount)`` pairs
+    :return: Their total
+    """
+    return Money.sum([amount for _period, amount in entries])
+
+
+def test_two_month_child_full_approval_pays_both_months(
+    api_client: TestClient,
+    owner_session: Session,
+    restricted_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """2000 for October and November pays both months and grants no credit.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param restricted_session: The application's session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    family = _two_months(owner_session, teacher, account_factory)
+    submission = _submit(
+        api_client, owner_session, family, "2000.00", seats=[family.tania]
+    )
+
+    response = _approve(api_client, owner_session, teacher, submission, "2000.00")
+
+    assert response.status_code == 200, response.text  # type: ignore[attr-defined]
+    kinds = _kinds(restricted_session, family.tania)
+    assert kinds["receipt"] == [
+        (OCTOBER, Money("1000.00")),
+        (NOVEMBER, Money("1000.00")),
+    ]
+    assert "credit_grant" not in kinds
+    assert _fold(restricted_session, family.tania) == ({}, Money.ZERO)
+
+
+def test_two_month_child_short_waived_forgives_the_later_month(
+    api_client: TestClient,
+    owner_session: Session,
+    restricted_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """1500 of 2000, waived: November's 500 is forgiven and nothing is owed.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param restricted_session: The application's session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    family = _two_months(owner_session, teacher, account_factory)
+    submission = _submit(
+        api_client, owner_session, family, "1500.00", seats=[family.tania]
+    )
+
+    response = _approve(
+        api_client,
+        owner_session,
+        teacher,
+        submission,
+        "1500.00",
+        shortfall_disposition="waived",
+    )
+
+    assert response.status_code == 200, response.text  # type: ignore[attr-defined]
+    kinds = _kinds(restricted_session, family.tania)
+    assert kinds["forgiveness"] == [(NOVEMBER, Money("500.00"))]
+    assert "credit_grant" not in kinds
+    assert _fold(restricted_session, family.tania) == ({}, Money.ZERO)
+    claim = restricted_session.scalars(
+        sa.select(PaymentClaim).where(PaymentClaim.payment_submission_id == submission)
+    ).one()
+    assert (claim.status, claim.shortfall_disposition) == (
+        "approved_partial",
+        "waived",
+    )
+
+
+def test_two_month_child_short_carried_moves_the_rest_on(
+    api_client: TestClient,
+    owner_session: Session,
+    restricted_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """1500 of 2000, carried: 500 is owed in December and nowhere else.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param restricted_session: The application's session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    family = _two_months(owner_session, teacher, account_factory)
+    submission = _submit(
+        api_client, owner_session, family, "1500.00", seats=[family.tania]
+    )
+
+    response = _approve(
+        api_client,
+        owner_session,
+        teacher,
+        submission,
+        "1500.00",
+        shortfall_disposition="carried",
+    )
+
+    assert response.status_code == 200, response.text  # type: ignore[attr-defined]
+    assert _fold(restricted_session, family.tania) == (
+        {"2026-12": Money("500.00")},
+        Money.ZERO,
+    )
+
+
+def test_below_one_month_waived_forgives_the_whole_shortfall_shown(
+    api_client: TestClient,
+    owner_session: Session,
+    restricted_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """400 of 2000, waived: the 1600 the teacher was shown is what is forgiven.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param restricted_session: The application's session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    family = _two_months(owner_session, teacher, account_factory)
+    submission = _submit(
+        api_client, owner_session, family, "400.00", seats=[family.tania]
+    )
+    shown = api_client.get(
+        f"/v1/payments/{submission}", headers=bearer(owner_session, teacher.account_id)
+    ).json()["difference"]
+
+    response = _approve(
+        api_client,
+        owner_session,
+        teacher,
+        submission,
+        "400.00",
+        shortfall_disposition="waived",
+    )
+
+    assert response.status_code == 200, response.text  # type: ignore[attr-defined]
+    forgiven = _sum(_kinds(restricted_session, family.tania)["forgiveness"])
+    assert forgiven == Money(shown) == Money("1600.00")
+    assert _fold(restricted_session, family.tania) == ({}, Money.ZERO)
+
+
+def test_over_payment_gives_no_credit_to_a_two_month_child_not_chosen(
+    api_client: TestClient,
+    owner_session: Session,
+    restricted_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """3500 for 3000 owed, credit to Tanvir: Tania's two months, no credit.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param restricted_session: The application's session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    family = _two_months(owner_session, teacher, account_factory)
+    submission = _submit(api_client, owner_session, family, "3500.00")
+
+    response = _approve(
+        api_client,
+        owner_session,
+        teacher,
+        submission,
+        "3500.00",
+        credit_to_enrollment_id=family.tanvir,
+    )
+
+    assert response.status_code == 200, response.text  # type: ignore[attr-defined]
+    assert "credit_grant" not in _kinds(restricted_session, family.tania)
+    assert _fold(restricted_session, family.tania) == ({}, Money.ZERO)
+    assert _kinds(restricted_session, family.tanvir)["credit_grant"] == [
+        (OCTOBER, Money("500.00"))
+    ]
+
+
+def _reject_as_correction(
+    client: TestClient,
+    session: Session,
+    teacher: TeacherFixture,
+    submission_id: uuid.UUID,
+) -> None:
+    """Reject a decided payment as a correction.
+
+    :param client: The test client
+    :param session: A session to issue the token through
+    :param teacher: The deciding teacher
+    :param submission_id: The submission
+    :return: None
+    """
+    response = client.post(
+        f"/v1/payments/{submission_id}/rejection",
+        json={"correcting": True},
+        headers=bearer(session, teacher.account_id),
+    )
+    assert response.status_code == 200, response.text
+
+
+def test_correcting_an_over_payment_restores_the_fold_exactly(
+    api_client: TestClient,
+    owner_session: Session,
+    restricted_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """Approve 2500 with 500 credit, then reject: both seats as before.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param restricted_session: The application's session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    family = _family(owner_session, teacher, account_factory)
+    seats = (family.tania, family.tanvir)
+    before = {seat: _fold(restricted_session, seat) for seat in seats}
+    submission = _submit(api_client, owner_session, family, "2500.00")
+    _approve(
+        api_client,
+        owner_session,
+        teacher,
+        submission,
+        "2500.00",
+        credit_to_enrollment_id=family.tania,
+    )
+
+    _reject_as_correction(api_client, owner_session, teacher, submission)
+
+    assert {seat: _fold(restricted_session, seat) for seat in seats} == before
+
+
+def test_correcting_a_nothing_owed_payment_leaves_no_stray_credit(
+    api_client: TestClient,
+    owner_session: Session,
+    restricted_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """A rejected credit-only payment does not pre-pay the next month.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param restricted_session: The application's session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    family = _family(owner_session, teacher, account_factory, owed=None)
+    submission = _submit(
+        api_client, owner_session, family, "1000.00", seats=[family.tania]
+    )
+    _approve(api_client, owner_session, teacher, submission, "1000.00")
+
+    _reject_as_correction(api_client, owner_session, teacher, submission)
+
+    assert _fold(restricted_session, family.tania) == ({}, Money.ZERO)
+    generate_due_cycles(restricted_session, today=bangladesh_today())
+    owing, credit = _fold(restricted_session, family.tania)
+    assert credit == Money.ZERO
+    assert owing == {NOVEMBER: Money("1500.00")}
+
+
+def test_correcting_a_two_month_approval_restores_the_fold(
+    api_client: TestClient,
+    owner_session: Session,
+    restricted_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """Approve 1500 of two months carried, then reject: as before.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param restricted_session: The application's session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    family = _two_months(owner_session, teacher, account_factory)
+    before = _fold(restricted_session, family.tania)
+    submission = _submit(
+        api_client, owner_session, family, "1500.00", seats=[family.tania]
+    )
+    _approve(
+        api_client,
+        owner_session,
+        teacher,
+        submission,
+        "1500.00",
+        shortfall_disposition="carried",
+    )
+
+    _reject_as_correction(api_client, owner_session, teacher, submission)
+
+    assert _fold(restricted_session, family.tania) == before
+
+
+def test_a_wrapped_legacy_claim_is_reviewed_and_decided(
+    api_client: TestClient,
+    owner_session: Session,
+    restricted_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """A pre-submission claim, wrapped as ``0014`` wraps it, can be decided.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param restricted_session: The application's session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    student = account_factory()
+    seat = enroll(
+        owner_session,
+        batch_id=teacher.batch_id,
+        display_name="Rahim",
+        student_account_id=student,
+        student_decision="accepted",
+    )
+    charge_period(owner_session, enrollment_id=seat, period=OCTOBER, amount="1000.00")
+    claim = submit_claim(
+        owner_session,
+        enrollment_id=seat,
+        submitted_by_account_id=student,
+        claimed_amount=Money("1000.00"),
+        channel="Nagad",
+        transaction_id="OLD123",
+    )
+    legacy = PaymentSubmission(
+        batch_id=teacher.batch_id,
+        destination_snapshot={"kind": "legacy", "channel": "Nagad"},
+        total_amount=claim.claimed_amount,
+        paid_on=bangladesh_today(),
+        transaction_id="OLD123",
+        submitted_by_account_id=student,
+        submitted_at=claim.submitted_at,
+        status="pending",
+    )
+    owner_session.add(legacy)
+    owner_session.flush()
+    claim.payment_submission_id = legacy.id
+    owner_session.commit()
+    headers = bearer(owner_session, teacher.account_id)
+
+    detail = api_client.get(f"/v1/payments/{legacy.id}", headers=headers)
+    decided = _approve(api_client, owner_session, teacher, legacy.id, "1000.00")
+
+    assert detail.status_code == 200, detail.text
+    assert detail.json()["method"] == {
+        "kind": "legacy",
+        "channel": "Nagad",
+        "method_id": None,
+        "provider": None,
+        "mobile_number": None,
+        "account_number": None,
+        "account_name": None,
+        "branch_name": None,
+        "note": None,
+    }
+    assert decided.status_code == 200, decided.text  # type: ignore[attr-defined]
+    assert fee_status(restricted_session, enrollment_id=seat, period=OCTOBER) == "paid"

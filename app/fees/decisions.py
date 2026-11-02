@@ -10,9 +10,10 @@ inside that one transaction and never re-runs a guard of its own.
 
 **The split is the money module's.** ``allocate_payment`` takes what was
 received and each child's owed figure in child order, and returns each
-child's approved amount. Each claim is then verified at that amount; the
-teacher's carry-or-waive reaches only a child approved below their
-period's charge, so a child paid in full gets no disposition.
+child's approved amount. Each child's amount then settles their months
+oldest first; the teacher's carry-or-waive reaches only a child approved
+below what they owe, so a child paid in full gets no disposition, and
+only the allocation's credit child can be left with an excess.
 
 **A correction withdraws every child's decision first**, compensating
 its entries, then writes the new one, so the allocation sees what was
@@ -39,7 +40,7 @@ from app.fees.balances import derive_for_enrollment
 from app.fees.queue import covered_children
 from app.fees.verification import (
     reject_claim_in_transaction,
-    verify_claim_in_transaction,
+    settle_claim_in_transaction,
     withdraw_decision,
 )
 from app.fees.views import owned_submission
@@ -314,28 +315,28 @@ def approve_submission(
 
     for claim, _seat in covered:
         withdraw_decision(session, claim, verified_by_account_id=lens.account_id)
+    owed = [
+        derive_for_enrollment(session, seat.id).total_outstanding
+        for _claim, seat in covered
+    ]
     try:
         allocation = _allocate(
             received,
-            [
-                derive_for_enrollment(session, seat.id).total_outstanding
-                for _claim, seat in covered
-            ],
+            owed,
             disposition=disposition,
             bearer_index=bearer_index,
             credit_index=credit_index,
         )
     except ValidationError as error:
         raise _discard_on_refusal(session, error) from None
-    for (claim, seat), approved in zip(covered, allocation.approved, strict=True):
-        charged = derive_for_enrollment(session, seat.id).per_cycle.get(
-            claim.period, Money.ZERO
-        )
-        verify_claim_in_transaction(
+    for (claim, _seat), approved, child_owed in zip(
+        covered, allocation.approved, owed, strict=True
+    ):
+        settle_claim_in_transaction(
             session,
             claim,
             approved_amount=approved,
-            shortfall_disposition=disposition if approved < charged else None,
+            shortfall_disposition=disposition if approved < child_owed else None,
             verified_by_account_id=lens.account_id,
         )
 

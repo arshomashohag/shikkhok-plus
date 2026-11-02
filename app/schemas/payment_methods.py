@@ -91,7 +91,9 @@ class PaymentDestinationResponse(BaseModel):
     A later edit or retirement of the method leaves this as it was, so
     the teacher checks against the number the family was shown.
 
-    :ivar kind: ``mobile``, ``bank``, or ``cash`` for money in hand
+    :ivar kind: ``mobile``, ``bank``, ``cash`` for money in hand, or
+        ``legacy`` for a payment reported before methods existed
+    :ivar channel: The service a ``legacy`` payment named, else null
     :ivar method_id: The method paid to, or null for cash
     :ivar provider: The mobile service or the bank's name
     :ivar mobile_number: The number, mobile methods only
@@ -103,7 +105,8 @@ class PaymentDestinationResponse(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: Literal["mobile", "bank", "cash"]
+    kind: Literal["mobile", "bank", "cash", "legacy"]
+    channel: str | None = None
     method_id: uuid.UUID | None = None
     provider: str | None = None
     mobile_number: str | None = None

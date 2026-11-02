@@ -26,6 +26,7 @@ from ._ledger import (
 )
 from ._money import Money
 from ._rounding import EXPONENT, MAX_INTEGER_DIGITS, ROUNDING
+from ._settlement import Settlement, settle_oldest_first
 
 __all__ = [
     "EXPONENT",
@@ -38,6 +39,7 @@ __all__ = [
     "LedgerEntryKind",
     "Money",
     "MoneyValidationError",
+    "Settlement",
     # Exported at D3, which is the first caller. It was private only
     # because nothing outside this package had yet needed to decide how
     # much credit to spend; the function was always part of the
@@ -49,4 +51,5 @@ __all__ = [
     "apply_credit",
     "carry_forward",
     "derive",
+    "settle_oldest_first",
 ]

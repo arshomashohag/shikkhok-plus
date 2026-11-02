@@ -3226,7 +3226,7 @@
       },
       "PaymentDestinationResponse": {
         "additionalProperties": false,
-        "description": "Where a family said they paid, copied when they paid.\n\nA later edit or retirement of the method leaves this as it was, so\nthe teacher checks against the number the family was shown.\n\n:ivar kind: ``mobile``, ``bank``, or ``cash`` for money in hand\n:ivar method_id: The method paid to, or null for cash\n:ivar provider: The mobile service or the bank's name\n:ivar mobile_number: The number, mobile methods only\n:ivar account_number: The account number, bank methods only\n:ivar account_name: The account holder, bank methods only\n:ivar branch_name: The branch, bank methods only\n:ivar note: The text shown with the method",
+        "description": "Where a family said they paid, copied when they paid.\n\nA later edit or retirement of the method leaves this as it was, so\nthe teacher checks against the number the family was shown.\n\n:ivar kind: ``mobile``, ``bank``, ``cash`` for money in hand, or\n    ``legacy`` for a payment reported before methods existed\n:ivar channel: The service a ``legacy`` payment named, else null\n:ivar method_id: The method paid to, or null for cash\n:ivar provider: The mobile service or the bank's name\n:ivar mobile_number: The number, mobile methods only\n:ivar account_number: The account number, bank methods only\n:ivar account_name: The account holder, bank methods only\n:ivar branch_name: The branch, bank methods only\n:ivar note: The text shown with the method",
         "properties": {
           "account_name": {
             "anyOf": [
@@ -3261,10 +3261,22 @@
             ],
             "title": "Branch Name"
           },
+          "channel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channel"
+          },
           "kind": {
             "enum": [
               "bank",
               "cash",
+              "legacy",
               "mobile"
             ],
             "title": "Kind",

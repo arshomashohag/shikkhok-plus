@@ -31,7 +31,7 @@ import uuid
 from dataclasses import dataclass
 
 import sqlalchemy as sa
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from app.db.models import (
     DISPOSITION_VALUES,
@@ -44,7 +44,7 @@ from app.errors import ConflictError, ValidationError
 from app.fees.balances import derive_for_enrollment
 from app.fees.ledger_writer import append_carry_pair, append_entry, supersede
 from app.fees.periods import Period
-from app.money import Money
+from app.money import Money, settle_oldest_first
 from app.notifications.inbox import (
     CLAIM_TO_VERIFY,
     PAYMENT_APPROVED,
@@ -60,6 +60,7 @@ __all__ = [
     "VerificationOutcome",
     "reject_claim",
     "reject_claim_in_transaction",
+    "settle_claim_in_transaction",
     "shortfall_of",
     "verify_claim",
     "verify_claim_in_transaction",
@@ -207,7 +208,10 @@ def _reverse_prior_entries(
     the balance identity, so the two cancel exactly: a ``receipt`` or a
     ``forgiveness`` relieved an obligation and is cancelled by a
     ``charge`` of the same amount, a ``credit_grant`` by a
-    ``credit_apply``, and either half of a carry by the other -- which
+    ``credit_apply`` together with a ``charge`` on the same period (the
+    ``credit_apply`` cancels the credit but would relieve that period, so
+    the ``charge`` puts the obligation back and the period nets to zero),
+    and either half of a carry by the other -- which
     reverses the whole pair and keeps
     ``sum(carry_forward) == sum(carried_out)`` true throughout.
 
@@ -216,15 +220,18 @@ def _reverse_prior_entries(
     :param verified_by_account_id: Who is correcting
     :return: None
     """
+    compensating = aliased(LedgerEntryRow)
     prior = list(
         session.scalars(
             # Only entries this claim produced, and only those not
             # already compensated -- a second correction must not
-            # reverse the first correction's reversals.
+            # reverse the first correction's reversals, so an entry
+            # that IS a compensation is excluded as well.
             sa.select(LedgerEntryRow)
             .where(
                 LedgerEntryRow.payment_claim_id == claim.id,
                 LedgerEntryRow.superseded_by_id.is_(None),
+                ~sa.exists().where(compensating.superseded_by_id == LedgerEntryRow.id),
             )
             .order_by(LedgerEntryRow.created_at)
         )
@@ -256,6 +263,16 @@ def _reverse_prior_entries(
             created_by_account_id=verified_by_account_id,
         )
         supersede(session, original=entry, compensation=compensation)
+        if entry.kind == "credit_grant":
+            append_entry(
+                session,
+                enrollment_id=claim.enrollment_id,
+                period=entry.period,
+                kind="charge",
+                amount=entry.amount,
+                payment_claim_id=claim.id,
+                created_by_account_id=verified_by_account_id,
+            )
 
 
 def shortfall_of(charged: Money, approved: Money) -> Money:
@@ -343,23 +360,7 @@ def verify_claim_in_transaction(
     charged = derived.per_cycle.get(period, Money.ZERO)
 
     shortfall = shortfall_of(charged, approved_amount)
-
-    if shortfall.is_positive():
-        if shortfall_disposition is None:
-            raise ValidationError(
-                code="SHORTFALL_DISPOSITION_REQUIRED",
-                message_key="fees.verification.disposition_required",
-            )
-        if shortfall_disposition not in DISPOSITION_VALUES:
-            raise ValidationError(
-                code="SHORTFALL_DISPOSITION_UNKNOWN",
-                message_key="fees.verification.disposition_unknown",
-            )
-    elif shortfall_disposition is not None:
-        raise ValidationError(
-            code="SHORTFALL_DISPOSITION_NOT_APPLICABLE",
-            message_key="fees.verification.disposition_not_applicable",
-        )
+    _check_disposition(shortfall, shortfall_disposition)
 
     # The receipt is capped at what the cycle owed; the excess is
     # credit, never a negative balance [BR4.2]. Cash in is
@@ -410,6 +411,167 @@ def verify_claim_in_transaction(
                 payment_claim_id=claim.id,
                 created_by_account_id=verified_by_account_id,
             )
+
+    claim.status = "approved_full" if shortfall.is_zero() else "approved_partial"
+    claim.approved_amount = approved_amount
+    claim.rejection_reason = None
+    claim.shortfall_disposition = shortfall_disposition
+    claim.verified_by_account_id = verified_by_account_id
+    claim.verified_at = dt.datetime.now(tz=dt.UTC)
+    return VerificationOutcome(claim=claim, shortfall=shortfall)
+
+
+def _check_disposition(shortfall: Money, shortfall_disposition: str | None) -> None:
+    """Require a disposition exactly when something is left short [BR5.4].
+
+    :param shortfall: What the approval leaves unpaid
+    :param shortfall_disposition: ``carried``, ``waived`` or None
+    :return: None
+    :raises ValidationError: Missing where required, unknown, or
+        supplied where nothing is short
+    """
+    if shortfall.is_positive():
+        if shortfall_disposition is None:
+            raise ValidationError(
+                code="SHORTFALL_DISPOSITION_REQUIRED",
+                message_key="fees.verification.disposition_required",
+            )
+        if shortfall_disposition not in DISPOSITION_VALUES:
+            raise ValidationError(
+                code="SHORTFALL_DISPOSITION_UNKNOWN",
+                message_key="fees.verification.disposition_unknown",
+            )
+    elif shortfall_disposition is not None:
+        raise ValidationError(
+            code="SHORTFALL_DISPOSITION_NOT_APPLICABLE",
+            message_key="fees.verification.disposition_not_applicable",
+        )
+
+
+def _dispose_shortfalls(
+    session: Session,
+    claim: PaymentClaim,
+    shortfalls: list[tuple[str, Money]],
+    *,
+    disposition: str | None,
+    verified_by_account_id: uuid.UUID,
+) -> None:
+    """Carry or waive what each month is still short of, oldest first.
+
+    A carry moves the month's shortfall into the month after it. When
+    that month is itself short, what was carried into it moves on with
+    its own shortfall, so the whole amount ends in one month rather than
+    leaving part of it behind.
+
+    :param session: The session to write through
+    :param claim: The claim the entries belong to
+    :param shortfalls: Each outstanding month and what it is short of
+    :param disposition: ``carried`` or ``waived``
+    :param verified_by_account_id: Who decided
+    :return: None
+    """
+    carried_into: dict[str, Money] = {}
+    for period, short in shortfalls:
+        if disposition == "carried":
+            moving = short + carried_into.get(period, Money.ZERO)
+            if not moving.is_positive():
+                continue
+            receiver = str(Period.parse(period).next())
+            append_carry_pair(
+                session,
+                enrollment_id=claim.enrollment_id,
+                amount=moving,
+                origin=period,
+                receiver=receiver,
+                payment_claim_id=claim.id,
+                created_by_account_id=verified_by_account_id,
+            )
+            carried_into[receiver] = carried_into.get(receiver, Money.ZERO) + moving
+        elif short.is_positive():
+            append_entry(
+                session,
+                enrollment_id=claim.enrollment_id,
+                period=period,
+                kind="forgiveness",
+                amount=short,
+                payment_claim_id=claim.id,
+                created_by_account_id=verified_by_account_id,
+            )
+
+
+def settle_claim_in_transaction(
+    session: Session,
+    claim: PaymentClaim,
+    *,
+    approved_amount: Money,
+    shortfall_disposition: str | None,
+    verified_by_account_id: uuid.UUID,
+) -> VerificationOutcome:
+    """Approve one child's share of a payment across every month they owe.
+
+    **Oldest month first.** The approved amount pays each outstanding
+    month up to what it owes, one ``receipt`` per month; what is left
+    after every month is paid is a ``credit_grant`` on the claim's
+    period. Each month still short then gets the teacher's disposition.
+    For a child owing one month this writes exactly what
+    :func:`verify_claim_in_transaction` writes.
+
+    No race guard, no notification and no commit: the caller has won the
+    decision on the submission and commits every child together. A claim
+    still carrying a decision is withdrawn first.
+
+    :param session: The session to write through
+    :param claim: The child's claim
+    :param approved_amount: What the allocation approved for this child
+    :param shortfall_disposition: ``carried`` or ``waived`` when the
+        approval leaves the child short, else None
+    :param verified_by_account_id: Who decided
+    :return: The decided claim and the child's total shortfall
+    :raises ValidationError: The amount is negative, or the disposition
+        is missing, unknown or not applicable
+    """
+    if approved_amount.is_negative():
+        raise ValidationError(
+            code="APPROVED_AMOUNT_NEGATIVE",
+            message_key="fees.verification.amount_negative",
+        )
+    withdraw_decision(session, claim, verified_by_account_id=verified_by_account_id)
+
+    per_cycle = derive_for_enrollment(session, claim.enrollment_id).per_cycle
+    periods = sorted(p for p, owed in per_cycle.items() if owed.is_positive())
+    settlement = settle_oldest_first(approved_amount, [per_cycle[p] for p in periods])
+    shortfall = Money.sum(settlement.shortfalls)
+    _check_disposition(shortfall, shortfall_disposition)
+
+    for period, receipt in zip(periods, settlement.receipts, strict=True):
+        if receipt.is_positive():
+            append_entry(
+                session,
+                enrollment_id=claim.enrollment_id,
+                period=period,
+                kind="receipt",
+                amount=receipt,
+                payment_claim_id=claim.id,
+                created_by_account_id=verified_by_account_id,
+            )
+    if settlement.excess.is_positive():
+        append_entry(
+            session,
+            enrollment_id=claim.enrollment_id,
+            period=claim.period,
+            kind="credit_grant",
+            amount=settlement.excess,
+            payment_claim_id=claim.id,
+            created_by_account_id=verified_by_account_id,
+        )
+    if shortfall.is_positive():
+        _dispose_shortfalls(
+            session,
+            claim,
+            list(zip(periods, settlement.shortfalls, strict=True)),
+            disposition=shortfall_disposition,
+            verified_by_account_id=verified_by_account_id,
+        )
 
     claim.status = "approved_full" if shortfall.is_zero() else "approved_partial"
     claim.approved_amount = approved_amount
