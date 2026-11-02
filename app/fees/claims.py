@@ -34,14 +34,15 @@ from app.money import Money
 from app.notifications.inbox import CLAIM_TO_VERIFY, deliver
 from app.notifications.recipients import teacher_recipient
 
-__all__ = ["CHANNELS", "NoOpenCycle", "submit_claim"]
+__all__ = ["CASH", "MOBILE_SERVICES", "NoOpenCycle", "submit_claim"]
 
-#: The payment channels V1 accepts [BR6.5, FR6.11]. **Server-supplied
+#: The mobile services the form suggests [BR6.5, FR6.11]. **Server-supplied
 #: data, not a client-side list**: adding one is a data change rather
-#: than an app release, and an installed Android app cannot be forced to
-#: update. The client reads this set from the payment-destination
-#: response and ships no enumeration of its own.
-CHANNELS: tuple[str, ...] = ("bKash", "Nagad", "Rocket", "cash")
+#: than an app release. A teacher may still name any other service.
+MOBILE_SERVICES: tuple[str, ...] = ("bKash", "Nagad", "Rocket")
+
+#: The built-in channel for money handed over in person.
+CASH: str = "cash"
 
 
 class NoOpenCycle(ValidationError):
@@ -88,7 +89,7 @@ def submit_claim(
             code="CLAIM_AMOUNT_NOT_POSITIVE",
             message_key="fees.claim.amount_not_positive",
         )
-    if channel not in CHANNELS:
+    if channel not in (*MOBILE_SERVICES, CASH):
         raise ValidationError(
             code="CLAIM_CHANNEL_UNKNOWN",
             message_key="fees.claim.channel_unknown",

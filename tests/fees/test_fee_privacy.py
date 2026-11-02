@@ -32,14 +32,13 @@ import datetime as dt
 import uuid
 
 import pytest
-import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from app.authz.lenses import GuardianLens, StudentLens, TeacherLens
 from app.db.models import FeeCycle
 from app.errors import AuthorizationError
 from app.errors.codes import NOT_AVAILABLE
-from app.fees import views
+from app.fees import methods, views
 from app.fees.ledger_writer import append_entry
 from app.fees.periods import Period
 from app.money import Money
@@ -422,22 +421,33 @@ def test_a_non_owning_teacher_cannot_verify_a_claim(
 
 
 # ---------------------------------------------------------------------
-# BR6.4, NFR14.32 — the collection number, bounded DOWNWARD.
+# BR6.4, NFR14.32 -- payment methods, bounded DOWNWARD.
 # ---------------------------------------------------------------------
 
 
-def test_the_collection_number_is_visible_to_an_enrolled_student(
+def _add_method(session: Session, owner_id: uuid.UUID) -> None:
+    """Arrange one live mobile method for an owner.
+
+    :param session: An arranging session
+    :param owner_id: The owner
+    :return: None
+    """
+    methods.create_method(
+        session,
+        lens=TeacherLens(account_id=uuid.uuid4(), owner_id=owner_id),
+        draft=methods.MethodDraft(
+            kind="mobile", provider="bKash", mobile_number="01711000000"
+        ),
+    )
+
+
+def test_the_methods_are_visible_to_an_enrolled_student(
     restricted_session: Session,
     owner_session: Session,
     teacher: TeacherFixture,
     account_factory: object,
 ) -> None:
-    owner_session.execute(
-        sa.text("UPDATE batch SET collection_number = :n WHERE id = :id"),
-        {"n": "01711000000", "id": teacher.batch_id},
-    )
-    owner_session.commit()
-
+    _add_method(owner_session, teacher.owner_id)
     me = account_factory()
     mine = enroll(
         owner_session,
@@ -448,30 +458,21 @@ def test_the_collection_number_is_visible_to_an_enrolled_student(
         guardian_decision="pending",
     )
 
-    destination = views.payment_destination(
-        restricted_session,
-        lens=StudentLens(account_id=me),
-        enrollment_id=mine,
+    family = methods.methods_for_seat(
+        restricted_session, lens=StudentLens(account_id=me), enrollment_id=mine
     )
 
-    assert destination is not None
-    assert destination.collection_number == "01711000000"
-    # [BR6.5] The channel set is SERVER-supplied, in the same response.
-    assert destination.channels
+    assert [m.mobile_number for m in family.methods] == ["01711000000"]
+    assert family.services
 
 
-def test_the_collection_number_is_refused_to_a_non_enrolled_student(
+def test_the_methods_are_refused_to_a_non_enrolled_student(
     restricted_session: Session,
     owner_session: Session,
     teacher: TeacherFixture,
     account_factory: object,
 ) -> None:
-    owner_session.execute(
-        sa.text("UPDATE batch SET collection_number = :n WHERE id = :id"),
-        {"n": "01711000000", "id": teacher.batch_id},
-    )
-    owner_session.commit()
-
+    _add_method(owner_session, teacher.owner_id)
     outsider = account_factory()
     someone_elses = enroll(
         owner_session,
@@ -483,28 +484,19 @@ def test_the_collection_number_is_refused_to_a_non_enrolled_student(
     )
 
     with pytest.raises(AuthorizationError):
-        views.payment_destination(
+        methods.methods_for_seat(
             restricted_session,
             lens=StudentLens(account_id=outsider),
             enrollment_id=someone_elses,
         )
 
 
-def test_an_unset_collection_number_omits_the_destination(
+def test_an_owner_with_no_methods_gives_an_empty_list(
     restricted_session: Session,
     owner_session: Session,
     teacher: TeacherFixture,
     account_factory: object,
 ) -> None:
-    # [NFR14.34] ABSENT, not present-with-null. A null invites a client
-    # placeholder; an absent object leaves the client nothing to render
-    # and the copy tells the person to ask the teacher.
-    owner_session.execute(
-        sa.text("UPDATE batch SET collection_number = NULL WHERE id = :id"),
-        {"id": teacher.batch_id},
-    )
-    owner_session.commit()
-
     me = account_factory()
     mine = enroll(
         owner_session,
@@ -515,17 +507,14 @@ def test_an_unset_collection_number_omits_the_destination(
         guardian_decision="pending",
     )
 
-    assert (
-        views.payment_destination(
-            restricted_session,
-            lens=StudentLens(account_id=me),
-            enrollment_id=mine,
-        )
-        is None
+    family = methods.methods_for_seat(
+        restricted_session, lens=StudentLens(account_id=me), enrollment_id=mine
     )
 
+    assert family.methods == []
 
-def test_no_other_fee_response_carries_the_collection_number(
+
+def test_no_other_fee_response_carries_method_details(
     restricted_session: Session,
     owner_session: Session,
     teacher: TeacherFixture,
@@ -536,11 +525,7 @@ def test_no_other_fee_response_carries_the_collection_number(
     # field; this asserts the collection number appears in no listing
     # and no overview, which is a different question about a field the
     # teacher is entitled to see.
-    owner_session.execute(
-        sa.text("UPDATE batch SET collection_number = :n WHERE id = :id"),
-        {"n": "01711000000", "id": teacher.batch_id},
-    )
-    owner_session.commit()
+    _add_method(owner_session, teacher.owner_id)
     _charge(restricted_session, seat, "2027-01", "1000.00")
 
     rows = views.batch_fee_overview(
@@ -555,9 +540,9 @@ def test_no_other_fee_response_carries_the_collection_number(
     )
 
     for row in [*rows, *history.cycles]:
-        assert not hasattr(row, "collection_number")
+        assert not hasattr(row, "mobile_number")
 
     # The WRAPPER too, not only its rows. `enrollment_fee_history`
     # gained a `total_outstanding` on 2026-10-27, and a field added to
     # the envelope would slip past a loop that only reads the entries.
-    assert not hasattr(history, "collection_number")
+    assert not hasattr(history, "mobile_number")

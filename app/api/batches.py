@@ -118,8 +118,6 @@ def _batch_response(summary: service.BatchSummary) -> BatchResponse:
         teacher_display_name=batch.teacher_display_name,
         default_fee=_to_wire(batch.default_fee),
         fee_due_day=batch.fee_due_day,
-        collection_number=batch.collection_number,
-        collection_channel=batch.collection_channel,
         marksheet_visible=batch.marksheet_visible,
         active=batch.active,
         enrollment_count=summary.enrollment_count,
@@ -202,8 +200,6 @@ def create_batch(
         teacher_display_name=body.teacher_display_name,
         default_fee=_from_wire(body.default_fee),
         fee_due_day=body.fee_due_day,
-        collection_number=body.collection_number,
-        collection_channel=body.collection_channel,
     )
     if slots:
         set_schedule(session, lens=lens, batch_id=summary.batch.id, slots=slots)
@@ -246,8 +242,6 @@ def update_batch(
                 teacher_display_name=body.teacher_display_name,
                 default_fee=_from_wire(body.default_fee),
                 fee_due_day=body.fee_due_day,
-                collection_number=body.collection_number,
-                collection_channel=body.collection_channel,
                 marksheet_visible=body.marksheet_visible,
                 active=body.active,
             ),

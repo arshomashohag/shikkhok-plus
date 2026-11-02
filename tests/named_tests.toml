@@ -556,19 +556,19 @@ criterion = "The third IDOR shape the affirmed posture names, landing for the fi
 rule = "BR6.4"
 
 [[test]]
-id = "test_the_collection_number_is_refused_to_a_non_enrolled_student"
+id = "test_the_methods_are_refused_to_a_non_enrolled_student"
 file = "tests/fees/test_fee_privacy.py"
 criterion = "A student not enrolled in that batch cannot reach the teacher's payment number, which is the one teacher-authored field deliberately disclosed downward and is bounded rather than incidental"
 rule = "BR6.4"
 
 [[test]]
-id = "test_no_other_fee_response_carries_the_collection_number"
+id = "test_no_other_fee_response_carries_method_details"
 file = "tests/fees/test_fee_privacy.py"
 criterion = "The direction the built schema-wide privacy invariant does not check: that gate asserts no teacher-facing response carries a PROFILE field, and this asserts the collection number appears in no listing and no overview"
 rule = "BR6.4"
 
 [[test]]
-id = "test_exactly_the_allowlisted_routes_carry_the_collection_number"
+id = "test_exactly_the_allowlisted_routes_carry_method_details"
 file = "tests/contract/test_collection_number.py"
 criterion = "An EQUALITY against the allowlist, not a membership test; a membership test passes the moment the field spreads to a fourth response, and NFR14.33's never-in-a-listing falls out of the equality"
 rule = "BR6.4"

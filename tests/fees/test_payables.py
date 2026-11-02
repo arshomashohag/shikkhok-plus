@@ -306,11 +306,7 @@ def test_the_payables_route_and_the_destination_name_the_teacher(
         owner_session, teacher, student, [("2026-10", "1500.00", dt.date(2026, 10, 10))]
     )
     owner_session.execute(
-        sa.text(
-            "UPDATE batch SET teacher_display_name = 'Najma', "
-            "collection_number = '01712345678', collection_channel = 'bKash' "
-            "WHERE id = :id"
-        ),
+        sa.text("UPDATE batch SET teacher_display_name = 'Najma' WHERE id = :id"),
         {"id": teacher.batch_id},
     )
     owner_session.commit()
@@ -318,7 +314,7 @@ def test_the_payables_route_and_the_destination_name_the_teacher(
 
     listed = api_client.get("/v1/me/payables", headers=headers).json()
     destination = api_client.get(
-        f"/v1/enrollments/{seat}/payment-destination", headers=headers
+        f"/v1/me/enrollments/{seat}/payment-methods", headers=headers
     ).json()
 
     assert listed["payable"][0]["amount_due"] == "1500.00"

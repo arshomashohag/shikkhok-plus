@@ -32,7 +32,6 @@ from app.schemas.fees import (
     ClaimResponse,
     ClaimSubmitRequest,
     PayablesResponse,
-    PaymentDestinationResponse,
 )
 from app.schemas.guardian import (
     ChildBatchResponse,
@@ -199,39 +198,6 @@ def read_child_payables(
         payables_for_seats(
             session, [(seat.enrollment_id, seat.batch_name) for seat in child.seats]
         )
-    )
-
-
-@router.get(
-    "/children/{enrollment_id}/payment-destination",
-    response_model=PaymentDestinationResponse | None,
-    responses=_AUTH_ERRORS,
-)
-def read_child_payment_destination(
-    enrollment_id: uuid.UUID,
-    session: Annotated[Session, Depends(get_session)],
-    lens: Annotated[GuardianLens, Depends(guardian_lens)],
-) -> PaymentDestinationResponse | None:
-    """Return where to pay for this seat, for its guardian.
-
-    The second downward disclosure of the collection number, to the
-    accepted guardian of a seat in that teacher's batch.
-
-    :param enrollment_id: The seat
-    :param session: The request-scoped session
-    :param lens: The guardian lens
-    :return: The destination, or None where the teacher set no number
-    """
-    destination = views.payment_destination(
-        session, lens=lens, enrollment_id=enrollment_id
-    )
-    if destination is None:
-        return None
-    return PaymentDestinationResponse(
-        collection_number=destination.collection_number,
-        collection_channel=destination.collection_channel,
-        channels=list(destination.channels),
-        teacher_display_name=destination.teacher_display_name,
     )
 
 

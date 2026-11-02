@@ -46,7 +46,6 @@ from app.schemas.fees import (
     FeeHistoryResponse,
     PayableResponse,
     PayablesResponse,
-    PaymentDestinationResponse,
     RecentDecisionResponse,
     RejectionRequest,
     ReminderRequest,
@@ -285,44 +284,6 @@ def read_child_fees(
         # The SERVER's total, from the ledger fold. The client is not
         # permitted to sum the rows [D-20, TC-9].
         total_outstanding=WireMoney(to_wire(history.total_outstanding)),
-    )
-
-
-@router.get(
-    "/enrollments/{enrollment_id}/payment-destination",
-    response_model=PaymentDestinationResponse | None,
-    responses=_AUTH_ERRORS,
-)
-def read_payment_destination(
-    enrollment_id: uuid.UUID,
-    session: Annotated[Session, Depends(get_session)],
-    lens: Annotated[StudentLens, Depends(student_lens)],
-) -> PaymentDestinationResponse | None:
-    """Return where to pay for this seat [BR6.4, NFR14.32].
-
-    **The one route in the product carrying the collection number**, and
-    a test over the generated document asserts that as an equality
-    rather than a membership.
-
-    Returns **null where the teacher set no number** [NFR14.34], so the
-    client omits the destination step entirely rather than rendering a
-    field with a null in it.
-
-    :param enrollment_id: The seat, from the route path
-    :param session: The request-scoped session
-    :param lens: The student lens
-    :return: The destination, or None
-    """
-    destination = views.payment_destination(
-        session, lens=lens, enrollment_id=enrollment_id
-    )
-    if destination is None:
-        return None
-    return PaymentDestinationResponse(
-        collection_number=destination.collection_number,
-        collection_channel=destination.collection_channel,
-        channels=list(destination.channels),
-        teacher_display_name=destination.teacher_display_name,
     )
 
 

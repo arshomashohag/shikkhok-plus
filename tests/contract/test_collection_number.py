@@ -1,21 +1,19 @@
-"""The collection number appears in exactly one response [BR6.4].
+"""Payment-method details appear on exactly the allowlisted routes [BR6.4].
 
 **The direction the built privacy gate does not check.** That gate
 asserts no TEACHER-facing response carries an owner-private profile
-field or a global account id. The collection number is neither: it is
+field or a global account id. Method details are neither: they are
 teacher-authored and deliberately disclosed *downward* to the students
-and guardians who need it in order to pay. So the question here is not
-"may a teacher see it" -- they may, it is theirs -- but "does it reach
-anybody else", and that needs its own mechanism.
+and guardians who need them in order to pay. So the question here is
+"does it reach anybody else", and that needs its own mechanism.
 
 **An equality, not a membership test.** A membership test passes the
-moment the field spreads to a second response, which is exactly the
-failure NFR14.33 names: it must appear in no listing and no search, and
-that falls out of the equality rather than needing a separate assertion.
+moment a field spreads to a second response.
 """
 
 from __future__ import annotations
 
+import pytest
 from fastapi import Depends, FastAPI
 from pydantic import BaseModel
 
@@ -23,6 +21,7 @@ from app.authz.lenses import StudentLens, TeacherLens
 from app.contract.collection_number import (
     DOWNWARD_ROUTES,
     PERMITTED_ROUTES,
+    SNAPSHOT_ROUTES,
     collection_number_routes,
 )
 from app.main import create_app
@@ -48,17 +47,23 @@ def _teacher_lens() -> TeacherLens:
     return TeacherLens(account_id=uuid4(), owner_id=uuid4())
 
 
-def test_exactly_the_allowlisted_routes_carry_the_collection_number() -> None:
-    # An EQUALITY. A membership test passes the moment the field
-    # spreads to another response, and NFR14.33's "never in a listing"
-    # falls out of this rather than needing its own assertion.
-    assert collection_number_routes(create_app()) == set(PERMITTED_ROUTES)
+def test_exactly_the_allowlisted_routes_carry_method_details() -> None:
+    found = collection_number_routes(create_app())
+
+    assert found - set(SNAPSHOT_ROUTES) == set(PERMITTED_ROUTES)
+
+
+@pytest.mark.xfail(strict=True, reason="Task 5")
+def test_the_submission_route_carries_the_destination_snapshot() -> None:
+    found = collection_number_routes(create_app())
+
+    assert set(SNAPSHOT_ROUTES) <= found
 
 
 def test_the_downward_route_resolves_no_teacher_lens() -> None:
     # The allowlist alone cannot tell a downward disclosure from a
     # teacher reading their own field, so the distinction is asserted
-    # here. A payment-destination route reachable under a teacher lens
+    # here. A payment-methods route reachable under a teacher lens
     # would satisfy the equality while meaning something different.
     from app.contract.privacy import lens_types_of
     from app.contract.routes import _api_routes
@@ -78,7 +83,7 @@ def test_the_downward_route_resolves_no_teacher_lens() -> None:
                 for lens in lenses
             ), (
                 f"{method} {route.path} is reachable under a teacher lens. "
-                "The destination route exists so a STUDENT or GUARDIAN can "
+                "The family route exists so a STUDENT or GUARDIAN can "
                 "pay; a teacher reads their own number on their own batch."
             )
 
@@ -109,7 +114,7 @@ def test_every_non_downward_permitted_route_is_the_teachers_own() -> None:
                 isinstance(lens, type) and issubclass(lens, TeacherLens)
                 for lens in lenses
             ), (
-                f"{method} {route.path} carries the collection number and "
+                f"{method} {route.path} carries method details and "
                 "is reachable by something other than its owner"
             )
 
@@ -130,11 +135,11 @@ class _LeakyRosterRow(BaseModel):
     """A roster row that wrongly carries the teacher's payment number.
 
     :ivar enrollment_id: The seat
-    :ivar collection_number: The field that must not be here
+    :ivar mobile_number: The field that must not be here
     """
 
     enrollment_id: str
-    collection_number: str
+    mobile_number: str
 
 
 def test_the_gate_fires_on_a_second_route_carrying_the_field() -> None:
@@ -153,7 +158,7 @@ def test_the_gate_fires_on_a_second_route_carrying_the_field() -> None:
     found = collection_number_routes(app)
 
     assert ("GET", "/v1/leaky-roster") in found, (
-        "the gate did not see a response declaring collection_number; it "
+        "the gate did not see a response declaring mobile_number; it "
         "would report clean over a real leak"
     )
 
@@ -163,7 +168,7 @@ def test_the_gate_sees_the_field_nested_in_an_embedded_object() -> None:
     # batch summary embedded in a roster row. A gate checking only
     # top-level properties reports clean over it.
     class _Destination(BaseModel):
-        collection_number: str
+        mobile_number: str
 
     class _Wrapper(BaseModel):
         batch: _Destination
@@ -178,7 +183,7 @@ def test_the_gate_sees_the_field_nested_in_an_embedded_object() -> None:
         :param lens: The student lens
         :return: The wrapper
         """
-        return _Wrapper(batch=_Destination(collection_number="x"))
+        return _Wrapper(batch=_Destination(mobile_number="x"))
 
     assert ("GET", "/v1/nested") in collection_number_routes(app)
 

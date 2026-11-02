@@ -14,10 +14,9 @@ counts as due wearing presentation's clothes -- and it diverges the first
 time a waiver is involved, since a fully waived cycle has a zero balance
 and is not "Paid".
 
-**``collection_number`` appears in exactly one schema here**, and a test
-over the generated document asserts that as an equality rather than a
-membership [BR6.4, NFR14.32]. A membership test passes the moment the
-field spreads to a second response.
+**No schema here carries a payment method's number or account fields**;
+``app.schemas.payment_methods`` holds them, and a test over the generated
+document asserts which routes carry them [BR6.4, NFR14.32].
 """
 
 from __future__ import annotations
@@ -38,7 +37,6 @@ __all__ = [
     "FeeHistoryResponse",
     "PayableResponse",
     "PayablesResponse",
-    "PaymentDestinationResponse",
     "RecentDecisionResponse",
     "ReminderRequest",
     "ReminderResponse",
@@ -113,8 +111,8 @@ class RosterFeeRowResponse(BaseModel):
     The key is ``enrollment_id`` and never an account id [ADR-001],
     asserted schema-wide by the built privacy gate.
 
-    **No ``collection_number``.** The teacher's payment destination is
-    carried by exactly one response and this is not it [NFR14.33].
+    **No payment-method details.** They are carried only by the
+    payment-method routes and this is not one [NFR14.33].
 
     :ivar enrollment_id: The teacher-facing key
     :ivar display_name: The teacher-typed name
@@ -250,35 +248,6 @@ class ClaimResponse(BaseModel):
     submitted_at: dt.datetime
     verified_at: dt.datetime | None = None
     previous_decision: dict[str, str | None] | None = None
-
-
-class PaymentDestinationResponse(BaseModel):
-    """Where to send a payment, and through what.
-
-    **The ONE response in the product carrying the collection number**
-    [BR6.4, NFR14.32]. The allowlist test asserts that as an equality
-    against a one-element set, so the field spreading to a second
-    response fails the build rather than passing a membership check.
-
-    Where the teacher set no number the route returns **no object at
-    all** rather than this model with a null in it [NFR14.34]: a null
-    invites a client-side placeholder, and an absent object leaves the
-    client nothing to render while the copy tells the person to ask the
-    teacher how to pay.
-
-    :ivar collection_number: Where payments are sent
-    :ivar collection_channel: Which service that number belongs to
-    :ivar teacher_display_name: Who the money goes to, or null
-    :ivar channels: The channel set, server-supplied so adding one is a
-        data change rather than an app release
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    collection_number: str
-    collection_channel: str | None = None
-    channels: list[str]
-    teacher_display_name: str | None = None
 
 
 #: How a claim stands against what its period charged.

@@ -20,6 +20,8 @@
     "fees.claim.channel_unknown",
     "fees.claim.no_open_cycle",
     "fees.claim.not_found",
+    "fees.method.field_too_long",
+    "fees.method.fields_incomplete",
     "fees.not_available",
     "fees.resolution.not_set",
     "fees.verification.already_decided",

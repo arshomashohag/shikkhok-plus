@@ -39,7 +39,6 @@ from app.db.models import Batch, Enrollment, FeeCycle, LedgerEntryRow, PaymentCl
 from app.errors import AuthorizationError
 from app.errors.codes import NOT_AVAILABLE
 from app.fees.balances import derive_for_enrollment
-from app.fees.claims import CHANNELS
 from app.fees.overdue import days_overdue
 from app.fees.status import (
     CLAIM_STATUS_VALUES,
@@ -56,14 +55,12 @@ from app.money import LedgerEntry, LedgerEntryKind, Money, derive
 __all__ = [
     "ClaimDetail",
     "FeeCycleRow",
-    "PaymentDestination",
     "RosterFeeRow",
     "assert_claim_is_verifiable",
     "batch_fee_overview",
     "claim_detail",
     "claim_status",
     "enrollment_fee_history",
-    "payment_destination",
 ]
 
 
@@ -200,29 +197,6 @@ class ClaimDetail:
     submitted_at: dt.datetime
     verified_at: dt.datetime | None
     previous_decision: dict[str, object] | None
-
-
-@dataclass(frozen=True, slots=True)
-class PaymentDestination:
-    """Where to send a payment, and through what.
-
-    **Returned as a whole object or not at all** [NFR14.34]. Where the
-    teacher set no collection number the caller receives ``None`` and
-    the screen omits the destination step entirely, rather than
-    rendering a field with a null in it -- a null invites a client-side
-    placeholder, and an absent object leaves nothing to render.
-
-    :ivar collection_number: Where payments are sent
-    :ivar collection_channel: Which service that number belongs to
-    :ivar channels: The channel set, server-supplied [BR6.5]
-    :ivar teacher_display_name: Who the money goes to, as the teacher
-        named themselves for students -- "Send money to ..."
-    """
-
-    collection_number: str
-    collection_channel: str | None
-    channels: tuple[str, ...]
-    teacher_display_name: str | None = None
 
 
 def _owned_batch(session: Session, *, lens: TeacherLens, batch_id: uuid.UUID) -> Batch:
@@ -564,38 +538,3 @@ def assert_claim_is_verifiable(
     if owned is None:
         raise _refuse()
     return claim
-
-
-def payment_destination(
-    session: Session,
-    *,
-    lens: Lens,
-    enrollment_id: uuid.UUID,
-) -> PaymentDestination | None:
-    """Return where to pay for this seat, if the teacher set a number.
-
-    **The one response in the product carrying the collection number**
-    [BR6.4, NFR14.32], and the allowlist asserting that is a test over
-    the generated schema rather than a convention. It is the single
-    teacher-authored field deliberately exposed downward, because the
-    payment flow cannot work without it -- and the exposure is bounded
-    to people enrolled in that teacher's batch rather than incidental.
-
-    :param session: The session to read through
-    :param lens: The viewer's lens
-    :param enrollment_id: The seat being paid for
-    :return: The destination, or None where the teacher set no number
-    :raises AuthorizationError: No path grants this lens that seat
-    """
-    record = _readable_enrollment(session, lens=lens, enrollment_id=enrollment_id)
-
-    batch = session.get(Batch, record.batch_id)
-    if batch is None or batch.collection_number is None:
-        return None
-
-    return PaymentDestination(
-        collection_number=batch.collection_number,
-        collection_channel=batch.collection_channel,
-        channels=CHANNELS,
-        teacher_display_name=batch.teacher_display_name,
-    )

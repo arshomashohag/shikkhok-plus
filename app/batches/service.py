@@ -610,8 +610,6 @@ def create_batch(
     teacher_display_name: str | None = None,
     default_fee: Money | None = None,
     fee_due_day: int | None = None,
-    collection_number: str | None = None,
-    collection_channel: str | None = None,
 ) -> BatchSummary:
     """Create a batch owned by this lens's owner.
 
@@ -622,8 +620,6 @@ def create_batch(
     :param teacher_display_name: What students see the teacher called
     :param default_fee: The inherited fee
     :param fee_due_day: Day of month 1-31
-    :param collection_number: Where payments are sent
-    :param collection_channel: Which service that number belongs to
     :return: The new batch as the list describes it, so the create
         response and the list cannot describe one batch differently --
         including the subject keys an exam or a class is created against
@@ -642,8 +638,6 @@ def create_batch(
         teacher_display_name=teacher_display_name,
         default_fee=default_fee,
         fee_due_day=fee_due_day,
-        collection_number=collection_number,
-        collection_channel=collection_channel,
         marksheet_visible=True,
         active=True,
         created_at=dt.datetime.now(tz=dt.UTC),
@@ -912,8 +906,6 @@ class BatchChanges:
     :ivar teacher_display_name: What students see the teacher called
     :ivar default_fee: The inherited fee, for cycles not yet generated
     :ivar fee_due_day: Day of month 1-31
-    :ivar collection_number: Where payments are sent
-    :ivar collection_channel: Which service that number belongs to
     :ivar marksheet_visible: U6's toggle
     :ivar active: False collapses the batch to read-only history
     """
@@ -923,8 +915,6 @@ class BatchChanges:
     teacher_display_name: str | None = None
     default_fee: Money | None = None
     fee_due_day: int | None = None
-    collection_number: str | None = None
-    collection_channel: str | None = None
     marksheet_visible: bool | None = None
     active: bool | None = None
 
@@ -967,8 +957,6 @@ def update_batch(
         "teacher_display_name",
         "default_fee",
         "fee_due_day",
-        "collection_number",
-        "collection_channel",
         "marksheet_visible",
         "active",
     ):

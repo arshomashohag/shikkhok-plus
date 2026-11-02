@@ -249,32 +249,8 @@
       },
       "BatchCreateRequest": {
         "additionalProperties": false,
-        "description": "Create a batch [AC2.1.1, AC2.1.2].\n\n:ivar name: The teacher's name for the class\n:ivar schedule: The weekly classes, so a batch can be created with its\n    class days and sessions follow at once; optional\n:ivar subjects: One or more subjects taught\n:ivar teacher_display_name: What students see the teacher called\n:ivar default_fee: The fee an enrollment inherits when it sets none\n:ivar fee_due_day: Day of month 1-31; 29-31 clamp at generation\n:ivar collection_number: Where payments are sent\n:ivar collection_channel: Which service that number belongs to",
+        "description": "Create a batch [AC2.1.1, AC2.1.2].\n\n:ivar name: The teacher's name for the class\n:ivar schedule: The weekly classes, so a batch can be created with its\n    class days and sessions follow at once; optional\n:ivar subjects: One or more subjects taught\n:ivar teacher_display_name: What students see the teacher called\n:ivar default_fee: The fee an enrollment inherits when it sets none\n:ivar fee_due_day: Day of month 1-31; 29-31 clamp at generation",
         "properties": {
-          "collection_channel": {
-            "anyOf": [
-              {
-                "maxLength": 32,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Collection Channel"
-          },
-          "collection_number": {
-            "anyOf": [
-              {
-                "maxLength": 32,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Collection Number"
-          },
           "default_fee": {
             "anyOf": [
               {
@@ -341,7 +317,7 @@
         "type": "object"
       },
       "BatchResponse": {
-        "description": "A batch as its owner sees it.\n\n:ivar id: The batch\n:ivar name: The teacher's name for the class\n:ivar subjects: The subjects taught\n:ivar subject_options: The same subjects with their keys, in the same\n    order, for the writes that name one\n:ivar schedule: The weekly classes, in weekday then time order -- the\n    \"Mon Wed · 4:00 pm\" line on the batch list (T6)\n:ivar teacher_display_name: What students see the teacher called\n:ivar default_fee: The inherited fee\n:ivar fee_due_day: Day of month 1-31\n:ivar collection_number: Where payments are sent\n:ivar collection_channel: Which service that number belongs to\n:ivar marksheet_visible: U6's toggle\n:ivar active: False means read-only history\n:ivar enrollment_count: How many seats, computed server-side. The\n    **denominator** of \"9 of 12 accepted\", and it counts every seat\n    the teacher created including declined ones [BR1.4]\n:ivar accepted_count: How many of those seats at least one link has\n    accepted [BR1.2], computed server-side and **never counted by\n    the client** [BR1.3, TC-9]. A client counting rows is a client\n    deciding what counts as accepted, and it is wrong the moment the\n    roster paginates because it can only count the rows it holds",
+        "description": "A batch as its owner sees it.\n\n:ivar id: The batch\n:ivar name: The teacher's name for the class\n:ivar subjects: The subjects taught\n:ivar subject_options: The same subjects with their keys, in the same\n    order, for the writes that name one\n:ivar schedule: The weekly classes, in weekday then time order -- the\n    \"Mon Wed · 4:00 pm\" line on the batch list (T6)\n:ivar teacher_display_name: What students see the teacher called\n:ivar default_fee: The inherited fee\n:ivar fee_due_day: Day of month 1-31\n:ivar marksheet_visible: U6's toggle\n:ivar active: False means read-only history\n:ivar enrollment_count: How many seats, computed server-side. The\n    **denominator** of \"9 of 12 accepted\", and it counts every seat\n    the teacher created including declined ones [BR1.4]\n:ivar accepted_count: How many of those seats at least one link has\n    accepted [BR1.2], computed server-side and **never counted by\n    the client** [BR1.3, TC-9]. A client counting rows is a client\n    deciding what counts as accepted, and it is wrong the moment the\n    roster paginates because it can only count the rows it holds",
         "properties": {
           "accepted_count": {
             "title": "Accepted Count",
@@ -350,28 +326,6 @@
           "active": {
             "title": "Active",
             "type": "boolean"
-          },
-          "collection_channel": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Collection Channel"
-          },
-          "collection_number": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Collection Number"
           },
           "default_fee": {
             "anyOf": [
@@ -447,8 +401,6 @@
         "required": [
           "accepted_count",
           "active",
-          "collection_channel",
-          "collection_number",
           "default_fee",
           "enrollment_count",
           "fee_due_day",
@@ -465,7 +417,7 @@
       },
       "BatchUpdateRequest": {
         "additionalProperties": false,
-        "description": "Edit a batch [AC2.3.1].\n\nEvery field optional, because a PATCH names only what changes.\n\n:ivar name: The teacher's name for the class\n:ivar subjects: The full list of subjects to keep; one with an exam\n    cannot be left out\n:ivar teacher_display_name: What students see the teacher called\n:ivar default_fee: The inherited fee, for cycles not yet generated\n:ivar fee_due_day: Day of month 1-31\n:ivar collection_number: Where payments are sent\n:ivar collection_channel: Which service that number belongs to\n:ivar marksheet_visible: U6's toggle\n:ivar active: False collapses the batch to read-only history",
+        "description": "Edit a batch [AC2.3.1].\n\nEvery field optional, because a PATCH names only what changes.\n\n:ivar name: The teacher's name for the class\n:ivar subjects: The full list of subjects to keep; one with an exam\n    cannot be left out\n:ivar teacher_display_name: What students see the teacher called\n:ivar default_fee: The inherited fee, for cycles not yet generated\n:ivar fee_due_day: Day of month 1-31\n:ivar marksheet_visible: U6's toggle\n:ivar active: False collapses the batch to read-only history",
         "properties": {
           "active": {
             "anyOf": [
@@ -477,30 +429,6 @@
               }
             ],
             "title": "Active"
-          },
-          "collection_channel": {
-            "anyOf": [
-              {
-                "maxLength": 32,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Collection Channel"
-          },
-          "collection_number": {
-            "anyOf": [
-              {
-                "maxLength": 32,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Collection Number"
           },
           "default_fee": {
             "anyOf": [
@@ -2175,6 +2103,43 @@
         "title": "FamilyExamResponse",
         "type": "object"
       },
+      "FamilyPaymentMethodsResponse": {
+        "description": "The methods a family may pay to, with the server's suggestions.\n\nAn empty ``methods`` list is the \"ask the teacher\" state.\n\n:ivar methods: The teacher's live methods, in display order\n:ivar services: Mobile service names the form suggests\n:ivar teacher_display_name: Who the money goes to, or null",
+        "properties": {
+          "methods": {
+            "items": {
+              "$ref": "#/components/schemas/PaymentMethodResponse"
+            },
+            "title": "Methods",
+            "type": "array"
+          },
+          "services": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Services",
+            "type": "array"
+          },
+          "teacher_display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Teacher Display Name"
+          }
+        },
+        "required": [
+          "methods",
+          "services",
+          "teacher_display_name"
+        ],
+        "title": "FamilyPaymentMethodsResponse",
+        "type": "object"
+      },
       "FamilyTeacherResponse": {
         "additionalProperties": false,
         "description": "The teacher as a family sees them: no phone, no address.\n\n:ivar display_name: What the teacher is called, or null\n:ivar subjects: The batch's subject names",
@@ -3282,51 +3247,6 @@
         "title": "PaymentBlock",
         "type": "object"
       },
-      "PaymentDestinationResponse": {
-        "additionalProperties": false,
-        "description": "Where to send a payment, and through what.\n\n**The ONE response in the product carrying the collection number**\n[BR6.4, NFR14.32]. The allowlist test asserts that as an equality\nagainst a one-element set, so the field spreading to a second\nresponse fails the build rather than passing a membership check.\n\nWhere the teacher set no number the route returns **no object at\nall** rather than this model with a null in it [NFR14.34]: a null\ninvites a client-side placeholder, and an absent object leaves the\nclient nothing to render while the copy tells the person to ask the\nteacher how to pay.\n\n:ivar collection_number: Where payments are sent\n:ivar collection_channel: Which service that number belongs to\n:ivar teacher_display_name: Who the money goes to, or null\n:ivar channels: The channel set, server-supplied so adding one is a\n    data change rather than an app release",
-        "properties": {
-          "channels": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Channels",
-            "type": "array"
-          },
-          "collection_channel": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Collection Channel"
-          },
-          "collection_number": {
-            "title": "Collection Number",
-            "type": "string"
-          },
-          "teacher_display_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Teacher Display Name"
-          }
-        },
-        "required": [
-          "channels",
-          "collection_number"
-        ],
-        "title": "PaymentDestinationResponse",
-        "type": "object"
-      },
       "PaymentLineResponse": {
         "additionalProperties": false,
         "description": "One batch's fee in one month, and where its payment stands (G3).\n\n:ivar enrollment_id: The seat\n:ivar batch_name: The batch\n:ivar amount: What the month charged\n:ivar state: ``paid``, ``partly_paid``, ``waived``, ``verifying`` or\n    ``due``\n:ivar due_date: When it was due\n:ivar sent_on: When the latest payment for it was sent, or null\n:ivar decided_on: When that payment was approved, or null\n:ivar channel: Which app it moved through, or null",
@@ -3403,6 +3323,187 @@
           "state"
         ],
         "title": "PaymentLineResponse",
+        "type": "object"
+      },
+      "PaymentMethodRequest": {
+        "additionalProperties": false,
+        "description": "Add or replace a payment method.\n\nCompleteness and length are checked by the service so every refusal\nreaches the client as the one error envelope.\n\n:ivar kind: ``mobile`` or ``bank``\n:ivar provider: The mobile service or the bank's name\n:ivar mobile_number: The number, mobile methods only\n:ivar account_number: The account number, bank methods only\n:ivar account_name: The account holder, bank methods only\n:ivar branch_name: The branch, bank methods only\n:ivar note: Optional text shown with the method",
+        "properties": {
+          "account_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Name"
+          },
+          "account_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Number"
+          },
+          "branch_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Branch Name"
+          },
+          "kind": {
+            "enum": [
+              "bank",
+              "mobile"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "mobile_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mobile Number"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "PaymentMethodRequest",
+        "type": "object"
+      },
+      "PaymentMethodResponse": {
+        "description": "One payment method as the teacher or a family reads it.\n\n:ivar method_id: The method\n:ivar kind: ``mobile`` or ``bank``\n:ivar provider: The mobile service or the bank's name\n:ivar mobile_number: The number, mobile methods only\n:ivar account_number: The account number, bank methods only\n:ivar account_name: The account holder, bank methods only\n:ivar branch_name: The branch, bank methods only\n:ivar note: Optional text shown with the method",
+        "properties": {
+          "account_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Name"
+          },
+          "account_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Number"
+          },
+          "branch_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Branch Name"
+          },
+          "kind": {
+            "enum": [
+              "bank",
+              "mobile"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "method_id": {
+            "format": "uuid",
+            "title": "Method Id",
+            "type": "string"
+          },
+          "mobile_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mobile Number"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          }
+        },
+        "required": [
+          "account_name",
+          "account_number",
+          "branch_name",
+          "kind",
+          "method_id",
+          "mobile_number",
+          "note",
+          "provider"
+        ],
+        "title": "PaymentMethodResponse",
         "type": "object"
       },
       "PaymentMonthResponse": {
@@ -3866,7 +3967,7 @@
       },
       "RosterFeeRowResponse": {
         "additionalProperties": false,
-        "description": "One seat's fee position, as its teacher sees it.\n\nThe key is ``enrollment_id`` and never an account id [ADR-001],\nasserted schema-wide by the built privacy gate.\n\n**No ``collection_number``.** The teacher's payment destination is\ncarried by exactly one response and this is not it [NFR14.33].\n\n:ivar enrollment_id: The teacher-facing key\n:ivar display_name: The teacher-typed name\n:ivar outstanding: What this seat owes across every period\n:ivar current_period: The latest generated period, or null\n:ivar current_status: That period's status, or null\n:ivar due_date: That period's due date, or null\n:ivar days_overdue: How late the oldest unpaid period is, decided by\n    the server against Bangladesh's date, or null\n:ivar verifying: The total of claims still waiting for the teacher",
+        "description": "One seat's fee position, as its teacher sees it.\n\nThe key is ``enrollment_id`` and never an account id [ADR-001],\nasserted schema-wide by the built privacy gate.\n\n**No payment-method details.** They are carried only by the\npayment-method routes and this is not one [NFR14.33].\n\n:ivar enrollment_id: The teacher-facing key\n:ivar display_name: The teacher-typed name\n:ivar outstanding: What this seat owes across every period\n:ivar current_period: The latest generated period, or null\n:ivar current_status: That period's status, or null\n:ivar due_date: That period's due date, or null\n:ivar days_overdue: How late the oldest unpaid period is, decided by\n    the server against Bangladesh's date, or null\n:ivar verifying: The total of claims still waiting for the teacher",
         "properties": {
           "current_period": {
             "anyOf": [
@@ -7221,10 +7322,10 @@
         ]
       }
     },
-    "/v1/children/{enrollment_id}/payment-destination": {
+    "/v1/children/{enrollment_id}/payment-methods": {
       "get": {
-        "description": "Return where to pay for this seat, for its guardian.\n\nThe second downward disclosure of the collection number, to the\naccepted guardian of a seat in that teacher's batch.\n\n:param enrollment_id: The seat\n:param session: The request-scoped session\n:param lens: The guardian lens\n:return: The destination, or None where the teacher set no number",
-        "operationId": "read_child_payment_destination_v1_children__enrollment_id__payment_destination_get",
+        "description": "List where a guardian can pay for an accepted seat.\n\n:param enrollment_id: The seat, from the route path\n:param session: The request-scoped session\n:param lens: The guardian lens\n:return: The methods and suggestions",
+        "operationId": "read_child_payment_methods_v1_children__enrollment_id__payment_methods_get",
         "parameters": [
           {
             "in": "path",
@@ -7242,15 +7343,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/PaymentDestinationResponse"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ],
-                  "title": "Response Read Child Payment Destination V1 Children  Enrollment Id  Payment Destination Get"
+                  "$ref": "#/components/schemas/FamilyPaymentMethodsResponse"
                 }
               }
             },
@@ -7287,9 +7380,9 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Read Child Payment Destination",
+        "summary": "Read Child Payment Methods",
         "tags": [
-          "guardian"
+          "payment-methods"
         ]
       }
     },
@@ -8195,78 +8288,6 @@
         "summary": "Set Inactive From",
         "tags": [
           "batches"
-        ]
-      }
-    },
-    "/v1/enrollments/{enrollment_id}/payment-destination": {
-      "get": {
-        "description": "Return where to pay for this seat [BR6.4, NFR14.32].\n\n**The one route in the product carrying the collection number**, and\na test over the generated document asserts that as an equality\nrather than a membership.\n\nReturns **null where the teacher set no number** [NFR14.34], so the\nclient omits the destination step entirely rather than rendering a\nfield with a null in it.\n\n:param enrollment_id: The seat, from the route path\n:param session: The request-scoped session\n:param lens: The student lens\n:return: The destination, or None",
-        "operationId": "read_payment_destination_v1_enrollments__enrollment_id__payment_destination_get",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "enrollment_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Enrollment Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/PaymentDestinationResponse"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ],
-                  "title": "Response Read Payment Destination V1 Enrollments  Enrollment Id  Payment Destination Get"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "No credential, or an expired one."
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Read Payment Destination",
-        "tags": [
-          "fees"
         ]
       }
     },
@@ -9297,6 +9318,70 @@
         ]
       }
     },
+    "/v1/me/enrollments/{enrollment_id}/payment-methods": {
+      "get": {
+        "description": "List where a student can pay for an accepted seat.\n\n:param enrollment_id: The seat, from the route path\n:param session: The request-scoped session\n:param lens: The student lens\n:return: The methods and suggestions",
+        "operationId": "read_seat_payment_methods_v1_me_enrollments__enrollment_id__payment_methods_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enrollment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enrollment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FamilyPaymentMethodsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Seat Payment Methods",
+        "tags": [
+          "payment-methods"
+        ]
+      }
+    },
     "/v1/me/enrollments/{enrollment_id}/progress": {
       "get": {
         "description": "Read this student's own results across exams [BR6.6].\n\n**The student's half of the guardian's progress read**, through the\nsame function and so the same rules: accepted seats only, the\nbatch's marksheet toggle respected, absences carrying no number.\nS2's results list is built from it; until now a student had none.\n\n**Ordered by the server**, not the client, and an absence carries\nno numeric value: plotted as zero it would show a collapse in\nperformance that did not happen.\n\n:param enrollment_id: Their own seat, from the route path\n:param session: The request-scoped session\n:param lens: The student lens\n:return: One entry per exam, oldest first",
@@ -9670,6 +9755,261 @@
         "summary": "Read Today",
         "tags": [
           "analytics"
+        ]
+      }
+    },
+    "/v1/payment-methods": {
+      "get": {
+        "description": "List the teacher's live payment methods.\n\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: The methods in display order",
+        "operationId": "list_payment_methods_v1_payment_methods_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PaymentMethodResponse"
+                  },
+                  "title": "Response List Payment Methods V1 Payment Methods Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this."
+          }
+        },
+        "summary": "List Payment Methods",
+        "tags": [
+          "payment-methods"
+        ]
+      },
+      "post": {
+        "description": "Add a payment method.\n\n:param body: The method details\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: The new method",
+        "operationId": "create_payment_method_v1_payment_methods_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentMethodRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentMethodResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Payment Method",
+        "tags": [
+          "payment-methods"
+        ]
+      }
+    },
+    "/v1/payment-methods/{method_id}": {
+      "delete": {
+        "description": "Retire a payment method; the row is kept.\n\n:param method_id: The method, from the route path\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: An empty response",
+        "operationId": "retire_payment_method_v1_payment_methods__method_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "method_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Method Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retire Payment Method",
+        "tags": [
+          "payment-methods"
+        ]
+      },
+      "patch": {
+        "description": "Replace a payment method's details.\n\n:param method_id: The method, from the route path\n:param body: The new details\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: The updated method",
+        "operationId": "update_payment_method_v1_payment_methods__method_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "method_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Method Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentMethodRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentMethodResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Payment Method",
+        "tags": [
+          "payment-methods"
         ]
       }
     },
