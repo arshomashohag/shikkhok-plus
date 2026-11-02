@@ -136,3 +136,16 @@ def test_the_database_is_snapshotted_before_anything_can_migrate() -> None:
     # A step that tolerated failure would let the deploy proceed with
     # no restore point, which is exactly the absence this exists for.
     assert not steps[ids.index("snapshot")].get("continue-on-error")
+
+
+def test_every_environment_trusts_only_the_header_nginx_overwrites() -> None:
+    # A production process refuses to start without this setting, and
+    # staging must exercise the same path, so the deploy writes it into
+    # the runtime env for every environment rather than per-environment
+    # configuration that could differ.
+    record = [s for s in _steps("release") if s.get("id") == "record"]
+
+    assert record
+    assert "SHIKKHOKPLUS_TRUSTED_CLIENT_IP_HEADER=X-Client-Address" in str(
+        record[0]["run"]
+    )

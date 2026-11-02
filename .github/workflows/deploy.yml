@@ -448,6 +448,12 @@ jobs:
             # anyone. Off unless explicitly enabled, and a production
             # process with it set refuses to start.
             echo "SHIKKHOKPLUS_STAGING_OUTBOX=${STAGING_OUTBOX:-0}"
+            # The ONLY client address the API may trust for the per-IP
+            # OTP ceiling: nginx always overwrites it with CloudFront's
+            # viewer IP. Every environment, so staging exercises what
+            # production requires -- a production process without it
+            # refuses to start.
+            echo "SHIKKHOKPLUS_TRUSTED_CLIENT_IP_HEADER=X-Client-Address"
           } > runtime.env
 
           aws ssm put-parameter \
