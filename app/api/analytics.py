@@ -31,6 +31,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.analytics.collections import DEFAULT_MONTHS, collections
+from app.analytics.dashboard import DashboardRange, SeatDashboard, seat_dashboard
 from app.analytics.dues import DuesSummary, dues_rows, dues_summary
 from app.analytics.earnings import MonthlyEarnings, period_totals, trend
 from app.analytics.seats import (
@@ -60,6 +61,13 @@ from app.schemas.analytics import (
     OverviewResponse,
     TodayClassResponse,
     TodayResponse,
+)
+from app.schemas.dashboard import (
+    AttendanceMonthResponse,
+    DashboardExamResponse,
+    DashboardFeeMonthResponse,
+    DashboardResponse,
+    DashboardTilesResponse,
 )
 from app.schemas.errors import ErrorEnvelope
 from app.schemas.money import Money as WireMoney
@@ -382,3 +390,73 @@ def _session_status(stored: str) -> Literal["scheduled", "held", "cancelled"]:
         if stored == status:
             return status
     raise ValueError(f"{stored!r} is not a session status")
+
+
+def dashboard_response(found: SeatDashboard) -> DashboardResponse:
+    """Render a dashboard as the one wire shape all three lenses share.
+
+    :param found: The dashboard read
+    :return: The response body
+    """
+    return DashboardResponse(
+        tiles=DashboardTilesResponse(
+            attendance_percent=found.tiles.attendance_percent,
+            present=found.tiles.present,
+            held=found.tiles.held,
+            exam_average_percent=found.tiles.exam_average_percent,
+            direction=found.tiles.direction,
+            owed=_to_wire(found.tiles.owed),
+        ),
+        attendance_by_month=[
+            AttendanceMonthResponse(
+                period=month.period,
+                held=month.held,
+                present=month.present,
+                percent=month.percent,
+                in_progress=month.in_progress,
+            )
+            for month in found.attendance_by_month
+        ],
+        exams=[
+            DashboardExamResponse(
+                exam_id=point.exam_id,
+                title=point.title,
+                date=point.date,
+                subject=point.subject,
+                marks=point.marks,
+                total=point.total,
+                percent=point.percent,
+                batch_average=point.batch_average,
+                batch_highest=point.batch_highest,
+            )
+            for point in found.exams
+        ],
+        fee_months=[
+            DashboardFeeMonthResponse(period=row.period, state=row.state)
+            for row in found.fee_months
+        ],
+    )
+
+
+@router.get(
+    "/enrollments/{enrollment_id}/dashboard",
+    response_model=DashboardResponse,
+    responses=_AUTH_ERRORS,
+)
+def read_seat_dashboard(
+    enrollment_id: uuid.UUID,
+    session: Annotated[Session, Depends(get_session)],
+    lens: Annotated[TeacherLens, Depends(teacher_lens)],
+    range_: Annotated[DashboardRange, Query(alias="range")] = "6m",
+) -> DashboardResponse:
+    """Read one owned seat's progress dashboard.
+
+    :param enrollment_id: The seat
+    :param session: The request-scoped session
+    :param lens: The teacher lens
+    :param range_: ``6m``, ``year`` or ``all``
+    :return: Tiles, attendance, exams and the fee strip
+    """
+    return dashboard_response(
+        seat_dashboard(session, lens=lens, enrollment_id=enrollment_id, range_=range_)
+    )

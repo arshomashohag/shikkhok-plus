@@ -208,6 +208,7 @@ def test_the_real_application_needs_the_allowlist() -> None:
         "overdue_students",
         "paid",
         "paid_on",
+        "total",
         "total_marks",
     }
 

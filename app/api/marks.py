@@ -15,9 +15,11 @@ from __future__ import annotations
 import uuid
 from typing import Annotated, Final
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session as DbSession
 
+from app.analytics.dashboard import DashboardRange, seat_dashboard
+from app.api.analytics import dashboard_response
 from app.api.deps import get_session, guardian_lens, student_lens, teacher_lens
 from app.api.teaching import family_exam_response
 from app.authz.lenses import GuardianLens, StudentLens, TeacherLens
@@ -32,6 +34,7 @@ from app.marks.results import (
     progress_of,
 )
 from app.marks.views import SeatMarksheet
+from app.schemas.dashboard import DashboardResponse
 from app.schemas.errors import ErrorEnvelope
 from app.schemas.marks import (
     BandResponse,
@@ -608,3 +611,27 @@ def read_my_progress(
             session, lens=lens, enrollment_id=enrollment_id
         )
     ]
+
+
+@router.get(
+    "/me/enrollments/{enrollment_id}/dashboard",
+    response_model=DashboardResponse,
+    responses=_AUTH_ERRORS,
+)
+def read_my_dashboard(
+    enrollment_id: uuid.UUID,
+    session: Annotated[DbSession, Depends(get_session)],
+    lens: Annotated[StudentLens, Depends(student_lens)],
+    range_: Annotated[DashboardRange, Query(alias="range")] = "6m",
+) -> DashboardResponse:
+    """Read this student's progress dashboard for one seat.
+
+    :param enrollment_id: Their seat
+    :param session: The request-scoped session
+    :param lens: The student lens
+    :param range_: ``6m``, ``year`` or ``all``
+    :return: Tiles, attendance, exams and the fee strip
+    """
+    return dashboard_response(
+        seat_dashboard(session, lens=lens, enrollment_id=enrollment_id, range_=range_)
+    )

@@ -86,6 +86,7 @@ __all__ = [
     "claim_status",
     "claims_by_month",
     "enrollment_fee_history",
+    "month_strip",
     "owned_submission",
     "submission_status",
 ]
@@ -607,6 +608,37 @@ def batch_month(
     )
 
 
+def month_strip(
+    session: Session, enrollment_id: uuid.UUID, window: list[str]
+) -> list[MonthStateRow]:
+    """Give one seat's state for each month of a window that has one.
+
+    :param session: The session to read through
+    :param enrollment_id: The seat, already authorized
+    :param window: Period keys, oldest first
+    :return: The months that have a state, oldest first
+    """
+    entries = entries_for_enrollment(session, enrollment_id)
+    claims = claims_by_month(session, [enrollment_id], window)
+    strip: list[MonthStateRow] = []
+    for month in window:
+        month_claims = claims.get((enrollment_id, month))
+        state = month_state(
+            entries,
+            month,
+            checking=month_claims is not None and month_claims.checking,
+        )
+        if state is not None:
+            strip.append(
+                MonthStateRow(
+                    period=month,
+                    state=state,
+                    history_line=None if month_claims is None else month_claims.latest,
+                )
+            )
+    return strip
+
+
 @dataclass(frozen=True)
 class FeeHistory:
     """One seat's periods, with the total the SERVER computed.
@@ -677,24 +709,7 @@ def enrollment_fee_history(
             )
         )
     window = months_ending(today or bangladesh_today(), clamp_months(months))
-    entries = entries_for_enrollment(session, enrollment_id)
-    claims = claims_by_month(session, [enrollment_id], window)
-    strip: list[MonthStateRow] = []
-    for month in window:
-        month_claims = claims.get((enrollment_id, month))
-        state = month_state(
-            entries,
-            month,
-            checking=month_claims is not None and month_claims.checking,
-        )
-        if state is not None:
-            strip.append(
-                MonthStateRow(
-                    period=month,
-                    state=state,
-                    history_line=None if month_claims is None else month_claims.latest,
-                )
-            )
+    strip = month_strip(session, enrollment_id, window)
     return FeeHistory(
         cycles=rows,
         total_outstanding=derived.total_outstanding,
