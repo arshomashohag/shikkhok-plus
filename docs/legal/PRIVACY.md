@@ -142,6 +142,7 @@ actually does, and our build fails if the two stop matching.
 
 | Data | Removed anyway after |
 |---|---|
+| A place a teacher accepts payment, such as a number | no time limit |
 | A record that a teacher sent a fee reminder | 12 months |
 | Failed and successful sign-in attempts | 7 days |
 | Messages in your in-app inbox, such as a fee reminder | 12 months |
@@ -161,6 +162,7 @@ actually does, and our build fails if the two stop matching.
 | A class's weekly timetable | no time limit |
 | A note a teacher posted to a class | no time limit |
 | A payment you reported, and the teacher's decision on it | no time limit |
+| A payment you reported, grouped across your children | no time limit |
 | A record that a teacher's entry was received | no time limit |
 | A sign-in audit record carrying no name or code | 12 months |
 | A student's exam result | no time limit |
@@ -185,7 +187,7 @@ These records are about how the service itself is running, not about any person.
 
 **A teacher's classes stay with their students.** If you are a teacher and delete your account, your sign-in, your own name and address are removed, and so are your name and payment number on each of your classes. The classes themselves stay as read-only history for your students and their guardians: their record of who came to each class, their results and fee records are theirs too. No new fees fall due on those classes, and amounts already recorded as owed stay on the records, where nobody can collect them.
 
-<!-- governance manifest digest: 2ebeaccde0b2c5854384dd47e76e891c86d2ece2fe6e3da286116f7eb6e7bee3
+<!-- governance manifest digest: f4f134a3fd4e7b173ba6b2dcf24e3eea30ce82c680c3116a7bb3b67788dc7430
      Covers every disposition, retention class and basis, so a
      change to any of them fails the drift gate even when it
      does not alter the text above. Regenerate; do not edit. -->

@@ -216,8 +216,9 @@ def test_no_d5_response_schema_carries_an_account_id() -> None:
 def test_d5_adds_no_migration_and_no_governance_entry() -> None:
     """No table, no column, no revision [BR4.2].
 
-    ``dispositions.py`` held 25 when D5 shipped and holds 26 since
-    ``notification`` arrived with the inbox; D5 itself added none.
+    ``dispositions.py`` held 25 when D5 shipped and holds 28 since
+    ``notification`` arrived with the inbox and ``0013`` added the two
+    payment tables; D5 itself added none.
     Stated as an absence because a
     materialised rollup is the obvious optimisation and it would
     contradict BR1.4 outright.
@@ -226,9 +227,9 @@ def test_d5_adds_no_migration_and_no_governance_entry() -> None:
     """
     from app.governance.dispositions import DISPOSITIONS
 
-    assert len(DISPOSITIONS) == 26, (
+    assert len(DISPOSITIONS) == 28, (
         f"the governance manifest holds {len(DISPOSITIONS)} entries, not "
-        "26. D5 creates no table, so it adds no disposition [BR4.2]."
+        "28. D5 creates no table, so it adds no disposition [BR4.2]."
     )
 
 

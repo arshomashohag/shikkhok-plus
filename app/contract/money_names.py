@@ -69,6 +69,12 @@ NON_MONEY_COLUMNS: Final[dict[tuple[str, str], str]] = {
         "itself asserted by a test over the column set, so there is no "
         "money value on fee_cycle for this exemption to hide."
     ),
+    ("payment_submission", "paid_on"): (
+        "A DATE, not an amount: the day the family says the money moved. "
+        "Matches the 'paid' token. The submission's amount is "
+        "`total_amount`, a NUMERIC(12,2), and is checked by this same "
+        "gate."
+    ),
     ("exam", "total_marks"): (
         "An INTEGER COUNT of marks, not an amount [entities.md]. It is "
         "the denominator a score is out of, constrained >= 1 because a "

@@ -164,6 +164,11 @@ HARD_DELETE_SCOPES: Final[dict[str, _Target]] = {
             "after the batch refusal passes, like `owner`."
         ),
     ),
+    "payment_method": _Target(
+        scope=Scope.VIA_CASCADE,
+        column=None,
+        note="Cascades from `owner`, which this module deletes.",
+    ),
     "notification": _Target(
         scope=Scope.ACCOUNT_COLUMN,
         column="account_id",

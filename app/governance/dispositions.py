@@ -300,6 +300,30 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
             "either way, so D6 nulls it in place rather than migrating."
         ),
     ),
+    "payment_method": TableGovernance(
+        disposition=Disposition.HARD_DELETE,
+        retention=RetentionClass.LIFE_OF_ACCOUNT,
+        basis=(
+            "A place the teacher accepts payment -- a mobile-money number "
+            "or a bank account -- typed by the teacher and meaningful "
+            "only to them. It goes with the owner it belongs to; what a "
+            "family paid to it survives in the submission's own "
+            "snapshot, so removing the method loses no financial record."
+        ),
+    ),
+    "payment_submission": TableGovernance(
+        disposition=Disposition.RETAIN_WITH_BASIS,
+        retention=RetentionClass.LIFE_OF_ACCOUNT,
+        basis=(
+            "A family's report that they paid, and the teacher's "
+            "decision about it, grouping the per-child claims it "
+            "produced. Like `payment_claim` it is a shared record of a "
+            "transaction and a dispute, with the same reference held "
+            "by the payer; both author columns are nullable and cleared "
+            "in place when an account is deleted, so the record stays "
+            "while the person's link to it does not."
+        ),
+    ),
     "reminder_event": TableGovernance(
         disposition=Disposition.HARD_DELETE,
         retention=RetentionClass.MONTHS_12,

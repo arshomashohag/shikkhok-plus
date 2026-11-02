@@ -1,4 +1,4 @@
-"""The retention purge: what it deletes, and the 18 tables it must not.
+"""The retention purge: what it deletes, and the 20 tables it must not.
 
 **BR4.2 is written first and is the reason this file exists.** The
 dangerous implementation of a retention purge is the NATURAL one --
@@ -223,9 +223,9 @@ def test_no_life_of_account_table_appears_in_the_window_map(
     assert life_of_account & set(WINDOWS) == set(), (
         "a LIFE_OF_ACCOUNT table has acquired a purge window"
     )
-    assert len(life_of_account) == 18, (
+    assert len(life_of_account) == 20, (
         f"the manifest now marks {len(life_of_account)} tables "
-        "LIFE_OF_ACCOUNT, not 18. If that is deliberate, this count is "
+        "LIFE_OF_ACCOUNT, not 20. If that is deliberate, this count is "
         "the claim that needs updating with it."
     )
 
