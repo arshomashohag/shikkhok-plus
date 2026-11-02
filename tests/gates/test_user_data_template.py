@@ -37,9 +37,11 @@ import subprocess
 from dataclasses import dataclass
 
 import pytest
+import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 TEMPLATE = ROOT / "infra" / "modules" / "app" / "user_data.sh.tftpl"
+COMPOSE = ROOT / "deploy" / "docker-compose.staging.yml"
 
 #: EC2 rejects user data larger than this, measured before base64
 #: encoding. The launch template strips whole-line comments first, and
@@ -63,8 +65,6 @@ TEMPLATE_VALUES: dict[str, str] = {
     "config_bucket": "shikkhokplus-production-config-123456789012",
     "lifecycle_hook_name": "shikkhokplus-production-ready",
     "log_group": "/shikkhokplus/shikkhokplus-production/app",
-    "origin_secret": "x" * 48,
-    "database_url": "postgresql+psycopg://shikkhok:" + "x" * 32 + "@db:5432/x",
 }
 
 
@@ -318,3 +318,44 @@ def test_rendered_user_data_fits_the_ec2_limit(rendered: str) -> None:
         f"more than {USER_DATA_LIMIT_BYTES}. Move a static file to the "
         "config bucket, as docker-compose.yml already is."
     )
+
+
+def test_no_secret_reaches_the_template() -> None:
+    # user_data is readable by anyone with
+    # ec2:DescribeLaunchTemplateVersions and by any process that can
+    # reach IMDS, and every launch-template version keeps it [OPS-4].
+    # The host reads its secrets from SSM; the template may only carry
+    # names, paths and identifiers.
+    used = set(
+        re.findall(r"(?<!\$)\$\{([A-Za-z_][A-Za-z0-9_]*)\}", TEMPLATE.read_text())
+    )
+    secret_shaped = {
+        name for name in used if re.search(r"secret|password|token|database_url", name)
+    }
+
+    assert used, "the template interpolates nothing; the parser found nothing"
+    assert secret_shaped == set()
+    # And the main.tf call site passes no such key either.
+    call_site = (TEMPLATE.parent / "main.tf").read_text()
+    templatefile_args = call_site[call_site.index("templatefile(") :]
+    templatefile_args = templatefile_args[: templatefile_args.index("}))")]
+    assert not re.search(
+        r"^\s*\w*(secret|password|database_url)\w*\s*=", templatefile_args, re.M
+    )
+
+
+def test_the_owner_url_reaches_only_the_migrate_service() -> None:
+    # The API and every scheduled job run as shikkhok_app [OPS-5]. The
+    # owner's URL may appear only in the `migrate` service, which the
+    # boot script runs for `alembic upgrade head` and to set the
+    # restricted role's password -- never in `api`.
+    compose = yaml.safe_load(COMPOSE.read_text())
+    services = compose["services"]
+
+    api_env = services["api"]["environment"]
+    assert "SHIKKHOKPLUS_MIGRATION_DATABASE_URL" not in api_env
+    assert "MIGRATION" not in str(api_env.get("SHIKKHOKPLUS_DATABASE_URL"))
+    assert "migrate" in services
+    assert "SHIKKHOKPLUS_MIGRATION_DATABASE_URL" in services["migrate"]["environment"]
+    # The migrate service never starts with `up`: it has a profile.
+    assert services["migrate"].get("profiles")

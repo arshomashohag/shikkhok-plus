@@ -132,6 +132,29 @@ resource "aws_s3_bucket_public_access_block" "state" {
   restrict_public_buckets = true
 }
 
+# **TLS only** [OPS-4]. The state file holds every generated secret in
+# plaintext -- the origin secret, the RDS master password and the
+# shikkhok_app password -- so a request over plain HTTP is refused
+# outright. Terraform's S3 backend and the AWS CLI already use HTTPS;
+# this removes the possibility rather than relying on the default.
+resource "aws_s3_bucket_policy" "state" {
+  bucket = aws_s3_bucket.state.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid       = "DenyInsecureTransport"
+      Effect    = "Deny"
+      Principal = "*"
+      Action    = "s3:*"
+      Resource  = [aws_s3_bucket.state.arn, "${aws_s3_bucket.state.arn}/*"]
+      Condition = { Bool = { "aws:SecureTransport" = "false" } }
+    }]
+  })
+
+  depends_on = [aws_s3_bucket_public_access_block.state]
+}
+
 # ---------------------------------------------------------------------
 # GitHub OIDC
 # ---------------------------------------------------------------------
@@ -327,6 +350,10 @@ data "aws_iam_policy_document" "ci_state" {
       "s3:ListBucket",
       "s3:GetBucketLocation",
       "s3:GetBucketPolicy",
+      # The config bucket's TLS-only policy [OPS-4].
+      "s3:PutBucketPolicy",
+      "s3:DeleteBucketPolicy",
+      "s3:GetBucketPolicyStatus",
       "s3:GetBucketAcl",
       "s3:GetBucketCORS",
       "s3:GetBucketWebsite",

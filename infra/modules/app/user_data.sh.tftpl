@@ -56,24 +56,83 @@ systemctl enable --now docker
 snap install amazon-ssm-agent --classic 2>/dev/null || true
 snap start amazon-ssm-agent 2>/dev/null || systemctl enable --now snap.amazon-ssm-agent.amazon-ssm-agent.service
 
+# The AWS CLI, for `ecr get-login-password` and -- since the secrets
+# left user_data [OPS-4] -- for reading them from SSM before nginx is
+# configured. It is therefore installed FIRST. Ubuntu's apt version is
+# v1 and too old for some ECR flows, so the official v2 bundle is
+# installed instead -- arm64, matching the host.
+# **PATH is set explicitly.** cloud-init runs this as root with a
+# minimal environment, and the CLI v2 installer puts `aws` in
+# /usr/local/bin -- which is not reliably on root's PATH here. Without
+# this the install succeeds and the next `aws` call fails with
+# "command not found", which under `set -e` aborts the boot at a step
+# that looks unrelated.
+export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
+
+if ! command -v aws >/dev/null 2>&1; then
+  curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" \
+    -o /tmp/awscliv2.zip
+  apt-get install -y --no-install-recommends unzip
+  unzip -q /tmp/awscliv2.zip -d /tmp
+  /tmp/aws/install
+  rm -rf /tmp/aws /tmp/awscliv2.zip
+fi
+
+# **Asserted, because every step after this needs it.** An install
+# that half-succeeded leaves a boot that fails three steps later with
+# a message about DNS or SSM rather than about the CLI.
+if ! aws --version >/dev/null 2>&1; then
+  {
+    echo "FAILED: the AWS CLI is not usable after install"
+    echo "  which aws: $(command -v aws || echo 'not found')"
+    echo "  PATH: $PATH"
+  } > /var/log/shikkhokplus-provision.log
+  exit 1
+fi
+
+# One reader for every parameter, so the path shape and the region are
+# written once. SecureStrings are decrypted by SSM with the instance
+# role, which may read exactly the parameters secrets.tf lists.
+param() {
+  aws ssm get-parameter --name "/shikkhokplus/${name_prefix}/$1" \
+    --with-decryption --query 'Parameter.Value' --output text \
+    --region "${aws_region}"
+}
+
 # The origin secret. Readable only by root, because any process that
 # can read it can forge a request that looks like it came through the
 # CDN.
-install -m 600 /dev/null /etc/nginx/origin_secret.conf
-cat > /etc/nginx/origin_secret.conf <<'NGINX'
+#
 # CloudFront sets this header on every origin request. A request
 # arriving without it did not come through the CDN -- so it bypassed
 # TLS policy enforcement, Shield Standard, and any WAF added later.
+# 403 rather than 404: there is no information to protect here.
 #
-# 403 rather than 404: there is no information to protect here. The
-# host's existence is public (it has a static IP), and a 404 would
-# imply the path is wrong rather than the route.
-if ($http_x_origin_secret != "${origin_secret}") {
-    return 403;
-}
-NGINX
+# **Read from SSM, never from the template** [OPS-4]. It is checked to
+# be the alphanumeric string Terraform generates before it is written
+# into an nginx config, so a malformed value fails the boot here rather
+# than producing a config that matches nothing -- or anything.
+ORIGIN_SECRET=$(param origin-secret)
+if ! [[ "$ORIGIN_SECRET" =~ ^[A-Za-z0-9]{32,}$ ]]; then
+  echo "FAILED: origin secret missing or malformed in SSM" > /var/log/shikkhokplus-provision.log
+  exit 1
+fi
+install -m 600 /dev/null /etc/nginx/origin_secret.conf
+printf 'if ($http_x_origin_secret != "%s") {\n    return 403;\n}\n' \
+  "$ORIGIN_SECRET" > /etc/nginx/origin_secret.conf
+unset ORIGIN_SECRET
 
 cat > /etc/nginx/sites-available/shikkhokplus <<'NGINX'
+# The viewer's address as CloudFront saw it, without the port.
+# CloudFront-Viewer-Address is `ip:port`; IPv6 addresses carry no
+# brackets, so the port is whatever follows the LAST colon and the
+# greedy capture takes everything before it. Absent or malformed
+# yields "", and nginx then sends no X-Client-Address at all.
+map $http_cloudfront_viewer_address $shikkhok_client_ip {
+    "~^(?<addr>.+):[0-9]+$" $addr;
+    default "";
+}
+
 server {
     listen 80 default_server;
     server_name _;
@@ -105,10 +164,16 @@ server {
     location / {
         proxy_pass http://127.0.0.1:8000;
         proxy_set_header Host              $host;
-        # The REAL client IP, not CloudFront's. The OTP rate limiter
-        # counts per IP, so without this every request would look like
-        # one caller and a per-IP limit would become a global one.
-        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        # **The REAL client IP, and only from CloudFront.** The OTP rate
+        # limiter counts per IP. X-Forwarded-For was appended to rather
+        # than replaced, so a caller could put any address first and
+        # choose which bucket they counted against. X-Client-Address is
+        # ALWAYS set here -- proxy_set_header replaces a client-sent
+        # header of the same name, and an empty value sends none -- so
+        # the application, told by SHIKKHOKPLUS_TRUSTED_CLIENT_IP_HEADER
+        # to read it, sees only what CloudFront observed.
+        proxy_set_header X-Client-Address  $shikkhok_client_ip;
+        proxy_set_header X-Forwarded-For   "";
         proxy_set_header X-Forwarded-Proto https;
         proxy_read_timeout 30s;
     }
@@ -153,38 +218,6 @@ fi
 # that has to mkdir its own directory is a deploy that runs as root
 # for no reason.
 install -d -o ubuntu -g ubuntu -m 0750 /srv/shikkhokplus
-
-# The AWS CLI, for `ecr get-login-password`. Ubuntu's apt version is
-# v1 and too old for some ECR flows, so the official v2 bundle is
-# installed instead -- arm64, matching the host.
-# **PATH is set explicitly.** cloud-init runs this as root with a
-# minimal environment, and the CLI v2 installer puts `aws` in
-# /usr/local/bin -- which is not reliably on root's PATH here. Without
-# this the install succeeds and the next `aws` call fails with
-# "command not found", which under `set -e` aborts the boot at a step
-# that looks unrelated.
-export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
-
-if ! command -v aws >/dev/null 2>&1; then
-  curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" \
-    -o /tmp/awscliv2.zip
-  apt-get install -y --no-install-recommends unzip
-  unzip -q /tmp/awscliv2.zip -d /tmp
-  /tmp/aws/install
-  rm -rf /tmp/aws /tmp/awscliv2.zip
-fi
-
-# **Asserted, because every step after this needs it.** An install
-# that half-succeeded leaves a boot that fails three steps later with
-# a message about DNS or SSM rather than about the CLI.
-if ! aws --version >/dev/null 2>&1; then
-  {
-    echo "FAILED: the AWS CLI is not usable after install"
-    echo "  which aws: $(command -v aws || echo 'not found')"
-    echo "  PATH: $PATH"
-  } > /var/log/shikkhokplus-provision.log
-  exit 1
-fi
 
 # **A credential helper rather than a stored login.** `docker login`
 # writes a token to ~/.docker/config.json that expires in 12 hours,
@@ -374,11 +407,22 @@ if [ -z "$RUNTIME_ENV" ] || [ "$RUNTIME_ENV" = "SHIKKHOKPLUS_ENVIRONMENT=unset" 
   exit 0
 fi
 
+# **The restricted role, never the owner** [OPS-5]. The API and the
+# scheduled jobs read SHIKKHOKPLUS_DATABASE_URL, which names
+# shikkhok_app. The owner's URL is not written to this file at all:
+# it is held in this shell only for the two one-shot commands below.
+if ! DATABASE_URL=$(param database-url 2>/dev/null); then
+  echo "FAILED: no database-url parameter. Is enable_rds true?" \
+    > /var/log/shikkhokplus-provision.log
+  exit 1
+fi
+
 umask 077
 printf '%s\n' "$RUNTIME_ENV" > .env
 echo "API_IMAGE=${ecr_repository_url}:$IMAGE_TAG" >> .env
-echo "SHIKKHOKPLUS_DATABASE_URL=${database_url}" >> .env
+echo "SHIKKHOKPLUS_DATABASE_URL=$DATABASE_URL" >> .env
 chown ubuntu:ubuntu .env
+unset DATABASE_URL
 
 # Fetched rather than inlined: the script plus the compose file
 # crossed EC2's 16KB user_data limit.
@@ -402,15 +446,37 @@ sudo -u ubuntu docker compose pull
 #
 # `run --rm` rather than `exec`: there is no running container yet,
 # and this must complete before one exists.
+#
+# **The `migrate` service, not `api`** [OPS-5]. It is the only service
+# given the owner's URL, and it receives it from THIS shell's
+# environment through `sudo --preserve-env` and compose interpolation:
+# never on a command line (where `ps` shows it), never in a file on
+# disk, never in the API container. Order is fixed: migrate, then set
+# the restricted role's password, then start the API that logs in with
+# it.
 echo "Running migrations..." >> /var/log/shikkhokplus-provision.log
-if ! sudo -u ubuntu docker compose run --rm api alembic upgrade head \
-     >> /var/log/shikkhokplus-provision.log 2>&1; then
+SHIKKHOKPLUS_MIGRATION_DATABASE_URL=$(param migration-database-url)
+SHIKKHOKPLUS_APP_DB_PASSWORD=$(param app-db-password)
+export SHIKKHOKPLUS_MIGRATION_DATABASE_URL SHIKKHOKPLUS_APP_DB_PASSWORD
+migrate() {
+  sudo -u ubuntu \
+    --preserve-env=SHIKKHOKPLUS_MIGRATION_DATABASE_URL,SHIKKHOKPLUS_APP_DB_PASSWORD \
+    docker compose --profile migrate run --rm migrate "$@" \
+    >> /var/log/shikkhokplus-provision.log 2>&1
+}
+if ! migrate alembic upgrade head; then
   echo "FAILED: alembic upgrade head" >> /var/log/shikkhokplus-provision.log
   # **Exit non-zero and serve nothing.** An instance that starts the
   # API against a schema the migration could not apply is worse than
   # an instance that does not start: it answers requests wrongly.
   exit 1
 fi
+if ! migrate python -m app.db.commands set-app-role-password; then
+  echo "FAILED: could not set the shikkhok_app password" \
+    >> /var/log/shikkhokplus-provision.log
+  exit 1
+fi
+unset SHIKKHOKPLUS_MIGRATION_DATABASE_URL SHIKKHOKPLUS_APP_DB_PASSWORD
 
 sudo -u ubuntu docker compose up -d --remove-orphans
 

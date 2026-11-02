@@ -257,7 +257,12 @@ resource "aws_launch_template" "app" {
   # script.
   user_data = base64encode(join("\n", [
     for line in split("\n", templatefile("${path.module}/user_data.sh.tftpl", {
-      origin_secret      = random_password.origin_secret.result
+      # **No secret is passed here** [OPS-4]. The origin secret and the
+      # database credentials used to be interpolated into this script,
+      # where ec2:DescribeLaunchTemplateVersions and IMDS both hand them
+      # out in plaintext. The host now reads them from SSM at boot --
+      # see secrets.tf -- and this template sees only parameter paths
+      # derived from name_prefix.
       ecr_repository_url = try(var.image_repository.url, "")
       ecr_registry       = try(split("/", var.image_repository.url)[0], "")
       name_prefix        = var.name_prefix
@@ -268,18 +273,6 @@ resource "aws_launch_template" "app" {
       # depend on a previous deploy having written this file to a disk
       # that no longer exists.
       config_bucket = aws_s3_bucket.config.id
-
-      # **The connection string is built HERE, not on the host.** The
-      # endpoint and password come from the database module, so the
-      # instance never has to assemble them from parts it might get
-      # wrong -- and the password reaches the host only through
-      # user_data, which is itself only readable from IMDS with a valid
-      # IMDSv2 token.
-      database_url = (
-        var.database_endpoint == null
-        ? ""
-        : "postgresql+psycopg://shikkhok:${var.database_password}@${var.database_endpoint}/shikkhokplus"
-      )
     }))
     : line if !startswith(trimspace(line), "#") || startswith(trimspace(line), "#!")
   ]))
@@ -301,13 +294,17 @@ resource "aws_launch_template" "app" {
     # IMDSv2 required. v1 is reachable by any SSRF in the application
     # and hands out the instance's IAM credentials.
     #
-    # The hop limit is 2, not 1: a request from inside a Docker
-    # container traverses one extra network hop, and at 1 the
-    # container cannot reach IMDS at all. The boot script runs on the
-    # host, but the application does not.
+    # **Hop limit 1, so no container can reach IMDS at all** [OPS-4].
+    # It was 2, on the reasoning that the application runs in a
+    # container -- but nothing in the container calls AWS: the image
+    # carries no AWS SDK, and every AWS call (SSM reads, ECR pulls via
+    # the credential helper, Route53, S3, the awslogs driver in dockerd)
+    # is made by a HOST process. At 2, an SSRF in the API could fetch the
+    # instance role's credentials and the user data; at 1 the IMDSv2
+    # token response dies one hop short of any container.
     http_tokens                 = "required"
     http_endpoint               = "enabled"
-    http_put_response_hop_limit = 2
+    http_put_response_hop_limit = 1
   }
 
   tag_specifications {
@@ -386,12 +383,9 @@ resource "aws_iam_role_policy" "self_registration" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect = "Allow"
-        Action = ["ssm:GetParameter"]
-        Resource = [
-          aws_ssm_parameter.image_tag.arn,
-          aws_ssm_parameter.runtime_env.arn,
-        ]
+        Effect   = "Allow"
+        Action   = ["ssm:GetParameter"]
+        Resource = local.boot_parameter_arns
       },
       {
         # The compose file, which used to be baked into user_data

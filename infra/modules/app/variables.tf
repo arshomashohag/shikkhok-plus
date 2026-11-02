@@ -108,3 +108,18 @@ variable "account_id" {
   description = "Account id, suffixing the config bucket so its globally-unique name does not collide."
   type        = string
 }
+
+variable "managed_database" {
+  description = <<-EOT
+    Whether this host connects to a managed (RDS) database. Drives
+    whether the database SSM parameters exist.
+
+    **A separate boolean rather than `database_endpoint != null`.** The
+    endpoint is unknown until RDS is created, and a `count` must be
+    known at plan time: on a first apply `endpoint != null` is itself
+    unknown and the plan fails. The caller knows the answer as a plain
+    input -- `var.enable_rds` -- so it is passed as one.
+  EOT
+  type        = bool
+  default     = false
+}

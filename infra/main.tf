@@ -160,6 +160,7 @@ module "app" {
   # than deleted, so enable_rds stays a genuine switch.
   database_endpoint = module.database.endpoint
   database_password = module.database.password
+  managed_database  = var.enable_rds
 
   name_prefix    = local.name_prefix
   vpc_id         = module.network.vpc_id
