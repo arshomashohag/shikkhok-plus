@@ -44,7 +44,7 @@ from app.errors import ConflictError, ValidationError
 from app.fees.balances import derive_for_enrollment
 from app.fees.ledger_writer import append_carry_pair, append_entry, supersede
 from app.fees.periods import Period
-from app.money import Money, settle_oldest_first
+from app.money import Money, apply_credit, settle_oldest_first
 from app.notifications.inbox import (
     CLAIM_TO_VERIFY,
     PAYMENT_APPROVED,
@@ -215,6 +215,15 @@ def _reverse_prior_entries(
     reverses the whole pair and keeps
     ``sum(carry_forward) == sum(carried_out)`` true throughout.
 
+    **A grant whose credit was already spent is split.** Generation may
+    have spent some of it on a later month through ``credit_apply``, and
+    that month's relief stays. Only the part still held -- the smaller
+    of the grant and the credit available at reversal -- is withdrawn
+    by ``credit_apply`` plus ``charge``; the spent rest is put back by a
+    ``charge`` alone. Withdrawing spent credit again would relieve the
+    grant's month a second time and leave a credit deficit that
+    swallows the next grant.
+
     :param session: The session to write through
     :param claim: The claim whose prior entries are being undone
     :param verified_by_account_id: Who is correcting
@@ -243,13 +252,24 @@ def _reverse_prior_entries(
     opposite = {
         "receipt": "charge",
         "forgiveness": "charge",
-        "credit_grant": "credit_apply",
         "credit_apply": "credit_grant",
         "carry_forward": "carried_out",
         "carried_out": "carry_forward",
     }
 
+    available = derive_for_enrollment(session, claim.enrollment_id).available_credit
     for entry in prior:
+        if entry.kind == "credit_grant":
+            held = apply_credit(available, entry.amount)
+            available = available - held
+            _withdraw_grant(
+                session,
+                claim,
+                entry,
+                held=held,
+                verified_by_account_id=verified_by_account_id,
+            )
+            continue
         mirror = opposite.get(entry.kind)
         if mirror is None:
             continue
@@ -263,16 +283,54 @@ def _reverse_prior_entries(
             created_by_account_id=verified_by_account_id,
         )
         supersede(session, original=entry, compensation=compensation)
-        if entry.kind == "credit_grant":
-            append_entry(
-                session,
-                enrollment_id=claim.enrollment_id,
-                period=entry.period,
-                kind="charge",
-                amount=entry.amount,
-                payment_claim_id=claim.id,
-                created_by_account_id=verified_by_account_id,
-            )
+
+
+def _withdraw_grant(
+    session: Session,
+    claim: PaymentClaim,
+    grant: LedgerEntryRow,
+    *,
+    held: Money,
+    verified_by_account_id: uuid.UUID,
+) -> None:
+    """Compensate a credit grant, of which ``held`` is still unspent.
+
+    The held part is withdrawn by a ``credit_apply`` and its relief of
+    the grant's month undone by a ``charge``; the spent part already
+    relieved a later month, so a ``charge`` alone puts it back owed. The
+    grant is superseded by the first compensation written.
+
+    :param session: The session to write through
+    :param claim: The claim whose decision is being undone
+    :param grant: The ``credit_grant`` row
+    :param held: How much of the grant is still available as credit
+    :param verified_by_account_id: Who is correcting
+    :return: None
+    """
+    spent = grant.amount - held
+    compensations = [
+        (kind, amount)
+        for kind, amount in (
+            ("credit_apply", held),
+            ("charge", held),
+            ("charge", spent),
+        )
+        if amount.is_positive()
+    ]
+    first: LedgerEntryRow | None = None
+    for kind, amount in compensations:
+        row = append_entry(
+            session,
+            enrollment_id=claim.enrollment_id,
+            period=grant.period,
+            kind=kind,
+            amount=amount,
+            payment_claim_id=claim.id,
+            created_by_account_id=verified_by_account_id,
+        )
+        first = first or row
+    if first is not None:
+        supersede(session, original=grant, compensation=first)
 
 
 def shortfall_of(charged: Money, approved: Money) -> Money:

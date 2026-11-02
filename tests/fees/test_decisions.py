@@ -30,6 +30,7 @@ from app.db.models import (
 from app.fees.balances import derive_for_enrollment
 from app.fees.claims import submit_claim
 from app.fees.generation import generate_due_cycles
+from app.fees.ledger_writer import append_entry, apply_available_credit
 from app.fees.status import fee_status
 from app.local_time import bangladesh_today
 from app.money import Money
@@ -1112,3 +1113,103 @@ def test_a_wrapped_legacy_claim_is_reviewed_and_decided(
     }
     assert decided.status_code == 200, decided.text  # type: ignore[attr-defined]
     assert fee_status(restricted_session, enrollment_id=seat, period=OCTOBER) == "paid"
+
+
+def _spend_credit_on(session: Session, seat: uuid.UUID, period: str, fee: str) -> None:
+    """Charge a later month and spend held credit on it, as generation does.
+
+    :param session: The application's session
+    :param seat: The seat
+    :param period: The later month
+    :param fee: That month's charge
+    :return: None
+    """
+    append_entry(
+        session,
+        enrollment_id=seat,
+        period=period,
+        kind="charge",
+        amount=Money(fee),
+    )
+    apply_available_credit(session, enrollment_id=seat, period=period)
+    session.commit()
+
+
+def test_correcting_an_over_payment_whose_credit_was_spent_owes_it_all(
+    api_client: TestClient,
+    owner_session: Session,
+    restricted_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """1500 for 1000 owed, 500 credit spent on November, then rejected: 2000 owed.
+
+    Computed: October 1000 and November 1000 were charged and nothing
+    was received, so 2000 is owed and no credit is held. Compensating
+    the spent grant with a ``credit_apply`` would relieve October by
+    500 a second time and read 1500.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param restricted_session: The application's session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    family = _family(owner_session, teacher, account_factory)
+    submission = _submit(
+        api_client, owner_session, family, "1500.00", seats=[family.tania]
+    )
+    _approve(api_client, owner_session, teacher, submission, "1500.00")
+    _spend_credit_on(restricted_session, family.tania, NOVEMBER, "1000.00")
+
+    _reject_as_correction(api_client, owner_session, teacher, submission)
+
+    restricted_session.expire_all()
+    derived = derive_for_enrollment(restricted_session, family.tania)
+    assert derived.total_outstanding == Money("2000.00")
+    assert derived.available_credit == Money.ZERO
+    later = append_entry(
+        restricted_session,
+        enrollment_id=family.tania,
+        period="2026-12",
+        kind="credit_grant",
+        amount=Money("100.00"),
+    )
+    restricted_session.commit()
+    after = derive_for_enrollment(restricted_session, family.tania)
+    assert later.amount == after.available_credit == Money("100.00")
+
+
+def test_correcting_an_over_payment_whose_credit_was_partly_spent(
+    api_client: TestClient,
+    owner_session: Session,
+    restricted_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """500 credit, 300 of it spent on November, then rejected: 1300 owed.
+
+    Computed: October 1000 and November 300 were charged and nothing
+    was received, so 1300 is owed and the 200 still held is withdrawn.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param restricted_session: The application's session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    family = _family(owner_session, teacher, account_factory)
+    submission = _submit(
+        api_client, owner_session, family, "1500.00", seats=[family.tania]
+    )
+    _approve(api_client, owner_session, teacher, submission, "1500.00")
+    _spend_credit_on(restricted_session, family.tania, NOVEMBER, "300.00")
+
+    _reject_as_correction(api_client, owner_session, teacher, submission)
+
+    restricted_session.expire_all()
+    derived = derive_for_enrollment(restricted_session, family.tania)
+    assert derived.total_outstanding == Money("1300.00")
+    assert derived.available_credit == Money.ZERO

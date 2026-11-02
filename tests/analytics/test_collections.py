@@ -19,6 +19,7 @@ from app.analytics.collections import clamp_months, collections
 from app.authz.lenses import TeacherLens
 from app.errors import AuthorizationError
 from app.fees.claims import submit_claim
+from app.fees.ledger_writer import append_entry, apply_available_credit
 from app.fees.verification import reject_claim, verify_claim
 from app.money import Money
 from tests.analytics.conftest import add_batch, lens_for, seat_with_ledger
@@ -366,6 +367,86 @@ def test_a_corrected_approval_does_not_inflate_charged_or_collected(
     assert corrected.months[0].collected == Money.ZERO
     assert corrected.months[0].charged == Money("1000.00")
     assert corrected.outstanding == Money("1000.00")
+
+
+@pytest.mark.parametrize(
+    ("november_fee", "owed"),
+    [("1000.00", "2000.00"), ("300.00", "1300.00")],
+    ids=["credit-spent", "credit-partly-spent"],
+)
+def test_a_corrected_over_payment_does_not_inflate_charged_or_collected(
+    owner_session: Session,
+    restricted_session: Session,
+    teacher: TeacherFixture,
+    november_fee: str,
+    owed: str,
+) -> None:
+    """Approve 1500 for 1000, spend the credit, then reject: nothing collected.
+
+    Computed: October was billed 1000 and November ``november_fee``;
+    after the rejection nothing came in, so both months collect zero
+    and the whole of both bills is outstanding.
+
+    :param owner_session: A session able to arrange fixture data
+    :param restricted_session: The application-role session
+    :param teacher: The teacher
+    :param november_fee: November's charge, against which credit is spent
+    :param owed: What is owed after the correction
+    :return: None
+    """
+    student = _account(owner_session)
+    seat = seat_with_ledger(
+        owner_session,
+        restricted_session,
+        batch_id=teacher.batch_id,
+        display_name="Rahim",
+        entries=[("charge", "2026-10", "1000.00")],
+    )
+    claim = submit_claim(
+        owner_session,
+        enrollment_id=seat,
+        submitted_by_account_id=student,
+        claimed_amount=Money("1500.00"),
+        channel="bKash",
+        today=TODAY,
+    )
+    verify_claim(
+        owner_session,
+        claim_id=claim.id,
+        approved_amount=Money("1500.00"),
+        shortfall_disposition=None,
+        verified_by_account_id=teacher.account_id,
+    )
+    append_entry(
+        restricted_session,
+        enrollment_id=seat,
+        period="2026-11",
+        kind="charge",
+        amount=Money(november_fee),
+    )
+    apply_available_credit(restricted_session, enrollment_id=seat, period="2026-11")
+    restricted_session.commit()
+
+    reject_claim(
+        owner_session,
+        claim_id=claim.id,
+        verified_by_account_id=teacher.account_id,
+        correcting=True,
+        reason="no such transfer",
+    )
+    restricted_session.expire_all()
+    report = collections(
+        restricted_session,
+        lens=_lens(teacher),
+        batch_ids=None,
+        months=2,
+        today=dt.date(2026, 11, 3),
+    )
+
+    october, november = report.months
+    assert (october.charged, october.collected) == (Money("1000.00"), Money.ZERO)
+    assert (november.charged, november.collected) == (Money(november_fee), Money.ZERO)
+    assert report.outstanding == Money(owed)
 
 
 def test_the_batch_route_wraps_totals_counts_and_seats(
