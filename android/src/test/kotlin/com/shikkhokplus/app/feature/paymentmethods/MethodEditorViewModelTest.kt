@@ -177,4 +177,36 @@ class MethodEditorViewModelTest {
         model.selectKind(MethodKind.BANK)
         assertEquals(MethodKind.BANK, model.state.value.kind)
     }
+
+    @Test
+    fun `switching mobile to bank clears the provider and disables save until a bank name is typed`() {
+        val model = MethodEditorViewModel(repo)
+        model.setProvider("bKash")
+        model.selectKind(MethodKind.BANK)
+        model.setAccountNumber("123")
+        model.setAccountName("Rahima")
+        model.setBranchName("Mirpur")
+
+        assertEquals("", model.state.value.provider)
+        assertFalse(model.state.value.canSave)
+        model.setProvider("Dutch-Bangla Bank")
+        assertTrue(model.state.value.canSave)
+    }
+
+    @Test
+    fun `the bank form offers no service suggestions`() {
+        val model = MethodEditorViewModel(repo)
+        model.selectKind(MethodKind.BANK)
+        assertEquals(emptyList(), model.providerOptions())
+        model.setProvider("b")
+        assertEquals(emptyList(), model.providerOptions())
+    }
+
+    @Test
+    fun `re-selecting the same kind keeps what was typed`() {
+        val model = MethodEditorViewModel(repo)
+        model.setProvider("bKash")
+        model.selectKind(MethodKind.MOBILE)
+        assertEquals("bKash", model.state.value.provider)
+    }
 }

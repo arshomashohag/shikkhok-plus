@@ -192,12 +192,12 @@ fun MethodEditorScreen(
                     label = stringResource(R.string.method_account_name_label),
                     fieldModifier = Modifier.testTag(TAG_EDITOR_ACCOUNT_NAME),
                 )
-                ProviderDropdown(
+                ShikkhokTextField(
+                    value = state.provider,
+                    onValueChange = onProvider,
                     label = stringResource(R.string.method_bank_name_label),
                     help = stringResource(R.string.method_bank_help),
-                    value = state.provider,
-                    options = options,
-                    onValue = onProvider,
+                    fieldModifier = Modifier.testTag(TAG_EDITOR_PROVIDER),
                 )
                 ShikkhokTextField(
                     value = state.branchName,

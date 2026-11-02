@@ -112,7 +112,8 @@ class MethodEditorViewModel(
      *
      * @param kind The kind to show
      */
-    fun selectKind(kind: MethodKind) = edit { copy(kind = kind) }
+    fun selectKind(kind: MethodKind) =
+        edit { if (kind == this.kind) this else copy(kind = kind, provider = "") }
 
     /**
      * Set the service or bank name.
@@ -162,9 +163,10 @@ class MethodEditorViewModel(
      * The services containing the typed text, then "Use “X”" unless
      * the text already names a service exactly.
      *
-     * @return The entries to show
+     * @return The entries to show; none on the bank form
      */
     fun providerOptions(): List<ProviderOption> {
+        if (_state.value.kind != MethodKind.MOBILE) return emptyList()
         val typed = _state.value.provider.trim()
         val matches = services.filter { it.contains(typed, ignoreCase = true) }
         val exact = services.any { it.equals(typed, ignoreCase = true) }
