@@ -13,14 +13,18 @@ from typing import Any
 
 from app.main import create_app
 
-#: The two D4 writes § B.7 names, and no others. Generalising the
-#: field would contradict a deliberate decision rather than extend
-#: one: § B.7 says that stating the four writes explicitly is what
-#: makes the rule reviewable.
+#: The two D4 writes § B.7 names, plus the payment submission, and no
+#: others. Generalising the field would contradict a deliberate decision
+#: rather than extend one: § B.7 says that stating the writes explicitly
+#: is what makes the rule reviewable, so the payment body was ADDED
+#: here by name [PA-DB-1] -- a timed-out-but-committed submit retried
+#: by the app recorded the payment twice -- rather than the rule being
+#: loosened to a pattern.
 EXPECTED_MUTATION_ID_BODIES: frozenset[tuple[str, str]] = frozenset(
     {
         ("POST", "/v1/sessions/{session_id}/attendance"),
         ("PUT", "/v1/sessions/{session_id}/topic"),
+        ("POST", "/v1/payments"),
     }
 )
 
@@ -69,8 +73,8 @@ def _body_properties(document: dict[str, Any], operation: dict[str, Any]) -> set
     return names
 
 
-def test_exactly_two_d4_request_bodies_carry_client_mutation_id() -> None:
-    """§ B.7's four writes, of which these are D4's two.
+def test_only_the_enumerated_request_bodies_carry_client_mutation_id() -> None:
+    """§ B.7's writes, D4's two of them, and the payment submission.
 
     An EQUALITY over the whole document rather than a membership:
     a membership test passes the moment the field spreads to a third
@@ -83,7 +87,8 @@ def test_exactly_two_d4_request_bodies_carry_client_mutation_id() -> None:
     one of the two paths implemented. The implementation half is
     ``tests/teaching/test_api.py``'s
     ``test_both_declared_mutation_id_paths_actually_replay``, which
-    replays a real request per path. Both are kept: this one guards
+    replays a real request per path, and for the payment body
+    ``tests/fees/test_submission_replay.py``. Both are kept: this one guards
     against the field spreading to a third body, which an
     implementation test cannot see.
 

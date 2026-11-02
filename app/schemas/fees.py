@@ -575,6 +575,10 @@ class PaymentSubmitRequest(BaseModel):
     :ivar transaction_id: The mobile reference
     :ivar from_account: The paying bank account
     :ivar note: Free text for the teacher
+    :ivar client_mutation_id: The app's retry key, one per payment draft.
+        Optional so a build that sends none keeps working; when present,
+        a resend by the same account returns the original submission
+        rather than recording the payment twice
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -587,6 +591,15 @@ class PaymentSubmitRequest(BaseModel):
     transaction_id: str | None = Field(default=None, max_length=64)
     from_account: str | None = Field(default=None, max_length=120)
     note: str | None = Field(default=None, max_length=500)
+    client_mutation_id: uuid.UUID | None = Field(
+        default=None,
+        description=(
+            "One UUID per payment draft, reused on every resend of it. A "
+            "resend by the same account returns the original submission "
+            "with the original 201 and records nothing; the same id with "
+            "a different body is a 409."
+        ),
+    )
 
 
 class SubmittedClaimResponse(BaseModel):
@@ -613,7 +626,8 @@ class PaymentSubmittedResponse(BaseModel):
     """A payment as recorded, waiting for the teacher.
 
     :ivar submission_id: The submission
-    :ivar status: Always ``pending`` when just submitted
+    :ivar status: ``pending`` when just submitted; a replayed resend
+        reports the submission's stored status
     :ivar total_amount: The whole amount sent
     :ivar paid_on: The day the money moved
     :ivar claims: Each child's share, in child order

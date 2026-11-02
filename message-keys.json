@@ -36,6 +36,7 @@
     "fees.payment.date_in_future",
     "fees.payment.date_too_early",
     "fees.payment.method_not_offered",
+    "fees.payment.mutation_id_already_used",
     "fees.payment.reference_mismatch",
     "fees.resolution.not_set",
     "fees.verification.already_decided",
