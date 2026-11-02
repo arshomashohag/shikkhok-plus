@@ -6,6 +6,7 @@ import com.shikkhokplus.app.core.network.DashboardDto
 import com.shikkhokplus.app.core.network.GuardianHomeDto
 import com.shikkhokplus.app.feature.auth.AuthResult
 import com.shikkhokplus.app.feature.fees.StripKind
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -39,6 +40,8 @@ class DashboardViewModel(
 
     private var children: List<DashboardChild> = emptyList()
 
+    private var reading: Job? = null
+
     /**
      * Read a seat's dashboard.
      *
@@ -60,7 +63,8 @@ class DashboardViewModel(
         this.range = DashboardRange.SIX_MONTHS
         this.children = emptyList()
         _state.value = DashboardUiState.Loading
-        viewModelScope.launch {
+        reading?.cancel()
+        reading = viewModelScope.launch {
             if (reader == DashboardReader.GUARDIAN && !readChildren()) return@launch
             fetch()
         }
@@ -104,12 +108,14 @@ class DashboardViewModel(
     /** Read again, when the person asks. Never automatic [TC-8, D-9]. */
     fun retry() {
         _state.value = DashboardUiState.Loading
-        viewModelScope.launch { fetch() }
+        reading?.cancel()
+        reading = viewModelScope.launch { fetch() }
     }
 
     private fun refetch() {
         (_state.value as? DashboardUiState.Loaded)?.let { _state.value = it.copy(refreshing = true) }
-        viewModelScope.launch { fetch() }
+        reading?.cancel()
+        reading = viewModelScope.launch { fetch() }
     }
 
     private suspend fun readChildren(): Boolean {

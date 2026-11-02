@@ -1,7 +1,6 @@
 package com.shikkhokplus.app.core.network
 
 import com.shikkhokplus.app.feature.auth.AuthResult
-import com.shikkhokplus.app.feature.guardian.ChildProgressRepository
 import com.shikkhokplus.app.feature.guardian.GuardianRepository
 import com.shikkhokplus.app.feature.guardian.PaymentsRepository
 import io.ktor.client.HttpClient
@@ -19,7 +18,7 @@ import io.ktor.client.request.get
  */
 class HttpGuardianRepository(
     private val client: HttpClient,
-) : GuardianRepository, PaymentsRepository, ChildProgressRepository {
+) : GuardianRepository, PaymentsRepository {
 
     override suspend fun home(): AuthResult<GuardianHomeDto> = call { client.get("/v1/guardian/home") }
 
@@ -30,10 +29,4 @@ class HttpGuardianRepository(
 
     override suspend fun payables(seat: String): AuthResult<PayablesDto> =
         call { client.get("/v1/children/$seat/payables") }
-
-    override suspend fun progress(seat: String): AuthResult<List<ProgressEntryDto>> =
-        call { client.get("/v1/children/$seat/progress") }
-
-    override suspend fun progressSummary(seat: String): AuthResult<ProgressSummaryDto?> =
-        call { client.get("/v1/children/$seat/progress/summary") }
 }

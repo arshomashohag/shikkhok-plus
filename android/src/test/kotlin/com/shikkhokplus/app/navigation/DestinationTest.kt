@@ -110,7 +110,7 @@ class DestinationTest {
             Destination.Marksheet.of("x-1", "e-1", "CHILD").endsWith("reader=CHILD"),
         )
         assertTrue(
-            Destination.FeeHistory.of("e-1", "TEACHER").endsWith("reader=TEACHER"),
+            Destination.FeeHistory.of("e-1", "TEACHER").contains("reader=TEACHER&"),
         )
     }
 

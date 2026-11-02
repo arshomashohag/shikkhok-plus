@@ -501,9 +501,19 @@ fun ShikkhokNavHost(
                         type = NavType.StringType
                         defaultValue = FeeReader.STUDENT.name
                     },
+                    navArgument(Destination.FeeHistory.ARG_CHILD) {
+                        type = NavType.StringType
+                        defaultValue = ""
+                    },
+                    navArgument(Destination.FeeHistory.ARG_BATCH) {
+                        type = NavType.StringType
+                        defaultValue = ""
+                    },
                 ),
         ) { entry ->
             val seat = entry.arguments?.getString(Destination.FeeHistory.ARG_SEAT).orEmpty()
+            val child = entry.arguments?.getString(Destination.FeeHistory.ARG_CHILD).orEmpty()
+            val batch = entry.arguments?.getString(Destination.FeeHistory.ARG_BATCH).orEmpty()
             val reader =
                 feeReaderOrStudent(
                     entry.arguments?.getString(Destination.FeeHistory.ARG_READER),
@@ -521,7 +531,9 @@ fun ShikkhokNavHost(
                 onBack = { navController.popBackStack() },
                 onOpenProgress =
                     if (reader == FeeReader.TEACHER) {
-                        { navController.navigate(Destination.Dashboard.of(seat, DashboardReader.TEACHER.name)) }
+                        { navController.navigate(
+                            Destination.Dashboard.of(seat, DashboardReader.TEACHER.name, child, batch),
+                        ) }
                     } else {
                         null
                     },

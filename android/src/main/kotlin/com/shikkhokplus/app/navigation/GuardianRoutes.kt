@@ -11,9 +11,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.shikkhokplus.app.core.network.HttpPayRepository
 import com.shikkhokplus.app.core.network.HttpGuardianRepository
-import com.shikkhokplus.app.feature.guardian.ChildProgressViewModel
 import com.shikkhokplus.app.feature.guardian.PaymentsViewModel
-import com.shikkhokplus.app.feature.guardian.ui.ChildProgressScreen
 import com.shikkhokplus.app.feature.guardian.ui.PaymentsScreen
 import com.shikkhokplus.app.feature.pay.PayViewModel
 import com.shikkhokplus.app.feature.student.FamilyReader
@@ -50,25 +48,6 @@ internal fun NavGraphBuilder.guardianRoutes(
             onBack = { navController.popBackStack() },
             onPay = { navController.navigate(Destination.ChildPay.of(seat)) },
             onRetry = { model.load(seat) },
-        )
-    }
-
-    composable(
-        route = Destination.ChildProgress.route,
-        arguments = listOf(navArgument(Destination.ChildProgress.ARG_SEAT) { type = NavType.StringType }),
-    ) { entry ->
-        val seat = entry.arguments?.getString(Destination.ChildProgress.ARG_SEAT).orEmpty()
-        val model: ChildProgressViewModel =
-            viewModel(key = "progress-$seat") { ChildProgressViewModel(HttpGuardianRepository(client)) }
-        val state by model.state.collectAsState()
-
-        LaunchedEffect(seat) { model.load(seat) }
-
-        ChildProgressScreen(
-            state = state,
-            onBack = { navController.popBackStack() },
-            onSelect = model::select,
-            onRetry = model::retry,
         )
     }
 

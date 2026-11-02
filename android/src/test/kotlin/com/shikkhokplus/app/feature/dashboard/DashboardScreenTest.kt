@@ -4,6 +4,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.dp
@@ -194,6 +195,25 @@ class DashboardScreenTest {
         assertEquals(
             "dashboard/e-1?reader=GUARDIAN&child=Tan+vir&batch=Class+9",
             com.shikkhokplus.app.navigation.Destination.Dashboard.of("e-1", "GUARDIAN", "Tan vir", "Class 9"),
+        )
+    }
+
+    @Test
+    fun `the teacher dashboard heading names the student and the batch`() {
+        compose.setContent { DashboardScreen(state(), DashboardActions()) }
+
+        compose.onNodeWithText("Sadia Islam · Class 9 Physics").assertExists()
+    }
+
+    @Test
+    fun `the fee history route carries the names on to the dashboard`() {
+        assertEquals(
+            "fees/e-1?reader=TEACHER&child=Sadia+Islam&batch=Class+9",
+            com.shikkhokplus.app.navigation.Destination.FeeHistory.of("e-1", "TEACHER", "Sadia Islam", "Class 9"),
+        )
+        assertEquals(
+            "fees/e-1?reader=STUDENT&child=&batch=",
+            com.shikkhokplus.app.navigation.Destination.FeeHistory.of("e-1", "STUDENT"),
         )
     }
 }

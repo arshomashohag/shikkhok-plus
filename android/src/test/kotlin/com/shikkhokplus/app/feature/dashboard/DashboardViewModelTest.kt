@@ -6,6 +6,7 @@ import com.shikkhokplus.app.feature.auth.AuthResult
 import com.shikkhokplus.app.feature.fees.StripKind
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -174,5 +175,28 @@ class DashboardViewModelTest {
             advanceUntilIdle()
 
             assertIs<DashboardUiState.Failed>(model.state.value)
+        }
+
+    @Test
+    fun `a slower earlier response cannot overwrite a later selection`() =
+        runTest(dispatcher) {
+            val repo =
+                FakeDashboardRepository(
+                    respond = { range ->
+                        if (range == DashboardRange.YEAR) delay(1_000)
+                        AuthResult.Ok(dashboardDto(examAverage = if (range == DashboardRange.YEAR) 11 else 22))
+                    },
+                )
+            val model = DashboardViewModel(repo)
+            model.load(DashboardReader.TEACHER, "e-1", "Sadia", "Physics")
+            advanceUntilIdle()
+
+            model.selectRange(DashboardRange.YEAR)
+            model.selectRange(DashboardRange.ALL)
+            advanceUntilIdle()
+
+            assertEquals(DashboardRange.ALL, loaded(model).range)
+            assertEquals(22, loaded(model).examAveragePercent)
+            assertFalse(loaded(model).refreshing)
         }
 }

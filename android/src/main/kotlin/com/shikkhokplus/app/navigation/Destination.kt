@@ -290,7 +290,7 @@ sealed interface Destination {
      * and the screen must not pick for itself.
      */
     data object FeeHistory : Destination {
-        override val route: String = "fees/{enrollmentId}?reader={reader}"
+        override val route: String = "fees/{enrollmentId}?reader={reader}&child={child}&batch={batch}"
 
         /** The seat argument's name. */
         const val ARG_SEAT: String = "enrollmentId"
@@ -298,17 +298,30 @@ sealed interface Destination {
         /** The reader argument's name. */
         const val ARG_READER: String = "reader"
 
+        /** Whose fees, carried on to the progress dashboard's heading. */
+        const val ARG_CHILD: String = "child"
+
+        /** Which class, carried on to the progress dashboard's heading. */
+        const val ARG_BATCH: String = "batch"
+
         /**
          * Build a concrete route for one seat.
          *
          * @param enrollmentId The seat
          * @param reader `STUDENT`, `GUARDIAN` or `TEACHER`
+         * @param child Whose fees, or empty
+         * @param batch Which class, or empty
          * @return The route to navigate to
          */
         fun of(
             enrollmentId: String,
             reader: String,
-        ): String = "fees/$enrollmentId?reader=$reader"
+            child: String = "",
+            batch: String = "",
+        ): String =
+            "fees/$enrollmentId?reader=$reader" +
+                "&child=${java.net.URLEncoder.encode(child, "UTF-8")}" +
+                "&batch=${java.net.URLEncoder.encode(batch, "UTF-8")}"
     }
 
     /**
@@ -419,22 +432,6 @@ sealed interface Destination {
          * @return The route to navigate to
          */
         fun of(seat: String): String = "children/$seat/payments"
-    }
-
-    /** A child's progress (G2), opened on one seat's batch. */
-    data object ChildProgress : Destination {
-        override val route: String = "children/{seat}/progress"
-
-        /** The seat argument's name. */
-        const val ARG_SEAT: String = "seat"
-
-        /**
-         * Build a concrete route.
-         *
-         * @param seat The seat whose batch to show first
-         * @return The route to navigate to
-         */
-        fun of(seat: String): String = "children/$seat/progress"
     }
 
     /** Pay for a child (G3's form), opened on one seat's fee. */

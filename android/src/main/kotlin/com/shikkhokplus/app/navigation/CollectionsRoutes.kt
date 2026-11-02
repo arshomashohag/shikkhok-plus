@@ -83,7 +83,14 @@ internal fun NavGraphBuilder.collectionsRoutes(
                     onNext = model::next,
                     onFilter = model::filter,
                     onOpenSeat = { seat ->
-                        navController.navigate(Destination.FeeHistory.of(seat.enrollmentId, FeeReader.TEACHER.name))
+                        navController.navigate(
+                            Destination.FeeHistory.of(
+                                seat.enrollmentId,
+                                FeeReader.TEACHER.name,
+                                seat.displayName,
+                                name,
+                            ),
+                        )
                     },
                     onBack = { navController.popBackStack() },
                 ),

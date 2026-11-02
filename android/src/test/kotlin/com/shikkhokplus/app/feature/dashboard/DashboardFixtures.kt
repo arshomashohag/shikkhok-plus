@@ -73,6 +73,7 @@ fun guardianHome() =
 
 class FakeDashboardRepository(
     var result: AuthResult<DashboardDto> = AuthResult.Ok(dashboardDto()),
+    var respond: (suspend (DashboardRange) -> AuthResult<DashboardDto>)? = null,
     var home: AuthResult<GuardianHomeDto> = AuthResult.Ok(guardianHome()),
 ) : DashboardRepository {
     val calls = mutableListOf<Triple<DashboardReader, String, DashboardRange>>()
@@ -83,7 +84,7 @@ class FakeDashboardRepository(
         range: DashboardRange,
     ): AuthResult<DashboardDto> {
         calls += Triple(reader, seat, range)
-        return result
+        return respond?.invoke(range) ?: result
     }
 
     override suspend fun children(): AuthResult<GuardianHomeDto> = home
