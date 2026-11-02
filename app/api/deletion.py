@@ -37,13 +37,18 @@ send itself, so an unknown number spends none of it [PA-SEC-2].
 
 from __future__ import annotations
 
+import html
 import os
 import uuid
-from typing import Annotated
+from dataclasses import dataclass
+from typing import Annotated, Final
+from urllib.parse import parse_qs
 
 import sqlalchemy as sa
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse
+from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy.orm import Session
 
 from app.api.auth import (
@@ -56,6 +61,7 @@ from app.api.deps import authenticated_account, get_session
 from app.auth import otp
 from app.auth.ceilings import CeilingChecker, SendBudget
 from app.auth.delivery import send_within_budget
+from app.errors import ConflictError, ValidationError
 from app.gateway.outbox import record_outbox
 from app.gateway.sms import SmsGateway
 from app.gateway.template import render_otp_message
@@ -70,7 +76,13 @@ from app.schemas.deletion import (
 )
 from app.schemas.money import Money as WireMoney
 
-__all__ = ["DELETION_PAGE", "router"]
+__all__ = [
+    "CODE_SENT_NOTICE",
+    "DELETED_NOTICE",
+    "DELETION_PAGE",
+    "INVALID_NOTICE",
+    "router",
+]
 
 router = APIRouter(tags=["deletion"])
 
@@ -84,14 +96,19 @@ _PHONE_OF_ACCOUNT = sa.text("SELECT phone FROM account WHERE id = :account_id")
 #: route to **name the app and the developer** so a person can tell they
 #: are on the right page before typing their number into it [AC1.7.2].
 #:
-#: Served as a string constant rather than from a template engine: this
-#: is the product's only HTML, and adding a template dependency for one
-#: page would be the larger change. It states what deletion removes and
-#: what survives, in the terms the generated privacy policy uses -- but
-#: it is NOT generated from the manifest, and that is a known gap
-#: recorded rather than hidden: the policy is the generated document,
-#: and this page points at it.
-DELETION_PAGE = """<!DOCTYPE html>
+#: Served from a string template rather than a template engine: this is
+#: the product's only HTML, and adding a template dependency for one page
+#: would be the larger change. It states what deletion removes and what
+#: survives, in the terms the generated privacy policy uses -- but it is
+#: NOT generated from the manifest, and that is a known gap recorded
+#: rather than hidden: the policy is the generated document, and this
+#: page points at it.
+#:
+#: **Every value substituted into it is escaped** by :func:`_render`,
+#: including the canonical phone number, which is validated and could
+#: not carry markup -- escaping at the one substitution site is cheaper
+#: than proving that for each caller.
+_PAGE_TEMPLATE: Final = """<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -102,7 +119,7 @@ DELETION_PAGE = """<!DOCTYPE html>
 <h1>Delete your ShikkhokPlus account</h1>
 <p>App: <strong>ShikkhokPlus</strong> (com.shikkhokplus.app)</p>
 <p>Developer: <strong>Nirmata</strong></p>
-<p>
+{notice}<p>
   Request a code on your registered phone number, then enter it to
   delete your account. You do not need the app installed.
 </p>
@@ -119,16 +136,186 @@ DELETION_PAGE = """<!DOCTYPE html>
   them, no new fees fall due, and amounts already owed stay on the
   records.
 </p>
-<form method="post" action="/account-deletion">
+{form}</body>
+</html>
+"""
+
+_FORM_TEMPLATE: Final = """<form method="post" action="/account-deletion">
   <label for="phone">Phone number</label>
-  <input id="phone" name="phone" type="tel" required>
+  <input id="phone" name="phone" type="tel" required value="{phone}">
   <label for="code">Code</label>
   <input id="code" name="code" type="text" inputmode="numeric">
   <button type="submit">Delete my account</button>
 </form>
-</body>
-</html>
 """
+
+#: What the confirm step says. **Identical for a number with an account
+#: and one without** [BR2.7], which is why it says "if": the page cannot
+#: know, and must not be made to.
+CODE_SENT_NOTICE: Final = (
+    "If this number has a ShikkhokPlus account, we have sent a code to "
+    "it by SMS. Enter the code below and submit to delete the account. "
+    "To get a new code, leave the code box empty and submit again."
+)
+
+#: The last page, with no form: there is nothing left to submit.
+DELETED_NOTICE: Final = "Your ShikkhokPlus account has been deleted."
+
+#: The English copy for each refusal the form path can meet, keyed by
+#: the same ``message_key`` the JSON envelope carries and worded as the
+#: app's English bundle words it. The page is English, as the GET page
+#: always was; localising it is a separate change.
+_REFUSAL_COPY: Final = {
+    "auth.otp.wrong": "That code isn't right. {attempts_left} tries left.",
+    "auth.otp.expired": (
+        "That code has expired. Codes last 5 minutes. Leave the code box "
+        "empty and submit to get a new one."
+    ),
+    "auth.otp.no_tries_left": (
+        "That code isn't right, and no tries are left. Leave the code box "
+        "empty and submit to get a new code."
+    ),
+    "auth.otp.not_valid": (
+        "That code is not valid. Leave the code box empty and submit to get a new one."
+    ),
+    "auth.otp.temporarily_unavailable": (
+        "We cannot send a code right now. Please try again later."
+    ),
+}
+
+#: For a submission that fails schema validation, or a refusal with no
+#: entry above.
+INVALID_NOTICE: Final = (
+    "Check the phone number and the code, then submit again. Use the "
+    "number your account is registered with, like 01711234567."
+)
+
+#: A form submission is two short fields; anything far larger is not
+#: this page's form, and is refused before it is parsed.
+_MAX_FORM_BYTES: Final = 2048
+
+_FORM_CONTENT_TYPE: Final = "application/x-www-form-urlencoded"
+
+
+def _render(
+    *, notice: str | None = None, phone: str = "", show_form: bool = True
+) -> str:
+    """Render the deletion page, escaping every substituted value.
+
+    :param notice: A sentence shown above the explanation, or None
+    :param phone: The number to prefill the form with
+    :param show_form: Whether the page still offers the form
+    :return: The page's HTML
+    """
+    notice_html = f"<p><strong>{html.escape(notice)}</strong></p>\n" if notice else ""
+    form_html = (
+        _FORM_TEMPLATE.format(phone=html.escape(phone, quote=True)) if show_form else ""
+    )
+    return _PAGE_TEMPLATE.format(notice=notice_html, form=form_html)
+
+
+#: The page as first served: no notice, an empty form.
+DELETION_PAGE: Final = _render()
+
+
+@dataclass(frozen=True, slots=True)
+class DeletionSubmission:
+    """One POST to the external route, as JSON or as the page's form.
+
+    :ivar body: The validated JSON body, or None for a form submission
+    :ivar form: The form's ``phone`` and ``code``, or None for JSON.
+        Validated by the handler rather than here, so a bad form value
+        can be answered with a page instead of FastAPI's JSON 422.
+    """
+
+    body: DeletionRequest | None
+    form: dict[str, str | None] | None
+
+
+def _form_fields(raw: bytes) -> dict[str, str | None]:
+    """Read the page form's two fields from an urlencoded body.
+
+    **A blank code is an absent code.** The page has one form with an
+    optional code box, so a browser submitting it empty sends
+    ``code=`` -- which, read literally, is a code of length zero to
+    verify, and the person asking for a code would be told theirs is
+    wrong. Whitespace is stripped first, since a pasted code often
+    carries some.
+
+    Parsed with the standard library rather than ``request.form()``:
+    Starlette's form parser needs ``python-multipart``, a new runtime
+    dependency for one two-field form.
+
+    :param raw: The request body
+    :return: ``phone`` and ``code``, either possibly None
+    :raises ValueError: The body is not this page's form
+    """
+    if len(raw) > _MAX_FORM_BYTES:
+        raise ValueError("form body too large")
+    parsed = parse_qs(
+        raw.decode("utf-8", errors="replace"),
+        keep_blank_values=True,
+        max_num_fields=8,
+    )
+
+    def first(name: str) -> str | None:
+        """Return a field's first value, stripped, or None when blank.
+
+        :param name: The field name
+        :return: The value, or None
+        """
+        values = parsed.get(name)
+        value = values[0].strip() if values else ""
+        return value or None
+
+    return {"phone": first("phone"), "code": first("code")}
+
+
+async def read_submission(request: Request) -> DeletionSubmission:
+    """Read the POST body as the page's form or as JSON.
+
+    **One route, two encodings**, because ``PUBLIC_ROUTES`` asserts its
+    count and a second route for the browser would be a further entry
+    [BR3.2]. The page's plain HTML form posts urlencoded; every other
+    content type is read as JSON, exactly as before, and a JSON body
+    that fails validation still answers FastAPI's 422.
+
+    :param request: The incoming request
+    :return: The submission, tagged with how it arrived
+    :raises RequestValidationError: A JSON body is malformed or invalid
+    """
+    raw = await request.body()
+    content_type = request.headers.get("content-type", "")
+    if content_type.split(";", 1)[0].strip().lower() == _FORM_CONTENT_TYPE:
+        try:
+            return DeletionSubmission(body=None, form=_form_fields(raw))
+        except ValueError:
+            return DeletionSubmission(body=None, form={"phone": None, "code": None})
+    try:
+        return DeletionSubmission(
+            body=DeletionRequest.model_validate_json(raw), form=None
+        )
+    except PydanticValidationError as error:
+        raise RequestValidationError(
+            [
+                {**detail, "loc": ("body", *detail["loc"])}
+                for detail in error.errors(include_url=False)
+            ]
+        ) from error
+
+
+#: The request body, documented by hand because the handler reads it
+#: through :func:`read_submission` rather than a body parameter. Both
+#: encodings carry the same two fields under the same rules.
+_REQUEST_BODY: Final = {
+    "requestBody": {
+        "required": True,
+        "content": {
+            "application/json": {"schema": DeletionRequest.model_json_schema()},
+            _FORM_CONTENT_TYPE: {"schema": DeletionRequest.model_json_schema()},
+        },
+    }
+}
 
 
 @router.get("/account-deletion", response_class=HTMLResponse)
@@ -144,35 +331,135 @@ def deletion_page() -> HTMLResponse:
     return HTMLResponse(content=DELETION_PAGE)
 
 
-@router.post("/account-deletion", response_model=DeletionOutcome)
+@router.post(
+    "/account-deletion",
+    response_model=DeletionOutcome,
+    openapi_extra=_REQUEST_BODY,
+    responses={
+        200: {
+            "description": (
+                "JSON for a JSON request; an HTML page for a form submission"
+            ),
+            "content": {"text/html": {"schema": {"type": "string"}}},
+        },
+        # Declared by hand because the body is read by a dependency, so
+        # FastAPI no longer adds it -- and the JSON path still returns
+        # it for a body that fails validation.
+        422: {
+            "description": "Validation Error",
+            "content": {
+                "application/json": {
+                    "schema": {"$ref": "#/components/schemas/HTTPValidationError"}
+                },
+                "text/html": {"schema": {"type": "string"}},
+            },
+        },
+    },
+)
 def external_deletion(
-    body: DeletionRequest,
+    submission: Annotated[DeletionSubmission, Depends(read_submission)],
     request: Request,
     background: BackgroundTasks,
     session: Annotated[Session, Depends(get_session)],
     gateway: Annotated[SmsGateway, Depends(get_gateway)],
-) -> DeletionOutcome:
+) -> DeletionOutcome | HTMLResponse:
     """Send a deletion code, or delete once one is presented.
 
     **One route with two steps rather than two routes**, and that is a
     deliberate consequence of the allowlist rather than a convenience.
-    ``PUBLIC_ROUTES`` declares exactly two external deletion entries,
-    its count is asserted at eight, and D6's stated job is to land
-    handlers against entries already under review -- not to add a public
-    route in the commit that implements one. A separate
-    ``/account-deletion/code`` would have been a ninth public entry,
+    ``PUBLIC_ROUTES`` declares exactly two external deletion entries
+    and asserts its count, and D6's stated job is to land handlers
+    against entries already under review -- not to add a public route
+    in the commit that implements one. A separate
+    ``/account-deletion/code`` would have been a further public entry,
     which is a diff against a stated number [BR3.2].
 
     The step is chosen by whether ``code`` is present, which is also how
     the page's single form behaves: submit a number to be sent a code,
     submit it again with the code to confirm.
 
+    **A form submission is answered with a page** [PA-SEC-1]: the
+    confirm step with the number prefilled, the deleted page, or the
+    form again with what went wrong. A JSON submission is answered as
+    it always was, with the outcome or the error envelope. From the
+    form, an empty or whitespace-only code box means no code.
+
+    :param submission: The body, as JSON or as the page's form
+    :param request: The incoming request
+    :param background: Runs the SMS send after the response is written
+    :param session: The request-scoped session
+    :param gateway: The configured SMS gateway
+    :return: ``requested`` after a code is sent, ``deleted`` after one
+        is spent -- or the page saying so, for a form submission
+    :raises CeilingBreach: A deletion ceiling refused a JSON send
+    :raises ValidationError: A JSON submission's code is wrong, expired,
+        used or was issued for a different purpose
+    """
+    if submission.body is not None:
+        return _external_deletion(
+            submission.body, request, background, session, gateway
+        )
+
+    fields = submission.form or {}
+    try:
+        body = DeletionRequest.model_validate(fields)
+    except (PydanticValidationError, ValidationError):
+        # The phone canonicaliser raises the app's own ValidationError
+        # from inside the model; a code of the wrong length is
+        # pydantic's. Both mean "nothing we can act on", and neither has
+        # reached the database.
+        return _page(422, notice=INVALID_NOTICE, phone=fields.get("phone") or "")
+
+    try:
+        outcome = _external_deletion(body, request, background, session, gateway)
+    except (ValidationError, ConflictError) as refusal:
+        copy = _REFUSAL_COPY.get(refusal.message_key, INVALID_NOTICE)
+        status = 409 if isinstance(refusal, ConflictError) else 400
+        return _page(
+            status,
+            notice=copy.format_map(refusal.details or {}),
+            phone=body.phone,
+        )
+
+    if outcome.status == "deleted":
+        return _page(200, notice=DELETED_NOTICE, show_form=False)
+    # THE SAME PAGE for a known and an unknown number [BR2.7]: the only
+    # value in it is the number the caller typed, canonicalised.
+    return _page(200, notice=CODE_SENT_NOTICE, phone=body.phone)
+
+
+def _page(
+    status: int, *, notice: str, phone: str = "", show_form: bool = True
+) -> HTMLResponse:
+    """Answer a form submission with the page.
+
+    :param status: The HTTP status, mirroring the JSON path's
+    :param notice: What happened, in a sentence
+    :param phone: The number to prefill
+    :param show_form: Whether to offer the form again
+    :return: The response
+    """
+    return HTMLResponse(
+        content=_render(notice=notice, phone=phone, show_form=show_form),
+        status_code=status,
+    )
+
+
+def _external_deletion(
+    body: DeletionRequest,
+    request: Request,
+    background: BackgroundTasks,
+    session: Session,
+    gateway: SmsGateway,
+) -> DeletionOutcome:
+    """Run one step of the external route, whichever encoding asked.
+
     ``verify`` is CALLED rather than reimplemented, which is what gives
     this route the single-use rule, the expiry and the attempt ceiling
     without a second copy of any of them [NFR14.81]. Reimplementing it
     is the obvious shortcut for a route living in a different module.
 
-    :param body: The request body
+    :param body: The validated request
     :param request: The incoming request
     :param background: Runs the SMS send after the response is written
     :param session: The request-scoped session
