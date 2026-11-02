@@ -193,11 +193,27 @@ def downgrade() -> None:
     """Restore the original claim check and drop everything added.
 
     A claim is a retained financial record, so a zero-share linked claim
-    is never deleted to make the restored check hold.
+    is never deleted to make the restored check hold. A payment
+    submission is one too: dropping its table would delete what a family
+    reported paying and how the teacher decided it, so the downgrade
+    refuses while any submission exists. ``0014``'s downgrade has already
+    removed the submissions it made to wrap legacy claims.
 
     :return: None
-    :raises RuntimeError: If any zero-share claim exists
+    :raises RuntimeError: If any payment submission or zero-share claim
+        exists
     """
+    submissions = (
+        op.get_bind()
+        .execute(sa.text("SELECT count(*) FROM payment_submission"))
+        .scalar_one()
+    )
+    if submissions:
+        raise RuntimeError(
+            f"Cannot downgrade 0013: {submissions} payment_submission row(s) "
+            "hold reported payments and their decisions. This migration "
+            "will not delete a financial record."
+        )
     zero_shares = (
         op.get_bind()
         .execute(sa.text("SELECT count(*) FROM payment_claim WHERE claimed_amount = 0"))

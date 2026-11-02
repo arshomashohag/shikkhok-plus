@@ -466,3 +466,26 @@ def test_0013_downgrade_refuses_with_a_zero_share_claim(head: Engine) -> None:
             sa.text("SELECT count(*) FROM payment_claim")
         ).scalar_one()
     assert remaining == 1
+
+
+def test_0013_downgrade_refuses_while_a_submission_exists(head: Engine) -> None:
+    """A payment submission is a financial record: it blocks the downgrade.
+
+    ``0014``'s downgrade removes the submissions it made to wrap legacy
+    claims; one a family reported is not that, and dropping the table
+    would delete what was paid and how it was decided.
+
+    :param head: The upgraded engine
+    :return: None
+    """
+    _seed_submission(head, "100.00", "TX1", None)
+
+    url = head.url.render_as_string(hide_password=False)
+    with pytest.raises(Exception, match="Cannot downgrade 0013"):
+        command.downgrade(_alembic_config(url), "0012")
+
+    with head.begin() as connection:
+        remaining = connection.execute(
+            sa.text("SELECT count(*) FROM payment_submission")
+        ).scalar_one()
+    assert remaining == 1
