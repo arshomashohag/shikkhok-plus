@@ -2,12 +2,14 @@ package com.shikkhokplus.app.core.network
 
 import com.shikkhokplus.app.feature.auth.AuthRepository
 import com.shikkhokplus.app.feature.auth.AuthResult
+import com.shikkhokplus.app.feature.auth.SessionResume
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.http.isSuccess
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -60,31 +62,68 @@ class HttpAuthRepository(
      * token nothing redeems would change nothing: the app would hold a
      * credential and still ask for an OTP.
      *
-     * **A refusal CLEARS the store**, which is the security-critical
-     * half. The server invalidates the whole token family on reuse
-     * detection, so a refused refresh means the credential is dead —
-     * and retrying with it would be presenting a token the server has
-     * already decided was stolen. A transport failure clears nothing:
-     * no response arrived, so the token's status is unknown and
-     * discarding a valid session because the wifi dropped would force
-     * an OTP for no reason.
+     * **A definitive refusal CLEARS the store**, which is the
+     * security-critical half. The server invalidates the whole token
+     * family on reuse detection, so a 400, 401 or 403 means the
+     * credential is dead -- and retrying with it would be presenting a
+     * token the server has already decided was stolen.
      *
-     * @return The new pair, a refusal, or a transport failure
+     * **Anything else clears nothing.** A transport failure, a 5xx or a
+     * 429 says nothing about the token: no answer to the question
+     * arrived. This used to clear on ANY non-2xx, so a cold start during
+     * a server outage signed the teacher out and cost an SMS to get back
+     * in, while the mid-session renewal three files away kept the
+     * session on the same answer. Both now read
+     * [REFUSED_REFRESH_STATUSES].
+     *
+     * **Under [RENEWAL_LOCK], the same lock as the mid-session
+     * renewal.** The stored token is read INSIDE the lock, so a renewal
+     * that rotated it while this one waited is seen, and the token sent
+     * is always the current one rather than one already rotated out.
+     *
+     * @return The new pair, a refusal, or a transport failure. A
+     *   missing stored token is reported as a transport failure and
+     *   sends nothing; [resume] is what tells the two apart
      */
-    suspend fun refresh(): AuthResult<TokenResponse> {
-        val stored = tokens.refreshToken() ?: return AuthResult.TransportFailure
+    suspend fun refresh(): AuthResult<TokenResponse> =
+        RENEWAL_LOCK.withLock {
+            val stored = tokens.refreshToken() ?: return@withLock AuthResult.TransportFailure
 
-        val result: AuthResult<TokenResponse> =
-            call { client.post("/v1/auth/refresh") { setBody(RefreshBody(stored)) } }
+            var credentialDead = false
+            val result: AuthResult<TokenResponse> =
+                call {
+                    client.post("/v1/auth/refresh") { setBody(RefreshBody(stored)) }
+                        .also { credentialDead = it.status in REFUSED_REFRESH_STATUSES }
+                }
 
-        when (result) {
-            is AuthResult.Ok ->
-                tokens.save(result.value.accessToken, result.value.refreshToken)
-            is AuthResult.Refused -> tokens.clear()
-            AuthResult.TransportFailure -> Unit
+            when (result) {
+                is AuthResult.Ok ->
+                    tokens.save(result.value.accessToken, result.value.refreshToken)
+                is AuthResult.Refused -> if (credentialDead) tokens.clear()
+                AuthResult.TransportFailure -> Unit
+            }
+            result
         }
-        return result
-    }
+
+    /**
+     * Redeem the stored session at a cold start, and say what came of it.
+     *
+     * **The store is the witness, not the HTTP result.** After [refresh]
+     * a cleared store means the credential is dead or was never there,
+     * and a store still holding a token means its status is simply
+     * unknown -- the phone is offline, or the server did not answer.
+     * Reading the outcome back from the store keeps the one rule about
+     * what ends a session in [refresh], rather than repeating it here
+     * where it could drift.
+     *
+     * @return Renewed, unverified-but-kept, or ended
+     */
+    suspend fun resume(): SessionResume =
+        when (refresh()) {
+            is AuthResult.Ok -> SessionResume.RENEWED
+            else ->
+                if (tokens.refreshToken() == null) SessionResume.ENDED else SessionResume.UNVERIFIED
+        }
 }
 
 /**

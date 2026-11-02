@@ -772,10 +772,12 @@ private fun feeReaderOrStudent(raw: String?): FeeReader =
 /**
  * Confirm signing out, and say what it would discard.
  *
- * **Never silent about unsent work.** Ending the session clears the
- * device's queue -- the next person to sign in must not send this
- * account's rosters under their own token -- so attendance saved and not
- * yet sent is lost, and the dialog says how much before it happens.
+ * **Never silent about unsent work.** Signing out discards this
+ * account's unsent writes from the phone, so attendance saved and not
+ * yet sent is lost, and the dialog says how much before it happens. The
+ * count and the discard are both scoped to this account by the queue
+ * store; another account's writes on the same phone are neither counted
+ * nor touched.
  *
  * @param unsent How many saved writes have not been sent
  * @param onConfirm Called to sign out

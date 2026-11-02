@@ -1,5 +1,12 @@
 package com.shikkhokplus.app.core.network
 
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlin.io.encoding.Base64
+import kotlin.io.encoding.ExperimentalEncodingApi
+
 /**
  * Holds the tokens for the signed-in session.
  *
@@ -43,6 +50,17 @@ interface TokenStore {
      * retrying with credentials known to be dead.
      */
     fun clear()
+
+    /**
+     * The account the stored session belongs to, or null when signed out.
+     *
+     * Read from the access token's subject, which stays readable after
+     * the token expires -- so it answers offline too, which is when the
+     * device queue most needs to know whose writes it is holding.
+     *
+     * @return The account id, or null
+     */
+    fun accountId(): String? = accessToken()?.let(::accountIdOf)
 
     /**
      * The process-lifetime store.
@@ -106,7 +124,15 @@ class EncryptedTokenStore private constructor(
     override fun refreshToken(): String? = preferences.getString(KEY_REFRESH, null)
 
     override fun save(access: String, refresh: String) {
-        preferences.edit().putString(KEY_ACCESS, access).putString(KEY_REFRESH, refresh).apply()
+        // **commit, not apply**, for the same reason as `clear` and with
+        // a sharper edge. The server has ALREADY rotated the old refresh
+        // token out when this runs; `apply` returns before the new one is
+        // on disk, so a process death in that window leaves the rotated-out
+        // token as the only one stored, and the next start presents it --
+        // which the server reads as reuse and answers by revoking the
+        // whole family. The new pair must be durable before anything uses
+        // it.
+        preferences.edit().putString(KEY_ACCESS, access).putString(KEY_REFRESH, refresh).commit()
     }
 
     override fun clear() {
@@ -155,5 +181,40 @@ class EncryptedTokenStore private constructor(
                 // does not refuse to start.
                 TokenStore.InMemory()
             }
+    }
+}
+
+/** Base64 decodes whole four-character groups. */
+private const val BASE64_GROUP = 4
+
+/**
+ * Read the account id out of an access token's subject claim.
+ *
+ * **Labelling, not authorization.** The client still learns what it may
+ * DO only from responses [TC-11, D-2]; nothing here is trusted to grant
+ * anything, and the signature is not checked because nothing rides on
+ * it. The one use is to say which account a piece of device-local data
+ * -- a queued roster -- was written under, so it is never sent under a
+ * different one. A forged token gains nothing: the server verifies the
+ * token every write is actually sent with.
+ *
+ * The id is the server's opaque account UUID: no name, no phone number.
+ *
+ * @param accessToken A JWT, `header.payload.signature`
+ * @return The `sub` claim, or null when the token cannot be read
+ */
+@OptIn(ExperimentalEncodingApi::class)
+fun accountIdOf(accessToken: String): String? {
+    val payload = accessToken.split('.').getOrNull(1) ?: return null
+    // A JWT segment is unpadded base64url; restore the padding so the
+    // decoder accepts it whatever its padding policy.
+    val padded = payload.padEnd((payload.length + BASE64_GROUP - 1) / BASE64_GROUP * BASE64_GROUP, '=')
+    return try {
+        val claims = Json.parseToJsonElement(Base64.UrlSafe.decode(padded).decodeToString())
+        claims.jsonObject["sub"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
+    } catch (_: IllegalArgumentException) {
+        // Not base64, not JSON, or not an object with a string subject.
+        // SerializationException is an IllegalArgumentException.
+        null
     }
 }

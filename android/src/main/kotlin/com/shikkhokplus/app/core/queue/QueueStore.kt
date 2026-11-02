@@ -68,30 +68,50 @@ data class QueueFile(
  * rather than assumed, because the next person to add a background
  * writer needs to know this.
  *
+ * **Every item belongs to one account, and each account sees only its
+ * own.** [read] returns the signed-in account's items and [write]
+ * replaces only those, leaving every other account's untouched. Scoping
+ * here rather than in each screen is the point: the drain, the
+ * attendance and topic screens and the sign-out count all go through
+ * these two calls, so none of them can be the one that forgets. The
+ * defect this closes had two halves -- one way of ending a session
+ * cleared the queue silently, and the other (a refused refresh at a
+ * cold start) left it in place for the next person to sign in on the
+ * phone to send under their own token.
+ *
  * @property file Where the queue lives
  * @property json How items are serialized
+ * @property currentAccount The signed-in account, or null when nobody
+ *   is. Read on every call, never cached, so an account change is seen
+ *   by the very next read
  */
 class QueueStore(
     private val file: File,
     private val json: Json = DEFAULT_JSON,
+    val currentAccount: () -> String? = { null },
 ) {
 
     /**
-     * Discard every queued write, when an account's session ends.
+     * Discard the signed-in account's queued writes, when it signs out
+     * or is deleted.
      *
-     * **Only at sign-out or deletion, and never silently.** Unsent
-     * attendance is the teacher's work; the profile says how many items
-     * will be lost before sign-out runs this. It is called at all
-     * because the queue belongs to the account that wrote it: left in
-     * place, the next person to sign in on this phone would send the
-     * previous account's rosters under their own token.
+     * **Only at an explicit sign-out or deletion, and never silently.**
+     * Unsent attendance is the teacher's work; the sign-out dialog says
+     * how many items will be lost before this runs. A session the SERVER
+     * ended does not call this: those items stay bound to their account
+     * and drain when it signs back in.
+     *
+     * **Only this account's items.** Another account's unsent writes on
+     * the same phone are not this account's to discard. That makes the
+     * call order-sensitive: the caller runs it while the session still
+     * holds its token, before clearing the token.
      */
     fun clear() {
         write(emptyList())
     }
 
     /**
-     * Read every queued item, oldest first.
+     * Read the signed-in account's queued items, oldest first.
      *
      * **A missing file is an empty queue, not an error.** That is the
      * state on first launch, and after a discard emptied it.
@@ -105,31 +125,106 @@ class QueueStore(
      * one is somehow reached, starting empty is the recoverable
      * outcome.
      *
-     * @return The queued items, or an empty list
+     * @return The current account's items, or an empty list
      */
     fun read(): List<QueuedWrite> {
-        if (!file.exists()) return emptyList()
+        val account = currentAccount()
+        return readAll(account).filter { it.accountId == account }
+    }
+
+    /**
+     * Replace the signed-in account's queue, atomically.
+     *
+     * Items with no account are stamped with the current one, which is
+     * how a newly composed write acquires its owner without any screen
+     * having to supply it. Every other account's items are carried over
+     * unchanged -- and an item in [items] that already belongs to another
+     * account is ignored rather than stored, so a screen still holding a
+     * previous account's item cannot alter it, or hand it to this one,
+     * by writing it back.
+     *
+     * @param items The current account's items, oldest first
+     * @throws java.io.IOException If the rename does not succeed
+     */
+    fun write(items: List<QueuedWrite>) {
+        val account = currentAccount()
+        val mine =
+            items
+                .filter { it.accountId == null || it.accountId == account }
+                .map { it.copy(accountId = account) }
+        val others = readAll(account).filter { it.accountId != account }
+        persist(others + mine)
+    }
+
+    /**
+     * Read every item in the file, whichever account it belongs to.
+     *
+     * **Where a queue written before items carried an account is
+     * adopted, once.** Such a file is tagged with an older [QueueFile]
+     * version and its items have no account. They are given to the
+     * first account the app is signed in as after the upgrade, and the
+     * file is rewritten at the current version so it happens exactly
+     * once. The reasoning, since it is a judgement rather than a fact:
+     *
+     * - The previous build cleared the queue on every sign-out and every
+     *   lapsed session, so its unsent items survive an upgrade only in
+     *   the account that was signed in, or -- after a refresh the server
+     *   refused at a cold start -- until the next sign-in. Either way the
+     *   first account signed in afterwards is overwhelmingly the one that
+     *   wrote them, typically the same teacher who updated the app.
+     * - Discarding them instead would silently drop a teacher's unsent
+     *   attendance on an app update, which is the failure the queue
+     *   exists to prevent.
+     * - The residual case -- a refused session, then a DIFFERENT person
+     *   signing in before this build was installed -- is the defect this
+     *   build closes, so it cannot recur; for the items already caught in
+     *   it, the server still authorizes every write against the sender's
+     *   own batches and refuses a roster for a session that account does
+     *   not own.
+     *
+     * Adoption only ever happens on an old-format file. An item with no
+     * account in a current-format file is never handed to anyone.
+     *
+     * @param account The account reading, or null when nobody is
+     * @return Every item, oldest first
+     */
+    private fun readAll(account: String?): List<QueuedWrite> {
+        val stored = decode() ?: return emptyList()
+        if (stored.version >= FORMAT_VERSION || account == null) return stored.items
+
+        val adopted = stored.items.map { if (it.accountId == null) it.copy(accountId = account) else it }
+        persist(adopted)
+        return adopted
+    }
+
+    /**
+     * Decode the file, or null when it is missing or unreadable.
+     *
+     * @return The file's contents, or null
+     */
+    private fun decode(): QueueFile? {
+        if (!file.exists()) return null
         return try {
-            json.decodeFromString(QueueFile.serializer(), file.readText()).items
+            json.decodeFromString(QueueFile.serializer(), file.readText())
         } catch (_: Exception) {
-            emptyList()
+            null
         }
     }
 
     /**
-     * Replace the whole queue, atomically.
+     * Replace the whole file, every account's items, atomically.
      *
      * The sequence is the contract and each step is required:
      * serialize, write to a temp file **beside** the target, flush the
      * bytes to storage, then rename over the target.
      *
-     * @param items The items to persist, oldest first
+     * @param items Every account's items, oldest first
      * @throws java.io.IOException If the rename does not succeed, which
      *   is surfaced rather than swallowed: a write the caller believes
      *   succeeded while the queue still holds the old roster is the
      *   silent failure this whole class exists to prevent
      */
-    fun write(items: List<QueuedWrite>) {
+    private fun persist(items: List<QueuedWrite>) {
         file.parentFile?.mkdirs()
 
         // Same directory as the target. A cross-filesystem rename is a
@@ -164,7 +259,9 @@ class QueueStore(
     fun enqueue(item: QueuedWrite): List<QueuedWrite> {
         val updated = read() + item
         write(updated)
-        return updated
+        // Read back rather than echoed, so the caller sees each item
+        // as stored -- stamped with its account.
+        return read()
     }
 
     /**
@@ -180,7 +277,9 @@ class QueueStore(
     fun replace(item: QueuedWrite): List<QueuedWrite> {
         val updated = read().map { if (it.id == item.id) item else it }
         write(updated)
-        return updated
+        // Read back rather than echoed, so the caller sees each item
+        // as stored -- stamped with its account.
+        return read()
     }
 
     /**
@@ -195,12 +294,19 @@ class QueueStore(
     fun remove(itemId: String): List<QueuedWrite> {
         val updated = read().filterNot { it.id == itemId }
         write(updated)
-        return updated
+        // Read back rather than echoed, so the caller sees each item
+        // as stored -- stamped with its account.
+        return read()
     }
 
     companion object {
-        /** The on-disk format version. */
-        const val FORMAT_VERSION: Int = 1
+        /**
+         * The on-disk format version.
+         *
+         * 2 added the owning account to every item. A version-1 file is
+         * still read, and its items adopted once (see `readAll`).
+         */
+        const val FORMAT_VERSION: Int = 2
 
         /** The queue file's name inside the app's files directory. */
         const val FILE_NAME: String = "write-queue.json"

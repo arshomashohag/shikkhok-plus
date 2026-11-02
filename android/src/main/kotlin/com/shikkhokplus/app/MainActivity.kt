@@ -167,12 +167,22 @@ private fun AppRoot(openInbox: Boolean, onInboxOpened: () -> Unit) {
     // attendance writes are a single ordered list [BR3.5]; a store
     // built per route would split that list by screen, and a write
     // queued on one would be invisible to the retry on another.
+    //
+    // **Scoped to the signed-in account**, read from the token store on
+    // every call: each screen and the drain see only that account's
+    // writes, and nothing written under one account is ever sent under
+    // another's token.
     val queue =
-        remember { QueueStore(java.io.File(context.filesDir, "attendance-queue.json")) }
+        remember {
+            QueueStore(
+                java.io.File(context.filesDir, "attendance-queue.json"),
+                currentAccount = tokens::accountId,
+            )
+        }
     // Raised from the network layer, off the main thread, when an
-    // expired session could not be renewed; handled below by the same
-    // `endSession` sign-out uses. A snapshot state is safe to write
-    // from any thread, which is why it is the bridge.
+    // expired session could not be renewed; handled below by
+    // `endLapsedSession`. A snapshot state is safe to write from any
+    // thread, which is why it is the bridge.
     var sessionLapsed by remember { mutableStateOf(false) }
     val client =
         remember {
@@ -190,8 +200,9 @@ private fun AppRoot(openInbox: Boolean, onInboxOpened: () -> Unit) {
     // Try the stored token BEFORE anyone is asked for anything. Keyed
     // on Unit so it runs once per composition rather than on every
     // state change -- a refresh per recomposition would rotate the
-    // token repeatedly and trip the server's reuse detection.
-    LaunchedEffect(Unit) { authModel.resumeSession(repository::refresh) }
+    // token repeatedly and trip the server's reuse detection. An
+    // offline start keeps the session (see `SessionResume`).
+    LaunchedEffect(Unit) { authModel.resumeSession(repository::resume) }
 
     // **The session is checked BEFORE anything is routed.** Previously
     // `signedIn` was read before `resumeSession` had finished, so it was
@@ -303,13 +314,29 @@ private fun AppRoot(openInbox: Boolean, onInboxOpened: () -> Unit) {
     // the app comes to the front.
     UnreadCheckEffects(signedIn)
 
-    // **One way to end a session, used by sign-out and deletion.** It
-    // wipes the stored tokens and the device's queue -- left in place,
-    // the next person to sign in on this phone would send this
-    // account's rosters under their own token -- and returns to sign-in.
+    // **One way to end a session by choice, used by sign-out and
+    // deletion.** It discards this account's unsent writes -- which the
+    // sign-out dialog has already counted out loud -- wipes the stored
+    // tokens and returns to sign-in.
+    //
+    // **The queue is cleared FIRST, and the order is load-bearing.**
+    // `clear` discards the signed-in account's items, and the store
+    // learns who that is from the tokens; cleared second, it would find
+    // nobody signed in and discard nothing.
     val endSession = {
         UnreadSchedule.stop(context)
         queue.clear()
+        tokens.clear()
+        authModel.signOut()
+    }
+
+    // **A session the server ended keeps its unsent writes.** Nobody
+    // chose this and nothing told them, so discarding their attendance
+    // here was a silent loss; the items stay bound to their account and
+    // drain when it signs back in, and no other account can see or send
+    // them. The renewal has already cleared the tokens.
+    val endLapsedSession = {
+        UnreadSchedule.stop(context)
         tokens.clear()
         authModel.signOut()
     }
@@ -319,7 +346,7 @@ private fun AppRoot(openInbox: Boolean, onInboxOpened: () -> Unit) {
     // says why; ending it routes to sign-in, as sign-out does.
     LaunchedEffect(sessionLapsed) {
         if (sessionLapsed) {
-            endSession()
+            endLapsedSession()
             sessionLapsed = false
         }
     }
