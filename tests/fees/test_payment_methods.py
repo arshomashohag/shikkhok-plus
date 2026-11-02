@@ -97,6 +97,43 @@ def test_bank_method_requires_all_four_fields(
         assert response.json()["error"]["code"] == "METHOD_FIELDS_INCOMPLETE"
 
 
+def test_whitespace_only_fields_count_as_missing(
+    api_client: TestClient, owner_session: Session, teacher: TeacherFixture
+) -> None:
+    """A field of spaces is refused like an absent one; padding is trimmed.
+
+    A bank method whose account name is three spaces would show the
+    family a blank line where the name should be.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param teacher: The owner
+    :return: None
+    """
+    headers = bearer(owner_session, teacher.account_id)
+    for blank in ("provider", "account_number", "account_name", "branch_name"):
+        response = api_client.post(
+            "/v1/payment-methods", json={**BANK_BODY, blank: "   "}, headers=headers
+        )
+        assert response.status_code == 400, blank
+        assert response.json()["error"]["code"] == "METHOD_FIELDS_INCOMPLETE"
+    mobile = api_client.post(
+        "/v1/payment-methods",
+        json={**MOBILE_BODY, "provider": " \t "},
+        headers=headers,
+    )
+    padded = api_client.post(
+        "/v1/payment-methods",
+        json={**BANK_BODY, "account_name": "  Najma Akter  ", "note": "  "},
+        headers=headers,
+    )
+
+    assert mobile.json()["error"]["code"] == "METHOD_FIELDS_INCOMPLETE"
+    assert padded.status_code == 201, padded.text
+    assert padded.json()["account_name"] == "Najma Akter"
+    assert padded.json()["note"] is None
+
+
 def test_mobile_method_rejects_a_bad_number_and_bank_fields(
     api_client: TestClient, owner_session: Session, teacher: TeacherFixture
 ) -> None:

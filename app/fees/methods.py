@@ -65,9 +65,24 @@ def _incomplete() -> ValidationError:
     )
 
 
+#: The free-text fields of a draft, trimmed before any check.
+_TEXT_FIELDS = (
+    "provider",
+    "mobile_number",
+    "account_number",
+    "account_name",
+    "branch_name",
+    "note",
+)
+
+
 @dataclass(frozen=True, slots=True)
 class MethodDraft:
     """What a teacher typed for a method, before it is checked.
+
+    **Text is trimmed on construction**, and a field left with nothing in
+    it is treated as absent. A bank account name of three spaces would
+    otherwise pass "present" and show the family a blank line.
 
     :ivar kind: ``mobile`` or ``bank``
     :ivar provider: The mobile service or the bank's name
@@ -85,6 +100,16 @@ class MethodDraft:
     account_name: str | None = None
     branch_name: str | None = None
     note: str | None = None
+
+    def __post_init__(self) -> None:
+        """Trim every text field, turning one left empty into None.
+
+        :return: None
+        """
+        for name in _TEXT_FIELDS:
+            value = getattr(self, name)
+            if value is not None:
+                object.__setattr__(self, name, value.strip() or None)
 
     def validate(self) -> None:
         """Check the draft against its kind's required and forbidden fields.
