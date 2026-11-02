@@ -189,6 +189,31 @@ def derive(entries: list[LedgerEntry]) -> DerivedQuantities:
     )
 
 
+def relief_of(entries: list[LedgerEntry]) -> Money:
+    """
+    Measure how far a set of entries lowers what is owed, in total.
+
+    Receipts, forgiveness, applied credit and carries out of a period
+    relieve; charges and carries into a period add back. A credit grant
+    relieves nothing: it is held money until a later ``credit_apply``
+    spends it. Unlike :attr:`DerivedQuantities.total_outstanding` this is
+    not floored per period, because the entries measured are a slice of a
+    ledger, not a whole one.
+
+    :param entries: The entries one decision wrote, for instance
+    :return: The relief, negative where the entries add to what is owed
+    """
+    totals = derive(entries)
+    return (
+        totals.total_receipt
+        + totals.total_forgiven
+        + totals.total_credit_apply
+        + totals.total_carried_out
+        - totals.total_carry_forward
+        - totals.total_charged
+    )
+
+
 def carry_forward(
     amount: Money,
     origin: str,

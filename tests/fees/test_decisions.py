@@ -1213,3 +1213,194 @@ def test_correcting_an_over_payment_whose_credit_was_partly_spent(
     derived = derive_for_enrollment(restricted_session, family.tania)
     assert derived.total_outstanding == Money("1300.00")
     assert derived.available_credit == Money.ZERO
+
+
+def _review(
+    client: TestClient,
+    session: Session,
+    teacher: TeacherFixture,
+    submission_id: uuid.UUID,
+) -> dict[str, object]:
+    """Read a payment's review as the teacher.
+
+    :param client: The test client
+    :param session: A session to issue the token through
+    :param teacher: The reviewing teacher
+    :param submission_id: The submission
+    :return: The response body
+    """
+    response = client.get(
+        f"/v1/payments/{submission_id}",
+        headers=bearer(session, teacher.account_id),
+    )
+    assert response.status_code == 200, response.text
+    body: dict[str, object] = response.json()
+    return body
+
+
+def _owed_figures(body: dict[str, object]) -> tuple[object, ...]:
+    """Pick the before-decision figures out of a review.
+
+    :param body: The review body
+    :return: Each child's owed, owed together, comparison and difference
+    """
+    children = body["children"]
+    assert isinstance(children, list)
+    return (
+        [child["owed"] for child in children],
+        body["owed_together"],
+        body["comparison"],
+        body["difference"],
+    )
+
+
+def test_a_full_approval_reviews_against_what_was_owed_before_it(
+    api_client: TestClient,
+    owner_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """2000 for 2000 owed, approved: the review still reads 2000 owed, matches.
+
+    Measured after the decision, both children owe 0 and the 2000 sent
+    reads as 2000 over, which makes every correction look like an
+    over-payment.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    family = _family(owner_session, teacher, account_factory)
+    submission = _submit(api_client, owner_session, family, "2000.00")
+    _approve(api_client, owner_session, teacher, submission, "2000.00")
+
+    body = _review(api_client, owner_session, teacher, submission)
+
+    assert _owed_figures(body) == (
+        ["1000.00", "1000.00"],
+        "2000.00",
+        "matches",
+        "0.00",
+    )
+
+
+def test_a_carried_short_approval_reviews_against_what_was_owed_before_it(
+    api_client: TestClient,
+    owner_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """1500 of 2000, carried by Tanvir: still 2000 owed and 500 short.
+
+    Computed: Tanvir now owes November's 500 carried, and his relief
+    from this payment is the 500 receipt plus the 500 carried out of
+    October less the 500 carried into November, so before it he owed
+    1000.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    family = _family(owner_session, teacher, account_factory)
+    submission = _submit(api_client, owner_session, family, "1500.00")
+    _approve(
+        api_client,
+        owner_session,
+        teacher,
+        submission,
+        "1500.00",
+        shortfall_disposition="carried",
+        carried_by_enrollment_id=family.tanvir,
+    )
+
+    body = _review(api_client, owner_session, teacher, submission)
+
+    assert _owed_figures(body) == (
+        ["1000.00", "1000.00"],
+        "2000.00",
+        "short",
+        "500.00",
+    )
+
+
+def test_a_rejected_payment_reviews_against_what_is_owed(
+    api_client: TestClient,
+    owner_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """A rejection relieved nothing, so before it and now are the same 2000.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    family = _family(owner_session, teacher, account_factory)
+    submission = _submit(api_client, owner_session, family, "2000.00")
+    _approve(api_client, owner_session, teacher, submission, "2000.00")
+    _reject_as_correction(api_client, owner_session, teacher, submission)
+
+    body = _review(api_client, owner_session, teacher, submission)
+
+    assert _owed_figures(body) == (
+        ["1000.00", "1000.00"],
+        "2000.00",
+        "matches",
+        "0.00",
+    )
+
+
+def test_a_full_approval_corrected_to_short_is_offered_and_accepted(
+    api_client: TestClient,
+    owner_session: Session,
+    restricted_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """Approved at 2000, corrected to 1500 carried by Tanvir: the review agrees.
+
+    The correction sheet reads ``owed_together`` to decide what to ask.
+    Read before the decision it is 2000, so 1500 is short and the
+    carry choice the server requires is the one the sheet offers.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param restricted_session: The application's session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    family = _family(owner_session, teacher, account_factory)
+    submission = _submit(api_client, owner_session, family, "2000.00")
+    _approve(api_client, owner_session, teacher, submission, "2000.00")
+    before = _review(api_client, owner_session, teacher, submission)
+
+    corrected = _approve(
+        api_client,
+        owner_session,
+        teacher,
+        submission,
+        "1500.00",
+        shortfall_disposition="carried",
+        carried_by_enrollment_id=family.tanvir,
+        correcting=True,
+    )
+
+    assert before["owed_together"] == "2000.00"
+    assert corrected.status_code == 200, corrected.text  # type: ignore[attr-defined]
+    assert _owed_figures(_review(api_client, owner_session, teacher, submission)) == (
+        ["1000.00", "1000.00"],
+        "2000.00",
+        "matches",
+        "0.00",
+    )
+    assert _fold(restricted_session, family.tanvir) == (
+        {NOVEMBER: Money("500.00")},
+        Money.ZERO,
+    )

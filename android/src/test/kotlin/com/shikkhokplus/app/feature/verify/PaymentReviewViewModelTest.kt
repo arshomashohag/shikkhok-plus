@@ -252,6 +252,36 @@ class PaymentReviewViewModelTest {
     }
 
     @Test
+    fun `correcting an approval down to a short amount offers carry or waive`() = runTest(dispatcher) {
+        // The server states a decided payment's owed figures as they stood
+        // before the decision: 2000 owed, approved at 2000. Correcting to
+        // 1500 is therefore short, and the sheet must ask what it asks of
+        // any short payment for two children.
+        val fake = Fake(ok(review(status = "approved")))
+        val model = opened(fake)
+        advanceUntilIdle()
+
+        model.changeDecision()
+        model.openSheet()
+        model.typeAmount("1500")
+        val sheet = assertNotNull(model.sheet.value)
+        assertEquals(AmountSide.SHORT, sheet.side)
+        assertTrue(sheet.needsDisposition)
+        assertTrue(sheet.needsChild)
+        model.chooseDisposition("carried")
+        model.chooseChild("e-2")
+        model.confirmApproval()
+        advanceUntilIdle()
+
+        val sent = fake.approvals.single()
+        assertEquals(Money.of("1500.00"), sent.receivedAmount)
+        assertEquals("carried", sent.shortfallDisposition)
+        assertEquals("e-2", sent.carriedByEnrollmentId)
+        assertNull(sent.creditToEnrollmentId)
+        assertTrue(sent.correcting)
+    }
+
+    @Test
     fun `conflict reloads and explains`() = runTest(dispatcher) {
         val decided = review(status = "approved")
         val fake = Fake(ok(review()))

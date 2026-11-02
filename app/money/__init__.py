@@ -23,6 +23,7 @@ from ._ledger import (
     apply_credit,
     carry_forward,
     derive,
+    relief_of,
 )
 from ._money import Money
 from ._rounding import EXPONENT, MAX_INTEGER_DIGITS, ROUNDING
@@ -51,5 +52,6 @@ __all__ = [
     "apply_credit",
     "carry_forward",
     "derive",
+    "relief_of",
     "settle_oldest_first",
 ]

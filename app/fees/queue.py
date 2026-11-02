@@ -9,6 +9,13 @@ the comparison (``matches``, ``short`` or ``over``) and the difference
 are computed here, so the app shows "৳500 short of ৳2,000" without
 subtracting anything.
 
+**A decided payment is measured against what was owed before it.**
+Measured after, a payment that settled everything reads as entirely
+over, and a correction sheet built on that asks the wrong question.
+Each child's figure is what they owe now plus the relief this payment's
+live entries gave -- those written by the current decision, not the
+superseded originals or the compensations a correction wrote.
+
 **Scoped to the batches this lens owns**, in the query rather than after
 it: another teacher's submission is never loaded, so it cannot leak
 through a forgotten filter.
@@ -27,16 +34,22 @@ from dataclasses import dataclass
 from typing import Literal
 
 import sqlalchemy as sa
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from app.authz.lenses import TeacherLens
-from app.db.models import Batch, Enrollment, PaymentClaim, PaymentSubmission
+from app.db.models import (
+    Batch,
+    Enrollment,
+    LedgerEntryRow,
+    PaymentClaim,
+    PaymentSubmission,
+)
 from app.fees.balances import derive_for_enrollment
 from app.fees.status import SubmissionStatus
 from app.fees.submissions import child_order
 from app.fees.verification import shortfall_of
 from app.fees.views import owned_submission, submission_status
-from app.money import Money
+from app.money import LedgerEntry, LedgerEntryKind, Money, relief_of
 
 __all__ = [
     "RECENT_WINDOW",
@@ -65,7 +78,8 @@ class ReviewChild:
     :ivar enrollment_id: The child's seat
     :ivar display_name: The teacher-typed name
     :ivar period: The period the claim resolved to
-    :ivar owed: What the seat owes now, never negative
+    :ivar owed: What the seat owes now, never negative; for a decided
+        payment, what it owed before this decision
     :ivar approved_amount: What the decision approved, or None
     """
 
@@ -102,7 +116,8 @@ class PaymentReview:
     :ivar submission_id: The submission
     :ivar batch_name: The batch
     :ivar children: The children covered, in child order
-    :ivar owed_together: What they owe together now
+    :ivar owed_together: What they owe together now, or before this
+        decision for a decided payment
     :ivar total_amount: What the payer says they sent
     :ivar comparison: ``matches``, ``short`` or ``over``
     :ivar difference: How far from what is owed, never negative
@@ -301,6 +316,42 @@ def _duplicates(
     return found
 
 
+def _decision_relief(
+    session: Session, claims: list[PaymentClaim]
+) -> dict[uuid.UUID, Money]:
+    """Measure what the current decision took off each child's balance.
+
+    Only the decision's live entries count: an entry a correction
+    superseded, and every compensation the correction wrote against it,
+    belong to a decision no longer in force. A claim-linked ``charge``
+    is only ever such a compensation, so it is left out with them.
+
+    :param session: The session to read through
+    :param claims: The payment's claims
+    :return: Claim id to the relief its live entries give
+    """
+    compensating = aliased(LedgerEntryRow)
+    rows = session.scalars(
+        sa.select(LedgerEntryRow).where(
+            LedgerEntryRow.payment_claim_id.in_([claim.id for claim in claims]),
+            LedgerEntryRow.superseded_by_id.is_(None),
+            LedgerEntryRow.kind != "charge",
+            ~sa.exists().where(compensating.superseded_by_id == LedgerEntryRow.id),
+        )
+    )
+    live: defaultdict[uuid.UUID, list[LedgerEntry]] = defaultdict(list)
+    for row in rows:
+        if row.payment_claim_id is not None:
+            live[row.payment_claim_id].append(
+                LedgerEntry(
+                    kind=LedgerEntryKind(row.kind),
+                    period=row.period,
+                    amount=row.amount,
+                )
+            )
+    return {claim.id: relief_of(live[claim.id]) for claim in claims}
+
+
 def _review(
     session: Session,
     submission: PaymentSubmission,
@@ -317,13 +368,19 @@ def _review(
     :param duplicate_of: The earlier submission it repeats, if any
     :return: The review
     """
+    relief = (
+        {}
+        if submission.status == "pending"
+        else _decision_relief(session, [claim for claim, _seat in pairs])
+    )
     children = [
         ReviewChild(
             claim_id=claim.id,
             enrollment_id=seat.id,
             display_name=seat.display_name,
             period=claim.period,
-            owed=derive_for_enrollment(session, seat.id).total_outstanding,
+            owed=derive_for_enrollment(session, seat.id).total_outstanding
+            + relief.get(claim.id, Money.ZERO),
             approved_amount=claim.approved_amount,
         )
         for claim, seat in pairs

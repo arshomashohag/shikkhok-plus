@@ -22,6 +22,7 @@ from app.money import (
     MoneyValidationError,
     carry_forward,
     derive,
+    relief_of,
 )
 from app.money import (
     LedgerEntryKind as K,
@@ -411,3 +412,38 @@ class TestCarryCannotManufactureDebt:
             origin_balance=Money("600.00"),
         )
         assert out_entry.amount == in_entry.amount == Money("600.00")
+
+
+def test_relief_counts_what_a_decision_took_off_what_is_owed() -> None:
+    """A receipt, a waiver and a carry: relief is 500 + 200 + 300 - 300.
+
+    Computed: the receipt and the forgiveness each relieve their
+    month; the carry relieves October by 300 and charges November the
+    same 300, so it relieves nothing in total; the credit grant is held
+    money and relieves nothing until it is applied.
+
+    :return: None
+    """
+    entries = [
+        LedgerEntry(K.RECEIPT, MAR, Money("500.00")),
+        LedgerEntry(K.FORGIVENESS, MAR, Money("200.00")),
+        LedgerEntry(K.CARRIED_OUT, MAR, Money("300.00")),
+        LedgerEntry(K.CARRY_FORWARD, APR, Money("300.00")),
+        LedgerEntry(K.CREDIT_GRANT, MAR, Money("100.00")),
+    ]
+
+    assert relief_of(entries) == Money("700.00")
+
+
+def test_relief_nets_applied_credit_against_charges() -> None:
+    """Credit applied relieves; a charge adds back: 400 - 150 is 250.
+
+    :return: None
+    """
+    entries = [
+        LedgerEntry(K.CREDIT_APPLY, APR, Money("400.00")),
+        LedgerEntry(K.CHARGE, APR, Money("150.00")),
+    ]
+
+    assert relief_of(entries) == Money("250.00")
+    assert relief_of([]) == Money.ZERO

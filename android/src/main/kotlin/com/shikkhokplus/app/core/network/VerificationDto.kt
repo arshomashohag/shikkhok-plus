@@ -79,7 +79,7 @@ data class DuplicatePaymentDto(
  * @property submissionId The payment
  * @property batchName The batch
  * @property children The children covered, in the server's order
- * @property owedTogether What they owe together now
+ * @property owedTogether What they owe together now; for a decided payment, before the decision
  * @property totalAmount What the payer says they sent
  * @property comparison `matches`, `short` or `over`
  * @property difference How far from what is owed, never negative
