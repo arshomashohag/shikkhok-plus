@@ -9,6 +9,10 @@ check.
 by the endpoint. A repository method that committed on its own would make
 a partial write possible across the pair of statements the OTP path
 depends on being atomic.
+
+**The middleware commits only a successful response** and rolls back
+every 4xx and 5xx, whether the error escaped as an exception or was
+already rendered by the taxonomy handler [PA-ARCH-1].
 """
 
 from __future__ import annotations
@@ -19,6 +23,7 @@ from collections.abc import Awaitable, Callable
 from fastapi import FastAPI, Request, Response
 from sqlalchemy import Engine
 from sqlalchemy.orm import sessionmaker
+from starlette.concurrency import run_in_threadpool
 
 from app.config import check_startup_configuration
 from app.db.session import build_engine
@@ -26,6 +31,9 @@ from app.errors import register_error_handler
 from app.logging_setup import configure_logging
 
 __all__ = ["app", "create_app"]
+
+#: Responses at or above this status roll the request transaction back.
+_FIRST_ERROR_STATUS = 400
 
 
 def create_app() -> FastAPI:
@@ -149,13 +157,33 @@ def _register_request_scope(app: FastAPI) -> None:
         request.state.session = session
         try:
             response = await call_next(request)
-            session.commit()
+            # Committing is decided by the STATUS, not by whether an
+            # exception escaped [PA-ARCH-1]. The taxonomy handler runs
+            # inside `call_next` and turns a raised ValidationError or
+            # ConflictError into an ordinary 4xx response, so by here
+            # the exception is gone -- and a service that flushed and
+            # then raised would have its partial write committed while
+            # the client was told it failed. A write that must survive
+            # a refusal (a failed OTP attempt, a reuse-detected token
+            # family) is committed by its service before it raises,
+            # which this does not undo.
+            if response.status_code < _FIRST_ERROR_STATUS:
+                await run_in_threadpool(session.commit)
+            else:
+                await run_in_threadpool(session.rollback)
             return response
         except Exception:
-            session.rollback()
+            await run_in_threadpool(session.rollback)
             raise
         finally:
-            session.close()
+            # Off the event loop [PERF-7]: each of the three is a
+            # blocking round trip on a sync driver, and on the loop it
+            # stalls every other in-flight request for its duration.
+            # Moving them changes no transaction boundary -- the RLS
+            # account is set with `set_config(..., true)` inside the
+            # request transaction, and commit or rollback discards it
+            # wherever they run.
+            await run_in_threadpool(session.close)
 
 
 def _engine_for(app: FastAPI) -> Engine:
