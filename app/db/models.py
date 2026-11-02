@@ -820,6 +820,8 @@ class PaymentSubmission(Base):
     :ivar decided_by_account_id: Who decided
     :ivar decided_at: When they decided
     :ivar previous_decision: The prior decision, kept on a correction
+    :ivar client_mutation_id: The app's per-draft retry key, or null from
+        a build that sends none; unique per submitting account
     """
 
     __tablename__ = "payment_submission"
@@ -864,8 +866,20 @@ class PaymentSubmission(Base):
     previous_decision: Mapped[dict[str, object] | None] = mapped_column(
         JSON, nullable=True
     )
+    client_mutation_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), nullable=True
+    )
 
     __table_args__ = (
+        # THE replay guarantee [PA-DB-1]: a retried submit inserts
+        # `ON CONFLICT DO NOTHING` against this and reads the winner.
+        # Per account, so another account's identical UUID is no
+        # duplicate; NULLs are distinct, so an old build is unaffected.
+        UniqueConstraint(
+            "submitted_by_account_id",
+            "client_mutation_id",
+            name="uq_payment_submission_account_mutation",
+        ),
         CheckConstraint(
             "total_amount > 0", name="ck_payment_submission_total_positive"
         ),
