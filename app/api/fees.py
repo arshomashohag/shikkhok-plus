@@ -448,8 +448,13 @@ def create_payment(
             transaction_id=body.transaction_id,
             from_account=body.from_account,
             note=body.note,
+            client_mutation_id=body.client_mutation_id,
         ),
     )
+    # A replay returns the ORIGINAL submission with the same 201, so the
+    # body below is built from what is stored, never from the request --
+    # and the status is the stored one, because a late resend after the
+    # teacher decided must not be told the payment still waits.
     shares = session.execute(
         sa.select(PaymentClaim, Enrollment.display_name)
         .join(Enrollment, Enrollment.id == PaymentClaim.enrollment_id)
@@ -458,7 +463,7 @@ def create_payment(
     ).all()
     return PaymentSubmittedResponse(
         submission_id=submission.id,
-        status="pending",
+        status=views.submission_status(submission.status),
         total_amount=_to_wire(submission.total_amount),
         paid_on=submission.paid_on,
         claims=[

@@ -4288,7 +4288,7 @@
       },
       "PaymentSubmitRequest": {
         "additionalProperties": false,
-        "description": "One payment a student or guardian reports [F3, F4].\n\nExactly one of ``payment_method_id`` and ``cash`` names where the\nmoney went, and exactly one of ``transaction_id`` and\n``from_account`` is present, matching the method's kind; the server\nenforces both because they depend on the stored method.\n\n:ivar enrollment_ids: The children covered, all in one batch\n:ivar payment_method_id: The teacher's method paid to\n:ivar cash: True when the money was handed over in person\n:ivar amount: The whole amount sent\n:ivar paid_on: The day the money moved\n:ivar transaction_id: The mobile reference\n:ivar from_account: The paying bank account\n:ivar note: Free text for the teacher",
+        "description": "One payment a student or guardian reports [F3, F4].\n\nExactly one of ``payment_method_id`` and ``cash`` names where the\nmoney went, and exactly one of ``transaction_id`` and\n``from_account`` is present, matching the method's kind; the server\nenforces both because they depend on the stored method.\n\n:ivar enrollment_ids: The children covered, all in one batch\n:ivar payment_method_id: The teacher's method paid to\n:ivar cash: True when the money was handed over in person\n:ivar amount: The whole amount sent\n:ivar paid_on: The day the money moved\n:ivar transaction_id: The mobile reference\n:ivar from_account: The paying bank account\n:ivar note: Free text for the teacher\n:ivar client_mutation_id: The app's retry key, one per payment draft.\n    Optional so a build that sends none keeps working; when present,\n    a resend by the same account returns the original submission\n    rather than recording the payment twice",
         "properties": {
           "amount": {
             "$ref": "#/components/schemas/Money"
@@ -4297,6 +4297,19 @@
             "default": false,
             "title": "Cash",
             "type": "boolean"
+          },
+          "client_mutation_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "One UUID per payment draft, reused on every resend of it. A resend by the same account returns the original submission with the original 201 and records nothing; the same id with a different body is a 409.",
+            "title": "Client Mutation Id"
           },
           "enrollment_ids": {
             "items": {
@@ -4372,7 +4385,7 @@
       },
       "PaymentSubmittedResponse": {
         "additionalProperties": false,
-        "description": "A payment as recorded, waiting for the teacher.\n\n:ivar submission_id: The submission\n:ivar status: Always ``pending`` when just submitted\n:ivar total_amount: The whole amount sent\n:ivar paid_on: The day the money moved\n:ivar claims: Each child's share, in child order",
+        "description": "A payment as recorded, waiting for the teacher.\n\n:ivar submission_id: The submission\n:ivar status: ``pending`` when just submitted; a replayed resend\n    reports the submission's stored status\n:ivar total_amount: The whole amount sent\n:ivar paid_on: The day the money moved\n:ivar claims: Each child's share, in child order",
         "properties": {
           "claims": {
             "items": {

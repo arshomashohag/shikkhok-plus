@@ -1054,6 +1054,7 @@
     <string name="fees_payment_date_in_future">যে তারিখে দিয়েছেন তা ভবিষ্যতের হতে পারে না।</string>
     <string name="fees_payment_date_too_early">যে তারিখে দিয়েছেন তা এই শিশুর জন্য অনেক আগের।</string>
     <string name="fees_payment_method_not_offered">শিক্ষক এই পদ্ধতি নেন না। অন্যটি বেছে নিন।</string>
+    <string name="fees_payment_mutation_id_already_used">এই পেমেন্টটি অন্য তথ্য দিয়ে আগেই পাঠানো হয়েছে। আবার পাঠানোর আগে আপনার পেমেন্টগুলো দেখে নিন।</string>
     <string name="fees_payment_reference_mismatch">মোবাইল পদ্ধতিতে ট্রানজেকশন আইডি, ব্যাংকে যে অ্যাকাউন্ট থেকে পাঠিয়েছেন তা লিখুন — বাড়তি কিছু নয়।</string>
     <string name="payments_owed_now">এখন বকেয়া</string>
     <string name="payments_nothing_due">এখন কিছু বকেয়া নেই</string>

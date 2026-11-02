@@ -102,6 +102,8 @@ object MessageKeys {
             R.string.fees_payment_date_too_early,
         "fees.payment.method_not_offered" to
             R.string.fees_payment_method_not_offered,
+        "fees.payment.mutation_id_already_used" to
+            R.string.fees_payment_mutation_id_already_used,
         "fees.payment.reference_mismatch" to
             R.string.fees_payment_reference_mismatch,
         "fees.verification.amount_negative" to
