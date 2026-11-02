@@ -1038,4 +1038,34 @@
     <string name="class_subject_label">Subject</string>
     <string name="class_text_counter">%1$s / %2$s</string>
     <string name="classread_title">Class</string>
+    <!-- Payment methods (teacher). -->
+    <string name="payment_methods_title">Payment methods</string>
+    <string name="payment_methods_intro">Students and guardians in every batch see these when they pay. Remove one and new payments stop using it; past payments keep it.</string>
+    <string name="payment_methods_empty_title">No payment methods yet</string>
+    <string name="payment_methods_empty_body">Add where students and guardians should send fees. Until you do, they are told to ask you.</string>
+    <string name="payment_methods_add_mobile">+ Mobile banking</string>
+    <string name="payment_methods_add_bank">+ Bank account</string>
+    <string name="payment_methods_remove">Remove</string>
+    <string name="payment_methods_keep">Keep it</string>
+    <string name="payment_methods_remove_title">Remove this method?</string>
+    <string name="payment_methods_remove_body">New payments stop using it. Past payments keep it.</string>
+    <string name="method_kind_mobile">Mobile banking</string>
+    <string name="method_kind_bank">Bank</string>
+    <string name="method_editor_title_add">Add payment method</string>
+    <string name="method_editor_title_edit">Edit payment method</string>
+    <string name="method_service_label">Service</string>
+    <string name="method_service_help">Pick one, or type the name of any other service.</string>
+    <string name="method_service_use">Use “%1$s” as a new service</string>
+    <string name="method_number_label">Number to send money to</string>
+    <string name="method_note_label">Note for payers (optional)</string>
+    <string name="method_account_number_label">Account number</string>
+    <string name="method_account_name_label">Account name</string>
+    <string name="method_bank_name_label">Bank name</string>
+    <string name="method_bank_help">Any bank name can be typed.</string>
+    <string name="method_branch_label">Branch name</string>
+    <string name="method_save">Save</string>
+    <string name="method_saving">Saving…</string>
+    <string name="profile_payment_methods">Payment methods</string>
+    <string name="fees_method_fields_incomplete">Fill in every required field for this kind of method.</string>
+    <string name="fees_method_field_too_long">One of the fields is too long. Shorten it and try again.</string>
 </resources>

@@ -45,6 +45,9 @@ const val TAG_PROFILE_DELETE: String = "profile_delete"
 /** The sign-out action. */
 const val TAG_PROFILE_SIGN_OUT: String = "profile_sign_out"
 
+/** The teacher's payment-methods row. */
+const val TAG_PROFILE_PAYMENT_METHODS: String = "profile_payment_methods"
+
 /** The switch-role action. Absent for a person with one lens. */
 const val TAG_PROFILE_SWITCH_LENS: String = "profile_switch_lens"
 
@@ -76,6 +79,8 @@ const val TAG_PROFILE_SWITCH_LENS: String = "profile_switch_lens"
  * @param modifier Layout modifier from the caller
  * @param bottomBar The navigation bar, supplied by the route so this
  *   screen stays renderable in a test without one
+ * @param onPaymentMethods Called to open the teacher's payment methods,
+ *   or null for a lens that has none
  * @param onSwitchLens Called to return to the lens picker, or null
  *   when this person holds only one lens and has nothing to switch to
  */
@@ -90,6 +95,7 @@ fun ProfileScreen(
     onSwitchLens: (() -> Unit)? = null,
     onDeleteAccount: () -> Unit = {},
     onSignOut: () -> Unit = {},
+    onPaymentMethods: (() -> Unit)? = null,
 ) {
     ScreenScaffold(
         title = stringResource(R.string.profile_title),
@@ -130,6 +136,14 @@ fun ProfileScreen(
                 )
                 Button(onClick = onEdit, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.profile_edit))
+                }
+                onPaymentMethods?.let { open ->
+                    OutlinedButton(
+                        onClick = open,
+                        modifier = Modifier.fillMaxWidth().testTag(TAG_PROFILE_PAYMENT_METHODS),
+                    ) {
+                        Text(stringResource(R.string.profile_payment_methods))
+                    }
                 }
                 // **Absent, not disabled, for a single-lens person.**
                 // A greyed-out "Switch role" tells someone with one

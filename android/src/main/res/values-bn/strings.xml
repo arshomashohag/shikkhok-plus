@@ -983,4 +983,34 @@
     <string name="class_subject_label">বিষয়</string>
     <string name="class_text_counter">%1$s / %2$s</string>
     <string name="classread_title">ক্লাস</string>
+    <!-- Payment methods (teacher). -->
+    <string name="payment_methods_title">পেমেন্টের মাধ্যম</string>
+    <string name="payment_methods_intro">প্রতিটি ব্যাচের শিক্ষার্থী ও অভিভাবকরা টাকা পাঠানোর সময় এগুলো দেখেন। একটি সরালে নতুন পেমেন্টে সেটি আর আসবে না; আগের পেমেন্টে থাকবে।</string>
+    <string name="payment_methods_empty_title">এখনও কোনো পেমেন্টের মাধ্যম নেই</string>
+    <string name="payment_methods_empty_body">শিক্ষার্থী ও অভিভাবকরা কোথায় ফি পাঠাবেন তা যোগ করুন। যোগ না করা পর্যন্ত তাঁদের আপনাকে জিজ্ঞেস করতে বলা হবে।</string>
+    <string name="payment_methods_add_mobile">+ মোবাইল ব্যাংকিং</string>
+    <string name="payment_methods_add_bank">+ ব্যাংক অ্যাকাউন্ট</string>
+    <string name="payment_methods_remove">সরান</string>
+    <string name="payment_methods_keep">রেখে দিন</string>
+    <string name="payment_methods_remove_title">এই মাধ্যমটি সরাবেন?</string>
+    <string name="payment_methods_remove_body">নতুন পেমেন্টে এটি আর আসবে না। আগের পেমেন্টে থাকবে।</string>
+    <string name="method_kind_mobile">মোবাইল ব্যাংকিং</string>
+    <string name="method_kind_bank">ব্যাংক</string>
+    <string name="method_editor_title_add">পেমেন্টের মাধ্যম যোগ করুন</string>
+    <string name="method_editor_title_edit">পেমেন্টের মাধ্যম সম্পাদনা</string>
+    <string name="method_service_label">সেবা</string>
+    <string name="method_service_help">একটি বেছে নিন, অথবা অন্য যেকোনো সেবার নাম লিখুন।</string>
+    <string name="method_service_use">নতুন সেবা হিসেবে “%1$s” ব্যবহার করুন</string>
+    <string name="method_number_label">যে নম্বরে টাকা পাঠাবেন</string>
+    <string name="method_note_label">পেমেন্টকারীদের জন্য নোট (ঐচ্ছিক)</string>
+    <string name="method_account_number_label">অ্যাকাউন্ট নম্বর</string>
+    <string name="method_account_name_label">অ্যাকাউন্টের নাম</string>
+    <string name="method_bank_name_label">ব্যাংকের নাম</string>
+    <string name="method_bank_help">যেকোনো ব্যাংকের নাম লেখা যাবে।</string>
+    <string name="method_branch_label">শাখার নাম</string>
+    <string name="method_save">সংরক্ষণ করুন</string>
+    <string name="method_saving">সংরক্ষণ হচ্ছে…</string>
+    <string name="profile_payment_methods">পেমেন্টের মাধ্যম</string>
+    <string name="fees_method_fields_incomplete">এই ধরনের মাধ্যমের জন্য সব প্রয়োজনীয় ঘর পূরণ করুন।</string>
+    <string name="fees_method_field_too_long">একটি ঘরের লেখা অনেক বড়। ছোট করে আবার চেষ্টা করুন।</string>
 </resources>

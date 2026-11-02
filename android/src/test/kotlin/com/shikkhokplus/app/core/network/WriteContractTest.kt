@@ -5,6 +5,8 @@ import com.shikkhokplus.app.core.queue.AttendanceEntry
 import com.shikkhokplus.app.core.queue.QueuedWrite
 import com.shikkhokplus.app.core.queue.SendOutcome
 import com.shikkhokplus.app.feature.auth.AuthResult
+import com.shikkhokplus.app.feature.paymentmethods.MethodKind
+import com.shikkhokplus.app.feature.paymentmethods.PaymentMethodDraft
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -142,6 +144,15 @@ class WriteContractTest {
             Write("post", "/v1/children/{enrollment_id}/claims") {
                 HttpChildPayRepository(it, ID).submit(ID, ClaimSubmitDto(Money.of("1500.00"), "bKash", "DJ62K0LQ7V"))
             },
+            Write("post", "/v1/payment-methods") {
+                HttpPaymentMethodsRepository(it).create(MOBILE_DRAFT)
+            },
+            Write("patch", "/v1/payment-methods/{method_id}") {
+                HttpPaymentMethodsRepository(it).update(ID, MOBILE_DRAFT)
+            },
+            Write("delete", "/v1/payment-methods/{method_id}") {
+                HttpPaymentMethodsRepository(it).retire(ID)
+            },
             Write("post", "/v1/reminders") { HttpAnalyticsRepository(it).remind(listOf(ID)) },
             Write("post", "/v1/me/notifications/read") { HttpInboxRepository(it).markAllRead() },
             Write("post", "/v1/me/notifications/{notification_id}/read") { HttpInboxRepository(it).markRead(ID) },
@@ -222,6 +233,13 @@ class WriteContractTest {
     private companion object {
         /** A uuid, which every path parameter and id field accepts. */
         const val ID = "00000000-0000-0000-0000-000000000001"
+
+        val MOBILE_DRAFT =
+            PaymentMethodDraft(
+                kind = MethodKind.MOBILE,
+                provider = "bKash",
+                mobileNumber = "01712345678",
+            )
 
         val JSON_HEADERS = headersOf("Content-Type", listOf(ContentType.Application.Json.toString()))
     }

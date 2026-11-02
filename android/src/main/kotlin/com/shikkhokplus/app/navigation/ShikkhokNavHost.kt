@@ -16,6 +16,12 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
+import com.shikkhokplus.app.core.network.HttpPaymentMethodsRepository
+import com.shikkhokplus.app.feature.paymentmethods.MethodEditorViewModel
+import com.shikkhokplus.app.feature.paymentmethods.MethodKind
+import com.shikkhokplus.app.feature.paymentmethods.PaymentMethodsViewModel
+import com.shikkhokplus.app.feature.paymentmethods.ui.MethodEditorRoute
+import com.shikkhokplus.app.feature.paymentmethods.ui.PaymentMethodsScreen
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
@@ -613,6 +619,12 @@ fun ShikkhokNavHost(
                     navController.navigate(Destination.DeleteAccount.route)
                 },
                 onSignOut = { confirmingSignOut = true },
+                onPaymentMethods =
+                    if (session.lens == Lens.TEACHER) {
+                        { navController.navigate(Destination.PaymentMethods.route) }
+                    } else {
+                        null
+                    },
             )
 
             if (confirmingSignOut) {
@@ -625,6 +637,50 @@ fun ShikkhokNavHost(
                     onDismiss = { confirmingSignOut = false },
                 )
             }
+        }
+
+        composable(Destination.PaymentMethods.route) {
+            val model: PaymentMethodsViewModel =
+                viewModel { PaymentMethodsViewModel(HttpPaymentMethodsRepository(client)) }
+            val state by model.state.collectAsState()
+            LaunchedEffect(Unit) { model.load() }
+            PaymentMethodsScreen(
+                state = state,
+                onAddMobile = { navController.navigate(Destination.AddPaymentMethod.of("mobile")) },
+                onAddBank = { navController.navigate(Destination.AddPaymentMethod.of("bank")) },
+                onEdit = { navController.navigate(Destination.EditPaymentMethod.of(it)) },
+                onRemove = model::retire,
+                onRetry = model::retry,
+                onBack = { navController.popBackStack() },
+            )
+        }
+
+        composable(
+            Destination.AddPaymentMethod.route,
+            arguments = listOf(navArgument(Destination.AddPaymentMethod.ARG_KIND) { defaultValue = "mobile" }),
+        ) { entry ->
+            val kind =
+                MethodKind.fromWire(entry.arguments?.getString(Destination.AddPaymentMethod.ARG_KIND).orEmpty())
+            val model: MethodEditorViewModel =
+                viewModel { MethodEditorViewModel(HttpPaymentMethodsRepository(client)) }
+            LaunchedEffect(kind) { model.selectKind(kind) }
+            MethodEditorRoute(model = model, onDone = { navController.popBackStack() })
+        }
+
+        composable(Destination.EditPaymentMethod.route) { entry ->
+            val parent =
+                remember(entry) { navController.getBackStackEntry(Destination.PaymentMethods.route) }
+            val list: PaymentMethodsViewModel =
+                viewModel(parent) { PaymentMethodsViewModel(HttpPaymentMethodsRepository(client)) }
+            val id = entry.arguments?.getString(Destination.EditPaymentMethod.ARG_METHOD).orEmpty()
+            val model: MethodEditorViewModel =
+                viewModel {
+                    MethodEditorViewModel(HttpPaymentMethodsRepository(client), existing = list.methodFor(id))
+                }
+            MethodEditorRoute(
+                model = model,
+                onDone = { navController.popBackStack() },
+            )
         }
 
         composable(Destination.DeleteAccount.route) { entry ->

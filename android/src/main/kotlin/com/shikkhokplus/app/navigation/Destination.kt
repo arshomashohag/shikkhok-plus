@@ -536,6 +536,43 @@ sealed interface Destination {
         override val route: String = "profile/delete"
     }
 
+    /** The teacher's payment methods (P1), opened from More. */
+    data object PaymentMethods : Destination {
+        override val route: String = "payment-methods"
+    }
+
+    /** Adding a payment method (P2, P3). */
+    data object AddPaymentMethod : Destination {
+        override val route: String = "payment-methods/new?kind={kind}"
+
+        /** The kind argument's name. */
+        const val ARG_KIND: String = "kind"
+
+        /**
+         * Build a concrete route.
+         *
+         * @param kind `mobile` or `bank`
+         * @return The route to navigate to
+         */
+        fun of(kind: String): String = "payment-methods/new?kind=$kind"
+    }
+
+    /** Editing one payment method. */
+    data object EditPaymentMethod : Destination {
+        override val route: String = "payment-methods/{methodId}/edit"
+
+        /** The method argument's name. */
+        const val ARG_METHOD: String = "methodId"
+
+        /**
+         * Build a concrete route.
+         *
+         * @param methodId The method to edit
+         * @return The route to navigate to
+         */
+        fun of(methodId: String): String = "payment-methods/$methodId/edit"
+    }
+
     /** The signed-in person's own profile. The More tab. */
     data object Profile : Destination {
         override val route: String = "profile"
