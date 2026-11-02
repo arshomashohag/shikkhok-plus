@@ -434,11 +434,18 @@ sudo -u ubuntu docker compose up -d --remove-orphans
 # before a teacher opens the app to check the month's fees.
 echo "Installing the generation cron entry..." \
   >> /var/log/shikkhokplus-provision.log
+# **The log files exist, owned by ubuntu, BEFORE any job appends.**
+# The jobs run as ubuntu and /var/log is root's: a `>>` into a file
+# ubuntu cannot create fails the redirection, and bash then does not
+# run the command at all. The job never starts and the error goes to
+# cron's local mail, which nobody reads [OPS-1].
+install -o ubuntu -g ubuntu -m 0640 /dev/null /var/log/shikkhokplus-fee-generation.log
+install -o ubuntu -g ubuntu -m 0640 /dev/null /var/log/shikkhokplus-session-generation.log
 cat > /etc/cron.d/shikkhokplus-fee-generation <<'CRON'
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 # min hour dom mon dow user command
-0 2 * * * ubuntu cd /home/ubuntu && docker compose run --rm api python -m app.fees.commands generate >> /var/log/shikkhokplus-fee-generation.log 2>&1
+0 2 * * * ubuntu cd /srv/shikkhokplus && docker compose run --rm api python -m app.fees.commands generate >> /var/log/shikkhokplus-fee-generation.log 2>&1
 CRON
 chmod 0644 /etc/cron.d/shikkhokplus-fee-generation
 
@@ -466,7 +473,7 @@ cat > /etc/cron.d/shikkhokplus-session-generation <<'CRON'
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 # min hour dom mon dow user command
-0 1 * * * ubuntu cd /home/ubuntu && docker compose run --rm api python -m app.teaching.commands generate >> /var/log/shikkhokplus-session-generation.log 2>&1
+0 1 * * * ubuntu cd /srv/shikkhokplus && docker compose run --rm api python -m app.teaching.commands generate >> /var/log/shikkhokplus-session-generation.log 2>&1
 CRON
 chmod 0644 /etc/cron.d/shikkhokplus-session-generation
 
@@ -500,7 +507,7 @@ cat > /home/ubuntu/freshness-check.sh <<'CHECK'
 # than a host timer: it must survive exactly what cron does not.
 while true; do
   sleep 3600
-  cd /home/ubuntu || continue
+  cd /srv/shikkhokplus || continue
   docker compose run --rm api python -m app.fees.commands check-freshness \
     >> /var/log/shikkhokplus-fee-generation.log 2>&1
 done
