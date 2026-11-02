@@ -139,8 +139,17 @@ class WriteContractTest {
                 HttpMarksRepository(it).editExam(ID, "Mid-term", "2026-11-04", 50, listOf("Motion"))
             },
             Write("post", "/v1/payments") {
+                // With its replay key, as the form always sends it, so the
+                // server's schema is checked against the real body.
                 HttpPayRepository(it).submit(
-                    PaymentSubmitDto(listOf(ID), null, true, Money.of("1500.00"), "2026-11-02"),
+                    PaymentSubmitDto(
+                        listOf(ID),
+                        null,
+                        true,
+                        Money.of("1500.00"),
+                        "2026-11-02",
+                        clientMutationId = ID,
+                    ),
                 )
             },
             Write("post", "/v1/payment-methods") {

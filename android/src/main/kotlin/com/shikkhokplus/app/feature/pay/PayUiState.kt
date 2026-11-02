@@ -3,6 +3,7 @@ package com.shikkhokplus.app.feature.pay
 import com.shikkhokplus.app.core.model.Money
 import com.shikkhokplus.app.core.network.OwedTogetherDto
 import com.shikkhokplus.app.core.network.PaymentMethodDto
+import com.shikkhokplus.app.core.network.PaymentSubmitDto
 import com.shikkhokplus.app.core.network.PaymentSubmittedDto
 
 /**
@@ -94,6 +95,31 @@ enum class FormProblem {
     TRANSACTION_ID_SHORT,
 }
 
+/**
+ * One payment the payer confirmed, and the replay key it went with.
+ *
+ * **One key per attempt, not per tap** [PA-DB-1]. On a poor network a
+ * send can time out after the server has already recorded it; the payer
+ * then taps Send again, and without a key the teacher receives the same
+ * payment twice as two pending claims. Sending the identical payment
+ * again reuses the key, and the server answers with the submission it
+ * already holds. Anything the payer changed makes it a different
+ * payment, which gets a fresh key.
+ *
+ * @property payment What was sent, without its key, so the next send can
+ *   be compared against it
+ * @property clientMutationId The key, a random UUID: no device
+ *   identifier of any kind [TC-3, D-37]
+ */
+data class PaymentAttempt(
+    val payment: PaymentSubmitDto,
+    val clientMutationId: String,
+) {
+    /** The body to send: the payment, carrying this attempt's key. */
+    val request: PaymentSubmitDto
+        get() = payment.copy(clientMutationId = clientMutationId)
+}
+
 /** Everything the "Send money" screens render. */
 sealed interface PayUiState {
     /** Reading the seats and methods. */
@@ -119,6 +145,10 @@ sealed interface PayUiState {
      * @property problem A format problem to show, or null
      * @property sending Whether it is on its way
      * @property failedKey Why the last send failed, or null
+     * @property attempt The payment last sent from this form and the key
+     *   it carried, or null before the first send. Kept after a failure
+     *   so that sending the same payment again is a retry of the same
+     *   attempt rather than a second payment
      */
     data class Filling(
         val scope: PayScope,
@@ -128,6 +158,7 @@ sealed interface PayUiState {
         val problem: FormProblem? = null,
         val sending: Boolean = false,
         val failedKey: String? = null,
+        val attempt: PaymentAttempt? = null,
     ) : PayUiState
 
     /**

@@ -107,6 +107,17 @@ class PayViewModelTest {
 
     private fun model(fake: Fake) = PayViewModel(fake, today = { "2026-11-02" })
 
+    /** Hands out `key-1`, `key-2`, ... so a test can name the key a send carried. */
+    private class Keys {
+        var issued = 0
+            private set
+
+        fun next(): String = "key-${++issued}"
+    }
+
+    private fun keyed(fake: Fake, keys: Keys) =
+        PayViewModel(fake, today = { "2026-11-02" }, newMutationId = keys::next)
+
     private suspend fun TestScope.filling(
         model: PayViewModel,
         choice: PayChoice = PayChoice.Method(bkash),
@@ -237,7 +248,9 @@ class PayViewModelTest {
                     listOf("e-1"), "m-2", false, Money.of("1000.00"), "2026-11-02", fromAccount = "1234 5678",
                 ),
             ),
-            fake.sent,
+            // The replay key is random per attempt and has tests of its
+            // own below; this one is about the payment's content.
+            fake.sent.map { it.copy(clientMutationId = null) },
         )
     }
 
@@ -269,7 +282,7 @@ class PayViewModelTest {
             listOf(
                 PaymentSubmitDto(listOf("e-1"), null, true, Money.of("1000.00"), "2026-11-02", note = "in class"),
             ),
-            fake.sent,
+            fake.sent.map { it.copy(clientMutationId = null) },
         )
         assertIs<PayUiState.Sent>(model.state.value)
     }
@@ -370,5 +383,102 @@ class PayViewModelTest {
         advanceUntilIdle()
 
         assertEquals(PayUiState.Failed(PayMapper.OFFLINE_KEY, true), model.state.value)
+    }
+
+    // ------------------------------------------------------------------
+    // The payment replay key [PA-DB-1, FE-5]. A send can time out after
+    // the server recorded it; without a key, the payer's second tap made
+    // a second pending claim for the same money.
+    // ------------------------------------------------------------------
+
+    @Test
+    fun `every payment is sent with a replay key`() = runTest(dispatcher) {
+        val fake = fake()
+        val model = keyed(fake, Keys())
+        val form = filling(model)
+        model.type(form.form.copy(transactionId = "9KD7Q2XL1M"))
+
+        model.send()
+        advanceUntilIdle()
+
+        assertEquals(listOf<String?>("key-1"), fake.sent.map { it.clientMutationId })
+    }
+
+    @Test
+    fun `sending the same payment again after a lost response reuses its key`() = runTest(dispatcher) {
+        // The first send reached the server and the answer was lost.
+        // The retry must carry the SAME key, so the server returns the
+        // submission it already holds instead of recording another. That
+        // replay comes back as an ordinary success.
+        val fake = fake(submit = AuthResult.TransportFailure)
+        val keys = Keys()
+        val model = keyed(fake, keys)
+        val form = filling(model)
+        model.type(form.form.copy(transactionId = "9KD7Q2XL1M"))
+        model.send()
+        advanceUntilIdle()
+
+        fake.submit = AuthResult.Ok(submitted())
+        model.send()
+        advanceUntilIdle()
+
+        assertEquals(listOf<String?>("key-1", "key-1"), fake.sent.map { it.clientMutationId })
+        assertEquals(1, keys.issued)
+        assertIs<PayUiState.Sent>(model.state.value)
+    }
+
+    @Test
+    fun `a refused payment sent again unchanged keeps its key`() = runTest(dispatcher) {
+        val refused = AuthResult.Refused(ErrorEnvelope(ErrorBody("X", true, "error.server")))
+        val fake = fake(submit = refused)
+        val model = keyed(fake, Keys())
+        val form = filling(model)
+        model.type(form.form.copy(transactionId = "9KD7Q2XL1M"))
+
+        model.send()
+        advanceUntilIdle()
+        model.send()
+        advanceUntilIdle()
+
+        assertEquals(listOf<String?>("key-1", "key-1"), fake.sent.map { it.clientMutationId })
+    }
+
+    @Test
+    fun `an edited payment is a new attempt with a new key`() = runTest(dispatcher) {
+        // Changing what was paid makes it a different payment. Reusing
+        // the key would have the server answer with the OLD submission
+        // and drop the correction.
+        val fake = fake(submit = AuthResult.TransportFailure)
+        val model = keyed(fake, Keys())
+        val form = filling(model)
+        model.type(form.form.copy(transactionId = "9KD7Q2XL1M"))
+        model.send()
+        advanceUntilIdle()
+
+        model.type(form.form.copy(transactionId = "9KD7Q2XL1M", amount = "900.00"))
+        model.send()
+        advanceUntilIdle()
+
+        assertEquals(listOf<String?>("key-1", "key-2"), fake.sent.map { it.clientMutationId })
+    }
+
+    @Test
+    fun `the next payment after a successful one gets a new key`() = runTest(dispatcher) {
+        // Two genuine payments of the same amount on the same day are two
+        // payments. Only a retry of one attempt may share its key.
+        val fake = fake()
+        val model = keyed(fake, Keys())
+        val first = filling(model)
+        model.type(first.form.copy(transactionId = "9KD7Q2XL1M"))
+        model.send()
+        advanceUntilIdle()
+        assertIs<PayUiState.Sent>(model.state.value)
+
+        val second = filling(model)
+        model.type(second.form.copy(transactionId = "9KD7Q2XL1M"))
+        model.send()
+        advanceUntilIdle()
+
+        assertEquals(listOf<String?>("key-1", "key-2"), fake.sent.map { it.clientMutationId })
     }
 }

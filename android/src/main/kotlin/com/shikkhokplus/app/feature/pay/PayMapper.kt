@@ -79,4 +79,28 @@ object PayMapper {
                 ) to null
         }
     }
+
+    /**
+     * The attempt a send belongs to: the last one when the payment is
+     * unchanged, otherwise a new one with a fresh key.
+     *
+     * Compared on the whole payment rather than on a "dirty" flag, so an
+     * edit made and then undone is still the same payment -- and if the
+     * first send did reach the server, the retry is recognised as it.
+     *
+     * @param previous The attempt last sent from this form, or null
+     * @param payment What the form would send now, without a key
+     * @param freshKey Generates a new key
+     * @return The attempt to send
+     */
+    fun attemptFor(
+        previous: PaymentAttempt?,
+        payment: PaymentSubmitDto,
+        freshKey: () -> String,
+    ): PaymentAttempt =
+        if (previous != null && previous.payment == payment) {
+            previous
+        } else {
+            PaymentAttempt(payment, freshKey())
+        }
 }
