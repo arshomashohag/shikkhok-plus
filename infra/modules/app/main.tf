@@ -396,6 +396,14 @@ resource "aws_iam_role_policy" "self_registration" {
         Resource = "${aws_s3_bucket.config.arn}/*"
       },
       {
+        # **The persisted origin certificate** [OPS-8]. Write access to
+        # the tls/ prefix only, so the host can save a renewed lineage
+        # and cannot overwrite the compose file Terraform uploads.
+        Effect   = "Allow"
+        Action   = ["s3:PutObject"]
+        Resource = "${aws_s3_bucket.config.arn}/tls/*"
+      },
+      {
         # Decrypting the SecureString. The account default key, so no
         # key policy to manage; scoped by the ViaService condition so
         # this role cannot decrypt anything but SSM parameters.

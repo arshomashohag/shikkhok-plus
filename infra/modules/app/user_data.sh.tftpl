@@ -32,9 +32,10 @@ apt-get update
 # name before writing the _acme-challenge record.
 #
 # The renewal concern is answered rather than dismissed: certbot
-# installs its own systemd timer, and the certificate is re-issued on
-# every instance replacement anyway, which on this project is every
-# deploy.
+# installs its own systemd timer, and a deploy hook reloads nginx and
+# persists the renewed lineage to the config bucket. A boot RESTORES
+# that lineage rather than issuing again -- re-issuing on every deploy
+# hit Let's Encrypt's 5-duplicates-a-week limit [OPS-8].
 #
 # **ssl-cert is still NOT optional.** It generates the snakeoil pair
 # that the TLS server block falls back to on first boot, before certbot
@@ -319,48 +320,91 @@ echo "Registered ${origin_fqdn} -> $PUBLIC_IP"
 # A real origin certificate, so CloudFront will talk to us at all
 # ---------------------------------------------------------------------
 #
-# **This runs AFTER the DNS registration above and not before.** DNS-01
-# writes a TXT record under the same zone, and the zone must already
-# resolve this host; ordering it earlier would issue a certificate for
-# a name pointing at the previous instance.
+# **Restored, not re-issued** [OPS-8]. Every boot used to request a new
+# Let's Encrypt certificate, and every deploy is a boot. Let's Encrypt
+# allows 5 duplicate certificates per 7 days, so the sixth deploy in a
+# week got a refusal, fell back to snakeoil, and CloudFront returned
+# 502 to every request while the boot reported success. Renewal, when it
+# did happen, never reloaded nginx, so a renewed certificate sat on disk
+# while nginx served the old one until it expired.
 #
-# **Failure here is not fatal to the boot, deliberately.** nginx is
-# already serving on the snakeoil pair, so the instance is reachable
-# over SSM for diagnosis and the application is up. What fails is
-# CloudFront, loudly and in one place, rather than the whole boot
-# failing for a certificate problem. The provision log records it
-# either way.
-echo "Requesting origin certificate for ${origin_fqdn}..." \
-  >> /var/log/shikkhokplus-provision.log
-if certbot certonly --dns-route53 \
+# Now /etc/letsencrypt -- account, renewal config and the lineage --
+# lives in the config bucket (SSE, TLS-only, private). A boot restores
+# it and uses the certificate when it has more than 30 days left; only
+# otherwise does certbot run, and `--keep-until-expiring` makes that a
+# renewal of the restored lineage rather than a fresh issuance. Two
+# hosts overlapping during a launch-before-terminate refresh therefore
+# both restore the same certificate and neither touches Let's Encrypt.
+#
+# The deploy hook runs after EVERY successful issuance or renewal --
+# certbot records it in the lineage's renewal config, so the systemd
+# timer's renewals run it too. It points nginx at the live files,
+# reloads, and uploads the new state.
+#
+# DNS-01 writes only a TXT record, so it does not depend on this
+# host's A record existing yet.
+#
+# **Failure here is not fatal to the boot by itself.** nginx keeps the
+# snakeoil pair and the boot continues -- but the readiness check at
+# the end calls the origin over TLS WITH certificate verification, as
+# CloudFront does, so a host serving snakeoil never reports ready and is
+# never put in service.
+cat > /usr/local/bin/shikkhokplus-cert-deployed <<'HOOK'
+#!/bin/bash
+set -euo pipefail
+export PATH="/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+LIVE="/etc/letsencrypt/live/${origin_fqdn}"
+SITE=/etc/nginx/sites-available/shikkhokplus
+cp "$SITE" "$SITE.bak"
+sed -i \
+  -e "s#^\( *ssl_certificate \).*#\1$LIVE/fullchain.pem;#" \
+  -e "s#^\( *ssl_certificate_key \).*#\1$LIVE/privkey.pem;#" "$SITE"
+if ! nginx -t; then
+  mv "$SITE.bak" "$SITE"
+  logger -t shikkhokplus "FAILED: nginx rejected the origin certificate"
+  exit 1
+fi
+rm -f "$SITE.bak"
+systemctl reload nginx
+if [ "$${SHIKKHOKPLUS_CERT_NO_UPLOAD:-0}" != "1" ]; then
+  umask 077
+  tar -C /etc -czf /root/letsencrypt.tar.gz letsencrypt
+  aws s3 cp /root/letsencrypt.tar.gz \
+    "s3://${config_bucket}/tls/letsencrypt.tar.gz" \
+    --sse AES256 --only-show-errors --region "${aws_region}"
+  rm -f /root/letsencrypt.tar.gz
+fi
+logger -t shikkhokplus "origin certificate installed; nginx reloaded"
+HOOK
+chmod 0700 /usr/local/bin/shikkhokplus-cert-deployed
+
+LIVE="/etc/letsencrypt/live/${origin_fqdn}"
+if aws s3 cp "s3://${config_bucket}/tls/letsencrypt.tar.gz" \
+     /root/letsencrypt.tar.gz --only-show-errors --region "${aws_region}" \
+     >> /var/log/shikkhokplus-provision.log 2>&1; then
+  tar -C /etc -xzf /root/letsencrypt.tar.gz
+  rm -f /root/letsencrypt.tar.gz
+fi
+
+# 2592000 seconds is 30 days, certbot's own renewal window.
+if [ -f "$LIVE/fullchain.pem" ] \
+   && openssl x509 -checkend 2592000 -noout -in "$LIVE/fullchain.pem" >/dev/null; then
+  echo "Origin certificate restored; valid for more than 30 days." \
+    >> /var/log/shikkhokplus-provision.log
+  SHIKKHOKPLUS_CERT_NO_UPLOAD=1 /usr/local/bin/shikkhokplus-cert-deployed \
+    >> /var/log/shikkhokplus-provision.log 2>&1 \
+    || echo "FAILED: restored certificate rejected by nginx" \
+         >> /var/log/shikkhokplus-provision.log
+elif certbot certonly --dns-route53 \
      -d "${origin_fqdn}" \
      --non-interactive --agree-tos --register-unsafely-without-email \
      --keep-until-expiring \
+     --deploy-hook /usr/local/bin/shikkhokplus-cert-deployed \
      >> /var/log/shikkhokplus-provision.log 2>&1; then
-  LIVE="/etc/letsencrypt/live/${origin_fqdn}"
-  sed -i \
-    "s#ssl_certificate .*ssl-cert-snakeoil.pem;#ssl_certificate     $LIVE/fullchain.pem;#" \
-    /etc/nginx/sites-available/shikkhokplus
-  sed -i \
-    "s#ssl_certificate_key .*ssl-cert-snakeoil.key;#ssl_certificate_key $LIVE/privkey.pem;#" \
-    /etc/nginx/sites-available/shikkhokplus
-  if nginx -t >> /var/log/shikkhokplus-provision.log 2>&1; then
-    systemctl reload nginx
-    echo "Origin certificate installed; nginx reloaded." \
-      >> /var/log/shikkhokplus-provision.log
-  else
-    # Revert rather than leave nginx unable to start on its next boot.
-    sed -i \
-      "s#ssl_certificate .*fullchain.pem;#ssl_certificate     /etc/ssl/certs/ssl-cert-snakeoil.pem;#" \
-      /etc/nginx/sites-available/shikkhokplus
-    sed -i \
-      "s#ssl_certificate_key .*privkey.pem;#ssl_certificate_key /etc/ssl/private/ssl-cert-snakeoil.key;#" \
-      /etc/nginx/sites-available/shikkhokplus
-    echo "FAILED: nginx rejected the certificate; reverted to snakeoil. CloudFront will 502." \
-      >> /var/log/shikkhokplus-provision.log
-  fi
+  echo "Origin certificate issued or renewed for ${origin_fqdn}." \
+    >> /var/log/shikkhokplus-provision.log
 else
-  echo "FAILED: certbot could not issue for ${origin_fqdn}. Serving snakeoil; CloudFront will 502." \
+  echo "FAILED: certbot could not issue for ${origin_fqdn}. Serving snakeoil." \
     >> /var/log/shikkhokplus-provision.log
 fi
 

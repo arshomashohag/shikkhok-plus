@@ -172,7 +172,10 @@ def _shell_bodies(script: str) -> list[ShellBody]:
             bodies.append(
                 ShellBody(
                     name=f"script written by {target.strip()}",
-                    runs_as_ubuntu=True,
+                    # Scripts under ubuntu's home run as ubuntu (the
+                    # freshness service); the rest run as root (the
+                    # certbot deploy hook, the credential helper).
+                    runs_as_ubuntu="/home/ubuntu/" in target,
                     lines=tuple(content),
                 )
             )
@@ -359,3 +362,30 @@ def test_the_owner_url_reaches_only_the_migrate_service() -> None:
     assert "SHIKKHOKPLUS_MIGRATION_DATABASE_URL" in services["migrate"]["environment"]
     # The migrate service never starts with `up`: it has a profile.
     assert services["migrate"].get("profiles")
+
+
+def test_the_origin_certificate_is_restored_and_renewal_reloads_nginx(
+    rendered: str,
+) -> None:
+    # Issuing on every boot hit Let's Encrypt's 5-duplicates-a-week
+    # limit, and a renewal never reloaded nginx [OPS-8]. So: the boot
+    # restores the persisted lineage before deciding to call certbot,
+    # certbot is always given the deploy hook, and the hook reloads
+    # nginx and persists what it installed.
+    bodies = _shell_bodies(rendered)
+    hooks = [b for b in bodies if "shikkhokplus-cert-deployed" in b.name]
+    assert len(hooks) == 1, [b.name for b in bodies]
+    hook = "\n".join(hooks[0].lines)
+
+    assert "systemctl reload nginx" in hook
+    assert re.search(r"aws s3 cp \S+ \\?\s*\"s3://", hook)
+
+    boot = "\n".join(bodies[0].lines)
+    # A call and its backslash-continued lines.
+    certbot_calls = re.findall(r"certbot certonly(?:[^\n\\]|\\\n)*", boot)
+    assert certbot_calls, "the boot script no longer calls certbot"
+    for call in certbot_calls:
+        assert "--deploy-hook /usr/local/bin/shikkhokplus-cert-deployed" in call
+        assert "--keep-until-expiring" in call
+    restore = boot.index("tls/letsencrypt.tar.gz")
+    assert restore < boot.index("certbot certonly"), "certbot runs before the restore"
