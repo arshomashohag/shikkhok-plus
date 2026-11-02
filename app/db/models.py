@@ -762,12 +762,12 @@ class PaymentMethod(Base):
         nullable=False,
     )
     kind: Mapped[str] = mapped_column(_PAYMENT_METHOD_KIND, nullable=False)
-    provider: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    provider: Mapped[str | None] = mapped_column(String(32), nullable=True)
     mobile_number: Mapped[str | None] = mapped_column(String(32), nullable=True)
     account_number: Mapped[str | None] = mapped_column(String(64), nullable=True)
     account_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
     branch_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
-    note: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    note: Mapped[str | None] = mapped_column(String(200), nullable=True)
     position: Mapped[int] = mapped_column(Integer, nullable=False)
     retired_at: Mapped[dt.datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
@@ -841,7 +841,7 @@ class PaymentSubmission(Base):
     total_amount: Mapped[Money] = mapped_column(MoneyColumn, nullable=False)
     paid_on: Mapped[dt.date] = mapped_column(Date, nullable=False)
     transaction_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    from_account: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    from_account: Mapped[str | None] = mapped_column(String(120), nullable=True)
     payer_note: Mapped[str | None] = mapped_column(String(500), nullable=True)
     submitted_by_account_id: Mapped[uuid.UUID | None] = mapped_column(
         PgUUID(as_uuid=True),

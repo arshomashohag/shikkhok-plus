@@ -66,12 +66,12 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.Column("kind", method_kind, nullable=False),
-        sa.Column("provider", sa.String(64), nullable=True),
+        sa.Column("provider", sa.String(32), nullable=True),
         sa.Column("mobile_number", sa.String(32), nullable=True),
         sa.Column("account_number", sa.String(64), nullable=True),
         sa.Column("account_name", sa.String(128), nullable=True),
         sa.Column("branch_name", sa.String(128), nullable=True),
-        sa.Column("note", sa.String(500), nullable=True),
+        sa.Column("note", sa.String(200), nullable=True),
         sa.Column("position", sa.Integer(), nullable=False),
         sa.Column("retired_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
@@ -110,7 +110,7 @@ def upgrade() -> None:
         sa.Column("total_amount", sa.Numeric(12, 2), nullable=False),
         sa.Column("paid_on", sa.Date(), nullable=False),
         sa.Column("transaction_id", sa.String(64), nullable=True),
-        sa.Column("from_account", sa.String(64), nullable=True),
+        sa.Column("from_account", sa.String(120), nullable=True),
         sa.Column("payer_note", sa.String(500), nullable=True),
         sa.Column(
             "submitted_by_account_id",
@@ -192,12 +192,23 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Restore the original claim check and drop everything added.
 
-    Rows linked to a submission with a zero share are deleted first so
-    the restored check can be created.
+    A claim is a retained financial record, so a zero-share linked claim
+    is never deleted to make the restored check hold.
 
     :return: None
+    :raises RuntimeError: If any zero-share claim exists
     """
-    op.execute(sa.text("DELETE FROM payment_claim WHERE claimed_amount = 0"))
+    zero_shares = (
+        op.get_bind()
+        .execute(sa.text("SELECT count(*) FROM payment_claim WHERE claimed_amount = 0"))
+        .scalar_one()
+    )
+    if zero_shares:
+        raise RuntimeError(
+            f"Cannot downgrade 0013: {zero_shares} payment_claim row(s) carry "
+            "a zero share linked to a payment submission. Resolve them "
+            "first; this migration will not delete a financial record."
+        )
     op.drop_constraint(
         "ck_payment_claim_claimed_amount_positive", "payment_claim", type_="check"
     )

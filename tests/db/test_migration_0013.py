@@ -418,3 +418,51 @@ def test_0013_downgrade_drops_new_tables_and_columns(staged: Engine) -> None:
     assert not tables & {"payment_method", "payment_submission"}
     assert "payment_submission_id" not in columns
     assert types == set()
+
+
+def test_0013_downgrade_refuses_with_a_zero_share_claim(head: Engine) -> None:
+    """A zero-share linked claim blocks the downgrade and survives it.
+
+    :param head: The upgraded engine
+    :return: None
+    """
+    owner_id = _insert_owner(head)
+    batch_id = _insert_batch(head, owner_id, None, None)
+    submission_id = uuid.uuid4()
+    enrollment_id = uuid.uuid4()
+    with head.begin() as connection:
+        account_id = insert_account(connection, "+8801933333333")
+        connection.execute(
+            sa.text(
+                "INSERT INTO enrollment (id, batch_id, display_name, "
+                "student_decision, guardian_decision, created_at) "
+                "VALUES (:id, :batch, 'S', 'pending', 'pending', :now)"
+            ),
+            {"id": enrollment_id, "batch": batch_id, "now": NOW},
+        )
+        connection.execute(
+            sa.text(
+                "INSERT INTO payment_submission (id, batch_id, "
+                "destination_snapshot, total_amount, paid_on, "
+                "submitted_by_account_id, submitted_at, status) VALUES "
+                "(:id, :batch, '{}', 50, :paid_on, :by, :now, 'pending')"
+            ),
+            {
+                "id": submission_id,
+                "batch": batch_id,
+                "paid_on": dt.date(2026, 11, 1),
+                "by": account_id,
+                "now": NOW,
+            },
+        )
+    _insert_claim(head, enrollment_id, "0.00", submission_id)
+
+    url = head.url.render_as_string(hide_password=False)
+    with pytest.raises(Exception, match="Cannot downgrade 0013"):
+        command.downgrade(_alembic_config(url), "0012")
+
+    with head.begin() as connection:
+        remaining = connection.execute(
+            sa.text("SELECT count(*) FROM payment_claim")
+        ).scalar_one()
+    assert remaining == 1
