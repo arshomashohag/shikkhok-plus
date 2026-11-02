@@ -17,12 +17,12 @@ victim's sign-in allowance from an unauthenticated public route, which
 is an authorization error.
 
 ``DEL_GLOBAL_DAILY`` is the **load-bearing** control, which is the
-opposite of how a reader would rank the four [DESIGN-6]. ``ip_prefix_of``
-reduces IPv4 to a /24, so an attacker spanning prefixes never meets the
-per-IP limit; and an IPv6 address contains no ``.``, so each IPv6 caller
-gets its own whole-address counter. Neither is fixed here -- it is a
-shared primitive with three built dependents and this is the last unit
-before release -- so the global sub-ceiling is what actually binds.
+opposite of how a reader would rank the four [DESIGN-6]: an attacker
+spanning /24s (or IPv6 /64s) never meets the per-IP limit, so the global
+sub-ceiling is what actually binds. Since PA-SEC-2 it is a **send
+budget**, spent by :meth:`CeilingChecker.consume_send` when a code is
+actually sent, not on the request path where an unknown number -- which
+is never texted -- would spend it.
 """
 
 from __future__ import annotations
@@ -43,6 +43,7 @@ from app.auth.ceilings import (
     CeilingBreach,
     CeilingChecker,
     ScopeKind,
+    SendBudget,
 )
 
 NUMBER: Final = "+8801744444444"
@@ -154,25 +155,16 @@ def test_draining_the_deletion_global_scope_leaves_sign_in_working(
     :param checker: The checker under test
     :return: None
     """
-    # A DIFFERENT number AND a different prefix per call, so neither
-    # narrower scope refuses first -- the global one is under test, and
-    # a narrower refusal would mask it while the test still went green
-    # on `pytest.raises`.
-    for index in range(DEL_GLOBAL_DAILY):
-        _drain_deletion(
-            checker,
-            1,
-            number=f"+88017000{index:05d}",
-            ip_prefix=f"198.51.{index}",
-        )
+    for _ in range(DEL_GLOBAL_DAILY):
+        checker.consume_send(SendBudget.DELETION)
 
     with pytest.raises(CeilingBreach) as refused:
-        checker.check_and_consume_deletion(
-            number="+8801790000000", ip_prefix="198.51.250"
-        )
+        checker.consume_send(SendBudget.DELETION)
     assert refused.value.scope is ScopeKind.DEL_GLOBAL_DAILY
 
+    # Both halves of sign-in: its request cascade AND its send budget.
     checker.check_and_consume(number=OTHER_NUMBER, ip_prefix=IP_PREFIX)
+    checker.consume_send(SendBudget.SIGN_IN)
 
 
 # ---------------------------------------------------------------------------
@@ -245,26 +237,16 @@ def test_the_hourly_ip_scope_refuses_past_its_limit(
 def test_the_global_scope_refuses_past_its_limit(
     checker: CeilingChecker,
 ) -> None:
-    """The fifty-first in a day refuses, with the narrower scopes clear.
-
-    Each call uses a distinct number AND a distinct prefix, so neither
-    narrower scope can be the one that refuses.
+    """The fifty-first deletion SEND in a day refuses.
 
     :param checker: The checker under test
     :return: None
     """
-    for index in range(DEL_GLOBAL_DAILY):
-        _drain_deletion(
-            checker,
-            1,
-            number=f"+88019000{index:05d}",
-            ip_prefix=f"203.0.{index}",
-        )
+    for _ in range(DEL_GLOBAL_DAILY):
+        checker.consume_send(SendBudget.DELETION)
 
     with pytest.raises(CeilingBreach) as refused:
-        checker.check_and_consume_deletion(
-            number="+8801990000000", ip_prefix="203.0.250"
-        )
+        checker.consume_send(SendBudget.DELETION)
 
     assert refused.value.scope is ScopeKind.DEL_GLOBAL_DAILY
 
@@ -301,9 +283,9 @@ def test_a_refusal_consumes_nothing(
 def test_a_deletion_refusal_does_not_consume_the_wider_scopes(
     checker: CeilingChecker, restricted_session: Session
 ) -> None:
-    """A refusal at the narrowest scope never touches the global one.
+    """A refusal at the narrowest scope never touches the wider ones.
 
-    Checking global-first still *looks* like defence in depth, which is
+    Checking wide-first still *looks* like defence in depth, which is
     exactly why a third cascade is where that mistake would return.
 
     :param checker: The checker under test
@@ -311,12 +293,16 @@ def test_a_deletion_refusal_does_not_consume_the_wider_scopes(
     :return: None
     """
     _drain_deletion(checker, DEL_PER_NUMBER_HOURLY)
-    before = _count(restricted_session, ScopeKind.DEL_GLOBAL_DAILY, "global")
+    wider = [
+        (ScopeKind.DEL_NUMBER_DAILY, NUMBER),
+        (ScopeKind.DEL_IP_HOURLY, IP_PREFIX),
+    ]
+    before = [_count(restricted_session, kind, value) for kind, value in wider]
 
     with pytest.raises(CeilingBreach):
         checker.check_and_consume_deletion(number=NUMBER, ip_prefix=IP_PREFIX)
 
-    after = _count(restricted_session, ScopeKind.DEL_GLOBAL_DAILY, "global")
+    after = [_count(restricted_session, kind, value) for kind, value in wider]
     assert after == before
 
 
@@ -373,19 +359,12 @@ def test_the_alert_fires_on_the_global_scope(
     :param caplog: The log capture fixture
     :return: None
     """
-    for index in range(DEL_GLOBAL_DAILY):
-        _drain_deletion(
-            checker,
-            1,
-            number=f"+88016000{index:05d}",
-            ip_prefix=f"192.0.{index}",
-        )
+    for _ in range(DEL_GLOBAL_DAILY):
+        checker.consume_send(SendBudget.DELETION)
 
     with caplog.at_level("CRITICAL", logger="app.auth.ceilings"):
         with pytest.raises(CeilingBreach):
-            checker.check_and_consume_deletion(
-                number="+8801690000000", ip_prefix="192.0.250"
-            )
+            checker.consume_send(SendBudget.DELETION)
 
     assert [record.scope for record in caplog.records] == [
         ScopeKind.DEL_GLOBAL_DAILY.value
@@ -441,18 +420,20 @@ def test_each_scope_value_fits_the_column(scope: ScopeKind) -> None:
 def test_the_deletion_counters_are_written_under_their_own_kinds(
     checker: CeilingChecker, restricted_session: Session
 ) -> None:
-    """A successful deletion check writes four ``del_*`` rows and no more.
+    """A deletion request and send write four ``del_*`` rows and no more.
 
     This is the structural half of the shared-counter assertion: the
     behavioural tests above would also pass against an implementation
     that wrote the right rows and ALSO incremented sign-in's, so the
-    sign-in scopes are asserted untouched.
+    sign-in scopes are asserted untouched. Three come from the request
+    cascade and the fourth from the send budget [PA-SEC-2].
 
     :param checker: The checker under test
     :param restricted_session: The non-superuser session
     :return: None
     """
     _drain_deletion(checker, 1)
+    checker.consume_send(SendBudget.DELETION)
 
     kinds = (
         restricted_session.execute(

@@ -159,8 +159,8 @@ def test_an_unknown_number_is_sent_no_sms(
 ) -> None:
     # Reported from a device: a student a teacher had added pressed
     # Sign in rather than Sign up, received a real SMS, and every code
-    # in it was refused -- the unknown branch rolls its OTP row back,
-    # so the code it texted could never verify. A code that cannot
+    # in it was refused -- verify refuses a number with no account, so
+    # the code it texted could never sign anyone in. A code that cannot
     # work must not be sent: it spends the SMS budget and tells the
     # person their correct code is wrong.
     numbers = _capture_sends(monkeypatch)
@@ -204,11 +204,37 @@ def test_a_replayed_refresh_token_is_refused_over_http(
     code = next(part for part in sent[0].split() if part.isdigit())
     pair = client.post("/v1/auth/verify", json={"phone": KNOWN, "code": code}).json()
 
-    client.post("/v1/auth/refresh", json={"refresh_token": pair["refresh_token"]})
+    rotated = client.post(
+        "/v1/auth/refresh", json={"refresh_token": pair["refresh_token"]}
+    ).json()
+
+    # A retry of the old token right after rotation is a lost response,
+    # not a replay, and succeeds [PA-SEC-4]. Asserted here so the HTTP
+    # surface carries the grace, not only `rotate`.
+    retried = client.post(
+        "/v1/auth/refresh", json={"refresh_token": pair["refresh_token"]}
+    )
+    assert retried.status_code == 200
+    assert retried.json()["refresh_token"] != rotated["refresh_token"]
+
+    # The client spends what the retry returned, so the old token
+    # appearing again is the stolen-token case -- refused, and the whole
+    # family with it.
+    current = client.post(
+        "/v1/auth/refresh", json={"refresh_token": retried.json()["refresh_token"]}
+    )
+    assert current.status_code == 200
     replayed = client.post(
         "/v1/auth/refresh", json={"refresh_token": pair["refresh_token"]}
     )
     assert replayed.status_code == 401
+    assert (
+        client.post(
+            "/v1/auth/refresh",
+            json={"refresh_token": current.json()["refresh_token"]},
+        ).status_code
+        == 401
+    )
 
 
 def test_a_ceiling_breach_returns_409_not_429(

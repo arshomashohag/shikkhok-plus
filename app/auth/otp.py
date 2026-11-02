@@ -10,8 +10,9 @@ not enough. Worse, **the hash is the smaller asymmetry**: the known
 branch performs a transactional INSERT and the unknown branch performs
 none, and a database write means lock acquisition and a WAL flush --
 a far larger and more reliable timing signal than a hash computation. So
-the unknown branch performs an **equivalent write and rolls it back**,
-inside the same transaction shape.
+the unknown branch performs the **same write and keeps it** -- a code
+row nobody was told, which also lets verify answer an unknown number
+exactly as it answers a known one (see :func:`issue`).
 
 *What remains unclosed, stated so the test is not read as stronger than
 it is*: equivalent work is not constant time. A patient attacker with a

@@ -30,6 +30,7 @@ from __future__ import annotations
 import os
 from typing import Final
 
+from app.auth.client_address import TRUSTED_CLIENT_IP_HEADER_ENV
 from app.auth.hashing import OTP_HMAC_KEY_ENV
 from app.gateway.null import ADAPTER_ENV, REAL_ADAPTER_SENTINEL
 
@@ -98,6 +99,18 @@ def check_startup_configuration(environment: str | None = None) -> None:
         problems.append(
             f"{OTP_HMAC_KEY_ENV} is unset. Issuing a code would raise "
             "on the first request rather than at startup."
+        )
+
+    # Production always runs behind the proxy chain, so the peer is the
+    # proxy and never the caller. Unset, the per-IP limits either count
+    # every caller in one bucket -- ten requests an hour for the whole
+    # country -- or, with uvicorn trusting forwarded headers, let each
+    # caller choose a fresh bucket per request. Both run silently.
+    if not os.environ.get(TRUSTED_CLIENT_IP_HEADER_ENV, "").strip():
+        problems.append(
+            f"{TRUSTED_CLIENT_IP_HEADER_ENV} is unset, so per-IP limits "
+            "would count the proxy's address (or a caller-chosen "
+            "forwarded header) instead of the verified client address."
         )
 
     if os.environ.get(ADAPTER_ENV) != REAL_ADAPTER_SENTINEL:

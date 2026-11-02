@@ -59,6 +59,12 @@ class AuthEvent(enum.Enum):
     VERIFY_SUCCEEDED = "VERIFY_SUCCEEDED"
     REFRESH_ROTATED = "REFRESH_ROTATED"
     REFRESH_REUSE_DETECTED = "REFRESH_REUSE_DETECTED"
+    #: A rotated-out token was re-presented inside the grace window with
+    #: its successor unused, so the successor was revoked and a fresh
+    #: pair issued in the same family [PA-SEC-4]. Its own member rather
+    #: than REFRESH_ROTATED, so "how often do responses get lost" and
+    #: "is the grace being abused" are answerable from this table.
+    REFRESH_GRACE_REISSUED = "REFRESH_GRACE_REISSUED"
     ACCOUNT_CREATED = "ACCOUNT_CREATED"
     SIGNUP_CEILING_BREACHED = "SIGNUP_CEILING_BREACHED"
 

@@ -26,6 +26,20 @@ is the obvious implementation, passes every naive test, and silently stops
 working the moment there are two workers -- which Phase 1 has, because one
 Lightsail host runs several Uvicorn workers. That presents as "the limit
 works in testing", which is the worst way for a budget control to fail.
+
+**The two global scopes are a send budget, not a request limit**
+[PA-SEC-2]. They used to sit at the end of the request-path cascades,
+and the sign-in route answers every number identically -- known or
+not, for the existence oracle's sake -- while only a known number is
+ever texted. So every request for an *unknown* number spent one unit of
+a budget that only real SMS cost, and anyone could exhaust the day's
+sign-in budget with numbers nobody owns, locking every teacher out
+without the project spending a taka. The per-number and per-IP scopes
+stay on the request path, where they bound callers; the global scopes
+are consumed by :meth:`CeilingChecker.consume_send` at the moment an
+SMS is actually about to go out (see :mod:`app.auth.delivery`), which
+is after the response has been written and only for a known number --
+so the request path stays identical for both.
 """
 
 from __future__ import annotations
@@ -56,6 +70,7 @@ __all__ = [
     "CeilingBreach",
     "CeilingChecker",
     "ScopeKind",
+    "SendBudget",
     "fire_ceiling_alert",
 ]
 
@@ -102,16 +117,9 @@ DEL_PER_NUMBER_HOURLY: Final = 3
 DEL_PER_NUMBER_DAILY: Final = 5
 
 #: An 11th from one IP prefix inside an hour is refused. **Depth rather
-#: than the control**, and the ranking is the opposite of the obvious
-#: one [DESIGN-6]: `ip_prefix_of` reduces IPv4 to a /24, so an attacker
-#: spanning prefixes never accumulates toward this limit, and an IPv6
-#: address contains no `.` so each caller becomes its own whole-address
-#: scope -- a bound of ten per address rather than per /24.
-#:
-#: Neither is corrected here. Narrowing the prefix would reintroduce the
-#: per-user counter `ip_prefix_of`'s own comment rejects, and changing a
-#: primitive three built routes depend on in the last unit before
-#: release is the wrong trade.
+#: than the control** [DESIGN-6]: an attacker spanning /24s (or IPv6
+#: /64s, see :mod:`app.auth.client_address`) never accumulates toward
+#: it, so the global sub-ceiling below is what actually binds.
 DEL_PER_IP_HOURLY: Final = 10
 
 #: **The load-bearing control** [NFR14.102]. Fifty deletion codes in a
@@ -120,12 +128,16 @@ DEL_PER_IP_HOURLY: Final = 10
 #:
 #: **Signup's no-global decision deliberately does not transfer**, and
 #: the difference is the attack. `_signup_scopes` has no global scope
-#: because signup's cost passes through the OTP cascade's global ceiling
-#: immediately afterwards, so a second counter would bound the same
-#: spend twice. Deletion's hazard is not that it spends twice -- it is
-#: that it spends **the same budget sign-in needs**, which is the exact
-#: condition this sub-ceiling exists for. A reader patterning off signup
-#: would omit this scope and reopen the finding.
+#: because signup's one SMS is sent through
+#: :func:`~app.auth.delivery.send_within_budget` against sign-in's
+#: budget, so a second counter would bound the same spend twice.
+#: Deletion's hazard is not that it spends twice -- it is that it spends
+#: **the same budget sign-in needs**, which is the exact condition this
+#: sub-ceiling exists for. A reader patterning off signup would omit
+#: this scope and reopen the finding.
+#:
+#: Spent at send time through :class:`SendBudget`, not on the request
+#: path [PA-SEC-2].
 DEL_GLOBAL_DAILY: Final = int(
     os.environ.get("SHIKKHOKPLUS_GLOBAL_DAILY_DELETION_SMS", "50")
 )
@@ -205,6 +217,19 @@ class ScopeKind(enum.Enum):
 _ALERTING_SCOPES: Final = frozenset(
     {ScopeKind.GLOBAL_DAILY, ScopeKind.DEL_GLOBAL_DAILY}
 )
+
+
+class SendBudget(enum.Enum):
+    """The two daily SMS budgets, each consumed only by a real send.
+
+    The value is the scope the budget counts against. **Two budgets, not
+    one shared**: deletion's sub-ceiling exists so an unauthenticated
+    caller on the public deletion page cannot spend what sign-in needs
+    [NFR14.102].
+    """
+
+    SIGN_IN = ScopeKind.GLOBAL_DAILY
+    DELETION = ScopeKind.DEL_GLOBAL_DAILY
 
 
 @dataclass(frozen=True, slots=True)
@@ -329,10 +354,13 @@ class CeilingChecker:
         ip_prefix: str,
         now: dt.datetime | None = None,
     ) -> None:
-        """Consume one send's budget, refusing at the narrowest breach.
+        """Consume one sign-in request's per-number and per-IP budget.
 
-        Called **before** the gateway call, never after: checking
-        afterwards spends the money the limit exists to protect [BR2.2].
+        Called **before** ``otp.issue``, for every number, known or not:
+        these scopes bound a caller, and an unknown number must be
+        bounded identically or the refusal becomes the oracle. The
+        global send budget is NOT consumed here -- see
+        :meth:`consume_send` [PA-SEC-2].
 
         :param number: The phone number this send is for
         :param ip_prefix: The caller's IP prefix
@@ -375,7 +403,7 @@ class CeilingChecker:
         ip_prefix: str,
         now: dt.datetime | None = None,
     ) -> None:
-        """Consume one deletion code's budget, refusing at the narrowest.
+        """Consume one deletion request's per-number and per-IP budget.
 
         **A THIRD cascade over the same ``_consume``, never extra
         conditions on the first two** [NFR14.100, NFR14.102]. It shares
@@ -390,9 +418,10 @@ class CeilingChecker:
         lock them out of their own account -- while a test asserting
         only that the route refuses would be green throughout.
 
-        Called **before** the gateway call, for the reason the two
-        existing cascades are: a ceiling checked afterwards has already
-        spent what it exists to protect.
+        Called on the request path for every number, known or not. The
+        deletion send budget is consumed by :meth:`consume_send` at the
+        moment a code is actually sent, for the reason
+        :meth:`check_and_consume` gives [PA-SEC-2].
 
         :param number: The number a deletion code is being sent to
         :param ip_prefix: The caller's IP prefix
@@ -401,6 +430,30 @@ class CeilingChecker:
         :raises CeilingBreach: A ceiling refused this send
         """
         self._consume(self._deletion_scopes(number, ip_prefix), now)
+
+    def consume_send(
+        self,
+        budget: SendBudget,
+        now: dt.datetime | None = None,
+    ) -> None:
+        """Consume one real SMS from a daily send budget.
+
+        Called **immediately before** ``gateway.send`` and only when a
+        send is actually about to happen, never on the request path:
+        a request for an unknown number sends nothing, so it must cost
+        nothing here [PA-SEC-2]. It is still checked *before* the
+        gateway call, so the money is never spent first [BR2.2].
+
+        Same ``_consume``, so the same atomic upsert, the same
+        release-on-refusal and the same alert.
+
+        :param budget: Which daily budget this send spends
+        :param now: The moment to count against, or None for the clock
+        :return: None
+        :raises CeilingBreach: The budget for today is exhausted
+        """
+        limit = GLOBAL_DAILY if budget is SendBudget.SIGN_IN else DEL_GLOBAL_DAILY
+        self._consume([(_Scope(budget.value, limit, _DAY), GLOBAL_SCOPE_VALUE)], now)
 
     def _consume(
         self,
@@ -481,10 +534,6 @@ class CeilingChecker:
             (_Scope(ScopeKind.NUMBER_HOURLY, PER_NUMBER_HOURLY, _HOUR), number),
             (_Scope(ScopeKind.NUMBER_DAILY, PER_NUMBER_DAILY, _DAY), number),
             (_Scope(ScopeKind.IP_HOURLY, PER_IP_HOURLY, _HOUR), ip_prefix),
-            (
-                _Scope(ScopeKind.GLOBAL_DAILY, GLOBAL_DAILY, _DAY),
-                GLOBAL_SCOPE_VALUE,
-            ),
         ]
 
     @staticmethod
@@ -499,12 +548,12 @@ class CeilingChecker:
         would return [NFR12.4].
 
         **No global scope here, and that is a decision.** Signup's cost
-        to the project is the OTP it triggers, and that send passes
-        through the OTP cascade's own global daily ceiling immediately
-        afterwards. A second global counter would bound the same spend
-        twice at two thresholds, so the tighter one would silently
-        become the real limit and the looser one would read as a
-        control while governing nothing.
+        to the project is the OTP it triggers, and that send spends
+        sign-in's daily send budget through
+        :func:`~app.auth.delivery.send_within_budget`. A second global
+        counter would bound the same spend twice at two thresholds, so
+        the tighter one would silently become the real limit and the
+        looser one would read as a control while governing nothing.
 
         :param number: The number being signed up
         :param ip_prefix: The caller's IP prefix
@@ -531,16 +580,12 @@ class CeilingChecker:
 
     @staticmethod
     def _deletion_scopes(number: str, ip_prefix: str) -> list[tuple[_Scope, str]]:
-        """Build the deletion cascade, narrowest first.
+        """Build the deletion request cascade, narrowest first.
 
-        **Four scopes, including a global one**, where signup has two
-        and no global. That difference is a decision rather than an
-        inconsistency: signup declines a global scope because its cost
-        passes through the OTP cascade's global ceiling moments later,
-        so a second counter would bound one spend at two thresholds.
-        Deletion's hazard is the opposite -- it spends the budget
-        sign-in needs -- which is the exact condition NFR14.102's
-        sub-ceiling exists for.
+        Three request scopes, like sign-in's. Deletion's global
+        sub-ceiling [NFR14.102] is :attr:`SendBudget.DELETION`, spent
+        at send time by :meth:`consume_send` -- not here, where an
+        unknown number would spend it [PA-SEC-2].
 
         :param number: The number a deletion code is being sent to
         :param ip_prefix: The caller's IP prefix
@@ -566,9 +611,5 @@ class CeilingChecker:
             (
                 _Scope(ScopeKind.DEL_IP_HOURLY, DEL_PER_IP_HOURLY, _HOUR),
                 ip_prefix,
-            ),
-            (
-                _Scope(ScopeKind.DEL_GLOBAL_DAILY, DEL_GLOBAL_DAILY, _DAY),
-                GLOBAL_SCOPE_VALUE,
             ),
         ]

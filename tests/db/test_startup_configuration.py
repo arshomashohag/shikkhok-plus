@@ -21,6 +21,7 @@ COMPLETE = {
     "SHIKKHOKPLUS_SMS_APP_HASH": "ABCDEFGHIJK",
     "SHIKKHOKPLUS_OTP_HMAC_KEY": "a-real-key",
     "SHIKKHOKPLUS_SMS_ADAPTER": "bulksmsbd",
+    "SHIKKHOKPLUS_TRUSTED_CLIENT_IP_HEADER": "X-Client-Address",
 }
 
 
@@ -105,6 +106,18 @@ def test_the_null_adapter_in_production_refuses_to_start(
     # equally silent, and worse.
     _configure(monkeypatch, SHIKKHOKPLUS_SMS_ADAPTER=None)
     with pytest.raises(ConfigurationError, match="ADAPTER"):
+        check_startup_configuration()
+
+
+@pytest.mark.parametrize("value", [None, "", "   "])
+def test_an_unset_trusted_client_header_refuses_to_start(
+    monkeypatch: pytest.MonkeyPatch, value: str | None
+) -> None:
+    # Production always sits behind the proxy, so without the header the
+    # per-IP limits count the proxy (one bucket for everyone) or a
+    # forwarded header the caller chooses (a bucket per request) [PA-SEC-2].
+    _configure(monkeypatch, SHIKKHOKPLUS_TRUSTED_CLIENT_IP_HEADER=value)
+    with pytest.raises(ConfigurationError, match="TRUSTED_CLIENT_IP_HEADER"):
         check_startup_configuration()
 
 
