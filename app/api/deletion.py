@@ -30,7 +30,9 @@ the three unable to use the feature at all.
 **The ceilings are consumed before the gateway call** [BR3.3], through
 deletion's **own** cascade. Sharing sign-in's counters would let an
 unauthenticated caller lock a victim out of their own account from this
-route [NFR14.100].
+route [NFR14.100]. The per-number and per-IP scopes are consumed on the
+request path for every number; deletion's daily send budget only at the
+send itself, so an unknown number spends none of it [PA-SEC-2].
 """
 
 from __future__ import annotations
@@ -52,7 +54,8 @@ from app.api.auth import (
 )
 from app.api.deps import authenticated_account, get_session
 from app.auth import otp
-from app.auth.ceilings import CeilingChecker
+from app.auth.ceilings import CeilingChecker, SendBudget
+from app.auth.delivery import send_within_budget
 from app.gateway.outbox import record_outbox
 from app.gateway.sms import SmsGateway
 from app.gateway.template import render_otp_message
@@ -202,18 +205,29 @@ def external_deletion(
         # response, for the reasons the sign-in route gives: a code sent
         # to a number with no account can confirm nothing, and sending
         # inline would make the known branch slower by a gateway round
-        # trip, which is a timing oracle [BR2.7].
+        # trip, which is a timing oracle [BR2.7]. Deletion's daily send
+        # budget is spent inside the deferred task, by real sends only
+        # [PA-SEC-2, NFR14.102].
         if issued.account_exists:
-            background.add_task(gateway.send, body.phone, message, correlation_id)
+            background.add_task(
+                send_within_budget,
+                session.get_bind(),
+                gateway,
+                body.phone,
+                message,
+                correlation_id,
+                budget=SendBudget.DELETION,
+            )
 
         # Records the message a staging host did NOT text, exactly as
         # the sign-in route does, and GUARDED ON `account_exists` for
-        # the same reason: the unknown-number path renders a message it
-        # never persisted a code for, and recording that would put an
-        # entry in the outbox for a number with no account. That is an
-        # existence oracle in a new place -- the thing `issue`'s
-        # rolled-back write exists to close, reintroduced one endpoint
-        # over, on the route where the caller is unauthenticated.
+        # the same reason: the unknown-number path renders a message
+        # for a code that can confirm nothing, and recording that would
+        # put an entry in the outbox for a number with no account. That
+        # is an existence oracle in a new place -- the thing `issue`'s
+        # equivalent work on both branches exists to close, reintroduced
+        # one endpoint over, on the route where the caller is
+        # unauthenticated.
         #
         # A no-op unless the environment permits it and an operator
         # opted in, so production runs it to no effect.

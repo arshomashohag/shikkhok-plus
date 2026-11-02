@@ -159,8 +159,8 @@ def test_an_unknown_number_is_sent_no_sms(
 ) -> None:
     # Reported from a device: a student a teacher had added pressed
     # Sign in rather than Sign up, received a real SMS, and every code
-    # in it was refused -- the unknown branch rolls its OTP row back,
-    # so the code it texted could never verify. A code that cannot
+    # in it was refused -- verify refuses a number with no account, so
+    # the code it texted could never sign anyone in. A code that cannot
     # work must not be sent: it spends the SMS budget and tells the
     # person their correct code is wrong.
     numbers = _capture_sends(monkeypatch)

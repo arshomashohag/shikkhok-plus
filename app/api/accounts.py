@@ -33,7 +33,8 @@ from app.api.auth import APP_HASH_ENV, correlation_of, ip_prefix_of
 from app.api.deps import authenticated_account, get_session, invitation_lens
 from app.audit.log import AuthEvent, write_audit
 from app.auth import otp
-from app.auth.ceilings import CeilingBreach, CeilingChecker
+from app.auth.ceilings import CeilingBreach, CeilingChecker, SendBudget
+from app.auth.delivery import send_within_budget
 from app.authz.invitations import (
     InvitationRow,
     available_invitations,
@@ -192,7 +193,18 @@ def sign_up(
     # the seven abuse controls.
     issued = otp.issue(session, body.phone, correlation_id, purpose=otp.OTP_PURPOSE)
     message = render_otp_message(issued.code, os.environ.get(APP_HASH_ENV, ""))
-    gateway.send(body.phone, message, correlation_id)
+    # Through sign-in's daily send budget, which is what lets signup's
+    # own cascade carry no global scope [PA-SEC-2]. It used to call the
+    # gateway directly, so signup's SMS was bounded by no daily ceiling
+    # at all while `_signup_scopes` said it was.
+    send_within_budget(
+        session.get_bind(),
+        gateway,
+        body.phone,
+        message,
+        correlation_id,
+        budget=SendBudget.SIGN_IN,
+    )
 
     # **The staging outbox, which this path was missing.** `/v1/auth/otp`
     # records here and this endpoint did not, so a person who registered
