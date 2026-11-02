@@ -41,6 +41,24 @@ object AuthStateMapper {
         }
 
     /**
+     * Map what redeeming the stored session came to.
+     *
+     * **Only a session that ENDED goes to sign-in.** An unverified one
+     * is kept signed in: the phone being offline, or the server failing
+     * to answer, says nothing about the credential, and sending the
+     * teacher to the OTP screen for it made the offline queue
+     * unreachable and cost an SMS to recover from [TC-8, D-9].
+     *
+     * @param resume The outcome of the cold-start refresh
+     * @return Signed in, or the sign-in screen
+     */
+    fun afterResume(resume: SessionResume): AuthUiState =
+        when (resume) {
+            SessionResume.RENEWED, SessionResume.UNVERIFIED -> AuthUiState.SignedIn
+            SessionResume.ENDED -> AuthUiState.Idle
+        }
+
+    /**
      * Map a successful verify response.
      *
      * @param response The token pair

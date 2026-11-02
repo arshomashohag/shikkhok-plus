@@ -103,6 +103,15 @@ class QueueSync(
         var queue = store.read()
 
         for (item in queue.filter { it.isAutomaticallySendable() }) {
+            // **The account can change under a running drain**: a send
+            // takes seconds on a poor network, and the session can end
+            // and another begin meanwhile. The items read at the top
+            // belong to the account that was signed in THEN; sending one
+            // after a switch would send it under the next account's
+            // token. Stop instead -- the rest drain when their account
+            // is back.
+            if (item.accountId != store.currentAccount()) break
+
             val updated = when (val outcome = transport.send(item)) {
                 is SendOutcome.Applied -> null
 
@@ -184,7 +193,9 @@ const val QUEUE_RETRY_INTERVAL_MS: Long = 30_000L
  * Drains at once, then every [intervalMs] while an item can still be
  * sent automatically, and idles cheaply otherwise. It is run only while
  * the app is in the foreground and someone is signed in, so it never
- * wakes a closed app and never sends without a token.
+ * wakes a closed app and never sends without a token -- and the store
+ * hands it only the signed-in account's items, so it never sends one
+ * account's writes under another's.
  *
  * **A timer rather than a connectivity callback**, deliberately:
  * listening for the network needs `ACCESS_NETWORK_STATE`, and the

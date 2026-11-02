@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 /** What sending money needs from the network. */
 interface PayRepository {
@@ -59,10 +60,13 @@ interface PayRepository {
  *
  * @property repository The network
  * @property today Bangladesh's current date, `yyyy-MM-dd`
+ * @property newMutationId Generates a payment's replay key; injectable
+ *   so a test can assert which key a send carried
  */
 class PayViewModel(
     private val repository: PayRepository,
     private val today: () -> String = ::dhakaTodayIso,
+    private val newMutationId: () -> String = { UUID.randomUUID().toString() },
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<PayUiState>(PayUiState.Loading)
@@ -178,15 +182,26 @@ class PayViewModel(
         }
     }
 
-    /** Send the payment for checking, if the form has the shape of one. */
+    /**
+     * Send the payment for checking, if the form has the shape of one.
+     *
+     * The payment carries its attempt's replay key, and the attempt is
+     * kept in the state through a failure: tapping Send again on the
+     * same payment re-sends the same key, which is what lets the server
+     * recognise a send that timed out after it was recorded. A replayed
+     * send is answered with the original submission, as a success --
+     * carrying its stored status, which may already be decided.
+     */
     fun send() {
         val filling = _state.value as? PayUiState.Filling ?: return
         if (filling.sending) return
         val payment = PayMapper.requestOf(filling).first ?: return
-        _state.value = filling.copy(sending = true, failedKey = null)
+        val attempt = PayMapper.attemptFor(filling.attempt, payment, newMutationId)
+        val sending = filling.copy(sending = true, failedKey = null, attempt = attempt)
+        _state.value = sending
         viewModelScope.launch {
             _state.value =
-                when (val result = repository.submit(payment)) {
+                when (val result = repository.submit(attempt.request)) {
                     is AuthResult.Ok ->
                         PayUiState.Sent(
                             filling.scope.batch.name,
@@ -194,10 +209,11 @@ class PayViewModel(
                             filling.choice,
                             result.value,
                             payment.transactionId ?: payment.fromAccount,
+                            PayMapper.outcomeOf(result.value.status),
                         )
                     is AuthResult.Refused ->
-                        filling.copy(sending = false, failedKey = result.envelope.error.messageKey)
-                    AuthResult.TransportFailure -> filling.copy(sending = false, failedKey = PayMapper.OFFLINE_KEY)
+                        sending.copy(sending = false, failedKey = result.envelope.error.messageKey)
+                    AuthResult.TransportFailure -> sending.copy(sending = false, failedKey = PayMapper.OFFLINE_KEY)
                 }
         }
     }

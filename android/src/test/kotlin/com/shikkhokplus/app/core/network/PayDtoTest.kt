@@ -81,6 +81,30 @@ class PayDtoTest {
     }
 
     @Test
+    fun `the replay key goes on the wire as client_mutation_id`() {
+        // [PA-DB-1] The server's contract: an optional JSON string field
+        // named exactly this. Encoded with the app's own client settings,
+        // since those are what reach the server.
+        val encoded =
+            ApiClient.json.encodeToString(
+                PaymentSubmitDto.serializer(),
+                PaymentSubmitDto(
+                    listOf("e-1"),
+                    null,
+                    true,
+                    Money.of("500.00"),
+                    "2026-11-02",
+                    clientMutationId = "8b6f3d1e-5c2a-4e7b-9f10-2a3b4c5d6e7f",
+                ),
+            )
+
+        assertTrue(
+            """"client_mutation_id":"8b6f3d1e-5c2a-4e7b-9f10-2a3b4c5d6e7f"""" in encoded,
+            "the key was not sent as a JSON string under its wire name: $encoded",
+        )
+    }
+
+    @Test
     fun `the family methods response decodes with no methods`() {
         val dto =
             json.decodeFromString<FamilyPaymentMethodsDto>(

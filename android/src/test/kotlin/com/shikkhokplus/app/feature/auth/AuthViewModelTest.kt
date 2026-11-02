@@ -236,49 +236,43 @@ class AuthViewModelTest {
     fun `a restored session resolves to SignedIn`() = runTest(dispatcher) {
         val model = AuthViewModel(FakeRepository())
 
-        model.resumeSession { AuthResult.Ok(TokenResponse("a.b.c", "opaque", 900)) }
+        model.resumeSession { SessionResume.RENEWED }
         advanceUntilIdle()
 
         assertEquals(AuthUiState.SignedIn, model.state.value)
     }
 
     @Test
-    fun `a failed restore resolves to Idle rather than hanging`() =
+    fun `an offline cold start stays signed in rather than asking for a code`() =
         runTest(dispatcher) {
-            // **It must always resolve.** The starting state is now
-            // `Restoring`, so a path that left it unchanged would hold
-            // the loader forever — the opposite of the flash it fixes,
-            // and a worse bug.
+            // **The defect, reported by audit [FE-1].** Any refresh that
+            // did not succeed resolved to `Idle`, so a teacher who opened
+            // the app with no signal was sent to the OTP screen: the
+            // offline attendance queue was unreachable exactly when it was
+            // needed, and getting back in cost an SMS.
             val model = AuthViewModel(FakeRepository())
 
-            model.resumeSession { AuthResult.TransportFailure }
+            model.resumeSession { SessionResume.UNVERIFIED }
+            advanceUntilIdle()
+
+            assertEquals(AuthUiState.SignedIn, model.state.value)
+        }
+
+    @Test
+    fun `an ended session resolves to Idle, silently and without hanging`() =
+        runTest(dispatcher) {
+            // **It must always resolve.** The starting state is
+            // `Restoring`, so a path that left it unchanged would hold
+            // the loader forever. A refused or absent session simply
+            // arrives at the sign-in screen, with no error about
+            // machinery the person does not know exists.
+            val model = AuthViewModel(FakeRepository())
+
+            model.resumeSession { SessionResume.ENDED }
             advanceUntilIdle()
 
             assertEquals(AuthUiState.Idle, model.state.value)
         }
-
-    @Test
-    fun `a refused restore also resolves, silently`() = runTest(dispatcher) {
-        // A rotated-out token is refused rather than failing in
-        // transport. The person simply arrives at the sign-in screen,
-        // with no error about machinery they do not know exists.
-        val model = AuthViewModel(FakeRepository())
-
-        model.resumeSession {
-            AuthResult.Refused(
-                ErrorEnvelope(
-                    ErrorBody(
-                        code = "UNAUTHENTICATED",
-                        messageKey = "auth.token.invalid",
-                        retryable = false,
-                    ),
-                ),
-            )
-        }
-        advanceUntilIdle()
-
-        assertEquals(AuthUiState.Idle, model.state.value)
-    }
 
     @Test
     fun `a new code goes to the same number, and only when asked`() = runTest {

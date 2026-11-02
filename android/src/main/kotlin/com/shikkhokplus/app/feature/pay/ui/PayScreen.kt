@@ -62,6 +62,7 @@ import com.shikkhokplus.app.feature.pay.PayForm
 import com.shikkhokplus.app.feature.pay.PayMapper
 import com.shikkhokplus.app.feature.pay.PayScope
 import com.shikkhokplus.app.feature.pay.PayUiState
+import com.shikkhokplus.app.feature.pay.SentOutcome
 
 /** One listed method on the choose screen. */
 const val TAG_PAY_METHOD: String = "pay_method"
@@ -166,6 +167,7 @@ fun PayScreen(state: PayUiState, actions: PayActions, todayIso: String = dhakaTo
 
 private fun titleOf(state: PayUiState): Int =
     when {
+        state is PayUiState.Sent && state.outcome != SentOutcome.PENDING -> R.string.pay_recorded_title
         state is PayUiState.Sent -> R.string.pay_sent_title
         state is PayUiState.Methods -> R.string.pay_choose_title
         state is PayUiState.Filling && state.choice is PayChoice.Cash -> R.string.pay_cash
@@ -543,24 +545,14 @@ private fun DateField(paidOn: String, todayIso: String, enabled: Boolean, onPick
 private fun ColumnScope.Sent(state: PayUiState.Sent) {
     val teacher = state.teacherName?.let { Numerals.freeText(it) } ?: stringResource(R.string.pay_teacher_fallback)
     val amount = Numerals.money(state.payment.totalAmount)
-    val body =
-        when (val choice = state.choice) {
-            PayChoice.Cash -> stringResource(R.string.pay_sent_body_cash, teacher, amount)
-            is PayChoice.Method ->
-                if (choice.method.kind == "bank") {
-                    stringResource(R.string.pay_sent_body_bank, teacher, amount, state.reference.orEmpty())
-                } else {
-                    stringResource(
-                        R.string.pay_sent_body_mobile,
-                        teacher,
-                        amount,
-                        choice.method.provider.orEmpty(),
-                        state.reference.orEmpty(),
-                    )
-                }
-        }
+    val body = sentBody(state, teacher, amount)
     Column(Modifier.testTag(TAG_PAY_SENT), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        PaymentStateChip(PaymentState.VERIFYING, stringResource(R.string.pay_pending))
+        when (state.outcome) {
+            SentOutcome.PENDING -> PaymentStateChip(PaymentState.VERIFYING, stringResource(R.string.pay_pending))
+            SentOutcome.APPROVED -> PaymentStateChip(PaymentState.PAID, stringResource(R.string.inbox_outcome_approved))
+            // No chip state means "refused"; the status row below says it.
+            SentOutcome.REJECTED -> Unit
+        }
         Text(body, style = MaterialTheme.typography.bodyLarge)
     }
     Column(
@@ -583,9 +575,57 @@ private fun ColumnScope.Sent(state: PayUiState.Sent) {
             stringResource(R.string.pay_paid_on_row),
             isoToUtcMillis(state.payment.paidOn)?.let(::displayDate) ?: state.payment.paidOn,
         )
-        SummaryRow(stringResource(R.string.pay_status_row), stringResource(R.string.pay_pending))
+        SummaryRow(stringResource(R.string.pay_status_row), stringResource(statusOf(state.outcome)))
     }
 }
+
+/**
+ * What the sent page says happened.
+ *
+ * A resend the teacher already decided says so, rather than "will
+ * check": the server answers a replay with the original submission and
+ * its stored status.
+ *
+ * @param state The sent page
+ * @param teacher Who checks it, already formatted
+ * @param amount The amount, already formatted
+ * @return The body text
+ */
+@Composable
+private fun sentBody(state: PayUiState.Sent, teacher: String, amount: String): String =
+    when (state.outcome) {
+        SentOutcome.APPROVED -> stringResource(R.string.pay_recorded_body_approved, amount, teacher)
+        SentOutcome.REJECTED -> stringResource(R.string.pay_recorded_body_rejected, amount, teacher)
+        SentOutcome.PENDING ->
+            when (val choice = state.choice) {
+                PayChoice.Cash -> stringResource(R.string.pay_sent_body_cash, teacher, amount)
+                is PayChoice.Method ->
+                    if (choice.method.kind == "bank") {
+                        stringResource(R.string.pay_sent_body_bank, teacher, amount, state.reference.orEmpty())
+                    } else {
+                        stringResource(
+                            R.string.pay_sent_body_mobile,
+                            teacher,
+                            amount,
+                            choice.method.provider.orEmpty(),
+                            state.reference.orEmpty(),
+                        )
+                    }
+            }
+    }
+
+/**
+ * The status row's text for where the server's record stands.
+ *
+ * @param outcome The server's status, as read
+ * @return A string resource
+ */
+private fun statusOf(outcome: SentOutcome): Int =
+    when (outcome) {
+        SentOutcome.PENDING -> R.string.pay_pending
+        SentOutcome.APPROVED -> R.string.inbox_outcome_approved
+        SentOutcome.REJECTED -> R.string.inbox_outcome_rejected
+    }
 
 @Composable
 private fun SummaryRow(label: String, value: String) {

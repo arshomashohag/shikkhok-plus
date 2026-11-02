@@ -153,7 +153,7 @@ class SessionRenewal(
                 // Only these say the credential itself is dead. A 5xx or a
                 // 429 is the server not answering the question, and signing
                 // the person out on it would end every session in an outage.
-                response.status in REFUSED_STATUSES -> Redeemed.Refused
+                response.status in REFUSED_REFRESH_STATUSES -> Redeemed.Refused
                 else -> Redeemed.Unreachable
             }
         } catch (_: Exception) {
@@ -184,18 +184,35 @@ class SessionRenewal(
     )
 
     private companion object {
-        /**
-         * One lock for the whole process. The app and the background
-         * unread check each build their own client; separate locks let
-         * both redeem the same refresh token, which the server reads as
-         * theft and answers by ending the session.
-         */
-        val RENEWAL_LOCK = Mutex()
-        /** The answers to a refresh that mean the credential is dead. */
-        val REFUSED_STATUSES =
-            setOf(HttpStatusCode.BadRequest, HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden)
         const val BEARER = "Bearer "
         const val AUTH_PATH = "/v1/auth/"
         const val REFRESH_PATH = "/v1/auth/refresh"
     }
 }
+
+/**
+ * One lock for EVERY redemption of the refresh token in the process.
+ *
+ * The app and the background unread check each build their own client;
+ * separate locks let both redeem the same refresh token, which the
+ * server reads as theft and answers by ending the session.
+ *
+ * **Top-level rather than private to [SessionRenewal]**, because the
+ * cold-start refresh in [HttpAuthRepository.refresh] is the other
+ * redeemer. It used to run outside this lock, so a screen's expired
+ * request renewing at the same moment as the start-up refresh presented
+ * the same refresh token twice -- the exact race the lock exists to
+ * close, on the one path it did not cover.
+ */
+internal val RENEWAL_LOCK: Mutex = Mutex()
+
+/**
+ * The answers to a refresh that mean the credential itself is dead.
+ *
+ * Shared by both redeemers so a cold start and a mid-session renewal
+ * cannot disagree about what ends a session: a 5xx or a 429 is the
+ * server not answering the question, and treating it as a refusal would
+ * sign every teacher out during an outage.
+ */
+internal val REFUSED_REFRESH_STATUSES: Set<HttpStatusCode> =
+    setOf(HttpStatusCode.BadRequest, HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden)
