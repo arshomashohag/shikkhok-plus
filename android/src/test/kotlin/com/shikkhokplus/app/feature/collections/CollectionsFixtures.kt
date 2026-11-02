@@ -78,6 +78,7 @@ class FakeCollectionsRepository(
     var month: (String, String?) -> AuthResult<BatchFeesDto> = { _, period ->
         AuthResult.Ok(monthFees(period ?: "2026-11"))
     },
+    var onMonth: suspend (String) -> Unit = {},
 ) : CollectionsRepository {
     val reportCalls = mutableListOf<List<String>>()
     val monthCalls = mutableListOf<Pair<String, String?>>()
@@ -97,6 +98,7 @@ class FakeCollectionsRepository(
         period: String?,
     ): AuthResult<BatchFeesDto> {
         monthCalls += batchId to period
+        onMonth(batchId)
         return month(batchId, period)
     }
 }

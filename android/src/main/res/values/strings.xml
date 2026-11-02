@@ -229,16 +229,12 @@
          a two-value client-side test cannot say so. -->
     <string name="fees_empty">No fee has been charged yet.</string>
     <string name="fees_total_outstanding">Outstanding: %1$s</string>
-    <string name="fees_outstanding_total">Owes %1$s</string>
     <string name="fees_outstanding_of_charged">%1$s of %2$s outstanding</string>
     <string name="fees_due_on">Due %1$s</string>
     <string name="fees_status_paid">Paid</string>
     <string name="fees_status_partly_paid">Partly paid</string>
     <string name="fees_status_unpaid">Unpaid</string>
     <string name="fees_status_waived">Waived</string>
-    <string name="batch_fees_empty">No student owes anything.</string>
-    <string name="fees_remind">Send a reminder</string>
-    <string name="fees_never_reminded">Never reminded</string>
 
     <!-- The payment form. Identical for a student and a guardian
          [AC6.2.1]; only the lens differs, and the lens is resolved

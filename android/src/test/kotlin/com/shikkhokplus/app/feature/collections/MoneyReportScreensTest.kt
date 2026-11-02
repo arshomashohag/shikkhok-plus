@@ -16,6 +16,8 @@ import com.shikkhokplus.app.feature.collections.ui.TAG_BATCH_MONTH_FILTER
 import com.shikkhokplus.app.feature.collections.ui.TAG_BATCH_MONTH_NEXT
 import com.shikkhokplus.app.feature.collections.ui.TAG_BATCH_MONTH_SEAT
 import com.shikkhokplus.app.feature.collections.ui.TAG_COLLECTIONS_BATCH_ROW
+import com.shikkhokplus.app.feature.collections.ui.TAG_COLLECTIONS_BATCH_ROW_FAILED
+import com.shikkhokplus.app.feature.collections.ui.TAG_COLLECTIONS_BATCH_ROW_RETRY
 import com.shikkhokplus.app.feature.collections.ui.TAG_COLLECTIONS_CHIP
 import com.shikkhokplus.app.feature.collections.ui.TAG_COLLECTIONS_MONTH
 import com.shikkhokplus.app.feature.collections.ui.barHeight
@@ -117,5 +119,22 @@ class MoneyReportScreensTest {
         assertEquals(MonthFilter.OWED, filtered)
         assertEquals(2, compose.onAllNodesWithTag(TAG_BATCH_MONTH_SEAT).fetchSemanticsNodes().size)
         compose.onNodeWithTag(TAG_BATCH_MONTH_NEXT).assertIsDisplayed()
+    }
+
+    @Test
+    fun `a failed batch row shows its reason and a retry that names only that batch`() {
+        val state =
+            loaded.copy(
+                batchRows = listOf(BatchRowFailed("b-2", "Math", "error.network.unreachable", retryable = true)),
+            )
+        var retried: String? = null
+        compose.setContent {
+            CollectionsScreen(state, CollectionsActions(onRetryBatch = { retried = it }))
+        }
+
+        compose.onNodeWithTag(TAG_COLLECTIONS_BATCH_ROW_FAILED).assertExists()
+        compose.onNodeWithTag(TAG_COLLECTIONS_BATCH_ROW_RETRY).performSemanticsAction(SemanticsActions.OnClick)
+        assertEquals("b-2", retried)
+        assertEquals(2, compose.onAllNodesWithTag(TAG_COLLECTIONS_MONTH).fetchSemanticsNodes().size)
     }
 }

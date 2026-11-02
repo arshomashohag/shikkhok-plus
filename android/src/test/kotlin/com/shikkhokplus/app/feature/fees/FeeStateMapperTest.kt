@@ -7,7 +7,6 @@ import com.shikkhokplus.app.core.network.FeeCycleDto
 import com.shikkhokplus.app.core.network.PaymentDestinationDto
 import com.shikkhokplus.app.core.network.HistoryLineDto
 import com.shikkhokplus.app.core.network.MonthStateDto
-import com.shikkhokplus.app.core.network.RosterFeeRowDto
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -176,60 +175,6 @@ class FeeStateMapperTest {
         assertEquals(
             listOf("2027-03", "2027-02", "2027-01"),
             loaded.rows.map { it.period },
-        )
-    }
-
-    // -----------------------------------------------------------------
-    // The roster row.
-    // -----------------------------------------------------------------
-
-    @Test
-    fun `a roster row with no generated period carries no status`() {
-        val row =
-            FeeStateMapper.toRosterRow(
-                RosterFeeRowDto(
-                    enrollmentId = "e-1",
-                    displayName = "Rahim",
-                    outstanding = Money.ZERO,
-                ),
-            )
-
-        assertNotNull(row)
-        assertNull(row.statusLabel)
-        assertEquals(false, row.owesSomething)
-    }
-
-    @Test
-    fun `a roster row owing money says so as a field`() {
-        // The field exists so no composable writes
-        // `if (row.outstanding > Money.ZERO)`.
-        val row =
-            FeeStateMapper.toRosterRow(
-                RosterFeeRowDto(
-                    enrollmentId = "e-1",
-                    displayName = "Rahim",
-                    outstanding = Money.of("1500.00"),
-                    currentPeriod = "2027-02",
-                    currentStatus = "unpaid",
-                ),
-            )
-
-        assertNotNull(row)
-        assertTrue(row.owesSomething)
-        assertEquals("fees.status.unpaid", row.statusLabel)
-    }
-
-    @Test
-    fun `an unknown roster status fails rather than defaulting`() {
-        assertNull(
-            FeeStateMapper.toRosterRow(
-                RosterFeeRowDto(
-                    enrollmentId = "e-1",
-                    displayName = "Rahim",
-                    outstanding = Money.ZERO,
-                    currentStatus = "deferred",
-                ),
-            ),
         )
     }
 

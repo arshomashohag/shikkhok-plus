@@ -6,7 +6,6 @@ import com.shikkhokplus.app.core.network.ErrorEnvelope
 import com.shikkhokplus.app.core.network.FeeCycleDto
 import com.shikkhokplus.app.core.network.MonthStateDto
 import com.shikkhokplus.app.core.network.PaymentDestinationDto
-import com.shikkhokplus.app.core.network.RosterFeeRowDto
 
 /**
  * Maps server responses to a [FeeUiState].
@@ -137,36 +136,6 @@ object FeeStateMapper {
             // From the ENUM, never from `outstanding`. A waived cycle
             // and a paid one both read zero and are different facts.
             isSettled = cycle.status in SETTLED_STATUSES,
-        )
-    }
-
-    /**
-     * Convert one roster fee row, or null on an unknown status.
-     *
-     * @param row The seat the server described
-     * @return The row, or null when its status is unrecognised
-     */
-    fun toRosterRow(row: RosterFeeRowDto): RosterFeeRow? {
-        val statusKey =
-            row.currentStatus?.let { STATUS_KEYS[it] ?: return null }
-        return RosterFeeRow(
-            enrollmentId = row.enrollmentId,
-            displayName = row.displayName,
-            outstanding = row.outstanding,
-            statusLabel = statusKey,
-            dueDateLabel = row.dueDate,
-            // **From the server's STATUS, not from the amount**, and
-            // `Money` is the reason that is not merely preferable: the
-            // type exposes no comparison at all, so `outstanding >
-            // Money.ZERO` does not compile. The client performs no
-            // money arithmetic [TC-9, D-31] and the type enforces it,
-            // which is the boundary being mechanical rather than
-            // reviewed.
-            //
-            // A seat with no generated period owes nothing, which is
-            // the null case rather than a zero one.
-            owesSomething =
-                row.currentStatus != null && row.currentStatus !in SETTLED_STATUSES,
         )
     }
 

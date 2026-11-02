@@ -32,11 +32,13 @@ import com.shikkhokplus.app.core.designsystem.ErrorCard
 import com.shikkhokplus.app.core.designsystem.ListScreenScaffold
 import com.shikkhokplus.app.core.designsystem.ShikkhokCard
 import com.shikkhokplus.app.core.designsystem.SkeletonList
+import com.shikkhokplus.app.core.designsystem.TextAction
 import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.core.format.monthName
 import com.shikkhokplus.app.feature.auth.MessageKeys
 import com.shikkhokplus.app.feature.collections.BatchChip
 import com.shikkhokplus.app.feature.collections.BatchMonthRow
+import com.shikkhokplus.app.feature.collections.BatchRowFailed
 import com.shikkhokplus.app.feature.collections.CollectionsUiState
 import com.shikkhokplus.app.feature.collections.MonthBar
 
@@ -57,6 +59,12 @@ const val TAG_COLLECTIONS_MONTH: String = "collections_month"
 
 /** One batch's row for the headline month. */
 const val TAG_COLLECTIONS_BATCH_ROW: String = "collections_batch_row"
+
+/** A batch row that could not load. */
+const val TAG_COLLECTIONS_BATCH_ROW_FAILED: String = "collections_batch_row_failed"
+
+/** The retry control on a failed batch row. */
+const val TAG_COLLECTIONS_BATCH_ROW_RETRY: String = "collections_batch_row_retry"
 
 /** The collected tile. */
 const val TAG_COLLECTIONS_COLLECTED: String = "collections_collected"
@@ -84,6 +92,7 @@ private const val MAX_PERCENT = 100
  * @property onToggleBatch A batch chip was tapped
  * @property onShowAll The "All batches" chip was tapped
  * @property onSelectMonth A month's bars were tapped
+ * @property onRetryBatch Retry one batch row that failed to load
  * @property onOpenBatch A batch row was tapped, with the month it shows
  * @property onBack The back arrow
  */
@@ -92,6 +101,7 @@ data class CollectionsActions(
     val onToggleBatch: (String) -> Unit = {},
     val onShowAll: () -> Unit = {},
     val onSelectMonth: (String) -> Unit = {},
+    val onRetryBatch: (String) -> Unit = {},
     val onOpenBatch: (BatchMonthRow) -> Unit = {},
     val onBack: (() -> Unit)? = null,
 )
@@ -158,7 +168,12 @@ private fun Report(
                 stringResource(R.string.collections_by_batch, monthName(period, short = false)),
                 style = MaterialTheme.typography.titleSmall,
             )
-            state.batchRows.forEach { row -> BatchRowItem(row, actions.onOpenBatch) }
+            state.batchRows.forEach { row ->
+                when (row) {
+                    is BatchMonthRow -> BatchRowCard(row, actions.onOpenBatch)
+                    is BatchRowFailed -> FailedBatchRow(row, actions.onRetryBatch)
+                }
+            }
         }
     }
 }
@@ -303,7 +318,7 @@ private fun Legend(
 }
 
 @Composable
-private fun BatchRowItem(
+private fun BatchRowCard(
     row: BatchMonthRow,
     onOpen: (BatchMonthRow) -> Unit,
 ) {
@@ -326,6 +341,28 @@ private fun BatchRowItem(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+@Composable
+private fun FailedBatchRow(
+    row: BatchRowFailed,
+    onRetry: (String) -> Unit,
+) {
+    ShikkhokCard(Modifier.testTag(TAG_COLLECTIONS_BATCH_ROW_FAILED)) {
+        Text(row.name, style = MaterialTheme.typography.titleSmall)
+        Text(
+            stringResource(MessageKeys.resolve(row.messageKey)),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (row.retryable) {
+            TextAction(
+                text = stringResource(R.string.dues_retry),
+                onClick = { onRetry(row.batchId) },
+                modifier = Modifier.testTag(TAG_COLLECTIONS_BATCH_ROW_RETRY),
+            )
+        }
     }
 }
 

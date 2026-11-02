@@ -6,13 +6,9 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import com.shikkhokplus.app.core.model.Money
-import com.shikkhokplus.app.feature.fees.ui.BatchFeesScreen
 import com.shikkhokplus.app.feature.fees.ui.ClaimStatusScreen
 import com.shikkhokplus.app.feature.fees.ui.FeeHistoryScreen
 import com.shikkhokplus.app.feature.fees.ui.PaymentFormScreen
-import com.shikkhokplus.app.feature.fees.ui.TAG_BATCH_FEES_EMPTY
-import com.shikkhokplus.app.feature.fees.ui.TAG_BATCH_FEES_REMIND
-import com.shikkhokplus.app.feature.fees.ui.TAG_BATCH_FEES_ROW
 import com.shikkhokplus.app.feature.fees.ui.TAG_CLAIMS_EMPTY
 import com.shikkhokplus.app.feature.fees.ui.TAG_CLAIM_APPROVED
 import com.shikkhokplus.app.feature.fees.ui.TAG_CLAIM_CORRECTION
@@ -167,65 +163,6 @@ class FeeScreenTest {
             0,
             compose.onAllNodesWithTag(TAG_FEES_RETRY).fetchSemanticsNodes().size,
         )
-    }
-
-    // -----------------------------------------------------------------
-    // The teacher's batch view.
-    // -----------------------------------------------------------------
-
-    @Test
-    fun `a seat owing nothing offers no reminder`() {
-        // `owesSomething` is a mapper field, and the control follows
-        // it rather than the amount.
-        compose.setContent {
-            BatchFeesScreen(
-                rows =
-                    listOf(
-                        RosterFeeRow(
-                            enrollmentId = "e-1",
-                            displayName = "Rahim",
-                            outstanding = Money.ZERO,
-                            statusLabel = "fees.status.paid",
-                            dueDateLabel = "2027-02-28",
-                            owesSomething = false,
-                        ),
-                    ),
-            )
-        }
-
-        compose.onNodeWithTag(TAG_BATCH_FEES_ROW).assertIsDisplayed()
-        assertEquals(
-            0,
-            compose.onAllNodesWithTag(TAG_BATCH_FEES_REMIND).fetchSemanticsNodes().size,
-        )
-    }
-
-    @Test
-    fun `a seat owing money offers a reminder and reports the click`() {
-        var reminded: RosterFeeRow? = null
-        val owing =
-            RosterFeeRow(
-                enrollmentId = "e-1",
-                displayName = "Rahim",
-                outstanding = Money.of("1500.00"),
-                statusLabel = "fees.status.unpaid",
-                dueDateLabel = "2027-02-28",
-                owesSomething = true,
-            )
-
-        compose.setContent {
-            BatchFeesScreen(rows = listOf(owing), onRemind = { reminded = it })
-        }
-
-        compose.onNodeWithTag(TAG_BATCH_FEES_REMIND).performClick()
-        assertEquals(owing, reminded)
-    }
-
-    @Test
-    fun `a batch where nobody owes anything explains itself`() {
-        compose.setContent { BatchFeesScreen(rows = emptyList()) }
-
-        compose.onNodeWithTag(TAG_BATCH_FEES_EMPTY).assertIsDisplayed()
     }
 
     // -----------------------------------------------------------------

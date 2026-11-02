@@ -41,6 +41,7 @@ internal fun NavGraphBuilder.collectionsRoutes(
                     onRetry = model::retry,
                     onToggleBatch = model::toggle,
                     onShowAll = model::showAll,
+                    onRetryBatch = model::retryBatch,
                     onSelectMonth = model::selectMonth,
                     onOpenBatch = { row ->
                         navController.navigate(Destination.BatchMonth.of(row.batchId, row.name, row.period))

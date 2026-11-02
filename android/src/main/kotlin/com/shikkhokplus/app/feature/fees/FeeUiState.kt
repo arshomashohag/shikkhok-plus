@@ -71,30 +71,6 @@ data class MonthStateRow(
 )
 
 /**
- * One seat's fee position on the teacher's roster.
- *
- * **Carries no collection number** [BR6.4]: the teacher reads their own
- * payment destination on the batch screen, and this row reaches a list.
- *
- * @property enrollmentId The teacher-facing key
- * @property displayName The teacher-typed name
- * @property outstanding What this seat owes in total
- * @property statusLabel The latest period's status key, or null when
- *   nothing has generated yet
- * @property dueDateLabel The latest period's due date, or null
- * @property owesSomething Whether this seat owes anything, **decided
- *   here** so no composable compares the amount to pick a colour
- */
-data class RosterFeeRow(
-    val enrollmentId: String,
-    val displayName: String,
-    val outstanding: Money,
-    val statusLabel: String?,
-    val dueDateLabel: String?,
-    val owesSomething: Boolean,
-)
-
-/**
  * What the payment form needs in order to let somebody pay.
  *
  * **Absent rather than present-with-null** [NFR14.34]: where the

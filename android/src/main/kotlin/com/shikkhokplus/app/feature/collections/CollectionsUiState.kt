@@ -52,6 +52,30 @@ data class SeatCounts(
     val owed: Int,
 )
 
+/** One batch's row on the report: its figures, or why they are missing. */
+sealed interface BatchRowItem {
+    /** The batch. */
+    val batchId: String
+
+    /** Its name. */
+    val name: String
+}
+
+/**
+ * One batch whose figures could not be read, so only its row says so.
+ *
+ * @property batchId The batch
+ * @property name Its name
+ * @property messageKey A string resource key, never server English
+ * @property retryable Whether the server said retrying could help
+ */
+data class BatchRowFailed(
+    override val batchId: String,
+    override val name: String,
+    val messageKey: String,
+    val retryable: Boolean,
+) : BatchRowItem
+
 /**
  * One batch's figures for the month the headline shows.
  *
@@ -63,13 +87,13 @@ data class SeatCounts(
  * @property counts Seats per filter, the server's counts
  */
 data class BatchMonthRow(
-    val batchId: String,
-    val name: String,
+    override val batchId: String,
+    override val name: String,
     val period: String,
     val collected: Money,
     val charged: Money,
     val counts: SeatCounts,
-)
+) : BatchRowItem
 
 /**
  * Everything the collections screen (M1) can be showing.
@@ -99,7 +123,7 @@ sealed interface CollectionsUiState {
         val headlineCharged: Money?,
         val outstanding: Money,
         val owingStudents: Int,
-        val batchRows: List<BatchMonthRow>,
+        val batchRows: List<BatchRowItem>,
     ) : CollectionsUiState
 
     /**

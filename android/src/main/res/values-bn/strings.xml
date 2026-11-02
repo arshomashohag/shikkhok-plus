@@ -191,16 +191,12 @@
          নিজে দুটি অবস্থার মধ্যে বেছে নেয় না। -->
     <string name="fees_empty">এখনও কোনও ফি ধার্য হয়নি।</string>
     <string name="fees_total_outstanding">বাকি: %1$s</string>
-    <string name="fees_outstanding_total">বাকি %1$s</string>
     <string name="fees_outstanding_of_charged">%2$s-এর মধ্যে %1$s বাকি</string>
     <string name="fees_due_on">শেষ তারিখ %1$s</string>
     <string name="fees_status_paid">পরিশোধিত</string>
     <string name="fees_status_partly_paid">আংশিক পরিশোধিত</string>
     <string name="fees_status_unpaid">অপরিশোধিত</string>
     <string name="fees_status_waived">মকুব</string>
-    <string name="batch_fees_empty">কোনও শিক্ষার্থীর কিছু বাকি নেই।</string>
-    <string name="fees_remind">মনে করিয়ে দিন</string>
-    <string name="fees_never_reminded">কখনও মনে করিয়ে দেওয়া হয়নি</string>
 
     <!-- পেমেন্ট ফর্ম। শিক্ষার্থী ও অভিভাবকের জন্য একই [AC6.2.1];
          শুধু লেন্স আলাদা, আর লেন্স সার্ভার ঠিক করে।

@@ -5,6 +5,7 @@ import com.shikkhokplus.app.feature.auth.AuthResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.yield
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -127,16 +128,6 @@ class CollectionsViewModelTest {
         }
 
     @Test
-    fun `a failing batch row fails the load rather than vanishing`() =
-        runTest(dispatcher) {
-            val repo = FakeCollectionsRepository(month = { _, _ -> AuthResult.TransportFailure })
-            val model = CollectionsViewModel(repo)
-            model.load()
-            advanceUntilIdle()
-            assertIs<CollectionsUiState.Failed>(model.state.value)
-        }
-
-    @Test
     fun `no months means no headline and no rows`() =
         runTest(dispatcher) {
             val repo =
@@ -158,21 +149,6 @@ class CollectionsViewModelTest {
         }
 
     @Test
-    fun `a refused rows read fails with the envelope`() =
-        runTest(dispatcher) {
-            val repo =
-                FakeCollectionsRepository(
-                    month = { _, _ ->
-                        AuthResult.Refused(refusal("error.forbidden", retryable = false))
-                    },
-                )
-            val model = CollectionsViewModel(repo)
-            model.load()
-            advanceUntilIdle()
-            assertEquals(false, assertIs<CollectionsUiState.Failed>(model.state.value).retryable)
-        }
-
-    @Test
     fun `choosing a month moves the tiles and the batch rows to it`() =
         runTest(dispatcher) {
             val repo = FakeCollectionsRepository()
@@ -184,7 +160,7 @@ class CollectionsViewModelTest {
             advanceUntilIdle()
 
             assertEquals("2026-11", loaded(model).headlinePeriod)
-            assertEquals("2026-11", loaded(model).batchRows.first().period)
+            assertEquals("2026-11", assertIs<BatchMonthRow>(loaded(model).batchRows.first()).period)
             assertEquals("2026-11", repo.monthCalls.last().second)
         }
 
@@ -206,5 +182,111 @@ class CollectionsViewModelTest {
 
             assertEquals(listOf(emptyList(), listOf("b-1"), emptyList()), repo.reportCalls)
             assertTrue(loaded(model).batches.none { it.selected })
+        }
+
+    @Test
+    fun `one failing batch degrades only its own row`() =
+        runTest(dispatcher) {
+            val repo =
+                FakeCollectionsRepository(
+                    month = { id, period ->
+                        if (id == "b-2") {
+                            AuthResult.Refused(refusal("error.transient", retryable = true))
+                        } else {
+                            AuthResult.Ok(monthFees(period ?: "2026-10"))
+                        }
+                    },
+                )
+            val model = CollectionsViewModel(repo)
+            model.load()
+            advanceUntilIdle()
+
+            val state = loaded(model)
+            assertEquals(2, state.months.size)
+            assertEquals(Money.of("9500.00"), state.outstanding)
+            assertIs<BatchMonthRow>(state.batchRows[0])
+            val failed = assertIs<BatchRowFailed>(state.batchRows[1])
+            assertEquals("b-2", failed.batchId)
+            assertEquals("error.transient", failed.messageKey)
+            assertTrue(failed.retryable)
+        }
+
+    @Test
+    fun `an unreachable batch row is a retryable row failure`() =
+        runTest(dispatcher) {
+            val repo = FakeCollectionsRepository(month = { _, _ -> AuthResult.TransportFailure })
+            val model = CollectionsViewModel(repo)
+            model.load()
+            advanceUntilIdle()
+
+            val rows = loaded(model).batchRows
+            assertTrue(rows.all { it is BatchRowFailed && it.retryable })
+            assertEquals("error.network.unreachable", (rows[0] as BatchRowFailed).messageKey)
+        }
+
+    @Test
+    fun `retrying a row refetches only that batch and leaves the rest alone`() =
+        runTest(dispatcher) {
+            var failB2 = true
+            val repo =
+                FakeCollectionsRepository(
+                    month = { id, period ->
+                        if (id == "b-2" && failB2) {
+                            AuthResult.TransportFailure
+                        } else {
+                            AuthResult.Ok(monthFees(period ?: "2026-10"))
+                        }
+                    },
+                )
+            val model = CollectionsViewModel(repo)
+            model.load()
+            advanceUntilIdle()
+            val reportCalls = repo.reportCalls.size
+            repo.monthCalls.clear()
+
+            failB2 = false
+            model.retryBatch("b-2")
+            advanceUntilIdle()
+
+            assertEquals(listOf<Pair<String, String?>>("b-2" to "2026-10"), repo.monthCalls)
+            assertEquals(reportCalls, repo.reportCalls.size)
+            assertTrue(loaded(model).batchRows.all { it is BatchMonthRow })
+            assertEquals(listOf("b-1", "b-2"), loaded(model).batchRows.map { it.batchId })
+        }
+
+    @Test
+    fun `retrying a row that fails again keeps it failed, and retrying nothing is a no-op`() =
+        runTest(dispatcher) {
+            val repo = FakeCollectionsRepository(month = { _, _ -> AuthResult.TransportFailure })
+            val model = CollectionsViewModel(repo)
+            model.retryBatch("b-1")
+            advanceUntilIdle()
+            assertEquals(0, repo.monthCalls.size)
+
+            model.load()
+            advanceUntilIdle()
+            model.retryBatch("b-1")
+            advanceUntilIdle()
+            assertIs<BatchRowFailed>(loaded(model).batchRows[0])
+        }
+
+    @Test
+    fun `batch rows are fetched concurrently`() =
+        runTest(dispatcher) {
+            var active = 0
+            var peak = 0
+            val repo =
+                FakeCollectionsRepository(
+                    onMonth = {
+                        active++
+                        peak = maxOf(peak, active)
+                        yield()
+                        active--
+                    },
+                )
+            val model = CollectionsViewModel(repo)
+            model.load()
+            advanceUntilIdle()
+            assertEquals(2, peak)
         }
 }

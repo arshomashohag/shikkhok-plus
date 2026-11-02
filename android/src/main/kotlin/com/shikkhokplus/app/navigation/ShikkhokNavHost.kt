@@ -90,8 +90,8 @@ import io.ktor.client.HttpClient
  * that could not load. Those layers have since landed, so the reason
  * for their absence is gone and the routes are here.
  *
- * **Three screens are still deliberately not destinations**:
- * `BatchFeesScreen`, `ClaimStatusScreen` and `PaymentFormScreen` take
+ * **Two screens are still deliberately not destinations**:
+ * `ClaimStatusScreen` and `PaymentFormScreen` take
  * rows and callbacks rather than a UI state, which makes them content
  * components for a host screen rather than screens in their own right.
  * Giving one a route would mean inventing the state it does not hold.

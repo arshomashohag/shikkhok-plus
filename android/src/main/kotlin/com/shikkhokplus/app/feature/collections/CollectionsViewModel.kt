@@ -7,6 +7,9 @@ import com.shikkhokplus.app.core.network.BatchFeesDto
 import com.shikkhokplus.app.core.network.CollectionsDto
 import com.shikkhokplus.app.core.network.ErrorEnvelope
 import com.shikkhokplus.app.feature.auth.AuthResult
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -81,6 +84,24 @@ class CollectionsViewModel(
         viewModelScope.launch { _state.value = read() }
     }
 
+    /**
+     * Read one batch's row again, leaving the chart, tiles and other
+     * rows as they are.
+     *
+     * @param batchId The batch whose row failed
+     */
+    fun retryBatch(batchId: String) {
+        val loaded = _state.value as? CollectionsUiState.Loaded ?: return
+        val period = loaded.headlinePeriod ?: return
+        val batch = batches?.firstOrNull { it.id == batchId } ?: return
+        viewModelScope.launch {
+            val fresh = rowFor(batch, period)
+            (_state.value as? CollectionsUiState.Loaded)?.let { now ->
+                _state.value = now.copy(batchRows = now.batchRows.map { if (it.batchId == batchId) fresh else it })
+            }
+        }
+    }
+
     private suspend fun read(): CollectionsUiState =
         try {
             val all = batches ?: repository.batches().value().also { batches = it }
@@ -92,11 +113,22 @@ class CollectionsViewModel(
             val inView = all.filter { selected.isEmpty() || it.id in selected }
             val rows =
                 headline?.let { month ->
-                    inView.map { batch -> row(batch, repository.batchMonth(batch.id, month.period).value()) }
+                    coroutineScope { inView.map { batch -> async { rowFor(batch, month.period) } }.awaitAll() }
                 }.orEmpty()
             loaded(all, report, headline?.period, rows)
         } catch (stop: Stopped) {
             stop.state
+        }
+
+    private suspend fun rowFor(
+        batch: BatchDto,
+        period: String,
+    ): BatchRowItem =
+        when (val result = repository.batchMonth(batch.id, period)) {
+            is AuthResult.Ok -> row(batch, result.value)
+            is AuthResult.Refused ->
+                BatchRowFailed(batch.id, batch.name, result.envelope.error.messageKey, result.envelope.error.retryable)
+            AuthResult.TransportFailure -> BatchRowFailed(batch.id, batch.name, OFFLINE_KEY, retryable = true)
         }
 
     private fun <T> AuthResult<T>.value(): T =
@@ -112,7 +144,7 @@ class CollectionsViewModel(
         all: List<BatchDto>,
         report: CollectionsDto,
         headlinePeriod: String?,
-        rows: List<BatchMonthRow>,
+        rows: List<BatchRowItem>,
     ): CollectionsUiState.Loaded {
         val headline = report.months.firstOrNull { it.period == headlinePeriod }
         return CollectionsUiState.Loaded(
