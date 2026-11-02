@@ -1103,4 +1103,6 @@
     <string name="fees_payment_date_too_early">The date paid is too far back for this child.</string>
     <string name="fees_payment_method_not_offered">The teacher does not accept that method. Choose another.</string>
     <string name="fees_payment_reference_mismatch">Enter the transaction ID for a mobile method, or the paying account for a bank, and nothing extra.</string>
+    <string name="payments_owed_now">Owed now</string>
+    <string name="payments_nothing_due">Nothing due now</string>
 </resources>

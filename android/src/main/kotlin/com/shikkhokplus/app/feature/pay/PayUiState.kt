@@ -13,6 +13,7 @@ import com.shikkhokplus.app.core.network.PaymentSubmittedDto
  * @property period The month, `YYYY-MM`
  * @property amountDue What is still owed on it
  * @property dueDate When it was due, `yyyy-MM-dd`, or null
+ * @property totalDue Everything the seat owes as the server folded it, or null
  */
 data class PayOption(
     val enrollmentId: String,
@@ -20,6 +21,7 @@ data class PayOption(
     val period: String,
     val amountDue: Money,
     val dueDate: String?,
+    val totalDue: Money? = null,
 )
 
 /**

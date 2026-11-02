@@ -19,6 +19,10 @@ object PayMapper {
     /**
      * Group the payer's accepted seats by batch, keeping the server's order.
      *
+     * Keys on batch name plus teacher because family responses carry no
+     * batch id; the server should add one, and two same-named batches by
+     * one teacher would merge until it does.
+     *
      * @param seats The seats the server listed
      * @return One entry per batch
      */
