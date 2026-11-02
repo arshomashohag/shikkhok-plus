@@ -132,6 +132,29 @@ resource "aws_s3_bucket_public_access_block" "state" {
   restrict_public_buckets = true
 }
 
+# **TLS only** [OPS-4]. The state file holds every generated secret in
+# plaintext -- the origin secret, the RDS master password and the
+# shikkhok_app password -- so a request over plain HTTP is refused
+# outright. Terraform's S3 backend and the AWS CLI already use HTTPS;
+# this removes the possibility rather than relying on the default.
+resource "aws_s3_bucket_policy" "state" {
+  bucket = aws_s3_bucket.state.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid       = "DenyInsecureTransport"
+      Effect    = "Deny"
+      Principal = "*"
+      Action    = "s3:*"
+      Resource  = [aws_s3_bucket.state.arn, "${aws_s3_bucket.state.arn}/*"]
+      Condition = { Bool = { "aws:SecureTransport" = "false" } }
+    }]
+  })
+
+  depends_on = [aws_s3_bucket_public_access_block.state]
+}
+
 # ---------------------------------------------------------------------
 # GitHub OIDC
 # ---------------------------------------------------------------------
@@ -212,8 +235,8 @@ data "aws_iam_policy_document" "ci_assume" {
     # this condition ANY GitHub repository in the world could assume
     # this role — the OIDC provider trusts GitHub, not your repo.
     #
-    # Scoped to this repository AND to either the default branch or
-    # one of the two environments BY NAME. A pull request from a fork
+    # Scoped to this repository AND to one of the two `-infra`
+    # environments BY NAME. A pull request from a fork
     # runs with `pull_request` in the subject and matches none of
     # them, which is what stops a drive-by PR applying infrastructure.
     #
@@ -222,7 +245,7 @@ data "aws_iam_policy_document" "ci_assume" {
     # environments" but means "any string somebody puts after
     # `environment:` in a workflow file" — so anyone able to push a
     # branch could add `environment: whatever` and assume this role,
-    # walking straight around the main-branch restriction above. The
+    # walking straight around the environment's required reviewer. The
     # named form costs one line per environment and closes that.
     #
     # Adding an environment therefore means adding it here. That is a
@@ -268,9 +291,14 @@ data "aws_iam_policy_document" "ci_assume" {
         "${local.subject_prefix}:environment:staging-infra",
         "${local.subject_prefix}:environment:production-infra",
 
-        # Kept so a `terraform apply` can still be run from main if
-        # the pipeline is ever unavailable.
-        "${local.subject_prefix}:ref:refs/heads/main",
+        # **No `ref:refs/heads/main`** [OPS-2]. It was kept "so a
+        # terraform apply can still be run from main if the pipeline is
+        # ever unavailable" -- and it meant ANY workflow running on
+        # main, or a compromised action in one, could assume the role
+        # that applies production infrastructure without passing the
+        # `production-infra` environment's required reviewer. No
+        # workflow used it. The break-glass path is the laptop that
+        # runs this bootstrap, with a human's own credentials.
       ]
     }
   }
@@ -327,6 +355,10 @@ data "aws_iam_policy_document" "ci_state" {
       "s3:ListBucket",
       "s3:GetBucketLocation",
       "s3:GetBucketPolicy",
+      # The config bucket's TLS-only policy [OPS-4].
+      "s3:PutBucketPolicy",
+      "s3:DeleteBucketPolicy",
+      "s3:GetBucketPolicyStatus",
       "s3:GetBucketAcl",
       "s3:GetBucketCORS",
       "s3:GetBucketWebsite",
@@ -367,25 +399,198 @@ resource "aws_iam_role_policy" "ci_state" {
   policy = data.aws_iam_policy_document.ci_state.json
 }
 
+# ---------------------------------------------------------------------
+# The workload permissions boundary
+# ---------------------------------------------------------------------
+#
+# **A ceiling on every role the CI role creates** [OPS-2]. A boundary
+# does not grant anything: a role's effective permissions are the
+# intersection of its own policies and its boundary. So even if a
+# compromised workflow attached AdministratorAccess to a role it made,
+# that role could do no more than this document lists -- which is what
+# an app host does and nothing else.
+#
+# Created here rather than by the main module so that the CI role --
+# which the main module runs as -- cannot edit the ceiling that bounds
+# it. The CI role has no IAM policy-level write action at all.
+#
+# Kept to the host's real calls (modules/app/main.tf, user_data):
+#
+#   * the SSM agent's channel and its parameter reads, the latter only
+#     under /shikkhokplus/;
+#   * pulling from this project's ECR repositories;
+#   * reading its config bucket and writing its persisted certificate;
+#   * decrypting through SSM only;
+#   * its own DNS record and its certbot challenge, by name;
+#   * answering its own launch lifecycle hook;
+#   * shipping logs to /shikkhokplus/ groups and a metric to the
+#     project's namespace.
+resource "aws_iam_policy" "workload_boundary" {
+  name        = "shikkhokplus-workload-boundary"
+  path        = "/shikkhokplus/"
+  description = "Permissions boundary for every role the shikkhokplus CI role creates."
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        # What AmazonSSMManagedInstanceCore grants the agent: its
+        # control channels and instance bookkeeping. Listed, not
+        # ssm:*, because ssm:* includes SendCommand -- a host able to
+        # run commands on every other instance in the account.
+        Sid    = "SsmAgent"
+        Effect = "Allow"
+        Action = [
+          "ssm:DescribeAssociation",
+          "ssm:GetDeployablePatchSnapshotForInstance",
+          "ssm:GetDocument",
+          "ssm:DescribeDocument",
+          "ssm:GetManifest",
+          "ssm:ListAssociations",
+          "ssm:ListInstanceAssociations",
+          "ssm:PutInventory",
+          "ssm:PutComplianceItems",
+          "ssm:PutConfigurePackageResult",
+          "ssm:UpdateAssociationStatus",
+          "ssm:UpdateInstanceAssociationStatus",
+          "ssm:UpdateInstanceInformation",
+          "ssmmessages:*",
+          "ec2messages:*",
+        ]
+        Resource = "*"
+      },
+      {
+        Sid      = "OwnParameters"
+        Effect   = "Allow"
+        Action   = ["ssm:GetParameter", "ssm:GetParameters"]
+        Resource = "arn:aws:ssm:*:${data.aws_caller_identity.current.account_id}:parameter/shikkhokplus/*"
+      },
+      {
+        Sid      = "DecryptThroughSsmOnly"
+        Effect   = "Allow"
+        Action   = ["kms:Decrypt"]
+        Resource = "*"
+        Condition = {
+          StringLike = { "kms:ViaService" = "ssm.*.amazonaws.com" }
+        }
+      },
+      {
+        Sid      = "EcrAuth"
+        Effect   = "Allow"
+        Action   = ["ecr:GetAuthorizationToken"]
+        Resource = "*"
+      },
+      {
+        Sid    = "EcrPull"
+        Effect = "Allow"
+        Action = [
+          "ecr:BatchGetImage",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchCheckLayerAvailability",
+        ]
+        Resource = "arn:aws:ecr:*:${data.aws_caller_identity.current.account_id}:repository/shikkhokplus-*"
+      },
+      {
+        Sid      = "ConfigRead"
+        Effect   = "Allow"
+        Action   = ["s3:GetObject"]
+        Resource = "arn:aws:s3:::shikkhokplus-*-config-*/*"
+      },
+      {
+        Sid      = "CertificateWrite"
+        Effect   = "Allow"
+        Action   = ["s3:PutObject"]
+        Resource = "arn:aws:s3:::shikkhokplus-*-config-*/tls/*"
+      },
+      {
+        Sid      = "DnsRead"
+        Effect   = "Allow"
+        Action   = ["route53:GetChange", "route53:ListResourceRecordSets", "route53:ListHostedZones"]
+        Resource = "*"
+      },
+      {
+        Sid      = "DnsWriteOurNames"
+        Effect   = "Allow"
+        Action   = ["route53:ChangeResourceRecordSets"]
+        Resource = "*"
+        Condition = {
+          "ForAllValues:StringLike" = {
+            "route53:ChangeResourceRecordSetsNormalizedRecordNames" = ["*shikkhokplus*"]
+          }
+        }
+      },
+      {
+        Sid      = "Readiness"
+        Effect   = "Allow"
+        Action   = ["autoscaling:CompleteLifecycleAction"]
+        Resource = "arn:aws:autoscaling:*:${data.aws_caller_identity.current.account_id}:autoScalingGroup:*:autoScalingGroupName/shikkhokplus-*"
+      },
+      {
+        Sid      = "Logs"
+        Effect   = "Allow"
+        Action   = ["logs:CreateLogStream", "logs:PutLogEvents", "logs:DescribeLogStreams"]
+        Resource = "arn:aws:logs:*:${data.aws_caller_identity.current.account_id}:log-group:/shikkhokplus/*"
+      },
+      {
+        Sid      = "Metrics"
+        Effect   = "Allow"
+        Action   = ["cloudwatch:PutMetricData"]
+        Resource = "*"
+        Condition = {
+          StringLike = { "cloudwatch:namespace" = "Shikkhokplus/*" }
+        }
+      },
+    ]
+  })
+}
+
+locals {
+  # The ONLY managed policies the CI role may attach to a role. Each
+  # must be something the app module actually attaches; adding one is a
+  # bootstrap change, run from a laptop, on purpose.
+  attachable_policy_arns = [
+    "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore",
+  ]
+}
+
 # The infrastructure permissions.
 #
-# **Scoped by SERVICE, not least-privilege per action**, and that is a
-# deliberate trade stated rather than hidden. Enumerating every action
-# Terraform needs across EC2, CloudFront, ACM, Route53, RDS and SSM
-# produces a policy that breaks on the next provider upgrade and gets
-# widened under deadline pressure — which ends at the `*` this was
-# meant to avoid, having cost a day.
+# **Scoped by SERVICE where Terraform's action set is wide and changes
+# with the provider** -- EC2, CloudFront, ACM, Route53, RDS, ECR, Auto
+# Scaling. Enumerating every action across those produces a policy that
+# breaks on the next provider upgrade and gets widened under deadline
+# pressure. That trade is kept, deliberately, and stated.
 #
-# **It DOES hold IAM write permissions, and an earlier version of this
-# comment claimed otherwise.** SSM needs an instance profile, which
-# means creating a role and attaching a policy; there is no way around
-# that, and pretending there is would only mean the apply fails.
+# **What changed on 2026-11-02, and why** [OPS-2]. The audit showed this
+# role could mint an account administrator: CreateRole, PutRolePolicy,
+# AttachRolePolicy and PassRole on /shikkhokplus/ roles with no
+# permissions boundary and no limit on WHICH policy could be attached,
+# so a workflow running as this role could create a role with
+# AdministratorAccess, put it on an instance profile, launch an
+# instance with it and reach it through ssm:SendCommand. And the trust
+# accepted `ref:refs/heads/main`, so any workflow on main could do that
+# without passing the `*-infra` environment's approval.
 #
-# What bounds it instead: the IAM actions are restricted by PATH to
-# /shikkhokplus/, so the CI role cannot touch an unrelated role and
-# cannot modify ITSELF — it lives at the IAM root path. And the role is
-# assumable only from this repository, on main or through an
-# environment with manual approval.
+# What bounds it now:
+#
+#   * **Every role it creates or edits must carry the workload
+#     boundary** (iam:PermissionsBoundary on CreateRole, PutRolePolicy,
+#     AttachRolePolicy, PutRolePermissionsBoundary), and removing a
+#     boundary is explicitly denied. A boundary is a CEILING on the
+#     role's effective permissions whatever is attached, and the
+#     workload boundary allows only what an app host does.
+#   * **AttachRolePolicy is limited by iam:PolicyARN** to the one
+#     managed policy the app module attaches.
+#   * **PassRole only to EC2** (iam:PassedToService), for the instance
+#     profile in the launch template.
+#   * **SSM is parameter management only.** ssm:* included SendCommand,
+#     which is how a shell would have reached the instance; Terraform
+#     here manages parameters and nothing else in SSM.
+#   * **Route53 record changes only for names containing
+#     `shikkhokplus`**, so this role cannot repoint another project's
+#     record in the shared apex zone.
+#   * **The ref subject is gone** (above): only the `*-infra`
+#     environments can assume this role.
 resource "aws_iam_role_policy" "ci_infrastructure" {
   name = "terraform-infrastructure"
   role = aws_iam_role.ci.id
@@ -397,119 +602,195 @@ resource "aws_iam_role_policy" "ci_infrastructure" {
         Sid    = "Infrastructure"
         Effect = "Allow"
         Action = [
-          # EC2 covers the instances, VPC, subnets, security groups,
-          # Elastic IPs and EBS volumes -- they are all one API.
+          # EC2 covers the instances, VPC, subnets, security groups and
+          # EBS volumes -- they are all one API.
           "ec2:*",
           "cloudfront:*",
           "acm:*",
           "route53:*",
           "rds:*",
-          # SSM, for Session Manager. The instance PROFILE grants the
-          # agent's side; this is what lets Terraform read and manage
-          # the association.
-          "ssm:*",
           # ECR, for the image repository and its lifecycle policy.
-          # Service-level like the rest, for the reason the README
-          # gives: enumerating CreateRepository, PutLifecyclePolicy,
-          # TagResource, PutImageScanningConfiguration and the
-          # describes produces a list that breaks on the next
-          # provider upgrade and gets widened under deadline
-          # pressure.
-          #
-          # Note this is TERRAFORM's grant, not the host's. The
-          # instance profile holds a far narrower ECR policy -- the
-          # auth token plus layer reads, scoped to one repository --
-          # because the host only ever pulls.
+          # TERRAFORM's grant, not the host's: the instance profile
+          # holds only the auth token and layer reads.
           "ecr:*",
-          # Auto Scaling, for the group of one that replaces a failed
-          # app host. Service-level like the rest.
-          #
-          # The service-linked role AWSServiceRoleForAutoScaling
-          # already exists in this account, verified before granting,
-          # so iam:CreateServiceLinkedRole is deliberately NOT here --
-          # a fresh account would need it added once.
+          # Auto Scaling, for the group of one and its lifecycle hook.
+          # The service-linked role AWSServiceRoleForAutoScaling already
+          # exists in this account, so iam:CreateServiceLinkedRole is
+          # deliberately NOT here -- a fresh account needs it added once.
           "autoscaling:*",
           "tag:GetResources",
         ]
         Resource = "*"
       },
       {
-        # **The instance profile EC2 needs for SSM.** Terraform must
-        # create a role and attach AmazonSSMManagedInstanceCore to it,
-        # which means real IAM write permissions -- there is no way
-        # around that and pretending otherwise would just mean the
-        # apply fails.
-        #
-        # Bounded by PATH instead: these actions work only on roles
-        # under /shikkhokplus/, so the CI role cannot touch an
-        # unrelated role and cannot modify ITSELF (which lives at the
-        # IAM root path).
-        Sid    = "InstanceProfilesForSSM"
+        # **Parameters under /shikkhokplus/ and nothing else in SSM.**
+        # These are the calls aws_ssm_parameter makes: create and update
+        # (Put), read back (Get, including SecureString values), delete,
+        # and tags.
+        Sid    = "Parameters"
         Effect = "Allow"
         Action = [
-          "iam:CreateRole",
-          "iam:DeleteRole",
+          "ssm:PutParameter",
+          "ssm:GetParameter",
+          "ssm:GetParameters",
+          "ssm:DeleteParameter",
+          "ssm:AddTagsToResource",
+          "ssm:RemoveTagsFromResource",
+          "ssm:ListTagsForResource",
+        ]
+        Resource = "arn:aws:ssm:*:${data.aws_caller_identity.current.account_id}:parameter/shikkhokplus/*"
+      },
+      {
+        # Unscopable: DescribeParameters lists by filter, not resource.
+        Sid      = "ParameterDiscovery"
+        Effect   = "Allow"
+        Action   = ["ssm:DescribeParameters"]
+        Resource = "*"
+      },
+      {
+        # **Logs, alarms and the alert topic** [OPS-11], each scoped to
+        # this project's names.
+        Sid    = "Observability"
+        Effect = "Allow"
+        Action = [
+          "logs:*",
+          "sns:*",
+          "cloudwatch:*",
+        ]
+        Resource = [
+          "arn:aws:logs:*:${data.aws_caller_identity.current.account_id}:log-group:/shikkhokplus/*",
+          "arn:aws:logs:*:${data.aws_caller_identity.current.account_id}:log-group:/shikkhokplus/*:*",
+          "arn:aws:sns:*:${data.aws_caller_identity.current.account_id}:shikkhokplus-*",
+          "arn:aws:cloudwatch:*:${data.aws_caller_identity.current.account_id}:alarm:shikkhokplus-*",
+        ]
+      },
+      {
+        # The describe/list calls these services do not scope by
+        # resource; Terraform needs them to read its own resources back.
+        Sid    = "ObservabilityDiscovery"
+        Effect = "Allow"
+        Action = [
+          "logs:DescribeLogGroups",
+          "logs:DescribeMetricFilters",
+          "sns:ListTopics",
+          "cloudwatch:DescribeAlarms",
+        ]
+        Resource = "*"
+      },
+      {
+        # **Records only for this project's names.** Normalised names
+        # are lowercase with no trailing dot; every name this module
+        # writes -- the delegation, the API alias and AAAA, the ACM
+        # validation CNAMEs -- contains `shikkhokplus`. A Deny rather
+        # than a narrower Allow because route53:* above is what lets
+        # Terraform manage the zone itself.
+        Sid      = "OnlyOurRecordNames"
+        Effect   = "Deny"
+        Action   = ["route53:ChangeResourceRecordSets"]
+        Resource = "*"
+        Condition = {
+          "ForAnyValue:StringNotLike" = {
+            "route53:ChangeResourceRecordSetsNormalizedRecordNames" = ["*shikkhokplus*"]
+          }
+        }
+      },
+      {
+        # Roles and instance profiles under /shikkhokplus/: reading,
+        # tagging, deleting, and edits that can only REDUCE what a role
+        # holds. The CI role lives at the IAM root path, so none of
+        # this can touch it.
+        Sid    = "ManageOurRoles"
+        Effect = "Allow"
+        Action = [
           "iam:GetRole",
-          "iam:PassRole",
+          "iam:DeleteRole",
           "iam:TagRole",
-          "iam:AttachRolePolicy",
-          "iam:DetachRolePolicy",
+          "iam:UntagRole",
+          "iam:ListRoleTags",
+          "iam:UpdateRole",
+          "iam:UpdateAssumeRolePolicy",
+          "iam:UpdateRoleDescription",
           "iam:ListAttachedRolePolicies",
           "iam:ListRolePolicies",
+          "iam:GetRolePolicy",
+          "iam:DeleteRolePolicy",
+          "iam:DetachRolePolicy",
+          # What DeleteRole calls first: the reverse lookup from a role
+          # to the profiles holding it.
+          "iam:ListInstanceProfilesForRole",
           "iam:CreateInstanceProfile",
           "iam:DeleteInstanceProfile",
           "iam:GetInstanceProfile",
           "iam:AddRoleToInstanceProfile",
           "iam:RemoveRoleFromInstanceProfile",
-
-          # **The tag actions, as a complete set for both resource
-          # types.** The provider's `default_tags` tags everything it
-          # creates, so a missing tag permission fails the CREATE --
-          # which is how this was found: CreateInstanceProfile
-          # returned AccessDenied on iam:TagInstanceProfile, naming
-          # an action nobody had thought to grant.
-          #
-          # All six rather than the one that failed. Granting only
-          # TagInstanceProfile would let the create succeed and then
-          # fail on the NEXT apply, when Terraform reads tags back to
-          # detect drift -- a second identical debugging session for
-          # the same root cause, one apply later.
+          # The full tag set for profiles: default_tags tags everything
+          # the provider creates, and a missing tag permission fails the
+          # CREATE, then the drift read on the next apply.
           "iam:TagInstanceProfile",
           "iam:UntagInstanceProfile",
           "iam:ListInstanceProfileTags",
-          "iam:UntagRole",
-          "iam:ListRoleTags",
-
-          # **The inline-policy set, and the reverse lookup.**
-          # `aws_iam_role_policy.ecr_pull` is an INLINE policy, which
-          # the granted actions above do not cover at all -- they
-          # handle attached managed policies (AttachRolePolicy) and
-          # the role itself, which are different APIs.
-          "iam:PutRolePolicy",
-          "iam:GetRolePolicy",
-          "iam:DeleteRolePolicy",
-
-          # ListInstanceProfilesForRole is what DeleteRole calls
-          # first: the provider must detach a role from every profile
-          # holding it before the role can go. That is the action the
-          # destroy failed on, and it is a REVERSE lookup -- from the
-          # role to its profiles -- which none of the profile-side
-          # grants above provide.
-          "iam:ListInstanceProfilesForRole",
-
-          # Modifying an existing role in place rather than replacing
-          # it. Without these a changed assume-role policy or
-          # description forces a destroy-and-recreate, and that is a
-          # worse failure than an explicit AccessDenied because it
-          # succeeds.
-          "iam:UpdateRole",
-          "iam:UpdateAssumeRolePolicy",
-          "iam:UpdateRoleDescription",
         ]
         Resource = [
           "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/shikkhokplus/*",
           "arn:aws:iam::${data.aws_caller_identity.current.account_id}:instance-profile/shikkhokplus/*",
         ]
+      },
+      {
+        # **Anything that can ADD permission requires the boundary.**
+        # The condition reads the boundary the role will carry (for
+        # CreateRole and PutRolePermissionsBoundary, the one in the
+        # request; for PutRolePolicy, the role's own), so a role without
+        # it can be neither created nor given a policy.
+        Sid    = "GrantOnlyWithinTheBoundary"
+        Effect = "Allow"
+        Action = [
+          "iam:CreateRole",
+          "iam:PutRolePolicy",
+          "iam:PutRolePermissionsBoundary",
+        ]
+        Resource = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/shikkhokplus/*"
+        Condition = {
+          StringEquals = { "iam:PermissionsBoundary" = aws_iam_policy.workload_boundary.arn }
+        }
+      },
+      {
+        # And only the managed policy the app module actually attaches.
+        Sid      = "AttachOnlyKnownPolicies"
+        Effect   = "Allow"
+        Action   = ["iam:AttachRolePolicy"]
+        Resource = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/shikkhokplus/*"
+        Condition = {
+          StringEquals = { "iam:PermissionsBoundary" = aws_iam_policy.workload_boundary.arn }
+          ArnEquals    = { "iam:PolicyARN" = local.attachable_policy_arns }
+        }
+      },
+      {
+        # Passing an instance role to EC2 -- the launch template's
+        # instance profile -- and to nothing else.
+        Sid      = "PassOnlyToEc2"
+        Effect   = "Allow"
+        Action   = ["iam:PassRole"]
+        Resource = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/shikkhokplus/*"
+        Condition = {
+          StringEquals = { "iam:PassedToService" = "ec2.amazonaws.com" }
+        }
+      },
+      {
+        # **A boundary, once set, stays.** Removing it, or replacing it
+        # with any other policy, would lift the ceiling.
+        Sid      = "KeepTheBoundary"
+        Effect   = "Deny"
+        Action   = ["iam:DeleteRolePermissionsBoundary"]
+        Resource = "*"
+      },
+      {
+        Sid      = "OnlyOurBoundary"
+        Effect   = "Deny"
+        Action   = ["iam:PutRolePermissionsBoundary", "iam:CreateRole"]
+        Resource = "*"
+        Condition = {
+          StringNotEquals = { "iam:PermissionsBoundary" = aws_iam_policy.workload_boundary.arn }
+        }
       },
       {
         Sid    = "ReadOwnIdentity"
@@ -518,6 +799,10 @@ resource "aws_iam_role_policy" "ci_infrastructure" {
           "iam:GetRole",
           "iam:ListRolePolicies",
           "iam:GetRolePolicy",
+          # Reading the boundary policy back, for the app module's
+          # `permissions_boundary` argument and drift detection.
+          "iam:GetPolicy",
+          "iam:GetPolicyVersion",
           "sts:GetCallerIdentity",
         ]
         Resource = "*"

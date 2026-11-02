@@ -11,7 +11,10 @@ takes the cheapest green edit and moves it to ``PUBLIC_ROUTES``, after
 which nothing records that the route must stay authenticated.
 
 **The ceilings are checked before the gateway call, never after.**
-Checking afterwards spends the money the limit exists to protect.
+Checking afterwards spends the money the limit exists to protect. The
+per-number and per-IP limits are checked on the request path, for every
+number; the daily send budget is checked at the send itself, so only a
+real SMS spends it (:mod:`app.auth.delivery`, [PA-SEC-2]).
 """
 
 from __future__ import annotations
@@ -24,7 +27,9 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Header, Request
 from sqlalchemy.orm import Session
 
 from app.auth import otp
-from app.auth.ceilings import CeilingChecker
+from app.auth.ceilings import CeilingChecker, SendBudget
+from app.auth.client_address import client_prefix
+from app.auth.delivery import send_within_budget
 from app.auth.tokens import ACCESS_TOKEN_LIFETIME, issue_pair, rotate
 from app.gateway.null import build_gateway
 from app.gateway.outbox import record_outbox
@@ -75,17 +80,18 @@ def correlation_of(request: Request) -> str:
 
 
 def ip_prefix_of(request: Request) -> str:
-    """Reduce the caller's address to a /24-style prefix.
+    """Return the per-IP bucket every per-IP limit counts against.
 
-    A prefix rather than a full address, so one mobile NAT does not
-    produce a per-user counter -- and so the counter is not itself a
-    record of who called from where.
+    A thin name over :func:`~app.auth.client_address.client_prefix`,
+    kept because signup and deletion import it from here. Which address
+    is read (the trusted proxy header or the peer) and how it is reduced
+    (IPv4 /24, IPv6 /64, one shared bucket for anything unparsable) are
+    decided there, once, for all three routes.
 
     :param request: The incoming request
     :return: The prefix to count against
     """
-    host = request.client.host if request.client else "0.0.0.0"  # noqa: S104
-    return ".".join(host.split(".")[:3]) if "." in host else host
+    return client_prefix(request)
 
 
 @router.post("/otp", response_model=IssueResponse)
@@ -107,8 +113,11 @@ def issue_code(
     """
     correlation_id = correlation_of(request)
 
-    # BEFORE the gateway call. A breach raises CeilingBreach, which is a
-    # ConflictError and therefore non-retryable [BR2.2].
+    # BEFORE the gateway call, and for EVERY number: these scopes bound
+    # the caller, so an unknown number is bounded identically. A breach
+    # raises CeilingBreach, a ConflictError, so non-retryable [BR2.2].
+    # The daily send budget is NOT spent here -- an unknown number sends
+    # nothing, so it must cost nothing [PA-SEC-2].
     CeilingChecker(session).check_and_consume(
         number=body.phone, ip_prefix=ip_prefix_of(request)
     )
@@ -118,18 +127,29 @@ def issue_code(
     message = render_otp_message(issued.code, os.environ.get(APP_HASH_ENV, ""))
 
     # **Only a number with an account is texted.** The unknown branch
-    # rolls its OTP row back, so a code sent to it could never verify:
-    # reported from a device, a student a teacher had added pressed
-    # Sign in rather than Sign up and had every correct code refused.
+    # keeps its OTP row (see `otp.issue`), but no account can ever be
+    # signed in through it -- `verify` refuses a number with no account
+    # -- so a code sent to it could only fail: reported from a device, a
+    # student a teacher had added pressed Sign in rather than Sign up
+    # and had every correct code refused.
     #
     # **After the response, not before it**, and that placement is what
     # keeps this branch from becoming a timing oracle [BR2.7]. Sending
     # inline would make the known branch slower by one gateway round
     # trip; deferred, both branches return having done the same work.
-    # The gateway never raises and its result was already unread, so
-    # deferral loses nothing the response carried.
+    # The daily send budget is spent INSIDE the deferred task, so it is
+    # spent only by a real send and its exhaustion cannot change the
+    # response either [PA-SEC-2].
     if issued.account_exists:
-        background.add_task(gateway.send, body.phone, message, correlation_id)
+        background.add_task(
+            send_within_budget,
+            session.get_bind(),
+            gateway,
+            body.phone,
+            message,
+            correlation_id,
+            budget=SendBudget.SIGN_IN,
+        )
 
     # Records the message a staging host did NOT text, so a person can
     # read it and sign in on a device. A NO-OP unless the environment
@@ -138,11 +158,11 @@ def issue_code(
     #
     # GUARDED ON account_exists, and that guard is the whole correctness
     # of this call. The unknown-number path does equivalent work and
-    # rolls it back, so no OTP is persisted -- but it still RENDERS a
-    # message. Recording that would put an entry in the outbox for a
-    # number with no account, which is an existence oracle in a new
-    # place: exactly what the byte-identical response above protects,
-    # reintroduced one endpoint over.
+    # RENDERS a message for a code nobody can ever sign in with.
+    # Recording that would put an entry in the outbox for a number with
+    # no account, which is an existence oracle in a new place: exactly
+    # what the byte-identical response above protects, reintroduced one
+    # endpoint over.
     #
     # Found by running it, not by reading it: the outbox returned a
     # perfectly ordinary-looking code for an unknown number, and that

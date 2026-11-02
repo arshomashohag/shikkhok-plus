@@ -3,6 +3,7 @@ package com.shikkhokplus.app.feature.pay
 import com.shikkhokplus.app.core.model.Money
 import com.shikkhokplus.app.core.network.OwedTogetherDto
 import com.shikkhokplus.app.core.network.PaymentMethodDto
+import com.shikkhokplus.app.core.network.PaymentSubmitDto
 import com.shikkhokplus.app.core.network.PaymentSubmittedDto
 
 /**
@@ -94,6 +95,48 @@ enum class FormProblem {
     TRANSACTION_ID_SHORT,
 }
 
+/**
+ * One payment the payer confirmed, and the replay key it went with.
+ *
+ * **One key per attempt, not per tap** [PA-DB-1]. On a poor network a
+ * send can time out after the server has already recorded it; the payer
+ * then taps Send again, and without a key the teacher receives the same
+ * payment twice as two pending claims. Sending the identical payment
+ * again reuses the key, and the server answers with the submission it
+ * already holds. Anything the payer changed makes it a different
+ * payment, which gets a fresh key.
+ *
+ * @property payment What was sent, without its key, so the next send can
+ *   be compared against it
+ * @property clientMutationId The key, a random UUID: no device
+ *   identifier of any kind [TC-3, D-37]
+ */
+data class PaymentAttempt(
+    val payment: PaymentSubmitDto,
+    val clientMutationId: String,
+) {
+    /** The body to send: the payment, carrying this attempt's key. */
+    val request: PaymentSubmitDto
+        get() = payment.copy(clientMutationId = clientMutationId)
+}
+
+/**
+ * Where a sent payment's record stands, as the sent page renders it.
+ *
+ * Read from the server's `status`, never decided here [TC-9]. One per
+ * value the response schema allows -- `pending`, `approved`, `rejected`.
+ */
+enum class SentOutcome {
+    /** Recorded, waiting for the teacher to check it. */
+    PENDING,
+
+    /** Already approved: a late resend of a payment the teacher accepted. */
+    APPROVED,
+
+    /** Already rejected: a late resend of a payment the teacher refused. */
+    REJECTED,
+}
+
 /** Everything the "Send money" screens render. */
 sealed interface PayUiState {
     /** Reading the seats and methods. */
@@ -119,6 +162,10 @@ sealed interface PayUiState {
      * @property problem A format problem to show, or null
      * @property sending Whether it is on its way
      * @property failedKey Why the last send failed, or null
+     * @property attempt The payment last sent from this form and the key
+     *   it carried, or null before the first send. Kept after a failure
+     *   so that sending the same payment again is a retry of the same
+     *   attempt rather than a second payment
      */
     data class Filling(
         val scope: PayScope,
@@ -128,16 +175,21 @@ sealed interface PayUiState {
         val problem: FormProblem? = null,
         val sending: Boolean = false,
         val failedKey: String? = null,
+        val attempt: PaymentAttempt? = null,
     ) : PayUiState
 
     /**
-     * F5: sent, waiting for the teacher.
+     * F5: sent -- usually waiting for the teacher.
      *
      * @property batchName The batch
      * @property teacherName Who will check it, if known
      * @property choice Where the money went
      * @property payment What the server recorded
      * @property reference The transaction ID or paying account quoted, or null
+     * @property outcome Where the server's record stands. Not always
+     *   pending: a resend of a payment the server already holds is
+     *   answered with that ORIGINAL submission, and the teacher may have
+     *   decided it in the meantime
      */
     data class Sent(
         val batchName: String,
@@ -145,6 +197,7 @@ sealed interface PayUiState {
         val choice: PayChoice,
         val payment: PaymentSubmittedDto,
         val reference: String?,
+        val outcome: SentOutcome = SentOutcome.PENDING,
     ) : PayUiState
 
     /**

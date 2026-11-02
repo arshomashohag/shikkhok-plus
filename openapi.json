@@ -1435,35 +1435,6 @@
         "title": "DeletionOutcome",
         "type": "object"
       },
-      "DeletionRequest": {
-        "additionalProperties": false,
-        "description": "Ask for a deletion code, or confirm with one.\n\n**``code`` is optional and that is what selects the step.** The\nexternal route is one route with two steps rather than two routes,\nbecause ``PUBLIC_ROUTES`` declares exactly two external deletion\nentries and asserts its own count -- a separate code endpoint would\nbe a ninth public route [BR3.2].\n\n:ivar phone: The number whose account is to be deleted\n:ivar code: The deletion code, or None to be sent one",
-        "properties": {
-          "code": {
-            "anyOf": [
-              {
-                "maxLength": 10,
-                "minLength": 4,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Code"
-          },
-          "phone": {
-            "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
-            "title": "Phone",
-            "type": "string"
-          }
-        },
-        "required": [
-          "phone"
-        ],
-        "title": "DeletionRequest",
-        "type": "object"
-      },
       "DeletionResponse": {
         "additionalProperties": false,
         "description": "The in-app acknowledgement.\n\nA distinct model from :class:`DeletionOutcome` because the in-app\nroute has exactly one outcome: it is authenticated, so there is no\ncode step. Carrying the two-valued model here would publish a\n``requested`` the route can never return.\n\n**No row counts and no ``existed`` flag**, however useful they would\nbe to a client. The in-app route could afford one -- the caller is\nauthenticated -- and does not take one anyway: two shapes for one\noutcome is how the paths start to drift [BR3.1].\n\n:ivar status: Always ``deleted``",
@@ -4317,7 +4288,7 @@
       },
       "PaymentSubmitRequest": {
         "additionalProperties": false,
-        "description": "One payment a student or guardian reports [F3, F4].\n\nExactly one of ``payment_method_id`` and ``cash`` names where the\nmoney went, and exactly one of ``transaction_id`` and\n``from_account`` is present, matching the method's kind; the server\nenforces both because they depend on the stored method.\n\n:ivar enrollment_ids: The children covered, all in one batch\n:ivar payment_method_id: The teacher's method paid to\n:ivar cash: True when the money was handed over in person\n:ivar amount: The whole amount sent\n:ivar paid_on: The day the money moved\n:ivar transaction_id: The mobile reference\n:ivar from_account: The paying bank account\n:ivar note: Free text for the teacher",
+        "description": "One payment a student or guardian reports [F3, F4].\n\nExactly one of ``payment_method_id`` and ``cash`` names where the\nmoney went, and exactly one of ``transaction_id`` and\n``from_account`` is present, matching the method's kind; the server\nenforces both because they depend on the stored method.\n\n:ivar enrollment_ids: The children covered, all in one batch\n:ivar payment_method_id: The teacher's method paid to\n:ivar cash: True when the money was handed over in person\n:ivar amount: The whole amount sent\n:ivar paid_on: The day the money moved\n:ivar transaction_id: The mobile reference\n:ivar from_account: The paying bank account\n:ivar note: Free text for the teacher\n:ivar client_mutation_id: The app's retry key, one per payment draft.\n    Optional so a build that sends none keeps working; when present,\n    a resend by the same account returns the original submission\n    rather than recording the payment twice",
         "properties": {
           "amount": {
             "$ref": "#/components/schemas/Money"
@@ -4326,6 +4297,19 @@
             "default": false,
             "title": "Cash",
             "type": "boolean"
+          },
+          "client_mutation_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "One UUID per payment draft, reused on every resend of it. A resend by the same account returns the original submission with the original 201 and records nothing; the same id with a different body is a 409.",
+            "title": "Client Mutation Id"
           },
           "enrollment_ids": {
             "items": {
@@ -4401,7 +4385,7 @@
       },
       "PaymentSubmittedResponse": {
         "additionalProperties": false,
-        "description": "A payment as recorded, waiting for the teacher.\n\n:ivar submission_id: The submission\n:ivar status: Always ``pending`` when just submitted\n:ivar total_amount: The whole amount sent\n:ivar paid_on: The day the money moved\n:ivar claims: Each child's share, in child order",
+        "description": "A payment as recorded, waiting for the teacher.\n\n:ivar submission_id: The submission\n:ivar status: ``pending`` when just submitted; a replayed resend\n    reports the submission's stored status\n:ivar total_amount: The whole amount sent\n:ivar paid_on: The day the money moved\n:ivar claims: Each child's share, in child order",
         "properties": {
           "claims": {
             "items": {
@@ -6235,13 +6219,70 @@
         ]
       },
       "post": {
-        "description": "Send a deletion code, or delete once one is presented.\n\n**One route with two steps rather than two routes**, and that is a\ndeliberate consequence of the allowlist rather than a convenience.\n``PUBLIC_ROUTES`` declares exactly two external deletion entries,\nits count is asserted at eight, and D6's stated job is to land\nhandlers against entries already under review -- not to add a public\nroute in the commit that implements one. A separate\n``/account-deletion/code`` would have been a ninth public entry,\nwhich is a diff against a stated number [BR3.2].\n\nThe step is chosen by whether ``code`` is present, which is also how\nthe page's single form behaves: submit a number to be sent a code,\nsubmit it again with the code to confirm.\n\n``verify`` is CALLED rather than reimplemented, which is what gives\nthis route the single-use rule, the expiry and the attempt ceiling\nwithout a second copy of any of them [NFR14.81]. Reimplementing it\nis the obvious shortcut for a route living in a different module.\n\n:param body: The request body\n:param request: The incoming request\n:param background: Runs the SMS send after the response is written\n:param session: The request-scoped session\n:param gateway: The configured SMS gateway\n:return: ``requested`` after a code is sent, ``deleted`` after one\n    is spent\n:raises CeilingBreach: A deletion ceiling refused this send\n:raises ValidationError: The code is wrong, expired, used or was\n    issued for a different purpose",
+        "description": "Send a deletion code, or delete once one is presented.\n\n**One route with two steps rather than two routes**, and that is a\ndeliberate consequence of the allowlist rather than a convenience.\n``PUBLIC_ROUTES`` declares exactly two external deletion entries\nand asserts its count, and D6's stated job is to land handlers\nagainst entries already under review -- not to add a public route\nin the commit that implements one. A separate\n``/account-deletion/code`` would have been a further public entry,\nwhich is a diff against a stated number [BR3.2].\n\nThe step is chosen by whether ``code`` is present, which is also how\nthe page's single form behaves: submit a number to be sent a code,\nsubmit it again with the code to confirm.\n\n**A form submission is answered with a page** [PA-SEC-1]: the\nconfirm step with the number prefilled, the deleted page, or the\nform again with what went wrong. A JSON submission is answered as\nit always was, with the outcome or the error envelope. From the\nform, an empty or whitespace-only code box means no code.\n\n:param submission: The body, as JSON or as the page's form\n:param request: The incoming request\n:param background: Runs the SMS send after the response is written\n:param session: The request-scoped session\n:param gateway: The configured SMS gateway\n:return: ``requested`` after a code is sent, ``deleted`` after one\n    is spent -- or the page saying so, for a form submission\n:raises CeilingBreach: A deletion ceiling refused a JSON send\n:raises ValidationError: A JSON submission's code is wrong, expired,\n    used or was issued for a different purpose",
         "operationId": "external_deletion_account_deletion_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/DeletionRequest"
+                "additionalProperties": false,
+                "description": "Ask for a deletion code, or confirm with one.\n\n**``code`` is optional and that is what selects the step.** The\nexternal route is one route with two steps rather than two routes,\nbecause ``PUBLIC_ROUTES`` declares exactly two external deletion\nentries and asserts its own count -- a separate code endpoint would\nbe a ninth public route [BR3.2].\n\n:ivar phone: The number whose account is to be deleted\n:ivar code: The deletion code, or None to be sent one",
+                "properties": {
+                  "code": {
+                    "anyOf": [
+                      {
+                        "maxLength": 10,
+                        "minLength": 4,
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Code"
+                  },
+                  "phone": {
+                    "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
+                    "title": "Phone",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "phone"
+                ],
+                "title": "DeletionRequest",
+                "type": "object"
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "additionalProperties": false,
+                "description": "Ask for a deletion code, or confirm with one.\n\n**``code`` is optional and that is what selects the step.** The\nexternal route is one route with two steps rather than two routes,\nbecause ``PUBLIC_ROUTES`` declares exactly two external deletion\nentries and asserts its own count -- a separate code endpoint would\nbe a ninth public route [BR3.2].\n\n:ivar phone: The number whose account is to be deleted\n:ivar code: The deletion code, or None to be sent one",
+                "properties": {
+                  "code": {
+                    "anyOf": [
+                      {
+                        "maxLength": 10,
+                        "minLength": 4,
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Code"
+                  },
+                  "phone": {
+                    "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
+                    "title": "Phone",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "phone"
+                ],
+                "title": "DeletionRequest",
+                "type": "object"
               }
             }
           },
@@ -6254,15 +6295,25 @@
                 "schema": {
                   "$ref": "#/components/schemas/DeletionOutcome"
                 }
+              },
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "JSON for a JSON request; an HTML page for a form submission"
           },
           "422": {
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              },
+              "text/html": {
+                "schema": {
+                  "type": "string"
                 }
               }
             },

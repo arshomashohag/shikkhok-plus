@@ -17,7 +17,15 @@
 # boot migrates once per replica, races itself, and gives the operator
 # no place to stop between the backup and the schema change.
 
-FROM python:3.15-slim-bookworm AS build
+# **3.12, pinned by digest, in both stages.** The project targets 3.12
+# everywhere -- `requires-python`, Ruff, mypy, the CI interpreter and
+# the lockfile header -- and this line had been bumped to 3.15 by a
+# Dependabot base-image PR, so production ran an interpreter no test
+# had ever run on [OPS-13]. The digest is the multi-arch index for
+# `3.12-slim-bookworm` (read from the registry 2026-11-02), so arm64 and
+# amd64 builds resolve the same release; Dependabot refreshes it weekly
+# and `.github/dependabot.yml` refuses minor and major Python bumps.
+FROM python:3.12-slim-bookworm@sha256:e697c81897302a4c4333bade000d98038fbb21eb064f8ee1fd42d02ebcd9d337 AS build
 
 # Fail the build on a non-zero exit anywhere in a pipeline, not just the
 # last command. Without this a failed download followed by a successful
@@ -32,17 +40,35 @@ RUN apt-get update \
     && apt-get install --no-install-recommends -y gcc libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-COPY pyproject.toml README.md* ./
-COPY app ./app
-
-# Installed into a virtualenv so the whole dependency closure can be
-# copied to the runtime stage as one directory.
+# **The hashed lockfile, and nothing resolved here.** This was
+# `pip install '.[api]'`, a fresh resolve at build time: the image ran
+# whatever versions PyPI served that day rather than the set CI tested
+# and pip-audit scanned. `--require-hashes` installs exactly the pins in
+# requirements.txt and refuses any artifact whose sha256 differs, which
+# is what detects a substituted wheel [team: Deployment].
+#
+# The lockfile is compiled with `--extra dev --extra api`, so the dev
+# tools (pytest, mypy, ruff, pip-audit, ...) are in this venv too. That
+# is accepted deliberately: it is the exact set the suite ran against,
+# and a separate api-only lock would be a second file to keep current
+# with no CI check behind it yet.
+#
+# No `pip install --upgrade pip`: an unpinned upgrade is a resolve
+# outside the lockfile, which is the thing this stage exists to stop.
+COPY requirements.txt ./
 RUN python -m venv /venv \
-    && /venv/bin/pip install --no-cache-dir --upgrade pip \
-    && /venv/bin/pip install --no-cache-dir '.[api]'
+    && /venv/bin/pip install --no-cache-dir --require-hashes -r requirements.txt
+
+# **The project itself is NOT pip-installed.** `pip install --no-deps .`
+# would build it with hatchling fetched by build isolation -- unpinned
+# and unhashed, the one dependency of the image outside the lockfile.
+# The package is pure source with no entry points and no package data
+# (`[tool.hatch.build.targets.wheel] packages = ["app"]`), so the
+# runtime stage puts /srv on PYTHONPATH instead and imports it from
+# there.
 
 
-FROM python:3.15-slim-bookworm AS runtime
+FROM python:3.12-slim-bookworm@sha256:e697c81897302a4c4333bade000d98038fbb21eb064f8ee1fd42d02ebcd9d337 AS runtime
 
 # libpq5 is the RUNTIME library psycopg links against -- the -dev
 # package from the build stage is not needed and is not installed.
@@ -63,6 +89,7 @@ COPY alembic.ini ./
 USER app
 
 ENV PATH="/venv/bin:$PATH" \
+    PYTHONPATH=/srv \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
@@ -78,9 +105,17 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 # still runs multiple Uvicorn workers, which is why the OTP rate-limit
 # counters are datastore-backed rather than per-process -- a per-process
 # dictionary passes every test and silently stops working here.
+#
+# **Forwarded headers are NOT trusted.** This was `--proxy-headers
+# --forwarded-allow-ips "*"`, which believes an X-Forwarded-For from any
+# peer -- and nginx appends to the client's own X-Forwarded-For rather
+# than replacing it, so any caller could choose the IP the per-IP OTP
+# ceiling counted against. The client address now arrives in
+# X-Client-Address, which nginx always OVERWRITES from CloudFront's
+# CloudFront-Viewer-Address, and the application reads it only when
+# SHIKKHOKPLUS_TRUSTED_CLIENT_IP_HEADER names it.
 CMD ["uvicorn", "app.main:app", \
      "--host", "0.0.0.0", \
      "--port", "8000", \
      "--workers", "2", \
-     "--proxy-headers", \
-     "--forwarded-allow-ips", "*"]
+     "--no-proxy-headers"]

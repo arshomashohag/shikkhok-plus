@@ -4,7 +4,8 @@
 the happy path is identical either way [BR4.1]. The difference appears
 only when an old token is presented again -- which is exactly the
 stolen-token case the mechanism exists for. So it is tested as a state
-machine over five transitions rather than as a happy path.
+machine rather than as a happy path -- including the one bounded
+exception, the grace for a retry after a lost response [PA-SEC-4].
 
 **The family is the unit of invalidation, not the token.** Invalidating
 only the presented token leaves the thief's working, which inverts the
@@ -41,6 +42,7 @@ from app.errors import AuthorizationError
 __all__ = [
     "ACCESS_TOKEN_LIFETIME",
     "JWT_ACTIVE_KID_ENV",
+    "REFRESH_GRACE_WINDOW",
     "REFRESH_TOKEN_LIFETIME",
     "TokenPair",
     "issue_pair",
@@ -55,6 +57,14 @@ ACCESS_TOKEN_LIFETIME: Final = dt.timedelta(minutes=15)
 #: would be a mass-logout event, which is why ``kid`` is here from the
 #: first commit.
 REFRESH_TOKEN_LIFETIME: Final = dt.timedelta(days=30)
+
+#: How long after a rotation its old token may be re-presented as a
+#: retry rather than a replay [PA-SEC-4]. Long enough to cover a mobile
+#: client's timeout-and-retry on a lost response; short enough that a
+#: thief holding the previous token gains a minute, not a session --
+#: and even inside it, only while the successor is unused, so the moment
+#: the real client spends its token the window is closed to everyone.
+REFRESH_GRACE_WINDOW: Final = dt.timedelta(seconds=60)
 
 #: Names the environment variable holding the active key id.
 JWT_ACTIVE_KID_ENV: Final = "SHIKKHOKPLUS_JWT_ACTIVE_KID"
@@ -218,6 +228,14 @@ def rotate(
 ) -> TokenPair:
     """Rotate a refresh token, invalidating the family on reuse.
 
+    **One exception to reuse** [PA-SEC-4]: the immediately previous
+    token, re-presented within :data:`REFRESH_GRACE_WINDOW` while its
+    successor is unused, is a client retrying after a lost response.
+    The server committed the rotation and the response never arrived;
+    without this, the client's only retry logs the person out. That
+    case revokes the unreceived successor and issues a fresh pair in
+    the same family. Every other re-presentation is reuse.
+
     :param session: The session to work through
     :param presented: The refresh token the client sent
     :param correlation_id: Ties the audit row to this request
@@ -228,9 +246,13 @@ def rotate(
     moment = now or dt.datetime.now(tz=dt.UTC)
     digest = hash_refresh_token(presented)
 
+    # FOR UPDATE on the presented row serializes every rotation, grace
+    # or replay of one token: two concurrent retries cannot both read
+    # its successor unused and each open a live branch.
     row = session.execute(
         sa.text(
-            "SELECT id, account_id, family_id, expires_at, rotated_at "
+            "SELECT id, account_id, family_id, expires_at, rotated_at, "
+            "reuse_detected_at "
             "FROM refresh_token WHERE token_hash = :digest FOR UPDATE"
         ),
         {"digest": digest},
@@ -240,7 +262,14 @@ def rotate(
         raise _unauthenticated("TOKEN_MISSING")
 
     if row.rotated_at is not None:
-        # REUSE. The whole family dies, not just this token --
+        successor_id = _unused_successor_within_grace(session, row, moment)
+        if successor_id is not None:
+            return _reissue_within_grace(
+                session, row, successor_id, correlation_id, moment
+            )
+        # REUSE: an older token, outside the window, a spent successor,
+        # or a family already revoked. The whole family dies, not just
+        # this token --
         # invalidating only the presented one leaves the thief's working
         # and logs out the victim, which inverts the control [BR4.1].
         session.execute(
@@ -278,6 +307,110 @@ def rotate(
         session,
         account_id=row.account_id,
         event=AuthEvent.REFRESH_ROTATED,
+        correlation_id=correlation_id,
+        occurred_at=moment,
+    )
+    session.commit()
+    return pair
+
+
+def _unused_successor_within_grace(
+    session: Session, row: sa.Row[Any], moment: dt.datetime
+) -> uuid.UUID | None:
+    """Return the presented token's unused successor, if a grace applies.
+
+    **A grace applies only to the immediately previous token of a live
+    family** [PA-SEC-4], and every condition below is one edge of that:
+
+    * within :data:`REFRESH_GRACE_WINDOW` of the presented token's
+      rotation, and the token itself not expired;
+    * the family not already revoked;
+    * the token's direct successor -- the one row its rotation issued,
+      found by ``issued_at`` equal to its ``rotated_at``, because both
+      are written with the same moment -- exists exactly once and has
+      itself never been rotated or revoked.
+
+    The last one is what makes this a retry rather than a replay. If the
+    successor has been spent, the client that rotated DID receive it, so
+    the old token reappearing is the stolen-token case and gets today's
+    answer. It is also what limits a token to one grace: the grace
+    revokes the successor, so the same old token presented again finds
+    it spent.
+
+    The successor is locked too, so a concurrent legitimate rotation of
+    it and this grace serialize rather than both succeeding.
+
+    :param session: The session to read through
+    :param row: The presented, already-rotated token's row
+    :param moment: The moment of this request
+    :return: The successor's id, or None when this is a replay
+    """
+    if row.reuse_detected_at is not None or moment >= row.expires_at:
+        return None
+    if not row.rotated_at <= moment <= row.rotated_at + REFRESH_GRACE_WINDOW:
+        return None
+
+    successors = session.execute(
+        sa.text(
+            "SELECT id, rotated_at, reuse_detected_at FROM refresh_token "
+            "WHERE family_id = :family_id AND issued_at = :rotated_at "
+            "AND id <> :id FOR UPDATE"
+        ),
+        {"family_id": row.family_id, "rotated_at": row.rotated_at, "id": row.id},
+    ).all()
+    if len(successors) != 1:
+        return None
+    successor = successors[0]
+    if successor.rotated_at is not None or successor.reuse_detected_at is not None:
+        return None
+    successor_id: uuid.UUID = successor.id
+    return successor_id
+
+
+def _reissue_within_grace(
+    session: Session,
+    row: sa.Row[Any],
+    successor_id: uuid.UUID,
+    correlation_id: str,
+    moment: dt.datetime,
+) -> TokenPair:
+    """Revoke the unreceived successor and issue a fresh pair in its place.
+
+    **A fresh pair, not the lost one**: only hashes are stored, so the
+    pair whose response was lost cannot be returned. It stays in the
+    same family, so a later reuse of anything in the chain still revokes
+    everything the client holds.
+
+    The successor is revoked by setting ``rotated_at`` -- so presenting
+    it is reuse -- and ``expires_at`` to now, so it earns **no grace of
+    its own**: it was never received by the client that retried, so if
+    it ever turns up, someone else had it.
+
+    :param session: The session to write through
+    :param row: The presented token's row
+    :param successor_id: The unreceived successor to revoke
+    :param correlation_id: Ties the audit row to this request
+    :param moment: The moment of this request
+    :return: The replacement pair
+    """
+    session.execute(
+        sa.text(
+            "UPDATE refresh_token SET rotated_at = :now, expires_at = :now "
+            "WHERE id = :id"
+        ),
+        {"now": moment, "id": successor_id},
+    )
+    pair = issue_pair(
+        session,
+        account_id=row.account_id,
+        correlation_id=correlation_id,
+        family_id=row.family_id,
+        now=moment,
+    )
+    write_audit(
+        session,
+        account_id=row.account_id,
+        event=AuthEvent.REFRESH_GRACE_REISSUED,
         correlation_id=correlation_id,
         occurred_at=moment,
     )

@@ -47,17 +47,29 @@ variable "apex_domain" {
 
 variable "project_subdomain" {
   description = <<-EOT
-    The label this project's own zone takes under the apex. With
-    apex_domain = "nirmatabd.com" and this = "shikkhokplus", the zone
-    is shikkhokplus.nirmatabd.com and the API is
+    The label this environment's own zone takes under the apex. Null
+    (the default) derives it from `environment`: "shikkhokplus" for
+    staging -- the name it was created with -- and "shikkhokplus-prod"
+    for production. With apex_domain = "nirmatabd.com", staging's zone
+    is shikkhokplus.nirmatabd.com and its API
     api.shikkhokplus.nirmatabd.com.
+
+    **Per environment, because both environments live in one account
+    and one apex** [OPS-10]: a shared label made the zone, the NS
+    delegation and the CloudFront alias collide. Must contain
+    "shikkhokplus" -- the CI role may change no other record names.
 
     A dedicated zone rather than records in the apex: the apex serves
     other projects, and the CDN module's `allow_overwrite` would take
     a name from one of them with the plan showing only a create.
   EOT
   type        = string
-  default     = "shikkhokplus"
+  default     = null
+
+  validation {
+    condition     = var.project_subdomain == null || can(regex("shikkhokplus", var.project_subdomain))
+    error_message = "project_subdomain must contain \"shikkhokplus\"; the CI role may change no other record names."
+  }
 }
 
 variable "api_subdomain" {
@@ -116,10 +128,9 @@ variable "acknowledged_monthly_budget" {
     keep infrastructure spend under USD 50/month [OC-4].
 
     A PRECONDITION rather than a comment, and the reason is written
-    in `main.tf`: the comment that used to claim "staging plus RDS is
-    USD 50.20" was itself wrong. Recomputed 2026-10-24, staging plus
-    RDS is USD 47.28 -- under the ceiling. The precondition computes
-    from `cost_breakdown` and cannot drift; a comment can, and did.
+    in `main.tf`: totals stated in comments here were wrong twice. The
+    precondition computes from `cost_breakdown`; read the current
+    figure with `terraform output monthly_cost_estimate`.
 
     Raising this is a deliberate act with a diff, which is the point.
   EOT
@@ -145,10 +156,10 @@ variable "enable_staging_instance" {
     Acceptable now, with no real data and no users. It stops being
     acceptable before closed testing [OC-5], which is when real
     children's records arrive -- so this is a deferral, not a
-    cancellation. Saves USD 14.66/month -- a second `cost_host`,
-    which at the default `root_volume_gb = 30` is 12.26 + 2.40.
-    (This read "~USD 16.17" until 2026-10-24, a figure implying a
-    49 GB volume; corrected by computing it from `cost_breakdown`.)
+    cancellation. It costs a second `cost_host` in main.tf, public
+    IPv4 included; with RDS on, that crosses the USD 50 ceiling and
+    the budget precondition refuses it until the ceiling is raised
+    deliberately.
   EOT
   type        = bool
   default     = false
@@ -174,9 +185,8 @@ variable "enable_rds" {
     the database.
 
     With RDS the data is not on the instance at all, so a refresh
-    replaces compute and leaves the database untouched. Roughly USD
-    17.36/month, taking the total to about USD 32.62 against the USD
-    50 ceiling [OC-4].
+    replaces compute and leaves the database untouched. Its line in
+    `cost_breakdown` is the price; production refuses false.
   EOT
   type        = bool
   default     = true
@@ -206,4 +216,18 @@ variable "origin_subdomain" {
   EOT
   type        = string
   default     = "origin"
+}
+
+variable "alert_email" {
+  description = <<-EOT
+    Where this environment's alarms are emailed [OPS-11]. No default:
+    a committed address would page its author forever. Null or empty
+    creates the topic and the alarms with no subscriber -- they fire
+    into nothing, and `alert_email_status` says so.
+
+    In CI this is the ALERT_EMAIL variable. AWS emails a confirmation
+    link first; nothing is delivered until it is clicked.
+  EOT
+  type        = string
+  default     = null
 }

@@ -102,6 +102,9 @@ def test_the_event_vocabulary_is_closed() -> None:
         "VERIFY_SUCCEEDED",
         "REFRESH_ROTATED",
         "REFRESH_REUSE_DETECTED",
+        # A retry after a lost refresh response, inside the grace
+        # window: a NAMED MEMBER, for the reason D1's two are [PA-SEC-4].
+        "REFRESH_GRACE_REISSUED",
         # D1's two, added as NAMED MEMBERS rather than as one event
         # plus a `detail` column -- which is the free-form string this
         # log is specified not to have, arriving through the one door
@@ -306,6 +309,7 @@ def test_family_invalidation_survives_a_failed_audit_write(
     from app.auth.tokens import (
         JWT_ACTIVE_KID_ENV,
         JWT_KEYS_ENV,
+        REFRESH_GRACE_WINDOW,
         issue_pair,
         rotate,
     )
@@ -339,11 +343,15 @@ def test_family_invalidation_survives_a_failed_audit_write(
     restricted_session.commit()
     second = rotate(restricted_session, first.refresh_token, CORRELATION)
 
+    # Replayed past the refresh grace window, where a re-presentation is
+    # reuse rather than a retry after a lost response [PA-SEC-4].
+    replay_at = dt.datetime.now(tz=dt.UTC) + 2 * REFRESH_GRACE_WINDOW
+
     with _audit_insert_revoked(owner_engine):
         with pytest.raises(AuthorizationError):
-            rotate(restricted_session, first.refresh_token, CORRELATION)
+            rotate(restricted_session, first.refresh_token, CORRELATION, now=replay_at)
         restricted_session.commit()
 
     # The whole family must be dead even though its audit row was lost.
     with pytest.raises(AuthorizationError):
-        rotate(restricted_session, second.refresh_token, CORRELATION)
+        rotate(restricted_session, second.refresh_token, CORRELATION, now=replay_at)

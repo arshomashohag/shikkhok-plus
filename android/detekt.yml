@@ -36,9 +36,52 @@ config:
 # The rule this file exists for.
 # ---------------------------------------------------------------------------
 style:
+  # **The commit-time half of the forbidden-identifier set** [TC-3, TC-4,
+  # D-35, D-37]. The release DEX scan in release-gates.gradle.kts names
+  # METHODS (`getImei`, `getBSSID`, the `android_id` value...) because that
+  # is what survives minification; an import cannot name a method, so this
+  # list names the CLASS each of those methods lives on. The two lists
+  # describe one set from two ends, and a change to one is a change to the
+  # other:
+  #
+  #   DEX scan identifier                         -> class forbidden here
+  #   getImei, getSubscriberId, getSimSerialNumber,
+  #   getLine1Number                              -> TelephonyManager
+  #   getMacAddress, getBSSID, getSSID            -> WifiInfo, WifiManager
+  #   AdvertisingIdClient                         -> both AdvertisingIdClients
+  #   android_id (Settings.Secure.ANDROID_ID)     -> Settings.Secure
+  #   getSerial (android.os.Build)                -> NOT HERE, see below
+  #
+  # **What this cannot catch, stated so it is not over-read.** `Build` is
+  # imported legitimately for `Build.VERSION.SDK_INT`, so `Build.getSerial()`
+  # cannot be banned by import; and a fully qualified reference
+  # (`android.provider.Settings.Secure.ANDROID_ID` with no import) bypasses
+  # an import rule entirely. Both are method- or field-level reads, which is
+  # what Lint's `HardwareIds` -- fatal in lint.xml, also run on every
+  # commit -- exists to catch. This rule's job is the earlier, blunter
+  # signal: the class that hosts the read is not something this app has a
+  # reason to import at all. `WifiManager` is listed beside `WifiInfo`
+  # because `wifiManager.connectionInfo.bssid` reaches the forbidden reads
+  # without ever importing `WifiInfo`.
   ForbiddenImport:
     active: true
-    imports: []
+    imports:
+      - value: 'android.telephony.TelephonyManager'
+        reason: 'Reads IMEI, IMSI, SIM serial and the line number. The number is always typed by the user [TC-4, D-35].'
+      - value: 'android.net.wifi.WifiInfo'
+        reason: 'Exposes MAC, BSSID and SSID, all forbidden device identifiers [TC-3, D-37].'
+      - value: 'android.net.wifi.WifiManager'
+        reason: 'Reaches WifiInfo (MAC, BSSID, SSID) without importing it [TC-3, D-37].'
+      - value: 'com.google.android.gms.ads.identifier.AdvertisingIdClient'
+        reason: 'Reads the advertising identifier (AAID). Forbidden outright [TC-3, TC-6, D-37].'
+      - value: 'com.google.android.gms.ads.identifier.*'
+        reason: 'The Play services advertising-identifier package [TC-3, TC-6, D-37].'
+      - value: 'androidx.ads.identifier.*'
+        reason: 'The androidx advertising-identifier package [TC-3, TC-6, D-37].'
+      - value: 'android.provider.Settings.Secure'
+        reason: 'Hosts ANDROID_ID, a forbidden device identifier [TC-3, D-37].'
+      - value: 'android.provider.Settings.Secure.*'
+        reason: 'Hosts ANDROID_ID, a forbidden device identifier [TC-3, D-37].'
   # `Double` and `Float` are not imports -- they are kotlin builtins -- so
   # the ban is expressed as a forbidden type usage rather than a forbidden
   # import. ForbiddenMethodCall and ForbiddenImport cannot express it;

@@ -117,6 +117,12 @@ data class OwedTogetherDto(
  * @property transactionId The mobile reference, or null
  * @property fromAccount The paying bank account, or null
  * @property note Free text for the teacher, or null
+ * @property clientMutationId The server's replay key for this payment
+ *   attempt, a random UUID [PA-DB-1]. A send that timed out after the
+ *   server committed it is retried with the SAME key, and the server
+ *   answers with the original submission instead of recording a second
+ *   claim. Null only where no attempt exists yet; the form always sets it
+ *   before sending
  */
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
@@ -129,6 +135,7 @@ data class PaymentSubmitDto(
     @EncodeDefault @SerialName("transaction_id") val transactionId: String? = null,
     @EncodeDefault @SerialName("from_account") val fromAccount: String? = null,
     @EncodeDefault val note: String? = null,
+    @SerialName("client_mutation_id") val clientMutationId: String? = null,
 )
 
 /**
@@ -150,10 +157,13 @@ data class SubmittedClaimDto(
 )
 
 /**
- * A payment as recorded, waiting for the teacher.
+ * A payment as recorded, usually waiting for the teacher.
  *
  * @property submissionId The submission
- * @property status Always `pending` when just submitted
+ * @property status `pending`, `approved` or `rejected`: the stored
+ *   status. A fresh submission is `pending`; a resend with a replay key
+ *   the server already holds returns the original submission, which the
+ *   teacher may have decided since. Read by `PayMapper.outcomeOf`
  * @property totalAmount The whole amount sent
  * @property paidOn The day the money moved
  * @property claims Each child's share, in child order

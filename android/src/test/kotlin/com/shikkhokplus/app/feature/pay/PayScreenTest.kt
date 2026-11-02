@@ -5,9 +5,11 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import com.shikkhokplus.app.R
 import com.shikkhokplus.app.core.designsystem.ShikkhokTheme
 import com.shikkhokplus.app.core.model.Money
 import com.shikkhokplus.app.core.network.OwedChildDto
@@ -31,6 +33,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /** The pay screens rendered: choosing, each form's send rule, and the sent page. */
 @RunWith(RobolectricTestRunner::class)
@@ -166,5 +169,40 @@ class PayScreenTest {
         }
 
         compose.onNodeWithTag(TAG_PAY_SENT).assertExists()
+    }
+
+    @Test
+    fun `a resend the teacher already approved says so rather than pending`() {
+        // A replay returns the original submission with its stored
+        // status; "Sent for checking" would be false for a payment the
+        // teacher has already approved.
+        val payment =
+            PaymentSubmittedDto(
+                "s-1",
+                "approved",
+                Money.of("1000.00"),
+                "2026-11-02",
+                listOf(SubmittedClaimDto("c-1", Money.of("1000.00"), "Tanvir", "e-1", "2026-11")),
+            )
+        compose.setContent {
+            ShikkhokTheme {
+                PayScreen(
+                    PayUiState.Sent(
+                        "Physics",
+                        "Rahima",
+                        PayChoice.Method(bkash),
+                        payment,
+                        "9KD7Q2XL1M",
+                        SentOutcome.APPROVED,
+                    ),
+                    PayActions(),
+                )
+            }
+        }
+
+        val shown = { id: Int -> compose.onAllNodesWithText(compose.activity.getString(id)).fetchSemanticsNodes() }
+        assertTrue(shown(R.string.pay_recorded_title).isNotEmpty(), "the decided title")
+        assertTrue(shown(R.string.inbox_outcome_approved).isNotEmpty(), "the approved status")
+        assertTrue(shown(R.string.pay_pending).isEmpty(), "nothing says pending")
     }
 }

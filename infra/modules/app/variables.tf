@@ -108,3 +108,45 @@ variable "account_id" {
   description = "Account id, suffixing the config bucket so its globally-unique name does not collide."
   type        = string
 }
+
+variable "managed_database" {
+  description = <<-EOT
+    Whether this host connects to a managed (RDS) database. Drives
+    whether the database SSM parameters exist.
+
+    **A separate boolean rather than `database_endpoint != null`.** The
+    endpoint is unknown until RDS is created, and a `count` must be
+    known at plan time: on a first apply `endpoint != null` is itself
+    unknown and the plan fails. The caller knows the answer as a plain
+    input -- `var.enable_rds` -- so it is passed as one.
+  EOT
+  type        = bool
+  default     = false
+}
+
+variable "permissions_boundary_arn" {
+  description = <<-EOT
+    The workload permissions boundary created by infra/bootstrap
+    (`shikkhokplus-workload-boundary`). Set on the instance role,
+    because the CI role may create or extend a role only when it
+    carries this boundary [OPS-2].
+  EOT
+  type        = string
+}
+
+variable "alarm_topic_arn" {
+  description = "SNS topic the host's alarms notify. Null creates the alarms with no action."
+  type        = string
+  default     = null
+}
+
+variable "log_retention_days" {
+  description = <<-EOT
+    How long container and boot logs are kept. 30 days covers "what
+    happened during last month's fee run" and bounds the storage bill;
+    the logs carry no phone number, OTP or token by the logging rules,
+    so a longer retention is a cost question rather than a privacy one.
+  EOT
+  type        = number
+  default     = 30
+}

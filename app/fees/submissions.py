@@ -13,6 +13,23 @@ and the method must be a live one of that batch's owner.
 **Children are ordered by display name, then id**, everywhere a split
 or a list is made, so the provisional split and the teacher's review
 agree on who is "last".
+
+**A resend is a replay, and the unique constraint is what makes it one**
+[PA-DB-1]. The app sends one ``client_mutation_id`` per payment draft
+and reuses it on every resend, because a submit can commit and then
+lose its response on a flaky connection. ``UNIQUE
+(submitted_by_account_id, client_mutation_id)`` decides: the insert is
+``ON CONFLICT DO NOTHING`` against it and the loser reads the winner
+back. The lookup before validation is a fast path only -- two
+simultaneous resends both pass it, and only the constraint stops the
+second -- so a test blinds it and replays anyway.
+
+The replay is answered **before** the payment is re-validated. The
+original was valid when it was recorded; a resend arriving after the
+teacher retired the method, or after the teacher approved it, must
+return that payment rather than be refused into the family sending it
+again. Scoped by account, it can only ever return the caller's own
+submission, so answering it first discloses nothing.
 """
 
 from __future__ import annotations
@@ -23,6 +40,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 import sqlalchemy as sa
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from app.authz.lenses import GuardianLens, StudentLens
@@ -33,7 +51,7 @@ from app.db.models import (
     PaymentMethod,
     PaymentSubmission,
 )
-from app.errors import AuthorizationError, ValidationError
+from app.errors import AuthorizationError, ConflictError, ValidationError
 from app.fees.balances import derive_for_enrollment
 from app.fees.claims import CASH, record_claim
 from app.local_time import DHAKA, bangladesh_today
@@ -44,6 +62,7 @@ from app.teaching.roster import readable_enrollment
 
 __all__ = [
     "EARLIEST_DAYS_BEFORE_JOINING",
+    "REPLAY_CONSTRAINT",
     "FamilyLens",
     "OwedChild",
     "PaymentDraft",
@@ -61,6 +80,11 @@ EARLIEST_DAYS_BEFORE_JOINING = 60
 
 _MOBILE = "mobile"
 _BANK = "bank"
+
+#: The constraint the replay insert names. Created by migration ``0015``
+#: and declared on the model; a rename there is a failed insert here
+#: rather than a replay that silently stops matching.
+REPLAY_CONSTRAINT = "uq_payment_submission_account_mutation"
 
 
 def _invalid(*, code: str, message_key: str) -> ValidationError:
@@ -97,6 +121,8 @@ class PaymentDraft:
     :ivar transaction_id: The mobile reference, if any
     :ivar from_account: The paying bank account, if any
     :ivar note: Free text for the teacher
+    :ivar client_mutation_id: The app's retry key, or None from a build
+        that sends none
     """
 
     enrollment_ids: tuple[uuid.UUID, ...]
@@ -107,6 +133,7 @@ class PaymentDraft:
     transaction_id: str | None
     from_account: str | None
     note: str | None
+    client_mutation_id: uuid.UUID | None = None
 
     def check_amount(self) -> None:
         """Refuse a payment of nothing.
@@ -384,7 +411,14 @@ def submit_payment(
     :raises ValidationError: The children span batches, the method is
         not offered, the reference does not match, the date is out of
         range, or the amount is not positive
+    :raises ConflictError: The draft's ``client_mutation_id`` already
+        names a different payment from this account
     """
+    # 1. REPLAY, fast path. Not the guarantee -- see step 2.
+    prior = _fast_path_prior(session, account_id=lens.account_id, draft=draft)
+    if prior is not None:
+        return _replayed(session, prior, draft)
+
     children = owed_children(session, lens=lens, enrollment_ids=draft.enrollment_ids)
     batch_id = children[0].seat.batch_id
     method = _offered_method(session, batch_id=batch_id, draft=draft)
@@ -396,21 +430,53 @@ def submit_payment(
     draft.check_amount()
 
     transaction_id = _blank_to_none(draft.transaction_id)
-    submission = PaymentSubmission(
-        batch_id=batch_id,
-        payment_method_id=None if method is None else method.id,
-        destination_snapshot=_snapshot(method),
-        total_amount=draft.amount,
-        paid_on=draft.paid_on,
-        transaction_id=transaction_id,
-        from_account=_blank_to_none(draft.from_account),
-        payer_note=_blank_to_none(draft.note),
-        submitted_by_account_id=lens.account_id,
-        submitted_at=dt.datetime.now(tz=dt.UTC),
-        status="pending",
-    )
-    session.add(submission)
-    session.flush()
+
+    # 2. THE GUARANTEE. Everything above only read, so a conflict here
+    #    leaves nothing of this request to undo. A concurrent resend
+    #    blocks on the winner's uncommitted row, and on its commit gets
+    #    no row back; READ COMMITTED gives the next statement a fresh
+    #    snapshot, so the read-back sees the committed winner. NULL keys
+    #    never conflict, so a build sending none inserts as before.
+    inserted: uuid.UUID | None = session.execute(
+        pg_insert(PaymentSubmission)
+        .values(
+            id=uuid.uuid4(),
+            batch_id=batch_id,
+            payment_method_id=None if method is None else method.id,
+            destination_snapshot=_snapshot(method),
+            total_amount=draft.amount,
+            paid_on=draft.paid_on,
+            transaction_id=transaction_id,
+            from_account=_blank_to_none(draft.from_account),
+            payer_note=_blank_to_none(draft.note),
+            submitted_by_account_id=lens.account_id,
+            submitted_at=dt.datetime.now(tz=dt.UTC),
+            status="pending",
+            client_mutation_id=draft.client_mutation_id,
+        )
+        .on_conflict_do_nothing(constraint=REPLAY_CONSTRAINT)
+        .returning(PaymentSubmission.id)
+    ).scalar_one_or_none()
+
+    if inserted is None:
+        winner = (
+            None
+            if draft.client_mutation_id is None
+            else _prior_submission(
+                session,
+                account_id=lens.account_id,
+                client_mutation_id=draft.client_mutation_id,
+            )
+        )
+        if winner is None:
+            # Unreachable for a NULL key, which never conflicts; for a
+            # real one, the winner was committed and then removed (its
+            # batch deleted) between the two statements. Not a payment
+            # to return, and not one to record blind.
+            raise _mutation_id_spent()
+        return _replayed(session, winner, draft)
+
+    submission = session.get_one(PaymentSubmission, inserted)
 
     channel = CASH if method is None else (method.provider or method.kind)
     shares = _shares(draft.amount, [child.owed for child in children])
@@ -430,6 +496,124 @@ def submit_payment(
     _tell_the_teacher(session, submission, claims[0], [c.seat for c in children])
     session.commit()
     return submission
+
+
+def _mutation_id_spent() -> ConflictError:
+    """Build the refusal for a retry key already naming another payment.
+
+    The code is the one the queued teaching writes use for the same
+    semantic; the message key is the payment's own, because the
+    teaching string tells the person to reload a class.
+
+    :return: The conflict
+    """
+    return ConflictError(
+        code="MUTATION_ID_ALREADY_USED",
+        message_key="fees.payment.mutation_id_already_used",
+    )
+
+
+def _fast_path_prior(
+    session: Session, *, account_id: uuid.UUID, draft: PaymentDraft
+) -> PaymentSubmission | None:
+    """Look a resend up before doing any of the payment's work.
+
+    A separate function from the read-back after a conflicted insert
+    only so a test can blind THIS lookup and leave that one working,
+    which is how it proves the constraint rather than the lookup is
+    what stops a second payment.
+
+    :param session: The session to read through
+    :param account_id: The submitting account
+    :param draft: The payer's form
+    :return: The recorded submission, or None (always, without a key)
+    """
+    if draft.client_mutation_id is None:
+        return None
+    return _prior_submission(
+        session, account_id=account_id, client_mutation_id=draft.client_mutation_id
+    )
+
+
+def _prior_submission(
+    session: Session, *, account_id: uuid.UUID, client_mutation_id: uuid.UUID
+) -> PaymentSubmission | None:
+    """Find this ACCOUNT's submission under a retry key.
+
+    **Scoped by both columns of the constraint.** A lookup on the key
+    alone would find another account's submission and return it -- a
+    silent success that discloses another family's payment.
+
+    :param session: The session to read through
+    :param account_id: The submitting account
+    :param client_mutation_id: The app's retry key
+    :return: The submission, or None
+    """
+    return session.scalars(
+        sa.select(PaymentSubmission).where(
+            PaymentSubmission.submitted_by_account_id == account_id,
+            PaymentSubmission.client_mutation_id == client_mutation_id,
+        )
+    ).one_or_none()
+
+
+def _same_payment(
+    session: Session, prior: PaymentSubmission, draft: PaymentDraft
+) -> bool:
+    """Decide whether a resend describes the payment already recorded.
+
+    Compared **as stored**, after the same blank-to-None normalisation
+    the original went through, so a resend is not refused for a
+    trailing space the first send also had. The destination is read
+    from the snapshot rather than ``payment_method_id``, which becomes
+    NULL if the method is later deleted.
+
+    :param session: The session to read the claims through
+    :param prior: The recorded submission
+    :param draft: The resend
+    :return: True when every field the payer typed matches
+    """
+    snapshot = prior.destination_snapshot
+    if draft.cash:
+        same_destination = (
+            snapshot.get("kind") == CASH and draft.payment_method_id is None
+        )
+    else:
+        same_destination = draft.payment_method_id is not None and snapshot.get(
+            "method_id"
+        ) == str(draft.payment_method_id)
+    children = set(
+        session.scalars(
+            sa.select(PaymentClaim.enrollment_id).where(
+                PaymentClaim.payment_submission_id == prior.id
+            )
+        ).all()
+    )
+    return (
+        same_destination
+        and children == set(draft.enrollment_ids)
+        and prior.total_amount == draft.amount
+        and prior.paid_on == draft.paid_on
+        and prior.transaction_id == _blank_to_none(draft.transaction_id)
+        and prior.from_account == _blank_to_none(draft.from_account)
+        and prior.payer_note == _blank_to_none(draft.note)
+    )
+
+
+def _replayed(
+    session: Session, prior: PaymentSubmission, draft: PaymentDraft
+) -> PaymentSubmission:
+    """Answer a resend with the submission it repeats, writing nothing.
+
+    :param session: The session to read through
+    :param prior: The submission recorded under the same key
+    :param draft: The resend
+    :return: The recorded submission, unchanged
+    :raises ConflictError: The resend describes a different payment
+    """
+    if not _same_payment(session, prior, draft):
+        raise _mutation_id_spent()
+    return prior
 
 
 def _tell_the_teacher(

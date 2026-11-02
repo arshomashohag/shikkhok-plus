@@ -97,6 +97,34 @@ resource "aws_s3_bucket_public_access_block" "config" {
   restrict_public_buckets = true
 }
 
+# **TLS only** [OPS-4]. The bucket holds the compose file and, since
+# OPS-8, the origin's Let's Encrypt account and private key. Every
+# legitimate client -- the AWS CLI on the host, Terraform -- already
+# uses HTTPS, so denying plain HTTP removes a downgrade path and costs
+# nothing.
+resource "aws_s3_bucket_policy" "config" {
+  bucket = aws_s3_bucket.config.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid       = "DenyInsecureTransport"
+      Effect    = "Deny"
+      Principal = "*"
+      Action    = "s3:*"
+      Resource = [
+        aws_s3_bucket.config.arn,
+        "${aws_s3_bucket.config.arn}/*",
+      ]
+      Condition = { Bool = { "aws:SecureTransport" = "false" } }
+    }]
+  })
+
+  # The public-access block must exist first, or S3 may evaluate this
+  # policy against a bucket whose block settings are still changing.
+  depends_on = [aws_s3_bucket_public_access_block.config]
+}
+
 resource "aws_s3_bucket_server_side_encryption_configuration" "config" {
   bucket = aws_s3_bucket.config.id
 

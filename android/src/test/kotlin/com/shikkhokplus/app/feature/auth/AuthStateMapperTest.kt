@@ -55,6 +55,24 @@ class AuthStateMapperTest {
     }
 
     @Test
+    fun `a renewed session at a cold start is signed in`() {
+        assertEquals(AuthUiState.SignedIn, AuthStateMapper.afterResume(SessionResume.RENEWED))
+    }
+
+    @Test
+    fun `a session that could not be verified stays signed in`() {
+        // No answer -- offline, or a server that failed to answer --
+        // says nothing about the credential [FE-1]. Sending the teacher
+        // to the OTP screen for it stranded the offline queue.
+        assertEquals(AuthUiState.SignedIn, AuthStateMapper.afterResume(SessionResume.UNVERIFIED))
+    }
+
+    @Test
+    fun `only an ended session goes to sign-in`() {
+        assertEquals(AuthUiState.Idle, AuthStateMapper.afterResume(SessionResume.ENDED))
+    }
+
+    @Test
     fun `a server error carries the key and the retryable flag`() {
         val state = AuthStateMapper.afterError(
             ErrorEnvelope(

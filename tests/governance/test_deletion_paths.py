@@ -23,6 +23,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session
 
+from app.api.deletion import CODE_SENT_NOTICE, DELETED_NOTICE, INVALID_NOTICE
 from app.auth.hashing import OTP_HMAC_KEY_ENV
 from app.auth.tokens import JWT_ACTIVE_KID_ENV, JWT_KEYS_ENV, issue_pair
 from app.config import ENVIRONMENT_ENV
@@ -286,6 +287,174 @@ def test_a_sign_in_code_cannot_delete_through_the_route(
 
 
 # ---------------------------------------------------------------------------
+# THE PAGE'S OWN FORM. [PA-SEC-1]
+#
+# The page serves a plain `<form method="post">` with no script, so a
+# browser posts it urlencoded. The route took only JSON, so every real
+# use of the page was a 422 -- and the JSON tests above were green
+# throughout, because none of them submitted what the page submits.
+# ---------------------------------------------------------------------------
+
+UNKNOWN_PHONE: Final = "+8801799000001"
+
+
+def test_the_page_form_posts_where_the_route_listens(client: TestClient) -> None:
+    """The form these tests imitate is the form the page serves.
+
+    :param client: The test client
+    :return: None
+    """
+    page = client.get("/account-deletion").text
+
+    assert '<form method="post" action="/account-deletion">' in page
+    assert 'name="phone"' in page
+    assert 'name="code"' in page
+
+
+def test_a_form_post_with_a_blank_code_sends_a_code_and_deletes_nothing(
+    client: TestClient, owner_session: Session, populated_seat: PopulatedSeat
+) -> None:
+    """``code=`` is the first step, not a code to verify.
+
+    :param client: The test client
+    :param owner_session: A session able to read everything
+    :param populated_seat: The fixture
+    :return: None
+    """
+    phone = populated_seat.student_phone
+    before = _undestroyed_rows(owner_session)
+
+    response = client.post("/account-deletion", data={"phone": phone, "code": ""})
+
+    assert response.status_code == 200, response.text
+    assert "text/html" in response.headers["content-type"]
+    assert CODE_SENT_NOTICE in response.text
+    # The confirm step: the same form, the number already filled in.
+    assert f'name="phone" type="tel" required value="{phone}"' in response.text
+    owner_session.expire_all()
+    assert _undestroyed_rows(owner_session) == before
+    # A DELETION code was issued, so the next step has something to spend.
+    assert _current_code(owner_session, phone).isdigit()
+
+
+@pytest.mark.parametrize("blank", ["", "   ", None], ids=["empty", "spaces", "absent"])
+def test_every_spelling_of_no_code_is_the_first_step(
+    client: TestClient,
+    owner_session: Session,
+    populated_seat: PopulatedSeat,
+    blank: str | None,
+) -> None:
+    """A whitespace code box, or none at all, also asks for a code.
+
+    :param client: The test client
+    :param owner_session: A session able to read everything
+    :param populated_seat: The fixture
+    :param blank: What the code box held
+    :return: None
+    """
+    data = {"phone": populated_seat.student_phone}
+    if blank is not None:
+        data["code"] = blank
+
+    response = client.post("/account-deletion", data=data)
+
+    assert response.status_code == 200, response.text
+    assert CODE_SENT_NOTICE in response.text
+
+
+def test_the_code_sent_page_is_identical_for_known_and_unknown_numbers(
+    client: TestClient, populated_seat: PopulatedSeat
+) -> None:
+    """Enumeration resistance survives the move to HTML [BR2.7].
+
+    The only difference allowed is the number the caller typed, echoed
+    back into the form; with it masked the two pages are byte-identical.
+
+    :param client: The test client
+    :param populated_seat: The fixture
+    :return: None
+    """
+    known_phone = populated_seat.student_phone
+    known = client.post("/account-deletion", data={"phone": known_phone, "code": ""})
+    unknown = client.post(
+        "/account-deletion", data={"phone": UNKNOWN_PHONE, "code": ""}
+    )
+
+    assert known.status_code == unknown.status_code == 200
+    assert known.headers["content-type"] == unknown.headers["content-type"]
+    assert known.text.replace(known_phone, "N") == unknown.text.replace(
+        UNKNOWN_PHONE, "N"
+    )
+
+
+def test_a_form_post_with_a_wrong_code_deletes_nothing_and_says_so(
+    client: TestClient, owner_session: Session, populated_seat: PopulatedSeat
+) -> None:
+    """A wrong code re-renders the form with what went wrong.
+
+    :param client: The test client
+    :param owner_session: A session able to read everything
+    :param populated_seat: The fixture
+    :return: None
+    """
+    phone = populated_seat.student_phone
+    client.post("/account-deletion", data={"phone": phone, "code": ""})
+    real = _current_code(owner_session, phone)
+    wrong = "000000" if real != "000000" else "111111"
+    before = _undestroyed_rows(owner_session)
+
+    response = client.post("/account-deletion", data={"phone": phone, "code": wrong})
+
+    assert response.status_code == 400
+    assert "text/html" in response.headers["content-type"]
+    assert "That code isn&#x27;t right. 4 tries left." in response.text
+    assert f'value="{phone}"' in response.text
+    owner_session.expire_all()
+    assert _undestroyed_rows(owner_session) == before
+
+
+def test_a_form_post_with_an_invalid_number_is_a_page_not_json(
+    client: TestClient, owner_session: Session
+) -> None:
+    """A malformed number is answered in the page, and nothing is issued.
+
+    Echoed back escaped, so the page cannot be made to carry markup.
+
+    :param client: The test client
+    :param owner_session: A session able to read everything
+    :return: None
+    """
+    response = client.post(
+        "/account-deletion", data={"phone": "<b>not a number</b>", "code": ""}
+    )
+
+    assert response.status_code == 422
+    assert "text/html" in response.headers["content-type"]
+    assert INVALID_NOTICE in response.text
+    assert "<b>not a number</b>" not in response.text
+    assert "&lt;b&gt;not a number&lt;/b&gt;" in response.text
+    owner_session.expire_all()
+    assert (
+        owner_session.execute(sa.text("SELECT count(*) FROM otp_request")).scalar_one()
+        == 0
+    )
+
+
+def test_a_json_body_with_a_bad_field_is_still_a_422(client: TestClient) -> None:
+    """The JSON contract is unchanged by the form path.
+
+    :param client: The test client
+    :return: None
+    """
+    response = client.post(
+        "/account-deletion", json={"phone": "+8801711111111", "code": "12"}
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"][0]["loc"] == ["body", "code"]
+
+
+# ---------------------------------------------------------------------------
 # THE COMPARISON. [BR3.1]
 #
 # Not two hand-written expectations: the surviving row sets of the two
@@ -293,14 +462,29 @@ def test_a_sign_in_code_cannot_delete_through_the_route(
 # ---------------------------------------------------------------------------
 
 
-def _delete_externally(client: TestClient, session: Session, phone: str) -> None:
-    """Drive the external route end to end.
+def _delete_externally(
+    client: TestClient, session: Session, phone: str, *, form: bool = False
+) -> None:
+    """Drive the external route end to end, as JSON or as the page's form.
+
+    The form variant submits exactly what a browser does with the page:
+    urlencoded, with an EMPTY code box on the first step.
 
     :param client: The test client
     :param session: A session able to read the outbox
     :param phone: The number to delete
+    :param form: Submit as the HTML form rather than as JSON
     :return: None
     """
+    if form:
+        sent = client.post("/account-deletion", data={"phone": phone, "code": ""})
+        assert sent.status_code == 200, sent.text
+        code = _current_code(session, phone)
+        response = client.post("/account-deletion", data={"phone": phone, "code": code})
+        assert response.status_code == 200, response.text
+        assert "text/html" in response.headers["content-type"]
+        assert DELETED_NOTICE in response.text
+        return
     client.post("/account-deletion", json={"phone": phone})
     code = _current_code(session, phone)
     response = client.post("/account-deletion", json={"phone": phone, "code": code})
@@ -433,10 +617,12 @@ def _seed_otp_row(session: Session, phone: str) -> None:
     session.commit()
 
 
+@pytest.mark.parametrize("form", [False, True], ids=["json", "html-form"])
 def test_both_paths_leave_the_same_rows_behind(
     client: TestClient,
     owner_session: Session,
     populated_seat: PopulatedSeat,
+    form: bool,
 ) -> None:
     """One deletion function, two callers, identical outcome [BR3.1].
 
@@ -467,7 +653,10 @@ def test_both_paths_leave_the_same_rows_behind(
     owner_session.expire_all()
     in_app = _seat_shape(owner_session, populated_seat)
 
-    _delete_externally(client, owner_session, second.student_phone)
+    # Parametrized over both encodings [PA-SEC-1]: the page's real form
+    # is what Play's reviewer and a person without the app will use, and
+    # it posts urlencoded -- which the route used to answer with a 422.
+    _delete_externally(client, owner_session, second.student_phone, form=form)
     owner_session.expire_all()
     external = _seat_shape(owner_session, second)
 

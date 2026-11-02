@@ -1089,6 +1089,9 @@
     <string name="pay_paid_on_row">Paid on</string>
     <string name="pay_status_row">Status</string>
     <string name="pay_pending">Pending verification</string>
+    <string name="pay_recorded_title">Already recorded</string>
+    <string name="pay_recorded_body_approved">This payment of %1$s was already recorded, and %2$s has approved it.</string>
+    <string name="pay_recorded_body_rejected">This payment of %1$s was already recorded, and %2$s did not accept it.</string>
     <string name="pay_done">Done</string>
     <string name="pay_nothing_title">Nothing to pay for yet</string>
     <string name="pay_nothing_body">You have no accepted classes to send money for.</string>
@@ -1109,6 +1112,7 @@
     <string name="fees_payment_date_in_future">The date paid cannot be in the future.</string>
     <string name="fees_payment_date_too_early">The date paid is too far back for this child.</string>
     <string name="fees_payment_method_not_offered">The teacher does not accept that method. Choose another.</string>
+    <string name="fees_payment_mutation_id_already_used">This payment was already sent with different details. Check your payments before sending it again.</string>
     <string name="fees_payment_reference_mismatch">Enter the transaction ID for a mobile method, or the paying account for a bank, and nothing extra.</string>
     <string name="payments_owed_now">Owed now</string>
     <string name="payments_nothing_due">Nothing due now</string>

@@ -107,6 +107,17 @@ class PayViewModelTest {
 
     private fun model(fake: Fake) = PayViewModel(fake, today = { "2026-11-02" })
 
+    /** Hands out `key-1`, `key-2`, ... so a test can name the key a send carried. */
+    private class Keys {
+        var issued = 0
+            private set
+
+        fun next(): String = "key-${++issued}"
+    }
+
+    private fun keyed(fake: Fake, keys: Keys) =
+        PayViewModel(fake, today = { "2026-11-02" }, newMutationId = keys::next)
+
     private suspend fun TestScope.filling(
         model: PayViewModel,
         choice: PayChoice = PayChoice.Method(bkash),
@@ -237,7 +248,9 @@ class PayViewModelTest {
                     listOf("e-1"), "m-2", false, Money.of("1000.00"), "2026-11-02", fromAccount = "1234 5678",
                 ),
             ),
-            fake.sent,
+            // The replay key is random per attempt and has tests of its
+            // own below; this one is about the payment's content.
+            fake.sent.map { it.copy(clientMutationId = null) },
         )
     }
 
@@ -269,7 +282,7 @@ class PayViewModelTest {
             listOf(
                 PaymentSubmitDto(listOf("e-1"), null, true, Money.of("1000.00"), "2026-11-02", note = "in class"),
             ),
-            fake.sent,
+            fake.sent.map { it.copy(clientMutationId = null) },
         )
         assertIs<PayUiState.Sent>(model.state.value)
     }
@@ -370,5 +383,170 @@ class PayViewModelTest {
         advanceUntilIdle()
 
         assertEquals(PayUiState.Failed(PayMapper.OFFLINE_KEY, true), model.state.value)
+    }
+
+    // ------------------------------------------------------------------
+    // The payment replay key [PA-DB-1, FE-5]. A send can time out after
+    // the server recorded it; without a key, the payer's second tap made
+    // a second pending claim for the same money.
+    // ------------------------------------------------------------------
+
+    @Test
+    fun `every payment is sent with a replay key`() = runTest(dispatcher) {
+        val fake = fake()
+        val model = keyed(fake, Keys())
+        val form = filling(model)
+        model.type(form.form.copy(transactionId = "9KD7Q2XL1M"))
+
+        model.send()
+        advanceUntilIdle()
+
+        assertEquals(listOf<String?>("key-1"), fake.sent.map { it.clientMutationId })
+    }
+
+    @Test
+    fun `sending the same payment again after a lost response reuses its key`() = runTest(dispatcher) {
+        // The first send reached the server and the answer was lost.
+        // The retry must carry the SAME key, so the server returns the
+        // submission it already holds instead of recording another. That
+        // replay comes back as an ordinary success.
+        val fake = fake(submit = AuthResult.TransportFailure)
+        val keys = Keys()
+        val model = keyed(fake, keys)
+        val form = filling(model)
+        model.type(form.form.copy(transactionId = "9KD7Q2XL1M"))
+        model.send()
+        advanceUntilIdle()
+
+        fake.submit = AuthResult.Ok(submitted())
+        model.send()
+        advanceUntilIdle()
+
+        assertEquals(listOf<String?>("key-1", "key-1"), fake.sent.map { it.clientMutationId })
+        assertEquals(1, keys.issued)
+        assertIs<PayUiState.Sent>(model.state.value)
+    }
+
+    @Test
+    fun `a refused payment sent again unchanged keeps its key`() = runTest(dispatcher) {
+        val refused = AuthResult.Refused(ErrorEnvelope(ErrorBody("X", true, "error.server")))
+        val fake = fake(submit = refused)
+        val model = keyed(fake, Keys())
+        val form = filling(model)
+        model.type(form.form.copy(transactionId = "9KD7Q2XL1M"))
+
+        model.send()
+        advanceUntilIdle()
+        model.send()
+        advanceUntilIdle()
+
+        assertEquals(listOf<String?>("key-1", "key-1"), fake.sent.map { it.clientMutationId })
+    }
+
+    @Test
+    fun `an edited payment is a new attempt with a new key`() = runTest(dispatcher) {
+        // Changing what was paid makes it a different payment. Reusing
+        // the key would have the server answer with the OLD submission
+        // and drop the correction.
+        val fake = fake(submit = AuthResult.TransportFailure)
+        val model = keyed(fake, Keys())
+        val form = filling(model)
+        model.type(form.form.copy(transactionId = "9KD7Q2XL1M"))
+        model.send()
+        advanceUntilIdle()
+
+        model.type(form.form.copy(transactionId = "9KD7Q2XL1M", amount = "900.00"))
+        model.send()
+        advanceUntilIdle()
+
+        assertEquals(listOf<String?>("key-1", "key-2"), fake.sent.map { it.clientMutationId })
+    }
+
+    @Test
+    fun `the next payment after a successful one gets a new key`() = runTest(dispatcher) {
+        // Two genuine payments of the same amount on the same day are two
+        // payments. Only a retry of one attempt may share its key.
+        val fake = fake()
+        val model = keyed(fake, Keys())
+        val first = filling(model)
+        model.type(first.form.copy(transactionId = "9KD7Q2XL1M"))
+        model.send()
+        advanceUntilIdle()
+        assertIs<PayUiState.Sent>(model.state.value)
+
+        val second = filling(model)
+        model.type(second.form.copy(transactionId = "9KD7Q2XL1M"))
+        model.send()
+        advanceUntilIdle()
+
+        assertEquals(listOf<String?>("key-1", "key-2"), fake.sent.map { it.clientMutationId })
+    }
+
+    @Test
+    fun `a resend the teacher already decided is a success that says so`() = runTest(dispatcher) {
+        // A replay is answered with the ORIGINAL submission and its
+        // stored status. A late resend after the teacher decided is
+        // still a success -- nothing new was recorded -- and the page
+        // must not tell the payer the teacher "will check" it.
+        for ((status, outcome) in listOf("approved" to SentOutcome.APPROVED, "rejected" to SentOutcome.REJECTED)) {
+            val model = model(fake(submit = AuthResult.Ok(submitted().copy(status = status))))
+            val form = filling(model)
+            model.type(form.form.copy(transactionId = "9KD7Q2XL1M"))
+
+            model.send()
+            advanceUntilIdle()
+
+            assertEquals(outcome, assertIs<PayUiState.Sent>(model.state.value).outcome, status)
+        }
+    }
+
+    @Test
+    fun `a fresh submission is sent and pending`() = runTest(dispatcher) {
+        val model = model(fake())
+        val form = filling(model)
+        model.type(form.form.copy(transactionId = "9KD7Q2XL1M"))
+
+        model.send()
+        advanceUntilIdle()
+
+        assertEquals(SentOutcome.PENDING, assertIs<PayUiState.Sent>(model.state.value).outcome)
+    }
+
+    @Test
+    fun `a key already used for a different payment is shown and never swapped for a new one`() =
+        runTest(dispatcher) {
+            // The server's 409 MUTATION_ID_ALREADY_USED: this key already
+            // names a DIFFERENT payment. Quietly retrying under a fresh key
+            // would record what may be a duplicate; the message asks the
+            // payer to check their payments first, and a resend keeps the
+            // key, so it cannot create a second claim.
+            val conflict =
+                AuthResult.Refused(
+                    ErrorEnvelope(
+                        ErrorBody("MUTATION_ID_ALREADY_USED", false, "fees.payment.mutation_id_already_used"),
+                    ),
+                )
+            val fake = fake(submit = conflict)
+            val model = keyed(fake, Keys())
+            val form = filling(model)
+            model.type(form.form.copy(transactionId = "9KD7Q2XL1M"))
+
+            model.send()
+            advanceUntilIdle()
+            model.send()
+            advanceUntilIdle()
+
+            val failed = assertIs<PayUiState.Filling>(model.state.value)
+            assertEquals("fees.payment.mutation_id_already_used", failed.failedKey)
+            assertEquals(listOf<String?>("key-1", "key-1"), fake.sent.map { it.clientMutationId })
+        }
+
+    @Test
+    fun `every status the server can report has a reading`() {
+        assertEquals(SentOutcome.PENDING, PayMapper.outcomeOf("pending"))
+        assertEquals(SentOutcome.APPROVED, PayMapper.outcomeOf("approved"))
+        assertEquals(SentOutcome.REJECTED, PayMapper.outcomeOf("rejected"))
+        // Added by a newer server [D-26]: the reading that claims least.
+        assertEquals(SentOutcome.PENDING, PayMapper.outcomeOf("something_new"))
     }
 }
