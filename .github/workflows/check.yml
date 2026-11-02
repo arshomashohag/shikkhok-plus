@@ -233,6 +233,103 @@ jobs:
       - name: make check (python half)
         run: make lint typecheck test
 
+  # **The image that ships, built and started on every pull request.**
+  #
+  # Until 2026-11-02 nothing built the Dockerfile before a deploy did, so
+  # the image could run an interpreter no test had run on and
+  # dependencies the lockfile never pinned -- and both were true at once
+  # [OPS-13]. This job builds it for the runner's own architecture (the
+  # deploy builds arm64 from the same Dockerfile; a QEMU arm64 build here
+  # would cost several minutes for no extra coverage of the Dockerfile),
+  # migrates a throwaway PostgreSQL 16 with it, starts the API, and
+  # asserts /health reports a reachable database at the migration head
+  # this commit declares. No secret: every credential is a local value
+  # for a container that exists for the length of this job.
+  image:
+    name: image
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      IMAGE: shikkhokplus-backend:ci
+      DB_URL: postgresql+psycopg://shikkhok:ci-only@db:5432/shikkhokplus
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build the image
+        run: docker build --target runtime -t "$IMAGE" .
+
+      - name: The image runs the interpreter the suite runs
+        run: |
+          version=$(docker run --rm "$IMAGE" python -c \
+            'import sys; print("%d.%d" % sys.version_info[:2])')
+          echo "image python: $version"
+          [ "$version" = "3.12" ] || {
+            echo "::error::The image runs Python $version; the project targets 3.12."
+            exit 1
+          }
+          docker run --rm "$IMAGE" python -c "import app.main"
+
+      - name: Migrate a throwaway database with the image
+        run: |
+          docker network create smoke
+          docker run -d --name db --network smoke \
+            -e POSTGRES_USER=shikkhok -e POSTGRES_PASSWORD=ci-only \
+            -e POSTGRES_DB=shikkhokplus postgres:16-alpine
+          for _ in $(seq 1 30); do
+            docker exec db pg_isready -U shikkhok -d shikkhokplus && break
+            sleep 2
+          done
+          # Both names: the migration reads the owner URL, and the
+          # application reads its own. In this job they are one local
+          # database and one local role.
+          docker run --rm --network smoke \
+            -e SHIKKHOKPLUS_MIGRATION_DATABASE_URL="$DB_URL" \
+            -e SHIKKHOKPLUS_DATABASE_URL="$DB_URL" \
+            "$IMAGE" alembic upgrade head
+
+      - name: The API answers with the database at head
+        run: |
+          docker run -d --name api --network smoke -p 127.0.0.1:8000:8000 \
+            -e SHIKKHOKPLUS_DATABASE_URL="$DB_URL" "$IMAGE"
+          ok=""
+          for _ in $(seq 1 30); do
+            if body=$(curl -fsS -m 5 http://127.0.0.1:8000/health); then
+              ok=1; break
+            fi
+            sleep 2
+          done
+          if [ -z "$ok" ]; then
+            echo "::error::The image started but /health never answered."
+            docker logs api
+            exit 1
+          fi
+          echo "$body"
+          # The head is DERIVED from migrations/versions -- the one
+          # revision no other revision names as its parent -- so adding
+          # a migration cannot leave this asserting the previous head.
+          BODY="$body" python3 - <<'PY'
+          import json, os, pathlib, re
+          revs, parents = set(), set()
+          for f in pathlib.Path("migrations/versions").glob("*.py"):
+              t = f.read_text()
+              r = re.search(r'^revision[^=]*=\s*"([^"]+)"', t, re.M)
+              d = re.search(r'^down_revision[^=]*=\s*"([^"]+)"', t, re.M)
+              if r:
+                  revs.add(r.group(1))
+              if d:
+                  parents.add(d.group(1))
+          heads = revs - parents
+          assert len(heads) == 1, f"expected one migration head, found {heads}"
+          health = json.loads(os.environ["BODY"])
+          assert health["database"] == "ok", health
+          assert health["migration_revision"] == heads.pop(), health
+          print("health ok at head", health["migration_revision"])
+          PY
+
+      - name: Container logs
+        if: always()
+        run: docker logs api 2>&1 | tail -50 || true
+
   android-unit:
     name: android-unit
     runs-on: ubuntu-latest
