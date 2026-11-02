@@ -62,10 +62,18 @@ DOWNWARD_ROUTES: Final[frozenset[tuple[str, str]]] = frozenset(
     }
 )
 
-#: Routes that will carry the destination snapshot once submissions
-#: exist; asserted separately until then.
+#: Routes carrying a payment's destination snapshot: the number the
+#: family was shown when they paid, read back by that batch's teacher.
+#: Listed apart from the permitted routes because the snapshot is a
+#: record of a payment, not the teacher's live method.
 SNAPSHOT_ROUTES: Final[frozenset[tuple[str, str]]] = frozenset(
-    {("GET", "/v1/payments/{submission_id}")}
+    {
+        ("GET", "/v1/payments/{submission_id}"),
+        ("POST", "/v1/payments/{submission_id}/approval"),
+        ("POST", "/v1/payments/{submission_id}/rejection"),
+        ("GET", "/v1/claims/queue"),
+        ("GET", "/v1/me/today"),
+    }
 )
 
 

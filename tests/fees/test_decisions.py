@@ -1,0 +1,686 @@
+"""Deciding a payment: approve with a split, or reject with a note [R1-R4].
+
+**Written before the decision existed.** Every case is money or
+authorization, so the test-first predicate holds: the expected ledger
+is knowable from the charges and the teacher's choices alone, and a
+wrong answer either credits the wrong child or lets another teacher
+decide.
+
+Two children, Tania and Tanvir, each owe 1000.00 for October unless a
+test says otherwise. Child order is display name then id, so Tania is
+first and Tanvir second everywhere.
+"""
+
+from __future__ import annotations
+
+import uuid
+from collections.abc import Callable
+from dataclasses import dataclass
+
+import sqlalchemy as sa
+from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
+
+from app.db.models import LedgerEntryRow, PaymentClaim, PaymentMethod
+from app.fees.balances import derive_for_enrollment
+from app.fees.generation import generate_due_cycles
+from app.fees.status import fee_status
+from app.local_time import bangladesh_today
+from app.money import Money
+from app.notifications.inbox import inbox
+from tests.batches.conftest import TeacherFixture, enroll, make_teacher
+from tests.conftest import bearer
+from tests.fees.conftest import add_method, charge_period
+
+OCTOBER = "2026-10"
+
+
+@dataclass(frozen=True, slots=True)
+class Family:
+    """A guardian with two children on one teacher's batch.
+
+    :ivar guardian: The guardian's account
+    :ivar tania: Tania's seat, first in child order
+    :ivar tanvir: Tanvir's seat, second in child order
+    :ivar method: The teacher's bKash method
+    """
+
+    guardian: uuid.UUID
+    tania: uuid.UUID
+    tanvir: uuid.UUID
+    method: uuid.UUID
+
+
+def _family(
+    session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+    *,
+    owed: str | None = "1000.00",
+) -> Family:
+    """Seat two children under one guardian, each owing October's fee.
+
+    :param session: An arranging session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :param owed: What each child is charged for October, or None for nothing
+    :return: The family
+    """
+    guardian = account_factory()
+    seats = [
+        enroll(
+            session,
+            batch_id=teacher.batch_id,
+            display_name=name,
+            guardian_account_id=guardian,
+            guardian_decision="accepted",
+        )
+        for name in ("Tanvir", "Tania")
+    ]
+    if owed is not None:
+        for seat in seats:
+            charge_period(session, enrollment_id=seat, period=OCTOBER, amount=owed)
+    return Family(
+        guardian=guardian,
+        tania=seats[1],
+        tanvir=seats[0],
+        method=add_method(session, teacher.owner_id),
+    )
+
+
+def _submit(
+    client: TestClient,
+    session: Session,
+    family: Family,
+    amount: str,
+    seats: list[uuid.UUID] | None = None,
+) -> uuid.UUID:
+    """Report one payment for the family's children.
+
+    :param client: The test client
+    :param session: A session to issue the token through
+    :param family: The family paying
+    :param amount: The amount sent
+    :param seats: The children covered; both by default
+    :return: The submission id
+    """
+    covered = seats if seats is not None else [family.tania, family.tanvir]
+    response = client.post(
+        "/v1/payments",
+        json={
+            "enrollment_ids": [str(seat) for seat in covered],
+            "payment_method_id": str(family.method),
+            "amount": amount,
+            "paid_on": bangladesh_today().isoformat(),
+            "transaction_id": f"TX{uuid.uuid4().hex[:10]}",
+            "note": "November fee",
+        },
+        headers=bearer(session, family.guardian),
+    )
+    assert response.status_code == 201, response.text
+    return uuid.UUID(response.json()["submission_id"])
+
+
+def _approve(
+    client: TestClient,
+    session: Session,
+    teacher: TeacherFixture,
+    submission_id: uuid.UUID,
+    received: str,
+    **choices: object,
+) -> object:
+    """Approve a submission as the teacher.
+
+    :param client: The test client
+    :param session: A session to issue the token through
+    :param teacher: The deciding teacher
+    :param submission_id: The submission
+    :param received: The amount the teacher records as received
+    :param choices: The disposition, chosen children, note or correcting
+    :return: The response
+    """
+    body: dict[str, object] = {"received_amount": received}
+    body.update(
+        {
+            key: str(value) if isinstance(value, uuid.UUID) else value
+            for key, value in choices.items()
+        }
+    )
+    return client.post(
+        f"/v1/payments/{submission_id}/approval",
+        json=body,
+        headers=bearer(session, teacher.account_id),
+    )
+
+
+def _kinds(session: Session, seat: uuid.UUID) -> dict[str, list[tuple[str, Money]]]:
+    """Read a seat's ledger as kind to (period, amount) pairs.
+
+    :param session: A reading session
+    :param seat: The seat
+    :return: Every entry, grouped by kind
+    """
+    found: dict[str, list[tuple[str, Money]]] = {}
+    for row in session.scalars(
+        sa.select(LedgerEntryRow)
+        .where(LedgerEntryRow.enrollment_id == seat)
+        .order_by(LedgerEntryRow.created_at)
+    ):
+        found.setdefault(row.kind, []).append((row.period, row.amount))
+    return found
+
+
+def _code(response: object) -> str:
+    """Read the error code from an envelope.
+
+    :param response: The response
+    :return: The code
+    """
+    code: str = response.json()["error"]["code"]  # type: ignore[attr-defined]
+    return code
+
+
+def test_full_approval_marks_every_child_paid(
+    api_client: TestClient,
+    owner_session: Session,
+    restricted_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """2000 for two children owing 1000 each pays both October cycles.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param restricted_session: The application's session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    family = _family(owner_session, teacher, account_factory)
+    submission = _submit(api_client, owner_session, family, "2000.00")
+
+    response = _approve(api_client, owner_session, teacher, submission, "2000.00")
+
+    assert response.status_code == 200, response.text  # type: ignore[attr-defined]
+    assert response.json()["status"] == "approved"  # type: ignore[attr-defined]
+    for seat in (family.tania, family.tanvir):
+        assert (
+            fee_status(restricted_session, enrollment_id=seat, period=OCTOBER) == "paid"
+        )
+
+
+def test_short_carry_lands_on_the_chosen_child(
+    api_client: TestClient,
+    owner_session: Session,
+    restricted_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """1500 of 2000, carried by Tanvir: Tania paid, Tanvir carries 500.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param restricted_session: The application's session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    family = _family(owner_session, teacher, account_factory)
+    submission = _submit(api_client, owner_session, family, "1500.00")
+
+    response = _approve(
+        api_client,
+        owner_session,
+        teacher,
+        submission,
+        "1500.00",
+        shortfall_disposition="carried",
+        carried_by_enrollment_id=family.tanvir,
+    )
+
+    assert response.status_code == 200, response.text  # type: ignore[attr-defined]
+    assert (
+        fee_status(restricted_session, enrollment_id=family.tania, period=OCTOBER)
+        == "paid"
+    )
+    assert _kinds(restricted_session, family.tanvir)["carry_forward"] == [
+        ("2026-11", Money("500.00"))
+    ]
+    assert "carry_forward" not in _kinds(restricted_session, family.tania)
+
+
+def test_short_waive_forgives_without_carry(
+    api_client: TestClient,
+    owner_session: Session,
+    restricted_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """Waiving the 500 forgives it on Tanvir and carries nothing.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param restricted_session: The application's session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    family = _family(owner_session, teacher, account_factory)
+    submission = _submit(api_client, owner_session, family, "1500.00")
+
+    response = _approve(
+        api_client,
+        owner_session,
+        teacher,
+        submission,
+        "1500.00",
+        shortfall_disposition="waived",
+        carried_by_enrollment_id=family.tanvir,
+    )
+
+    assert response.status_code == 200, response.text  # type: ignore[attr-defined]
+    tanvir = _kinds(restricted_session, family.tanvir)
+    assert tanvir["forgiveness"] == [(OCTOBER, Money("500.00"))]
+    assert "carry_forward" not in tanvir
+    assert "forgiveness" not in _kinds(restricted_session, family.tania)
+
+
+def test_over_payment_credits_the_chosen_child(
+    api_client: TestClient,
+    owner_session: Session,
+    restricted_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """2500 for 2000 owed puts the 500 excess on Tania only.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param restricted_session: The application's session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    family = _family(owner_session, teacher, account_factory)
+    submission = _submit(api_client, owner_session, family, "2500.00")
+
+    response = _approve(
+        api_client,
+        owner_session,
+        teacher,
+        submission,
+        "2500.00",
+        credit_to_enrollment_id=family.tania,
+    )
+
+    assert response.status_code == 200, response.text  # type: ignore[attr-defined]
+    assert _kinds(restricted_session, family.tania)["credit_grant"] == [
+        (OCTOBER, Money("500.00"))
+    ]
+    assert "credit_grant" not in _kinds(restricted_session, family.tanvir)
+
+
+def test_nothing_owed_payment_becomes_credit(
+    api_client: TestClient,
+    owner_session: Session,
+    restricted_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """1000 with no cycle is all credit, and the next cycle spends it.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param restricted_session: The application's session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    family = _family(owner_session, teacher, account_factory, owed=None)
+    submission = _submit(
+        api_client, owner_session, family, "1000.00", seats=[family.tania]
+    )
+
+    response = _approve(api_client, owner_session, teacher, submission, "1000.00")
+
+    assert response.status_code == 200, response.text  # type: ignore[attr-defined]
+    kinds = _kinds(restricted_session, family.tania)
+    assert [amount for _period, amount in kinds["credit_grant"]] == [Money("1000.00")]
+    assert "receipt" not in kinds
+
+    generate_due_cycles(restricted_session, today=bangladesh_today())
+
+    spent = _kinds(restricted_session, family.tania)["credit_apply"]
+    assert Money.sum([amount for _period, amount in spent]) == Money("1000.00")
+
+
+def test_rejection_keeps_dues_and_shows_the_note(
+    api_client: TestClient,
+    owner_session: Session,
+    restricted_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """A rejected payment moves no money and the family reads why.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param restricted_session: The application's session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    student = account_factory()
+    seat = enroll(
+        owner_session,
+        batch_id=teacher.batch_id,
+        display_name="Rahim",
+        student_account_id=student,
+        student_decision="accepted",
+    )
+    charge_period(owner_session, enrollment_id=seat, period=OCTOBER, amount="1000.00")
+    method = add_method(owner_session, teacher.owner_id)
+    before = derive_for_enrollment(restricted_session, seat).total_outstanding
+    submitted = api_client.post(
+        "/v1/payments",
+        json={
+            "enrollment_ids": [str(seat)],
+            "payment_method_id": str(method),
+            "amount": "1000.00",
+            "paid_on": bangladesh_today().isoformat(),
+            "transaction_id": "9KD7Q2XL1M",
+        },
+        headers=bearer(owner_session, student),
+    ).json()
+
+    response = api_client.post(
+        f"/v1/payments/{submitted['submission_id']}/rejection",
+        json={"note": "No such transaction in my bKash"},
+        headers=bearer(owner_session, teacher.account_id),
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["decision_note"] == "No such transaction in my bKash"
+    claim_id = submitted["claims"][0]["claim_id"]
+    view = api_client.get(
+        f"/v1/claims/{claim_id}", headers=bearer(owner_session, student)
+    ).json()
+    assert view["status"] == "rejected"
+    assert view["decision_note"] == "No such transaction in my bKash"
+    assert derive_for_enrollment(restricted_session, seat).total_outstanding == before
+    [item] = inbox(restricted_session, account_id=student).items
+    assert item.kind == "payment_rejected"
+    assert item.preview == "No such transaction in my bKash"
+
+
+def test_correction_reverses_every_childs_entries(
+    api_client: TestClient,
+    owner_session: Session,
+    restricted_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """Approve with carry, then reject as a correction: both folds return.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param restricted_session: The application's session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    family = _family(owner_session, teacher, account_factory)
+    seats = (family.tania, family.tanvir)
+    before = {
+        seat: derive_for_enrollment(restricted_session, seat).per_cycle
+        for seat in seats
+    }
+    submission = _submit(api_client, owner_session, family, "1500.00")
+    approved = _approve(
+        api_client,
+        owner_session,
+        teacher,
+        submission,
+        "1500.00",
+        shortfall_disposition="carried",
+        carried_by_enrollment_id=family.tanvir,
+    )
+    assert approved.status_code == 200  # type: ignore[attr-defined]
+
+    refused = api_client.post(
+        f"/v1/payments/{submission}/rejection",
+        json={"note": "Wrong batch"},
+        headers=bearer(owner_session, teacher.account_id),
+    )
+    corrected = api_client.post(
+        f"/v1/payments/{submission}/rejection",
+        json={"note": "Wrong batch", "correcting": True},
+        headers=bearer(owner_session, teacher.account_id),
+    )
+
+    assert refused.status_code == 409
+    assert _code(refused) == "PAYMENT_ALREADY_DECIDED"
+    assert corrected.status_code == 200, corrected.text
+    assert corrected.json()["status"] == "rejected"
+    for seat in seats:
+        after = derive_for_enrollment(restricted_session, seat).per_cycle
+        assert {p: a for p, a in after.items() if not a.is_zero()} == {
+            p: a for p, a in before[seat].items() if not a.is_zero()
+        }
+    claims = restricted_session.scalars(
+        sa.select(PaymentClaim).where(PaymentClaim.payment_submission_id == submission)
+    ).all()
+    assert {claim.status for claim in claims} == {"rejected"}
+    assert all(claim.previous_decision is not None for claim in claims)
+
+
+def test_detail_shows_snapshot_after_method_edit(
+    api_client: TestClient,
+    owner_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """The teacher sees the number the family paid to, not today's number.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    family = _family(owner_session, teacher, account_factory)
+    submission = _submit(api_client, owner_session, family, "1500.00")
+    method = owner_session.get(PaymentMethod, family.method)
+    assert method is not None
+    method.mobile_number = "01899999999"
+    owner_session.commit()
+
+    response = api_client.get(
+        f"/v1/payments/{submission}", headers=bearer(owner_session, teacher.account_id)
+    )
+
+    assert response.status_code == 200, response.text
+    detail = response.json()
+    assert detail["method"]["mobile_number"] == "01711000000"
+    assert [child["display_name"] for child in detail["children"]] == [
+        "Tania",
+        "Tanvir",
+    ]
+    assert (detail["owed_together"], detail["total_amount"]) == ("2000.00", "1500.00")
+    assert (detail["comparison"], detail["difference"]) == ("short", "500.00")
+    assert detail["submitted_by"] == "guardian"
+    assert detail["payer_note"] == "November fee"
+    assert detail["status"] == "pending"
+
+
+def test_other_teacher_cannot_decide(
+    api_client: TestClient,
+    owner_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """Another teacher can neither read, approve nor reject the payment.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    family = _family(owner_session, teacher, account_factory)
+    submission = _submit(api_client, owner_session, family, "2000.00")
+    stranger = make_teacher(owner_session, name="Chemistry")
+    headers = bearer(owner_session, stranger.account_id)
+
+    read = api_client.get(f"/v1/payments/{submission}", headers=headers)
+    approve = _approve(api_client, owner_session, stranger, submission, "2000.00")
+    reject = api_client.post(
+        f"/v1/payments/{submission}/rejection", json={"note": None}, headers=headers
+    )
+
+    for response in (read, approve, reject):
+        assert response.status_code == 403  # type: ignore[attr-defined]
+        assert _code(response) == "NOT_AVAILABLE"
+
+
+def test_a_short_payment_for_two_children_needs_the_bearer(
+    api_client: TestClient,
+    owner_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """No bearer named is the allocation's refusal, as a 400 with its code.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    family = _family(owner_session, teacher, account_factory)
+    submission = _submit(api_client, owner_session, family, "1500.00")
+
+    missing = _approve(
+        api_client,
+        owner_session,
+        teacher,
+        submission,
+        "1500.00",
+        shortfall_disposition="carried",
+    )
+
+    assert missing.status_code == 400  # type: ignore[attr-defined]
+    assert _code(missing) == "ALLOCATION_BEARER_REQUIRED"
+    assert (
+        missing.json()["error"]["message_key"]  # type: ignore[attr-defined]
+        == "fees.payment.allocation_bearer_required"
+    )
+
+
+def test_a_chosen_child_outside_the_payment_is_refused(
+    api_client: TestClient,
+    owner_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """Naming a seat the payment does not cover is refused.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    family = _family(owner_session, teacher, account_factory)
+    submission = _submit(api_client, owner_session, family, "2500.00")
+
+    outside = _approve(
+        api_client,
+        owner_session,
+        teacher,
+        submission,
+        "2500.00",
+        credit_to_enrollment_id=uuid.uuid4(),
+    )
+
+    assert outside.status_code == 400  # type: ignore[attr-defined]
+    assert _code(outside) == "PAYMENT_CHILD_NOT_IN_PAYMENT"
+
+
+def test_the_decision_tells_the_family_once_and_settles_the_teachers_item(
+    api_client: TestClient,
+    owner_session: Session,
+    restricted_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """One guardian item for a two-child payment, carrying the note.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param restricted_session: The application's session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    family = _family(owner_session, teacher, account_factory)
+    submission = _submit(api_client, owner_session, family, "2000.00")
+    [waiting] = inbox(restricted_session, account_id=teacher.account_id).items
+    assert waiting.source_id == submission
+
+    response = _approve(
+        api_client, owner_session, teacher, submission, "2000.00", note="Thanks"
+    )
+
+    assert response.status_code == 200, response.text  # type: ignore[attr-defined]
+    [item] = inbox(restricted_session, account_id=family.guardian).items
+    assert (item.kind, item.preview, item.source_id) == (
+        "payment_approved",
+        "Thanks",
+        submission,
+    )
+    assert item.child_name == "Tania, Tanvir"
+    assert item.amount == Money("2000.00")
+    teacher_inbox = inbox(restricted_session, account_id=teacher.account_id)
+    assert teacher_inbox.unread == 0
+    opened = api_client.get(
+        f"/v1/me/notifications/{item.notification_id}",
+        headers=bearer(owner_session, family.guardian),
+    )
+    assert opened.status_code == 200, opened.text
+    assert opened.json()["available"] is True
+    assert opened.json()["payment"]["outcome"] == "approved"
+
+
+def test_the_queue_lists_one_item_per_submission(
+    api_client: TestClient,
+    owner_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """Two children paid together are one queue item, then one decision.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    family = _family(owner_session, teacher, account_factory)
+    submission = _submit(api_client, owner_session, family, "2000.00")
+    headers = bearer(owner_session, teacher.account_id)
+
+    waiting = api_client.get("/v1/claims/queue", headers=headers).json()
+    _approve(api_client, owner_session, teacher, submission, "2000.00")
+    decided = api_client.get("/v1/claims/queue", headers=headers).json()
+
+    [item] = waiting["pending"]
+    assert item["submission_id"] == str(submission)
+    assert (item["comparison"], item["difference"]) == ("matches", "0.00")
+    assert decided["pending"] == []
+    [recent] = decided["decided_recently"]
+    assert (recent["submission_id"], recent["status"], recent["amount"]) == (
+        str(submission),
+        "approved",
+        "2000.00",
+    )

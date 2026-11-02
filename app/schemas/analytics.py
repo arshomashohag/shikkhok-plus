@@ -47,7 +47,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.schemas.fees import ClaimQueueItemResponse
+from app.schemas.fees import PaymentReviewResponse
 from app.schemas.money import MoneyField
 
 __all__ = [
@@ -305,5 +305,5 @@ class TodayResponse(BaseModel):
     outstanding: OutstandingResponse
     classes: list[TodayClassResponse]
     to_verify_count: int
-    to_verify: list[ClaimQueueItemResponse]
+    to_verify: list[PaymentReviewResponse]
     has_batches: bool

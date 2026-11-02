@@ -200,7 +200,12 @@ def test_guardian_pays_for_two_children_in_one_submission(
     queue = api_client.get(
         "/v1/claims/queue", headers=bearer(owner_session, teacher.account_id)
     ).json()
-    assert [item["duplicate_of"] for item in queue["pending"]] == [None, None]
+    [item] = queue["pending"]
+    assert item["duplicate_of"] is None
+    assert [child["display_name"] for child in item["children"]] == [
+        "Tania",
+        "Tanvir",
+    ]
 
 
 def test_short_and_over_payments_are_split_onto_the_last_child(
@@ -632,11 +637,11 @@ def test_resubmitted_reference_is_flagged(
     queue = api_client.get(
         "/v1/claims/queue", headers=bearer(owner_session, teacher.account_id)
     ).json()
-    by_claim = {item["claim_id"]: item for item in queue["pending"]}
-    first_claim = first.json()["claims"][0]["claim_id"]
-    second_claim = second.json()["claims"][0]["claim_id"]
-    assert by_claim[first_claim]["duplicate_of"] is None
-    assert by_claim[second_claim]["duplicate_of"]["claim_id"] == first_claim
+    by_submission = {item["submission_id"]: item for item in queue["pending"]}
+    first_id = first.json()["submission_id"]
+    second_id = second.json()["submission_id"]
+    assert by_submission[first_id]["duplicate_of"] is None
+    assert by_submission[second_id]["duplicate_of"]["submission_id"] == first_id
 
 
 def test_one_notification_per_submission(

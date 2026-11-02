@@ -187,6 +187,9 @@ def test_the_real_application_needs_the_allowlist() -> None:
     with anything overdue, beside the money field ``overdue``. And
     ``days_overdue`` with T7's fee chip: a COUNT of days late.
 
+    ``credit_to_enrollment_id`` joined them with the payment decision
+    (R4): a UUID naming the child who gets an excess as credit.
+
     :return: None
     """
     from app.main import create_app
@@ -197,6 +200,7 @@ def test_the_real_application_needs_the_allowlist() -> None:
 
     without = money_schema_violations(app, exempt={})
     assert {v.field for v in without} == {
+        "credit_to_enrollment_id",
         "fee_due_day",
         "days_overdue",
         "due_date",

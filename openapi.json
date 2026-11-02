@@ -832,126 +832,9 @@
         "title": "ChildSummaryResponse",
         "type": "object"
       },
-      "ClaimQueueItemResponse": {
-        "additionalProperties": false,
-        "description": "One claim waiting for the teacher (T4).\n\n**The comparison is the server's.** ``comparison`` and\n``difference`` are measured against what the period CHARGED\n[BR5.3]; the client shows them and never subtracts.\n\n:ivar claim_id: The claim\n:ivar enrollment_id: The seat it is against\n:ivar display_name: The student, as the teacher typed the name\n:ivar batch_name: The batch\n:ivar period: The period the claim resolved to\n:ivar claimed_amount: What the payer says they sent\n:ivar charged: What that period charged\n:ivar comparison: ``matches``, ``short`` or ``over``\n:ivar difference: How far from the charge, never negative\n:ivar channel: The service the money moved through\n:ivar transaction_id: The reference quoted, if any\n:ivar submitted_at: When it was sent\n:ivar submitted_by: ``student`` or ``guardian``, or null\n:ivar submitter_phone: The number the teacher holds for them\n:ivar duplicate_of: The earlier claim quoting the same reference",
-        "properties": {
-          "batch_name": {
-            "title": "Batch Name",
-            "type": "string"
-          },
-          "channel": {
-            "title": "Channel",
-            "type": "string"
-          },
-          "charged": {
-            "$ref": "#/components/schemas/Money"
-          },
-          "claim_id": {
-            "format": "uuid",
-            "title": "Claim Id",
-            "type": "string"
-          },
-          "claimed_amount": {
-            "$ref": "#/components/schemas/Money"
-          },
-          "comparison": {
-            "enum": [
-              "matches",
-              "over",
-              "short"
-            ],
-            "title": "Comparison",
-            "type": "string"
-          },
-          "difference": {
-            "$ref": "#/components/schemas/Money"
-          },
-          "display_name": {
-            "title": "Display Name",
-            "type": "string"
-          },
-          "duplicate_of": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/DuplicateClaimResponse"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "enrollment_id": {
-            "format": "uuid",
-            "title": "Enrollment Id",
-            "type": "string"
-          },
-          "period": {
-            "title": "Period",
-            "type": "string"
-          },
-          "submitted_at": {
-            "format": "date-time",
-            "title": "Submitted At",
-            "type": "string"
-          },
-          "submitted_by": {
-            "anyOf": [
-              {
-                "enum": [
-                  "guardian",
-                  "student"
-                ],
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Submitted By"
-          },
-          "submitter_phone": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Submitter Phone"
-          },
-          "transaction_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Transaction Id"
-          }
-        },
-        "required": [
-          "batch_name",
-          "channel",
-          "charged",
-          "claim_id",
-          "claimed_amount",
-          "comparison",
-          "difference",
-          "display_name",
-          "enrollment_id",
-          "period",
-          "submitted_at"
-        ],
-        "title": "ClaimQueueItemResponse",
-        "type": "object"
-      },
       "ClaimResponse": {
         "additionalProperties": false,
-        "description": "A claim and its decision, as its submitter sees it.\n\n``previous_decision`` is carried deliberately: a corrected\nverification is visible to the teacher **and** to that student and\nguardian, never hidden from either party [BR5.7, FR9.2]. It is typed\nas a map of strings because every value in it -- including the\namount -- is a string, so a money value inside it crosses the wire\nunder the same rule as every other [BR6.2].\n\n:ivar claim_id: The claim\n:ivar period: The period it resolved to at submission\n:ivar claimed_amount: What was claimed\n:ivar approved_amount: What was accepted, or null while pending\n:ivar status: One of the four server-set values\n:ivar shortfall_disposition: Carried or waived, where one applies\n:ivar channel: Which service the money moved through\n:ivar submitted_at: When it was submitted\n:ivar verified_at: When it was decided, or null\n:ivar previous_decision: The prior decision, on a correction",
+        "description": "A claim and its decision, as its submitter sees it.\n\n``previous_decision`` is carried deliberately: a corrected\nverification is visible to the teacher **and** to that student and\nguardian, never hidden from either party [BR5.7, FR9.2]. It is typed\nas a map of strings because every value in it -- including the\namount -- is a string, so a money value inside it crosses the wire\nunder the same rule as every other [BR6.2].\n\n:ivar claim_id: The claim\n:ivar period: The period it resolved to at submission\n:ivar claimed_amount: What was claimed\n:ivar approved_amount: What was accepted, or null while pending\n:ivar status: One of the four server-set values\n:ivar shortfall_disposition: Carried or waived, where one applies\n:ivar channel: Which service the money moved through\n:ivar submitted_at: When it was submitted\n:ivar verified_at: When it was decided, or null\n:ivar previous_decision: The prior decision, on a correction\n:ivar decision_note: The teacher's note on the decision, or null",
         "properties": {
           "approved_amount": {
             "anyOf": [
@@ -974,6 +857,17 @@
           },
           "claimed_amount": {
             "$ref": "#/components/schemas/Money"
+          },
+          "decision_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Note"
           },
           "period": {
             "title": "Period",
@@ -1468,17 +1362,12 @@
         "title": "DuesSummaryResponse",
         "type": "object"
       },
-      "DuplicateClaimResponse": {
+      "DuplicatePaymentResponse": {
         "additionalProperties": false,
-        "description": "The earlier claim that quoted the same transaction id.\n\n:ivar claim_id: That claim\n:ivar display_name: Whose seat it was on, as the teacher typed it\n:ivar status: How it was decided\n:ivar amount: What was approved, else what was claimed\n:ivar decided_at: When it was decided, or null",
+        "description": "The earlier payment that quoted the same reference.\n\n:ivar submission_id: That submission\n:ivar display_name: The children it covered, comma separated\n:ivar status: How it was decided\n:ivar amount: What it reported as sent\n:ivar decided_at: When it was decided, or null",
         "properties": {
           "amount": {
             "$ref": "#/components/schemas/Money"
-          },
-          "claim_id": {
-            "format": "uuid",
-            "title": "Claim Id",
-            "type": "string"
           },
           "decided_at": {
             "anyOf": [
@@ -1498,22 +1387,26 @@
           },
           "status": {
             "enum": [
-              "approved_full",
-              "approved_partial",
+              "approved",
               "pending",
               "rejected"
             ],
             "title": "Status",
             "type": "string"
+          },
+          "submission_id": {
+            "format": "uuid",
+            "title": "Submission Id",
+            "type": "string"
           }
         },
         "required": [
           "amount",
-          "claim_id",
           "display_name",
-          "status"
+          "status",
+          "submission_id"
         ],
-        "title": "DuplicateClaimResponse",
+        "title": "DuplicatePaymentResponse",
         "type": "object"
       },
       "EnrollmentCreateRequest": {
@@ -3203,6 +3096,76 @@
         "title": "PayablesResponse",
         "type": "object"
       },
+      "PaymentApprovalRequest": {
+        "additionalProperties": false,
+        "description": "Approve a payment, saying what was received and how to split it (R4).\n\n``shortfall_disposition`` is required when less than the children\nowe together was received, and refused otherwise; it carries no\ndefault, because carrying and waiving have opposite consequences for\nthe family [BR5.4]. For more than one child a short payment also\nnames who carries it and an over payment names who gets the credit.\nThe server enforces both, because only it knows what is owed.\n\n``correcting`` is the teacher saying \"I know this payment is already\ndecided and I am revising it\" [BR5.7, FR9.2]; without it a second\ndecision is refused, so a concurrent repeat cannot credit twice.\n\n:ivar received_amount: What the teacher received\n:ivar shortfall_disposition: Carried or waived, when short\n:ivar carried_by_enrollment_id: The child who carries a shortfall\n:ivar credit_to_enrollment_id: The child who gets an excess as credit\n:ivar note: Shown to the family with the decision\n:ivar correcting: True when deliberately revising a decided payment",
+        "properties": {
+          "carried_by_enrollment_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Carried By Enrollment Id"
+          },
+          "correcting": {
+            "default": false,
+            "title": "Correcting",
+            "type": "boolean"
+          },
+          "credit_to_enrollment_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credit To Enrollment Id"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "received_amount": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "shortfall_disposition": {
+            "anyOf": [
+              {
+                "enum": [
+                  "carried",
+                  "waived"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shortfall Disposition"
+          }
+        },
+        "required": [
+          "received_amount"
+        ],
+        "title": "PaymentApprovalRequest",
+        "type": "object"
+      },
       "PaymentBlock": {
         "additionalProperties": false,
         "description": "A payment claim and how it was decided.\n\n:ivar claim_id: The claim\n:ivar period: The period it paid toward, as ``YYYY-MM``\n:ivar claimed: What was claimed\n:ivar approved: What the teacher accepted, once decided\n:ivar outcome: Where the decision stands\n:ivar reason: Why it was rejected, if it was",
@@ -3259,6 +3222,104 @@
           "period"
         ],
         "title": "PaymentBlock",
+        "type": "object"
+      },
+      "PaymentDestinationResponse": {
+        "additionalProperties": false,
+        "description": "Where a family said they paid, copied when they paid.\n\nA later edit or retirement of the method leaves this as it was, so\nthe teacher checks against the number the family was shown.\n\n:ivar kind: ``mobile``, ``bank``, or ``cash`` for money in hand\n:ivar method_id: The method paid to, or null for cash\n:ivar provider: The mobile service or the bank's name\n:ivar mobile_number: The number, mobile methods only\n:ivar account_number: The account number, bank methods only\n:ivar account_name: The account holder, bank methods only\n:ivar branch_name: The branch, bank methods only\n:ivar note: The text shown with the method",
+        "properties": {
+          "account_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Name"
+          },
+          "account_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Number"
+          },
+          "branch_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Branch Name"
+          },
+          "kind": {
+            "enum": [
+              "bank",
+              "cash",
+              "mobile"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "method_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Method Id"
+          },
+          "mobile_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mobile Number"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "PaymentDestinationResponse",
         "type": "object"
       },
       "PaymentLineResponse": {
@@ -3542,6 +3603,200 @@
           "period"
         ],
         "title": "PaymentMonthResponse",
+        "type": "object"
+      },
+      "PaymentRejectionRequest": {
+        "additionalProperties": false,
+        "description": "Reject a payment, optionally as a correction [BR5.6, BR5.7].\n\n:ivar note: Why it was rejected, shown to the family\n:ivar correcting: True when deliberately revising a decided payment",
+        "properties": {
+          "correcting": {
+            "default": false,
+            "title": "Correcting",
+            "type": "boolean"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "title": "PaymentRejectionRequest",
+        "type": "object"
+      },
+      "PaymentReviewResponse": {
+        "additionalProperties": false,
+        "description": "One payment as its teacher reviews it (R1, R2, R3).\n\n``method`` is the destination as the family was shown it when they\npaid, so a later edit of the method does not change what the\nteacher checks against.\n\n:ivar submission_id: The submission\n:ivar batch_name: The batch\n:ivar children: The children covered, in child order\n:ivar owed_together: What they owe together now\n:ivar total_amount: What the payer says they sent\n:ivar comparison: ``matches``, ``short`` or ``over``\n:ivar difference: How far from what is owed, never negative\n:ivar method: The destination snapshot\n:ivar transaction_id: The mobile reference, if any\n:ivar from_account: The paying bank account, if any\n:ivar paid_on: The day the money moved\n:ivar submitted_at: When it was reported\n:ivar submitted_by: ``student`` or ``guardian``, or null\n:ivar submitter_phone: The number the teacher holds for them\n:ivar payer_note: The payer's note\n:ivar status: ``pending``, ``approved`` or ``rejected``\n:ivar decision_note: The teacher's note on the decision\n:ivar decided_at: When it was decided, or null\n:ivar duplicate_of: The earlier payment quoting the same reference",
+        "properties": {
+          "batch_name": {
+            "title": "Batch Name",
+            "type": "string"
+          },
+          "children": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewChildResponse"
+            },
+            "title": "Children",
+            "type": "array"
+          },
+          "comparison": {
+            "enum": [
+              "matches",
+              "over",
+              "short"
+            ],
+            "title": "Comparison",
+            "type": "string"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "decision_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Note"
+          },
+          "difference": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "duplicate_of": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DuplicatePaymentResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "from_account": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Account"
+          },
+          "method": {
+            "$ref": "#/components/schemas/PaymentDestinationResponse"
+          },
+          "owed_together": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "paid_on": {
+            "format": "date",
+            "title": "Paid On",
+            "type": "string"
+          },
+          "payer_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payer Note"
+          },
+          "status": {
+            "enum": [
+              "approved",
+              "pending",
+              "rejected"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "submission_id": {
+            "format": "uuid",
+            "title": "Submission Id",
+            "type": "string"
+          },
+          "submitted_at": {
+            "format": "date-time",
+            "title": "Submitted At",
+            "type": "string"
+          },
+          "submitted_by": {
+            "anyOf": [
+              {
+                "enum": [
+                  "guardian",
+                  "student"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted By"
+          },
+          "submitter_phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitter Phone"
+          },
+          "total_amount": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "transaction_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transaction Id"
+          }
+        },
+        "required": [
+          "batch_name",
+          "children",
+          "comparison",
+          "difference",
+          "method",
+          "owed_together",
+          "paid_on",
+          "status",
+          "submission_id",
+          "submitted_at",
+          "total_amount"
+        ],
+        "title": "PaymentReviewResponse",
         "type": "object"
       },
       "PaymentSubmitRequest": {
@@ -3977,18 +4232,13 @@
       },
       "RecentDecisionResponse": {
         "additionalProperties": false,
-        "description": "A claim decided in the last day.\n\n:ivar claim_id: The claim\n:ivar display_name: The student\n:ivar batch_name: The batch\n:ivar status: How it was decided\n:ivar amount: What was approved, else what was claimed\n:ivar decided_at: When",
+        "description": "A payment decided in the last day.\n\n:ivar submission_id: The submission\n:ivar display_name: The children it covered, comma separated\n:ivar batch_name: The batch\n:ivar status: How it was decided\n:ivar amount: What was approved, else what was sent\n:ivar decided_at: When",
         "properties": {
           "amount": {
             "$ref": "#/components/schemas/Money"
           },
           "batch_name": {
             "title": "Batch Name",
-            "type": "string"
-          },
-          "claim_id": {
-            "format": "uuid",
-            "title": "Claim Id",
             "type": "string"
           },
           "decided_at": {
@@ -4002,22 +4252,26 @@
           },
           "status": {
             "enum": [
-              "approved_full",
-              "approved_partial",
+              "approved",
               "pending",
               "rejected"
             ],
             "title": "Status",
+            "type": "string"
+          },
+          "submission_id": {
+            "format": "uuid",
+            "title": "Submission Id",
             "type": "string"
           }
         },
         "required": [
           "amount",
           "batch_name",
-          "claim_id",
           "decided_at",
           "display_name",
-          "status"
+          "status",
+          "submission_id"
         ],
         "title": "RecentDecisionResponse",
         "type": "object"
@@ -4037,31 +4291,6 @@
           "refresh_token"
         ],
         "title": "RefreshRequest",
-        "type": "object"
-      },
-      "RejectionRequest": {
-        "additionalProperties": false,
-        "description": "Reject a claim, optionally as a correction [BR5.6, BR5.7].\n\nA body with one optional field rather than no body at all, because\nrejection is correctable for the same reason approval is: a teacher\nwho rejected the wrong claim must be able to say so, and FR9.2 makes\nno exception for the rejection path.\n\nEvery field defaults, so an ordinary rejection may still send no\nbody.\n\n:ivar correcting: True when deliberately revising a decided claim\n:ivar reason: Why the claim is rejected, shown to the family",
-        "properties": {
-          "correcting": {
-            "default": false,
-            "title": "Correcting",
-            "type": "boolean"
-          },
-          "reason": {
-            "anyOf": [
-              {
-                "maxLength": 500,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Reason"
-          }
-        },
-        "title": "RejectionRequest",
         "type": "object"
       },
       "ReminderRequest": {
@@ -4105,6 +4334,53 @@
           "skipped"
         ],
         "title": "ReminderResponse",
+        "type": "object"
+      },
+      "ReviewChildResponse": {
+        "additionalProperties": false,
+        "description": "One child a payment covers, in child order.\n\n:ivar claim_id: The child's claim\n:ivar enrollment_id: The child's seat\n:ivar display_name: The teacher-typed name\n:ivar period: The period the claim resolved to\n:ivar owed: What the seat owes now\n:ivar approved_amount: What the decision approved, or null",
+        "properties": {
+          "approved_amount": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "claim_id": {
+            "format": "uuid",
+            "title": "Claim Id",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "enrollment_id": {
+            "format": "uuid",
+            "title": "Enrollment Id",
+            "type": "string"
+          },
+          "owed": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "period": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
+            "title": "Period",
+            "type": "string"
+          }
+        },
+        "required": [
+          "claim_id",
+          "display_name",
+          "enrollment_id",
+          "owed",
+          "period"
+        ],
+        "title": "ReviewChildResponse",
         "type": "object"
       },
       "RosterFeeRowResponse": {
@@ -4625,39 +4901,6 @@
         "title": "SessionSubjectRequest",
         "type": "object"
       },
-      "ShortfallPreviewRequest": {
-        "additionalProperties": false,
-        "description": "An amount the teacher is about to approve.\n\n:ivar approved_amount: The amount being considered",
-        "properties": {
-          "approved_amount": {
-            "$ref": "#/components/schemas/Money"
-          }
-        },
-        "required": [
-          "approved_amount"
-        ],
-        "title": "ShortfallPreviewRequest",
-        "type": "object"
-      },
-      "ShortfallPreviewResponse": {
-        "additionalProperties": false,
-        "description": "What that approval would leave short, and whether to ask about it.\n\n:ivar shortfall: ``charged - approved``, floored at zero\n:ivar disposition_required: Whether the teacher must choose carry or\n    waive, which the decision itself will insist on",
-        "properties": {
-          "disposition_required": {
-            "title": "Disposition Required",
-            "type": "boolean"
-          },
-          "shortfall": {
-            "$ref": "#/components/schemas/Money"
-          }
-        },
-        "required": [
-          "disposition_required",
-          "shortfall"
-        ],
-        "title": "ShortfallPreviewResponse",
-        "type": "object"
-      },
       "SignupRequest": {
         "additionalProperties": false,
         "description": "Create an account for a number nobody has registered.\n\nThe number is **typed by the person** and never read from the SIM\n[TC-4, D-35]: there is no device-side source for this field, here\nor anywhere in this product.\n\n:ivar phone: The number this identity is keyed on\n:ivar role: The claimed role; nothing verifies it [BR4.2]\n:ivar self_name: The name the person chose for themselves. Lands on\n    ``Profile.self_name`` and never on an ``Enrollment.display_name``\n    [BR3.1]\n:ivar address: Owner-private, and optional because the\n    already-added path reaches signup with no address yet",
@@ -5080,7 +5323,7 @@
           },
           "to_verify": {
             "items": {
-              "$ref": "#/components/schemas/ClaimQueueItemResponse"
+              "$ref": "#/components/schemas/PaymentReviewResponse"
             },
             "title": "To Verify",
             "type": "array"
@@ -5328,7 +5571,7 @@
       },
       "VerificationQueueResponse": {
         "additionalProperties": false,
-        "description": "The teacher's payment queue.\n\n:ivar pending: Waiting claims, oldest first\n:ivar decided_recently: Claims decided in the last day, newest first",
+        "description": "The teacher's payment queue.\n\n:ivar pending: Waiting payments, oldest first\n:ivar decided_recently: Payments decided in the last day, newest first",
         "properties": {
           "decided_recently": {
             "items": {
@@ -5339,7 +5582,7 @@
           },
           "pending": {
             "items": {
-              "$ref": "#/components/schemas/ClaimQueueItemResponse"
+              "$ref": "#/components/schemas/PaymentReviewResponse"
             },
             "title": "Pending",
             "type": "array"
@@ -5350,40 +5593,6 @@
           "pending"
         ],
         "title": "VerificationQueueResponse",
-        "type": "object"
-      },
-      "VerificationRequest": {
-        "additionalProperties": false,
-        "description": "Record a teacher's decision on a claim [AC6.3.x].\n\n``shortfall_disposition`` is **required where the approval is below\nthe charge and forbidden where it is not** [BR5.4]. It carries no\ndefault: the two choices have opposite consequences for the student,\nso a default silently chooses for the teacher. The requirement\ncannot be expressed in the schema alone -- it depends on what the\ncycle was charged -- so the server enforces it and this field stays\noptional here.\n\n``correcting`` is **the teacher saying \"I know this claim is already\ndecided and I am revising it\"** [BR5.7, FR9.2]. It defaults to\n``False``, so an ordinary verification of an undecided claim needs no\nflag and a *concurrent* second verification is refused rather than\nsilently double-crediting the payment.\n\nIt cannot be inferred from the claim's state. A decided claim with a\nsecond request arriving is exactly the shape of both the race this\nguard exists to stop and the correction FR9.2 requires, and the\nserver cannot tell them apart -- only the teacher knows which one\nthey meant. Inferring it would mean choosing to let the race through.\n\n:ivar approved_amount: What the teacher accepts\n:ivar shortfall_disposition: Carried or waived, where one applies\n:ivar correcting: True when deliberately revising a decided claim",
-        "properties": {
-          "approved_amount": {
-            "$ref": "#/components/schemas/Money"
-          },
-          "correcting": {
-            "default": false,
-            "title": "Correcting",
-            "type": "boolean"
-          },
-          "shortfall_disposition": {
-            "anyOf": [
-              {
-                "enum": [
-                  "carried",
-                  "waived"
-                ],
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Shortfall Disposition"
-          }
-        },
-        "required": [
-          "approved_amount"
-        ],
-        "title": "VerificationRequest",
         "type": "object"
       },
       "VerifyRequest": {
@@ -7760,7 +7969,7 @@
     },
     "/v1/claims/queue": {
       "get": {
-        "description": "List the claims waiting for this teacher, and recent decisions (T4).\n\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: Waiting claims and the last day's decisions",
+        "description": "List the payments waiting for this teacher, and recent decisions (R1).\n\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: Waiting payments and the last day's decisions",
         "operationId": "read_verification_queue_v1_claims_queue_get",
         "responses": {
           "200": {
@@ -7802,7 +8011,7 @@
     },
     "/v1/claims/{claim_id}": {
       "get": {
-        "description": "Read one of this claimant's own claims and its outcome.\n\nThe rejection the submitter must see [BR5.6] and the prior decision\na correction retained [BR5.7] are both carried here.\n\n:param claim_id: The claim, from the route path\n:param session: The request-scoped session\n:param lens: The student lens\n:return: The claim and its decision",
+        "description": "Read one of this claimant's own claims and its outcome.\n\nThe rejection the submitter must see [BR5.6], with the teacher's\nnote, and the prior decision a correction retained [BR5.7] are both\ncarried here.\n\n:param claim_id: The claim, from the route path\n:param session: The request-scoped session\n:param lens: The student lens\n:return: The claim and its decision",
         "operationId": "read_claim_v1_claims__claim_id__get",
         "parameters": [
           {
@@ -7859,295 +8068,6 @@
           }
         },
         "summary": "Read Claim",
-        "tags": [
-          "fees"
-        ]
-      }
-    },
-    "/v1/claims/{claim_id}/rejection": {
-      "post": {
-        "description": "Reject a claim, recording nothing as received [BR5.6].\n\nA separate route from verification rather than an approval of zero:\nrejecting and approving nothing are different decisions, and the\nclaimant is shown different things.\n\n:param claim_id: The claim, from the route path\n:param session: The request-scoped session\n:param lens: The teacher lens\n:param body: Optional; carries ``correcting`` when revising\n:return: The rejected claim",
-        "operationId": "record_rejection_v1_claims__claim_id__rejection_post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "claim_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Claim Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "anyOf": [
-                  {
-                    "$ref": "#/components/schemas/RejectionRequest"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "title": "Body"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ClaimResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "The request is wrong. Fix and resubmit; never retry as-is."
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "No credential, or an expired one."
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "Valid request; current state forbids it. Refetch and decide."
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Record Rejection",
-        "tags": [
-          "fees"
-        ]
-      }
-    },
-    "/v1/claims/{claim_id}/shortfall": {
-      "post": {
-        "description": "Say what approving an amount would leave short, before deciding.\n\nA read, posted only because it carries an amount: nothing is written.\n\n:param claim_id: The claim, from the route path\n:param body: The amount the teacher is considering\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: The shortfall and whether carry-or-waive must be chosen",
-        "operationId": "preview_shortfall_v1_claims__claim_id__shortfall_post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "claim_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Claim Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ShortfallPreviewRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ShortfallPreviewResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "The request is wrong. Fix and resubmit; never retry as-is."
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "No credential, or an expired one."
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "Valid request; current state forbids it. Refetch and decide."
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Preview Shortfall",
-        "tags": [
-          "fees"
-        ]
-      }
-    },
-    "/v1/claims/{claim_id}/verification": {
-      "post": {
-        "description": "Approve a claim, in whole or in part [AC6.3.x].\n\nThe shortfall is computed server-side as ``charged - approved``\n[BR5.3]; the request names the approved amount and the disposition,\nnever the shortfall. A disposition is **required** where the\napproval falls below the charge and refused where it does not\n[BR5.4] -- the server decides which, because only it knows what the\ncycle was charged.\n\n:param claim_id: The claim, from the route path\n:param body: The approved amount and the disposition\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: The decided claim",
-        "operationId": "record_verification_v1_claims__claim_id__verification_post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "claim_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Claim Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/VerificationRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ClaimResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "The request is wrong. Fix and resubmit; never retry as-is."
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "No credential, or an expired one."
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "Valid request; current state forbids it. Refetch and decide."
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Record Verification",
         "tags": [
           "fees"
         ]
@@ -10189,6 +10109,265 @@
           }
         },
         "summary": "Read Owed Together",
+        "tags": [
+          "fees"
+        ]
+      }
+    },
+    "/v1/payments/{submission_id}": {
+      "get": {
+        "description": "Read one payment on this teacher's batches (R2).\n\n:param submission_id: The submission, from the route path\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: The payment as the teacher reviews it",
+        "operationId": "read_payment_v1_payments__submission_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "submission_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Submission Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentReviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Payment",
+        "tags": [
+          "fees"
+        ]
+      }
+    },
+    "/v1/payments/{submission_id}/approval": {
+      "post": {
+        "description": "Approve a payment, split across its children (R4).\n\n:param submission_id: The submission, from the route path\n:param body: What was received and how a shortfall or excess goes\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: The decided payment",
+        "operationId": "approve_payment_v1_payments__submission_id__approval_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "submission_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Submission Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentApprovalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentReviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve Payment",
+        "tags": [
+          "fees"
+        ]
+      }
+    },
+    "/v1/payments/{submission_id}/rejection": {
+      "post": {
+        "description": "Reject a payment, recording nothing as received [BR5.6].\n\n:param submission_id: The submission, from the route path\n:param session: The request-scoped session\n:param lens: The teacher lens\n:param body: Optional; the note and ``correcting`` when revising\n:return: The decided payment",
+        "operationId": "reject_payment_v1_payments__submission_id__rejection_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "submission_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Submission Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/PaymentRejectionRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentReviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reject Payment",
         "tags": [
           "fees"
         ]

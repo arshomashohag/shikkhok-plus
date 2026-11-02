@@ -13,7 +13,6 @@ moment a field spreads to a second response.
 
 from __future__ import annotations
 
-import pytest
 from fastapi import Depends, FastAPI
 from pydantic import BaseModel
 
@@ -53,11 +52,32 @@ def test_exactly_the_allowlisted_routes_carry_method_details() -> None:
     assert found - set(SNAPSHOT_ROUTES) == set(PERMITTED_ROUTES)
 
 
-@pytest.mark.xfail(strict=True, reason="Task 5")
 def test_the_submission_route_carries_the_destination_snapshot() -> None:
     found = collection_number_routes(create_app())
 
     assert set(SNAPSHOT_ROUTES) <= found
+
+
+def test_every_snapshot_route_is_the_teachers_own() -> None:
+    # The snapshot is the number a family paid to, read back by the
+    # teacher who owns that number. A snapshot route reachable under a
+    # family lens would disclose another family's payment details.
+    from app.contract.privacy import lens_types_of
+    from app.contract.routes import _api_routes
+
+    checked: set[tuple[str, str]] = set()
+    for route in _api_routes(create_app()):
+        for method in sorted(route.methods or set()):
+            if (method, route.path) not in SNAPSHOT_ROUTES:
+                continue
+            checked.add((method, route.path))
+            lenses = lens_types_of(route)
+            assert lenses and all(
+                isinstance(lens, type) and issubclass(lens, TeacherLens)
+                for lens in lenses
+            ), f"{method} {route.path} carries a snapshot beyond its teacher"
+
+    assert checked == set(SNAPSHOT_ROUTES)
 
 
 def test_the_downward_route_resolves_no_teacher_lens() -> None:

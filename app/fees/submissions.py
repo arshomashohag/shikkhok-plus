@@ -47,6 +47,7 @@ __all__ = [
     "FamilyLens",
     "OwedChild",
     "PaymentDraft",
+    "child_order",
     "lens_reaching",
     "owed_children",
     "owed_together",
@@ -192,6 +193,18 @@ def lens_reaching(
     return lenses[0]
 
 
+def child_order(seat: Enrollment) -> tuple[str, str]:
+    """Give the key every list of a payment's children is sorted by.
+
+    Display name, then id, so the payer's split, the teacher's review
+    and the allocation all agree on who is first and who is last.
+
+    :param seat: A covered seat
+    :return: The sort key
+    """
+    return seat.display_name, str(seat.id)
+
+
 def _covered_seats(
     session: Session, *, lens: FamilyLens, enrollment_ids: Sequence[uuid.UUID]
 ) -> list[Enrollment]:
@@ -219,7 +232,7 @@ def _covered_seats(
             code="PAYMENT_CHILDREN_ACROSS_BATCHES",
             message_key="fees.payment.children_across_batches",
         )
-    return sorted(seats, key=lambda seat: (seat.display_name, str(seat.id)))
+    return sorted(seats, key=child_order)
 
 
 def owed_children(
@@ -414,7 +427,7 @@ def submit_payment(
         )
         for child, share in zip(children, shares, strict=True)
     ]
-    _tell_the_teacher(session, submission, claims, [c.seat for c in children])
+    _tell_the_teacher(session, submission, claims[0], [c.seat for c in children])
     session.commit()
     return submission
 
@@ -422,18 +435,18 @@ def submit_payment(
 def _tell_the_teacher(
     session: Session,
     submission: PaymentSubmission,
-    claims: list[PaymentClaim],
+    first_claim: PaymentClaim,
     seats: list[Enrollment],
 ) -> None:
     """Put one item for the whole submission in the teacher's inbox.
 
-    The item points at the first child's claim, which the current
-    verification and detail paths read. Adds to the transaction and
-    does not commit.
+    The item's source is the submission, which the review and the
+    inbox detail both resolve. Adds to the transaction and does not
+    commit.
 
     :param session: The session the submission is written through
     :param submission: The new submission
-    :param claims: Its claims, in child order
+    :param first_claim: The first child's claim, for the period shown
     :param seats: The covered seats, in child order
     :return: None
     """
@@ -448,8 +461,8 @@ def _tell_the_teacher(
         batch_name=batch.name if batch is not None else "",
         now=dt.datetime.now(tz=dt.UTC),
         enrollment_id=seats[0].id,
-        period=claims[0].period,
+        period=first_claim.period,
         amount=submission.total_amount,
-        source_id=claims[0].id,
+        source_id=submission.id,
         child_names={teacher: ", ".join(seat.display_name for seat in seats)},
     )

@@ -1,7 +1,9 @@
 """Request and response bodies for a teacher's payment methods [P1-P3].
 
 **These responses are the only ones carrying a method's number or
-account fields**, and a contract test asserts that as an equality.
+account fields**, and a contract test asserts that as an equality. The
+destination snapshot a payment review embeds is declared here too, and
+the routes carrying it are listed separately by the same gate.
 """
 
 from __future__ import annotations
@@ -13,6 +15,7 @@ from pydantic import BaseModel, ConfigDict
 
 __all__ = [
     "FamilyPaymentMethodsResponse",
+    "PaymentDestinationResponse",
     "PaymentMethodRequest",
     "PaymentMethodResponse",
 ]
@@ -80,3 +83,31 @@ class FamilyPaymentMethodsResponse(BaseModel):
     methods: list[PaymentMethodResponse]
     services: list[str]
     teacher_display_name: str | None
+
+
+class PaymentDestinationResponse(BaseModel):
+    """Where a family said they paid, copied when they paid.
+
+    A later edit or retirement of the method leaves this as it was, so
+    the teacher checks against the number the family was shown.
+
+    :ivar kind: ``mobile``, ``bank``, or ``cash`` for money in hand
+    :ivar method_id: The method paid to, or null for cash
+    :ivar provider: The mobile service or the bank's name
+    :ivar mobile_number: The number, mobile methods only
+    :ivar account_number: The account number, bank methods only
+    :ivar account_name: The account holder, bank methods only
+    :ivar branch_name: The branch, bank methods only
+    :ivar note: The text shown with the method
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["mobile", "bank", "cash"]
+    method_id: uuid.UUID | None = None
+    provider: str | None = None
+    mobile_number: str | None = None
+    account_number: str | None = None
+    account_name: str | None = None
+    branch_name: str | None = None
+    note: str | None = None

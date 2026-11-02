@@ -1,24 +1,28 @@
-"""The teacher's payment queue (T4): claims waiting to be checked.
+"""The teacher's payment queue and review (R1, R2): one payment at a time.
 
-**Every figure on the card is the server's.** The charge, the comparison
-(``matches``, ``short`` or ``over``) and the difference are computed here,
-against what the cycle CHARGED rather than what was claimed [BR5.3], so
-the app shows "৳400 short of ৳1,200" without subtracting anything.
+**One item per submission, not per child.** A guardian who pays for two
+children sent one payment, and the teacher checks it once: the item
+lists the children, what they owe together, what was sent and where.
+
+**Every figure on the card is the server's.** What the children owe,
+the comparison (``matches``, ``short`` or ``over``) and the difference
+are computed here, so the app shows "৳500 short of ৳2,000" without
+subtracting anything.
 
 **Scoped to the batches this lens owns**, in the query rather than after
-it: a claim from another teacher's batch is never loaded, so it cannot
-leak through a forgotten filter.
+it: another teacher's submission is never loaded, so it cannot leak
+through a forgotten filter.
 
-**A reused transaction id is flagged, not refused.** Two claims quoting
-the same bKash or Nagad reference is either a mistake or a second claim
-for one payment; the teacher decides, and the card names the earlier
-claim so they can.
+**A reused transaction id is flagged, not refused.** Two submissions
+quoting the same reference is either a mistake or a second report of
+one payment; the teacher decides, and the item names the earlier one.
 """
 
 from __future__ import annotations
 
 import datetime as dt
 import uuid
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import Literal
 
@@ -26,19 +30,23 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from app.authz.lenses import TeacherLens
-from app.db.models import Batch, Enrollment, PaymentClaim
+from app.db.models import Batch, Enrollment, PaymentClaim, PaymentSubmission
 from app.fees.balances import derive_for_enrollment
-from app.fees.status import ClaimStatus
+from app.fees.status import SubmissionStatus
+from app.fees.submissions import child_order
 from app.fees.verification import shortfall_of
-from app.fees.views import assert_claim_is_verifiable, claim_status
+from app.fees.views import owned_submission, submission_status
 from app.money import Money
 
 __all__ = [
-    "DuplicateClaim",
-    "QueueItem",
+    "RECENT_WINDOW",
+    "DuplicatePayment",
+    "PaymentReview",
     "RecentDecision",
+    "ReviewChild",
     "VerificationQueue",
-    "shortfall_preview",
+    "covered_children",
+    "payment_review",
     "verification_queue",
 ]
 
@@ -50,106 +58,132 @@ RECENT_WINDOW = dt.timedelta(hours=24)
 
 
 @dataclass(frozen=True, slots=True)
-class DuplicateClaim:
-    """The earlier claim that quoted the same transaction id.
+class ReviewChild:
+    """One child a payment covers, as the teacher reviews it.
 
-    :ivar claim_id: That claim
-    :ivar display_name: Whose seat it was on, as the teacher typed it
-    :ivar status: How it was decided, or pending
-    :ivar amount: What was approved, else what was claimed
-    :ivar decided_at: When it was decided, or None
-    """
-
-    claim_id: uuid.UUID
-    display_name: str
-    status: ClaimStatus
-    amount: Money
-    decided_at: dt.datetime | None
-
-
-@dataclass(frozen=True, slots=True)
-class QueueItem:
-    """One claim waiting for the teacher.
-
-    :ivar claim_id: The claim
-    :ivar enrollment_id: The seat it is against
-    :ivar display_name: The student, as the teacher typed the name
-    :ivar batch_name: The batch
-    :ivar period: The period the claim resolved to, ``YYYY-MM``
-    :ivar claimed_amount: What the payer says they sent
-    :ivar charged: What that period charged
-    :ivar comparison: ``matches``, ``short`` or ``over``
-    :ivar difference: How far from the charge, never negative
-    :ivar channel: bKash, Nagad and so on
-    :ivar transaction_id: The reference quoted, if any
-    :ivar submitted_at: When it was sent
-    :ivar submitted_by: ``student`` or ``guardian``, or None if the
-        submitter's account has since been deleted
-    :ivar submitter_phone: The number the teacher has on record for
-        that person, or None
-    :ivar duplicate_of: The earlier claim quoting the same reference
+    :ivar claim_id: The child's claim
+    :ivar enrollment_id: The child's seat
+    :ivar display_name: The teacher-typed name
+    :ivar period: The period the claim resolved to
+    :ivar owed: What the seat owes now, never negative
+    :ivar approved_amount: What the decision approved, or None
     """
 
     claim_id: uuid.UUID
     enrollment_id: uuid.UUID
     display_name: str
-    batch_name: str
     period: str
-    claimed_amount: Money
-    charged: Money
+    owed: Money
+    approved_amount: Money | None
+
+
+@dataclass(frozen=True, slots=True)
+class DuplicatePayment:
+    """The earlier submission that quoted the same reference.
+
+    :ivar submission_id: That submission
+    :ivar display_name: The children it covered
+    :ivar status: How it was decided, or pending
+    :ivar amount: What it reported as sent
+    :ivar decided_at: When it was decided, or None
+    """
+
+    submission_id: uuid.UUID
+    display_name: str
+    status: SubmissionStatus
+    amount: Money
+    decided_at: dt.datetime | None
+
+
+@dataclass(frozen=True, slots=True)
+class PaymentReview:
+    """One payment as the teacher reviews it.
+
+    :ivar submission_id: The submission
+    :ivar batch_name: The batch
+    :ivar children: The children covered, in child order
+    :ivar owed_together: What they owe together now
+    :ivar total_amount: What the payer says they sent
+    :ivar comparison: ``matches``, ``short`` or ``over``
+    :ivar difference: How far from what is owed, never negative
+    :ivar method: The destination as the family was shown it
+    :ivar transaction_id: The mobile reference, if any
+    :ivar from_account: The paying bank account, if any
+    :ivar paid_on: The day the money moved
+    :ivar submitted_at: When it was reported
+    :ivar submitted_by: ``student`` or ``guardian``, or None
+    :ivar submitter_phone: The number the teacher holds for them
+    :ivar payer_note: The payer's note
+    :ivar status: ``pending``, ``approved`` or ``rejected``
+    :ivar decision_note: The teacher's note on the decision
+    :ivar decided_at: When it was decided, or None
+    :ivar duplicate_of: The earlier submission quoting the same reference
+    """
+
+    submission_id: uuid.UUID
+    batch_name: str
+    children: list[ReviewChild]
+    owed_together: Money
+    total_amount: Money
     comparison: Comparison
     difference: Money
-    channel: str
+    method: dict[str, object]
     transaction_id: str | None
+    from_account: str | None
+    paid_on: dt.date
     submitted_at: dt.datetime
     submitted_by: Submitter | None
     submitter_phone: str | None
-    duplicate_of: DuplicateClaim | None
+    payer_note: str | None
+    status: SubmissionStatus
+    decision_note: str | None
+    decided_at: dt.datetime | None
+    duplicate_of: DuplicatePayment | None
 
 
 @dataclass(frozen=True, slots=True)
 class RecentDecision:
-    """A claim decided in the last day, for "Approved today".
+    """A payment decided in the last day, for "Approved today".
 
-    :ivar claim_id: The claim
-    :ivar display_name: The student
+    :ivar submission_id: The submission
+    :ivar display_name: The children it covered
     :ivar batch_name: The batch
     :ivar status: How it was decided
-    :ivar amount: What was approved, else what was claimed
+    :ivar amount: What was approved, else what was sent
     :ivar decided_at: When
     """
 
-    claim_id: uuid.UUID
+    submission_id: uuid.UUID
     display_name: str
     batch_name: str
-    status: ClaimStatus
+    status: SubmissionStatus
     amount: Money
     decided_at: dt.datetime
 
 
 @dataclass(frozen=True, slots=True)
 class VerificationQueue:
-    """What T4 shows: waiting claims, and what was decided recently.
+    """What R1 shows: waiting payments, and what was decided recently.
 
     :ivar pending: Oldest first, so nobody waits longest unseen
     :ivar decided_recently: Newest first
     """
 
-    pending: list[QueueItem]
+    pending: list[PaymentReview]
     decided_recently: list[RecentDecision]
 
 
-def _compare(claimed: Money, charged: Money) -> tuple[Comparison, Money]:
-    """Say how a claim stands against its charge.
+def _compare(sent: Money, owed: Money) -> tuple[Comparison, Money]:
+    """Say how a payment stands against what is owed.
 
-    :param claimed: What was claimed
-    :param charged: What the period charged
+    :param sent: What was sent
+    :param owed: What the children owe together
     :return: The comparison and the distance, never negative
     """
-    if claimed < charged:
-        return "short", shortfall_of(charged, claimed)
-    if claimed > charged:
-        return "over", shortfall_of(claimed, charged)
+    if sent < owed:
+        return "short", shortfall_of(owed, sent)
+    if sent > owed:
+        return "over", shortfall_of(sent, owed)
     return "matches", Money.ZERO
 
 
@@ -168,99 +202,174 @@ def _reference(transaction_id: str | None) -> str | None:
     return cleaned or None
 
 
-def _submitter(
-    claim: PaymentClaim, seat: Enrollment
-) -> tuple[Submitter | None, str | None]:
-    """Who sent a claim, and the number the teacher holds for them.
+def covered_children(
+    session: Session, submission_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, list[tuple[PaymentClaim, Enrollment]]]:
+    """Read each submission's claims with their seats, in child order.
 
-    :param claim: The claim
-    :param seat: The seat it is against
+    :param session: The session to read through
+    :param submission_ids: The submissions
+    :return: Submission id to its claims and seats
+    """
+    found: dict[uuid.UUID, list[tuple[PaymentClaim, Enrollment]]] = defaultdict(list)
+    if not submission_ids:
+        return found
+    rows = session.execute(
+        sa.select(PaymentClaim, Enrollment)
+        .join(Enrollment, Enrollment.id == PaymentClaim.enrollment_id)
+        .where(PaymentClaim.payment_submission_id.in_(submission_ids))
+    ).all()
+    for claim, seat in rows:
+        if claim.payment_submission_id is not None:
+            found[claim.payment_submission_id].append((claim, seat))
+    for pairs in found.values():
+        pairs.sort(key=lambda pair: child_order(pair[1]))
+    return found
+
+
+def _names(pairs: list[tuple[PaymentClaim, Enrollment]]) -> str:
+    """Join the covered children's names for one line.
+
+    :param pairs: The claims and seats, in child order
+    :return: The names, comma separated
+    """
+    return ", ".join(seat.display_name for _claim, seat in pairs)
+
+
+def _submitter(
+    submission: PaymentSubmission, seats: list[Enrollment]
+) -> tuple[Submitter | None, str | None]:
+    """Who sent a payment, and the number the teacher holds for them.
+
+    :param submission: The submission
+    :param seats: The seats it covers
     :return: The role and phone, or Nones when it cannot be said
     """
-    submitter = claim.submitted_by_account_id
-    if submitter is not None and submitter == seat.guardian_account_id:
-        return "guardian", seat.guardian_phone
-    if submitter is not None and submitter == seat.student_account_id:
-        return "student", seat.student_phone
+    sender = submission.submitted_by_account_id
+    if sender is None:
+        return None, None
+    for seat in seats:
+        if sender == seat.guardian_account_id:
+            return "guardian", seat.guardian_phone
+    for seat in seats:
+        if sender == seat.student_account_id:
+            return "student", seat.student_phone
     return None, None
 
 
-def _amount(claim: PaymentClaim) -> Money:
-    """Give the figure a decided claim stands for.
+def _approved_total(
+    submission: PaymentSubmission, pairs: list[tuple[PaymentClaim, Enrollment]]
+) -> Money:
+    """Give the figure a decided payment stands for.
 
-    :param claim: The claim
-    :return: The approved amount where there is one, else the claimed
+    :param submission: The submission
+    :param pairs: Its claims and seats
+    :return: What was approved across the children, else what was sent
     """
-    return (
-        claim.approved_amount
-        if claim.approved_amount is not None
-        else claim.claimed_amount
-    )
-
-
-def _owned_claims(
-    session: Session, lens: TeacherLens
-) -> list[tuple[PaymentClaim, Enrollment, str]]:
-    """Every claim on this teacher's batches, with its seat and batch.
-
-    :param session: The session to read through
-    :param lens: The teacher lens carrying the owner id
-    :return: Claim, seat and batch name, oldest submission first
-    """
-    rows = session.execute(
-        sa.select(PaymentClaim, Enrollment, Batch.name)
-        .join(Enrollment, Enrollment.id == PaymentClaim.enrollment_id)
-        .join(Batch, Batch.id == Enrollment.batch_id)
-        .where(Batch.owner_id == lens.owner_id)
-        .order_by(PaymentClaim.submitted_at, PaymentClaim.id)
-    ).all()
-    return [(row[0], row[1], row[2]) for row in rows]
-
-
-def _same_submission(earlier: PaymentClaim, claim: PaymentClaim) -> bool:
-    """Report whether two claims are shares of one submission.
-
-    A payment covering several children quotes its reference once, so
-    its own shares are not duplicates of each other.
-
-    :param earlier: The first claim quoting the reference
-    :param claim: A later claim quoting it
-    :return: True when both belong to the same submission
-    """
-    return (
-        earlier.payment_submission_id is not None
-        and earlier.payment_submission_id == claim.payment_submission_id
-    )
+    if submission.status != "approved":
+        return submission.total_amount
+    return Money.sum([claim.approved_amount or Money.ZERO for claim, _seat in pairs])
 
 
 def _duplicates(
-    rows: list[tuple[PaymentClaim, Enrollment, str]],
-) -> dict[uuid.UUID, DuplicateClaim]:
-    """For each claim, the earliest other claim quoting its reference.
+    submissions: list[PaymentSubmission],
+    children: dict[uuid.UUID, list[tuple[PaymentClaim, Enrollment]]],
+) -> dict[uuid.UUID, DuplicatePayment]:
+    """For each submission, the earliest other one quoting its reference.
 
-    :param rows: The teacher's claims, oldest first
-    :return: Claim id to the earlier claim it repeats
+    :param submissions: The teacher's submissions, oldest first
+    :param children: Each submission's claims and seats
+    :return: Submission id to the earlier submission it repeats
     """
-    first_by_reference: dict[str, tuple[PaymentClaim, Enrollment]] = {}
-    found: dict[uuid.UUID, DuplicateClaim] = {}
-    for claim, seat, _batch in rows:
-        reference = _reference(claim.transaction_id)
+    first: dict[str, PaymentSubmission] = {}
+    found: dict[uuid.UUID, DuplicatePayment] = {}
+    for submission in submissions:
+        reference = _reference(submission.transaction_id)
         if reference is None:
             continue
-        earlier = first_by_reference.get(reference)
+        earlier = first.get(reference)
         if earlier is None:
-            first_by_reference[reference] = (claim, seat)
+            first[reference] = submission
             continue
-        if _same_submission(earlier[0], claim):
-            continue
-        found[claim.id] = DuplicateClaim(
-            claim_id=earlier[0].id,
-            display_name=earlier[1].display_name,
-            status=claim_status(earlier[0].status),
-            amount=_amount(earlier[0]),
-            decided_at=earlier[0].verified_at,
+        found[submission.id] = DuplicatePayment(
+            submission_id=earlier.id,
+            display_name=_names(children[earlier.id]),
+            status=submission_status(earlier.status),
+            amount=earlier.total_amount,
+            decided_at=earlier.decided_at,
         )
     return found
+
+
+def _review(
+    session: Session,
+    submission: PaymentSubmission,
+    pairs: list[tuple[PaymentClaim, Enrollment]],
+    batch_name: str,
+    duplicate_of: DuplicatePayment | None,
+) -> PaymentReview:
+    """Assemble one payment's review from its rows.
+
+    :param session: The session to read through
+    :param submission: The submission
+    :param pairs: Its claims and seats, in child order
+    :param batch_name: The batch's name
+    :param duplicate_of: The earlier submission it repeats, if any
+    :return: The review
+    """
+    children = [
+        ReviewChild(
+            claim_id=claim.id,
+            enrollment_id=seat.id,
+            display_name=seat.display_name,
+            period=claim.period,
+            owed=derive_for_enrollment(session, seat.id).total_outstanding,
+            approved_amount=claim.approved_amount,
+        )
+        for claim, seat in pairs
+    ]
+    owed_together = Money.sum([child.owed for child in children])
+    comparison, difference = _compare(submission.total_amount, owed_together)
+    submitted_by, phone = _submitter(submission, [seat for _claim, seat in pairs])
+    return PaymentReview(
+        submission_id=submission.id,
+        batch_name=batch_name,
+        children=children,
+        owed_together=owed_together,
+        total_amount=submission.total_amount,
+        comparison=comparison,
+        difference=difference,
+        method=dict(submission.destination_snapshot),
+        transaction_id=submission.transaction_id,
+        from_account=submission.from_account,
+        paid_on=submission.paid_on,
+        submitted_at=submission.submitted_at,
+        submitted_by=submitted_by,
+        submitter_phone=phone,
+        payer_note=submission.payer_note,
+        status=submission_status(submission.status),
+        decision_note=submission.decision_note,
+        decided_at=submission.decided_at,
+        duplicate_of=duplicate_of,
+    )
+
+
+def _owned_submissions(
+    session: Session, lens: TeacherLens
+) -> list[tuple[PaymentSubmission, str]]:
+    """Every submission on this teacher's batches, with the batch name.
+
+    :param session: The session to read through
+    :param lens: The teacher lens carrying the owner id
+    :return: Submission and batch name, oldest first
+    """
+    rows = session.execute(
+        sa.select(PaymentSubmission, Batch.name)
+        .join(Batch, Batch.id == PaymentSubmission.batch_id)
+        .where(Batch.owner_id == lens.owner_id)
+        .order_by(PaymentSubmission.submitted_at, PaymentSubmission.id)
+    ).all()
+    return [(row[0], row[1]) for row in rows]
 
 
 def verification_queue(
@@ -269,7 +378,7 @@ def verification_queue(
     lens: TeacherLens,
     now: dt.datetime | None = None,
 ) -> VerificationQueue:
-    """Read this teacher's waiting claims and recent decisions.
+    """Read this teacher's waiting payments and recent decisions.
 
     :param session: The session to read through
     :param lens: The teacher lens
@@ -277,76 +386,77 @@ def verification_queue(
     :return: The queue
     """
     moment = now or dt.datetime.now(tz=dt.UTC)
-    rows = _owned_claims(session, lens)
-    duplicates = _duplicates(rows)
+    rows = _owned_submissions(session, lens)
+    submissions = [submission for submission, _name in rows]
+    children = covered_children(session, [s.id for s in submissions])
+    duplicates = _duplicates(submissions, children)
 
-    pending: list[QueueItem] = []
+    pending: list[PaymentReview] = []
     recent: list[RecentDecision] = []
-    for claim, seat, batch_name in rows:
-        if claim.status == "pending":
-            charged = derive_for_enrollment(session, seat.id).per_cycle.get(
-                claim.period, Money.ZERO
-            )
-            comparison, difference = _compare(claim.claimed_amount, charged)
-            submitted_by, phone = _submitter(claim, seat)
+    for submission, batch_name in rows:
+        pairs = children[submission.id]
+        if submission.status == "pending":
             pending.append(
-                QueueItem(
-                    claim_id=claim.id,
-                    enrollment_id=seat.id,
-                    display_name=seat.display_name,
-                    batch_name=batch_name,
-                    period=claim.period,
-                    claimed_amount=claim.claimed_amount,
-                    charged=charged,
-                    comparison=comparison,
-                    difference=difference,
-                    channel=claim.channel,
-                    transaction_id=claim.transaction_id,
-                    submitted_at=claim.submitted_at,
-                    submitted_by=submitted_by,
-                    submitter_phone=phone,
-                    duplicate_of=duplicates.get(claim.id),
+                _review(
+                    session,
+                    submission,
+                    pairs,
+                    batch_name,
+                    duplicates.get(submission.id),
                 )
             )
         elif (
-            claim.verified_at is not None
-            and moment - claim.verified_at <= RECENT_WINDOW
+            submission.decided_at is not None
+            and moment - submission.decided_at <= RECENT_WINDOW
         ):
             recent.append(
                 RecentDecision(
-                    claim_id=claim.id,
-                    display_name=seat.display_name,
+                    submission_id=submission.id,
+                    display_name=_names(pairs),
                     batch_name=batch_name,
-                    status=claim_status(claim.status),
-                    amount=_amount(claim),
-                    decided_at=claim.verified_at,
+                    status=submission_status(submission.status),
+                    amount=_approved_total(submission, pairs),
+                    decided_at=submission.decided_at,
                 )
             )
     recent.sort(key=lambda decision: decision.decided_at, reverse=True)
     return VerificationQueue(pending=pending, decided_recently=recent)
 
 
-def shortfall_preview(
+def payment_review(
     session: Session,
     *,
     lens: TeacherLens,
-    claim_id: uuid.UUID,
-    approved_amount: Money,
-) -> Money:
-    """Preview what approving this amount would leave short.
-
-    The partial sheet asks "what happens to the other ৳400?"; the 400
-    comes from here, through the same formula the decision uses.
+    submission_id: uuid.UUID,
+) -> PaymentReview:
+    """Read one payment on this teacher's batches, decided or not (R2).
 
     :param session: The session to read through
     :param lens: The teacher lens
-    :param claim_id: The claim
-    :param approved_amount: The amount the teacher is about to accept
-    :return: The shortfall, never negative
-    :raises AuthorizationError: The claim is not on this lens's batches
+    :param submission_id: The submission
+    :return: The review
+    :raises AuthorizationError: It is absent or not this lens's
     """
-    claim = assert_claim_is_verifiable(session, lens=lens, claim_id=claim_id)
-    charged = derive_for_enrollment(session, claim.enrollment_id).per_cycle.get(
-        claim.period, Money.ZERO
-    )
-    return shortfall_of(charged, approved_amount)
+    submission = owned_submission(session, lens=lens, submission_id=submission_id)
+    batch_name = session.scalars(
+        sa.select(Batch.name).where(Batch.id == submission.batch_id)
+    ).one()
+    earlier = [
+        row
+        for row in session.scalars(
+            sa.select(PaymentSubmission)
+            .join(Batch, Batch.id == PaymentSubmission.batch_id)
+            .where(
+                Batch.owner_id == lens.owner_id,
+                PaymentSubmission.transaction_id.is_not(None),
+                PaymentSubmission.submitted_at <= submission.submitted_at,
+            )
+            .order_by(PaymentSubmission.submitted_at, PaymentSubmission.id)
+        )
+        if (row.submitted_at, str(row.id))
+        < (submission.submitted_at, str(submission.id))
+    ]
+    candidates = [*earlier, submission]
+    children = covered_children(session, [s.id for s in candidates])
+    duplicate = _duplicates(candidates, children).get(submission.id)
+    return _review(session, submission, children[submission.id], batch_name, duplicate)

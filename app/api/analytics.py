@@ -40,7 +40,7 @@ from app.analytics.seats import (
 from app.analytics.today import today_view
 from app.analytics.upcoming import next_exam
 from app.api.deps import get_session, teacher_lens
-from app.api.fees import queue_item_response
+from app.api.fees import payment_review_response
 from app.authz.lenses import TeacherLens
 from app.local_time import bangladesh_today
 from app.money import Money as DomainMoney
@@ -317,7 +317,7 @@ def read_today(
             for row in view.classes
         ],
         to_verify_count=view.to_verify_count,
-        to_verify=[queue_item_response(item) for item in view.to_verify],
+        to_verify=[payment_review_response(item) for item in view.to_verify],
         has_batches=view.has_batches,
     )
 

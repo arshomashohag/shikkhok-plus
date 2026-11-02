@@ -26,9 +26,11 @@ __all__ = [
     "CLAIM_STATUS_VALUES",
     "DISPOSITION_VALUES",
     "FEE_STATUS_VALUES",
+    "SUBMISSION_STATUS_VALUES",
     "ClaimStatus",
     "FeeStatus",
     "ShortfallDisposition",
+    "SubmissionStatus",
     "fee_status",
     "status_from_entries",
 ]
@@ -48,6 +50,16 @@ ClaimStatus = Literal["pending", "approved_full", "approved_partial", "rejected"
 
 #: The teacher's choice on approving less than was charged [BR5.4].
 ShortfallDisposition = Literal["carried", "waived"]
+
+#: The three a payment submission may report.
+SubmissionStatus = Literal["pending", "approved", "rejected"]
+
+#: The same three as a typed tuple, so a membership test narrows.
+SUBMISSION_STATUS_VALUES: Final[tuple[SubmissionStatus, ...]] = (
+    "pending",
+    "approved",
+    "rejected",
+)
 
 #: The same two as a TYPED tuple, so a membership test against it
 #: narrows rather than merely checking. ``app.db.models`` carries the

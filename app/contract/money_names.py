@@ -108,6 +108,16 @@ NON_MONEY_FIELDS: Final[dict[tuple[str, str], str]] = {
         "The same date echoed back. The response's money property, "
         "`total_amount`, references Money."
     ),
+    ("PaymentReviewResponse", "paid_on"): (
+        "A DATE, not an amount: the day the family says the money moved, "
+        "as the teacher reviews it. The review's money properties -- "
+        "`total_amount`, `owed_together`, `difference` -- reference Money."
+    ),
+    ("PaymentApprovalRequest", "credit_to_enrollment_id"): (
+        "A UUID naming the child who receives an excess as credit, not an "
+        "amount. Matches the 'credit' token. The request's money property, "
+        "`received_amount`, references Money."
+    ),
     ("CurrentFeeResponse", "paid_on"): (
         "A DATE, not an amount: the day the period's last approved "
         'payment was decided ("Paid 8 Oct"). The schema\'s money '

@@ -17,6 +17,10 @@ correctable; and the API could not reach any of it.
 already had fifteen passing tests and the wiring had none. A service
 level test cannot distinguish "this works" from "this is reachable", and
 the unit shipped the first without the second.
+
+The decision routes now decide a whole payment
+(``/v1/payments/{submission_id}/approval`` and ``/rejection``), and the
+same wiring must hold for them.
 """
 
 from __future__ import annotations
@@ -24,7 +28,7 @@ from __future__ import annotations
 import inspect
 
 from app.api import fees
-from app.schemas.fees import RejectionRequest, VerificationRequest
+from app.schemas.fees import PaymentApprovalRequest, PaymentRejectionRequest
 
 
 def test_the_request_schemas_carry_correcting() -> None:
@@ -41,11 +45,11 @@ def test_the_request_schemas_carry_correcting() -> None:
 
     :return: None
     """
-    assert "correcting" in VerificationRequest.model_fields
-    assert VerificationRequest.model_fields["correcting"].default is False
+    assert "correcting" in PaymentApprovalRequest.model_fields
+    assert PaymentApprovalRequest.model_fields["correcting"].default is False
 
-    assert "correcting" in RejectionRequest.model_fields
-    assert RejectionRequest.model_fields["correcting"].default is False
+    assert "correcting" in PaymentRejectionRequest.model_fields
+    assert PaymentRejectionRequest.model_fields["correcting"].default is False
 
 
 def test_both_routes_forward_correcting_to_the_service() -> None:
@@ -62,8 +66,8 @@ def test_both_routes_forward_correcting_to_the_service() -> None:
 
     :return: None
     """
-    verify_source = inspect.getsource(fees.record_verification)
+    verify_source = inspect.getsource(fees.approve_payment)
     assert "correcting=body.correcting" in verify_source
 
-    reject_source = inspect.getsource(fees.record_rejection)
+    reject_source = inspect.getsource(fees.reject_payment)
     assert "correcting=" in reject_source

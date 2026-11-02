@@ -35,7 +35,14 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from app.authz.lenses import GuardianLens, Lens, StudentLens, TeacherLens
-from app.db.models import Batch, Enrollment, FeeCycle, LedgerEntryRow, PaymentClaim
+from app.db.models import (
+    Batch,
+    Enrollment,
+    FeeCycle,
+    LedgerEntryRow,
+    PaymentClaim,
+    PaymentSubmission,
+)
 from app.errors import AuthorizationError
 from app.errors.codes import NOT_AVAILABLE
 from app.fees.balances import derive_for_enrollment
@@ -43,9 +50,11 @@ from app.fees.overdue import days_overdue
 from app.fees.status import (
     CLAIM_STATUS_VALUES,
     DISPOSITION_VALUES,
+    SUBMISSION_STATUS_VALUES,
     ClaimStatus,
     FeeStatus,
     ShortfallDisposition,
+    SubmissionStatus,
     fee_status,
     status_from_entries,
 )
@@ -61,6 +70,8 @@ __all__ = [
     "claim_detail",
     "claim_status",
     "enrollment_fee_history",
+    "owned_submission",
+    "submission_status",
 ]
 
 
@@ -99,6 +110,21 @@ def claim_status(stored: str) -> ClaimStatus:
         raise ValueError(
             f"{stored!r} is not a claim status. The database enum and "
             "app.fees.status.CLAIM_STATUS_VALUES have diverged."
+        )
+    return stored
+
+
+def submission_status(stored: str) -> SubmissionStatus:
+    """Narrow a stored submission status onto the closed set, checking it.
+
+    :param stored: The value read from the column
+    :return: The same value, narrowed
+    :raises ValueError: The stored value is outside the closed set
+    """
+    if stored not in SUBMISSION_STATUS_VALUES:
+        raise ValueError(
+            f"{stored!r} is not a submission status. The database enum and "
+            "app.fees.status.SUBMISSION_STATUS_VALUES have diverged."
         )
     return stored
 
@@ -185,6 +211,7 @@ class ClaimDetail:
     :ivar submitted_at: When it was submitted
     :ivar verified_at: When it was decided, or None
     :ivar previous_decision: The prior decision, on a correction
+    :ivar decision_note: The teacher's note on the decision, or None
     """
 
     claim_id: uuid.UUID
@@ -197,6 +224,7 @@ class ClaimDetail:
     submitted_at: dt.datetime
     verified_at: dt.datetime | None
     previous_decision: dict[str, object] | None
+    decision_note: str | None = None
 
 
 def _owned_batch(session: Session, *, lens: TeacherLens, batch_id: uuid.UUID) -> Batch:
@@ -505,7 +533,54 @@ def claim_detail(
         submitted_at=claim.submitted_at,
         verified_at=claim.verified_at,
         previous_decision=claim.previous_decision,
+        decision_note=_decision_note(session, claim),
     )
+
+
+def _decision_note(session: Session, claim: PaymentClaim) -> str | None:
+    """Read the note the family is shown for a claim's decision.
+
+    A share of a submission shows the submission's note; a claim made
+    on its own shows its rejection reason.
+
+    :param session: The session to read through
+    :param claim: The claim
+    :return: The note, or None
+    """
+    if claim.payment_submission_id is None:
+        return claim.rejection_reason
+    submission = session.get(PaymentSubmission, claim.payment_submission_id)
+    return None if submission is None else submission.decision_note
+
+
+def owned_submission(
+    session: Session,
+    *,
+    lens: TeacherLens,
+    submission_id: uuid.UUID,
+) -> PaymentSubmission:
+    """Load a submission on one of this teacher's batches, or refuse.
+
+    An absent submission and another teacher's are the same refusal,
+    so a probe cannot tell which ids exist.
+
+    :param session: The session to read through
+    :param lens: The teacher lens carrying the owner id
+    :param submission_id: The submission
+    :return: The submission
+    :raises AuthorizationError: It is absent or not this lens's
+    """
+    submission = session.scalars(
+        sa.select(PaymentSubmission)
+        .join(Batch, Batch.id == PaymentSubmission.batch_id)
+        .where(
+            PaymentSubmission.id == submission_id,
+            Batch.owner_id == lens.owner_id,
+        )
+    ).one_or_none()
+    if submission is None:
+        raise _refuse()
+    return submission
 
 
 def assert_claim_is_verifiable(

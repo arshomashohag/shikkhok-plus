@@ -56,7 +56,15 @@ from app.notifications.inbox import (
 )
 from app.notifications.recipients import child_names, seat_recipients
 
-__all__ = ["VerificationOutcome", "reject_claim", "shortfall_of", "verify_claim"]
+__all__ = [
+    "VerificationOutcome",
+    "reject_claim",
+    "reject_claim_in_transaction",
+    "shortfall_of",
+    "verify_claim",
+    "verify_claim_in_transaction",
+    "withdraw_decision",
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -267,73 +275,68 @@ def shortfall_of(charged: Money, approved: Money) -> Money:
     return Money.ZERO if raw.is_negative() else raw
 
 
-def verify_claim(
+def withdraw_decision(
     session: Session,
+    claim: PaymentClaim,
     *,
-    claim_id: uuid.UUID,
+    verified_by_account_id: uuid.UUID,
+) -> dict[str, object] | None:
+    """Undo a decided claim's decision, leaving it pending again [BR3.3].
+
+    The prior decision is retained on ``previous_decision`` and every
+    entry it produced is compensated, so the next decision is written
+    against the balance as it stood before. A claim still pending is
+    left as it is. Adds to the transaction and does not commit.
+
+    :param session: The session to write through
+    :param claim: The claim being re-decided
+    :param verified_by_account_id: Who is correcting
+    :return: The prior decision, or None when there was none
+    """
+    previous = _previous_decision(claim)
+    if previous is None:
+        return None
+    _reverse_prior_entries(
+        session, claim, verified_by_account_id=verified_by_account_id
+    )
+    claim.previous_decision = previous
+    claim.status = _UNDECIDED
+    return previous
+
+
+def verify_claim_in_transaction(
+    session: Session,
+    claim: PaymentClaim,
+    *,
     approved_amount: Money,
     shortfall_disposition: str | None,
     verified_by_account_id: uuid.UUID,
-    correcting: bool = False,
 ) -> VerificationOutcome:
-    """Approve a claim, writing its decision and entries together.
+    """Write one claim's approval and its entries, inside a caller's decision.
 
-    One transaction for the claim's status, approved amount,
-    disposition, verifier and timestamp together with every ledger entry
-    the decision produced [BR5.5].
-
-    **Deciding an already-decided claim is a ``ConflictError`` unless
-    the caller says it is a correction** [NFR6.35, NFR14.45]. Two
-    teachers approving the same claim at the same moment would
-    otherwise each append a full set of entries and credit the payment
-    twice, which is a money error — and a claim has no
-    ``(enrollment, period)`` uniqueness for the database to conflict
-    on, so this is the one concurrent path the fee-cycle constraint does
-    not already cover.
-
-    The guard is a **conditional update** rather than a read-then-write:
-    ``_claim_the_decision`` moves the status only ``WHERE`` it still
-    holds the value this caller read, so zero rows updated means another
-    verification won. A check-then-act would pass a sequential test and
-    lose the race it exists to settle.
-
-    ``correcting`` separates the two cases that look identical from the
-    database's point of view. FR9.2 makes every verification
-    correctable, so a guard reading "refuse any verification of a
-    decided claim" would pass the race test and break correction
-    entirely.
+    **No race guard, no notification and no commit.** The caller has
+    already won the right to decide -- a submission's decision claims
+    the submission row -- and commits every child's claim together. A
+    claim still carrying a decision is withdrawn first, so a correction
+    compensates before it writes.
 
     :param session: The session to write through
-    :param claim_id: The claim to decide
-    :param approved_amount: What the teacher accepted
+    :param claim: The claim to decide
+    :param approved_amount: What the teacher accepted for this claim
     :param shortfall_disposition: ``carried`` or ``waived``, required
-        where the approval is below the charge and None where it is not
+        where the approval is below the period's charge and None where
+        it is not
     :param verified_by_account_id: Who decided
-    :param correcting: True when the teacher is deliberately revising a
-        decision already on record, which retains the prior one
     :return: The decided claim and the computed shortfall
-    :raises ValidationError: The amount is negative, the disposition is
-        missing where one is required or supplied where none applies,
-        or the disposition is not a representable value
-    :raises ConflictError: The claim was already decided and this is not
-        a declared correction
+    :raises ValidationError: The amount is negative, or the disposition
+        is missing, unknown or not applicable
     """
     if approved_amount.is_negative():
         raise ValidationError(
             code="APPROVED_AMOUNT_NEGATIVE",
             message_key="fees.verification.amount_negative",
         )
-
-    claim = _load(session, claim_id)
-    _claim_the_decision(session, claim, correcting=correcting)
-    previous = _previous_decision(claim)
-
-    # A correction: undo the prior decision's entries before writing
-    # the new ones, so the balance reflects one decision at a time.
-    if previous is not None:
-        _reverse_prior_entries(
-            session, claim, verified_by_account_id=verified_by_account_id
-        )
+    withdraw_decision(session, claim, verified_by_account_id=verified_by_account_id)
 
     period = claim.period
     derived = derive_for_enrollment(session, claim.enrollment_id)
@@ -414,8 +417,92 @@ def verify_claim(
     claim.shortfall_disposition = shortfall_disposition
     claim.verified_by_account_id = verified_by_account_id
     claim.verified_at = dt.datetime.now(tz=dt.UTC)
-    if previous is not None:
-        claim.previous_decision = previous
+    return VerificationOutcome(claim=claim, shortfall=shortfall)
+
+
+def reject_claim_in_transaction(
+    session: Session,
+    claim: PaymentClaim,
+    *,
+    verified_by_account_id: uuid.UUID,
+    reason: str | None,
+) -> PaymentClaim:
+    """Write one claim's rejection, inside a caller's decision [BR5.6].
+
+    No race guard, no notification and no commit, as for
+    :func:`verify_claim_in_transaction`. A prior approval is withdrawn
+    first, which reverses its entries.
+
+    :param session: The session to write through
+    :param claim: The claim to reject
+    :param verified_by_account_id: Who rejected it
+    :param reason: Why it was rejected; blank is stored as none
+    :return: The rejected claim
+    """
+    withdraw_decision(session, claim, verified_by_account_id=verified_by_account_id)
+    claim.status = "rejected"
+    claim.rejection_reason = (reason or "").strip() or None
+    claim.approved_amount = None
+    claim.shortfall_disposition = None
+    claim.verified_by_account_id = verified_by_account_id
+    claim.verified_at = dt.datetime.now(tz=dt.UTC)
+    return claim
+
+
+def verify_claim(
+    session: Session,
+    *,
+    claim_id: uuid.UUID,
+    approved_amount: Money,
+    shortfall_disposition: str | None,
+    verified_by_account_id: uuid.UUID,
+    correcting: bool = False,
+) -> VerificationOutcome:
+    """Approve a claim, writing its decision and entries together.
+
+    One transaction for the claim's status, approved amount,
+    disposition, verifier and timestamp together with every ledger entry
+    the decision produced [BR5.5].
+
+    **Deciding an already-decided claim is a ``ConflictError`` unless
+    the caller says it is a correction** [NFR6.35, NFR14.45]. Two
+    teachers approving the same claim at the same moment would
+    otherwise each append a full set of entries and credit the payment
+    twice, which is a money error.
+
+    :param session: The session to write through
+    :param claim_id: The claim to decide
+    :param approved_amount: What the teacher accepted
+    :param shortfall_disposition: ``carried`` or ``waived``, required
+        where the approval is below the charge and None where it is not
+    :param verified_by_account_id: Who decided
+    :param correcting: True when the teacher is deliberately revising a
+        decision already on record, which retains the prior one
+    :return: The decided claim and the computed shortfall
+    :raises ValidationError: The amount is negative, the disposition is
+        missing where one is required or supplied where none applies,
+        or the disposition is not a representable value
+    :raises ConflictError: The claim was already decided and this is not
+        a declared correction
+    """
+    if approved_amount.is_negative():
+        raise ValidationError(
+            code="APPROVED_AMOUNT_NEGATIVE",
+            message_key="fees.verification.amount_negative",
+        )
+
+    claim = _load(session, claim_id)
+    _claim_the_decision(session, claim, correcting=correcting)
+    previous = withdraw_decision(
+        session, claim, verified_by_account_id=verified_by_account_id
+    )
+    outcome = verify_claim_in_transaction(
+        session,
+        claim,
+        approved_amount=approved_amount,
+        shortfall_disposition=shortfall_disposition,
+        verified_by_account_id=verified_by_account_id,
+    )
 
     partial = approved_amount < claim.claimed_amount
     _tell_the_seat(
@@ -426,7 +513,7 @@ def verify_claim(
         replacing=previous is not None,
     )
     session.commit()
-    return VerificationOutcome(claim=claim, shortfall=shortfall)
+    return outcome
 
 
 def reject_claim(
@@ -440,13 +527,8 @@ def reject_claim(
     """Reject a claim, recording nothing as received [BR5.6].
 
     **No ledger entry of any kind is appended**, and the outstanding
-    balance is unchanged. A rejected claim that still moved money, or a
-    rejection the submitter never sees, are the two failures this
-    answers; the second is the response schema's job and the first is
-    this function's.
-
-    Rejecting a previously approved claim is a correction and reverses
-    the entries that approval produced.
+    balance is unchanged. Rejecting a previously approved claim is a
+    correction and reverses the entries that approval produced.
 
     :param session: The session to write through
     :param claim_id: The claim to reject
@@ -459,21 +541,12 @@ def reject_claim(
     """
     claim = _load(session, claim_id)
     _claim_the_decision(session, claim, correcting=correcting)
-    previous = _previous_decision(claim)
-
-    if previous is not None:
-        _reverse_prior_entries(
-            session, claim, verified_by_account_id=verified_by_account_id
-        )
-
-    claim.status = "rejected"
-    claim.rejection_reason = (reason or "").strip() or None
-    claim.approved_amount = None
-    claim.shortfall_disposition = None
-    claim.verified_by_account_id = verified_by_account_id
-    claim.verified_at = dt.datetime.now(tz=dt.UTC)
-    if previous is not None:
-        claim.previous_decision = previous
+    previous = withdraw_decision(
+        session, claim, verified_by_account_id=verified_by_account_id
+    )
+    reject_claim_in_transaction(
+        session, claim, verified_by_account_id=verified_by_account_id, reason=reason
+    )
 
     _tell_the_seat(
         session,
