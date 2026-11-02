@@ -1047,6 +1047,7 @@
     <string name="fees_payment_allocation_disposition_required">ঘাটতি পরের মাসে নেবেন নাকি মওকুফ করবেন তা বেছে নিন।</string>
     <string name="fees_payment_allocation_invalid">এই ভাগ এই পেমেন্টে প্রয়োগ করা যাবে না।</string>
     <string name="fees_payment_amount_not_positive">শূন্যের চেয়ে বেশি পরিমাণ লিখুন।</string>
+    <string name="fees_payment_approval_zero">কিছুই পাওয়া যায়নি, তাই এটি অনুমোদন করা যাবে না। এর বদলে পেমেন্টটি বাতিল করুন।</string>
     <string name="fees_payment_child_not_in_payment">এই শিশু এই পেমেন্টের অংশ নয়।</string>
     <string name="fees_payment_children_across_batches">একবারে একটি ব্যাচের শিশুদের বেছে নিন।</string>
     <string name="fees_payment_children_required">কমপক্ষে একটি শিশু বেছে নিন।</string>

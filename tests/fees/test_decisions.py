@@ -1545,3 +1545,49 @@ def test_a_corrected_approval_leaves_fee_history_charged_unchanged(
     assert response.status_code == 200, response.text
     charged = {cycle["period"]: cycle["charged"] for cycle in response.json()["cycles"]}
     assert charged[OCTOBER] == "1500.00"
+
+
+def test_approving_nothing_received_is_refused_in_favour_of_rejecting(
+    api_client: TestClient,
+    owner_session: Session,
+    restricted_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """Approving 0.00 is refused with its own code, and nothing is written.
+
+    An approval of nothing reads to the family as "Payment done" while
+    every month stays owed; the teacher who received nothing rejects.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param restricted_session: The application's session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    family = _family(owner_session, teacher, account_factory)
+    submission = _submit(api_client, owner_session, family, "2000.00")
+
+    response = _approve(
+        api_client,
+        owner_session,
+        teacher,
+        submission,
+        "0.00",
+        shortfall_disposition="carried",
+        carried_by_enrollment_id=family.tanvir,
+    )
+
+    assert response.status_code == 400, response.text  # type: ignore[attr-defined]
+    assert _code(response) == "PAYMENT_APPROVAL_ZERO"
+    assert (
+        response.json()["error"]["message_key"]  # type: ignore[attr-defined]
+        == "fees.payment.approval_zero"
+    )
+    restricted_session.expire_all()
+    stored = restricted_session.get(PaymentSubmission, submission)
+    assert stored is not None
+    assert stored.status == "pending"
+    for seat in (family.tania, family.tanvir):
+        assert set(_kinds(restricted_session, seat)) == {"charge"}

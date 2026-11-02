@@ -88,6 +88,8 @@ object MessageKeys {
             R.string.fees_payment_allocation_invalid,
         "fees.payment.amount_not_positive" to
             R.string.fees_payment_amount_not_positive,
+        "fees.payment.approval_zero" to
+            R.string.fees_payment_approval_zero,
         "fees.payment.child_not_in_payment" to
             R.string.fees_payment_child_not_in_payment,
         "fees.payment.children_across_batches" to

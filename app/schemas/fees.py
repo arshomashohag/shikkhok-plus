@@ -247,7 +247,9 @@ class PaymentApprovalRequest(BaseModel):
     decided and I am revising it" [BR5.7, FR9.2]; without it a second
     decision is refused, so a concurrent repeat cannot credit twice.
 
-    :ivar received_amount: What the teacher received
+    :ivar received_amount: What the teacher received; more than zero,
+        since a payment nothing came in for is rejected rather than
+        approved
     :ivar shortfall_disposition: Carried or waived, when short
     :ivar carried_by_enrollment_id: The child who carries a shortfall
     :ivar credit_to_enrollment_id: The child who gets an excess as credit

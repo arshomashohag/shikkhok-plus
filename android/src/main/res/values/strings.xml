@@ -1102,6 +1102,7 @@
     <string name="fees_payment_allocation_disposition_required">Choose whether to carry or waive the shortfall.</string>
     <string name="fees_payment_allocation_invalid">That split cannot be applied to this payment.</string>
     <string name="fees_payment_amount_not_positive">Enter an amount greater than zero.</string>
+    <string name="fees_payment_approval_zero">Nothing was received, so this can\'t be approved. Reject the payment instead.</string>
     <string name="fees_payment_child_not_in_payment">That child is not part of this payment.</string>
     <string name="fees_payment_children_across_batches">Pick children from one batch at a time.</string>
     <string name="fees_payment_children_required">Pick at least one child.</string>

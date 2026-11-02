@@ -29,6 +29,7 @@
     "fees.payment.allocation_disposition_required",
     "fees.payment.allocation_invalid",
     "fees.payment.amount_not_positive",
+    "fees.payment.approval_zero",
     "fees.payment.child_not_in_payment",
     "fees.payment.children_across_batches",
     "fees.payment.children_required",

@@ -19,6 +19,9 @@ only the allocation's credit child can be left with an excess.
 its entries, then writes the new one, so the allocation sees what was
 owed before the decision being replaced.
 
+**Approving nothing is refused.** An approval reads "Payment done" to
+the family; a teacher who received nothing rejects instead.
+
 **The family hears once per payment.** Each accepted student or
 guardian of a covered seat gets one item carrying the teacher's note,
 however many of their children it covered.
@@ -301,12 +304,17 @@ def approve_submission(
     :param correcting: True when deliberately revising a decision
     :return: The approved submission
     :raises AuthorizationError: It is absent or not this lens's
-    :raises ValidationError: A chosen child is not covered, or the
-        allocation refused the choices
+    :raises ValidationError: Nothing was received, a chosen child is
+        not covered, or the allocation refused the choices
     :raises ConflictError: It was already decided and this is not a
         declared correction
     """
     submission = owned_submission(session, lens=lens, submission_id=submission_id)
+    if received.is_zero():
+        raise ValidationError(
+            code="PAYMENT_APPROVAL_ZERO",
+            message_key="fees.payment.approval_zero",
+        )
     covered = _covered(session, submission)
     bearer_index = _index_of(covered, carried_by_enrollment_id)
     credit_index = _index_of(covered, credit_to_enrollment_id)
