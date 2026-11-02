@@ -70,6 +70,7 @@ import com.shikkhokplus.app.feature.invitations.ui.InvitationsScreen
 import com.shikkhokplus.app.feature.marks.MarksViewModel
 import com.shikkhokplus.app.feature.marks.MarksheetReader
 import com.shikkhokplus.app.feature.marks.ui.MarksheetScreen
+import com.shikkhokplus.app.feature.dashboard.DashboardReader
 import com.shikkhokplus.app.feature.marks.ui.ProgressScreen
 import com.shikkhokplus.app.feature.profile.ProfileViewModel
 import com.shikkhokplus.app.feature.profile.ui.ProfileScreen
@@ -518,6 +519,12 @@ fun ShikkhokNavHost(
                 state = state,
                 onRetry = model::retry,
                 onBack = { navController.popBackStack() },
+                onOpenProgress =
+                    if (reader == FeeReader.TEACHER) {
+                        { navController.navigate(Destination.Dashboard.of(seat, DashboardReader.TEACHER.name)) }
+                    } else {
+                        null
+                    },
             )
         }
 
@@ -540,7 +547,9 @@ fun ShikkhokNavHost(
                         onPay = { option -> navController.navigate(Destination.ChildPay.of(option.enrollmentId)) },
                         onPayments = { seat -> navController.navigate(Destination.ChildPayments.of(seat)) },
                         onResult = { result, _ ->
-                            navController.navigate(Destination.ChildProgress.of(result.enrollmentId))
+                            navController.navigate(
+                                Destination.Dashboard.of(result.enrollmentId, DashboardReader.GUARDIAN.name),
+                            )
                         },
                         onBatch = { seat -> navController.navigate(Destination.ChildBatch.of(seat)) },
                         onRetry = model::retry,
@@ -557,6 +566,7 @@ fun ShikkhokNavHost(
         }
 
         guardianRoutes(client, navController)
+        dashboardRoutes(client, navController)
 
         composable(Destination.Invitations.route) {
             val model: InvitationsViewModel =

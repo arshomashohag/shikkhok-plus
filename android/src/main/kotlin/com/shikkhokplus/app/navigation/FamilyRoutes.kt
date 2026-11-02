@@ -20,6 +20,7 @@ import com.shikkhokplus.app.feature.classcalendar.ClassCalendarUiState
 import com.shikkhokplus.app.feature.fees.FeeReader
 import com.shikkhokplus.app.feature.marks.MarksheetReader
 import com.shikkhokplus.app.feature.student.FamilyExamViewModel
+import com.shikkhokplus.app.feature.dashboard.DashboardReader
 import com.shikkhokplus.app.feature.student.FamilyReader
 import com.shikkhokplus.app.feature.student.StudentBatchUiState
 import com.shikkhokplus.app.feature.student.StudentRepository
@@ -87,6 +88,10 @@ internal fun FamilyBatchRoute(
             )
         },
         onRetry = model::retry,
+        onOpenProgress = {
+            val dashboardReader = if (guardian) DashboardReader.GUARDIAN else DashboardReader.STUDENT
+            navController.navigate(Destination.Dashboard.of(seat, dashboardReader.name))
+        },
         onPay = {
             navController.navigate(if (guardian) Destination.ChildPay.of(seat) else Destination.Pay.of(seat))
         },

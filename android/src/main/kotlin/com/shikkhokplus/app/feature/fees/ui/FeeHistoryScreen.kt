@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
 import com.shikkhokplus.app.core.designsystem.LogoLoader
 import com.shikkhokplus.app.core.designsystem.ListScreenScaffold
+import com.shikkhokplus.app.core.designsystem.TextAction
 import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.core.format.monthName
 import com.shikkhokplus.app.core.ui.HistoryLineText
@@ -63,6 +64,9 @@ const val TAG_FEES_HISTORY_LINE: String = "fees_history_line"
 /** The error message. */
 const val TAG_FEES_ERROR: String = "fees_error"
 
+/** The link to this seat's progress dashboard. */
+const val TAG_FEES_PROGRESS: String = "fees_progress"
+
 /** The retry button, shown only when the server said retryable. */
 const val TAG_FEES_RETRY: String = "fees_retry"
 
@@ -90,6 +94,8 @@ const val TAG_FEES_RETRY: String = "fees_retry"
  * @param onRetry Called when the viewer asks to retry
  * @param onBack Called by the back arrow
  * @param modifier Layout modifier
+ * @param onOpenProgress Opens this seat's progress dashboard, or null
+ *   where the reader has no such link here
  */
 @Composable
 fun FeeHistoryScreen(
@@ -97,11 +103,21 @@ fun FeeHistoryScreen(
     onRetry: () -> Unit,
     onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
+    onOpenProgress: (() -> Unit)? = null,
 ) {
     ListScreenScaffold(
         title = stringResource(R.string.screen_title_fee_history),
         onBack = onBack,
         modifier = modifier,
+        header = {
+            if (onOpenProgress != null && state !is FeeUiState.Loading) {
+                TextAction(
+                    text = stringResource(R.string.dashboard_open_progress),
+                    onClick = onOpenProgress,
+                    modifier = Modifier.testTag(TAG_FEES_PROGRESS),
+                )
+            }
+        },
     ) {
         when (state) {
             FeeUiState.Loading ->

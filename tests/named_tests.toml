@@ -640,8 +640,8 @@ criterion = "Money decodes from a JSON string and fails LOUDLY on a number; a le
 rule = "BR6.2"
 
 [[test]]
-id = "a submitted claim encodes its amount as a JSON string"
-file = "android/src/test/kotlin/com/shikkhokplus/app/feature/fees/FeeDtoTest.kt"
+id = "a submitted amount encodes as a json string and every field is sent"
+file = "android/src/test/kotlin/com/shikkhokplus/app/core/network/PayDtoTest.kt"
 criterion = "The rule is BOTH directions; inbound is the half everyone tests, and an outbound number would surface as a rejected payment in front of a guardian"
 rule = "BR6.2"
 

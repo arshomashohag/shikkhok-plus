@@ -311,6 +311,49 @@ sealed interface Destination {
         ): String = "fees/$enrollmentId?reader=$reader"
     }
 
+    /**
+     * One seat's progress dashboard (D1, D2), for all three readers.
+     *
+     * **The reader is in the route** because a teacher, a student and a
+     * guardian read it over three server paths, each resolving its own
+     * lens. The names travel beside the seat because the dashboard
+     * response carries none.
+     */
+    data object Dashboard : Destination {
+        override val route: String = "dashboard/{seat}?reader={reader}&child={child}&batch={batch}"
+
+        /** The seat argument's name. */
+        const val ARG_SEAT: String = "seat"
+
+        /** The reader argument's name. */
+        const val ARG_READER: String = "reader"
+
+        /** Whose progress, for the heading. */
+        const val ARG_CHILD: String = "child"
+
+        /** Which class, for the heading. */
+        const val ARG_BATCH: String = "batch"
+
+        /**
+         * Build a concrete route.
+         *
+         * @param seat The seat
+         * @param reader `TEACHER`, `STUDENT` or `GUARDIAN`
+         * @param child Whose progress, or empty
+         * @param batch Which class, or empty
+         * @return The route to navigate to
+         */
+        fun of(
+            seat: String,
+            reader: String,
+            child: String = "",
+            batch: String = "",
+        ): String =
+            "dashboard/$seat?reader=$reader" +
+                "&child=${java.net.URLEncoder.encode(child, "UTF-8")}" +
+                "&batch=${java.net.URLEncoder.encode(batch, "UTF-8")}"
+    }
+
     /** Payments waiting for the teacher to check (T4). */
     data object Verify : Destination {
         override val route: String = "verify"

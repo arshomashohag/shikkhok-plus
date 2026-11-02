@@ -18,6 +18,7 @@ import com.shikkhokplus.app.feature.fees.ui.TAG_FEES_EMPTY
 import com.shikkhokplus.app.feature.fees.ui.TAG_FEES_ERROR
 import com.shikkhokplus.app.feature.fees.ui.TAG_FEES_LIST
 import com.shikkhokplus.app.feature.fees.ui.TAG_FEES_LOADING
+import com.shikkhokplus.app.feature.fees.ui.TAG_FEES_PROGRESS
 import com.shikkhokplus.app.feature.fees.ui.TAG_FEES_RETRY
 import com.shikkhokplus.app.feature.fees.ui.TAG_FEES_ROW
 import com.shikkhokplus.app.feature.fees.ui.TAG_FEES_STATUS
@@ -77,6 +78,23 @@ class FeeScreenTest {
 
         compose.onNodeWithTag(TAG_FEES_LOADING).assertIsDisplayed()
         assertEquals(0, compose.onAllNodesWithTag(TAG_FEES_LIST).fetchSemanticsNodes().size)
+    }
+
+    @Test
+    fun `the progress link shows only when the reader has one`() {
+        var opened = false
+        compose.setContent { FeeHistoryScreen(FeeUiState.Empty, onRetry = {}, onOpenProgress = { opened = true }) }
+
+        compose.onNodeWithTag(TAG_FEES_PROGRESS).performClick()
+
+        assertEquals(true, opened)
+    }
+
+    @Test
+    fun `no progress link without one`() {
+        compose.setContent { FeeHistoryScreen(FeeUiState.Empty, onRetry = {}) }
+
+        assertEquals(0, compose.onAllNodesWithTag(TAG_FEES_PROGRESS).fetchSemanticsNodes().size)
     }
 
     @Test
