@@ -121,7 +121,8 @@ fi
 install -m 600 /dev/null /etc/nginx/origin_secret.conf
 printf 'if ($http_x_origin_secret != "%s") {\n    return 403;\n}\n' \
   "$ORIGIN_SECRET" > /etc/nginx/origin_secret.conf
-unset ORIGIN_SECRET
+# Kept in this (unexported) shell variable for the readiness probe at
+# the end, which must present it exactly as CloudFront does.
 
 cat > /etc/nginx/sites-available/shikkhokplus <<'NGINX'
 # The viewer's address as CloudFront saw it, without the port.
@@ -255,66 +256,96 @@ echo "${ecr_repository_url}" > /srv/shikkhokplus/image-repository
 chown ubuntu:ubuntu /srv/shikkhokplus/image-repository
 
 # ---------------------------------------------------------------------
-# Self-registration: this instance announces its own address
+# Self-registration and readiness: defined here, CALLED at the end
 # ---------------------------------------------------------------------
 #
 # **Replaces the Elastic IP.** An ASG instance gets a new public IP on
 # every replacement, so a Terraform-managed A record would be stale the
-# moment the box is replaced -- and re-attaching an EIP needs a
-# lifecycle hook that can fail halfway, leaving an instance running and
-# unreachable.
+# moment the box is replaced. Writing the record from the instance
+# inverts that: whatever comes up is what CloudFront reaches, within
+# one TTL. Terraform deliberately does NOT own this record.
 #
-# Writing the record from the instance inverts that: whatever comes up
-# is what CloudFront reaches, within one TTL, with nothing to
-# re-attach. Terraform deliberately does NOT own this record.
+# **Registered only once this host is READY, not at the top of the
+# boot** [OPS-6]. A deploy now launches the new host BEFORE terminating
+# the old one. Registering first would point CloudFront at a box still
+# installing packages and migrating -- 502s for minutes while a healthy
+# host sat beside it. Registering last means the old host serves until
+# the new one has proved itself, and the refresh's instance warmup
+# (longer than the record's 60 s TTL) gives CloudFront time to follow
+# before the old host is terminated.
 
-TOKEN=$(curl -fsS -X PUT "http://169.254.169.254/latest/api/token" \
-  -H "X-aws-ec2-metadata-token-ttl-seconds: 300")
-PUBLIC_IP=$(curl -fsS -H "X-aws-ec2-metadata-token: $TOKEN" \
-  http://169.254.169.254/latest/meta-data/public-ipv4)
-
-if [ -z "$PUBLIC_IP" ]; then
-  echo "FAILED: no public IPv4 from IMDS" > /var/log/shikkhokplus-provision.log
-  exit 1
-fi
-
-cat > /tmp/dns-register.json <<DNSJSON
-{
-  "Comment": "Self-registration at boot",
-  "Changes": [{
-    "Action": "UPSERT",
-    "ResourceRecordSet": {
-      "Name": "${origin_fqdn}",
-      "Type": "A",
-      "TTL": 60,
-      "ResourceRecords": [{"Value": "$PUBLIC_IP"}]
-    }
-  }]
+imds() {
+  local token
+  token=$(curl -fsS -X PUT "http://169.254.169.254/latest/api/token" \
+    -H "X-aws-ec2-metadata-token-ttl-seconds: 300")
+  curl -fsS -H "X-aws-ec2-metadata-token: $token" \
+    "http://169.254.169.254/latest/meta-data/$1"
 }
-DNSJSON
 
-# **The error is captured, not discarded.** An earlier version piped
-# stdout to /dev/null and wrote only "FAILED: DNS self-registration",
-# which threw away the one thing needed to diagnose it -- AWS reports
-# the reason on stderr, and the handler lost that too. The boot log
-# then said a step failed and nothing about why.
-if ! dns_error=$(aws route53 change-resource-record-sets \
-    --hosted-zone-id "${dns_zone_id}" \
-    --change-batch file:///tmp/dns-register.json \
-    --region us-east-1 2>&1); then
-  {
-    echo "FAILED: DNS self-registration"
-    echo "  zone:  ${dns_zone_id}"
-    echo "  name:  ${origin_fqdn}"
-    echo "  value: $PUBLIC_IP"
-    echo "  aws cli: $(command -v aws || echo 'NOT INSTALLED')"
-    echo "  error:"
-    echo "$dns_error" | sed 's/^/    /'
-  } > /var/log/shikkhokplus-provision.log
-  exit 1
-fi
-rm -f /tmp/dns-register.json
-echo "Registered ${origin_fqdn} -> $PUBLIC_IP"
+register_dns() {
+  local public_ip dns_error
+  public_ip=$(imds public-ipv4) || public_ip=""
+  if [ -z "$public_ip" ]; then
+    echo "FAILED: no public IPv4 from IMDS" >> /var/log/shikkhokplus-provision.log
+    return 1
+  fi
+  cat > /tmp/dns-register.json <<DNSJSON
+{"Comment": "Self-registration at boot", "Changes": [{"Action": "UPSERT",
+ "ResourceRecordSet": {"Name": "${origin_fqdn}", "Type": "A", "TTL": 60,
+ "ResourceRecords": [{"Value": "$public_ip"}]}}]}
+DNSJSON
+  # **The error is captured, not discarded.** AWS reports the reason on
+  # stderr; an earlier version threw it away and the boot log said a
+  # step failed and nothing about why.
+  if ! dns_error=$(aws route53 change-resource-record-sets \
+      --hosted-zone-id "${dns_zone_id}" \
+      --change-batch file:///tmp/dns-register.json \
+      --region us-east-1 2>&1); then
+    {
+      echo "FAILED: DNS self-registration of ${origin_fqdn} -> $public_ip"
+      echo "$dns_error" | sed 's/^/    /'
+    } >> /var/log/shikkhokplus-provision.log
+    return 1
+  fi
+  rm -f /tmp/dns-register.json
+  echo "Registered ${origin_fqdn} -> $public_ip" >> /var/log/shikkhokplus-provision.log
+}
+
+# **The readiness signal** [OPS-6]. The group's launch lifecycle hook
+# holds every new instance in Pending:Wait until this says CONTINUE; no
+# answer within the hook's timeout, or ABANDON, and the ASG terminates
+# the instance instead of putting it in service. During a deploy that
+# means a host which cannot serve never replaces one which can.
+#
+# The group's name comes from the instance's own tags through IMDS
+# (instance_metadata_tags is enabled), because the launch template
+# cannot name the group that uses it. "No lifecycle action" is not an
+# error: a brand-new group launches its first instance before the
+# hook exists, and that instance has nothing to answer.
+lifecycle() {
+  local asg iid
+  asg=$(imds tags/instance/aws:autoscaling:groupName) || return 0
+  iid=$(imds instance-id) || return 0
+  aws autoscaling complete-lifecycle-action \
+    --lifecycle-hook-name "${lifecycle_hook_name}" \
+    --auto-scaling-group-name "$asg" --instance-id "$iid" \
+    --lifecycle-action-result "$1" --region "${aws_region}" \
+    >> /var/log/shikkhokplus-provision.log 2>&1 \
+    || echo "lifecycle $1: no pending action for $iid" \
+         >> /var/log/shikkhokplus-provision.log
+}
+
+# A boot that fails anywhere from here on says so at once, rather than
+# leaving the ASG to wait out the hook's full timeout.
+trap 'rc=$?; [ "$rc" -eq 0 ] || lifecycle ABANDON' EXIT
+
+# A host with nothing to run yet -- first boot before any deploy --
+# is still a correct host: register it and put it in service.
+ready_without_app() {
+  register_dns
+  lifecycle CONTINUE
+  exit 0
+}
 
 # ---------------------------------------------------------------------
 # A real origin certificate, so CloudFront will talk to us at all
@@ -342,7 +373,8 @@ echo "Registered ${origin_fqdn} -> $PUBLIC_IP"
 # reloads, and uploads the new state.
 #
 # DNS-01 writes only a TXT record, so it does not depend on this
-# host's A record existing yet.
+# host's A record existing yet -- which matters now that the A record
+# is written only once the host is ready.
 #
 # **Failure here is not fatal to the boot by itself.** nginx keeps the
 # snakeoil pair and the boot continues -- but the readiness check at
@@ -430,8 +462,8 @@ if [ "$IMAGE_TAG" = "none" ] || [ -z "${ecr_repository_url}" ]; then
   # expected: nginx serves, the API is absent, and the next deploy
   # fills it in. NOT an error.
   echo "provisioned (no image deployed yet)" \
-    > /var/log/shikkhokplus-provision.log
-  exit 0
+    >> /var/log/shikkhokplus-provision.log
+  ready_without_app
 fi
 
 # **The compose file comes from git, the secrets from SSM.** Neither
@@ -447,8 +479,8 @@ RUNTIME_ENV=$(aws ssm get-parameter \
 
 if [ -z "$RUNTIME_ENV" ] || [ "$RUNTIME_ENV" = "SHIKKHOKPLUS_ENVIRONMENT=unset" ]; then
   echo "provisioned (image $IMAGE_TAG known, no runtime env yet)" \
-    > /var/log/shikkhokplus-provision.log
-  exit 0
+    >> /var/log/shikkhokplus-provision.log
+  ready_without_app
 fi
 
 # **The restricted role, never the owner** [OPS-5]. The API and the
@@ -651,16 +683,30 @@ systemctl enable --now shikkhokplus-freshness.service \
 # container that starts and immediately exits, so a boot reporting
 # success here would hide exactly the failure this script exists to
 # catch.
-for _ in $(seq 1 12); do
-  if curl -fsS -m 5 http://127.0.0.1:8000/health >/dev/null 2>&1; then
-    echo "provisioned (running $IMAGE_TAG, migrated, healthy)" \
+#
+# **Ready means what CloudFront will see** [OPS-6]. The probe goes
+# through nginx over TLS to the origin NAME, with certificate
+# verification on, carrying the origin secret -- the exact hop
+# CloudFront makes -- and requires the body to report a reachable
+# database. A host on snakeoil, behind a broken nginx config, or with
+# an API that cannot reach PostgreSQL is not ready, is never put in
+# service, and during a deploy leaves the previous host serving.
+for _ in $(seq 1 24); do
+  if body=$(curl -fsS -m 5 \
+       --resolve "${origin_fqdn}:443:127.0.0.1" \
+       -H "X-Origin-Secret: $ORIGIN_SECRET" \
+       "https://${origin_fqdn}/health" 2>/dev/null) \
+     && [[ "$body" == *'"database":"ok"'* ]]; then
+    echo "provisioned (running $IMAGE_TAG, migrated, healthy over TLS)" \
       >> /var/log/shikkhokplus-provision.log
+    register_dns
+    lifecycle CONTINUE
     exit 0
   fi
   sleep 5
 done
 
-echo "FAILED: $IMAGE_TAG started but /health did not answer in 60s" \
+echo "FAILED: $IMAGE_TAG did not answer /health through nginx in 120s" \
   >> /var/log/shikkhokplus-provision.log
 sudo -u ubuntu docker compose logs --tail 50 \
   >> /var/log/shikkhokplus-provision.log 2>&1

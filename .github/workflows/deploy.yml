@@ -235,7 +235,9 @@ jobs:
     # which it no longer can be -- and that tolerance was load-bearing
     # only for the change-detection this replaced.
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # A refresh can take 40 minutes (the readiness hook's own timeout
+    # plus one retry), and a rollback is a second refresh.
+    timeout-minutes: 100
     environment: ${{ inputs.environment }}
     steps:
       - uses: actions/checkout@v7
@@ -332,10 +334,30 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # **What is running now, kept so a failed release can be undone.**
+      # The rollback below restores exactly these two parameters; with
+      # them back, any replacement host boots the previous release.
+      # The runtime env is a secret, so it goes to a 0600 file in the
+      # runner's temp directory, never to an output or the log.
+      - name: Remember the running release
+        id: previous
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          umask 077
+          base="/shikkhokplus/shikkhokplus-${ENVIRONMENT}"
+          tag=$(aws ssm get-parameter --name "$base/image-tag" \
+            --query 'Parameter.Value' --output text)
+          aws ssm get-parameter --name "$base/runtime-env" --with-decryption \
+            --query 'Parameter.Value' --output text > "$RUNNER_TEMP/previous-runtime.env"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Running before this deploy: ${tag:0:12}"
+
       # **Written BEFORE the refresh.** A replaced instance reads
       # these at boot. Writing them after would leave a window in
       # which a replacement comes back on the PREVIOUS image.
       - name: Record the deployment state
+        id: record
         env:
           ENVIRONMENT: ${{ inputs.environment }}
           OTP_HMAC_KEY: ${{ secrets.SHIKKHOKPLUS_OTP_HMAC_KEY }}
@@ -346,6 +368,7 @@ jobs:
           SMS_APP_HASH: ${{ vars.SHIKKHOKPLUS_SMS_APP_HASH }}
           DAILY_SMS: ${{ vars.SHIKKHOKPLUS_GLOBAL_DAILY_SMS }}
           STAGING_OUTBOX: ${{ vars.SHIKKHOKPLUS_STAGING_OUTBOX }}
+          SHA: ${{ needs.plan.outputs.sha }}
         run: |
           umask 077
           {
@@ -368,7 +391,7 @@ jobs:
 
           aws ssm put-parameter \
             --name "/shikkhokplus/shikkhokplus-${ENVIRONMENT}/image-tag" \
-            --value "${{ needs.plan.outputs.sha }}" --type String --overwrite >/dev/null
+            --value "$SHA" --type String --overwrite >/dev/null
 
           aws ssm put-parameter \
             --name "/shikkhokplus/shikkhokplus-${ENVIRONMENT}/runtime-env" \
@@ -384,99 +407,70 @@ jobs:
       # self-healing boot is tested on every deploy rather than only
       # on the day it matters.
       #
-      # Safe only because the database is RDS. With Postgres in a
-      # container this would reset it on every deploy.
+      # **Launch before terminate, gated on readiness** [OPS-6]. This
+      # was MinHealthyPercentage 0 with an EC2 health check, so every
+      # deploy terminated the only host first and counted a booted-but-
+      # broken replacement as healthy. deploy/roll.sh documents the
+      # replacement's lifecycle; in short, the old host serves until the
+      # new one has proved it answers /health through nginx over
+      # verified TLS.
       - name: Roll the instance
-        id: refresh
+        id: roll
+        run: deploy/roll.sh "shikkhokplus-${{ inputs.environment }}"
+
+      # **The deploy is not done until the PUBLIC URL answers** [OPS-6].
+      # This was a curl to 127.0.0.1 over SSM on the instance, which
+      # proved the container answered and nothing about CloudFront, the
+      # origin certificate, nginx's origin-secret check or DNS -- every
+      # one of which has failed on this project with a healthy
+      # container behind it. Through CloudFront, and at the migration
+      # head this commit declares.
+      - name: Smoke through CloudFront
+        id: smoke
         env:
-          ASG_PREFIX: shikkhokplus-${{ inputs.environment }}
+          ENVIRONMENT: ${{ inputs.environment }}
         run: |
-          asg=$(aws autoscaling describe-auto-scaling-groups \
-            --query "AutoScalingGroups[?starts_with(AutoScalingGroupName,'$ASG_PREFIX')] | [0].AutoScalingGroupName" \
-            --output text)
+          url=$(aws ssm get-parameter \
+            --name "/shikkhokplus/shikkhokplus-${ENVIRONMENT}/api-url" \
+            --query 'Parameter.Value' --output text)
+          echo "Smoke: $url"
+          python3 deploy/smoke.py "$url" --attempts 18 --interval 10
 
-          if [ -z "$asg" ] || [ "$asg" = "None" ]; then
-            echo "::error::No auto-scaling group matching $ASG_PREFIX."
-            exit 1
-          fi
-          echo "Group: $asg"
-
-          # min_healthy 0, because the group holds ONE instance: at
-          # any higher percentage the refresh waits forever for a
-          # healthy spare that the group is not allowed to launch.
-          # A short outage is the accepted trade [D-29].
-          id=$(aws autoscaling start-instance-refresh \
-            --auto-scaling-group-name "$asg" \
-            --preferences '{"MinHealthyPercentage":0,"InstanceWarmup":120}' \
-            --query 'InstanceRefreshId' --output text)
-
-          echo "Refresh: $id"
-          echo "asg=$asg" >> "$GITHUB_OUTPUT"
-
-          for _ in $(seq 1 60); do
-            status=$(aws autoscaling describe-instance-refreshes \
-              --auto-scaling-group-name "$asg" \
-              --instance-refresh-ids "$id" \
-              --query 'InstanceRefreshes[0].Status' --output text)
-            case "$status" in
-              Successful) echo "Refresh complete."; break ;;
-              Failed|Cancelled)
-                echo "::error::Instance refresh $status."
-                aws autoscaling describe-instance-refreshes \
-                  --auto-scaling-group-name "$asg" \
-                  --instance-refresh-ids "$id" \
-                  --query 'InstanceRefreshes[0].StatusReason' --output text
-                exit 1 ;;
-            esac
-            sleep 20
-          done
-
-          [ "$status" = "Successful" ] || {
-            echo "::error::Refresh did not finish within 20 minutes."
-            exit 1
-          }
-
-      # **The deploy is not done until the API answers.** A refresh
-      # reports Successful on an instance that passed its EC2 health
-      # check, which says nothing about whether the application
-      # started or the migration applied.
-      - name: The API responds
+      # **The rollback, automatic.** Any failure after the deployment
+      # state was recorded puts the previous image tag and runtime env
+      # back, so no future replacement boots the failed release.
+      #
+      # Whether the host itself must be rolled again depends on where
+      # it failed. A failed REFRESH never put the new host in service --
+      # the previous host is still serving -- so restoring SSM is the
+      # whole rollback. A failed SMOKE means the new host is the one
+      # serving, so a second launch-before-terminate refresh boots the
+      # previous release beside it and replaces it.
+      #
+      # The schema is NOT rolled back. Migrations are forward-only and
+      # must stay compatible with the previous release [team.md
+      # Deployment]; the pre-deploy snapshot is the recovery path when
+      # one was not, and infra/RESTORE.md is how to use it.
+      - name: Roll back to the previous release
+        if: failure() && steps.record.outcome == 'success'
         env:
-          ASG: ${{ steps.refresh.outputs.asg }}
+          ENVIRONMENT: ${{ inputs.environment }}
+          PREVIOUS_TAG: ${{ steps.previous.outputs.tag }}
+          SMOKE: ${{ steps.smoke.outcome }}
         run: |
-          instance=$(aws autoscaling describe-auto-scaling-groups \
-            --auto-scaling-group-names "$ASG" \
-            --query "AutoScalingGroups[0].Instances[?LifecycleState=='InService'] | [0].InstanceId" \
-            --output text)
-
-          cmd=$(aws ssm send-command --instance-ids "$instance" \
-            --document-name AWS-RunShellScript \
-            --parameters 'commands=["cat /var/log/shikkhokplus-provision.log","echo ---","curl -fsS -m 10 http://127.0.0.1:8000/health"]' \
-            --query 'Command.CommandId' --output text)
-
-          for _ in $(seq 1 24); do
-            status=$(aws ssm get-command-invocation --command-id "$cmd" \
-              --instance-id "$instance" --query Status --output text \
-              2>/dev/null || echo Pending)
-            case "$status" in Success|Failed|TimedOut) break ;; esac
-            sleep 5
-          done
-
-          out=$(aws ssm get-command-invocation --command-id "$cmd" \
-            --instance-id "$instance" --query 'StandardOutputContent' \
-            --output text 2>/dev/null || true)
-          echo "$out"
-
-          {
-            echo ""
-            echo "### Boot log"
-            echo '```'
-            echo "$out"
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-
-          if [ "$status" != "Success" ]; then
-            echo "::error::The API did not answer on the new instance."
-            exit 1
+          base="/shikkhokplus/shikkhokplus-${ENVIRONMENT}"
+          aws ssm put-parameter --name "$base/image-tag" \
+            --value "$PREVIOUS_TAG" --type String --overwrite >/dev/null
+          aws ssm put-parameter --name "$base/runtime-env" \
+            --value "file://$RUNNER_TEMP/previous-runtime.env" \
+            --type SecureString --overwrite >/dev/null
+          echo "Restored the previous release (${PREVIOUS_TAG:0:12}) in SSM."
+          if [ "$SMOKE" = "failure" ]; then
+            echo "The failed release is serving; rolling the host back."
+            deploy/roll.sh "shikkhokplus-${ENVIRONMENT}"
           fi
-          echo "Deployed and healthy."
+          echo "::error::Deploy failed and was rolled back to ${PREVIOUS_TAG:0:12}."
+
+      - name: Forget the previous runtime env
+        if: always()
+        run: rm -f "$RUNNER_TEMP/previous-runtime.env"

@@ -10,6 +10,10 @@ shipped, or a control whose absence would be silent:
   ``github.sha``, the commit it was dispatched from. A rollback to an
   older ref then redeployed main's image, or pushed old code under
   main's SHA into an IMMUTABLE repository, where it can never be fixed.
+- **A deploy is not an outage, and a failed one undoes itself** [OPS-6].
+  The refresh launches before it terminates; the smoke goes through the
+  public URL; a failure after the release was recorded restores the
+  previous one.
 """
 
 from __future__ import annotations
@@ -21,6 +25,7 @@ import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 DEPLOY = ROOT / ".github" / "workflows" / "deploy.yml"
+ROLL = ROOT / "deploy" / "roll.sh"
 
 
 def _without_comments(text: str) -> str:
@@ -80,3 +85,36 @@ def test_the_guard_reads_real_steps() -> None:
     assert pushes
     tags = str(pushes[0]["with"]["tags"])  # type: ignore[index]
     assert re.search(r"needs\.plan\.outputs\.sha", tags)
+
+
+def test_the_refresh_launches_before_it_terminates() -> None:
+    roll = ROLL.read_text()
+
+    assert '"MinHealthyPercentage":100' in roll
+    assert '"MaxHealthyPercentage":200' in roll
+    assert 'MinHealthyPercentage":0' not in roll
+    steps = _steps("release")
+    runs = [str(s.get("run", "")) for s in steps]
+    assert any("deploy/roll.sh" in r for r in runs)
+
+
+def test_the_smoke_goes_through_the_public_url() -> None:
+    smoke = [s for s in _steps("release") if s.get("id") == "smoke"]
+
+    assert smoke, "the release job has no smoke step"
+    run = str(smoke[0]["run"])
+    assert "deploy/smoke.py" in run
+    assert "/api-url" in run
+    assert "127.0.0.1" not in run
+
+
+def test_a_failed_release_is_rolled_back() -> None:
+    steps = _steps("release")
+    ids = [s.get("id") for s in steps]
+    rollback = [s for s in steps if "Roll back" in str(s.get("name", ""))]
+
+    assert len(rollback) == 1
+    assert "failure()" in str(rollback[0]["if"])
+    assert "steps.record.outcome" in str(rollback[0]["if"])
+    # The previous release is captured before it is overwritten.
+    assert ids.index("previous") < ids.index("record") < ids.index("roll")

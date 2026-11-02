@@ -389,3 +389,33 @@ def test_the_origin_certificate_is_restored_and_renewal_reloads_nginx(
         assert "--keep-until-expiring" in call
     restore = boot.index("tls/letsencrypt.tar.gz")
     assert restore < boot.index("certbot certonly"), "certbot runs before the restore"
+
+
+def test_the_host_is_announced_only_once_it_serves(rendered: str) -> None:
+    # A deploy launches the new host beside the old one [OPS-6]. If it
+    # wrote its DNS record or answered the lifecycle hook before it
+    # could serve, CloudFront would follow it to a box still migrating
+    # and the ASG would terminate the healthy host for it.
+    boot = list(_shell_bodies(rendered)[0].lines)
+    code = [line.strip() for line in boot]
+
+    probe = next((i for i, line in enumerate(code) if "--resolve" in line), None)
+    assert probe is not None, "the readiness probe no longer goes through nginx"
+    # The curl call and its continuation lines around --resolve.
+    probe_block = " ".join(code[probe - 1 : probe + 4])
+    assert "curl" in probe_block
+    assert "https://" in probe_block and "X-Origin-Secret" in probe_block
+    assert "--insecure" not in probe_block and " -k " not in probe_block
+
+    def inside(name: str, index: int) -> bool:
+        start = next(i for i, line in enumerate(code) if line == f"{name}() {{")
+        end = next(i for i in range(start, len(code)) if code[i] == "}")
+        return start < index < end
+
+    for verb in ("register_dns", "lifecycle CONTINUE"):
+        calls = [i for i, line in enumerate(code) if line == verb]
+        assert calls, f"{verb} is never called"
+        for index in calls:
+            assert index > probe or inside("ready_without_app", index), (
+                f"{verb} at line {index} runs before the host is proved ready"
+            )

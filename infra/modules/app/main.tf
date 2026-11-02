@@ -273,6 +273,8 @@ resource "aws_launch_template" "app" {
       # depend on a previous deploy having written this file to a disk
       # that no longer exists.
       config_bucket = aws_s3_bucket.config.id
+      # The boot script answers this hook once the host is ready.
+      lifecycle_hook_name = local.lifecycle_hook_name
     }))
     : line if !startswith(trimspace(line), "#") || startswith(trimspace(line), "#!")
   ]))
@@ -305,6 +307,10 @@ resource "aws_launch_template" "app" {
     http_tokens                 = "required"
     http_endpoint               = "enabled"
     http_put_response_hop_limit = 1
+    # So the boot script can read its own group's name from the
+    # aws:autoscaling:groupName tag to answer the lifecycle hook. The
+    # launch template cannot name the group that uses it.
+    instance_metadata_tags = "enabled"
   }
 
   tag_specifications {
@@ -321,20 +327,38 @@ resource "aws_autoscaling_group" "app" {
   name_prefix         = "${var.name_prefix}-"
   vpc_zone_identifier = var.subnet_ids
 
-  # **Pinned at one, deliberately.** Not a scaling range that happens
-  # to start at one: min and max are both one, so no policy and no
-  # accidental edit can produce two hosts. Two would each run their
-  # own containerised Postgres and each register the same DNS name.
+  # **Desired one, with room for one more DURING A REPLACEMENT only.**
+  #
+  # This was min = max = 1 so that nothing could produce two hosts,
+  # because two would each have run their own containerised Postgres.
+  # The database is RDS now and two hosts share it, so that reason is
+  # gone -- and max = 1 is what forced every deploy to terminate the
+  # only host before launching its replacement, an outage on every
+  # release with nothing to fall back to [OPS-6]. No scaling policy
+  # exists, so desired stays one; max = 2 is used only by the
+  # launch-before-terminate replacement below.
   min_size         = 1
-  max_size         = 1
+  max_size         = 2
   desired_capacity = 1
 
-  # EC2 health only. An ELB health check would need an ELB; the
-  # instance's own boot script already fails loudly when the app does
-  # not answer, and CloudFront surfaces an origin that stops
-  # responding.
+  # EC2 health, plus the launch lifecycle hook below as the readiness
+  # gate. An ELB health check would need an ELB (USD 16/month); the
+  # hook gives the same "not in service until it serves" property for
+  # free, because the boot script answers it only after the origin
+  # answers /health over verified TLS.
   health_check_type         = "EC2"
   health_check_grace_period = 300
+
+  # **Launch before terminate, for EVERY replacement** -- a failed host
+  # replaced by the ASG as well as a deploy's refresh.
+  instance_maintenance_policy {
+    min_healthy_percentage = 100
+    max_healthy_percentage = 200
+  }
+
+  # CloudWatch group metrics, free at this granularity: the alarm on
+  # "no host in service" reads GroupInServiceInstances.
+  enabled_metrics = ["GroupInServiceInstances", "GroupPendingInstances"]
 
   launch_template {
     id      = aws_launch_template.app.id
@@ -342,12 +366,16 @@ resource "aws_autoscaling_group" "app" {
   }
 
   instance_refresh {
-    # A user_data change replaces the instance, which in Phase 1
-    # destroys the containerised database with it. Manual, so that is
-    # always a decision rather than a side effect of an apply.
+    # Started by the deploy workflow, never by an apply: `triggers` is
+    # empty and the launch template is referenced as $Latest, so a
+    # template change alone does not roll the host. These preferences
+    # apply only if a refresh is ever started from Terraform; the
+    # workflow passes the same values explicitly.
     strategy = "Rolling"
     preferences {
-      min_healthy_percentage = 0
+      min_healthy_percentage = 100
+      max_healthy_percentage = 200
+      instance_warmup        = 120
     }
     triggers = []
   }
@@ -361,6 +389,33 @@ resource "aws_autoscaling_group" "app" {
   lifecycle {
     create_before_destroy = true
   }
+}
+
+# **The readiness gate** [OPS-6]. Every launch waits here, out of
+# service, until the boot script completes the action with CONTINUE --
+# after migrating, starting the API and proving the origin answers
+# /health over verified TLS. ABANDON, or silence for 20 minutes, and
+# the ASG terminates the new instance; during a refresh the old one is
+# still serving, because nothing is terminated until its replacement
+# is in service.
+#
+# 20 minutes covers a cold boot -- apt, the AWS CLI, an image pull and
+# the migrations -- with margin; a boot that takes longer than that has
+# hung.
+#
+# A separate resource rather than `initial_lifecycle_hook`, which the
+# provider applies only when CREATING a group: the existing staging
+# group would never have received it.
+locals {
+  lifecycle_hook_name = "${var.name_prefix}-ready"
+}
+
+resource "aws_autoscaling_lifecycle_hook" "ready" {
+  name                   = local.lifecycle_hook_name
+  autoscaling_group_name = aws_autoscaling_group.app.name
+  lifecycle_transition   = "autoscaling:EC2_INSTANCE_LAUNCHING"
+  heartbeat_timeout      = 1200
+  default_result         = "ABANDON"
 }
 
 # The instance id, for SSM. Looked up rather than held, because the
@@ -415,6 +470,14 @@ resource "aws_iam_role_policy" "self_registration" {
             "kms:ViaService" = "ssm.${var.aws_region}.amazonaws.com"
           }
         }
+      },
+      {
+        # Answering its own launch lifecycle hook [OPS-6]. Scoped to
+        # this host's group by name prefix; the ARN carries a generated
+        # id the policy cannot know, hence the wildcard before it.
+        Effect   = "Allow"
+        Action   = ["autoscaling:CompleteLifecycleAction"]
+        Resource = "arn:aws:autoscaling:${var.aws_region}:${var.account_id}:autoScalingGroup:*:autoScalingGroupName/${var.name_prefix}-*"
       },
       {
         # **Scoped to this zone, and this zone only.** A host that can

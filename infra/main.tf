@@ -215,6 +215,20 @@ module "cdn" {
   origin_secret    = module.app.origin_secret
 }
 
+# **The public URL, published where the workflows can read it without
+# Terraform state.** The deploy's post-release smoke and the ZAP scan
+# both need it. Reading it from state meant granting the deploy role
+# s3:GetObject on a state file that holds every generated secret
+# [OPS-3]; a plain String parameter under the environment's own path is
+# the URL and nothing else. Terraform owns the value -- unlike the image
+# tag, there is no second writer.
+resource "aws_ssm_parameter" "api_url" {
+  name        = "/shikkhokplus/${local.name_prefix}/api-url"
+  type        = "String"
+  value       = module.cdn.api_url
+  description = "The public API URL. Read by deploy.yml's smoke and security-scan.yml."
+}
+
 module "database" {
   source = "./modules/database"
 
