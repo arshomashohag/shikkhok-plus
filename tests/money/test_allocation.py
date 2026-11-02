@@ -52,6 +52,19 @@ def test_shortfall_bigger_than_bearer_spills_from_the_end() -> None:
     assert result.shortfall == M("2500")
 
 
+def test_bearer_in_the_middle_is_filled_after_both_neighbours() -> None:
+    result = allocate_payment(
+        M("1500"),
+        [M("1000"), M("1000"), M("1000")],
+        disposition="carried",
+        bearer_index=1,
+        credit_index=None,
+    )
+    assert result.approved == (M("1000"), M("0"), M("500"))
+    assert result.shortfall == M("1500")
+    assert result.bearer_index == 1
+
+
 def test_zero_owed_child_takes_no_receipt() -> None:
     result = allocate_payment(
         M("800"),

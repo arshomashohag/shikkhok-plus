@@ -824,6 +824,12 @@ criterion = "500 received against three 1000s, bearer 0, approves (0, 500, 0): o
 rule = "R4"
 
 [[test]]
+id = "test_bearer_in_the_middle_is_filled_after_both_neighbours"
+file = "tests/money/test_allocation.py"
+criterion = "1500 received against three 1000s, carried, bearer 1, approves (1000, 0, 500): child 0 and then child 2 are paid in list order before the bearer, and the unpaid rest falls from the end of the list"
+rule = "R4"
+
+[[test]]
 id = "test_zero_owed_child_takes_no_receipt"
 file = "tests/money/test_allocation.py"
 criterion = "800 received against 0 and 1000, waived, bearer 1, approves (0, 800): a child owing nothing absorbs no part of the receipt"
