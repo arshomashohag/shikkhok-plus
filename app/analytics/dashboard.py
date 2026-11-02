@@ -11,7 +11,11 @@ with no held class has no attendance, which is not an attendance of nil.
 
 **The comparison figures are numbers and never names.** The batch
 average and highest mark are sent only with at least three marked seats
-so a figure cannot be traced to a person.
+so a figure cannot be traced to a person. A family lens also waits for
+the exam's marking to be complete, in the sense the Exams tab uses:
+while the teacher is part way through, the figures describe whichever
+seats were marked first, and a family that knows who those are could
+read a classmate's mark out of them.
 
 **The marksheet toggle is an authorization control.** Where the teacher
 has not published it, a family lens gets no exams and no exam tiles at
@@ -30,17 +34,18 @@ from sqlalchemy.orm import Session as DbSession
 
 from app.analytics.collections import months_ending
 from app.authz.lenses import Lens, TeacherLens
-from app.db.models import Attendance, Batch, BatchSubject, Exam
+from app.db.models import Attendance, Batch, BatchSubject, Enrollment, Exam
 from app.db.models import Session as ClassSession
 from app.fees.balances import derive_for_enrollment
 from app.fees.generation import seat_start
 from app.fees.views import MonthStateRow, month_strip
 from app.local_time import bangladesh_today
-from app.marks.results import results_for_exam
+from app.marks.exams import ExamRow
+from app.marks.results import SeatResult, progress_of, results_for_exam
 from app.marks.summary import Direction, summarise
 from app.marks.views import ProgressEntry
 from app.money import Money
-from app.teaching.roster import readable_enrollment
+from app.teaching.roster import readable_enrollment, roster_predicate
 
 __all__ = [
     "AttendanceMonth",
@@ -207,6 +212,10 @@ def _attendance(
 ) -> list[AttendanceMonth]:
     """Count held classes and attendance per month.
 
+    A class is held for the seat only when the seat was on that class's
+    roster, by the same predicate the roster and the attendance write
+    use, so a class after the seat left never reads as an absence.
+
     :param session: The session to read through
     :param batch_id: The seat's batch
     :param enrollment_id: The seat
@@ -224,10 +233,12 @@ def _attendance(
                 Attendance.enrollment_id == enrollment_id,
             ),
         )
+        .join(Enrollment, Enrollment.id == enrollment_id)
         .where(
             ClassSession.batch_id == batch_id,
             ClassSession.status == "held",
             ClassSession.date >= since,
+            roster_predicate(ClassSession.date.expression),
         )
     ).all()
     held: dict[str, int] = dict.fromkeys(window, 0)
@@ -257,6 +268,7 @@ def _exams(
     enrollment_id: uuid.UUID,
     first_day: dt.date,
     today: dt.date,
+    family: bool,
 ) -> list[ExamPoint]:
     """Build the seat's exam points inside a date range.
 
@@ -265,6 +277,8 @@ def _exams(
     :param enrollment_id: The seat
     :param first_day: The earliest exam date
     :param today: Bangladesh's date
+    :param family: The lens is a student's or a guardian's, which also
+        requires the exam's marking to be complete before comparing
     :return: Exams the seat sat or missed, oldest first
     """
     rows = session.execute(
@@ -280,7 +294,9 @@ def _exams(
         if own is None or own.result_state not in ("marked", "absent"):
             continue
         marked = [r.marks for r in results if r.marks is not None]
-        comparable = len(marked) >= MIN_MARKED_FOR_COMPARISON
+        comparable = len(marked) >= MIN_MARKED_FOR_COMPARISON and (
+            not family or _marking_complete(exam, subject, results, today)
+        )
         points.append(
             ExamPoint(
                 exam_id=exam.id,
@@ -299,6 +315,27 @@ def _exams(
             )
         )
     return points
+
+
+def _marking_complete(
+    exam: Exam, subject: str | None, results: list[SeatResult], today: dt.date
+) -> bool:
+    """Say whether every seat that could have sat an exam has a result.
+
+    :param exam: The exam
+    :param subject: Its subject's name
+    :param results: Its four-state results
+    :param today: Bangladesh's date
+    :return: True when the Exams tab would show it complete
+    """
+    row = ExamRow(
+        exam_id=exam.id,
+        title=exam.title,
+        date=exam.date,
+        total_marks=exam.total_marks,
+        subject_name=subject or "",
+    )
+    return progress_of(row, results, today).state == "complete"
 
 
 def seat_dashboard(
@@ -345,6 +382,7 @@ def seat_dashboard(
             enrollment_id=enrollment_id,
             first_day=first_day,
             today=day,
+            family=not isinstance(lens, TeacherLens),
         )
         if published
         else []

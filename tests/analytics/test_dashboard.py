@@ -241,6 +241,44 @@ def test_attendance_counts_held_not_cancelled(
     assert november.percent is None
 
 
+def test_classes_after_the_seat_left_are_not_held_for_it(
+    owner_session: DbSession,
+    restricted_session: DbSession,
+    teacher: TeacherFixture,
+) -> None:
+    """Left on 10 October: the class on the 5th counts, the 12th does not.
+
+    The roster stops listing a seat from its ``inactive_from`` date, so
+    it can never be marked present at a later class; counting that
+    class as held would read as an absence.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application-role session
+    :param teacher: The teacher
+    :return: None
+    """
+    seat = _seat(owner_session, teacher.batch_id, "Rahim")
+    before = _held(owner_session, teacher.batch_id, dt.date(2026, 10, 5))
+    _held(owner_session, teacher.batch_id, dt.date(2026, 10, 10))
+    _held(owner_session, teacher.batch_id, dt.date(2026, 10, 12))
+    _attend(owner_session, before, seat, True)
+    record = owner_session.get(Enrollment, seat)
+    assert record is not None
+    record.inactive_from = dt.date(2026, 10, 10)
+    owner_session.commit()
+
+    dash = seat_dashboard(
+        restricted_session,
+        lens=lens_for(teacher),
+        enrollment_id=seat,
+        range_="6m",
+        today=TODAY,
+    )
+
+    assert (dash.tiles.present, dash.tiles.held) == (1, 1)
+    assert dash.tiles.attendance_percent == 100
+
+
 def test_range_picks_the_months(
     owner_session: DbSession,
     restricted_session: DbSession,
@@ -378,6 +416,59 @@ def test_family_gets_no_marks_when_marksheet_hidden(
     owner_session.commit()
     shown = read(StudentLens(account_id=viewer)).exams[0]
     assert (shown.batch_average, shown.batch_highest) == (55, 70)
+
+
+def test_family_comparison_waits_for_marking_to_finish(
+    owner_session: DbSession,
+    restricted_session: DbSession,
+    teacher: TeacherFixture,
+) -> None:
+    """Three marked of four: families get no comparison; the teacher does.
+
+    With marking incomplete, the average of the first three marked
+    narrows to whoever the teacher reached first, so a family reading
+    it learns about named classmates. Once the fourth is marked, every
+    lens gets the figures.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application-role session
+    :param teacher: The teacher
+    :return: None
+    """
+    exam, seats, viewer = _marked_batch(
+        owner_session, restricted_session, teacher, [90, 50, 40]
+    )
+    guardian = _account(owner_session)
+    record = owner_session.get(Enrollment, seats[0])
+    assert record is not None
+    record.guardian_account_id = guardian
+    record.guardian_decision = "accepted"
+    owner_session.commit()
+    unmarked = _seat(owner_session, teacher.batch_id, "Seat 3")
+
+    def read(lens: StudentLens | GuardianLens | TeacherLens) -> tuple[object, object]:
+        point = seat_dashboard(
+            restricted_session,
+            lens=lens,
+            enrollment_id=seats[0],
+            range_="6m",
+            today=TODAY,
+        ).exams[0]
+        return point.batch_average, point.batch_highest
+
+    families = (
+        StudentLens(account_id=viewer),
+        GuardianLens(account_id=guardian, child_enrollment_id=seats[0]),
+    )
+    for family in families:
+        assert read(family) == (None, None)
+    assert read(lens_for(teacher)) == (60, 90)
+
+    _mark(restricted_session, lens_for(teacher), exam, unmarked, 20)
+
+    for family in families:
+        assert read(family) == (50, 90)
+    assert read(lens_for(teacher)) == (50, 90)
 
 
 def test_highest_carries_no_name(

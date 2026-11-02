@@ -234,7 +234,9 @@ def readable_enrollment(
     raise refuse()
 
 
-def roster_predicate(session_date: dt.date) -> sa.ColumnElement[bool]:
+def roster_predicate(
+    session_date: dt.date | sa.ColumnElement[dt.date],
+) -> sa.ColumnElement[bool]:
     """Build BR1.5's four-clause membership predicate.
 
     Returned as a predicate rather than applied inline so the roster
@@ -254,7 +256,8 @@ def roster_predicate(session_date: dt.date) -> sa.ColumnElement[bool]:
     * ``joined_on IS NULL OR joined_on <= D`` -- a seat is never
       recorded against a class it could not have attended.
 
-    :param session_date: The date the session falls on
+    :param session_date: The date the session falls on, or the session
+        date column when the query spans many sessions
     :return: The predicate, for a query already joined to enrollment
     """
     return sa.and_(
