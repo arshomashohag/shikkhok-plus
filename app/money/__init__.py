@@ -14,6 +14,7 @@ The two gates point in opposite directions and neither catches the other's
 case.
 """
 
+from ._allocation import Allocation, Disposition, allocate_payment
 from ._errors import MoneyValidationError
 from ._kinds import LedgerEntryKind
 from ._ledger import (
@@ -30,7 +31,9 @@ __all__ = [
     "EXPONENT",
     "MAX_INTEGER_DIGITS",
     "ROUNDING",
+    "Allocation",
     "DerivedQuantities",
+    "Disposition",
     "LedgerEntry",
     "LedgerEntryKind",
     "Money",
@@ -42,6 +45,7 @@ __all__ = [
     # it would be exactly the breach the public surface exists to make
     # visible. The amount is still COMPUTED here rather than supplied,
     # which is the property BR4.4 rests on.
+    "allocate_payment",
     "apply_credit",
     "carry_forward",
     "derive",
