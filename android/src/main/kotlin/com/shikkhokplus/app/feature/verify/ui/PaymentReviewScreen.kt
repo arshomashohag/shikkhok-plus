@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -40,6 +41,7 @@ import com.shikkhokplus.app.core.designsystem.SkeletonList
 import com.shikkhokplus.app.core.designsystem.TextAction
 import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.core.format.dateTimeLabel
+import com.shikkhokplus.app.core.format.monthName
 import com.shikkhokplus.app.core.format.shortDate
 import com.shikkhokplus.app.core.ui.ago
 import com.shikkhokplus.app.feature.auth.MessageKeys
@@ -75,6 +77,12 @@ const val TAG_REVIEW_CHANGE: String = "review_change_decision"
 
 /** The teacher's note on a decided payment. */
 const val TAG_REVIEW_DECISION_NOTE: String = "review_decision_note"
+
+/** One child on the payment; the child's seat id follows an underscore. */
+const val TAG_REVIEW_CHILD: String = "review_child"
+
+/** What the children owe together. */
+const val TAG_REVIEW_OWED_TOGETHER: String = "review_owed_together"
 
 /** A refused or failed decision, shown above the payment. */
 const val TAG_VERIFY_ERROR: String = "verify_error"
@@ -256,6 +264,32 @@ private fun Summary(card: ReviewCard) {
         }
         Text(Numerals.money(card.totalAmount), style = MaterialTheme.typography.headlineMedium)
         ComparisonChip(card)
+        card.children.forEach { child ->
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .semantics(mergeDescendants = true) {}
+                    .testTag("${TAG_REVIEW_CHILD}_${child.enrollmentId}"),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    stringResource(
+                        R.string.verify_child_line,
+                        Numerals.freeText(child.displayName),
+                        monthName(child.period, short = false),
+                    ),
+                    style = BodyCompact,
+                )
+                Text(Numerals.money(child.owed), style = BodyCompact)
+            }
+        }
+        Row(
+            Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}.testTag(TAG_REVIEW_OWED_TOGETHER),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(stringResource(R.string.verify_owed_together), style = MaterialTheme.typography.titleSmall)
+            Text(Numerals.money(card.owedTogether), style = MaterialTheme.typography.titleSmall)
+        }
     }
 }
 
@@ -355,6 +389,7 @@ private fun methodLine(method: ReviewMethod): String {
         MethodKind.MOBILE -> stringResource(R.string.verify_method_mobile, provider, Numerals.phone(number))
         MethodKind.BANK -> stringResource(R.string.verify_method_bank, provider, number)
         MethodKind.CASH -> stringResource(R.string.verify_method_cash)
+        MethodKind.OTHER -> provider
     }
 }
 

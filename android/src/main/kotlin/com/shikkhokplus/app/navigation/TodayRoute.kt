@@ -77,6 +77,7 @@ internal fun NavGraphBuilder.todayRoute(
             },
             onMarks = { examId -> navController.navigate(Destination.MarkEntry.of(examId)) },
             onVerifyAll = { navController.navigate(Destination.Verify.route) },
+            onOpenPayment = { navController.navigate(Destination.PaymentReview.of(it)) },
             onCreateBatch = { navController.navigate(Destination.CreateBatch.route) },
             bottomBar = bottomBar,
             pending = pending,

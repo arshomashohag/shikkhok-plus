@@ -44,7 +44,7 @@ object VerifyStateMapper {
             "rejected" to "verify.decision.rejected",
         )
 
-    private const val CASH_CHANNEL = "cash"
+    private const val CASH_KIND = "cash"
 
     /**
      * Map the queue.
@@ -113,7 +113,7 @@ object VerifyStateMapper {
     fun toCard(dto: PaymentReviewDto): ReviewCard? {
         val comparison = COMPARISONS[dto.comparison] ?: return null
         val status = STATUSES[dto.status] ?: return null
-        val method = toMethod(dto.method) ?: return null
+        val method = toMethod(dto.method)
         val duplicate = dto.duplicateOf?.let { toDuplicate(it) ?: return null }
         return ReviewCard(
             submissionId = dto.submissionId,
@@ -150,20 +150,29 @@ object VerifyStateMapper {
     /**
      * Convert the destination snapshot.
      *
+     * Never fails: a legacy or unknown kind degrades to a generic method
+     * named by its channel or kind, so one odd snapshot cannot hide a list.
+     *
      * @param dto The destination
-     * @return The method, or null for a kind this version does not know
+     * @return The method
      */
-    private fun toMethod(dto: ReviewMethodDto): ReviewMethod? {
+    private fun toMethod(dto: ReviewMethodDto): ReviewMethod {
         val kind =
             when {
                 dto.kind == "mobile" -> MethodKind.MOBILE
                 dto.kind == "bank" -> MethodKind.BANK
-                dto.channel == CASH_CHANNEL -> MethodKind.CASH
-                else -> return null
+                dto.kind == CASH_KIND || dto.channel == CASH_KIND -> MethodKind.CASH
+                else -> MethodKind.OTHER
+            }
+        val provider =
+            when (kind) {
+                MethodKind.CASH -> null
+                MethodKind.OTHER -> dto.provider ?: dto.channel ?: dto.kind
+                else -> dto.provider ?: dto.channel
             }
         return ReviewMethod(
             kind = kind,
-            provider = dto.provider ?: dto.channel.takeIf { kind != MethodKind.CASH },
+            provider = provider,
             number = dto.mobileNumber ?: dto.accountNumber,
             accountName = dto.accountName,
             branchName = dto.branchName,

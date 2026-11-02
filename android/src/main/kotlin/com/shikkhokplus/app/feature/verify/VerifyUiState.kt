@@ -36,6 +36,9 @@ enum class MethodKind {
 
     /** Handed over in person. */
     CASH,
+
+    /** A legacy or future destination, shown by name only. */
+    OTHER,
 }
 
 /**

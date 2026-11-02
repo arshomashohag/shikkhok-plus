@@ -15,6 +15,9 @@ import com.shikkhokplus.app.feature.today.ui.TAG_TODAY_FIRST_RUN
 import com.shikkhokplus.app.feature.today.ui.TAG_TODAY_MARKS
 import com.shikkhokplus.app.feature.today.ui.TAG_TODAY_OWED
 import com.shikkhokplus.app.feature.today.ui.TAG_TODAY_RECORD
+import com.shikkhokplus.app.feature.today.ui.TAG_TODAY_VERIFY_ROW
+import com.shikkhokplus.app.feature.verify.review
+import com.shikkhokplus.app.navigation.Destination
 import com.shikkhokplus.app.feature.today.ui.TodayScreen
 import org.junit.Rule
 import org.junit.Test
@@ -94,6 +97,7 @@ class TodayTest {
                     onRecord = { recorded += it.sessionId },
                     onMarks = { marked += it },
                     onVerifyAll = {},
+                    onOpenPayment = {},
                     onCreateBatch = {},
                     onRetry = {},
                 )
@@ -120,6 +124,7 @@ class TodayTest {
                     onRecord = {},
                     onMarks = {},
                     onVerifyAll = {},
+                    onOpenPayment = {},
                     onCreateBatch = {},
                     onRetry = {},
                 )
@@ -134,6 +139,33 @@ class TodayTest {
     }
 
     @Test
+    fun `a payment to verify opens that payment, not the queue`() {
+        val opened = mutableListOf<String>()
+        var queue = 0
+        val dto = day().copy(toVerifyCount = 1, toVerify = listOf(review(id = "s-9")))
+        compose.setContent {
+            ShikkhokTheme {
+                TodayScreen(
+                    state = TodayStateMapper.afterLoad(dto),
+                    onOpenDues = {},
+                    onRecord = {},
+                    onMarks = {},
+                    onVerifyAll = { queue++ },
+                    onOpenPayment = { opened += it },
+                    onCreateBatch = {},
+                    onRetry = {},
+                )
+            }
+        }
+
+        compose.onNodeWithTag(TAG_TODAY_VERIFY_ROW).performScrollTo().performClick()
+
+        assertEquals(listOf("s-9"), opened)
+        assertEquals(0, queue)
+        assertEquals("verify/s-9", Destination.PaymentReview.of("s-9"))
+    }
+
+    @Test
     fun `the first run offers to create a batch`() {
         var created = 0
         compose.setContent {
@@ -144,6 +176,7 @@ class TodayTest {
                     onRecord = {},
                     onMarks = {},
                     onVerifyAll = {},
+                    onOpenPayment = {},
                     onCreateBatch = { created++ },
                     onRetry = {},
                 )

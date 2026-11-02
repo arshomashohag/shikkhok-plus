@@ -2,6 +2,7 @@ package com.shikkhokplus.app.feature.verify
 
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -13,6 +14,8 @@ import com.shikkhokplus.app.feature.verify.ui.ReviewActions
 import com.shikkhokplus.app.feature.verify.ui.SheetActions
 import com.shikkhokplus.app.feature.verify.ui.TAG_REVIEW_APPROVE_OTHER
 import com.shikkhokplus.app.feature.verify.ui.TAG_REVIEW_CHANGE
+import com.shikkhokplus.app.feature.verify.ui.TAG_REVIEW_CHILD
+import com.shikkhokplus.app.feature.verify.ui.TAG_REVIEW_OWED_TOGETHER
 import com.shikkhokplus.app.feature.verify.ui.TAG_REVIEW_DECISION_NOTE
 import com.shikkhokplus.app.feature.verify.ui.TAG_SHEET_CARRY
 import com.shikkhokplus.app.feature.verify.ui.TAG_SHEET_CONFIRM
@@ -75,6 +78,17 @@ class PaymentReviewScreenTest {
         compose.onNodeWithTag(TAG_VERIFY_REJECT_CONFIRM).performClick()
 
         assertEquals(listOf("approve:", "other", "reject:"), log)
+    }
+
+    @Test
+    fun `the detail lists each child with the month and what they owe, then the total owed`() {
+        render(ReviewUiState.Loaded(card()), log = mutableListOf())
+
+        compose.onNodeWithTag(TAG_REVIEW_CHILD + "_e-1").assertTextContains("Rafsan", substring = true)
+        compose.onNodeWithTag(TAG_REVIEW_CHILD + "_e-1").assertTextContains("Oct", substring = true)
+        compose.onNodeWithTag(TAG_REVIEW_CHILD + "_e-1").assertTextContains("৳1,000", substring = true)
+        compose.onNodeWithTag(TAG_REVIEW_CHILD + "_e-2").assertTextContains("Tasnim", substring = true)
+        compose.onNodeWithTag(TAG_REVIEW_OWED_TOGETHER).assertTextContains("৳2,000", substring = true)
     }
 
     @Test
