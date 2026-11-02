@@ -32,17 +32,21 @@ from app.schemas.money import MoneyField
 __all__ = [
     "ClaimQueueItemResponse",
     "ClaimResponse",
-    "ClaimSubmitRequest",
     "FeeCycleResponse",
     "FeeHistoryResponse",
+    "OwedChildResponse",
+    "OwedTogetherResponse",
     "PayableResponse",
     "PayablesResponse",
+    "PaymentSubmitRequest",
+    "PaymentSubmittedResponse",
     "RecentDecisionResponse",
     "ReminderRequest",
     "ReminderResponse",
     "RosterFeeRowResponse",
     "ShortfallPreviewRequest",
     "ShortfallPreviewResponse",
+    "SubmittedClaimResponse",
     "VerificationQueueResponse",
     "VerificationRequest",
     "WaitingPaymentResponse",
@@ -135,27 +139,6 @@ class RosterFeeRowResponse(BaseModel):
     due_date: dt.date | None = None
     days_overdue: int | None = None
     verifying: MoneyField | None = None
-
-
-class ClaimSubmitRequest(BaseModel):
-    """Submit a payment claim [AC6.1.x].
-
-    ``claimed_amount`` is **not capped** at the outstanding balance
-    [BR5.2]: money may genuinely have been overpaid out of band, and
-    blocking that at submission makes a real overpayment unreportable.
-    Zero and negative are refused, which the wire pattern already does
-    for a negative since it admits no sign.
-
-    :ivar claimed_amount: What the claimant says they paid
-    :ivar channel: Which service it moved through, from the server set
-    :ivar transaction_id: The reference they quote, if any
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    claimed_amount: MoneyField
-    channel: str = Field(min_length=1, max_length=32)
-    transaction_id: str | None = Field(default=None, max_length=64)
 
 
 class VerificationRequest(BaseModel):
@@ -485,3 +468,100 @@ class CurrentFeeResponse(BaseModel):
     charged: MoneyField | None = None
     verifying: bool = False
     paid_on: dt.date | None = None
+
+
+class PaymentSubmitRequest(BaseModel):
+    """One payment a student or guardian reports [F3, F4].
+
+    Exactly one of ``payment_method_id`` and ``cash`` names where the
+    money went, and exactly one of ``transaction_id`` and
+    ``from_account`` is present, matching the method's kind; the server
+    enforces both because they depend on the stored method.
+
+    :ivar enrollment_ids: The children covered, all in one batch
+    :ivar payment_method_id: The teacher's method paid to
+    :ivar cash: True when the money was handed over in person
+    :ivar amount: The whole amount sent
+    :ivar paid_on: The day the money moved
+    :ivar transaction_id: The mobile reference
+    :ivar from_account: The paying bank account
+    :ivar note: Free text for the teacher
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    enrollment_ids: list[uuid.UUID] = Field(min_length=1, max_length=20)
+    payment_method_id: uuid.UUID | None = None
+    cash: bool = False
+    amount: MoneyField
+    paid_on: dt.date
+    transaction_id: str | None = Field(default=None, max_length=64)
+    from_account: str | None = Field(default=None, max_length=120)
+    note: str | None = Field(default=None, max_length=500)
+
+
+class SubmittedClaimResponse(BaseModel):
+    """One child's share of a submitted payment.
+
+    :ivar claim_id: The child's pending claim
+    :ivar enrollment_id: The child's seat
+    :ivar display_name: The teacher-typed name
+    :ivar period: The period the claim resolved to
+    :ivar claimed_amount: The provisional share, which the teacher's
+        decision replaces
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    claim_id: uuid.UUID
+    enrollment_id: uuid.UUID
+    display_name: str
+    period: str
+    claimed_amount: MoneyField
+
+
+class PaymentSubmittedResponse(BaseModel):
+    """A payment as recorded, waiting for the teacher.
+
+    :ivar submission_id: The submission
+    :ivar status: Always ``pending`` when just submitted
+    :ivar total_amount: The whole amount sent
+    :ivar paid_on: The day the money moved
+    :ivar claims: Each child's share, in child order
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    submission_id: uuid.UUID
+    status: Literal["pending", "approved", "rejected"]
+    total_amount: MoneyField
+    paid_on: dt.date
+    claims: list[SubmittedClaimResponse]
+
+
+class OwedChildResponse(BaseModel):
+    """One child in the form's owed line.
+
+    :ivar enrollment_id: The child's seat
+    :ivar display_name: The teacher-typed name
+    :ivar owed: What the seat owes now, never negative
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    enrollment_id: uuid.UUID
+    display_name: str
+    owed: MoneyField
+
+
+class OwedTogetherResponse(BaseModel):
+    """What the chosen children owe together, for "Owed for ...".
+
+    :ivar owed_together: The server's total
+    :ivar children: Each child, in child order
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    owed_together: MoneyField
+    children: list[OwedChildResponse]

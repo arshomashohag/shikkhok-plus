@@ -27,6 +27,7 @@ from app.fees.claims import submit_claim
 from app.fees.ledger_writer import append_entry
 from app.fees.verification import verify_claim
 from app.guardians.children import children_of
+from app.local_time import bangladesh_today
 from app.money import Money
 from tests.batches.conftest import TeacherFixture, enroll, make_teacher
 from tests.conftest import bearer
@@ -228,7 +229,7 @@ def test_a_guardian_pays_for_the_child_and_hears_back(
     owner_session: Session,
     account_factory: Callable[[], uuid.UUID],
 ) -> None:
-    """The guardian's payables, destination and claim routes work for their seat.
+    """The guardian's payables and payment routes work for their seat.
 
     :param api_client: The test client
     :param owner_session: An arranging session
@@ -244,19 +245,15 @@ def test_a_guardian_pays_for_the_child_and_hears_back(
     headers = bearer(owner_session, guardian)
 
     payables = api_client.get(f"/v1/children/{seat}/payables", headers=headers).json()
-    claim = api_client.post(
-        f"/v1/children/{seat}/claims",
-        json={
-            "claimed_amount": "1500.00",
-            "channel": "bKash",
-            "transaction_id": "DJ62K0LQ7V",
-        },
-        headers=headers,
-    )
+    body = {
+        "enrollment_ids": [str(seat)],
+        "cash": True,
+        "amount": "1500.00",
+        "paid_on": bangladesh_today().isoformat(),
+    }
+    claim = api_client.post("/v1/payments", json=body, headers=headers)
     refused = api_client.post(
-        f"/v1/children/{seat}/claims",
-        json={"claimed_amount": "1500.00", "channel": "bKash"},
-        headers=bearer(owner_session, stranger),
+        "/v1/payments", json=body, headers=bearer(owner_session, stranger)
     )
 
     assert payables["payable"][0]["enrollment_id"] == str(seat)

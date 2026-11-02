@@ -34,6 +34,8 @@ from app.authz.resolve import LensResolver
 from app.errors import AuthorizationError
 
 __all__ = [
+    "family_lens",
+    "family_lenses",
     "guardian_lens",
     "invitation_lens",
     "student_lens",
@@ -192,6 +194,50 @@ def guardian_lens(
         code="NO_GUARDIAN_LENS",
         message_key="authz.lens.not_available",
     )
+
+
+def family_lenses(
+    request: Request, session: Session, account_id: uuid.UUID
+) -> list[StudentLens | GuardianLens]:
+    """List this account's student and guardian lenses, student first.
+
+    A plain helper rather than a dependency: a route that serves both
+    family roles takes :func:`family_lens` for authentication and asks
+    this for every candidate, because an account may be a student on
+    one seat and a guardian on another.
+
+    :param request: The request carrying the lens memo
+    :param session: The session to query through
+    :param account_id: The authenticated account
+    :return: The family lenses, possibly empty
+    """
+    return [
+        lens
+        for lens in _resolved(request, session, account_id)
+        if isinstance(lens, StudentLens | GuardianLens)
+    ]
+
+
+def family_lens(
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    account_id: Annotated[uuid.UUID, Depends(authenticated_account)],
+) -> StudentLens | GuardianLens:
+    """Resolve a student or guardian lens, for routes serving both.
+
+    :param request: The request carrying the lens memo
+    :param session: The session to query through
+    :param account_id: The authenticated account
+    :return: The first family lens, student first
+    :raises AuthorizationError: This account holds no accepted family seat
+    """
+    found = family_lenses(request, session, account_id)
+    if not found:
+        raise AuthorizationError(
+            code="NO_FAMILY_LENS",
+            message_key="authz.lens.not_available",
+        )
+    return found[0]
 
 
 def invitation_lens(

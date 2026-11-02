@@ -100,6 +100,14 @@ NON_MONEY_FIELDS: Final[dict[tuple[str, str], str]] = {
     ("BatchUpdateRequest", "fee_due_day"): (
         "The same value on the edit path [AC2.3.1]."
     ),
+    ("PaymentSubmitRequest", "paid_on"): (
+        "A DATE, not an amount: the day the payer says the money moved. "
+        "The request's money property, `amount`, references Money."
+    ),
+    ("PaymentSubmittedResponse", "paid_on"): (
+        "The same date echoed back. The response's money property, "
+        "`total_amount`, references Money."
+    ),
     ("CurrentFeeResponse", "paid_on"): (
         "A DATE, not an amount: the day the period's last approved "
         'payment was decided ("Paid 8 Oct"). The schema\'s money '

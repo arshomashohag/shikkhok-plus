@@ -23,16 +23,30 @@ from __future__ import annotations
 import uuid
 from typing import Annotated, Final
 
-from fastapi import APIRouter, Depends, status
+import sqlalchemy as sa
+from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_session, guardian_lens, student_lens, teacher_lens
+from app.api.deps import (
+    family_lens,
+    family_lenses,
+    get_session,
+    guardian_lens,
+    student_lens,
+    teacher_lens,
+)
 from app.authz.lenses import GuardianLens, StudentLens, TeacherLens
+from app.db.models import Enrollment, PaymentClaim
 from app.fees import views
-from app.fees.claims import submit_claim
 from app.fees.payables import Payables, payables
 from app.fees.queue import QueueItem, shortfall_preview, verification_queue
 from app.fees.reminders import remind
+from app.fees.submissions import (
+    PaymentDraft,
+    lens_reaching,
+    owed_children,
+    submit_payment,
+)
 from app.fees.verification import reject_claim, verify_claim
 from app.money import Money as DomainMoney
 from app.money.wire import parse, to_wire
@@ -40,12 +54,15 @@ from app.schemas.errors import ErrorEnvelope
 from app.schemas.fees import (
     ClaimQueueItemResponse,
     ClaimResponse,
-    ClaimSubmitRequest,
     DuplicateClaimResponse,
     FeeCycleResponse,
     FeeHistoryResponse,
+    OwedChildResponse,
+    OwedTogetherResponse,
     PayableResponse,
     PayablesResponse,
+    PaymentSubmitRequest,
+    PaymentSubmittedResponse,
     RecentDecisionResponse,
     RejectionRequest,
     ReminderRequest,
@@ -53,6 +70,7 @@ from app.schemas.fees import (
     RosterFeeRowResponse,
     ShortfallPreviewRequest,
     ShortfallPreviewResponse,
+    SubmittedClaimResponse,
     VerificationQueueResponse,
     VerificationRequest,
     WaitingPaymentResponse,
@@ -339,38 +357,105 @@ def payables_response(found: Payables) -> PayablesResponse:
 
 
 @router.post(
-    "/enrollments/{enrollment_id}/claims",
-    response_model=ClaimResponse,
+    "/payments",
+    response_model=PaymentSubmittedResponse,
     status_code=status.HTTP_201_CREATED,
     responses=_WRITE_ERRORS,
 )
-def create_claim(
-    enrollment_id: uuid.UUID,
-    body: ClaimSubmitRequest,
+def create_payment(
+    body: PaymentSubmitRequest,
+    request: Request,
     session: Annotated[Session, Depends(get_session)],
-    lens: Annotated[StudentLens, Depends(student_lens)],
-) -> ClaimResponse:
-    """Submit a payment claim against this seat's oldest unpaid cycle.
+    lens: Annotated[StudentLens | GuardianLens, Depends(family_lens)],
+) -> PaymentSubmittedResponse:
+    """Report one payment for one or several children (F3, F4).
 
-    :param enrollment_id: The seat, from the route path
-    :param body: The claimed amount, channel and reference
+    Accepted when nothing is owed: each claim then lands on Bangladesh's
+    current period.
+
+    :param body: The children, destination, amount, date and reference
+    :param request: The request carrying the lens memo
     :param session: The request-scoped session
-    :param lens: The student lens
-    :return: The pending claim
+    :param lens: The authenticated family lens
+    :return: The pending submission and each child's share
     """
-    # The scope check first: a claim must not be recorded against a seat
-    # this lens cannot reach.
-    views.enrollment_fee_history(session, lens=lens, enrollment_id=enrollment_id)
-
-    claim = submit_claim(
+    chosen = lens_reaching(
         session,
-        enrollment_id=enrollment_id,
-        submitted_by_account_id=lens.account_id,
-        claimed_amount=parse(body.claimed_amount.root),
-        channel=body.channel,
-        transaction_id=body.transaction_id,
+        family_lenses(request, session, lens.account_id),
+        body.enrollment_ids[0],
     )
-    return claim_response(views.claim_detail(session, lens=lens, claim_id=claim.id))
+    submission = submit_payment(
+        session,
+        lens=chosen,
+        draft=PaymentDraft(
+            enrollment_ids=tuple(body.enrollment_ids),
+            payment_method_id=body.payment_method_id,
+            cash=body.cash,
+            amount=parse(body.amount.root),
+            paid_on=body.paid_on,
+            transaction_id=body.transaction_id,
+            from_account=body.from_account,
+            note=body.note,
+        ),
+    )
+    shares = session.execute(
+        sa.select(PaymentClaim, Enrollment.display_name)
+        .join(Enrollment, Enrollment.id == PaymentClaim.enrollment_id)
+        .where(PaymentClaim.payment_submission_id == submission.id)
+        .order_by(Enrollment.display_name, Enrollment.id)
+    ).all()
+    return PaymentSubmittedResponse(
+        submission_id=submission.id,
+        status="pending",
+        total_amount=_to_wire(submission.total_amount),
+        paid_on=submission.paid_on,
+        claims=[
+            SubmittedClaimResponse(
+                claim_id=claim.id,
+                enrollment_id=claim.enrollment_id,
+                display_name=name,
+                period=claim.period,
+                claimed_amount=_to_wire(claim.claimed_amount),
+            )
+            for claim, name in shares
+        ],
+    )
+
+
+@router.get(
+    "/payments/owed",
+    response_model=OwedTogetherResponse,
+    responses=_WRITE_ERRORS,
+)
+def read_owed_together(
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    lens: Annotated[StudentLens | GuardianLens, Depends(family_lens)],
+    enrollment_id: Annotated[list[uuid.UUID], Query(min_length=1, max_length=20)],
+) -> OwedTogetherResponse:
+    """Say what the chosen children owe together, for "Owed for ...".
+
+    :param request: The request carrying the lens memo
+    :param session: The request-scoped session
+    :param lens: The authenticated family lens
+    :param enrollment_id: The children, repeated once per child
+    :return: The total and each child's figure, in child order
+    """
+    chosen = lens_reaching(
+        session, family_lenses(request, session, lens.account_id), enrollment_id[0]
+    )
+    children = owed_children(session, lens=chosen, enrollment_ids=enrollment_id)
+    return OwedTogetherResponse(
+        owed_together=_to_wire(DomainMoney.sum([child.owed for child in children])),
+        children=[
+            OwedChildResponse(
+                enrollment_id=child.seat.id,
+                display_name=child.seat.display_name,
+                owed=_to_wire(child.owed),
+            )
+            for child in children
+        ],
+    )
 
 
 def queue_item_response(item: QueueItem) -> ClaimQueueItemResponse:

@@ -496,9 +496,9 @@ criterion = "With two unpaid cycles the stored period is the earlier one, resolv
 rule = "BR5.1"
 
 [[test]]
-id = "test_a_claim_with_no_open_cycle_is_refused_and_creates_none"
+id = "test_a_claim_with_no_open_cycle_lands_on_the_current_period"
 file = "tests/fees/test_claims.py"
-criterion = "No cycle row is created to receive the payment; creating one would bill the student for a period that had not begun"
+criterion = "Paying when nothing is owed is accepted and resolves to Bangladesh's current period; no cycle row is created to receive the payment, since that would bill a period that had not begun"
 rule = "BR5.1"
 
 [[test]]

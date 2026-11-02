@@ -11,26 +11,22 @@ from __future__ import annotations
 import uuid
 from typing import Annotated, Final, Literal
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_session, guardian_lens
-from app.api.fees import claim_response, payables_response
+from app.api.fees import payables_response
 from app.api.teaching import upcoming_response
 from app.authz.lenses import GuardianLens
 from app.errors import AuthorizationError
-from app.fees import views
-from app.fees.claims import submit_claim
 from app.fees.payables import payables_for_seats
 from app.guardians.children import Child, child_of, children_of
 from app.guardians.payments import child_payments
 from app.marks.summary import summarise
 from app.marks.views import guardian_progress
-from app.money.wire import parse, to_wire
+from app.money.wire import to_wire
 from app.schemas.errors import ErrorEnvelope
 from app.schemas.fees import (
-    ClaimResponse,
-    ClaimSubmitRequest,
     PayablesResponse,
 )
 from app.schemas.guardian import (
@@ -199,38 +195,6 @@ def read_child_payables(
             session, [(seat.enrollment_id, seat.batch_name) for seat in child.seats]
         )
     )
-
-
-@router.post(
-    "/children/{enrollment_id}/claims",
-    response_model=ClaimResponse,
-    status_code=status.HTTP_201_CREATED,
-    responses=_AUTH_ERRORS,
-)
-def create_child_claim(
-    enrollment_id: uuid.UUID,
-    body: ClaimSubmitRequest,
-    session: Annotated[Session, Depends(get_session)],
-    lens: Annotated[GuardianLens, Depends(guardian_lens)],
-) -> ClaimResponse:
-    """Record a guardian's payment for their child's oldest unpaid month.
-
-    :param enrollment_id: The seat
-    :param body: The claimed amount, channel and reference
-    :param session: The request-scoped session
-    :param lens: The guardian lens
-    :return: The pending claim
-    """
-    views.enrollment_fee_history(session, lens=lens, enrollment_id=enrollment_id)
-    claim = submit_claim(
-        session,
-        enrollment_id=enrollment_id,
-        submitted_by_account_id=lens.account_id,
-        claimed_amount=parse(body.claimed_amount.root),
-        channel=body.channel,
-        transaction_id=body.transaction_id,
-    )
-    return claim_response(views.claim_detail(session, lens=lens, claim_id=claim.id))
 
 
 @router.get(

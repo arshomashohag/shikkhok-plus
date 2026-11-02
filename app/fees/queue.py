@@ -217,6 +217,22 @@ def _owned_claims(
     return [(row[0], row[1], row[2]) for row in rows]
 
 
+def _same_submission(earlier: PaymentClaim, claim: PaymentClaim) -> bool:
+    """Report whether two claims are shares of one submission.
+
+    A payment covering several children quotes its reference once, so
+    its own shares are not duplicates of each other.
+
+    :param earlier: The first claim quoting the reference
+    :param claim: A later claim quoting it
+    :return: True when both belong to the same submission
+    """
+    return (
+        earlier.payment_submission_id is not None
+        and earlier.payment_submission_id == claim.payment_submission_id
+    )
+
+
 def _duplicates(
     rows: list[tuple[PaymentClaim, Enrollment, str]],
 ) -> dict[uuid.UUID, DuplicateClaim]:
@@ -234,6 +250,8 @@ def _duplicates(
         earlier = first_by_reference.get(reference)
         if earlier is None:
             first_by_reference[reference] = (claim, seat)
+            continue
+        if _same_submission(earlier[0], claim):
             continue
         found[claim.id] = DuplicateClaim(
             claim_id=earlier[0].id,

@@ -1054,39 +1054,6 @@
         "title": "ClaimResponse",
         "type": "object"
       },
-      "ClaimSubmitRequest": {
-        "additionalProperties": false,
-        "description": "Submit a payment claim [AC6.1.x].\n\n``claimed_amount`` is **not capped** at the outstanding balance\n[BR5.2]: money may genuinely have been overpaid out of band, and\nblocking that at submission makes a real overpayment unreportable.\nZero and negative are refused, which the wire pattern already does\nfor a negative since it admits no sign.\n\n:ivar claimed_amount: What the claimant says they paid\n:ivar channel: Which service it moved through, from the server set\n:ivar transaction_id: The reference they quote, if any",
-        "properties": {
-          "channel": {
-            "maxLength": 32,
-            "minLength": 1,
-            "title": "Channel",
-            "type": "string"
-          },
-          "claimed_amount": {
-            "$ref": "#/components/schemas/Money"
-          },
-          "transaction_id": {
-            "anyOf": [
-              {
-                "maxLength": 64,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Transaction Id"
-          }
-        },
-        "required": [
-          "channel",
-          "claimed_amount"
-        ],
-        "title": "ClaimSubmitRequest",
-        "type": "object"
-      },
       "CorrectionEntryResponse": {
         "additionalProperties": false,
         "description": "One row in a seat's correction history [FR9.2].\n\n:ivar mark_id: The row\n:ivar result_state: What it recorded\n:ivar marks: Its number, or null\n:ivar recorded_at: When it was entered\n:ivar superseded: Whether a later row replaced it",
@@ -3102,6 +3069,53 @@
         "title": "OverviewResponse",
         "type": "object"
       },
+      "OwedChildResponse": {
+        "additionalProperties": false,
+        "description": "One child in the form's owed line.\n\n:ivar enrollment_id: The child's seat\n:ivar display_name: The teacher-typed name\n:ivar owed: What the seat owes now, never negative",
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "enrollment_id": {
+            "format": "uuid",
+            "title": "Enrollment Id",
+            "type": "string"
+          },
+          "owed": {
+            "$ref": "#/components/schemas/Money"
+          }
+        },
+        "required": [
+          "display_name",
+          "enrollment_id",
+          "owed"
+        ],
+        "title": "OwedChildResponse",
+        "type": "object"
+      },
+      "OwedTogetherResponse": {
+        "additionalProperties": false,
+        "description": "What the chosen children owe together, for \"Owed for ...\".\n\n:ivar owed_together: The server's total\n:ivar children: Each child, in child order",
+        "properties": {
+          "children": {
+            "items": {
+              "$ref": "#/components/schemas/OwedChildResponse"
+            },
+            "title": "Children",
+            "type": "array"
+          },
+          "owed_together": {
+            "$ref": "#/components/schemas/Money"
+          }
+        },
+        "required": [
+          "children",
+          "owed_together"
+        ],
+        "title": "OwedTogetherResponse",
+        "type": "object"
+      },
       "PayableResponse": {
         "additionalProperties": false,
         "description": "One month a student can pay for (S3).\n\n:ivar enrollment_id: Their seat; the claim is posted against it\n:ivar batch_name: The batch\n:ivar period: The month a claim would be recorded against\n:ivar amount_due: What is still owed on it\n:ivar due_date: When it was due, or null\n:ivar total_due: Everything the seat owes, that month included\n:ivar later_periods: How many later months also owe\n:ivar days_late: Days past the oldest late due date, or null",
@@ -3528,6 +3542,134 @@
           "period"
         ],
         "title": "PaymentMonthResponse",
+        "type": "object"
+      },
+      "PaymentSubmitRequest": {
+        "additionalProperties": false,
+        "description": "One payment a student or guardian reports [F3, F4].\n\nExactly one of ``payment_method_id`` and ``cash`` names where the\nmoney went, and exactly one of ``transaction_id`` and\n``from_account`` is present, matching the method's kind; the server\nenforces both because they depend on the stored method.\n\n:ivar enrollment_ids: The children covered, all in one batch\n:ivar payment_method_id: The teacher's method paid to\n:ivar cash: True when the money was handed over in person\n:ivar amount: The whole amount sent\n:ivar paid_on: The day the money moved\n:ivar transaction_id: The mobile reference\n:ivar from_account: The paying bank account\n:ivar note: Free text for the teacher",
+        "properties": {
+          "amount": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "cash": {
+            "default": false,
+            "title": "Cash",
+            "type": "boolean"
+          },
+          "enrollment_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Enrollment Ids",
+            "type": "array"
+          },
+          "from_account": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Account"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "paid_on": {
+            "format": "date",
+            "title": "Paid On",
+            "type": "string"
+          },
+          "payment_method_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payment Method Id"
+          },
+          "transaction_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transaction Id"
+          }
+        },
+        "required": [
+          "amount",
+          "enrollment_ids",
+          "paid_on"
+        ],
+        "title": "PaymentSubmitRequest",
+        "type": "object"
+      },
+      "PaymentSubmittedResponse": {
+        "additionalProperties": false,
+        "description": "A payment as recorded, waiting for the teacher.\n\n:ivar submission_id: The submission\n:ivar status: Always ``pending`` when just submitted\n:ivar total_amount: The whole amount sent\n:ivar paid_on: The day the money moved\n:ivar claims: Each child's share, in child order",
+        "properties": {
+          "claims": {
+            "items": {
+              "$ref": "#/components/schemas/SubmittedClaimResponse"
+            },
+            "title": "Claims",
+            "type": "array"
+          },
+          "paid_on": {
+            "format": "date",
+            "title": "Paid On",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "approved",
+              "pending",
+              "rejected"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "submission_id": {
+            "format": "uuid",
+            "title": "Submission Id",
+            "type": "string"
+          },
+          "total_amount": {
+            "$ref": "#/components/schemas/Money"
+          }
+        },
+        "required": [
+          "claims",
+          "paid_on",
+          "status",
+          "submission_id",
+          "total_amount"
+        ],
+        "title": "PaymentSubmittedResponse",
         "type": "object"
       },
       "PaymentsResponse": {
@@ -4686,6 +4828,42 @@
           "name"
         ],
         "title": "SubjectOption",
+        "type": "object"
+      },
+      "SubmittedClaimResponse": {
+        "additionalProperties": false,
+        "description": "One child's share of a submitted payment.\n\n:ivar claim_id: The child's pending claim\n:ivar enrollment_id: The child's seat\n:ivar display_name: The teacher-typed name\n:ivar period: The period the claim resolved to\n:ivar claimed_amount: The provisional share, which the teacher's\n    decision replaces",
+        "properties": {
+          "claim_id": {
+            "format": "uuid",
+            "title": "Claim Id",
+            "type": "string"
+          },
+          "claimed_amount": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "enrollment_id": {
+            "format": "uuid",
+            "title": "Enrollment Id",
+            "type": "string"
+          },
+          "period": {
+            "title": "Period",
+            "type": "string"
+          }
+        },
+        "required": [
+          "claim_id",
+          "claimed_amount",
+          "display_name",
+          "enrollment_id",
+          "period"
+        ],
+        "title": "SubmittedClaimResponse",
         "type": "object"
       },
       "SuppressedMarksheetResponse": {
@@ -6964,80 +7142,6 @@
         ]
       }
     },
-    "/v1/children/{enrollment_id}/claims": {
-      "post": {
-        "description": "Record a guardian's payment for their child's oldest unpaid month.\n\n:param enrollment_id: The seat\n:param body: The claimed amount, channel and reference\n:param session: The request-scoped session\n:param lens: The guardian lens\n:return: The pending claim",
-        "operationId": "create_child_claim_v1_children__enrollment_id__claims_post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "enrollment_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Enrollment Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ClaimSubmitRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ClaimResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "No credential, or an expired one."
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "No lens reaches this."
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Create Child Claim",
-        "tags": [
-          "guardian"
-        ]
-      }
-    },
     "/v1/children/{enrollment_id}/exams/{exam_id}": {
       "get": {
         "description": "Read one exam of a child's batch, for their recorded guardian.\n\n:param enrollment_id: The child's seat, from the route path\n:param exam_id: The exam, from the route path\n:param session: The request-scoped session\n:param lens: The guardian lens\n:return: The exam",
@@ -8083,100 +8187,6 @@
         "summary": "Remove Enrollment",
         "tags": [
           "batches"
-        ]
-      }
-    },
-    "/v1/enrollments/{enrollment_id}/claims": {
-      "post": {
-        "description": "Submit a payment claim against this seat's oldest unpaid cycle.\n\n:param enrollment_id: The seat, from the route path\n:param body: The claimed amount, channel and reference\n:param session: The request-scoped session\n:param lens: The student lens\n:return: The pending claim",
-        "operationId": "create_claim_v1_enrollments__enrollment_id__claims_post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "enrollment_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Enrollment Id",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ClaimSubmitRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ClaimResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "The request is wrong. Fix and resubmit; never retry as-is."
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "No credential, or an expired one."
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "Valid request; current state forbids it. Refetch and decide."
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Create Claim",
-        "tags": [
-          "fees"
         ]
       }
     },
@@ -10010,6 +10020,177 @@
         "summary": "Update Payment Method",
         "tags": [
           "payment-methods"
+        ]
+      }
+    },
+    "/v1/payments": {
+      "post": {
+        "description": "Report one payment for one or several children (F3, F4).\n\nAccepted when nothing is owed: each claim then lands on Bangladesh's\ncurrent period.\n\n:param body: The children, destination, amount, date and reference\n:param request: The request carrying the lens memo\n:param session: The request-scoped session\n:param lens: The authenticated family lens\n:return: The pending submission and each child's share",
+        "operationId": "create_payment_v1_payments_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentSubmitRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentSubmittedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Payment",
+        "tags": [
+          "fees"
+        ]
+      }
+    },
+    "/v1/payments/owed": {
+      "get": {
+        "description": "Say what the chosen children owe together, for \"Owed for ...\".\n\n:param request: The request carrying the lens memo\n:param session: The request-scoped session\n:param lens: The authenticated family lens\n:param enrollment_id: The children, repeated once per child\n:return: The total and each child's figure, in child order",
+        "operationId": "read_owed_together_v1_payments_owed_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "enrollment_id",
+            "required": true,
+            "schema": {
+              "items": {
+                "format": "uuid",
+                "type": "string"
+              },
+              "maxItems": 20,
+              "minItems": 1,
+              "title": "Enrollment Id",
+              "type": "array"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwedTogetherResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Owed Together",
+        "tags": [
+          "fees"
         ]
       }
     },

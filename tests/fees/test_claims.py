@@ -13,6 +13,7 @@ call as the only route -- the thing this feature exists to remove.
 
 from __future__ import annotations
 
+import datetime as dt
 import uuid
 
 import pytest
@@ -99,35 +100,32 @@ def test_a_claim_skips_a_settled_cycle_and_takes_the_next_owing(
     assert claim.period == "2027-02"
 
 
-def test_a_claim_with_no_open_cycle_is_refused_and_creates_none(
+def test_a_claim_with_no_open_cycle_lands_on_the_current_period(
     restricted_session: Session,
     owner_session: Session,
     teacher: TeacherFixture,
     seat: uuid.UUID,
     account_factory: object,
 ) -> None:
-    # [BR5.1] Creating a cycle to receive a payment would bill the
-    # student for a period that had not begun.
-    with pytest.raises(ValidationError):
-        submit_claim(
-            restricted_session,
-            enrollment_id=seat,
-            submitted_by_account_id=account_factory(),
-            claimed_amount=Money("500.00"),
-            channel="cash",
-        )
-    restricted_session.rollback()
+    # Paying when nothing is owed is accepted: the claim resolves to
+    # Bangladesh's current period, and still no cycle is created to
+    # receive it, because that would bill a period that had not begun.
+    claim = submit_claim(
+        restricted_session,
+        enrollment_id=seat,
+        submitted_by_account_id=account_factory(),
+        claimed_amount=Money("500.00"),
+        channel="cash",
+        today=dt.date(2026, 11, 2),
+    )
 
     cycles = restricted_session.execute(
         sa.text("SELECT count(*) FROM fee_cycle WHERE enrollment_id = :id"),
         {"id": seat},
     ).scalar_one()
-    claims = restricted_session.execute(
-        sa.text("SELECT count(*) FROM payment_claim WHERE enrollment_id = :id"),
-        {"id": seat},
-    ).scalar_one()
+    assert claim.period == "2026-11"
+    assert claim.status == "pending"
     assert cycles == 0
-    assert claims == 0
 
 
 def test_a_zero_claim_is_refused_before_it_is_recorded(
