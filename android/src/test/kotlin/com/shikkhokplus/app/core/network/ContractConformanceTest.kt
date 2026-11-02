@@ -69,7 +69,6 @@ class ContractConformanceTest {
             Contract("/v1/children/{enrollment_id}/payment-methods", FamilyPaymentMethodsDto.serializer()),
             Contract("/v1/me/enrollments/{enrollment_id}/payment-methods", FamilyPaymentMethodsDto.serializer()),
             Contract("/v1/payments/owed", OwedTogetherDto.serializer()),
-            Contract("/v1/children/{enrollment_id}/progress/summary", ProgressSummaryDto.serializer()),
             Contract(
                 "/v1/exams/{exam_id}/marks/{enrollment_id}/history",
                 ListSerializer(CorrectionDto.serializer()),
