@@ -200,11 +200,13 @@ def test_the_real_application_needs_the_allowlist() -> None:
 
     without = money_schema_violations(app, exempt={})
     assert {v.field for v in without} == {
+        "charged_bar",
         "credit_to_enrollment_id",
         "fee_due_day",
         "days_overdue",
         "due_date",
         "overdue_students",
+        "paid",
         "paid_on",
         "total_marks",
     }

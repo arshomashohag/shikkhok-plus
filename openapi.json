@@ -316,6 +316,42 @@
         "title": "BatchCreateRequest",
         "type": "object"
       },
+      "BatchFeesResponse": {
+        "additionalProperties": false,
+        "description": "One batch in one month.\n\n:ivar period: The month, as ``YYYY-MM``\n:ivar collected: Cash in for the month after corrections\n:ivar charged: What the month was billed\n:ivar counts: Seats per filter\n:ivar seats: One row per seat",
+        "properties": {
+          "charged": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "collected": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/MonthCountsResponse"
+          },
+          "period": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
+            "title": "Period",
+            "type": "string"
+          },
+          "seats": {
+            "items": {
+              "$ref": "#/components/schemas/RosterFeeRowResponse"
+            },
+            "title": "Seats",
+            "type": "array"
+          }
+        },
+        "required": [
+          "charged",
+          "collected",
+          "counts",
+          "period",
+          "seats"
+        ],
+        "title": "BatchFeesResponse",
+        "type": "object"
+      },
       "BatchResponse": {
         "description": "A batch as its owner sees it.\n\n:ivar id: The batch\n:ivar name: The teacher's name for the class\n:ivar subjects: The subjects taught\n:ivar subject_options: The same subjects with their keys, in the same\n    order, for the writes that name one\n:ivar schedule: The weekly classes, in weekday then time order -- the\n    \"Mon Wed · 4:00 pm\" line on the batch list (T6)\n:ivar teacher_display_name: What students see the teacher called\n:ivar default_fee: The inherited fee\n:ivar fee_due_day: Day of month 1-31\n:ivar marksheet_visible: U6's toggle\n:ivar active: False means read-only history\n:ivar enrollment_count: How many seats, computed server-side. The\n    **denominator** of \"9 of 12 accepted\", and it counts every seat\n    the teacher created including declined ones [BR1.4]\n:ivar accepted_count: How many of those seats at least one link has\n    accepted [BR1.2], computed server-side and **never counted by\n    the client** [BR1.3, TC-9]. A client counting rows is a client\n    deciding what counts as accepted, and it is wrong the moment the\n    roster paginates because it can only count the rows it holds",
         "properties": {
@@ -946,6 +982,33 @@
           "submitted_at"
         ],
         "title": "ClaimResponse",
+        "type": "object"
+      },
+      "CollectionsResponse": {
+        "additionalProperties": false,
+        "description": "Collections over months for a set of batches.\n\n:ivar months: Oldest first, ending at the current month\n:ivar outstanding: What the selected seats owe now\n:ivar owing_students: How many selected seats owe anything",
+        "properties": {
+          "months": {
+            "items": {
+              "$ref": "#/components/schemas/MonthCollectionResponse"
+            },
+            "title": "Months",
+            "type": "array"
+          },
+          "outstanding": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "owing_students": {
+            "title": "Owing Students",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "months",
+          "outstanding",
+          "owing_students"
+        ],
+        "title": "CollectionsResponse",
         "type": "object"
       },
       "CorrectionEntryResponse": {
@@ -2072,13 +2135,20 @@
       },
       "FeeHistoryResponse": {
         "additionalProperties": false,
-        "description": "One seat's periods, with the total the server computed.\n\n**A wrapper rather than a bare array, and the total is why.** The\nclient must not sum the rows: that is money arithmetic on the\nAndroid side, which [D-20] forbids, and it would be wrong the\nmoment the history paginates — a page of three periods would\nreport a total that is not the balance.\n\nThe value is the ledger fold's own ``total_outstanding``, floored\nat zero inside the money module, not a second sum computed beside\nthe rows.\n\n:ivar cycles: One row per generated period, oldest first\n:ivar total_outstanding: What this seat still owes in total",
+        "description": "One seat's periods, with the total the server computed.\n\n**A wrapper rather than a bare array, and the total is why.** The\nclient must not sum the rows: that is money arithmetic on the\nAndroid side, which [D-20] forbids, and it would be wrong the\nmoment the history paginates — a page of three periods would\nreport a total that is not the balance.\n\nThe value is the ledger fold's own ``total_outstanding``, floored\nat zero inside the money module, not a second sum computed beside\nthe rows.\n\n:ivar cycles: One row per generated period, oldest first\n:ivar total_outstanding: What this seat still owes in total\n:ivar month_states: The last months that have a state, oldest first",
         "properties": {
           "cycles": {
             "items": {
               "$ref": "#/components/schemas/FeeCycleResponse"
             },
             "title": "Cycles",
+            "type": "array"
+          },
+          "month_states": {
+            "items": {
+              "$ref": "#/components/schemas/MonthStateResponse"
+            },
+            "title": "Month States",
             "type": "array"
           },
           "total_outstanding": {
@@ -2192,6 +2262,53 @@
           "status"
         ],
         "title": "HealthResponse",
+        "type": "object"
+      },
+      "HistoryLineResponse": {
+        "additionalProperties": false,
+        "description": "The latest payment claim for one month, as data to localize.\n\n:ivar amount: What the claimant said they paid\n:ivar channel: Which service the money moved through\n:ivar paid_on: When the money was sent\n:ivar status: The claim's server-set status\n:ivar decision_note: The teacher's note on the decision, or null",
+        "properties": {
+          "amount": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "channel": {
+            "title": "Channel",
+            "type": "string"
+          },
+          "decision_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Note"
+          },
+          "paid_on": {
+            "format": "date",
+            "title": "Paid On",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "approved_full",
+              "approved_partial",
+              "pending",
+              "rejected"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "amount",
+          "channel",
+          "paid_on",
+          "status"
+        ],
+        "title": "HistoryLineResponse",
         "type": "object"
       },
       "InactiveFromRequest": {
@@ -2485,6 +2602,112 @@
         "pattern": "^[0-9]+\\.[0-9]{2}$",
         "title": "Money",
         "type": "string"
+      },
+      "MonthCollectionResponse": {
+        "additionalProperties": false,
+        "description": "One month of the collections report.\n\n:ivar period: The month, as ``YYYY-MM``\n:ivar charged: What the month was billed\n:ivar collected: What came in for it\n:ivar in_progress: The month contains today\n:ivar charged_bar: Charged as a whole percent of the largest month\n:ivar collected_bar: Collected on the same scale",
+        "properties": {
+          "charged": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "charged_bar": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Charged Bar",
+            "type": "integer"
+          },
+          "collected": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "collected_bar": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Collected Bar",
+            "type": "integer"
+          },
+          "in_progress": {
+            "title": "In Progress",
+            "type": "boolean"
+          },
+          "period": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
+            "title": "Period",
+            "type": "string"
+          }
+        },
+        "required": [
+          "charged",
+          "charged_bar",
+          "collected",
+          "collected_bar",
+          "in_progress",
+          "period"
+        ],
+        "title": "MonthCollectionResponse",
+        "type": "object"
+      },
+      "MonthCountsResponse": {
+        "additionalProperties": false,
+        "description": "How many seats fall under each filter for the month.\n\n:ivar paid: Settled seats, including waived ones\n:ivar checking: Seats with a payment waiting for the teacher\n:ivar owed: Seats still owing",
+        "properties": {
+          "checking": {
+            "title": "Checking",
+            "type": "integer"
+          },
+          "owed": {
+            "title": "Owed",
+            "type": "integer"
+          },
+          "paid": {
+            "title": "Paid",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "checking",
+          "owed",
+          "paid"
+        ],
+        "title": "MonthCountsResponse",
+        "type": "object"
+      },
+      "MonthStateResponse": {
+        "additionalProperties": false,
+        "description": "One month on a seat's strip.\n\n:ivar period: The month, as ``YYYY-MM``\n:ivar state: The server-computed state\n:ivar history_line: The latest claim for the month, or null",
+        "properties": {
+          "history_line": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HistoryLineResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "period": {
+            "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
+            "title": "Period",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "checking",
+              "paid",
+              "partly_paid",
+              "unpaid",
+              "waived"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "period",
+          "state"
+        ],
+        "title": "MonthStateResponse",
+        "type": "object"
       },
       "MonthViewResponse": {
         "additionalProperties": false,
@@ -4397,7 +4620,7 @@
       },
       "RosterFeeRowResponse": {
         "additionalProperties": false,
-        "description": "One seat's fee position, as its teacher sees it.\n\nThe key is ``enrollment_id`` and never an account id [ADR-001],\nasserted schema-wide by the built privacy gate.\n\n**No payment-method details.** They are carried only by the\npayment-method routes and this is not one [NFR14.33].\n\n:ivar enrollment_id: The teacher-facing key\n:ivar display_name: The teacher-typed name\n:ivar outstanding: What this seat owes across every period\n:ivar current_period: The latest generated period, or null\n:ivar current_status: That period's status, or null\n:ivar due_date: That period's due date, or null\n:ivar days_overdue: How late the oldest unpaid period is, decided by\n    the server against Bangladesh's date, or null\n:ivar verifying: The total of claims still waiting for the teacher",
+        "description": "One seat's fee position, as its teacher sees it.\n\nThe key is ``enrollment_id`` and never an account id [ADR-001],\nasserted schema-wide by the built privacy gate.\n\n**No payment-method details.** They are carried only by the\npayment-method routes and this is not one [NFR14.33].\n\n:ivar enrollment_id: The teacher-facing key\n:ivar display_name: The teacher-typed name\n:ivar outstanding: What this seat owes across every period\n:ivar current_period: The latest generated period, or null\n:ivar current_status: That period's status, or null\n:ivar due_date: That period's due date, or null\n:ivar days_overdue: How late the oldest unpaid period is, decided by\n    the server against Bangladesh's date, or null\n:ivar verifying: The total of claims still waiting for the teacher\n:ivar state: The seat's state in the requested month, or null when\n    nothing was charged\n:ivar history_line: The latest claim for that month, or null",
         "properties": {
           "current_period": {
             "anyOf": [
@@ -4459,8 +4682,36 @@
             "title": "Enrollment Id",
             "type": "string"
           },
+          "history_line": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HistoryLineResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "outstanding": {
             "$ref": "#/components/schemas/Money"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "enum": [
+                  "checking",
+                  "paid",
+                  "partly_paid",
+                  "unpaid",
+                  "waived"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State"
           },
           "verifying": {
             "anyOf": [
@@ -5850,6 +6101,90 @@
         ]
       }
     },
+    "/v1/analytics/collections": {
+      "get": {
+        "description": "Read charged and collected per month for some or all batches (M1).\n\n:param session: The request-scoped session\n:param lens: The teacher lens carrying the owner id\n:param batch_id: Batches to cover, repeatable; none means all of them\n:param months: How many months, clamped to 1 to 24\n:return: One row per month, the amount owed now and how many owe",
+        "operationId": "read_collections_v1_analytics_collections_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "batch_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Batch Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "months",
+            "required": false,
+            "schema": {
+              "default": 6,
+              "title": "Months",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "This account holds no teacher lens."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Collections",
+        "tags": [
+          "analytics"
+        ]
+      }
+    },
     "/v1/announcements/{announcement_id}": {
       "delete": {
         "description": "Soft-delete a note [AC3.3.3].\n\nThe row survives; only its visibility ends.\n\n:param announcement_id: The note, from the route path\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: An empty 204",
@@ -6745,7 +7080,7 @@
     },
     "/v1/batches/{batch_id}/fees": {
       "get": {
-        "description": "List every seat's fee position on one of this teacher's batches.\n\n:param batch_id: The batch, from the route path\n:param session: The request-scoped session\n:param lens: The teacher lens carrying the owner id\n:return: One row per seat",
+        "description": "Read one of this teacher's batches in one month.\n\n:param batch_id: The batch, from the route path\n:param session: The request-scoped session\n:param lens: The teacher lens carrying the owner id\n:param period: The month as ``YYYY-MM``; the current month by default\n:return: The month's totals, filter counts and one row per seat",
         "operationId": "read_batch_fees_v1_batches__batch_id__fees_get",
         "parameters": [
           {
@@ -6757,6 +7092,23 @@
               "title": "Batch Id",
               "type": "string"
             }
+          },
+          {
+            "in": "query",
+            "name": "period",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Period"
+            }
           }
         ],
         "responses": {
@@ -6764,11 +7116,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/RosterFeeRowResponse"
-                  },
-                  "title": "Response Read Batch Fees V1 Batches  Batch Id  Fees Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/BatchFeesResponse"
                 }
               }
             },
@@ -8124,7 +8472,7 @@
     },
     "/v1/enrollments/{enrollment_id}/fees": {
       "get": {
-        "description": "List one seat's generated periods, for its teacher.\n\n:param enrollment_id: The seat, from the route path\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: One row per generated period",
+        "description": "List one seat's generated periods and last months, for its teacher.\n\n:param enrollment_id: The seat, from the route path\n:param session: The request-scoped session\n:param lens: The teacher lens\n:param months: How many months the strip covers, clamped to 1 to 24\n:return: One row per generated period and the month strip",
         "operationId": "read_enrollment_fees_as_teacher_v1_enrollments__enrollment_id__fees_get",
         "parameters": [
           {
@@ -8135,6 +8483,16 @@
               "format": "uuid",
               "title": "Enrollment Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "months",
+            "required": false,
+            "schema": {
+              "default": 6,
+              "title": "Months",
+              "type": "integer"
             }
           }
         ],

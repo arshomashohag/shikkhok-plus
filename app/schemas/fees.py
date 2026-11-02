@@ -32,10 +32,14 @@ from app.schemas.money import MoneyField
 from app.schemas.payment_methods import PaymentDestinationResponse
 
 __all__ = [
+    "BatchFeesResponse",
     "ClaimResponse",
     "DuplicatePaymentResponse",
     "FeeCycleResponse",
     "FeeHistoryResponse",
+    "HistoryLineResponse",
+    "MonthCountsResponse",
+    "MonthStateResponse",
     "OwedChildResponse",
     "OwedTogetherResponse",
     "PayableResponse",
@@ -59,6 +63,9 @@ __all__ = [
 #: a free ``str`` so the generated document publishes the closed set and
 #: a client author reads the contract rather than guessing it.
 FeeStatus = Literal["paid", "partly_paid", "unpaid", "waived"]
+
+#: The five states a month reports: the four above plus ``checking``.
+MonthState = Literal["paid", "partly_paid", "unpaid", "waived", "checking"]
 
 #: The four a claim reports [BR6.3].
 ClaimStatus = Literal["pending", "approved_full", "approved_partial", "rejected"]
@@ -92,6 +99,40 @@ class FeeCycleResponse(BaseModel):
     status: FeeStatus
 
 
+class HistoryLineResponse(BaseModel):
+    """The latest payment claim for one month, as data to localize.
+
+    :ivar amount: What the claimant said they paid
+    :ivar channel: Which service the money moved through
+    :ivar paid_on: When the money was sent
+    :ivar status: The claim's server-set status
+    :ivar decision_note: The teacher's note on the decision, or null
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    amount: MoneyField
+    channel: str
+    paid_on: dt.date
+    status: ClaimStatus
+    decision_note: str | None = None
+
+
+class MonthStateResponse(BaseModel):
+    """One month on a seat's strip.
+
+    :ivar period: The month, as ``YYYY-MM``
+    :ivar state: The server-computed state
+    :ivar history_line: The latest claim for the month, or null
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    period: str = Field(pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")
+    state: MonthState
+    history_line: HistoryLineResponse | None = None
+
+
 class FeeHistoryResponse(BaseModel):
     """One seat's periods, with the total the server computed.
 
@@ -107,12 +148,14 @@ class FeeHistoryResponse(BaseModel):
 
     :ivar cycles: One row per generated period, oldest first
     :ivar total_outstanding: What this seat still owes in total
+    :ivar month_states: The last months that have a state, oldest first
     """
 
     model_config = ConfigDict(extra="forbid")
 
     cycles: list[FeeCycleResponse]
     total_outstanding: MoneyField
+    month_states: list[MonthStateResponse] = Field(default_factory=list)
 
 
 class RosterFeeRowResponse(BaseModel):
@@ -133,6 +176,9 @@ class RosterFeeRowResponse(BaseModel):
     :ivar days_overdue: How late the oldest unpaid period is, decided by
         the server against Bangladesh's date, or null
     :ivar verifying: The total of claims still waiting for the teacher
+    :ivar state: The seat's state in the requested month, or null when
+        nothing was charged
+    :ivar history_line: The latest claim for that month, or null
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -145,6 +191,42 @@ class RosterFeeRowResponse(BaseModel):
     due_date: dt.date | None = None
     days_overdue: int | None = None
     verifying: MoneyField | None = None
+    state: MonthState | None = None
+    history_line: HistoryLineResponse | None = None
+
+
+class MonthCountsResponse(BaseModel):
+    """How many seats fall under each filter for the month.
+
+    :ivar paid: Settled seats, including waived ones
+    :ivar checking: Seats with a payment waiting for the teacher
+    :ivar owed: Seats still owing
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    paid: int
+    checking: int
+    owed: int
+
+
+class BatchFeesResponse(BaseModel):
+    """One batch in one month.
+
+    :ivar period: The month, as ``YYYY-MM``
+    :ivar collected: Cash in for the month after corrections
+    :ivar charged: What the month was billed
+    :ivar counts: Seats per filter
+    :ivar seats: One row per seat
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    period: str = Field(pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")
+    collected: MoneyField
+    charged: MoneyField
+    counts: MonthCountsResponse
+    seats: list[RosterFeeRowResponse]
 
 
 class PaymentApprovalRequest(BaseModel):

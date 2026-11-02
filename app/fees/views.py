@@ -29,11 +29,19 @@ from __future__ import annotations
 
 import datetime as dt
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
+from app.analytics.collections import (
+    DEFAULT_MONTHS,
+    charged_by_period,
+    clamp_months,
+    collected_by_period,
+    facts_for_seats,
+    months_ending,
+)
 from app.authz.lenses import GuardianLens, Lens, StudentLens, TeacherLens
 from app.db.models import (
     Batch,
@@ -45,7 +53,7 @@ from app.db.models import (
 )
 from app.errors import AuthorizationError
 from app.errors.codes import NOT_AVAILABLE
-from app.fees.balances import derive_for_enrollment
+from app.fees.balances import derive_for_enrollment, entries_for_enrollment
 from app.fees.overdue import days_overdue
 from app.fees.status import (
     CLAIM_STATUS_VALUES,
@@ -53,22 +61,30 @@ from app.fees.status import (
     SUBMISSION_STATUS_VALUES,
     ClaimStatus,
     FeeStatus,
+    MonthState,
     ShortfallDisposition,
     SubmissionStatus,
     fee_status,
+    month_state,
     status_from_entries,
 )
 from app.local_time import bangladesh_today
 from app.money import LedgerEntry, LedgerEntryKind, Money, derive
 
 __all__ = [
+    "BatchMonth",
     "ClaimDetail",
     "FeeCycleRow",
+    "HistoryLine",
+    "MonthCounts",
+    "MonthStateRow",
     "RosterFeeRow",
     "assert_claim_is_verifiable",
     "batch_fee_overview",
+    "batch_month",
     "claim_detail",
     "claim_status",
+    "claims_by_month",
     "enrollment_fee_history",
     "owned_submission",
     "submission_status",
@@ -173,6 +189,86 @@ class RosterFeeRow:
     due_date: dt.date | None
     days_overdue: int | None = None
     verifying: Money | None = None
+    state: MonthState | None = None
+    history_line: HistoryLine | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class HistoryLine:
+    """The latest payment claim for one seat in one month, as data.
+
+    Structured fields rather than a sentence, so the client localizes it.
+
+    :ivar amount: What the claimant said they paid
+    :ivar channel: Which service the money moved through
+    :ivar paid_on: When the money was sent
+    :ivar status: One of the four server-set claim values
+    :ivar decision_note: The teacher's note on the decision, or None
+    """
+
+    amount: Money
+    channel: str
+    paid_on: dt.date
+    status: ClaimStatus
+    decision_note: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class MonthClaims:
+    """What the claims of one seat say about one month.
+
+    :ivar checking: A claim for the month still waits for the teacher
+    :ivar latest: The most recently submitted claim
+    """
+
+    checking: bool
+    latest: HistoryLine
+
+
+@dataclass(frozen=True, slots=True)
+class MonthStateRow:
+    """One month on a seat's strip.
+
+    :ivar period: The month, as ``YYYY-MM``
+    :ivar state: The month's state
+    :ivar history_line: The latest claim for it, or None
+    """
+
+    period: str
+    state: MonthState
+    history_line: HistoryLine | None
+
+
+@dataclass(frozen=True, slots=True)
+class MonthCounts:
+    """How many seats fall under each filter for one month.
+
+    :ivar paid: Settled seats, including waived ones
+    :ivar checking: Seats with a payment waiting for the teacher
+    :ivar owed: Seats still owing, wholly or partly
+    """
+
+    paid: int
+    checking: int
+    owed: int
+
+
+@dataclass(frozen=True, slots=True)
+class BatchMonth:
+    """One batch in one month.
+
+    :ivar period: The month, as ``YYYY-MM``
+    :ivar collected: Cash in for the month after corrections
+    :ivar charged: What the month was billed
+    :ivar counts: Seats per filter
+    :ivar seats: One row per seat
+    """
+
+    period: str
+    collected: Money
+    charged: Money
+    counts: MonthCounts
+    seats: list[RosterFeeRow]
 
 
 @dataclass(frozen=True, slots=True)
@@ -308,6 +404,7 @@ def batch_fee_overview(
     lens: TeacherLens,
     batch_id: uuid.UUID,
     today: dt.date | None = None,
+    period: str | None = None,
 ) -> list[RosterFeeRow]:
     """List every seat's fee position on one of this teacher's batches.
 
@@ -315,6 +412,8 @@ def batch_fee_overview(
     :param lens: The teacher lens carrying the owner id
     :param batch_id: The batch
     :param today: The date overdue is measured on; Bangladesh's by default
+    :param period: The month each row's state and history line describe;
+        the current month by default
     :return: One row per seat, ordered as the roster is
     :raises AuthorizationError: The batch is not this lens's
     """
@@ -385,9 +484,12 @@ def batch_fee_overview(
         verifying[seat_id] = verifying.get(seat_id, Money.ZERO) + claimed
 
     on = today or bangladesh_today()
+    month = period or months_ending(on, 1)[0]
+    claims = claims_by_month(session, seat_ids, [month])
 
     rows: list[RosterFeeRow] = []
     for seat in seats:
+        month_claims = claims.get((seat.id, month))
         entries = ledger[seat.id]
         newest = latest.get(seat.id)
         derived = derive(entries)
@@ -407,9 +509,102 @@ def batch_fee_overview(
                     derived.per_cycle, due_by_seat.get(seat.id, {}), on
                 ),
                 verifying=verifying.get(seat.id),
+                state=month_state(
+                    entries,
+                    month,
+                    checking=month_claims is not None and month_claims.checking,
+                ),
+                history_line=None if month_claims is None else month_claims.latest,
             )
         )
     return rows
+
+
+def claims_by_month(
+    session: Session,
+    seat_ids: list[uuid.UUID],
+    periods: list[str],
+) -> dict[tuple[uuid.UUID, str], MonthClaims]:
+    """Read what the claims say about these seats in these months, in ONE statement.
+
+    :param session: The session to read through
+    :param seat_ids: The seats
+    :param periods: The months
+    :return: Per ``(seat, period)``, whether one waits and the latest one;
+        a pair with no claim is absent
+    """
+    if not seat_ids:
+        return {}
+    result: dict[tuple[uuid.UUID, str], MonthClaims] = {}
+    for claim, paid_on, submission_note in session.execute(
+        sa.select(
+            PaymentClaim, PaymentSubmission.paid_on, PaymentSubmission.decision_note
+        )
+        .outerjoin(
+            PaymentSubmission,
+            PaymentSubmission.id == PaymentClaim.payment_submission_id,
+        )
+        .where(
+            PaymentClaim.enrollment_id.in_(seat_ids), PaymentClaim.period.in_(periods)
+        )
+        .order_by(PaymentClaim.submitted_at, PaymentClaim.id)
+    ).all():
+        key = (claim.enrollment_id, claim.period)
+        waiting = claim.status == "pending" or (key in result and result[key].checking)
+        note = (
+            claim.rejection_reason
+            if claim.payment_submission_id is None
+            else submission_note
+        )
+        result[key] = MonthClaims(
+            checking=waiting,
+            latest=HistoryLine(
+                amount=claim.claimed_amount,
+                channel=claim.channel,
+                paid_on=paid_on or claim.submitted_at.date(),
+                status=claim_status(claim.status),
+                decision_note=note,
+            ),
+        )
+    return result
+
+
+def batch_month(
+    session: Session,
+    *,
+    lens: TeacherLens,
+    batch_id: uuid.UUID,
+    period: str | None = None,
+    today: dt.date | None = None,
+) -> BatchMonth:
+    """Read one batch in one month: totals, filter counts and each seat.
+
+    :param session: The session to read through
+    :param lens: The teacher lens carrying the owner id
+    :param batch_id: The batch
+    :param period: The month, as ``YYYY-MM``; the current month by default
+    :param today: Bangladesh's date by default
+    :return: The month's figures and rows
+    :raises AuthorizationError: The batch is not this lens's
+    """
+    on = today or bangladesh_today()
+    month = period or months_ending(on, 1)[0]
+    seats = batch_fee_overview(
+        session, lens=lens, batch_id=batch_id, today=on, period=month
+    )
+    facts = facts_for_seats(session, [seat.enrollment_id for seat in seats])
+    states = [seat.state for seat in seats]
+    return BatchMonth(
+        period=month,
+        collected=collected_by_period(facts).get(month, Money.ZERO),
+        charged=charged_by_period(facts).get(month, Money.ZERO),
+        counts=MonthCounts(
+            paid=sum(1 for state in states if state in ("paid", "waived")),
+            checking=sum(1 for state in states if state == "checking"),
+            owed=sum(1 for state in states if state in ("unpaid", "partly_paid")),
+        ),
+        seats=seats,
+    )
 
 
 @dataclass(frozen=True)
@@ -430,10 +625,12 @@ class FeeHistory:
 
     :ivar cycles: One row per generated period, oldest first
     :ivar total_outstanding: What this seat still owes in total
+    :ivar month_states: The last months that have a state, oldest first
     """
 
     cycles: list[FeeCycleRow]
     total_outstanding: Money
+    month_states: list[MonthStateRow] = field(default_factory=list)
 
 
 def enrollment_fee_history(
@@ -441,13 +638,17 @@ def enrollment_fee_history(
     *,
     lens: Lens,
     enrollment_id: uuid.UUID,
+    months: int = DEFAULT_MONTHS,
+    today: dt.date | None = None,
 ) -> FeeHistory:
     """List every generated period for one seat, with its total.
 
     :param session: The session to read through
     :param lens: The viewer's lens
     :param enrollment_id: The seat
-    :return: The periods and the total still owed
+    :param months: How many months the strip covers, clamped to 1 to 24
+    :param today: Bangladesh's date by default
+    :return: The periods, the total still owed and the strip
     :raises AuthorizationError: No path grants this lens that seat
     """
     _readable_enrollment(session, lens=lens, enrollment_id=enrollment_id)
@@ -475,7 +676,30 @@ def enrollment_fee_history(
                 ),
             )
         )
-    return FeeHistory(cycles=rows, total_outstanding=derived.total_outstanding)
+    window = months_ending(today or bangladesh_today(), clamp_months(months))
+    entries = entries_for_enrollment(session, enrollment_id)
+    claims = claims_by_month(session, [enrollment_id], window)
+    strip: list[MonthStateRow] = []
+    for month in window:
+        month_claims = claims.get((enrollment_id, month))
+        state = month_state(
+            entries,
+            month,
+            checking=month_claims is not None and month_claims.checking,
+        )
+        if state is not None:
+            strip.append(
+                MonthStateRow(
+                    period=month,
+                    state=state,
+                    history_line=None if month_claims is None else month_claims.latest,
+                )
+            )
+    return FeeHistory(
+        cycles=rows,
+        total_outstanding=derived.total_outstanding,
+        month_states=strip,
+    )
 
 
 def _charged_in(session: Session, enrollment_id: uuid.UUID, period: str) -> Money:

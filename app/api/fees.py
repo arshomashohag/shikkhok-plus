@@ -27,6 +27,7 @@ import sqlalchemy as sa
 from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.orm import Session
 
+from app.analytics.collections import DEFAULT_MONTHS
 from app.api.deps import (
     family_lens,
     family_lenses,
@@ -52,10 +53,14 @@ from app.money import Money as DomainMoney
 from app.money.wire import parse, to_wire
 from app.schemas.errors import ErrorEnvelope
 from app.schemas.fees import (
+    BatchFeesResponse,
     ClaimResponse,
     DuplicatePaymentResponse,
     FeeCycleResponse,
     FeeHistoryResponse,
+    HistoryLineResponse,
+    MonthCountsResponse,
+    MonthStateResponse,
     OwedChildResponse,
     OwedTogetherResponse,
     PayableResponse,
@@ -188,36 +193,88 @@ def claim_response(detail: views.ClaimDetail) -> ClaimResponse:
     )
 
 
+def _history_line(line: views.HistoryLine | None) -> HistoryLineResponse | None:
+    """Render a month's latest claim for the wire.
+
+    :param line: The claim as the view described it, or None
+    :return: The response body, or None
+    """
+    if line is None:
+        return None
+    return HistoryLineResponse(
+        amount=_to_wire(line.amount),
+        channel=line.channel,
+        paid_on=line.paid_on,
+        status=line.status,
+        decision_note=line.decision_note,
+    )
+
+
+def _history_response(history: views.FeeHistory) -> FeeHistoryResponse:
+    """Render one seat's periods and strip for the wire.
+
+    :param history: The history as the view described it
+    :return: The response body
+    """
+    return FeeHistoryResponse(
+        cycles=[_cycle_response(row) for row in history.cycles],
+        total_outstanding=_to_wire(history.total_outstanding),
+        month_states=[
+            MonthStateResponse(
+                period=row.period,
+                state=row.state,
+                history_line=_history_line(row.history_line),
+            )
+            for row in history.month_states
+        ],
+    )
+
+
 @router.get(
     "/batches/{batch_id}/fees",
-    response_model=list[RosterFeeRowResponse],
+    response_model=BatchFeesResponse,
     responses=_AUTH_ERRORS,
 )
 def read_batch_fees(
     batch_id: uuid.UUID,
     session: Annotated[Session, Depends(get_session)],
     lens: Annotated[TeacherLens, Depends(teacher_lens)],
-) -> list[RosterFeeRowResponse]:
-    """List every seat's fee position on one of this teacher's batches.
+    period: Annotated[str | None, Query(pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")] = None,
+) -> BatchFeesResponse:
+    """Read one of this teacher's batches in one month.
 
     :param batch_id: The batch, from the route path
     :param session: The request-scoped session
     :param lens: The teacher lens carrying the owner id
-    :return: One row per seat
+    :param period: The month as ``YYYY-MM``; the current month by default
+    :return: The month's totals, filter counts and one row per seat
     """
-    return [
-        RosterFeeRowResponse(
-            enrollment_id=row.enrollment_id,
-            display_name=row.display_name,
-            outstanding=_to_wire(row.outstanding),
-            current_period=row.current_period,
-            current_status=row.current_status,
-            due_date=row.due_date,
-            days_overdue=row.days_overdue,
-            verifying=_optional_wire(row.verifying),
-        )
-        for row in views.batch_fee_overview(session, lens=lens, batch_id=batch_id)
-    ]
+    month = views.batch_month(session, lens=lens, batch_id=batch_id, period=period)
+    return BatchFeesResponse(
+        period=month.period,
+        collected=_to_wire(month.collected),
+        charged=_to_wire(month.charged),
+        counts=MonthCountsResponse(
+            paid=month.counts.paid,
+            checking=month.counts.checking,
+            owed=month.counts.owed,
+        ),
+        seats=[
+            RosterFeeRowResponse(
+                enrollment_id=row.enrollment_id,
+                display_name=row.display_name,
+                outstanding=_to_wire(row.outstanding),
+                current_period=row.current_period,
+                current_status=row.current_status,
+                due_date=row.due_date,
+                days_overdue=row.days_overdue,
+                verifying=_optional_wire(row.verifying),
+                state=row.state,
+                history_line=_history_line(row.history_line),
+            )
+            for row in month.seats
+        ],
+    )
 
 
 @router.get(
@@ -229,22 +286,20 @@ def read_enrollment_fees_as_teacher(
     enrollment_id: uuid.UUID,
     session: Annotated[Session, Depends(get_session)],
     lens: Annotated[TeacherLens, Depends(teacher_lens)],
+    months: Annotated[int, Query()] = DEFAULT_MONTHS,
 ) -> FeeHistoryResponse:
-    """List one seat's generated periods, for its teacher.
+    """List one seat's generated periods and last months, for its teacher.
 
     :param enrollment_id: The seat, from the route path
     :param session: The request-scoped session
     :param lens: The teacher lens
-    :return: One row per generated period
+    :param months: How many months the strip covers, clamped to 1 to 24
+    :return: One row per generated period and the month strip
     """
-    history = views.enrollment_fee_history(
-        session, lens=lens, enrollment_id=enrollment_id
-    )
-    return FeeHistoryResponse(
-        cycles=[_cycle_response(row) for row in history.cycles],
-        # The SERVER's total, from the ledger fold. The client is not
-        # permitted to sum the rows [D-20, TC-9].
-        total_outstanding=WireMoney(to_wire(history.total_outstanding)),
+    return _history_response(
+        views.enrollment_fee_history(
+            session, lens=lens, enrollment_id=enrollment_id, months=months
+        )
     )
 
 
@@ -272,12 +327,7 @@ def read_my_fees(
     history = views.enrollment_fee_history(
         session, lens=lens, enrollment_id=enrollment_id
     )
-    return FeeHistoryResponse(
-        cycles=[_cycle_response(row) for row in history.cycles],
-        # The SERVER's total, from the ledger fold. The client is not
-        # permitted to sum the rows [D-20, TC-9].
-        total_outstanding=WireMoney(to_wire(history.total_outstanding)),
-    )
+    return _history_response(history)
 
 
 @router.get(
@@ -303,12 +353,7 @@ def read_child_fees(
     history = views.enrollment_fee_history(
         session, lens=lens, enrollment_id=enrollment_id
     )
-    return FeeHistoryResponse(
-        cycles=[_cycle_response(row) for row in history.cycles],
-        # The SERVER's total, from the ledger fold. The client is not
-        # permitted to sum the rows [D-20, TC-9].
-        total_outstanding=WireMoney(to_wire(history.total_outstanding)),
-    )
+    return _history_response(history)
 
 
 @router.get(

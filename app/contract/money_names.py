@@ -100,6 +100,18 @@ NON_MONEY_FIELDS: Final[dict[tuple[str, str], str]] = {
     ("BatchUpdateRequest", "fee_due_day"): (
         "The same value on the edit path [AC2.3.1]."
     ),
+    ("HistoryLineResponse", "paid_on"): (
+        "A DATE, not an amount: the day the claimant says the money "
+        "moved. The line's money property, `amount`, references Money."
+    ),
+    ("MonthCollectionResponse", "charged_bar"): (
+        "A whole percent from 0 to 100 for drawing a bar, not an amount. "
+        "The server computes it with Money.percent_of so the client does "
+        "no money arithmetic; the month's money properties reference Money."
+    ),
+    ("MonthCountsResponse", "paid"): (
+        "A COUNT of seats under the Paid filter, not an amount."
+    ),
     ("PaymentSubmitRequest", "paid_on"): (
         "A DATE, not an amount: the day the payer says the money moved. "
         "The request's money property, `amount`, references Money."

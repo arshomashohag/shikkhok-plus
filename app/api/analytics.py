@@ -24,11 +24,13 @@ queries for one screen.
 from __future__ import annotations
 
 import datetime as dt
+import uuid
 from typing import Annotated, Final, Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
+from app.analytics.collections import DEFAULT_MONTHS, collections
 from app.analytics.dues import DuesSummary, dues_rows, dues_summary
 from app.analytics.earnings import MonthlyEarnings, period_totals, trend
 from app.analytics.seats import (
@@ -46,10 +48,12 @@ from app.local_time import bangladesh_today
 from app.money import Money as DomainMoney
 from app.money.wire import to_wire
 from app.schemas.analytics import (
+    CollectionsResponse,
     DuesGroupResponse,
     DuesResponse,
     DuesRowResponse,
     DuesSummaryResponse,
+    MonthCollectionResponse,
     MonthlyEarningsResponse,
     NextExamResponse,
     OutstandingResponse,
@@ -205,6 +209,43 @@ def _summary_response(summary: DuesSummary) -> DuesSummaryResponse:
             )
             for group in summary.groups
         ],
+    )
+
+
+@router.get(
+    "/analytics/collections",
+    response_model=CollectionsResponse,
+    responses=_AUTH_ERRORS,
+)
+def read_collections(
+    session: Annotated[Session, Depends(get_session)],
+    lens: Annotated[TeacherLens, Depends(teacher_lens)],
+    batch_id: Annotated[list[uuid.UUID] | None, Query()] = None,
+    months: Annotated[int, Query()] = DEFAULT_MONTHS,
+) -> CollectionsResponse:
+    """Read charged and collected per month for some or all batches (M1).
+
+    :param session: The request-scoped session
+    :param lens: The teacher lens carrying the owner id
+    :param batch_id: Batches to cover, repeatable; none means all of them
+    :param months: How many months, clamped to 1 to 24
+    :return: One row per month, the amount owed now and how many owe
+    """
+    report = collections(session, lens=lens, batch_ids=batch_id, months=months)
+    return CollectionsResponse(
+        months=[
+            MonthCollectionResponse(
+                period=row.period,
+                charged=_to_wire(row.charged),
+                collected=_to_wire(row.collected),
+                in_progress=row.in_progress,
+                charged_bar=row.charged_bar,
+                collected_bar=row.collected_bar,
+            )
+            for row in report.months
+        ],
+        outstanding=_to_wire(report.outstanding),
+        owing_students=report.owing_students,
     )
 
 
