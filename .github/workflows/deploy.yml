@@ -74,10 +74,30 @@ jobs:
     outputs:
       repository: ${{ steps.resolve.outputs.repository }}
       asg: ${{ steps.resolve.outputs.asg }}
+      sha: ${{ steps.commit.outputs.sha }}
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref || github.ref }}
+
+      # **The commit being deployed is the one CHECKED OUT, not
+      # `github.sha`.** `github.sha` is the commit the workflow was
+      # dispatched FROM -- main's head, usually -- while `inputs.ref`
+      # selects what is built. Tagging by `github.sha` meant a rollback
+      # to an older ref either redeployed main's image (the tag already
+      # existed, so the build was skipped) or pushed the old code under
+      # main's SHA, permanently, into an IMMUTABLE repository [OPS-9].
+      #
+      # Resolved ONCE, here, and every later job checks out this exact
+      # SHA rather than re-resolving the ref: a branch that moves
+      # between jobs would otherwise apply one commit's Terraform and
+      # ship another commit's image.
+      - name: Resolve the commit
+        id: commit
+        run: |
+          sha=$(git rev-parse HEAD)
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "Deploying $sha"
 
       - name: Fail early when the environment is not configured
         env:
@@ -128,7 +148,7 @@ jobs:
             echo "| | |"
             echo "|---|---|"
             echo "| ref | \`${{ inputs.ref || github.ref_name }}\` |"
-            echo "| commit | \`${GITHUB_SHA:0:12}\` |"
+            echo "| commit | \`$(git rev-parse --short=12 HEAD)\` |"
             echo "| registry | \`${repo:-(not created yet)}\` |"
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -156,7 +176,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.ref || github.ref }}
+          ref: ${{ needs.plan.outputs.sha }}
 
       - uses: aws-actions/configure-aws-credentials@v6
         with:
@@ -220,7 +240,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.ref || github.ref }}
+          ref: ${{ needs.plan.outputs.sha }}
 
       - name: What identity is being presented
         run: |
@@ -285,11 +305,13 @@ jobs:
       # digest.
       - name: Is this commit already built?
         id: exists
+        env:
+          SHA: ${{ needs.plan.outputs.sha }}
         run: |
           if aws ecr describe-images \
                --repository-name "shikkhokplus-${{ inputs.environment }}-backend" \
-               --image-ids imageTag="${{ github.sha }}" >/dev/null 2>&1; then
-            echo "Image for ${GITHUB_SHA:0:12} already in the registry."
+               --image-ids imageTag="$SHA" >/dev/null 2>&1; then
+            echo "Image for ${SHA:0:12} already in the registry."
             echo "Skipping the build; the existing image is the artifact."
             echo "skip=true" >> "$GITHUB_OUTPUT"
           else
@@ -305,7 +327,7 @@ jobs:
           # The commit SHA, never `latest`. The repository is
           # IMMUTABLE, so the tag IS the artifact and a rollback is a
           # redeploy rather than a rebuild.
-          tags: ${{ steps.ecr.outputs.repository }}:${{ github.sha }}
+          tags: ${{ steps.ecr.outputs.repository }}:${{ needs.plan.outputs.sha }}
           push: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -346,7 +368,7 @@ jobs:
 
           aws ssm put-parameter \
             --name "/shikkhokplus/shikkhokplus-${ENVIRONMENT}/image-tag" \
-            --value "${{ github.sha }}" --type String --overwrite >/dev/null
+            --value "${{ needs.plan.outputs.sha }}" --type String --overwrite >/dev/null
 
           aws ssm put-parameter \
             --name "/shikkhokplus/shikkhokplus-${ENVIRONMENT}/runtime-env" \
