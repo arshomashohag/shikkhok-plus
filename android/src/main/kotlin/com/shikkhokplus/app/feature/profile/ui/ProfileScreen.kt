@@ -48,6 +48,9 @@ const val TAG_PROFILE_SIGN_OUT: String = "profile_sign_out"
 /** The teacher's payment-methods row. */
 const val TAG_PROFILE_PAYMENT_METHODS: String = "profile_payment_methods"
 
+/** The money reports entry, shown to a teacher. */
+const val TAG_PROFILE_COLLECTIONS: String = "profile_collections"
+
 /** The switch-role action. Absent for a person with one lens. */
 const val TAG_PROFILE_SWITCH_LENS: String = "profile_switch_lens"
 
@@ -81,6 +84,8 @@ const val TAG_PROFILE_SWITCH_LENS: String = "profile_switch_lens"
  *   screen stays renderable in a test without one
  * @param onPaymentMethods Called to open the teacher's payment methods,
  *   or null for a lens that has none
+ * @param onCollections Called to open the money reports (M1), or null
+ *   for a lens that has none
  * @param onSwitchLens Called to return to the lens picker, or null
  *   when this person holds only one lens and has nothing to switch to
  */
@@ -96,6 +101,7 @@ fun ProfileScreen(
     onDeleteAccount: () -> Unit = {},
     onSignOut: () -> Unit = {},
     onPaymentMethods: (() -> Unit)? = null,
+    onCollections: (() -> Unit)? = null,
 ) {
     ScreenScaffold(
         title = stringResource(R.string.profile_title),
@@ -143,6 +149,14 @@ fun ProfileScreen(
                         modifier = Modifier.fillMaxWidth().testTag(TAG_PROFILE_PAYMENT_METHODS),
                     ) {
                         Text(stringResource(R.string.profile_payment_methods))
+                    }
+                }
+                onCollections?.let { open ->
+                    OutlinedButton(
+                        onClick = open,
+                        modifier = Modifier.fillMaxWidth().testTag(TAG_PROFILE_COLLECTIONS),
+                    ) {
+                        Text(stringResource(R.string.profile_collections))
                     }
                 }
                 // **Absent, not disabled, for a single-lens person.**

@@ -37,8 +37,14 @@ class HttpBatchDetailRepository(
     override suspend fun editBatch(batchId: String, edit: BatchEdit): AuthResult<BatchDto> =
         call { client.patch("/v1/batches/$batchId") { setBody(edit) } }
 
-    override suspend fun fees(batchId: String): AuthResult<List<RosterFeeRowDto>> =
-        call { client.get("/v1/batches/$batchId/fees") }
+    override suspend fun fees(batchId: String): AuthResult<List<RosterFeeRowDto>> {
+        val month: AuthResult<BatchFeesDto> = call { client.get("/v1/batches/$batchId/fees") }
+        return when (month) {
+            is AuthResult.Ok -> AuthResult.Ok(month.value.seats)
+            is AuthResult.Refused -> month
+            AuthResult.TransportFailure -> AuthResult.TransportFailure
+        }
+    }
 
     override suspend fun notices(batchId: String): AuthResult<List<AnnouncementDto>> =
         call { client.get("/v1/batches/$batchId/announcements") }

@@ -589,6 +589,41 @@ sealed interface Destination {
         fun of(methodId: String): String = "payment-methods/$methodId/edit"
     }
 
+    /** Collected versus charged, by month (M1), opened from More. */
+    data object Collections : Destination {
+        override val route: String = "collections"
+    }
+
+    /** One batch in one month (M2). */
+    data object BatchMonth : Destination {
+        override val route: String = "batches/{batchId}/month?period={period}&name={batchName}"
+
+        /** The batch argument's name. */
+        const val ARG_ID: String = "batchId"
+
+        /** The month argument's name. */
+        const val ARG_PERIOD: String = "period"
+
+        /** The batch-name argument's name. */
+        const val ARG_NAME: String = "batchName"
+
+        /**
+         * Build a concrete route.
+         *
+         * @param id The batch
+         * @param name Its name, carried because the fees read omits it
+         * @param period `YYYY-MM`, or null for the current month
+         * @return The route to navigate to
+         */
+        fun of(
+            id: String,
+            name: String,
+            period: String?,
+        ): String =
+            "batches/$id/month?period=${period.orEmpty()}&name=" +
+                java.net.URLEncoder.encode(name, "UTF-8")
+    }
+
     /** The signed-in person's own profile. The More tab. */
     data object Profile : Destination {
         override val route: String = "profile"

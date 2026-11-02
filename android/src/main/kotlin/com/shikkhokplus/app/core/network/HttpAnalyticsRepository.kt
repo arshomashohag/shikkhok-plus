@@ -1,10 +1,12 @@
 package com.shikkhokplus.app.core.network
 
 import com.shikkhokplus.app.feature.auth.AuthResult
+import com.shikkhokplus.app.feature.collections.CollectionsRepository
 import com.shikkhokplus.app.feature.dues.DuesRepository
 import com.shikkhokplus.app.feature.today.TodayRepository
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
+import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 
@@ -23,7 +25,7 @@ import io.ktor.client.request.setBody
  */
 class HttpAnalyticsRepository(
     private val client: HttpClient,
-) : TodayRepository, DuesRepository {
+) : TodayRepository, DuesRepository, CollectionsRepository {
 
     /**
      * Read the Today screen for whoever is signed in (T1).
@@ -54,4 +56,46 @@ class HttpAnalyticsRepository(
      */
     override suspend fun remind(enrollmentIds: List<String>): AuthResult<ReminderResultDto> =
         call { client.post("/v1/reminders") { setBody(ReminderBody(enrollmentIds)) } }
+
+    /**
+     * List the teacher's batches, for the filter chips.
+     *
+     * @return The batches, an error envelope, or a transport failure
+     */
+    override suspend fun batches(): AuthResult<List<BatchDto>> = call { client.get("/v1/batches") }
+
+    /**
+     * Read collected versus charged by month.
+     *
+     * @param batchIds The batches to narrow to; empty means all
+     * @param months How many months to read
+     * @return The report, an error envelope, or a transport failure
+     */
+    override suspend fun collections(
+        batchIds: List<String>,
+        months: Int,
+    ): AuthResult<CollectionsDto> =
+        call {
+            client.get("/v1/analytics/collections") {
+                batchIds.forEach { parameter("batch_id", it) }
+                parameter("months", months)
+            }
+        }
+
+    /**
+     * Read one batch in one month.
+     *
+     * @param batchId The batch
+     * @param period `YYYY-MM`, or null for the current month
+     * @return The month, an error envelope, or a transport failure
+     */
+    override suspend fun batchMonth(
+        batchId: String,
+        period: String?,
+    ): AuthResult<BatchFeesDto> =
+        call {
+            client.get("/v1/batches/$batchId/fees") {
+                period?.let { parameter("period", it) }
+            }
+        }
 }

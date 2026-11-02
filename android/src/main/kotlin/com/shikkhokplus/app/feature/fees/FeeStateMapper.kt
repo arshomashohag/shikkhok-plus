@@ -4,6 +4,7 @@ import com.shikkhokplus.app.core.model.Money
 import com.shikkhokplus.app.core.network.ClaimDto
 import com.shikkhokplus.app.core.network.ErrorEnvelope
 import com.shikkhokplus.app.core.network.FeeCycleDto
+import com.shikkhokplus.app.core.network.MonthStateDto
 import com.shikkhokplus.app.core.network.PaymentDestinationDto
 import com.shikkhokplus.app.core.network.RosterFeeRowDto
 
@@ -96,11 +97,13 @@ object FeeStateMapper {
      * @param totalOutstanding The total the SERVER computed. Summing
      *   [cycles] here would be the client doing money arithmetic, and
      *   it would be wrong the moment the history paginates
+     * @param monthStates The strip the server decided, oldest first
      * @return The state the screen renders
      */
     fun afterLoad(
         cycles: List<FeeCycleDto>,
         totalOutstanding: Money,
+        monthStates: List<MonthStateDto> = emptyList(),
     ): FeeUiState {
         if (cycles.isEmpty()) {
             return FeeUiState.Empty
@@ -109,7 +112,11 @@ object FeeStateMapper {
             cycles.map { cycle ->
                 toRow(cycle) ?: return FeeUiState.Failed(UNEXPECTED_KEY, retryable = false)
             }
-        return FeeUiState.Loaded(mapped.sortedByDescending { it.period }, totalOutstanding)
+        val strip =
+            monthStates.map { month ->
+                MonthStripMapper.toRow(month) ?: return FeeUiState.Failed(UNEXPECTED_KEY, retryable = false)
+            }
+        return FeeUiState.Loaded(mapped.sortedByDescending { it.period }, totalOutstanding, strip)
     }
 
     /**

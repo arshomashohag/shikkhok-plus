@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.feature.fees
 
+import com.shikkhokplus.app.core.model.HistoryLine
 import com.shikkhokplus.app.core.model.Money
 
 /**
@@ -36,6 +37,37 @@ data class FeeCycleRow(
     val outstanding: Money,
     val statusLabel: String,
     val isSettled: Boolean,
+)
+
+/** One month's state on the strip, from the server's `state`. */
+enum class StripKind {
+    /** Settled in full. */
+    PAID,
+
+    /** Part paid. */
+    PARTIAL,
+
+    /** Nothing paid. */
+    UNPAID,
+
+    /** Closed by a waiver. */
+    WAIVED,
+
+    /** A payment is waiting to be checked. */
+    CHECKING,
+}
+
+/**
+ * One month on the 6-month strip, with its latest claim.
+ *
+ * @property period The month as `YYYY-MM`
+ * @property kind How the month looks, chosen from the server's state
+ * @property historyLine The latest claim for it, as structured data
+ */
+data class MonthStateRow(
+    val period: String,
+    val kind: StripKind,
+    val historyLine: HistoryLine?,
 )
 
 /**
@@ -147,10 +179,12 @@ sealed interface FeeUiState {
      * @property totalOutstanding What is owed across all of them,
      *   **as the server computed it** — not a sum over [rows], which
      *   would be the client doing money arithmetic [TC-9]
+     * @property months The strip, oldest first, with each month's claim
      */
     data class Loaded(
         val rows: List<FeeCycleRow>,
         val totalOutstanding: Money,
+        val months: List<MonthStateRow> = emptyList(),
     ) : FeeUiState
 
     /**

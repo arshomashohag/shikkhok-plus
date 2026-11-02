@@ -102,6 +102,7 @@ class FeesViewModel(
                             // The SERVER's total, never a sum of the
                             // rows above it.
                             totalOutstanding = result.value.totalOutstanding,
+                            monthStates = result.value.monthStates,
                         )
 
                     is AuthResult.Refused -> FeeStateMapper.afterError(result.envelope)

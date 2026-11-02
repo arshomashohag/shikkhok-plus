@@ -337,6 +337,8 @@ fun ShikkhokNavHost(
 
         batchDetailRoute(client, queue, navController)
 
+        collectionsRoutes(client, navController)
+
         composable(
             route = Destination.AddStudent.route,
             arguments =
@@ -622,6 +624,12 @@ fun ShikkhokNavHost(
                 onPaymentMethods =
                     if (session.lens == Lens.TEACHER) {
                         { navController.navigate(Destination.PaymentMethods.route) }
+                    } else {
+                        null
+                    },
+                onCollections =
+                    if (session.lens == Lens.TEACHER) {
+                        { navController.navigate(Destination.Collections.route) }
                     } else {
                         null
                     },
