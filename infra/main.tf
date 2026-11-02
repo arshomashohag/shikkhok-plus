@@ -1,9 +1,11 @@
 # The Phase 1 backend, composed.
 #
-# **One production host, one staging host, a CDN in front, and a
-# database that is not on the network at all.** Measured at USD
-# 24.50/month against the USD 50 ceiling [OC-4]; the Phase 2 path to
-# RDS is written and disabled, costing USD 41.86 when enabled.
+# **One app host per environment in an auto-scaling group of one, a
+# CDN in front, and RDS behind it.** The monthly figure against the USD
+# 50 ceiling [OC-4] is `terraform output monthly_cost_estimate`, computed
+# by the same expression the budget precondition below enforces -- it
+# is deliberately not restated here, because restated figures in this
+# file have been wrong before.
 #
 # What is deliberately NOT here, so nobody reads the absence as an
 # oversight:
@@ -16,11 +18,13 @@
 #   * **No NAT gateway.** USD 32/month -- more than both instances
 #     combined -- to avoid public IPs on hosts whose inbound is closed
 #     by the security group anyway.
-#   * **No RDS in Phase 1.** See modules/database -- a managed database
-#     reachable only from one IP routes children-identifying traffic
-#     over the public internet, which is weaker than localhost.
-#   * **No auto-scaling group.** One instance is the design; a group of
-#     one is machinery that implies a capability we do not have.
+#   * **No database on the host.** The host is replaced on every deploy
+#     and its root volume with it, so the database is RDS, reachable
+#     only from the app's security group (modules/database), and
+#     production refuses to plan without it [OPS-7].
+#   * **No scaling.** The auto-scaling group is desired-one with no
+#     policy; it exists so a failed host is replaced, and so a deploy
+#     can launch the new host before terminating the old [OPS-6].
 #   * **No WAF.** USD 5/month plus per-rule charges to protect an API
 #     that is authenticated on 10 of 11 routes, where the OTP ceilings
 #     already live in the application and survive a worker restart.
@@ -63,43 +67,39 @@ locals {
 
 # **The budget is a precondition, checked before anything is created.**
 #
-# Computed rather than asserted -- and this comment is the proof of
-# why, because it used to assert "staging plus RDS is USD 50.20
-# against a USD 50 ceiling" and say that twenty cents "is exactly the
-# kind of number a comment gets wrong and an expression does not."
-# The comment was the thing that got it wrong. Recomputed from the
-# `cost_breakdown` below on 2026-10-24: staging plus RDS is
-# **USD 47.28**, which is UNDER the ceiling, not over it. 50.20
-# matches no configuration this code can produce; it was written
-# against defaults that have since moved (`root_volume_gb` is 30, and
-# 50.20 implies roughly 49).
+# Computed rather than asserted. This comment used to list the totals
+# for each configuration, and those figures were wrong twice: once
+# because the defaults moved under them, and again because the model
+# had no line for public IPv4 at all [OPS-12]. The totals now live in
+# one place -- `terraform output monthly_cost_estimate`, which is the
+# same expression the precondition checks -- and this comment states
+# none of them.
 #
-# The live figures, each a sum over `cost_breakdown`:
-#   app only, no staging, no RDS ....... 15.26
-#   + staging .......................... 29.92
-#   + RDS (no staging) ................. 32.62
-#   + staging and RDS .................. 47.28
-#
-# Phase 2 therefore requires a choice -- retire the rehearsal host, or
-# raise the ceiling deliberately -- rather than discovering it on a
-# bill. Set `acknowledged_monthly_budget` higher to proceed anyway.
+# Note what the IPv4 line does: with RDS on, adding the rehearsal host
+# now crosses the ceiling, so Phase 2 with a rehearsal host is a
+# deliberate choice -- retire it, or raise `acknowledged_monthly_budget`
+# -- rather than something discovered on a bill.
 locals {
   # **One cost model, used by BOTH the precondition below and the
-  # monthly_cost_estimate output.** They were two separate numbers
-  # that disagreed -- the precondition said USD 16.67 for the
-  # instance and the output said USD 12.00, both labelled ap-south-1
-  # while the stack now runs in us-east-1. A budget guard computing
-  # from a number nobody checks is decoration.
+  # monthly_cost_estimate output.** A budget guard computing from a
+  # number nobody checks is decoration.
   #
-  # Queried from the AWS Price List API for us-east-1, 2026-10-19:
+  # Unit prices, us-east-1, from the AWS Price List API (2026-10-19)
+  # and AWS's published pricing pages:
   #   t4g.small on-demand   USD 0.0168/hr x 730 = USD 12.26
-  #   gp3 storage           USD 0.08/GB-month x 30GB = USD 2.40
-  #   Elastic IP            USD 0.00 while ATTACHED (0.005/hr if not)
+  #   gp3 storage           USD 0.08/GB-month
+  #   public IPv4 address   USD 0.005/hr x 730 = USD 3.65 per host.
+  #                         Charged since 2024-02 for EVERY public
+  #                         IPv4 address, attached or not; each host has
+  #                         one because there is no NAT gateway [OPS-12]
   #   Route53 hosted zone   USD 0.50
-  #   CloudFront, ACM       USD 0.00 at this volume / always
-  cost_instance = 12.26
-  cost_storage  = var.root_volume_gb * 0.08
-  cost_host     = local.cost_instance + local.cost_storage
+  #   CloudWatch alarm      USD 0.10 per standard alarm
+  #   CloudWatch Logs       USD 0.50/GB ingested; 1 GB/month assumed
+  #   CloudFront, ACM, SNS email, Budgets (first two)  USD 0.00
+  cost_instance    = 12.26
+  cost_storage     = var.root_volume_gb * 0.08
+  cost_public_ipv4 = 3.65
+  cost_host        = local.cost_instance + local.cost_storage + local.cost_public_ipv4
 
   cost_breakdown = {
     app_instance     = local.cost_host
@@ -108,17 +108,12 @@ locals {
     ecr              = 0.10
     cloudfront       = 0.00
     acm              = 0.00
-    elastic_ip       = 0.00
     rds              = var.enable_rds ? 17.36 : 0.00
+    alarms           = length(local.alarm_names) * 0.10
+    logs             = 0.50
   }
 
-  monthly_cost = (
-    local.cost_breakdown.app_instance +
-    local.cost_breakdown.staging_instance +
-    local.cost_breakdown.route53_zone +
-    local.cost_breakdown.ecr +
-    local.cost_breakdown.rds
-  )
+  monthly_cost = sum(values(local.cost_breakdown))
 }
 
 resource "terraform_data" "budget_guard" {
@@ -130,11 +125,7 @@ resource "terraform_data" "budget_guard" {
         acknowledged budget of USD ${var.acknowledged_monthly_budget}
         [OC-4: always keep infrastructure spend under USD 50/month].
 
-        Breakdown: app host ${local.cost_breakdown.app_instance},
-        staging ${local.cost_breakdown.staging_instance},
-        RDS ${local.cost_breakdown.rds}, route53
-        ${local.cost_breakdown.route53_zone}, ecr
-        ${local.cost_breakdown.ecr}.
+        Breakdown: ${jsonencode(local.cost_breakdown)}
 
         Either disable what you do not need
         (enable_staging_instance, enable_rds), or raise
@@ -219,6 +210,7 @@ module "app" {
   managed_database  = var.enable_rds
 
   permissions_boundary_arn = local.permissions_boundary_arn
+  alarm_topic_arn          = aws_sns_topic.alerts.arn
 
   name_prefix    = local.name_prefix
   vpc_id         = module.network.vpc_id
@@ -251,6 +243,7 @@ module "staging_app" {
   origin_fqdn = "rehearsal-${var.origin_subdomain}.${local.project_domain}"
 
   permissions_boundary_arn = local.permissions_boundary_arn
+  alarm_topic_arn          = aws_sns_topic.alerts.arn
 
   # Per environment, so a staging and a production rehearsal host
   # cannot collide on a role, bucket or group name, and so each falls

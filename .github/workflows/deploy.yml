@@ -202,6 +202,9 @@ jobs:
         env:
           TF_VAR_apex_domain: ${{ vars.APEX_DOMAIN }}
           TF_VAR_environment: ${{ inputs.environment }}
+          # Where alarms are emailed [OPS-11]. Unset is allowed and
+          # reported by the alert_email_status output, not hidden.
+          TF_VAR_alert_email: ${{ vars.ALERT_EMAIL }}
         run: terraform plan -input=false -no-color -out=tfplan | tee plan.txt
 
       - name: What is about to be applied

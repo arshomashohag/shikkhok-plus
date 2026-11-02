@@ -48,7 +48,18 @@ apt-get install -y --no-install-recommends \
   certbot python3-certbot-dns-route53
 
 usermod -aG docker ubuntu
-systemctl enable --now docker
+
+# **Bounded local logs** [OPS-11]. The default json-file driver never
+# rotates, so a chatty container fills the root volume -- the one the
+# whole host runs from -- and the first symptom is everything failing
+# at once. The app's own containers ship to CloudWatch (compose sets
+# the awslogs driver); this caps whatever else runs, and the local
+# cache Docker keeps beside a remote driver.
+cat > /etc/docker/daemon.json <<'DOCKERD'
+{"log-driver": "json-file", "log-opts": {"max-size": "10m", "max-file": "5"}}
+DOCKERD
+systemctl enable docker
+systemctl restart docker
 
 # The SSM agent, which is what replaces SSH. Ubuntu 24.04 ships it as
 # a snap and it is pre-installed on Canonical's AMIs -- enabling it
@@ -339,7 +350,28 @@ lifecycle() {
 
 # A boot that fails anywhere from here on says so at once, rather than
 # leaving the ASG to wait out the hook's full timeout.
-trap 'rc=$?; [ "$rc" -eq 0 ] || lifecycle ABANDON' EXIT
+# **The boot log leaves the host** [OPS-11]. An abandoned instance is
+# terminated, and with it the only record of why. Shipped on every
+# exit, success or failure, to `boot-<instance-id>` in the app's log
+# group. It carries command output only: the secrets this script reads
+# are never echoed.
+ship_boot_log() {
+  local iid
+  iid=$(imds instance-id) || return 0
+  aws logs create-log-stream --log-group-name "${log_group}" \
+    --log-stream-name "boot-$iid" --region "${aws_region}" 2>/dev/null || true
+  python3 -c 'import json, sys, time
+t = int(time.time() * 1000)
+lines = open(sys.argv[1], errors="replace").read().splitlines()[-5000:]
+print(json.dumps([{"timestamp": t, "message": x or " "} for x in lines]))' \
+    /var/log/shikkhokplus-provision.log > /root/boot-events.json || return 0
+  aws logs put-log-events --log-group-name "${log_group}" \
+    --log-stream-name "boot-$iid" --log-events file:///root/boot-events.json \
+    --region "${aws_region}" >/dev/null 2>&1 || true
+  rm -f /root/boot-events.json
+}
+
+trap 'rc=$?; [ "$rc" -eq 0 ] || lifecycle ABANDON; ship_boot_log' EXIT
 
 # A host with nothing to run yet -- first boot before any deploy --
 # is still a correct host: register it and put it in service.
@@ -411,6 +443,31 @@ fi
 logger -t shikkhokplus "origin certificate installed; nginx reloaded"
 HOOK
 chmod 0700 /usr/local/bin/shikkhokplus-cert-deployed
+
+# **The certificate's remaining life, as a metric** [OPS-11]. The alarm
+# on it fires under 14 days AND when nothing is reported, so a host
+# serving no real certificate alerts too. Daily from cron, and once at
+# the end of this boot.
+cat > /usr/local/bin/shikkhokplus-cert-metric <<'METRIC'
+#!/bin/bash
+set -euo pipefail
+export PATH="/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+end=$(openssl x509 -enddate -noout \
+  -in "/etc/letsencrypt/live/${origin_fqdn}/fullchain.pem" | cut -d= -f2)
+days=$(( ($(date -d "$end" +%s) - $(date +%s)) / 86400 ))
+aws cloudwatch put-metric-data --namespace "Shikkhokplus/${name_prefix}" \
+  --metric-name OriginCertificateDaysRemaining --value "$days" \
+  --unit Count --region "${aws_region}"
+METRIC
+chmod 0755 /usr/local/bin/shikkhokplus-cert-metric
+cat > /etc/cron.d/shikkhokplus-cert-metric <<'CRON'
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+17 3 * * * root /usr/local/bin/shikkhokplus-cert-metric
+CRON
+chmod 0644 /etc/cron.d/shikkhokplus-cert-metric
+/usr/local/bin/shikkhokplus-cert-metric >> /var/log/shikkhokplus-provision.log 2>&1 \
+  || echo "WARNING: no origin certificate to report" >> /var/log/shikkhokplus-provision.log
 
 LIVE="/etc/letsencrypt/live/${origin_fqdn}"
 if aws s3 cp "s3://${config_bucket}/tls/letsencrypt.tar.gz" \
@@ -498,6 +555,9 @@ fi
 umask 077
 printf '%s\n' "$RUNTIME_ENV" > .env
 echo "API_IMAGE=${ecr_repository_url}:$IMAGE_TAG" >> .env
+# Where compose's awslogs driver ships the containers [OPS-11].
+echo "SHIKKHOKPLUS_LOG_GROUP=${log_group}" >> .env
+echo "SHIKKHOKPLUS_LOG_REGION=${aws_region}" >> .env
 echo "SHIKKHOKPLUS_DATABASE_URL=$DATABASE_URL" >> .env
 chown ubuntu:ubuntu .env
 unset DATABASE_URL

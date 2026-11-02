@@ -133,3 +133,20 @@ variable "permissions_boundary_arn" {
   EOT
   type        = string
 }
+
+variable "alarm_topic_arn" {
+  description = "SNS topic the host's alarms notify. Null creates the alarms with no action."
+  type        = string
+  default     = null
+}
+
+variable "log_retention_days" {
+  description = <<-EOT
+    How long container and boot logs are kept. 30 days covers "what
+    happened during last month's fee run" and bounds the storage bill;
+    the logs carry no phone number, OTP or token by the logging rules,
+    so a longer retention is a cost question rather than a privacy one.
+  EOT
+  type        = number
+  default     = 30
+}

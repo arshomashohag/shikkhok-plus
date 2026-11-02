@@ -120,3 +120,19 @@ variable "github_subject_has_numeric_ids" {
 
 
 
+
+variable "alert_email" {
+  description = <<-EOT
+    Where the monthly cost budget's alerts are emailed. No default --
+    a committed address pages its author forever. Null creates no
+    budget (see budget.tf).
+  EOT
+  type        = string
+  default     = null
+}
+
+variable "monthly_budget_usd" {
+  description = "The ceiling [OC-4: keep infrastructure spend under USD 50/month]."
+  type        = number
+  default     = 50
+}

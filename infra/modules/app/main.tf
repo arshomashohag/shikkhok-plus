@@ -262,7 +262,15 @@ resource "aws_launch_template" "app" {
   # Whole-line comments only, and never the shebang: an inline `#`
   # may be inside a string, and a heredoc body is content rather than
   # script.
-  user_data = base64encode(join("\n", [
+  #
+  # **And gzipped.** The readiness, certificate and logging work of
+  # 2026-11-02 brought the stripped script to within a few hundred
+  # bytes of the limit. cloud-init detects and decompresses gzipped
+  # user data, and the limit applies to the bytes EC2 stores, so this
+  # buys several times the headroom. tests/gates/test_user_data_template.py
+  # measures the size the same way, so the next addition that would
+  # cross it fails a pull request rather than an apply.
+  user_data = base64gzip(join("\n", [
     for line in split("\n", templatefile("${path.module}/user_data.sh.tftpl", {
       # **No secret is passed here** [OPS-4]. The origin secret and the
       # database credentials used to be interpolated into this script,
@@ -282,6 +290,8 @@ resource "aws_launch_template" "app" {
       config_bucket = aws_s3_bucket.config.id
       # The boot script answers this hook once the host is ready.
       lifecycle_hook_name = local.lifecycle_hook_name
+      # Where the containers and the boot log ship [OPS-11].
+      log_group = aws_cloudwatch_log_group.app.name
     }))
     : line if !startswith(trimspace(line), "#") || startswith(trimspace(line), "#!")
   ]))
@@ -476,6 +486,27 @@ resource "aws_iam_role_policy" "self_registration" {
           StringEquals = {
             "kms:ViaService" = "ssm.${var.aws_region}.amazonaws.com"
           }
+        }
+      },
+      {
+        # Shipping logs [OPS-11]: dockerd's awslogs driver for the
+        # containers, and the boot script for its own log. One group.
+        Effect = "Allow"
+        Action = ["logs:CreateLogStream", "logs:PutLogEvents", "logs:DescribeLogStreams"]
+        Resource = [
+          aws_cloudwatch_log_group.app.arn,
+          "${aws_cloudwatch_log_group.app.arn}:*",
+        ]
+      },
+      {
+        # The certificate-age metric, in this host's namespace only.
+        # PutMetricData has no resource form; the namespace condition
+        # is the scope.
+        Effect   = "Allow"
+        Action   = ["cloudwatch:PutMetricData"]
+        Resource = "*"
+        Condition = {
+          StringEquals = { "cloudwatch:namespace" = local.metric_namespace }
         }
       },
       {

@@ -39,6 +39,21 @@ x-app-environment: &app-environment
   # forwarded header at all.
   SHIKKHOKPLUS_TRUSTED_CLIENT_IP_HEADER: X-Client-Address
 
+# **Every container ships its output to CloudWatch** [OPS-11] -- the
+# API, the migrate runs and each scheduled job (`run --rm api` inherits
+# this). dockerd sends it with the instance role; no container needs,
+# or can reach, AWS credentials. `non-blocking` so a slow CloudWatch
+# can never stall a request on a log write; Docker's dual logging keeps
+# `docker compose logs` and the cron jobs' local log files working.
+x-logging: &logging
+  driver: awslogs
+  options:
+    awslogs-group: ${SHIKKHOKPLUS_LOG_GROUP:?SHIKKHOKPLUS_LOG_GROUP is required}
+    awslogs-region: ${SHIKKHOKPLUS_LOG_REGION:?SHIKKHOKPLUS_LOG_REGION is required}
+    tag: "{{.Name}}-{{.ID}}"
+    mode: non-blocking
+    max-buffer-size: 4m
+
 services:
   api:
     # **Pulled, never built.** The tag is a commit SHA written into
@@ -60,6 +75,7 @@ services:
       # check entirely.
       - "127.0.0.1:8000:8000"
 
+    logging: *logging
     restart: unless-stopped
 
   # **The owner, for schema changes only.** In a profile, so `up` never
@@ -81,4 +97,5 @@ services:
       SHIKKHOKPLUS_MIGRATION_DATABASE_URL: ${SHIKKHOKPLUS_MIGRATION_DATABASE_URL:-}
       SHIKKHOKPLUS_DATABASE_URL: ${SHIKKHOKPLUS_MIGRATION_DATABASE_URL:-}
       SHIKKHOKPLUS_APP_DB_PASSWORD: ${SHIKKHOKPLUS_APP_DB_PASSWORD:-}
+    logging: *logging
     restart: "no"

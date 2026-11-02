@@ -30,6 +30,7 @@ user-data limit, which an earlier apply already hit.
 
 from __future__ import annotations
 
+import gzip
 import pathlib
 import re
 import shutil
@@ -314,10 +315,15 @@ def test_every_shell_body_parses(rendered: str, tmp_path: pathlib.Path) -> None:
 
 
 def test_rendered_user_data_fits_the_ec2_limit(rendered: str) -> None:
-    size = len(_strip_comments(rendered).encode())
+    # Measured as main.tf encodes it: comments stripped, then gzipped
+    # when the launch template uses base64gzip (cloud-init inflates it).
+    payload = _strip_comments(rendered).encode()
+    if "base64gzip(" in (TEMPLATE.parent / "main.tf").read_text():
+        payload = gzip.compress(payload)
+    size = len(payload)
 
     assert size < USER_DATA_LIMIT_BYTES, (
-        f"user data is {size} bytes after comment stripping; EC2 refuses "
+        f"user data is {size} bytes as EC2 stores it; EC2 refuses "
         f"more than {USER_DATA_LIMIT_BYTES}. Move a static file to the "
         "config bucket, as docker-compose.yml already is."
     )
@@ -419,3 +425,20 @@ def test_the_host_is_announced_only_once_it_serves(rendered: str) -> None:
             assert index > probe or inside("ready_without_app", index), (
                 f"{verb} at line {index} runs before the host is proved ready"
             )
+
+
+def test_every_container_ships_its_logs_and_local_logs_are_bounded(
+    rendered: str,
+) -> None:
+    # Nothing used to reach a human [OPS-11]: CRITICAL lines went to a
+    # json-file log with no rotation on a volume every deploy deletes.
+    # The API, migrate runs and every scheduled job (`run --rm api`)
+    # must ship to CloudWatch, and the host's own Docker logs must rotate.
+    services = yaml.safe_load(COMPOSE.read_text())["services"]
+    for name in ("api", "migrate"):
+        assert services[name]["logging"]["driver"] == "awslogs", name
+
+    assert '"max-size"' in rendered
+    assert "/etc/docker/daemon.json" in rendered
+    # The boot log leaves the host on every exit, ready or abandoned.
+    assert re.search(r"^trap .*ship_boot_log.* EXIT$", rendered, re.M)
