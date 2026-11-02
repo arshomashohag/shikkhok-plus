@@ -204,11 +204,37 @@ def test_a_replayed_refresh_token_is_refused_over_http(
     code = next(part for part in sent[0].split() if part.isdigit())
     pair = client.post("/v1/auth/verify", json={"phone": KNOWN, "code": code}).json()
 
-    client.post("/v1/auth/refresh", json={"refresh_token": pair["refresh_token"]})
+    rotated = client.post(
+        "/v1/auth/refresh", json={"refresh_token": pair["refresh_token"]}
+    ).json()
+
+    # A retry of the old token right after rotation is a lost response,
+    # not a replay, and succeeds [PA-SEC-4]. Asserted here so the HTTP
+    # surface carries the grace, not only `rotate`.
+    retried = client.post(
+        "/v1/auth/refresh", json={"refresh_token": pair["refresh_token"]}
+    )
+    assert retried.status_code == 200
+    assert retried.json()["refresh_token"] != rotated["refresh_token"]
+
+    # The client spends what the retry returned, so the old token
+    # appearing again is the stolen-token case -- refused, and the whole
+    # family with it.
+    current = client.post(
+        "/v1/auth/refresh", json={"refresh_token": retried.json()["refresh_token"]}
+    )
+    assert current.status_code == 200
     replayed = client.post(
         "/v1/auth/refresh", json={"refresh_token": pair["refresh_token"]}
     )
     assert replayed.status_code == 401
+    assert (
+        client.post(
+            "/v1/auth/refresh",
+            json={"refresh_token": current.json()["refresh_token"]},
+        ).status_code
+        == 401
+    )
 
 
 def test_a_ceiling_breach_returns_409_not_429(
