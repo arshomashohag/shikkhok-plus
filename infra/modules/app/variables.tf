@@ -123,3 +123,13 @@ variable "managed_database" {
   type        = bool
   default     = false
 }
+
+variable "permissions_boundary_arn" {
+  description = <<-EOT
+    The workload permissions boundary created by infra/bootstrap
+    (`shikkhokplus-workload-boundary`). Set on the instance role,
+    because the CI role may create or extend a role only when it
+    carries this boundary [OPS-2].
+  EOT
+  type        = string
+}

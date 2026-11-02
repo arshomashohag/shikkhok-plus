@@ -30,6 +30,12 @@ data "aws_caller_identity" "current" {}
 locals {
   name_prefix = "shikkhokplus-${var.environment}"
 
+  # Created by infra/bootstrap, which this configuration cannot read
+  # (its state is local to whoever ran it), so the ARN is derived from
+  # the fixed name and path rather than looked up. A mismatch fails the
+  # apply at CreateRole with AccessDenied, not silently.
+  permissions_boundary_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/shikkhokplus/shikkhokplus-workload-boundary"
+
   # The zone this project owns, e.g. shikkhokplus.nirmatabd.com.
   # The API is served at `${var.api_subdomain}.${this}`.
   project_domain = "${var.project_subdomain}.${var.apex_domain}"
@@ -192,6 +198,8 @@ module "app" {
   database_password = module.database.password
   managed_database  = var.enable_rds
 
+  permissions_boundary_arn = local.permissions_boundary_arn
+
   name_prefix    = local.name_prefix
   vpc_id         = module.network.vpc_id
   subnet_ids     = module.network.public_subnet_ids
@@ -221,6 +229,8 @@ module "staging_app" {
   account_id  = data.aws_caller_identity.current.account_id
   dns_zone_id = aws_route53_zone.project.zone_id
   origin_fqdn = "rehearsal-${var.origin_subdomain}.${local.project_domain}"
+
+  permissions_boundary_arn = local.permissions_boundary_arn
 
   name_prefix    = "shikkhokplus-rehearsal"
   vpc_id         = module.network.vpc_id

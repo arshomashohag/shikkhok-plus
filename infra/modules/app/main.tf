@@ -70,6 +70,13 @@ resource "aws_iam_role" "instance" {
   # role lives at the IAM root path.
   path = "/shikkhokplus/"
 
+  # **The ceiling, created by bootstrap** [OPS-2]. The CI role may
+  # create or extend a role under /shikkhokplus/ only when it carries
+  # this boundary, so this line is what lets the apply succeed at all --
+  # and what caps this role at an app host's calls whatever is attached
+  # to it later.
+  permissions_boundary = var.permissions_boundary_arn
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -483,9 +490,23 @@ resource "aws_iam_role_policy" "self_registration" {
         # **Scoped to this zone, and this zone only.** A host that can
         # write any Route53 record is a host that can repoint someone
         # else's domain if it is ever compromised.
+        #
+        # **And to its own two names within it** [OPS-18]. The zone
+        # also holds the API alias and the ACM validation records, and
+        # a compromised host able to rewrite `api.` could send every
+        # client somewhere else. It needs its A record and certbot's
+        # DNS-01 TXT record, and nothing more.
         Effect   = "Allow"
         Action   = ["route53:ChangeResourceRecordSets"]
         Resource = "arn:aws:route53:::hostedzone/${var.dns_zone_id}"
+        Condition = {
+          "ForAllValues:StringEquals" = {
+            "route53:ChangeResourceRecordSetsNormalizedRecordNames" = [
+              lower(var.origin_fqdn),
+              "_acme-challenge.${lower(var.origin_fqdn)}",
+            ]
+          }
+        }
       },
       {
         # Read-only, and unscopable: Route53 does not support resource

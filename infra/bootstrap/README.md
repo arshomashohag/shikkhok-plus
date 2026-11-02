@@ -54,10 +54,13 @@ that condition **any repository on GitHub could assume this role**. It
 is scoped to:
 
 ```
-repo:arshomashohag@*/shikkhok-plus@*:ref:refs/heads/main
-repo:arshomashohag@*/shikkhok-plus@*:environment:terraform-plan
-repo:arshomashohag@*/shikkhok-plus@*:environment:terraform-apply
+repo:arshomashohag@*/shikkhok-plus@*:environment:staging-infra
+repo:arshomashohag@*/shikkhok-plus@*:environment:production-infra
 ```
+
+There is deliberately **no `ref:refs/heads/main`** subject any more: it
+let any workflow on main assume this role without passing an
+environment's required reviewer [OPS-2]. No workflow used it.
 
 A pull request from a fork carries `pull_request` in its subject and
 matches none of them. That is what stops a drive-by PR applying
@@ -145,23 +148,54 @@ aws cloudtrail lookup-events \
 
 ## The IAM scope, stated honestly
 
-The role gets **service-level** permissions (`ec2:*`, `cloudfront:*`,
-`acm:*`, `route53:*`, `rds:*`, `ssm:*`), not per-action
-least-privilege. That is a trade, not an oversight: enumerating every
-action across six services produces a policy that breaks on the next
-provider upgrade and gets widened under deadline pressure — ending at
-the `*` it was meant to avoid, a day later.
+The role gets **service-level** permissions for the services whose
+Terraform action set is wide and moves with the provider (`ec2:*`,
+`cloudfront:*`, `acm:*`, `route53:*`, `rds:*`, `ecr:*`,
+`autoscaling:*`), not per-action least-privilege. That is a trade, not
+an oversight: enumerating every action across them produces a policy
+that breaks on the next provider upgrade and gets widened under
+deadline pressure.
+
+Where the actions Terraform uses are known and few, they are listed:
+SSM is **parameter management under `/shikkhokplus/` only** (`ssm:*`
+included `SendCommand`, a shell on any instance); logs, SNS and
+CloudWatch alarms are scoped to `shikkhokplus` names; and Route53
+record changes are **denied for any name not containing
+`shikkhokplus`**, so the role cannot repoint another project's record
+in the shared apex zone.
 
 **It also holds real IAM write permissions**, and an earlier version
 of this document claimed it did not. SSM needs an instance profile,
 which means creating a role and attaching a policy. There is no way
 around that, and pretending otherwise would only mean the apply fails.
 
-What bounds it: the IAM actions are restricted **by path** to
-`/shikkhokplus/*`, so the CI role cannot touch an unrelated role and
-**cannot modify itself** — it lives at the IAM root path. And the role
-is assumable only from this repository, on main or through an
-environment with manual approval.
+What bounds it [OPS-2]:
+
+- **A permissions boundary on every role it creates.** Bootstrap
+  creates `shikkhokplus-workload-boundary` (path `/shikkhokplus/`), a
+  ceiling listing only what an app host does. `CreateRole`,
+  `PutRolePolicy`, `AttachRolePolicy` and `PutRolePermissionsBoundary`
+  are allowed only with `iam:PermissionsBoundary` equal to it, and
+  `DeleteRolePermissionsBoundary` is denied. Attaching
+  `AdministratorAccess` to such a role would grant nothing beyond the
+  boundary.
+- **`AttachRolePolicy` only for the policies the app module attaches**
+  (`iam:PolicyARN`: `AmazonSSMManagedInstanceCore`). Adding one is a
+  change to `local.attachable_policy_arns` here.
+- **`PassRole` only to EC2** (`iam:PassedToService`).
+- The IAM actions are restricted **by path** to `/shikkhokplus/*`, so the
+  CI role cannot touch an unrelated role and **cannot modify itself**,
+  nor the boundary: it lives at the IAM root path and has no
+  policy-level write action.
+- It is assumable only through the `staging-infra` or `production-infra`
+  environment.
+
+**Order of applies.** The main module now sets `permissions_boundary`
+on the instance role, and the CI role can only create or extend a role
+that carries it -- so **apply this bootstrap first**, then let the next
+deploy apply the main module. Applied the other way round, the main
+module's first apply fails at `PutRolePermissionsBoundary` with
+AccessDenied and changes nothing.
 
 ## Running it
 
