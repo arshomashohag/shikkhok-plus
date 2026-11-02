@@ -45,12 +45,11 @@ on:
         options: [staging, production]
         # Defaults to staging because team.md places the scan before
         # the internal-track promotion. A DEFAULT, not an assumption --
-        # the Terraform state key below reads this input rather than
-        # hardcoding `staging/`, because hardcoding would be worse than
-        # it looks: a production run would then read a REAL state file
-        # and scan a REAL host -- the wrong one -- with every other
-        # input correctly resolved. It would not fail; it would succeed
-        # against the wrong target.
+        # the api-url parameter path below reads this input rather than
+        # hardcoding `staging`, because hardcoding would be worse than
+        # it looks: a production run would then scan a REAL host -- the
+        # wrong one -- with every other input correctly resolved. It
+        # would not fail; it would succeed against the wrong target.
         default: staging
 
 permissions:
@@ -75,75 +74,50 @@ jobs:
 
       - uses: aws-actions/configure-aws-credentials@v6
         with:
-          # **The NARROW deploy role, not the infrastructure role.**
-          # `AWS_ROLE_ARN` is the infrastructure role and its own
-          # comment says it "can create and destroy". A ZAP scan reads
-          # one Terraform output and sends HTTP requests; it has no
-          # business holding a role that can destroy the host it is
-          # scanning.
+          # **This environment's deploy role, which reads ONE parameter
+          # here: the public URL.** The infrastructure role
+          # (`AWS_ROLE_ARN`) can create and destroy; a DAST scan reads a
+          # URL and sends HTTP requests.
           #
-          # **This role could not read Terraform state when this job
-          # was written**, and the fix was to widen it by exactly one
-          # read-only permission rather than to reach for the other
-          # role -- see the `TerraformStateRead` statement added to
-          # infra/bootstrap/deploy_role.tf in the same commit.
+          # **No Terraform state any more** [OPS-3]. This job used to
+          # `terraform init` and read `api_url` from state, which meant
+          # the deploy role held s3:GetObject on BOTH environments'
+          # state files -- and state holds the database master password.
+          # Terraform now publishes the URL to
+          # /shikkhokplus/shikkhokplus-<env>/api-url, and the
+          # per-environment deploy role can read that parameter and no
+          # state at all.
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: security-scan-${{ github.run_id }}
 
-      - uses: hashicorp/setup-terraform@v4
-        with:
-          terraform_version: "1.10.5"
-          terraform_wrapper: false
-
-      - name: Init
-        working-directory: infra
-        run: |
-          # **REQUIRED.** The backend is PARTIAL [infra/versions.tf]:
-          # the bucket is not hardcoded and deploy.yml overrides the key
-          # PER ENVIRONMENT. Without this init, `terraform output` reads
-          # no remote state at all and returns an empty string -- which
-          # the next step's guard turns into a failure rather than a
-          # scan of nothing.
-          #
-          # The key comes from this job's OWN dispatch input, matching
-          # deploy.yml.
-          terraform init -input=false \
-            -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
-            -backend-config="key=${{ inputs.environment }}/terraform.tfstate"
-
       - name: Resolve the host to scan
         id: host
-        working-directory: infra
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
         run: |
           set -euo pipefail
 
           # **NOT a hardcoded URL**: a hostname that stops matching the
           # deployment leaves a GREEN SCAN OF NOTHING, which is the
           # shape Gitleaks-on-a-shallow-clone and the Docker skip both
-          # had.
-          #
-          # `api_url` is the CloudFront-fronted primary host OF THE
-          # LOADED STATE KEY. The init above is what makes this the
-          # chosen environment's own URL. It is NOT the rehearsal host,
-          # which has its own origin_fqdn and no URL output.
-          #
-          # `-lock=false` because this is a READ. The S3 backend uses
-          # native lockfile locking, and a read-only consumer should not
-          # need to write a lock object -- which also keeps the role's
-          # new permission read-only.
-          url=$(terraform output -lock=false -raw api_url)
+          # had. The parameter is written by Terraform from the CDN
+          # module's own output for THIS environment, so a production
+          # dispatch can never resolve staging's host or the reverse.
+          url=$(aws ssm get-parameter \
+            --name "/shikkhokplus/shikkhokplus-${ENVIRONMENT}/api-url" \
+            --query 'Parameter.Value' --output text) || url=""
 
           # **PRECONDITION 1** [cicd-pipeline § 4]. An empty URL means
-          # the state did not load, and every later step would then
-          # scan nothing and exit zero.
-          [ -n "$url" ] || {
-            echo "::error::No api_url in the ${{ inputs.environment }} state."
-            echo "Either terraform init did not load the backend, or this"
-            echo "environment has never been applied. A scan now would"
+          # the environment has never been applied, and every later
+          # step would then scan nothing and exit zero.
+          if [ -z "$url" ] || [ "$url" = "None" ]; then
+            echo "::error::No api-url parameter for ${ENVIRONMENT}."
+            echo "Either this environment has never been applied, or the"
+            echo "role cannot read the parameter. A scan now would"
             echo "report no findings because it had no target."
             exit 1
-          }
+          fi
 
           echo "url=$url" >> "$GITHUB_OUTPUT"
           echo "Scanning $url"

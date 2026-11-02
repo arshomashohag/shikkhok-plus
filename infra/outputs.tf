@@ -45,8 +45,9 @@ output "origin_secret" {
 
 output "monthly_cost_estimate" {
   description = <<-EOT
-    Published list prices, us-east-1, USD/month. Queried from the AWS
-    Price List API on 2026-10-19, not estimated.
+    Published list prices, us-east-1, USD/month, from the unit prices
+    listed in main.tf's cost model (public IPv4 included since
+    2026-11-02 [OPS-12]).
 
     Shares one model with the budget precondition in main.tf, so the
     guard and the report cannot disagree -- they did before, by USD
@@ -88,4 +89,22 @@ output "deployment_parameters" {
     image_tag   = module.app.image_tag_parameter
     runtime_env = module.app.runtime_env_parameter
   }
+}
+
+output "alert_email_status" {
+  description = <<-EOT
+    Whether alarms reach anyone. An email subscription is PENDING until
+    the confirmation link AWS sends is clicked, and delivers nothing
+    until then.
+  EOT
+  value = (
+    local.alert_email == ""
+    ? "NO SUBSCRIBER: set alert_email (CI: the ALERT_EMAIL variable). Alarms fire into nothing."
+    : "Subscribed ${local.alert_email} to ${aws_sns_topic.alerts.name}; confirm the email AWS sent."
+  )
+}
+
+output "alarm_topic_arn" {
+  description = "SNS topic every alarm in this environment notifies."
+  value       = aws_sns_topic.alerts.arn
 }

@@ -1,30 +1,37 @@
 # Copy to terraform.tfvars and fill in. The real file is gitignored.
+# In CI these come from TF_VAR_* in deploy.yml instead.
 
-# The apex domain whose Route53 hosted zone ALREADY EXISTS. Terraform
-# looks it up and will fail loudly if it does not -- which is better
-# than creating a zone that resolves for nobody and bills regardless.
-domain_name = "example.com"
+# The PARENT domain whose Route53 hosted zone ALREADY EXISTS. Terraform
+# looks it up and fails loudly if it does not, and never modifies it
+# except for this environment's one NS delegation record.
+apex_domain = "example.com"
 
-# api.example.com
+# staging or production. Also chooses the zone label below.
+environment = "staging"
+
+# The zone label under the apex. Leave unset to take the per-environment
+# default -- "shikkhokplus" for staging, "shikkhokplus-prod" for
+# production -- so the two environments never claim the same zone,
+# delegation or CloudFront alias [OPS-10]. Must contain "shikkhokplus".
+# project_subdomain = "shikkhokplus-prod"
+
+# api.<zone>
 api_subdomain = "api"
 
 # **No SSH key and no operator IP.** Access is SSM Session Manager:
 #   aws ssm start-session --target $(terraform output -raw app_instance_id)
-# There is no inbound port 22, no key pair to lose, and no address to
-# keep current when your ISP rotates it.
 
-# staging or production.
-environment = "staging"
+# A second host for rehearsing migrations. Off by default; turn it on
+# before real children's records arrive (team.md requires one).
+enable_staging_instance = false
 
-# A second host for rehearsing migrations. USD 12/month.
-# team.md requires one: there is no multi-AZ database to fail over to.
-enable_staging_instance = true
+# RDS. **Required**: the deploy replaces the app host on every release
+# and its root volume is deleted with it, so a database on the host is
+# lost on the next deploy. Production refuses false at plan time and
+# the deploy workflow refuses to release without an RDS instance to
+# snapshot [OPS-7].
+enable_rds = true
 
-# --- Phase 2. Leave false. ---
-# RDS with ingress from the app's SECURITY GROUP (+USD 17.36/month).
-#
-# NOTE: staging + RDS is USD 47.28, which FITS under the USD 50
-# ceiling with 2.72 to spare. (This file said 50.20 until 2026-10-24
-# and claimed the combination tripped the precondition; it does not.
-# Recomputed from main.tf's cost_breakdown.)
-enable_rds = false
+# Where alarms and the budget alert are emailed [OPS-11]. AWS sends a
+# confirmation mail first; nothing is delivered until it is clicked.
+# alert_email = "you@example.com"

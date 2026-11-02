@@ -1,24 +1,62 @@
-# The DEPLOY role, separate from the infrastructure role.
+# The DEPLOY roles, separate from the infrastructure role -- and, since
+# 2026-11-02, ONE PER ENVIRONMENT.
 #
-# **Why two roles rather than one flag.** `trust_staging_environment`
-# exists on the CI role and would have worked: one boolean, and
-# deploy-staging could assume it. It is not taken, because that role
-# carries ec2:*, rds:*, route53:*, autoscaling:*, ecr:* and IAM
-# writes -- so a workflow whose job is pushing a container image
-# would hold the permissions to destroy the database it deploys
-# beside.
+# **Why separate from the infrastructure role.** That role carries ec2:*,
+# rds:*, autoscaling:* and IAM writes, so a workflow whose job is pushing
+# a container image would hold the permissions to destroy the database
+# it deploys beside. The deploy needs a short, enumerable list: push an
+# image, snapshot the database, read and write its own deployment
+# parameters, and roll its own host.
 #
-# The deploy needs four things: push an image, read two parameters,
-# write two parameters, and run one command on one host. That list is
-# short enough to enumerate, which is the test for when
-# least-privilege is worth writing rather than a service-level
-# wildcard that breaks on the next provider upgrade.
+# **Why one per environment** [OPS-3]. There used to be one deploy role
+# trusting both `environment:staging` and `environment:production`,
+# with every grant on a `shikkhokplus-*` wildcard and a read of BOTH
+# environments' Terraform state. A run approved for staging could push
+# to production's repository, overwrite production's image tag and
+# runtime env, roll production's host -- and read production's state,
+# which holds the database master password. The GitHub environment's
+# approval gate was therefore no boundary at all.
 #
-# The blast radius difference is the point: a compromised deploy
-# workflow can ship a bad image. It cannot terminate the instance,
-# repoint DNS, or delete the state bucket.
+# Now each role trusts exactly one environment's subject and every grant
+# is scoped to `shikkhokplus-<env>-*` names. A staging run can assume
+# only the staging role, and the staging role can touch nothing of
+# production's.
+#
+# **No Terraform state read, for either.** The ZAP scan used to read
+# `api_url` from state; Terraform now publishes it to SSM under the
+# environment's own path, which is the URL and nothing else.
+#
+# The blast radius of a compromised deploy run: it can ship a bad image
+# to its own environment, which the smoke and the rollback then catch.
+# It cannot terminate a host outside its environment, repoint DNS,
+# delete a database or read a credential it is not already writing.
+
+locals {
+  deploy_environments = toset(["staging", "production"])
+
+  # Staging keeps the role NAME it already had, so its ARN -- already
+  # stored in the `staging` GitHub environment's AWS_DEPLOY_ROLE_ARN --
+  # does not change and no workflow breaks on apply. The moved block
+  # below carries the existing role into the map under that name.
+  deploy_role_names = {
+    staging    = "shikkhokplus-github-deploy"
+    production = "shikkhokplus-github-deploy-production"
+  }
+}
+
+moved {
+  from = aws_iam_role.deploy
+  to   = aws_iam_role.deploy["staging"]
+}
+
+moved {
+  from = aws_iam_role_policy.deploy
+  to   = aws_iam_role_policy.deploy["staging"]
+}
 
 data "aws_iam_policy_document" "deploy_assume" {
+  for_each = local.deploy_environments
+
   statement {
     effect  = "Allow"
     actions = ["sts:AssumeRoleWithWebIdentity"]
@@ -34,35 +72,34 @@ data "aws_iam_policy_document" "deploy_assume" {
       values   = ["sts.amazonaws.com"]
     }
 
-    # The deploy environments only, and only from this repository.
-    # Not `ref:refs/heads/main`: a deploy is an environment-gated
-    # action, so a push to main must not be able to assume this.
-    #
-    # Named rather than wildcarded, for the same reason as the infra
-    # role: `environment:*` would let any invented environment name
-    # assume this.
+    # ONE environment, from this repository. Not `ref:refs/heads/main`:
+    # a deploy is an environment-gated action, so a push to main must
+    # not be able to assume this. StringLike only because of the
+    # numeric-id wildcards in subject_prefix (see main.tf); the
+    # environment name itself is exact.
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values = [
-        "${local.subject_prefix}:environment:staging",
-        "${local.subject_prefix}:environment:production",
-      ]
+      values   = ["${local.subject_prefix}:environment:${each.key}"]
     }
   }
 }
 
 resource "aws_iam_role" "deploy" {
-  name               = "shikkhokplus-github-deploy"
-  description        = "Assumed by deploy-staging. Pushes images and runs one SSM command."
-  assume_role_policy = data.aws_iam_policy_document.deploy_assume.json
+  for_each = local.deploy_environments
+
+  name               = local.deploy_role_names[each.key]
+  description        = "Assumed by deploy.yml and security-scan.yml in the ${each.key} environment only."
+  assume_role_policy = data.aws_iam_policy_document.deploy_assume[each.key].json
 
   max_session_duration = 3600
 }
 
 resource "aws_iam_role_policy" "deploy" {
+  for_each = local.deploy_environments
+
   name = "deploy"
-  role = aws_iam_role.deploy.id
+  role = aws_iam_role.deploy[each.key].id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -78,8 +115,7 @@ resource "aws_iam_role_policy" "deploy" {
         Resource = "*"
       },
       {
-        # The layer actions ARE scoped, and these decide which
-        # repository this role can write to.
+        # This environment's repository, by exact name.
         Sid    = "EcrPush"
         Effect = "Allow"
         Action = [
@@ -89,33 +125,42 @@ resource "aws_iam_role_policy" "deploy" {
           "ecr:DescribeRepositories",
           # Checking whether this commit was already built, so a
           # redeploy skips the push rather than failing against
-          # the IMMUTABLE tag. Without it the check errors, takes
-          # the else branch, and pushes anyway -- which is the
-          # failure it exists to prevent.
+          # the IMMUTABLE tag.
           "ecr:DescribeImages",
           "ecr:GetDownloadUrlForLayer",
           "ecr:InitiateLayerUpload",
           "ecr:PutImage",
           "ecr:UploadLayerPart",
         ]
-        Resource = "arn:aws:ecr:*:${data.aws_caller_identity.current.account_id}:repository/shikkhokplus-*"
+        Resource = "arn:aws:ecr:*:${data.aws_caller_identity.current.account_id}:repository/shikkhokplus-${each.key}-backend"
       },
       {
-        # The deployment state a replaced instance reads at boot.
-        # Scoped by path, so this role cannot read an unrelated
-        # project's parameters.
+        # The deployment state: the image tag and the runtime env,
+        # written by the release and read back for the rollback; and
+        # the public URL, read by the smoke and the ZAP scan. NOT the
+        # database parameters beside them -- this role never holds a
+        # database credential.
         Sid    = "DeploymentState"
         Effect = "Allow"
         Action = [
           "ssm:GetParameter",
           "ssm:PutParameter",
         ]
-        Resource = "arn:aws:ssm:*:${data.aws_caller_identity.current.account_id}:parameter/shikkhokplus/*"
+        Resource = [
+          "arn:aws:ssm:*:${data.aws_caller_identity.current.account_id}:parameter/shikkhokplus/shikkhokplus-${each.key}/image-tag",
+          "arn:aws:ssm:*:${data.aws_caller_identity.current.account_id}:parameter/shikkhokplus/shikkhokplus-${each.key}/runtime-env",
+        ]
       },
       {
-        # Encrypting the runtime env SecureString. Scoped by
-        # ViaService so this role cannot decrypt anything but SSM
-        # parameters.
+        Sid      = "PublicUrl"
+        Effect   = "Allow"
+        Action   = ["ssm:GetParameter"]
+        Resource = "arn:aws:ssm:*:${data.aws_caller_identity.current.account_id}:parameter/shikkhokplus/shikkhokplus-${each.key}/api-url"
+      },
+      {
+        # Encrypting and decrypting the runtime env SecureString.
+        # Usable only through SSM, and SSM lets this role touch only
+        # the parameters above.
         Sid      = "ParameterEncryption"
         Effect   = "Allow"
         Action   = ["kms:Encrypt", "kms:Decrypt", "kms:GenerateDataKey"]
@@ -125,134 +170,58 @@ resource "aws_iam_role_policy" "deploy" {
         }
       },
       {
-        # **The rollout, not just finding the host.** An earlier
-        # version granted only the Describe actions, because that is
-        # what I simulated -- StartInstanceRefresh was never checked,
-        # so the gap survived the check that was meant to catch it.
-        #
-        # Resource "*" because autoscaling does not support resource
-        # scoping on StartInstanceRefresh in a way that survives the
-        # group's name_prefix suffix: the ARN carries a generated id
-        # the policy cannot know in advance. The role is already
-        # bounded by being assumable only from this repository's
-        # staging environment.
-        Sid    = "RollTheInstance"
+        # Finding the group and following a refresh. Describe calls do
+        # not support resource scoping.
+        Sid    = "ReadTheGroup"
         Effect = "Allow"
         Action = [
           "autoscaling:DescribeAutoScalingGroups",
-          "autoscaling:StartInstanceRefresh",
           "autoscaling:DescribeInstanceRefreshes",
-          "autoscaling:CancelInstanceRefresh",
-          "ec2:DescribeInstances",
+          "autoscaling:DescribeScalingActivities",
         ]
         Resource = "*"
       },
       {
-        # **The delivery itself, scoped to the document AND the
-        # instance tag.** Without the tag condition this role could
-        # run arbitrary shell on any instance in the account,
-        # including another project's.
-        Sid      = "RunTheDeploy"
-        Effect   = "Allow"
-        Action   = ["ssm:SendCommand"]
-        Resource = "arn:aws:ssm:*::document/AWS-RunShellScript"
-      },
-      {
-        Sid      = "RunTheDeployOnOurHostsOnly"
-        Effect   = "Allow"
-        Action   = ["ssm:SendCommand"]
-        Resource = "arn:aws:ec2:*:${data.aws_caller_identity.current.account_id}:instance/*"
-        Condition = {
-          StringLike = { "ssm:resourceTag/Name" = "shikkhokplus-*" }
-        }
-      },
-      {
-        # Reading back what the command did. These take a command id
-        # that this role had to create, so they are self-scoping.
-        Sid    = "ReadTheResult"
+        # **Rolling THIS environment's group only.** The ARN carries a
+        # generated id the policy cannot know, so it is wildcarded; the
+        # group NAME is not, and `shikkhokplus-staging-` cannot match a
+        # production group.
+        Sid    = "RollTheInstance"
         Effect = "Allow"
         Action = [
-          "ssm:GetCommandInvocation",
-          "ssm:ListCommandInvocations",
+          "autoscaling:StartInstanceRefresh",
+          "autoscaling:CancelInstanceRefresh",
         ]
-        Resource = "*"
+        Resource = "arn:aws:autoscaling:*:${data.aws_caller_identity.current.account_id}:autoScalingGroup:*:autoScalingGroupName/shikkhokplus-${each.key}-*"
       },
       {
-        # **Reading the Terraform state, and only reading it.** Added
-        # at D5 for the ZAP scan, which needs one output -- `api_url`,
-        # the host to scan -- and nothing else.
-        #
-        # **Why this role rather than the other one.** There are two
-        # OIDC roles and `AWS_ROLE_ARN` is the infrastructure role,
-        # whose own comment above says it can create and destroy. A
-        # DAST scan reads one output and sends HTTP requests; it has no
-        # business holding a role that can destroy the host it is
-        # scanning. Widening this role by one READ is a far smaller
-        # change than reaching for that one, and that was the design's
-        # stated instruction when it flagged this permission as
-        # unverified.
-        #
-        # **Scoped to the state objects, not the bucket.** The prefix
-        # is `<environment>/terraform.tfstate`, so this grants no read
-        # of anything else the bucket may hold -- backups, logs, or a
-        # second project's state. `s3:ListBucket` is scoped to the
-        # bucket itself because that is the only resource form it
-        # accepts -- but its KEYS are narrowed by an `s3:prefix`
-        # condition on the statement below, which an earlier version
-        # omitted. Unconditioned, it would have listed every object
-        # name in the bucket.
-        #
-        # **No `s3:PutObject` and no lock permission.** `terraform
-        # output` is a read, and the scan passes `-lock=false` for
-        # exactly this reason: the S3 backend uses native lockfile
-        # locking [infra/versions.tf], and a read-only consumer should
-        # not need to write a lock object. Granting write access to the
-        # lock would mean this role could block a real apply.
-        #
-        # **The state file contains secrets** -- Terraform state always
-        # does, and this one holds the CDN-to-origin shared secret.
-        # That is the cost of this grant and it is stated rather than
-        # glossed: a compromised scan workflow could read it. The
-        # alternative considered was publishing `api_url` to SSM under
-        # the path this role already reads, which would avoid state
-        # access entirely. **That is the better long-run shape and is
-        # NOT taken here**, because it means a Terraform change
-        # (a new `aws_ssm_parameter`) that the scan job does not
-        # otherwise need, and the design asked for the one-permission
-        # widening. Worth revisiting if more consumers want the URL.
-        Sid    = "TerraformStateRead"
+        # **The pre-deploy snapshot** [OPS-7]: create one of this
+        # environment's database, wait for it, and prune this
+        # environment's older pre-deploy snapshots. No restore, no
+        # modify, no delete of anything but a pre-deploy snapshot.
+        Sid    = "PreDeploySnapshot"
         Effect = "Allow"
-        Action = ["s3:GetObject"]
+        Action = [
+          "rds:CreateDBSnapshot",
+          "rds:AddTagsToResource",
+          "rds:DescribeDBSnapshots",
+        ]
         Resource = [
-          "arn:aws:s3:::${local.state_bucket}/staging/terraform.tfstate",
-          "arn:aws:s3:::${local.state_bucket}/production/terraform.tfstate",
+          "arn:aws:rds:*:${data.aws_caller_identity.current.account_id}:db:shikkhokplus-${each.key}-db",
+          "arn:aws:rds:*:${data.aws_caller_identity.current.account_id}:snapshot:shikkhokplus-${each.key}-predeploy-*",
         ]
       },
       {
-        # **Narrowed by Condition, not by Resource.** `s3:ListBucket`
-        # accepts only the bucket as its Resource -- that part of the
-        # comment above is right -- but the KEYS it may enumerate are
-        # narrowed by an `s3:prefix` condition, which an earlier
-        # version omitted. Without it this grants a listing of every
-        # object name in the bucket: backups, logs, or a second
-        # project's state. Names rather than contents, but a name is
-        # disclosure and the cost was understated by exactly that
-        # enumeration.
-        #
-        # The two prefixes are the state keys this role may already
-        # GetObject, so listing discloses nothing the read does not.
-        Sid      = "TerraformStateList"
+        Sid      = "FindTheDatabase"
         Effect   = "Allow"
-        Action   = ["s3:ListBucket"]
-        Resource = "arn:aws:s3:::${local.state_bucket}"
-        Condition = {
-          StringLike = {
-            "s3:prefix" = [
-              "staging/*",
-              "production/*",
-            ]
-          }
-        }
+        Action   = ["rds:DescribeDBInstances"]
+        Resource = "arn:aws:rds:*:${data.aws_caller_identity.current.account_id}:db:shikkhokplus-${each.key}-db"
+      },
+      {
+        Sid      = "PruneOldSnapshots"
+        Effect   = "Allow"
+        Action   = ["rds:DeleteDBSnapshot"]
+        Resource = "arn:aws:rds:*:${data.aws_caller_identity.current.account_id}:snapshot:shikkhokplus-${each.key}-predeploy-*"
       },
     ]
   })
