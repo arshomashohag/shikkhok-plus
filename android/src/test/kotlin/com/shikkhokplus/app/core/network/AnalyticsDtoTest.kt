@@ -130,12 +130,12 @@ class AnalyticsDtoTest {
     @Test
     fun `a payment to check REFUSES its amounts as JSON numbers`() {
         assertFailsWith<Exception> {
-            json.decodeFromString<ClaimQueueItemDto>(
+            json.decodeFromString<PaymentReviewDto>(
                 """
-                {"claim_id":"c","enrollment_id":"e","display_name":"A","batch_name":"B",
-                 "period":"2026-10","claimed_amount":800,"charged":"1200.00",
-                 "comparison":"short","difference":"400.00","channel":"bKash",
-                 "submitted_at":"2026-10-28T10:00:00Z"}
+                {"submission_id":"s","batch_name":"B","children":[],
+                 "owed_together":"1200.00","total_amount":800,
+                 "comparison":"short","difference":"400.00","method":{"kind":"mobile"},
+                 "paid_on":"2026-10-28","submitted_at":"2026-10-28T10:00:00Z","status":"pending"}
                 """,
             )
         }

@@ -92,6 +92,7 @@ class ContractConformanceTest {
             ),
             Contract("/v1/me/enrollments", ListSerializer(StudentBatchDto.serializer())),
             Contract("/v1/claims/queue", VerificationQueueDto.serializer()),
+            Contract("/v1/payments/{submission_id}", PaymentReviewDto.serializer()),
             Contract("/v1/batches/{batch_id}/fees", ListSerializer(RosterFeeRowDto.serializer())),
             Contract("/v1/batches/{batch_id}/announcements", ListSerializer(AnnouncementDto.serializer())),
             Contract("/v1/me/batches/{enrollment_id}/teaching", FamilyBatchViewDto.serializer()),

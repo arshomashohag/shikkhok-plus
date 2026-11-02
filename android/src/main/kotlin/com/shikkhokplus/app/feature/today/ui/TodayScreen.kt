@@ -48,7 +48,7 @@ import com.shikkhokplus.app.feature.today.ClassRow
 import com.shikkhokplus.app.feature.today.ClassStatus
 import com.shikkhokplus.app.feature.today.OwedSummary
 import com.shikkhokplus.app.feature.today.TodayUiState
-import com.shikkhokplus.app.feature.verify.ClaimCard
+import com.shikkhokplus.app.feature.verify.ReviewCard
 import com.shikkhokplus.app.feature.verify.Comparison
 
 /** The money-owed card, which opens Dues. */
@@ -361,7 +361,7 @@ private fun TimeColumn(hhmm: String) {
  * @param onOpen Called when tapped
  */
 @Composable
-private fun VerifyPreviewRow(card: ClaimCard, onOpen: () -> Unit) {
+private fun VerifyPreviewRow(card: ReviewCard, onOpen: () -> Unit) {
     ListRow(Modifier.clickable(onClick = onOpen)) {
         Box(
             Modifier.size(40.dp).background(MaterialTheme.colorScheme.surfaceContainerHigh, CircleShape),
@@ -372,21 +372,21 @@ private fun VerifyPreviewRow(card: ClaimCard, onOpen: () -> Unit) {
         Column(Modifier.weight(1f)) {
             Text(Numerals.freeText(card.displayName), style = MaterialTheme.typography.titleMedium, maxLines = 1)
             Text(
-                "${card.channel} · ${monthName(card.period)} · ${ago(card.submittedAt)}",
+                "${methodName(card)} · ${monthName(card.period)} · ${ago(card.submittedAt)}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         Column(horizontalAlignment = Alignment.End) {
             Text(
-                Numerals.money(card.claimedAmount),
+                Numerals.money(card.totalAmount),
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
             )
             Text(
                 if (card.comparison == Comparison.MATCHES) {
                     stringResource(R.string.today_matches_fee)
                 } else {
-                    stringResource(R.string.today_of_fee, Numerals.money(card.charged))
+                    stringResource(R.string.today_of_fee, Numerals.money(card.owedTogether))
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color =
@@ -396,6 +396,16 @@ private fun VerifyPreviewRow(card: ClaimCard, onOpen: () -> Unit) {
         }
     }
 }
+
+/**
+ * Where a waiting payment was sent: the service or bank, else cash.
+ *
+ * @param card The payment
+ * @return The name to show on its row
+ */
+@Composable
+private fun methodName(card: ReviewCard): String =
+    card.method.provider ?: stringResource(R.string.verify_method_cash)
 
 /**
  * The first run: how to start, before any batch exists.

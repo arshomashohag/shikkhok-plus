@@ -86,6 +86,13 @@ sealed interface InboxTarget {
 
     /** The teacher's payments to check. */
     data object Verify : InboxTarget
+
+    /**
+     * One payment to check, opened at its review.
+     *
+     * @property submissionId The payment
+     */
+    data class Payment(val submissionId: String) : InboxTarget
 }
 
 /** Everything the inbox screen and the bell render. */

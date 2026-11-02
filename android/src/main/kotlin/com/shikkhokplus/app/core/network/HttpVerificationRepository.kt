@@ -1,61 +1,41 @@
 package com.shikkhokplus.app.core.network
 
-import com.shikkhokplus.app.core.model.Money
 import com.shikkhokplus.app.feature.auth.AuthResult
+import com.shikkhokplus.app.feature.verify.PaymentReviewRepository
 import com.shikkhokplus.app.feature.verify.VerifyRepository
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
-
-@Serializable
-private data class ShortfallBody(
-    @SerialName("approved_amount") val approvedAmount: Money,
-)
-
-@Serializable
-private data class ApproveBody(
-    @SerialName("approved_amount") val approvedAmount: Money,
-    @SerialName("shortfall_disposition") val shortfallDisposition: String? = null,
-)
-
-@Serializable
-private data class RejectBody(
-    val reason: String? = null,
-)
 
 /**
- * The teacher's payment checks, over HTTP (T4).
+ * The teacher's payment checks, over HTTP (R1 to R4).
  *
  * @property client The authenticated HTTP client
  */
 class HttpVerificationRepository(
     private val client: HttpClient,
-) : VerifyRepository {
+) : VerifyRepository, PaymentReviewRepository {
 
     override suspend fun queue(): AuthResult<VerificationQueueDto> = call { client.get("/v1/claims/queue") }
 
-    override suspend fun preview(
-        claimId: String,
-        approvedAmount: Money,
-    ): AuthResult<ShortfallPreviewDto> =
-        call { client.post("/v1/claims/$claimId/shortfall") { setBody(ShortfallBody(approvedAmount)) } }
+    override suspend fun detail(submissionId: String): AuthResult<PaymentReviewDto> =
+        call { client.get("/v1/payments/$submissionId") }
 
     override suspend fun approve(
-        claimId: String,
-        approvedAmount: Money,
-        disposition: String?,
-    ): AuthResult<Unit> =
-        callDiscardingBody {
-            client.post("/v1/claims/$claimId/verification") {
-                setBody(ApproveBody(approvedAmount, disposition))
-            }
-        }
+        submissionId: String,
+        body: PaymentApprovalBodyDto,
+    ): AuthResult<PaymentReviewDto> =
+        call { client.post("/v1/payments/$submissionId/approval") { setBody(body) } }
 
-    override suspend fun reject(claimId: String, reason: String?): AuthResult<Unit> =
-        callDiscardingBody {
-            client.post("/v1/claims/$claimId/rejection") { setBody(RejectBody(reason)) }
+    override suspend fun reject(
+        submissionId: String,
+        note: String?,
+        correcting: Boolean,
+    ): AuthResult<PaymentReviewDto> =
+        call {
+            client.post("/v1/payments/$submissionId/rejection") {
+                setBody(PaymentRejectionBodyDto(note, correcting))
+            }
         }
 }

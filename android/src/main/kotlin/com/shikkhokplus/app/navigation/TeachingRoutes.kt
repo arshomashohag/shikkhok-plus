@@ -45,7 +45,11 @@ import com.shikkhokplus.app.feature.schedule.ui.ScheduleScreen
 import com.shikkhokplus.app.feature.sessions.SessionsViewModel
 import com.shikkhokplus.app.feature.sessions.ui.AddSessionDialog
 import com.shikkhokplus.app.feature.sessions.ui.SessionListScreen
+import com.shikkhokplus.app.feature.verify.PaymentReviewViewModel
 import com.shikkhokplus.app.feature.verify.VerifyViewModel
+import com.shikkhokplus.app.feature.verify.ui.PaymentReviewScreen
+import com.shikkhokplus.app.feature.verify.ui.ReviewActions
+import com.shikkhokplus.app.feature.verify.ui.SheetActions
 import com.shikkhokplus.app.feature.verify.ui.VerifyScreen
 import io.ktor.client.HttpClient
 
@@ -71,22 +75,50 @@ internal fun NavGraphBuilder.teachingRoutes(
     composable(Destination.Verify.route) {
         val model: VerifyViewModel = viewModel { VerifyViewModel(HttpVerificationRepository(client)) }
         val state by model.state.collectAsState()
-        val sheet by model.sheet.collectAsState()
 
         LaunchedEffect(Unit) { model.load() }
 
         VerifyScreen(
             state = state,
-            sheet = sheet,
             onBack = { navController.popBackStack() },
-            onApprove = model::approve,
-            onPartial = model::openPartial,
-            onReject = model::reject,
+            onOpen = { navController.navigate(Destination.PaymentReview.of(it)) },
             onRetry = model::retry,
-            onTypePartial = model::typePartial,
-            onChoose = model::choose,
-            onConfirmPartial = model::confirmPartial,
-            onClosePartial = model::closePartial,
+        )
+    }
+
+    composable(
+        route = Destination.PaymentReview.route,
+        arguments = listOf(navArgument(Destination.PaymentReview.ARG_ID) { type = NavType.StringType }),
+    ) { entry ->
+        val id = entry.arguments?.getString(Destination.PaymentReview.ARG_ID).orEmpty()
+        val model: PaymentReviewViewModel =
+            viewModel(key = "review-$id") { PaymentReviewViewModel(HttpVerificationRepository(client)) }
+        val state by model.state.collectAsState()
+        val sheet by model.sheet.collectAsState()
+
+        LaunchedEffect(id) { model.load(id) }
+
+        PaymentReviewScreen(
+            state = state,
+            sheet = sheet,
+            actions =
+                ReviewActions(
+                    onBack = { navController.popBackStack() },
+                    onApprove = model::approve,
+                    onApproveOther = model::openSheet,
+                    onReject = model::reject,
+                    onChangeDecision = model::changeDecision,
+                    onRetry = model::retry,
+                    sheet =
+                        SheetActions(
+                            onType = model::typeAmount,
+                            onDisposition = model::chooseDisposition,
+                            onChild = model::chooseChild,
+                            onNote = model::typeNote,
+                            onConfirm = model::confirmApproval,
+                            onDismiss = model::closeSheet,
+                        ),
+                ),
         )
     }
 

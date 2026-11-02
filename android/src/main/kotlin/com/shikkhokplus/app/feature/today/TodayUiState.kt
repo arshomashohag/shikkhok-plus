@@ -1,7 +1,7 @@
 package com.shikkhokplus.app.feature.today
 
 import com.shikkhokplus.app.core.model.Money
-import com.shikkhokplus.app.feature.verify.ClaimCard
+import com.shikkhokplus.app.feature.verify.ReviewCard
 
 /** Where a class stands today, as the server says. */
 enum class ClassStatus {
@@ -89,7 +89,7 @@ sealed interface TodayUiState {
         val owed: OwedSummary,
         val classes: List<ClassRow>,
         val toVerifyCount: Int,
-        val toVerify: List<ClaimCard>,
+        val toVerify: List<ReviewCard>,
     ) : TodayUiState
 
     /**

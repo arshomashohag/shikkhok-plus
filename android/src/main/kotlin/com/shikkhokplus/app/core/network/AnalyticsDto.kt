@@ -199,6 +199,6 @@ data class TodayDto(
     val outstanding: OutstandingDto,
     val classes: List<TodayClassDto> = emptyList(),
     @SerialName("to_verify_count") val toVerifyCount: Int,
-    @SerialName("to_verify") val toVerify: List<ClaimQueueItemDto> = emptyList(),
+    @SerialName("to_verify") val toVerify: List<PaymentReviewDto> = emptyList(),
     @SerialName("has_batches") val hasBatches: Boolean,
 )

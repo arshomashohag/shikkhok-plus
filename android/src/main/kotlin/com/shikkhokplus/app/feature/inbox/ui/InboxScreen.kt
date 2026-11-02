@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -23,6 +24,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -57,6 +62,12 @@ const val TAG_INBOX_MARK_ALL: String = "inbox_mark_all"
 
 /** The empty inbox. */
 const val TAG_INBOX_EMPTY: String = "inbox_empty"
+
+/** The filter showing every message. */
+const val TAG_INBOX_FILTER_ALL: String = "inbox_filter_all"
+
+/** The filter showing only payments to check. */
+const val TAG_INBOX_FILTER_PAYMENTS: String = "inbox_filter_payments"
 
 /** The badge's largest number; more reads as `9+`. */
 private const val BADGE_MAX = 9
@@ -113,9 +124,46 @@ fun InboxScreen(
                         modifier = Modifier.padding(top = 8.dp).testTag(TAG_INBOX_EMPTY),
                     )
                 } else {
-                    Messages(state.messages, onSelect)
+                    LoadedMessages(state.messages, onSelect)
                 }
         }
+    }
+}
+
+/**
+ * The messages, with a filter for payments to check when there are any.
+ *
+ * @param messages Newest first
+ * @param onSelect Called with the item tapped
+ */
+@Composable
+private fun LoadedMessages(messages: List<InboxMessage>, onSelect: (InboxMessage) -> Unit) {
+    var paymentsOnly by rememberSaveable { mutableStateOf(false) }
+    val hasPayments = messages.any { it.kind == InboxKind.CLAIM_TO_VERIFY }
+    Column {
+        if (hasPayments) {
+            Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(
+                    selected = !paymentsOnly,
+                    onClick = { paymentsOnly = false },
+                    label = { Text(stringResource(R.string.inbox_filter_all)) },
+                    modifier = Modifier.testTag(TAG_INBOX_FILTER_ALL),
+                )
+                FilterChip(
+                    selected = paymentsOnly,
+                    onClick = { paymentsOnly = true },
+                    label = { Text(stringResource(R.string.inbox_filter_payments)) },
+                    modifier = Modifier.testTag(TAG_INBOX_FILTER_PAYMENTS),
+                )
+            }
+        }
+        val shown =
+            if (paymentsOnly && hasPayments) {
+                messages.filter { it.kind == InboxKind.CLAIM_TO_VERIFY }
+            } else {
+                messages
+            }
+        Messages(shown, onSelect)
     }
 }
 

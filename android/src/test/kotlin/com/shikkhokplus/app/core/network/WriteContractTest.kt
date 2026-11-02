@@ -123,14 +123,14 @@ class WriteContractTest {
             Write("post", "/v1/exams/{exam_id}/marks") {
                 HttpMarksRepository(it).writeMark(ID, ID, "marked", 70)
             },
-            Write("post", "/v1/claims/{claim_id}/shortfall") {
-                HttpVerificationRepository(it).preview(ID, Money.of("800.00"))
+            Write("post", "/v1/payments/{submission_id}/approval") {
+                HttpVerificationRepository(it).approve(
+                    ID,
+                    PaymentApprovalBodyDto(Money.of("800.00"), "carried", carriedByEnrollmentId = ID),
+                )
             },
-            Write("post", "/v1/claims/{claim_id}/verification") {
-                HttpVerificationRepository(it).approve(ID, Money.of("800.00"), "carried")
-            },
-            Write("post", "/v1/claims/{claim_id}/rejection") {
-                HttpVerificationRepository(it).reject(ID, "Not received")
+            Write("post", "/v1/payments/{submission_id}/rejection") {
+                HttpVerificationRepository(it).reject(ID, "Not received", false)
             },
             Write("patch", "/v1/batches/{batch_id}") {
                 HttpBatchDetailRepository(it).editBatch(ID, BatchEdit(name = "Physics B", subjects = listOf("Optics")))

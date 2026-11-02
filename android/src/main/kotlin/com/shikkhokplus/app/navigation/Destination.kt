@@ -316,6 +316,22 @@ sealed interface Destination {
         override val route: String = "verify"
     }
 
+    /** One payment under review, or already decided (R2 to R4). */
+    data object PaymentReview : Destination {
+        override val route: String = "verify/{submissionId}"
+
+        /** The payment argument's name. */
+        const val ARG_ID: String = "submissionId"
+
+        /**
+         * Build a concrete route.
+         *
+         * @param submissionId The payment
+         * @return The route to navigate to
+         */
+        fun of(submissionId: String): String = "verify/$submissionId"
+    }
+
     /** The reader's own inbox: fee reminders from their teachers. */
     data object Inbox : Destination {
         override val route: String = "me/notifications"
