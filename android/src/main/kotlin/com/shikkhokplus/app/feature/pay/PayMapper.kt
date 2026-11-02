@@ -81,6 +81,29 @@ object PayMapper {
     }
 
     /**
+     * Read the server's status for a sent payment.
+     *
+     * **Not always `pending`.** A resend carrying a replay key the server
+     * already holds is answered with the original submission and its
+     * stored status, so a resend after the teacher decided comes back
+     * `approved` or `rejected` -- and telling the payer the teacher "will
+     * check" a payment they already approved would be false.
+     *
+     * A status this build does not know reads as pending: the server
+     * adds values additively [D-26], and pending is the reading that
+     * claims nothing beyond "recorded".
+     *
+     * @param status The response's `status`
+     * @return What the sent page shows
+     */
+    fun outcomeOf(status: String): SentOutcome =
+        when (status) {
+            "approved" -> SentOutcome.APPROVED
+            "rejected" -> SentOutcome.REJECTED
+            else -> SentOutcome.PENDING
+        }
+
+    /**
      * The attempt a send belongs to: the last one when the payment is
      * unchanged, otherwise a new one with a fresh key.
      *

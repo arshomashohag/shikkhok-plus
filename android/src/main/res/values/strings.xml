@@ -1089,6 +1089,9 @@
     <string name="pay_paid_on_row">Paid on</string>
     <string name="pay_status_row">Status</string>
     <string name="pay_pending">Pending verification</string>
+    <string name="pay_recorded_title">Already recorded</string>
+    <string name="pay_recorded_body_approved">This payment of %1$s was already recorded, and %2$s has approved it.</string>
+    <string name="pay_recorded_body_rejected">This payment of %1$s was already recorded, and %2$s did not accept it.</string>
     <string name="pay_done">Done</string>
     <string name="pay_nothing_title">Nothing to pay for yet</string>
     <string name="pay_nothing_body">You have no accepted classes to send money for.</string>

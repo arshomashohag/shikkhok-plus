@@ -120,6 +120,23 @@ data class PaymentAttempt(
         get() = payment.copy(clientMutationId = clientMutationId)
 }
 
+/**
+ * Where a sent payment's record stands, as the sent page renders it.
+ *
+ * Read from the server's `status`, never decided here [TC-9]. One per
+ * value the response schema allows -- `pending`, `approved`, `rejected`.
+ */
+enum class SentOutcome {
+    /** Recorded, waiting for the teacher to check it. */
+    PENDING,
+
+    /** Already approved: a late resend of a payment the teacher accepted. */
+    APPROVED,
+
+    /** Already rejected: a late resend of a payment the teacher refused. */
+    REJECTED,
+}
+
 /** Everything the "Send money" screens render. */
 sealed interface PayUiState {
     /** Reading the seats and methods. */
@@ -162,13 +179,17 @@ sealed interface PayUiState {
     ) : PayUiState
 
     /**
-     * F5: sent, waiting for the teacher.
+     * F5: sent -- usually waiting for the teacher.
      *
      * @property batchName The batch
      * @property teacherName Who will check it, if known
      * @property choice Where the money went
      * @property payment What the server recorded
      * @property reference The transaction ID or paying account quoted, or null
+     * @property outcome Where the server's record stands. Not always
+     *   pending: a resend of a payment the server already holds is
+     *   answered with that ORIGINAL submission, and the teacher may have
+     *   decided it in the meantime
      */
     data class Sent(
         val batchName: String,
@@ -176,6 +197,7 @@ sealed interface PayUiState {
         val choice: PayChoice,
         val payment: PaymentSubmittedDto,
         val reference: String?,
+        val outcome: SentOutcome = SentOutcome.PENDING,
     ) : PayUiState
 
     /**

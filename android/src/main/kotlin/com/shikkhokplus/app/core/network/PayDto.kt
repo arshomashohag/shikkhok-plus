@@ -157,10 +157,13 @@ data class SubmittedClaimDto(
 )
 
 /**
- * A payment as recorded, waiting for the teacher.
+ * A payment as recorded, usually waiting for the teacher.
  *
  * @property submissionId The submission
- * @property status Always `pending` when just submitted
+ * @property status `pending`, `approved` or `rejected`: the stored
+ *   status. A fresh submission is `pending`; a resend with a replay key
+ *   the server already holds returns the original submission, which the
+ *   teacher may have decided since. Read by `PayMapper.outcomeOf`
  * @property totalAmount The whole amount sent
  * @property paidOn The day the money moved
  * @property claims Each child's share, in child order

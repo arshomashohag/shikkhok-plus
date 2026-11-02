@@ -189,7 +189,8 @@ class PayViewModel(
      * kept in the state through a failure: tapping Send again on the
      * same payment re-sends the same key, which is what lets the server
      * recognise a send that timed out after it was recorded. A replayed
-     * send is answered with the original submission, as a success.
+     * send is answered with the original submission, as a success --
+     * carrying its stored status, which may already be decided.
      */
     fun send() {
         val filling = _state.value as? PayUiState.Filling ?: return
@@ -208,6 +209,7 @@ class PayViewModel(
                             filling.choice,
                             result.value,
                             payment.transactionId ?: payment.fromAccount,
+                            PayMapper.outcomeOf(result.value.status),
                         )
                     is AuthResult.Refused ->
                         sending.copy(sending = false, failedKey = result.envelope.error.messageKey)

@@ -481,4 +481,72 @@ class PayViewModelTest {
 
         assertEquals(listOf<String?>("key-1", "key-2"), fake.sent.map { it.clientMutationId })
     }
+
+    @Test
+    fun `a resend the teacher already decided is a success that says so`() = runTest(dispatcher) {
+        // A replay is answered with the ORIGINAL submission and its
+        // stored status. A late resend after the teacher decided is
+        // still a success -- nothing new was recorded -- and the page
+        // must not tell the payer the teacher "will check" it.
+        for ((status, outcome) in listOf("approved" to SentOutcome.APPROVED, "rejected" to SentOutcome.REJECTED)) {
+            val model = model(fake(submit = AuthResult.Ok(submitted().copy(status = status))))
+            val form = filling(model)
+            model.type(form.form.copy(transactionId = "9KD7Q2XL1M"))
+
+            model.send()
+            advanceUntilIdle()
+
+            assertEquals(outcome, assertIs<PayUiState.Sent>(model.state.value).outcome, status)
+        }
+    }
+
+    @Test
+    fun `a fresh submission is sent and pending`() = runTest(dispatcher) {
+        val model = model(fake())
+        val form = filling(model)
+        model.type(form.form.copy(transactionId = "9KD7Q2XL1M"))
+
+        model.send()
+        advanceUntilIdle()
+
+        assertEquals(SentOutcome.PENDING, assertIs<PayUiState.Sent>(model.state.value).outcome)
+    }
+
+    @Test
+    fun `a key already used for a different payment is shown and never swapped for a new one`() =
+        runTest(dispatcher) {
+            // The server's 409 MUTATION_ID_ALREADY_USED: this key already
+            // names a DIFFERENT payment. Quietly retrying under a fresh key
+            // would record what may be a duplicate; the message asks the
+            // payer to check their payments first, and a resend keeps the
+            // key, so it cannot create a second claim.
+            val conflict =
+                AuthResult.Refused(
+                    ErrorEnvelope(
+                        ErrorBody("MUTATION_ID_ALREADY_USED", false, "fees.payment.mutation_id_already_used"),
+                    ),
+                )
+            val fake = fake(submit = conflict)
+            val model = keyed(fake, Keys())
+            val form = filling(model)
+            model.type(form.form.copy(transactionId = "9KD7Q2XL1M"))
+
+            model.send()
+            advanceUntilIdle()
+            model.send()
+            advanceUntilIdle()
+
+            val failed = assertIs<PayUiState.Filling>(model.state.value)
+            assertEquals("fees.payment.mutation_id_already_used", failed.failedKey)
+            assertEquals(listOf<String?>("key-1", "key-1"), fake.sent.map { it.clientMutationId })
+        }
+
+    @Test
+    fun `every status the server can report has a reading`() {
+        assertEquals(SentOutcome.PENDING, PayMapper.outcomeOf("pending"))
+        assertEquals(SentOutcome.APPROVED, PayMapper.outcomeOf("approved"))
+        assertEquals(SentOutcome.REJECTED, PayMapper.outcomeOf("rejected"))
+        // Added by a newer server [D-26]: the reading that claims least.
+        assertEquals(SentOutcome.PENDING, PayMapper.outcomeOf("something_new"))
+    }
 }
