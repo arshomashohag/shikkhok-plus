@@ -38,11 +38,11 @@ api = [
     "uvicorn[standard]==0.54.0",
 ]
 dev = [
-    "pytest==9.1.1",
+    "pytest==9.2.0",
     "pytest-cov==7.1.0",
-    "hypothesis==6.170.12",
-    "mypy==2.4.0",
-    "ruff==0.17.2",
+    "hypothesis==6.170.13",
+    "mypy==2.4.1",
+    "ruff==0.17.3",
     # B3 brings the first integration suite. A real PostgreSQL 16 container,
     # never SQLite: row-level security, NUMERIC(12,2) and ON CONFLICT DO
     # NOTHING are the behaviours under test and SQLite emulates none of them.
