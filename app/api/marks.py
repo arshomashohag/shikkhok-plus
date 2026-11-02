@@ -19,7 +19,7 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session as DbSession
 
 from app.analytics.dashboard import DashboardRange, seat_dashboard
-from app.api.analytics import dashboard_response
+from app.api.analytics import DASHBOARD_ERRORS, dashboard_response
 from app.api.deps import get_session, guardian_lens, student_lens, teacher_lens
 from app.api.teaching import family_exam_response
 from app.authz.lenses import GuardianLens, StudentLens, TeacherLens
@@ -616,7 +616,7 @@ def read_my_progress(
 @router.get(
     "/me/enrollments/{enrollment_id}/dashboard",
     response_model=DashboardResponse,
-    responses=_AUTH_ERRORS,
+    responses=DASHBOARD_ERRORS,
 )
 def read_my_dashboard(
     enrollment_id: uuid.UUID,

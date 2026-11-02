@@ -392,6 +392,21 @@ def _session_status(stored: str) -> Literal["scheduled", "held", "cancelled"]:
     raise ValueError(f"{stored!r} is not a session status")
 
 
+DASHBOARD_ERRORS: Final[dict[int | str, dict[str, object]]] = {
+    401: {
+        "model": ErrorEnvelope,
+        "description": "No credential, or an expired one.",
+    },
+    403: {
+        "model": ErrorEnvelope,
+        "description": (
+            "This lens does not reach that seat, indistinguishable from "
+            "a seat that does not exist."
+        ),
+    },
+}
+
+
 def dashboard_response(found: SeatDashboard) -> DashboardResponse:
     """Render a dashboard as the one wire shape all three lenses share.
 
@@ -441,7 +456,7 @@ def dashboard_response(found: SeatDashboard) -> DashboardResponse:
 @router.get(
     "/enrollments/{enrollment_id}/dashboard",
     response_model=DashboardResponse,
-    responses=_AUTH_ERRORS,
+    responses=DASHBOARD_ERRORS,
 )
 def read_seat_dashboard(
     enrollment_id: uuid.UUID,

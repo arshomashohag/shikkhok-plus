@@ -15,7 +15,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.analytics.dashboard import DashboardRange, seat_dashboard
-from app.api.analytics import dashboard_response
+from app.api.analytics import DASHBOARD_ERRORS, dashboard_response
 from app.api.deps import get_session, guardian_lens
 from app.api.fees import payables_response
 from app.api.teaching import upcoming_response
@@ -278,7 +278,7 @@ def read_child_progress_summary(
 @router.get(
     "/children/{enrollment_id}/dashboard",
     response_model=DashboardResponse,
-    responses=_AUTH_ERRORS,
+    responses=DASHBOARD_ERRORS,
 )
 def read_child_dashboard(
     enrollment_id: uuid.UUID,

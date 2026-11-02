@@ -11,8 +11,11 @@ with no held class has no attendance, which is not an attendance of nil.
 
 **The comparison figures are numbers and never names.** The batch
 average and highest mark are sent only with at least three marked seats
-so a figure cannot be traced to a person, and a family lens gets them
-only where the teacher published the marksheet.
+so a figure cannot be traced to a person.
+
+**The marksheet toggle is an authorization control.** Where the teacher
+has not published it, a family lens gets no exams and no exam tiles at
+all, though attendance, fee months and what is owed still come back.
 """
 
 from __future__ import annotations
@@ -254,7 +257,6 @@ def _exams(
     enrollment_id: uuid.UUID,
     first_day: dt.date,
     today: dt.date,
-    show_comparison: bool,
 ) -> list[ExamPoint]:
     """Build the seat's exam points inside a date range.
 
@@ -263,7 +265,6 @@ def _exams(
     :param enrollment_id: The seat
     :param first_day: The earliest exam date
     :param today: Bangladesh's date
-    :param show_comparison: Whether this lens may see average and highest
     :return: Exams the seat sat or missed, oldest first
     """
     rows = session.execute(
@@ -279,7 +280,7 @@ def _exams(
         if own is None or own.result_state not in ("marked", "absent"):
             continue
         marked = [r.marks for r in results if r.marks is not None]
-        comparable = show_comparison and len(marked) >= MIN_MARKED_FOR_COMPARISON
+        comparable = len(marked) >= MIN_MARKED_FOR_COMPARISON
         points.append(
             ExamPoint(
                 exam_id=exam.id,
@@ -337,13 +338,16 @@ def seat_dashboard(
             sa.select(Batch.marksheet_visible).where(Batch.id == seat.batch_id)
         ).one()
     )
-    exams = _exams(
-        session,
-        batch_id=seat.batch_id,
-        enrollment_id=enrollment_id,
-        first_day=first_day,
-        today=day,
-        show_comparison=published,
+    exams = (
+        _exams(
+            session,
+            batch_id=seat.batch_id,
+            enrollment_id=enrollment_id,
+            first_day=first_day,
+            today=day,
+        )
+        if published
+        else []
     )
     held = sum(month.held for month in attendance)
     present = sum(month.present for month in attendance)

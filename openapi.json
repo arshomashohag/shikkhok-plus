@@ -8045,7 +8045,7 @@
                 }
               }
             },
-            "description": "No lens reaches this."
+            "description": "This lens does not reach that seat, indistinguishable from a seat that does not exist."
           },
           "422": {
             "content": {
@@ -8883,7 +8883,7 @@
                 }
               }
             },
-            "description": "This account holds no teacher lens."
+            "description": "This lens does not reach that seat, indistinguishable from a seat that does not exist."
           },
           "422": {
             "content": {
@@ -9954,7 +9954,7 @@
                 }
               }
             },
-            "description": "No lens reaches this. Deliberately indistinguishable from absence, and the refusal when the marksheet toggle is off is the same one: an empty marksheet would still disclose that exams exist and how many."
+            "description": "This lens does not reach that seat, indistinguishable from a seat that does not exist."
           },
           "422": {
             "content": {

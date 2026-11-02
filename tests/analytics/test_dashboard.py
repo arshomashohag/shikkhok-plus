@@ -15,12 +15,13 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session as DbSession
 
-from app.analytics.dashboard import percent_of, seat_dashboard
+from app.analytics.dashboard import SeatDashboard, percent_of, seat_dashboard
 from app.authz.lenses import GuardianLens, StudentLens, TeacherLens
 from app.db.models import Attendance, Batch, Enrollment, QueuedSubmission, Session
 from app.errors import AuthorizationError
 from app.fees.views import enrollment_fee_history
 from app.marks.entry import record_mark
+from app.money import Money
 from tests.analytics.conftest import add_exam, lens_for, seat_with_ledger
 from tests.batches.conftest import TeacherFixture, _account, enroll
 from tests.conftest import bearer
@@ -316,12 +317,12 @@ def test_average_and_highest_need_three_marked_seats(
     assert three.tiles.direction is None
 
 
-def test_family_gets_no_comparison_when_marksheet_hidden(
+def test_family_gets_no_marks_when_marksheet_hidden(
     owner_session: DbSession,
     restricted_session: DbSession,
     teacher: TeacherFixture,
 ) -> None:
-    """Hidden marksheet: guardian and student see nothing, teacher does.
+    """Hidden marksheet: families get no exams or exam tiles, teacher does.
 
     :param owner_session: An arranging session
     :param restricted_session: The application-role session
@@ -347,24 +348,36 @@ def test_family_gets_no_comparison_when_marksheet_hidden(
     batch.marksheet_visible = False
     owner_session.commit()
 
-    def read(
-        lens: StudentLens | GuardianLens | TeacherLens,
-    ) -> tuple[int | None, int | None]:
-        dash = seat_dashboard(
+    def read(lens: StudentLens | GuardianLens | TeacherLens) -> SeatDashboard:
+        return seat_dashboard(
             restricted_session, lens=lens, enrollment_id=mine, range_="6m", today=TODAY
         )
-        return dash.exams[0].batch_average, dash.exams[0].batch_highest
 
-    assert read(StudentLens(account_id=viewer)) == (None, None)
-    assert read(GuardianLens(account_id=guardian, child_enrollment_id=mine)) == (
-        None,
-        None,
+    for family in (
+        StudentLens(account_id=viewer),
+        GuardianLens(account_id=guardian, child_enrollment_id=mine),
+    ):
+        hidden = read(family)
+        assert hidden.exams == []
+        assert hidden.tiles.exam_average_percent is None
+        assert hidden.tiles.direction is None
+        assert hidden.tiles.owed == Money.ZERO
+        assert len(hidden.attendance_by_month) == 6
+
+    teacher_view = read(lens_for(teacher))
+    assert len(teacher_view.exams) == 1
+    assert (
+        teacher_view.exams[0].batch_average,
+        teacher_view.exams[0].batch_highest,
+    ) == (
+        55,
+        70,
     )
-    assert read(lens_for(teacher)) == (55, 70)
 
     batch.marksheet_visible = True
     owner_session.commit()
-    assert read(StudentLens(account_id=viewer)) == (55, 70)
+    shown = read(StudentLens(account_id=viewer)).exams[0]
+    assert (shown.batch_average, shown.batch_highest) == (55, 70)
 
 
 def test_highest_carries_no_name(
