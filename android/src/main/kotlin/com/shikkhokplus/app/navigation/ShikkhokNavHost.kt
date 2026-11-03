@@ -16,6 +16,12 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
+import com.shikkhokplus.app.core.network.HttpPaymentMethodsRepository
+import com.shikkhokplus.app.feature.paymentmethods.MethodEditorViewModel
+import com.shikkhokplus.app.feature.paymentmethods.MethodKind
+import com.shikkhokplus.app.feature.paymentmethods.PaymentMethodsViewModel
+import com.shikkhokplus.app.feature.paymentmethods.ui.MethodEditorRoute
+import com.shikkhokplus.app.feature.paymentmethods.ui.PaymentMethodsScreen
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
@@ -64,6 +70,7 @@ import com.shikkhokplus.app.feature.invitations.ui.InvitationsScreen
 import com.shikkhokplus.app.feature.marks.MarksViewModel
 import com.shikkhokplus.app.feature.marks.MarksheetReader
 import com.shikkhokplus.app.feature.marks.ui.MarksheetScreen
+import com.shikkhokplus.app.feature.dashboard.DashboardReader
 import com.shikkhokplus.app.feature.marks.ui.ProgressScreen
 import com.shikkhokplus.app.feature.profile.ProfileViewModel
 import com.shikkhokplus.app.feature.profile.ui.ProfileScreen
@@ -84,8 +91,8 @@ import io.ktor.client.HttpClient
  * that could not load. Those layers have since landed, so the reason
  * for their absence is gone and the routes are here.
  *
- * **Three screens are still deliberately not destinations**:
- * `BatchFeesScreen`, `ClaimStatusScreen` and `PaymentFormScreen` take
+ * **Two screens are still deliberately not destinations**:
+ * `ClaimStatusScreen` and `PaymentFormScreen` take
  * rows and callbacks rather than a UI state, which makes them content
  * components for a host screen rather than screens in their own right.
  * Giving one a route would mean inventing the state it does not hold.
@@ -331,6 +338,8 @@ fun ShikkhokNavHost(
 
         batchDetailRoute(client, queue, navController)
 
+        collectionsRoutes(client, navController)
+
         composable(
             route = Destination.AddStudent.route,
             arguments =
@@ -492,9 +501,19 @@ fun ShikkhokNavHost(
                         type = NavType.StringType
                         defaultValue = FeeReader.STUDENT.name
                     },
+                    navArgument(Destination.FeeHistory.ARG_CHILD) {
+                        type = NavType.StringType
+                        defaultValue = ""
+                    },
+                    navArgument(Destination.FeeHistory.ARG_BATCH) {
+                        type = NavType.StringType
+                        defaultValue = ""
+                    },
                 ),
         ) { entry ->
             val seat = entry.arguments?.getString(Destination.FeeHistory.ARG_SEAT).orEmpty()
+            val child = entry.arguments?.getString(Destination.FeeHistory.ARG_CHILD).orEmpty()
+            val batch = entry.arguments?.getString(Destination.FeeHistory.ARG_BATCH).orEmpty()
             val reader =
                 feeReaderOrStudent(
                     entry.arguments?.getString(Destination.FeeHistory.ARG_READER),
@@ -510,6 +529,14 @@ fun ShikkhokNavHost(
                 state = state,
                 onRetry = model::retry,
                 onBack = { navController.popBackStack() },
+                onOpenProgress =
+                    if (reader == FeeReader.TEACHER) {
+                        { navController.navigate(
+                            Destination.Dashboard.of(seat, DashboardReader.TEACHER.name, child, batch),
+                        ) }
+                    } else {
+                        null
+                    },
             )
         }
 
@@ -532,7 +559,9 @@ fun ShikkhokNavHost(
                         onPay = { option -> navController.navigate(Destination.ChildPay.of(option.enrollmentId)) },
                         onPayments = { seat -> navController.navigate(Destination.ChildPayments.of(seat)) },
                         onResult = { result, _ ->
-                            navController.navigate(Destination.ChildProgress.of(result.enrollmentId))
+                            navController.navigate(
+                                Destination.Dashboard.of(result.enrollmentId, DashboardReader.GUARDIAN.name),
+                            )
                         },
                         onBatch = { seat -> navController.navigate(Destination.ChildBatch.of(seat)) },
                         onRetry = model::retry,
@@ -549,6 +578,7 @@ fun ShikkhokNavHost(
         }
 
         guardianRoutes(client, navController)
+        dashboardRoutes(client, navController)
 
         composable(Destination.Invitations.route) {
             val model: InvitationsViewModel =
@@ -613,6 +643,18 @@ fun ShikkhokNavHost(
                     navController.navigate(Destination.DeleteAccount.route)
                 },
                 onSignOut = { confirmingSignOut = true },
+                onPaymentMethods =
+                    if (session.lens == Lens.TEACHER) {
+                        { navController.navigate(Destination.PaymentMethods.route) }
+                    } else {
+                        null
+                    },
+                onCollections =
+                    if (session.lens == Lens.TEACHER) {
+                        { navController.navigate(Destination.Collections.route) }
+                    } else {
+                        null
+                    },
             )
 
             if (confirmingSignOut) {
@@ -625,6 +667,50 @@ fun ShikkhokNavHost(
                     onDismiss = { confirmingSignOut = false },
                 )
             }
+        }
+
+        composable(Destination.PaymentMethods.route) {
+            val model: PaymentMethodsViewModel =
+                viewModel { PaymentMethodsViewModel(HttpPaymentMethodsRepository(client)) }
+            val state by model.state.collectAsState()
+            LaunchedEffect(Unit) { model.load() }
+            PaymentMethodsScreen(
+                state = state,
+                onAddMobile = { navController.navigate(Destination.AddPaymentMethod.of("mobile")) },
+                onAddBank = { navController.navigate(Destination.AddPaymentMethod.of("bank")) },
+                onEdit = { navController.navigate(Destination.EditPaymentMethod.of(it)) },
+                onRemove = model::retire,
+                onRetry = model::retry,
+                onBack = { navController.popBackStack() },
+            )
+        }
+
+        composable(
+            Destination.AddPaymentMethod.route,
+            arguments = listOf(navArgument(Destination.AddPaymentMethod.ARG_KIND) { defaultValue = "mobile" }),
+        ) { entry ->
+            val kind =
+                MethodKind.fromWire(entry.arguments?.getString(Destination.AddPaymentMethod.ARG_KIND).orEmpty())
+            val model: MethodEditorViewModel =
+                viewModel { MethodEditorViewModel(HttpPaymentMethodsRepository(client)) }
+            LaunchedEffect(kind) { model.selectKind(kind) }
+            MethodEditorRoute(model = model, onDone = { navController.popBackStack() })
+        }
+
+        composable(Destination.EditPaymentMethod.route) { entry ->
+            val parent =
+                remember(entry) { navController.getBackStackEntry(Destination.PaymentMethods.route) }
+            val list: PaymentMethodsViewModel =
+                viewModel(parent) { PaymentMethodsViewModel(HttpPaymentMethodsRepository(client)) }
+            val id = entry.arguments?.getString(Destination.EditPaymentMethod.ARG_METHOD).orEmpty()
+            val model: MethodEditorViewModel =
+                viewModel {
+                    MethodEditorViewModel(HttpPaymentMethodsRepository(client), existing = list.methodFor(id))
+                }
+            MethodEditorRoute(
+                model = model,
+                onDone = { navController.popBackStack() },
+            )
         }
 
         composable(Destination.DeleteAccount.route) { entry ->
@@ -686,10 +772,12 @@ private fun feeReaderOrStudent(raw: String?): FeeReader =
 /**
  * Confirm signing out, and say what it would discard.
  *
- * **Never silent about unsent work.** Ending the session clears the
- * device's queue -- the next person to sign in must not send this
- * account's rosters under their own token -- so attendance saved and not
- * yet sent is lost, and the dialog says how much before it happens.
+ * **Never silent about unsent work.** Signing out discards this
+ * account's unsent writes from the phone, so attendance saved and not
+ * yet sent is lost, and the dialog says how much before it happens. The
+ * count and the discard are both scoped to this account by the queue
+ * store; another account's writes on the same phone are neither counted
+ * nor touched.
  *
  * @param unsent How many saved writes have not been sent
  * @param onConfirm Called to sign out

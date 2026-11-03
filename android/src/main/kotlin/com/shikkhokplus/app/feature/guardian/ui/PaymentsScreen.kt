@@ -36,7 +36,13 @@ import com.shikkhokplus.app.feature.pay.PayOption
 /** One month's line. */
 const val TAG_PAYMENT_LINE: String = "payment_line"
 
-/** The pay button under the history. */
+/** The "Owed now" headline, from the server's total due. */
+const val TAG_PAYMENTS_OWED: String = "payments_owed"
+
+/** The "Nothing due now" line shown when the server offers no payable. */
+const val TAG_PAYMENTS_NOTHING_DUE: String = "payments_nothing_due"
+
+/** The Send money button under the history, always shown once loaded. */
 const val TAG_PAYMENTS_PAY: String = "payments_pay"
 
 /** The "couldn't load" card, which warns against paying again. */
@@ -51,11 +57,11 @@ const val TAG_PAYMENTS_ERROR: String = "payments_error"
  *
  * @param state What to render
  * @param onBack Called to leave
- * @param onPay Called to pay the offered fee
+ * @param onPay Called to send money, offered whether or not anything is due
  * @param onRetry Called to read again
  */
 @Composable
-fun PaymentsScreen(state: PaymentsUiState, onBack: () -> Unit, onPay: (PayOption) -> Unit, onRetry: () -> Unit) {
+fun PaymentsScreen(state: PaymentsUiState, onBack: () -> Unit, onPay: () -> Unit, onRetry: () -> Unit) {
     val loaded = state as? PaymentsUiState.Loaded
     ScreenScaffold(
         title =
@@ -63,17 +69,18 @@ fun PaymentsScreen(state: PaymentsUiState, onBack: () -> Unit, onPay: (PayOption
                 ?: stringResource(R.string.guardian_open_fees),
         onBack = onBack,
         bottomBar = {
-            loaded?.next?.let { next ->
+            if (loaded != null) {
                 Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainerHigh)
+                    Text(
+                        stringResource(R.string.payments_send_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp),
+                    )
                     PrimaryButton(
-                        text =
-                            stringResource(
-                                R.string.payments_pay_for,
-                                Numerals.money(next.amountDue),
-                                Numerals.freeText(next.batchName),
-                            ),
-                        onClick = { onPay(next) },
+                        text = stringResource(R.string.payments_send_money),
+                        onClick = onPay,
                         modifier = Modifier.fillMaxWidth().padding(16.dp).testTag(TAG_PAYMENTS_PAY),
                     )
                 }
@@ -90,8 +97,40 @@ fun PaymentsScreen(state: PaymentsUiState, onBack: () -> Unit, onPay: (PayOption
                     retryLabel = if (state.retryable) stringResource(R.string.dues_retry) else null,
                     onRetry = if (state.retryable) onRetry else null,
                 )
-            is PaymentsUiState.Loaded -> History(state)
+            is PaymentsUiState.Loaded -> {
+                OwedHeadline(state.next)
+                History(state)
+            }
         }
+    }
+}
+
+/**
+ * "Owed now" with the server's total due, or "Nothing due now".
+ *
+ * @param next The payable the server offered, or null
+ */
+@Composable
+private fun OwedHeadline(next: PayOption?) {
+    if (next == null) {
+        Text(
+            stringResource(R.string.payments_nothing_due),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.testTag(TAG_PAYMENTS_NOTHING_DUE),
+        )
+        return
+    }
+    Column(Modifier.testTag(TAG_PAYMENTS_OWED)) {
+        Text(
+            stringResource(R.string.payments_owed_now),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            Numerals.money(next.totalDue ?: next.amountDue),
+            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+        )
     }
 }
 

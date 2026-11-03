@@ -27,12 +27,15 @@ import pytest
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
-from app.db.models import Account, Enrollment
+from app.db.models import Account, Enrollment, PaymentMethod
+from app.fees.ledger_writer import append_entry
 from app.money import Money
 from tests.batches.conftest import TeacherFixture, enroll, make_teacher
 
 __all__ = [
     "TeacherFixture",
+    "add_method",
+    "charge_period",
     "enroll",
     "make_teacher",
 ]
@@ -194,4 +197,47 @@ def set_joined_on(
     record = session.get(Enrollment, enrollment_id)
     assert record is not None
     record.joined_on = when
+    session.commit()
+
+
+def add_method(session: Session, owner_id: uuid.UUID) -> uuid.UUID:
+    """Give an owner one live bKash method.
+
+    :param session: An arranging session
+    :param owner_id: The owner
+    :return: The method id
+    """
+    now = dt.datetime.now(tz=dt.UTC)
+    method = PaymentMethod(
+        owner_id=owner_id,
+        kind="mobile",
+        provider="bKash",
+        mobile_number="01711000000",
+        position=1,
+        created_at=now,
+        updated_at=now,
+    )
+    session.add(method)
+    session.commit()
+    return method.id
+
+
+def charge_period(
+    session: Session, *, enrollment_id: uuid.UUID, period: str, amount: str
+) -> None:
+    """Charge one period on a seat.
+
+    :param session: An arranging session
+    :param enrollment_id: The seat
+    :param period: The period, ``YYYY-MM``
+    :param amount: The charge, canonical
+    :return: None
+    """
+    append_entry(
+        session,
+        enrollment_id=enrollment_id,
+        period=period,
+        kind="charge",
+        amount=Money(amount),
+    )
     session.commit()

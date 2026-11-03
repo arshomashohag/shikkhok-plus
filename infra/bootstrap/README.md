@@ -54,10 +54,13 @@ that condition **any repository on GitHub could assume this role**. It
 is scoped to:
 
 ```
-repo:arshomashohag@*/shikkhok-plus@*:ref:refs/heads/main
-repo:arshomashohag@*/shikkhok-plus@*:environment:terraform-plan
-repo:arshomashohag@*/shikkhok-plus@*:environment:terraform-apply
+repo:arshomashohag@*/shikkhok-plus@*:environment:staging-infra
+repo:arshomashohag@*/shikkhok-plus@*:environment:production-infra
 ```
+
+There is deliberately **no `ref:refs/heads/main`** subject any more: it
+let any workflow on main assume this role without passing an
+environment's required reviewer [OPS-2]. No workflow used it.
 
 A pull request from a fork carries `pull_request` in its subject and
 matches none of them. That is what stops a drive-by PR applying
@@ -71,12 +74,39 @@ the main-branch restriction entirely. Adding an environment is adding
 a way into the account, so it takes a change here rather than a
 workflow edit.
 
-`deploy-staging.yml` runs in `staging`, which is **not** on that list.
-It does not assume this role today. When its SSM delivery step lands
-it will need AWS access, and the right answer is a separate deploy
-role scoped to SSM and ECR — not widening this one, which carries
-`ec2:*`, `rds:*`, `route53:*` and IAM writes. `trust_staging_environment`
-exists as the expedient alternative and is off by default.
+## The deploy roles: one per environment
+
+`deploy.yml`'s plan and release jobs and `security-scan.yml` run in the
+`staging` or `production` GitHub environment and assume a **deploy
+role**, never the infrastructure role. There is one deploy role per
+environment (`deploy_role.tf`), and each:
+
+- trusts exactly `…:environment:<env>` — a staging-approved run cannot
+  assume the production role;
+- can push only to `shikkhokplus-<env>-backend`, read and write only its
+  own `image-tag` and `runtime-env` parameters and read its own
+  `api-url`, roll only `shikkhokplus-<env>-*` groups, and snapshot only
+  `shikkhokplus-<env>-db` (pruning only its own `-predeploy-*`
+  snapshots);
+- reads **no Terraform state** and **no database credential**.
+
+Until 2026-11-02 a single role trusted both environments, used
+`shikkhokplus-*` wildcards and could read both state files — so a
+staging approval could change production and read its database master
+password [OPS-3].
+
+**Which ARN goes where.** After `terraform apply`, read
+`terraform output deploy_role_arns` and set each value as the
+`AWS_DEPLOY_ROLE_ARN` variable **of that environment only**
+(Settings → Environments → *env* → Environment variables):
+
+| GitHub environment | `AWS_DEPLOY_ROLE_ARN` | Role name |
+|---|---|---|
+| `staging` | `deploy_role_arns["staging"]` | `shikkhokplus-github-deploy` (unchanged — the `moved` block keeps the existing role, so the staging variable already holds this ARN) |
+| `production` | `deploy_role_arns["production"]` | `shikkhokplus-github-deploy-production` (new) |
+
+Putting the wrong ARN into an environment fails at role assumption
+rather than granting anything.
 
 ### Why the `@*` segments are there
 
@@ -118,23 +148,54 @@ aws cloudtrail lookup-events \
 
 ## The IAM scope, stated honestly
 
-The role gets **service-level** permissions (`ec2:*`, `cloudfront:*`,
-`acm:*`, `route53:*`, `rds:*`, `ssm:*`), not per-action
-least-privilege. That is a trade, not an oversight: enumerating every
-action across six services produces a policy that breaks on the next
-provider upgrade and gets widened under deadline pressure — ending at
-the `*` it was meant to avoid, a day later.
+The role gets **service-level** permissions for the services whose
+Terraform action set is wide and moves with the provider (`ec2:*`,
+`cloudfront:*`, `acm:*`, `route53:*`, `rds:*`, `ecr:*`,
+`autoscaling:*`), not per-action least-privilege. That is a trade, not
+an oversight: enumerating every action across them produces a policy
+that breaks on the next provider upgrade and gets widened under
+deadline pressure.
+
+Where the actions Terraform uses are known and few, they are listed:
+SSM is **parameter management under `/shikkhokplus/` only** (`ssm:*`
+included `SendCommand`, a shell on any instance); logs, SNS and
+CloudWatch alarms are scoped to `shikkhokplus` names; and Route53
+record changes are **denied for any name not containing
+`shikkhokplus`**, so the role cannot repoint another project's record
+in the shared apex zone.
 
 **It also holds real IAM write permissions**, and an earlier version
 of this document claimed it did not. SSM needs an instance profile,
 which means creating a role and attaching a policy. There is no way
 around that, and pretending otherwise would only mean the apply fails.
 
-What bounds it: the IAM actions are restricted **by path** to
-`/shikkhokplus/*`, so the CI role cannot touch an unrelated role and
-**cannot modify itself** — it lives at the IAM root path. And the role
-is assumable only from this repository, on main or through an
-environment with manual approval.
+What bounds it [OPS-2]:
+
+- **A permissions boundary on every role it creates.** Bootstrap
+  creates `shikkhokplus-workload-boundary` (path `/shikkhokplus/`), a
+  ceiling listing only what an app host does. `CreateRole`,
+  `PutRolePolicy`, `AttachRolePolicy` and `PutRolePermissionsBoundary`
+  are allowed only with `iam:PermissionsBoundary` equal to it, and
+  `DeleteRolePermissionsBoundary` is denied. Attaching
+  `AdministratorAccess` to such a role would grant nothing beyond the
+  boundary.
+- **`AttachRolePolicy` only for the policies the app module attaches**
+  (`iam:PolicyARN`: `AmazonSSMManagedInstanceCore`). Adding one is a
+  change to `local.attachable_policy_arns` here.
+- **`PassRole` only to EC2** (`iam:PassedToService`).
+- The IAM actions are restricted **by path** to `/shikkhokplus/*`, so the
+  CI role cannot touch an unrelated role and **cannot modify itself**,
+  nor the boundary: it lives at the IAM root path and has no
+  policy-level write action.
+- It is assumable only through the `staging-infra` or `production-infra`
+  environment.
+
+**Order of applies.** The main module now sets `permissions_boundary`
+on the instance role, and the CI role can only create or extend a role
+that carries it -- so **apply this bootstrap first**, then let the next
+deploy apply the main module. Applied the other way round, the main
+module's first apply fails at `PutRolePermissionsBoundary` with
+AccessDenied and changes nothing.
 
 ## Running it
 
@@ -166,11 +227,13 @@ Then do what the `next_steps` output says:
 ```
 GitHub → Settings → Secrets and variables → Actions
 
-Variables:
-  AWS_ROLE_ARN      (from the output)
-  TF_STATE_BUCKET   (from the output)
+Repository variables:
+  AWS_ROLE_ARN      ci_role_arn (from the output)
+  TF_STATE_BUCKET   state_bucket (from the output)
   APEX_DOMAIN       the PARENT zone, e.g. nirmatabd.com
-  TF_ENVIRONMENT    staging
+
+Per-environment variables (staging, production):
+  AWS_DEPLOY_ROLE_ARN   deploy_role_arns[<env>] -- see the table above
 ```
 
 **`APEX_DOMAIN` is the parent, not the hostname the API answers on.**
@@ -201,15 +264,18 @@ terraform init -migrate-state \
 
 Both in Settings → Environments:
 
-| Environment | Reviewers | Why |
+| Environment | Reviewers | Role it can assume |
 |---|---|---|
-| `terraform-plan` | none | A plan that needed approval would mean nobody sees the diff until after someone approves it |
-| `terraform-apply` | **you, required** | This is the gate. Without a required reviewer, dispatching apply runs it immediately and the manual step is a button rather than a decision |
+| `staging` | none | the staging deploy role |
+| `staging-infra` | none | the infrastructure role |
+| `production` | **you, required** | the production deploy role |
+| `production-infra` | **you, required** | the infrastructure role |
 
-**The approval requirement is the whole point of the apply job.** A
-Terraform run can replace the app instance, and in Phase 1 that
-destroys the containerised Postgres with it — a database whose only
-backup is `pg_dump`.
+**`production-infra`'s required reviewer is the gate on production
+infrastructure**, and since 2026-11-02 there is no way around it: the
+infrastructure role no longer trusts `ref:refs/heads/main`, which let
+any workflow running on main assume it with no environment and
+therefore no approval [OPS-2].
 
 ## After this
 

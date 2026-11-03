@@ -1,10 +1,12 @@
 package com.shikkhokplus.app.feature.fees
 
+import com.shikkhokplus.app.core.model.ClaimOutcome
 import com.shikkhokplus.app.core.model.Money
 import com.shikkhokplus.app.core.network.ClaimDto
 import com.shikkhokplus.app.core.network.FeeCycleDto
 import com.shikkhokplus.app.core.network.PaymentDestinationDto
-import com.shikkhokplus.app.core.network.RosterFeeRowDto
+import com.shikkhokplus.app.core.network.HistoryLineDto
+import com.shikkhokplus.app.core.network.MonthStateDto
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -173,60 +175,6 @@ class FeeStateMapperTest {
         assertEquals(
             listOf("2027-03", "2027-02", "2027-01"),
             loaded.rows.map { it.period },
-        )
-    }
-
-    // -----------------------------------------------------------------
-    // The roster row.
-    // -----------------------------------------------------------------
-
-    @Test
-    fun `a roster row with no generated period carries no status`() {
-        val row =
-            FeeStateMapper.toRosterRow(
-                RosterFeeRowDto(
-                    enrollmentId = "e-1",
-                    displayName = "Rahim",
-                    outstanding = Money.ZERO,
-                ),
-            )
-
-        assertNotNull(row)
-        assertNull(row.statusLabel)
-        assertEquals(false, row.owesSomething)
-    }
-
-    @Test
-    fun `a roster row owing money says so as a field`() {
-        // The field exists so no composable writes
-        // `if (row.outstanding > Money.ZERO)`.
-        val row =
-            FeeStateMapper.toRosterRow(
-                RosterFeeRowDto(
-                    enrollmentId = "e-1",
-                    displayName = "Rahim",
-                    outstanding = Money.of("1500.00"),
-                    currentPeriod = "2027-02",
-                    currentStatus = "unpaid",
-                ),
-            )
-
-        assertNotNull(row)
-        assertTrue(row.owesSomething)
-        assertEquals("fees.status.unpaid", row.statusLabel)
-    }
-
-    @Test
-    fun `an unknown roster status fails rather than defaulting`() {
-        assertNull(
-            FeeStateMapper.toRosterRow(
-                RosterFeeRowDto(
-                    enrollmentId = "e-1",
-                    displayName = "Rahim",
-                    outstanding = Money.ZERO,
-                    currentStatus = "deferred",
-                ),
-            ),
         )
     }
 
@@ -405,5 +353,52 @@ class FeeStateMapperTest {
 
         assertEquals("fees.claim.no_open_cycle", failed.messageKey)
         assertEquals(false, failed.retryable)
+    }
+
+    // -----------------------------------------------------------------
+    // The 6-month strip (M3).
+    // -----------------------------------------------------------------
+
+    @Test
+    fun `the strip carries each month's state and structured claim`() {
+        val state =
+            FeeStateMapper.afterLoad(
+                listOf(cycle("unpaid", period = "2027-02")),
+                Money.of("1000.00"),
+                listOf(
+                    MonthStateDto("2027-01", "paid"),
+                    MonthStateDto(
+                        "2027-02",
+                        "unpaid",
+                        HistoryLineDto(Money.of("1000.00"), "bKash", "2027-02-28", "rejected", "TrxID not found"),
+                    ),
+                    MonthStateDto("2027-03", "checking"),
+                    MonthStateDto("2027-04", "partly_paid"),
+                    MonthStateDto("2027-05", "waived"),
+                ),
+            )
+
+        val loaded = assertIs<FeeUiState.Loaded>(state)
+        assertEquals(
+            listOf(StripKind.PAID, StripKind.UNPAID, StripKind.CHECKING, StripKind.PARTIAL, StripKind.WAIVED),
+            loaded.months.map { it.kind },
+        )
+        val line = loaded.months[1].historyLine!!
+        assertEquals(ClaimOutcome.REJECTED, line.outcome)
+        assertEquals("TrxID not found", line.decisionNote)
+        assertEquals("bKash", line.channel)
+        assertNull(loaded.months[0].historyLine)
+    }
+
+    @Test
+    fun `an unknown strip state is an error, never a default`() {
+        val state =
+            FeeStateMapper.afterLoad(
+                listOf(cycle("unpaid")),
+                Money.ZERO,
+                listOf(MonthStateDto("2027-01", "mystery")),
+            )
+
+        assertIs<FeeUiState.Failed>(state)
     }
 }

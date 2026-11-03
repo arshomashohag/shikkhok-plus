@@ -6,12 +6,13 @@ from the requirement, and a wrong answer spends money.
 
 Most of the file is ordinary threshold checking. Two tests are not:
 
-* ``test_a_refused_request_does_not_consume_the_global_budget`` -- the
-  **order** test. Checking global-first lets one attacker's requests
-  consume the global daily counter before their own per-number limit
-  trips. They are stopped eventually, but only after spending everyone
-  else's allowance, which is precisely what the sub-ceilings exist to
-  prevent [BR2.5].
+* ``test_a_refused_request_does_not_consume_the_ip_budget`` -- the
+  **order** test. Checking a wider scope first lets one attacker's
+  requests consume it before their own per-number limit trips. They are
+  stopped eventually, but only after spending everyone else's allowance,
+  which is precisely what the sub-ceilings exist to prevent [BR2.5]. The
+  global budget has since left the request path entirely [PA-SEC-2],
+  which ``test_the_request_cascade_never_spends_the_send_budget`` pins.
 * ``test_the_limit_holds_across_two_independent_sessions`` -- the
   **two-worker** test. It must FAIL against a per-process dictionary,
   which is the obvious implementation and passes every other test here
@@ -35,6 +36,7 @@ from app.auth.ceilings import (
     CeilingBreach,
     CeilingChecker,
     ScopeKind,
+    SendBudget,
 )
 from app.errors import ConflictError
 
@@ -138,15 +140,19 @@ def test_the_global_daily_ceiling_is_refused_and_the_alert_fires(
         "app.auth.ceilings.fire_ceiling_alert", lambda scope: fired.append(scope)
     )
 
+    #
+    # Spent by `consume_send`, at the send, since PA-SEC-2: the request
+    # cascade no longer touches it (see the test after the order tests).
     now = dt.datetime.now(tz=dt.UTC)
     _preload_global_counter(restricted_session, GLOBAL_DAILY, now)
 
     with pytest.raises(ConflictError) as raised:
-        checker.check_and_consume(
-            number="+8801999999999", ip_prefix="10.99.99", now=now
-        )
+        checker.consume_send(SendBudget.SIGN_IN, now=now)
     assert raised.value.scope is ScopeKind.GLOBAL_DAILY
     assert fired, "the global ceiling tripped without firing its alert"
+    assert _global_count(restricted_session) == GLOBAL_DAILY, (
+        "the refused send kept its increment"
+    )
 
 
 def test_the_global_ceiling_admits_up_to_its_limit(
@@ -154,7 +160,8 @@ def test_the_global_ceiling_admits_up_to_its_limit(
 ) -> None:
     now = dt.datetime.now(tz=dt.UTC)
     _preload_global_counter(restricted_session, GLOBAL_DAILY - 1, now)
-    checker.check_and_consume(number="+8801888888888", ip_prefix="10.88.88", now=now)
+    checker.consume_send(SendBudget.SIGN_IN, now=now)
+    assert _global_count(restricted_session) == GLOBAL_DAILY
 
 
 # ---------------------------------------------------------------------------
@@ -167,20 +174,18 @@ def test_the_global_ceiling_admits_up_to_its_limit(
 # ---------------------------------------------------------------------------
 
 
-def test_a_refused_request_does_not_consume_the_global_budget(
+def test_the_request_cascade_never_spends_the_send_budget(
     checker: CeilingChecker, restricted_session: Session
 ) -> None:
+    # PA-SEC-2. The request cascade runs for EVERY number, known or
+    # not, and only a known number is texted -- so a request-path
+    # global counter was spent by requests that cost nothing, and
+    # anyone could drain sign-in for the day with numbers nobody owns.
+    # Admitted requests, not only refused ones, must leave it alone.
     _consume(checker, PER_NUMBER_HOURLY)
-    before = _global_count(restricted_session)
+    checker.check_and_consume(number=OTHER_NUMBER, ip_prefix="198.51.100.0/24")
 
-    with pytest.raises(ConflictError):
-        checker.check_and_consume(number=NUMBER, ip_prefix=IP_PREFIX)
-
-    after = _global_count(restricted_session)
-    assert after == before, (
-        "a per-number refusal incremented the GLOBAL counter: one "
-        "attacker can now drain everyone else's allowance [BR2.5]"
-    )
+    assert _global_count(restricted_session) == 0
 
 
 def test_a_refused_request_does_not_consume_the_ip_budget(

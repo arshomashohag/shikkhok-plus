@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.feature.fees
 
+import com.shikkhokplus.app.core.model.HistoryLine
 import com.shikkhokplus.app.core.model.Money
 
 /**
@@ -38,28 +39,35 @@ data class FeeCycleRow(
     val isSettled: Boolean,
 )
 
+/** One month's state on the strip, from the server's `state`. */
+enum class StripKind {
+    /** Settled in full. */
+    PAID,
+
+    /** Part paid. */
+    PARTIAL,
+
+    /** Nothing paid. */
+    UNPAID,
+
+    /** Closed by a waiver. */
+    WAIVED,
+
+    /** A payment is waiting to be checked. */
+    CHECKING,
+}
+
 /**
- * One seat's fee position on the teacher's roster.
+ * One month on the 6-month strip, with its latest claim.
  *
- * **Carries no collection number** [BR6.4]: the teacher reads their own
- * payment destination on the batch screen, and this row reaches a list.
- *
- * @property enrollmentId The teacher-facing key
- * @property displayName The teacher-typed name
- * @property outstanding What this seat owes in total
- * @property statusLabel The latest period's status key, or null when
- *   nothing has generated yet
- * @property dueDateLabel The latest period's due date, or null
- * @property owesSomething Whether this seat owes anything, **decided
- *   here** so no composable compares the amount to pick a colour
+ * @property period The month as `YYYY-MM`
+ * @property kind How the month looks, chosen from the server's state
+ * @property historyLine The latest claim for it, as structured data
  */
-data class RosterFeeRow(
-    val enrollmentId: String,
-    val displayName: String,
-    val outstanding: Money,
-    val statusLabel: String?,
-    val dueDateLabel: String?,
-    val owesSomething: Boolean,
+data class MonthStateRow(
+    val period: String,
+    val kind: StripKind,
+    val historyLine: HistoryLine?,
 )
 
 /**
@@ -147,10 +155,12 @@ sealed interface FeeUiState {
      * @property totalOutstanding What is owed across all of them,
      *   **as the server computed it** — not a sum over [rows], which
      *   would be the client doing money arithmetic [TC-9]
+     * @property months The strip, oldest first, with each month's claim
      */
     data class Loaded(
         val rows: List<FeeCycleRow>,
         val totalOutstanding: Money,
+        val months: List<MonthStateRow> = emptyList(),
     ) : FeeUiState
 
     /**

@@ -24,11 +24,14 @@ queries for one screen.
 from __future__ import annotations
 
 import datetime as dt
+import uuid
 from typing import Annotated, Final, Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
+from app.analytics.collections import DEFAULT_MONTHS, collections
+from app.analytics.dashboard import DashboardRange, SeatDashboard, seat_dashboard
 from app.analytics.dues import DuesSummary, dues_rows, dues_summary
 from app.analytics.earnings import MonthlyEarnings, period_totals, trend
 from app.analytics.seats import (
@@ -40,22 +43,31 @@ from app.analytics.seats import (
 from app.analytics.today import today_view
 from app.analytics.upcoming import next_exam
 from app.api.deps import get_session, teacher_lens
-from app.api.fees import queue_item_response
+from app.api.fees import payment_review_response
 from app.authz.lenses import TeacherLens
 from app.local_time import bangladesh_today
 from app.money import Money as DomainMoney
 from app.money.wire import to_wire
 from app.schemas.analytics import (
+    CollectionsResponse,
     DuesGroupResponse,
     DuesResponse,
     DuesRowResponse,
     DuesSummaryResponse,
+    MonthCollectionResponse,
     MonthlyEarningsResponse,
     NextExamResponse,
     OutstandingResponse,
     OverviewResponse,
     TodayClassResponse,
     TodayResponse,
+)
+from app.schemas.dashboard import (
+    AttendanceMonthResponse,
+    DashboardExamResponse,
+    DashboardFeeMonthResponse,
+    DashboardResponse,
+    DashboardTilesResponse,
 )
 from app.schemas.errors import ErrorEnvelope
 from app.schemas.money import Money as WireMoney
@@ -209,6 +221,43 @@ def _summary_response(summary: DuesSummary) -> DuesSummaryResponse:
 
 
 @router.get(
+    "/analytics/collections",
+    response_model=CollectionsResponse,
+    responses=_AUTH_ERRORS,
+)
+def read_collections(
+    session: Annotated[Session, Depends(get_session)],
+    lens: Annotated[TeacherLens, Depends(teacher_lens)],
+    batch_id: Annotated[list[uuid.UUID] | None, Query()] = None,
+    months: Annotated[int, Query()] = DEFAULT_MONTHS,
+) -> CollectionsResponse:
+    """Read charged and collected per month for some or all batches (M1).
+
+    :param session: The request-scoped session
+    :param lens: The teacher lens carrying the owner id
+    :param batch_id: Batches to cover, repeatable; none means all of them
+    :param months: How many months, clamped to 1 to 24
+    :return: One row per month, the amount owed now and how many owe
+    """
+    report = collections(session, lens=lens, batch_ids=batch_id, months=months)
+    return CollectionsResponse(
+        months=[
+            MonthCollectionResponse(
+                period=row.period,
+                charged=_to_wire(row.charged),
+                collected=_to_wire(row.collected),
+                in_progress=row.in_progress,
+                charged_bar=row.charged_bar,
+                collected_bar=row.collected_bar,
+            )
+            for row in report.months
+        ],
+        outstanding=_to_wire(report.outstanding),
+        owing_students=report.owing_students,
+    )
+
+
+@router.get(
     "/me/overview",
     response_model=OverviewResponse,
     responses=_AUTH_ERRORS,
@@ -317,7 +366,7 @@ def read_today(
             for row in view.classes
         ],
         to_verify_count=view.to_verify_count,
-        to_verify=[queue_item_response(item) for item in view.to_verify],
+        to_verify=[payment_review_response(item) for item in view.to_verify],
         has_batches=view.has_batches,
     )
 
@@ -341,3 +390,88 @@ def _session_status(stored: str) -> Literal["scheduled", "held", "cancelled"]:
         if stored == status:
             return status
     raise ValueError(f"{stored!r} is not a session status")
+
+
+DASHBOARD_ERRORS: Final[dict[int | str, dict[str, object]]] = {
+    401: {
+        "model": ErrorEnvelope,
+        "description": "No credential, or an expired one.",
+    },
+    403: {
+        "model": ErrorEnvelope,
+        "description": (
+            "This lens does not reach that seat, indistinguishable from "
+            "a seat that does not exist."
+        ),
+    },
+}
+
+
+def dashboard_response(found: SeatDashboard) -> DashboardResponse:
+    """Render a dashboard as the one wire shape all three lenses share.
+
+    :param found: The dashboard read
+    :return: The response body
+    """
+    return DashboardResponse(
+        tiles=DashboardTilesResponse(
+            attendance_percent=found.tiles.attendance_percent,
+            present=found.tiles.present,
+            held=found.tiles.held,
+            exam_average_percent=found.tiles.exam_average_percent,
+            direction=found.tiles.direction,
+            owed=_to_wire(found.tiles.owed),
+        ),
+        attendance_by_month=[
+            AttendanceMonthResponse(
+                period=month.period,
+                held=month.held,
+                present=month.present,
+                percent=month.percent,
+                in_progress=month.in_progress,
+            )
+            for month in found.attendance_by_month
+        ],
+        exams=[
+            DashboardExamResponse(
+                exam_id=point.exam_id,
+                title=point.title,
+                date=point.date,
+                subject=point.subject,
+                marks=point.marks,
+                total=point.total,
+                percent=point.percent,
+                batch_average=point.batch_average,
+                batch_highest=point.batch_highest,
+            )
+            for point in found.exams
+        ],
+        fee_months=[
+            DashboardFeeMonthResponse(period=row.period, state=row.state)
+            for row in found.fee_months
+        ],
+    )
+
+
+@router.get(
+    "/enrollments/{enrollment_id}/dashboard",
+    response_model=DashboardResponse,
+    responses=DASHBOARD_ERRORS,
+)
+def read_seat_dashboard(
+    enrollment_id: uuid.UUID,
+    session: Annotated[Session, Depends(get_session)],
+    lens: Annotated[TeacherLens, Depends(teacher_lens)],
+    range_: Annotated[DashboardRange, Query(alias="range")] = "6m",
+) -> DashboardResponse:
+    """Read one owned seat's progress dashboard.
+
+    :param enrollment_id: The seat
+    :param session: The request-scoped session
+    :param lens: The teacher lens
+    :param range_: ``6m``, ``year`` or ``all``
+    :return: Tiles, attendance, exams and the fee strip
+    """
+    return dashboard_response(
+        seat_dashboard(session, lens=lens, enrollment_id=enrollment_id, range_=range_)
+    )

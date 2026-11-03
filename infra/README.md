@@ -1,7 +1,15 @@
 # Infrastructure
 
-Terraform for the Phase 1 backend. **USD 32.84/month** against the USD
-50 ceiling [OC-4], with the Phase 2 path to RDS written and disabled.
+Terraform for the backend: one app host per environment in an
+auto-scaling group of one, CloudFront in front, RDS behind it. The
+monthly figure against the USD 50 ceiling [OC-4] is
+`terraform output monthly_cost_estimate` -- the same expression the
+budget precondition enforces. It is not restated here: figures restated
+in this file were wrong more than once.
+
+**Read with:** `../deploy/README.md` (how a deploy runs),
+`RESTORE.md` (restoring the database -- written, not yet exercised),
+`bootstrap/README.md` (the OIDC roles and which ARN goes where).
 
 **No SSH anywhere.** Access is SSM Session Manager:
 `aws ssm start-session --target $(terraform output -raw app_instance_id)`
@@ -86,24 +94,19 @@ group, so Phase 2's rule is exact:
 security_groups = [var.app_security_group_id]   # not a CIDR guess
 ```
 
-Phase 1 still keeps Postgres on the box: a database bound to
-`127.0.0.1` is exposed to nothing, and the reason to pay for RDS is
-automated backups and PITR, which is a Phase 2 concern.
+**The database is RDS, not on the box.** The deploy replaces the host
+on every release and the root volume goes with it, so a database there
+would be deleted by the next deploy. Production refuses
+`enable_rds = false` at plan time, and the deploy refuses to release
+without an RDS instance to snapshot first [OPS-7].
 
-> **Phase 2 fits, and the collision this note used to claim was an
-> arithmetic error.** Staging plus RDS is **USD 47.28** against the
-> USD 50 ceiling — 2.72 of headroom. Until 2026-10-24 this read
-> "USD 50.20" and said Phase 2 meant retiring the rehearsal host or
-> raising the budget; neither is required. The `precondition` still
-> blocks an apply that genuinely crosses the ceiling, computing from
-> `cost_breakdown` rather than from a number written in prose.
->
-> | configuration | USD/month |
-> |---|---|
-> | app only | 15.26 |
-> | + staging | 29.92 |
-> | + RDS | 32.62 |
-> | + staging and RDS | 47.28 |
+> **The rehearsal host and RDS together now exceed the ceiling.** The
+> cost model gained the public IPv4 charge (USD 3.65 per host per
+> month, billed since 2024 on every public address) and the alarms and
+> logs [OPS-11, OPS-12], and with those `enable_staging_instance = true`
+> alongside RDS crosses USD 50. The precondition refuses it; retiring
+> the rehearsal host or raising `acknowledged_monthly_budget` is a
+> deliberate choice, not a bill surprise.
 
 ---
 
@@ -123,10 +126,10 @@ environments to configure afterwards.
 
 **Every time after that:**
 
-1. Edit `infra/**` on a branch, open a PR
-2. The plan appears as a PR comment
-3. Merge
-4. Actions → terraform → Run workflow → **apply** → approve
+1. Edit `infra/**` on a branch, open a PR, merge
+2. Actions → deploy → Run workflow → choose the environment
+3. The infrastructure job prints the plan and applies it; in
+   `production-infra` it waits for the required reviewer first
 
 **ACM validation takes 5–30 minutes** on the first apply, and
 CloudFront another 10–15. The job's 45-minute timeout exists for that.
@@ -134,10 +137,11 @@ It is not a hang.
 
 ### Why apply is manual
 
-A Terraform run can replace the Lightsail instance, and in Phase 1 that
-**destroys the containerised Postgres with it** — a database whose only
-backup is `pg_dump`. Auto-applying on merge would make a routine merge
-capable of losing teacher data.
+An apply can change IAM, DNS, the CDN and the database in one run, so
+it happens only from a dispatched deploy in an `*-infra` environment --
+never on merge, and never from a branch: the infrastructure role trusts
+no `ref:` subject [OPS-2]. Production's apply additionally waits for a
+human to read the plan.
 
 ## Reading the outputs
 
@@ -210,10 +214,10 @@ who can edit a workflow file.
 | **ALB** | A third of the budget before any compute, for 100 teachers on one instance [D-29] |
 | **SSH, bastion, key pairs** | Session Manager replaces all three, and leaves no inbound port to misconfigure |
 | **NAT gateway** | USD 32/month — more than both instances — to avoid public IPs on hosts whose inbound is closed anyway |
-| **Auto-scaling group** | One instance is the design; a group of one implies a capability we do not have |
+| **Scaling** | The auto-scaling group is desired-one with no policy. It exists so a failed host is replaced and a deploy can launch before it terminates [OPS-6] |
 | **WAF** | USD 5/month plus per-rule charges, for an API authenticated on 10 of 11 routes, where the OTP ceilings already live in the application |
 | **Multi-AZ RDS** | Doubles the database cost for a failover this scale does not justify |
-| **CloudWatch alarms** | U3 shipped six alerts in the application; duplicating them here would mean two places to change one threshold |
+| **CloudWatch dashboards and paging** | Alarms exist (CRITICAL log lines, no host in service, status checks, certificate age, RDS storage, CloudFront 5xx) and email one SNS topic. Nothing pages; an unconfirmed email subscription means nothing is delivered -- see the `alert_email_status` output |
 
 ## Scaling path, when it is needed
 
@@ -221,11 +225,8 @@ Each step is additive — none requires re-architecting what is here:
 
 1. **Bigger instance.** `instance_type = "t4g.medium"` (4 GB, USD 27).
    One variable.
-2. **RDS.** `enable_rds = true`. The ingress rule already references
-   the app's security group, so nothing about the network changes —
-   only the app's database URL.
-3. **A second app instance + ALB.** The application is already
+2. **A second app instance + ALB.** The application is already
    stateless — sessions are JWTs and rate limits are datastore-backed
    precisely so a second worker, or a second host, changes nothing.
-4. **Caching.** The cache policy becomes a per-route decision once
+3. **Caching.** The cache policy becomes a per-route decision once
    there is anything safe to cache. CloudFront is already there.

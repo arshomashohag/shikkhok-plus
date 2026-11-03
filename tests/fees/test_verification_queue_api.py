@@ -1,4 +1,4 @@
-"""The payment queue and its preview are reachable through real routes.
+"""The payment queue is reachable through its real route.
 
 The queue route shares a prefix with ``/claims/{claim_id}``, which
 parses its segment as a uuid. Declared in the wrong order, "queue" would
@@ -18,10 +18,13 @@ from sqlalchemy.orm import Session
 
 from app.auth.hashing import OTP_HMAC_KEY_ENV
 from app.auth.tokens import JWT_ACTIVE_KID_ENV, JWT_KEYS_ENV, issue_pair
-from app.fees.claims import submit_claim
+from app.authz.lenses import StudentLens
 from app.fees.ledger_writer import append_entry
+from app.fees.submissions import PaymentDraft, submit_payment
+from app.local_time import bangladesh_today
 from app.money import Money
 from tests.batches.conftest import TeacherFixture, enroll
+from tests.fees.conftest import add_method
 
 
 @pytest.fixture
@@ -57,15 +60,15 @@ def _bearer(session: Session, account_id: uuid.UUID) -> dict[str, str]:
     return {"Authorization": f"Bearer {pair.access_token}"}
 
 
-def _pending_claim(
+def _pending_payment(
     session: Session, teacher: TeacherFixture, student: uuid.UUID
 ) -> uuid.UUID:
-    """Charge a seat 1200 and claim 800 against it.
+    """Charge a seat 1200 and report a payment of 800 against it.
 
     :param session: An arranging session
     :param teacher: The batch's owner
-    :param student: The claimant's account
-    :return: The claim id
+    :param student: The payer's account
+    :return: The submission id
     """
     seat = enroll(
         session,
@@ -82,13 +85,19 @@ def _pending_claim(
         amount=Money("1200.00"),
     )
     session.commit()
-    return submit_claim(
+    return submit_payment(
         session,
-        enrollment_id=seat,
-        submitted_by_account_id=student,
-        claimed_amount=Money("800.00"),
-        channel="bKash",
-        transaction_id="TX-1",
+        lens=StudentLens(account_id=student),
+        draft=PaymentDraft(
+            enrollment_ids=(seat,),
+            payment_method_id=add_method(session, teacher.owner_id),
+            cash=False,
+            amount=Money("800.00"),
+            paid_on=bangladesh_today(),
+            transaction_id="TX-1",
+            from_account=None,
+            note=None,
+        ),
     ).id
 
 
@@ -107,7 +116,7 @@ def test_the_queue_route_answers_with_the_servers_figures(
     :return: None
     """
     student = account_factory()
-    claim = _pending_claim(owner_session, teacher, student)
+    submission = _pending_payment(owner_session, teacher, student)
 
     response = client.get(
         "/v1/claims/queue", headers=_bearer(owner_session, teacher.account_id)
@@ -115,38 +124,12 @@ def test_the_queue_route_answers_with_the_servers_figures(
 
     assert response.status_code == 200, response.text
     [item] = response.json()["pending"]
-    assert item["claim_id"] == str(claim)
-    assert (item["charged"], item["comparison"], item["difference"]) == (
+    assert item["submission_id"] == str(submission)
+    assert (item["owed_together"], item["comparison"], item["difference"]) == (
         "1200.00",
         "short",
         "400.00",
     )
-
-
-def test_the_preview_route_says_whether_to_ask_carry_or_waive(
-    client: TestClient,
-    owner_session: Session,
-    teacher: TeacherFixture,
-    account_factory: Callable[[], uuid.UUID],
-) -> None:
-    """Approving 800 of 1200 leaves 400 and needs a choice; 1200 does not.
-
-    :param client: The test client
-    :param owner_session: An arranging session
-    :param teacher: The batch's owner
-    :param account_factory: Makes accounts
-    :return: None
-    """
-    student = account_factory()
-    claim = _pending_claim(owner_session, teacher, student)
-    headers = _bearer(owner_session, teacher.account_id)
-    url = f"/v1/claims/{claim}/shortfall"
-
-    partial = client.post(url, json={"approved_amount": "800.00"}, headers=headers)
-    whole = client.post(url, json={"approved_amount": "1200.00"}, headers=headers)
-
-    assert partial.json() == {"shortfall": "400.00", "disposition_required": True}
-    assert whole.json() == {"shortfall": "0.00", "disposition_required": False}
 
 
 def test_a_student_cannot_read_the_teachers_queue(
@@ -164,7 +147,7 @@ def test_a_student_cannot_read_the_teachers_queue(
     :return: None
     """
     student = account_factory()
-    _pending_claim(owner_session, teacher, student)
+    _pending_payment(owner_session, teacher, student)
 
     response = client.get("/v1/claims/queue", headers=_bearer(owner_session, student))
 

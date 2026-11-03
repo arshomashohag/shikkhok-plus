@@ -7,8 +7,6 @@ import com.shikkhokplus.app.core.network.PayablesDto
 import com.shikkhokplus.app.core.network.PaymentLineDto
 import com.shikkhokplus.app.core.network.PaymentMonthDto
 import com.shikkhokplus.app.core.network.PaymentsDto
-import com.shikkhokplus.app.core.network.ProgressEntryDto
-import com.shikkhokplus.app.core.network.ProgressSummaryDto
 import com.shikkhokplus.app.feature.auth.AuthResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -63,9 +61,7 @@ class GuardianFlowsTest {
                     ),
                 ),
             ),
-    ) : GuardianRepository, PaymentsRepository, ChildProgressRepository {
-        val progressRead = mutableListOf<String>()
-
+    ) : GuardianRepository, PaymentsRepository {
         override suspend fun home() = home
 
         override suspend fun me() = AuthResult.Ok(MeDto(phone = "+8801819552041"))
@@ -73,20 +69,6 @@ class GuardianFlowsTest {
         override suspend fun payments(seat: String) = history
 
         override suspend fun payables(seat: String): AuthResult<PayablesDto> = AuthResult.Ok(PayablesDto())
-
-        override suspend fun progress(seat: String): AuthResult<List<ProgressEntryDto>> {
-            progressRead += seat
-            return AuthResult.Ok(
-                listOf(
-                    ProgressEntryDto("x-1", "Test 1", "2026-09-21", 50, "marked", 31, batchAverage = 30.0),
-                    ProgressEntryDto("x-2", "Test 2", "2026-09-28", 50, "absent"),
-                    ProgressEntryDto("x-3", "Test 3", "2026-10-05", 50, "marked", 44, rank = 5, rankedOutOf = 19),
-                ),
-            )
-        }
-
-        override suspend fun progressSummary(seat: String): AuthResult<ProgressSummaryDto?> =
-            AuthResult.Ok(ProgressSummaryDto("up", 2, 31, 44, 50, true))
     }
 
     @Test
@@ -105,33 +87,6 @@ class GuardianFlowsTest {
         model.load()
         advanceUntilIdle()
         assertEquals(GuardianUiState.Empty("+8801819552041"), model.state.value)
-    }
-
-    @Test
-    fun `progress finds the child's batches, skips absences and switches batch`() = runTest(dispatcher) {
-        val fake = Fake()
-        val model = ChildProgressViewModel(fake)
-
-        model.load("seat-Tasnim")
-        advanceUntilIdle()
-        val loaded = assertIs<ChildProgressUiState.Loaded>(model.state.value)
-
-        assertEquals(listOf(31, 44), loaded.points.map { it.marks })
-        assertEquals(ProgressReading("up", 2, 31, 44, 50, true), loaded.reading)
-        assertEquals("Tasnim", loaded.childName)
-
-        model.select("seat-Tasnim")
-        assertEquals(listOf("seat-Tasnim"), fake.progressRead, "selecting the shown batch reads nothing")
-    }
-
-    @Test
-    fun `progress for a seat the guardian does not hold is refused`() = runTest(dispatcher) {
-        val model = ChildProgressViewModel(Fake())
-
-        model.load("someone-else")
-        advanceUntilIdle()
-
-        assertIs<ChildProgressUiState.Failed>(model.state.value)
     }
 
     @Test

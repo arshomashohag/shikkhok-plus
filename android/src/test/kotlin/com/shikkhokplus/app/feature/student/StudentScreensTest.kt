@@ -3,6 +3,7 @@ package com.shikkhokplus.app.feature.student
 import androidx.activity.ComponentActivity
 import com.shikkhokplus.app.feature.student.ui.TAG_STUDENT_PAY
 import com.shikkhokplus.app.feature.student.ui.TAG_STUDENT_FEES
+import com.shikkhokplus.app.feature.student.ui.TAG_STUDENT_PROGRESS
 import com.shikkhokplus.app.core.format.YearMonth
 import com.shikkhokplus.app.core.ui.CalendarClassUi
 import com.shikkhokplus.app.core.ui.CalendarDayUi
@@ -108,6 +109,7 @@ class StudentScreensTest {
         openers: FamilyOpeners = FamilyOpeners(),
         onSelect: (FamilyTab) -> Unit = {},
         calendar: ClassCalendarUiState = ClassCalendarUiState.Idle,
+        onOpenProgress: (() -> Unit)? = null,
     ) {
         compose.setContent {
             StudentBatchScreen(
@@ -119,8 +121,26 @@ class StudentScreensTest {
                 onSelect = onSelect,
                 openers = openers,
                 calendar = calendar,
+                onOpenProgress = onOpenProgress,
             )
         }
+    }
+
+    @Test
+    fun `the batch header opens the progress dashboard when it is given one`() {
+        var opened = false
+        show(view(), FamilyTab.CLASSES, onOpenProgress = { opened = true })
+
+        compose.onNodeWithTag(TAG_STUDENT_PROGRESS).performClick()
+
+        assertEquals(true, opened)
+    }
+
+    @Test
+    fun `the batch header has no progress link without one`() {
+        show(view(), FamilyTab.CLASSES)
+
+        assertEquals(0, compose.onAllNodesWithTag(TAG_STUDENT_PROGRESS).fetchSemanticsNodes().size)
     }
 
     private val upcomingExam = FamilyExam("x-2", "Monthly", "2026-11-02", "Physics", 50, listOf("Heat"), false)

@@ -50,8 +50,6 @@ class BatchCreateRequest(BaseModel):
     :ivar teacher_display_name: What students see the teacher called
     :ivar default_fee: The fee an enrollment inherits when it sets none
     :ivar fee_due_day: Day of month 1-31; 29-31 clamp at generation
-    :ivar collection_number: Where payments are sent
-    :ivar collection_channel: Which service that number belongs to
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -62,8 +60,6 @@ class BatchCreateRequest(BaseModel):
     teacher_display_name: str | None = Field(default=None, max_length=120)
     default_fee: MoneyField | None = None
     fee_due_day: int | None = Field(default=None, ge=1, le=31)
-    collection_number: str | None = Field(default=None, max_length=32)
-    collection_channel: str | None = Field(default=None, max_length=32)
 
 
 class BatchUpdateRequest(BaseModel):
@@ -77,8 +73,6 @@ class BatchUpdateRequest(BaseModel):
     :ivar teacher_display_name: What students see the teacher called
     :ivar default_fee: The inherited fee, for cycles not yet generated
     :ivar fee_due_day: Day of month 1-31
-    :ivar collection_number: Where payments are sent
-    :ivar collection_channel: Which service that number belongs to
     :ivar marksheet_visible: U6's toggle
     :ivar active: False collapses the batch to read-only history
     """
@@ -90,8 +84,6 @@ class BatchUpdateRequest(BaseModel):
     teacher_display_name: str | None = Field(default=None, max_length=120)
     default_fee: MoneyField | None = None
     fee_due_day: int | None = Field(default=None, ge=1, le=31)
-    collection_number: str | None = Field(default=None, max_length=32)
-    collection_channel: str | None = Field(default=None, max_length=32)
     marksheet_visible: bool | None = None
     active: bool | None = None
 
@@ -129,8 +121,6 @@ class BatchResponse(BaseModel):
     :ivar teacher_display_name: What students see the teacher called
     :ivar default_fee: The inherited fee
     :ivar fee_due_day: Day of month 1-31
-    :ivar collection_number: Where payments are sent
-    :ivar collection_channel: Which service that number belongs to
     :ivar marksheet_visible: U6's toggle
     :ivar active: False means read-only history
     :ivar enrollment_count: How many seats, computed server-side. The
@@ -151,8 +141,6 @@ class BatchResponse(BaseModel):
     teacher_display_name: str | None
     default_fee: MoneyField | None
     fee_due_day: int | None
-    collection_number: str | None
-    collection_channel: str | None
     marksheet_visible: bool
     active: bool
     enrollment_count: int

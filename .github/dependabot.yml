@@ -104,6 +104,17 @@ updates:
 
   # -------------------------------------------------------------------------
   # Docker
+  #
+  # **Digest refreshes and patch releases only.** The base image is
+  # `python:3.12-slim-bookworm@sha256:...`, and the project targets 3.12
+  # everywhere -- requires-python, Ruff, mypy, the CI interpreter and the
+  # lockfile. An earlier weekly PR moved the image to 3.15 and production
+  # then ran an interpreter no test had run on [OPS-13]. A Python minor
+  # bump is a project decision that touches all of those at once, so it
+  # is made by hand, never by this channel.
+  #
+  # The `image` job in check.yml builds and starts every PR this opens,
+  # and asserts the image still reports Python 3.12.
   # -------------------------------------------------------------------------
   - package-ecosystem: docker
     directory: "/"
@@ -113,6 +124,11 @@ updates:
       time: "09:00"
       timezone: Asia/Dhaka
     open-pull-requests-limit: 2
+    ignore:
+      - dependency-name: "python"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
     commit-message:
       prefix: "chore(deps)"
     labels: ["dependencies", "docker"]

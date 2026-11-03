@@ -32,9 +32,10 @@ apt-get update
 # name before writing the _acme-challenge record.
 #
 # The renewal concern is answered rather than dismissed: certbot
-# installs its own systemd timer, and the certificate is re-issued on
-# every instance replacement anyway, which on this project is every
-# deploy.
+# installs its own systemd timer, and a deploy hook reloads nginx and
+# persists the renewed lineage to the config bucket. A boot RESTORES
+# that lineage rather than issuing again -- re-issuing on every deploy
+# hit Let's Encrypt's 5-duplicates-a-week limit [OPS-8].
 #
 # **ssl-cert is still NOT optional.** It generates the snakeoil pair
 # that the TLS server block falls back to on first boot, before certbot
@@ -47,7 +48,18 @@ apt-get install -y --no-install-recommends \
   certbot python3-certbot-dns-route53
 
 usermod -aG docker ubuntu
-systemctl enable --now docker
+
+# **Bounded local logs** [OPS-11]. The default json-file driver never
+# rotates, so a chatty container fills the root volume -- the one the
+# whole host runs from -- and the first symptom is everything failing
+# at once. The app's own containers ship to CloudWatch (compose sets
+# the awslogs driver); this caps whatever else runs, and the local
+# cache Docker keeps beside a remote driver.
+cat > /etc/docker/daemon.json <<'DOCKERD'
+{"log-driver": "json-file", "log-opts": {"max-size": "10m", "max-file": "5"}}
+DOCKERD
+systemctl enable docker
+systemctl restart docker
 
 # The SSM agent, which is what replaces SSH. Ubuntu 24.04 ships it as
 # a snap and it is pre-installed on Canonical's AMIs -- enabling it
@@ -56,24 +68,86 @@ systemctl enable --now docker
 snap install amazon-ssm-agent --classic 2>/dev/null || true
 snap start amazon-ssm-agent 2>/dev/null || systemctl enable --now snap.amazon-ssm-agent.amazon-ssm-agent.service
 
+# The AWS CLI, for `ecr get-login-password` and -- since the secrets
+# left user_data [OPS-4] -- for reading them from SSM before nginx is
+# configured. It is therefore installed FIRST. Ubuntu's apt version is
+# v1 and too old for some ECR flows, so the official v2 bundle is
+# installed instead -- arm64, matching the host.
+# **PATH is set explicitly.** cloud-init runs this as root with a
+# minimal environment, and the CLI v2 installer puts `aws` in
+# /usr/local/bin -- which is not reliably on root's PATH here. Without
+# this the install succeeds and the next `aws` call fails with
+# "command not found", which under `set -e` aborts the boot at a step
+# that looks unrelated.
+export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
+
+if ! command -v aws >/dev/null 2>&1; then
+  curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" \
+    -o /tmp/awscliv2.zip
+  apt-get install -y --no-install-recommends unzip
+  unzip -q /tmp/awscliv2.zip -d /tmp
+  /tmp/aws/install
+  rm -rf /tmp/aws /tmp/awscliv2.zip
+fi
+
+# **Asserted, because every step after this needs it.** An install
+# that half-succeeded leaves a boot that fails three steps later with
+# a message about DNS or SSM rather than about the CLI.
+if ! aws --version >/dev/null 2>&1; then
+  {
+    echo "FAILED: the AWS CLI is not usable after install"
+    echo "  which aws: $(command -v aws || echo 'not found')"
+    echo "  PATH: $PATH"
+  } > /var/log/shikkhokplus-provision.log
+  exit 1
+fi
+
+# One reader for every parameter, so the path shape and the region are
+# written once. SecureStrings are decrypted by SSM with the instance
+# role, which may read exactly the parameters secrets.tf lists.
+param() {
+  aws ssm get-parameter --name "/shikkhokplus/${name_prefix}/$1" \
+    --with-decryption --query 'Parameter.Value' --output text \
+    --region "${aws_region}"
+}
+
 # The origin secret. Readable only by root, because any process that
 # can read it can forge a request that looks like it came through the
 # CDN.
-install -m 600 /dev/null /etc/nginx/origin_secret.conf
-cat > /etc/nginx/origin_secret.conf <<'NGINX'
+#
 # CloudFront sets this header on every origin request. A request
 # arriving without it did not come through the CDN -- so it bypassed
 # TLS policy enforcement, Shield Standard, and any WAF added later.
+# 403 rather than 404: there is no information to protect here.
 #
-# 403 rather than 404: there is no information to protect here. The
-# host's existence is public (it has a static IP), and a 404 would
-# imply the path is wrong rather than the route.
-if ($http_x_origin_secret != "${origin_secret}") {
-    return 403;
-}
-NGINX
+# **Read from SSM, never from the template** [OPS-4]. It is checked to
+# be the alphanumeric string Terraform generates before it is written
+# into an nginx config, so a malformed value fails the boot here rather
+# than producing a config that matches nothing -- or anything.
+ORIGIN_SECRET=$(param origin-secret)
+if ! [[ "$ORIGIN_SECRET" =~ ^[A-Za-z0-9]{32,}$ ]]; then
+  echo "FAILED: origin secret missing or malformed in SSM" > /var/log/shikkhokplus-provision.log
+  exit 1
+fi
+install -m 600 /dev/null /etc/nginx/origin_secret.conf
+printf 'if ($http_x_origin_secret != "%s") {\n    return 403;\n}\n' \
+  "$ORIGIN_SECRET" > /etc/nginx/origin_secret.conf
+# Kept in this (unexported) shell variable for the readiness probe at
+# the end, which must present it exactly as CloudFront does.
 
 cat > /etc/nginx/sites-available/shikkhokplus <<'NGINX'
+# The viewer's address as CloudFront saw it, without the port.
+# CloudFront-Viewer-Address is `ip:port`; IPv6 addresses carry no
+# brackets, so the port is whatever follows the LAST colon and the
+# greedy capture takes everything before it. The capture admits only
+# hex digits, colons and dots, so the result is one bare address --
+# never a list, a bracket or anything a caller smuggled in. Absent or
+# malformed yields "", and nginx then sends no X-Client-Address at all.
+map $http_cloudfront_viewer_address $shikkhok_client_ip {
+    "~^(?<addr>[0-9A-Fa-f:.]+):[0-9]+$" $addr;
+    default "";
+}
+
 server {
     listen 80 default_server;
     server_name _;
@@ -105,10 +179,16 @@ server {
     location / {
         proxy_pass http://127.0.0.1:8000;
         proxy_set_header Host              $host;
-        # The REAL client IP, not CloudFront's. The OTP rate limiter
-        # counts per IP, so without this every request would look like
-        # one caller and a per-IP limit would become a global one.
-        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        # **The REAL client IP, and only from CloudFront.** The OTP rate
+        # limiter counts per IP. X-Forwarded-For was appended to rather
+        # than replaced, so a caller could put any address first and
+        # choose which bucket they counted against. X-Client-Address is
+        # ALWAYS set here -- proxy_set_header replaces a client-sent
+        # header of the same name, and an empty value sends none -- so
+        # the application, told by SHIKKHOKPLUS_TRUSTED_CLIENT_IP_HEADER
+        # to read it, sees only what CloudFront observed.
+        proxy_set_header X-Client-Address  $shikkhok_client_ip;
+        proxy_set_header X-Forwarded-For   "";
         proxy_set_header X-Forwarded-Proto https;
         proxy_read_timeout 30s;
     }
@@ -154,38 +234,6 @@ fi
 # for no reason.
 install -d -o ubuntu -g ubuntu -m 0750 /srv/shikkhokplus
 
-# The AWS CLI, for `ecr get-login-password`. Ubuntu's apt version is
-# v1 and too old for some ECR flows, so the official v2 bundle is
-# installed instead -- arm64, matching the host.
-# **PATH is set explicitly.** cloud-init runs this as root with a
-# minimal environment, and the CLI v2 installer puts `aws` in
-# /usr/local/bin -- which is not reliably on root's PATH here. Without
-# this the install succeeds and the next `aws` call fails with
-# "command not found", which under `set -e` aborts the boot at a step
-# that looks unrelated.
-export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
-
-if ! command -v aws >/dev/null 2>&1; then
-  curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" \
-    -o /tmp/awscliv2.zip
-  apt-get install -y --no-install-recommends unzip
-  unzip -q /tmp/awscliv2.zip -d /tmp
-  /tmp/aws/install
-  rm -rf /tmp/aws /tmp/awscliv2.zip
-fi
-
-# **Asserted, because every step after this needs it.** An install
-# that half-succeeded leaves a boot that fails three steps later with
-# a message about DNS or SSM rather than about the CLI.
-if ! aws --version >/dev/null 2>&1; then
-  {
-    echo "FAILED: the AWS CLI is not usable after install"
-    echo "  which aws: $(command -v aws || echo 'not found')"
-    echo "  PATH: $PATH"
-  } > /var/log/shikkhokplus-provision.log
-  exit 1
-fi
-
 # **A credential helper rather than a stored login.** `docker login`
 # writes a token to ~/.docker/config.json that expires in 12 hours,
 # so a host that reboots after that cannot pull and the failure looks
@@ -221,113 +269,233 @@ echo "${ecr_repository_url}" > /srv/shikkhokplus/image-repository
 chown ubuntu:ubuntu /srv/shikkhokplus/image-repository
 
 # ---------------------------------------------------------------------
-# Self-registration: this instance announces its own address
+# Self-registration and readiness: defined here, CALLED at the end
 # ---------------------------------------------------------------------
 #
 # **Replaces the Elastic IP.** An ASG instance gets a new public IP on
 # every replacement, so a Terraform-managed A record would be stale the
-# moment the box is replaced -- and re-attaching an EIP needs a
-# lifecycle hook that can fail halfway, leaving an instance running and
-# unreachable.
+# moment the box is replaced. Writing the record from the instance
+# inverts that: whatever comes up is what CloudFront reaches, within
+# one TTL. Terraform deliberately does NOT own this record.
 #
-# Writing the record from the instance inverts that: whatever comes up
-# is what CloudFront reaches, within one TTL, with nothing to
-# re-attach. Terraform deliberately does NOT own this record.
+# **Registered only once this host is READY, not at the top of the
+# boot** [OPS-6]. A deploy now launches the new host BEFORE terminating
+# the old one. Registering first would point CloudFront at a box still
+# installing packages and migrating -- 502s for minutes while a healthy
+# host sat beside it. Registering last means the old host serves until
+# the new one has proved itself, and the refresh's instance warmup
+# (longer than the record's 60 s TTL) gives CloudFront time to follow
+# before the old host is terminated.
 
-TOKEN=$(curl -fsS -X PUT "http://169.254.169.254/latest/api/token" \
-  -H "X-aws-ec2-metadata-token-ttl-seconds: 300")
-PUBLIC_IP=$(curl -fsS -H "X-aws-ec2-metadata-token: $TOKEN" \
-  http://169.254.169.254/latest/meta-data/public-ipv4)
-
-if [ -z "$PUBLIC_IP" ]; then
-  echo "FAILED: no public IPv4 from IMDS" > /var/log/shikkhokplus-provision.log
-  exit 1
-fi
-
-cat > /tmp/dns-register.json <<DNSJSON
-{
-  "Comment": "Self-registration at boot",
-  "Changes": [{
-    "Action": "UPSERT",
-    "ResourceRecordSet": {
-      "Name": "${origin_fqdn}",
-      "Type": "A",
-      "TTL": 60,
-      "ResourceRecords": [{"Value": "$PUBLIC_IP"}]
-    }
-  }]
+imds() {
+  local token
+  token=$(curl -fsS -X PUT "http://169.254.169.254/latest/api/token" \
+    -H "X-aws-ec2-metadata-token-ttl-seconds: 300")
+  curl -fsS -H "X-aws-ec2-metadata-token: $token" \
+    "http://169.254.169.254/latest/meta-data/$1"
 }
-DNSJSON
 
-# **The error is captured, not discarded.** An earlier version piped
-# stdout to /dev/null and wrote only "FAILED: DNS self-registration",
-# which threw away the one thing needed to diagnose it -- AWS reports
-# the reason on stderr, and the handler lost that too. The boot log
-# then said a step failed and nothing about why.
-if ! dns_error=$(aws route53 change-resource-record-sets \
-    --hosted-zone-id "${dns_zone_id}" \
-    --change-batch file:///tmp/dns-register.json \
-    --region us-east-1 2>&1); then
-  {
-    echo "FAILED: DNS self-registration"
-    echo "  zone:  ${dns_zone_id}"
-    echo "  name:  ${origin_fqdn}"
-    echo "  value: $PUBLIC_IP"
-    echo "  aws cli: $(command -v aws || echo 'NOT INSTALLED')"
-    echo "  error:"
-    echo "$dns_error" | sed 's/^/    /'
-  } > /var/log/shikkhokplus-provision.log
-  exit 1
-fi
-rm -f /tmp/dns-register.json
-echo "Registered ${origin_fqdn} -> $PUBLIC_IP"
+register_dns() {
+  local public_ip dns_error
+  public_ip=$(imds public-ipv4) || public_ip=""
+  if [ -z "$public_ip" ]; then
+    echo "FAILED: no public IPv4 from IMDS" >> /var/log/shikkhokplus-provision.log
+    return 1
+  fi
+  cat > /tmp/dns-register.json <<DNSJSON
+{"Comment": "Self-registration at boot", "Changes": [{"Action": "UPSERT",
+ "ResourceRecordSet": {"Name": "${origin_fqdn}", "Type": "A", "TTL": 60,
+ "ResourceRecords": [{"Value": "$public_ip"}]}}]}
+DNSJSON
+  # **The error is captured, not discarded.** AWS reports the reason on
+  # stderr; an earlier version threw it away and the boot log said a
+  # step failed and nothing about why.
+  if ! dns_error=$(aws route53 change-resource-record-sets \
+      --hosted-zone-id "${dns_zone_id}" \
+      --change-batch file:///tmp/dns-register.json \
+      --region us-east-1 2>&1); then
+    {
+      echo "FAILED: DNS self-registration of ${origin_fqdn} -> $public_ip"
+      echo "$dns_error" | sed 's/^/    /'
+    } >> /var/log/shikkhokplus-provision.log
+    return 1
+  fi
+  rm -f /tmp/dns-register.json
+  echo "Registered ${origin_fqdn} -> $public_ip" >> /var/log/shikkhokplus-provision.log
+}
+
+# **The readiness signal** [OPS-6]. The group's launch lifecycle hook
+# holds every new instance in Pending:Wait until this says CONTINUE; no
+# answer within the hook's timeout, or ABANDON, and the ASG terminates
+# the instance instead of putting it in service. During a deploy that
+# means a host which cannot serve never replaces one which can.
+#
+# The group's name comes from the instance's own tags through IMDS
+# (instance_metadata_tags is enabled), because the launch template
+# cannot name the group that uses it. "No lifecycle action" is not an
+# error: a brand-new group launches its first instance before the
+# hook exists, and that instance has nothing to answer.
+lifecycle() {
+  local asg iid
+  asg=$(imds tags/instance/aws:autoscaling:groupName) || return 0
+  iid=$(imds instance-id) || return 0
+  aws autoscaling complete-lifecycle-action \
+    --lifecycle-hook-name "${lifecycle_hook_name}" \
+    --auto-scaling-group-name "$asg" --instance-id "$iid" \
+    --lifecycle-action-result "$1" --region "${aws_region}" \
+    >> /var/log/shikkhokplus-provision.log 2>&1 \
+    || echo "lifecycle $1: no pending action for $iid" \
+         >> /var/log/shikkhokplus-provision.log
+}
+
+# A boot that fails anywhere from here on says so at once, rather than
+# leaving the ASG to wait out the hook's full timeout.
+# **The boot log leaves the host** [OPS-11]. An abandoned instance is
+# terminated, and with it the only record of why. Shipped on every
+# exit, success or failure, to `boot-<instance-id>` in the app's log
+# group. It carries command output only: the secrets this script reads
+# are never echoed.
+ship_boot_log() {
+  local iid
+  iid=$(imds instance-id) || return 0
+  aws logs create-log-stream --log-group-name "${log_group}" \
+    --log-stream-name "boot-$iid" --region "${aws_region}" 2>/dev/null || true
+  python3 -c 'import json, sys, time
+t = int(time.time() * 1000)
+lines = open(sys.argv[1], errors="replace").read().splitlines()[-5000:]
+print(json.dumps([{"timestamp": t, "message": x or " "} for x in lines]))' \
+    /var/log/shikkhokplus-provision.log > /root/boot-events.json || return 0
+  aws logs put-log-events --log-group-name "${log_group}" \
+    --log-stream-name "boot-$iid" --log-events file:///root/boot-events.json \
+    --region "${aws_region}" >/dev/null 2>&1 || true
+  rm -f /root/boot-events.json
+}
+
+trap 'rc=$?; [ "$rc" -eq 0 ] || lifecycle ABANDON; ship_boot_log' EXIT
+
+# A host with nothing to run yet -- first boot before any deploy --
+# is still a correct host: register it and put it in service.
+ready_without_app() {
+  register_dns
+  lifecycle CONTINUE
+  exit 0
+}
 
 # ---------------------------------------------------------------------
 # A real origin certificate, so CloudFront will talk to us at all
 # ---------------------------------------------------------------------
 #
-# **This runs AFTER the DNS registration above and not before.** DNS-01
-# writes a TXT record under the same zone, and the zone must already
-# resolve this host; ordering it earlier would issue a certificate for
-# a name pointing at the previous instance.
+# **Restored, not re-issued** [OPS-8]. Every boot used to request a new
+# Let's Encrypt certificate, and every deploy is a boot. Let's Encrypt
+# allows 5 duplicate certificates per 7 days, so the sixth deploy in a
+# week got a refusal, fell back to snakeoil, and CloudFront returned
+# 502 to every request while the boot reported success. Renewal, when it
+# did happen, never reloaded nginx, so a renewed certificate sat on disk
+# while nginx served the old one until it expired.
 #
-# **Failure here is not fatal to the boot, deliberately.** nginx is
-# already serving on the snakeoil pair, so the instance is reachable
-# over SSM for diagnosis and the application is up. What fails is
-# CloudFront, loudly and in one place, rather than the whole boot
-# failing for a certificate problem. The provision log records it
-# either way.
-echo "Requesting origin certificate for ${origin_fqdn}..." \
-  >> /var/log/shikkhokplus-provision.log
-if certbot certonly --dns-route53 \
+# Now /etc/letsencrypt -- account, renewal config and the lineage --
+# lives in the config bucket (SSE, TLS-only, private). A boot restores
+# it and uses the certificate when it has more than 30 days left; only
+# otherwise does certbot run, and `--keep-until-expiring` makes that a
+# renewal of the restored lineage rather than a fresh issuance. Two
+# hosts overlapping during a launch-before-terminate refresh therefore
+# both restore the same certificate and neither touches Let's Encrypt.
+#
+# The deploy hook runs after EVERY successful issuance or renewal --
+# certbot records it in the lineage's renewal config, so the systemd
+# timer's renewals run it too. It points nginx at the live files,
+# reloads, and uploads the new state.
+#
+# DNS-01 writes only a TXT record, so it does not depend on this
+# host's A record existing yet -- which matters now that the A record
+# is written only once the host is ready.
+#
+# **Failure here is not fatal to the boot by itself.** nginx keeps the
+# snakeoil pair and the boot continues -- but the readiness check at
+# the end calls the origin over TLS WITH certificate verification, as
+# CloudFront does, so a host serving snakeoil never reports ready and is
+# never put in service.
+cat > /usr/local/bin/shikkhokplus-cert-deployed <<'HOOK'
+#!/bin/bash
+set -euo pipefail
+export PATH="/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+LIVE="/etc/letsencrypt/live/${origin_fqdn}"
+SITE=/etc/nginx/sites-available/shikkhokplus
+cp "$SITE" "$SITE.bak"
+sed -i \
+  -e "s#^\( *ssl_certificate \).*#\1$LIVE/fullchain.pem;#" \
+  -e "s#^\( *ssl_certificate_key \).*#\1$LIVE/privkey.pem;#" "$SITE"
+if ! nginx -t; then
+  mv "$SITE.bak" "$SITE"
+  logger -t shikkhokplus "FAILED: nginx rejected the origin certificate"
+  exit 1
+fi
+rm -f "$SITE.bak"
+systemctl reload nginx
+if [ "$${SHIKKHOKPLUS_CERT_NO_UPLOAD:-0}" != "1" ]; then
+  umask 077
+  tar -C /etc -czf /root/letsencrypt.tar.gz letsencrypt
+  aws s3 cp /root/letsencrypt.tar.gz \
+    "s3://${config_bucket}/tls/letsencrypt.tar.gz" \
+    --sse AES256 --only-show-errors --region "${aws_region}"
+  rm -f /root/letsencrypt.tar.gz
+fi
+logger -t shikkhokplus "origin certificate installed; nginx reloaded"
+HOOK
+chmod 0700 /usr/local/bin/shikkhokplus-cert-deployed
+
+# **The certificate's remaining life, as a metric** [OPS-11]. The alarm
+# on it fires under 14 days AND when nothing is reported, so a host
+# serving no real certificate alerts too. Daily from cron, and once at
+# the end of this boot.
+cat > /usr/local/bin/shikkhokplus-cert-metric <<'METRIC'
+#!/bin/bash
+set -euo pipefail
+export PATH="/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+end=$(openssl x509 -enddate -noout \
+  -in "/etc/letsencrypt/live/${origin_fqdn}/fullchain.pem" | cut -d= -f2)
+days=$(( ($(date -d "$end" +%s) - $(date +%s)) / 86400 ))
+aws cloudwatch put-metric-data --namespace "Shikkhokplus/${name_prefix}" \
+  --metric-name OriginCertificateDaysRemaining --value "$days" \
+  --unit Count --region "${aws_region}"
+METRIC
+chmod 0755 /usr/local/bin/shikkhokplus-cert-metric
+cat > /etc/cron.d/shikkhokplus-cert-metric <<'CRON'
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+17 3 * * * root /usr/local/bin/shikkhokplus-cert-metric
+CRON
+chmod 0644 /etc/cron.d/shikkhokplus-cert-metric
+/usr/local/bin/shikkhokplus-cert-metric >> /var/log/shikkhokplus-provision.log 2>&1 \
+  || echo "WARNING: no origin certificate to report" >> /var/log/shikkhokplus-provision.log
+
+LIVE="/etc/letsencrypt/live/${origin_fqdn}"
+if aws s3 cp "s3://${config_bucket}/tls/letsencrypt.tar.gz" \
+     /root/letsencrypt.tar.gz --only-show-errors --region "${aws_region}" \
+     >> /var/log/shikkhokplus-provision.log 2>&1; then
+  tar -C /etc -xzf /root/letsencrypt.tar.gz
+  rm -f /root/letsencrypt.tar.gz
+fi
+
+# 2592000 seconds is 30 days, certbot's own renewal window.
+if [ -f "$LIVE/fullchain.pem" ] \
+   && openssl x509 -checkend 2592000 -noout -in "$LIVE/fullchain.pem" >/dev/null; then
+  echo "Origin certificate restored; valid for more than 30 days." \
+    >> /var/log/shikkhokplus-provision.log
+  SHIKKHOKPLUS_CERT_NO_UPLOAD=1 /usr/local/bin/shikkhokplus-cert-deployed \
+    >> /var/log/shikkhokplus-provision.log 2>&1 \
+    || echo "FAILED: restored certificate rejected by nginx" \
+         >> /var/log/shikkhokplus-provision.log
+elif certbot certonly --dns-route53 \
      -d "${origin_fqdn}" \
      --non-interactive --agree-tos --register-unsafely-without-email \
      --keep-until-expiring \
+     --deploy-hook /usr/local/bin/shikkhokplus-cert-deployed \
      >> /var/log/shikkhokplus-provision.log 2>&1; then
-  LIVE="/etc/letsencrypt/live/${origin_fqdn}"
-  sed -i \
-    "s#ssl_certificate .*ssl-cert-snakeoil.pem;#ssl_certificate     $LIVE/fullchain.pem;#" \
-    /etc/nginx/sites-available/shikkhokplus
-  sed -i \
-    "s#ssl_certificate_key .*ssl-cert-snakeoil.key;#ssl_certificate_key $LIVE/privkey.pem;#" \
-    /etc/nginx/sites-available/shikkhokplus
-  if nginx -t >> /var/log/shikkhokplus-provision.log 2>&1; then
-    systemctl reload nginx
-    echo "Origin certificate installed; nginx reloaded." \
-      >> /var/log/shikkhokplus-provision.log
-  else
-    # Revert rather than leave nginx unable to start on its next boot.
-    sed -i \
-      "s#ssl_certificate .*fullchain.pem;#ssl_certificate     /etc/ssl/certs/ssl-cert-snakeoil.pem;#" \
-      /etc/nginx/sites-available/shikkhokplus
-    sed -i \
-      "s#ssl_certificate_key .*privkey.pem;#ssl_certificate_key /etc/ssl/private/ssl-cert-snakeoil.key;#" \
-      /etc/nginx/sites-available/shikkhokplus
-    echo "FAILED: nginx rejected the certificate; reverted to snakeoil. CloudFront will 502." \
-      >> /var/log/shikkhokplus-provision.log
-  fi
+  echo "Origin certificate issued or renewed for ${origin_fqdn}." \
+    >> /var/log/shikkhokplus-provision.log
 else
-  echo "FAILED: certbot could not issue for ${origin_fqdn}. Serving snakeoil; CloudFront will 502." \
+  echo "FAILED: certbot could not issue for ${origin_fqdn}. Serving snakeoil." \
     >> /var/log/shikkhokplus-provision.log
 fi
 
@@ -353,8 +521,8 @@ if [ "$IMAGE_TAG" = "none" ] || [ -z "${ecr_repository_url}" ]; then
   # expected: nginx serves, the API is absent, and the next deploy
   # fills it in. NOT an error.
   echo "provisioned (no image deployed yet)" \
-    > /var/log/shikkhokplus-provision.log
-  exit 0
+    >> /var/log/shikkhokplus-provision.log
+  ready_without_app
 fi
 
 # **The compose file comes from git, the secrets from SSM.** Neither
@@ -370,15 +538,29 @@ RUNTIME_ENV=$(aws ssm get-parameter \
 
 if [ -z "$RUNTIME_ENV" ] || [ "$RUNTIME_ENV" = "SHIKKHOKPLUS_ENVIRONMENT=unset" ]; then
   echo "provisioned (image $IMAGE_TAG known, no runtime env yet)" \
+    >> /var/log/shikkhokplus-provision.log
+  ready_without_app
+fi
+
+# **The restricted role, never the owner** [OPS-5]. The API and the
+# scheduled jobs read SHIKKHOKPLUS_DATABASE_URL, which names
+# shikkhok_app. The owner's URL is not written to this file at all:
+# it is held in this shell only for the two one-shot commands below.
+if ! DATABASE_URL=$(param database-url 2>/dev/null); then
+  echo "FAILED: no database-url parameter. Is enable_rds true?" \
     > /var/log/shikkhokplus-provision.log
-  exit 0
+  exit 1
 fi
 
 umask 077
 printf '%s\n' "$RUNTIME_ENV" > .env
 echo "API_IMAGE=${ecr_repository_url}:$IMAGE_TAG" >> .env
-echo "SHIKKHOKPLUS_DATABASE_URL=${database_url}" >> .env
+# Where compose's awslogs driver ships the containers [OPS-11].
+echo "SHIKKHOKPLUS_LOG_GROUP=${log_group}" >> .env
+echo "SHIKKHOKPLUS_LOG_REGION=${aws_region}" >> .env
+echo "SHIKKHOKPLUS_DATABASE_URL=$DATABASE_URL" >> .env
 chown ubuntu:ubuntu .env
+unset DATABASE_URL
 
 # Fetched rather than inlined: the script plus the compose file
 # crossed EC2's 16KB user_data limit.
@@ -402,15 +584,37 @@ sudo -u ubuntu docker compose pull
 #
 # `run --rm` rather than `exec`: there is no running container yet,
 # and this must complete before one exists.
+#
+# **The `migrate` service, not `api`** [OPS-5]. It is the only service
+# given the owner's URL, and it receives it from THIS shell's
+# environment through `sudo --preserve-env` and compose interpolation:
+# never on a command line (where `ps` shows it), never in a file on
+# disk, never in the API container. Order is fixed: migrate, then set
+# the restricted role's password, then start the API that logs in with
+# it.
 echo "Running migrations..." >> /var/log/shikkhokplus-provision.log
-if ! sudo -u ubuntu docker compose run --rm api alembic upgrade head \
-     >> /var/log/shikkhokplus-provision.log 2>&1; then
+SHIKKHOKPLUS_MIGRATION_DATABASE_URL=$(param migration-database-url)
+SHIKKHOKPLUS_APP_DB_PASSWORD=$(param app-db-password)
+export SHIKKHOKPLUS_MIGRATION_DATABASE_URL SHIKKHOKPLUS_APP_DB_PASSWORD
+migrate() {
+  sudo -u ubuntu \
+    --preserve-env=SHIKKHOKPLUS_MIGRATION_DATABASE_URL,SHIKKHOKPLUS_APP_DB_PASSWORD \
+    docker compose --profile migrate run --rm migrate "$@" \
+    >> /var/log/shikkhokplus-provision.log 2>&1
+}
+if ! migrate alembic upgrade head; then
   echo "FAILED: alembic upgrade head" >> /var/log/shikkhokplus-provision.log
   # **Exit non-zero and serve nothing.** An instance that starts the
   # API against a schema the migration could not apply is worse than
   # an instance that does not start: it answers requests wrongly.
   exit 1
 fi
+if ! migrate python -m app.db.commands set-app-role-password; then
+  echo "FAILED: could not set the shikkhok_app password" \
+    >> /var/log/shikkhokplus-provision.log
+  exit 1
+fi
+unset SHIKKHOKPLUS_MIGRATION_DATABASE_URL SHIKKHOKPLUS_APP_DB_PASSWORD
 
 sudo -u ubuntu docker compose up -d --remove-orphans
 
@@ -434,11 +638,18 @@ sudo -u ubuntu docker compose up -d --remove-orphans
 # before a teacher opens the app to check the month's fees.
 echo "Installing the generation cron entry..." \
   >> /var/log/shikkhokplus-provision.log
+# **The log files exist, owned by ubuntu, BEFORE any job appends.**
+# The jobs run as ubuntu and /var/log is root's: a `>>` into a file
+# ubuntu cannot create fails the redirection, and bash then does not
+# run the command at all. The job never starts and the error goes to
+# cron's local mail, which nobody reads [OPS-1].
+install -o ubuntu -g ubuntu -m 0640 /dev/null /var/log/shikkhokplus-fee-generation.log
+install -o ubuntu -g ubuntu -m 0640 /dev/null /var/log/shikkhokplus-session-generation.log
 cat > /etc/cron.d/shikkhokplus-fee-generation <<'CRON'
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 # min hour dom mon dow user command
-0 2 * * * ubuntu cd /home/ubuntu && docker compose run --rm api python -m app.fees.commands generate >> /var/log/shikkhokplus-fee-generation.log 2>&1
+0 2 * * * ubuntu cd /srv/shikkhokplus && docker compose run --rm api python -m app.fees.commands generate >> /var/log/shikkhokplus-fee-generation.log 2>&1
 CRON
 chmod 0644 /etc/cron.d/shikkhokplus-fee-generation
 
@@ -466,7 +677,7 @@ cat > /etc/cron.d/shikkhokplus-session-generation <<'CRON'
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 # min hour dom mon dow user command
-0 1 * * * ubuntu cd /home/ubuntu && docker compose run --rm api python -m app.teaching.commands generate >> /var/log/shikkhokplus-session-generation.log 2>&1
+0 1 * * * ubuntu cd /srv/shikkhokplus && docker compose run --rm api python -m app.teaching.commands generate >> /var/log/shikkhokplus-session-generation.log 2>&1
 CRON
 chmod 0644 /etc/cron.d/shikkhokplus-session-generation
 
@@ -500,7 +711,7 @@ cat > /home/ubuntu/freshness-check.sh <<'CHECK'
 # than a host timer: it must survive exactly what cron does not.
 while true; do
   sleep 3600
-  cd /home/ubuntu || continue
+  cd /srv/shikkhokplus || continue
   docker compose run --rm api python -m app.fees.commands check-freshness \
     >> /var/log/shikkhokplus-fee-generation.log 2>&1
 done
@@ -534,16 +745,30 @@ systemctl enable --now shikkhokplus-freshness.service \
 # container that starts and immediately exits, so a boot reporting
 # success here would hide exactly the failure this script exists to
 # catch.
-for _ in $(seq 1 12); do
-  if curl -fsS -m 5 http://127.0.0.1:8000/health >/dev/null 2>&1; then
-    echo "provisioned (running $IMAGE_TAG, migrated, healthy)" \
+#
+# **Ready means what CloudFront will see** [OPS-6]. The probe goes
+# through nginx over TLS to the origin NAME, with certificate
+# verification on, carrying the origin secret -- the exact hop
+# CloudFront makes -- and requires the body to report a reachable
+# database. A host on snakeoil, behind a broken nginx config, or with
+# an API that cannot reach PostgreSQL is not ready, is never put in
+# service, and during a deploy leaves the previous host serving.
+for _ in $(seq 1 24); do
+  if body=$(curl -fsS -m 5 \
+       --resolve "${origin_fqdn}:443:127.0.0.1" \
+       -H "X-Origin-Secret: $ORIGIN_SECRET" \
+       "https://${origin_fqdn}/health" 2>/dev/null) \
+     && [[ "$body" == *'"database":"ok"'* ]]; then
+    echo "provisioned (running $IMAGE_TAG, migrated, healthy over TLS)" \
       >> /var/log/shikkhokplus-provision.log
+    register_dns
+    lifecycle CONTINUE
     exit 0
   fi
   sleep 5
 done
 
-echo "FAILED: $IMAGE_TAG started but /health did not answer in 60s" \
+echo "FAILED: $IMAGE_TAG did not answer /health through nginx in 120s" \
   >> /var/log/shikkhokplus-provision.log
 sudo -u ubuntu docker compose logs --tail 50 \
   >> /var/log/shikkhokplus-provision.log 2>&1

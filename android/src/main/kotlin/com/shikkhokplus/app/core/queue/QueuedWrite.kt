@@ -35,8 +35,9 @@ enum class QueueTarget {
  * One seat's presence as the teacher recorded it offline.
  *
  * **No name and no phone number** [security-design § 7.1]. The queue
- * file holds enrollment ids, booleans, a version number and two UUIDs —
- * nothing else — which is what makes the recorded decision not to
+ * file holds enrollment ids, booleans, a version number and opaque
+ * UUIDs (the item's, its replay key and the owning account's) — nothing
+ * else — which is what makes the recorded decision not to
  * encrypt it [§ 7.2] defensible rather than lazy. A display name here
  * would turn a roster of opaque ids into identifying data and reopen
  * that decision.
@@ -102,6 +103,15 @@ data class AttendanceEntry(
  * @property conflictKey The server's `message_key` for the last
  *   conflict, so the screen can tell a class that already started from
  *   a topic someone else saved first
+ * @property accountId The account this write was made under, stamped by
+ *   [QueueStore] when it is stored rather than by each screen, so no
+ *   caller can forget it. **The queue sends an item only under the
+ *   account that wrote it**: a roster recorded by one teacher must never
+ *   reach the server under the token of whoever signs in next on the
+ *   same phone. Null only for an item written before this field existed,
+ *   which [QueueStore] adopts once (see there). The server's opaque
+ *   account UUID -- no name and no phone number, so the reasoning for
+ *   leaving the file unencrypted [§ 7.2] still holds
  */
 @Serializable
 data class QueuedWrite(
@@ -118,6 +128,7 @@ data class QueuedWrite(
     val plan: Boolean = false,
     val notes: String? = null,
     @SerialName("conflict_key") val conflictKey: String? = null,
+    @SerialName("account_id") val accountId: String? = null,
 ) {
     /**
      * Mark this item failed, recording whether the server allows a retry.

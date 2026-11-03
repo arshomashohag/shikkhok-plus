@@ -71,7 +71,7 @@ class InboxMapperTest {
     }
 
     @Test
-    fun `a fee reminder opens the fee history and a claim opens the queue`() {
+    fun `a fee reminder opens the fee history and a claim opens its payment`() {
         // Shaped as the server sends a reminder: no source, no preview, a
         // period and an amount, and the child's name on a guardian's copy
         // only. The name is what routes it to the child's fee read.
@@ -87,7 +87,14 @@ class InboxMapperTest {
             InboxTarget.Fees("e-1", guardian = false),
             InboxMapper.targetOf(messages(reminder(null)).single()),
         )
-        assertEquals(InboxTarget.Verify, InboxMapper.targetOf(messages(dto("claim_to_verify")).single()))
+        assertEquals(
+            InboxTarget.Payment("x-1"),
+            InboxMapper.targetOf(messages(dto("claim_to_verify")).single()),
+        )
+        assertEquals(
+            InboxTarget.Verify,
+            InboxMapper.targetOf(messages(dto("claim_to_verify", source = null)).single()),
+        )
     }
 
     @Test

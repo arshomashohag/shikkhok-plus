@@ -1,24 +1,15 @@
-"""The collection-number allowlist: exactly one response carries it.
+"""The payment-method allowlist: exactly these routes carry method details.
 
 **An allowlist, not a denylist, and the direction is the whole point**
 [BR6.4, NFR14.32]. A denylist entry would say "no teacher-facing
-response carries this field", which is backwards: the number is the
-teacher's own and a teacher may see it. The property worth holding is
-*exactly one response carries it*, and only an allowlist expresses that.
+response carries these fields", which is backwards: the details are the
+teacher's own and a teacher may see them. The property worth holding is
+*exactly these routes carry them*, and only an allowlist expresses that.
 
-**The built schema-wide privacy gate is silent on this, not satisfied by
-it.** ``app.contract.privacy`` asserts that no TEACHER-facing response
-declares an owner-private profile field or a global account id. The
-collection number is neither: it is teacher-authored, deliberately
-disclosed *downward* to students and guardians enrolled in that batch,
-and bounded rather than forbidden. That is a different question about a
-different direction, so it needs its own mechanism.
-
-**An equality against a one-element set, not a membership test.** A
-membership test passes the moment the field spreads to a second
-response -- a batch listing, a roster row, a fee-cycle collection -- and
-NFR14.33's "never in a listing" falls straight out of the equality
-instead of needing its own assertion.
+**An equality, not a membership test.** A membership test passes the
+moment a field spreads to another response -- a batch listing, a roster
+row, a fee-cycle collection -- and "never in a listing" falls straight
+out of the equality instead of needing its own assertion.
 
 Written in the same iterating shape as the built gates, so it covers the
 route added three units later rather than the routes somebody remembered.
@@ -33,62 +24,61 @@ from fastapi import FastAPI
 from app.contract.routes import _api_routes
 
 __all__ = [
-    "COLLECTION_NUMBER_FIELD",
     "DOWNWARD_ROUTES",
+    "METHOD_DETAIL_FIELDS",
     "PERMITTED_ROUTES",
+    "SNAPSHOT_ROUTES",
     "collection_number_routes",
 ]
 
-#: The field name this gate tracks.
-COLLECTION_NUMBER_FIELD: Final = "collection_number"
+#: The field names this gate tracks.
+METHOD_DETAIL_FIELDS: Final[frozenset[str]] = frozenset(
+    {"mobile_number", "account_number"}
+)
 
-#: The routes permitted to carry it. An equality against this set is
+#: The routes permitted to carry them. An equality against this set is
 #: what the gate asserts, so a new entry is a deliberate diff against a
 #: stated allowlist rather than a line appended to a growing one.
 #:
-#: **The security design predicted one and the built application has
-#: more, and the difference is not a weakening.** That document was
-#: written against a schema in which D2's batch routes did not yet
-#: exist; its single entry is the DOWNWARD disclosure -- the one
-#: response that shows a teacher's number to somebody who is not that
-#: teacher. The other two are the teacher reading and writing **their
-#: own** number on **their own** batch, which discloses it to nobody;
-#: the batch edit (PATCH) joined them in the same category.
-#: Recorded here rather than silently widened, because a reader meeting
-#: the design's `== {one route}` and this set needs to know which is
-#: current and why.
-#:
-#: The distinction the gate cannot make on its own is therefore made
-#: here, and the test makes it mechanical: the downward route is
-#: asserted to resolve NO teacher lens, and the batch routes are
-#: asserted to resolve ONLY a teacher lens. Any other route carrying the
-#: field fails the equality whichever direction it faces.
+#: The distinction the gate cannot make on its own is made by the test:
+#: the two family routes are asserted to resolve NO teacher lens, and
+#: the three owner routes are asserted to resolve ONLY a teacher lens.
 PERMITTED_ROUTES: Final[frozenset[tuple[str, str]]] = frozenset(
     {
-        # Downward: a student or guardian reads where to pay [BR6.4].
-        ("GET", "/v1/enrollments/{enrollment_id}/payment-destination"),
-        # Downward, the guardian's own route to the same answer (G3).
-        ("GET", "/v1/children/{enrollment_id}/payment-destination"),
-        # The teacher's own batch, read and written by its owner.
-        ("GET", "/v1/batches"),
-        ("POST", "/v1/batches"),
-        ("PATCH", "/v1/batches/{batch_id}"),
+        ("GET", "/v1/me/enrollments/{enrollment_id}/payment-methods"),
+        ("GET", "/v1/children/{enrollment_id}/payment-methods"),
+        ("GET", "/v1/payment-methods"),
+        ("POST", "/v1/payment-methods"),
+        ("PATCH", "/v1/payment-methods/{method_id}"),
     }
 )
 
-#: Of those, the one that discloses the number DOWNWARD -- to a reader
-#: who is not the teacher who authored it. This is the entry the
-#: security design named, and the one whose lens must not be a teacher's.
+#: Of those, the two that disclose DOWNWARD -- to a reader who is not
+#: the teacher who authored the details.
 DOWNWARD_ROUTES: Final[frozenset[tuple[str, str]]] = frozenset(
     {
-        ("GET", "/v1/enrollments/{enrollment_id}/payment-destination"),
-        ("GET", "/v1/children/{enrollment_id}/payment-destination"),
+        ("GET", "/v1/me/enrollments/{enrollment_id}/payment-methods"),
+        ("GET", "/v1/children/{enrollment_id}/payment-methods"),
+    }
+)
+
+#: Routes carrying a payment's destination snapshot: the number the
+#: family was shown when they paid, read back by that batch's teacher.
+#: Listed apart from the permitted routes because the snapshot is a
+#: record of a payment, not the teacher's live method.
+SNAPSHOT_ROUTES: Final[frozenset[tuple[str, str]]] = frozenset(
+    {
+        ("GET", "/v1/payments/{submission_id}"),
+        ("POST", "/v1/payments/{submission_id}/approval"),
+        ("POST", "/v1/payments/{submission_id}/rejection"),
+        ("GET", "/v1/claims/queue"),
+        ("GET", "/v1/me/today"),
     }
 )
 
 
 def collection_number_routes(app: FastAPI) -> set[tuple[str, str]]:
-    """List every route whose response schema reaches the field.
+    """List every route whose response schema reaches a detail field.
 
     Takes the application as an argument so a violation fixture and the
     real gate call one function rather than two implementations that
@@ -177,8 +167,8 @@ def _declares(
     """Report whether the field is reachable from this schema node.
 
     Its own traversal rather than the privacy gate's, because that one
-    reports only names in its two forbidden sets and the collection
-    number is in neither -- it is a *permitted* field whose spread is
+    reports only names in its two forbidden sets and the method
+    details are in neither -- it is a *permitted* field whose spread is
     what this gate bounds. The traversal shape is deliberately the
     same, including the ``seen`` cycle guard: an unguarded walk over a
     self-referential ``$ref`` graph hangs CI rather than failing it.
@@ -200,7 +190,7 @@ def _declares(
 
     properties = schema.get("properties")
     if isinstance(properties, dict):
-        if COLLECTION_NUMBER_FIELD in properties:
+        if METHOD_DETAIL_FIELDS & properties.keys():
             return True
         for child in properties.values():
             if isinstance(child, dict) and _declares(child, definitions, seen):

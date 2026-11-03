@@ -1,11 +1,15 @@
 package com.shikkhokplus.app.feature.fees
 
 import com.shikkhokplus.app.core.model.Money
+import com.shikkhokplus.app.core.network.BatchFeesDto
 import com.shikkhokplus.app.core.network.ClaimDto
-import com.shikkhokplus.app.core.network.ClaimSubmitDto
+import com.shikkhokplus.app.core.network.CollectionsDto
+import com.shikkhokplus.app.core.network.FeeHistoryDto
+import com.shikkhokplus.app.core.network.HistoryLineDto
 import com.shikkhokplus.app.core.network.FeeCycleDto
 import com.shikkhokplus.app.core.network.PaymentDestinationDto
 import com.shikkhokplus.app.core.network.RosterFeeRowDto
+import com.shikkhokplus.app.core.network.toHistoryLine
 import kotlinx.serialization.json.Json
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -255,32 +259,6 @@ class FeeDtoTest {
     }
 
     // -----------------------------------------------------------------
-    // Outbound: the rule is BOTH directions.
-    // -----------------------------------------------------------------
-
-    @Test
-    fun `a submitted claim encodes its amount as a JSON string`() {
-        // Inbound is the half everyone tests. A client that POSTed a
-        // JSON number would hit the server's loud parser -- but the
-        // failure would surface as a rejected payment in front of a
-        // guardian, so it is asserted here instead.
-        val encoded =
-            json.encodeToString(
-                ClaimSubmitDto.serializer(),
-                ClaimSubmitDto(
-                    claimedAmount = Money.of("1500.00"),
-                    channel = "bKash",
-                    transactionId = "TX1",
-                ),
-            )
-
-        assertTrue(
-            """"claimed_amount":"1500.00"""" in encoded,
-            "the amount was not encoded as a JSON string: $encoded",
-        )
-    }
-
-    // -----------------------------------------------------------------
     // The payment destination.
     // -----------------------------------------------------------------
 
@@ -317,5 +295,82 @@ class FeeDtoTest {
             )
 
         assertEquals(listOf("Upay"), decoded.channels)
+    }
+
+    // -----------------------------------------------------------------
+    // The money-report shapes (M1-M3).
+    // -----------------------------------------------------------------
+
+    @Test
+    fun `a history line decodes its amount from a string and rejects a number`() {
+        val body = """{"amount": "%s", "channel": "Nagad", "paid_on": "2026-10-08", "status": "approved_full"}"""
+        val decoded = json.decodeFromString<HistoryLineDto>(body.format("1000.00"))
+        assertEquals(Money.of("1000.00"), decoded.amount)
+        assertNull(decoded.decisionNote)
+        assertFailsWith<Exception> {
+            json.decodeFromString<HistoryLineDto>(
+                """{"amount": 1000, "channel": "Nagad", "paid_on": "2026-10-08", "status": "approved_full"}""",
+            )
+        }
+    }
+
+    @Test
+    fun `a waiting history line carries the children the whole payment covers`() {
+        val decoded =
+            json.decodeFromString<HistoryLineDto>(
+                """{"amount": "2000.00", "channel": "bKash", "paid_on": "2026-10-08", "status": "pending",
+                   "covered_names": ["Tania", "Tanvir"]}""",
+            )
+        assertEquals(Money.of("2000.00"), decoded.amount)
+        assertEquals(listOf("Tania", "Tanvir"), decoded.coveredNames)
+        assertEquals(listOf("Tania", "Tanvir"), decoded.toHistoryLine().coveredNames)
+        val approved =
+            json.decodeFromString<HistoryLineDto>(
+                """{"amount": "1000.00", "channel": "bKash", "paid_on": "2026-10-08", "status": "approved_full"}""",
+            )
+        assertEquals(emptyList(), approved.coveredNames)
+    }
+
+    @Test
+    fun `a fee history decodes month states and defaults to none`() {
+        val decoded =
+            json.decodeFromString<FeeHistoryDto>(
+                """
+                {"cycles": [], "total_outstanding": "0.00",
+                 "month_states": [{"period": "2026-10", "state": "paid"}]}
+                """.trimIndent(),
+            )
+        assertEquals("paid", decoded.monthStates.single().state)
+        assertTrue(json.decodeFromString<FeeHistoryDto>("""{"total_outstanding": "0.00"}""").monthStates.isEmpty())
+    }
+
+    @Test
+    fun `a batch month decodes both totals from strings and rejects numbers`() {
+        val body =
+            """
+            {"period": "2026-10", "collected": %s, "charged": "12000.00",
+             "counts": {"paid": 9, "checking": 1, "owed": 2}, "seats": []}
+            """.trimIndent()
+        val decoded = json.decodeFromString<BatchFeesDto>(body.format("\"9000.00\""))
+        assertEquals(Money.of("9000.00"), decoded.collected)
+        assertEquals(2, decoded.counts.owed)
+        assertFailsWith<Exception> { json.decodeFromString<BatchFeesDto>(body.format("9000")) }
+    }
+
+    @Test
+    fun `a collections report decodes money from strings and rejects numbers`() {
+        val body =
+            """
+            {"months": [{"period": "2026-11", "charged": "%s", "collected": "0.00",
+                         "in_progress": true, "charged_bar": 40, "collected_bar": 0}],
+             "outstanding": "9500.00", "owing_students": 11}
+            """.trimIndent()
+        val decoded = json.decodeFromString<CollectionsDto>(body.format("5000.00"))
+        assertEquals(40, decoded.months.single().chargedBar)
+        assertTrue(decoded.months.single().inProgress)
+        assertEquals(Money.of("9500.00"), decoded.outstanding)
+        assertFailsWith<Exception> {
+            json.decodeFromString<CollectionsDto>(body.replace("\"%s\"", "5000").replace("\"9500.00\"", "9500"))
+        }
     }
 }

@@ -14,10 +14,10 @@ counts as due wearing presentation's clothes -- and it diverges the first
 time a waiver is involved, since a fully waived cycle has a zero balance
 and is not "Paid".
 
-**``collection_number`` appears in exactly one schema here**, and a test
-over the generated document asserts that as an equality rather than a
-membership [BR6.4, NFR14.32]. A membership test passes the moment the
-field spreads to a second response.
+**No schema here declares a payment method's number or account fields**;
+``app.schemas.payment_methods`` holds them, the payment review embeds its
+destination snapshot from there, and a test over the generated document
+asserts which routes carry them [BR6.4, NFR14.32].
 """
 
 from __future__ import annotations
@@ -29,24 +29,33 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.money import MoneyField
+from app.schemas.payment_methods import PaymentDestinationResponse
 
 __all__ = [
-    "ClaimQueueItemResponse",
+    "BatchFeesResponse",
     "ClaimResponse",
-    "ClaimSubmitRequest",
+    "DuplicatePaymentResponse",
     "FeeCycleResponse",
     "FeeHistoryResponse",
+    "HistoryLineResponse",
+    "MonthCountsResponse",
+    "MonthStateResponse",
+    "OwedChildResponse",
+    "OwedTogetherResponse",
     "PayableResponse",
     "PayablesResponse",
-    "PaymentDestinationResponse",
+    "PaymentApprovalRequest",
+    "PaymentRejectionRequest",
+    "PaymentReviewResponse",
+    "PaymentSubmitRequest",
+    "PaymentSubmittedResponse",
     "RecentDecisionResponse",
     "ReminderRequest",
     "ReminderResponse",
+    "ReviewChildResponse",
     "RosterFeeRowResponse",
-    "ShortfallPreviewRequest",
-    "ShortfallPreviewResponse",
+    "SubmittedClaimResponse",
     "VerificationQueueResponse",
-    "VerificationRequest",
     "WaitingPaymentResponse",
 ]
 
@@ -55,11 +64,17 @@ __all__ = [
 #: a client author reads the contract rather than guessing it.
 FeeStatus = Literal["paid", "partly_paid", "unpaid", "waived"]
 
+#: The five states a month reports: the four above plus ``checking``.
+MonthState = Literal["paid", "partly_paid", "unpaid", "waived", "checking"]
+
 #: The four a claim reports [BR6.3].
 ClaimStatus = Literal["pending", "approved_full", "approved_partial", "rejected"]
 
 #: The teacher's choice on approving less than was charged [BR5.4].
 ShortfallDisposition = Literal["carried", "waived"]
+
+#: The three a payment submission reports.
+SubmissionStatus = Literal["pending", "approved", "rejected"]
 
 
 class FeeCycleResponse(BaseModel):
@@ -84,6 +99,44 @@ class FeeCycleResponse(BaseModel):
     status: FeeStatus
 
 
+class HistoryLineResponse(BaseModel):
+    """The latest payment claim for one month, as data to localize.
+
+    :ivar amount: What was approved for the child once approved;
+        otherwise the whole payment as sent, covering ``covered_names``
+    :ivar channel: Which service the money moved through
+    :ivar paid_on: When the money was sent
+    :ivar status: The claim's server-set status
+    :ivar decision_note: The teacher's note on the decision, or null
+    :ivar covered_names: The children the sent amount covered, in child
+        order; empty when the amount is the child's approved figure
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    amount: MoneyField
+    channel: str
+    paid_on: dt.date
+    status: ClaimStatus
+    decision_note: str | None = None
+    covered_names: list[str] = Field(default_factory=list)
+
+
+class MonthStateResponse(BaseModel):
+    """One month on a seat's strip.
+
+    :ivar period: The month, as ``YYYY-MM``
+    :ivar state: The server-computed state
+    :ivar history_line: The latest claim for the month, or null
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    period: str = Field(pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")
+    state: MonthState
+    history_line: HistoryLineResponse | None = None
+
+
 class FeeHistoryResponse(BaseModel):
     """One seat's periods, with the total the server computed.
 
@@ -99,12 +152,14 @@ class FeeHistoryResponse(BaseModel):
 
     :ivar cycles: One row per generated period, oldest first
     :ivar total_outstanding: What this seat still owes in total
+    :ivar month_states: The last months that have a state, oldest first
     """
 
     model_config = ConfigDict(extra="forbid")
 
     cycles: list[FeeCycleResponse]
     total_outstanding: MoneyField
+    month_states: list[MonthStateResponse] = Field(default_factory=list)
 
 
 class RosterFeeRowResponse(BaseModel):
@@ -113,8 +168,8 @@ class RosterFeeRowResponse(BaseModel):
     The key is ``enrollment_id`` and never an account id [ADR-001],
     asserted schema-wide by the built privacy gate.
 
-    **No ``collection_number``.** The teacher's payment destination is
-    carried by exactly one response and this is not it [NFR14.33].
+    **No payment-method details.** They are carried only by the
+    payment-method routes and this is not one [NFR14.33].
 
     :ivar enrollment_id: The teacher-facing key
     :ivar display_name: The teacher-typed name
@@ -125,6 +180,9 @@ class RosterFeeRowResponse(BaseModel):
     :ivar days_overdue: How late the oldest unpaid period is, decided by
         the server against Bangladesh's date, or null
     :ivar verifying: The total of claims still waiting for the teacher
+    :ivar state: The seat's state in the requested month, or null when
+        nothing was charged
+    :ivar history_line: The latest claim for that month, or null
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -137,83 +195,89 @@ class RosterFeeRowResponse(BaseModel):
     due_date: dt.date | None = None
     days_overdue: int | None = None
     verifying: MoneyField | None = None
+    state: MonthState | None = None
+    history_line: HistoryLineResponse | None = None
 
 
-class ClaimSubmitRequest(BaseModel):
-    """Submit a payment claim [AC6.1.x].
+class MonthCountsResponse(BaseModel):
+    """How many seats fall under each filter for the month.
 
-    ``claimed_amount`` is **not capped** at the outstanding balance
-    [BR5.2]: money may genuinely have been overpaid out of band, and
-    blocking that at submission makes a real overpayment unreportable.
-    Zero and negative are refused, which the wire pattern already does
-    for a negative since it admits no sign.
-
-    :ivar claimed_amount: What the claimant says they paid
-    :ivar channel: Which service it moved through, from the server set
-    :ivar transaction_id: The reference they quote, if any
+    :ivar paid: Settled seats, including waived ones
+    :ivar checking: Seats with a payment waiting for the teacher
+    :ivar owed: Seats still owing
     """
 
     model_config = ConfigDict(extra="forbid")
 
-    claimed_amount: MoneyField
-    channel: str = Field(min_length=1, max_length=32)
-    transaction_id: str | None = Field(default=None, max_length=64)
+    paid: int
+    checking: int
+    owed: int
 
 
-class VerificationRequest(BaseModel):
-    """Record a teacher's decision on a claim [AC6.3.x].
+class BatchFeesResponse(BaseModel):
+    """One batch in one month.
 
-    ``shortfall_disposition`` is **required where the approval is below
-    the charge and forbidden where it is not** [BR5.4]. It carries no
-    default: the two choices have opposite consequences for the student,
-    so a default silently chooses for the teacher. The requirement
-    cannot be expressed in the schema alone -- it depends on what the
-    cycle was charged -- so the server enforces it and this field stays
-    optional here.
-
-    ``correcting`` is **the teacher saying "I know this claim is already
-    decided and I am revising it"** [BR5.7, FR9.2]. It defaults to
-    ``False``, so an ordinary verification of an undecided claim needs no
-    flag and a *concurrent* second verification is refused rather than
-    silently double-crediting the payment.
-
-    It cannot be inferred from the claim's state. A decided claim with a
-    second request arriving is exactly the shape of both the race this
-    guard exists to stop and the correction FR9.2 requires, and the
-    server cannot tell them apart -- only the teacher knows which one
-    they meant. Inferring it would mean choosing to let the race through.
-
-    :ivar approved_amount: What the teacher accepts
-    :ivar shortfall_disposition: Carried or waived, where one applies
-    :ivar correcting: True when deliberately revising a decided claim
+    :ivar period: The month, as ``YYYY-MM``
+    :ivar collected: Cash in for the month after corrections
+    :ivar charged: What the month was billed
+    :ivar counts: Seats per filter
+    :ivar seats: One row per seat
     """
 
     model_config = ConfigDict(extra="forbid")
 
-    approved_amount: MoneyField
-    shortfall_disposition: ShortfallDisposition | None = None
+    period: str = Field(pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")
+    collected: MoneyField
+    charged: MoneyField
+    counts: MonthCountsResponse
+    seats: list[RosterFeeRowResponse]
+
+
+class PaymentApprovalRequest(BaseModel):
+    """Approve a payment, saying what was received and how to split it (R4).
+
+    ``shortfall_disposition`` is required when less than the children
+    owe together was received, and refused otherwise; it carries no
+    default, because carrying and waiving have opposite consequences for
+    the family [BR5.4]. For more than one child a short payment also
+    names who carries it and an over payment names who gets the credit.
+    The server enforces both, because only it knows what is owed.
+
+    ``correcting`` is the teacher saying "I know this payment is already
+    decided and I am revising it" [BR5.7, FR9.2]; without it a second
+    decision is refused, so a concurrent repeat cannot credit twice.
+
+    :ivar received_amount: What the teacher received; more than zero,
+        since a payment nothing came in for is rejected rather than
+        approved
+    :ivar shortfall_disposition: Carried or waived, when short
+    :ivar carried_by_enrollment_id: The child who carries a shortfall
+    :ivar credit_to_enrollment_id: The child who gets an excess as credit
+    :ivar note: Shown to the family with the decision
+    :ivar correcting: True when deliberately revising a decided payment
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    received_amount: MoneyField
+    shortfall_disposition: Literal["carried", "waived"] | None = None
+    carried_by_enrollment_id: uuid.UUID | None = None
+    credit_to_enrollment_id: uuid.UUID | None = None
+    note: str | None = Field(default=None, max_length=500)
     correcting: bool = False
 
 
-class RejectionRequest(BaseModel):
-    """Reject a claim, optionally as a correction [BR5.6, BR5.7].
+class PaymentRejectionRequest(BaseModel):
+    """Reject a payment, optionally as a correction [BR5.6, BR5.7].
 
-    A body with one optional field rather than no body at all, because
-    rejection is correctable for the same reason approval is: a teacher
-    who rejected the wrong claim must be able to say so, and FR9.2 makes
-    no exception for the rejection path.
-
-    Every field defaults, so an ordinary rejection may still send no
-    body.
-
-    :ivar correcting: True when deliberately revising a decided claim
-    :ivar reason: Why the claim is rejected, shown to the family
+    :ivar note: Why it was rejected, shown to the family
+    :ivar correcting: True when deliberately revising a decided payment
     """
 
     model_config = ConfigDict(extra="forbid")
 
+    note: str | None = Field(default=None, max_length=500)
     correcting: bool = False
-    reason: str | None = Field(default=None, max_length=500)
 
 
 class ClaimResponse(BaseModel):
@@ -236,6 +300,7 @@ class ClaimResponse(BaseModel):
     :ivar submitted_at: When it was submitted
     :ivar verified_at: When it was decided, or null
     :ivar previous_decision: The prior decision, on a correction
+    :ivar decision_note: The teacher's note on the decision, or null
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -250,35 +315,7 @@ class ClaimResponse(BaseModel):
     submitted_at: dt.datetime
     verified_at: dt.datetime | None = None
     previous_decision: dict[str, str | None] | None = None
-
-
-class PaymentDestinationResponse(BaseModel):
-    """Where to send a payment, and through what.
-
-    **The ONE response in the product carrying the collection number**
-    [BR6.4, NFR14.32]. The allowlist test asserts that as an equality
-    against a one-element set, so the field spreading to a second
-    response fails the build rather than passing a membership check.
-
-    Where the teacher set no number the route returns **no object at
-    all** rather than this model with a null in it [NFR14.34]: a null
-    invites a client-side placeholder, and an absent object leaves the
-    client nothing to render while the copy tells the person to ask the
-    teacher how to pay.
-
-    :ivar collection_number: Where payments are sent
-    :ivar collection_channel: Which service that number belongs to
-    :ivar teacher_display_name: Who the money goes to, or null
-    :ivar channels: The channel set, server-supplied so adding one is a
-        data change rather than an app release
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    collection_number: str
-    collection_channel: str | None = None
-    channels: list[str]
-    teacher_display_name: str | None = None
+    decision_note: str | None = None
 
 
 #: How a claim stands against what its period charged.
@@ -288,47 +325,34 @@ ClaimComparison = Literal["matches", "short", "over"]
 Submitter = Literal["student", "guardian"]
 
 
-class DuplicateClaimResponse(BaseModel):
-    """The earlier claim that quoted the same transaction id.
+class DuplicatePaymentResponse(BaseModel):
+    """The earlier payment that quoted the same reference.
 
-    :ivar claim_id: That claim
-    :ivar display_name: Whose seat it was on, as the teacher typed it
+    :ivar submission_id: That submission
+    :ivar display_name: The children it covered, comma separated
     :ivar status: How it was decided
-    :ivar amount: What was approved, else what was claimed
+    :ivar amount: What it reported as sent
     :ivar decided_at: When it was decided, or null
     """
 
     model_config = ConfigDict(extra="forbid")
 
-    claim_id: uuid.UUID
+    submission_id: uuid.UUID
     display_name: str
-    status: ClaimStatus
+    status: SubmissionStatus
     amount: MoneyField
     decided_at: dt.datetime | None = None
 
 
-class ClaimQueueItemResponse(BaseModel):
-    """One claim waiting for the teacher (T4).
+class ReviewChildResponse(BaseModel):
+    """One child a payment covers, in child order.
 
-    **The comparison is the server's.** ``comparison`` and
-    ``difference`` are measured against what the period CHARGED
-    [BR5.3]; the client shows them and never subtracts.
-
-    :ivar claim_id: The claim
-    :ivar enrollment_id: The seat it is against
-    :ivar display_name: The student, as the teacher typed the name
-    :ivar batch_name: The batch
+    :ivar claim_id: The child's claim
+    :ivar enrollment_id: The child's seat
+    :ivar display_name: The teacher-typed name
     :ivar period: The period the claim resolved to
-    :ivar claimed_amount: What the payer says they sent
-    :ivar charged: What that period charged
-    :ivar comparison: ``matches``, ``short`` or ``over``
-    :ivar difference: How far from the charge, never negative
-    :ivar channel: The service the money moved through
-    :ivar transaction_id: The reference quoted, if any
-    :ivar submitted_at: When it was sent
-    :ivar submitted_by: ``student`` or ``guardian``, or null
-    :ivar submitter_phone: The number the teacher holds for them
-    :ivar duplicate_of: The earlier claim quoting the same reference
+    :ivar owed: What the seat owes now
+    :ivar approved_amount: What the decision approved, or null
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -336,37 +360,79 @@ class ClaimQueueItemResponse(BaseModel):
     claim_id: uuid.UUID
     enrollment_id: uuid.UUID
     display_name: str
+    period: str = Field(pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")
+    owed: MoneyField
+    approved_amount: MoneyField | None = None
+
+
+class PaymentReviewResponse(BaseModel):
+    """One payment as its teacher reviews it (R1, R2, R3).
+
+    ``method`` is the destination as the family was shown it when they
+    paid, so a later edit of the method does not change what the
+    teacher checks against.
+
+    :ivar submission_id: The submission
+    :ivar batch_name: The batch
+    :ivar children: The children covered, in child order
+    :ivar owed_together: What they owe together now
+    :ivar total_amount: What the payer says they sent
+    :ivar comparison: ``matches``, ``short`` or ``over``
+    :ivar difference: How far from what is owed, never negative
+    :ivar method: The destination snapshot
+    :ivar transaction_id: The mobile reference, if any
+    :ivar from_account: The paying bank account, if any
+    :ivar paid_on: The day the money moved
+    :ivar submitted_at: When it was reported
+    :ivar submitted_by: ``student`` or ``guardian``, or null
+    :ivar submitter_phone: The number the teacher holds for them
+    :ivar payer_note: The payer's note
+    :ivar status: ``pending``, ``approved`` or ``rejected``
+    :ivar decision_note: The teacher's note on the decision
+    :ivar decided_at: When it was decided, or null
+    :ivar duplicate_of: The earlier payment quoting the same reference
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    submission_id: uuid.UUID
     batch_name: str
-    period: str
-    claimed_amount: MoneyField
-    charged: MoneyField
+    children: list[ReviewChildResponse]
+    owed_together: MoneyField
+    total_amount: MoneyField
     comparison: ClaimComparison
     difference: MoneyField
-    channel: str
+    method: PaymentDestinationResponse
     transaction_id: str | None = None
+    from_account: str | None = None
+    paid_on: dt.date
     submitted_at: dt.datetime
     submitted_by: Submitter | None = None
     submitter_phone: str | None = None
-    duplicate_of: DuplicateClaimResponse | None = None
+    payer_note: str | None = None
+    status: SubmissionStatus
+    decision_note: str | None = None
+    decided_at: dt.datetime | None = None
+    duplicate_of: DuplicatePaymentResponse | None = None
 
 
 class RecentDecisionResponse(BaseModel):
-    """A claim decided in the last day.
+    """A payment decided in the last day.
 
-    :ivar claim_id: The claim
-    :ivar display_name: The student
+    :ivar submission_id: The submission
+    :ivar display_name: The children it covered, comma separated
     :ivar batch_name: The batch
     :ivar status: How it was decided
-    :ivar amount: What was approved, else what was claimed
+    :ivar amount: What was approved, else what was sent
     :ivar decided_at: When
     """
 
     model_config = ConfigDict(extra="forbid")
 
-    claim_id: uuid.UUID
+    submission_id: uuid.UUID
     display_name: str
     batch_name: str
-    status: ClaimStatus
+    status: SubmissionStatus
     amount: MoneyField
     decided_at: dt.datetime
 
@@ -374,39 +440,14 @@ class RecentDecisionResponse(BaseModel):
 class VerificationQueueResponse(BaseModel):
     """The teacher's payment queue.
 
-    :ivar pending: Waiting claims, oldest first
-    :ivar decided_recently: Claims decided in the last day, newest first
+    :ivar pending: Waiting payments, oldest first
+    :ivar decided_recently: Payments decided in the last day, newest first
     """
 
     model_config = ConfigDict(extra="forbid")
 
-    pending: list[ClaimQueueItemResponse]
+    pending: list[PaymentReviewResponse]
     decided_recently: list[RecentDecisionResponse]
-
-
-class ShortfallPreviewRequest(BaseModel):
-    """An amount the teacher is about to approve.
-
-    :ivar approved_amount: The amount being considered
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    approved_amount: MoneyField
-
-
-class ShortfallPreviewResponse(BaseModel):
-    """What that approval would leave short, and whether to ask about it.
-
-    :ivar shortfall: ``charged - approved``, floored at zero
-    :ivar disposition_required: Whether the teacher must choose carry or
-        waive, which the decision itself will insist on
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    shortfall: MoneyField
-    disposition_required: bool
 
 
 class ReminderRequest(BaseModel):
@@ -516,3 +557,114 @@ class CurrentFeeResponse(BaseModel):
     charged: MoneyField | None = None
     verifying: bool = False
     paid_on: dt.date | None = None
+
+
+class PaymentSubmitRequest(BaseModel):
+    """One payment a student or guardian reports [F3, F4].
+
+    Exactly one of ``payment_method_id`` and ``cash`` names where the
+    money went, and exactly one of ``transaction_id`` and
+    ``from_account`` is present, matching the method's kind; the server
+    enforces both because they depend on the stored method.
+
+    :ivar enrollment_ids: The children covered, all in one batch
+    :ivar payment_method_id: The teacher's method paid to
+    :ivar cash: True when the money was handed over in person
+    :ivar amount: The whole amount sent
+    :ivar paid_on: The day the money moved
+    :ivar transaction_id: The mobile reference
+    :ivar from_account: The paying bank account
+    :ivar note: Free text for the teacher
+    :ivar client_mutation_id: The app's retry key, one per payment draft.
+        Optional so a build that sends none keeps working; when present,
+        a resend by the same account returns the original submission
+        rather than recording the payment twice
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    enrollment_ids: list[uuid.UUID] = Field(min_length=1, max_length=20)
+    payment_method_id: uuid.UUID | None = None
+    cash: bool = False
+    amount: MoneyField
+    paid_on: dt.date
+    transaction_id: str | None = Field(default=None, max_length=64)
+    from_account: str | None = Field(default=None, max_length=120)
+    note: str | None = Field(default=None, max_length=500)
+    client_mutation_id: uuid.UUID | None = Field(
+        default=None,
+        description=(
+            "One UUID per payment draft, reused on every resend of it. A "
+            "resend by the same account returns the original submission "
+            "with the original 201 and records nothing; the same id with "
+            "a different body is a 409."
+        ),
+    )
+
+
+class SubmittedClaimResponse(BaseModel):
+    """One child's share of a submitted payment.
+
+    :ivar claim_id: The child's pending claim
+    :ivar enrollment_id: The child's seat
+    :ivar display_name: The teacher-typed name
+    :ivar period: The period the claim resolved to
+    :ivar claimed_amount: The provisional share, which the teacher's
+        decision replaces
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    claim_id: uuid.UUID
+    enrollment_id: uuid.UUID
+    display_name: str
+    period: str
+    claimed_amount: MoneyField
+
+
+class PaymentSubmittedResponse(BaseModel):
+    """A payment as recorded, waiting for the teacher.
+
+    :ivar submission_id: The submission
+    :ivar status: ``pending`` when just submitted; a replayed resend
+        reports the submission's stored status
+    :ivar total_amount: The whole amount sent
+    :ivar paid_on: The day the money moved
+    :ivar claims: Each child's share, in child order
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    submission_id: uuid.UUID
+    status: Literal["pending", "approved", "rejected"]
+    total_amount: MoneyField
+    paid_on: dt.date
+    claims: list[SubmittedClaimResponse]
+
+
+class OwedChildResponse(BaseModel):
+    """One child in the form's owed line.
+
+    :ivar enrollment_id: The child's seat
+    :ivar display_name: The teacher-typed name
+    :ivar owed: What the seat owes now, never negative
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    enrollment_id: uuid.UUID
+    display_name: str
+    owed: MoneyField
+
+
+class OwedTogetherResponse(BaseModel):
+    """What the chosen children owe together, for "Owed for ...".
+
+    :ivar owed_together: The server's total
+    :ivar children: Each child, in child order
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    owed_together: MoneyField
+    children: list[OwedChildResponse]

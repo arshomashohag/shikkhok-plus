@@ -143,6 +143,8 @@ _TABLE_DESCRIPTION: Final[dict[str, str]] = {
     "fee_cycle": "The record that a fee was due for a month",
     "ledger_entry": "Amounts charged, paid and waived",
     "payment_claim": "A payment you reported, and the teacher's decision on it",
+    "payment_method": "A place a teacher accepts payment, such as a number",
+    "payment_submission": "A payment you reported, grouped across your children",
     "reminder_event": "A record that a teacher sent a fee reminder",
     "notification": "Messages in your in-app inbox, such as a fee reminder",
     "job_heartbeat": "When our scheduled jobs last ran; it names nobody",

@@ -94,6 +94,7 @@ object InboxMapper {
             message.kind == InboxKind.MARKS_AVAILABLE && seat != null && source != null ->
                 InboxTarget.Marksheet(source, seat, guardian)
             message.kind == InboxKind.FEE_REMINDER && seat != null -> InboxTarget.Fees(seat, guardian)
+            message.kind == InboxKind.CLAIM_TO_VERIFY && source != null -> InboxTarget.Payment(source)
             message.kind == InboxKind.CLAIM_TO_VERIFY -> InboxTarget.Verify
             else -> InboxTarget.Detail(message.id)
         }

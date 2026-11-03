@@ -56,6 +56,40 @@ sealed interface AuthResult<out T> {
 }
 
 /**
+ * What redeeming the stored session at a cold start came to.
+ *
+ * **Three outcomes, because "the refresh did not succeed" is two
+ * different facts.** The server refusing the credential means it is
+ * dead and the person must sign in again. No answer arriving -- the
+ * phone is offline, or the server is down -- means nothing at all about
+ * the credential, and treating it as a refusal sent a signed-in teacher
+ * to the sign-in screen on every offline cold start: the offline
+ * attendance queue was unreachable exactly when it was needed, and an
+ * OTP (an SMS, a cost) was the only way back in.
+ */
+enum class SessionResume {
+    /** The server issued a fresh pair; the session is verified. */
+    RENEWED,
+
+    /**
+     * The stored session is kept but not yet verified: no answer
+     * arrived, or the server failed to answer (a 5xx or a 429).
+     *
+     * **Signed in, not a separate screen state.** Nothing renders
+     * differently: every screen already answers an unreachable server
+     * with its own retry, the offline queue keeps working, and the first
+     * request that does reach the server and finds the access token
+     * expired is renewed by `SessionRenewal` -- under the same lock --
+     * which is the lazy verification this state defers to. A refusal
+     * there ends the session the ordinary way.
+     */
+    UNVERIFIED,
+
+    /** No stored session, or the server refused it: sign in again. */
+    ENDED,
+}
+
+/**
  * Holds the OTP screen's state. Holds no business logic [TC-9, D-31].
  *
  * Every decision is delegated to [AuthStateMapper], which is the unit
@@ -87,32 +121,21 @@ class AuthViewModel(
      * persisted token nothing redeems would leave the app holding a
      * credential and still asking for a code.
      *
-     * A failure here is deliberately SILENT: the teacher sees the
+     * A session that ENDED is deliberately SILENT: the person sees the
      * normal sign-in screen, which is where they were going anyway. An
      * error about a refresh they never asked for would be noise about
-     * machinery they do not know exists.
+     * machinery they do not know exists. A session that could not be
+     * verified stays signed in ([SessionResume.UNVERIFIED]).
      *
      * **It must always resolve.** The state starts at
      * [AuthUiState.Restoring], so a path that left it unchanged would
      * hold the loader forever — the opposite of the flash it fixes.
      *
-     * @param refresh Exchanges the stored token for a fresh pair
+     * @param resume Redeems the stored session and says what came of it
      */
-    fun resumeSession(refresh: suspend () -> AuthResult<TokenResponse>) {
+    fun resumeSession(resume: suspend () -> SessionResume) {
         viewModelScope.launch {
-            // **Always resolves, which is what fixes the flash.** The
-            // starting state is `Restoring`, so leaving it untouched on
-            // failure would hold the loader forever. A failure here is
-            // still SILENT in the sense that matters: the person simply
-            // arrives at the sign-in screen, which is where they were
-            // going anyway, with no error about machinery they do not
-            // know exists.
-            _state.value =
-                if (refresh() is AuthResult.Ok) {
-                    AuthUiState.SignedIn
-                } else {
-                    AuthUiState.Idle
-                }
+            _state.value = AuthStateMapper.afterResume(resume())
         }
     }
 

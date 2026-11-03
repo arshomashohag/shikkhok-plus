@@ -5,6 +5,8 @@ import com.shikkhokplus.app.core.queue.AttendanceEntry
 import com.shikkhokplus.app.core.queue.QueuedWrite
 import com.shikkhokplus.app.core.queue.SendOutcome
 import com.shikkhokplus.app.feature.auth.AuthResult
+import com.shikkhokplus.app.feature.paymentmethods.MethodKind
+import com.shikkhokplus.app.feature.paymentmethods.PaymentMethodDraft
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -121,14 +123,14 @@ class WriteContractTest {
             Write("post", "/v1/exams/{exam_id}/marks") {
                 HttpMarksRepository(it).writeMark(ID, ID, "marked", 70)
             },
-            Write("post", "/v1/claims/{claim_id}/shortfall") {
-                HttpVerificationRepository(it).preview(ID, Money.of("800.00"))
+            Write("post", "/v1/payments/{submission_id}/approval") {
+                HttpVerificationRepository(it).approve(
+                    ID,
+                    PaymentApprovalBodyDto(Money.of("800.00"), "carried", carriedByEnrollmentId = ID),
+                )
             },
-            Write("post", "/v1/claims/{claim_id}/verification") {
-                HttpVerificationRepository(it).approve(ID, Money.of("800.00"), "carried")
-            },
-            Write("post", "/v1/claims/{claim_id}/rejection") {
-                HttpVerificationRepository(it).reject(ID, "Not received")
+            Write("post", "/v1/payments/{submission_id}/rejection") {
+                HttpVerificationRepository(it).reject(ID, "Not received", false)
             },
             Write("patch", "/v1/batches/{batch_id}") {
                 HttpBatchDetailRepository(it).editBatch(ID, BatchEdit(name = "Physics B", subjects = listOf("Optics")))
@@ -136,11 +138,28 @@ class WriteContractTest {
             Write("put", "/v1/exams/{exam_id}") {
                 HttpMarksRepository(it).editExam(ID, "Mid-term", "2026-11-04", 50, listOf("Motion"))
             },
-            Write("post", "/v1/enrollments/{enrollment_id}/claims") {
-                HttpPayRepository(it).submit(ID, ClaimSubmitDto(Money.of("1500.00"), "bKash", "DJ62K0LQ7V"))
+            Write("post", "/v1/payments") {
+                // With its replay key, as the form always sends it, so the
+                // server's schema is checked against the real body.
+                HttpPayRepository(it).submit(
+                    PaymentSubmitDto(
+                        listOf(ID),
+                        null,
+                        true,
+                        Money.of("1500.00"),
+                        "2026-11-02",
+                        clientMutationId = ID,
+                    ),
+                )
             },
-            Write("post", "/v1/children/{enrollment_id}/claims") {
-                HttpChildPayRepository(it, ID).submit(ID, ClaimSubmitDto(Money.of("1500.00"), "bKash", "DJ62K0LQ7V"))
+            Write("post", "/v1/payment-methods") {
+                HttpPaymentMethodsRepository(it).create(MOBILE_DRAFT)
+            },
+            Write("patch", "/v1/payment-methods/{method_id}") {
+                HttpPaymentMethodsRepository(it).update(ID, MOBILE_DRAFT)
+            },
+            Write("delete", "/v1/payment-methods/{method_id}") {
+                HttpPaymentMethodsRepository(it).retire(ID)
             },
             Write("post", "/v1/reminders") { HttpAnalyticsRepository(it).remind(listOf(ID)) },
             Write("post", "/v1/me/notifications/read") { HttpInboxRepository(it).markAllRead() },
@@ -222,6 +241,13 @@ class WriteContractTest {
     private companion object {
         /** A uuid, which every path parameter and id field accepts. */
         const val ID = "00000000-0000-0000-0000-000000000001"
+
+        val MOBILE_DRAFT =
+            PaymentMethodDraft(
+                kind = MethodKind.MOBILE,
+                provider = "bKash",
+                mobileNumber = "01712345678",
+            )
 
         val JSON_HEADERS = headersOf("Content-Type", listOf(ContentType.Application.Json.toString()))
     }

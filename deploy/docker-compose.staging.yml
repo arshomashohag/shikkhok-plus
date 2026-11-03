@@ -6,11 +6,53 @@
 # here would live on a root volume with delete_on_termination = true,
 # so every deploy would silently reset the database to empty.
 #
-# Written to the host by Terraform at boot (baked into user_data from
-# git), not by the deploy. A replaced instance therefore has it before
-# any deploy has touched that machine.
+# Uploaded by Terraform to the host's config bucket and fetched at
+# boot (it no longer fits in user_data). A replaced instance therefore
+# has it before any deploy has touched that machine.
+#
+# **Two services, two database identities** [OPS-5]. `api` -- and
+# every scheduled job, which runs as `docker compose run --rm api` --
+# connects as the restricted `shikkhok_app` role. `migrate` is the only
+# service that ever sees the owner's URL, and it runs only when the
+# boot script names it: for `alembic upgrade head`, then once to set
+# shikkhok_app's password.
 
 name: shikkhokplus
+
+# Settings both services share. A YAML anchor rather than a second
+# copy, so a variable added to one cannot be forgotten in the other.
+x-app-environment: &app-environment
+  SHIKKHOKPLUS_ENVIRONMENT: ${SHIKKHOKPLUS_ENVIRONMENT:-staging}
+  SHIKKHOKPLUS_OTP_HMAC_KEY: ${SHIKKHOKPLUS_OTP_HMAC_KEY:?required}
+  SHIKKHOKPLUS_JWT_KEYS: ${SHIKKHOKPLUS_JWT_KEYS:?required}
+  SHIKKHOKPLUS_JWT_ACTIVE_KID: ${SHIKKHOKPLUS_JWT_ACTIVE_KID:-k1}
+  SHIKKHOKPLUS_SMS_APP_HASH: ${SHIKKHOKPLUS_SMS_APP_HASH:-AAAAAAAAAAA}
+  SHIKKHOKPLUS_GLOBAL_DAILY_SMS: ${SHIKKHOKPLUS_GLOBAL_DAILY_SMS:-50}
+  SHIKKHOKPLUS_SMS_API_KEY: ${SHIKKHOKPLUS_SMS_API_KEY:-}
+  SHIKKHOKPLUS_SMS_SENDER_ID: ${SHIKKHOKPLUS_SMS_SENDER_ID:-}
+  SHIKKHOKPLUS_SMS_ADAPTER: ${SHIKKHOKPLUS_SMS_ADAPTER:-null}
+  SHIKKHOKPLUS_SMS_BASE_URL: ${SHIKKHOKPLUS_SMS_BASE_URL:-}
+  SHIKKHOKPLUS_STAGING_OUTBOX: ${SHIKKHOKPLUS_STAGING_OUTBOX:-0}
+  # nginx always overwrites this header from CloudFront's
+  # CloudFront-Viewer-Address, so it is the only client address the
+  # application may trust for the per-IP OTP ceiling. uvicorn trusts no
+  # forwarded header at all.
+  SHIKKHOKPLUS_TRUSTED_CLIENT_IP_HEADER: X-Client-Address
+
+# **Every container ships its output to CloudWatch** [OPS-11] -- the
+# API, the migrate runs and each scheduled job (`run --rm api` inherits
+# this). dockerd sends it with the instance role; no container needs,
+# or can reach, AWS credentials. `non-blocking` so a slow CloudWatch
+# can never stall a request on a log write; Docker's dual logging keeps
+# `docker compose logs` and the cron jobs' local log files working.
+x-logging: &logging
+  driver: awslogs
+  options:
+    awslogs-group: ${SHIKKHOKPLUS_LOG_GROUP:?SHIKKHOKPLUS_LOG_GROUP is required}
+    awslogs-region: ${SHIKKHOKPLUS_LOG_REGION:?SHIKKHOKPLUS_LOG_REGION is required}
+    tag: "{{.Name}}-{{.ID}}"
+    mode: non-blocking
+    max-buffer-size: 4m
 
 services:
   api:
@@ -20,18 +62,9 @@ services:
     image: ${API_IMAGE:?API_IMAGE is required}
 
     environment:
+      <<: *app-environment
+      # The restricted role [OPS-5]. Never the owner.
       SHIKKHOKPLUS_DATABASE_URL: ${SHIKKHOKPLUS_DATABASE_URL:?required}
-      SHIKKHOKPLUS_ENVIRONMENT: ${SHIKKHOKPLUS_ENVIRONMENT:-staging}
-      SHIKKHOKPLUS_OTP_HMAC_KEY: ${SHIKKHOKPLUS_OTP_HMAC_KEY:?required}
-      SHIKKHOKPLUS_JWT_KEYS: ${SHIKKHOKPLUS_JWT_KEYS:?required}
-      SHIKKHOKPLUS_JWT_ACTIVE_KID: ${SHIKKHOKPLUS_JWT_ACTIVE_KID:-k1}
-      SHIKKHOKPLUS_SMS_APP_HASH: ${SHIKKHOKPLUS_SMS_APP_HASH:-AAAAAAAAAAA}
-      SHIKKHOKPLUS_GLOBAL_DAILY_SMS: ${SHIKKHOKPLUS_GLOBAL_DAILY_SMS:-50}
-      SHIKKHOKPLUS_SMS_API_KEY: ${SHIKKHOKPLUS_SMS_API_KEY:-}
-      SHIKKHOKPLUS_SMS_SENDER_ID: ${SHIKKHOKPLUS_SMS_SENDER_ID:-}
-      SHIKKHOKPLUS_SMS_ADAPTER: ${SHIKKHOKPLUS_SMS_ADAPTER:-null}
-      SHIKKHOKPLUS_SMS_BASE_URL: ${SHIKKHOKPLUS_SMS_BASE_URL:-}
-      SHIKKHOKPLUS_STAGING_OUTBOX: ${SHIKKHOKPLUS_STAGING_OUTBOX:-0}
 
     ports:
       # **Bound to localhost.** nginx is the only thing that talks to
@@ -42,4 +75,27 @@ services:
       # check entirely.
       - "127.0.0.1:8000:8000"
 
+    logging: *logging
     restart: unless-stopped
+
+  # **The owner, for schema changes only.** In a profile, so `up` never
+  # starts it. The two owner-only values are interpolated from the
+  # environment of the shell that runs it -- the boot script exports
+  # them from SSM for exactly two commands -- and default to empty, so
+  # a run without them fails at connect rather than falling back to
+  # anything.
+  #
+  # SHIKKHOKPLUS_DATABASE_URL is ALSO the owner here, deliberately, so
+  # this service has one identity whichever variable a command reads:
+  # an alembic run that fell back to the restricted role would fail
+  # partway through DDL rather than at connect.
+  migrate:
+    image: ${API_IMAGE:?API_IMAGE is required}
+    profiles: ["migrate"]
+    environment:
+      <<: *app-environment
+      SHIKKHOKPLUS_MIGRATION_DATABASE_URL: ${SHIKKHOKPLUS_MIGRATION_DATABASE_URL:-}
+      SHIKKHOKPLUS_DATABASE_URL: ${SHIKKHOKPLUS_MIGRATION_DATABASE_URL:-}
+      SHIKKHOKPLUS_APP_DB_PASSWORD: ${SHIKKHOKPLUS_APP_DB_PASSWORD:-}
+    logging: *logging
+    restart: "no"

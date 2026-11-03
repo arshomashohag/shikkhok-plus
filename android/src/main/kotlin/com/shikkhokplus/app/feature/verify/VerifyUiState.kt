@@ -2,20 +2,83 @@ package com.shikkhokplus.app.feature.verify
 
 import com.shikkhokplus.app.core.model.Money
 
-/** How a claim stands against its charge, as the server decided it. */
+/** How a payment stands against what is owed, as the server decided it. */
 enum class Comparison {
-    /** The claim equals the charge. */
+    /** The payment equals what is owed. */
     MATCHES,
 
-    /** Less than the charge; approving it needs carry or waive. */
+    /** Less than what is owed. */
     SHORT,
 
-    /** More than the charge. */
+    /** More than what is owed. */
     OVER,
 }
 
+/** Where a payment is in its review. */
+enum class ReviewStatus {
+    /** Waiting for the teacher. */
+    PENDING,
+
+    /** The teacher recorded it as received. */
+    APPROVED,
+
+    /** The teacher did not accept it. */
+    REJECTED,
+}
+
+/** Where the money was sent, as the family was shown it. */
+enum class MethodKind {
+    /** A mobile-money number. */
+    MOBILE,
+
+    /** A bank account. */
+    BANK,
+
+    /** Handed over in person. */
+    CASH,
+
+    /** A legacy or future destination, shown by name only. */
+    OTHER,
+}
+
 /**
- * The earlier claim that used the same transaction id.
+ * The destination snapshot on a payment.
+ *
+ * @property kind What sort of destination it was
+ * @property provider The mobile service or the bank, if any
+ * @property number The mobile number or account number, if any
+ * @property accountName The account holder, banks only
+ * @property branchName The branch, banks only
+ * @property note Text the teacher showed with it
+ */
+data class ReviewMethod(
+    val kind: MethodKind,
+    val provider: String?,
+    val number: String?,
+    val accountName: String?,
+    val branchName: String?,
+    val note: String?,
+)
+
+/**
+ * One child a payment covers.
+ *
+ * @property enrollmentId The seat
+ * @property displayName The child
+ * @property period `YYYY-MM`
+ * @property owed What the seat owes, the server's figure
+ * @property approvedAmount What was approved for the seat, once decided
+ */
+data class ReviewChild(
+    val enrollmentId: String,
+    val displayName: String,
+    val period: String,
+    val owed: Money,
+    val approvedAmount: Money?,
+)
+
+/**
+ * The earlier payment that used the same reference.
  *
  * @property displayName Whose it was
  * @property statusKey A message key for how it was decided
@@ -30,91 +93,87 @@ data class DuplicateNote(
 )
 
 /**
- * One claim card (T4).
+ * One payment under review (R1 to R3).
  *
- * @property claimId The claim
- * @property displayName The student
+ * @property submissionId The payment
  * @property batchName The batch
- * @property period `YYYY-MM`
- * @property claimedAmount What was sent
- * @property charged What the period charged
+ * @property children The children covered, in the server's order
+ * @property owedTogether What they owe together now; for a decided payment, before the decision
+ * @property totalAmount What the payer says they sent
  * @property comparison The server's comparison
- * @property difference How far from the charge
- * @property channel The service used
- * @property transactionId The reference, if any
- * @property submittedAt When it was sent, as the server wrote it
+ * @property difference How far from what is owed
+ * @property method Where it was sent
+ * @property transactionId The mobile reference, if any
+ * @property fromAccount The paying bank account, if any
+ * @property paidOn The day the money moved, `YYYY-MM-DD`
+ * @property submittedAt When it was reported
  * @property submitterKey A message key naming who sent it, or null
  * @property submitterPhone The number on record for them, or null
- * @property duplicate The earlier claim with the same reference, or null
+ * @property payerNote The payer's note, if any
+ * @property status Where the review stands
+ * @property decisionNote The teacher's note on the decision, if any
+ * @property decidedAt When it was decided, or null while pending
+ * @property duplicate The earlier payment with the same reference, or null
  */
-data class ClaimCard(
-    val claimId: String,
-    val displayName: String,
+data class ReviewCard(
+    val submissionId: String,
     val batchName: String,
-    val period: String,
-    val claimedAmount: Money,
-    val charged: Money,
+    val children: List<ReviewChild>,
+    val owedTogether: Money,
+    val totalAmount: Money,
     val comparison: Comparison,
     val difference: Money,
-    val channel: String,
+    val method: ReviewMethod,
     val transactionId: String?,
+    val fromAccount: String?,
+    val paidOn: String,
     val submittedAt: String,
     val submitterKey: String?,
     val submitterPhone: String?,
+    val payerNote: String?,
+    val status: ReviewStatus,
+    val decisionNote: String?,
+    val decidedAt: String?,
     val duplicate: DuplicateNote?,
-)
+) {
+    /** The children's names together, in the server's order. */
+    val displayName: String get() = children.joinToString(", ") { it.displayName }
+
+    /** The first child's period, which names the month on a row. */
+    val period: String get() = children.firstOrNull()?.period.orEmpty()
+}
 
 /**
- * A decision from the last day, for "Approved today".
+ * A decision from the last day.
  *
- * @property displayName The student
+ * @property submissionId The payment
+ * @property displayName The children
  * @property batchName The batch
  * @property statusKey A message key for the decision
  * @property amount The amount
  */
 data class RecentRow(
+    val submissionId: String,
     val displayName: String,
     val batchName: String,
     val statusKey: String,
     val amount: Money,
 )
 
-/**
- * The partial-approval sheet: an amount, and what it leaves short.
- *
- * @property card The claim being approved in part
- * @property typed The amount as typed
- * @property shortfall What it leaves short, from the server, or null
- *   until the server has answered for this amount
- * @property dispositionRequired Whether carry or waive must be chosen
- * @property disposition `carried` or `waived`, once chosen
- */
-data class PartialSheet(
-    val card: ClaimCard,
-    val typed: String,
-    val shortfall: Money? = null,
-    val dispositionRequired: Boolean = false,
-    val disposition: String? = null,
-)
-
-/** Everything T4 renders. */
+/** Everything R1 renders. */
 sealed interface VerifyUiState {
     /** The queue is loading. */
     data object Loading : VerifyUiState
 
     /**
-     * Claims are waiting.
+     * Payments are waiting.
      *
-     * @property pending The waiting claims, oldest first
+     * @property pending The waiting payments, oldest first
      * @property recent The last day's decisions
-     * @property busyClaimId A claim whose decision is being sent, or null
-     * @property errorKey A refused decision's message, shown on the list
      */
     data class Waiting(
-        val pending: List<ClaimCard>,
+        val pending: List<ReviewCard>,
         val recent: List<RecentRow>,
-        val busyClaimId: String? = null,
-        val errorKey: String? = null,
     ) : VerifyUiState
 
     /**

@@ -29,41 +29,69 @@ from __future__ import annotations
 
 import datetime as dt
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
+from app.analytics.collections import (
+    DEFAULT_MONTHS,
+    LedgerFact,
+    carried_in_by_period,
+    charged_by_period,
+    clamp_months,
+    collected_by_period,
+    facts_for_seats,
+    months_ending,
+)
 from app.authz.lenses import GuardianLens, Lens, StudentLens, TeacherLens
-from app.db.models import Batch, Enrollment, FeeCycle, LedgerEntryRow, PaymentClaim
+from app.db.models import (
+    Batch,
+    Enrollment,
+    FeeCycle,
+    LedgerEntryRow,
+    PaymentClaim,
+    PaymentSubmission,
+)
 from app.errors import AuthorizationError
 from app.errors.codes import NOT_AVAILABLE
-from app.fees.balances import derive_for_enrollment
-from app.fees.claims import CHANNELS
+from app.fees.balances import derive_for_enrollment, entries_for_enrollment
 from app.fees.overdue import days_overdue
 from app.fees.status import (
     CLAIM_STATUS_VALUES,
     DISPOSITION_VALUES,
+    SUBMISSION_STATUS_VALUES,
     ClaimStatus,
     FeeStatus,
+    MonthState,
     ShortfallDisposition,
+    SubmissionStatus,
     fee_status,
+    month_state,
     status_from_entries,
 )
+from app.fees.submissions import child_order
 from app.local_time import bangladesh_today
 from app.money import LedgerEntry, LedgerEntryKind, Money, derive
 
 __all__ = [
+    "BatchMonth",
     "ClaimDetail",
     "FeeCycleRow",
-    "PaymentDestination",
+    "HistoryLine",
+    "MonthCounts",
+    "MonthStateRow",
     "RosterFeeRow",
     "assert_claim_is_verifiable",
     "batch_fee_overview",
+    "batch_month",
     "claim_detail",
     "claim_status",
+    "claims_by_month",
     "enrollment_fee_history",
-    "payment_destination",
+    "month_strip",
+    "owned_submission",
+    "submission_status",
 ]
 
 
@@ -102,6 +130,21 @@ def claim_status(stored: str) -> ClaimStatus:
         raise ValueError(
             f"{stored!r} is not a claim status. The database enum and "
             "app.fees.status.CLAIM_STATUS_VALUES have diverged."
+        )
+    return stored
+
+
+def submission_status(stored: str) -> SubmissionStatus:
+    """Narrow a stored submission status onto the closed set, checking it.
+
+    :param stored: The value read from the column
+    :return: The same value, narrowed
+    :raises ValueError: The stored value is outside the closed set
+    """
+    if stored not in SUBMISSION_STATUS_VALUES:
+        raise ValueError(
+            f"{stored!r} is not a submission status. The database enum and "
+            "app.fees.status.SUBMISSION_STATUS_VALUES have diverged."
         )
     return stored
 
@@ -150,6 +193,98 @@ class RosterFeeRow:
     due_date: dt.date | None
     days_overdue: int | None = None
     verifying: Money | None = None
+    state: MonthState | None = None
+    history_line: HistoryLine | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class HistoryLine:
+    """The latest payment claim for one seat in one month, as data.
+
+    Structured fields rather than a sentence, so the client localizes it.
+
+    **The amount is one a person can recognise.** Once approved it is
+    what the teacher approved for this child. While a payment waits, or
+    once it is rejected, it is the whole payment as sent, with the
+    children it covered named: the child's provisional share is a split
+    nobody made, and for a child with a zero share it reads as nothing
+    sent at all.
+
+    :ivar amount: What was approved for the child; otherwise what was
+        sent, for every child in ``covered_names``
+    :ivar channel: Which service the money moved through
+    :ivar paid_on: When the money was sent
+    :ivar status: One of the four server-set claim values
+    :ivar decision_note: The teacher's note on the decision, or None
+    :ivar covered_names: The children the sent amount covered, in child
+        order; empty once the amount is the child's approved figure, and
+        for a claim made before payments covered several children
+    """
+
+    amount: Money
+    channel: str
+    paid_on: dt.date
+    status: ClaimStatus
+    decision_note: str | None
+    covered_names: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True, slots=True)
+class MonthClaims:
+    """What the claims of one seat say about one month.
+
+    :ivar checking: A claim for the month still waits for the teacher
+    :ivar latest: The most recently submitted claim
+    """
+
+    checking: bool
+    latest: HistoryLine
+
+
+@dataclass(frozen=True, slots=True)
+class MonthStateRow:
+    """One month on a seat's strip.
+
+    :ivar period: The month, as ``YYYY-MM``
+    :ivar state: The month's state
+    :ivar history_line: The latest claim for it, or None
+    """
+
+    period: str
+    state: MonthState
+    history_line: HistoryLine | None
+
+
+@dataclass(frozen=True, slots=True)
+class MonthCounts:
+    """How many seats fall under each filter for one month.
+
+    :ivar paid: Settled seats, including waived ones
+    :ivar checking: Seats with a payment waiting for the teacher
+    :ivar owed: Seats still owing, wholly or partly
+    """
+
+    paid: int
+    checking: int
+    owed: int
+
+
+@dataclass(frozen=True, slots=True)
+class BatchMonth:
+    """One batch in one month.
+
+    :ivar period: The month, as ``YYYY-MM``
+    :ivar collected: Cash in for the month after corrections
+    :ivar charged: What the month was billed
+    :ivar counts: Seats per filter
+    :ivar seats: One row per seat
+    """
+
+    period: str
+    collected: Money
+    charged: Money
+    counts: MonthCounts
+    seats: list[RosterFeeRow]
 
 
 @dataclass(frozen=True, slots=True)
@@ -188,6 +323,7 @@ class ClaimDetail:
     :ivar submitted_at: When it was submitted
     :ivar verified_at: When it was decided, or None
     :ivar previous_decision: The prior decision, on a correction
+    :ivar decision_note: The teacher's note on the decision, or None
     """
 
     claim_id: uuid.UUID
@@ -200,29 +336,7 @@ class ClaimDetail:
     submitted_at: dt.datetime
     verified_at: dt.datetime | None
     previous_decision: dict[str, object] | None
-
-
-@dataclass(frozen=True, slots=True)
-class PaymentDestination:
-    """Where to send a payment, and through what.
-
-    **Returned as a whole object or not at all** [NFR14.34]. Where the
-    teacher set no collection number the caller receives ``None`` and
-    the screen omits the destination step entirely, rather than
-    rendering a field with a null in it -- a null invites a client-side
-    placeholder, and an absent object leaves nothing to render.
-
-    :ivar collection_number: Where payments are sent
-    :ivar collection_channel: Which service that number belongs to
-    :ivar channels: The channel set, server-supplied [BR6.5]
-    :ivar teacher_display_name: Who the money goes to, as the teacher
-        named themselves for students -- "Send money to ..."
-    """
-
-    collection_number: str
-    collection_channel: str | None
-    channels: tuple[str, ...]
-    teacher_display_name: str | None = None
+    decision_note: str | None = None
 
 
 def _owned_batch(session: Session, *, lens: TeacherLens, batch_id: uuid.UUID) -> Batch:
@@ -306,6 +420,7 @@ def batch_fee_overview(
     lens: TeacherLens,
     batch_id: uuid.UUID,
     today: dt.date | None = None,
+    period: str | None = None,
 ) -> list[RosterFeeRow]:
     """List every seat's fee position on one of this teacher's batches.
 
@@ -313,6 +428,8 @@ def batch_fee_overview(
     :param lens: The teacher lens carrying the owner id
     :param batch_id: The batch
     :param today: The date overdue is measured on; Bangladesh's by default
+    :param period: The month each row's state and history line describe;
+        the current month by default
     :return: One row per seat, ordered as the roster is
     :raises AuthorizationError: The batch is not this lens's
     """
@@ -383,9 +500,12 @@ def batch_fee_overview(
         verifying[seat_id] = verifying.get(seat_id, Money.ZERO) + claimed
 
     on = today or bangladesh_today()
+    month = period or months_ending(on, 1)[0]
+    claims = claims_by_month(session, seat_ids, [month])
 
     rows: list[RosterFeeRow] = []
     for seat in seats:
+        month_claims = claims.get((seat.id, month))
         entries = ledger[seat.id]
         newest = latest.get(seat.id)
         derived = derive(entries)
@@ -405,9 +525,189 @@ def batch_fee_overview(
                     derived.per_cycle, due_by_seat.get(seat.id, {}), on
                 ),
                 verifying=verifying.get(seat.id),
+                state=month_state(
+                    entries,
+                    month,
+                    checking=month_claims is not None and month_claims.checking,
+                ),
+                history_line=None if month_claims is None else month_claims.latest,
             )
         )
     return rows
+
+
+def claims_by_month(
+    session: Session,
+    seat_ids: list[uuid.UUID],
+    periods: list[str],
+) -> dict[tuple[uuid.UUID, str], MonthClaims]:
+    """Read what the claims say about these seats in these months, in ONE statement.
+
+    :param session: The session to read through
+    :param seat_ids: The seats
+    :param periods: The months
+    :return: Per ``(seat, period)``, whether one waits and the latest one;
+        a pair with no claim is absent
+    """
+    if not seat_ids:
+        return {}
+    rows = session.execute(
+        sa.select(PaymentClaim, PaymentSubmission)
+        .outerjoin(
+            PaymentSubmission,
+            PaymentSubmission.id == PaymentClaim.payment_submission_id,
+        )
+        .where(
+            PaymentClaim.enrollment_id.in_(seat_ids), PaymentClaim.period.in_(periods)
+        )
+        .order_by(PaymentClaim.submitted_at, PaymentClaim.id)
+    ).all()
+    names = _covered_names(
+        session, [submission.id for _claim, submission in rows if submission]
+    )
+    result: dict[tuple[uuid.UUID, str], MonthClaims] = {}
+    for claim, submission in rows:
+        key = (claim.enrollment_id, claim.period)
+        waiting = claim.status == "pending" or (key in result and result[key].checking)
+        result[key] = MonthClaims(
+            checking=waiting,
+            latest=_history_line(claim, submission, names),
+        )
+    return result
+
+
+def _covered_names(
+    session: Session, submission_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, list[str]]:
+    """Name each submission's children, in child order, in one statement.
+
+    :param session: The session to read through
+    :param submission_ids: The submissions
+    :return: Submission id to its children's teacher-typed names
+    """
+    if not submission_ids:
+        return {}
+    seats: dict[uuid.UUID, list[Enrollment]] = {}
+    for submission_id, seat in session.execute(
+        sa.select(PaymentClaim.payment_submission_id, Enrollment)
+        .join(Enrollment, Enrollment.id == PaymentClaim.enrollment_id)
+        .where(PaymentClaim.payment_submission_id.in_(set(submission_ids)))
+    ).all():
+        if submission_id is not None:
+            seats.setdefault(submission_id, []).append(seat)
+    return {
+        submission_id: [seat.display_name for seat in sorted(found, key=child_order)]
+        for submission_id, found in seats.items()
+    }
+
+
+def _history_line(
+    claim: PaymentClaim,
+    submission: PaymentSubmission | None,
+    names: dict[uuid.UUID, list[str]],
+) -> HistoryLine:
+    """Describe one claim for a seat's month.
+
+    :param claim: The claim
+    :param submission: The payment it is a share of, or None
+    :param names: Each submission's children, in child order
+    :return: The line, amount chosen as :class:`HistoryLine` explains
+    """
+    status = claim_status(claim.status)
+    approved = status in ("approved_full", "approved_partial")
+    if submission is None:
+        return HistoryLine(
+            amount=(
+                claim.approved_amount
+                if approved and claim.approved_amount is not None
+                else claim.claimed_amount
+            ),
+            channel=claim.channel,
+            paid_on=claim.submitted_at.date(),
+            status=status,
+            decision_note=claim.rejection_reason,
+        )
+    if approved and claim.approved_amount is not None:
+        amount, covered = claim.approved_amount, []
+    else:
+        amount, covered = submission.total_amount, names.get(submission.id, [])
+    return HistoryLine(
+        amount=amount,
+        channel=claim.channel,
+        paid_on=submission.paid_on,
+        status=status,
+        decision_note=submission.decision_note,
+        covered_names=covered,
+    )
+
+
+def batch_month(
+    session: Session,
+    *,
+    lens: TeacherLens,
+    batch_id: uuid.UUID,
+    period: str | None = None,
+    today: dt.date | None = None,
+) -> BatchMonth:
+    """Read one batch in one month: totals, filter counts and each seat.
+
+    :param session: The session to read through
+    :param lens: The teacher lens carrying the owner id
+    :param batch_id: The batch
+    :param period: The month, as ``YYYY-MM``; the current month by default
+    :param today: Bangladesh's date by default
+    :return: The month's figures and rows
+    :raises AuthorizationError: The batch is not this lens's
+    """
+    on = today or bangladesh_today()
+    month = period or months_ending(on, 1)[0]
+    seats = batch_fee_overview(
+        session, lens=lens, batch_id=batch_id, today=on, period=month
+    )
+    facts = facts_for_seats(session, [seat.enrollment_id for seat in seats])
+    states = [seat.state for seat in seats]
+    return BatchMonth(
+        period=month,
+        collected=collected_by_period(facts).get(month, Money.ZERO),
+        charged=charged_by_period(facts).get(month, Money.ZERO),
+        counts=MonthCounts(
+            paid=sum(1 for state in states if state in ("paid", "waived")),
+            checking=sum(1 for state in states if state == "checking"),
+            owed=sum(1 for state in states if state in ("unpaid", "partly_paid")),
+        ),
+        seats=seats,
+    )
+
+
+def month_strip(
+    session: Session, enrollment_id: uuid.UUID, window: list[str]
+) -> list[MonthStateRow]:
+    """Give one seat's state for each month of a window that has one.
+
+    :param session: The session to read through
+    :param enrollment_id: The seat, already authorized
+    :param window: Period keys, oldest first
+    :return: The months that have a state, oldest first
+    """
+    entries = entries_for_enrollment(session, enrollment_id)
+    claims = claims_by_month(session, [enrollment_id], window)
+    strip: list[MonthStateRow] = []
+    for month in window:
+        month_claims = claims.get((enrollment_id, month))
+        state = month_state(
+            entries,
+            month,
+            checking=month_claims is not None and month_claims.checking,
+        )
+        if state is not None:
+            strip.append(
+                MonthStateRow(
+                    period=month,
+                    state=state,
+                    history_line=None if month_claims is None else month_claims.latest,
+                )
+            )
+    return strip
 
 
 @dataclass(frozen=True)
@@ -428,10 +728,12 @@ class FeeHistory:
 
     :ivar cycles: One row per generated period, oldest first
     :ivar total_outstanding: What this seat still owes in total
+    :ivar month_states: The last months that have a state, oldest first
     """
 
     cycles: list[FeeCycleRow]
     total_outstanding: Money
+    month_states: list[MonthStateRow] = field(default_factory=list)
 
 
 def enrollment_fee_history(
@@ -439,13 +741,17 @@ def enrollment_fee_history(
     *,
     lens: Lens,
     enrollment_id: uuid.UUID,
+    months: int = DEFAULT_MONTHS,
+    today: dt.date | None = None,
 ) -> FeeHistory:
     """List every generated period for one seat, with its total.
 
     :param session: The session to read through
     :param lens: The viewer's lens
     :param enrollment_id: The seat
-    :return: The periods and the total still owed
+    :param months: How many months the strip covers, clamped to 1 to 24
+    :param today: Bangladesh's date by default
+    :return: The periods, the total still owed and the strip
     :raises AuthorizationError: No path grants this lens that seat
     """
     _readable_enrollment(session, lens=lens, enrollment_id=enrollment_id)
@@ -459,9 +765,10 @@ def enrollment_fee_history(
         )
     )
 
+    facts = facts_for_seats(session, [enrollment_id])
     rows: list[FeeCycleRow] = []
     for cycle in cycles:
-        charged = _charged_in(session, enrollment_id, cycle.period)
+        charged = _charged_in(facts, cycle.period)
         rows.append(
             FeeCycleRow(
                 period=cycle.period,
@@ -473,31 +780,33 @@ def enrollment_fee_history(
                 ),
             )
         )
-    return FeeHistory(cycles=rows, total_outstanding=derived.total_outstanding)
+    window = months_ending(today or bangladesh_today(), clamp_months(months))
+    strip = month_strip(session, enrollment_id, window)
+    return FeeHistory(
+        cycles=rows,
+        total_outstanding=derived.total_outstanding,
+        month_states=strip,
+    )
 
 
-def _charged_in(session: Session, enrollment_id: uuid.UUID, period: str) -> Money:
-    """Total what was charged for one period.
+def _charged_in(facts: list[LedgerFact], period: str) -> Money:
+    """Total what was charged for one period, after corrections.
 
     ``charge`` and ``carry_forward`` both place an obligation on a
     period, so both count: a period that received a carried balance was
     charged that balance as surely as it was charged its own fee, and
     reporting only the ``charge`` rows would show a cycle owing more
-    than it was charged.
+    than it was charged. The rows a correction wrote or superseded are
+    left out by the collections report's own rules, so a corrected
+    decision moves neither figure.
 
-    :param session: The session to read through
-    :param enrollment_id: The seat
+    :param facts: The seat's rows with their correction flags
     :param period: The period
     :return: The total charged for it
     """
-    amounts = session.scalars(
-        sa.select(LedgerEntryRow.amount).where(
-            LedgerEntryRow.enrollment_id == enrollment_id,
-            LedgerEntryRow.period == period,
-            LedgerEntryRow.kind.in_(("charge", "carry_forward")),
-        )
-    ).all()
-    return Money.sum(amounts)
+    return charged_by_period(facts).get(period, Money.ZERO) + carried_in_by_period(
+        facts
+    ).get(period, Money.ZERO)
 
 
 def claim_detail(
@@ -531,7 +840,54 @@ def claim_detail(
         submitted_at=claim.submitted_at,
         verified_at=claim.verified_at,
         previous_decision=claim.previous_decision,
+        decision_note=_decision_note(session, claim),
     )
+
+
+def _decision_note(session: Session, claim: PaymentClaim) -> str | None:
+    """Read the note the family is shown for a claim's decision.
+
+    A share of a submission shows the submission's note; a claim made
+    on its own shows its rejection reason.
+
+    :param session: The session to read through
+    :param claim: The claim
+    :return: The note, or None
+    """
+    if claim.payment_submission_id is None:
+        return claim.rejection_reason
+    submission = session.get(PaymentSubmission, claim.payment_submission_id)
+    return None if submission is None else submission.decision_note
+
+
+def owned_submission(
+    session: Session,
+    *,
+    lens: TeacherLens,
+    submission_id: uuid.UUID,
+) -> PaymentSubmission:
+    """Load a submission on one of this teacher's batches, or refuse.
+
+    An absent submission and another teacher's are the same refusal,
+    so a probe cannot tell which ids exist.
+
+    :param session: The session to read through
+    :param lens: The teacher lens carrying the owner id
+    :param submission_id: The submission
+    :return: The submission
+    :raises AuthorizationError: It is absent or not this lens's
+    """
+    submission = session.scalars(
+        sa.select(PaymentSubmission)
+        .join(Batch, Batch.id == PaymentSubmission.batch_id)
+        .where(
+            PaymentSubmission.id == submission_id,
+            Batch.owner_id == lens.owner_id,
+        )
+    ).one_or_none()
+    if submission is None:
+        raise _refuse()
+    return submission
 
 
 def assert_claim_is_verifiable(
@@ -564,38 +920,3 @@ def assert_claim_is_verifiable(
     if owned is None:
         raise _refuse()
     return claim
-
-
-def payment_destination(
-    session: Session,
-    *,
-    lens: Lens,
-    enrollment_id: uuid.UUID,
-) -> PaymentDestination | None:
-    """Return where to pay for this seat, if the teacher set a number.
-
-    **The one response in the product carrying the collection number**
-    [BR6.4, NFR14.32], and the allowlist asserting that is a test over
-    the generated schema rather than a convention. It is the single
-    teacher-authored field deliberately exposed downward, because the
-    payment flow cannot work without it -- and the exposure is bounded
-    to people enrolled in that teacher's batch rather than incidental.
-
-    :param session: The session to read through
-    :param lens: The viewer's lens
-    :param enrollment_id: The seat being paid for
-    :return: The destination, or None where the teacher set no number
-    :raises AuthorizationError: No path grants this lens that seat
-    """
-    record = _readable_enrollment(session, lens=lens, enrollment_id=enrollment_id)
-
-    batch = session.get(Batch, record.batch_id)
-    if batch is None or batch.collection_number is None:
-        return None
-
-    return PaymentDestination(
-        collection_number=batch.collection_number,
-        collection_channel=batch.collection_channel,
-        channels=CHANNELS,
-        teacher_display_name=batch.teacher_display_name,
-    )

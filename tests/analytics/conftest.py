@@ -254,3 +254,17 @@ def batch_factory(owner_session: Session) -> Callable[[uuid.UUID, str], uuid.UUI
         return add_batch(owner_session, owner_id, name)
 
     return make
+
+
+@pytest.fixture
+def account_for(owner_session: Session) -> Callable[[], uuid.UUID]:
+    """Return a factory making accounts with unique phone numbers.
+
+    :param owner_session: A session able to arrange fixture data
+    :return: A callable producing a fresh account id each time
+    """
+
+    def make() -> uuid.UUID:
+        return _account(owner_session)
+
+    return make

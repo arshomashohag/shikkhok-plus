@@ -31,7 +31,7 @@ import uuid
 from dataclasses import dataclass
 
 import sqlalchemy as sa
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from app.db.models import (
     DISPOSITION_VALUES,
@@ -44,7 +44,7 @@ from app.errors import ConflictError, ValidationError
 from app.fees.balances import derive_for_enrollment
 from app.fees.ledger_writer import append_carry_pair, append_entry, supersede
 from app.fees.periods import Period
-from app.money import Money
+from app.money import Money, apply_credit, settle_oldest_first
 from app.notifications.inbox import (
     CLAIM_TO_VERIFY,
     PAYMENT_APPROVED,
@@ -56,7 +56,16 @@ from app.notifications.inbox import (
 )
 from app.notifications.recipients import child_names, seat_recipients
 
-__all__ = ["VerificationOutcome", "reject_claim", "shortfall_of", "verify_claim"]
+__all__ = [
+    "VerificationOutcome",
+    "reject_claim",
+    "reject_claim_in_transaction",
+    "settle_claim_in_transaction",
+    "shortfall_of",
+    "verify_claim",
+    "verify_claim_in_transaction",
+    "withdraw_decision",
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -199,24 +208,39 @@ def _reverse_prior_entries(
     the balance identity, so the two cancel exactly: a ``receipt`` or a
     ``forgiveness`` relieved an obligation and is cancelled by a
     ``charge`` of the same amount, a ``credit_grant`` by a
-    ``credit_apply``, and either half of a carry by the other -- which
+    ``credit_apply`` together with a ``charge`` on the same period (the
+    ``credit_apply`` cancels the credit but would relieve that period, so
+    the ``charge`` puts the obligation back and the period nets to zero),
+    and either half of a carry by the other -- which
     reverses the whole pair and keeps
     ``sum(carry_forward) == sum(carried_out)`` true throughout.
+
+    **A grant whose credit was already spent is split.** Generation may
+    have spent some of it on a later month through ``credit_apply``, and
+    that month's relief stays. Only the part still held -- the smaller
+    of the grant and the credit available at reversal -- is withdrawn
+    by ``credit_apply`` plus ``charge``; the spent rest is put back by a
+    ``charge`` alone. Withdrawing spent credit again would relieve the
+    grant's month a second time and leave a credit deficit that
+    swallows the next grant.
 
     :param session: The session to write through
     :param claim: The claim whose prior entries are being undone
     :param verified_by_account_id: Who is correcting
     :return: None
     """
+    compensating = aliased(LedgerEntryRow)
     prior = list(
         session.scalars(
             # Only entries this claim produced, and only those not
             # already compensated -- a second correction must not
-            # reverse the first correction's reversals.
+            # reverse the first correction's reversals, so an entry
+            # that IS a compensation is excluded as well.
             sa.select(LedgerEntryRow)
             .where(
                 LedgerEntryRow.payment_claim_id == claim.id,
                 LedgerEntryRow.superseded_by_id.is_(None),
+                ~sa.exists().where(compensating.superseded_by_id == LedgerEntryRow.id),
             )
             .order_by(LedgerEntryRow.created_at)
         )
@@ -228,13 +252,24 @@ def _reverse_prior_entries(
     opposite = {
         "receipt": "charge",
         "forgiveness": "charge",
-        "credit_grant": "credit_apply",
         "credit_apply": "credit_grant",
         "carry_forward": "carried_out",
         "carried_out": "carry_forward",
     }
 
+    available = derive_for_enrollment(session, claim.enrollment_id).available_credit
     for entry in prior:
+        if entry.kind == "credit_grant":
+            held = apply_credit(available, entry.amount)
+            available = available - held
+            _withdraw_grant(
+                session,
+                claim,
+                entry,
+                held=held,
+                verified_by_account_id=verified_by_account_id,
+            )
+            continue
         mirror = opposite.get(entry.kind)
         if mirror is None:
             continue
@@ -248,6 +283,54 @@ def _reverse_prior_entries(
             created_by_account_id=verified_by_account_id,
         )
         supersede(session, original=entry, compensation=compensation)
+
+
+def _withdraw_grant(
+    session: Session,
+    claim: PaymentClaim,
+    grant: LedgerEntryRow,
+    *,
+    held: Money,
+    verified_by_account_id: uuid.UUID,
+) -> None:
+    """Compensate a credit grant, of which ``held`` is still unspent.
+
+    The held part is withdrawn by a ``credit_apply`` and its relief of
+    the grant's month undone by a ``charge``; the spent part already
+    relieved a later month, so a ``charge`` alone puts it back owed. The
+    grant is superseded by the first compensation written.
+
+    :param session: The session to write through
+    :param claim: The claim whose decision is being undone
+    :param grant: The ``credit_grant`` row
+    :param held: How much of the grant is still available as credit
+    :param verified_by_account_id: Who is correcting
+    :return: None
+    """
+    spent = grant.amount - held
+    compensations = [
+        (kind, amount)
+        for kind, amount in (
+            ("credit_apply", held),
+            ("charge", held),
+            ("charge", spent),
+        )
+        if amount.is_positive()
+    ]
+    first: LedgerEntryRow | None = None
+    for kind, amount in compensations:
+        row = append_entry(
+            session,
+            enrollment_id=claim.enrollment_id,
+            period=grant.period,
+            kind=kind,
+            amount=amount,
+            payment_claim_id=claim.id,
+            created_by_account_id=verified_by_account_id,
+        )
+        first = first or row
+    if first is not None:
+        supersede(session, original=grant, compensation=first)
 
 
 def shortfall_of(charged: Money, approved: Money) -> Money:
@@ -267,96 +350,75 @@ def shortfall_of(charged: Money, approved: Money) -> Money:
     return Money.ZERO if raw.is_negative() else raw
 
 
-def verify_claim(
+def withdraw_decision(
     session: Session,
+    claim: PaymentClaim,
     *,
-    claim_id: uuid.UUID,
+    verified_by_account_id: uuid.UUID,
+) -> dict[str, object] | None:
+    """Undo a decided claim's decision, leaving it pending again [BR3.3].
+
+    The prior decision is retained on ``previous_decision`` and every
+    entry it produced is compensated, so the next decision is written
+    against the balance as it stood before. A claim still pending is
+    left as it is. Adds to the transaction and does not commit.
+
+    :param session: The session to write through
+    :param claim: The claim being re-decided
+    :param verified_by_account_id: Who is correcting
+    :return: The prior decision, or None when there was none
+    """
+    previous = _previous_decision(claim)
+    if previous is None:
+        return None
+    _reverse_prior_entries(
+        session, claim, verified_by_account_id=verified_by_account_id
+    )
+    claim.previous_decision = previous
+    claim.status = _UNDECIDED
+    return previous
+
+
+def verify_claim_in_transaction(
+    session: Session,
+    claim: PaymentClaim,
+    *,
     approved_amount: Money,
     shortfall_disposition: str | None,
     verified_by_account_id: uuid.UUID,
-    correcting: bool = False,
 ) -> VerificationOutcome:
-    """Approve a claim, writing its decision and entries together.
+    """Write one claim's approval and its entries, inside a caller's decision.
 
-    One transaction for the claim's status, approved amount,
-    disposition, verifier and timestamp together with every ledger entry
-    the decision produced [BR5.5].
-
-    **Deciding an already-decided claim is a ``ConflictError`` unless
-    the caller says it is a correction** [NFR6.35, NFR14.45]. Two
-    teachers approving the same claim at the same moment would
-    otherwise each append a full set of entries and credit the payment
-    twice, which is a money error — and a claim has no
-    ``(enrollment, period)`` uniqueness for the database to conflict
-    on, so this is the one concurrent path the fee-cycle constraint does
-    not already cover.
-
-    The guard is a **conditional update** rather than a read-then-write:
-    ``_claim_the_decision`` moves the status only ``WHERE`` it still
-    holds the value this caller read, so zero rows updated means another
-    verification won. A check-then-act would pass a sequential test and
-    lose the race it exists to settle.
-
-    ``correcting`` separates the two cases that look identical from the
-    database's point of view. FR9.2 makes every verification
-    correctable, so a guard reading "refuse any verification of a
-    decided claim" would pass the race test and break correction
-    entirely.
+    **No race guard, no notification and no commit.** The caller has
+    already won the right to decide -- a submission's decision claims
+    the submission row -- and commits every child's claim together. A
+    claim still carrying a decision is withdrawn first, so a correction
+    compensates before it writes.
 
     :param session: The session to write through
-    :param claim_id: The claim to decide
-    :param approved_amount: What the teacher accepted
+    :param claim: The claim to decide
+    :param approved_amount: What the teacher accepted for this claim
     :param shortfall_disposition: ``carried`` or ``waived``, required
-        where the approval is below the charge and None where it is not
+        where the approval is below the period's charge and None where
+        it is not
     :param verified_by_account_id: Who decided
-    :param correcting: True when the teacher is deliberately revising a
-        decision already on record, which retains the prior one
     :return: The decided claim and the computed shortfall
-    :raises ValidationError: The amount is negative, the disposition is
-        missing where one is required or supplied where none applies,
-        or the disposition is not a representable value
-    :raises ConflictError: The claim was already decided and this is not
-        a declared correction
+    :raises ValidationError: The amount is negative, or the disposition
+        is missing, unknown or not applicable
     """
     if approved_amount.is_negative():
         raise ValidationError(
             code="APPROVED_AMOUNT_NEGATIVE",
             message_key="fees.verification.amount_negative",
         )
-
-    claim = _load(session, claim_id)
-    _claim_the_decision(session, claim, correcting=correcting)
-    previous = _previous_decision(claim)
-
-    # A correction: undo the prior decision's entries before writing
-    # the new ones, so the balance reflects one decision at a time.
-    if previous is not None:
-        _reverse_prior_entries(
-            session, claim, verified_by_account_id=verified_by_account_id
-        )
+    withdraw_decision(session, claim, verified_by_account_id=verified_by_account_id)
 
     period = claim.period
     derived = derive_for_enrollment(session, claim.enrollment_id)
     charged = derived.per_cycle.get(period, Money.ZERO)
 
     shortfall = shortfall_of(charged, approved_amount)
-
-    if shortfall.is_positive():
-        if shortfall_disposition is None:
-            raise ValidationError(
-                code="SHORTFALL_DISPOSITION_REQUIRED",
-                message_key="fees.verification.disposition_required",
-            )
-        if shortfall_disposition not in DISPOSITION_VALUES:
-            raise ValidationError(
-                code="SHORTFALL_DISPOSITION_UNKNOWN",
-                message_key="fees.verification.disposition_unknown",
-            )
-    elif shortfall_disposition is not None:
-        raise ValidationError(
-            code="SHORTFALL_DISPOSITION_NOT_APPLICABLE",
-            message_key="fees.verification.disposition_not_applicable",
-        )
+    _check_disposition(shortfall, shortfall_disposition)
 
     # The receipt is capped at what the cycle owed; the excess is
     # credit, never a negative balance [BR4.2]. Cash in is
@@ -414,8 +476,253 @@ def verify_claim(
     claim.shortfall_disposition = shortfall_disposition
     claim.verified_by_account_id = verified_by_account_id
     claim.verified_at = dt.datetime.now(tz=dt.UTC)
-    if previous is not None:
-        claim.previous_decision = previous
+    return VerificationOutcome(claim=claim, shortfall=shortfall)
+
+
+def _check_disposition(shortfall: Money, shortfall_disposition: str | None) -> None:
+    """Require a disposition exactly when something is left short [BR5.4].
+
+    :param shortfall: What the approval leaves unpaid
+    :param shortfall_disposition: ``carried``, ``waived`` or None
+    :return: None
+    :raises ValidationError: Missing where required, unknown, or
+        supplied where nothing is short
+    """
+    if shortfall.is_positive():
+        if shortfall_disposition is None:
+            raise ValidationError(
+                code="SHORTFALL_DISPOSITION_REQUIRED",
+                message_key="fees.verification.disposition_required",
+            )
+        if shortfall_disposition not in DISPOSITION_VALUES:
+            raise ValidationError(
+                code="SHORTFALL_DISPOSITION_UNKNOWN",
+                message_key="fees.verification.disposition_unknown",
+            )
+    elif shortfall_disposition is not None:
+        raise ValidationError(
+            code="SHORTFALL_DISPOSITION_NOT_APPLICABLE",
+            message_key="fees.verification.disposition_not_applicable",
+        )
+
+
+def _dispose_shortfalls(
+    session: Session,
+    claim: PaymentClaim,
+    shortfalls: list[tuple[str, Money]],
+    *,
+    disposition: str | None,
+    verified_by_account_id: uuid.UUID,
+) -> None:
+    """Carry or waive what each month is still short of, oldest first.
+
+    A carry moves the month's shortfall into the month after it. When
+    that month is itself short, what was carried into it moves on with
+    its own shortfall, so the whole amount ends in one month rather than
+    leaving part of it behind.
+
+    :param session: The session to write through
+    :param claim: The claim the entries belong to
+    :param shortfalls: Each outstanding month and what it is short of
+    :param disposition: ``carried`` or ``waived``
+    :param verified_by_account_id: Who decided
+    :return: None
+    """
+    carried_into: dict[str, Money] = {}
+    for period, short in shortfalls:
+        if disposition == "carried":
+            moving = short + carried_into.get(period, Money.ZERO)
+            if not moving.is_positive():
+                continue
+            receiver = str(Period.parse(period).next())
+            append_carry_pair(
+                session,
+                enrollment_id=claim.enrollment_id,
+                amount=moving,
+                origin=period,
+                receiver=receiver,
+                payment_claim_id=claim.id,
+                created_by_account_id=verified_by_account_id,
+            )
+            carried_into[receiver] = carried_into.get(receiver, Money.ZERO) + moving
+        elif short.is_positive():
+            append_entry(
+                session,
+                enrollment_id=claim.enrollment_id,
+                period=period,
+                kind="forgiveness",
+                amount=short,
+                payment_claim_id=claim.id,
+                created_by_account_id=verified_by_account_id,
+            )
+
+
+def settle_claim_in_transaction(
+    session: Session,
+    claim: PaymentClaim,
+    *,
+    approved_amount: Money,
+    shortfall_disposition: str | None,
+    verified_by_account_id: uuid.UUID,
+) -> VerificationOutcome:
+    """Approve one child's share of a payment across every month they owe.
+
+    **Oldest month first.** The approved amount pays each outstanding
+    month up to what it owes, one ``receipt`` per month; what is left
+    after every month is paid is a ``credit_grant`` on the claim's
+    period. Each month still short then gets the teacher's disposition.
+    For a child owing one month this writes exactly what
+    :func:`verify_claim_in_transaction` writes.
+
+    No race guard, no notification and no commit: the caller has won the
+    decision on the submission and commits every child together. A claim
+    still carrying a decision is withdrawn first.
+
+    :param session: The session to write through
+    :param claim: The child's claim
+    :param approved_amount: What the allocation approved for this child
+    :param shortfall_disposition: ``carried`` or ``waived`` when the
+        approval leaves the child short, else None
+    :param verified_by_account_id: Who decided
+    :return: The decided claim and the child's total shortfall
+    :raises ValidationError: The amount is negative, or the disposition
+        is missing, unknown or not applicable
+    """
+    if approved_amount.is_negative():
+        raise ValidationError(
+            code="APPROVED_AMOUNT_NEGATIVE",
+            message_key="fees.verification.amount_negative",
+        )
+    withdraw_decision(session, claim, verified_by_account_id=verified_by_account_id)
+
+    per_cycle = derive_for_enrollment(session, claim.enrollment_id).per_cycle
+    periods = sorted(p for p, owed in per_cycle.items() if owed.is_positive())
+    settlement = settle_oldest_first(approved_amount, [per_cycle[p] for p in periods])
+    shortfall = Money.sum(settlement.shortfalls)
+    _check_disposition(shortfall, shortfall_disposition)
+
+    for period, receipt in zip(periods, settlement.receipts, strict=True):
+        if receipt.is_positive():
+            append_entry(
+                session,
+                enrollment_id=claim.enrollment_id,
+                period=period,
+                kind="receipt",
+                amount=receipt,
+                payment_claim_id=claim.id,
+                created_by_account_id=verified_by_account_id,
+            )
+    if settlement.excess.is_positive():
+        append_entry(
+            session,
+            enrollment_id=claim.enrollment_id,
+            period=claim.period,
+            kind="credit_grant",
+            amount=settlement.excess,
+            payment_claim_id=claim.id,
+            created_by_account_id=verified_by_account_id,
+        )
+    if shortfall.is_positive():
+        _dispose_shortfalls(
+            session,
+            claim,
+            list(zip(periods, settlement.shortfalls, strict=True)),
+            disposition=shortfall_disposition,
+            verified_by_account_id=verified_by_account_id,
+        )
+
+    claim.status = "approved_full" if shortfall.is_zero() else "approved_partial"
+    claim.approved_amount = approved_amount
+    claim.rejection_reason = None
+    claim.shortfall_disposition = shortfall_disposition
+    claim.verified_by_account_id = verified_by_account_id
+    claim.verified_at = dt.datetime.now(tz=dt.UTC)
+    return VerificationOutcome(claim=claim, shortfall=shortfall)
+
+
+def reject_claim_in_transaction(
+    session: Session,
+    claim: PaymentClaim,
+    *,
+    verified_by_account_id: uuid.UUID,
+    reason: str | None,
+) -> PaymentClaim:
+    """Write one claim's rejection, inside a caller's decision [BR5.6].
+
+    No race guard, no notification and no commit, as for
+    :func:`verify_claim_in_transaction`. A prior approval is withdrawn
+    first, which reverses its entries.
+
+    :param session: The session to write through
+    :param claim: The claim to reject
+    :param verified_by_account_id: Who rejected it
+    :param reason: Why it was rejected; blank is stored as none
+    :return: The rejected claim
+    """
+    withdraw_decision(session, claim, verified_by_account_id=verified_by_account_id)
+    claim.status = "rejected"
+    claim.rejection_reason = (reason or "").strip() or None
+    claim.approved_amount = None
+    claim.shortfall_disposition = None
+    claim.verified_by_account_id = verified_by_account_id
+    claim.verified_at = dt.datetime.now(tz=dt.UTC)
+    return claim
+
+
+def verify_claim(
+    session: Session,
+    *,
+    claim_id: uuid.UUID,
+    approved_amount: Money,
+    shortfall_disposition: str | None,
+    verified_by_account_id: uuid.UUID,
+    correcting: bool = False,
+) -> VerificationOutcome:
+    """Approve a claim, writing its decision and entries together.
+
+    One transaction for the claim's status, approved amount,
+    disposition, verifier and timestamp together with every ledger entry
+    the decision produced [BR5.5].
+
+    **Deciding an already-decided claim is a ``ConflictError`` unless
+    the caller says it is a correction** [NFR6.35, NFR14.45]. Two
+    teachers approving the same claim at the same moment would
+    otherwise each append a full set of entries and credit the payment
+    twice, which is a money error.
+
+    :param session: The session to write through
+    :param claim_id: The claim to decide
+    :param approved_amount: What the teacher accepted
+    :param shortfall_disposition: ``carried`` or ``waived``, required
+        where the approval is below the charge and None where it is not
+    :param verified_by_account_id: Who decided
+    :param correcting: True when the teacher is deliberately revising a
+        decision already on record, which retains the prior one
+    :return: The decided claim and the computed shortfall
+    :raises ValidationError: The amount is negative, the disposition is
+        missing where one is required or supplied where none applies,
+        or the disposition is not a representable value
+    :raises ConflictError: The claim was already decided and this is not
+        a declared correction
+    """
+    if approved_amount.is_negative():
+        raise ValidationError(
+            code="APPROVED_AMOUNT_NEGATIVE",
+            message_key="fees.verification.amount_negative",
+        )
+
+    claim = _load(session, claim_id)
+    _claim_the_decision(session, claim, correcting=correcting)
+    previous = withdraw_decision(
+        session, claim, verified_by_account_id=verified_by_account_id
+    )
+    outcome = verify_claim_in_transaction(
+        session,
+        claim,
+        approved_amount=approved_amount,
+        shortfall_disposition=shortfall_disposition,
+        verified_by_account_id=verified_by_account_id,
+    )
 
     partial = approved_amount < claim.claimed_amount
     _tell_the_seat(
@@ -426,7 +733,7 @@ def verify_claim(
         replacing=previous is not None,
     )
     session.commit()
-    return VerificationOutcome(claim=claim, shortfall=shortfall)
+    return outcome
 
 
 def reject_claim(
@@ -440,13 +747,8 @@ def reject_claim(
     """Reject a claim, recording nothing as received [BR5.6].
 
     **No ledger entry of any kind is appended**, and the outstanding
-    balance is unchanged. A rejected claim that still moved money, or a
-    rejection the submitter never sees, are the two failures this
-    answers; the second is the response schema's job and the first is
-    this function's.
-
-    Rejecting a previously approved claim is a correction and reverses
-    the entries that approval produced.
+    balance is unchanged. Rejecting a previously approved claim is a
+    correction and reverses the entries that approval produced.
 
     :param session: The session to write through
     :param claim_id: The claim to reject
@@ -459,21 +761,12 @@ def reject_claim(
     """
     claim = _load(session, claim_id)
     _claim_the_decision(session, claim, correcting=correcting)
-    previous = _previous_decision(claim)
-
-    if previous is not None:
-        _reverse_prior_entries(
-            session, claim, verified_by_account_id=verified_by_account_id
-        )
-
-    claim.status = "rejected"
-    claim.rejection_reason = (reason or "").strip() or None
-    claim.approved_amount = None
-    claim.shortfall_disposition = None
-    claim.verified_by_account_id = verified_by_account_id
-    claim.verified_at = dt.datetime.now(tz=dt.UTC)
-    if previous is not None:
-        claim.previous_decision = previous
+    previous = withdraw_decision(
+        session, claim, verified_by_account_id=verified_by_account_id
+    )
+    reject_claim_in_transaction(
+        session, claim, verified_by_account_id=verified_by_account_id, reason=reason
+    )
 
     _tell_the_seat(
         session,

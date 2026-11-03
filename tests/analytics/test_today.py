@@ -20,13 +20,15 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.analytics.today import today_view
+from app.authz.lenses import StudentLens
 from app.db.models import Enrollment, FeeCycle
 from app.db.models import Session as ClassSession
-from app.fees.claims import submit_claim
-from app.local_time import DHAKA
+from app.fees.submissions import PaymentDraft, submit_payment
+from app.local_time import DHAKA, bangladesh_today
 from app.money import Money
 from tests.analytics.conftest import add_exam, lens_for, seat_with_ledger
 from tests.batches.conftest import TeacherFixture
+from tests.fees.conftest import add_method
 
 #: 17 Oct 2026, 3:25 pm in Dhaka.
 NOW = dt.datetime(2026, 10, 17, 15, 25, tzinfo=DHAKA)
@@ -283,19 +285,27 @@ def test_payments_waiting_are_counted(
     _cycle(owner_session, seat, "2026-10", dt.date(2026, 10, 10))
     student = owner_session.get(Enrollment, seat)
     assert student is not None and student.student_account_id is not None
-    submit_claim(
+    submit_payment(
         owner_session,
-        enrollment_id=seat,
-        submitted_by_account_id=student.student_account_id,
-        claimed_amount=Money("1200.00"),
-        channel="bKash",
-        transaction_id="TX-1",
+        lens=StudentLens(account_id=student.student_account_id),
+        draft=PaymentDraft(
+            enrollment_ids=(seat,),
+            payment_method_id=add_method(owner_session, teacher.owner_id),
+            cash=False,
+            amount=Money("1200.00"),
+            paid_on=bangladesh_today(),
+            transaction_id="TX-1",
+            from_account=None,
+            note=None,
+        ),
     )
 
     view = today_view(restricted_session, lens=lens_for(teacher), now=NOW)
 
     assert view.to_verify_count == 1
-    assert [item.display_name for item in view.to_verify] == ["Asha"]
+    assert [
+        child.display_name for item in view.to_verify for child in item.children
+    ] == ["Asha"]
 
 
 def test_the_today_route_sends_money_as_strings(

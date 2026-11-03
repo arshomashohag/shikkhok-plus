@@ -47,14 +47,16 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.schemas.fees import ClaimQueueItemResponse
+from app.schemas.fees import PaymentReviewResponse
 from app.schemas.money import MoneyField
 
 __all__ = [
+    "CollectionsResponse",
     "DuesGroupResponse",
     "DuesResponse",
     "DuesRowResponse",
     "DuesSummaryResponse",
+    "MonthCollectionResponse",
     "MonthlyEarningsResponse",
     "NextExamResponse",
     "OutstandingResponse",
@@ -175,6 +177,42 @@ class MonthlyEarningsResponse(BaseModel):
 
     period: str = Field(pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")
     received: MoneyField
+
+
+class MonthCollectionResponse(BaseModel):
+    """One month of the collections report.
+
+    :ivar period: The month, as ``YYYY-MM``
+    :ivar charged: What the month was billed
+    :ivar collected: What came in for it
+    :ivar in_progress: The month contains today
+    :ivar charged_bar: Charged as a whole percent of the largest month
+    :ivar collected_bar: Collected on the same scale
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    period: str = Field(pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")
+    charged: MoneyField
+    collected: MoneyField
+    in_progress: bool
+    charged_bar: int = Field(ge=0, le=100)
+    collected_bar: int = Field(ge=0, le=100)
+
+
+class CollectionsResponse(BaseModel):
+    """Collections over months for a set of batches.
+
+    :ivar months: Oldest first, ending at the current month
+    :ivar outstanding: What the selected seats owe now
+    :ivar owing_students: How many selected seats owe anything
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    months: list[MonthCollectionResponse]
+    outstanding: MoneyField
+    owing_students: int
 
 
 class NextExamResponse(BaseModel):
@@ -305,5 +343,5 @@ class TodayResponse(BaseModel):
     outstanding: OutstandingResponse
     classes: list[TodayClassResponse]
     to_verify_count: int
-    to_verify: list[ClaimQueueItemResponse]
+    to_verify: list[PaymentReviewResponse]
     has_batches: bool

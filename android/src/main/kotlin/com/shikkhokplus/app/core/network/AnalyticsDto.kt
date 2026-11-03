@@ -199,6 +199,44 @@ data class TodayDto(
     val outstanding: OutstandingDto,
     val classes: List<TodayClassDto> = emptyList(),
     @SerialName("to_verify_count") val toVerifyCount: Int,
-    @SerialName("to_verify") val toVerify: List<ClaimQueueItemDto> = emptyList(),
+    @SerialName("to_verify") val toVerify: List<PaymentReviewDto> = emptyList(),
     @SerialName("has_batches") val hasBatches: Boolean,
+)
+
+/**
+ * One month of the collections report (M1).
+ *
+ * **The bars arrive as whole percents** of the largest month, so a
+ * chart is drawn by multiplying an integer by a height and the phone
+ * never reads a money string as a number.
+ *
+ * @property period The month as `YYYY-MM`
+ * @property charged What the month was billed
+ * @property collected What came in for it
+ * @property inProgress Whether the month contains today
+ * @property chargedBar Charged as a whole percent of the largest month
+ * @property collectedBar Collected on the same scale
+ */
+@Serializable
+data class MonthCollectionDto(
+    val period: String,
+    val charged: Money,
+    val collected: Money,
+    @SerialName("in_progress") val inProgress: Boolean,
+    @SerialName("charged_bar") val chargedBar: Int,
+    @SerialName("collected_bar") val collectedBar: Int,
+)
+
+/**
+ * Collections over months for a set of batches (M1).
+ *
+ * @property months Oldest first, ending at the current month
+ * @property outstanding What the selected seats owe now
+ * @property owingStudents How many selected seats owe anything
+ */
+@Serializable
+data class CollectionsDto(
+    val months: List<MonthCollectionDto> = emptyList(),
+    val outstanding: Money,
+    @SerialName("owing_students") val owingStudents: Int,
 )

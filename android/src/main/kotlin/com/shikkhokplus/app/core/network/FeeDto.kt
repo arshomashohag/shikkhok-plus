@@ -1,5 +1,7 @@
 package com.shikkhokplus.app.core.network
 
+import com.shikkhokplus.app.core.model.ClaimOutcome
+import com.shikkhokplus.app.core.model.HistoryLine
 import com.shikkhokplus.app.core.model.Money
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -54,6 +56,80 @@ data class FeeCycleDto(
 data class FeeHistoryDto(
     val cycles: List<FeeCycleDto> = emptyList(),
     @SerialName("total_outstanding") val totalOutstanding: Money,
+    @SerialName("month_states") val monthStates: List<MonthStateDto> = emptyList(),
+)
+
+/**
+ * The latest payment claim for one month, as data to localize.
+ *
+ * Every field is structured: the server sends no English sentence, so
+ * the phone words it in the person's language.
+ *
+ * @property amount What was approved for this child once approved;
+ *   otherwise the whole payment as sent, covering [coveredNames]
+ * @property channel Which service the money moved through, or `cash`
+ * @property paidOn When the money was sent, `YYYY-MM-DD`
+ * @property status `pending`, `approved_full`, `approved_partial` or
+ *   `rejected`
+ * @property decisionNote The teacher's note on the decision, if any
+ * @property coveredNames The children the sent amount covered, in the
+ *   server's order; empty when [amount] is the child's approved figure
+ */
+@Serializable
+data class HistoryLineDto(
+    val amount: Money,
+    val channel: String,
+    @SerialName("paid_on") val paidOn: String,
+    val status: String,
+    @SerialName("decision_note") val decisionNote: String? = null,
+    @SerialName("covered_names") val coveredNames: List<String> = emptyList(),
+)
+
+/**
+ * One month on a seat's strip.
+ *
+ * @property period The month as `YYYY-MM`
+ * @property state `paid`, `partly_paid`, `unpaid`, `waived` or
+ *   `checking`, decided by the server
+ * @property historyLine The latest claim for the month, if any
+ */
+@Serializable
+data class MonthStateDto(
+    val period: String,
+    val state: String,
+    @SerialName("history_line") val historyLine: HistoryLineDto? = null,
+)
+
+/**
+ * Seats per filter on a batch-month screen, counted by the server.
+ *
+ * @property paid Seats that are paid
+ * @property checking Seats with a payment waiting to be checked
+ * @property owed Seats that owe
+ */
+@Serializable
+data class MonthCountsDto(
+    val paid: Int,
+    val checking: Int,
+    val owed: Int,
+)
+
+/**
+ * One batch in one month (M2).
+ *
+ * @property period The month as `YYYY-MM`
+ * @property collected Cash in for the month after corrections
+ * @property charged What the month was billed
+ * @property counts Seats per filter, **the server's counts**
+ * @property seats One row per seat
+ */
+@Serializable
+data class BatchFeesDto(
+    val period: String,
+    val collected: Money,
+    val charged: Money,
+    val counts: MonthCountsDto,
+    val seats: List<RosterFeeRowDto> = emptyList(),
 )
 
 /**
@@ -73,6 +149,9 @@ data class FeeHistoryDto(
  * @property daysOverdue How late the oldest unpaid period is, decided by
  *   the server against Bangladesh's date, or null
  * @property verifying The total of claims waiting for the teacher, or null
+ * @property state The seat's state in the requested month, or null
+ *   when nothing was charged
+ * @property historyLine The latest claim for that month, or null
  */
 @Serializable
 data class RosterFeeRowDto(
@@ -84,6 +163,8 @@ data class RosterFeeRowDto(
     @SerialName("due_date") val dueDate: String? = null,
     @SerialName("days_overdue") val daysOverdue: Int? = null,
     val verifying: Money? = null,
+    val state: String? = null,
+    @SerialName("history_line") val historyLine: HistoryLineDto? = null,
 )
 
 /**
@@ -154,18 +235,25 @@ data class PaymentDestinationDto(
 )
 
 /**
- * A claim being submitted.
+ * Convert a server history line to data the screen can word.
  *
- * @property claimedAmount What the claimant says they paid, as a
- *   [Money] so it is serialized as a JSON **string** outbound too —
- *   the rule is both directions, not only inbound [BR6.2]
- * @property channel Which service it moved through, from the set the
- *   destination response supplied
- * @property transactionId The reference they quote, if any
+ * An unknown status reads as pending rather than as a decision the
+ * server never made.
+ *
+ * @return The line
  */
-@Serializable
-data class ClaimSubmitDto(
-    @SerialName("claimed_amount") val claimedAmount: Money,
-    val channel: String,
-    @SerialName("transaction_id") val transactionId: String? = null,
-)
+fun HistoryLineDto.toHistoryLine(): HistoryLine =
+    HistoryLine(
+        amount = amount,
+        channel = channel,
+        paidOn = paidOn,
+        outcome =
+            when (status) {
+                "approved_full" -> ClaimOutcome.APPROVED_FULL
+                "approved_partial" -> ClaimOutcome.APPROVED_PARTIAL
+                "rejected" -> ClaimOutcome.REJECTED
+                else -> ClaimOutcome.PENDING
+            },
+        decisionNote = decisionNote,
+        coveredNames = coveredNames,
+    )

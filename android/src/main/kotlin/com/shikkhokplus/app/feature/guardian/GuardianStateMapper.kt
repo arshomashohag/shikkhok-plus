@@ -71,7 +71,7 @@ object GuardianStateMapper {
      * @return The option
      */
     fun option(dto: PayableDto): PayOption =
-        PayOption(dto.enrollmentId, dto.batchName, dto.period, dto.amountDue, dto.dueDate)
+        PayOption(dto.enrollmentId, dto.batchName, dto.period, dto.amountDue, dto.dueDate, dto.totalDue)
 
     /**
      * Convert one child.

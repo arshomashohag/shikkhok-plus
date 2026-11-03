@@ -36,11 +36,14 @@ VERSIONS: Final[pathlib.Path] = (
 #: in-app notification inbox -- moves it once more, and ``0010`` --
 #: a teacher's deletion keeping their batches -- again, and ``0011`` --
 #: inbox sources, exam topics and rejection reasons -- once more, and
-#: ``0012`` -- notes on a class -- once after that.
-EXPECTED_REVISIONS: Final[int] = 12
+#: ``0012`` -- notes on a class -- once after that, and ``0013`` --
+#: payment methods and submissions -- once more, and ``0014`` -- legacy
+#: claims wrapped in submissions -- again, and ``0015`` -- the payment
+#: replay key and the append-only grants -- once more.
+EXPECTED_REVISIONS: Final[int] = 15
 
-#: The head ``0012`` leaves behind.
-EXPECTED_HEAD: Final[str] = "0012"
+#: The head ``0015`` leaves behind.
+EXPECTED_HEAD: Final[str] = "0015"
 
 
 def _revision_files() -> list[pathlib.Path]:

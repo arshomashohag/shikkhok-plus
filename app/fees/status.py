@@ -26,10 +26,15 @@ __all__ = [
     "CLAIM_STATUS_VALUES",
     "DISPOSITION_VALUES",
     "FEE_STATUS_VALUES",
+    "MONTH_STATE_VALUES",
+    "SUBMISSION_STATUS_VALUES",
     "ClaimStatus",
     "FeeStatus",
+    "MonthState",
     "ShortfallDisposition",
+    "SubmissionStatus",
     "fee_status",
+    "month_state",
     "status_from_entries",
 ]
 
@@ -43,11 +48,34 @@ __all__ = [
 #: against the other.
 FeeStatus = Literal["paid", "partly_paid", "unpaid", "waived"]
 
+#: The five states a month reports on a teacher's strip: the four fee
+#: statuses plus ``checking``, a payment waiting for the teacher.
+MonthState = Literal["paid", "partly_paid", "unpaid", "waived", "checking"]
+
+#: The same five as a typed tuple.
+MONTH_STATE_VALUES: Final[tuple[MonthState, ...]] = (
+    "paid",
+    "partly_paid",
+    "unpaid",
+    "waived",
+    "checking",
+)
+
 #: The four a claim may report [BR6.3].
 ClaimStatus = Literal["pending", "approved_full", "approved_partial", "rejected"]
 
 #: The teacher's choice on approving less than was charged [BR5.4].
 ShortfallDisposition = Literal["carried", "waived"]
+
+#: The three a payment submission may report.
+SubmissionStatus = Literal["pending", "approved", "rejected"]
+
+#: The same three as a typed tuple, so a membership test narrows.
+SUBMISSION_STATUS_VALUES: Final[tuple[SubmissionStatus, ...]] = (
+    "pending",
+    "approved",
+    "rejected",
+)
 
 #: The same two as a TYPED tuple, so a membership test against it
 #: narrows rather than merely checking. ``app.db.models`` carries the
@@ -149,3 +177,26 @@ def fee_status(
     :raises KeyError: The period has no entries at all
     """
     return status_from_entries(entries_for_enrollment(session, enrollment_id), period)
+
+
+def month_state(
+    entries: list[LedgerEntry], period: str, *, checking: bool
+) -> MonthState | None:
+    """Compute one month's state, with a waiting payment taking precedence.
+
+    A payment waiting for the teacher is what the family and the
+    teacher are both looking at, so it outranks the ledger's own
+    status until the teacher decides it.
+
+    :param entries: Every entry for ONE enrollment, in any order
+    :param period: The period, as ``YYYY-MM``
+    :param checking: Whether a claim for this period awaits the teacher
+    :return: The state, or None when the month has neither entries nor a
+        waiting payment
+    """
+    if checking:
+        return "checking"
+    try:
+        return status_from_entries(entries, period)
+    except KeyError:
+        return None

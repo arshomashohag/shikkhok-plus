@@ -496,9 +496,9 @@ criterion = "With two unpaid cycles the stored period is the earlier one, resolv
 rule = "BR5.1"
 
 [[test]]
-id = "test_a_claim_with_no_open_cycle_is_refused_and_creates_none"
+id = "test_a_claim_with_no_open_cycle_lands_on_the_current_period"
 file = "tests/fees/test_claims.py"
-criterion = "No cycle row is created to receive the payment; creating one would bill the student for a period that had not begun"
+criterion = "Paying when nothing is owed is accepted and resolves to Bangladesh's current period; no cycle row is created to receive the payment, since that would bill a period that had not begun"
 rule = "BR5.1"
 
 [[test]]
@@ -556,19 +556,19 @@ criterion = "The third IDOR shape the affirmed posture names, landing for the fi
 rule = "BR6.4"
 
 [[test]]
-id = "test_the_collection_number_is_refused_to_a_non_enrolled_student"
+id = "test_the_methods_are_refused_to_a_non_enrolled_student"
 file = "tests/fees/test_fee_privacy.py"
 criterion = "A student not enrolled in that batch cannot reach the teacher's payment number, which is the one teacher-authored field deliberately disclosed downward and is bounded rather than incidental"
 rule = "BR6.4"
 
 [[test]]
-id = "test_no_other_fee_response_carries_the_collection_number"
+id = "test_no_other_fee_response_carries_method_details"
 file = "tests/fees/test_fee_privacy.py"
 criterion = "The direction the built schema-wide privacy invariant does not check: that gate asserts no teacher-facing response carries a PROFILE field, and this asserts the collection number appears in no listing and no overview"
 rule = "BR6.4"
 
 [[test]]
-id = "test_exactly_the_allowlisted_routes_carry_the_collection_number"
+id = "test_exactly_the_allowlisted_routes_carry_method_details"
 file = "tests/contract/test_collection_number.py"
 criterion = "An EQUALITY against the allowlist, not a membership test; a membership test passes the moment the field spreads to a fourth response, and NFR14.33's never-in-a-listing falls out of the equality"
 rule = "BR6.4"
@@ -640,8 +640,8 @@ criterion = "Money decodes from a JSON string and fails LOUDLY on a number; a le
 rule = "BR6.2"
 
 [[test]]
-id = "a submitted claim encodes its amount as a JSON string"
-file = "android/src/test/kotlin/com/shikkhokplus/app/feature/fees/FeeDtoTest.kt"
+id = "a submitted amount encodes as a json string and every field is sent"
+file = "android/src/test/kotlin/com/shikkhokplus/app/core/network/PayDtoTest.kt"
 criterion = "The rule is BOTH directions; inbound is the half everyone tests, and an outbound number would surface as a rejected payment in front of a guardian"
 rule = "BR6.2"
 
@@ -804,3 +804,129 @@ id = "test_the_account_basis_no_longer_argues_against_hard_delete"
 file = "tests/governance/test_policy_generation.py"
 criterion = "The account basis no longer contains 'anonymized rather than removed' or 'would free the number for reuse', and does contain 'removed outright'. Correcting the disposition alone would publish an argument AGAINST hard delete as the stated reasoning FOR one"
 rule = "BR1.1"
+
+[[test]]
+id = "test_exact_payment_approves_each_at_what_they_owe"
+file = "tests/money/test_allocation.py"
+criterion = "2000 received against 1000 and 1000 approves (1000, 1000) with a zero shortfall and no bearer or credit child"
+rule = "R4"
+
+[[test]]
+id = "test_short_two_children_bearer_takes_the_shortfall"
+file = "tests/money/test_allocation.py"
+criterion = "1500 received against 1000 and 1000, carried, bearer 0, approves (500, 1000) with a shortfall of 500 on child 0"
+rule = "R4"
+
+[[test]]
+id = "test_shortfall_bigger_than_bearer_spills_from_the_end"
+file = "tests/money/test_allocation.py"
+criterion = "500 received against three 1000s, bearer 0, approves (0, 500, 0): others paid in list order, bearer last, the unpaid rest falls from the end of the list"
+rule = "R4"
+
+[[test]]
+id = "test_bearer_in_the_middle_is_filled_after_both_neighbours"
+file = "tests/money/test_allocation.py"
+criterion = "1500 received against three 1000s, carried, bearer 1, approves (1000, 0, 500): child 0 and then child 2 are paid in list order before the bearer, and the unpaid rest falls from the end of the list"
+rule = "R4"
+
+[[test]]
+id = "test_zero_owed_child_takes_no_receipt"
+file = "tests/money/test_allocation.py"
+criterion = "800 received against 0 and 1000, waived, bearer 1, approves (0, 800): a child owing nothing absorbs no part of the receipt"
+rule = "R4"
+
+[[test]]
+id = "test_over_payment_credits_the_chosen_child"
+file = "tests/money/test_allocation.py"
+criterion = "2500 received against 1000 and 1000, credit child 1, approves (1000, 1500): everyone paid in full and only the chosen child exceeds what they owe"
+rule = "R4"
+
+[[test]]
+id = "test_single_child_over_payment_needs_no_choice"
+file = "tests/money/test_allocation.py"
+criterion = "1200 received against a single 1000 with no choices approves (1200,) and reports credit_index 0, which is today's single-claim behaviour"
+rule = "R4"
+
+[[test]]
+id = "test_single_child_short_needs_disposition_not_bearer"
+file = "tests/money/test_allocation.py"
+criterion = "600 received against a single 1000, carried, no bearer, approves (600,) and reports bearer_index 0 with a 400 shortfall"
+rule = "R4"
+
+[[test]]
+id = "test_refuses_bearer_index_out_of_range"
+file = "tests/money/test_allocation.py"
+criterion = "A bearer index of 5 for two children raises MoneyValidationError whose message begins ALLOCATION_INDEX_OUT_OF_RANGE"
+rule = "R4"
+
+[[test]]
+id = "test_refuses_short_several_children_without_bearer"
+file = "tests/money/test_allocation.py"
+criterion = "A short payment for two children with no bearer raises ALLOCATION_BEARER_REQUIRED rather than picking a child silently"
+rule = "R4"
+
+[[test]]
+id = "test_refuses_over_several_children_without_credit_child"
+file = "tests/money/test_allocation.py"
+criterion = "An over payment for two children with no credit child raises ALLOCATION_CREDIT_CHILD_REQUIRED rather than picking a child silently"
+rule = "R4"
+
+[[test]]
+id = "test_refuses_an_index_that_does_not_apply"
+file = "tests/money/test_allocation.py"
+criterion = "A bearer or credit child supplied where the case has no such choice (bearer or credit on exact, credit on short, bearer on over) raises ALLOCATION_INDEX_NOT_APPLICABLE, so a caller bug is loud"
+rule = "R4"
+
+[[test]]
+id = "test_allocation_invariants"
+file = "tests/money/test_allocation_property.py"
+criterion = "Over random owed lists of 1-4 children and receipts 0-3x the total: approved sums to received, no child but the credit child exceeds what they owe, and the shortfall is owed-together minus received when short and zero otherwise"
+rule = "R4"
+
+[[test]]
+id = "test_single_child_accepts_an_explicit_zero_index"
+file = "tests/money/test_allocation.py"
+criterion = "For one child, an explicit bearer 0 on a short payment and an explicit credit 0 on an over payment are accepted and give the same result as passing none"
+rule = "R4"
+
+[[test]]
+id = "test_refuses_no_children"
+file = "tests/money/test_allocation.py"
+criterion = "An empty owed list raises ALLOCATION_NO_CHILDREN instead of approving a payment to nobody"
+rule = "R4"
+
+[[test]]
+id = "test_refuses_negative_received"
+file = "tests/money/test_allocation.py"
+criterion = "A received amount of -1 raises ALLOCATION_RECEIVED_NEGATIVE before any case is decided"
+rule = "R4"
+
+[[test]]
+id = "test_refuses_negative_owed_entry"
+file = "tests/money/test_allocation.py"
+criterion = "An owed list containing -0.01 raises ALLOCATION_OWED_NEGATIVE; zero owed is allowed, negative is not"
+rule = "R4"
+
+[[test]]
+id = "test_refuses_short_payment_without_disposition"
+file = "tests/money/test_allocation.py"
+criterion = "600 received against 1000 with no disposition raises ALLOCATION_DISPOSITION_REQUIRED; a short payment must be carried or waived"
+rule = "R4"
+
+[[test]]
+id = "test_refuses_disposition_on_exact_payment"
+file = "tests/money/test_allocation.py"
+criterion = "An exact payment with disposition waived raises ALLOCATION_DISPOSITION_NOT_APPLICABLE, since there is no shortfall to dispose of"
+rule = "R4"
+
+[[test]]
+id = "test_refuses_disposition_on_over_payment"
+file = "tests/money/test_allocation.py"
+criterion = "1200 received against a single 1000 with disposition carried raises ALLOCATION_DISPOSITION_NOT_APPLICABLE"
+rule = "R4"
+
+[[test]]
+id = "test_refuses_negative_credit_index"
+file = "tests/money/test_allocation.py"
+criterion = "A credit index of -1 raises ALLOCATION_INDEX_OUT_OF_RANGE rather than Python's negative indexing crediting the last child"
+rule = "R4"

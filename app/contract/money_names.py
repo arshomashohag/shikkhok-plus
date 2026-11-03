@@ -69,6 +69,12 @@ NON_MONEY_COLUMNS: Final[dict[tuple[str, str], str]] = {
         "itself asserted by a test over the column set, so there is no "
         "money value on fee_cycle for this exemption to hide."
     ),
+    ("payment_submission", "paid_on"): (
+        "A DATE, not an amount: the day the family says the money moved. "
+        "Matches the 'paid' token. The submission's amount is "
+        "`total_amount`, a NUMERIC(12,2), and is checked by this same "
+        "gate."
+    ),
     ("exam", "total_marks"): (
         "An INTEGER COUNT of marks, not an amount [entities.md]. It is "
         "the denominator a score is out of, constrained >= 1 because a "
@@ -93,6 +99,36 @@ NON_MONEY_FIELDS: Final[dict[tuple[str, str], str]] = {
     ),
     ("BatchUpdateRequest", "fee_due_day"): (
         "The same value on the edit path [AC2.3.1]."
+    ),
+    ("HistoryLineResponse", "paid_on"): (
+        "A DATE, not an amount: the day the claimant says the money "
+        "moved. The line's money property, `amount`, references Money."
+    ),
+    ("MonthCollectionResponse", "charged_bar"): (
+        "A whole percent from 0 to 100 for drawing a bar, not an amount. "
+        "The server computes it with Money.percent_of so the client does "
+        "no money arithmetic; the month's money properties reference Money."
+    ),
+    ("MonthCountsResponse", "paid"): (
+        "A COUNT of seats under the Paid filter, not an amount."
+    ),
+    ("PaymentSubmitRequest", "paid_on"): (
+        "A DATE, not an amount: the day the payer says the money moved. "
+        "The request's money property, `amount`, references Money."
+    ),
+    ("PaymentSubmittedResponse", "paid_on"): (
+        "The same date echoed back. The response's money property, "
+        "`total_amount`, references Money."
+    ),
+    ("PaymentReviewResponse", "paid_on"): (
+        "A DATE, not an amount: the day the family says the money moved, "
+        "as the teacher reviews it. The review's money properties -- "
+        "`total_amount`, `owed_together`, `difference` -- reference Money."
+    ),
+    ("PaymentApprovalRequest", "credit_to_enrollment_id"): (
+        "A UUID naming the child who receives an excess as credit, not an "
+        "amount. Matches the 'credit' token. The request's money property, "
+        "`received_amount`, references Money."
     ),
     ("CurrentFeeResponse", "paid_on"): (
         "A DATE, not an amount: the day the period's last approved "
@@ -125,6 +161,10 @@ NON_MONEY_FIELDS: Final[dict[tuple[str, str], str]] = {
     ("ExamResponse", "total_marks"): (
         "An INTEGER COUNT of marks on the exam read, not an amount. "
         "It is the denominator a score is out of."
+    ),
+    ("DashboardExamResponse", "total"): (
+        "An INTEGER COUNT of marks the exam is out of on the progress "
+        "dashboard, not an amount."
     ),
     ("FamilyExamResponse", "total_marks"): (
         "The same count on a family's exam list and detail, not money."

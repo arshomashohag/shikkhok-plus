@@ -14,14 +14,18 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from app.authz.lenses import StudentLens
 from app.db.models import PaymentClaim
 from app.fees.claims import submit_claim
 from app.fees.ledger_writer import append_entry
+from app.fees.submissions import PaymentDraft, submit_payment
 from app.fees.verification import reject_claim, verify_claim
+from app.local_time import bangladesh_today
 from app.money import Money
 from app.notifications.inbox import inbox
 from tests.batches.conftest import TeacherFixture, enroll
 from tests.conftest import bearer
+from tests.fees.conftest import add_method
 
 
 def _family_seat(
@@ -291,13 +295,13 @@ def test_deciding_a_claim_marks_the_teachers_item_read(
     assert items.unread == 1
 
 
-def test_reason_over_500_chars_is_refused_by_the_api(
+def test_a_note_over_500_chars_is_refused_by_the_api(
     api_client: TestClient,
     owner_session: Session,
     teacher: TeacherFixture,
     account_factory: Callable[[], uuid.UUID],
 ) -> None:
-    """A 501-character reason is a 422; 500 is accepted and stored.
+    """A 501-character rejection note is a 422; 500 is accepted and stored.
 
     :param api_client: The test client
     :param owner_session: An arranging session
@@ -307,12 +311,26 @@ def test_reason_over_500_chars_is_refused_by_the_api(
     """
     student, guardian = account_factory(), account_factory()
     seat = _family_seat(owner_session, teacher, student, guardian)
-    claim = _claim(owner_session, seat, student)
+    submission = submit_payment(
+        owner_session,
+        lens=StudentLens(account_id=student),
+        draft=PaymentDraft(
+            enrollment_ids=(seat,),
+            payment_method_id=add_method(owner_session, teacher.owner_id),
+            cash=False,
+            amount=Money("1200.00"),
+            paid_on=bangladesh_today(),
+            transaction_id="TX-1",
+            from_account=None,
+            note=None,
+        ),
+    )
     headers = bearer(owner_session, teacher.account_id)
-    url = f"/v1/claims/{claim.id}/rejection"
+    url = f"/v1/payments/{submission.id}/rejection"
 
-    refused = api_client.post(url, json={"reason": "x" * 501}, headers=headers)
-    accepted = api_client.post(url, json={"reason": "x" * 500}, headers=headers)
+    refused = api_client.post(url, json={"note": "x" * 501}, headers=headers)
+    accepted = api_client.post(url, json={"note": "x" * 500}, headers=headers)
 
     assert refused.status_code == 422
     assert accepted.status_code == 200
+    assert accepted.json()["decision_note"] == "x" * 500

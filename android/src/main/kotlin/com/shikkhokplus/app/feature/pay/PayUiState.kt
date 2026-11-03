@@ -1,15 +1,20 @@
 package com.shikkhokplus.app.feature.pay
 
 import com.shikkhokplus.app.core.model.Money
+import com.shikkhokplus.app.core.network.OwedTogetherDto
+import com.shikkhokplus.app.core.network.PaymentMethodDto
+import com.shikkhokplus.app.core.network.PaymentSubmitDto
+import com.shikkhokplus.app.core.network.PaymentSubmittedDto
 
 /**
- * One month the student can pay for, as the server listed it.
+ * One month a guardian's home offers to pay, as the server listed it.
  *
- * @property enrollmentId The seat the claim is posted against
+ * @property enrollmentId The seat the payment opens on
  * @property batchName The batch
  * @property period The month, `YYYY-MM`
  * @property amountDue What is still owed on it
  * @property dueDate When it was due, `yyyy-MM-dd`, or null
+ * @property totalDue Everything the seat owes as the server folded it, or null
  */
 data class PayOption(
     val enrollmentId: String,
@@ -17,33 +22,72 @@ data class PayOption(
     val period: String,
     val amountDue: Money,
     val dueDate: String?,
+    val totalDue: Money? = null,
 )
 
 /**
- * A batch not offered because its payment is being checked.
+ * One child's accepted seat in a batch.
  *
- * @property batchName The batch
- * @property period The month being checked
+ * @property enrollmentId The seat the payment is posted against
+ * @property childName The child, or null when the payer is the student
  */
-data class WaitingLine(val batchName: String, val period: String)
+data class PaySeat(val enrollmentId: String, val childName: String?)
 
 /**
- * Where to send the money, when the teacher set a number.
+ * A batch the payer holds an accepted seat in.
  *
- * @property number The collection number
- * @property service Which service it belongs to, if the teacher said
- * @property teacherName Who it goes to, if the teacher named themselves
+ * @property key Tells two batches apart
+ * @property name The batch
+ * @property seats The seats the payer may pay for in it, in order
  */
-data class PayDestination(val number: String, val service: String?, val teacherName: String?)
+data class PayBatch(val key: String, val name: String, val seats: List<PaySeat>)
+
+/** Where the money went. */
+sealed interface PayChoice {
+    /**
+     * One of the teacher's listed methods.
+     *
+     * @property method The method as the server listed it
+     */
+    data class Method(val method: PaymentMethodDto) : PayChoice
+
+    /** Money handed over in person. */
+    data object Cash : PayChoice
+}
 
 /**
- * What the student has typed. Kept across a failed send.
+ * The batch, children and methods a payment is being made against.
  *
- * @property channel The app they used, or null until chosen
- * @property transactionId The ID from the SMS
+ * @property batches Every batch on offer, for the picker
+ * @property batch The chosen batch
+ * @property selected The seats the payment covers
+ * @property methods The chosen batch's teacher's methods
+ * @property teacherName Who the money goes to, if known
+ */
+data class PayScope(
+    val batches: List<PayBatch>,
+    val batch: PayBatch,
+    val selected: List<String>,
+    val methods: List<PaymentMethodDto>,
+    val teacherName: String?,
+)
+
+/**
+ * What the payer has typed. Kept across a failed send.
+ *
+ * @property transactionId The mobile reference
+ * @property fromAccount The paying bank account
  * @property amount What they sent, as typed
+ * @property paidOn The day the money moved, `yyyy-MM-dd`
+ * @property note Free text for the teacher
  */
-data class PayForm(val channel: String? = null, val transactionId: String = "", val amount: String = "")
+data class PayForm(
+    val paidOn: String,
+    val transactionId: String = "",
+    val fromAccount: String = "",
+    val amount: String = "",
+    val note: String = "",
+)
 
 /** Why the form will not send yet, as the form can tell. Format only. */
 enum class FormProblem {
@@ -52,59 +96,109 @@ enum class FormProblem {
 }
 
 /**
- * The payment as sent, for the "Payment sent" screen.
+ * One payment the payer confirmed, and the replay key it went with.
  *
- * @property amount What was claimed
- * @property channel Which app
- * @property transactionId The ID quoted
- * @property submittedAt When the server recorded it
+ * **One key per attempt, not per tap** [PA-DB-1]. On a poor network a
+ * send can time out after the server has already recorded it; the payer
+ * then taps Send again, and without a key the teacher receives the same
+ * payment twice as two pending claims. Sending the identical payment
+ * again reuses the key, and the server answers with the submission it
+ * already holds. Anything the payer changed makes it a different
+ * payment, which gets a fresh key.
+ *
+ * @property payment What was sent, without its key, so the next send can
+ *   be compared against it
+ * @property clientMutationId The key, a random UUID: no device
+ *   identifier of any kind [TC-3, D-37]
  */
-data class SentPayment(val amount: Money, val channel: String, val transactionId: String?, val submittedAt: String)
+data class PaymentAttempt(
+    val payment: PaymentSubmitDto,
+    val clientMutationId: String,
+) {
+    /** The body to send: the payment, carrying this attempt's key. */
+    val request: PaymentSubmitDto
+        get() = payment.copy(clientMutationId = clientMutationId)
+}
 
-/** Everything the S3 screen renders. */
+/**
+ * Where a sent payment's record stands, as the sent page renders it.
+ *
+ * Read from the server's `status`, never decided here [TC-9]. One per
+ * value the response schema allows -- `pending`, `approved`, `rejected`.
+ */
+enum class SentOutcome {
+    /** Recorded, waiting for the teacher to check it. */
+    PENDING,
+
+    /** Already approved: a late resend of a payment the teacher accepted. */
+    APPROVED,
+
+    /** Already rejected: a late resend of a payment the teacher refused. */
+    REJECTED,
+}
+
+/** Everything the "Send money" screens render. */
 sealed interface PayUiState {
-    /** Reading what can be paid. */
+    /** Reading the seats and methods. */
     data object Loading : PayUiState
 
-    /**
-     * Choosing which fee to pay.
-     *
-     * @property options The months on offer, in the server's order
-     * @property waiting Batches whose payment is being checked
-     */
-    data class Choosing(val options: List<PayOption>, val waiting: List<WaitingLine>) : PayUiState
+    /** The payer holds no accepted seat to pay for. */
+    data object NoSeats : PayUiState
 
     /**
-     * Filling in how it was paid.
+     * F2: choosing how to pay.
      *
-     * @property option The fee being paid
-     * @property destination Where to send it, or null when the teacher set no number
-     * @property channels The apps the server accepts
+     * @property scope The batch, children and methods
+     */
+    data class Methods(val scope: PayScope) : PayUiState
+
+    /**
+     * F3 and F4: the form for one way of paying.
+     *
+     * @property scope The batch, children and methods
+     * @property choice Where the money went
+     * @property owed The server's owed line for the chosen children, or null
      * @property form What has been typed
-     * @property problem A format problem to show beside the ID, or null
+     * @property problem A format problem to show, or null
      * @property sending Whether it is on its way
      * @property failedKey Why the last send failed, or null
-     * @property canChange Whether there are other fees to go back to
+     * @property attempt The payment last sent from this form and the key
+     *   it carried, or null before the first send. Kept after a failure
+     *   so that sending the same payment again is a retry of the same
+     *   attempt rather than a second payment
      */
     data class Filling(
-        val option: PayOption,
-        val destination: PayDestination?,
-        val channels: List<String>,
+        val scope: PayScope,
+        val choice: PayChoice,
+        val owed: OwedTogetherDto?,
         val form: PayForm,
         val problem: FormProblem? = null,
         val sending: Boolean = false,
         val failedKey: String? = null,
-        val canChange: Boolean = false,
+        val attempt: PaymentAttempt? = null,
     ) : PayUiState
 
     /**
-     * Sent; waiting for the teacher.
+     * F5: sent -- usually waiting for the teacher.
      *
-     * @property option The fee it was for
-     * @property payment What was sent
+     * @property batchName The batch
      * @property teacherName Who will check it, if known
+     * @property choice Where the money went
+     * @property payment What the server recorded
+     * @property reference The transaction ID or paying account quoted, or null
+     * @property outcome Where the server's record stands. Not always
+     *   pending: a resend of a payment the server already holds is
+     *   answered with that ORIGINAL submission, and the teacher may have
+     *   decided it in the meantime
      */
-    data class Sent(val option: PayOption, val payment: SentPayment, val teacherName: String?) : PayUiState
+    data class Sent(
+        val batchName: String,
+        val teacherName: String?,
+        val choice: PayChoice,
+        val payment: PaymentSubmittedDto,
+        val reference: String?,
+        val outcome: SentOutcome = SentOutcome.PENDING,
+    ) : PayUiState
 
     /**
      * The read failed.

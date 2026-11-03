@@ -24,7 +24,7 @@ from app.fees import views
 from app.fees.claims import submit_claim
 from app.fees.ledger_writer import append_entry
 from app.fees.overdue import days_overdue, overdue_balance
-from app.fees.verification import verify_claim
+from app.fees.verification import reject_claim, verify_claim
 from app.money import Money
 from tests.batches.conftest import TeacherFixture, enroll
 
@@ -192,3 +192,237 @@ def test_a_waiting_claim_reads_as_verifying_and_a_decided_one_does_not(
 
     assert waiting.verifying == Money("800.00")
     assert decided.verifying is None
+
+
+def _october_batch(
+    owner_session: Session,
+    restricted_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """Seat twelve students for October: nine paid, one checking, two owing.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application-role session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    for index in range(12):
+        student = account_factory()
+        seat = _seat(
+            owner_session,
+            teacher,
+            student,
+            [("2026-10", "1000.00", dt.date(2026, 10, 10))],
+        )
+        if index < 9:
+            append_entry(
+                owner_session,
+                enrollment_id=seat,
+                period="2026-10",
+                kind="receipt",
+                amount=Money("1000.00"),
+            )
+            owner_session.commit()
+        elif index == 9:
+            submit_claim(
+                owner_session,
+                enrollment_id=seat,
+                submitted_by_account_id=student,
+                claimed_amount=Money("1000.00"),
+                channel="bKash",
+                today=dt.date(2026, 10, 17),
+            )
+
+
+def test_batch_fees_for_a_past_period(
+    owner_session: Session,
+    restricted_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """October reads paid 9, checking 1, owed 2, with the month's totals.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application-role session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    _october_batch(owner_session, restricted_session, teacher, account_factory)
+
+    month = views.batch_month(
+        restricted_session,
+        lens=_lens(teacher),
+        batch_id=teacher.batch_id,
+        period="2026-10",
+        today=dt.date(2026, 11, 3),
+    )
+
+    assert (month.counts.paid, month.counts.checking, month.counts.owed) == (9, 1, 2)
+    assert month.charged == Money("12000.00")
+    assert month.collected == Money("9000.00")
+    assert len(month.seats) == 12
+    [checking] = [seat for seat in month.seats if seat.state == "checking"]
+    assert checking.history_line is not None
+    assert checking.history_line.channel == "bKash"
+    assert checking.history_line.status == "pending"
+
+
+def test_a_seat_with_nothing_charged_in_the_month_has_no_state(
+    owner_session: Session,
+    restricted_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """A month the seat was never billed counts under no filter.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application-role session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    _seat(
+        owner_session,
+        teacher,
+        account_factory(),
+        [("2026-10", "1000.00", dt.date(2026, 10, 10))],
+    )
+
+    month = views.batch_month(
+        restricted_session,
+        lens=_lens(teacher),
+        batch_id=teacher.batch_id,
+        period="2026-08",
+        today=TODAY,
+    )
+
+    assert month.seats[0].state is None
+    assert (month.counts.paid, month.counts.checking, month.counts.owed) == (0, 0, 0)
+    assert month.charged == Money.ZERO
+
+
+def test_enrollment_history_has_six_month_states(
+    owner_session: Session,
+    restricted_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """Six billed months give six states, with the decision on the rejected one.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application-role session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    student = account_factory()
+    periods = ["2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10"]
+    seat = _seat(
+        owner_session,
+        teacher,
+        student,
+        [(period, "1000.00", dt.date(2026, 10, 10)) for period in periods],
+    )
+    append_entry(
+        owner_session,
+        enrollment_id=seat,
+        period="2026-05",
+        kind="receipt",
+        amount=Money("1000.00"),
+    )
+    append_entry(
+        owner_session,
+        enrollment_id=seat,
+        period="2026-06",
+        kind="receipt",
+        amount=Money("400.00"),
+    )
+    owner_session.commit()
+    rejected = submit_claim(
+        owner_session,
+        enrollment_id=seat,
+        submitted_by_account_id=student,
+        claimed_amount=Money("1000.00"),
+        channel="Nagad",
+        today=dt.date(2026, 7, 20),
+    )
+    rejected.period = "2026-07"
+    owner_session.commit()
+    reject_claim(
+        owner_session,
+        claim_id=rejected.id,
+        verified_by_account_id=teacher.account_id,
+        reason="No such transfer",
+    )
+    waiting = submit_claim(
+        owner_session,
+        enrollment_id=seat,
+        submitted_by_account_id=student,
+        claimed_amount=Money("1000.00"),
+        channel="bKash",
+        today=dt.date(2026, 10, 17),
+    )
+    waiting.period = "2026-10"
+    owner_session.commit()
+
+    history = views.enrollment_fee_history(
+        restricted_session,
+        lens=_lens(teacher),
+        enrollment_id=seat,
+        months=6,
+        today=TODAY,
+    )
+
+    assert [(row.period, row.state) for row in history.month_states] == [
+        ("2026-05", "paid"),
+        ("2026-06", "partly_paid"),
+        ("2026-07", "unpaid"),
+        ("2026-08", "unpaid"),
+        ("2026-09", "unpaid"),
+        ("2026-10", "checking"),
+    ]
+    july = history.month_states[2].history_line
+    assert july is not None
+    assert (july.channel, july.status, july.decision_note) == (
+        "Nagad",
+        "rejected",
+        "No such transfer",
+    )
+    assert july.amount == Money("1000.00")
+    assert history.month_states[0].history_line is None
+
+
+def test_the_strip_window_is_clamped(
+    owner_session: Session,
+    restricted_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """Asking for more than 24 months reads 24, and fewer than 1 reads 1.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application-role session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    seat = _seat(
+        owner_session,
+        teacher,
+        account_factory(),
+        [("2026-10", "1000.00", dt.date(2026, 10, 10))],
+    )
+    lens = _lens(teacher)
+
+    wide = views.enrollment_fee_history(
+        restricted_session, lens=lens, enrollment_id=seat, months=99, today=TODAY
+    )
+    narrow = views.enrollment_fee_history(
+        restricted_session, lens=lens, enrollment_id=seat, months=0, today=TODAY
+    )
+
+    assert [row.period for row in wide.month_states] == ["2026-10"]
+    assert [row.period for row in narrow.month_states] == ["2026-10"]

@@ -30,34 +30,71 @@ from sqlalchemy.orm import Session
 from app.db.models import Batch, Enrollment, PaymentClaim
 from app.errors import ValidationError
 from app.fees.balances import oldest_unpaid_period
+from app.fees.periods import Period
+from app.local_time import bangladesh_today
 from app.money import Money
 from app.notifications.inbox import CLAIM_TO_VERIFY, deliver
 from app.notifications.recipients import teacher_recipient
 
-__all__ = ["CHANNELS", "NoOpenCycle", "submit_claim"]
+__all__ = ["CASH", "MOBILE_SERVICES", "record_claim", "submit_claim"]
 
-#: The payment channels V1 accepts [BR6.5, FR6.11]. **Server-supplied
+#: The mobile services the form suggests [BR6.5, FR6.11]. **Server-supplied
 #: data, not a client-side list**: adding one is a data change rather
-#: than an app release, and an installed Android app cannot be forced to
-#: update. The client reads this set from the payment-destination
-#: response and ships no enumeration of its own.
-CHANNELS: tuple[str, ...] = ("bKash", "Nagad", "Rocket", "cash")
+#: than an app release. A teacher may still name any other service.
+MOBILE_SERVICES: tuple[str, ...] = ("bKash", "Nagad", "Rocket")
+
+#: The built-in channel for money handed over in person.
+CASH: str = "cash"
 
 
-class NoOpenCycle(ValidationError):
-    """Nothing is owed, so there is no cycle for a claim to land on.
+def record_claim(
+    session: Session,
+    *,
+    enrollment_id: uuid.UUID,
+    submitted_by_account_id: uuid.UUID,
+    claimed_amount: Money,
+    channel: str,
+    transaction_id: str | None = None,
+    submission_id: uuid.UUID | None = None,
+    today: dt.date | None = None,
+) -> PaymentClaim:
+    """Add one pending claim against the oldest unpaid cycle.
 
-    **Refused with a stated reason, and no cycle is created to receive
-    the payment** [BR5.1]. Generating one would bill the student for a
-    period that had not begun.
+    **Paying when nothing is owed is accepted**: a seat with no unpaid
+    cycle resolves to Bangladesh's current period, and on approval the
+    receipt is capped at that period's charge with the rest held as
+    credit. No cycle is created to receive the payment.
+
+    Flushes and does not commit; the caller owns the transaction and
+    the notification.
+
+    :param session: The session to write through
+    :param enrollment_id: The seat the claim is against
+    :param submitted_by_account_id: Who is claiming
+    :param claimed_amount: What they say they paid, or this child's share
+    :param channel: Which service the money moved through
+    :param transaction_id: The reference they quote, if any
+    :param submission_id: The submission this claim is a share of, if any
+    :param today: Bangladesh's date; the real clock by default
+    :return: The pending claim
     """
-
-    def __init__(self) -> None:
-        """Initialize the refusal with its registered code."""
-        super().__init__(
-            code="NO_OPEN_FEE_CYCLE",
-            message_key="fees.claim.no_open_cycle",
-        )
+    period = oldest_unpaid_period(session, enrollment_id) or str(
+        Period.containing(today or bangladesh_today())
+    )
+    claim = PaymentClaim(
+        enrollment_id=enrollment_id,
+        period=period,
+        claimed_amount=claimed_amount,
+        channel=channel,
+        transaction_id=transaction_id,
+        submitted_by_account_id=submitted_by_account_id,
+        submitted_at=dt.datetime.now(tz=dt.UTC),
+        status="pending",
+        payment_submission_id=submission_id,
+    )
+    session.add(claim)
+    session.flush()
+    return claim
 
 
 def submit_claim(
@@ -68,8 +105,10 @@ def submit_claim(
     claimed_amount: Money,
     channel: str,
     transaction_id: str | None = None,
+    submission_id: uuid.UUID | None = None,
+    today: dt.date | None = None,
 ) -> PaymentClaim:
-    """Record a claim against the oldest unpaid cycle.
+    """Record a standalone claim and tell the teacher.
 
     Commits, because a submission is a complete operation.
 
@@ -79,39 +118,32 @@ def submit_claim(
     :param claimed_amount: What they say they paid
     :param channel: Which service the money moved through
     :param transaction_id: The reference they quote, if any
+    :param submission_id: The submission this claim belongs to, if any
+    :param today: Bangladesh's date; the real clock by default
     :return: The pending claim
-    :raises ValidationError: The amount is not strictly positive, the
-        channel is not one the server offers, or nothing is owed
+    :raises ValidationError: The amount is not strictly positive, or the
+        channel is not one the server offers
     """
     if not claimed_amount.is_positive():
         raise ValidationError(
             code="CLAIM_AMOUNT_NOT_POSITIVE",
             message_key="fees.claim.amount_not_positive",
         )
-    if channel not in CHANNELS:
+    if channel not in (*MOBILE_SERVICES, CASH):
         raise ValidationError(
             code="CLAIM_CHANNEL_UNKNOWN",
             message_key="fees.claim.channel_unknown",
         )
-
-    period = oldest_unpaid_period(session, enrollment_id)
-    if period is None:
-        raise NoOpenCycle
-
-    claim = PaymentClaim(
+    claim = record_claim(
+        session,
         enrollment_id=enrollment_id,
-        period=period,
+        submitted_by_account_id=submitted_by_account_id,
         claimed_amount=claimed_amount,
         channel=channel,
         transaction_id=transaction_id,
-        submitted_by_account_id=submitted_by_account_id,
-        submitted_at=dt.datetime.now(tz=dt.UTC),
-        # STATED, because the column carries no default. A claim is
-        # pending from creation and every insert path says so.
-        status="pending",
+        submission_id=submission_id,
+        today=today,
     )
-    session.add(claim)
-    session.flush()
     _tell_the_teacher(session, claim)
     session.commit()
     return claim

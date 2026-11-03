@@ -103,6 +103,28 @@ _CLAIM_STATUS = PgEnum(
     create_type=False,
 )
 
+#: Where a family may send money: a mobile-money number or a bank account.
+PAYMENT_METHOD_KIND_VALUES: tuple[str, ...] = ("mobile", "bank")
+
+_PAYMENT_METHOD_KIND = PgEnum(
+    *PAYMENT_METHOD_KIND_VALUES,
+    name="payment_method_kind",
+    create_type=False,
+)
+
+#: A reported payment's outcome, server-set at the teacher's decision.
+PAYMENT_SUBMISSION_STATUS_VALUES: tuple[str, ...] = (
+    "pending",
+    "approved",
+    "rejected",
+)
+
+_PAYMENT_SUBMISSION_STATUS = PgEnum(
+    *PAYMENT_SUBMISSION_STATUS_VALUES,
+    name="payment_submission_status",
+    create_type=False,
+)
+
 #: The teacher's choice on approving less than was CHARGED [BR5.4].
 #: Two values and no third: a default would silently choose for the
 #: teacher and the two have opposite consequences for the student.
@@ -707,6 +729,168 @@ class Batch(Base):
     __table_args__ = (Index("ix_batch_owner_id", "owner_id"),)
 
 
+class PaymentMethod(Base):
+    """A place a teacher accepts payment: mobile money or a bank account.
+
+    A mobile method carries a number and nothing of the bank shape; a
+    bank method carries account number, account name, provider and
+    branch and no mobile number. Both shapes are enforced by ``CHECK``.
+    A method is retired rather than deleted so submissions that point at
+    it keep resolving.
+
+    :ivar id: Surrogate key
+    :ivar owner_id: The owner who accepts payment here
+    :ivar kind: ``mobile`` or ``bank``
+    :ivar provider: The mobile service or the bank's name
+    :ivar mobile_number: The mobile-money number; mobile methods only
+    :ivar account_number: The bank account number; bank methods only
+    :ivar account_name: The bank account holder; bank methods only
+    :ivar branch_name: The bank branch; bank methods only
+    :ivar note: Free text shown with the method
+    :ivar position: Display order within the owner's methods
+    :ivar retired_at: When it stopped being offered; null while live
+    :ivar created_at: When it was added
+    :ivar updated_at: When it last changed
+    """
+
+    __tablename__ = "payment_method"
+
+    id: Mapped[uuid.UUID] = _uuid_column()
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("owner.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    kind: Mapped[str] = mapped_column(_PAYMENT_METHOD_KIND, nullable=False)
+    provider: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    mobile_number: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    account_number: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    account_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    branch_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    note: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+    retired_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    updated_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "kind <> 'mobile' OR (mobile_number IS NOT NULL "
+            "AND account_number IS NULL AND account_name IS NULL "
+            "AND branch_name IS NULL)",
+            name="ck_payment_method_mobile_shape",
+        ),
+        CheckConstraint(
+            "kind <> 'bank' OR (account_number IS NOT NULL "
+            "AND account_name IS NOT NULL AND provider IS NOT NULL "
+            "AND branch_name IS NOT NULL AND mobile_number IS NULL)",
+            name="ck_payment_method_bank_shape",
+        ),
+        Index("ix_payment_method_owner_id", "owner_id"),
+    )
+
+
+class PaymentSubmission(Base):
+    """One payment a family reports, which the teacher approves or rejects.
+
+    The destination is copied into ``destination_snapshot`` at
+    submission so a later edit or retirement of the method cannot change
+    what the family said they paid to. One or more ``PaymentClaim`` rows
+    link back here, one per child's share.
+
+    :ivar id: Surrogate key
+    :ivar batch_id: The batch the payment is for
+    :ivar payment_method_id: The method paid to; null once it is gone
+    :ivar destination_snapshot: The method's details at submission
+    :ivar total_amount: The whole amount paid, across all shares
+    :ivar paid_on: The day the money moved
+    :ivar transaction_id: The reference quoted; excludes ``from_account``
+    :ivar from_account: The paying account instead of a reference
+    :ivar payer_note: Free text from the payer
+    :ivar submitted_by_account_id: Who reported it
+    :ivar submitted_at: When it was reported
+    :ivar status: ``pending``, ``approved`` or ``rejected``
+    :ivar decision_note: The teacher's note on the decision
+    :ivar decided_by_account_id: Who decided
+    :ivar decided_at: When they decided
+    :ivar previous_decision: The prior decision, kept on a correction
+    :ivar client_mutation_id: The app's per-draft retry key, or null from
+        a build that sends none; unique per submitting account
+    """
+
+    __tablename__ = "payment_submission"
+
+    id: Mapped[uuid.UUID] = _uuid_column()
+    batch_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("batch.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    payment_method_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("payment_method.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    destination_snapshot: Mapped[dict[str, object]] = mapped_column(
+        JSON, nullable=False
+    )
+    total_amount: Mapped[Money] = mapped_column(MoneyColumn, nullable=False)
+    paid_on: Mapped[dt.date] = mapped_column(Date, nullable=False)
+    transaction_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    from_account: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    payer_note: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    submitted_by_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("account.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    submitted_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    status: Mapped[str] = mapped_column(_PAYMENT_SUBMISSION_STATUS, nullable=False)
+    decision_note: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    decided_by_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("account.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    decided_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    previous_decision: Mapped[dict[str, object] | None] = mapped_column(
+        JSON, nullable=True
+    )
+    client_mutation_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), nullable=True
+    )
+
+    __table_args__ = (
+        # THE replay guarantee [PA-DB-1]: a retried submit inserts
+        # `ON CONFLICT DO NOTHING` against this and reads the winner.
+        # Per account, so another account's identical UUID is no
+        # duplicate; NULLs are distinct, so an old build is unaffected.
+        UniqueConstraint(
+            "submitted_by_account_id",
+            "client_mutation_id",
+            name="uq_payment_submission_account_mutation",
+        ),
+        CheckConstraint(
+            "total_amount > 0", name="ck_payment_submission_total_positive"
+        ),
+        CheckConstraint(
+            "transaction_id IS NULL OR from_account IS NULL",
+            name="ck_payment_submission_one_reference",
+        ),
+        Index("ix_payment_submission_batch_id_status", "batch_id", "status"),
+    )
+
+
 class BatchSubject(Base):
     """One subject taught in a batch.
 
@@ -894,6 +1078,9 @@ class PaymentClaim(Base):
     :ivar previous_decision: The prior decision, retained on a correction
         and visible to the teacher AND to the student and guardian
     :ivar rejection_reason: Why the teacher rejected it; null otherwise
+    :ivar payment_submission_id: The reported payment this share belongs
+        to; null for a claim made before submissions existed. A linked
+        claim may carry a zero share
     """
 
     __tablename__ = "payment_claim"
@@ -946,10 +1133,16 @@ class PaymentClaim(Base):
         JSON, nullable=True
     )
     rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    payment_submission_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("payment_submission.id", ondelete="SET NULL"),
+        nullable=True,
+    )
 
     __table_args__ = (
         CheckConstraint(
-            "claimed_amount > 0",
+            "claimed_amount > 0 OR "
+            "(payment_submission_id IS NOT NULL AND claimed_amount = 0)",
             name="ck_payment_claim_claimed_amount_positive",
         ),
         CheckConstraint(
@@ -958,6 +1151,7 @@ class PaymentClaim(Base):
         ),
         Index("ix_payment_claim_enrollment_id", "enrollment_id"),
         Index("ix_payment_claim_status", "status"),
+        Index("ix_payment_claim_payment_submission_id", "payment_submission_id"),
     )
 
 

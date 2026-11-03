@@ -33,14 +33,23 @@ output "next_steps" {
 
 
 
-output "deploy_role_arn" {
+output "deploy_role_arns" {
   description = <<-EOT
-    Set as the AWS_DEPLOY_ROLE_ARN variable in the `staging`
-    environment.
+    One deploy role per GitHub environment. Set each as the
+    AWS_DEPLOY_ROLE_ARN variable of THAT environment only:
 
-    Separate from AWS_ROLE_ARN deliberately: that role can destroy
-    the infrastructure, this one can push an image and run one
-    command on a shikkhokplus-tagged host.
+      Settings -> Environments -> staging    -> AWS_DEPLOY_ROLE_ARN = staging value
+      Settings -> Environments -> production -> AWS_DEPLOY_ROLE_ARN = production value
+
+    Each trusts only its own environment's OIDC subject and can touch
+    only `shikkhokplus-<env>-*` resources, so putting the production
+    ARN into the staging environment would simply fail at role
+    assumption. The staging ARN is unchanged from the single role that
+    preceded these.
+
+    Separate from AWS_ROLE_ARN deliberately: that role can destroy the
+    infrastructure; these push an image, snapshot their own database
+    and roll their own host.
   EOT
-  value       = aws_iam_role.deploy.arn
+  value       = { for env, role in aws_iam_role.deploy : env => role.arn }
 }

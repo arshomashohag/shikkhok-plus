@@ -4,8 +4,8 @@ import com.shikkhokplus.app.core.model.Money
 import com.shikkhokplus.app.core.network.ClaimDto
 import com.shikkhokplus.app.core.network.ErrorEnvelope
 import com.shikkhokplus.app.core.network.FeeCycleDto
+import com.shikkhokplus.app.core.network.MonthStateDto
 import com.shikkhokplus.app.core.network.PaymentDestinationDto
-import com.shikkhokplus.app.core.network.RosterFeeRowDto
 
 /**
  * Maps server responses to a [FeeUiState].
@@ -96,11 +96,13 @@ object FeeStateMapper {
      * @param totalOutstanding The total the SERVER computed. Summing
      *   [cycles] here would be the client doing money arithmetic, and
      *   it would be wrong the moment the history paginates
+     * @param monthStates The strip the server decided, oldest first
      * @return The state the screen renders
      */
     fun afterLoad(
         cycles: List<FeeCycleDto>,
         totalOutstanding: Money,
+        monthStates: List<MonthStateDto> = emptyList(),
     ): FeeUiState {
         if (cycles.isEmpty()) {
             return FeeUiState.Empty
@@ -109,7 +111,11 @@ object FeeStateMapper {
             cycles.map { cycle ->
                 toRow(cycle) ?: return FeeUiState.Failed(UNEXPECTED_KEY, retryable = false)
             }
-        return FeeUiState.Loaded(mapped.sortedByDescending { it.period }, totalOutstanding)
+        val strip =
+            monthStates.map { month ->
+                MonthStripMapper.toRow(month) ?: return FeeUiState.Failed(UNEXPECTED_KEY, retryable = false)
+            }
+        return FeeUiState.Loaded(mapped.sortedByDescending { it.period }, totalOutstanding, strip)
     }
 
     /**
@@ -130,36 +136,6 @@ object FeeStateMapper {
             // From the ENUM, never from `outstanding`. A waived cycle
             // and a paid one both read zero and are different facts.
             isSettled = cycle.status in SETTLED_STATUSES,
-        )
-    }
-
-    /**
-     * Convert one roster fee row, or null on an unknown status.
-     *
-     * @param row The seat the server described
-     * @return The row, or null when its status is unrecognised
-     */
-    fun toRosterRow(row: RosterFeeRowDto): RosterFeeRow? {
-        val statusKey =
-            row.currentStatus?.let { STATUS_KEYS[it] ?: return null }
-        return RosterFeeRow(
-            enrollmentId = row.enrollmentId,
-            displayName = row.displayName,
-            outstanding = row.outstanding,
-            statusLabel = statusKey,
-            dueDateLabel = row.dueDate,
-            // **From the server's STATUS, not from the amount**, and
-            // `Money` is the reason that is not merely preferable: the
-            // type exposes no comparison at all, so `outstanding >
-            // Money.ZERO` does not compile. The client performs no
-            // money arithmetic [TC-9, D-31] and the type enforces it,
-            // which is the boundary being mechanical rather than
-            // reviewed.
-            //
-            // A seat with no generated period owes nothing, which is
-            // the null case rather than a zero one.
-            owesSomething =
-                row.currentStatus != null && row.currentStatus !in SETTLED_STATUSES,
         )
     }
 

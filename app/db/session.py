@@ -19,10 +19,24 @@ from urllib.parse import urlsplit, urlunsplit
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-__all__ = ["DATABASE_URL_ENV", "build_engine", "redact_url", "session_scope"]
+__all__ = [
+    "DATABASE_URL_ENV",
+    "MIGRATION_DATABASE_URL_ENV",
+    "build_engine",
+    "redact_url",
+    "session_scope",
+]
 
 #: The environment variable naming the database. Never a literal in code.
+#: In a deployed environment it connects as the restricted application
+#: role, never as the owner [OPS-5].
 DATABASE_URL_ENV = "SHIKKHOKPLUS_DATABASE_URL"
+
+#: The OWNER's URL, for the two things the application role must not be
+#: able to do: migrate the schema and set its own role's password. Read
+#: by ``migrations/env.py`` and ``app.db.commands`` only, never by the
+#: request path.
+MIGRATION_DATABASE_URL_ENV = "SHIKKHOKPLUS_MIGRATION_DATABASE_URL"
 
 
 def redact_url(url: str) -> str:

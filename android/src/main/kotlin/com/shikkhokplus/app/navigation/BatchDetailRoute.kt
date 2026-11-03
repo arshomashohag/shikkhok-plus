@@ -122,7 +122,14 @@ internal fun NavGraphBuilder.batchDetailRoute(
                         fees = state.fees,
                         onAddFirst = { navController.navigate(Destination.AddStudent.of(id)) },
                         onFeeHistory = { row ->
-                            navController.navigate(Destination.FeeHistory.of(row.enrollmentId, FeeReader.TEACHER.name))
+                            navController.navigate(
+                                Destination.FeeHistory.of(
+                                    row.enrollmentId,
+                                    FeeReader.TEACHER.name,
+                                    row.displayName,
+                                    name,
+                                ),
+                            )
                         },
                         onMarkInactive = roster::markInactive,
                         onAskRemove = roster::confirmRemoval,

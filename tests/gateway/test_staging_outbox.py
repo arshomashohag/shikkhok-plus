@@ -107,6 +107,7 @@ def test_the_route_is_not_registered_in_production(
     monkeypatch.setenv("SHIKKHOKPLUS_SMS_APP_HASH", "AAAAAAAAAAA")
     monkeypatch.setenv("SHIKKHOKPLUS_OTP_HMAC_KEY", "k")
     monkeypatch.setenv("SHIKKHOKPLUS_SMS_ADAPTER", "bulksmsbd")
+    monkeypatch.setenv("SHIKKHOKPLUS_TRUSTED_CLIENT_IP_HEADER", "X-Client-Address")
 
     # The startup check refuses this configuration, which is mechanism
     # three -- so to test mechanism TWO in isolation the environment is
@@ -161,6 +162,7 @@ def test_a_production_process_refuses_to_start_with_the_outbox_on(
     monkeypatch.setenv("SHIKKHOKPLUS_SMS_APP_HASH", "AAAAAAAAAAA")
     monkeypatch.setenv("SHIKKHOKPLUS_OTP_HMAC_KEY", "k")
     monkeypatch.setenv("SHIKKHOKPLUS_SMS_ADAPTER", "bulksmsbd")
+    monkeypatch.setenv("SHIKKHOKPLUS_TRUSTED_CLIENT_IP_HEADER", "X-Client-Address")
     monkeypatch.setenv("SHIKKHOKPLUS_SMS_BASE_URL", "https://x")
     monkeypatch.setenv("SHIKKHOKPLUS_SMS_API_KEY", "k")
     monkeypatch.setenv("SHIKKHOKPLUS_SMS_SENDER_ID", "s")
@@ -187,6 +189,7 @@ def test_an_otherwise_valid_production_process_starts(
     monkeypatch.setenv("SHIKKHOKPLUS_SMS_APP_HASH", "AAAAAAAAAAA")
     monkeypatch.setenv("SHIKKHOKPLUS_OTP_HMAC_KEY", "k")
     monkeypatch.setenv("SHIKKHOKPLUS_SMS_ADAPTER", "bulksmsbd")
+    monkeypatch.setenv("SHIKKHOKPLUS_TRUSTED_CLIENT_IP_HEADER", "X-Client-Address")
     monkeypatch.setenv("SHIKKHOKPLUS_SMS_BASE_URL", "https://x")
     monkeypatch.setenv("SHIKKHOKPLUS_SMS_API_KEY", "k")
     monkeypatch.setenv("SHIKKHOKPLUS_SMS_SENDER_ID", "s")
@@ -306,8 +309,8 @@ def test_an_unknown_number_records_nothing(
     """The outbox must not become an existence oracle [BR2.7].
 
     **Found by running the thing, not by reading it.** The
-    unknown-number path does equivalent work and rolls it back, so no
-    OTP is persisted -- but it still RENDERS a message, and recording
+    unknown-number path does equivalent work, for a code that can sign
+    nobody in -- but it still RENDERS a message, and recording
     that put an entry in the outbox for a number with no account.
 
     The entry's code could never verify, which makes it worse than

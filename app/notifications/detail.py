@@ -20,7 +20,13 @@ from sqlalchemy.orm import Session
 
 from app.authz.lenses import Lens, TeacherLens
 from app.authz.resolve import available_lenses
-from app.db.models import Announcement, BatchSubject, Exam, PaymentClaim
+from app.db.models import (
+    Announcement,
+    BatchSubject,
+    Exam,
+    PaymentClaim,
+    PaymentSubmission,
+)
 from app.errors import AuthorizationError
 from app.money import Money
 from app.notifications.inbox import (
@@ -84,9 +90,9 @@ class ExamDetail:
 
 @dataclass(frozen=True, slots=True)
 class PaymentDetail:
-    """A payment claim and how it was decided.
+    """A payment and how it was decided.
 
-    :ivar claim_id: The claim
+    :ivar claim_id: The claim for the item's seat
     :ivar period: The period it paid toward
     :ivar claimed: What was claimed
     :ivar approved: What the teacher accepted, once decided
@@ -224,13 +230,73 @@ def _outcome(claim: PaymentClaim) -> PaymentOutcome:
     return "approved"
 
 
-def _payment(session: Session, source_id: uuid.UUID) -> PaymentDetail | None:
-    """Read a claim and its decision.
+def _submission_outcome(submission: PaymentSubmission) -> PaymentOutcome:
+    """Read where a submission's decision leaves it.
+
+    :param submission: The submission
+    :return: pending, rejected or approved
+    """
+    if submission.status == "rejected":
+        return "rejected"
+    if submission.status == "pending":
+        return "pending"
+    return "approved"
+
+
+def _submission_payment(
+    session: Session, submission: PaymentSubmission, enrollment_id: uuid.UUID | None
+) -> PaymentDetail | None:
+    """Read a submission's decision as the item's seat sees it.
+
+    The block names that seat's claim and period, and carries the whole
+    payment's figures and the teacher's note.
 
     :param session: The session to read through
-    :param source_id: The claim
-    :return: The claim as decided now, or None
+    :param submission: The submission
+    :param enrollment_id: The seat the item is about
+    :return: The decision, or None when the seat's claim is gone
     """
+    claims = list(
+        session.scalars(
+            sa.select(PaymentClaim).where(
+                PaymentClaim.payment_submission_id == submission.id
+            )
+        )
+    )
+    mine = [claim for claim in claims if claim.enrollment_id == enrollment_id]
+    if not mine:
+        return None
+    outcome = _submission_outcome(submission)
+    approved = (
+        Money.sum([claim.approved_amount or Money.ZERO for claim in claims])
+        if outcome == "approved"
+        else None
+    )
+    if approved is not None and approved < submission.total_amount:
+        outcome = "partial"
+    return PaymentDetail(
+        claim_id=mine[0].id,
+        period=mine[0].period,
+        claimed=submission.total_amount,
+        approved=approved,
+        outcome=outcome,
+        reason=submission.decision_note,
+    )
+
+
+def _payment(session: Session, item: InboxItem) -> PaymentDetail | None:
+    """Read the decision an item points at: a submission, or a lone claim.
+
+    :param session: The session to read through
+    :param item: The item, whose source is the submission or the claim
+    :return: The decision as it stands now, or None
+    """
+    source_id = item.source_id
+    if source_id is None:
+        return None
+    submission = session.get(PaymentSubmission, source_id)
+    if submission is not None:
+        return _submission_payment(session, submission, item.enrollment_id)
     claim = session.get(PaymentClaim, source_id)
     if claim is None:
         return None
@@ -241,6 +307,22 @@ def _payment(session: Session, source_id: uuid.UUID) -> PaymentDetail | None:
         approved=claim.approved_amount,
         outcome=_outcome(claim),
         reason=claim.rejection_reason,
+    )
+
+
+def _awaits_verification(session: Session, source_id: uuid.UUID) -> bool:
+    """Whether the payment a teacher's item points at still exists.
+
+    The item's source is the submission; items written before payments
+    had submissions point at the claim, and both are honoured.
+
+    :param session: The session to read through
+    :param source_id: The submission or claim
+    :return: True when either is present
+    """
+    return (
+        session.get(PaymentSubmission, source_id) is not None
+        or session.get(PaymentClaim, source_id) is not None
     )
 
 
@@ -263,10 +345,10 @@ def _source(
         exam = _exam(session, source)
         return None, exam, None, exam is not None
     if item.kind in _PAYMENT_KINDS and source is not None:
-        payment = _payment(session, source)
+        payment = _payment(session, item)
         return None, None, payment, payment is not None
     if item.kind == CLAIM_TO_VERIFY and source is not None:
-        return None, None, None, session.get(PaymentClaim, source) is not None
+        return None, None, None, _awaits_verification(session, source)
     return None, None, None, True
 
 

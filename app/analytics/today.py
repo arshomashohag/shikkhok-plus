@@ -30,7 +30,7 @@ from app.authz.lenses import TeacherLens
 from app.db.models import Batch, BatchSubject, Exam, FeeCycle
 from app.db.models import Session as ClassSession
 from app.fees.overdue import overdue_balance
-from app.fees.queue import QueueItem, verification_queue
+from app.fees.queue import PaymentReview, verification_queue
 from app.local_time import bangladesh_now
 from app.money import Money, derive
 
@@ -116,7 +116,7 @@ class TodayView:
     outstanding: Outstanding
     classes: list[TodayClass]
     to_verify_count: int
-    to_verify: list[QueueItem]
+    to_verify: list[PaymentReview]
     has_batches: bool
 
 

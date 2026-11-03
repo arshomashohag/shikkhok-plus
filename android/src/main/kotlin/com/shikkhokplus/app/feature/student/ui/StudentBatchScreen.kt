@@ -58,6 +58,9 @@ const val TAG_FAMILY_TAB: String = "family_tab"
 /** The fee-history link. */
 const val TAG_STUDENT_FEES: String = "student_fees"
 
+/** The link to the progress dashboard. */
+const val TAG_STUDENT_PROGRESS: String = "student_progress"
+
 /** The failure message. */
 const val TAG_STUDENT_BATCH_ERROR: String = "student_batch_error"
 
@@ -97,6 +100,7 @@ data class FamilyOpeners(
  * @param onSelect Called with a tab
  * @param openers What tapping a class, exam or notice does
  * @param calendar The Classes tab's month
+ * @param onOpenProgress Opens this seat's progress dashboard
  */
 @Composable
 fun StudentBatchScreen(
@@ -110,6 +114,7 @@ fun StudentBatchScreen(
     onSelect: (FamilyTab) -> Unit = {},
     openers: FamilyOpeners = FamilyOpeners(),
     calendar: ClassCalendarUiState = ClassCalendarUiState.Idle,
+    onOpenProgress: (() -> Unit)? = null,
 ) {
     val batch = (state as? StudentBatchUiState.Loaded)?.view?.batch
     ListScreenScaffold(
@@ -119,7 +124,7 @@ fun StudentBatchScreen(
         onBack = onBack,
         header = {
             if (state is StudentBatchUiState.Loaded) {
-                BatchHeader(state.view, onOpenFees, onPay)
+                BatchHeader(state.view, onOpenFees, onPay, onOpenProgress)
                 FamilyTabs(tab, onSelect)
             }
         },
@@ -151,9 +156,15 @@ fun StudentBatchScreen(
  * @param view The batch
  * @param onOpenFees Called to open the fee history
  * @param onPay Called to pay this batch's fee
+ * @param onOpenProgress Opens the progress dashboard, or null
  */
 @Composable
-private fun BatchHeader(view: StudentBatchView, onOpenFees: () -> Unit, onPay: () -> Unit) {
+private fun BatchHeader(
+    view: StudentBatchView,
+    onOpenFees: () -> Unit,
+    onPay: () -> Unit,
+    onOpenProgress: (() -> Unit)?,
+) {
     if (view.teacher.subjects.isNotEmpty()) {
         Quiet(view.teacher.subjects.joinToString(" · ") { Numerals.freeText(it) })
     }
@@ -174,6 +185,11 @@ private fun BatchHeader(view: StudentBatchView, onOpenFees: () -> Unit, onPay: (
         ?: TextButton(onClick = onOpenFees, modifier = Modifier.testTag(TAG_STUDENT_FEES)) {
             Text(stringResource(R.string.screen_title_fee_history))
         }
+    if (onOpenProgress != null) {
+        TextButton(onClick = onOpenProgress, modifier = Modifier.testTag(TAG_STUDENT_PROGRESS)) {
+            Text(stringResource(R.string.dashboard_open_progress))
+        }
+    }
 }
 
 /**

@@ -85,7 +85,9 @@ internal fun NavGraphBuilder.studentRoutes(
                 PayActions(
                     onClose = { navController.popBackStack() },
                     onChoose = model::choose,
-                    onChange = model::change,
+                    onBack = model::back,
+                    onBatch = model::chooseBatch,
+                    onToggleChild = model::toggleChild,
                     onType = model::type,
                     onSend = model::send,
                     onRetry = { model.load(seat) },
@@ -167,4 +169,5 @@ internal fun InboxTarget.route(): String =
         is InboxTarget.Fees ->
             Destination.FeeHistory.of(enrollmentId, (if (guardian) FeeReader.GUARDIAN else FeeReader.STUDENT).name)
         InboxTarget.Verify -> Destination.Verify.route
+        is InboxTarget.Payment -> Destination.PaymentReview.of(submissionId)
     }

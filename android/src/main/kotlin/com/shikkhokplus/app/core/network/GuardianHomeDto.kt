@@ -127,23 +127,3 @@ data class PaymentsDto(
     @SerialName("paid_this_year") val paidThisYear: Money,
     val months: List<PaymentMonthDto> = emptyList(),
 )
-
-/**
- * G2's reading of a child's latest run of results.
- *
- * @property direction `up`, `down` or `same`
- * @property run How many tests the run spans
- * @property firstMarks The run's first mark
- * @property lastMarks Its last mark
- * @property totalMarks The last test's total
- * @property aboveAverage Whether the last mark beats the batch average, or null
- */
-@Serializable
-data class ProgressSummaryDto(
-    val direction: String,
-    val run: Int,
-    @SerialName("first_marks") val firstMarks: Int,
-    @SerialName("last_marks") val lastMarks: Int,
-    @SerialName("total_marks") val totalMarks: Int,
-    @SerialName("above_average") val aboveAverage: Boolean? = null,
-)

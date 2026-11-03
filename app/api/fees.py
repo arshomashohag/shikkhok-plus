@@ -23,44 +23,71 @@ from __future__ import annotations
 import uuid
 from typing import Annotated, Final
 
-from fastapi import APIRouter, Depends, status
+import sqlalchemy as sa
+from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_session, guardian_lens, student_lens, teacher_lens
+from app.analytics.collections import DEFAULT_MONTHS
+from app.api.deps import (
+    family_lens,
+    family_lenses,
+    get_session,
+    guardian_lens,
+    student_lens,
+    teacher_lens,
+)
 from app.authz.lenses import GuardianLens, StudentLens, TeacherLens
+from app.db.models import Enrollment, PaymentClaim
 from app.fees import views
-from app.fees.claims import submit_claim
+from app.fees.decisions import approve_submission, reject_submission
 from app.fees.payables import Payables, payables
-from app.fees.queue import QueueItem, shortfall_preview, verification_queue
+from app.fees.queue import PaymentReview, payment_review, verification_queue
 from app.fees.reminders import remind
-from app.fees.verification import reject_claim, verify_claim
+from app.fees.submissions import (
+    PaymentDraft,
+    lens_reaching,
+    owed_children,
+    submit_payment,
+)
 from app.money import Money as DomainMoney
 from app.money.wire import parse, to_wire
 from app.schemas.errors import ErrorEnvelope
 from app.schemas.fees import (
-    ClaimQueueItemResponse,
+    BatchFeesResponse,
     ClaimResponse,
-    ClaimSubmitRequest,
-    DuplicateClaimResponse,
+    DuplicatePaymentResponse,
     FeeCycleResponse,
     FeeHistoryResponse,
+    HistoryLineResponse,
+    MonthCountsResponse,
+    MonthStateResponse,
+    OwedChildResponse,
+    OwedTogetherResponse,
     PayableResponse,
     PayablesResponse,
-    PaymentDestinationResponse,
+    PaymentApprovalRequest,
+    PaymentRejectionRequest,
+    PaymentReviewResponse,
+    PaymentSubmitRequest,
+    PaymentSubmittedResponse,
     RecentDecisionResponse,
-    RejectionRequest,
     ReminderRequest,
     ReminderResponse,
+    ReviewChildResponse,
     RosterFeeRowResponse,
-    ShortfallPreviewRequest,
-    ShortfallPreviewResponse,
+    SubmittedClaimResponse,
     VerificationQueueResponse,
-    VerificationRequest,
     WaitingPaymentResponse,
 )
 from app.schemas.money import Money as WireMoney
+from app.schemas.payment_methods import PaymentDestinationResponse
 
-__all__ = ["claim_response", "payables_response", "queue_item_response", "router"]
+__all__ = [
+    "claim_response",
+    "payables_response",
+    "payment_review_response",
+    "router",
+]
 
 router = APIRouter(prefix="/v1", tags=["fees"])
 
@@ -154,6 +181,7 @@ def claim_response(detail: views.ClaimDetail) -> ClaimResponse:
         channel=detail.channel,
         submitted_at=detail.submitted_at,
         verified_at=detail.verified_at,
+        decision_note=detail.decision_note,
         previous_decision=(
             None
             if previous is None
@@ -165,36 +193,89 @@ def claim_response(detail: views.ClaimDetail) -> ClaimResponse:
     )
 
 
+def _history_line(line: views.HistoryLine | None) -> HistoryLineResponse | None:
+    """Render a month's latest claim for the wire.
+
+    :param line: The claim as the view described it, or None
+    :return: The response body, or None
+    """
+    if line is None:
+        return None
+    return HistoryLineResponse(
+        amount=_to_wire(line.amount),
+        channel=line.channel,
+        paid_on=line.paid_on,
+        status=line.status,
+        decision_note=line.decision_note,
+        covered_names=list(line.covered_names),
+    )
+
+
+def _history_response(history: views.FeeHistory) -> FeeHistoryResponse:
+    """Render one seat's periods and strip for the wire.
+
+    :param history: The history as the view described it
+    :return: The response body
+    """
+    return FeeHistoryResponse(
+        cycles=[_cycle_response(row) for row in history.cycles],
+        total_outstanding=_to_wire(history.total_outstanding),
+        month_states=[
+            MonthStateResponse(
+                period=row.period,
+                state=row.state,
+                history_line=_history_line(row.history_line),
+            )
+            for row in history.month_states
+        ],
+    )
+
+
 @router.get(
     "/batches/{batch_id}/fees",
-    response_model=list[RosterFeeRowResponse],
+    response_model=BatchFeesResponse,
     responses=_AUTH_ERRORS,
 )
 def read_batch_fees(
     batch_id: uuid.UUID,
     session: Annotated[Session, Depends(get_session)],
     lens: Annotated[TeacherLens, Depends(teacher_lens)],
-) -> list[RosterFeeRowResponse]:
-    """List every seat's fee position on one of this teacher's batches.
+    period: Annotated[str | None, Query(pattern=r"^[0-9]{4}-(0[1-9]|1[0-2])$")] = None,
+) -> BatchFeesResponse:
+    """Read one of this teacher's batches in one month.
 
     :param batch_id: The batch, from the route path
     :param session: The request-scoped session
     :param lens: The teacher lens carrying the owner id
-    :return: One row per seat
+    :param period: The month as ``YYYY-MM``; the current month by default
+    :return: The month's totals, filter counts and one row per seat
     """
-    return [
-        RosterFeeRowResponse(
-            enrollment_id=row.enrollment_id,
-            display_name=row.display_name,
-            outstanding=_to_wire(row.outstanding),
-            current_period=row.current_period,
-            current_status=row.current_status,
-            due_date=row.due_date,
-            days_overdue=row.days_overdue,
-            verifying=_optional_wire(row.verifying),
-        )
-        for row in views.batch_fee_overview(session, lens=lens, batch_id=batch_id)
-    ]
+    month = views.batch_month(session, lens=lens, batch_id=batch_id, period=period)
+    return BatchFeesResponse(
+        period=month.period,
+        collected=_to_wire(month.collected),
+        charged=_to_wire(month.charged),
+        counts=MonthCountsResponse(
+            paid=month.counts.paid,
+            checking=month.counts.checking,
+            owed=month.counts.owed,
+        ),
+        seats=[
+            RosterFeeRowResponse(
+                enrollment_id=row.enrollment_id,
+                display_name=row.display_name,
+                outstanding=_to_wire(row.outstanding),
+                current_period=row.current_period,
+                current_status=row.current_status,
+                due_date=row.due_date,
+                days_overdue=row.days_overdue,
+                verifying=_optional_wire(row.verifying),
+                state=row.state,
+                history_line=_history_line(row.history_line),
+            )
+            for row in month.seats
+        ],
+    )
 
 
 @router.get(
@@ -206,22 +287,20 @@ def read_enrollment_fees_as_teacher(
     enrollment_id: uuid.UUID,
     session: Annotated[Session, Depends(get_session)],
     lens: Annotated[TeacherLens, Depends(teacher_lens)],
+    months: Annotated[int, Query()] = DEFAULT_MONTHS,
 ) -> FeeHistoryResponse:
-    """List one seat's generated periods, for its teacher.
+    """List one seat's generated periods and last months, for its teacher.
 
     :param enrollment_id: The seat, from the route path
     :param session: The request-scoped session
     :param lens: The teacher lens
-    :return: One row per generated period
+    :param months: How many months the strip covers, clamped to 1 to 24
+    :return: One row per generated period and the month strip
     """
-    history = views.enrollment_fee_history(
-        session, lens=lens, enrollment_id=enrollment_id
-    )
-    return FeeHistoryResponse(
-        cycles=[_cycle_response(row) for row in history.cycles],
-        # The SERVER's total, from the ledger fold. The client is not
-        # permitted to sum the rows [D-20, TC-9].
-        total_outstanding=WireMoney(to_wire(history.total_outstanding)),
+    return _history_response(
+        views.enrollment_fee_history(
+            session, lens=lens, enrollment_id=enrollment_id, months=months
+        )
     )
 
 
@@ -249,12 +328,7 @@ def read_my_fees(
     history = views.enrollment_fee_history(
         session, lens=lens, enrollment_id=enrollment_id
     )
-    return FeeHistoryResponse(
-        cycles=[_cycle_response(row) for row in history.cycles],
-        # The SERVER's total, from the ledger fold. The client is not
-        # permitted to sum the rows [D-20, TC-9].
-        total_outstanding=WireMoney(to_wire(history.total_outstanding)),
-    )
+    return _history_response(history)
 
 
 @router.get(
@@ -280,50 +354,7 @@ def read_child_fees(
     history = views.enrollment_fee_history(
         session, lens=lens, enrollment_id=enrollment_id
     )
-    return FeeHistoryResponse(
-        cycles=[_cycle_response(row) for row in history.cycles],
-        # The SERVER's total, from the ledger fold. The client is not
-        # permitted to sum the rows [D-20, TC-9].
-        total_outstanding=WireMoney(to_wire(history.total_outstanding)),
-    )
-
-
-@router.get(
-    "/enrollments/{enrollment_id}/payment-destination",
-    response_model=PaymentDestinationResponse | None,
-    responses=_AUTH_ERRORS,
-)
-def read_payment_destination(
-    enrollment_id: uuid.UUID,
-    session: Annotated[Session, Depends(get_session)],
-    lens: Annotated[StudentLens, Depends(student_lens)],
-) -> PaymentDestinationResponse | None:
-    """Return where to pay for this seat [BR6.4, NFR14.32].
-
-    **The one route in the product carrying the collection number**, and
-    a test over the generated document asserts that as an equality
-    rather than a membership.
-
-    Returns **null where the teacher set no number** [NFR14.34], so the
-    client omits the destination step entirely rather than rendering a
-    field with a null in it.
-
-    :param enrollment_id: The seat, from the route path
-    :param session: The request-scoped session
-    :param lens: The student lens
-    :return: The destination, or None
-    """
-    destination = views.payment_destination(
-        session, lens=lens, enrollment_id=enrollment_id
-    )
-    if destination is None:
-        return None
-    return PaymentDestinationResponse(
-        collection_number=destination.collection_number,
-        collection_channel=destination.collection_channel,
-        channels=list(destination.channels),
-        teacher_display_name=destination.teacher_display_name,
-    )
+    return _history_response(history)
 
 
 @router.get(
@@ -378,73 +409,247 @@ def payables_response(found: Payables) -> PayablesResponse:
 
 
 @router.post(
-    "/enrollments/{enrollment_id}/claims",
-    response_model=ClaimResponse,
+    "/payments",
+    response_model=PaymentSubmittedResponse,
     status_code=status.HTTP_201_CREATED,
     responses=_WRITE_ERRORS,
 )
-def create_claim(
-    enrollment_id: uuid.UUID,
-    body: ClaimSubmitRequest,
+def create_payment(
+    body: PaymentSubmitRequest,
+    request: Request,
     session: Annotated[Session, Depends(get_session)],
-    lens: Annotated[StudentLens, Depends(student_lens)],
-) -> ClaimResponse:
-    """Submit a payment claim against this seat's oldest unpaid cycle.
+    lens: Annotated[StudentLens | GuardianLens, Depends(family_lens)],
+) -> PaymentSubmittedResponse:
+    """Report one payment for one or several children (F3, F4).
 
-    :param enrollment_id: The seat, from the route path
-    :param body: The claimed amount, channel and reference
+    Accepted when nothing is owed: each claim then lands on Bangladesh's
+    current period.
+
+    :param body: The children, destination, amount, date and reference
+    :param request: The request carrying the lens memo
     :param session: The request-scoped session
-    :param lens: The student lens
-    :return: The pending claim
+    :param lens: The authenticated family lens
+    :return: The pending submission and each child's share
     """
-    # The scope check first: a claim must not be recorded against a seat
-    # this lens cannot reach.
-    views.enrollment_fee_history(session, lens=lens, enrollment_id=enrollment_id)
-
-    claim = submit_claim(
+    chosen = lens_reaching(
         session,
-        enrollment_id=enrollment_id,
-        submitted_by_account_id=lens.account_id,
-        claimed_amount=parse(body.claimed_amount.root),
-        channel=body.channel,
-        transaction_id=body.transaction_id,
+        family_lenses(request, session, lens.account_id),
+        body.enrollment_ids[0],
     )
-    return claim_response(views.claim_detail(session, lens=lens, claim_id=claim.id))
+    submission = submit_payment(
+        session,
+        lens=chosen,
+        draft=PaymentDraft(
+            enrollment_ids=tuple(body.enrollment_ids),
+            payment_method_id=body.payment_method_id,
+            cash=body.cash,
+            amount=parse(body.amount.root),
+            paid_on=body.paid_on,
+            transaction_id=body.transaction_id,
+            from_account=body.from_account,
+            note=body.note,
+            client_mutation_id=body.client_mutation_id,
+        ),
+    )
+    # A replay returns the ORIGINAL submission with the same 201, so the
+    # body below is built from what is stored, never from the request --
+    # and the status is the stored one, because a late resend after the
+    # teacher decided must not be told the payment still waits.
+    shares = session.execute(
+        sa.select(PaymentClaim, Enrollment.display_name)
+        .join(Enrollment, Enrollment.id == PaymentClaim.enrollment_id)
+        .where(PaymentClaim.payment_submission_id == submission.id)
+        .order_by(Enrollment.display_name, Enrollment.id)
+    ).all()
+    return PaymentSubmittedResponse(
+        submission_id=submission.id,
+        status=views.submission_status(submission.status),
+        total_amount=_to_wire(submission.total_amount),
+        paid_on=submission.paid_on,
+        claims=[
+            SubmittedClaimResponse(
+                claim_id=claim.id,
+                enrollment_id=claim.enrollment_id,
+                display_name=name,
+                period=claim.period,
+                claimed_amount=_to_wire(claim.claimed_amount),
+            )
+            for claim, name in shares
+        ],
+    )
 
 
-def queue_item_response(item: QueueItem) -> ClaimQueueItemResponse:
-    """Render one waiting claim for the wire.
+@router.get(
+    "/payments/owed",
+    response_model=OwedTogetherResponse,
+    responses=_WRITE_ERRORS,
+)
+def read_owed_together(
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    lens: Annotated[StudentLens | GuardianLens, Depends(family_lens)],
+    enrollment_id: Annotated[list[uuid.UUID], Query(min_length=1, max_length=20)],
+) -> OwedTogetherResponse:
+    """Say what the chosen children owe together, for "Owed for ...".
 
-    :param item: The claim as the queue described it
+    :param request: The request carrying the lens memo
+    :param session: The request-scoped session
+    :param lens: The authenticated family lens
+    :param enrollment_id: The children, repeated once per child
+    :return: The total and each child's figure, in child order
+    """
+    chosen = lens_reaching(
+        session, family_lenses(request, session, lens.account_id), enrollment_id[0]
+    )
+    children = owed_children(session, lens=chosen, enrollment_ids=enrollment_id)
+    return OwedTogetherResponse(
+        owed_together=_to_wire(DomainMoney.sum([child.owed for child in children])),
+        children=[
+            OwedChildResponse(
+                enrollment_id=child.seat.id,
+                display_name=child.seat.display_name,
+                owed=_to_wire(child.owed),
+            )
+            for child in children
+        ],
+    )
+
+
+def payment_review_response(review: PaymentReview) -> PaymentReviewResponse:
+    """Render one payment's review for the wire.
+
+    :param review: The payment as the review described it
     :return: The response body
     """
-    duplicate = item.duplicate_of
-    return ClaimQueueItemResponse(
-        claim_id=item.claim_id,
-        enrollment_id=item.enrollment_id,
-        display_name=item.display_name,
-        batch_name=item.batch_name,
-        period=item.period,
-        claimed_amount=_to_wire(item.claimed_amount),
-        charged=_to_wire(item.charged),
-        comparison=item.comparison,
-        difference=_to_wire(item.difference),
-        channel=item.channel,
-        transaction_id=item.transaction_id,
-        submitted_at=item.submitted_at,
-        submitted_by=item.submitted_by,
-        submitter_phone=item.submitter_phone,
+    duplicate = review.duplicate_of
+    return PaymentReviewResponse(
+        submission_id=review.submission_id,
+        batch_name=review.batch_name,
+        children=[
+            ReviewChildResponse(
+                claim_id=child.claim_id,
+                enrollment_id=child.enrollment_id,
+                display_name=child.display_name,
+                period=child.period,
+                owed=_to_wire(child.owed),
+                approved_amount=_optional_wire(child.approved_amount),
+            )
+            for child in review.children
+        ],
+        owed_together=_to_wire(review.owed_together),
+        total_amount=_to_wire(review.total_amount),
+        comparison=review.comparison,
+        difference=_to_wire(review.difference),
+        method=PaymentDestinationResponse.model_validate(review.method),
+        transaction_id=review.transaction_id,
+        from_account=review.from_account,
+        paid_on=review.paid_on,
+        submitted_at=review.submitted_at,
+        submitted_by=review.submitted_by,
+        submitter_phone=review.submitter_phone,
+        payer_note=review.payer_note,
+        status=review.status,
+        decision_note=review.decision_note,
+        decided_at=review.decided_at,
         duplicate_of=(
             None
             if duplicate is None
-            else DuplicateClaimResponse(
-                claim_id=duplicate.claim_id,
+            else DuplicatePaymentResponse(
+                submission_id=duplicate.submission_id,
                 display_name=duplicate.display_name,
                 status=duplicate.status,
                 amount=_to_wire(duplicate.amount),
                 decided_at=duplicate.decided_at,
             )
         ),
+    )
+
+
+@router.get(
+    "/payments/{submission_id}",
+    response_model=PaymentReviewResponse,
+    responses=_AUTH_ERRORS,
+)
+def read_payment(
+    submission_id: uuid.UUID,
+    session: Annotated[Session, Depends(get_session)],
+    lens: Annotated[TeacherLens, Depends(teacher_lens)],
+) -> PaymentReviewResponse:
+    """Read one payment on this teacher's batches (R2).
+
+    :param submission_id: The submission, from the route path
+    :param session: The request-scoped session
+    :param lens: The teacher lens
+    :return: The payment as the teacher reviews it
+    """
+    return payment_review_response(
+        payment_review(session, lens=lens, submission_id=submission_id)
+    )
+
+
+@router.post(
+    "/payments/{submission_id}/approval",
+    response_model=PaymentReviewResponse,
+    responses=_WRITE_ERRORS,
+)
+def approve_payment(
+    submission_id: uuid.UUID,
+    body: PaymentApprovalRequest,
+    session: Annotated[Session, Depends(get_session)],
+    lens: Annotated[TeacherLens, Depends(teacher_lens)],
+) -> PaymentReviewResponse:
+    """Approve a payment, split across its children (R4).
+
+    :param submission_id: The submission, from the route path
+    :param body: What was received and how a shortfall or excess goes
+    :param session: The request-scoped session
+    :param lens: The teacher lens
+    :return: The decided payment
+    """
+    approve_submission(
+        session,
+        lens=lens,
+        submission_id=submission_id,
+        received=parse(body.received_amount.root),
+        disposition=body.shortfall_disposition,
+        carried_by_enrollment_id=body.carried_by_enrollment_id,
+        credit_to_enrollment_id=body.credit_to_enrollment_id,
+        note=body.note,
+        correcting=body.correcting,
+    )
+    return payment_review_response(
+        payment_review(session, lens=lens, submission_id=submission_id)
+    )
+
+
+@router.post(
+    "/payments/{submission_id}/rejection",
+    response_model=PaymentReviewResponse,
+    responses=_WRITE_ERRORS,
+)
+def reject_payment(
+    submission_id: uuid.UUID,
+    session: Annotated[Session, Depends(get_session)],
+    lens: Annotated[TeacherLens, Depends(teacher_lens)],
+    body: PaymentRejectionRequest | None = None,
+) -> PaymentReviewResponse:
+    """Reject a payment, recording nothing as received [BR5.6].
+
+    :param submission_id: The submission, from the route path
+    :param session: The request-scoped session
+    :param lens: The teacher lens
+    :param body: Optional; the note and ``correcting`` when revising
+    :return: The decided payment
+    """
+    reject_submission(
+        session,
+        lens=lens,
+        submission_id=submission_id,
+        note=body.note if body is not None else None,
+        correcting=body.correcting if body is not None else False,
+    )
+    return payment_review_response(
+        payment_review(session, lens=lens, submission_id=submission_id)
     )
 
 
@@ -459,18 +664,18 @@ def read_verification_queue(
     session: Annotated[Session, Depends(get_session)],
     lens: Annotated[TeacherLens, Depends(teacher_lens)],
 ) -> VerificationQueueResponse:
-    """List the claims waiting for this teacher, and recent decisions (T4).
+    """List the payments waiting for this teacher, and recent decisions (R1).
 
     :param session: The request-scoped session
     :param lens: The teacher lens
-    :return: Waiting claims and the last day's decisions
+    :return: Waiting payments and the last day's decisions
     """
     queue = verification_queue(session, lens=lens)
     return VerificationQueueResponse(
-        pending=[queue_item_response(item) for item in queue.pending],
+        pending=[payment_review_response(item) for item in queue.pending],
         decided_recently=[
             RecentDecisionResponse(
-                claim_id=decision.claim_id,
+                submission_id=decision.submission_id,
                 display_name=decision.display_name,
                 batch_name=decision.batch_name,
                 status=decision.status,
@@ -479,39 +684,6 @@ def read_verification_queue(
             )
             for decision in queue.decided_recently
         ],
-    )
-
-
-@router.post(
-    "/claims/{claim_id}/shortfall",
-    response_model=ShortfallPreviewResponse,
-    responses=_WRITE_ERRORS,
-)
-def preview_shortfall(
-    claim_id: uuid.UUID,
-    body: ShortfallPreviewRequest,
-    session: Annotated[Session, Depends(get_session)],
-    lens: Annotated[TeacherLens, Depends(teacher_lens)],
-) -> ShortfallPreviewResponse:
-    """Say what approving an amount would leave short, before deciding.
-
-    A read, posted only because it carries an amount: nothing is written.
-
-    :param claim_id: The claim, from the route path
-    :param body: The amount the teacher is considering
-    :param session: The request-scoped session
-    :param lens: The teacher lens
-    :return: The shortfall and whether carry-or-waive must be chosen
-    """
-    shortfall = shortfall_preview(
-        session,
-        lens=lens,
-        claim_id=claim_id,
-        approved_amount=parse(body.approved_amount.root),
-    )
-    return ShortfallPreviewResponse(
-        shortfall=_to_wire(shortfall),
-        disposition_required=shortfall.is_positive(),
     )
 
 
@@ -527,8 +699,9 @@ def read_claim(
 ) -> ClaimResponse:
     """Read one of this claimant's own claims and its outcome.
 
-    The rejection the submitter must see [BR5.6] and the prior decision
-    a correction retained [BR5.7] are both carried here.
+    The rejection the submitter must see [BR5.6], with the teacher's
+    note, and the prior decision a correction retained [BR5.7] are both
+    carried here.
 
     :param claim_id: The claim, from the route path
     :param session: The request-scoped session
@@ -536,82 +709,6 @@ def read_claim(
     :return: The claim and its decision
     """
     return claim_response(views.claim_detail(session, lens=lens, claim_id=claim_id))
-
-
-@router.post(
-    "/claims/{claim_id}/verification",
-    response_model=ClaimResponse,
-    responses=_WRITE_ERRORS,
-)
-def record_verification(
-    claim_id: uuid.UUID,
-    body: VerificationRequest,
-    session: Annotated[Session, Depends(get_session)],
-    lens: Annotated[TeacherLens, Depends(teacher_lens)],
-) -> ClaimResponse:
-    """Approve a claim, in whole or in part [AC6.3.x].
-
-    The shortfall is computed server-side as ``charged - approved``
-    [BR5.3]; the request names the approved amount and the disposition,
-    never the shortfall. A disposition is **required** where the
-    approval falls below the charge and refused where it does not
-    [BR5.4] -- the server decides which, because only it knows what the
-    cycle was charged.
-
-    :param claim_id: The claim, from the route path
-    :param body: The approved amount and the disposition
-    :param session: The request-scoped session
-    :param lens: The teacher lens
-    :return: The decided claim
-    """
-    views.assert_claim_is_verifiable(session, lens=lens, claim_id=claim_id)
-
-    outcome = verify_claim(
-        session,
-        claim_id=claim_id,
-        approved_amount=parse(body.approved_amount.root),
-        shortfall_disposition=body.shortfall_disposition,
-        verified_by_account_id=lens.account_id,
-        correcting=body.correcting,
-    )
-    return claim_response(
-        views.claim_detail(session, lens=lens, claim_id=outcome.claim.id)
-    )
-
-
-@router.post(
-    "/claims/{claim_id}/rejection",
-    response_model=ClaimResponse,
-    responses=_WRITE_ERRORS,
-)
-def record_rejection(
-    claim_id: uuid.UUID,
-    session: Annotated[Session, Depends(get_session)],
-    lens: Annotated[TeacherLens, Depends(teacher_lens)],
-    body: RejectionRequest | None = None,
-) -> ClaimResponse:
-    """Reject a claim, recording nothing as received [BR5.6].
-
-    A separate route from verification rather than an approval of zero:
-    rejecting and approving nothing are different decisions, and the
-    claimant is shown different things.
-
-    :param claim_id: The claim, from the route path
-    :param session: The request-scoped session
-    :param lens: The teacher lens
-    :param body: Optional; carries ``correcting`` when revising
-    :return: The rejected claim
-    """
-    views.assert_claim_is_verifiable(session, lens=lens, claim_id=claim_id)
-
-    claim = reject_claim(
-        session,
-        claim_id=claim_id,
-        verified_by_account_id=lens.account_id,
-        correcting=body.correcting if body is not None else False,
-        reason=body.reason if body is not None else None,
-    )
-    return claim_response(views.claim_detail(session, lens=lens, claim_id=claim.id))
 
 
 @router.post(

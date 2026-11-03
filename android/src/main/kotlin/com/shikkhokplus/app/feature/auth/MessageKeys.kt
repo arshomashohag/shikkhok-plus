@@ -64,6 +64,8 @@ object MessageKeys {
         // failure that looks like a working error message and is
         // therefore never reported.
         "fees.not_available" to R.string.fees_not_available,
+        "fees.method.fields_incomplete" to R.string.fees_method_fields_incomplete,
+        "fees.method.field_too_long" to R.string.fees_method_field_too_long,
         "inbox.not_available" to R.string.inbox_not_available,
         "fees.resolution.not_set" to R.string.fees_resolution_not_set,
         "fees.claim.no_open_cycle" to R.string.fees_claim_no_open_cycle,
@@ -71,6 +73,39 @@ object MessageKeys {
             R.string.fees_claim_amount_not_positive,
         "fees.claim.channel_unknown" to R.string.fees_claim_channel_unknown,
         "fees.claim.not_found" to R.string.fees_claim_not_found,
+        // Pay any time: the keys the payment form and its review raise.
+        "fees.payment.allocation_bearer_required" to
+            R.string.fees_payment_allocation_bearer_required,
+        "fees.payment.allocation_child_not_applicable" to
+            R.string.fees_payment_allocation_child_not_applicable,
+        "fees.payment.allocation_credit_child_required" to
+            R.string.fees_payment_allocation_credit_child_required,
+        "fees.payment.allocation_disposition_not_applicable" to
+            R.string.fees_payment_allocation_disposition_not_applicable,
+        "fees.payment.allocation_disposition_required" to
+            R.string.fees_payment_allocation_disposition_required,
+        "fees.payment.allocation_invalid" to
+            R.string.fees_payment_allocation_invalid,
+        "fees.payment.amount_not_positive" to
+            R.string.fees_payment_amount_not_positive,
+        "fees.payment.approval_zero" to
+            R.string.fees_payment_approval_zero,
+        "fees.payment.child_not_in_payment" to
+            R.string.fees_payment_child_not_in_payment,
+        "fees.payment.children_across_batches" to
+            R.string.fees_payment_children_across_batches,
+        "fees.payment.children_required" to
+            R.string.fees_payment_children_required,
+        "fees.payment.date_in_future" to
+            R.string.fees_payment_date_in_future,
+        "fees.payment.date_too_early" to
+            R.string.fees_payment_date_too_early,
+        "fees.payment.method_not_offered" to
+            R.string.fees_payment_method_not_offered,
+        "fees.payment.mutation_id_already_used" to
+            R.string.fees_payment_mutation_id_already_used,
+        "fees.payment.reference_mismatch" to
+            R.string.fees_payment_reference_mismatch,
         "fees.verification.amount_negative" to
             R.string.fees_verification_amount_negative,
         "fees.verification.disposition_required" to

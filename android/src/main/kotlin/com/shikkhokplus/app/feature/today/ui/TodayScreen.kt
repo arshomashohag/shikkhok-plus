@@ -48,7 +48,7 @@ import com.shikkhokplus.app.feature.today.ClassRow
 import com.shikkhokplus.app.feature.today.ClassStatus
 import com.shikkhokplus.app.feature.today.OwedSummary
 import com.shikkhokplus.app.feature.today.TodayUiState
-import com.shikkhokplus.app.feature.verify.ClaimCard
+import com.shikkhokplus.app.feature.verify.ReviewCard
 import com.shikkhokplus.app.feature.verify.Comparison
 
 /** The money-owed card, which opens Dues. */
@@ -65,6 +65,9 @@ const val TAG_TODAY_MARKS: String = "today_marks"
 
 /** "See all" on the payments to check. */
 const val TAG_TODAY_SEE_ALL: String = "today_see_all"
+
+/** A waiting payment previewed on Today. */
+const val TAG_TODAY_VERIFY_ROW: String = "today_verify_row"
 
 /** The first-run steps. */
 const val TAG_TODAY_FIRST_RUN: String = "today_first_run"
@@ -83,6 +86,7 @@ private const val NOON = 12
  * @param onRecord Called with a class to record
  * @param onMarks Called with an exam id to enter marks
  * @param onVerifyAll Called to open the payments to check
+ * @param onOpenPayment Called with a waiting payment to open
  * @param onCreateBatch Called to start the first batch
  * @param onRetry Called to read the day again
  * @param modifier The layout modifier
@@ -98,6 +102,7 @@ fun TodayScreen(
     onRecord: (ClassRow) -> Unit,
     onMarks: (String) -> Unit,
     onVerifyAll: () -> Unit,
+    onOpenPayment: (String) -> Unit,
     onCreateBatch: () -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
@@ -128,7 +133,7 @@ fun TodayScreen(
                 SkeletonList(rows = 2)
             }
             is TodayUiState.FirstRun -> FirstRun(onCreateBatch)
-            is TodayUiState.Loaded -> Day(state, pending, onOpenDues, onRecord, onMarks, onVerifyAll)
+            is TodayUiState.Loaded -> Day(state, pending, onOpenDues, onRecord, onMarks, onVerifyAll, onOpenPayment)
             is TodayUiState.Failed ->
                 ErrorCard(
                     title = stringResource(R.string.today_load_failed),
@@ -149,6 +154,7 @@ fun TodayScreen(
  * @param onRecord Called with a class to record
  * @param onMarks Called with an exam id
  * @param onVerifyAll Called to open the payments to check
+ * @param onOpenPayment Called with a waiting payment to open
  */
 @Composable
 private fun ColumnScope.Day(
@@ -158,6 +164,7 @@ private fun ColumnScope.Day(
     onRecord: (ClassRow) -> Unit,
     onMarks: (String) -> Unit,
     onVerifyAll: () -> Unit,
+    onOpenPayment: (String) -> Unit,
 ) {
     OwedCard(state.owed, onOpenDues)
 
@@ -188,7 +195,7 @@ private fun ColumnScope.Day(
         RowCard {
             state.toVerify.forEachIndexed { index, card ->
                 if (index > 0) Divider()
-                VerifyPreviewRow(card, onVerifyAll)
+                VerifyPreviewRow(card) { onOpenPayment(card.submissionId) }
             }
         }
     }
@@ -361,8 +368,8 @@ private fun TimeColumn(hhmm: String) {
  * @param onOpen Called when tapped
  */
 @Composable
-private fun VerifyPreviewRow(card: ClaimCard, onOpen: () -> Unit) {
-    ListRow(Modifier.clickable(onClick = onOpen)) {
+private fun VerifyPreviewRow(card: ReviewCard, onOpen: () -> Unit) {
+    ListRow(Modifier.testTag(TAG_TODAY_VERIFY_ROW).clickable(onClick = onOpen)) {
         Box(
             Modifier.size(40.dp).background(MaterialTheme.colorScheme.surfaceContainerHigh, CircleShape),
             contentAlignment = Alignment.Center,
@@ -372,21 +379,21 @@ private fun VerifyPreviewRow(card: ClaimCard, onOpen: () -> Unit) {
         Column(Modifier.weight(1f)) {
             Text(Numerals.freeText(card.displayName), style = MaterialTheme.typography.titleMedium, maxLines = 1)
             Text(
-                "${card.channel} · ${monthName(card.period)} · ${ago(card.submittedAt)}",
+                "${methodName(card)} · ${monthName(card.period)} · ${ago(card.submittedAt)}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         Column(horizontalAlignment = Alignment.End) {
             Text(
-                Numerals.money(card.claimedAmount),
+                Numerals.money(card.totalAmount),
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
             )
             Text(
                 if (card.comparison == Comparison.MATCHES) {
                     stringResource(R.string.today_matches_fee)
                 } else {
-                    stringResource(R.string.today_of_fee, Numerals.money(card.charged))
+                    stringResource(R.string.today_of_fee, Numerals.money(card.owedTogether))
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color =
@@ -396,6 +403,16 @@ private fun VerifyPreviewRow(card: ClaimCard, onOpen: () -> Unit) {
         }
     }
 }
+
+/**
+ * Where a waiting payment was sent: the service or bank, else cash.
+ *
+ * @param card The payment
+ * @return The name to show on its row
+ */
+@Composable
+private fun methodName(card: ReviewCard): String =
+    card.method.provider ?: stringResource(R.string.verify_method_cash)
 
 /**
  * The first run: how to start, before any batch exists.

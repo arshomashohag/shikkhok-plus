@@ -1,18 +1,22 @@
 package com.shikkhokplus.app.feature.pay
 
 import com.shikkhokplus.app.core.model.Money
-import com.shikkhokplus.app.core.network.ClaimDto
-import com.shikkhokplus.app.core.network.ClaimSubmitDto
 import com.shikkhokplus.app.core.network.ErrorBody
 import com.shikkhokplus.app.core.network.ErrorEnvelope
-import com.shikkhokplus.app.core.network.PayableDto
-import com.shikkhokplus.app.core.network.PayablesDto
-import com.shikkhokplus.app.core.network.PaymentDestinationDto
-import com.shikkhokplus.app.core.network.WaitingPaymentDto
+import com.shikkhokplus.app.core.network.FamilyPaymentMethodsDto
+import com.shikkhokplus.app.core.network.OwedChildDto
+import com.shikkhokplus.app.core.network.OwedTogetherDto
+import com.shikkhokplus.app.core.network.PaymentMethodDto
+import com.shikkhokplus.app.core.network.PaymentSubmitDto
+import com.shikkhokplus.app.core.network.PaymentSubmittedDto
+import com.shikkhokplus.app.core.network.StudentBatchDto
+import com.shikkhokplus.app.core.network.SubmittedClaimDto
 import com.shikkhokplus.app.feature.auth.AuthResult
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -22,10 +26,11 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 
 /**
- * S3's flow: choose, fill in, send, sent -- and that a failed send keeps
- * what was typed rather than queueing it.
+ * The "Send money" flow: choose how, fill in, send, sent -- and that a
+ * failed send keeps what was typed rather than queueing it.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class PayViewModelTest {
@@ -38,95 +43,224 @@ class PayViewModelTest {
     @AfterTest
     fun tearDown() = Dispatchers.resetMain()
 
-    private fun payable(seat: String, batch: String) =
-        PayableDto(seat, batch, "2026-10", Money.of("1500.00"), "2026-10-20")
+    private val bkash = PaymentMethodDto("m-1", "mobile", "bKash", mobileNumber = "01712345678")
+    private val bank = PaymentMethodDto("m-2", "bank", "Dutch-Bangla", accountNumber = "1051", branchName = "Mirpur")
+
+    private fun seat(id: String, batch: String, child: String? = null, teacher: String = "Najma") =
+        StudentBatchDto(id, batch, teacher, childName = child)
+
+    private fun owed(total: String, vararg children: Pair<String, String>) =
+        OwedTogetherDto(
+            Money.of(total),
+            children.map { (id, name) -> OwedChildDto(id, name, Money.of("0.00")) },
+        )
+
+    private fun submitted(total: String = "1000.00") =
+        PaymentSubmittedDto(
+            "s-1",
+            "pending",
+            Money.of(total),
+            "2026-11-02",
+            listOf(SubmittedClaimDto("c-1", Money.of(total), "Tanvir", "e-1", "2026-11")),
+        )
 
     private class Fake(
-        var payables: AuthResult<PayablesDto>,
-        var destination: AuthResult<PaymentDestinationDto?> =
-            AuthResult.Ok(PaymentDestinationDto("01712345678", "bKash", listOf("bKash", "Nagad", "Rocket"), "Najma")),
-        var submitted: AuthResult<ClaimDto> =
-            AuthResult.Ok(
-                ClaimDto(
-                    "c-1",
-                    "2026-10",
-                    Money.of("1500.00"),
-                    status = "pending",
-                    channel = "bKash",
-                    submittedAt = "2026-10-17T09:22:00Z",
-                ),
-            ),
+        var seats: AuthResult<List<StudentBatchDto>>,
+        var methods: AuthResult<FamilyPaymentMethodsDto>,
+        var owed: AuthResult<OwedTogetherDto>,
+        var submit: AuthResult<PaymentSubmittedDto>,
     ) : PayRepository {
-        val sent = mutableListOf<Pair<String, ClaimSubmitDto>>()
+        val sent = mutableListOf<PaymentSubmitDto>()
+        val methodReads = mutableListOf<String>()
+        val owedReads = mutableListOf<List<String>>()
+        var gate: CompletableDeferred<Unit>? = null
 
-        override suspend fun payables() = payables
+        override suspend fun seats() = seats
 
-        override suspend fun destination(enrollmentId: String) = destination
+        override suspend fun methods(enrollmentId: String): AuthResult<FamilyPaymentMethodsDto> {
+            methodReads += enrollmentId
+            return methods
+        }
 
-        override suspend fun submit(enrollmentId: String, claim: ClaimSubmitDto): AuthResult<ClaimDto> {
-            sent += enrollmentId to claim
-            return submitted
+        override suspend fun owed(enrollmentIds: List<String>): AuthResult<OwedTogetherDto> {
+            owedReads += enrollmentIds
+            return owed
+        }
+
+        override suspend fun submit(payment: PaymentSubmitDto): AuthResult<PaymentSubmittedDto> {
+            sent += payment
+            gate?.await()
+            return submit
         }
     }
 
-    @Test
-    fun `one fee and nothing waiting opens the form with the amount and service filled`() = runTest(dispatcher) {
-        val model = PayViewModel(Fake(AuthResult.Ok(PayablesDto(listOf(payable("e-1", "Maths"))))))
+    private fun fake(
+        seats: List<StudentBatchDto> = listOf(seat("e-1", "Physics")),
+        owed: AuthResult<OwedTogetherDto> = AuthResult.Ok(owed("1000.00", "e-1" to "Tanvir")),
+        submit: AuthResult<PaymentSubmittedDto> = AuthResult.Ok(submitted()),
+    ) = Fake(
+        AuthResult.Ok(seats),
+        AuthResult.Ok(FamilyPaymentMethodsDto(listOf(bkash, bank), listOf("bKash"), "Rahima")),
+        owed,
+        submit,
+    )
 
+    private fun model(fake: Fake) = PayViewModel(fake, today = { "2026-11-02" })
+
+    /** Hands out `key-1`, `key-2`, ... so a test can name the key a send carried. */
+    private class Keys {
+        var issued = 0
+            private set
+
+        fun next(): String = "key-${++issued}"
+    }
+
+    private fun keyed(fake: Fake, keys: Keys) =
+        PayViewModel(fake, today = { "2026-11-02" }, newMutationId = keys::next)
+
+    private suspend fun TestScope.filling(
+        model: PayViewModel,
+        choice: PayChoice = PayChoice.Method(bkash),
+    ): PayUiState.Filling {
         model.load()
         advanceUntilIdle()
-
-        val filling = assertIs<PayUiState.Filling>(model.state.value)
-        assertEquals("1500.00", filling.form.amount)
-        assertEquals("bKash", filling.form.channel)
-        assertEquals("Najma", filling.destination?.teacherName)
-        assertEquals(false, filling.canChange)
+        model.choose(choice)
+        advanceUntilIdle()
+        return assertIs(model.state.value)
     }
 
     @Test
-    fun `several fees, or a waiting one, ask which to pay`() = runTest(dispatcher) {
+    fun `send money opens on the methods even with nothing owed`() = runTest(dispatcher) {
+        val model = model(fake(owed = AuthResult.Ok(owed("0.00", "e-1" to "Tanvir"))))
+
+        model.load()
+        advanceUntilIdle()
+        val methods = assertIs<PayUiState.Methods>(model.state.value)
+        model.choose(PayChoice.Method(bkash))
+        advanceUntilIdle()
+        val form = assertIs<PayUiState.Filling>(model.state.value)
+
+        assertEquals(listOf(bkash, bank), methods.scope.methods)
+        assertEquals("Rahima", methods.scope.teacherName)
+        assertEquals("", form.form.amount)
+        assertEquals("2026-11-02", form.form.paidOn)
+    }
+
+    @Test
+    fun `guardian sees children of the chosen batch only`() = runTest(dispatcher) {
         val model =
-            PayViewModel(
-                Fake(
-                    AuthResult.Ok(
-                        PayablesDto(listOf(payable("e-1", "Maths")), listOf(WaitingPaymentDto("Chemistry", "2026-10"))),
-                    ),
+            model(
+                fake(
+                    seats =
+                        listOf(
+                            seat("e-1", "Physics", "Tanvir"),
+                            seat("e-2", "Physics", "Tania"),
+                            seat("e-3", "Math", "Tanvir", teacher = "Karim"),
+                        ),
                 ),
             )
 
-        model.load()
+        model.load(preselect = "e-3")
         advanceUntilIdle()
-        val choosing = assertIs<PayUiState.Choosing>(model.state.value)
-        model.choose(choosing.options.single())
+        val math = assertIs<PayUiState.Methods>(model.state.value).scope
+        model.chooseBatch(math.batches.first().key)
         advanceUntilIdle()
-        val filling = assertIs<PayUiState.Filling>(model.state.value)
-        model.change()
+        val physics = assertIs<PayUiState.Methods>(model.state.value).scope
 
-        assertEquals(listOf(WaitingLine("Chemistry", "2026-10")), choosing.waiting)
-        assertEquals(true, filling.canChange)
-        assertEquals(choosing, model.state.value)
+        assertEquals(listOf("e-3"), math.batch.seats.map { it.enrollmentId })
+        assertEquals(listOf("e-3"), math.selected)
+        assertEquals(listOf("Tanvir", "Tania"), physics.batch.seats.map { it.childName })
+        assertEquals(listOf("e-1", "e-2"), physics.selected)
     }
 
     @Test
-    fun `a seat named on the way in opens straight away`() = runTest(dispatcher) {
-        val model =
-            PayViewModel(Fake(AuthResult.Ok(PayablesDto(listOf(payable("e-1", "Maths"), payable("e-2", "Physics"))))))
+    fun `student for field is fixed to self`() = runTest(dispatcher) {
+        val model = model(fake(seats = listOf(seat("e-1", "Physics"), seat("e-2", "Math", teacher = "Karim"))))
 
-        model.load(preselect = "e-2")
-        advanceUntilIdle()
+        val form = filling(model)
 
-        assertEquals("e-2", assertIs<PayUiState.Filling>(model.state.value).option.enrollmentId)
+        assertEquals(1, form.scope.batch.seats.size)
+        assertNull(form.scope.batch.seats.single().childName)
+        model.toggleChild("e-1")
+        assertEquals(listOf("e-1"), assertIs<PayUiState.Filling>(model.state.value).scope.selected)
     }
 
     @Test
-    fun `a short ID is flagged and nothing is sent`() = runTest(dispatcher) {
-        val fake = Fake(AuthResult.Ok(PayablesDto(listOf(payable("e-1", "Maths")))))
-        val model = PayViewModel(fake)
-        model.load()
-        advanceUntilIdle()
-        val form = assertIs<PayUiState.Filling>(model.state.value).form
+    fun `owed line comes from server`() = runTest(dispatcher) {
+        val fake =
+            fake(
+                seats = listOf(seat("e-1", "Physics", "Tanvir"), seat("e-2", "Physics", "Tania")),
+                owed = AuthResult.Ok(owed("2000.00", "e-1" to "Tanvir", "e-2" to "Tania")),
+            )
+        val model = model(fake)
 
-        model.type(form.copy(transactionId = "DJ6"))
+        val form = filling(model)
+
+        assertEquals(listOf(listOf("e-1", "e-2")), fake.owedReads)
+        assertEquals(Money.of("2000.00"), form.owed?.owedTogether)
+        assertEquals("2000.00", form.form.amount)
+    }
+
+    @Test
+    fun `dropping a child asks the server again`() = runTest(dispatcher) {
+        val fake =
+            fake(seats = listOf(seat("e-1", "Physics", "Tanvir"), seat("e-2", "Physics", "Tania")))
+        val model = model(fake)
+        filling(model)
+
+        model.toggleChild("e-2")
+        advanceUntilIdle()
+        model.toggleChild("e-1")
+        advanceUntilIdle()
+
+        assertEquals(listOf("e-1"), assertIs<PayUiState.Filling>(model.state.value).scope.selected)
+        assertEquals(listOf("e-1", "e-2"), fake.owedReads.first())
+        assertEquals(listOf("e-1"), fake.owedReads.last())
+    }
+
+    @Test
+    fun `mobile requires trx and bank requires from account`() = runTest(dispatcher) {
+        val fake = fake()
+        val model = model(fake)
+        val mobile = filling(model)
+
+        model.type(mobile.form.copy(fromAccount = "1234567"))
+        model.send()
+        advanceUntilIdle()
+        model.type(mobile.form.copy(transactionId = "9KD7Q2XL1M", fromAccount = "1234567"))
+        model.send()
+        advanceUntilIdle()
+        val bankModel = model(fake)
+        val bankForm = filling(bankModel, PayChoice.Method(bank))
+        bankModel.type(bankForm.form.copy(transactionId = "9KD7Q2XL1M"))
+        bankModel.send()
+        advanceUntilIdle()
+        bankModel.type(bankForm.form.copy(fromAccount = "1234 5678"))
+        bankModel.send()
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf(
+                PaymentSubmitDto(
+                    listOf("e-1"), "m-1", false, Money.of("1000.00"), "2026-11-02", transactionId = "9KD7Q2XL1M",
+                ),
+                PaymentSubmitDto(
+                    listOf("e-1"), "m-2", false, Money.of("1000.00"), "2026-11-02", fromAccount = "1234 5678",
+                ),
+            ),
+            // The replay key is random per attempt and has tests of its
+            // own below; this one is about the payment's content.
+            fake.sent.map { it.copy(clientMutationId = null) },
+        )
+    }
+
+    @Test
+    fun `a short transaction id is flagged and nothing is sent`() = runTest(dispatcher) {
+        val fake = fake()
+        val model = model(fake)
+        val form = filling(model)
+
+        model.type(form.form.copy(transactionId = "DJ6"))
         model.send()
         advanceUntilIdle()
 
@@ -135,81 +269,284 @@ class PayViewModelTest {
     }
 
     @Test
-    fun `a sent payment carries what was claimed and the ID`() = runTest(dispatcher) {
-        val fake = Fake(AuthResult.Ok(PayablesDto(listOf(payable("e-1", "Maths")))))
-        val model = PayViewModel(fake)
-        model.load()
-        advanceUntilIdle()
-        val form = assertIs<PayUiState.Filling>(model.state.value).form
+    fun `cash sends no reference and no method`() = runTest(dispatcher) {
+        val fake = fake()
+        val model = model(fake)
+        val form = filling(model, PayChoice.Cash)
 
-        model.type(form.copy(transactionId = "DJ62K0LQ7V"))
+        model.type(form.form.copy(note = "  in class  "))
         model.send()
         advanceUntilIdle()
 
-        assertEquals(listOf("e-1" to ClaimSubmitDto(Money.of("1500.00"), "bKash", "DJ62K0LQ7V")), fake.sent)
-        val sent = assertIs<PayUiState.Sent>(model.state.value)
-        assertEquals("DJ62K0LQ7V", sent.payment.transactionId)
-        assertEquals("Najma", sent.teacherName)
+        assertEquals(
+            listOf(
+                PaymentSubmitDto(listOf("e-1"), null, true, Money.of("1000.00"), "2026-11-02", note = "in class"),
+            ),
+            fake.sent.map { it.copy(clientMutationId = null) },
+        )
+        assertIs<PayUiState.Sent>(model.state.value)
     }
 
     @Test
-    fun `no connection keeps the details and is not queued`() = runTest(dispatcher) {
-        val fake =
-            Fake(AuthResult.Ok(PayablesDto(listOf(payable("e-1", "Maths")))), submitted = AuthResult.TransportFailure)
-        val model = PayViewModel(fake)
-        model.load()
+    fun `send is disabled while sending`() = runTest(dispatcher) {
+        val fake = fake().apply { gate = CompletableDeferred() }
+        val model = model(fake)
+        val form = filling(model)
+        model.type(form.form.copy(transactionId = "9KD7Q2XL1M"))
+
+        model.send()
         advanceUntilIdle()
-        val form = assertIs<PayUiState.Filling>(model.state.value).form.copy(transactionId = "DJ62K0LQ7V")
-        model.type(form)
+        model.send()
+        advanceUntilIdle()
+
+        assertEquals(true, assertIs<PayUiState.Filling>(model.state.value).sending)
+        assertEquals(1, fake.sent.size)
+        fake.gate?.complete(Unit)
+        advanceUntilIdle()
+        assertIs<PayUiState.Sent>(model.state.value)
+    }
+
+    @Test
+    fun `server refusal shows message key and keeps the form`() = runTest(dispatcher) {
+        val refused = AuthResult.Refused(ErrorEnvelope(ErrorBody("X", false, "fees.payment.date_in_future")))
+        val model = model(fake(submit = refused))
+        val form = filling(model)
+        val typed = form.form.copy(transactionId = "9KD7Q2XL1M")
+        model.type(typed)
 
         model.send()
         advanceUntilIdle()
 
         val failed = assertIs<PayUiState.Filling>(model.state.value)
-        assertEquals(PayMapper.OFFLINE_KEY, failed.failedKey)
-        assertEquals(form, failed.form)
+        assertEquals("fees.payment.date_in_future", failed.failedKey)
+        assertEquals(typed, failed.form)
         assertEquals(false, failed.sending)
     }
 
     @Test
-    fun `a refusal carries the server's key`() = runTest(dispatcher) {
-        val refused = AuthResult.Refused(ErrorEnvelope(ErrorBody("X", false, "fees.claim.no_open_cycle")))
-        val fake = Fake(AuthResult.Ok(PayablesDto(listOf(payable("e-1", "Maths")))), submitted = refused)
-        val model = PayViewModel(fake)
-        model.load()
-        advanceUntilIdle()
-        model.type(assertIs<PayUiState.Filling>(model.state.value).form.copy(transactionId = "DJ62K0LQ7V"))
+    fun `no connection keeps the details and is not queued`() = runTest(dispatcher) {
+        val model = model(fake(submit = AuthResult.TransportFailure))
+        val form = filling(model)
+        model.type(form.form.copy(transactionId = "9KD7Q2XL1M"))
 
         model.send()
         advanceUntilIdle()
 
-        assertEquals("fees.claim.no_open_cycle", assertIs<PayUiState.Filling>(model.state.value).failedKey)
+        assertEquals(PayMapper.OFFLINE_KEY, assertIs<PayUiState.Filling>(model.state.value).failedKey)
     }
 
     @Test
-    fun `no number set leaves the destination out, and a failed read can be retried`() = runTest(dispatcher) {
-        val fake = Fake(AuthResult.Ok(PayablesDto(listOf(payable("e-1", "Maths")))), destination = AuthResult.Ok(null))
-        val model = PayViewModel(fake)
-        model.load()
-        advanceUntilIdle()
-        val filling = assertIs<PayUiState.Filling>(model.state.value)
+    fun `a sent payment carries the server's record and the reference`() = runTest(dispatcher) {
+        val model = model(fake())
+        val form = filling(model)
+        model.type(form.form.copy(transactionId = "9KD7Q2XL1M"))
 
-        fake.payables = AuthResult.TransportFailure
-        model.load()
+        model.send()
         advanceUntilIdle()
 
-        assertEquals(null, filling.destination)
-        assertEquals(listOf("bKash", "Nagad", "Rocket"), filling.channels)
+        val sent = assertIs<PayUiState.Sent>(model.state.value)
+        assertEquals("9KD7Q2XL1M", sent.reference)
+        assertEquals("Rahima", sent.teacherName)
+        assertEquals("Physics", sent.batchName)
+        assertEquals(Money.of("1000.00"), sent.payment.totalAmount)
+    }
+
+    @Test
+    fun `changing batch keeps a method the new teacher also offers`() = runTest(dispatcher) {
+        val model =
+            model(
+                fake(
+                    seats = listOf(seat("e-1", "Physics"), seat("e-2", "Math", teacher = "Karim")),
+                ),
+            )
+        filling(model)
+        val other = assertIs<PayUiState.Filling>(model.state.value).scope.batches.last().key
+
+        model.chooseBatch(other)
+        advanceUntilIdle()
+
+        val kept = assertIs<PayUiState.Filling>(model.state.value)
+        assertEquals("e-2", kept.scope.batch.seats.single().enrollmentId)
+    }
+
+    @Test
+    fun `no accepted seat is the empty state and a failed read can be retried`() = runTest(dispatcher) {
+        val fake = fake(seats = emptyList())
+        val model = model(fake)
+
+        model.load()
+        advanceUntilIdle()
+        assertEquals(PayUiState.NoSeats, model.state.value)
+
+        fake.seats = AuthResult.TransportFailure
+        model.load()
+        advanceUntilIdle()
+
         assertEquals(PayUiState.Failed(PayMapper.OFFLINE_KEY, true), model.state.value)
     }
 
-    @Test
-    fun `nothing to pay is the empty choice`() = runTest(dispatcher) {
-        val model = PayViewModel(Fake(AuthResult.Ok(PayablesDto())))
+    // ------------------------------------------------------------------
+    // The payment replay key [PA-DB-1, FE-5]. A send can time out after
+    // the server recorded it; without a key, the payer's second tap made
+    // a second pending claim for the same money.
+    // ------------------------------------------------------------------
 
-        model.load()
+    @Test
+    fun `every payment is sent with a replay key`() = runTest(dispatcher) {
+        val fake = fake()
+        val model = keyed(fake, Keys())
+        val form = filling(model)
+        model.type(form.form.copy(transactionId = "9KD7Q2XL1M"))
+
+        model.send()
         advanceUntilIdle()
 
-        assertEquals(PayUiState.Choosing(emptyList(), emptyList()), model.state.value)
+        assertEquals(listOf<String?>("key-1"), fake.sent.map { it.clientMutationId })
+    }
+
+    @Test
+    fun `sending the same payment again after a lost response reuses its key`() = runTest(dispatcher) {
+        // The first send reached the server and the answer was lost.
+        // The retry must carry the SAME key, so the server returns the
+        // submission it already holds instead of recording another. That
+        // replay comes back as an ordinary success.
+        val fake = fake(submit = AuthResult.TransportFailure)
+        val keys = Keys()
+        val model = keyed(fake, keys)
+        val form = filling(model)
+        model.type(form.form.copy(transactionId = "9KD7Q2XL1M"))
+        model.send()
+        advanceUntilIdle()
+
+        fake.submit = AuthResult.Ok(submitted())
+        model.send()
+        advanceUntilIdle()
+
+        assertEquals(listOf<String?>("key-1", "key-1"), fake.sent.map { it.clientMutationId })
+        assertEquals(1, keys.issued)
+        assertIs<PayUiState.Sent>(model.state.value)
+    }
+
+    @Test
+    fun `a refused payment sent again unchanged keeps its key`() = runTest(dispatcher) {
+        val refused = AuthResult.Refused(ErrorEnvelope(ErrorBody("X", true, "error.server")))
+        val fake = fake(submit = refused)
+        val model = keyed(fake, Keys())
+        val form = filling(model)
+        model.type(form.form.copy(transactionId = "9KD7Q2XL1M"))
+
+        model.send()
+        advanceUntilIdle()
+        model.send()
+        advanceUntilIdle()
+
+        assertEquals(listOf<String?>("key-1", "key-1"), fake.sent.map { it.clientMutationId })
+    }
+
+    @Test
+    fun `an edited payment is a new attempt with a new key`() = runTest(dispatcher) {
+        // Changing what was paid makes it a different payment. Reusing
+        // the key would have the server answer with the OLD submission
+        // and drop the correction.
+        val fake = fake(submit = AuthResult.TransportFailure)
+        val model = keyed(fake, Keys())
+        val form = filling(model)
+        model.type(form.form.copy(transactionId = "9KD7Q2XL1M"))
+        model.send()
+        advanceUntilIdle()
+
+        model.type(form.form.copy(transactionId = "9KD7Q2XL1M", amount = "900.00"))
+        model.send()
+        advanceUntilIdle()
+
+        assertEquals(listOf<String?>("key-1", "key-2"), fake.sent.map { it.clientMutationId })
+    }
+
+    @Test
+    fun `the next payment after a successful one gets a new key`() = runTest(dispatcher) {
+        // Two genuine payments of the same amount on the same day are two
+        // payments. Only a retry of one attempt may share its key.
+        val fake = fake()
+        val model = keyed(fake, Keys())
+        val first = filling(model)
+        model.type(first.form.copy(transactionId = "9KD7Q2XL1M"))
+        model.send()
+        advanceUntilIdle()
+        assertIs<PayUiState.Sent>(model.state.value)
+
+        val second = filling(model)
+        model.type(second.form.copy(transactionId = "9KD7Q2XL1M"))
+        model.send()
+        advanceUntilIdle()
+
+        assertEquals(listOf<String?>("key-1", "key-2"), fake.sent.map { it.clientMutationId })
+    }
+
+    @Test
+    fun `a resend the teacher already decided is a success that says so`() = runTest(dispatcher) {
+        // A replay is answered with the ORIGINAL submission and its
+        // stored status. A late resend after the teacher decided is
+        // still a success -- nothing new was recorded -- and the page
+        // must not tell the payer the teacher "will check" it.
+        for ((status, outcome) in listOf("approved" to SentOutcome.APPROVED, "rejected" to SentOutcome.REJECTED)) {
+            val model = model(fake(submit = AuthResult.Ok(submitted().copy(status = status))))
+            val form = filling(model)
+            model.type(form.form.copy(transactionId = "9KD7Q2XL1M"))
+
+            model.send()
+            advanceUntilIdle()
+
+            assertEquals(outcome, assertIs<PayUiState.Sent>(model.state.value).outcome, status)
+        }
+    }
+
+    @Test
+    fun `a fresh submission is sent and pending`() = runTest(dispatcher) {
+        val model = model(fake())
+        val form = filling(model)
+        model.type(form.form.copy(transactionId = "9KD7Q2XL1M"))
+
+        model.send()
+        advanceUntilIdle()
+
+        assertEquals(SentOutcome.PENDING, assertIs<PayUiState.Sent>(model.state.value).outcome)
+    }
+
+    @Test
+    fun `a key already used for a different payment is shown and never swapped for a new one`() =
+        runTest(dispatcher) {
+            // The server's 409 MUTATION_ID_ALREADY_USED: this key already
+            // names a DIFFERENT payment. Quietly retrying under a fresh key
+            // would record what may be a duplicate; the message asks the
+            // payer to check their payments first, and a resend keeps the
+            // key, so it cannot create a second claim.
+            val conflict =
+                AuthResult.Refused(
+                    ErrorEnvelope(
+                        ErrorBody("MUTATION_ID_ALREADY_USED", false, "fees.payment.mutation_id_already_used"),
+                    ),
+                )
+            val fake = fake(submit = conflict)
+            val model = keyed(fake, Keys())
+            val form = filling(model)
+            model.type(form.form.copy(transactionId = "9KD7Q2XL1M"))
+
+            model.send()
+            advanceUntilIdle()
+            model.send()
+            advanceUntilIdle()
+
+            val failed = assertIs<PayUiState.Filling>(model.state.value)
+            assertEquals("fees.payment.mutation_id_already_used", failed.failedKey)
+            assertEquals(listOf<String?>("key-1", "key-1"), fake.sent.map { it.clientMutationId })
+        }
+
+    @Test
+    fun `every status the server can report has a reading`() {
+        assertEquals(SentOutcome.PENDING, PayMapper.outcomeOf("pending"))
+        assertEquals(SentOutcome.APPROVED, PayMapper.outcomeOf("approved"))
+        assertEquals(SentOutcome.REJECTED, PayMapper.outcomeOf("rejected"))
+        // Added by a newer server [D-26]: the reading that claims least.
+        assertEquals(SentOutcome.PENDING, PayMapper.outcomeOf("something_new"))
     }
 }

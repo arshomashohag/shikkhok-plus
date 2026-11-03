@@ -1,44 +1,46 @@
 package com.shikkhokplus.app.feature.verify
 
-import com.shikkhokplus.app.core.model.Money
-import com.shikkhokplus.app.core.network.ShortfallPreviewDto
+import com.shikkhokplus.app.core.network.PaymentApprovalBodyDto
+import com.shikkhokplus.app.core.network.PaymentReviewDto
 import com.shikkhokplus.app.core.network.VerificationQueueDto
 import com.shikkhokplus.app.feature.auth.AuthResult
 
-/** What the payment-check screen needs from the server (T4). */
+/** What the payment queue needs from the server (R1). */
 interface VerifyRepository {
     /**
-     * Read the claims waiting for this teacher and the last day's decisions.
+     * Read the payments waiting for this teacher and the last day's decisions.
      *
      * @return The queue, a refusal, or a transport failure
      */
     suspend fun queue(): AuthResult<VerificationQueueDto>
+}
+
+/** What reviewing one payment needs from the server (R2 to R4). */
+interface PaymentReviewRepository {
+    /**
+     * Read one payment.
+     *
+     * @param submissionId The payment
+     * @return The payment, a refusal, or a transport failure
+     */
+    suspend fun detail(submissionId: String): AuthResult<PaymentReviewDto>
 
     /**
-     * Ask what approving an amount would leave short.
+     * Approve a payment with what was received.
      *
-     * @param claimId The claim
-     * @param approvedAmount The amount being considered
-     * @return The shortfall, a refusal, or a transport failure
+     * @param submissionId The payment
+     * @param body The amount and how to split it
+     * @return The decided payment, or why the server refused
      */
-    suspend fun preview(claimId: String, approvedAmount: Money): AuthResult<ShortfallPreviewDto>
+    suspend fun approve(submissionId: String, body: PaymentApprovalBodyDto): AuthResult<PaymentReviewDto>
 
     /**
-     * Approve a claim, whole or in part.
+     * Reject a payment, recording nothing as received.
      *
-     * @param claimId The claim
-     * @param approvedAmount What is accepted
-     * @param disposition `carried` or `waived` where the server asks
-     * @return Nothing on success, or why the server refused
+     * @param submissionId The payment
+     * @param note Why, or null when the teacher gave none
+     * @param correcting True when revising a decided payment
+     * @return The decided payment, or why the server refused
      */
-    suspend fun approve(claimId: String, approvedAmount: Money, disposition: String?): AuthResult<Unit>
-
-    /**
-     * Reject a claim, recording nothing as received.
-     *
-     * @param claimId The claim
-     * @param reason Why, or null when the teacher gave none
-     * @return Nothing on success, or why the server refused
-     */
-    suspend fun reject(claimId: String, reason: String?): AuthResult<Unit>
+    suspend fun reject(submissionId: String, note: String?, correcting: Boolean): AuthResult<PaymentReviewDto>
 }
