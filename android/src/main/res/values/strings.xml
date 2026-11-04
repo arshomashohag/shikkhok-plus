@@ -1008,7 +1008,7 @@
     <string name="class_text_counter">%1$s / %2$s</string>
     <string name="classread_title">Class</string>
     <!-- Payment methods (teacher). -->
-    <string name="payment_methods_title">Payment methods</string>
+    <string name="payment_methods_title">Where students pay</string>
     <string name="payment_methods_intro">Students and guardians in every batch see these when they pay. Remove one and new payments stop using it; past payments keep it.</string>
     <string name="payment_methods_empty_title">No payment methods yet</string>
     <string name="payment_methods_empty_body">Add where students and guardians should send fees. Until you do, they are told to ask you.</string>

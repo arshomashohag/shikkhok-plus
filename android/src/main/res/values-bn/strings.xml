@@ -953,7 +953,7 @@
     <string name="class_text_counter">%1$s / %2$s</string>
     <string name="classread_title">ক্লাস</string>
     <!-- Payment methods (teacher). -->
-    <string name="payment_methods_title">পেমেন্টের মাধ্যম</string>
+    <string name="payment_methods_title">শিক্ষার্থীরা কোথায় টাকা দেবে</string>
     <string name="payment_methods_intro">প্রতিটি ব্যাচের শিক্ষার্থী ও অভিভাবকরা টাকা পাঠানোর সময় এগুলো দেখেন। একটি সরালে নতুন পেমেন্টে সেটি আর আসবে না; আগের পেমেন্টে থাকবে।</string>
     <string name="payment_methods_empty_title">এখনও কোনো পেমেন্টের মাধ্যম নেই</string>
     <string name="payment_methods_empty_body">শিক্ষার্থী ও অভিভাবকরা কোথায় ফি পাঠাবেন তা যোগ করুন। যোগ না করা পর্যন্ত তাঁদের আপনাকে জিজ্ঞেস করতে বলা হবে।</string>

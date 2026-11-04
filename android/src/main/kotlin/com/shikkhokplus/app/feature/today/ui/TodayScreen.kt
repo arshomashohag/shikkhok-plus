@@ -27,6 +27,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
+import com.shikkhokplus.app.core.designsystem.SkeletonBlock
 import com.shikkhokplus.app.core.model.Money
 import com.shikkhokplus.app.core.designsystem.BodyCompact
 import com.shikkhokplus.app.core.designsystem.ErrorCard
@@ -137,6 +138,11 @@ fun TodayScreen(
         StateFade(state, spacing = Spacing.screen) { shown ->
             when (shown) {
                 TodayUiState.Loading -> {
+                    // The Outstanding card's place, held at its size (T1).
+                    ShikkhokCard {
+                        SkeletonBlock(widthFraction = 0.4f, height = 12.dp)
+                        SkeletonBlock(widthFraction = 0.6f, height = 28.dp)
+                    }
                     Section(stringResource(R.string.today_classes))
                     SkeletonList(rows = 2)
                     Section(stringResource(R.string.today_to_verify))

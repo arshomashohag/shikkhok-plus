@@ -99,7 +99,7 @@ approved and is not audited here.
 - [x] Empty/first run: "Outstanding" section with the server's total
   (৳0); step bubbles 28dp, step 1 filled primary, the rest grey
   (`feature/today/ui/TodayScreen.kt`).
-- [ ] Loading: skeleton for the Outstanding card.
+- [x] Loading: skeleton for the Outstanding card.
 - [ ] Offline with cache (see cross-cutting), including rows marked
   "Recorded · not sent yet" and "can't approve while offline".
 - [x] Recorded topic shows without a "✓ " prefix.
@@ -196,7 +196,9 @@ approved and is not audited here.
 - [~] "X of Y accepted" is kept under it while anyone has not accepted: a
   pending seat grants no lens, and the teacher needs to see that from the
   list. **Add it to the artboard.**
-- [ ] Error body "This phone has no saved copy yet…".
+- [~] Error body "This phone has no saved copy yet…": the app keeps no
+  saved copy (see offline, cross-cutting), so the sentence would be
+  untrue until it does.
 
 ### T7 · Single batch — `feature/batchdetail/ui/*`
 - [ ] Header subtitle has the level ("HSC 2027"); one icon, no extra
@@ -261,8 +263,10 @@ approved and is not audited here.
 - [?] "Fee due date and reminders" row.
 - [?] "Everything is saved · Last synced" row.
 - [?] APP and HELP sections (see cross-cutting settings).
-- [ ] "Where students pay" sub-screen: title, single "Add a number ·
-  bKash, Nagad or Rocket" row, "Shown first" marker, FEES section.
+- [x] "Where students pay" sub-screen title.
+- [~] Its add actions stay "+ Mobile banking" and "+ Bank account": bank
+  accounts are part of the 2026-11-02 payment-methods spec, which the
+  board predates. **Update the artboard.**
 - [ ] Error · offline: banner, "Needs a connection" sub-labels, "2
   records not sent yet" row.
 - [~] "Switch role" is code-only but needed by people who hold more than
@@ -276,7 +280,9 @@ approved and is not audited here.
 - [~] Pay button stays "Send money": the later payment-methods spec
   (`docs/superpowers/specs/2026-11-02-payment-methods-and-progress-design.md`,
   F1) fixes that label for every family screen. **Update the artboard.**
-- [ ] Hero caption uses the short teacher name ("মাহফুজ স্যার").
+- [~] Hero caption keeps the teacher's full name: a short form with
+  "স্যার" would be the app guessing a teacher's gender and nickname.
+  **Update the artboard, or have the server send the form to show.**
 - [x] Empty: "This screen updates by itself once you're added." after the
   number.
 - [ ] Empty: the number on its own highlighted line.
