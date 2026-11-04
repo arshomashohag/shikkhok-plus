@@ -40,15 +40,19 @@ class CreateFormsTest {
     fun `a blank fee sends null, never zero`() {
         var captured: String? = "sentinel"
         compose.setContent {
-            StudentAddForm(
-                onAdd = { _, _, _, fee -> captured = fee },
-                onCancel = {},
-            )
+            // Hosted in a scroll, as ScreenScaffold hosts it: the +88 fields
+            // put Submit below the test window, and an off-screen tap is lost.
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                StudentAddForm(
+                    onAdd = { _, _, _, fee -> captured = fee },
+                    onCancel = {},
+                )
+            }
         }
 
         compose.onNodeWithTag(TAG_FORM_STUDENT_PHONE).performTextInput("01711-234567")
         compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Rahim")
-        compose.onNodeWithTag(TAG_FORM_SUBMIT).performClick()
+        compose.onNodeWithTag(TAG_FORM_SUBMIT).performScrollTo().performClick()
 
         assertNull(captured, "a blank fee must inherit, not waive")
     }
@@ -62,13 +66,17 @@ class CreateFormsTest {
         // was then silently never created.
         var captured: String? = null
         compose.setContent {
-            StudentAddForm(onAdd = { _, _, _, fee -> captured = fee }, onCancel = {})
+            // Hosted in a scroll, as ScreenScaffold hosts it: the +88 fields
+            // put Submit below the test window, and an off-screen tap is lost.
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                StudentAddForm(onAdd = { _, _, _, fee -> captured = fee }, onCancel = {})
+            }
         }
 
         compose.onNodeWithTag(TAG_FORM_STUDENT_PHONE).performTextInput("01711-234567")
         compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Rahim")
         compose.onNodeWithTag(TAG_FORM_FEE).performTextInput("1200")
-        compose.onNodeWithTag(TAG_FORM_SUBMIT).performClick()
+        compose.onNodeWithTag(TAG_FORM_SUBMIT).performScrollTo().performClick()
 
         assertEquals("1200.00", captured)
     }
@@ -145,16 +153,24 @@ class CreateFormsTest {
     fun `a refusal is shown on the form`() {
         // It used to have nowhere to appear: the form closed on the tap.
         compose.setContent {
-            StudentAddForm(onAdd = { _, _, _, _ -> }, onCancel = {}, error = "Could not save")
+            // Hosted in a scroll, as ScreenScaffold hosts it: the +88 fields
+            // put Submit below the test window, and an off-screen tap is lost.
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                StudentAddForm(onAdd = { _, _, _, _ -> }, onCancel = {}, error = "Could not save")
+            }
         }
 
-        compose.onNodeWithTag(TAG_FORM_ERROR).assertIsDisplayed()
+        compose.onNodeWithTag(TAG_FORM_ERROR).performScrollTo().assertIsDisplayed()
     }
 
     @Test
     fun `no error is shown when there is none`() {
         compose.setContent {
-            StudentAddForm(onAdd = { _, _, _, _ -> }, onCancel = {})
+            // Hosted in a scroll, as ScreenScaffold hosts it: the +88 fields
+            // put Submit below the test window, and an off-screen tap is lost.
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                StudentAddForm(onAdd = { _, _, _, _ -> }, onCancel = {})
+            }
         }
 
         compose.onNodeWithTag(TAG_FORM_ERROR).assertDoesNotExist()
@@ -164,15 +180,19 @@ class CreateFormsTest {
     fun `a blank guardian phone sends null`() {
         var captured: String? = "sentinel"
         compose.setContent {
-            StudentAddForm(
-                onAdd = { _, _, guardian, _ -> captured = guardian },
-                onCancel = {},
-            )
+            // Hosted in a scroll, as ScreenScaffold hosts it: the +88 fields
+            // put Submit below the test window, and an off-screen tap is lost.
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                StudentAddForm(
+                    onAdd = { _, _, guardian, _ -> captured = guardian },
+                    onCancel = {},
+                )
+            }
         }
 
         compose.onNodeWithTag(TAG_FORM_STUDENT_PHONE).performTextInput("01711-234567")
         compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Rahim")
-        compose.onNodeWithTag(TAG_FORM_SUBMIT).performClick()
+        compose.onNodeWithTag(TAG_FORM_SUBMIT).performScrollTo().performClick()
 
         assertNull(captured)
     }
@@ -184,12 +204,16 @@ class CreateFormsTest {
         // the server canonicalises, so the client never needs to.
         var sent: Pair<String, String>? = null
         compose.setContent {
-            StudentAddForm(onAdd = { name, phone, _, _ -> sent = name to phone }, onCancel = {})
+            // Hosted in a scroll, as ScreenScaffold hosts it: the +88 fields
+            // put Submit below the test window, and an off-screen tap is lost.
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                StudentAddForm(onAdd = { name, phone, _, _ -> sent = name to phone }, onCancel = {})
+            }
         }
 
         compose.onNodeWithTag(TAG_FORM_STUDENT_PHONE).performTextInput("01711-234567")
         compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Rahim")
-        compose.onNodeWithTag(TAG_FORM_SUBMIT).performClick()
+        compose.onNodeWithTag(TAG_FORM_SUBMIT).performScrollTo().performClick()
 
         assertEquals("Rahim" to "01711-234567", sent)
     }
@@ -197,7 +221,11 @@ class CreateFormsTest {
     @Test
     fun `a student needs a phone before they can be added`() {
         compose.setContent {
-            StudentAddForm(onAdd = { _, _, _, _ -> }, onCancel = {})
+            // Hosted in a scroll, as ScreenScaffold hosts it: the +88 fields
+            // put Submit below the test window, and an off-screen tap is lost.
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                StudentAddForm(onAdd = { _, _, _, _ -> }, onCancel = {})
+            }
         }
 
         compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Rahim")
@@ -210,7 +238,11 @@ class CreateFormsTest {
         // T8's error state: "This one has 10" -- caught before a round
         // trip rather than refused by the server after one.
         compose.setContent {
-            StudentAddForm(onAdd = { _, _, _, _ -> }, onCancel = {})
+            // Hosted in a scroll, as ScreenScaffold hosts it: the +88 fields
+            // put Submit below the test window, and an off-screen tap is lost.
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                StudentAddForm(onAdd = { _, _, _, _ -> }, onCancel = {})
+            }
         }
 
         compose.onNodeWithTag(TAG_FORM_STUDENT_PHONE).performTextInput("0171123456")
@@ -222,7 +254,11 @@ class CreateFormsTest {
     @Test
     fun `a malformed guardian phone blocks submit, a blank one does not`() {
         compose.setContent {
-            StudentAddForm(onAdd = { _, _, _, _ -> }, onCancel = {})
+            // Hosted in a scroll, as ScreenScaffold hosts it: the +88 fields
+            // put Submit below the test window, and an off-screen tap is lost.
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                StudentAddForm(onAdd = { _, _, _, _ -> }, onCancel = {})
+            }
         }
         compose.onNodeWithTag(TAG_FORM_STUDENT_PHONE).performTextInput("01711-234567")
         compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Rahim")
@@ -241,10 +277,14 @@ class CreateFormsTest {
         // rule living on the client.
         var called = false
         compose.setContent {
-            StudentAddForm(onAdd = { _, _, _, _ -> called = true }, onCancel = {})
+            // Hosted in a scroll, as ScreenScaffold hosts it: the +88 fields
+            // put Submit below the test window, and an off-screen tap is lost.
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                StudentAddForm(onAdd = { _, _, _, _ -> called = true }, onCancel = {})
+            }
         }
 
-        compose.onNodeWithTag(TAG_FORM_SUBMIT).performClick()
+        compose.onNodeWithTag(TAG_FORM_SUBMIT).performScrollTo().performClick()
 
         assertEquals(false, called)
     }
