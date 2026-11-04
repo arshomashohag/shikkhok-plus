@@ -348,6 +348,24 @@ internal fun phoneError(raw: String): String? {
 }
 
 /**
+ * "Rahim is already in this batch", when the typed name matches one.
+ *
+ * @param name What was typed
+ * @param existingNames The batch's students
+ */
+@Composable
+private fun SameNameHint(name: String, existingNames: List<String>) {
+    if (name.isBlank()) return
+    val match = existingNames.firstOrNull { it.trim().equals(name.trim(), ignoreCase = true) } ?: return
+    Text(
+        stringResource(R.string.student_add_same_name, match),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.testTag(TAG_FORM_SAME_NAME),
+    )
+}
+
+/**
  * "Batch fee · ৳1,200" with a switch (T8): on, the student pays the
  * batch's fee; off, the fee field asks for this student's own.
  *
@@ -475,14 +493,7 @@ fun StudentAddForm(
         // **A hint, never a block** (T8): two students can share a name,
         // and the server decides what a seat is. This only saves the
         // teacher adding the same child twice by accident.
-        existingNames.firstOrNull { it.trim().equals(name.trim(), ignoreCase = true) && name.isNotBlank() }?.let {
-            Text(
-                stringResource(R.string.student_add_same_name, it),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.testTag(TAG_FORM_SAME_NAME),
-            )
-        }
+        SameNameHint(name, existingNames)
         PhoneNumberField(
             value = guardian,
             onValueChange = { guardian = it },

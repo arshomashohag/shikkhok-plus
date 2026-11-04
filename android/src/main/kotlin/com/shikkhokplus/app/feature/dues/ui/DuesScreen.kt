@@ -167,10 +167,7 @@ fun DuesScreen(
         // "৳48,600 owed · updated 2 min ago" (T5): the total stays in the
         // bar when the summary card scrolls away, and the age says how
         // fresh the figures are.
-        subtitle = (state as? DuesUiState.Loaded)?.let { loaded ->
-            val owed = stringResource(R.string.dues_subtitle_owed, Numerals.money(loaded.summary.total))
-            loaded.loadedAt?.let { stringResource(R.string.dues_subtitle_updated, owed, agoMillis(it)) } ?: owed
-        },
+        subtitle = subtitleOf(state),
         modifier = modifier,
         refreshing = refreshing,
         onRefresh = actions.onRefresh,
@@ -208,18 +205,7 @@ fun DuesScreen(
                             modifier = Modifier.padding(top = 8.dp).testTag(TAG_DUES_EMPTY),
                         )
                     }
-                is DuesUiState.Loaded -> {
-                    if (shown.offline) {
-                        Banner(
-                            title = stringResource(R.string.offline_title),
-                            body =
-                                shown.loadedAt?.let { stringResource(R.string.offline_figures_from, agoMillis(it)) },
-                            tone = BannerTone.NEUTRAL,
-                            modifier = Modifier.padding(top = 8.dp).testTag(TAG_DUES_OFFLINE),
-                        )
-                    }
-                    Loaded(shown, actions)
-                }
+                is DuesUiState.Loaded -> Loaded(shown, actions)
                 is DuesUiState.Failed ->
                     ErrorCard(
                         title = stringResource(MessageKeys.resolve(shown.messageKey)),
@@ -236,7 +222,21 @@ fun DuesScreen(
 }
 
 /**
- * The loaded list: headline, filters, then the groups in the server's
+ * The bar's subtitle once loaded: what is owed, and how fresh it is.
+ *
+ * @param state What is shown
+ * @return The line, or null before the dues load
+ */
+@Composable
+private fun subtitleOf(state: DuesUiState): String? {
+    val loaded = state as? DuesUiState.Loaded ?: return null
+    val owed = stringResource(R.string.dues_subtitle_owed, Numerals.money(loaded.summary.total))
+    return loaded.loadedAt?.let { stringResource(R.string.dues_subtitle_updated, owed, agoMillis(it)) } ?: owed
+}
+
+/**
+ * The loaded list, under the offline banner when this is the session's
+ * earlier copy: headline, filters, then the groups in the server's
  * order.
  *
  * @param state The loaded state
@@ -244,6 +244,14 @@ fun DuesScreen(
  */
 @Composable
 private fun Loaded(state: DuesUiState.Loaded, actions: DuesActions) {
+    if (state.offline) {
+        Banner(
+            title = stringResource(R.string.offline_title),
+            body = state.loadedAt?.let { stringResource(R.string.offline_figures_from, agoMillis(it)) },
+            tone = BannerTone.NEUTRAL,
+            modifier = Modifier.padding(top = 8.dp).testTag(TAG_DUES_OFFLINE),
+        )
+    }
     RemindOutcome(state.remind, state.summary.remindable, actions)
     LazyColumn(
         modifier = Modifier.testTag(TAG_DUES_LIST),
