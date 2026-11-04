@@ -30,6 +30,9 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
+import com.shikkhokplus.app.core.designsystem.BannerTone
+import com.shikkhokplus.app.core.designsystem.Banner
+import com.shikkhokplus.app.feature.student.ui.OfflineBanner
 import com.shikkhokplus.app.core.designsystem.EmptyState
 import com.shikkhokplus.app.core.designsystem.ErrorCard
 import com.shikkhokplus.app.core.designsystem.MoneyTotal
@@ -175,6 +178,7 @@ fun GuardianHomeScreen(
  */
 @Composable
 private fun ColumnScope.Loaded(state: GuardianUiState.Loaded, actions: GuardianActions) {
+    val offline = state.offline
     val child = state.child
     if (state.children.size > 1) Switcher(state, actions.onSelect)
     Who(child)
@@ -196,9 +200,20 @@ private fun ColumnScope.Loaded(state: GuardianUiState.Loaded, actions: GuardianA
                     .padding(horizontal = 14.dp, vertical = 10.dp),
         )
     }
-    child.payment?.let { PaymentCard(child, it, actions) }
-    child.waiting.forEach { WaitingRow(it) }
-    if (child.payment == null) {
+    // **Offline, no payment figure** (G1): one that cannot be confirmed
+    // could have a guardian pay a fee already approved.
+    if (offline) {
+        OfflineBanner(R.string.family_offline_body)
+        Banner(
+            title = stringResource(R.string.guardian_payments_unavailable),
+            tone = BannerTone.NEUTRAL,
+            modifier = Modifier.testTag(TAG_GUARDIAN_PAYMENTS_UNAVAILABLE),
+        )
+    } else {
+        child.payment?.let { PaymentCard(child, it, actions) }
+        child.waiting.forEach { WaitingRow(it) }
+    }
+    if (child.payment == null && !offline) {
         TextAction(
             stringResource(R.string.guardian_open_fees),
             { child.batches.firstOrNull()?.let { actions.onPayments(it.enrollmentId) } },
@@ -577,3 +592,6 @@ fun firstName(name: String): String = name.trim().substringBefore(" ")
 
 /** `yyyy-MM-dd` out of a timestamp. */
 private const val DATE_LENGTH = 10
+
+/** The stand-in for the payment card while offline (G1). */
+const val TAG_GUARDIAN_PAYMENTS_UNAVAILABLE: String = "guardian_payments_unavailable"

@@ -115,6 +115,7 @@ sealed interface MyBatchesUiState {
         val rows: List<StudentBatchRow>,
         val name: String? = null,
         val phone: String? = null,
+        val offline: Boolean = false,
     ) : MyBatchesUiState
 
     /**
@@ -258,7 +259,7 @@ sealed interface StudentBatchUiState {
      *
      * @property view What the screen shows
      */
-    data class Loaded(val view: StudentBatchView) : StudentBatchUiState
+    data class Loaded(val view: StudentBatchView, val offline: Boolean = false) : StudentBatchUiState
 
     /**
      * Something failed.

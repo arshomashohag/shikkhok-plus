@@ -145,4 +145,19 @@ class GuardianFlowsTest {
 
         assertEquals(PaymentsUiState.Failed(GuardianStateMapper.OFFLINE_KEY, true), model.state.value)
     }
+
+    @Test
+    fun `losing the connection keeps this session's children, marked offline`() = runTest(dispatcher) {
+        // G1 offline: results stay, the screen withholds payment figures.
+        val fake = Fake()
+        val model = GuardianViewModel(fake)
+        model.load()
+        advanceUntilIdle()
+
+        fake.home = AuthResult.TransportFailure
+        model.load()
+        advanceUntilIdle()
+
+        assertEquals(true, (model.state.value as GuardianUiState.Loaded).offline)
+    }
 }

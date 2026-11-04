@@ -27,6 +27,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
+import com.shikkhokplus.app.core.designsystem.BannerTone
+import com.shikkhokplus.app.core.designsystem.Banner
 import com.shikkhokplus.app.core.designsystem.SkeletonList
 import com.shikkhokplus.app.core.designsystem.ListScreenScaffold
 import com.shikkhokplus.app.core.designsystem.ShikkhokCard
@@ -125,7 +127,8 @@ fun StudentBatchScreen(
         onBack = onBack,
         header = {
             if (state is StudentBatchUiState.Loaded) {
-                BatchHeader(state.view, onOpenFees, onPay, onOpenProgress)
+                if (state.offline) OfflineBanner(R.string.family_offline_body)
+                BatchHeader(state.view, onOpenFees, onPay, onOpenProgress, offline = state.offline)
                 FamilyTabs(tab, onSelect)
             }
         },
@@ -159,6 +162,7 @@ fun StudentBatchScreen(
  * @param onOpenFees Called to open the fee history
  * @param onPay Called to pay this batch's fee
  * @param onOpenProgress Opens the progress dashboard, or null
+ * @param offline Whether this is the session's earlier copy
  */
 @Composable
 private fun BatchHeader(
@@ -166,6 +170,7 @@ private fun BatchHeader(
     onOpenFees: () -> Unit,
     onPay: () -> Unit,
     onOpenProgress: (() -> Unit)?,
+    offline: Boolean = false,
 ) {
     if (view.teacher.subjects.isNotEmpty()) {
         Quiet(view.teacher.subjects.joinToString(" · ") { Numerals.freeText(it) })
@@ -182,6 +187,18 @@ private fun BatchHeader(
             withEnd = true,
             modifier = Modifier.testTag(TAG_STUDENT_NEXT_CLASS),
         )
+    }
+    // **No fee status that cannot be confirmed** (S2 offline): a payment
+    // may have been approved since this copy was read.
+    if (offline) {
+        ShikkhokCard(Modifier.testTag(TAG_STUDENT_FEE_UNAVAILABLE)) {
+            Text(
+                stringResource(R.string.family_fee_unavailable),
+                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
+            )
+            Quiet(stringResource(R.string.family_fee_unavailable_body))
+        }
+        return
     }
     view.batch.fee?.let { fee -> FeeCard(fee, onOpenFees, onPay) }
         ?: TextButton(onClick = onOpenFees, modifier = Modifier.testTag(TAG_STUDENT_FEES)) {
@@ -374,5 +391,27 @@ internal val Emphasis
 /** The statuses a student can pay toward, as the fee mapper names them. */
 private val PAYABLE_KEYS = setOf("fees.status.unpaid", "fees.status.partly_paid")
 
+/** The fee card's stand-in while offline. */
+const val TAG_STUDENT_FEE_UNAVAILABLE: String = "student_fee_unavailable"
+
 /** The "Pay this fee" action. */
 const val TAG_STUDENT_PAY: String = "student_pay"
+
+/**
+ * The offline banner on a family screen: this is the session's earlier
+ * copy, and what needs a connection waits for one.
+ *
+ * @param body The string resource saying what still works
+ */
+@Composable
+internal fun OfflineBanner(body: Int) {
+    Banner(
+        title = stringResource(R.string.offline_title),
+        body = stringResource(body),
+        tone = BannerTone.NEUTRAL,
+        modifier = Modifier.testTag(TAG_FAMILY_OFFLINE),
+    )
+}
+
+/** The offline banner on a family screen. */
+const val TAG_FAMILY_OFFLINE: String = "family_offline"

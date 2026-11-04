@@ -85,9 +85,12 @@ fun MyBatchesScreen(
         bottomBar = {
             Column {
                 if (state is MyBatchesUiState.Loaded) {
+                    // Offline (S1), paying waits for a connection.
                     PrimaryButton(
-                        text = stringResource(R.string.pay_open),
+                        text =
+                            stringResource(if (state.offline) R.string.pay_needs_connection else R.string.pay_open),
                         onClick = onPay,
+                        enabled = !state.offline,
                         modifier = Modifier.fillMaxWidth().padding(16.dp).testTag(TAG_MY_BATCHES_PAY),
                     )
                 }
@@ -119,6 +122,7 @@ fun MyBatchesScreen(
 
             is MyBatchesUiState.Loaded ->
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (state.offline) item(key = "offline") { OfflineBanner(R.string.family_offline_body) }
                     state.rows.firstOrNull { it.isNext }?.let { row ->
                         val next = row.nextClass
                         if (next != null) {

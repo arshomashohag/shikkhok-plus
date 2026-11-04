@@ -280,6 +280,21 @@ class StudentBatchViewModelTest {
 
         assertEquals(listOf(YearMonth(2026, 9)), repository.months)
     }
+
+    @Test
+    fun `losing the connection keeps this session's page for the same seat, marked offline`() =
+        runTest(dispatcher) {
+            val repository = Fake()
+            val model = StudentBatchViewModel(repository)
+            model.load("e-1")
+            advanceUntilIdle()
+
+            repository.batches = AuthResult.TransportFailure
+            model.load("e-1")
+            advanceUntilIdle()
+
+            assertEquals(true, assertIs<StudentBatchUiState.Loaded>(model.state.value).offline)
+        }
 }
 
 private fun monthDto(year: Int, month: Int): MonthViewDto =

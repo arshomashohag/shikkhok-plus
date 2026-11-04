@@ -139,7 +139,29 @@ class StudentBatchViewModel(
      * @param seat The student's own seat
      * @return The state to show
      */
-    private suspend fun read(seat: String): StudentBatchUiState {
+    private suspend fun read(seat: String): StudentBatchUiState =
+        readOnline(seat).let { state ->
+            when {
+                state is StudentBatchUiState.Loaded -> state.also { lastLoaded = seat to it }
+                // **Offline keeps this session's page for the same seat**
+                // (S2), marked so: results and topics stay, the fee is
+                // withheld because a status nobody can confirm is not shown.
+                state is StudentBatchUiState.Failed && state.messageKey == StudentStateMapper.OFFLINE_KEY ->
+                    lastLoaded?.takeIf { it.first == seat }?.second?.copy(offline = true) ?: state
+                else -> state
+            }
+        }
+
+    /** The page the server returned last this session, with its seat. */
+    private var lastLoaded: Pair<String, StudentBatchUiState.Loaded>? = null
+
+    /**
+     * Read one seat's page from the server.
+     *
+     * @param seat The enrollment
+     * @return The state to show
+     */
+    private suspend fun readOnline(seat: String): StudentBatchUiState {
         val batches =
             when (val result = repository.batches()) {
                 is AuthResult.Ok -> result.value

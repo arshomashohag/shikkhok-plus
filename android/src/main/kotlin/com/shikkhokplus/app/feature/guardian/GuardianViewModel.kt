@@ -99,8 +99,15 @@ class GuardianViewModel(
                 }
             }
             is AuthResult.Refused -> GuardianStateMapper.afterError(result.envelope)
-            AuthResult.TransportFailure -> GuardianStateMapper.afterTransportFailure()
-        }
+            // **Offline keeps this session's children** (G1), marked so:
+            // results stay, payments are withheld until they can be
+            // confirmed, so a guardian never pays against a stale figure.
+            AuthResult.TransportFailure ->
+                lastLoaded?.copy(offline = true) ?: GuardianStateMapper.afterTransportFailure()
+        }.also { if (it is GuardianUiState.Loaded && !it.offline) lastLoaded = it }
+
+    /** The children the server returned last this session, for offline. */
+    private var lastLoaded: GuardianUiState.Loaded? = null
 
     /**
      * Show a different child, **replacing** the current one [BR4.2].

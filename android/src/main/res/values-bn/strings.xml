@@ -1155,6 +1155,11 @@
     <string name="my_children_missing_body_plain">শিক্ষককে আপনার নম্বর অভিভাবক হিসেবে যোগ করতে বলুন।</string>
 
     <!-- Design parity, round 2. -->
+    <string name="pay_needs_connection">টাকা পাঠান · সংযোগ লাগবে</string>
+    <string name="family_offline_body">আগে যা এসেছিল তা-ই দেখানো হচ্ছে। ফলাফল ও ক্লাস আগের মতো; পেমেন্টে সংযোগ লাগবে।</string>
+    <string name="family_fee_unavailable">ফি-এর অবস্থা পাওয়া যাচ্ছে না</string>
+    <string name="family_fee_unavailable_body">যে পেমেন্টের অবস্থা নিশ্চিত নয়, তা আমরা দেখাই না। অনলাইনে এলে আবার দেখা যাবে।</string>
+    <string name="guardian_payments_unavailable">এখন পেমেন্ট দেখানো যাচ্ছে না। অনলাইনে এলে আবার দেখা যাবে।</string>
     <string name="today_offline_body">শেষবার যেমন এসেছিল তেমন আজকের দিন। যে বিষয় লিখবেন তা রাখা থাকবে, অনলাইনে এলে পাঠানো হবে; পেমেন্ট অনুমোদনে সংযোগ লাগবে।</string>
     <string name="offline_title">অফলাইন।</string>
     <string name="offline_figures_from">%1$s যা এসেছিল তা-ই দেখানো হচ্ছে। আবার অনলাইনে এলে হালনাগাদ হবে।</string>

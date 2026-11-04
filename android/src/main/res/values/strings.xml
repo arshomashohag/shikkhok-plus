@@ -1210,6 +1210,11 @@
     <string name="my_children_missing_body_plain">Ask the teacher to add your number as the guardian.</string>
 
     <!-- Design parity, round 2. -->
+    <string name="pay_needs_connection">Send money · needs a connection</string>
+    <string name="family_offline_body">This is what was loaded earlier. Results and classes are as they were; payments need a connection.</string>
+    <string name="family_fee_unavailable">Fee status unavailable</string>
+    <string name="family_fee_unavailable_body">We don\'t show a payment status we can\'t confirm. It comes back when you\'re online.</string>
+    <string name="guardian_payments_unavailable">Payments can\'t be shown right now. They come back when you\'re online.</string>
     <string name="today_offline_body">This is today as last loaded. Topics you record are kept and sent when you\'re back online; approving a payment needs a connection.</string>
     <string name="offline_title">Offline.</string>
     <string name="offline_figures_from">Showing what was loaded %1$s. It refreshes when you\'re back online.</string>
