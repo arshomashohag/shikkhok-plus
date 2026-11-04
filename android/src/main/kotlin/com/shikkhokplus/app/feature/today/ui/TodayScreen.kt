@@ -142,7 +142,7 @@ fun TodayScreen(
                     Section(stringResource(R.string.today_to_verify))
                     SkeletonList(rows = 2)
                 }
-                is TodayUiState.FirstRun -> FirstRun(state.outstanding, onCreateBatch)
+                is TodayUiState.FirstRun -> FirstRun(shown.outstanding, onCreateBatch)
                 is TodayUiState.Loaded -> Day(shown, pending, onOpenDues, onRecord, onMarks, onVerifyAll, onOpenPayment)
                 is TodayUiState.Failed ->
                     ErrorCard(
