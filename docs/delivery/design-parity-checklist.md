@@ -105,17 +105,20 @@ approved and is not audited here.
 - [x] Recorded topic shows without a "✓ " prefix.
 
 ### T2 · Record a class — `feature/record/ui/RecordClassSheet.kt`
-- [ ] "Change" action in the sheet header.
+- [?] "Change" action in the sheet header: the board does not say what it
+  changes (the class, the time, the batch), so it waits on that answer.
 - [?] Two labelled suggestions ("Continue", "Next"); `RecordSheet` holds one.
-- [ ] Subjects as a segmented control, not FilterChips.
-- [ ] "Take attendance" link is code-only.
+- [x] Subjects as a segmented control (`RecordClassSheet.kt`).
+- [~] "Take attendance" stays: it is the sheet's way to the attendance
+  screen mid-class. **Add it to the artboard.**
 - [~] Save stays enabled on an empty topic — blank topics are allowed
   (BR2.2). **The artboard should not grey it out.**
-- [ ] Loading suggestions state.
-- [ ] "Couldn't send. Will retry on its own." snackbar with **Retry now**
-  (the app shows a banner with OK).
-
-### T3 · Marks entry — `feature/marks/ui/MarkEntryScreen.kt`
+- [?] Loading suggestions state: the suggestion arrives with the sheet's
+  own read, so there is no separate wait to draw.
+- [~] "Couldn't send. Will retry on its own." with Retry now: the app's
+  banner says "Saved on the phone. It sends when the connection returns."
+  -- the same fact, and the queue already retries on reconnect, so a
+  Retry now would only repeat what it does. **Update the artboard.**
 - [x] Continuous entry: "6/20" counter and progress bar, roll numbers,
   compact "/25" rows, the "now entering" dock, the app's own keypad with
   Absent, backspace and "Next ↓" (`feature/marks/ui/MarkEntryScreen.kt`).
