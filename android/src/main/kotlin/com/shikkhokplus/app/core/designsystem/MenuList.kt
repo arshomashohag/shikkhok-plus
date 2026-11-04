@@ -144,7 +144,7 @@ fun MenuSectionHeader(text: String, modifier: Modifier = Modifier) {
         style =
             MaterialTheme.typography.labelSmall.copy(
                 fontWeight = FontWeight.Bold,
-                letterSpacing = SECTION_TRACKING,
+                letterSpacing = 0.5.sp,
             ),
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier =
@@ -365,7 +365,7 @@ fun ProfileCard(
         Column(Modifier.weight(1f)) {
             Text(
                 text = name,
-                style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp, lineHeight = 28.sp),
+                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
@@ -386,6 +386,3 @@ fun ProfileCard(
 
 /** How strongly a highlighted row's wash shows. */
 private const val HIGHLIGHT_ALPHA = 0.5f
-
-/** The section header's letter spacing, the design's `.04em` at 13sp. */
-private val SECTION_TRACKING = 0.5.sp

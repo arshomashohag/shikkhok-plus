@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -54,48 +55,66 @@ const val TAG_LOG_OUT_STAY: String = "log_out_stay"
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LogOutSheet(unsent: Int, onConfirm: () -> Unit, onDismiss: () -> Unit) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(start = Spacing.screen, end = Spacing.screen, bottom = 18.dp),
-            verticalArrangement = Arrangement.spacedBy(Spacing.listItem),
-        ) {
-            Text(
-                text = stringResource(R.string.log_out_title),
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                modifier = Modifier.asHeading(),
+    // Fully expanded: the sheet is short, and a half-open one would hide
+    // the button that logs out under the fold.
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
+        LogOutSheetContent(unsent, onConfirm, onDismiss)
+    }
+}
+
+/**
+ * What the log-out sheet holds, apart from the sheet itself, so a test
+ * can render it without a modal window.
+ *
+ * @param unsent How many saved writes have not been sent
+ * @param onConfirm Called to log out
+ * @param onDismiss Called to stay signed in
+ */
+@Composable
+internal fun LogOutSheetContent(unsent: Int, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(start = Spacing.screen, end = Spacing.screen, bottom = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(Spacing.listItem),
+    ) {
+        Text(
+            text = stringResource(R.string.log_out_title),
+            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+            modifier = Modifier.asHeading(),
+        )
+        if (unsent > 0) {
+            UnsentCallout(unsent)
+            PrimaryButton(
+                text = stringResource(R.string.log_out_stay),
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth().testTag(TAG_LOG_OUT_STAY),
             )
-            if (unsent > 0) {
-                UnsentCallout(unsent)
-                PrimaryButton(
-                    text = stringResource(R.string.log_out_stay),
-                    onClick = onDismiss,
-                    modifier = Modifier.fillMaxWidth().testTag(TAG_LOG_OUT_STAY),
-                )
-                DestructiveButton(
-                    text = stringResource(R.string.log_out_anyway),
-                    onClick = onConfirm,
-                    modifier = Modifier.fillMaxWidth().testTag(TAG_LOG_OUT_CONFIRM),
-                )
-            } else {
-                Text(
-                    text = stringResource(R.string.sign_out_body),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                PrimaryButton(
-                    text = stringResource(R.string.log_out_confirm),
-                    onClick = onConfirm,
-                    modifier = Modifier.fillMaxWidth().testTag(TAG_LOG_OUT_CONFIRM),
-                )
-                SecondaryButton(
-                    text = stringResource(R.string.action_cancel),
-                    onClick = onDismiss,
-                    modifier = Modifier.fillMaxWidth().testTag(TAG_LOG_OUT_STAY),
-                )
-            }
+            DestructiveButton(
+                text = stringResource(R.string.log_out_anyway),
+                onClick = onConfirm,
+                modifier = Modifier.fillMaxWidth().testTag(TAG_LOG_OUT_CONFIRM),
+            )
+        } else {
+            Text(
+                text = stringResource(R.string.sign_out_body),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            PrimaryButton(
+                text = stringResource(R.string.log_out_confirm),
+                onClick = onConfirm,
+                modifier = Modifier.fillMaxWidth().testTag(TAG_LOG_OUT_CONFIRM),
+            )
+            SecondaryButton(
+                text = stringResource(R.string.action_cancel),
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth().testTag(TAG_LOG_OUT_STAY),
+            )
         }
     }
 }
