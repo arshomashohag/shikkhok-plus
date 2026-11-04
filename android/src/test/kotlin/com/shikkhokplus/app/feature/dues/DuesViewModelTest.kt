@@ -197,6 +197,9 @@ class DuesViewModelTest {
     @Test
     fun `a failed pull says so rather than leaving stale rows looking fresh`() =
         runTest(dispatcher) {
+            // The rows stay (T5 offline) but are MARKED stale: the screen
+            // shows the offline banner and their age, and Remind is held.
+            // What must never happen is stale rows shown as current.
             val fake = FakeRepository()
             val model = DuesViewModel(fake)
             model.load()
@@ -206,7 +209,7 @@ class DuesViewModelTest {
             model.refresh()
             advanceUntilIdle()
 
-            assertIs<DuesUiState.Failed>(model.state.value)
+            assertEquals(true, assertIs<DuesUiState.Loaded>(model.state.value).offline)
             assertEquals(false, model.refreshing.value)
         }
 
@@ -265,4 +268,20 @@ class DuesViewModelTest {
                 assertIs<DuesUiState.Loaded>(model.state.value).remind,
             )
         }
+
+    @Test
+    fun `losing the connection keeps this session's figures, marked offline`() = runTest(dispatcher) {
+        // T5 offline: the figures stay, Remind is held back by the screen.
+        val repo = FakeRepository()
+        val model = DuesViewModel(repo)
+        model.load()
+        advanceUntilIdle()
+
+        repo.result = AuthResult.TransportFailure
+        model.load()
+        advanceUntilIdle()
+
+        val state = assertIs<DuesUiState.Loaded>(model.state.value)
+        assertEquals(true, state.offline)
+    }
 }

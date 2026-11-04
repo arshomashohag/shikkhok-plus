@@ -177,7 +177,12 @@ fun DuesScreen(
         bottomBar = {
             Column {
                 if (state is DuesUiState.Loaded && state.summary.remindable > 0) {
-                    RemindBar(state.summary.remindable, state.remind == RemindState.Sending, actions.onAskRemind)
+                    RemindBar(
+                        state.summary.remindable,
+                        // Offline, reminding cannot reach anyone.
+                        state.remind == RemindState.Sending || state.offline,
+                        actions.onAskRemind,
+                    )
                 }
                 bottomBar()
             }
@@ -203,7 +208,18 @@ fun DuesScreen(
                             modifier = Modifier.padding(top = 8.dp).testTag(TAG_DUES_EMPTY),
                         )
                     }
-                is DuesUiState.Loaded -> Loaded(shown, actions)
+                is DuesUiState.Loaded -> {
+                    if (shown.offline) {
+                        Banner(
+                            title = stringResource(R.string.offline_title),
+                            body =
+                                shown.loadedAt?.let { stringResource(R.string.offline_figures_from, agoMillis(it)) },
+                            tone = BannerTone.NEUTRAL,
+                            modifier = Modifier.padding(top = 8.dp).testTag(TAG_DUES_OFFLINE),
+                        )
+                    }
+                    Loaded(shown, actions)
+                }
                 is DuesUiState.Failed ->
                     ErrorCard(
                         title = stringResource(MessageKeys.resolve(shown.messageKey)),
@@ -288,6 +304,9 @@ private fun LazyListScope.groupSection(group: DuesGroupTotal, rows: List<DuesRow
         }
     }
 }
+
+/** The offline banner over this session's figures. */
+const val TAG_DUES_OFFLINE: String = "dues_offline"
 
 /**
  * "Owed to you" alone, for the empty board: no groups to draw a bar of.

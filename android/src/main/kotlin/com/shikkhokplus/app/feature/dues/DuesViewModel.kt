@@ -73,6 +73,9 @@ class DuesViewModel(
      * state first, so a recomposition mid-flight cannot show stale
      * content as though it were current.
      */
+    /** The last figures the server returned this session, for offline. */
+    private var lastLoaded: DuesUiState.Loaded? = null
+
     fun load() {
         _state.value = DuesUiState.Loading
         viewModelScope.launch { _state.value = read() }
@@ -156,8 +159,13 @@ class DuesViewModel(
      * @return The state to show
      */
     private suspend fun read(): DuesUiState {
+        val result = repository.dues()
+        // **Offline keeps this session's figures** (T5), marked as such and
+        // with Remind held back, rather than an error replacing them. Only
+        // a transport failure: a refusal is the server's answer.
+        if (result is AuthResult.TransportFailure) lastLoaded?.let { return it.copy(offline = true) }
         val next =
-            when (val result = repository.dues()) {
+            when (result) {
                 is AuthResult.Ok -> DuesStateMapper.afterLoad(result.value)
                 is AuthResult.Refused -> DuesStateMapper.afterError(result.envelope)
                 AuthResult.TransportFailure -> DuesStateMapper.afterTransportFailure()
@@ -172,7 +180,7 @@ class DuesViewModel(
             // When this phone last read the server, for "updated 2 min
             // ago" (T5). A phone-clock moment, never sent anywhere.
             loadedAt = System.currentTimeMillis(),
-        )
+        ).also { lastLoaded = it }
     }
 
     /**

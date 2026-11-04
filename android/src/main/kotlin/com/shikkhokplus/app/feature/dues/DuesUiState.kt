@@ -155,6 +155,8 @@ sealed interface DuesUiState {
      * @property remind Where a "Remind" tap stands
      * @property loadedAt When this phone last read the dues, for the bar's
      *   "updated 2 min ago", or null
+     * @property offline True when these are this session's earlier figures,
+     *   shown because the latest read could not reach the server
      */
     data class Loaded(
         val summary: DuesSummary,
@@ -164,6 +166,7 @@ sealed interface DuesUiState {
         val batches: List<DuesBatch> = emptyList(),
         val remind: RemindState = RemindState.Idle,
         val loadedAt: Long? = null,
+        val offline: Boolean = false,
     ) : DuesUiState
 
     /**
