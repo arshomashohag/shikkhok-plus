@@ -1155,6 +1155,7 @@
     <string name="my_children_missing_body_plain">শিক্ষককে আপনার নম্বর অভিভাবক হিসেবে যোগ করতে বলুন।</string>
 
     <!-- Design parity, round 2. -->
+    <string name="progress_of_child">%1$s-এর অগ্রগতি</string>
     <string name="verify_queue_trx">TrxID %1$s</string>
     <string name="verify_queue_from">%1$s থেকে</string>
 </resources>

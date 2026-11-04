@@ -244,10 +244,11 @@ approved and is not audited here.
   connection".
 
 ### S2 · Inside a batch — `StudentBatchScreen.kt`, `FamilyTabs.kt`
-- [?] One scrolling page (next class, fee, Results, Coming up, Latest
-  notice, Topics, All notices) instead of tabs. **Needs your decision:**
-  flattening the tabs removes the Classes tab with its calendar, which
-  was changed on purpose after the design was approved. The old strings
+- [~] One scrolling page instead of tabs: **decided 2026-11-04 to keep
+  the tabs**, because flattening them removes the Classes tab and its
+  calendar, which was changed on purpose. The artboard should be redrawn
+  with the tabs.
+- [x] Exams tab lists Results first, then Coming up, as the page does. The old strings
   (`student_result_rank`, `student_latest_notice`, `student_all_notices`,
   `student_results`) are still in `strings.xml`, unused.
 - [ ] Bar subtitle "teacher · HSC 2027".
@@ -315,7 +316,8 @@ approved and is not audited here.
 - [ ] 30dp / 15sp chips.
 
 ### G2 · Progress — implemented as `DashboardScreen`
-- [ ] Title "তাসনিম's progress".
+- [x] Title "তাসনিম's progress" for a guardian; the subtitle keeps only
+  the batch (`feature/dashboard/ui/DashboardScreen.kt`).
 - [ ] Narrative sentence ("Marks went up in each of the last 4 tests…"),
   "Tap a point" hint, Test / Marks / Rank table.
 - [ ] One-test empty state ("21/25 · Rank 3 of 20 · avg 16.4 · A progress

@@ -166,7 +166,7 @@ class StudentScreensTest {
         var detail: String? = null
         show(view(upcoming = listOf(upcomingExam)), FamilyTab.EXAMS, FamilyOpeners(onOpenExamDetail = { detail = it }))
 
-        compose.onNodeWithTag(TAG_FAMILY_EXAM_UPCOMING).performClick()
+        compose.onNodeWithTag(TAG_FAMILY_EXAM_UPCOMING).performScrollTo().performClick()
         assertEquals("x-2", detail)
     }
 

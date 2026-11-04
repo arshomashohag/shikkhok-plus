@@ -199,6 +199,15 @@ class DashboardScreenTest {
     }
 
     @Test
+    fun `a guardian's title names the child, and the subtitle only the batch`() {
+        // G2: "তাসনিম's progress" -- the child is the screen's subject.
+        compose.setContent { DashboardScreen(state(reader = DashboardReader.GUARDIAN), DashboardActions()) }
+
+        compose.onNodeWithText("Sadia's progress").assertExists()
+        compose.onNodeWithText("Class 9 Physics").assertExists()
+    }
+
+    @Test
     fun `the teacher dashboard heading names the student and the batch`() {
         compose.setContent { DashboardScreen(state(), DashboardActions()) }
 

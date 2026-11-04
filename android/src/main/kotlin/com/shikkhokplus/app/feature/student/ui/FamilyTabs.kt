@@ -130,7 +130,7 @@ fun ColumnScope.ClassesTab(
 }
 
 /**
- * The Exams tab: upcoming, then done, each as the server grouped them.
+ * The Exams tab: results, then upcoming, each as the server grouped them.
  *
  * A done exam opens its marksheet; an upcoming one opens its detail.
  *
@@ -144,22 +144,25 @@ fun ColumnScope.ExamsTab(view: StudentBatchView, onOpenResult: (String) -> Unit,
         Quiet(stringResource(R.string.student_results_empty))
         return
     }
+    // **Results first, then what is coming** (S2): a student opens the
+    // tab to see how the last test went far more often than to check
+    // the next date.
+    if (view.doneExams.isNotEmpty()) {
+        Section(stringResource(R.string.student_results))
+        RowsCard {
+            view.doneExams.forEachIndexed { index, exam ->
+                if (index > 0) InsetDivider()
+                val result = view.results.firstOrNull { it.examId == exam.examId }
+                ExamRowView(exam, result, tag = TAG_FAMILY_EXAM_DONE) { onOpenResult(exam.examId) }
+            }
+        }
+    }
     if (view.upcomingExams.isNotEmpty()) {
         Section(stringResource(R.string.student_coming_up))
         RowsCard {
             view.upcomingExams.forEachIndexed { index, exam ->
                 if (index > 0) InsetDivider()
                 ExamRowView(exam, result = null, tag = TAG_FAMILY_EXAM_UPCOMING) { onOpenDetail(exam.examId) }
-            }
-        }
-    }
-    if (view.doneExams.isNotEmpty()) {
-        Section(stringResource(R.string.family_exams_done))
-        RowsCard {
-            view.doneExams.forEachIndexed { index, exam ->
-                if (index > 0) InsetDivider()
-                val result = view.results.firstOrNull { it.examId == exam.examId }
-                ExamRowView(exam, result, tag = TAG_FAMILY_EXAM_DONE) { onOpenResult(exam.examId) }
             }
         }
     }

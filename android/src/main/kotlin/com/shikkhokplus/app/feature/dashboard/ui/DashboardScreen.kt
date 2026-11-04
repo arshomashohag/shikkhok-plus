@@ -28,6 +28,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
+import com.shikkhokplus.app.feature.guardian.ui.firstName
+import com.shikkhokplus.app.feature.dashboard.DashboardReader
 import com.shikkhokplus.app.core.designsystem.ErrorCard
 import com.shikkhokplus.app.core.designsystem.EmptyState
 import com.shikkhokplus.app.core.designsystem.PaymentState
@@ -134,7 +136,7 @@ fun DashboardScreen(
 ) {
     val loaded = state as? DashboardUiState.Loaded
     ScreenScaffold(
-        title = stringResource(R.string.screen_title_progress),
+        title = loaded?.let { titleOf(it) } ?: stringResource(R.string.screen_title_progress),
         subtitle = loaded?.let { subtitleOf(it) },
         onBack = actions.onBack,
         modifier = modifier,
@@ -155,7 +157,34 @@ fun DashboardScreen(
 }
 
 private fun subtitleOf(state: DashboardUiState.Loaded): String =
-    listOf(state.heading, state.subheading).filter { it.isNotBlank() }.joinToString(" · ") { Numerals.freeText(it) }
+    listOf(state.heading.takeUnless { namesChild(state) }.orEmpty(), state.subheading)
+        .filter { it.isNotBlank() }
+        .joinToString(" · ") { Numerals.freeText(it) }
+
+/**
+ * "তাসনিম's progress" for a guardian (G2), whose child is the subject
+ * of the screen; plain "Progress" for anyone reading their own or a
+ * batch's.
+ *
+ * @param state The dashboard
+ * @return The title
+ */
+@Composable
+private fun titleOf(state: DashboardUiState.Loaded): String =
+    if (namesChild(state)) {
+        stringResource(R.string.progress_of_child, Numerals.freeText(firstName(state.heading)))
+    } else {
+        stringResource(R.string.screen_title_progress)
+    }
+
+/**
+ * Whether the title carries the child's name, so the subtitle need not.
+ *
+ * @param state The dashboard
+ * @return True for a guardian reading a named child
+ */
+private fun namesChild(state: DashboardUiState.Loaded): Boolean =
+    state.reader == DashboardReader.GUARDIAN && state.heading.isNotBlank()
 
 @Composable
 private fun Dashboard(
