@@ -21,6 +21,7 @@ import com.shikkhokplus.app.feature.dues.ui.TAG_DUES_REMIND
 import com.shikkhokplus.app.feature.dues.ui.TAG_DUES_REMIND_RESULT
 import com.shikkhokplus.app.feature.dues.ui.TAG_DUES_REMIND_SEND
 import com.shikkhokplus.app.feature.dues.ui.TAG_DUES_SUMMARY
+import com.shikkhokplus.app.core.model.Money
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -111,8 +112,16 @@ class DuesScreenTest {
 
     @Test
     fun `nobody owing is good news, not a blank`() {
-        show(DuesUiState.Empty)
+        show(DuesUiState.Empty())
 
+        compose.onNodeWithTag(TAG_DUES_EMPTY).assertExists()
+    }
+
+    @Test
+    fun `nobody owing still shows the server's owed-to-you total`() {
+        show(DuesUiState.Empty(total = Money.of("0.00")))
+
+        compose.onNodeWithTag(TAG_DUES_SUMMARY).assertExists()
         compose.onNodeWithTag(TAG_DUES_EMPTY).assertExists()
     }
 }

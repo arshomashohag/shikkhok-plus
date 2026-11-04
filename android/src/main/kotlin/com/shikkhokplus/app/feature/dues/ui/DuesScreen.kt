@@ -47,6 +47,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
+import com.shikkhokplus.app.core.model.Money
 import com.shikkhokplus.app.core.designsystem.Banner
 import com.shikkhokplus.app.core.designsystem.BannerTone
 import com.shikkhokplus.app.core.designsystem.EmptyState
@@ -180,8 +181,14 @@ fun DuesScreen(
                 DuesUiState.Loading -> SkeletonList(modifier = Modifier.padding(top = 8.dp).testTag(TAG_DUES_LOADING))
                 // Scrollable so a pull works here too: "nobody owes" is
                 // exactly when a teacher pulls to see if that changed.
-                DuesUiState.Empty ->
-                    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                is DuesUiState.Empty ->
+                    Column(
+                        Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.tight),
+                    ) {
+                        // T5's empty board keeps "Owed to you ৳0" at the
+                        // top, as the server reports it.
+                        shown.total?.let { EmptyOwedCard(it) }
                         EmptyState(
                             title = stringResource(R.string.dues_empty_title),
                             body = stringResource(R.string.dues_nobody_owes),
@@ -271,6 +278,23 @@ private fun LazyListScope.groupSection(group: DuesGroupTotal, rows: List<DuesRow
                 DuesRowItem(row)
             }
         }
+    }
+}
+
+/**
+ * "Owed to you" alone, for the empty board: no groups to draw a bar of.
+ *
+ * @param total The server's total owed
+ */
+@Composable
+private fun EmptyOwedCard(total: Money) {
+    ShikkhokCard(Modifier.padding(top = 8.dp).testTag(TAG_DUES_SUMMARY)) {
+        Text(
+            stringResource(R.string.dues_owed_to_you),
+            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(Numerals.money(total), style = MoneyTotal)
     }
 }
 

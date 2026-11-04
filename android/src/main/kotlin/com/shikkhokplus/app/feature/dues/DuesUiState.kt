@@ -168,8 +168,11 @@ sealed interface DuesUiState {
      *
      * **A separate state rather than a [Loaded] with no rows**: an
      * empty dues list is good news and deserves a sentence saying so.
+     *
+     * @property total The server's "owed to you" (৳0), which T5's empty
+     *   board keeps on its card, or null when the read carried none
      */
-    data object Empty : DuesUiState
+    data class Empty(val total: Money? = null) : DuesUiState
 
     /**
      * Something failed, and the screen can say what to do about it.

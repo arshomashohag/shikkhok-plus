@@ -78,8 +78,9 @@ approved and is not audited here.
   account, we sent it…") — same non-disclosure rule as O2. The design's
   "…to **01712-345678**" is fine only because the person just typed it;
   decide and align.
-- [ ] "Change" should sit inline at the end of the sentence, not on its
-  own line.
+- [~] "Change" stays on its own line: inline in the sentence it would be
+  a tap target under the design system's 44px minimum. **Update the
+  artboard.**
 - [ ] Checking should be an in-place "Checking the code…" label, not the
   overlay loader.
 - [ ] Lockout note ("paused for 15 minutes") has no specific copy.
@@ -159,8 +160,10 @@ approved and is not audited here.
   you approve the text first"); the app reminds students in-app. Product
   decision.
 - [ ] Collapsing header when scrolled.
-- [ ] Empty keeps the "Owed to you ৳0" card plus "paid up for October"
-  and "November fees fall due on 10 Nov".
+- [x] Empty keeps the "Owed to you ৳0" card, with the server's total
+  (`feature/dues/ui/DuesScreen.kt`).
+- [?] "paid up for October" and "November fees fall due on 10 Nov": the
+  dues read carries neither the month nor the next due date.
 - [ ] Offline with cache, disabled Remind.
 
 ### T6 · Batch list — `feature/batches/ui/BatchesScreen.kt`
