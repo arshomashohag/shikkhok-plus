@@ -1155,6 +1155,8 @@
     <string name="my_children_missing_body_plain">শিক্ষককে আপনার নম্বর অভিভাবক হিসেবে যোগ করতে বলুন।</string>
 
     <!-- Design parity, round 2. -->
+    <string name="today_outstanding_title">বাকি</string>
+    <string name="today_total_owed">সব ব্যাচ মিলিয়ে মোট বাকি</string>
     <string name="progress_of_child">%1$s-এর অগ্রগতি</string>
     <string name="verify_queue_trx">TrxID %1$s</string>
     <string name="verify_queue_from">%1$s থেকে</string>

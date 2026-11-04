@@ -29,7 +29,7 @@ object TodayStateMapper {
      * @return The state T1 renders
      */
     fun afterLoad(dto: TodayDto): TodayUiState {
-        if (!dto.hasBatches) return TodayUiState.FirstRun(dto.date)
+        if (!dto.hasBatches) return TodayUiState.FirstRun(dto.date, outstanding = dto.outstanding.total)
         val classes = dto.classes.map { toRow(it) ?: return unexpected() }
         val toVerify = dto.toVerify.map { VerifyStateMapper.toCard(it) ?: return unexpected() }
         val owed = dto.outstanding

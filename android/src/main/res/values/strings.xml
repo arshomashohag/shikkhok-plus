@@ -1210,6 +1210,8 @@
     <string name="my_children_missing_body_plain">Ask the teacher to add your number as the guardian.</string>
 
     <!-- Design parity, round 2. -->
+    <string name="today_outstanding_title">Outstanding</string>
+    <string name="today_total_owed">Total owed across all batches</string>
     <string name="progress_of_child">%1$s\'s progress</string>
     <string name="verify_queue_trx">TrxID %1$s</string>
     <string name="verify_queue_from">From %1$s</string>

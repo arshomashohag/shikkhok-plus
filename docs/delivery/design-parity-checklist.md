@@ -93,8 +93,9 @@ approved and is not audited here.
 ### T1 · Home (Today) — `feature/today/ui/TodayScreen.kt`
 - [?] Schedule-change card ("Batch C moved to 7:30 pm today… notified")
   and the struck-through old time. `ClassRow` has no original-time field.
-- [ ] Empty/first run: "Outstanding · ৳0" section; step bubbles 28dp,
-  step 1 filled primary, the rest grey.
+- [x] Empty/first run: "Outstanding" section with the server's total
+  (৳0); step bubbles 28dp, step 1 filled primary, the rest grey
+  (`feature/today/ui/TodayScreen.kt`).
 - [ ] Loading: skeleton for the Outstanding card.
 - [ ] Offline with cache (see cross-cutting), including rows marked
   "Recorded · not sent yet" and "can't approve while offline".

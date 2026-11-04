@@ -27,6 +27,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
+import com.shikkhokplus.app.core.model.Money
 import com.shikkhokplus.app.core.designsystem.BodyCompact
 import com.shikkhokplus.app.core.designsystem.ErrorCard
 import com.shikkhokplus.app.core.designsystem.MoneyLead
@@ -141,7 +142,7 @@ fun TodayScreen(
                     Section(stringResource(R.string.today_to_verify))
                     SkeletonList(rows = 2)
                 }
-                is TodayUiState.FirstRun -> FirstRun(onCreateBatch)
+                is TodayUiState.FirstRun -> FirstRun(state.outstanding, onCreateBatch)
                 is TodayUiState.Loaded -> Day(shown, pending, onOpenDues, onRecord, onMarks, onVerifyAll, onOpenPayment)
                 is TodayUiState.Failed ->
                     ErrorCard(
@@ -431,23 +432,36 @@ private fun methodName(card: ReviewCard): String =
 /**
  * The first run: how to start, before any batch exists.
  *
+ * The board's steps are numbered bubbles with the first one filled, so
+ * the eye lands on where to start; the outstanding total stays at the
+ * foot, as the server reports it, so the screen has the same shape it
+ * will have once batches exist.
+ *
+ * @param outstanding The server's total owed, or null to leave it out
  * @param onCreateBatch Called to start the first batch
  */
 @Composable
-private fun FirstRun(onCreateBatch: () -> Unit) {
+private fun FirstRun(outstanding: Money?, onCreateBatch: () -> Unit) {
     ShikkhokCard(Modifier.testTag(TAG_TODAY_FIRST_RUN)) {
         Text(stringResource(R.string.today_first_run_title), style = MaterialTheme.typography.titleMedium)
         val steps = listOf(R.string.today_step_one, R.string.today_step_two, R.string.today_step_three)
         steps.forEachIndexed { index, step ->
+            val first = index == 0
+            val colors = MaterialTheme.colorScheme
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Box(
-                    Modifier.size(24.dp).background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                    Modifier
+                        .size(28.dp)
+                        .background(
+                            if (first) colors.primary else colors.surfaceContainerHigh,
+                            CircleShape,
+                        ),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         Numerals.count(index + 1),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = if (first) colors.onPrimary else colors.onSurfaceVariant,
                     )
                 }
                 Text(stringResource(step), style = BodyCompact, modifier = Modifier.weight(1f))
@@ -459,7 +473,19 @@ private fun FirstRun(onCreateBatch: () -> Unit) {
     Quiet(stringResource(R.string.today_classes_empty))
     Section(stringResource(R.string.today_to_verify))
     Quiet(stringResource(R.string.today_to_verify_empty))
+    outstanding?.let { total ->
+        Section(stringResource(R.string.today_outstanding_title))
+        ShikkhokCard(Modifier.testTag(TAG_TODAY_FIRST_RUN_OUTSTANDING)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.today_total_owed), style = BodyCompact, modifier = Modifier.weight(1f))
+                Text(Numerals.money(total), style = MaterialTheme.typography.titleMedium)
+            }
+        }
+    }
 }
+
+/** The first run's outstanding card. */
+const val TAG_TODAY_FIRST_RUN_OUTSTANDING: String = "today_first_run_outstanding"
 
 /**
  * A section heading, with an optional action at its end.
