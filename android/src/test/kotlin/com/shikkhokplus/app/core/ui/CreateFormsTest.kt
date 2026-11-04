@@ -59,6 +59,44 @@ class CreateFormsTest {
     }
 
     @Test
+    fun `with the batch fee on, no fee field is drawn and the seat inherits`() {
+        // T8's "Batch fee · ৳1,200" toggle. On, nothing typed is sent:
+        // null is INHERIT [AC2.2.5], never zero, which would waive it.
+        var captured: String? = "unset"
+        compose.setContent {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                StudentAddForm(onAdd = { _, _, _, fee -> captured = fee }, onCancel = {}, batchFee = "৳1,200")
+            }
+        }
+
+        compose.onNodeWithText("Batch fee · ৳1,200", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag(TAG_FORM_FEE).assertDoesNotExist()
+        compose.onNodeWithTag(TAG_FORM_STUDENT_PHONE).performTextInput("01711-234567")
+        compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Rahim")
+        compose.onNodeWithTag(TAG_FORM_SUBMIT).performScrollTo().performClick()
+
+        assertNull(captured)
+    }
+
+    @Test
+    fun `turning the batch fee off asks for this student's own fee`() {
+        var captured: String? = null
+        compose.setContent {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                StudentAddForm(onAdd = { _, _, _, fee -> captured = fee }, onCancel = {}, batchFee = "৳1,200")
+            }
+        }
+
+        compose.onNodeWithTag(TAG_FORM_BATCH_FEE).performScrollTo().performClick()
+        compose.onNodeWithTag(TAG_FORM_STUDENT_PHONE).performTextInput("01711-234567")
+        compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Rahim")
+        compose.onNodeWithTag(TAG_FORM_FEE).performScrollTo().performTextInput("800")
+        compose.onNodeWithTag(TAG_FORM_SUBMIT).performScrollTo().performClick()
+
+        assertEquals("800.00", captured)
+    }
+
+    @Test
     fun `a fee typed without decimals is sent in canonical form`() {
         // **Replaces "a typed fee is sent as the string the teacher
         // typed"**, which typed `1200.00` -- the one form the server

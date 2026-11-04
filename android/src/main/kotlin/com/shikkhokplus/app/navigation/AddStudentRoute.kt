@@ -20,7 +20,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.shikkhokplus.app.R
 import com.shikkhokplus.app.core.designsystem.ScreenScaffold
+import com.shikkhokplus.app.core.network.HttpBatchDetailRepository
 import com.shikkhokplus.app.core.network.HttpRosterRepository
+import com.shikkhokplus.app.feature.batchdetail.BatchDetailViewModel
 import com.shikkhokplus.app.core.ui.StudentAddForm
 import com.shikkhokplus.app.core.ui.WriteState
 import com.shikkhokplus.app.feature.roster.RosterViewModel
@@ -56,6 +58,11 @@ internal fun NavGraphBuilder.addStudentRoute(
         val parent = remember(entry) { navController.getBackStackEntry(Destination.Roster.route) }
         val model: RosterViewModel = viewModel(parent, key = id) { RosterViewModel(HttpRosterRepository(client)) }
         val write by model.writeState.collectAsState()
+        // The batch's own fee, from the screen this form was opened on,
+        // so the form can offer it as "Batch fee · ৳1,200" (T8).
+        val detail: BatchDetailViewModel =
+            viewModel(parent, key = "detail-$id") { BatchDetailViewModel(HttpBatchDetailRepository(client)) }
+        val batchFee = detail.state.collectAsState().value.header?.defaultFee?.let(Numerals::money)
         val roster by model.state.collectAsState()
         val batchName =
             (roster as? RosterUiState.Loaded)?.batchName ?: (roster as? RosterUiState.Empty)?.batchName
@@ -90,6 +97,7 @@ internal fun NavGraphBuilder.addStudentRoute(
                     },
                     onCancel = leave,
                     existingNames = existing,
+                    batchFee = batchFee,
                     saving = write == WriteState.Saving,
                     error = writeError(write),
                 )

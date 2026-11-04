@@ -1,6 +1,7 @@
 package com.shikkhokplus.app.core.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -10,6 +11,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -17,9 +19,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
@@ -44,6 +48,9 @@ const val TAG_FORM_SUBJECTS: String = "form_subjects"
 
 /** The fee field on either form. */
 const val TAG_FORM_FEE: String = "form_fee"
+
+/** The add-student form's "Batch fee" toggle (T8). */
+const val TAG_FORM_BATCH_FEE: String = "form_batch_fee"
 
 /** The guardian phone field on the student form. */
 const val TAG_FORM_GUARDIAN: String = "form_guardian"
@@ -340,6 +347,62 @@ internal fun phoneError(raw: String): String? {
     }
 }
 
+/**
+ * "Batch fee · ৳1,200" with a switch (T8): on, the student pays the
+ * batch's fee; off, the fee field asks for this student's own.
+ *
+ * @param batchFee The batch's fee, formatted
+ * @param on Whether the batch fee applies
+ * @param onChange Called with the switch's new position
+ */
+@Composable
+private fun BatchFeeToggle(batchFee: String, on: Boolean, onChange: (Boolean) -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .toggleable(value = on, role = Role.Switch, onValueChange = onChange)
+            .padding(vertical = 4.dp)
+            .testTag(TAG_FORM_BATCH_FEE),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(stringResource(R.string.student_add_batch_fee, batchFee), style = MaterialTheme.typography.titleSmall)
+            Text(
+                stringResource(R.string.student_add_batch_fee_help),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Switch(checked = on, onCheckedChange = null)
+    }
+}
+
+/**
+ * The fee typed for this one student; blank inherits the batch's.
+ *
+ * @param fee What was typed
+ * @param onChange Called with the new text
+ */
+@Composable
+private fun FeeField(fee: String, onChange: (String) -> Unit) {
+    OutlinedTextField(
+        value = fee,
+        onValueChange = onChange,
+        label = { Text(stringResource(R.string.student_add_fee)) },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+        isError = !feeIsValid(fee),
+        supportingText = {
+            Text(
+                stringResource(
+                    if (feeIsValid(fee)) R.string.fee_inherits else R.string.fee_invalid,
+                ),
+            )
+        },
+        modifier = Modifier.fillMaxWidth().testTag(TAG_FORM_FEE),
+    )
+}
+
 /** A Bangladeshi mobile number's digits, written locally. */
 private const val LOCAL_DIGITS = 11
 
@@ -359,6 +422,9 @@ private const val LOCAL_DIGITS = 11
  * @param onAddNext Called like [onAdd] by "Save & add next" (T8), or
  *   null to offer only the one save
  * @param existingNames The batch's students, for the same-name hint
+ * @param batchFee The batch's monthly fee, formatted, or null when it
+ *   has none: with one, the form offers it as a toggle (T8) and the
+ *   field appears only for a different fee
  */
 @Composable
 fun StudentAddForm(
@@ -369,11 +435,15 @@ fun StudentAddForm(
     error: String? = null,
     onAddNext: ((String, String, String?, String?) -> Unit)? = null,
     existingNames: List<String> = emptyList(),
+    batchFee: String? = null,
 ) {
     var phone by remember { mutableStateOf("") }
     var name by remember { mutableStateOf("") }
     var guardian by remember { mutableStateOf("") }
-    var fee by remember { mutableStateOf("") }
+    var typedFee by remember { mutableStateOf("") }
+    var useBatchFee by remember { mutableStateOf(true) }
+    // Blank is INHERIT: with the toggle on, nothing typed is sent.
+    val fee = if (batchFee != null && useBatchFee) "" else typedFee
     val guardianOk = guardian.isBlank() || phoneIsValid(guardian)
 
     Column(
@@ -421,22 +491,8 @@ fun StudentAddForm(
             fieldModifier = Modifier.testTag(TAG_FORM_GUARDIAN),
             modifier = Modifier.fillMaxWidth(),
         )
-        OutlinedTextField(
-            value = fee,
-            onValueChange = { fee = it },
-            label = { Text(stringResource(R.string.student_add_fee)) },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            isError = !feeIsValid(fee),
-            supportingText = {
-                Text(
-                    stringResource(
-                        if (feeIsValid(fee)) R.string.fee_inherits else R.string.fee_invalid,
-                    ),
-                )
-            },
-            modifier = Modifier.fillMaxWidth().testTag(TAG_FORM_FEE),
-        )
+        batchFee?.let { BatchFeeToggle(it, useBatchFee) { on -> useBatchFee = on } }
+        if (batchFee == null || !useBatchFee) FeeField(typedFee) { typedFee = it }
 
         // **Shown on the form, beside what was typed.** The form used
         // to close before the server answered, so a refusal had nowhere

@@ -1210,6 +1210,8 @@
     <string name="my_children_missing_body_plain">Ask the teacher to add your number as the guardian.</string>
 
     <!-- Design parity, round 2. -->
+    <string name="student_add_batch_fee">Batch fee · %1$s</string>
+    <string name="student_add_batch_fee_help">Turn off to set a different fee for this student.</string>
     <string name="pay_needs_connection">Send money · needs a connection</string>
     <string name="family_offline_body">This is what was loaded earlier. Results and classes are as they were; payments need a connection.</string>
     <string name="family_fee_unavailable">Fee status unavailable</string>

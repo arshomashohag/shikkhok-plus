@@ -1155,6 +1155,8 @@
     <string name="my_children_missing_body_plain">শিক্ষককে আপনার নম্বর অভিভাবক হিসেবে যোগ করতে বলুন।</string>
 
     <!-- Design parity, round 2. -->
+    <string name="student_add_batch_fee">ব্যাচের ফি · %1$s</string>
+    <string name="student_add_batch_fee_help">এই শিক্ষার্থীর আলাদা ফি দিতে বন্ধ করুন।</string>
     <string name="pay_needs_connection">টাকা পাঠান · সংযোগ লাগবে</string>
     <string name="family_offline_body">আগে যা এসেছিল তা-ই দেখানো হচ্ছে। ফলাফল ও ক্লাস আগের মতো; পেমেন্টে সংযোগ লাগবে।</string>
     <string name="family_fee_unavailable">ফি-এর অবস্থা পাওয়া যাচ্ছে না</string>
