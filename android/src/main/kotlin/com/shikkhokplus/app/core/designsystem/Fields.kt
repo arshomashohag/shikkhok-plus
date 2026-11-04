@@ -152,7 +152,11 @@ private fun fieldShape(large: Boolean): Shape =
     if (large) RoundedCornerShape(10.dp) else MaterialTheme.shapes.small
 
 /**
- * The typed text's style: 22sp Medium digits on the log-in board's field.
+ * The typed text's style: Medium digits on the log-in board's field.
+ *
+ * The board drew 22/32, between two steps of the type scale; it is the
+ * title step, 21/34, so the digits keep the Bangla line-height ratio
+ * every other style is checked against.
  *
  * @param large Whether this is the log-in board's field
  * @return The style
@@ -161,7 +165,11 @@ private fun fieldShape(large: Boolean): Shape =
 private fun fieldTextStyle(large: Boolean): TextStyle {
     val base = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface)
     return if (large) {
-        base.copy(fontSize = 22.sp, lineHeight = 32.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.44.sp)
+        MaterialTheme.typography.titleLarge.copy(
+            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = FontWeight.Medium,
+            letterSpacing = 0.44.sp,
+        )
     } else {
         base
     }
@@ -252,7 +260,9 @@ private fun PrefixSegment(text: String, height: Dp, large: Boolean) {
             text,
             style =
                 if (large) {
-                    MaterialTheme.typography.bodyLarge.copy(fontSize = 18.sp, lineHeight = 28.sp)
+                    // The reading step as the scale sets it, 18/30; the
+                    // board's 18/28 was under the Bangla ratio.
+                    MaterialTheme.typography.bodyLarge
                 } else {
                     MaterialTheme.typography.bodyMedium
                 },

@@ -29,15 +29,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.shikkhokplus.app.R
 import com.shikkhokplus.app.core.designsystem.EmptyState
 import com.shikkhokplus.app.core.designsystem.ErrorCard
+import com.shikkhokplus.app.core.designsystem.MoneyTotal
 import com.shikkhokplus.app.core.designsystem.PaymentState
 import com.shikkhokplus.app.core.designsystem.PaymentStateChip
 import com.shikkhokplus.app.core.designsystem.PrimaryButton
 import com.shikkhokplus.app.core.designsystem.ScreenScaffold
 import com.shikkhokplus.app.core.designsystem.SkeletonList
+import com.shikkhokplus.app.core.designsystem.Spacing
+import com.shikkhokplus.app.core.designsystem.StateFade
 import com.shikkhokplus.app.core.designsystem.TextAction
 import com.shikkhokplus.app.core.designsystem.asHeading
 import com.shikkhokplus.app.core.format.Numerals
@@ -139,26 +141,28 @@ fun GuardianHomeScreen(
         refreshing = refreshing,
         onRefresh = actions.onRefresh,
     ) {
-        when (state) {
-            GuardianUiState.Idle -> Unit
-            GuardianUiState.Loading -> SkeletonList(modifier = Modifier.testTag(TAG_GUARDIAN_LOADING))
-            is GuardianUiState.Empty ->
-                EmptyState(
-                    title = stringResource(R.string.guardian_none_title),
-                    body =
-                        state.phone?.let { stringResource(R.string.guardian_none_body, Numerals.phone(it)) }
-                            ?: stringResource(R.string.guardian_empty_body),
-                    modifier = Modifier.testTag(TAG_GUARDIAN_EMPTY),
-                )
-            is GuardianUiState.Failed ->
-                ErrorCard(
-                    title = stringResource(MessageKeys.resolve(state.messageKey)),
-                    body = null,
-                    modifier = Modifier.testTag(TAG_GUARDIAN_ERROR),
-                    retryLabel = if (state.retryable) stringResource(R.string.dues_retry) else null,
-                    onRetry = if (state.retryable) actions.onRetry else null,
-                )
-            is GuardianUiState.Loaded -> Loaded(state, actions)
+        StateFade(state, spacing = Spacing.screen) { shown ->
+            when (shown) {
+                GuardianUiState.Idle -> Unit
+                GuardianUiState.Loading -> SkeletonList(modifier = Modifier.testTag(TAG_GUARDIAN_LOADING))
+                is GuardianUiState.Empty ->
+                    EmptyState(
+                        title = stringResource(R.string.guardian_none_title),
+                        body =
+                            shown.phone?.let { stringResource(R.string.guardian_none_body, Numerals.phone(it)) }
+                                ?: stringResource(R.string.guardian_empty_body),
+                        modifier = Modifier.testTag(TAG_GUARDIAN_EMPTY),
+                    )
+                is GuardianUiState.Failed ->
+                    ErrorCard(
+                        title = stringResource(MessageKeys.resolve(shown.messageKey)),
+                        body = null,
+                        modifier = Modifier.testTag(TAG_GUARDIAN_ERROR),
+                        retryLabel = if (shown.retryable) stringResource(R.string.dues_retry) else null,
+                        onRetry = if (shown.retryable) actions.onRetry else null,
+                    )
+                is GuardianUiState.Loaded -> Loaded(shown, actions)
+            }
         }
     }
 }
@@ -354,7 +358,7 @@ private fun PaymentCard(child: ChildCard, payment: GuardianPayment, actions: Gua
         }
         Text(
             Numerals.money(option.amountDue),
-            style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Bold),
+            style = MoneyTotal,
         )
         Text(
             buildAnnotatedString {
@@ -443,9 +447,11 @@ private fun ResultRow(result: ResultCard, onOpen: () -> Unit) {
             Quiet("${Numerals.freeText(result.title)} · ${shortDate(result.date)}")
         }
         Column(horizontalAlignment = Alignment.End) {
+            // The title step, so the mark reads larger than its "/total".
+            val markSize = MaterialTheme.typography.titleLarge.fontSize
             Text(
                 buildAnnotatedString {
-                    withStyle(SpanStyle(fontWeight = FontWeight.Bold, fontSize = 21.sp)) {
+                    withStyle(SpanStyle(fontWeight = FontWeight.Bold, fontSize = markSize)) {
                         append(Numerals.count(result.marks))
                     }
                     withStyle(SpanStyle(color = Color.Unspecified)) { append("/" + Numerals.count(result.totalMarks)) }

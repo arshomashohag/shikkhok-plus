@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
 import com.shikkhokplus.app.core.designsystem.EmptyState
 import com.shikkhokplus.app.core.designsystem.ErrorCard
+import com.shikkhokplus.app.core.designsystem.MoneyLead
 import com.shikkhokplus.app.core.designsystem.PaymentState
 import com.shikkhokplus.app.core.designsystem.PaymentStateChip
 import com.shikkhokplus.app.core.designsystem.PrimaryButton
@@ -129,7 +130,7 @@ private fun OwedHeadline(next: PayOption?) {
         )
         Text(
             Numerals.money(next.totalDue ?: next.amountDue),
-            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+            style = MoneyLead,
         )
     }
 }

@@ -30,6 +30,8 @@ import com.shikkhokplus.app.core.designsystem.PaymentState
 import com.shikkhokplus.app.core.designsystem.PaymentStateChip
 import com.shikkhokplus.app.core.designsystem.ShikkhokCard
 import com.shikkhokplus.app.core.designsystem.SkeletonList
+import com.shikkhokplus.app.core.designsystem.Spacing
+import com.shikkhokplus.app.core.designsystem.StateFade
 import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.core.format.monthName
 import com.shikkhokplus.app.core.ui.ago
@@ -75,39 +77,46 @@ fun VerifyScreen(
         refreshing = refreshing,
         onRefresh = onRefresh,
     ) {
-        when (state) {
-            VerifyUiState.Loading -> SkeletonList(rows = 3)
+        StateFade(state, spacing = Spacing.tight, modifier = Modifier.fillMaxSize()) { shown ->
+            when (shown) {
+                VerifyUiState.Loading -> SkeletonList(rows = 3)
 
-            is VerifyUiState.Waiting ->
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items(state.pending, key = { it.submissionId }) { card ->
-                        QueueRow(card) { onOpen(card.submissionId) }
+                is VerifyUiState.Waiting ->
+                    LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        items(shown.pending, key = { it.submissionId }) { card ->
+                            // Keyed rows animate when the queue changes in
+                            // place — a pull that finds a new payment, or
+                            // one already decided dropping out — so the
+                            // teacher sees what changed rather than a list
+                            // that silently became a different list.
+                            QueueRow(card, Modifier.animateItem()) { onOpen(card.submissionId) }
+                        }
+                        if (shown.recent.isNotEmpty()) item { RecentList(shown.recent, onOpen) }
                     }
-                    if (state.recent.isNotEmpty()) item { RecentList(state.recent, onOpen) }
-                }
 
-            // Scrollable so a pull works here: "all caught up" is the
-            // state a teacher waiting for a payment pulls on.
-            is VerifyUiState.AllCaughtUp ->
-                Column(
-                    Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    EmptyState(
-                        title = stringResource(R.string.verify_all_caught_up),
-                        body = stringResource(R.string.verify_all_caught_up_body),
-                        modifier = Modifier.testTag(TAG_VERIFY_ALL_CAUGHT_UP),
+                // Scrollable so a pull works here: "all caught up" is the
+                // state a teacher waiting for a payment pulls on.
+                is VerifyUiState.AllCaughtUp ->
+                    Column(
+                        Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        EmptyState(
+                            title = stringResource(R.string.verify_all_caught_up),
+                            body = stringResource(R.string.verify_all_caught_up_body),
+                            modifier = Modifier.testTag(TAG_VERIFY_ALL_CAUGHT_UP),
+                        )
+                        if (shown.recent.isNotEmpty()) RecentList(shown.recent, onOpen)
+                    }
+
+                is VerifyUiState.Failed ->
+                    ErrorCard(
+                        title = stringResource(R.string.verify_load_failed),
+                        body = stringResource(MessageKeys.resolve(shown.messageKey)),
+                        retryLabel = stringResource(R.string.roster_retry).takeIf { shown.retryable },
+                        onRetry = onRetry.takeIf { shown.retryable },
                     )
-                    if (state.recent.isNotEmpty()) RecentList(state.recent, onOpen)
-                }
-
-            is VerifyUiState.Failed ->
-                ErrorCard(
-                    title = stringResource(R.string.verify_load_failed),
-                    body = stringResource(MessageKeys.resolve(state.messageKey)),
-                    retryLabel = stringResource(R.string.roster_retry).takeIf { state.retryable },
-                    onRetry = onRetry.takeIf { state.retryable },
-                )
+            }
         }
     }
 }
@@ -131,11 +140,12 @@ private fun subtitleOf(state: VerifyUiState): String? =
  * One waiting payment: who, how much, and how it compares.
  *
  * @param card The payment
+ * @param modifier Carries the list's item animation
  * @param onClick Called to open it
  */
 @Composable
-private fun QueueRow(card: ReviewCard, onClick: () -> Unit) {
-    ShikkhokCard(Modifier.testTag(TAG_VERIFY_CARD).clickable(onClick = onClick)) {
+private fun QueueRow(card: ReviewCard, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    ShikkhokCard(modifier.testTag(TAG_VERIFY_CARD).clickable(onClick = onClick)) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Initial(card.displayName)
             Column(Modifier.weight(1f)) {

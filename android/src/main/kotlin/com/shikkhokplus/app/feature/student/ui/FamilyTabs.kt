@@ -32,7 +32,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.shikkhokplus.app.R
 import com.shikkhokplus.app.core.designsystem.ErrorCard
 import com.shikkhokplus.app.core.designsystem.ShikkhokCard
@@ -214,9 +213,13 @@ private fun MarkText(row: ProgressRow) {
     if (marks == null) {
         Quiet(stringResource(MessageKeys.resolve(row.stateLabel)))
     } else {
+        // The title step, so the mark reads larger than its "/total".
+        val markSize = MaterialTheme.typography.titleLarge.fontSize
         Text(
             buildAnnotatedString {
-                withStyle(SpanStyle(fontWeight = FontWeight.Bold, fontSize = 22.sp)) { append(Numerals.count(marks)) }
+                withStyle(SpanStyle(fontWeight = FontWeight.Bold, fontSize = markSize)) {
+                    append(Numerals.count(marks))
+                }
                 append(stringResource(R.string.student_out_of, Numerals.count(row.totalMarks)))
             },
             style = MaterialTheme.typography.bodyMedium,

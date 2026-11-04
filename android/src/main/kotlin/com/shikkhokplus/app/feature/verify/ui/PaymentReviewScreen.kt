@@ -1,5 +1,11 @@
 package com.shikkhokplus.app.feature.verify.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,8 +18,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -32,6 +40,8 @@ import com.shikkhokplus.app.core.designsystem.BodyCompact
 import com.shikkhokplus.app.core.designsystem.DestructiveButton
 import com.shikkhokplus.app.core.designsystem.ErrorCard
 import com.shikkhokplus.app.core.designsystem.ListScreenScaffold
+import com.shikkhokplus.app.core.designsystem.MoneyLead
+import com.shikkhokplus.app.core.designsystem.Motion
 import com.shikkhokplus.app.core.designsystem.PaymentState
 import com.shikkhokplus.app.core.designsystem.PaymentStateChip
 import com.shikkhokplus.app.core.designsystem.PrimaryButton
@@ -39,6 +49,7 @@ import com.shikkhokplus.app.core.designsystem.ShikkhokCard
 import com.shikkhokplus.app.core.designsystem.ShikkhokTextField
 import com.shikkhokplus.app.core.designsystem.SkeletonList
 import com.shikkhokplus.app.core.designsystem.TextAction
+import com.shikkhokplus.app.core.designsystem.rememberHaptics
 import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.core.format.dateTimeLabel
 import com.shikkhokplus.app.core.format.monthName
@@ -127,6 +138,7 @@ fun PaymentReviewScreen(
     modifier: Modifier = Modifier,
 ) {
     val decided = (state as? ReviewUiState.Loaded)?.card?.status?.let { it != ReviewStatus.PENDING } == true
+    DecisionHaptics(state as? ReviewUiState.Loaded)
     ListScreenScaffold(
         title = stringResource(if (decided) R.string.verify_detail_title_decided else R.string.verify_detail_title),
         onBack = actions.onBack,
@@ -176,42 +188,26 @@ private fun Loaded(state: ReviewUiState.Loaded, actions: ReviewActions) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-        if (state.canDecide) {
-            ShikkhokTextField(
-                value = note,
-                onValueChange = { note = it.take(REVIEW_NOTE_MAX) },
-                label = stringResource(R.string.verify_note_to_them),
-                singleLine = false,
-                minLines = 2,
-                fieldModifier = Modifier.testTag(TAG_REVIEW_NOTE),
-            )
-            TextAction(
-                stringResource(R.string.verify_approve_other),
-                { actions.onApproveOther(note) },
-                Modifier.fillMaxWidth().testTag(TAG_REVIEW_APPROVE_OTHER),
-                enabled = !state.busy,
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                DestructiveButton(
-                    text = stringResource(R.string.verify_reject),
-                    onClick = { rejecting = true },
-                    enabled = !state.busy,
-                    modifier = Modifier.testTag(TAG_VERIFY_REJECT),
-                )
-                PrimaryButton(
-                    text = stringResource(R.string.verify_approve),
-                    onClick = { actions.onApprove(note) },
-                    enabled = !state.busy,
-                    modifier = Modifier.weight(1f).testTag(TAG_VERIFY_APPROVE),
-                )
+        // The controls give way to the decision when it lands, and back
+        // when the teacher chooses to change it: a fade rather than a
+        // jump, so the eye follows the card that replaced the buttons.
+        AnimatedContent(
+            targetState = state.canDecide,
+            transitionSpec = { fadeIn(tween(Motion.ENTER_MS)) togetherWith fadeOut(tween(Motion.EXIT_MS)) },
+            label = "decision",
+        ) { deciding ->
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (deciding) {
+                    DecideControls(state, note, { note = it }, { rejecting = true }, actions)
+                } else {
+                    Decision(card)
+                    TextAction(
+                        stringResource(R.string.verify_change_decision),
+                        actions.onChangeDecision,
+                        Modifier.fillMaxWidth().testTag(TAG_REVIEW_CHANGE),
+                    )
+                }
             }
-        } else {
-            Decision(card)
-            TextAction(
-                stringResource(R.string.verify_change_decision),
-                actions.onChangeDecision,
-                Modifier.fillMaxWidth().testTag(TAG_REVIEW_CHANGE),
-            )
         }
     }
     if (rejecting) {
@@ -244,6 +240,82 @@ private fun Loaded(state: ReviewUiState.Loaded, actions: ReviewActions) {
 }
 
 /**
+ * Approve, reject or approve a different amount, with a note to the
+ * family.
+ *
+ * @param state The loaded payment
+ * @param note The note typed so far
+ * @param onNote Called with the edited note
+ * @param onAskReject Opens the reject confirmation
+ * @param actions What the screen can do
+ */
+@Composable
+private fun DecideControls(
+    state: ReviewUiState.Loaded,
+    note: String,
+    onNote: (String) -> Unit,
+    onAskReject: () -> Unit,
+    actions: ReviewActions,
+) {
+    ShikkhokTextField(
+        value = note,
+        onValueChange = { onNote(it.take(REVIEW_NOTE_MAX)) },
+        label = stringResource(R.string.verify_note_to_them),
+        singleLine = false,
+        minLines = 2,
+        fieldModifier = Modifier.testTag(TAG_REVIEW_NOTE),
+    )
+    TextAction(
+        stringResource(R.string.verify_approve_other),
+        { actions.onApproveOther(note) },
+        Modifier.fillMaxWidth().testTag(TAG_REVIEW_APPROVE_OTHER),
+        enabled = !state.busy,
+    )
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        DestructiveButton(
+            text = stringResource(R.string.verify_reject),
+            onClick = onAskReject,
+            enabled = !state.busy,
+            modifier = Modifier.testTag(TAG_VERIFY_REJECT),
+        )
+        PrimaryButton(
+            text = stringResource(R.string.verify_approve),
+            onClick = { actions.onApprove(note) },
+            enabled = !state.busy,
+            modifier = Modifier.weight(1f).testTag(TAG_VERIFY_APPROVE),
+        )
+    }
+}
+
+/**
+ * Buzz once when a decision the teacher made has landed.
+ *
+ * **On the write's answer, not on the tap.** The tap already has its
+ * ripple; what a teacher holding a bKash statement in the other hand
+ * cannot otherwise feel is that the server accepted it. So this fires
+ * when a write that was in flight (`busy`) ends with no error, and
+ * never when an already-decided payment is merely opened.
+ *
+ * @param state The loaded payment, or null while loading or failed
+ */
+@Composable
+private fun DecisionHaptics(state: ReviewUiState.Loaded?) {
+    val haptics = rememberHaptics()
+    var wasBusy by remember { mutableStateOf(false) }
+    LaunchedEffect(state?.busy, state?.errorKey, state?.card?.status) {
+        val busy = state?.busy == true
+        if (wasBusy && !busy && state != null && state.errorKey == null) {
+            when (state.card.status) {
+                ReviewStatus.APPROVED -> haptics.confirm()
+                ReviewStatus.REJECTED -> haptics.reject()
+                ReviewStatus.PENDING -> Unit
+            }
+        }
+        wasBusy = busy
+    }
+}
+
+/**
  * Who it is for, how much, and how it compares.
  *
  * @param card The payment
@@ -260,9 +332,13 @@ private fun Summary(card: ReviewCard) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            StatusChip(card.status)
+            // The chip changes with the decision; a crossfade marks the
+            // change so it is seen rather than discovered.
+            Crossfade(targetState = card.status, animationSpec = tween(Motion.ENTER_MS), label = "status") { status ->
+                StatusChip(status)
+            }
         }
-        Text(Numerals.money(card.totalAmount), style = MaterialTheme.typography.headlineMedium)
+        Text(Numerals.money(card.totalAmount), style = MoneyLead)
         ComparisonChip(card)
         card.children.forEach { child ->
             Row(

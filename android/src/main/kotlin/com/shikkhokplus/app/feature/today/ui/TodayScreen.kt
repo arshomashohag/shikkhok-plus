@@ -29,12 +29,15 @@ import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
 import com.shikkhokplus.app.core.designsystem.BodyCompact
 import com.shikkhokplus.app.core.designsystem.ErrorCard
+import com.shikkhokplus.app.core.designsystem.MoneyLead
 import com.shikkhokplus.app.core.designsystem.PaymentState
 import com.shikkhokplus.app.core.designsystem.PaymentStateChip
 import com.shikkhokplus.app.core.designsystem.PrimaryButton
 import com.shikkhokplus.app.core.designsystem.ScreenScaffold
 import com.shikkhokplus.app.core.designsystem.ShikkhokCard
 import com.shikkhokplus.app.core.designsystem.SkeletonList
+import com.shikkhokplus.app.core.designsystem.Spacing
+import com.shikkhokplus.app.core.designsystem.StateFade
 import com.shikkhokplus.app.core.designsystem.TextAction
 import com.shikkhokplus.app.core.designsystem.TonalButton
 import com.shikkhokplus.app.core.designsystem.asHeading
@@ -130,22 +133,24 @@ fun TodayScreen(
         onRefresh = onRefresh,
     ) {
         notice()
-        when (state) {
-            TodayUiState.Loading -> {
-                Section(stringResource(R.string.today_classes))
-                SkeletonList(rows = 2)
-                Section(stringResource(R.string.today_to_verify))
-                SkeletonList(rows = 2)
+        StateFade(state, spacing = Spacing.screen) { shown ->
+            when (shown) {
+                TodayUiState.Loading -> {
+                    Section(stringResource(R.string.today_classes))
+                    SkeletonList(rows = 2)
+                    Section(stringResource(R.string.today_to_verify))
+                    SkeletonList(rows = 2)
+                }
+                is TodayUiState.FirstRun -> FirstRun(onCreateBatch)
+                is TodayUiState.Loaded -> Day(shown, pending, onOpenDues, onRecord, onMarks, onVerifyAll, onOpenPayment)
+                is TodayUiState.Failed ->
+                    ErrorCard(
+                        title = stringResource(R.string.today_load_failed),
+                        body = stringResource(MessageKeys.resolve(shown.messageKey)),
+                        retryLabel = stringResource(R.string.roster_retry).takeIf { shown.retryable },
+                        onRetry = onRetry.takeIf { shown.retryable },
+                    )
             }
-            is TodayUiState.FirstRun -> FirstRun(onCreateBatch)
-            is TodayUiState.Loaded -> Day(state, pending, onOpenDues, onRecord, onMarks, onVerifyAll, onOpenPayment)
-            is TodayUiState.Failed ->
-                ErrorCard(
-                    title = stringResource(R.string.today_load_failed),
-                    body = stringResource(MessageKeys.resolve(state.messageKey)),
-                    retryLabel = stringResource(R.string.roster_retry).takeIf { state.retryable },
-                    onRetry = onRetry.takeIf { state.retryable },
-                )
         }
     }
 }
@@ -223,7 +228,7 @@ private fun OwedCard(owed: OwedSummary, onOpen: () -> Unit) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 Numerals.money(owed.total),
-                style = MaterialTheme.typography.headlineMedium,
+                style = MoneyLead,
                 modifier = Modifier.weight(1f),
             )
             Text("›", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.outline)

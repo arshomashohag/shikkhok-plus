@@ -21,15 +21,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 
 /**
  * The design's buttons (Components.dc.html, "Buttons").
  *
  * **One place for heights, pills and disabled colours**, because every
  * screen used raw M3 buttons: 40dp tall with 14sp text, where the design
- * draws a 56dp pill at 16sp for the main action and a 48dp pill at 15sp
- * for the rest, and greys a disabled button to `#E4E8EE` with `#6E7682`
+ * draws a 56dp pill at 16sp for the main action and a 48dp pill for the
+ * rest (drawn at 15sp, set on the scale's 14sp label step — see
+ * `ButtonText`), and greys a disabled button to `#E4E8EE` with `#6E7682`
  * text rather than M3's translucent onSurface.
  */
 
@@ -38,14 +38,15 @@ private val LargeButtonText: TextStyle
     @Composable get() =
         MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
 
-/** A secondary action's text: 15/24 SemiBold. */
+/**
+ * A secondary action's text: the label step, 14/22 SemiBold.
+ *
+ * The board drew 15/24, which sits between two steps of the type scale
+ * and under its Bangla line-height ratio. The scale's own table gives
+ * buttons the label step, so that is what a secondary pill uses.
+ */
 private val ButtonText: TextStyle
-    @Composable get() =
-        MaterialTheme.typography.bodyMedium.copy(
-            fontSize = 15.sp,
-            lineHeight = 24.sp,
-            fontWeight = FontWeight.SemiBold,
-        )
+    @Composable get() = MaterialTheme.typography.labelLarge
 
 /** Side padding inside a pill. */
 private val PillPadding = PaddingValues(horizontal = 20.dp)

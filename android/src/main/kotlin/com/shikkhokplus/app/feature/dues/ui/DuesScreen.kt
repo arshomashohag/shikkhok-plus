@@ -52,11 +52,14 @@ import com.shikkhokplus.app.core.designsystem.BannerTone
 import com.shikkhokplus.app.core.designsystem.EmptyState
 import com.shikkhokplus.app.core.designsystem.ErrorCard
 import com.shikkhokplus.app.core.designsystem.ListScreenScaffold
+import com.shikkhokplus.app.core.designsystem.MoneyTotal
 import com.shikkhokplus.app.core.designsystem.PaymentState
 import com.shikkhokplus.app.core.designsystem.PaymentStateChip
 import com.shikkhokplus.app.core.designsystem.PrimaryButton
 import com.shikkhokplus.app.core.designsystem.ShikkhokCard
 import com.shikkhokplus.app.core.designsystem.SkeletonList
+import com.shikkhokplus.app.core.designsystem.Spacing
+import com.shikkhokplus.app.core.designsystem.StateFade
 import com.shikkhokplus.app.core.designsystem.TextAction
 import com.shikkhokplus.app.core.designsystem.asHeading
 import com.shikkhokplus.app.core.designsystem.statusColors
@@ -171,30 +174,32 @@ fun DuesScreen(
             }
         },
     ) {
-        when (state) {
-            DuesUiState.Idle -> Unit
-            DuesUiState.Loading -> SkeletonList(modifier = Modifier.padding(top = 8.dp).testTag(TAG_DUES_LOADING))
-            // Scrollable so a pull works here too: "nobody owes" is
-            // exactly when a teacher pulls to see if that changed.
-            DuesUiState.Empty ->
-                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                    EmptyState(
-                        title = stringResource(R.string.dues_empty_title),
-                        body = stringResource(R.string.dues_nobody_owes),
-                        modifier = Modifier.padding(top = 8.dp).testTag(TAG_DUES_EMPTY),
+        StateFade(state, spacing = Spacing.tight, modifier = Modifier.fillMaxSize()) { shown ->
+            when (shown) {
+                DuesUiState.Idle -> Unit
+                DuesUiState.Loading -> SkeletonList(modifier = Modifier.padding(top = 8.dp).testTag(TAG_DUES_LOADING))
+                // Scrollable so a pull works here too: "nobody owes" is
+                // exactly when a teacher pulls to see if that changed.
+                DuesUiState.Empty ->
+                    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                        EmptyState(
+                            title = stringResource(R.string.dues_empty_title),
+                            body = stringResource(R.string.dues_nobody_owes),
+                            modifier = Modifier.padding(top = 8.dp).testTag(TAG_DUES_EMPTY),
+                        )
+                    }
+                is DuesUiState.Loaded -> Loaded(shown, actions)
+                is DuesUiState.Failed ->
+                    ErrorCard(
+                        title = stringResource(MessageKeys.resolve(shown.messageKey)),
+                        body = null,
+                        modifier = Modifier.padding(top = 8.dp).testTag(TAG_DUES_ERROR),
+                        // Offered only where the SERVER said retrying could
+                        // work [TC-9].
+                        retryLabel = if (shown.retryable) stringResource(R.string.dues_retry) else null,
+                        onRetry = if (shown.retryable) actions.onRetry else null,
                     )
-                }
-            is DuesUiState.Loaded -> Loaded(state, actions)
-            is DuesUiState.Failed ->
-                ErrorCard(
-                    title = stringResource(MessageKeys.resolve(state.messageKey)),
-                    body = null,
-                    modifier = Modifier.padding(top = 8.dp).testTag(TAG_DUES_ERROR),
-                    // Offered only where the SERVER said retrying could
-                    // work [TC-9].
-                    retryLabel = if (state.retryable) stringResource(R.string.dues_retry) else null,
-                    onRetry = if (state.retryable) actions.onRetry else null,
-                )
+            }
         }
     }
 }
@@ -284,7 +289,7 @@ private fun SummaryCard(summary: DuesSummary) {
                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Text(Numerals.money(summary.total), style = MaterialTheme.typography.headlineLarge)
+                Text(Numerals.money(summary.total), style = MoneyTotal)
             }
             Text(
                 stringResource(R.string.dues_students, Numerals.count(summary.count)),

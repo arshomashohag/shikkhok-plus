@@ -43,6 +43,8 @@ import com.shikkhokplus.app.core.designsystem.EmptyState
 import com.shikkhokplus.app.core.designsystem.ErrorCard
 import com.shikkhokplus.app.core.designsystem.ListScreenScaffold
 import com.shikkhokplus.app.core.designsystem.SkeletonList
+import com.shikkhokplus.app.core.designsystem.Spacing
+import com.shikkhokplus.app.core.designsystem.StateFade
 import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.core.format.monthName
 import com.shikkhokplus.app.core.ui.ago
@@ -113,29 +115,31 @@ fun InboxScreen(
             }
         },
     ) {
-        when (state) {
-            InboxUiState.Loading -> SkeletonList(modifier = Modifier.padding(top = 8.dp))
-            is InboxUiState.Failed ->
-                ErrorCard(
-                    title = stringResource(MessageKeys.resolve(state.messageKey)),
-                    body = null,
-                    modifier = Modifier.padding(top = 8.dp),
-                    retryLabel = if (state.retryable) stringResource(R.string.dues_retry) else null,
-                    onRetry = if (state.retryable) onRetry else null,
-                )
-            is InboxUiState.Loaded ->
-                if (state.messages.isEmpty()) {
-                    // Scrollable so a pull works on an empty inbox too.
-                    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                        EmptyState(
-                            title = stringResource(R.string.inbox_empty_title),
-                            body = stringResource(R.string.inbox_empty_body),
-                            modifier = Modifier.padding(top = 8.dp).testTag(TAG_INBOX_EMPTY),
-                        )
+        StateFade(state, spacing = Spacing.tight, modifier = Modifier.fillMaxSize()) { shown ->
+            when (shown) {
+                InboxUiState.Loading -> SkeletonList(modifier = Modifier.padding(top = 8.dp))
+                is InboxUiState.Failed ->
+                    ErrorCard(
+                        title = stringResource(MessageKeys.resolve(shown.messageKey)),
+                        body = null,
+                        modifier = Modifier.padding(top = 8.dp),
+                        retryLabel = if (shown.retryable) stringResource(R.string.dues_retry) else null,
+                        onRetry = if (shown.retryable) onRetry else null,
+                    )
+                is InboxUiState.Loaded ->
+                    if (shown.messages.isEmpty()) {
+                        // Scrollable so a pull works on an empty inbox too.
+                        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                            EmptyState(
+                                title = stringResource(R.string.inbox_empty_title),
+                                body = stringResource(R.string.inbox_empty_body),
+                                modifier = Modifier.padding(top = 8.dp).testTag(TAG_INBOX_EMPTY),
+                            )
+                        }
+                    } else {
+                        LoadedMessages(shown.messages, onSelect)
                     }
-                } else {
-                    LoadedMessages(state.messages, onSelect)
-                }
+            }
         }
     }
 }
