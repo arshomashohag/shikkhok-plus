@@ -21,6 +21,8 @@ import com.shikkhokplus.app.feature.guardian.ui.TAG_GUARDIAN_PAY
 import com.shikkhokplus.app.feature.guardian.ui.TAG_GUARDIAN_SELECTED_NAME
 import com.shikkhokplus.app.feature.guardian.ui.TAG_GUARDIAN_SWITCHER
 import com.shikkhokplus.app.feature.pay.PayOption
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.assertIsDisplayed
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -50,6 +52,19 @@ class GuardianHomeScreenTest {
         compose.onNodeWithTag(TAG_GUARDIAN_PAY).performScrollTo().performClick()
 
         assertEquals("seat-Tasnim", paid.single().enrollmentId)
+    }
+
+    @Test
+    fun `the switcher and the shown child are pinned in place of the title`() {
+        // G1: whose figures these are stays on screen while the page
+        // scrolls, so it sits in the bar's block, not the scrolled column.
+        compose.setContent { ShikkhokTheme { GuardianHomeScreen(loaded("Rahim", "Karima"), GuardianActions()) } }
+
+        compose.onNodeWithText("Your students").assertDoesNotExist()
+        compose.onNodeWithTag(TAG_GUARDIAN_SWITCHER).assertIsDisplayed()
+        compose.onNodeWithTag(TAG_GUARDIAN_BATCH).performScrollTo()
+        compose.onNodeWithTag(TAG_GUARDIAN_SWITCHER).assertIsDisplayed()
+        compose.onNodeWithTag(TAG_GUARDIAN_SELECTED_NAME, useUnmergedTree = true).assertIsDisplayed()
     }
 
     @Test

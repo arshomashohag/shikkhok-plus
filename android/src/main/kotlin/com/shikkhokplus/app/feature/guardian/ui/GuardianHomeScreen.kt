@@ -136,13 +136,26 @@ fun GuardianHomeScreen(
     barActions: @Composable RowScope.() -> Unit = {},
     refreshing: Boolean = false,
 ) {
+    val loaded = state as? GuardianUiState.Loaded
     ScreenScaffold(
-        title = stringResource(R.string.guardian_home_title),
+        // **Pinned, with no title** (G1): the switcher and the shown
+        // child stay put while the page scrolls, so whose figures these
+        // are never scrolls out of sight. The other states keep the title.
+        title = if (loaded != null) "" else stringResource(R.string.guardian_home_title),
         modifier = modifier,
         bottomBar = bottomBar,
         actions = barActions,
         refreshing = refreshing,
         onRefresh = actions.onRefresh,
+        pinned =
+            if (loaded != null) {
+                {
+                    if (loaded.children.size > 1) Switcher(loaded, actions.onSelect)
+                    Who(loaded.child)
+                }
+            } else {
+                null
+            },
     ) {
         StateFade(state, spacing = Spacing.screen) { shown ->
             when (shown) {
@@ -171,7 +184,8 @@ fun GuardianHomeScreen(
 }
 
 /**
- * The shown child: switcher, who, then payment, results and batches.
+ * The shown child's page under the pinned header: payment, results and
+ * batches.
  *
  * @param state The loaded state
  * @param actions What the buttons do
@@ -180,8 +194,6 @@ fun GuardianHomeScreen(
 private fun ColumnScope.Loaded(state: GuardianUiState.Loaded, actions: GuardianActions) {
     val offline = state.offline
     val child = state.child
-    if (state.children.size > 1) Switcher(state, actions.onSelect)
-    Who(child)
     if (state.switched) {
         Text(
             buildAnnotatedString {
