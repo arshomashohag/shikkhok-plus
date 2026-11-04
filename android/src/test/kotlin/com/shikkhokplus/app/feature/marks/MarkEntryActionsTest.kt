@@ -12,6 +12,8 @@ import com.shikkhokplus.app.feature.marks.ui.MarkEntryScreen
 import com.shikkhokplus.app.feature.marks.ui.TAG_MARK_ENTRY_ABSENT
 import com.shikkhokplus.app.feature.marks.ui.TAG_MARK_ENTRY_EDIT_EXAM
 import com.shikkhokplus.app.feature.marks.ui.TAG_MARK_ENTRY_HISTORY
+import androidx.compose.ui.test.onNodeWithText
+import com.shikkhokplus.app.feature.marks.ui.TAG_MARK_ENTRY_EMPTY
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -77,5 +79,20 @@ class MarkEntryActionsTest {
         compose.onNodeWithTag(TAG_MARK_ENTRY_ABSENT).performClick()
 
         assertEquals(listOf("tick"), haptics.felt)
+    }
+
+    @Test
+    fun `the exam is the title and what it is out of the subtitle`() {
+        compose.setContent { ShikkhokTheme { MarkEntryScreen(state = entry()) } }
+
+        compose.onNodeWithText("Mid-term").assertExists()
+        compose.onNodeWithText("out of 50").assertExists()
+    }
+
+    @Test
+    fun `an exam in a batch with no students says so`() {
+        compose.setContent { ShikkhokTheme { MarkEntryScreen(state = entry().copy(rows = emptyList())) } }
+
+        compose.onNodeWithTag(TAG_MARK_ENTRY_EMPTY).assertExists()
     }
 }

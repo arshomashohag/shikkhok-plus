@@ -334,7 +334,7 @@ private fun ClassStatusLine(row: ClassRow, cancelled: Boolean) {
             Text(stringResource(R.string.today_exam, Numerals.freeText(examTitle)), style = small, color = quiet)
         topic != null ->
             Text(
-                "✓ ${Numerals.freeText(topic)}",
+                Numerals.freeText(topic),
                 style = small,
                 color = quiet,
                 maxLines = 1,

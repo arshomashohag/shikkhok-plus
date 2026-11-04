@@ -100,7 +100,7 @@ approved and is not audited here.
 - [ ] Loading: skeleton for the Outstanding card.
 - [ ] Offline with cache (see cross-cutting), including rows marked
   "Recorded · not sent yet" and "can't approve while offline".
-- [ ] Recorded topic has a "✓ " prefix the design does not.
+- [x] Recorded topic shows without a "✓ " prefix.
 
 ### T2 · Record a class — `feature/record/ui/RecordClassSheet.kt`
 - [ ] "Change" action in the sheet header.
@@ -117,10 +117,14 @@ approved and is not audited here.
 - [ ] Continuous entry: "6/20" counter and progress bar, roll numbers,
   compact "/25" rows, the "now entering" dock, keypad with Absent and
   "Next ↓".
-- [ ] Exam in the title with "subject · batch · date" subtitle.
+- [x] Exam in the title, "out of 25" as the subtitle
+  (`feature/marks/ui/MarkEntryScreen.kt`).
+- [?] "subject · batch · date" in the subtitle: the entry read carries the
+  exam's date only, not its subject or batch name.
 - [?] Half marks ("19.5"): the client takes `Int`. Needs the API's mark
   type confirmed before the client changes.
-- [ ] Empty: "No students in Batch D yet" with Add students.
+- [x] Empty: "No students in this batch yet".
+- [ ] Empty: an Add students button on it.
 - [ ] Loading: skeleton rows.
 - [?] Draft → review → "Publish to students & guardians", "3 to fix",
   "Max 25" row errors. There is no draft/publish model; marks save per
@@ -147,8 +151,9 @@ approved and is not audited here.
 - [ ] Loading: card skeletons with button blocks.
 - [x] Duplicate: red outline and "This ID was already used." on the
   queue card.
-- [ ] Duplicate: date in the warning, "Reject as duplicate" (primary) and
-  "Approve anyway".
+- [x] Duplicate: "Reject as duplicate" is the filled choice and "Approve
+  anyway" the outlined one (`feature/verify/ui/PaymentReviewScreen.kt`).
+- [ ] Duplicate: the date in the warning.
 
 ### T5 · Cross-batch dues — `feature/dues/ui/DuesScreen.kt`
 - [ ] Subtitle "All 7 batches · updated 2 min ago".
@@ -277,7 +282,8 @@ approved and is not audited here.
   built-in cash in hand), lets one payment cover several children in a
   batch, and accepts a payment when nothing is owed. The app follows the
   spec. **Redraw S3 from F1–F5.**
-- [ ] Title "Pay a fee" with close X.
+- [~] Title and close X: superseded with the rest of S3 by the payment-
+  methods spec (titles follow F2–F4).
 - [ ] Empty: "Which fee are you paying?" list, "রসায়ন isn't listed: your
   payment is being checked".
 - [~] "Safe to wait… we'll keep it and resend" — payment submission is not

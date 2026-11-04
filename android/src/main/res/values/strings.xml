@@ -1210,6 +1210,10 @@
     <string name="my_children_missing_body_plain">Ask the teacher to add your number as the guardian.</string>
 
     <!-- Design parity, round 2. -->
+    <string name="mark_entry_empty_title">No students in this batch yet</string>
+    <string name="mark_entry_empty_body">Add students to the batch, then enter their marks here.</string>
+    <string name="verify_reject_duplicate">Reject as duplicate</string>
+    <string name="verify_approve_anyway">Approve anyway</string>
     <string name="student_add_submit_next">Save &amp; add next</string>
     <plurals name="student_add_added_so_far">
         <item quantity="one">%1$d added so far</item>

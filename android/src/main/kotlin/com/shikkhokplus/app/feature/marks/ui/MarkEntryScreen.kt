@@ -35,6 +35,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
+import com.shikkhokplus.app.core.designsystem.EmptyState
 import com.shikkhokplus.app.core.designsystem.LogoLoader
 import com.shikkhokplus.app.core.designsystem.ListScreenScaffold
 import com.shikkhokplus.app.core.designsystem.rememberHaptics
@@ -46,8 +47,8 @@ import com.shikkhokplus.app.feature.marks.MarksUiState
 /** Stable test identifiers. Not user-visible text. */
 const val TAG_MARK_ENTRY_LOADING: String = "mark_entry_loading"
 
-/** The exam heading. */
-const val TAG_MARK_ENTRY_TITLE: String = "mark_entry_title"
+/** The empty state, for an exam in a batch with no students. */
+const val TAG_MARK_ENTRY_EMPTY: String = "mark_entry_empty"
 
 /** The list of seats. */
 const val TAG_MARK_ENTRY_LIST: String = "mark_entry_list"
@@ -119,8 +120,13 @@ fun MarkEntryScreen(
     onEditExam: () -> Unit = {},
     onHistory: (MarkRow) -> Unit = {},
 ) {
+    val loaded = state as? MarksUiState.EntryLoaded
+    // **The exam is the title** (T3), with what it is out of under it:
+    // a teacher switching between two exams' entry must see which one
+    // is open without reading the body.
     ListScreenScaffold(
-        title = stringResource(R.string.screen_title_mark_entry),
+        title = loaded?.let { Numerals.freeText(it.examTitle) } ?: stringResource(R.string.screen_title_mark_entry),
+        subtitle = loaded?.let { stringResource(R.string.batch_exam_out_of, Numerals.count(it.totalMarks)) },
         modifier = modifier,
         actions = {
             if (state is MarksUiState.EntryLoaded && state.writable) {
@@ -139,14 +145,6 @@ fun MarkEntryScreen(
                 LogoLoader(Modifier.testTag(TAG_MARK_ENTRY_LOADING))
 
             is MarksUiState.EntryLoaded -> {
-                Text(
-                    stringResource(
-                        R.string.mark_entry_title,
-                        Numerals.freeText(state.examTitle),
-                        Numerals.count(state.totalMarks),
-                    ),
-                    Modifier.testTag(TAG_MARK_ENTRY_TITLE),
-                )
 
                 if (!state.writable) {
                     Text(
@@ -156,6 +154,13 @@ fun MarkEntryScreen(
                     )
                 }
 
+                if (state.rows.isEmpty()) {
+                    EmptyState(
+                        title = stringResource(R.string.mark_entry_empty_title),
+                        body = stringResource(R.string.mark_entry_empty_body),
+                        modifier = Modifier.testTag(TAG_MARK_ENTRY_EMPTY),
+                    )
+                }
                 LazyColumn(Modifier.testTag(TAG_MARK_ENTRY_LIST)) {
                     items(state.rows, key = { it.enrollmentId }) { row ->
                         MarkRowView(row, onMark, onAbsent, onHistory)
