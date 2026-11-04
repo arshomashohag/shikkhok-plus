@@ -13,6 +13,7 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.onNodeWithText
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -40,17 +41,59 @@ class CreateFormsTest {
     fun `a blank fee sends null, never zero`() {
         var captured: String? = "sentinel"
         compose.setContent {
-            StudentAddForm(
-                onAdd = { _, _, _, fee -> captured = fee },
-                onCancel = {},
-            )
+            // Hosted in a scroll, as ScreenScaffold hosts it: the +88 fields
+            // put Submit below the test window, and an off-screen tap is lost.
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                StudentAddForm(
+                    onAdd = { _, _, _, fee -> captured = fee },
+                    onCancel = {},
+                )
+            }
         }
 
         compose.onNodeWithTag(TAG_FORM_STUDENT_PHONE).performTextInput("01711-234567")
         compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Rahim")
-        compose.onNodeWithTag(TAG_FORM_SUBMIT).performClick()
+        compose.onNodeWithTag(TAG_FORM_SUBMIT).performScrollTo().performClick()
 
         assertNull(captured, "a blank fee must inherit, not waive")
+    }
+
+    @Test
+    fun `with the batch fee on, no fee field is drawn and the seat inherits`() {
+        // T8's "Batch fee · ৳1,200" toggle. On, nothing typed is sent:
+        // null is INHERIT [AC2.2.5], never zero, which would waive it.
+        var captured: String? = "unset"
+        compose.setContent {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                StudentAddForm(onAdd = { _, _, _, fee -> captured = fee }, onCancel = {}, batchFee = "৳1,200")
+            }
+        }
+
+        compose.onNodeWithText("Batch fee · ৳1,200", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag(TAG_FORM_FEE).assertDoesNotExist()
+        compose.onNodeWithTag(TAG_FORM_STUDENT_PHONE).performTextInput("01711-234567")
+        compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Rahim")
+        compose.onNodeWithTag(TAG_FORM_SUBMIT).performScrollTo().performClick()
+
+        assertNull(captured)
+    }
+
+    @Test
+    fun `turning the batch fee off asks for this student's own fee`() {
+        var captured: String? = null
+        compose.setContent {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                StudentAddForm(onAdd = { _, _, _, fee -> captured = fee }, onCancel = {}, batchFee = "৳1,200")
+            }
+        }
+
+        compose.onNodeWithTag(TAG_FORM_BATCH_FEE).performScrollTo().performClick()
+        compose.onNodeWithTag(TAG_FORM_STUDENT_PHONE).performTextInput("01711-234567")
+        compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Rahim")
+        compose.onNodeWithTag(TAG_FORM_FEE).performScrollTo().performTextInput("800")
+        compose.onNodeWithTag(TAG_FORM_SUBMIT).performScrollTo().performClick()
+
+        assertEquals("800.00", captured)
     }
 
     @Test
@@ -62,13 +105,17 @@ class CreateFormsTest {
         // was then silently never created.
         var captured: String? = null
         compose.setContent {
-            StudentAddForm(onAdd = { _, _, _, fee -> captured = fee }, onCancel = {})
+            // Hosted in a scroll, as ScreenScaffold hosts it: the +88 fields
+            // put Submit below the test window, and an off-screen tap is lost.
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                StudentAddForm(onAdd = { _, _, _, fee -> captured = fee }, onCancel = {})
+            }
         }
 
         compose.onNodeWithTag(TAG_FORM_STUDENT_PHONE).performTextInput("01711-234567")
         compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Rahim")
         compose.onNodeWithTag(TAG_FORM_FEE).performTextInput("1200")
-        compose.onNodeWithTag(TAG_FORM_SUBMIT).performClick()
+        compose.onNodeWithTag(TAG_FORM_SUBMIT).performScrollTo().performClick()
 
         assertEquals("1200.00", captured)
     }
@@ -145,16 +192,24 @@ class CreateFormsTest {
     fun `a refusal is shown on the form`() {
         // It used to have nowhere to appear: the form closed on the tap.
         compose.setContent {
-            StudentAddForm(onAdd = { _, _, _, _ -> }, onCancel = {}, error = "Could not save")
+            // Hosted in a scroll, as ScreenScaffold hosts it: the +88 fields
+            // put Submit below the test window, and an off-screen tap is lost.
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                StudentAddForm(onAdd = { _, _, _, _ -> }, onCancel = {}, error = "Could not save")
+            }
         }
 
-        compose.onNodeWithTag(TAG_FORM_ERROR).assertIsDisplayed()
+        compose.onNodeWithTag(TAG_FORM_ERROR).performScrollTo().assertIsDisplayed()
     }
 
     @Test
     fun `no error is shown when there is none`() {
         compose.setContent {
-            StudentAddForm(onAdd = { _, _, _, _ -> }, onCancel = {})
+            // Hosted in a scroll, as ScreenScaffold hosts it: the +88 fields
+            // put Submit below the test window, and an off-screen tap is lost.
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                StudentAddForm(onAdd = { _, _, _, _ -> }, onCancel = {})
+            }
         }
 
         compose.onNodeWithTag(TAG_FORM_ERROR).assertDoesNotExist()
@@ -164,15 +219,19 @@ class CreateFormsTest {
     fun `a blank guardian phone sends null`() {
         var captured: String? = "sentinel"
         compose.setContent {
-            StudentAddForm(
-                onAdd = { _, _, guardian, _ -> captured = guardian },
-                onCancel = {},
-            )
+            // Hosted in a scroll, as ScreenScaffold hosts it: the +88 fields
+            // put Submit below the test window, and an off-screen tap is lost.
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                StudentAddForm(
+                    onAdd = { _, _, guardian, _ -> captured = guardian },
+                    onCancel = {},
+                )
+            }
         }
 
         compose.onNodeWithTag(TAG_FORM_STUDENT_PHONE).performTextInput("01711-234567")
         compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Rahim")
-        compose.onNodeWithTag(TAG_FORM_SUBMIT).performClick()
+        compose.onNodeWithTag(TAG_FORM_SUBMIT).performScrollTo().performClick()
 
         assertNull(captured)
     }
@@ -184,12 +243,16 @@ class CreateFormsTest {
         // the server canonicalises, so the client never needs to.
         var sent: Pair<String, String>? = null
         compose.setContent {
-            StudentAddForm(onAdd = { name, phone, _, _ -> sent = name to phone }, onCancel = {})
+            // Hosted in a scroll, as ScreenScaffold hosts it: the +88 fields
+            // put Submit below the test window, and an off-screen tap is lost.
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                StudentAddForm(onAdd = { name, phone, _, _ -> sent = name to phone }, onCancel = {})
+            }
         }
 
         compose.onNodeWithTag(TAG_FORM_STUDENT_PHONE).performTextInput("01711-234567")
         compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Rahim")
-        compose.onNodeWithTag(TAG_FORM_SUBMIT).performClick()
+        compose.onNodeWithTag(TAG_FORM_SUBMIT).performScrollTo().performClick()
 
         assertEquals("Rahim" to "01711-234567", sent)
     }
@@ -197,7 +260,11 @@ class CreateFormsTest {
     @Test
     fun `a student needs a phone before they can be added`() {
         compose.setContent {
-            StudentAddForm(onAdd = { _, _, _, _ -> }, onCancel = {})
+            // Hosted in a scroll, as ScreenScaffold hosts it: the +88 fields
+            // put Submit below the test window, and an off-screen tap is lost.
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                StudentAddForm(onAdd = { _, _, _, _ -> }, onCancel = {})
+            }
         }
 
         compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Rahim")
@@ -210,7 +277,11 @@ class CreateFormsTest {
         // T8's error state: "This one has 10" -- caught before a round
         // trip rather than refused by the server after one.
         compose.setContent {
-            StudentAddForm(onAdd = { _, _, _, _ -> }, onCancel = {})
+            // Hosted in a scroll, as ScreenScaffold hosts it: the +88 fields
+            // put Submit below the test window, and an off-screen tap is lost.
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                StudentAddForm(onAdd = { _, _, _, _ -> }, onCancel = {})
+            }
         }
 
         compose.onNodeWithTag(TAG_FORM_STUDENT_PHONE).performTextInput("0171123456")
@@ -222,7 +293,11 @@ class CreateFormsTest {
     @Test
     fun `a malformed guardian phone blocks submit, a blank one does not`() {
         compose.setContent {
-            StudentAddForm(onAdd = { _, _, _, _ -> }, onCancel = {})
+            // Hosted in a scroll, as ScreenScaffold hosts it: the +88 fields
+            // put Submit below the test window, and an off-screen tap is lost.
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                StudentAddForm(onAdd = { _, _, _, _ -> }, onCancel = {})
+            }
         }
         compose.onNodeWithTag(TAG_FORM_STUDENT_PHONE).performTextInput("01711-234567")
         compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Rahim")
@@ -241,10 +316,14 @@ class CreateFormsTest {
         // rule living on the client.
         var called = false
         compose.setContent {
-            StudentAddForm(onAdd = { _, _, _, _ -> called = true }, onCancel = {})
+            // Hosted in a scroll, as ScreenScaffold hosts it: the +88 fields
+            // put Submit below the test window, and an off-screen tap is lost.
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                StudentAddForm(onAdd = { _, _, _, _ -> called = true }, onCancel = {})
+            }
         }
 
-        compose.onNodeWithTag(TAG_FORM_SUBMIT).performClick()
+        compose.onNodeWithTag(TAG_FORM_SUBMIT).performScrollTo().performClick()
 
         assertEquals(false, called)
     }
@@ -337,5 +416,60 @@ class CreateFormsTest {
         compose.onNodeWithTag(TAG_FORM_SUBMIT).performScrollTo().performClick()
 
         assertEquals(listOf(5, 0), sent?.map { it.weekday })
+    }
+
+    @Test
+    fun `save and add next sends the same fields through its own callback`() {
+        // T8: a teacher adding a roster row by row stays on the form.
+        var next: Pair<String, String>? = null
+        var saved = false
+        compose.setContent {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                StudentAddForm(
+                    onAdd = { _, _, _, _ -> saved = true },
+                    onAddNext = { name, phone, _, _ -> next = name to phone },
+                    onCancel = {},
+                )
+            }
+        }
+
+        compose.onNodeWithTag(TAG_FORM_STUDENT_PHONE).performTextInput("01711-234567")
+        compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Rahim")
+        compose.onNodeWithTag(TAG_FORM_SUBMIT_NEXT).performScrollTo().performClick()
+
+        assertEquals("Rahim" to "01711-234567", next)
+        assertEquals(false, saved, "add-next must not also save-and-close")
+    }
+
+    @Test
+    fun `without an add-next callback there is one save`() {
+        compose.setContent { StudentAddForm(onAdd = { _, _, _, _ -> }, onCancel = {}) }
+
+        compose.onNodeWithTag(TAG_FORM_SUBMIT_NEXT).assertDoesNotExist()
+    }
+
+    @Test
+    fun `a number one digit short says how many it has`() {
+        // T8: "This one has 10" -- the mistake of misreading a register.
+        compose.setContent { StudentAddForm(onAdd = { _, _, _, _ -> }, onCancel = {}) }
+
+        compose.onNodeWithTag(TAG_FORM_STUDENT_PHONE).performTextInput("0171123456")
+
+        compose.onNodeWithText("This one has 10.", substring = true).assertExists()
+    }
+
+    @Test
+    fun `a name already in the batch is pointed out but not blocked`() {
+        compose.setContent {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                StudentAddForm(onAdd = { _, _, _, _ -> }, onCancel = {}, existingNames = listOf("Rahim Uddin"))
+            }
+        }
+
+        compose.onNodeWithTag(TAG_FORM_STUDENT_PHONE).performTextInput("01711-234567")
+        compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("rahim uddin")
+
+        compose.onNodeWithTag(TAG_FORM_SAME_NAME).assertExists()
+        compose.onNodeWithTag(TAG_FORM_SUBMIT).performScrollTo().assertIsEnabled()
     }
 }

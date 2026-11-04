@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.core.designsystem
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -69,6 +70,9 @@ import com.shikkhokplus.app.R
  * @param refreshing Whether a pull-to-refresh is in flight
  * @param onRefresh What pulling down does; null, the default, means the
  *   screen offers no pull-to-refresh
+ * @param pinned Content fixed under the bar, on the surface tone, which
+ *   the page scrolls beneath — G1's child switcher and header; null for
+ *   none
  * @param content The screen's own contents, in a column
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -84,6 +88,7 @@ fun ScreenScaffold(
     actions: @Composable RowScope.() -> Unit = {},
     refreshing: Boolean = false,
     onRefresh: (() -> Unit)? = null,
+    pinned: (@Composable ColumnScope.() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Scaffold(
@@ -91,7 +96,25 @@ fun ScreenScaffold(
         // A tab destination can be a form-shaped screen: the overview
         // scrolls as one column and is still a tab.
         bottomBar = bottomBar,
-        topBar = { ShikkhokTopBar(title, subtitle, onBack, leading, actions) },
+        topBar = {
+            if (pinned == null) {
+                ShikkhokTopBar(title, subtitle, onBack, leading, actions)
+            } else {
+                // **A pinned header is part of the bar** (G1): one white
+                // block that stays put while the page scrolls under it.
+                Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
+                    ShikkhokTopBar(title, subtitle, onBack, leading, actions, MaterialTheme.colorScheme.surface)
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = Spacing.screen)
+                            .padding(bottom = Spacing.screen),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.tight),
+                        content = pinned,
+                    )
+                }
+            }
+        },
         containerColor = MaterialTheme.colorScheme.background,
     ) { inner ->
         ScreenBody(
@@ -201,6 +224,8 @@ fun ListScreenScaffold(
  * @param onBack Shows a back arrow calling this, or null
  * @param leading Something small before the title, or null
  * @param actions Icons at the bar's end
+ * @param containerColor The bar's fill: the page tone, or the surface
+ *   when a pinned header continues it
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -210,11 +235,15 @@ private fun ShikkhokTopBar(
     onBack: (() -> Unit)?,
     leading: @Composable (() -> Unit)?,
     actions: @Composable RowScope.() -> Unit,
+    containerColor: Color = MaterialTheme.colorScheme.background,
 ) {
     TopAppBar(
         title = {
             Column {
-                Text(text = title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.asHeading())
+                // No title on a screen whose pinned header names it (G1).
+                if (title.isNotBlank()) {
+                    Text(text = title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.asHeading())
+                }
                 if (subtitle != null) {
                     Text(
                         text = subtitle,
@@ -245,7 +274,7 @@ private fun ShikkhokTopBar(
                 // The page tone, not a raised surface: this design
                 // carries depth as tone and has no elevations outside
                 // bottom sheets.
-                containerColor = MaterialTheme.colorScheme.background,
+                containerColor = containerColor,
                 titleContentColor = MaterialTheme.colorScheme.onSurface,
                 navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
                 actionIconContentColor = MaterialTheme.colorScheme.onSurface,

@@ -145,8 +145,8 @@
 
     <!-- D1: profile (O5), the EDIT half only. The deletion states on
          this screen are D6's. -->
-    <string name="profile_title">Your profile</string>
-    <string name="profile_name_label">Your name</string>
+    <string name="profile_title">More</string>
+    <string name="profile_name_label">Full name</string>
     <string name="profile_address_label">Address</string>
     <string name="profile_edit">Edit</string>
     <string name="profile_save">Save</string>
@@ -551,12 +551,7 @@
     <string name="exam_topics_too_long">Up to 20 topics, each up to 120 characters.</string>
     <string name="profile_phone_label">Mobile number</string>
     <string name="profile_phone_note">This is your login and cannot be changed.</string>
-    <string name="profile_delete">Delete my account</string>
-    <string name="profile_sign_out">Sign out</string>
-    <string name="sign_out_title">Sign out?</string>
     <string name="sign_out_body">You can sign in again with your number.</string>
-    <string name="sign_out_unsent">%1$s saved attendance records have not been sent yet. Signing out deletes them from this phone.</string>
-    <string name="sign_out_confirm">Sign out</string>
     <string name="delete_title">Delete my account</string>
     <string name="delete_cannot_undo">This cannot be undone.</string>
     <string name="delete_type_number">Type your number to confirm.</string>
@@ -575,7 +570,7 @@
     <string name="delete_done_close">Close</string>
     <string name="student_add_student_phone">Student\'s phone</string>
     <string name="student_add_student_phone_help">They sign in with this number.</string>
-    <string name="phone_invalid">Enter an 11-digit mobile number, like 01711-234567</string>
+    <string name="phone_invalid">Bangladeshi mobile numbers have 11 digits, starting 01.</string>
     <string name="schedule_duplicate_slot">The same class is listed twice. Remove one.</string>
     <string name="schedule_days">Class days</string>
     <string name="schedule_start">Starts · %1$s</string>
@@ -601,7 +596,7 @@
     <string name="nav_my_batches">My batches</string>
     <string name="my_batches_title">My batches</string>
     <string name="my_batches_empty_title">You\'re not in a batch yet</string>
-    <string name="my_batches_empty_body">Your teacher adds you using your phone number. Give them this number: %1$s</string>
+    <string name="my_batches_empty_body">Your teacher adds you using your phone number. Give them this number: %1$s. This screen updates by itself once you\'re added.</string>
     <string name="my_batches_empty_body_no_phone">Your teacher adds you using your phone number. This screen updates once you\'re added.</string>
     <string name="my_batches_fee_period">Fee · %1$s</string>
     <string name="student_next_class">Next class</string>
@@ -643,7 +638,7 @@
     <string name="verify_all_caught_up_body">When a student or guardian submits a payment, it shows up here.</string>
     <string name="verify_decided_today">Decided today</string>
     <string name="verify_decision_pending">Pending</string>
-    <string name="verify_decision_approved">Payment done</string>
+    <string name="verify_decision_approved">Paid</string>
     <string name="verify_decision_rejected">Rejected</string>
     <string name="verify_detail_title">Check payment</string>
     <string name="verify_detail_title_decided">Payment</string>
@@ -889,7 +884,7 @@
     <string name="student_all_notices">All notices</string>
     <string name="student_pay_this">Send money</string>
     <string name="guardian_none_title">No child linked yet</string>
-    <string name="guardian_none_body">Ask your child\'s teacher to add your phone number as guardian. Your number is: %1$s</string>
+    <string name="guardian_none_body">Ask your child\'s teacher to add your phone number as guardian. Your number is: %1$s. Your children appear here as soon as they\'re linked.</string>
     <string name="guardian_now_showing_before">"Now showing "</string>
     <string name="guardian_now_showing_after">\'s marks and fees</string>
     <string name="guardian_latest_results">%1$s\'s latest results</string>
@@ -1013,7 +1008,7 @@
     <string name="class_text_counter">%1$s / %2$s</string>
     <string name="classread_title">Class</string>
     <!-- Payment methods (teacher). -->
-    <string name="payment_methods_title">Payment methods</string>
+    <string name="payment_methods_title">Where students pay</string>
     <string name="payment_methods_intro">Students and guardians in every batch see these when they pay. Remove one and new payments stop using it; past payments keep it.</string>
     <string name="payment_methods_empty_title">No payment methods yet</string>
     <string name="payment_methods_empty_body">Add where students and guardians should send fees. Until you do, they are told to ask you.</string>
@@ -1080,7 +1075,7 @@
     <string name="pay_txn_short">This looks too short. Check the ID in the %1$s SMS again.</string>
     <string name="pay_offline_title">Couldn\'t send. No connection.</string>
     <string name="pay_offline_body">Your details are kept. Tap send again when you\'re back online.</string>
-    <string name="pay_sent_title">Sent for checking</string>
+    <string name="pay_sent_title">Payment sent</string>
     <string name="pay_teacher_fallback">Your teacher</string>
     <string name="pay_sent_body_mobile">%1$s will check %2$s by %3$s against TrxID %4$s. You\'ll get a notification when it\'s approved or rejected.</string>
     <string name="pay_sent_body_bank">%1$s will check %2$s sent from account %3$s. You\'ll get a notification when it\'s approved or rejected.</string>
@@ -1088,7 +1083,7 @@
     <string name="pay_amount_row">Amount</string>
     <string name="pay_paid_on_row">Paid on</string>
     <string name="pay_status_row">Status</string>
-    <string name="pay_pending">Pending verification</string>
+    <string name="pay_pending">Verifying</string>
     <string name="pay_recorded_title">Already recorded</string>
     <string name="pay_recorded_body_approved">This payment of %1$s was already recorded, and %2$s has approved it.</string>
     <string name="pay_recorded_body_rejected">This payment of %1$s was already recorded, and %2$s did not accept it.</string>
@@ -1184,4 +1179,85 @@
     <string name="dashboard_fees_history">History</string>
     <string name="dashboard_send_money">Send money</string>
     <string name="dashboard_open_progress">Progress</string>
+
+    <!-- More (T9, S4, G4), Edit profile, Log out and My children. -->
+    <string name="more_section_getting_paid">GETTING PAID</string>
+    <string name="more_section_records">YOUR RECORDS</string>
+    <string name="more_section_account">ACCOUNT</string>
+    <string name="more_role_line">%1$s · %2$s</string>
+    <string name="more_name_missing">Add your name</string>
+    <string name="more_where_students_pay">Where students pay</string>
+    <string name="more_where_students_pay_sub">bKash, Nagad, Rocket or a bank account</string>
+    <string name="more_collections_sub">Collected and still owed, month by month</string>
+    <string name="more_invitations">Invitations</string>
+    <string name="more_invitations_sub_student">Batches a teacher added you to</string>
+    <string name="more_invitations_sub_guardian">Children a teacher linked to your number</string>
+    <string name="more_my_children">My children</string>
+    <string name="more_log_out">Log out</string>
+    <string name="more_delete_account">Delete account</string>
+    <string name="more_version">ShikkhokPlus %1$s</string>
+    <string name="edit_profile_title">Edit profile</string>
+    <string name="log_out_title">Log out of ShikkhokPlus?</string>
+    <string name="log_out_unsent_title">%1$s records haven\'t been sent yet.</string>
+    <string name="log_out_unsent_body">Logging out now would delete them from this phone.</string>
+    <string name="log_out_stay">Stay and send them first</string>
+    <string name="log_out_anyway">Log out anyway</string>
+    <string name="log_out_confirm">Log out</string>
+    <string name="my_children_title">My children</string>
+    <string name="my_children_note">Children appear here when their teacher adds your number as guardian. You don\'t need to add them yourself.</string>
+    <string name="my_children_missing_title">A child is missing?</string>
+    <string name="my_children_missing_body">Ask the teacher to add your number, %1$s, as the guardian.</string>
+    <string name="my_children_missing_body_plain">Ask the teacher to add your number as the guardian.</string>
+
+    <!-- Design parity, round 2. -->
+    <string name="student_add_batch_fee">Batch fee · %1$s</string>
+    <string name="student_add_batch_fee_help">Turn off to set a different fee for this student.</string>
+    <string name="pay_needs_connection">Send money · needs a connection</string>
+    <string name="family_offline_body">This is what was loaded earlier. Results and classes are as they were; payments need a connection.</string>
+    <string name="family_fee_unavailable">Fee status unavailable</string>
+    <string name="family_fee_unavailable_body">We don\'t show a payment status we can\'t confirm. It comes back when you\'re online.</string>
+    <string name="guardian_payments_unavailable">Payments can\'t be shown right now. They come back when you\'re online.</string>
+    <string name="today_offline_body">This is today as last loaded. Topics you record are kept and sent when you\'re back online; approving a payment needs a connection.</string>
+    <string name="offline_title">Offline.</string>
+    <string name="offline_figures_from">Showing what was loaded %1$s. It refreshes when you\'re back online.</string>
+    <string name="more_offline_title">Offline.</string>
+    <string name="more_offline_body">This is what was last loaded. Log out still works; anything that changes your account needs a connection.</string>
+    <string name="more_needs_connection">Needs a connection</string>
+    <string name="more_unsent_sub">They send when you\'re back online.</string>
+    <plurals name="more_unsent_title">
+        <item quantity="one">%1$s record not sent yet</item>
+        <item quantity="other">%1$s records not sent yet</item>
+    </plurals>
+    <string name="pay_until_verified">Until your teacher checks it, the fee shows as Verifying, not Paid.</string>
+    <string name="payments_waiting">Send money · loading your payments</string>
+    <string name="dashboard_load_failed">Couldn\'t load the results</string>
+    <string name="my_batches_empty_lead">Your teacher adds you using your phone number. Give them this number. This screen updates by itself once you\'re added.</string>
+    <string name="phone_digit_count">Mobile numbers have 11 digits. This one has %1$s.</string>
+    <string name="student_add_same_name">%1$s is already in this batch. Add them only if this is a different student.</string>
+    <string name="dues_subtitle_owed">%1$s owed</string>
+    <string name="dues_subtitle_updated">%1$s · updated %2$s</string>
+    <string name="verify_duplicate_body_dated">Used before for %1$s (%2$s, %3$s, %4$s). Check before approving.</string>
+    <string name="verify_partial">Partial</string>
+    <string name="verify_review">Review</string>
+    <string name="mark_entry_backspace">Delete a digit</string>
+    <string name="mark_entry_counter">%1$s/%2$s</string>
+    <string name="mark_entry_out_of">/%1$s</string>
+    <string name="mark_entry_now_entering">%1$s · now entering</string>
+    <string name="mark_entry_next">Next ↓</string>
+    <string name="mark_entry_empty_title">No students in this batch yet</string>
+    <string name="mark_entry_empty_body">Add students to the batch, then enter their marks here.</string>
+    <string name="verify_reject_duplicate">Reject as duplicate</string>
+    <string name="verify_approve_anyway">Approve anyway</string>
+    <string name="student_add_submit_next">Save &amp; add next</string>
+    <plurals name="student_add_added_so_far">
+        <item quantity="one">%1$d added so far</item>
+        <item quantity="other">%1$d added so far</item>
+    </plurals>
+    <string name="verify_sheet_title_partial">Approve %1$s of %2$s</string>
+    <string name="verify_carry_forward_amount">Add %1$s to the next fee.</string>
+    <string name="today_outstanding_title">Outstanding</string>
+    <string name="today_total_owed">Total owed across all batches</string>
+    <string name="progress_of_child">%1$s\'s progress</string>
+    <string name="verify_queue_trx">TrxID %1$s</string>
+    <string name="verify_queue_from">From %1$s</string>
 </resources>

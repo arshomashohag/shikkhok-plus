@@ -184,7 +184,7 @@ class SignupScreenTest {
         compose.onNodeWithTag(TAG_SIGNUP_PHONE).assertExists()
         compose.onNodeWithTag(TAG_SIGNUP_SUBMIT).assertExists()
         compose
-            .onNodeWithText("Enter an 11-digit mobile number, like 01711-234567")
+            .onNodeWithText("Bangladeshi mobile numbers have 11 digits, starting 01.")
             .assertExists()
     }
 
@@ -194,7 +194,7 @@ class SignupScreenTest {
 
         compose.onNodeWithTag(TAG_SIGNUP_SUBMIT).assertExists()
         compose
-            .onNodeWithText("Enter an 11-digit mobile number, like 01711-234567")
+            .onNodeWithText("Bangladeshi mobile numbers have 11 digits, starting 01.")
             .assertExists()
     }
 

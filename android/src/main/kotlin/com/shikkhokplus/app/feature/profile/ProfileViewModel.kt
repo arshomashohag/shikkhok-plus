@@ -70,8 +70,13 @@ class ProfileViewModel(
     /** Where deleting this account stands. */
     val deletion: StateFlow<DeletionState> = _deletion.asStateFlow()
 
+    private val _summary = MutableStateFlow<ProfileSummary?>(null)
+
+    /** The last profile the server confirmed; see [ProfileSummary]. */
+    val summary: StateFlow<ProfileSummary?> = _summary.asStateFlow()
+
     /** The number from the last read, for the deletion confirmation. */
-    private var phone: String? = null
+    private val phone: String? get() = _summary.value?.phone
 
     private var lastAction: (() -> Unit)? = null
 
@@ -83,13 +88,18 @@ class ProfileViewModel(
             _state.value =
                 when (val result = repository.profile()) {
                     is AuthResult.Ok -> {
-                        phone = result.value.phone
+                        remember(result.value)
                         ProfileStateMapper.afterLoad(result.value)
                     }
                     is AuthResult.Refused ->
                         ProfileStateMapper.afterError(result.envelope)
+                    // **Offline, with this session's copy if there is one**:
+                    // the profile read earlier stays on screen, marked
+                    // offline, rather than an error replacing it.
                     AuthResult.TransportFailure ->
-                        ProfileStateMapper.afterTransportFailure()
+                        _summary.value?.let {
+                            ProfileUiState.Viewing(it.selfName, it.address, it.phone, offline = true)
+                        } ?: ProfileStateMapper.afterTransportFailure()
                 }
         }
     }
@@ -102,20 +112,32 @@ class ProfileViewModel(
      */
     fun edit() {
         val current = _state.value
-        val name = when (current) {
-            is ProfileUiState.Viewing -> current.selfName
-            is ProfileUiState.Saved -> current.selfName
-            else -> null
-        }
-        val address = when (current) {
-            is ProfileUiState.Viewing -> current.address
-            is ProfileUiState.Saved -> current.address
-            else -> null
-        }
+        if (current is ProfileUiState.Editing) return
+        // Read from what was last stored, not from the state: after a
+        // form was left with Back the state is still `Editing`, and a
+        // second Edit must not open it blank.
+        val stored = _summary.value
         _state.value =
             ProfileUiState.Editing(
-                selfName = name.orEmpty(),
-                address = address.orEmpty(),
+                selfName = stored?.selfName.orEmpty(),
+                address = stored?.address.orEmpty(),
+            )
+    }
+
+    /**
+     * Close the form without saving.
+     *
+     * Returns to the stored profile. Ignored while a save is in flight,
+     * so closing cannot hide whether the save landed.
+     */
+    fun cancelEdit() {
+        if (_state.value !is ProfileUiState.Editing) return
+        val stored = _summary.value ?: return
+        _state.value =
+            ProfileUiState.Viewing(
+                selfName = stored.selfName,
+                address = stored.address,
+                phone = stored.phone,
             )
     }
 
@@ -144,7 +166,7 @@ class ProfileViewModel(
                         )
                 ) {
                     is AuthResult.Ok -> {
-                        phone = result.value.phone
+                        remember(result.value)
                         ProfileStateMapper.afterSave(result.value)
                     }
                     is AuthResult.Refused ->
@@ -225,5 +247,14 @@ class ProfileViewModel(
                         )
                 }
         }
+    }
+
+    /**
+     * Keep what the server confirmed.
+     *
+     * @param dto The profile as the server returned it
+     */
+    private fun remember(dto: MeDto) {
+        _summary.value = ProfileSummary(selfName = dto.selfName, address = dto.address, phone = dto.phone)
     }
 }

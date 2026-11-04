@@ -15,7 +15,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
-import com.shikkhokplus.app.core.designsystem.LogoLoader
+import com.shikkhokplus.app.core.designsystem.SkeletonList
 import com.shikkhokplus.app.core.designsystem.ListScreenScaffold
 import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.feature.auth.MessageKeys
@@ -82,7 +82,7 @@ fun ExamListScreen(
             MarksUiState.Idle -> Unit
 
             MarksUiState.Loading ->
-                LogoLoader(Modifier.testTag(TAG_EXAMS_LOADING))
+                SkeletonList(modifier = Modifier.testTag(TAG_EXAMS_LOADING))
 
             is MarksUiState.ExamsEmpty -> {
                 Text(state.batchName, Modifier.testTag(TAG_EXAMS_TITLE))

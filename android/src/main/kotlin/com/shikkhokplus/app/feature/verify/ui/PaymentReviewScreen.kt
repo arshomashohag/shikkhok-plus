@@ -45,6 +45,7 @@ import com.shikkhokplus.app.core.designsystem.Motion
 import com.shikkhokplus.app.core.designsystem.PaymentState
 import com.shikkhokplus.app.core.designsystem.PaymentStateChip
 import com.shikkhokplus.app.core.designsystem.PrimaryButton
+import com.shikkhokplus.app.core.designsystem.SecondaryButton
 import com.shikkhokplus.app.core.designsystem.ShikkhokCard
 import com.shikkhokplus.app.core.designsystem.ShikkhokTextField
 import com.shikkhokplus.app.core.designsystem.SkeletonList
@@ -271,6 +272,26 @@ private fun DecideControls(
         Modifier.fillMaxWidth().testTag(TAG_REVIEW_APPROVE_OTHER),
         enabled = !state.busy,
     )
+    // **A reused transaction ID turns the defaults round** (T4 "Error ·
+    // duplicate"): rejecting is the filled, likely choice and approving
+    // is the deliberate one, so a teacher tapping the big button out of
+    // habit does not approve the same money twice.
+    if (state.card.duplicate != null) {
+        DestructiveButton(
+            text = stringResource(R.string.verify_reject_duplicate),
+            onClick = onAskReject,
+            enabled = !state.busy,
+            filled = true,
+            modifier = Modifier.fillMaxWidth().testTag(TAG_VERIFY_REJECT),
+        )
+        SecondaryButton(
+            text = stringResource(R.string.verify_approve_anyway),
+            onClick = { actions.onApprove(note) },
+            enabled = !state.busy,
+            modifier = Modifier.fillMaxWidth().testTag(TAG_VERIFY_APPROVE),
+        )
+        return
+    }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         DestructiveButton(
             text = stringResource(R.string.verify_reject),
@@ -480,8 +501,18 @@ private fun methodLine(method: ReviewMethod): String {
 private fun Duplicate(duplicate: DuplicateNote) {
     Banner(
         title = stringResource(R.string.verify_duplicate_title),
+        // With the date it was decided (T4), so the teacher can find it
+        // in their own SMS history.
         body =
-            stringResource(
+            duplicate.decidedAt?.let { at ->
+                stringResource(
+                    R.string.verify_duplicate_body_dated,
+                    Numerals.freeText(duplicate.displayName),
+                    stringResource(decisionLabel(duplicate.statusKey)),
+                    Numerals.money(duplicate.amount),
+                    shortDate(at.take(ISO_DATE_LENGTH)),
+                )
+            } ?: stringResource(
                 R.string.verify_duplicate_body,
                 Numerals.freeText(duplicate.displayName),
                 stringResource(decisionLabel(duplicate.statusKey)),
@@ -526,3 +557,6 @@ private fun Decision(card: ReviewCard) {
         }
     }
 }
+
+/** `yyyy-MM-dd`, the date part of an ISO timestamp. */
+private const val ISO_DATE_LENGTH = 10

@@ -2,11 +2,12 @@ package com.shikkhokplus.app.feature.record.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SuggestionChip
@@ -19,6 +20,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
+import com.shikkhokplus.app.core.designsystem.LocalTouchScale
+import androidx.compose.foundation.layout.heightIn
 import com.shikkhokplus.app.core.designsystem.Banner
 import com.shikkhokplus.app.core.designsystem.BannerTone
 import com.shikkhokplus.app.core.designsystem.PrimaryButton
@@ -139,6 +142,7 @@ fun RecordClassSheet(
  * @param sheet The sheet's state
  * @param onChoose Called with a subject id
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SubjectPicker(sheet: RecordSheet, onChoose: (String) -> Unit) {
     when (sheet.subjects.size) {
@@ -149,14 +153,19 @@ private fun SubjectPicker(sheet: RecordSheet, onChoose: (String) -> Unit) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        // A segmented control (T2): one subject is always the answer, and
+        // the joined segments say so where separate chips read as filters.
         else ->
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                sheet.subjects.forEach { subject ->
-                    FilterChip(
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                sheet.subjects.forEachIndexed { index, subject ->
+                    SegmentedButton(
                         selected = subject.id == sheet.subjectId,
                         onClick = { onChoose(subject.id) },
-                        label = { Text(Numerals.freeText(subject.name)) },
-                        modifier = Modifier.weight(1f).testTag(TAG_RECORD_SUBJECT),
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = sheet.subjects.size),
+                        label = {
+                            Text(Numerals.freeText(subject.name), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        },
+                        modifier = Modifier.heightIn(min = LocalTouchScale.current.touch).testTag(TAG_RECORD_SUBJECT),
                     )
                 }
             }

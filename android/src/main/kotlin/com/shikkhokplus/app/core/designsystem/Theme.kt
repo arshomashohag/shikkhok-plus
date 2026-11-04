@@ -38,3 +38,30 @@ fun ShikkhokTheme(
         )
     }
 }
+
+/**
+ * The guardian's larger type and reach around [content], when [enabled].
+ *
+ * Applied once, around the whole navigation graph, for the guardian
+ * lens: every screen a guardian can reach is a guardian screen, and a
+ * scale applied screen by screen would miss the shared ones. Colours
+ * and shapes are the surrounding theme's.
+ *
+ * @param enabled Whether the signed-in lens is the guardian's
+ * @param content The screens
+ */
+@Composable
+fun GuardianScale(enabled: Boolean, content: @Composable () -> Unit) {
+    if (!enabled) {
+        content()
+        return
+    }
+    CompositionLocalProvider(LocalTouchScale provides GuardianTouch) {
+        MaterialTheme(
+            colorScheme = MaterialTheme.colorScheme,
+            typography = GuardianTypography,
+            shapes = MaterialTheme.shapes,
+            content = content,
+        )
+    }
+}

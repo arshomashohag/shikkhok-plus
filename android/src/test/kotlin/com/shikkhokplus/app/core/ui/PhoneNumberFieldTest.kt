@@ -43,7 +43,7 @@ class PhoneNumberFieldTest {
     @get:Rule
     val compose = createComposeRule()
 
-    private val message = "Enter an 11-digit mobile number, like 01711-234567"
+    private val message = "Bangladeshi mobile numbers have 11 digits, starting 01."
 
     private fun render(onLeft: (String) -> Unit = {}) {
         compose.setContent {

@@ -132,8 +132,8 @@
     <string name="decline_confirm">প্রত্যাখ্যান করুন</string>
 
     <!-- D1: প্রোফাইল (O5), শুধু সম্পাদনার অংশ। -->
-    <string name="profile_title">আপনার প্রোফাইল</string>
-    <string name="profile_name_label">আপনার নাম</string>
+    <string name="profile_title">আরও</string>
+    <string name="profile_name_label">পুরো নাম</string>
     <string name="profile_address_label">ঠিকানা</string>
     <string name="profile_edit">সম্পাদনা</string>
     <string name="profile_save">সংরক্ষণ</string>
@@ -496,12 +496,7 @@
     <string name="exam_topics_too_long">সর্বোচ্চ 20টি বিষয়বস্তু, প্রতিটি সর্বোচ্চ 120 অক্ষর।</string>
     <string name="profile_phone_label">মোবাইল নম্বর</string>
     <string name="profile_phone_note">এটি আপনার লগইন, বদলানো যাবে না।</string>
-    <string name="profile_delete">আমার অ্যাকাউন্ট মুছুন</string>
-    <string name="profile_sign_out">সাইন আউট</string>
-    <string name="sign_out_title">সাইন আউট করবেন?</string>
     <string name="sign_out_body">আপনার নম্বর দিয়ে আবার সাইন ইন করতে পারবেন।</string>
-    <string name="sign_out_unsent">সংরক্ষিত %1$sটি হাজিরা এখনও পাঠানো হয়নি। সাইন আউট করলে এগুলো এই ফোন থেকে মুছে যাবে।</string>
-    <string name="sign_out_confirm">সাইন আউট</string>
     <string name="delete_title">আমার অ্যাকাউন্ট মুছুন</string>
     <string name="delete_cannot_undo">এটি আর ফেরানো যাবে না।</string>
     <string name="delete_type_number">নিশ্চিত করতে আপনার নম্বর লিখুন।</string>
@@ -520,7 +515,7 @@
     <string name="delete_done_close">বন্ধ করুন</string>
     <string name="student_add_student_phone">শিক্ষার্থীর ফোন</string>
     <string name="student_add_student_phone_help">এই নম্বর দিয়ে তারা সাইন ইন করবে।</string>
-    <string name="phone_invalid">01711-234567 এর মতো 11 সংখ্যার একটি মোবাইল নম্বর লিখুন</string>
+    <string name="phone_invalid">বাংলাদেশি মোবাইল নম্বর 11 সংখ্যার, শুরু হয় 01 দিয়ে।</string>
     <string name="schedule_duplicate_slot">একই ক্লাস দুবার দেওয়া হয়েছে। একটি সরিয়ে দিন।</string>
     <string name="schedule_days">ক্লাসের দিন</string>
     <string name="schedule_start">শুরু · %1$s</string>
@@ -546,7 +541,7 @@
     <string name="nav_my_batches">আমার ব্যাচ</string>
     <string name="my_batches_title">আমার ব্যাচ</string>
     <string name="my_batches_empty_title">আপনি এখনও কোনো ব্যাচে নেই</string>
-    <string name="my_batches_empty_body">শিক্ষক আপনার ফোন নম্বর দিয়ে আপনাকে যুক্ত করবেন। তাঁকে এই নম্বরটি দিন: %1$s</string>
+    <string name="my_batches_empty_body">শিক্ষক আপনার ফোন নম্বর দিয়ে আপনাকে যুক্ত করবেন। তাঁকে এই নম্বরটি দিন: %1$s। আপনাকে যোগ করলে এই পাতা নিজে থেকেই বদলে যাবে।</string>
     <string name="my_batches_empty_body_no_phone">শিক্ষক আপনার ফোন নম্বর দিয়ে আপনাকে যুক্ত করবেন। যুক্ত হলে এই পাতা নিজেই বদলে যাবে।</string>
     <string name="my_batches_fee_period">বেতন · %1$s</string>
     <string name="student_next_class">পরের ক্লাস</string>
@@ -588,7 +583,7 @@
     <string name="verify_all_caught_up_body">শিক্ষার্থী বা অভিভাবক পেমেন্ট জমা দিলে তা এখানে দেখা যাবে।</string>
     <string name="verify_decided_today">আজকের সিদ্ধান্ত</string>
     <string name="verify_decision_pending">অপেক্ষায়</string>
-    <string name="verify_decision_approved">পেমেন্ট সম্পন্ন</string>
+    <string name="verify_decision_approved">পরিশোধিত</string>
     <string name="verify_decision_rejected">বাতিল</string>
     <string name="verify_detail_title">পেমেন্ট যাচাই</string>
     <string name="verify_detail_title_decided">পেমেন্ট</string>
@@ -834,7 +829,7 @@
     <string name="student_all_notices">সব নোটিশ</string>
     <string name="student_pay_this">টাকা পাঠান</string>
     <string name="guardian_none_title">এখনও কোনও সন্তান যুক্ত হয়নি</string>
-    <string name="guardian_none_body">আপনার সন্তানের শিক্ষককে আপনার নম্বর অভিভাবক হিসেবে যোগ করতে বলুন। আপনার নম্বর: %1$s</string>
+    <string name="guardian_none_body">আপনার সন্তানের শিক্ষককে আপনার নম্বর অভিভাবক হিসেবে যোগ করতে বলুন। আপনার নম্বর: %1$s। যুক্ত হলেই আপনার সন্তানেরা এখানে দেখা যাবে।</string>
     <string name="guardian_now_showing_before">"এখন দেখাচ্ছে "</string>
     <string name="guardian_now_showing_after">"-এর নম্বর ও বেতন"</string>
     <string name="guardian_latest_results">%1$s-এর সাম্প্রতিক ফল</string>
@@ -958,7 +953,7 @@
     <string name="class_text_counter">%1$s / %2$s</string>
     <string name="classread_title">ক্লাস</string>
     <!-- Payment methods (teacher). -->
-    <string name="payment_methods_title">পেমেন্টের মাধ্যম</string>
+    <string name="payment_methods_title">শিক্ষার্থীরা কোথায় টাকা দেবে</string>
     <string name="payment_methods_intro">প্রতিটি ব্যাচের শিক্ষার্থী ও অভিভাবকরা টাকা পাঠানোর সময় এগুলো দেখেন। একটি সরালে নতুন পেমেন্টে সেটি আর আসবে না; আগের পেমেন্টে থাকবে।</string>
     <string name="payment_methods_empty_title">এখনও কোনো পেমেন্টের মাধ্যম নেই</string>
     <string name="payment_methods_empty_body">শিক্ষার্থী ও অভিভাবকরা কোথায় ফি পাঠাবেন তা যোগ করুন। যোগ না করা পর্যন্ত তাঁদের আপনাকে জিজ্ঞেস করতে বলা হবে।</string>
@@ -1025,7 +1020,7 @@
     <string name="pay_txn_short">আইডিটি খুব ছোট মনে হচ্ছে। %1$s এসএমএস-এ আইডিটি আবার দেখুন।</string>
     <string name="pay_offline_title">পাঠানো যায়নি। সংযোগ নেই।</string>
     <string name="pay_offline_body">আপনার তথ্য রাখা আছে। অনলাইনে ফিরে আবার পাঠান চাপুন।</string>
-    <string name="pay_sent_title">যাচাইয়ের জন্য পাঠানো হয়েছে</string>
+    <string name="pay_sent_title">পেমেন্ট পাঠানো হয়েছে</string>
     <string name="pay_teacher_fallback">আপনার শিক্ষক</string>
     <string name="pay_sent_body_mobile">%1$s %3$s-এ পাঠানো %2$s ট্রানজেকশন আইডি %4$s-এর সাথে মিলিয়ে দেখবেন। অনুমোদন বা প্রত্যাখ্যান হলে আপনি নোটিফিকেশন পাবেন।</string>
     <string name="pay_sent_body_bank">%1$s অ্যাকাউন্ট %3$s থেকে পাঠানো %2$s মিলিয়ে দেখবেন। অনুমোদন বা প্রত্যাখ্যান হলে আপনি নোটিফিকেশন পাবেন।</string>
@@ -1033,7 +1028,7 @@
     <string name="pay_amount_row">পরিমাণ</string>
     <string name="pay_paid_on_row">দেওয়ার তারিখ</string>
     <string name="pay_status_row">অবস্থা</string>
-    <string name="pay_pending">যাচাই বাকি</string>
+    <string name="pay_pending">যাচাই হচ্ছে</string>
     <string name="pay_recorded_title">আগেই রেকর্ড করা হয়েছে</string>
     <string name="pay_recorded_body_approved">%1$s-এর এই পেমেন্টটি আগেই রেকর্ড করা হয়েছিল, এবং %2$s এটি অনুমোদন করেছেন।</string>
     <string name="pay_recorded_body_rejected">%1$s-এর এই পেমেন্টটি আগেই রেকর্ড করা হয়েছিল, কিন্তু %2$s এটি গ্রহণ করেননি।</string>
@@ -1129,4 +1124,85 @@
     <string name="dashboard_fees_history">ইতিহাস</string>
     <string name="dashboard_send_money">টাকা পাঠান</string>
     <string name="dashboard_open_progress">অগ্রগতি</string>
+
+    <!-- More (T9, S4, G4), Edit profile, Log out and My children. -->
+    <string name="more_section_getting_paid">টাকা পাওয়া</string>
+    <string name="more_section_records">আপনার রেকর্ড</string>
+    <string name="more_section_account">অ্যাকাউন্ট</string>
+    <string name="more_role_line">%1$s · %2$s</string>
+    <string name="more_name_missing">আপনার নাম লিখুন</string>
+    <string name="more_where_students_pay">শিক্ষার্থীরা কোথায় টাকা দেবে</string>
+    <string name="more_where_students_pay_sub">বিকাশ, নগদ, রকেট বা ব্যাংক অ্যাকাউন্ট</string>
+    <string name="more_collections_sub">মাস ধরে আদায় ও বাকি</string>
+    <string name="more_invitations">আমন্ত্রণ</string>
+    <string name="more_invitations_sub_student">যে ব্যাচে শিক্ষক আপনাকে যোগ করেছেন</string>
+    <string name="more_invitations_sub_guardian">শিক্ষক আপনার নম্বরে যে সন্তানদের যুক্ত করেছেন</string>
+    <string name="more_my_children">আমার সন্তান</string>
+    <string name="more_log_out">লগ আউট</string>
+    <string name="more_delete_account">অ্যাকাউন্ট মুছুন</string>
+    <string name="more_version">শিক্ষকপ্লাস %1$s</string>
+    <string name="edit_profile_title">প্রোফাইল সম্পাদনা</string>
+    <string name="log_out_title">শিক্ষকপ্লাস থেকে লগ আউট করবেন?</string>
+    <string name="log_out_unsent_title">%1$sটি রেকর্ড এখনও পাঠানো হয়নি।</string>
+    <string name="log_out_unsent_body">এখন লগ আউট করলে এগুলো এই ফোন থেকে মুছে যাবে।</string>
+    <string name="log_out_stay">থাকুন, আগে পাঠিয়ে দিন</string>
+    <string name="log_out_anyway">তবুও লগ আউট করুন</string>
+    <string name="log_out_confirm">লগ আউট</string>
+    <string name="my_children_title">আমার সন্তান</string>
+    <string name="my_children_note">শিক্ষক আপনার নম্বরকে অভিভাবক হিসেবে যোগ করলে সন্তানেরা এখানে দেখা যাবে। আপনাকে নিজে যোগ করতে হবে না।</string>
+    <string name="my_children_missing_title">কোনো সন্তান নেই?</string>
+    <string name="my_children_missing_body">শিক্ষককে আপনার নম্বর, %1$s, অভিভাবক হিসেবে যোগ করতে বলুন।</string>
+    <string name="my_children_missing_body_plain">শিক্ষককে আপনার নম্বর অভিভাবক হিসেবে যোগ করতে বলুন।</string>
+
+    <!-- Design parity, round 2. -->
+    <string name="student_add_batch_fee">ব্যাচের ফি · %1$s</string>
+    <string name="student_add_batch_fee_help">এই শিক্ষার্থীর আলাদা ফি দিতে বন্ধ করুন।</string>
+    <string name="pay_needs_connection">টাকা পাঠান · সংযোগ লাগবে</string>
+    <string name="family_offline_body">আগে যা এসেছিল তা-ই দেখানো হচ্ছে। ফলাফল ও ক্লাস আগের মতো; পেমেন্টে সংযোগ লাগবে।</string>
+    <string name="family_fee_unavailable">ফি-এর অবস্থা পাওয়া যাচ্ছে না</string>
+    <string name="family_fee_unavailable_body">যে পেমেন্টের অবস্থা নিশ্চিত নয়, তা আমরা দেখাই না। অনলাইনে এলে আবার দেখা যাবে।</string>
+    <string name="guardian_payments_unavailable">এখন পেমেন্ট দেখানো যাচ্ছে না। অনলাইনে এলে আবার দেখা যাবে।</string>
+    <string name="today_offline_body">শেষবার যেমন এসেছিল তেমন আজকের দিন। যে বিষয় লিখবেন তা রাখা থাকবে, অনলাইনে এলে পাঠানো হবে; পেমেন্ট অনুমোদনে সংযোগ লাগবে।</string>
+    <string name="offline_title">অফলাইন।</string>
+    <string name="offline_figures_from">%1$s যা এসেছিল তা-ই দেখানো হচ্ছে। আবার অনলাইনে এলে হালনাগাদ হবে।</string>
+    <string name="more_offline_title">অফলাইন।</string>
+    <string name="more_offline_body">শেষবার যা এসেছিল তা-ই দেখানো হচ্ছে। লগ আউট এখনও করা যাবে; অ্যাকাউন্টে কিছু বদলাতে সংযোগ লাগবে।</string>
+    <string name="more_needs_connection">সংযোগ লাগবে</string>
+    <string name="more_unsent_sub">আবার অনলাইনে এলে পাঠানো হবে।</string>
+    <plurals name="more_unsent_title">
+        <item quantity="one">%1$sটি রেকর্ড এখনও পাঠানো হয়নি</item>
+        <item quantity="other">%1$sটি রেকর্ড এখনও পাঠানো হয়নি</item>
+    </plurals>
+    <string name="pay_until_verified">শিক্ষক যাচাই না করা পর্যন্ত ফি “যাচাই হচ্ছে” দেখাবে, “পরিশোধিত” নয়।</string>
+    <string name="payments_waiting">টাকা পাঠান · পেমেন্ট আনা হচ্ছে</string>
+    <string name="dashboard_load_failed">ফলাফল আনা যায়নি</string>
+    <string name="my_batches_empty_lead">শিক্ষক আপনার ফোন নম্বর দিয়ে আপনাকে যুক্ত করবেন। তাঁকে এই নম্বরটি দিন। আপনাকে যোগ করলে এই পাতা নিজে থেকেই বদলে যাবে।</string>
+    <string name="phone_digit_count">মোবাইল নম্বর 11 সংখ্যার। এটিতে %1$sটি আছে।</string>
+    <string name="student_add_same_name">%1$s এই ব্যাচে আগে থেকেই আছে। অন্য শিক্ষার্থী হলেই যোগ করুন।</string>
+    <string name="dues_subtitle_owed">%1$s বাকি</string>
+    <string name="dues_subtitle_updated">%1$s · হালনাগাদ %2$s</string>
+    <string name="verify_duplicate_body_dated">আগে %1$s এর জন্য ব্যবহার হয়েছে (%2$s, %3$s, %4$s)। অনুমোদনের আগে দেখে নিন।</string>
+    <string name="verify_partial">আংশিক</string>
+    <string name="verify_review">দেখুন</string>
+    <string name="mark_entry_backspace">একটি অঙ্ক মুছুন</string>
+    <string name="mark_entry_counter">%1$s/%2$s</string>
+    <string name="mark_entry_out_of">/%1$s</string>
+    <string name="mark_entry_now_entering">%1$s · এখন দিচ্ছেন</string>
+    <string name="mark_entry_next">পরের ↓</string>
+    <string name="mark_entry_empty_title">এই ব্যাচে এখনও কোনো শিক্ষার্থী নেই</string>
+    <string name="mark_entry_empty_body">ব্যাচে শিক্ষার্থী যোগ করুন, তারপর এখানে নম্বর দিন।</string>
+    <string name="verify_reject_duplicate">ডুপ্লিকেট হিসেবে বাতিল</string>
+    <string name="verify_approve_anyway">তবুও অনুমোদন</string>
+    <string name="student_add_submit_next">সংরক্ষণ করে পরের জন</string>
+    <plurals name="student_add_added_so_far">
+        <item quantity="one">এ পর্যন্ত %1$d জন যোগ হয়েছে</item>
+        <item quantity="other">এ পর্যন্ত %1$d জন যোগ হয়েছে</item>
+    </plurals>
+    <string name="verify_sheet_title_partial">%2$s-এর মধ্যে %1$s অনুমোদন</string>
+    <string name="verify_carry_forward_amount">%1$s পরের ফি-তে যোগ হবে।</string>
+    <string name="today_outstanding_title">বাকি</string>
+    <string name="today_total_owed">সব ব্যাচ মিলিয়ে মোট বাকি</string>
+    <string name="progress_of_child">%1$s-এর অগ্রগতি</string>
+    <string name="verify_queue_trx">TrxID %1$s</string>
+    <string name="verify_queue_from">%1$s থেকে</string>
 </resources>

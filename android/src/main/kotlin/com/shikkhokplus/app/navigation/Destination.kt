@@ -668,4 +668,14 @@ sealed interface Destination {
     data object Profile : Destination {
         override val route: String = "profile"
     }
+
+    /** Edit profile (S4), pushed over More. */
+    data object EditProfile : Destination {
+        override val route: String = "profile/edit"
+    }
+
+    /** A guardian's children (G4), pushed over More. */
+    data object MyChildren : Destination {
+        override val route: String = "profile/children"
+    }
 }

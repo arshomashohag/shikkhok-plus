@@ -47,6 +47,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
+import com.shikkhokplus.app.core.ui.agoMillis
+import com.shikkhokplus.app.core.model.Money
 import com.shikkhokplus.app.core.designsystem.Banner
 import com.shikkhokplus.app.core.designsystem.BannerTone
 import com.shikkhokplus.app.core.designsystem.EmptyState
@@ -162,13 +164,22 @@ fun DuesScreen(
 ) {
     ListScreenScaffold(
         title = stringResource(R.string.dues_title),
+        // "৳48,600 owed · updated 2 min ago" (T5): the total stays in the
+        // bar when the summary card scrolls away, and the age says how
+        // fresh the figures are.
+        subtitle = subtitleOf(state),
         modifier = modifier,
         refreshing = refreshing,
         onRefresh = actions.onRefresh,
         bottomBar = {
             Column {
                 if (state is DuesUiState.Loaded && state.summary.remindable > 0) {
-                    RemindBar(state.summary.remindable, state.remind == RemindState.Sending, actions.onAskRemind)
+                    RemindBar(
+                        state.summary.remindable,
+                        // Offline, reminding cannot reach anyone.
+                        state.remind == RemindState.Sending || state.offline,
+                        actions.onAskRemind,
+                    )
                 }
                 bottomBar()
             }
@@ -180,8 +191,14 @@ fun DuesScreen(
                 DuesUiState.Loading -> SkeletonList(modifier = Modifier.padding(top = 8.dp).testTag(TAG_DUES_LOADING))
                 // Scrollable so a pull works here too: "nobody owes" is
                 // exactly when a teacher pulls to see if that changed.
-                DuesUiState.Empty ->
-                    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                is DuesUiState.Empty ->
+                    Column(
+                        Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.tight),
+                    ) {
+                        // T5's empty board keeps "Owed to you ৳0" at the
+                        // top, as the server reports it.
+                        shown.total?.let { EmptyOwedCard(it) }
                         EmptyState(
                             title = stringResource(R.string.dues_empty_title),
                             body = stringResource(R.string.dues_nobody_owes),
@@ -205,7 +222,21 @@ fun DuesScreen(
 }
 
 /**
- * The loaded list: headline, filters, then the groups in the server's
+ * The bar's subtitle once loaded: what is owed, and how fresh it is.
+ *
+ * @param state What is shown
+ * @return The line, or null before the dues load
+ */
+@Composable
+private fun subtitleOf(state: DuesUiState): String? {
+    val loaded = state as? DuesUiState.Loaded ?: return null
+    val owed = stringResource(R.string.dues_subtitle_owed, Numerals.money(loaded.summary.total))
+    return loaded.loadedAt?.let { stringResource(R.string.dues_subtitle_updated, owed, agoMillis(it)) } ?: owed
+}
+
+/**
+ * The loaded list, under the offline banner when this is the session's
+ * earlier copy: headline, filters, then the groups in the server's
  * order.
  *
  * @param state The loaded state
@@ -213,6 +244,14 @@ fun DuesScreen(
  */
 @Composable
 private fun Loaded(state: DuesUiState.Loaded, actions: DuesActions) {
+    if (state.offline) {
+        Banner(
+            title = stringResource(R.string.offline_title),
+            body = state.loadedAt?.let { stringResource(R.string.offline_figures_from, agoMillis(it)) },
+            tone = BannerTone.NEUTRAL,
+            modifier = Modifier.padding(top = 8.dp).testTag(TAG_DUES_OFFLINE),
+        )
+    }
     RemindOutcome(state.remind, state.summary.remindable, actions)
     LazyColumn(
         modifier = Modifier.testTag(TAG_DUES_LIST),
@@ -271,6 +310,26 @@ private fun LazyListScope.groupSection(group: DuesGroupTotal, rows: List<DuesRow
                 DuesRowItem(row)
             }
         }
+    }
+}
+
+/** The offline banner over this session's figures. */
+const val TAG_DUES_OFFLINE: String = "dues_offline"
+
+/**
+ * "Owed to you" alone, for the empty board: no groups to draw a bar of.
+ *
+ * @param total The server's total owed
+ */
+@Composable
+private fun EmptyOwedCard(total: Money) {
+    ShikkhokCard(Modifier.padding(top = 8.dp).testTag(TAG_DUES_SUMMARY)) {
+        Text(
+            stringResource(R.string.dues_owed_to_you),
+            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(Numerals.money(total), style = MoneyTotal)
     }
 }
 
@@ -507,9 +566,13 @@ private fun DuesRowItem(row: DuesRow) {
                 style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
                 modifier = Modifier.testTag(TAG_DUES_AMOUNT),
             )
+            // **Late is red at any age** (T5 draws 7, 37 and 68 days alike
+            // as the overdue chip). Amber is the board's partly-paid chip,
+            // and a late row is not partly paid: the dues read carries no
+            // such flag, so no row here can honestly be amber.
             row.daysLate?.let { days ->
                 PaymentStateChip(
-                    if (row.group == DuesGroupKind.OVER_30) PaymentState.OVERDUE else PaymentState.PARTIAL,
+                    PaymentState.OVERDUE,
                     stringResource(R.string.dues_days, Numerals.count(days)),
                     modifier = Modifier.testTag(TAG_DUES_DAYS),
                     compact = true,

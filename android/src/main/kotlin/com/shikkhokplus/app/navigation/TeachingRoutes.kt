@@ -51,6 +51,7 @@ import com.shikkhokplus.app.feature.verify.ui.PaymentReviewScreen
 import com.shikkhokplus.app.feature.verify.ui.ReviewActions
 import com.shikkhokplus.app.feature.verify.ui.SheetActions
 import com.shikkhokplus.app.feature.verify.ui.VerifyScreen
+import com.shikkhokplus.app.feature.verify.ui.QueueDecisions
 import io.ktor.client.HttpClient
 
 /**
@@ -73,9 +74,14 @@ internal fun NavGraphBuilder.teachingRoutes(
     navController: NavHostController,
 ) {
     composable(Destination.Verify.route) {
-        val model: VerifyViewModel = viewModel { VerifyViewModel(HttpVerificationRepository(client)) }
+        val model: VerifyViewModel =
+            viewModel {
+                HttpVerificationRepository(client).let { repository -> VerifyViewModel(repository, repository) }
+            }
         val state by model.state.collectAsState()
         val refreshing by model.refreshing.collectAsState()
+        val deciding by model.deciding.collectAsState()
+        val decisionError by model.decisionError.collectAsState()
 
         LaunchedEffect(Unit) { model.load() }
 
@@ -86,6 +92,8 @@ internal fun NavGraphBuilder.teachingRoutes(
             onRetry = model::retry,
             refreshing = refreshing,
             onRefresh = model::refresh,
+            decisions =
+                QueueDecisions(onApprove = model::approveAsReported, deciding = deciding, errorKey = decisionError),
         )
     }
 

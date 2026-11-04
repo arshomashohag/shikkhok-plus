@@ -12,6 +12,14 @@ import com.shikkhokplus.app.feature.marks.ui.MarkEntryScreen
 import com.shikkhokplus.app.feature.marks.ui.TAG_MARK_ENTRY_ABSENT
 import com.shikkhokplus.app.feature.marks.ui.TAG_MARK_ENTRY_EDIT_EXAM
 import com.shikkhokplus.app.feature.marks.ui.TAG_MARK_ENTRY_HISTORY
+import androidx.compose.ui.test.onNodeWithText
+import com.shikkhokplus.app.feature.marks.ui.TAG_MARK_ENTRY_EMPTY
+import androidx.compose.ui.test.assertTextEquals
+import com.shikkhokplus.app.feature.marks.ui.TAG_MARK_ENTRY_KEY
+import com.shikkhokplus.app.feature.marks.ui.TAG_MARK_ENTRY_NEXT
+import com.shikkhokplus.app.feature.marks.ui.TAG_MARK_ENTRY_BACKSPACE
+import com.shikkhokplus.app.feature.marks.ui.TAG_MARK_ENTRY_COUNTER
+import com.shikkhokplus.app.feature.marks.ui.TAG_MARK_ENTRY_DOCK
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -77,5 +85,91 @@ class MarkEntryActionsTest {
         compose.onNodeWithTag(TAG_MARK_ENTRY_ABSENT).performClick()
 
         assertEquals(listOf("tick"), haptics.felt)
+    }
+
+    @Test
+    fun `the exam is the title and what it is out of the subtitle`() {
+        compose.setContent { ShikkhokTheme { MarkEntryScreen(state = entry()) } }
+
+        compose.onNodeWithText("Mid-term").assertExists()
+        compose.onNodeWithText("out of 50").assertExists()
+    }
+
+    @Test
+    fun `an exam in a batch with no students says so`() {
+        compose.setContent { ShikkhokTheme { MarkEntryScreen(state = entry().copy(rows = emptyList())) } }
+
+        compose.onNodeWithTag(TAG_MARK_ENTRY_EMPTY).assertExists()
+    }
+
+    private fun two() =
+        entry().copy(
+            rows =
+                listOf(
+                    MarkRow("e-1", "Rahim", "mark.state.marked", 40, isEditable = true),
+                    MarkRow("e-2", "Karim", "mark.state.not_entered", null, isEditable = true),
+                    MarkRow("e-3", "Selim", "mark.state.not_entered", null, isEditable = true),
+                ),
+        )
+
+    @Test
+    fun `entry opens on the first seat with no mark`() {
+        compose.setContent { ShikkhokTheme { MarkEntryScreen(state = two()) } }
+
+        compose.onNodeWithText("02 · now entering").assertExists()
+    }
+
+    @Test
+    fun `digits typed on the keypad are saved by Next, which moves down`() {
+        val saved = mutableListOf<Pair<String, Int>>()
+        compose.setContent {
+            ShikkhokTheme {
+                MarkEntryScreen(state = two(), onMark = { row, mark -> saved += row.enrollmentId to mark })
+            }
+        }
+
+        compose.onNodeWithTag(TAG_MARK_ENTRY_KEY + "_2").performClick()
+        compose.onNodeWithTag(TAG_MARK_ENTRY_KEY + "_2").performClick()
+        compose.onNodeWithTag(TAG_MARK_ENTRY_NEXT).performClick()
+
+        assertEquals(listOf("e-2" to 22), saved)
+        compose.onNodeWithText("03 · now entering").assertExists()
+    }
+
+    @Test
+    fun `next with nothing typed saves nothing, because empty is not zero`() {
+        val saved = mutableListOf<Int>()
+        compose.setContent { ShikkhokTheme { MarkEntryScreen(state = two(), onMark = { _, mark -> saved += mark }) } }
+
+        compose.onNodeWithTag(TAG_MARK_ENTRY_NEXT).performClick()
+
+        assertEquals(emptyList(), saved)
+    }
+
+    @Test
+    fun `backspace removes the last digit before it is saved`() {
+        val saved = mutableListOf<Int>()
+        compose.setContent { ShikkhokTheme { MarkEntryScreen(state = two(), onMark = { _, mark -> saved += mark }) } }
+
+        compose.onNodeWithTag(TAG_MARK_ENTRY_KEY + "_1").performClick()
+        compose.onNodeWithTag(TAG_MARK_ENTRY_KEY + "_9").performClick()
+        compose.onNodeWithTag(TAG_MARK_ENTRY_BACKSPACE).performClick()
+        compose.onNodeWithTag(TAG_MARK_ENTRY_NEXT).performClick()
+
+        assertEquals(listOf(1), saved)
+    }
+
+    @Test
+    fun `the counter says how many seats have a mark`() {
+        compose.setContent { ShikkhokTheme { MarkEntryScreen(state = two()) } }
+
+        compose.onNodeWithTag(TAG_MARK_ENTRY_COUNTER).assertTextEquals("1/3")
+    }
+
+    @Test
+    fun `a closed exam has no keypad`() {
+        compose.setContent { ShikkhokTheme { MarkEntryScreen(state = two().copy(writable = false)) } }
+
+        compose.onNodeWithTag(TAG_MARK_ENTRY_DOCK).assertDoesNotExist()
     }
 }

@@ -38,6 +38,8 @@ import com.shikkhokplus.app.feature.student.ui.FamilyOpeners
 import com.shikkhokplus.app.feature.student.ui.TAG_MY_BATCHES_EMPTY
 import com.shikkhokplus.app.feature.student.ui.TAG_MY_BATCH_FEE
 import com.shikkhokplus.app.feature.student.ui.TAG_MY_BATCH_ROW
+import com.shikkhokplus.app.feature.student.ui.TAG_MY_BATCHES_NUMBER
+import androidx.compose.ui.test.assertTextEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -84,6 +86,8 @@ class StudentScreensTest {
 
         compose.onNodeWithTag(TAG_MY_BATCHES_EMPTY).assertIsDisplayed()
         compose.onAllNodesWithTag(TAG_MY_BATCH_ROW).fetchSemanticsNodes().let { assertEquals(0, it.size) }
+        // S1: the number on its own line, formatted as everywhere else.
+        compose.onNodeWithTag(TAG_MY_BATCHES_NUMBER, useUnmergedTree = true).assertTextEquals("01611-477203")
     }
 
     private fun view(
@@ -166,7 +170,7 @@ class StudentScreensTest {
         var detail: String? = null
         show(view(upcoming = listOf(upcomingExam)), FamilyTab.EXAMS, FamilyOpeners(onOpenExamDetail = { detail = it }))
 
-        compose.onNodeWithTag(TAG_FAMILY_EXAM_UPCOMING).performClick()
+        compose.onNodeWithTag(TAG_FAMILY_EXAM_UPCOMING).performScrollTo().performClick()
         assertEquals("x-2", detail)
     }
 

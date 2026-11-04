@@ -19,6 +19,7 @@ import com.shikkhokplus.app.feature.today.ui.TAG_TODAY_VERIFY_ROW
 import com.shikkhokplus.app.feature.verify.review
 import com.shikkhokplus.app.navigation.Destination
 import com.shikkhokplus.app.feature.today.ui.TodayScreen
+import com.shikkhokplus.app.feature.today.ui.TAG_TODAY_FIRST_RUN_OUTSTANDING
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -163,6 +164,29 @@ class TodayTest {
         assertEquals(listOf("s-9"), opened)
         assertEquals(0, queue)
         assertEquals("verify/s-9", Destination.PaymentReview.of("s-9"))
+    }
+
+    @Test
+    fun `the first run still shows the server's outstanding total`() {
+        // T1's first run keeps "Outstanding · ৳0" at the foot, as the
+        // server reports it, so the screen has the shape it will keep.
+        compose.setContent {
+            ShikkhokTheme {
+                TodayScreen(
+                    state = TodayUiState.FirstRun("2026-10-17", outstanding = Money.of("0.00")),
+                    onOpenDues = {},
+                    onRecord = {},
+                    onMarks = {},
+                    onVerifyAll = {},
+                    onOpenPayment = {},
+                    onCreateBatch = {},
+                    onRetry = {},
+                )
+            }
+        }
+
+        compose.onNodeWithTag(TAG_TODAY_FIRST_RUN_OUTSTANDING).performScrollTo().assertExists()
+        compose.onNodeWithText("Total owed across all batches").assertExists()
     }
 
     @Test

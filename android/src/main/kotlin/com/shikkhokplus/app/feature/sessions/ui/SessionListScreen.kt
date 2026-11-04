@@ -17,7 +17,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
 import com.shikkhokplus.app.core.designsystem.TonalButton
-import com.shikkhokplus.app.core.designsystem.LogoLoader
+import com.shikkhokplus.app.core.designsystem.SkeletonList
 import com.shikkhokplus.app.core.designsystem.ListScreenScaffold
 import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.feature.auth.MessageKeys
@@ -101,7 +101,7 @@ fun SessionListScreen(
             SessionsUiState.Idle -> Unit
 
             SessionsUiState.Loading ->
-                LogoLoader(Modifier.testTag(TAG_SESSIONS_LOADING))
+                SkeletonList(modifier = Modifier.testTag(TAG_SESSIONS_LOADING))
 
             is SessionsUiState.Empty -> {
                 Text(state.batchName, Modifier.testTag(TAG_SESSIONS_TITLE))

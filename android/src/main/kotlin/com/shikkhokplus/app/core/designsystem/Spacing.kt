@@ -2,6 +2,9 @@ package com.shikkhokplus.app.core.designsystem
 
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Shapes
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
@@ -70,6 +73,46 @@ object Reach {
     /** A read-only marksheet row. */
     val rowMarksheet = 48.dp
 }
+
+/**
+ * The reach the controls on screen are built to, as a composition local.
+ *
+ * **Two scales, chosen by lens, never by screen.** The guardian boards
+ * (G1–G4) are "designed for the least patience": a parent checking on
+ * a child, often on an older phone, often not a confident reader. They
+ * draw 60dp main buttons, 56dp secondary ones, 64dp rows and 30dp
+ * chips where a teacher's boards draw 56, 48, 56 and 24. Every screen a
+ * guardian reaches -- including the shared ones, such as paying and
+ * More -- takes the larger scale from [LocalTouchScale], so the scale
+ * cannot be forgotten on a screen nobody thought of as a guardian's.
+ *
+ * [Reach] stays the static floor for the places that are not controls.
+ *
+ * @property touch Minimum height of any tappable control
+ * @property moneyButton Height of the main action
+ * @property rowSingle Height of a single-line menu row
+ * @property compactChip Height of a compact status chip
+ * @property large Whether the main action's label takes the reading step
+ */
+@Immutable
+data class TouchScale(
+    val touch: Dp,
+    val moneyButton: Dp,
+    val rowSingle: Dp,
+    val compactChip: Dp,
+    val large: Boolean,
+)
+
+/** The teacher's and student's boards. */
+val StandardTouch: TouchScale =
+    TouchScale(touch = 48.dp, moneyButton = 56.dp, rowSingle = 56.dp, compactChip = 24.dp, large = false)
+
+/** The guardian's boards (G1–G4). */
+val GuardianTouch: TouchScale =
+    TouchScale(touch = 56.dp, moneyButton = 60.dp, rowSingle = 64.dp, compactChip = 30.dp, large = true)
+
+/** Which [TouchScale] the screen is built to; [StandardTouch] unless a guardian is signed in. */
+val LocalTouchScale = staticCompositionLocalOf { StandardTouch }
 
 /**
  * Corner radii.

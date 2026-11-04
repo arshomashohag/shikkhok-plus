@@ -23,6 +23,10 @@ import com.shikkhokplus.app.feature.verify.ui.TAG_SHEET_LINE
 import com.shikkhokplus.app.feature.verify.ui.TAG_VERIFY_APPROVE
 import com.shikkhokplus.app.feature.verify.ui.TAG_VERIFY_REJECT
 import com.shikkhokplus.app.feature.verify.ui.TAG_VERIFY_REJECT_CONFIRM
+import com.shikkhokplus.app.feature.verify.ui.TAG_SHEET_TITLE
+import com.shikkhokplus.app.core.network.DuplicatePaymentDto
+import com.shikkhokplus.app.core.model.Money
+import androidx.compose.ui.test.onNodeWithText
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -121,5 +125,37 @@ class PaymentReviewScreenTest {
 
         compose.onNodeWithTag(TAG_SHEET_CARRY).assertExists()
         compose.onNodeWithTag(TAG_SHEET_CONFIRM).assertIsNotEnabled()
+    }
+
+    @Test
+    fun `a short amount titles the sheet with both figures`() {
+        // T4: "Approve ৳1,500 of ৳2,000".
+        val loaded = ReviewUiState.Loaded(card())
+        render(loaded, ApprovalSheet(loaded.card, "1500.00"), mutableListOf())
+
+        compose.onNodeWithTag(TAG_SHEET_TITLE).assertTextContains("Approve ৳1,500 of ৳2,000")
+    }
+
+    @Test
+    fun `an exact amount keeps the plain title`() {
+        val loaded = ReviewUiState.Loaded(card())
+        render(loaded, ApprovalSheet(loaded.card, "2000.00"), mutableListOf())
+
+        compose.onNodeWithTag(TAG_SHEET_TITLE).assertTextContains("Approve payment")
+    }
+
+    @Test
+    fun `a reused transaction ID makes reject the filled choice`() {
+        // T4 "Error · duplicate": "Reject as duplicate" first, "Approve
+        // anyway" as the deliberate one, so habit does not approve twice.
+        val log = mutableListOf<String>()
+        val duplicate = DuplicatePaymentDto("s-0", "Rafsan", "approved", Money.of("2000.00"), "2026-10-20T09:00:00Z")
+        val card = assertNotNull(VerifyStateMapper.toCard(review().copy(duplicateOf = duplicate)))
+        render(ReviewUiState.Loaded(card), log = log)
+
+        compose.onNodeWithText("Reject as duplicate").performScrollTo().assertExists()
+        compose.onNodeWithText("Approve anyway").performScrollTo().performClick()
+
+        assertEquals(listOf("approve:"), log)
     }
 }

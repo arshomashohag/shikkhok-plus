@@ -1,6 +1,7 @@
 package com.shikkhokplus.app.feature.verify.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,6 +25,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
 import com.shikkhokplus.app.core.designsystem.EmptyState
+import com.shikkhokplus.app.core.designsystem.BannerTone
+import com.shikkhokplus.app.core.designsystem.Banner
+import com.shikkhokplus.app.core.designsystem.TextAction
+import com.shikkhokplus.app.core.designsystem.SecondaryButton
+import com.shikkhokplus.app.core.designsystem.PrimaryButton
 import com.shikkhokplus.app.core.designsystem.ErrorCard
 import com.shikkhokplus.app.core.designsystem.ListScreenScaffold
 import com.shikkhokplus.app.core.designsystem.PaymentState
@@ -58,6 +64,7 @@ const val TAG_VERIFY_ALL_CAUGHT_UP: String = "verify_all_caught_up"
  * @param onOpen Called with the payment to review
  * @param onRetry Called to read the queue again
  * @param modifier The layout modifier
+ * @param decisions What the cards' own Reject, Partial and Approve do (T4)
  */
 @Composable
 fun VerifyScreen(
@@ -68,6 +75,7 @@ fun VerifyScreen(
     modifier: Modifier = Modifier,
     refreshing: Boolean = false,
     onRefresh: (() -> Unit)? = null,
+    decisions: QueueDecisions = QueueDecisions(),
 ) {
     ListScreenScaffold(
         title = stringResource(R.string.verify_title),
@@ -83,13 +91,16 @@ fun VerifyScreen(
 
                 is VerifyUiState.Waiting ->
                     LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        decisions.errorKey?.let { key ->
+                            item { Banner(title = stringResource(MessageKeys.resolve(key)), tone = BannerTone.ERROR) }
+                        }
                         items(shown.pending, key = { it.submissionId }) { card ->
                             // Keyed rows animate when the queue changes in
                             // place — a pull that finds a new payment, or
                             // one already decided dropping out — so the
                             // teacher sees what changed rather than a list
                             // that silently became a different list.
-                            QueueRow(card, Modifier.animateItem()) { onOpen(card.submissionId) }
+                            QueueRow(card, decisions, Modifier.animateItem()) { onOpen(card.submissionId) }
                         }
                         if (shown.recent.isNotEmpty()) item { RecentList(shown.recent, onOpen) }
                     }
@@ -144,8 +155,22 @@ private fun subtitleOf(state: VerifyUiState): String? =
  * @param onClick Called to open it
  */
 @Composable
-private fun QueueRow(card: ReviewCard, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    ShikkhokCard(modifier.testTag(TAG_VERIFY_CARD).clickable(onClick = onClick)) {
+private fun QueueRow(
+    card: ReviewCard,
+    decisions: QueueDecisions,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    // **A reused transaction ID is flagged on the queue, not only in
+    // the detail** (T4 "Error · duplicate"): the red outline is what
+    // stops a teacher approving it from the list without opening it.
+    val outline =
+        if (card.duplicate != null) {
+            Modifier.border(1.5.dp, MaterialTheme.colorScheme.error, MaterialTheme.shapes.medium)
+        } else {
+            Modifier
+        }
+    ShikkhokCard(modifier.testTag(TAG_VERIFY_CARD).then(outline).clickable(onClick = onClick)) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Initial(card.displayName)
             Column(Modifier.weight(1f)) {
@@ -158,9 +183,124 @@ private fun QueueRow(card: ReviewCard, modifier: Modifier = Modifier, onClick: (
             }
             Text(Numerals.money(card.totalAmount), style = MaterialTheme.typography.titleMedium)
         }
+        // TrxID and the account it came from (T4), so the teacher can
+        // match the payment against their bKash or Nagad SMS from the
+        // list. Both are absent for cash.
+        trxLine(card)?.let {
+            Text(
+                it,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.testTag(TAG_VERIFY_CARD_TRX),
+            )
+        }
+        if (card.duplicate != null) {
+            Text(
+                stringResource(R.string.verify_duplicate_title),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
         ComparisonChip(card)
+        QueueActions(card, decisions, onClick)
     }
 }
+
+/**
+ * What a queue card's buttons do (T4).
+ *
+ * @property onApprove Approves a payment as reported, from the queue
+ * @property deciding The payment whose approval is in flight, or null
+ * @property errorKey Why the last inline approval failed, or null
+ */
+data class QueueDecisions(
+    val onApprove: ((ReviewCard) -> Unit)? = null,
+    val deciding: String? = null,
+    val errorKey: String? = null,
+)
+
+/**
+ * Reject, Partial and Approve on the card itself (T4).
+ *
+ * **Approve decides here only when nothing else needs deciding**: the
+ * server says the payment matches what is owed and its transaction ID
+ * was not used before. Partial, a reused ID and Reject all open the
+ * review, where the carry-forward and waive choice, the duplicate
+ * warning and the reject confirmation live; none of them is a one-tap
+ * decision on money.
+ *
+ * @param card The payment
+ * @param decisions What the buttons do
+ * @param onOpen Opens the review
+ */
+@Composable
+private fun QueueActions(card: ReviewCard, decisions: QueueDecisions, onOpen: () -> Unit) {
+    val approve = decisions.onApprove?.takeIf { card.comparison == Comparison.MATCHES && card.duplicate == null }
+    val busy = decisions.deciding != null
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        TextAction(
+            stringResource(R.string.verify_reject),
+            onOpen,
+            Modifier.testTag(TAG_VERIFY_CARD_REJECT),
+            enabled = !busy,
+        )
+        if (card.comparison == Comparison.SHORT) {
+            SecondaryButton(
+                text = stringResource(R.string.verify_partial),
+                onClick = onOpen,
+                enabled = !busy,
+                modifier = Modifier.weight(1f).testTag(TAG_VERIFY_CARD_PARTIAL),
+            )
+        }
+        if (approve != null) {
+            PrimaryButton(
+                text = stringResource(R.string.verify_approve),
+                onClick = { approve(card) },
+                enabled = !busy,
+                compact = true,
+                modifier = Modifier.weight(1f).testTag(TAG_VERIFY_CARD_APPROVE),
+            )
+        } else if (card.comparison != Comparison.SHORT) {
+            SecondaryButton(
+                text = stringResource(R.string.verify_review),
+                onClick = onOpen,
+                enabled = !busy,
+                modifier = Modifier.weight(1f).testTag(TAG_VERIFY_CARD_REVIEW),
+            )
+        }
+    }
+}
+
+/** A queue card's Reject, which opens the review to confirm. */
+const val TAG_VERIFY_CARD_REJECT: String = "verify_card_reject"
+
+/** A short payment's Partial, which opens the approval sheet. */
+const val TAG_VERIFY_CARD_PARTIAL: String = "verify_card_partial"
+
+/** A matching payment's one-tap Approve. */
+const val TAG_VERIFY_CARD_APPROVE: String = "verify_card_approve"
+
+/** Review, for a payment over the fee or with a reused ID. */
+const val TAG_VERIFY_CARD_REVIEW: String = "verify_card_review"
+
+/**
+ * "TrxID BJK40OQ1IL · From 01712-345678", or null when neither is known.
+ *
+ * @param card The payment
+ * @return The line, or null
+ */
+@Composable
+private fun trxLine(card: ReviewCard): String? {
+    val parts =
+        listOfNotNull(
+            card.transactionId?.let { stringResource(R.string.verify_queue_trx, Numerals.transactionId(it)) },
+            card.fromAccount?.let { stringResource(R.string.verify_queue_from, Numerals.phone(it)) },
+        )
+    return parts.takeIf { it.isNotEmpty() }?.joinToString(" · ")
+}
+
+/** The TrxID and sender line on a queue card. */
+const val TAG_VERIFY_CARD_TRX: String = "verify_card_trx"
 
 /**
  * The server's comparison as a chip: matches, short or over.

@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -28,6 +27,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import com.shikkhokplus.app.core.ui.scheduleSummary
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
@@ -236,46 +237,44 @@ private fun BatchRowView(row: BatchRow, onOpen: (String) -> Unit) {
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface,
         )
+        // **The schedule line, as T6 draws it** ("Sat · Mon · Wed ·
+        // 4:00 pm"). A batch with no classes set yet falls back to its
+        // subjects, so the line is never blank.
+        val schedule = scheduleSummary(row.schedule)
         Text(
-            text = row.subjects.joinToString(" · ") { Numerals.freeText(it) },
+            text = schedule.ifEmpty { row.subjects.joinToString(" · ") { Numerals.freeText(it) } },
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            // **"9 of 12 accepted", both numbers from the SERVER**
-            // [BR1.2, BR1.3, AC1.3.5a]. This composable formats two
-            // integers it was handed; it does not count rows, and it
-            // does not decide what counts as accepted — a client tally
-            // would be wrong the moment the roster paginates [TC-9].
-            //
-            // Latin digits via `Numerals.count`, because this is the
-            // app's own output rather than text a person typed. It is
-            // the one count in the product with no other formatter
-            // between the server and the screen [NFR3.3].
+        // "18 students · ৳1,200/mo" (T6). The count is the server's
+        // enrollment count; this composable formats it, never tallies.
+        val students =
+            pluralStringResource(R.plurals.batches_student_count, row.enrollmentCount, row.enrollmentCount)
+        Text(
+            text =
+                row.defaultFee?.let {
+                    students + " · " + stringResource(R.string.batches_fee_per_month, Numerals.money(it))
+                } ?: students,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        // **"9 of 12 accepted", both numbers from the SERVER** [BR1.2,
+        // BR1.3, AC1.3.5a], shown only while someone has not accepted.
+        // T6 draws no such line; it stays because a seat waiting on
+        // acceptance grants nobody a lens, and the teacher needs to see
+        // that from the list. Once everyone has accepted it says nothing
+        // the student count does not.
+        if (row.acceptedCount < row.enrollmentCount) {
             Text(
                 text = stringResource(
                     R.string.roster_accepted_count,
                     Numerals.count(row.acceptedCount),
                     Numerals.count(row.enrollmentCount),
                 ),
-                style = MaterialTheme.typography.labelLarge,
+                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.testTag(TAG_BATCH_ACCEPTED_COUNT),
             )
-            if (row.defaultFee != null) {
-                Text(
-                    text = stringResource(
-                        R.string.batches_fee_per_month,
-                        Numerals.money(row.defaultFee),
-                    ),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-            }
         }
     }
 }

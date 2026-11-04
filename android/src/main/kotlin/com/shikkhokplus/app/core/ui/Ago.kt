@@ -28,6 +28,21 @@ private const val MILLIS_PER_MINUTE = 60_000L
 @Composable
 fun ago(iso: String, now: Long = System.currentTimeMillis()): String {
     val then = parseInstant(iso) ?: return iso.take(DATE_LENGTH)
+    return agoMillis(then, now)
+}
+
+/**
+ * How long ago a moment on this phone's clock was, as [ago] says it.
+ *
+ * For moments the app itself recorded, such as when a screen last read
+ * the server, which have no ISO string to parse.
+ *
+ * @param then The moment, in epoch milliseconds
+ * @param now The current time, in epoch milliseconds
+ * @return "just now", "5 min ago", "3 h ago" or "2 d ago"
+ */
+@Composable
+fun agoMillis(then: Long, now: Long = System.currentTimeMillis()): String {
     val minutes = ((now - then) / MILLIS_PER_MINUTE).coerceAtLeast(0)
     return when {
         minutes < 1 -> stringResource(R.string.time_just_now)

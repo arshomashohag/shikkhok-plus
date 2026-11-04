@@ -2,6 +2,7 @@ package com.shikkhokplus.app.feature.batchdetail
 
 import androidx.compose.ui.test.performScrollTo
 import com.shikkhokplus.app.feature.batchdetail.ui.TAG_BATCH_EDIT
+import com.shikkhokplus.app.feature.batchdetail.ui.TAG_BATCH_SCHEDULE
 import com.shikkhokplus.app.feature.batchdetail.ui.EditBatchScreen
 import com.shikkhokplus.app.core.ui.TAG_FORM_SUBMIT
 import com.shikkhokplus.app.core.network.BatchEdit
@@ -27,6 +28,9 @@ import com.shikkhokplus.app.feature.batchdetail.ui.TAG_STUDENT_ROW
 import com.shikkhokplus.app.feature.roster.AcceptedCount
 import com.shikkhokplus.app.feature.roster.RosterRow
 import com.shikkhokplus.app.feature.roster.RosterUiState
+import com.shikkhokplus.app.feature.batchdetail.ui.TAG_NOTICE_COMPOSER
+import com.shikkhokplus.app.feature.batchdetail.ui.TAG_NOTICE_COMPOSER_SEND
+import androidx.compose.ui.test.performTextInput
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -88,6 +92,31 @@ class BatchDetailScreenTest {
 
         assertEquals(listOf(BatchTab.NOTICES), chosen)
         assertEquals(1, added)
+    }
+
+    @Test
+    fun `the schedule chip opens the schedule, and reads Schedule with no class days`() {
+        // T7 draws one icon in the bar, so the way into the schedule is
+        // the schedule itself, and it must exist before any day is set.
+        var schedules = 0
+        compose.setContent {
+            ShikkhokTheme {
+                BatchDetailScreen(
+                    batchName = "Physics A",
+                    header = BatchHeader("Physics A", null, null, emptyList(), emptyList()),
+                    tab = BatchTab.STUDENTS,
+                    onSelect = {},
+                    onBack = {},
+                    onAdd = {},
+                    onSchedule = { schedules++ },
+                ) {}
+            }
+        }
+
+        compose.onNodeWithText("Schedule", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag(TAG_BATCH_SCHEDULE).performClick()
+
+        assertEquals(1, schedules)
     }
 
     @Test
@@ -232,5 +261,49 @@ class BatchDetailScreenTest {
         compose.onAllNodesWithText("Remove")[1].performClick()
 
         assertEquals(listOf("n-1"), removed)
+    }
+
+    @Test
+    fun `notices write in place, so the tab has no add button`() {
+        // T7: the composer is the way to write; a button would be a second.
+        compose.setContent {
+            ShikkhokTheme {
+                BatchDetailScreen(
+                    batchName = "Physics A",
+                    header = null,
+                    tab = BatchTab.NOTICES,
+                    onSelect = {},
+                    onBack = {},
+                    onAdd = {},
+                    onSchedule = {},
+                ) {}
+            }
+        }
+
+        compose.onNodeWithTag(TAG_BATCH_FAB).assertDoesNotExist()
+    }
+
+    @Test
+    fun `a notice typed in the composer is posted`() {
+        val posted = mutableListOf<String>()
+        compose.setContent {
+            ShikkhokTheme {
+                NoticesTab(
+                    notices = emptyList(),
+                    write = WriteState.Idle,
+                    composing = false,
+                    onCloseCompose = {},
+                    onPost = { posted += it },
+                    onEdit = { _, _ -> },
+                    onRemove = {},
+                    onAcknowledge = {},
+                )
+            }
+        }
+
+        compose.onNodeWithTag(TAG_NOTICE_COMPOSER).performTextInput("Exam on Saturday")
+        compose.onNodeWithTag(TAG_NOTICE_COMPOSER_SEND).performClick()
+
+        assertEquals(listOf("Exam on Saturday"), posted)
     }
 }

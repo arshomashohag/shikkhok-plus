@@ -36,7 +36,7 @@ object DuesStateMapper {
      */
     fun afterLoad(response: DuesResponseDto): DuesUiState {
         if (response.rows.isEmpty()) {
-            return DuesUiState.Empty
+            return DuesUiState.Empty(total = response.summary.total)
         }
         val rows = response.rows.map(::toRow)
         return DuesUiState.Loaded(

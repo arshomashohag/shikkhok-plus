@@ -116,7 +116,23 @@ fun ApprovalSheetView(
                 .padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Text(stringResource(R.string.verify_sheet_title), style = MaterialTheme.typography.titleLarge)
+            // "Approve ৳800 of ৳1,200" (T4) once a short amount is typed:
+            // both figures are ones the sheet already holds -- the typed
+            // amount and the server's owed-together -- so nothing is
+            // computed to say it.
+            Text(
+                if (sheet.side == AmountSide.SHORT && received != null) {
+                    stringResource(
+                        R.string.verify_sheet_title_partial,
+                        Numerals.money(received),
+                        Numerals.money(card.owedTogether),
+                    )
+                } else {
+                    stringResource(R.string.verify_sheet_title)
+                },
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.testTag(TAG_SHEET_TITLE),
+            )
             Text(
                 stringResource(R.string.verify_sheet_sub, Numerals.freeText(card.batchName)),
                 style = MaterialTheme.typography.bodySmall,
@@ -219,7 +235,11 @@ private fun ComparisonLine(sheet: ApprovalSheet) {
 private fun Disposition(sheet: ApprovalSheet, actions: SheetActions) {
     Option(
         title = stringResource(R.string.verify_carry_forward),
-        body = stringResource(R.string.verify_carry_forward_body),
+        // With the server's figure for the shortfall, say how much moves
+        // (T4 "carry ৳400"); for any other amount, the plain line.
+        body =
+            sheet.shownDifference?.let { stringResource(R.string.verify_carry_forward_amount, Numerals.money(it)) }
+                ?: stringResource(R.string.verify_carry_forward_body),
         selected = sheet.disposition == CARRIED,
         onSelect = { actions.onDisposition(CARRIED) },
         modifier = Modifier.testTag(TAG_SHEET_CARRY),
@@ -305,3 +325,6 @@ private fun Option(
         }
     }
 }
+
+/** The sheet's title. */
+const val TAG_SHEET_TITLE: String = "verify_sheet_title"

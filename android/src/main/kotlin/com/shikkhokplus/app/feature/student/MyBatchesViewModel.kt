@@ -43,11 +43,17 @@ class MyBatchesViewModel(
                         val (key, retryable) = StudentStateMapper.failure(result.envelope)
                         MyBatchesUiState.Failed(key, retryable)
                     }
+                    // **Offline keeps this session's list** (S1), marked so;
+                    // paying waits for a connection.
                     AuthResult.TransportFailure ->
-                        MyBatchesUiState.Failed(StudentStateMapper.OFFLINE_KEY, retryable = true)
-                }
+                        lastLoaded?.copy(offline = true)
+                            ?: MyBatchesUiState.Failed(StudentStateMapper.OFFLINE_KEY, retryable = true)
+                }.also { if (it is MyBatchesUiState.Loaded && !it.offline) lastLoaded = it }
         }
     }
+
+    /** The list the server returned last this session, for offline. */
+    private var lastLoaded: MyBatchesUiState.Loaded? = null
 
     /** Repeat the load, only when asked [TC-8, D-9]. */
     fun retry() = load()

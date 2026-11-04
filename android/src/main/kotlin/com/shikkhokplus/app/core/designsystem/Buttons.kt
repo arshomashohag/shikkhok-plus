@@ -36,7 +36,10 @@ import androidx.compose.ui.unit.dp
 /** The main action's text: 16/26 SemiBold. */
 private val LargeButtonText: TextStyle
     @Composable get() =
-        MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
+        // A guardian's main action is set on the reading step (G1, 18/30),
+        // a teacher's on the body step.
+        (if (LocalTouchScale.current.large) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.bodyMedium)
+            .copy(fontWeight = FontWeight.SemiBold)
 
 /**
  * A secondary action's text: the label step, 14/22 SemiBold.
@@ -81,7 +84,7 @@ fun PrimaryButton(
                 disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                 disabledContentColor = MaterialTheme.colorScheme.outline,
             ),
-        modifier = modifier.heightIn(min = if (compact) Reach.touch else Reach.moneyButton),
+        modifier = modifier.heightIn(min = LocalTouchScale.current.let { if (compact) it.touch else it.moneyButton }),
     ) {
         leading()
         Text(text, style = if (compact) ButtonText else LargeButtonText)
@@ -110,7 +113,7 @@ fun SecondaryButton(
         contentPadding = PillPadding,
         border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline),
         colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
-        modifier = modifier.heightIn(min = Reach.touch),
+        modifier = modifier.heightIn(min = LocalTouchScale.current.touch),
     ) {
         Text(text, style = ButtonText)
     }
@@ -142,7 +145,7 @@ fun TonalButton(
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
             ),
-        modifier = modifier.heightIn(min = Reach.touch),
+        modifier = modifier.heightIn(min = LocalTouchScale.current.touch),
     ) {
         Text(text, style = ButtonText)
     }
@@ -180,7 +183,7 @@ fun DestructiveButton(
                     disabledContainerColor = error.copy(alpha = DISABLED_DESTRUCTIVE),
                     disabledContentColor = MaterialTheme.colorScheme.onError,
                 ),
-            modifier = modifier.heightIn(min = Reach.moneyButton),
+            modifier = modifier.heightIn(min = LocalTouchScale.current.moneyButton),
         ) {
             Text(text, style = LargeButtonText)
         }
@@ -192,7 +195,7 @@ fun DestructiveButton(
             contentPadding = PillPadding,
             border = BorderStroke(1.5.dp, error),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = error),
-            modifier = modifier.heightIn(min = Reach.touch),
+            modifier = modifier.heightIn(min = LocalTouchScale.current.touch),
         ) {
             Text(text, style = ButtonText)
         }
@@ -218,7 +221,7 @@ fun TextAction(
     TextButton(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.heightIn(min = Reach.touch),
+        modifier = modifier.heightIn(min = LocalTouchScale.current.touch),
     ) {
         Text(text, style = ButtonText.copy(fontWeight = FontWeight.Bold))
     }
@@ -262,7 +265,7 @@ fun PromptLink(
         TextButton(
             onClick = onClick,
             contentPadding = PaddingValues(horizontal = 4.dp),
-            modifier = linkModifier.heightIn(min = Reach.touch),
+            modifier = linkModifier.heightIn(min = LocalTouchScale.current.touch),
         ) {
             Text(
                 link,

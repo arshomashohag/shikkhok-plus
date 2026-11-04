@@ -72,8 +72,10 @@ sealed interface TodayUiState {
      * No batch exists yet: show how to start.
      *
      * @property date Today, `YYYY-MM-DD`
+     * @property outstanding The server's total owed, which T1's first run
+     *   still shows (৳0), or null when the read carried none
      */
-    data class FirstRun(val date: String) : TodayUiState
+    data class FirstRun(val date: String, val outstanding: Money? = null) : TodayUiState
 
     /**
      * The day, loaded.
@@ -83,6 +85,8 @@ sealed interface TodayUiState {
      * @property classes Today's classes
      * @property toVerifyCount Payments waiting
      * @property toVerify The first few of them
+     * @property offline True when this is the day read earlier in the
+     *   session, shown because the latest read could not reach the server
      */
     data class Loaded(
         val date: String,
@@ -90,6 +94,7 @@ sealed interface TodayUiState {
         val classes: List<ClassRow>,
         val toVerifyCount: Int,
         val toVerify: List<ReviewCard>,
+        val offline: Boolean = false,
     ) : TodayUiState
 
     /**

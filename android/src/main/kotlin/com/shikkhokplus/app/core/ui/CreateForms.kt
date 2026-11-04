@@ -1,6 +1,7 @@
 package com.shikkhokplus.app.core.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -8,7 +9,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -16,12 +19,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
+import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.core.model.Money
 import com.shikkhokplus.app.core.network.ScheduleSlotDto
 
@@ -43,11 +49,20 @@ const val TAG_FORM_SUBJECTS: String = "form_subjects"
 /** The fee field on either form. */
 const val TAG_FORM_FEE: String = "form_fee"
 
+/** The add-student form's "Batch fee" toggle (T8). */
+const val TAG_FORM_BATCH_FEE: String = "form_batch_fee"
+
 /** The guardian phone field on the student form. */
 const val TAG_FORM_GUARDIAN: String = "form_guardian"
 
 /** The submit button. */
 const val TAG_FORM_SUBMIT: String = "form_submit"
+
+/** The same-name hint on the add-student form (T8). */
+const val TAG_FORM_SAME_NAME: String = "form_same_name"
+
+/** "Save & add next" on the add-student form (T8). */
+const val TAG_FORM_SUBMIT_NEXT: String = "form_submit_next"
 
 /** The cancel button. */
 const val TAG_FORM_CANCEL: String = "form_cancel"
@@ -311,6 +326,105 @@ internal fun dueDayIsValid(raw: String): Boolean =
     raw.isBlank() || raw.toIntOrNull()?.let { it in DUE_DAYS } == true
 
 /**
+ * What is wrong with a typed number, or null when nothing is.
+ *
+ * "This one has 10 digits" when the count is off (T8), since a wrong
+ * count is the mistake a teacher makes reading a number off a register;
+ * otherwise the general message. A blank field is not an error here --
+ * the form's required check is the submit button.
+ *
+ * @param raw The field as typed
+ * @return The message, or null
+ */
+@Composable
+internal fun phoneError(raw: String): String? {
+    if (raw.isBlank() || phoneIsValid(raw)) return null
+    val digits = raw.count { it.isDigit() }
+    return if (digits != LOCAL_DIGITS && digits in 1..LOCAL_DIGITS + 2 && raw.trim().startsWith("0")) {
+        stringResource(R.string.phone_digit_count, Numerals.count(digits))
+    } else {
+        stringResource(R.string.phone_invalid)
+    }
+}
+
+/**
+ * "Rahim is already in this batch", when the typed name matches one.
+ *
+ * @param name What was typed
+ * @param existingNames The batch's students
+ */
+@Composable
+private fun SameNameHint(name: String, existingNames: List<String>) {
+    if (name.isBlank()) return
+    val match = existingNames.firstOrNull { it.trim().equals(name.trim(), ignoreCase = true) } ?: return
+    Text(
+        stringResource(R.string.student_add_same_name, match),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.testTag(TAG_FORM_SAME_NAME),
+    )
+}
+
+/**
+ * "Batch fee · ৳1,200" with a switch (T8): on, the student pays the
+ * batch's fee; off, the fee field asks for this student's own.
+ *
+ * @param batchFee The batch's fee, formatted
+ * @param on Whether the batch fee applies
+ * @param onChange Called with the switch's new position
+ */
+@Composable
+private fun BatchFeeToggle(batchFee: String, on: Boolean, onChange: (Boolean) -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .toggleable(value = on, role = Role.Switch, onValueChange = onChange)
+            .padding(vertical = 4.dp)
+            .testTag(TAG_FORM_BATCH_FEE),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(stringResource(R.string.student_add_batch_fee, batchFee), style = MaterialTheme.typography.titleSmall)
+            Text(
+                stringResource(R.string.student_add_batch_fee_help),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Switch(checked = on, onCheckedChange = null)
+    }
+}
+
+/**
+ * The fee typed for this one student; blank inherits the batch's.
+ *
+ * @param fee What was typed
+ * @param onChange Called with the new text
+ */
+@Composable
+private fun FeeField(fee: String, onChange: (String) -> Unit) {
+    OutlinedTextField(
+        value = fee,
+        onValueChange = onChange,
+        label = { Text(stringResource(R.string.student_add_fee)) },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+        isError = !feeIsValid(fee),
+        supportingText = {
+            Text(
+                stringResource(
+                    if (feeIsValid(fee)) R.string.fee_inherits else R.string.fee_invalid,
+                ),
+            )
+        },
+        modifier = Modifier.fillMaxWidth().testTag(TAG_FORM_FEE),
+    )
+}
+
+/** A Bangladeshi mobile number's digits, written locally. */
+private const val LOCAL_DIGITS = 11
+
+/**
  * Add a student to a class.
  *
  * **An empty fee field means INHERIT, not zero** [AC2.2.5]. The field
@@ -323,6 +437,12 @@ internal fun dueDayIsValid(raw: String): Boolean =
  * @param modifier The layout modifier
  * @param saving True while the write is in flight
  * @param error Why the last write failed, already resolved, or null
+ * @param onAddNext Called like [onAdd] by "Save & add next" (T8), or
+ *   null to offer only the one save
+ * @param existingNames The batch's students, for the same-name hint
+ * @param batchFee The batch's monthly fee, formatted, or null when it
+ *   has none: with one, the form offers it as a toggle (T8) and the
+ *   field appears only for a different fee
  */
 @Composable
 fun StudentAddForm(
@@ -331,11 +451,17 @@ fun StudentAddForm(
     modifier: Modifier = Modifier,
     saving: Boolean = false,
     error: String? = null,
+    onAddNext: ((String, String, String?, String?) -> Unit)? = null,
+    existingNames: List<String> = emptyList(),
+    batchFee: String? = null,
 ) {
     var phone by remember { mutableStateOf("") }
     var name by remember { mutableStateOf("") }
     var guardian by remember { mutableStateOf("") }
-    var fee by remember { mutableStateOf("") }
+    var typedFee by remember { mutableStateOf("") }
+    var useBatchFee by remember { mutableStateOf(true) }
+    // Blank is INHERIT: with the toggle on, nothing typed is sent.
+    val fee = if (batchFee != null && useBatchFee) "" else typedFee
     val guardianOk = guardian.isBlank() || phoneIsValid(guardian)
 
     Column(
@@ -346,25 +472,16 @@ fun StudentAddForm(
         // what links this seat to the student's own account; without it
         // the student could never reach their seat, which is how this
         // form shipped.
-        OutlinedTextField(
+        // **The shared `+88` field** (T8), checked as the teacher types:
+        // a ten-digit number is caught before a round trip.
+        PhoneNumberField(
             value = phone,
             onValueChange = { phone = it },
-            label = { Text(stringResource(R.string.student_add_student_phone)) },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-            isError = phone.isNotBlank() && !phoneIsValid(phone),
-            supportingText = {
-                Text(
-                    stringResource(
-                        if (phone.isBlank() || phoneIsValid(phone)) {
-                            R.string.student_add_student_phone_help
-                        } else {
-                            R.string.phone_invalid
-                        },
-                    ),
-                )
-            },
-            modifier = Modifier.fillMaxWidth().testTag(TAG_FORM_STUDENT_PHONE),
+            label = stringResource(R.string.student_add_student_phone),
+            help = stringResource(R.string.student_add_student_phone_help),
+            error = phoneError(phone),
+            fieldModifier = Modifier.testTag(TAG_FORM_STUDENT_PHONE),
+            modifier = Modifier.fillMaxWidth(),
         )
         OutlinedTextField(
             value = name,
@@ -373,37 +490,20 @@ fun StudentAddForm(
             singleLine = true,
             modifier = Modifier.fillMaxWidth().testTag(TAG_FORM_NAME),
         )
-        OutlinedTextField(
+        // **A hint, never a block** (T8): two students can share a name,
+        // and the server decides what a seat is. This only saves the
+        // teacher adding the same child twice by accident.
+        SameNameHint(name, existingNames)
+        PhoneNumberField(
             value = guardian,
             onValueChange = { guardian = it },
-            label = { Text(stringResource(R.string.student_add_guardian)) },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-            isError = !guardianOk,
-            supportingText =
-                if (guardianOk) {
-                    null
-                } else {
-                    { Text(stringResource(R.string.phone_invalid)) }
-                },
-            modifier = Modifier.fillMaxWidth().testTag(TAG_FORM_GUARDIAN),
+            label = stringResource(R.string.student_add_guardian),
+            error = phoneError(guardian),
+            fieldModifier = Modifier.testTag(TAG_FORM_GUARDIAN),
+            modifier = Modifier.fillMaxWidth(),
         )
-        OutlinedTextField(
-            value = fee,
-            onValueChange = { fee = it },
-            label = { Text(stringResource(R.string.student_add_fee)) },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            isError = !feeIsValid(fee),
-            supportingText = {
-                Text(
-                    stringResource(
-                        if (feeIsValid(fee)) R.string.fee_inherits else R.string.fee_invalid,
-                    ),
-                )
-            },
-            modifier = Modifier.fillMaxWidth().testTag(TAG_FORM_FEE),
-        )
+        batchFee?.let { BatchFeeToggle(it, useBatchFee) { on -> useBatchFee = on } }
+        if (batchFee == null || !useBatchFee) FeeField(typedFee) { typedFee = it }
 
         // **Shown on the form, beside what was typed.** The form used
         // to close before the server answered, so a refusal had nowhere
@@ -417,22 +517,23 @@ fun StudentAddForm(
             )
         }
 
+        val ready = !saving && name.isNotBlank() && phoneIsValid(phone) && guardianOk && feeIsValid(fee)
+        val send = { to: (String, String, String?, String?) -> Unit ->
+            to(name.trim(), phone.trim(), guardian.trim().ifBlank { null }, canonicalFee(fee))
+        }
+        onAddNext?.let { next ->
+            OutlinedButton(
+                onClick = { send(next) },
+                enabled = ready,
+                modifier = Modifier.fillMaxWidth().testTag(TAG_FORM_SUBMIT_NEXT),
+            ) {
+                Text(stringResource(R.string.student_add_submit_next))
+            }
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
-                onClick = {
-                    onAdd(
-                        name.trim(),
-                        phone.trim(),
-                        guardian.trim().ifBlank { null },
-                        canonicalFee(fee),
-                    )
-                },
-                enabled =
-                    !saving &&
-                        name.isNotBlank() &&
-                        phoneIsValid(phone) &&
-                        guardianOk &&
-                        feeIsValid(fee),
+                onClick = { send(onAdd) },
+                enabled = ready,
                 modifier = Modifier.testTag(TAG_FORM_SUBMIT),
             ) {
                 Text(stringResource(R.string.student_add_submit))

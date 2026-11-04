@@ -52,9 +52,10 @@ class DuesStateMapperTest {
         // An empty dues list is GOOD NEWS and deserves a sentence
         // saying so. A Loaded with no rows would render a blank, which
         // a teacher cannot tell apart from a failed load.
+        val summary = duesSummary()
         assertEquals(
-            DuesUiState.Empty,
-            DuesStateMapper.afterLoad(DuesResponseDto(summary = duesSummary(), rows = emptyList())),
+            DuesUiState.Empty(total = summary.total),
+            DuesStateMapper.afterLoad(DuesResponseDto(summary = summary, rows = emptyList())),
         )
     }
 

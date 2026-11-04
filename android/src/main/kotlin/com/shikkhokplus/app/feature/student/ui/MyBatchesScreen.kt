@@ -24,9 +24,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
+import androidx.compose.foundation.background
+import com.shikkhokplus.app.core.designsystem.SkeletonList
 import com.shikkhokplus.app.core.designsystem.EmptyState
 import com.shikkhokplus.app.core.designsystem.ListScreenScaffold
-import com.shikkhokplus.app.core.designsystem.LogoLoader
 import com.shikkhokplus.app.core.designsystem.ShikkhokCard
 import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.core.ui.scheduleSummary
@@ -84,9 +85,12 @@ fun MyBatchesScreen(
         bottomBar = {
             Column {
                 if (state is MyBatchesUiState.Loaded) {
+                    // Offline (S1), paying waits for a connection.
                     PrimaryButton(
-                        text = stringResource(R.string.pay_open),
+                        text =
+                            stringResource(if (state.offline) R.string.pay_needs_connection else R.string.pay_open),
                         onClick = onPay,
+                        enabled = !state.offline,
                         modifier = Modifier.fillMaxWidth().padding(16.dp).testTag(TAG_MY_BATCHES_PAY),
                     )
                 }
@@ -96,20 +100,29 @@ fun MyBatchesScreen(
         actions = barActions,
     ) {
         when (state) {
-            MyBatchesUiState.Loading -> LogoLoader(Modifier.testTag(TAG_MY_BATCHES_LOADING))
+            MyBatchesUiState.Loading -> SkeletonList(rows = 3, modifier = Modifier.testTag(TAG_MY_BATCHES_LOADING))
 
+            // **The number on its own line** (S1): it is what the student
+            // reads out or shows to the teacher, so it is set large on a
+            // tinted panel rather than buried in the sentence.
             is MyBatchesUiState.Empty ->
                 EmptyState(
                     title = stringResource(R.string.my_batches_empty_title),
                     body =
-                        state.phone
-                            ?.let { stringResource(R.string.my_batches_empty_body, Numerals.phone(it)) }
-                            ?: stringResource(R.string.my_batches_empty_body_no_phone),
+                        stringResource(
+                            if (state.phone != null) {
+                                R.string.my_batches_empty_lead
+                            } else {
+                                R.string.my_batches_empty_body_no_phone
+                            },
+                        ),
                     modifier = Modifier.testTag(TAG_MY_BATCHES_EMPTY),
+                    action = state.phone?.let(Numerals::phone)?.let { number -> numberAction(number) },
                 )
 
             is MyBatchesUiState.Loaded ->
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (state.offline) item(key = "offline") { OfflineBanner(R.string.family_offline_body) }
                     state.rows.firstOrNull { it.isNext }?.let { row ->
                         val next = row.nextClass
                         if (next != null) {
@@ -247,3 +260,34 @@ internal fun FeeSummary(fee: FeeLine, modifier: Modifier = Modifier) {
         )
     }
 }
+
+/**
+ * The empty state's action slot holding the number panel.
+ *
+ * @param number The number, formatted
+ * @return The slot's content
+ */
+private fun numberAction(number: String): @Composable () -> Unit = { NumberPanel(number) }
+
+/**
+ * The student's number, large on a tinted panel, for the teacher to copy.
+ *
+ * @param number The number, formatted
+ */
+@Composable
+private fun NumberPanel(number: String) {
+    Text(
+        number,
+        style = MaterialTheme.typography.headlineMedium,
+        color = MaterialTheme.colorScheme.onPrimaryContainer,
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.shapes.medium)
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .testTag(TAG_MY_BATCHES_NUMBER),
+    )
+}
+
+/** The student's own number on the empty screen. */
+const val TAG_MY_BATCHES_NUMBER: String = "my_batches_number"

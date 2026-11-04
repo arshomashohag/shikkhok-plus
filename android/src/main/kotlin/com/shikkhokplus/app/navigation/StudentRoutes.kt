@@ -28,6 +28,9 @@ import com.shikkhokplus.app.feature.marks.MarksheetReader
 import com.shikkhokplus.app.feature.student.MyBatchesViewModel
 import com.shikkhokplus.app.feature.student.FamilyReader
 import com.shikkhokplus.app.feature.student.ui.MyBatchesScreen
+import com.shikkhokplus.app.core.designsystem.ProfileButton
+import androidx.compose.ui.res.stringResource
+import com.shikkhokplus.app.R
 import io.ktor.client.HttpClient
 
 /**
@@ -57,7 +60,7 @@ internal fun NavGraphBuilder.studentRoutes(
             onOpen = { seat -> navController.navigate(Destination.StudentBatch.of(seat)) },
             onRetry = model::retry,
             bottomBar = bottomBar,
-            barActions = { InboxBellFor(client) { navController.navigate(Destination.Inbox.route) } },
+            barActions = { FamilyBarActions(client, navController) },
             onPay = { navController.navigate(Destination.Pay.of()) },
         )
     }
@@ -137,6 +140,20 @@ internal fun NavGraphBuilder.studentRoutes(
     familyRoutes(client, navController)
 }
 
+
+/**
+ * The bar's end at a student's or guardian's home (S1, G1): the inbox
+ * bell and the profile button that opens More (S4, G4). Families have
+ * no bottom bar; this is how they reach their account.
+ *
+ * @param client The authenticated HTTP client
+ * @param navController The app's controller
+ */
+@Composable
+internal fun FamilyBarActions(client: HttpClient, navController: NavHostController) {
+    InboxBellFor(client) { navController.navigate(Destination.Inbox.route) }
+    ProfileButton(stringResource(R.string.nav_more)) { navController.navigate(Destination.Profile.route) }
+}
 
 /**
  * The inbox bell, reading its own unread count each time the home

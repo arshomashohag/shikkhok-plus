@@ -136,6 +136,7 @@ sealed interface GuardianUiState {
         val children: List<ChildCard>,
         val selected: Int = 0,
         val switched: Boolean = false,
+        val offline: Boolean = false,
     ) : GuardianUiState {
         /** The shown child. */
         val child: ChildCard get() = children[selected]

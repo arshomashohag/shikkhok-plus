@@ -153,6 +153,10 @@ sealed interface DuesUiState {
      * @property batch The batch narrowed to, or null for all
      * @property batches Every batch with a row, for the batch filter
      * @property remind Where a "Remind" tap stands
+     * @property loadedAt When this phone last read the dues, for the bar's
+     *   "updated 2 min ago", or null
+     * @property offline True when these are this session's earlier figures,
+     *   shown because the latest read could not reach the server
      */
     data class Loaded(
         val summary: DuesSummary,
@@ -161,6 +165,8 @@ sealed interface DuesUiState {
         val batch: DuesBatch? = null,
         val batches: List<DuesBatch> = emptyList(),
         val remind: RemindState = RemindState.Idle,
+        val loadedAt: Long? = null,
+        val offline: Boolean = false,
     ) : DuesUiState
 
     /**
@@ -168,8 +174,11 @@ sealed interface DuesUiState {
      *
      * **A separate state rather than a [Loaded] with no rows**: an
      * empty dues list is good news and deserves a sentence saying so.
+     *
+     * @property total The server's "owed to you" (৳0), which T5's empty
+     *   board keeps on its card, or null when the read carried none
      */
-    data object Empty : DuesUiState
+    data class Empty(val total: Money? = null) : DuesUiState
 
     /**
      * Something failed, and the screen can say what to do about it.

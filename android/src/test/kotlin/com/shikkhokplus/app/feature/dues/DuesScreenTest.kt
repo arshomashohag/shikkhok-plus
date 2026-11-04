@@ -21,6 +21,9 @@ import com.shikkhokplus.app.feature.dues.ui.TAG_DUES_REMIND
 import com.shikkhokplus.app.feature.dues.ui.TAG_DUES_REMIND_RESULT
 import com.shikkhokplus.app.feature.dues.ui.TAG_DUES_REMIND_SEND
 import com.shikkhokplus.app.feature.dues.ui.TAG_DUES_SUMMARY
+import com.shikkhokplus.app.core.model.Money
+import com.shikkhokplus.app.feature.dues.ui.TAG_DUES_OFFLINE
+import androidx.compose.ui.test.assertIsNotEnabled
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -111,8 +114,32 @@ class DuesScreenTest {
 
     @Test
     fun `nobody owing is good news, not a blank`() {
-        show(DuesUiState.Empty)
+        show(DuesUiState.Empty())
 
         compose.onNodeWithTag(TAG_DUES_EMPTY).assertExists()
+    }
+
+    @Test
+    fun `nobody owing still shows the server's owed-to-you total`() {
+        show(DuesUiState.Empty(total = Money.of("0.00")))
+
+        compose.onNodeWithTag(TAG_DUES_SUMMARY).assertExists()
+        compose.onNodeWithTag(TAG_DUES_EMPTY).assertExists()
+    }
+
+    @Test
+    fun `the bar keeps the total owed and says how fresh it is`() {
+        // T5: "৳6,000 owed · updated just now".
+        show(loaded().copy(loadedAt = System.currentTimeMillis()))
+
+        compose.onNodeWithText("৳6,000 owed · updated just now").assertExists()
+    }
+
+    @Test
+    fun `offline figures say so and hold Remind back`() {
+        show(loaded(remindable = 2).copy(offline = true, loadedAt = System.currentTimeMillis()))
+
+        compose.onNodeWithTag(TAG_DUES_OFFLINE).assertExists()
+        compose.onNodeWithTag(TAG_DUES_REMIND).assertIsNotEnabled()
     }
 }

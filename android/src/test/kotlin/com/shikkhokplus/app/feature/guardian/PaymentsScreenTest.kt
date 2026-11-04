@@ -13,6 +13,7 @@ import com.shikkhokplus.app.feature.guardian.ui.TAG_PAYMENTS_OWED
 import com.shikkhokplus.app.feature.guardian.ui.TAG_PAYMENTS_PAY
 import com.shikkhokplus.app.core.network.PayableDto
 
+import androidx.compose.ui.test.assertIsNotEnabled
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -76,5 +77,18 @@ class PaymentsScreenTest {
         val dto = PayableDto("e-1", "Physics", "2026-11", Money.of("1000.00"), null, totalDue = Money.of("1500.00"))
 
         assertEquals(Money.of("1500.00"), GuardianStateMapper.option(dto).totalDue)
+    }
+
+    @Test
+    fun `while loading, send money is held in place and cannot be pressed`() {
+        // G3: paying before the history shows what is paid is how a
+        // guardian pays twice.
+        var sends = 0
+        compose.setContent {
+            ShikkhokTheme { PaymentsScreen(PaymentsUiState.Loading, onBack = {}, onPay = { sends++ }, onRetry = {}) }
+        }
+
+        compose.onNodeWithTag(TAG_PAYMENTS_PAY).assertIsNotEnabled()
+        assertEquals(0, sends)
     }
 }

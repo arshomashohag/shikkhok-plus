@@ -7,11 +7,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import com.shikkhokplus.app.feature.profile.ui.DeleteAccountScreen
-import com.shikkhokplus.app.core.format.Numerals
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.Text
-import androidx.compose.material3.AlertDialog
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
@@ -29,6 +25,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import com.shikkhokplus.app.R
 import com.shikkhokplus.app.core.designsystem.BottomNav
+import com.shikkhokplus.app.core.designsystem.GuardianScale
 import com.shikkhokplus.app.core.designsystem.NavDestination
 import com.shikkhokplus.app.core.designsystem.ScreenScaffold
 import com.shikkhokplus.app.core.network.HttpAnalyticsRepository
@@ -36,10 +33,8 @@ import com.shikkhokplus.app.feature.dues.DuesViewModel
 import com.shikkhokplus.app.feature.dues.ui.DuesActions
 import com.shikkhokplus.app.feature.dues.ui.DuesScreen
 import com.shikkhokplus.app.core.network.HttpBatchesRepository
-import com.shikkhokplus.app.core.network.HttpRosterRepository
 import com.shikkhokplus.app.core.network.HttpSignupRepository
 import com.shikkhokplus.app.core.ui.BatchCreateForm
-import com.shikkhokplus.app.core.ui.StudentAddForm
 import com.shikkhokplus.app.feature.auth.MessageKeys
 import com.shikkhokplus.app.core.ui.WriteState
 import com.shikkhokplus.app.feature.auth.AuthUiState
@@ -49,7 +44,6 @@ import com.shikkhokplus.app.feature.auth.SignupViewModel
 import com.shikkhokplus.app.feature.auth.ui.AuthScreen
 import com.shikkhokplus.app.feature.auth.ui.SignupScreen
 import com.shikkhokplus.app.feature.batches.BatchesViewModel
-import com.shikkhokplus.app.feature.roster.RosterViewModel
 import com.shikkhokplus.app.core.queue.QueueStore
 import com.shikkhokplus.app.core.session.Lens
 import com.shikkhokplus.app.core.network.HttpFeesRepository
@@ -74,6 +68,10 @@ import com.shikkhokplus.app.feature.dashboard.DashboardReader
 import com.shikkhokplus.app.feature.marks.ui.ProgressScreen
 import com.shikkhokplus.app.feature.profile.ProfileViewModel
 import com.shikkhokplus.app.feature.profile.ui.ProfileScreen
+import com.shikkhokplus.app.feature.profile.ui.LogOutSheet
+import com.shikkhokplus.app.feature.profile.ui.MoreActions
+import com.shikkhokplus.app.feature.profile.ProfileUiState
+import com.shikkhokplus.app.BuildConfig
 import io.ktor.client.HttpClient
 
 /**
@@ -121,6 +119,34 @@ import io.ktor.client.HttpClient
  */
 @Composable
 fun ShikkhokNavHost(
+    client: HttpClient,
+    queue: QueueStore,
+    session: SessionBinding,
+    signedIn: Boolean,
+    navController: NavHostController,
+    authModel: AuthViewModel,
+    modifier: Modifier = Modifier,
+) {
+    // **The guardian's larger type and reach, for every screen a
+    // guardian can reach** (G1–G4), set once here rather than per screen.
+    GuardianScale(enabled = session.lens == Lens.GUARDIAN) {
+        ShikkhokGraph(client, queue, session, signedIn, navController, authModel, modifier)
+    }
+}
+
+/**
+ * The navigation graph itself, inside the lens's scale.
+ *
+ * @param client The authenticated HTTP client
+ * @param queue The offline write queue
+ * @param session The signed-in session
+ * @param signedIn Whether a session exists
+ * @param navController The app's controller
+ * @param authModel The sign-in ViewModel
+ * @param modifier Layout modifier
+ */
+@Composable
+private fun ShikkhokGraph(
     client: HttpClient,
     queue: QueueStore,
     session: SessionBinding,
@@ -343,70 +369,13 @@ fun ShikkhokNavHost(
 
         collectionsRoutes(client, navController)
 
-        composable(
-            route = Destination.AddStudent.route,
-            arguments =
-                listOf(
-                    navArgument(Destination.Roster.ARG_ID) { type = NavType.StringType },
-                ),
-        ) { entry ->
-            val id = entry.arguments?.getString(Destination.Roster.ARG_ID).orEmpty()
-
-            // Same reasoning as CreateBatch: the roster's ViewModel, so
-            // the added student is in the list this form returns to.
-            val parent =
-                remember(entry) {
-                    navController.getBackStackEntry(Destination.Roster.route)
-                }
-            val model: RosterViewModel =
-                viewModel(parent, key = id) {
-                    RosterViewModel(HttpRosterRepository(client))
-                }
-            val write by model.writeState.collectAsState()
-
-            // Close on the server's answer, for the reason CreateBatch
-            // gives: closing on the tap let a roster reload overwrite a
-            // refused add, so the student silently never existed.
-            LaunchedEffect(write) {
-                if (write == WriteState.Saved) {
-                    model.acknowledgeWrite()
-                    navController.popBackStack()
-                }
-            }
-            val leave = {
-                model.acknowledgeWrite()
-                navController.popBackStack()
-            }
-
-            ScreenScaffold(
-                title = stringResource(R.string.screen_title_add_student),
-                onBack = { leave() },
-            ) {
-                StudentAddForm(
-                    onAdd = { name, studentPhone, guardian, fee ->
-                        model.addStudent(
-                            displayName = name,
-                            studentPhone = studentPhone,
-                            guardianPhone = guardian,
-                            feeAmount = fee,
-                        )
-                    },
-                    onCancel = { leave() },
-                    saving = write == WriteState.Saving,
-                    error = writeError(write),
-                )
-            }
-        }
+        addStudentRoute(client, navController)
 
         teachingRoutes(client, queue, navController)
 
-        studentRoutes(client, navController) {
-            BottomNav(
-                destinations = tabsFor(session.lens),
-                selectedIndex = tabIndexOf(session.lens, Destination.MyBatches.route),
-                onSelect = { navController.switchTab(it, session.lens) },
-            )
-        }
+        // **No bottom bar for a student** (S1, S4): More opens from the
+        // profile button in the bar, as the artboards draw it.
+        studentRoutes(client, navController) {}
 
         composable(
             route = Destination.Marksheet.route,
@@ -560,7 +529,10 @@ fun ShikkhokNavHost(
                 actions =
                     GuardianActions(
                         onSelect = model::select,
-                        onPay = { option -> navController.navigate(Destination.ChildPay.of(option.enrollmentId)) },
+                        // **Pay opens the child's payments first** (G1 → G3):
+                        // what was already paid sits above Send money, so a
+                        // guardian does not pay twice for want of seeing it.
+                        onPay = { option -> navController.navigate(Destination.ChildPayments.of(option.enrollmentId)) },
                         onPayments = { seat -> navController.navigate(Destination.ChildPayments.of(seat)) },
                         onResult = { result, _ ->
                             navController.navigate(
@@ -572,14 +544,9 @@ fun ShikkhokNavHost(
                         onRefresh = model::refresh,
                     ),
                 refreshing = refreshing,
-                bottomBar = {
-                    BottomNav(
-                        destinations = tabsFor(session.lens),
-                        selectedIndex = tabIndexOf(session.lens, Destination.GuardianHome.route),
-                        onSelect = { navController.switchTab(it, session.lens) },
-                    )
-                },
-                barActions = { InboxBellFor(client) { navController.navigate(Destination.Inbox.route) } },
+                // **No bottom bar for a guardian** (G1, G4): More opens
+                // from the profile button beside the bell.
+                barActions = { FamilyBarActions(client, navController) },
             )
         }
 
@@ -611,8 +578,14 @@ fun ShikkhokNavHost(
                 }
             }
 
+            // Pushed from More for a student or guardian (S4, G4), so it
+            // has a way back; the lens-free person's home has none.
+            val pushed = remember { navController.previousBackStackEntry != null }
+            val back: (() -> Unit)? = { navController.popBackStack(); Unit }.takeIf { pushed }
+
             InvitationsScreen(
                 state = state,
+                onBack = back,
                 onOpen = model::open,
                 onAccept = model::accept,
                 onDeclineRequested = model::confirmDecline,
@@ -627,44 +600,48 @@ fun ShikkhokNavHost(
             val model: ProfileViewModel =
                 viewModel { ProfileViewModel(HttpProfileRepository(client)) }
             val state by model.state.collectAsState()
+            val summary by model.summary.collectAsState()
             var confirmingSignOut by remember { mutableStateOf(false) }
 
-            LaunchedEffect(Unit) { model.load() }
+            // Re-read on every visit, except straight back from a save:
+            // the save already returned the profile, and a read would
+            // replace "Saved." with a loader before anyone saw it.
+            LaunchedEffect(Unit) {
+                if (model.state.value !is ProfileUiState.Saved) model.load()
+            }
 
             ProfileScreen(
                 state = state,
-                onEdit = model::edit,
-                onSave = { name, address -> model.save(name, address) },
-                onRetry = model::retry,
-                bottomBar = {
-                    BottomNav(
-                        destinations = tabsFor(session.lens),
-                        selectedIndex = tabIndexOf(session.lens, Destination.Profile.route),
-                        onSelect = { navController.switchTab(it, session.lens) },
-                    )
-                },
-                onSwitchLens = session.onSwitch,
-                onDeleteAccount = {
-                    model.startDeletion()
-                    navController.navigate(Destination.DeleteAccount.route)
-                },
-                onSignOut = { confirmingSignOut = true },
-                onPaymentMethods =
-                    if (session.lens == Lens.TEACHER) {
-                        { navController.navigate(Destination.PaymentMethods.route) }
-                    } else {
-                        null
-                    },
-                onCollections =
-                    if (session.lens == Lens.TEACHER) {
-                        { navController.navigate(Destination.Collections.route) }
-                    } else {
-                        null
-                    },
+                lens = session.lens,
+                summary = summary,
+                version = BuildConfig.VERSION_NAME,
+                actions = moreActionsFor(
+                    lens = session.lens,
+                    base =
+                        MoreActions(
+                            onEdit = {
+                                model.edit()
+                                navController.navigate(Destination.EditProfile.route)
+                            },
+                            onSignOut = { confirmingSignOut = true },
+                            onDeleteAccount = {
+                                model.startDeletion()
+                                navController.navigate(Destination.DeleteAccount.route)
+                            },
+                            onRetry = model::retry,
+                            onSwitchLens = session.onSwitch,
+                            unsent = remember { session.unsentWrites() },
+                        ),
+                    navigate = { route -> navController.navigate(route) },
+                ),
+                bottomBar = { LensBar(session.lens, Destination.Profile.route, navController) },
+                // Pushed from a family home's profile button, so it has
+                // a way back; a teacher reaches it as a tab and needs none.
+                onBack = { navController.popBackStack(); Unit }.takeIf { isFamily(session.lens) },
             )
 
             if (confirmingSignOut) {
-                SignOutDialog(
+                LogOutSheet(
                     unsent = remember { session.unsentWrites() },
                     onConfirm = {
                         confirmingSignOut = false
@@ -674,6 +651,8 @@ fun ShikkhokNavHost(
                 )
             }
         }
+
+        profileRoutes(client, navController, session.lens)
 
         composable(Destination.PaymentMethods.route) {
             val model: PaymentMethodsViewModel =
@@ -776,43 +755,6 @@ private fun feeReaderOrStudent(raw: String?): FeeReader =
     FeeReader.entries.firstOrNull { it.name == raw } ?: FeeReader.STUDENT
 
 /**
- * Confirm signing out, and say what it would discard.
- *
- * **Never silent about unsent work.** Signing out discards this
- * account's unsent writes from the phone, so attendance saved and not
- * yet sent is lost, and the dialog says how much before it happens. The
- * count and the discard are both scoped to this account by the queue
- * store; another account's writes on the same phone are neither counted
- * nor touched.
- *
- * @param unsent How many saved writes have not been sent
- * @param onConfirm Called to sign out
- * @param onDismiss Called to stay signed in
- */
-@Composable
-private fun SignOutDialog(unsent: Int, onConfirm: () -> Unit, onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.sign_out_title)) },
-        text = {
-            Text(
-                if (unsent > 0) {
-                    stringResource(R.string.sign_out_unsent, Numerals.count(unsent))
-                } else {
-                    stringResource(R.string.sign_out_body)
-                },
-            )
-        },
-        confirmButton = {
-            TextButton(onClick = onConfirm) { Text(stringResource(R.string.sign_out_confirm)) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
-        },
-    )
-}
-
-/**
  * Resolve a failed write to the text its form shows, or null.
  *
  * @param write Where the form's write stands
@@ -821,6 +763,71 @@ private fun SignOutDialog(unsent: Int, onConfirm: () -> Unit, onDismiss: () -> U
 @Composable
 internal fun writeError(write: WriteState): String? =
     (write as? WriteState.Failed)?.let { stringResource(MessageKeys.resolve(it.messageKey)) }
+
+/**
+ * The More rows one lens is offered, on top of the account rows every
+ * lens has.
+ *
+ * **Decided here, by lens, and nowhere in the screen.** A teacher gets
+ * where students pay and the money reports (T9); a student gets their
+ * invitations (S4); a guardian gets invitations and their children
+ * (G4). A lens-free person has invitations as their home tab already,
+ * so More offers them nothing extra.
+ *
+ * Internal rather than private so a test can hold each lens to its rows.
+ *
+ * @param lens The lens in use, or null
+ * @param base The rows every lens has
+ * @param navigate Opens a route
+ * @return The rows for this lens
+ */
+internal fun moreActionsFor(
+    lens: Lens?,
+    base: MoreActions,
+    navigate: (String) -> Unit,
+): MoreActions =
+    when (lens) {
+        Lens.TEACHER ->
+            base.copy(
+                onPaymentMethods = { navigate(Destination.PaymentMethods.route) },
+                onCollections = { navigate(Destination.Collections.route) },
+            )
+        Lens.STUDENT -> base.copy(onInvitations = { navigate(Destination.Invitations.route) })
+        Lens.GUARDIAN ->
+            base.copy(
+                onInvitations = { navigate(Destination.Invitations.route) },
+                onMyChildren = { navigate(Destination.MyChildren.route) },
+            )
+        null -> base
+    }
+
+/**
+ * Whether this lens is a student's or a guardian's.
+ *
+ * **The two lenses with no bottom bar** (S1, S4, G1, G4). Their home is
+ * the one place they return to, and More opens from its profile button.
+ *
+ * @param lens The lens in use, or null
+ * @return True for a student or a guardian
+ */
+internal fun isFamily(lens: Lens?): Boolean = lens == Lens.STUDENT || lens == Lens.GUARDIAN
+
+/**
+ * The bottom bar for a tab route, or nothing for a family lens.
+ *
+ * @param lens The lens in use, or null
+ * @param route The route the bar is drawn on
+ * @param navController The app's controller
+ */
+@Composable
+internal fun LensBar(lens: Lens?, route: String, navController: NavHostController) {
+    if (isFamily(lens)) return
+    BottomNav(
+        destinations = tabsFor(lens),
+        selectedIndex = tabIndexOf(lens, route),
+        onSelect = { navController.switchTab(it, lens) },
+    )
+}
 
 /**
  * Which tab in this lens's bar is the given route.
@@ -889,7 +896,7 @@ internal fun homeFor(lens: Lens?): String =
  * @param index Which tab was chosen
  * @param lens The lens whose bar was tapped
  */
-private fun NavHostController.switchTab(index: Int, lens: Lens?) {
+internal fun NavHostController.switchTab(index: Int, lens: Lens?) {
     val route = routesFor(lens).getOrNull(index) ?: return
     if (currentDestination?.route == route) return
 
@@ -920,16 +927,17 @@ internal fun routesFor(lens: Lens?): List<String> =
                 Destination.Dues.route,
                 Destination.Profile.route,
             )
+        // **Invitations is a row in More, not a tab** (S4, G4): the
+        // artboards put it inside More, highlighted, because it is a
+        // thing that happens a few times, not a place a person returns to.
         Lens.GUARDIAN ->
             listOf(
                 Destination.GuardianHome.route,
-                Destination.Invitations.route,
                 Destination.Profile.route,
             )
         Lens.STUDENT ->
             listOf(
                 Destination.MyBatches.route,
-                Destination.Invitations.route,
                 Destination.Profile.route,
             )
         null ->
@@ -966,11 +974,6 @@ private fun tabsFor(lens: Lens?): List<NavDestination> =
                     tag = "nav_tab_children",
                 ),
                 NavDestination(
-                    label = stringResource(R.string.nav_invitations),
-                    icon = painterResource(R.drawable.ic_nav_batches),
-                    tag = "nav_tab_invitations",
-                ),
-                NavDestination(
                     label = stringResource(R.string.nav_more),
                     icon = painterResource(R.drawable.ic_nav_more),
                     tag = "nav_tab_more",
@@ -982,11 +985,6 @@ private fun tabsFor(lens: Lens?): List<NavDestination> =
                     label = stringResource(R.string.nav_my_batches),
                     icon = painterResource(R.drawable.ic_nav_today),
                     tag = "nav_tab_my_batches",
-                ),
-                NavDestination(
-                    label = stringResource(R.string.nav_invitations),
-                    icon = painterResource(R.drawable.ic_nav_batches),
-                    tag = "nav_tab_invitations",
                 ),
                 NavDestination(
                     label = stringResource(R.string.nav_more),

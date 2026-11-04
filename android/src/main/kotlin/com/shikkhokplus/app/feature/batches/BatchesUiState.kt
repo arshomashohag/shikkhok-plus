@@ -1,5 +1,7 @@
 package com.shikkhokplus.app.feature.batches
 
+import com.shikkhokplus.app.core.network.ScheduleSlotDto
+
 import com.shikkhokplus.app.core.model.Money
 
 /**
@@ -23,6 +25,7 @@ import com.shikkhokplus.app.core.model.Money
  *   counts as accepted, and a client tally would be wrong the moment
  *   the roster paginates [TC-9, NFR20.9]. The screen formats these two
  *   numbers; it does not compute either.
+ * @property schedule The weekly classes, for the card's schedule line
  * @property active False means read-only history
  */
 data class BatchRow(
@@ -33,6 +36,7 @@ data class BatchRow(
     val enrollmentCount: Int,
     val acceptedCount: Int,
     val active: Boolean,
+    val schedule: List<ScheduleSlotDto> = emptyList(),
 )
 
 /**
