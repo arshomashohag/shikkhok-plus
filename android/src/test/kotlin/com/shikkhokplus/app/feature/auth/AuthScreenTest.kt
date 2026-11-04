@@ -98,7 +98,7 @@ class AuthScreenTest {
 
         assertEquals(null, requested)
         compose
-            .onNodeWithText("Enter an 11-digit mobile number, like 01711-234567")
+            .onNodeWithText("Bangladeshi mobile numbers have 11 digits, starting 01.")
             .assertExists()
         compose.onNodeWithTag(TAG_PHONE_FIELD).assertIsDisplayed()
     }

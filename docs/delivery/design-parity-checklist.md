@@ -69,9 +69,11 @@ approved and is not audited here.
 - [~] "Error · no account for this number" is not built, on purpose: the
   code answers every number the same way (BR2.7) and the project forbids
   revealing whether a number exists. **The artboard should drop this state.**
-- [ ] Malformed-number copy: design says "Bangladeshi mobile numbers have
-  11 digits, starting 01."
-- [ ] Loading is the overlay loader, not a spinner in the button.
+- [x] Malformed-number copy: "Bangladeshi mobile numbers have 11 digits,
+  starting 01." (every phone field shares it).
+- [~] Loading is the app-wide overlay loader, not a spinner in the
+  button, by the owner's own rule for loaders (see `AuthScreen.kt`).
+  **Update the artboard.**
 
 ### O3 · Enter the code — `feature/auth/ui/AuthScreen.kt`
 - [~] The sent line never shows the number ("If this number has an
@@ -81,8 +83,8 @@ approved and is not audited here.
 - [~] "Change" stays on its own line: inline in the sentence it would be
   a tap target under the design system's 44px minimum. **Update the
   artboard.**
-- [ ] Checking should be an in-place "Checking the code…" label, not the
-  overlay loader.
+- [~] Checking uses the app-wide overlay loader ("Checking the code…"),
+  by the same rule. **Update the artboard.**
 - [ ] Lockout note ("paused for 15 minutes") has no specific copy.
 - [ ] Code-only extras not in the design: "No code? … create your account
   first" hint, Retry button.
@@ -371,8 +373,11 @@ approved and is not audited here.
   guardian read has no level field.
 - [x] "Log out" as a row.
 - [x] Reached from a profile button, no bottom bar.
-- [ ] "Is আয়ান your child?" invitation with child chip, "Yes, this is my
-  child" / "No, not my child".
+- [?] "Is আয়ান your child?" invitation with child chip, "Yes, this is my
+  child" / "No, not my child". The invitation read carries no child
+  name, and sending one is a privacy decision: it would show a child's
+  name to whoever holds the number a teacher typed, before they have
+  confirmed they are the guardian [RC-1, D-5].
 - [?] Notifications, Text size, "Call for help · Talk to a person, in Bangla".
 - [x] Guardian type scale (64dp rows, 18sp titles, 21sp/700 title).
 - [ ] Error · offline.

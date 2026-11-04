@@ -570,7 +570,7 @@
     <string name="delete_done_close">Close</string>
     <string name="student_add_student_phone">Student\'s phone</string>
     <string name="student_add_student_phone_help">They sign in with this number.</string>
-    <string name="phone_invalid">Enter an 11-digit mobile number, like 01711-234567</string>
+    <string name="phone_invalid">Bangladeshi mobile numbers have 11 digits, starting 01.</string>
     <string name="schedule_duplicate_slot">The same class is listed twice. Remove one.</string>
     <string name="schedule_days">Class days</string>
     <string name="schedule_start">Starts · %1$s</string>
