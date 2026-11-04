@@ -159,50 +159,12 @@ fun MarkEntryScreen(
         modifier = modifier,
         actions = { BarActions(loaded, onEditExam) },
         header = { loaded?.let { Progress(it.rows) } },
-        bottomBar = {
-            val current = entry.current
-            if (loaded != null && loaded.writable && current != null) {
-                Dock(entry, current, loaded.rows.indexOf(current), onAbsent, onHistory)
-            }
-        },
+        bottomBar = { DockFor(loaded, entry, onAbsent, onHistory) },
     ) {
         when (state) {
             MarksUiState.Loading -> SkeletonList(rows = 6, modifier = Modifier.testTag(TAG_MARK_ENTRY_LOADING))
 
-            is MarksUiState.EntryLoaded -> {
-                if (!state.writable) {
-                    Text(
-                        stringResource(R.string.mark_entry_read_only),
-                        Modifier.testTag(TAG_MARK_ENTRY_READ_ONLY),
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
-                if (state.rows.isEmpty()) {
-                    EmptyState(
-                        title = stringResource(R.string.mark_entry_empty_title),
-                        body = stringResource(R.string.mark_entry_empty_body),
-                        modifier = Modifier.testTag(TAG_MARK_ENTRY_EMPTY),
-                    )
-                }
-                LazyColumn(
-                    Modifier
-                        .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.surface, MaterialTheme.shapes.medium)
-                        .testTag(TAG_MARK_ENTRY_LIST),
-                ) {
-                    itemsIndexed(state.rows, key = { _, row -> row.enrollmentId }) { index, row ->
-                        if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainerHigh)
-                        MarkLine(
-                            row = row,
-                            roll = index + 1,
-                            totalMarks = state.totalMarks,
-                            current = row.enrollmentId == entry.current?.enrollmentId,
-                            typed = entry.typed,
-                            onSelect = if (state.writable && row.isEditable) ({ entry.select(row) }) else null,
-                        )
-                    }
-                }
-            }
+            is MarksUiState.EntryLoaded -> EntryList(state, entry)
 
             is MarksUiState.Failed -> {
                 Text(
@@ -219,6 +181,68 @@ fun MarkEntryScreen(
             else -> Unit
         }
     }
+}
+
+/**
+ * The exam's seats: the read-only note, the empty state, then the list.
+ *
+ * @param state The exam
+ * @param entry The open seat and its digits
+ */
+@Composable
+private fun EntryList(state: MarksUiState.EntryLoaded, entry: Entry) {
+    if (!state.writable) {
+        Text(
+            stringResource(R.string.mark_entry_read_only),
+            Modifier.testTag(TAG_MARK_ENTRY_READ_ONLY),
+            color = MaterialTheme.colorScheme.error,
+        )
+    }
+    if (state.rows.isEmpty()) {
+        EmptyState(
+            title = stringResource(R.string.mark_entry_empty_title),
+            body = stringResource(R.string.mark_entry_empty_body),
+            modifier = Modifier.testTag(TAG_MARK_ENTRY_EMPTY),
+        )
+    }
+    LazyColumn(
+        Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface, MaterialTheme.shapes.medium)
+            .testTag(TAG_MARK_ENTRY_LIST),
+    ) {
+        itemsIndexed(state.rows, key = { _, row -> row.enrollmentId }) { index, row ->
+            if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainerHigh)
+            MarkLine(
+                row = row,
+                roll = index + 1,
+                totalMarks = state.totalMarks,
+                current = row.enrollmentId == entry.current?.enrollmentId,
+                typed = entry.typed,
+                onSelect = if (state.writable && row.isEditable) ({ entry.select(row) }) else null,
+            )
+        }
+    }
+}
+
+/**
+ * The dock and keypad, when the exam takes writes and a seat is open.
+ *
+ * @param loaded The exam, or null while it loads
+ * @param entry The open seat and its digits
+ * @param onAbsent Called to mark the open seat absent
+ * @param onHistory Called to see the open seat's marks
+ */
+@Composable
+private fun DockFor(
+    loaded: MarksUiState.EntryLoaded?,
+    entry: Entry,
+    onAbsent: (MarkRow) -> Unit,
+    onHistory: (MarkRow) -> Unit,
+) {
+    val current = entry.current ?: return
+    if (loaded == null || !loaded.writable) return
+    Dock(entry, current, loaded.rows.indexOf(current), onAbsent, onHistory)
 }
 
 /**

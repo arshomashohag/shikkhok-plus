@@ -123,7 +123,9 @@ class MarkEntryActionsTest {
     fun `digits typed on the keypad are saved by Next, which moves down`() {
         val saved = mutableListOf<Pair<String, Int>>()
         compose.setContent {
-            ShikkhokTheme { MarkEntryScreen(state = two(), onMark = { row, mark -> saved += row.enrollmentId to mark }) }
+            ShikkhokTheme {
+                MarkEntryScreen(state = two(), onMark = { row, mark -> saved += row.enrollmentId to mark })
+            }
         }
 
         compose.onNodeWithTag(TAG_MARK_ENTRY_KEY + "_2").performClick()
