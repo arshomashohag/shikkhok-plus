@@ -186,6 +186,7 @@ private fun BatchHeader(
             thenLine(view.following),
             withEnd = true,
             modifier = Modifier.testTag(TAG_STUDENT_NEXT_CLASS),
+            asCard = true,
         )
     }
     // **No fee status that cannot be confirmed** (S2 offline): a payment

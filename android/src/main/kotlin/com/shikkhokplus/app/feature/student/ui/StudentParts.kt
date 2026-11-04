@@ -38,19 +38,30 @@ const val TAG_STUDENT_FEE_CHIP: String = "student_fee_chip"
 private const val MINUTES_PER_HOUR = 60
 
 /**
- * The blue card naming the next class: how soon, when, and where.
+ * The card naming the next class: how soon, when, and where.
  *
  * @param next The class
  * @param caption What it is: batch and teacher, or the subject
  * @param withEnd Whether to show the end time as well
  * @param modifier The layout modifier
+ * @param asCard A white card (S2) rather than the blue hero (S1)
  */
 @Composable
-fun NextClassHero(next: NextClass, caption: String?, withEnd: Boolean, modifier: Modifier = Modifier) {
+fun NextClassHero(
+    next: NextClass,
+    caption: String?,
+    withEnd: Boolean,
+    modifier: Modifier = Modifier,
+    asCard: Boolean = false,
+) {
+    // S1 draws the next class as the blue hero; S2, inside one batch,
+    // as a white card, so the batch's own page has no second hero.
+    val fill = if (asCard) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.primary
+    val ink = if (asCard) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onPrimary
     Column(
         modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.primary, MaterialTheme.shapes.medium)
+            .background(fill, MaterialTheme.shapes.medium)
             .padding(horizontal = 16.dp, vertical = 14.dp)
             .testTag(TAG_STUDENT_HERO),
         verticalArrangement = Arrangement.spacedBy(2.dp),
@@ -58,15 +69,19 @@ fun NextClassHero(next: NextClass, caption: String?, withEnd: Boolean, modifier:
         Text(
             howSoon(next),
             style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
-            color = MaterialTheme.statusColors.heroCaption,
+            color = if (asCard) MaterialTheme.colorScheme.primary else MaterialTheme.statusColors.heroCaption,
         )
         Text(
             whenLabel(next, withEnd),
             style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-            color = MaterialTheme.colorScheme.onPrimary,
+            color = ink,
         )
         caption?.let {
-            Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimary)
+            Text(
+                it,
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (asCard) MaterialTheme.colorScheme.onSurfaceVariant else ink,
+            )
         }
     }
 }
