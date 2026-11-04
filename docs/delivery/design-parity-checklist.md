@@ -261,7 +261,8 @@ approved and is not audited here.
 - [x] Empty: "This screen updates by itself once you're added." after the
   number.
 - [ ] Empty: the number on its own highlighted line.
-- [ ] Loading skeleton with the name in the bar.
+- [x] Loading skeleton (`MyBatchesScreen.kt`).
+- [ ] The student's name in the bar while loading.
 - [ ] Error with saved copy, offline banner, disabled "Pay a fee · needs
   connection".
 
@@ -278,6 +279,7 @@ approved and is not audited here.
 - [ ] Fee sub-line "November due 10 Nov"; no extra "Send money"/"Progress"
   on the card.
 - [?] Results with rank ("rank 5 of 19") and chevron.
+- [x] Loading: skeleton cards (`StudentBatchScreen.kt`).
 - [ ] Loading/Error: saved results, "Fee status unavailable / We don't
   show a payment status we can't confirm", "Text only…" note.
 

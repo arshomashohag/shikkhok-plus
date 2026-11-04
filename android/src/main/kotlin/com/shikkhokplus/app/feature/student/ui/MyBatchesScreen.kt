@@ -24,9 +24,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
+import com.shikkhokplus.app.core.designsystem.SkeletonList
 import com.shikkhokplus.app.core.designsystem.EmptyState
 import com.shikkhokplus.app.core.designsystem.ListScreenScaffold
-import com.shikkhokplus.app.core.designsystem.LogoLoader
 import com.shikkhokplus.app.core.designsystem.ShikkhokCard
 import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.core.ui.scheduleSummary
@@ -96,7 +96,7 @@ fun MyBatchesScreen(
         actions = barActions,
     ) {
         when (state) {
-            MyBatchesUiState.Loading -> LogoLoader(Modifier.testTag(TAG_MY_BATCHES_LOADING))
+            MyBatchesUiState.Loading -> SkeletonList(rows = 3, modifier = Modifier.testTag(TAG_MY_BATCHES_LOADING))
 
             is MyBatchesUiState.Empty ->
                 EmptyState(

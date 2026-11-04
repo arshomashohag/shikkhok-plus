@@ -27,8 +27,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
+import com.shikkhokplus.app.core.designsystem.SkeletonList
 import com.shikkhokplus.app.core.designsystem.ListScreenScaffold
-import com.shikkhokplus.app.core.designsystem.LogoLoader
 import com.shikkhokplus.app.core.designsystem.ShikkhokCard
 import com.shikkhokplus.app.core.designsystem.TextAction
 import com.shikkhokplus.app.core.designsystem.asHeading
@@ -131,7 +131,8 @@ fun StudentBatchScreen(
         },
     ) {
         when (state) {
-            StudentBatchUiState.Loading -> LogoLoader(Modifier.testTag(TAG_STUDENT_BATCH_LOADING))
+            StudentBatchUiState.Loading ->
+                SkeletonList(rows = 3, modifier = Modifier.testTag(TAG_STUDENT_BATCH_LOADING))
             is StudentBatchUiState.Loaded ->
                 Column(
                     Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(top = 8.dp, bottom = 24.dp),
