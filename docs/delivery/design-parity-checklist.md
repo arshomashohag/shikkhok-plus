@@ -55,15 +55,18 @@ approved and is not audited here.
 ## Sign up & log in
 
 ### O1 · Create account — `feature/auth/ui/SignupScreen.kt`
-- [ ] Address is "Address (optional)" and not required; the design labels
-  it "Address" and has an "Add your address" error state.
+- [?] Address required at sign-up: the app asks for it but does not
+  require it. Requiring a child's or guardian's home address before they
+  can use the app is a data-minimisation decision for the owner, not a
+  layout fix.
 - [?] Already-added banner should name the teacher, role and batch
   ("মাহফুজুর রহমান added this number as a student in …"); the code uses
   generic copy. Needs the server to say who added the number.
 - [~] Loading uses a full-window `LogoLoader` ("Creating your account…")
   instead of "Sending code…" in the button — deliberate per the code's
   own comment.
-- [ ] Code-only "We sent a code to your number" banner is not in the design.
+- [~] The "We sent a code to your number" banner stays: it is the
+  confirmation that the step worked. **Add it to the artboard.**
 
 ### O2 · Log in — `feature/auth/ui/AuthScreen.kt`
 - [~] "Error · no account for this number" is not built, on purpose: the
@@ -85,9 +88,12 @@ approved and is not audited here.
   artboard.**
 - [~] Checking uses the app-wide overlay loader ("Checking the code…"),
   by the same rule. **Update the artboard.**
-- [ ] Lockout note ("paused for 15 minutes") has no specific copy.
-- [ ] Code-only extras not in the design: "No code? … create your account
-  first" hint, Retry button.
+- [?] Lockout note ("paused for 15 minutes"): the server reports a
+  lockout as "temporarily unavailable" without its length, so the client
+  cannot say 15 minutes truthfully.
+- [~] "No code? … create your account first" and Retry stay: they were
+  added after a teacher-added student waited on this screen with no way
+  on. **Add them to the artboard.**
 
 ---
 
@@ -132,7 +138,8 @@ approved and is not audited here.
 - [?] Half marks ("19.5"): the client takes `Int`. Needs the API's mark
   type confirmed before the client changes.
 - [x] Empty: "No students in this batch yet".
-- [ ] Empty: an Add students button on it.
+- [?] Empty: an Add students button on it -- the entry read carries no
+  batch id to open the batch's add-student form with.
 - [x] Loading: skeleton rows.
 - [?] Draft → review → "Publish to students & guardians", "3 to fix",
   "Max 25" row errors. There is no draft/publish model; marks save per
@@ -147,7 +154,9 @@ approved and is not audited here.
   unused transaction ID; Partial, Reject and anything over or reused
   open the review, where carry-forward, waive, the duplicate warning and
   the reject confirmation live.
-- [ ] Subtitle "· oldest 2 days".
+- [?] Subtitle "· oldest 2 days": the queue read has no oldest-first
+  guarantee the client may rely on, and picking the oldest would be the
+  client ordering a domain list.
 - [x] Partial sheet title "Approve ৳800 of ৳1,200", and "Add ৳400 to the
   next fee." on carry forward when the server's shortfall figure applies
   (`feature/verify/ui/ApprovalSheetView.kt`).
@@ -157,9 +166,10 @@ approved and is not audited here.
 - [x] The approved chip says "Paid", not "Payment done".
 - [~] The heading stays "Decided today": the list holds rejections too,
   so "Approved today" would mislabel them. **Rename it in the artboard.**
-- [ ] Empty: "Partial · ৳600 fwd"
-  chip, time on rows, "can be undone for 24 hours", "…and on Today".
-- [ ] Loading: card skeletons with button blocks.
+- [?] Empty: "Partial · ৳600 fwd" chip and times on decided rows: the
+  recent-decisions read carries no carried amount.
+- [x] Loading: skeleton rows (the board's button blocks are not drawn;
+  the card height is what keeps the list from jumping).
 - [x] Duplicate: red outline and "This ID was already used." on the
   queue card.
 - [x] Duplicate: "Reject as duplicate" is the filled choice and "Approve
@@ -323,8 +333,10 @@ approved and is not audited here.
   an offline-queued write (only attendance and topic are, NFR5/BR3.1).
   **The artboard should drop this copy.**
 - [x] Sent: title "Payment sent", chip "Verifying".
-- [ ] Sent: bKash ID row, "Sent 17 Oct, 3:22 pm", "Until then the fee
-  shows as Verifying, not Paid".
+- [x] Sent: the transaction ID row, and "Until your teacher checks it, the
+  fee shows as Verifying, not Paid."
+- [?] Sent: "Sent 17 Oct, 3:22 pm" -- the submission's reply carries the
+  date paid, not when it was sent.
 
 ### S4 · More — `feature/profile/ui/ProfileScreen.kt`
 - [x] Title "More", profile card with avatar, "Student · number", Edit.
@@ -394,7 +406,7 @@ approved and is not audited here.
   S3 (method-first, several children per payment, any amount). **Redraw
   from F1–F5.**
 - [x] Guardian scale on the pay form (it follows the lens).
-- [ ] Loading keeps a disabled "Pay · waiting for connection".
+- [x] Loading keeps a disabled Send money in place.
 
 ### G4 · More — `feature/profile/ui/ProfileScreen.kt`
 - [x] Title "More", profile card (avatar, name, "Guardian · number").

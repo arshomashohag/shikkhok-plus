@@ -575,7 +575,18 @@ private fun ColumnScope.Sent(state: PayUiState.Sent) {
             stringResource(R.string.pay_paid_on_row),
             isoToUtcMillis(state.payment.paidOn)?.let(::displayDate) ?: state.payment.paidOn,
         )
+        // The transaction ID the teacher will match against their SMS (S3).
+        state.reference?.let { SummaryRow(stringResource(R.string.verify_transaction_id), Numerals.transactionId(it)) }
         SummaryRow(stringResource(R.string.pay_status_row), stringResource(statusOf(state.outcome)))
+    }
+    // **Says what the fee shows meanwhile** (S3), so a family who sees
+    // "Verifying" on the batch does not think the payment went missing.
+    if (state.outcome == SentOutcome.PENDING) {
+        Text(
+            stringResource(R.string.pay_until_verified),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

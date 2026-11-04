@@ -1210,6 +1210,8 @@
     <string name="my_children_missing_body_plain">Ask the teacher to add your number as the guardian.</string>
 
     <!-- Design parity, round 2. -->
+    <string name="pay_until_verified">Until your teacher checks it, the fee shows as Verifying, not Paid.</string>
+    <string name="payments_waiting">Send money · loading your payments</string>
     <string name="dashboard_load_failed">Couldn\'t load the results</string>
     <string name="my_batches_empty_lead">Your teacher adds you using your phone number. Give them this number. This screen updates by itself once you\'re added.</string>
     <string name="phone_digit_count">Mobile numbers have 11 digits. This one has %1$s.</string>

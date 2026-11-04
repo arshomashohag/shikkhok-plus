@@ -76,6 +76,17 @@ fun PaymentsScreen(state: PaymentsUiState, onBack: () -> Unit, onPay: () -> Unit
             },
         onBack = onBack,
         bottomBar = {
+            // **Held in place while loading, disabled** (G3): the button a
+            // guardian came for is where it will be, but cannot be pressed
+            // before the history shows what is already paid.
+            if (state == PaymentsUiState.Loading) {
+                PrimaryButton(
+                    text = stringResource(R.string.payments_waiting),
+                    onClick = {},
+                    enabled = false,
+                    modifier = Modifier.fillMaxWidth().padding(16.dp).testTag(TAG_PAYMENTS_PAY),
+                )
+            }
             if (loaded != null) {
                 Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainerHigh)

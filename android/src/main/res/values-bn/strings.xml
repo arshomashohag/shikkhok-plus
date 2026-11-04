@@ -1155,6 +1155,8 @@
     <string name="my_children_missing_body_plain">শিক্ষককে আপনার নম্বর অভিভাবক হিসেবে যোগ করতে বলুন।</string>
 
     <!-- Design parity, round 2. -->
+    <string name="pay_until_verified">শিক্ষক যাচাই না করা পর্যন্ত ফি “যাচাই হচ্ছে” দেখাবে, “পরিশোধিত” নয়।</string>
+    <string name="payments_waiting">টাকা পাঠান · পেমেন্ট আনা হচ্ছে</string>
     <string name="dashboard_load_failed">ফলাফল আনা যায়নি</string>
     <string name="my_batches_empty_lead">শিক্ষক আপনার ফোন নম্বর দিয়ে আপনাকে যুক্ত করবেন। তাঁকে এই নম্বরটি দিন। আপনাকে যোগ করলে এই পাতা নিজে থেকেই বদলে যাবে।</string>
     <string name="phone_digit_count">মোবাইল নম্বর 11 সংখ্যার। এটিতে %1$sটি আছে।</string>
