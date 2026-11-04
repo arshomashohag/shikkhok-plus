@@ -529,7 +529,10 @@ private fun ShikkhokGraph(
                 actions =
                     GuardianActions(
                         onSelect = model::select,
-                        onPay = { option -> navController.navigate(Destination.ChildPay.of(option.enrollmentId)) },
+                        // **Pay opens the child's payments first** (G1 → G3):
+                        // what was already paid sits above Send money, so a
+                        // guardian does not pay twice for want of seeing it.
+                        onPay = { option -> navController.navigate(Destination.ChildPayments.of(option.enrollmentId)) },
                         onPayments = { seat -> navController.navigate(Destination.ChildPayments.of(seat)) },
                         onResult = { result, _ ->
                             navController.navigate(

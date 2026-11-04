@@ -144,9 +144,11 @@ fun DashboardScreen(
         when (state) {
             DashboardUiState.Loading -> SkeletonList(modifier = Modifier.testTag(TAG_DASHBOARD_LOADING))
             is DashboardUiState.Failed ->
+                // "Couldn't load the results" (G2), with the server's reason
+                // under it rather than as the heading.
                 ErrorCard(
-                    title = stringResource(MessageKeys.resolve(state.messageKey)),
-                    body = null,
+                    title = stringResource(R.string.dashboard_load_failed),
+                    body = stringResource(MessageKeys.resolve(state.messageKey)),
                     modifier = Modifier.testTag(TAG_DASHBOARD_ERROR),
                     retryLabel = if (state.retryable) stringResource(R.string.dues_retry) else null,
                     onRetry = if (state.retryable) actions.onRetry else null,

@@ -361,20 +361,27 @@ approved and is not audited here.
   instead of one month's amount plus "N later months".
 - [ ] Switcher and child header pinned in a white header, no title.
 - [ ] Child sub-line with class level ("HSC 2027").
-- [ ] Pay goes to G3 (payments), not straight to the pay form.
-- [ ] Empty: bar "ShikkhokPlus", "Your children appear here as soon as
-  they're linked."
+- [x] Pay goes to G3 (payments) first, where what was already paid sits
+  above Send money.
+- [x] Empty: "Your children appear here as soon as they're linked." after
+  the number to give the teacher.
+- [~] Empty bar title stays "Your students", the guardian home's title in
+  every state.
 - [ ] Error with saved results, "Payments can't be shown right now…".
 - [x] 30dp chips, 14sp text (the nearest design step).
 
 ### G2 · Progress — implemented as `DashboardScreen`
 - [x] Title "তাসনিম's progress" for a guardian; the subtitle keeps only
   the batch (`feature/dashboard/ui/DashboardScreen.kt`).
-- [ ] Narrative sentence ("Marks went up in each of the last 4 tests…"),
-  "Tap a point" hint, Test / Marks / Rank table.
-- [ ] One-test empty state ("21/25 · Rank 3 of 20 · avg 16.4 · A progress
-  line appears after the second test").
-- [ ] Error copy "Couldn't load the results…".
+- [?] Narrative sentence ("Marks went up in each of the last 4 tests…"),
+  "Tap a point" hint, Test / Marks / Rank table: the sentence is a
+  judgement about the marks the server should make and send, and rank
+  is not in the dashboard read.
+- [?] One-test empty state ("21/25 · Rank 3 of 20 · avg 16.4 · A progress
+  line appears after the second test"): needs rank and the batch average
+  for a single exam from the server.
+- [x] Error copy "Couldn't load the results", with the server's reason
+  under it.
 - [ ] Dashboard-only extras (child chips, range chips, tiles, attendance
   chart, fee strip) are not in the design — decide which stay.
 

@@ -829,7 +829,7 @@
     <string name="student_all_notices">সব নোটিশ</string>
     <string name="student_pay_this">টাকা পাঠান</string>
     <string name="guardian_none_title">এখনও কোনও সন্তান যুক্ত হয়নি</string>
-    <string name="guardian_none_body">আপনার সন্তানের শিক্ষককে আপনার নম্বর অভিভাবক হিসেবে যোগ করতে বলুন। আপনার নম্বর: %1$s</string>
+    <string name="guardian_none_body">আপনার সন্তানের শিক্ষককে আপনার নম্বর অভিভাবক হিসেবে যোগ করতে বলুন। আপনার নম্বর: %1$s। যুক্ত হলেই আপনার সন্তানেরা এখানে দেখা যাবে।</string>
     <string name="guardian_now_showing_before">"এখন দেখাচ্ছে "</string>
     <string name="guardian_now_showing_after">"-এর নম্বর ও বেতন"</string>
     <string name="guardian_latest_results">%1$s-এর সাম্প্রতিক ফল</string>
@@ -1155,6 +1155,7 @@
     <string name="my_children_missing_body_plain">শিক্ষককে আপনার নম্বর অভিভাবক হিসেবে যোগ করতে বলুন।</string>
 
     <!-- Design parity, round 2. -->
+    <string name="dashboard_load_failed">ফলাফল আনা যায়নি</string>
     <string name="my_batches_empty_lead">শিক্ষক আপনার ফোন নম্বর দিয়ে আপনাকে যুক্ত করবেন। তাঁকে এই নম্বরটি দিন। আপনাকে যোগ করলে এই পাতা নিজে থেকেই বদলে যাবে।</string>
     <string name="phone_digit_count">মোবাইল নম্বর 11 সংখ্যার। এটিতে %1$sটি আছে।</string>
     <string name="student_add_same_name">%1$s এই ব্যাচে আগে থেকেই আছে। অন্য শিক্ষার্থী হলেই যোগ করুন।</string>

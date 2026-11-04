@@ -884,7 +884,7 @@
     <string name="student_all_notices">All notices</string>
     <string name="student_pay_this">Send money</string>
     <string name="guardian_none_title">No child linked yet</string>
-    <string name="guardian_none_body">Ask your child\'s teacher to add your phone number as guardian. Your number is: %1$s</string>
+    <string name="guardian_none_body">Ask your child\'s teacher to add your phone number as guardian. Your number is: %1$s. Your children appear here as soon as they\'re linked.</string>
     <string name="guardian_now_showing_before">"Now showing "</string>
     <string name="guardian_now_showing_after">\'s marks and fees</string>
     <string name="guardian_latest_results">%1$s\'s latest results</string>
@@ -1210,6 +1210,7 @@
     <string name="my_children_missing_body_plain">Ask the teacher to add your number as the guardian.</string>
 
     <!-- Design parity, round 2. -->
+    <string name="dashboard_load_failed">Couldn\'t load the results</string>
     <string name="my_batches_empty_lead">Your teacher adds you using your phone number. Give them this number. This screen updates by itself once you\'re added.</string>
     <string name="phone_digit_count">Mobile numbers have 11 digits. This one has %1$s.</string>
     <string name="student_add_same_name">%1$s is already in this batch. Add them only if this is a different student.</string>
