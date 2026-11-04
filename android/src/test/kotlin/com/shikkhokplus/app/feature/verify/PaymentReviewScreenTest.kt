@@ -23,6 +23,7 @@ import com.shikkhokplus.app.feature.verify.ui.TAG_SHEET_LINE
 import com.shikkhokplus.app.feature.verify.ui.TAG_VERIFY_APPROVE
 import com.shikkhokplus.app.feature.verify.ui.TAG_VERIFY_REJECT
 import com.shikkhokplus.app.feature.verify.ui.TAG_VERIFY_REJECT_CONFIRM
+import com.shikkhokplus.app.feature.verify.ui.TAG_SHEET_TITLE
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -121,5 +122,22 @@ class PaymentReviewScreenTest {
 
         compose.onNodeWithTag(TAG_SHEET_CARRY).assertExists()
         compose.onNodeWithTag(TAG_SHEET_CONFIRM).assertIsNotEnabled()
+    }
+
+    @Test
+    fun `a short amount titles the sheet with both figures`() {
+        // T4: "Approve ৳1,500 of ৳2,000".
+        val loaded = ReviewUiState.Loaded(card())
+        render(loaded, ApprovalSheet(loaded.card, "1500.00"), mutableListOf())
+
+        compose.onNodeWithTag(TAG_SHEET_TITLE).assertTextContains("Approve ৳1,500 of ৳2,000")
+    }
+
+    @Test
+    fun `an exact amount keeps the plain title`() {
+        val loaded = ReviewUiState.Loaded(card())
+        render(loaded, ApprovalSheet(loaded.card, "2000.00"), mutableListOf())
+
+        compose.onNodeWithTag(TAG_SHEET_TITLE).assertTextContains("Approve payment")
     }
 }

@@ -236,7 +236,9 @@ approved and is not audited here.
 ## Student
 
 ### S1 · My batches — `feature/studentbatches` (`MyBatchesScreen.kt`)
-- [x] Pay button "Pay a fee", not "Send money".
+- [~] Pay button stays "Send money": the later payment-methods spec
+  (`docs/superpowers/specs/2026-11-02-payment-methods-and-progress-design.md`,
+  F1) fixes that label for every family screen. **Update the artboard.**
 - [ ] Hero caption uses the short teacher name ("মাহফুজ স্যার").
 - [ ] Empty: number on its own highlighted line; "This screen updates by
   itself once you're added."
@@ -261,9 +263,12 @@ approved and is not audited here.
   show a payment status we can't confirm", "Text only…" note.
 
 ### S3 · Submit payment — `feature/pay/ui/PayScreen.kt`
-- [ ] One form: pick the fee (batch + month + amount due), numbered steps
-  1/2/3, teacher's number, bKash/Nagad/Rocket chips, ID and amount — not
-  method-first. Cash and Bank are code-only options.
+- [~] One form, fee-first: **superseded by the 2026-11-02 payment-methods
+  spec** (F1–F5). That spec, approved after this artboard, makes paying
+  method-first from the teacher's own list (mobile banking, bank, or the
+  built-in cash in hand), lets one payment cover several children in a
+  batch, and accepts a payment when nothing is owed. The app follows the
+  spec. **Redraw S3 from F1–F5.**
 - [ ] Title "Pay a fee" with close X.
 - [ ] Empty: "Which fee are you paying?" list, "রসায়ন isn't listed: your
   payment is being checked".
@@ -331,10 +336,11 @@ approved and is not audited here.
 - [x] "Paid in 2026 · ৳X" is the bar subtitle (`PaymentsScreen.kt`).
 - [ ] No extra "Owed now ৳X" headline: kept for now, since it is the one
   place this screen says what is owed before the guardian pays.
-- [ ] CTA "Pay ৳1,500 for উচ্চতর গণিত".
-- [ ] Pay form: "Pay for তাসনিম", one "Child · batch · month" field,
-  amount prefilled, "Sent a different amount?", "Send ৳1,500 for
-  checking", guardian scale.
+- [~] CTA stays "Send money" (spec F1).
+- [~] Pay form: superseded by the 2026-11-02 payment-methods spec, as for
+  S3 (method-first, several children per payment, any amount). **Redraw
+  from F1–F5.**
+- [ ] Guardian scale on the pay form.
 - [ ] Loading keeps a disabled "Pay · waiting for connection".
 
 ### G4 · More — `feature/profile/ui/ProfileScreen.kt`

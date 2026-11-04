@@ -1090,7 +1090,7 @@
     <string name="pay_done">Done</string>
     <string name="pay_nothing_title">Nothing to pay for yet</string>
     <string name="pay_nothing_body">You have no accepted classes to send money for.</string>
-    <string name="pay_open">Pay a fee</string>
+    <string name="pay_open">Send money</string>
     <string name="payments_send_money">Send money</string>
     <string name="payments_send_hint">You can send any amount, any time — even when nothing is due.</string>
     <string name="fees_payment_allocation_bearer_required">Choose which child carries the shortfall.</string>
@@ -1210,6 +1210,8 @@
     <string name="my_children_missing_body_plain">Ask the teacher to add your number as the guardian.</string>
 
     <!-- Design parity, round 2. -->
+    <string name="verify_sheet_title_partial">Approve %1$s of %2$s</string>
+    <string name="verify_carry_forward_amount">Add %1$s to the next fee.</string>
     <string name="today_outstanding_title">Outstanding</string>
     <string name="today_total_owed">Total owed across all batches</string>
     <string name="progress_of_child">%1$s\'s progress</string>
