@@ -1155,6 +1155,8 @@
     <string name="my_children_missing_body_plain">শিক্ষককে আপনার নম্বর অভিভাবক হিসেবে যোগ করতে বলুন।</string>
 
     <!-- Design parity, round 2. -->
+    <string name="phone_digit_count">মোবাইল নম্বর 11 সংখ্যার। এটিতে %1$sটি আছে।</string>
+    <string name="student_add_same_name">%1$s এই ব্যাচে আগে থেকেই আছে। অন্য শিক্ষার্থী হলেই যোগ করুন।</string>
     <string name="dues_subtitle_owed">%1$s বাকি</string>
     <string name="dues_subtitle_updated">%1$s · হালনাগাদ %2$s</string>
     <string name="verify_duplicate_body_dated">আগে %1$s এর জন্য ব্যবহার হয়েছে (%2$s, %3$s, %4$s)। অনুমোদনের আগে দেখে নিন।</string>

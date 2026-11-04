@@ -13,6 +13,7 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.onNodeWithText
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -407,5 +408,30 @@ class CreateFormsTest {
         compose.setContent { StudentAddForm(onAdd = { _, _, _, _ -> }, onCancel = {}) }
 
         compose.onNodeWithTag(TAG_FORM_SUBMIT_NEXT).assertDoesNotExist()
+    }
+
+    @Test
+    fun `a number one digit short says how many it has`() {
+        // T8: "This one has 10" -- the mistake of misreading a register.
+        compose.setContent { StudentAddForm(onAdd = { _, _, _, _ -> }, onCancel = {}) }
+
+        compose.onNodeWithTag(TAG_FORM_STUDENT_PHONE).performTextInput("0171123456")
+
+        compose.onNodeWithText("This one has 10.", substring = true).assertExists()
+    }
+
+    @Test
+    fun `a name already in the batch is pointed out but not blocked`() {
+        compose.setContent {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                StudentAddForm(onAdd = { _, _, _, _ -> }, onCancel = {}, existingNames = listOf("Rahim Uddin"))
+            }
+        }
+
+        compose.onNodeWithTag(TAG_FORM_STUDENT_PHONE).performTextInput("01711-234567")
+        compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("rahim uddin")
+
+        compose.onNodeWithTag(TAG_FORM_SAME_NAME).assertExists()
+        compose.onNodeWithTag(TAG_FORM_SUBMIT).performScrollTo().assertIsEnabled()
     }
 }

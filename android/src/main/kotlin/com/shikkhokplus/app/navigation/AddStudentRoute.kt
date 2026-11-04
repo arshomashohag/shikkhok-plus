@@ -24,6 +24,8 @@ import com.shikkhokplus.app.core.network.HttpRosterRepository
 import com.shikkhokplus.app.core.ui.StudentAddForm
 import com.shikkhokplus.app.core.ui.WriteState
 import com.shikkhokplus.app.feature.roster.RosterViewModel
+import com.shikkhokplus.app.core.format.Numerals
+import com.shikkhokplus.app.feature.roster.RosterUiState
 import io.ktor.client.HttpClient
 
 /**
@@ -54,6 +56,10 @@ internal fun NavGraphBuilder.addStudentRoute(
         val parent = remember(entry) { navController.getBackStackEntry(Destination.Roster.route) }
         val model: RosterViewModel = viewModel(parent, key = id) { RosterViewModel(HttpRosterRepository(client)) }
         val write by model.writeState.collectAsState()
+        val roster by model.state.collectAsState()
+        val batchName =
+            (roster as? RosterUiState.Loaded)?.batchName ?: (roster as? RosterUiState.Empty)?.batchName
+        val existing = (roster as? RosterUiState.Loaded)?.rows?.map { it.displayName }.orEmpty()
         var addNext by remember { mutableStateOf(false) }
         var added by rememberSaveable { mutableIntStateOf(0) }
 
@@ -69,7 +75,7 @@ internal fun NavGraphBuilder.addStudentRoute(
             Unit
         }
 
-        AddStudentPage(added = added, onBack = leave) {
+        AddStudentPage(added = added, batchName = batchName, onBack = leave) {
             // Keyed on the count, so a confirmed add-next starts a fresh,
             // empty form rather than one holding the last student.
             key(added) {
@@ -83,6 +89,7 @@ internal fun NavGraphBuilder.addStudentRoute(
                         model.addStudent(name, phone, guardian, fee)
                     },
                     onCancel = leave,
+                    existingNames = existing,
                     saving = write == WriteState.Saving,
                     error = writeError(write),
                 )
@@ -96,14 +103,17 @@ internal fun NavGraphBuilder.addStudentRoute(
  * save-and-add-next has landed.
  *
  * @param added How many students this visit added
+ * @param batchName The batch being added to, or null before it loads
  * @param onBack Called to leave
  * @param form The form
  */
 @Composable
-private fun AddStudentPage(added: Int, onBack: () -> Unit, form: @Composable () -> Unit) {
+private fun AddStudentPage(added: Int, batchName: String?, onBack: () -> Unit, form: @Composable () -> Unit) {
+    val count = if (added > 0) pluralStringResource(R.plurals.student_add_added_so_far, added, added) else null
     ScreenScaffold(
         title = stringResource(R.string.screen_title_add_student),
-        subtitle = if (added > 0) pluralStringResource(R.plurals.student_add_added_so_far, added, added) else null,
+        // "Physics A · 2 added so far" (T8).
+        subtitle = listOfNotNull(batchName?.let(Numerals::freeText), count).joinToString(" · ").ifEmpty { null },
         onBack = onBack,
     ) {
         form()

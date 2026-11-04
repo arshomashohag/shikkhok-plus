@@ -216,17 +216,23 @@ approved and is not audited here.
 - [x] "Save & add next" beside Add student, and "2 added so far" in the bar
   once one lands (`navigation/AddStudentRoute.kt`); the form clears only
   after the server confirms.
-- [ ] Batch name as the bar subtitle.
+- [x] Batch name as the bar subtitle, with "2 added so far" after it.
 - [x] "+88" prefix on both phone fields, through the shared
   `PhoneNumberField`; a malformed number is still caught while typing.
-- [ ] Fee as a "Batch fee · ৳1,200" toggle, not a free-text field.
-- [ ] Help lines: "New number. They'll get an SMS invite.", name auto-fill
-  sentence, guardian "Lets a parent see marks…".
+- [ ] Fee as a "Batch fee · ৳1,200" toggle, not a free-text field (needs
+  the batch's fee on this screen; the field already says it inherits).
+- [~] Help lines: "New number. They'll get an SMS invite." is not added:
+  nothing sends an SMS invite (invitations are accepted in the app), so
+  the line would promise a message that never arrives. **Update the
+  artboard.**
 - [?] Number lookup: "Checking…", "Found on ShikkhokPlus", auto-fill.
   Needs a lookup endpoint (and a privacy review: it reveals that a number
   has an account, to a teacher).
-- [ ] Phone error "This one has 10" (digit count).
-- [ ] Inline duplicate-name card with "Open her profile".
+- [x] Phone error "Mobile numbers have 11 digits. This one has 10." when
+  a local number has the wrong count (`CreateForms.kt` `phoneError`).
+- [x] Same-name hint: "Rahim is already in this batch", shown, never
+  blocking, since two students can share a name.
+- [ ] "Open her profile" link on that hint.
 - [x] `feature/roster/ui/AddStudentScreen.kt` was never called — removed,
   with its test.
 

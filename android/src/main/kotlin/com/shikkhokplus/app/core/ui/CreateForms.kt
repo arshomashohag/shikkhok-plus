@@ -23,6 +23,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
+import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.core.model.Money
 import com.shikkhokplus.app.core.network.ScheduleSlotDto
 
@@ -49,6 +50,9 @@ const val TAG_FORM_GUARDIAN: String = "form_guardian"
 
 /** The submit button. */
 const val TAG_FORM_SUBMIT: String = "form_submit"
+
+/** The same-name hint on the add-student form (T8). */
+const val TAG_FORM_SAME_NAME: String = "form_same_name"
 
 /** "Save & add next" on the add-student form (T8). */
 const val TAG_FORM_SUBMIT_NEXT: String = "form_submit_next"
@@ -315,6 +319,31 @@ internal fun dueDayIsValid(raw: String): Boolean =
     raw.isBlank() || raw.toIntOrNull()?.let { it in DUE_DAYS } == true
 
 /**
+ * What is wrong with a typed number, or null when nothing is.
+ *
+ * "This one has 10 digits" when the count is off (T8), since a wrong
+ * count is the mistake a teacher makes reading a number off a register;
+ * otherwise the general message. A blank field is not an error here --
+ * the form's required check is the submit button.
+ *
+ * @param raw The field as typed
+ * @return The message, or null
+ */
+@Composable
+internal fun phoneError(raw: String): String? {
+    if (raw.isBlank() || phoneIsValid(raw)) return null
+    val digits = raw.count { it.isDigit() }
+    return if (digits != LOCAL_DIGITS && digits in 1..LOCAL_DIGITS + 2 && raw.trim().startsWith("0")) {
+        stringResource(R.string.phone_digit_count, Numerals.count(digits))
+    } else {
+        stringResource(R.string.phone_invalid)
+    }
+}
+
+/** A Bangladeshi mobile number's digits, written locally. */
+private const val LOCAL_DIGITS = 11
+
+/**
  * Add a student to a class.
  *
  * **An empty fee field means INHERIT, not zero** [AC2.2.5]. The field
@@ -329,6 +358,7 @@ internal fun dueDayIsValid(raw: String): Boolean =
  * @param error Why the last write failed, already resolved, or null
  * @param onAddNext Called like [onAdd] by "Save & add next" (T8), or
  *   null to offer only the one save
+ * @param existingNames The batch's students, for the same-name hint
  */
 @Composable
 fun StudentAddForm(
@@ -338,6 +368,7 @@ fun StudentAddForm(
     saving: Boolean = false,
     error: String? = null,
     onAddNext: ((String, String, String?, String?) -> Unit)? = null,
+    existingNames: List<String> = emptyList(),
 ) {
     var phone by remember { mutableStateOf("") }
     var name by remember { mutableStateOf("") }
@@ -360,7 +391,7 @@ fun StudentAddForm(
             onValueChange = { phone = it },
             label = stringResource(R.string.student_add_student_phone),
             help = stringResource(R.string.student_add_student_phone_help),
-            error = stringResource(R.string.phone_invalid).takeIf { phone.isNotBlank() && !phoneIsValid(phone) },
+            error = phoneError(phone),
             fieldModifier = Modifier.testTag(TAG_FORM_STUDENT_PHONE),
             modifier = Modifier.fillMaxWidth(),
         )
@@ -371,11 +402,22 @@ fun StudentAddForm(
             singleLine = true,
             modifier = Modifier.fillMaxWidth().testTag(TAG_FORM_NAME),
         )
+        // **A hint, never a block** (T8): two students can share a name,
+        // and the server decides what a seat is. This only saves the
+        // teacher adding the same child twice by accident.
+        existingNames.firstOrNull { it.trim().equals(name.trim(), ignoreCase = true) && name.isNotBlank() }?.let {
+            Text(
+                stringResource(R.string.student_add_same_name, it),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.testTag(TAG_FORM_SAME_NAME),
+            )
+        }
         PhoneNumberField(
             value = guardian,
             onValueChange = { guardian = it },
             label = stringResource(R.string.student_add_guardian),
-            error = stringResource(R.string.phone_invalid).takeIf { !guardianOk },
+            error = phoneError(guardian),
             fieldModifier = Modifier.testTag(TAG_FORM_GUARDIAN),
             modifier = Modifier.fillMaxWidth(),
         )

@@ -1210,6 +1210,8 @@
     <string name="my_children_missing_body_plain">Ask the teacher to add your number as the guardian.</string>
 
     <!-- Design parity, round 2. -->
+    <string name="phone_digit_count">Mobile numbers have 11 digits. This one has %1$s.</string>
+    <string name="student_add_same_name">%1$s is already in this batch. Add them only if this is a different student.</string>
     <string name="dues_subtitle_owed">%1$s owed</string>
     <string name="dues_subtitle_updated">%1$s · updated %2$s</string>
     <string name="verify_duplicate_body_dated">Used before for %1$s (%2$s, %3$s, %4$s). Check before approving.</string>
