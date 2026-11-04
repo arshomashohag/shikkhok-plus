@@ -50,10 +50,12 @@ sealed interface ProfileUiState {
      *
      * @property selfName The saved name
      * @property address The saved address
+     * @property phone The sign-in number, unchanged by a save
      */
     data class Saved(
         val selfName: String?,
         val address: String?,
+        val phone: String? = null,
     ) : ProfileUiState
 
     /**
@@ -69,3 +71,23 @@ sealed interface ProfileUiState {
         val retryable: Boolean,
     ) : ProfileUiState
 }
+
+/**
+ * The last profile the server confirmed, kept while the form is open.
+ *
+ * **Why a second value beside [ProfileUiState].** Edit profile is its
+ * own screen (S4) pushed over More, and More stays composed underneath
+ * it. While the form is open the state is `Editing` or `Saving`, which
+ * carry what is being typed rather than what is stored, so More draws
+ * its profile card from this instead. It changes only on a confirmed
+ * read or save, never on a keystroke.
+ *
+ * @property selfName The stored name, or null
+ * @property address The stored address, or null
+ * @property phone The sign-in number, or null
+ */
+data class ProfileSummary(
+    val selfName: String?,
+    val address: String?,
+    val phone: String?,
+)

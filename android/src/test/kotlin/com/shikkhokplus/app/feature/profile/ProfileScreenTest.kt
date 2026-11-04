@@ -1,21 +1,26 @@
 package com.shikkhokplus.app.feature.profile
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
-import androidx.compose.ui.test.performTextClearance
-import androidx.compose.ui.test.performTextInput
+import com.shikkhokplus.app.core.session.Lens
+import com.shikkhokplus.app.feature.profile.ui.MoreActions
 import com.shikkhokplus.app.feature.profile.ui.ProfileScreen
-import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_ADDRESS
+import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_CARD
+import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_COLLECTIONS
 import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_DELETE
-import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_PHONE
+import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_EDIT
+import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_INVITATIONS
+import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_MY_CHILDREN
+import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_PAYMENT_METHODS
 import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_SIGN_OUT
-import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_NAME
-import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_SAVE
+import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_SWITCH_LENS
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -24,19 +29,17 @@ import org.robolectric.annotation.Config
 import kotlin.test.assertEquals
 
 /**
- * `O5` profile, the edit half, rendered.
+ * More (T9, S4, G4), rendered.
  *
- * Two obligations are assertable only here:
+ * The obligations assertable only here:
  *
- * * **The screen says a profile edit changes no teacher's roster**
- *   [BR3.1, AC1.5.3]. The two names answer different questions and only
- *   the server knows which table it reads, so a person has no way to
- *   discover this except by being told.
- * * **The deletion control is present and wired.** This used to assert
- *   the OPPOSITE -- no deletion control -- because both deletion paths
- *   were D6's [TC-19] and the absence guarded against a half-built
- *   control appearing early. The in-app path has now landed, so the
- *   guard has done its job and the assertion flips with it.
+ * * **A row appears only when it leads somewhere.** The lens decides
+ *   which rows exist by which destinations the route supplies; a null
+ *   destination draws nothing, so nobody is offered a row that opens
+ *   nothing.
+ * * **The deletion control is present and wired** [TC-19].
+ * * **The card shows who is signed in**, with the number formatted the
+ *   way every other screen formats it.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
@@ -45,134 +48,183 @@ class ProfileScreenTest {
     @get:Rule
     val compose = createComposeRule()
 
+    private val viewing = ProfileUiState.Viewing("Rahim", "Dhaka", phone = "+8801611477203")
+
     private fun render(
-        state: ProfileUiState,
-        onEdit: () -> Unit = {},
-        onSave: (String, String) -> Unit = { _, _ -> },
-        onRetry: () -> Unit = {},
+        state: ProfileUiState = viewing,
+        actions: MoreActions = MoreActions(),
+        lens: Lens? = Lens.STUDENT,
+        summary: ProfileSummary? = null,
+        version: String? = null,
     ) {
         compose.setContent {
             ProfileScreen(
                 state = state,
-                onEdit = onEdit,
-                onSave = onSave,
-                onRetry = onRetry,
+                actions = actions,
+                lens = lens,
+                summary = summary,
+                version = version,
             )
         }
     }
 
     @Test
-    fun `viewing says the teacher's roster is unaffected`() {
+    fun `the screen is called More`() {
+        render()
+
+        compose.onNodeWithText("More").assertIsDisplayed()
+    }
+
+    @Test
+    fun `the card shows the name, the role and the formatted number`() {
+        render(lens = Lens.TEACHER)
+
+        compose.onNodeWithTag(TAG_PROFILE_CARD).assertIsDisplayed()
+        compose.onNodeWithText("Rahim").assertIsDisplayed()
+        compose.onNodeWithText("Teacher · 01611-477203").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a person with no stored name is asked to add one`() {
+        // A teacher recorded only the number; the card must not be blank.
+        render(state = ProfileUiState.Viewing(selfName = null, address = null, phone = "+8801611477203"))
+
+        compose.onNodeWithText("Add your name").assertIsDisplayed()
+    }
+
+    @Test
+    fun `while the form is open the card draws from the confirmed profile`() {
+        // More stays composed under Edit profile; a half-typed name in
+        // the Editing state must not reach the card.
         render(
-            ProfileUiState.Viewing(selfName = "Rahim", address = "Dhaka"),
+            state = ProfileUiState.Editing(selfName = "Half-typ", address = ""),
+            summary = ProfileSummary(selfName = "Rahim", address = "Dhaka", phone = "+8801611477203"),
         )
 
-        compose
-            .onNodeWithText("does not change the name", substring = true)
-            .assertIsDisplayed()
+        compose.onNodeWithText("Rahim").assertIsDisplayed()
+        compose.onNodeWithText("Half-typ").assertDoesNotExist()
     }
 
     @Test
-    fun `editing repeats that the teacher's roster is unaffected`() {
-        // The note belongs where the change is made, not only where it
-        // is viewed: a person who taps straight to Edit would otherwise
-        // never read it.
-        render(
-            ProfileUiState.Editing(selfName = "Rahim", address = "Dhaka"),
-        )
-
-        compose
-            .onNodeWithText("does not change the name", substring = true)
-            .assertIsDisplayed()
-    }
-
-    @Test
-    fun `the profile offers account deletion`() {
-        // Flipped from "offers no deletion control" when the in-app
-        // deletion path landed; see the class comment.
-        render(ProfileUiState.Viewing(selfName = "Rahim", address = "Dhaka"))
-
-        compose.onNodeWithTag(TAG_PROFILE_DELETE).performScrollTo().assertIsDisplayed()
-    }
-
-    @Test
-    fun `an unset field renders its label rather than disappearing`() {
-        render(ProfileUiState.Viewing(selfName = null, address = null))
-
-        compose.onNodeWithText("Your name").assertIsDisplayed()
-        compose.onNodeWithText("Address").assertIsDisplayed()
-    }
-
-    @Test
-    fun `saving reports both edited values`() {
-        var saved: Pair<String, String>? = null
-        render(
-            ProfileUiState.Editing(selfName = "Rahim", address = "Dhaka"),
-            onSave = { name, address -> saved = name to address },
-        )
-
-        compose.onNodeWithTag(TAG_PROFILE_NAME).performTextClearance()
-        compose.onNodeWithTag(TAG_PROFILE_NAME).performTextInput("Karim")
-        compose.onNodeWithTag(TAG_PROFILE_ADDRESS).performTextClearance()
-        compose.onNodeWithTag(TAG_PROFILE_ADDRESS).performTextInput("Khulna")
-        compose.onNodeWithTag(TAG_PROFILE_SAVE).performClick()
-
-        assertEquals("Karim" to "Khulna", saved)
-    }
-
-    @Test
-    fun `a saved profile confirms and shows what was stored`() {
-        render(
-            ProfileUiState.Saved(selfName = "Karim", address = "Khulna"),
-        )
+    fun `a saved profile confirms the save above the card`() {
+        render(state = ProfileUiState.Saved("Karim", "Khulna", phone = "+8801611477203"))
 
         compose.onNodeWithText("Saved.").assertIsDisplayed()
         compose.onNodeWithText("Karim").assertIsDisplayed()
     }
 
     @Test
+    fun `edit, log out and delete each call back only when tapped`() {
+        var edits = 0
+        var deletes = 0
+        var signOuts = 0
+        render(
+            actions =
+                MoreActions(
+                    onEdit = { edits++ },
+                    onDeleteAccount = { deletes++ },
+                    onSignOut = { signOuts++ },
+                ),
+        )
+        assertEquals(0, edits + deletes + signOuts, "rendering must not act")
+
+        compose.onNodeWithTag(TAG_PROFILE_EDIT).performClick()
+        compose.onNodeWithTag(TAG_PROFILE_SIGN_OUT).performScrollTo().performClick()
+        compose.onNodeWithTag(TAG_PROFILE_DELETE).performScrollTo().performClick()
+
+        assertEquals(1, edits)
+        assertEquals(1, signOuts)
+        assertEquals(1, deletes)
+    }
+
+    @Test
+    fun `the profile offers account deletion to every lens`() {
+        // One composition, the lens swapped under it: a rule may set its
+        // content only once.
+        var lens by mutableStateOf<Lens?>(Lens.TEACHER)
+        compose.setContent { ProfileScreen(state = viewing, actions = MoreActions(), lens = lens) }
+
+        listOf(Lens.TEACHER, Lens.STUDENT, Lens.GUARDIAN, null).forEach { next ->
+            lens = next
+            compose.waitForIdle()
+            compose.onNodeWithTag(TAG_PROFILE_DELETE).performScrollTo().assertIsDisplayed()
+        }
+    }
+
+    @Test
+    fun `a row with no destination is not drawn`() {
+        render(actions = MoreActions())
+
+        compose.onNodeWithTag(TAG_PROFILE_PAYMENT_METHODS).assertDoesNotExist()
+        compose.onNodeWithTag(TAG_PROFILE_COLLECTIONS).assertDoesNotExist()
+        compose.onNodeWithTag(TAG_PROFILE_INVITATIONS).assertDoesNotExist()
+        compose.onNodeWithTag(TAG_PROFILE_MY_CHILDREN).assertDoesNotExist()
+        compose.onNodeWithTag(TAG_PROFILE_SWITCH_LENS).assertDoesNotExist()
+    }
+
+    @Test
+    fun `a teacher's rows sit under their section headers and open their screens`() {
+        var methods = 0
+        var reports = 0
+        render(
+            lens = Lens.TEACHER,
+            actions = MoreActions(onPaymentMethods = { methods++ }, onCollections = { reports++ }),
+        )
+
+        compose.onNodeWithText("GETTING PAID").assertIsDisplayed()
+        compose.onNodeWithText("Where students pay").assertIsDisplayed()
+        compose.onNodeWithText("YOUR RECORDS").performScrollTo().assertIsDisplayed()
+
+        compose.onNodeWithTag(TAG_PROFILE_PAYMENT_METHODS).performClick()
+        compose.onNodeWithTag(TAG_PROFILE_COLLECTIONS).performScrollTo().performClick()
+
+        assertEquals(1, methods)
+        assertEquals(1, reports)
+    }
+
+    @Test
+    fun `a guardian is offered invitations and their children`() {
+        var invitations = 0
+        var children = 0
+        render(
+            lens = Lens.GUARDIAN,
+            actions = MoreActions(onInvitations = { invitations++ }, onMyChildren = { children++ }),
+        )
+
+        compose.onNodeWithText("Children a teacher linked to your number").assertIsDisplayed()
+        compose.onNodeWithTag(TAG_PROFILE_INVITATIONS).performClick()
+        compose.onNodeWithTag(TAG_PROFILE_MY_CHILDREN).performClick()
+
+        assertEquals(1, invitations)
+        assertEquals(1, children)
+    }
+
+    @Test
+    fun `switch role appears only when there is a role to switch to`() {
+        var switches = 0
+        render(actions = MoreActions(onSwitchLens = { switches++ }))
+
+        compose.onNodeWithTag(TAG_PROFILE_SWITCH_LENS).performScrollTo().performClick()
+
+        assertEquals(1, switches)
+    }
+
+    @Test
+    fun `the version sits at the foot`() {
+        render(version = "1.0.0")
+
+        compose.onNodeWithText("ShikkhokPlus 1.0.0").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
     fun `a retryable failure offers a retry the server permitted`() {
         var retried = false
         render(
-            ProfileUiState.Failed(
-                messageKey = "error.network.unreachable",
-                retryable = true,
-            ),
-            onRetry = { retried = true },
+            state = ProfileUiState.Failed(messageKey = "error.network.unreachable", retryable = true),
+            actions = MoreActions(onRetry = { retried = true }),
         )
 
         compose.onNodeWithText("Try again", substring = true).performClick()
         assertEquals(true, retried)
-    }
-
-    @Test
-    fun `the sign-in number is shown, read-only`() {
-        // O5: "This is your login and cannot be changed."
-        render(ProfileUiState.Viewing("Rahim", "Dhaka", phone = "+8801611477203"))
-
-        compose.onNodeWithTag(TAG_PROFILE_PHONE).performScrollTo().assertIsDisplayed()
-    }
-
-    @Test
-    fun `delete and sign out each call back only when tapped`() {
-        var deletes = 0
-        var signOuts = 0
-        compose.setContent {
-            ProfileScreen(
-                state = ProfileUiState.Viewing("Rahim", "Dhaka", phone = "+8801611477203"),
-                onEdit = {},
-                onSave = { _, _ -> },
-                onRetry = {},
-                onDeleteAccount = { deletes++ },
-                onSignOut = { signOuts++ },
-            )
-        }
-        assertEquals(0, deletes + signOuts, "rendering must not act")
-
-        compose.onNodeWithTag(TAG_PROFILE_DELETE).performScrollTo().performClick()
-        compose.onNodeWithTag(TAG_PROFILE_SIGN_OUT).performScrollTo().performClick()
-
-        assertEquals(1, deletes)
-        assertEquals(1, signOuts)
     }
 }

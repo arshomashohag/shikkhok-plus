@@ -1,0 +1,333 @@
+# Design parity checklist — Android vs the approved design canvas
+
+The approved design is the **ShikkhokPlus Design System** canvas
+(claude.ai artifact `14c6b628-4a29-4601-adaa-64711995bf29`), mobile pages
+*Sign up & log in*, *Teacher*, *Student* and *Guardian*. This file lists,
+per artboard, where the Compose app differs from it, so each gap can be
+closed or consciously kept.
+
+Audited 2026-11-04 against `main` at `601c39f`. File references are
+relative to `android/src/main/kotlin/com/shikkhokplus/app/`.
+
+**How to read the boxes**
+
+- `[ ]` — a gap to close.
+- `[x]` — closed (the commit that closed it is noted).
+- `[~]` — **keep the code, change the design**: the artboard conflicts
+  with a project rule, or the code deviates on purpose with a recorded
+  reason. These need an artboard edit, not a code change.
+- `[?]` — needs a server/API addition or a product decision before the
+  client can match it. Not started on the client side on purpose: a row
+  that opens nothing is worse than no row.
+
+**Out of scope:** the *Class* tab inside batch detail for every role
+(`feature/classcalendar`) was changed deliberately after the design was
+approved and is not audited here.
+
+---
+
+## Cross-cutting
+
+- [ ] **Offline with a saved copy.** No screen has the "Offline · showing
+  data from 10:42 am" state; a failed load always replaces the content
+  with an error card (T1, T5, T6, T7 fees, S1, S2, G1, G2, G3, and all
+  three More screens).
+- [ ] **Skeleton loading.** Most screens show `LogoLoader`; the
+  artboards draw skeleton cards (T1, T3, S1, S2).
+- [ ] **Student and guardian navigation.** The artboards draw no bottom
+  bar for student and guardian: More opens from a profile button with
+  Back. *Partly closed:* Invitations is now a row inside More and no
+  longer a tab, so the bars are My batches · More and Children · More
+  (`navigation/ShikkhokNavHost.kt` `routesFor` / `tabsFor`). Still open:
+  replacing the bar with a profile button. The lens-free person keeps
+  Invitations as their home tab (`homeFor(null)`), since it is the only
+  place they can act.
+- [ ] **Guardian type scale.** Guardian artboards use larger type and
+  targets (64dp rows, 18sp row titles, 60/56dp buttons, 30dp chips with
+  15sp text). The app uses the same scale for every lens.
+- [?] **Settings that do not exist yet:** Notifications preferences, Dark
+  theme, Text size, Save data, Reminder SMS language, How-to videos,
+  Call/message support, Tell another teacher. No screens, storage or
+  strings exist for any of them.
+
+---
+
+## Sign up & log in
+
+### O1 · Create account — `feature/auth/ui/SignupScreen.kt`
+- [ ] Address is "Address (optional)" and not required; the design labels
+  it "Address" and has an "Add your address" error state.
+- [?] Already-added banner should name the teacher, role and batch
+  ("মাহফুজুর রহমান added this number as a student in …"); the code uses
+  generic copy. Needs the server to say who added the number.
+- [~] Loading uses a full-window `LogoLoader` ("Creating your account…")
+  instead of "Sending code…" in the button — deliberate per the code's
+  own comment.
+- [ ] Code-only "We sent a code to your number" banner is not in the design.
+
+### O2 · Log in — `feature/auth/ui/AuthScreen.kt`
+- [~] "Error · no account for this number" is not built, on purpose: the
+  code answers every number the same way (BR2.7) and the project forbids
+  revealing whether a number exists. **The artboard should drop this state.**
+- [ ] Malformed-number copy: design says "Bangladeshi mobile numbers have
+  11 digits, starting 01."
+- [ ] Loading is the overlay loader, not a spinner in the button.
+
+### O3 · Enter the code — `feature/auth/ui/AuthScreen.kt`
+- [~] The sent line never shows the number ("If this number has an
+  account, we sent it…") — same non-disclosure rule as O2. The design's
+  "…to **01712-345678**" is fine only because the person just typed it;
+  decide and align.
+- [ ] "Change" should sit inline at the end of the sentence, not on its
+  own line.
+- [ ] Checking should be an in-place "Checking the code…" label, not the
+  overlay loader.
+- [ ] Lockout note ("paused for 15 minutes") has no specific copy.
+- [ ] Code-only extras not in the design: "No code? … create your account
+  first" hint, Retry button.
+
+---
+
+## Teacher
+
+### T1 · Home (Today) — `feature/today/ui/TodayScreen.kt`
+- [?] Schedule-change card ("Batch C moved to 7:30 pm today… notified")
+  and the struck-through old time. `ClassRow` has no original-time field.
+- [ ] Empty/first run: "Outstanding · ৳0" section; step bubbles 28dp,
+  step 1 filled primary, the rest grey.
+- [ ] Loading: skeleton for the Outstanding card.
+- [ ] Offline with cache (see cross-cutting), including rows marked
+  "Recorded · not sent yet" and "can't approve while offline".
+- [ ] Recorded topic has a "✓ " prefix the design does not.
+
+### T2 · Record a class — `feature/record/ui/RecordClassSheet.kt`
+- [ ] "Change" action in the sheet header.
+- [?] Two labelled suggestions ("Continue", "Next"); `RecordSheet` holds one.
+- [ ] Subjects as a segmented control, not FilterChips.
+- [ ] "Take attendance" link is code-only.
+- [~] Save stays enabled on an empty topic — blank topics are allowed
+  (BR2.2). **The artboard should not grey it out.**
+- [ ] Loading suggestions state.
+- [ ] "Couldn't send. Will retry on its own." snackbar with **Retry now**
+  (the app shows a banner with OK).
+
+### T3 · Marks entry — `feature/marks/ui/MarkEntryScreen.kt`
+- [ ] Continuous entry: "6/20" counter and progress bar, roll numbers,
+  compact "/25" rows, the "now entering" dock, keypad with Absent and
+  "Next ↓".
+- [ ] Exam in the title with "subject · batch · date" subtitle.
+- [?] Half marks ("19.5"): the client takes `Int`. Needs the API's mark
+  type confirmed before the client changes.
+- [ ] Empty: "No students in Batch D yet" with Add students.
+- [ ] Loading: skeleton rows.
+- [?] Draft → review → "Publish to students & guardians", "3 to fix",
+  "Max 25" row errors. There is no draft/publish model; marks save per
+  field. Needs a server model.
+
+### T4 · Payment verification — `feature/verify/ui/*`
+- [ ] Queue cards: TrxID, From, inline Reject / Partial / Approve.
+- [ ] Subtitle "· oldest 2 days".
+- [ ] Partial sheet title "Approve ৳800 of ৳1,200"; options with amount,
+  target month and "November fee becomes ৳1,600"; confirm "· carry ৳400
+  to Nov".
+- [ ] Empty: "Approved today" heading, "Paid" chip, "Partial · ৳600 fwd"
+  chip, time on rows, "can be undone for 24 hours", "…and on Today".
+- [ ] Loading: card skeletons with button blocks.
+- [ ] Duplicate: red-bordered warning on the queue card, date in the
+  warning, "Reject as duplicate" (primary) and "Approve anyway".
+
+### T5 · Cross-batch dues — `feature/dues/ui/DuesScreen.kt`
+- [ ] Subtitle "All 7 batches · updated 2 min ago".
+- [ ] Chip colour: red overdue for late rows, amber only for partly paid
+  (today every 1–30-day row is amber).
+- [?] "Remind N late **guardians**" by SMS ("SMS in Bangla and English ·
+  you approve the text first"); the app reminds students in-app. Product
+  decision.
+- [ ] Collapsing header when scrolled.
+- [ ] Empty keeps the "Owed to you ৳0" card plus "paid up for October"
+  and "November fees fall due on 10 Nov".
+- [ ] Offline with cache, disabled Remind.
+
+### T6 · Batch list — `feature/batches/ui/BatchesScreen.kt`
+- [?] Fee-status chip per card ("৳7,200 late" / "৳4,800 due" / "All paid").
+- [?] Schedule line ("HSC 2027 · Sat Mon Wed · 4:00 pm") and "Today moved
+  to 7:30 pm".
+- [ ] "18 students · ৳1,200/mo" instead of subjects and "X of Y accepted".
+- [ ] Error body "This phone has no saved copy yet…".
+
+### T7 · Single batch — `feature/batchdetail/ui/*`
+- [ ] Header subtitle has the level ("HSC 2027"); one icon, no extra
+  "Schedule" text action.
+- [ ] FAB hidden on empty Students (only "Add first student") and on Notices.
+- [ ] Declined chip: grey fill with dashed border (no DECLINED style in
+  `core/designsystem/PaymentStateChip.kt`).
+- [ ] Exams: section "Published", rows show "36.7 avg of 50".
+- [?] Notices: auto-sent schedule-change card, "seen by N of M families".
+- [ ] Notices: inline bottom composer instead of FAB + dialog; no
+  Edit/Remove in the design.
+
+### T8 · Add student — `core/ui/CreateForms.kt` `StudentAddForm`
+- [ ] "Save" plus "Save & add next", "2 added so far" subtitle, batch
+  subtitle.
+- [ ] "+88" prefix on both phone fields (`core/ui/PhoneNumberField.kt`
+  exists and is unused here).
+- [ ] Fee as a "Batch fee · ৳1,200" toggle, not a free-text field.
+- [ ] Help lines: "New number. They'll get an SMS invite.", name auto-fill
+  sentence, guardian "Lets a parent see marks…".
+- [?] Number lookup: "Checking…", "Found on ShikkhokPlus", auto-fill.
+  Needs a lookup endpoint (and a privacy review: it reveals that a number
+  has an account, to a teacher).
+- [ ] Phone error "This one has 10" (digit count).
+- [ ] Inline duplicate-name card with "Open her profile".
+- [ ] `feature/roster/ui/AddStudentScreen.kt` is never called — remove or wire.
+
+### T9 · More — `feature/profile/ui/ProfileScreen.kt`
+- [x] Title "More", not "Your profile". *(More screen redesign,
+  `feature/profile/ui/ProfileScreen.kt`, `core/designsystem/MenuList.kt`)*
+- [x] Profile card: avatar initial, name, "Teacher · number", tonal Edit.
+- [x] Menu rows with icon, title, sub-label and chevron, grouped by
+  section headers instead of a stack of fields and full-width buttons.
+- [x] GETTING PAID → "Where students pay" (opens payment methods).
+- [x] YOUR RECORDS → reports (opens Collections).
+- [x] ACCOUNT → "Log out", "Delete account" as plain rows; version footer.
+- [x] Log out is a bottom sheet: "Log out of ShikkhokPlus?", amber
+  callout when work is unsent, "Stay and send them first" / "Log out
+  anyway" (`feature/profile/ui/LogOutSheet.kt`). With nothing unsent it
+  is a plain Log out / Cancel confirmation; the artboard draws no such
+  state — add one.
+- [?] "Free trial · 9 days left" card with Plans (no plan model; the app
+  charges nobody — see `team.md` Way of Working).
+- [?] "Fee due date and reminders" row.
+- [?] "Everything is saved · Last synced" row.
+- [?] APP and HELP sections (see cross-cutting settings).
+- [ ] "Where students pay" sub-screen: title, single "Add a number ·
+  bKash, Nagad or Rocket" row, "Shown first" marker, FEES section.
+- [ ] Error · offline: banner, "Needs a connection" sub-labels, "2
+  records not sent yet" row.
+- [~] "Switch role" is code-only but needed by people who hold more than
+  one lens; kept as a row in ACCOUNT. **Add it to the artboard.**
+
+---
+
+## Student
+
+### S1 · My batches — `feature/studentbatches` (`MyBatchesScreen.kt`)
+- [ ] Pay button "Pay a fee", not "Send money".
+- [ ] Hero caption uses the short teacher name ("মাহফুজ স্যার").
+- [ ] Empty: number on its own highlighted line; "This screen updates by
+  itself once you're added."
+- [ ] Loading skeleton with the name in the bar.
+- [ ] Error with saved copy, offline banner, disabled "Pay a fee · needs
+  connection".
+
+### S2 · Inside a batch — `StudentBatchScreen.kt`, `FamilyTabs.kt`
+- [ ] One scrolling page (next class, fee, Results, Coming up, Latest
+  notice, Topics, All notices) instead of tabs. The old strings
+  (`student_result_rank`, `student_latest_notice`, `student_all_notices`,
+  `student_results`) are still in `strings.xml`, unused.
+- [ ] Bar subtitle "teacher · HSC 2027".
+- [ ] Next class as a white card; "First class" label when none has happened.
+- [ ] Fee sub-line "November due 10 Nov"; no extra "Send money"/"Progress"
+  on the card.
+- [?] Results with rank ("rank 5 of 19") and chevron.
+- [ ] Loading/Error: saved results, "Fee status unavailable / We don't
+  show a payment status we can't confirm", "Text only…" note.
+
+### S3 · Submit payment — `feature/pay/ui/PayScreen.kt`
+- [ ] One form: pick the fee (batch + month + amount due), numbered steps
+  1/2/3, teacher's number, bKash/Nagad/Rocket chips, ID and amount — not
+  method-first. Cash and Bank are code-only options.
+- [ ] Title "Pay a fee" with close X.
+- [ ] Empty: "Which fee are you paying?" list, "রসায়ন isn't listed: your
+  payment is being checked".
+- [~] "Safe to wait… we'll keep it and resend" — payment submission is not
+  an offline-queued write (only attendance and topic are, NFR5/BR3.1).
+  **The artboard should drop this copy.**
+- [ ] Sent: title "Payment sent", chip "Verifying", bKash ID row, "Sent 17
+  Oct, 3:22 pm", "Until then the fee shows as Verifying, not Paid".
+
+### S4 · More — `feature/profile/ui/ProfileScreen.kt`
+- [x] Title "More", profile card with avatar, "Student · number", Edit.
+- [x] Menu rows and section headers; APP / Help absent until they exist.
+- [x] Invitations as a row inside More (no longer a tab).
+- [?] The row's highlight and badge count: drawn plain until the client
+  knows how many invitations are pending, because a permanent highlight
+  would say something is waiting when nothing is.
+- [x] "Log out" as a row; delete as a plain row.
+- [ ] Reached from a profile button with Back, no bottom bar (see
+  cross-cutting navigation).
+- [?] Invitation badge count, Guardian row (name · number), Payment
+  history row — need a lightweight "me" summary from the server.
+- [ ] Invitation card: "Added 14 Oct", "<teacher> added you to <batch>",
+  Classes / Fee-with-due-day / Teacher-phone grid, explanation text,
+  EARLIER section; "This isn't me · Decline"; title "Invitations".
+  `InvitationRow` lacks teacher, schedule, date and due day.
+- [x] Edit profile as its own screen with close X, titled "Edit profile",
+  "Full name".
+- [?] Mobile number "Change" with OTP to the new number — the app says the
+  number cannot be changed. Needs a number-change endpoint.
+- [~] "Account type" explanation ("To use ShikkhokPlus as a teacher or
+  guardian, create a separate account with another number") contradicts
+  the lens model: one account holds every lens its seats grant, and
+  Switch role exists for exactly that [TC-11, D-2]. Not built. **The
+  artboard should drop or rewrite this copy.**
+- [ ] Error · offline.
+
+---
+
+## Guardian
+
+### G1 · Child home & switcher — `feature/guardian/ui/GuardianHomeScreen.kt`
+- [?] Combined total ("৳2,000 · September and October", "Pay ৳2,000")
+  instead of one month's amount plus "N later months".
+- [ ] Switcher and child header pinned in a white header, no title.
+- [ ] Child sub-line with class level ("HSC 2027").
+- [ ] Pay goes to G3 (payments), not straight to the pay form.
+- [ ] Empty: bar "ShikkhokPlus", "Your children appear here as soon as
+  they're linked."
+- [ ] Error with saved results, "Payments can't be shown right now…".
+- [ ] 30dp / 15sp chips.
+
+### G2 · Progress — implemented as `DashboardScreen`
+- [ ] Title "তাসনিম's progress".
+- [ ] Narrative sentence ("Marks went up in each of the last 4 tests…"),
+  "Tap a point" hint, Test / Marks / Rank table.
+- [ ] One-test empty state ("21/25 · Rank 3 of 20 · avg 16.4 · A progress
+  line appears after the second test").
+- [ ] Error copy "Couldn't load the results…".
+- [ ] Dashboard-only extras (child chips, range chips, tiles, attendance
+  chart, fee strip) are not in the design — decide which stay.
+
+### G3 · Payment history & pay — `PaymentsScreen.kt`, `PayScreen.kt`
+- [ ] "Paid in 2026" as the bar subtitle; no extra "Owed now ৳X" headline.
+- [ ] CTA "Pay ৳1,500 for উচ্চতর গণিত".
+- [ ] Pay form: "Pay for তাসনিম", one "Child · batch · month" field,
+  amount prefilled, "Sent a different amount?", "Send ৳1,500 for
+  checking", guardian scale.
+- [ ] Loading keeps a disabled "Pay · waiting for connection".
+
+### G4 · More — `feature/profile/ui/ProfileScreen.kt`
+- [x] Title "More", profile card (avatar, name, "Guardian · number").
+- [~] The artboard draws no Edit pill for a guardian. Kept, so a guardian
+  can still correct their own name and address. **Add it to the artboard,
+  or decide guardians cannot edit.**
+- [x] Invitations row; "My children" row and sub-screen
+  (`feature/guardian/ui/MyChildrenScreen.kt`). Tapping a child selects it
+  on the home switcher. The class level ("HSC 2027") is not shown: the
+  guardian read has no level field.
+- [x] "Log out" as a row.
+- [ ] Reached from a profile button (see cross-cutting navigation).
+- [ ] "Is আয়ান your child?" invitation with child chip, "Yes, this is my
+  child" / "No, not my child".
+- [?] Notifications, Text size, "Call for help · Talk to a person, in Bangla".
+- [ ] Guardian type scale (64dp rows, 18sp titles, 21sp/700 title).
+- [ ] Error · offline.
+
+---
+
+## Web (PWA)
+
+The web artboards (pages *Web · …* on the same canvas, added 2026-11-04)
+have no implementation yet; they are the target for the PWA, not part of
+this audit. The *Delete an account* link on Web O2 points to a web
+deletion screen that has no artboard yet.

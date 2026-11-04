@@ -39,7 +39,7 @@ object ProfileStateMapper {
      * @return The saved state
      */
     fun afterSave(dto: MeDto): ProfileUiState =
-        ProfileUiState.Saved(selfName = dto.selfName, address = dto.address)
+        ProfileUiState.Saved(selfName = dto.selfName, address = dto.address, phone = dto.phone)
 
     /**
      * Map a server error envelope.

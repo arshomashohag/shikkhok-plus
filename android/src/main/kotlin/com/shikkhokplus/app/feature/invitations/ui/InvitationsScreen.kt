@@ -63,6 +63,10 @@ const val TAG_DECLINE_SHEET: String = "decline_sheet"
  * @param onDismissSheet Called when the sheet is dismissed
  * @param onRetry Called when a retryable failure offers a retry
  * @param modifier Layout modifier from the caller
+ * @param onBackToList Called to return from one seat to the list
+ * @param onBack Called by the back arrow when the list was pushed from
+ *   More (S4, G4), or null on the lens-free person's home, which has
+ *   nowhere to go back to
  */
 @Composable
 fun InvitationsScreen(
@@ -75,9 +79,11 @@ fun InvitationsScreen(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
     onBackToList: () -> Unit = {},
+    onBack: (() -> Unit)? = null,
 ) {
     ListScreenScaffold(
         title = stringResource(R.string.invitations_title),
+        onBack = onBack,
         modifier = modifier,
     ) {
         // The title is in the app bar. It was rendered here too,

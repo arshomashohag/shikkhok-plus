@@ -4,27 +4,32 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
+import com.shikkhokplus.app.core.designsystem.Banner
+import com.shikkhokplus.app.core.designsystem.BannerTone
 import com.shikkhokplus.app.core.designsystem.LogoLoader
+import com.shikkhokplus.app.core.designsystem.MenuCard
+import com.shikkhokplus.app.core.designsystem.MenuDivider
+import com.shikkhokplus.app.core.designsystem.MenuIcons
+import com.shikkhokplus.app.core.designsystem.MenuRow
+import com.shikkhokplus.app.core.designsystem.MenuSectionHeader
+import com.shikkhokplus.app.core.designsystem.MenuTrailing
+import com.shikkhokplus.app.core.designsystem.PrimaryButton
+import com.shikkhokplus.app.core.designsystem.ProfileCard
 import com.shikkhokplus.app.core.designsystem.ScreenScaffold
+import com.shikkhokplus.app.core.designsystem.Spacing
+import com.shikkhokplus.app.core.format.Numerals
+import com.shikkhokplus.app.core.session.Lens
 import com.shikkhokplus.app.feature.auth.MessageKeys
+import com.shikkhokplus.app.feature.profile.ProfileSummary
 import com.shikkhokplus.app.feature.profile.ProfileUiState
 
 /** Test tag for the self-authored name field. */
@@ -36,265 +41,352 @@ const val TAG_PROFILE_ADDRESS: String = "profile_address"
 /** Test tag for the save control. */
 const val TAG_PROFILE_SAVE: String = "profile_save"
 
-/** The read-only sign-in number. */
+/** The read-only sign-in number, on Edit profile. */
 const val TAG_PROFILE_PHONE: String = "profile_phone"
 
-/** The delete-account action (O5). */
+/** The profile card at the top of More. */
+const val TAG_PROFILE_CARD: String = "profile_card"
+
+/** The Edit pill on the profile card. */
+const val TAG_PROFILE_EDIT: String = "profile_edit"
+
+/** The delete-account row (O5). */
 const val TAG_PROFILE_DELETE: String = "profile_delete"
 
-/** The sign-out action. */
+/** The log-out row. */
 const val TAG_PROFILE_SIGN_OUT: String = "profile_sign_out"
 
-/** The teacher's payment-methods row. */
+/** The teacher's "Where students pay" row. */
 const val TAG_PROFILE_PAYMENT_METHODS: String = "profile_payment_methods"
 
-/** The money reports entry, shown to a teacher. */
+/** The money reports row, shown to a teacher. */
 const val TAG_PROFILE_COLLECTIONS: String = "profile_collections"
 
-/** The switch-role action. Absent for a person with one lens. */
+/** The switch-role row. Absent for a person with one lens. */
 const val TAG_PROFILE_SWITCH_LENS: String = "profile_switch_lens"
 
+/** The invitations row, shown to a student and a guardian. */
+const val TAG_PROFILE_INVITATIONS: String = "profile_invitations"
+
+/** The guardian's "My children" row. */
+const val TAG_PROFILE_MY_CHILDREN: String = "profile_my_children"
+
 /**
- * `O5`, the profile edit half.
+ * Where each row of More leads.
  *
- * **The edit half only.** The mockups draw four deletion states on this
- * same screen because one screen is where they live, but both
- * account-deletion paths are D6's: release-blocking V1 deliverables
- * with their own tests [TC-19, RC-4, RC-5]. A half-built deletion flow
- * is worse than none, so nothing here hints at one.
+ * **A null destination draws no row.** The rows a lens shows are the
+ * rows its route supplies, so a student is never offered a teacher's
+ * payment methods and nobody is offered a row that opens nothing. Rows
+ * the design draws for settings that do not exist yet (notifications,
+ * theme, text size, help) are absent for the same reason: a row that
+ * opens nothing is worse than no row.
  *
- * **What is written here changes no teacher's roster** [BR3.1,
- * AC1.5.3]. The name a person writes about themselves lands on their
- * own private profile; each teacher keeps seeing the name that teacher
- * typed. The screen says so rather than leaving a person to discover it
- * — the two names answer different questions and only the server knows
- * which table it read.
+ * @property onEdit Opens Edit profile
+ * @property onSignOut Starts logging out (the route confirms first)
+ * @property onDeleteAccount Opens the deletion confirmation
+ * @property onRetry Repeats a failed read, when the server allows it
+ * @property onSwitchLens Returns to the lens picker, or null when this
+ *   person holds one lens and has nothing to switch to
+ * @property onPaymentMethods Opens "Where students pay", or null
+ * @property onCollections Opens the money reports (M1), or null
+ * @property onInvitations Opens the invitations list, or null
+ * @property onMyChildren Opens the guardian's children, or null
+ */
+data class MoreActions(
+    val onEdit: () -> Unit = {},
+    val onSignOut: () -> Unit = {},
+    val onDeleteAccount: () -> Unit = {},
+    val onRetry: () -> Unit = {},
+    val onSwitchLens: (() -> Unit)? = null,
+    val onPaymentMethods: (() -> Unit)? = null,
+    val onCollections: (() -> Unit)? = null,
+    val onInvitations: (() -> Unit)? = null,
+    val onMyChildren: (() -> Unit)? = null,
+)
+
+/**
+ * More (T9 teacher, S4 student, G4 guardian), the account half of `O5`.
  *
- * The address is the most consequential field in this product's
- * personal data and is owner-private by table, by row-level security
- * and by response schema [BR3.2, BR3.4]. None of that is visible here,
- * which is the point: this screen is not where the boundary is held.
+ * **One screen, three lenses.** The artboards draw the same structure
+ * for everyone — a profile card, then cards of rows under small section
+ * headers, then the account rows and the version — and differ only in
+ * which rows appear. [MoreActions] decides that, so the lens never
+ * reaches into the layout.
+ *
+ * **Editing is its own screen** (S4 "Edit profile"), pushed over this
+ * one. While it is open the state is `Editing` or `Saving`, and this
+ * screen keeps drawing from [summary], the last profile the server
+ * confirmed, so the card does not change under a half-typed name.
+ *
+ * What a person writes about themselves **changes no teacher's roster**
+ * [BR3.1, AC1.5.3]. That note lives on Edit profile, where the change is
+ * made, rather than here, where nothing is changed.
  *
  * @param state What to render
- * @param onEdit Called to open the form
- * @param onSave Called with the edited name and address
- * @param onRetry Called when a retryable failure offers a retry
+ * @param actions Where each row leads; see [MoreActions]
  * @param modifier Layout modifier from the caller
+ * @param lens The lens in use, for the role on the card, or null
+ * @param summary The last confirmed profile, used while the form is open
+ * @param version The app version for the footer, or null for none
  * @param bottomBar The navigation bar, supplied by the route so this
  *   screen stays renderable in a test without one
- * @param onPaymentMethods Called to open the teacher's payment methods,
- *   or null for a lens that has none
- * @param onCollections Called to open the money reports (M1), or null
- *   for a lens that has none
- * @param onSwitchLens Called to return to the lens picker, or null
- *   when this person holds only one lens and has nothing to switch to
  */
 @Composable
 fun ProfileScreen(
     state: ProfileUiState,
-    onEdit: () -> Unit,
-    onSave: (name: String, address: String) -> Unit,
-    onRetry: () -> Unit,
+    actions: MoreActions,
     modifier: Modifier = Modifier,
+    lens: Lens? = null,
+    summary: ProfileSummary? = null,
+    version: String? = null,
     bottomBar: @Composable () -> Unit = {},
-    onSwitchLens: (() -> Unit)? = null,
-    onDeleteAccount: () -> Unit = {},
-    onSignOut: () -> Unit = {},
-    onPaymentMethods: (() -> Unit)? = null,
-    onCollections: (() -> Unit)? = null,
 ) {
     ScreenScaffold(
         title = stringResource(R.string.profile_title),
         modifier = modifier,
         bottomBar = bottomBar,
     ) {
-        // The title is in the app bar. It was rendered here too,
-        // so every screen showed its name twice.
-
         when (state) {
             ProfileUiState.Loading -> LogoLoader()
 
-            is ProfileUiState.Viewing -> {
-                ProfileField(
-                    labelRes = R.string.profile_name_label,
-                    value = state.selfName,
-                )
-                ProfileField(
-                    labelRes = R.string.profile_address_label,
-                    value = state.address,
-                )
-                // **Read-only, and said so** (O5). The number is the
-                // login; changing it goes through the OTP path, never
-                // a profile edit.
-                ProfileField(
-                    labelRes = R.string.profile_phone_label,
-                    value = state.phone,
-                    modifier = Modifier.testTag(TAG_PROFILE_PHONE),
-                )
-                Text(
-                    text = stringResource(R.string.profile_phone_note),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    text = stringResource(R.string.profile_teacher_name_note),
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                Button(onClick = onEdit, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.profile_edit))
-                }
-                onPaymentMethods?.let { open ->
-                    OutlinedButton(
-                        onClick = open,
-                        modifier = Modifier.fillMaxWidth().testTag(TAG_PROFILE_PAYMENT_METHODS),
-                    ) {
-                        Text(stringResource(R.string.profile_payment_methods))
-                    }
-                }
-                onCollections?.let { open ->
-                    OutlinedButton(
-                        onClick = open,
-                        modifier = Modifier.fillMaxWidth().testTag(TAG_PROFILE_COLLECTIONS),
-                    ) {
-                        Text(stringResource(R.string.profile_collections))
-                    }
-                }
-                // **Absent, not disabled, for a single-lens person.**
-                // A greyed-out "Switch role" tells someone with one
-                // role that they are missing something; nothing to
-                // switch to is better said by saying nothing.
-                TextButton(
-                    onClick = onSignOut,
-                    modifier = Modifier.fillMaxWidth().testTag(TAG_PROFILE_SIGN_OUT),
-                ) {
-                    Text(stringResource(R.string.profile_sign_out))
-                }
-                // **Outlined in the error colour, not filled** (O5). The
-                // destructive step is the confirmation that follows; this
-                // only opens it, so it must not read as the act itself.
-                OutlinedButton(
-                    onClick = onDeleteAccount,
-                    border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.error),
-                    colors =
-                        ButtonDefaults.outlinedButtonColors(
-                            contentColor = MaterialTheme.colorScheme.error,
-                        ),
-                    modifier = Modifier.fillMaxWidth().testTag(TAG_PROFILE_DELETE),
-                ) {
-                    Text(stringResource(R.string.profile_delete))
-                }
-                onSwitchLens?.let { switch ->
-                    TextButton(
-                        onClick = switch,
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .testTag(TAG_PROFILE_SWITCH_LENS),
-                    ) {
-                        Text(stringResource(R.string.lens_switch))
-                    }
-                }
-            }
-
-            is ProfileUiState.Editing -> ProfileForm(
-                initialName = state.selfName,
-                initialAddress = state.address,
-                onSave = onSave,
-            )
-
-            ProfileUiState.Saving -> {
-                LogoLoader(label = stringResource(R.string.profile_saving))
-            }
-
-            is ProfileUiState.Saved -> {
-                Text(text = stringResource(R.string.profile_saved))
-                ProfileField(
-                    labelRes = R.string.profile_name_label,
-                    value = state.selfName,
-                )
-                ProfileField(
-                    labelRes = R.string.profile_address_label,
-                    value = state.address,
-                )
-            }
-
             is ProfileUiState.Failed -> {
                 Text(
-                    text = stringResource(
-                        MessageKeys.resolve(state.messageKey),
-                    ),
+                    text = stringResource(MessageKeys.resolve(state.messageKey)),
                     color = MaterialTheme.colorScheme.error,
                 )
                 if (state.retryable) {
-                    Button(
-                        onClick = onRetry,
+                    PrimaryButton(
+                        text = stringResource(R.string.auth_retry),
+                        onClick = actions.onRetry,
                         modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text(stringResource(R.string.auth_retry))
-                    }
+                    )
                 }
+            }
+
+            else -> {
+                if (state is ProfileUiState.Saved) {
+                    Banner(title = stringResource(R.string.profile_saved), tone = BannerTone.NEUTRAL)
+                }
+                MoreMenu(
+                    profile = profileOf(state, summary),
+                    lens = lens,
+                    actions = actions,
+                    version = version,
+                )
             }
         }
     }
 }
 
 /**
- * One read-only labelled value.
+ * The profile to draw the card from.
  *
- * An unset field renders its label and an empty value rather than
- * disappearing, so a person can see that the field exists and is
- * theirs to fill.
+ * A read or a save carries the profile itself; an open form does not,
+ * so it falls back to the last confirmed one.
  *
- * @param labelRes The string resource labelling the field
- * @param value The value, or null when unset
- * @param modifier The layout modifier, for the value line
+ * @param state The screen state
+ * @param summary The last confirmed profile, or null
+ * @return The profile, or an empty one when nothing is known
+ */
+internal fun profileOf(state: ProfileUiState, summary: ProfileSummary?): ProfileSummary =
+    when (state) {
+        is ProfileUiState.Viewing -> ProfileSummary(state.selfName, state.address, state.phone)
+        is ProfileUiState.Saved -> ProfileSummary(state.selfName, state.address, state.phone ?: summary?.phone)
+        else -> summary ?: ProfileSummary(selfName = null, address = null, phone = null)
+    }
+
+/**
+ * The card and the rows.
+ *
+ * @param profile Who is signed in
+ * @param lens The lens in use, or null
+ * @param actions Where each row leads
+ * @param version The app version, or null
  */
 @Composable
-private fun ProfileField(labelRes: Int, value: String?, modifier: Modifier = Modifier) {
-    Text(
-        text = stringResource(labelRes),
-        style = MaterialTheme.typography.labelMedium,
+private fun MoreMenu(
+    profile: ProfileSummary,
+    lens: Lens?,
+    actions: MoreActions,
+    version: String?,
+) {
+    val name = profile.selfName?.takeIf { it.isNotBlank() }
+    val phone = profile.phone?.let(Numerals::phone)
+    val role = lens?.let { stringResource(roleLabel(it)) }
+    ProfileCard(
+        initial = name?.trim()?.take(1)?.uppercase() ?: "?",
+        name = name ?: stringResource(R.string.more_name_missing),
+        line = listOfNotNull(role, phone).let { parts ->
+            if (parts.size == 2) {
+                stringResource(R.string.more_role_line, parts[0], parts[1])
+            } else {
+                parts.firstOrNull().orEmpty()
+            }
+        },
+        onEdit = actions.onEdit,
+        editLabel = stringResource(R.string.profile_edit),
+        editTag = TAG_PROFILE_EDIT,
+        modifier = Modifier.testTag(TAG_PROFILE_CARD),
     )
-    Text(text = value.orEmpty(), modifier = modifier)
+
+    PeopleRows(lens, actions)
+    TeacherRows(actions)
+    AccountRows(actions)
+
+    version?.let {
+        Text(
+            text = stringResource(R.string.more_version, it),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = Spacing.screen),
+        )
+    }
 }
 
 /**
- * The edit form.
+ * The student's and guardian's rows: invitations, and a guardian's
+ * children (S4, G4). Drawn only when the route supplies them.
  *
- * @param initialName The name as it stands
- * @param initialAddress The address as it stands
- * @param onSave Called with both values
+ * @param lens The lens in use, for the invitations sub-label
+ * @param actions Where each row leads
  */
 @Composable
-private fun ProfileForm(
-    initialName: String,
-    initialAddress: String,
-    onSave: (String, String) -> Unit,
-) {
-    var name by remember(initialName) { mutableStateOf(initialName) }
-    var address by remember(initialAddress) { mutableStateOf(initialAddress) }
-
-    OutlinedTextField(
-        value = name,
-        onValueChange = { name = it },
-        label = { Text(stringResource(R.string.profile_name_label)) },
-        singleLine = true,
-        modifier = Modifier.fillMaxWidth().testTag(TAG_PROFILE_NAME),
-    )
-    OutlinedTextField(
-        value = address,
-        onValueChange = { address = it },
-        label = { Text(stringResource(R.string.profile_address_label)) },
-        modifier = Modifier.fillMaxWidth().testTag(TAG_PROFILE_ADDRESS),
-    )
-    Text(
-        text = stringResource(R.string.profile_teacher_name_note),
-        style = MaterialTheme.typography.bodySmall,
-    )
-    Button(
-        onClick = { onSave(name, address) },
-        modifier = Modifier.fillMaxWidth().testTag(TAG_PROFILE_SAVE),
-    ) {
-        Text(stringResource(R.string.profile_save))
+private fun PeopleRows(lens: Lens?, actions: MoreActions) {
+    if (actions.onInvitations == null && actions.onMyChildren == null) return
+    MenuCard {
+        actions.onInvitations?.let { open ->
+            MenuRow(
+                title = stringResource(R.string.more_invitations),
+                subtitle =
+                    stringResource(
+                        if (lens == Lens.GUARDIAN) {
+                            R.string.more_invitations_sub_guardian
+                        } else {
+                            R.string.more_invitations_sub_student
+                        },
+                    ),
+                icon = MenuIcons.Envelope,
+                onClick = open,
+                modifier = Modifier.testTag(TAG_PROFILE_INVITATIONS),
+            )
+        }
+        actions.onMyChildren?.let { open ->
+            if (actions.onInvitations != null) MenuDivider()
+            MenuRow(
+                title = stringResource(R.string.more_my_children),
+                icon = MenuIcons.Children,
+                onClick = open,
+                modifier = Modifier.testTag(TAG_PROFILE_MY_CHILDREN),
+            )
+        }
     }
 }
+
+/**
+ * The teacher's GETTING PAID and YOUR RECORDS sections (T9).
+ *
+ * @param actions Where each row leads
+ */
+@Composable
+private fun TeacherRows(actions: MoreActions) {
+    actions.onPaymentMethods?.let { open ->
+        MenuSection(stringResource(R.string.more_section_getting_paid)) {
+            MenuRow(
+                title = stringResource(R.string.more_where_students_pay),
+                subtitle = stringResource(R.string.more_where_students_pay_sub),
+                icon = MenuIcons.Phone,
+                onClick = open,
+                modifier = Modifier.testTag(TAG_PROFILE_PAYMENT_METHODS),
+            )
+        }
+    }
+    actions.onCollections?.let { open ->
+        MenuSection(stringResource(R.string.more_section_records)) {
+            MenuRow(
+                title = stringResource(R.string.profile_collections),
+                subtitle = stringResource(R.string.more_collections_sub),
+                icon = MenuIcons.Download,
+                onClick = open,
+                modifier = Modifier.testTag(TAG_PROFILE_COLLECTIONS),
+            )
+        }
+    }
+}
+
+/**
+ * ACCOUNT: switch role, log out and delete account.
+ *
+ * **Switch role is absent, not disabled, for a single-lens person.** A
+ * greyed-out row tells someone with one role that they are missing
+ * something; nothing to switch to is better said by saying nothing.
+ *
+ * Log out and delete act through a confirmation, so they end in no
+ * chevron. Delete is drawn in the error colour and is never a filled
+ * control: the destructive step is the confirmation that follows (O5).
+ *
+ * @param actions Where each row leads
+ */
+@Composable
+private fun AccountRows(actions: MoreActions) {
+    MenuSection(stringResource(R.string.more_section_account)) {
+        actions.onSwitchLens?.let { switch ->
+            MenuRow(
+                title = stringResource(R.string.lens_switch),
+                icon = MenuIcons.Switch,
+                onClick = switch,
+                modifier = Modifier.testTag(TAG_PROFILE_SWITCH_LENS),
+            )
+            MenuDivider()
+        }
+        MenuRow(
+            title = stringResource(R.string.more_log_out),
+            icon = MenuIcons.LogOut,
+            trailing = MenuTrailing.None,
+            onClick = actions.onSignOut,
+            modifier = Modifier.testTag(TAG_PROFILE_SIGN_OUT),
+        )
+        MenuDivider()
+        MenuRow(
+            title = stringResource(R.string.more_delete_account),
+            icon = MenuIcons.Delete,
+            trailing = MenuTrailing.None,
+            destructive = true,
+            onClick = actions.onDeleteAccount,
+            modifier = Modifier.testTag(TAG_PROFILE_DELETE),
+        )
+    }
+}
+
+/**
+ * A section header over one card of rows.
+ *
+ * @param header The header text
+ * @param rows The rows in the card
+ */
+@Composable
+private fun MenuSection(header: String, rows: @Composable () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        MenuSectionHeader(header)
+        MenuCard { rows() }
+    }
+}
+
+/**
+ * The role word on the profile card.
+ *
+ * Reuses the sign-up board's role labels so the word a person picked at
+ * sign-up is the word they see here.
+ *
+ * @param lens The lens in use
+ * @return The string resource naming it
+ */
+internal fun roleLabel(lens: Lens): Int =
+    when (lens) {
+        Lens.TEACHER -> R.string.signup_role_teacher
+        Lens.STUDENT -> R.string.signup_role_student
+        Lens.GUARDIAN -> R.string.signup_role_guardian
+    }

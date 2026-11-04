@@ -134,6 +134,87 @@ class ProfileViewModelTest {
         }
 
     @Test
+    fun `the summary holds what the server confirmed, not what is typed`() =
+        runTest(dispatcher) {
+            // More stays composed under Edit profile and draws its card
+            // from the summary, so the summary must not follow the form.
+            val model = ProfileViewModel(FakeRepository())
+            assertEquals(null, model.summary.value, "nothing is known before a read")
+
+            model.load()
+            advanceUntilIdle()
+            model.edit()
+
+            assertEquals(
+                ProfileSummary(selfName = "Rahim", address = "Dhaka 1205", phone = "+8801611477203"),
+                model.summary.value,
+            )
+        }
+
+    @Test
+    fun `closing the form returns to the stored profile and saves nothing`() =
+        runTest(dispatcher) {
+            val repo = FakeRepository()
+            val model = ProfileViewModel(repo)
+            model.load()
+            advanceUntilIdle()
+
+            model.edit()
+            model.cancelEdit()
+
+            val state = assertIs<ProfileUiState.Viewing>(model.state.value)
+            assertEquals("Rahim", state.selfName)
+            assertEquals("+8801611477203", state.phone)
+            assertEquals(0, repo.saves)
+        }
+
+    @Test
+    fun `editing again after leaving the form with Back pre-fills from what is stored`() =
+        runTest(dispatcher) {
+            // System Back pops the form without calling cancelEdit, so the
+            // state is still Editing when Edit is tapped again.
+            val model = ProfileViewModel(FakeRepository())
+            model.load()
+            advanceUntilIdle()
+
+            model.edit()
+            model.edit()
+
+            val state = assertIs<ProfileUiState.Editing>(model.state.value)
+            assertEquals("Rahim", state.selfName)
+            assertEquals("Dhaka 1205", state.address)
+        }
+
+    @Test
+    fun `cancelling while a save is in flight is ignored`() =
+        runTest(dispatcher) {
+            // Closing must not hide whether the save landed.
+            val model = ProfileViewModel(FakeRepository())
+            model.load()
+            advanceUntilIdle()
+            model.edit()
+
+            model.save("Karim", "Khulna")
+            model.cancelEdit()
+
+            assertEquals(ProfileUiState.Saving, model.state.value)
+            advanceUntilIdle()
+            assertIs<ProfileUiState.Saved>(model.state.value)
+        }
+
+    @Test
+    fun `a save keeps the sign-in number for the card`() = runTest(dispatcher) {
+        val model = ProfileViewModel(FakeRepository())
+
+        model.save("Rahim", "Dhaka 1205")
+        advanceUntilIdle()
+
+        val state = assertIs<ProfileUiState.Saved>(model.state.value)
+        assertEquals("+8801611477203", state.phone)
+        assertEquals("+8801611477203", model.summary.value?.phone)
+    }
+
+    @Test
     fun `a blank field is sent as null, never as an empty string`() =
         runTest(dispatcher) {
             // **Null means "leave it alone" to the server.** Sending

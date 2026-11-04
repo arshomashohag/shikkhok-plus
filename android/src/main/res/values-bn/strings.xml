@@ -132,8 +132,8 @@
     <string name="decline_confirm">প্রত্যাখ্যান করুন</string>
 
     <!-- D1: প্রোফাইল (O5), শুধু সম্পাদনার অংশ। -->
-    <string name="profile_title">আপনার প্রোফাইল</string>
-    <string name="profile_name_label">আপনার নাম</string>
+    <string name="profile_title">আরও</string>
+    <string name="profile_name_label">পুরো নাম</string>
     <string name="profile_address_label">ঠিকানা</string>
     <string name="profile_edit">সম্পাদনা</string>
     <string name="profile_save">সংরক্ষণ</string>
@@ -496,12 +496,7 @@
     <string name="exam_topics_too_long">সর্বোচ্চ 20টি বিষয়বস্তু, প্রতিটি সর্বোচ্চ 120 অক্ষর।</string>
     <string name="profile_phone_label">মোবাইল নম্বর</string>
     <string name="profile_phone_note">এটি আপনার লগইন, বদলানো যাবে না।</string>
-    <string name="profile_delete">আমার অ্যাকাউন্ট মুছুন</string>
-    <string name="profile_sign_out">সাইন আউট</string>
-    <string name="sign_out_title">সাইন আউট করবেন?</string>
     <string name="sign_out_body">আপনার নম্বর দিয়ে আবার সাইন ইন করতে পারবেন।</string>
-    <string name="sign_out_unsent">সংরক্ষিত %1$sটি হাজিরা এখনও পাঠানো হয়নি। সাইন আউট করলে এগুলো এই ফোন থেকে মুছে যাবে।</string>
-    <string name="sign_out_confirm">সাইন আউট</string>
     <string name="delete_title">আমার অ্যাকাউন্ট মুছুন</string>
     <string name="delete_cannot_undo">এটি আর ফেরানো যাবে না।</string>
     <string name="delete_type_number">নিশ্চিত করতে আপনার নম্বর লিখুন।</string>
@@ -1129,4 +1124,33 @@
     <string name="dashboard_fees_history">ইতিহাস</string>
     <string name="dashboard_send_money">টাকা পাঠান</string>
     <string name="dashboard_open_progress">অগ্রগতি</string>
+
+    <!-- More (T9, S4, G4), Edit profile, Log out and My children. -->
+    <string name="more_section_getting_paid">টাকা পাওয়া</string>
+    <string name="more_section_records">আপনার রেকর্ড</string>
+    <string name="more_section_account">অ্যাকাউন্ট</string>
+    <string name="more_role_line">%1$s · %2$s</string>
+    <string name="more_name_missing">আপনার নাম লিখুন</string>
+    <string name="more_where_students_pay">শিক্ষার্থীরা কোথায় টাকা দেবে</string>
+    <string name="more_where_students_pay_sub">বিকাশ, নগদ, রকেট বা ব্যাংক অ্যাকাউন্ট</string>
+    <string name="more_collections_sub">মাস ধরে আদায় ও বাকি</string>
+    <string name="more_invitations">আমন্ত্রণ</string>
+    <string name="more_invitations_sub_student">যে ব্যাচে শিক্ষক আপনাকে যোগ করেছেন</string>
+    <string name="more_invitations_sub_guardian">শিক্ষক আপনার নম্বরে যে সন্তানদের যুক্ত করেছেন</string>
+    <string name="more_my_children">আমার সন্তান</string>
+    <string name="more_log_out">লগ আউট</string>
+    <string name="more_delete_account">অ্যাকাউন্ট মুছুন</string>
+    <string name="more_version">শিক্ষকপ্লাস %1$s</string>
+    <string name="edit_profile_title">প্রোফাইল সম্পাদনা</string>
+    <string name="log_out_title">শিক্ষকপ্লাস থেকে লগ আউট করবেন?</string>
+    <string name="log_out_unsent_title">%1$sটি রেকর্ড এখনও পাঠানো হয়নি।</string>
+    <string name="log_out_unsent_body">এখন লগ আউট করলে এগুলো এই ফোন থেকে মুছে যাবে।</string>
+    <string name="log_out_stay">থাকুন, আগে পাঠিয়ে দিন</string>
+    <string name="log_out_anyway">তবুও লগ আউট করুন</string>
+    <string name="log_out_confirm">লগ আউট</string>
+    <string name="my_children_title">আমার সন্তান</string>
+    <string name="my_children_note">শিক্ষক আপনার নম্বরকে অভিভাবক হিসেবে যোগ করলে সন্তানেরা এখানে দেখা যাবে। আপনাকে নিজে যোগ করতে হবে না।</string>
+    <string name="my_children_missing_title">কোনো সন্তান নেই?</string>
+    <string name="my_children_missing_body">শিক্ষককে আপনার নম্বর, %1$s, অভিভাবক হিসেবে যোগ করতে বলুন।</string>
+    <string name="my_children_missing_body_plain">শিক্ষককে আপনার নম্বর অভিভাবক হিসেবে যোগ করতে বলুন।</string>
 </resources>
