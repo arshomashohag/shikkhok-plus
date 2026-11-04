@@ -139,7 +139,7 @@ fun PaymentStateChip(
             // The state is named for a screen reader, which cannot see
             // the shape or the fill that carry it visually.
             .semantics { contentDescription = "${state.spoken()}: $label" }
-            .defaultMinSize(minHeight = if (compact) 24.dp else 32.dp)
+            .defaultMinSize(minHeight = if (compact) LocalTouchScale.current.compactChip else 32.dp)
             .background(style.container, shape)
             .then(chipBorder(style, radius))
             .padding(horizontal = if (compact) 8.dp else 12.dp, vertical = 2.dp),

@@ -25,6 +25,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import com.shikkhokplus.app.R
 import com.shikkhokplus.app.core.designsystem.BottomNav
+import com.shikkhokplus.app.core.designsystem.GuardianScale
 import com.shikkhokplus.app.core.designsystem.NavDestination
 import com.shikkhokplus.app.core.designsystem.ScreenScaffold
 import com.shikkhokplus.app.core.network.HttpAnalyticsRepository
@@ -118,6 +119,34 @@ import io.ktor.client.HttpClient
  */
 @Composable
 fun ShikkhokNavHost(
+    client: HttpClient,
+    queue: QueueStore,
+    session: SessionBinding,
+    signedIn: Boolean,
+    navController: NavHostController,
+    authModel: AuthViewModel,
+    modifier: Modifier = Modifier,
+) {
+    // **The guardian's larger type and reach, for every screen a
+    // guardian can reach** (G1–G4), set once here rather than per screen.
+    GuardianScale(enabled = session.lens == Lens.GUARDIAN) {
+        ShikkhokGraph(client, queue, session, signedIn, navController, authModel, modifier)
+    }
+}
+
+/**
+ * The navigation graph itself, inside the lens's scale.
+ *
+ * @param client The authenticated HTTP client
+ * @param queue The offline write queue
+ * @param session The signed-in session
+ * @param signedIn Whether a session exists
+ * @param navController The app's controller
+ * @param authModel The sign-in ViewModel
+ * @param modifier Layout modifier
+ */
+@Composable
+private fun ShikkhokGraph(
     client: HttpClient,
     queue: QueueStore,
     session: SessionBinding,

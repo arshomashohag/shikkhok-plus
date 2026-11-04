@@ -42,9 +42,12 @@ approved and is not audited here.
   replacing the bar with a profile button. The lens-free person keeps
   Invitations as their home tab (`homeFor(null)`), since it is the only
   place they can act.
-- [ ] **Guardian type scale.** Guardian artboards use larger type and
-  targets (64dp rows, 18sp row titles, 60/56dp buttons, 30dp chips with
-  15sp text). The app uses the same scale for every lens.
+- [x] **Guardian type scale.** With the guardian lens, every screen takes
+  `GuardianTypography` (row titles 18/30, grey lines 14/22, title 21/34
+  Bold) and `GuardianTouch` (60dp main buttons, 56dp others, 64dp rows,
+  30dp chips), applied once around the navigation graph
+  (`core/designsystem/Theme.kt` `GuardianScale`). Chip text is 14sp, the
+  nearest design step to the board's 15sp.
 - [?] **Settings that do not exist yet:** Notifications preferences, Dark
   theme, Text size, Save data, Reminder SMS language, How-to videos,
   Call/message support, Tell another teacher. No screens, storage or
@@ -337,7 +340,7 @@ approved and is not audited here.
 - [ ] Empty: bar "ShikkhokPlus", "Your children appear here as soon as
   they're linked."
 - [ ] Error with saved results, "Payments can't be shown right now…".
-- [ ] 30dp / 15sp chips.
+- [x] 30dp chips, 14sp text (the nearest design step).
 
 ### G2 · Progress — implemented as `DashboardScreen`
 - [x] Title "তাসনিম's progress" for a guardian; the subtitle keeps only
@@ -358,7 +361,7 @@ approved and is not audited here.
 - [~] Pay form: superseded by the 2026-11-02 payment-methods spec, as for
   S3 (method-first, several children per payment, any amount). **Redraw
   from F1–F5.**
-- [ ] Guardian scale on the pay form.
+- [x] Guardian scale on the pay form (it follows the lens).
 - [ ] Loading keeps a disabled "Pay · waiting for connection".
 
 ### G4 · More — `feature/profile/ui/ProfileScreen.kt`
@@ -375,7 +378,7 @@ approved and is not audited here.
 - [ ] "Is আয়ান your child?" invitation with child chip, "Yes, this is my
   child" / "No, not my child".
 - [?] Notifications, Text size, "Call for help · Talk to a person, in Bangla".
-- [ ] Guardian type scale (64dp rows, 18sp titles, 21sp/700 title).
+- [x] Guardian type scale (64dp rows, 18sp titles, 21sp/700 title).
 - [ ] Error · offline.
 
 ---

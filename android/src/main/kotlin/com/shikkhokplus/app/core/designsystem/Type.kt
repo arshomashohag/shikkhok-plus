@@ -169,3 +169,24 @@ val MoneyTotal: TextStyle
  */
 val MoneyLead: TextStyle
     @Composable get() = MaterialTheme.typography.headlineMedium
+
+/**
+ * The guardian's scale (G1–G4): every slot the same or one design step
+ * larger, never a size between steps.
+ *
+ * The boards draw a guardian's row titles at 18/30, their grey lines at
+ * 14/22 and the screen title at 21/34 Bold. Those are steps of the same
+ * seven-step scale, so the larger text keeps the 13sp floor and the
+ * Bangla line-height ratio by construction, and GuardianScaleTest holds
+ * it to both, as TypographyScaleTest holds the standard scale.
+ */
+internal val GuardianTypography: Typography =
+    ShikkhokTypography.copy(
+        titleLarge = banglaSafe(21, 34, FontWeight.Bold),
+        titleMedium = banglaSafe(18, 30, FontWeight.SemiBold),
+        titleSmall = banglaSafe(16, 26, FontWeight.SemiBold),
+        bodySmall = banglaSafe(14, 22, FontWeight.Normal),
+        labelLarge = banglaSafe(16, 26, FontWeight.SemiBold),
+        labelMedium = banglaSafe(14, 22, FontWeight.Medium),
+        labelSmall = banglaSafe(14, 22, FontWeight.Medium),
+    )

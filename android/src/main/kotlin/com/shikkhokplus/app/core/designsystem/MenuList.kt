@@ -246,7 +246,7 @@ fun MenuRow(
                         Modifier
                     },
                 )
-                .heightIn(min = Reach.rowSingle)
+                .heightIn(min = LocalTouchScale.current.rowSingle)
                 .clickable(role = Role.Button, onClick = onClick)
                 .padding(start = Spacing.screen, end = Spacing.listItem, top = Spacing.tight, bottom = Spacing.tight),
         horizontalArrangement = Arrangement.spacedBy(14.dp),
