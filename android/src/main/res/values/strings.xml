@@ -596,7 +596,7 @@
     <string name="nav_my_batches">My batches</string>
     <string name="my_batches_title">My batches</string>
     <string name="my_batches_empty_title">You\'re not in a batch yet</string>
-    <string name="my_batches_empty_body">Your teacher adds you using your phone number. Give them this number: %1$s</string>
+    <string name="my_batches_empty_body">Your teacher adds you using your phone number. Give them this number: %1$s. This screen updates by itself once you\'re added.</string>
     <string name="my_batches_empty_body_no_phone">Your teacher adds you using your phone number. This screen updates once you\'re added.</string>
     <string name="my_batches_fee_period">Fee · %1$s</string>
     <string name="student_next_class">Next class</string>

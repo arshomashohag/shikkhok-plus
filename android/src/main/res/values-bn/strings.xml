@@ -541,7 +541,7 @@
     <string name="nav_my_batches">আমার ব্যাচ</string>
     <string name="my_batches_title">আমার ব্যাচ</string>
     <string name="my_batches_empty_title">আপনি এখনও কোনো ব্যাচে নেই</string>
-    <string name="my_batches_empty_body">শিক্ষক আপনার ফোন নম্বর দিয়ে আপনাকে যুক্ত করবেন। তাঁকে এই নম্বরটি দিন: %1$s</string>
+    <string name="my_batches_empty_body">শিক্ষক আপনার ফোন নম্বর দিয়ে আপনাকে যুক্ত করবেন। তাঁকে এই নম্বরটি দিন: %1$s। আপনাকে যোগ করলে এই পাতা নিজে থেকেই বদলে যাবে।</string>
     <string name="my_batches_empty_body_no_phone">শিক্ষক আপনার ফোন নম্বর দিয়ে আপনাকে যুক্ত করবেন। যুক্ত হলে এই পাতা নিজেই বদলে যাবে।</string>
     <string name="my_batches_fee_period">বেতন · %1$s</string>
     <string name="student_next_class">পরের ক্লাস</string>

@@ -253,8 +253,9 @@ approved and is not audited here.
   (`docs/superpowers/specs/2026-11-02-payment-methods-and-progress-design.md`,
   F1) fixes that label for every family screen. **Update the artboard.**
 - [ ] Hero caption uses the short teacher name ("মাহফুজ স্যার").
-- [ ] Empty: number on its own highlighted line; "This screen updates by
-  itself once you're added."
+- [x] Empty: "This screen updates by itself once you're added." after the
+  number.
+- [ ] Empty: the number on its own highlighted line.
 - [ ] Loading skeleton with the name in the bar.
 - [ ] Error with saved copy, offline banner, disabled "Pay a fee · needs
   connection".
