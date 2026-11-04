@@ -304,12 +304,14 @@ private fun DecisionHaptics(state: ReviewUiState.Loaded?) {
     var wasBusy by remember { mutableStateOf(false) }
     LaunchedEffect(state?.busy, state?.errorKey, state?.card?.status) {
         val busy = state?.busy == true
-        if (wasBusy && !busy && state != null && state.errorKey == null) {
-            when (state.card.status) {
-                ReviewStatus.APPROVED -> haptics.confirm()
-                ReviewStatus.REJECTED -> haptics.reject()
-                ReviewStatus.PENDING -> Unit
-            }
+        // A write that was in flight has finished...
+        val finished = wasBusy && !busy
+        // ...and finished without an error, on a payment still shown.
+        val landed = state?.takeIf { finished && it.errorKey == null }
+        when (landed?.card?.status) {
+            ReviewStatus.APPROVED -> haptics.confirm()
+            ReviewStatus.REJECTED -> haptics.reject()
+            ReviewStatus.PENDING, null -> Unit
         }
         wasBusy = busy
     }
