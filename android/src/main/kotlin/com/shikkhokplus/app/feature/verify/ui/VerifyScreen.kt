@@ -6,11 +6,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -61,12 +64,16 @@ fun VerifyScreen(
     onOpen: (String) -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
+    refreshing: Boolean = false,
+    onRefresh: (() -> Unit)? = null,
 ) {
     ListScreenScaffold(
         title = stringResource(R.string.verify_title),
         subtitle = subtitleOf(state),
         onBack = onBack,
         modifier = modifier,
+        refreshing = refreshing,
+        onRefresh = onRefresh,
     ) {
         when (state) {
             VerifyUiState.Loading -> SkeletonList(rows = 3)
@@ -79,8 +86,13 @@ fun VerifyScreen(
                     if (state.recent.isNotEmpty()) item { RecentList(state.recent, onOpen) }
                 }
 
+            // Scrollable so a pull works here: "all caught up" is the
+            // state a teacher waiting for a payment pulls on.
             is VerifyUiState.AllCaughtUp ->
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(
+                    Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
                     EmptyState(
                         title = stringResource(R.string.verify_all_caught_up),
                         body = stringResource(R.string.verify_all_caught_up_body),

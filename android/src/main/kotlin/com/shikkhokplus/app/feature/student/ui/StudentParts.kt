@@ -9,7 +9,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
@@ -20,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
 import com.shikkhokplus.app.core.designsystem.PaymentState
 import com.shikkhokplus.app.core.designsystem.PaymentStateChip
+import com.shikkhokplus.app.core.designsystem.statusColors
 import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.core.format.dayLabel
 import com.shikkhokplus.app.core.format.shortDate
@@ -36,9 +36,6 @@ const val TAG_STUDENT_FEE_CHIP: String = "student_fee_chip"
 
 /** Minutes in an hour. */
 private const val MINUTES_PER_HOUR = 60
-
-/** The hero card's soft caption colour, #D8E3F7 on the board. */
-private val HeroCaption = Color(0xFFD8E3F7)
 
 /**
  * The blue card naming the next class: how soon, when, and where.
@@ -61,7 +58,7 @@ fun NextClassHero(next: NextClass, caption: String?, withEnd: Boolean, modifier:
         Text(
             howSoon(next),
             style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
-            color = HeroCaption,
+            color = MaterialTheme.statusColors.heroCaption,
         )
         Text(
             whenLabel(next, withEnd),

@@ -29,7 +29,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -42,24 +41,16 @@ import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
 import com.shikkhokplus.app.core.designsystem.Reach
 import com.shikkhokplus.app.core.designsystem.Spacing
+import com.shikkhokplus.app.core.designsystem.statusColors
 import com.shikkhokplus.app.core.format.YearMonth
 import com.shikkhokplus.app.core.format.monthName
 
 private const val DAYS_IN_WEEK = 7
 private const val MONTHS_PER_ROW = 3
 private const val MONTHS_IN_YEAR = 12
-private const val HALF = 0.5f
 private const val DOT_SIZE = 6
 private const val MARKER_GAP = 2
 private val cellShape = RoundedCornerShape(12.dp)
-
-private val GreenTintLight = Color(0xFFDDF1E3)
-private val GreenInkLight = Color(0xFF0F5427)
-private val GreenFillLight = Color(0xFF0F5427)
-private val GreenTintDark = Color(0xFF1E3A29)
-private val GreenInkDark = Color(0xFFB8E6C6)
-private val GreenFillDark = Color(0xFF7FD39A)
-private val OnGreenFillDark = Color(0xFF08210F)
 
 /**
  * The calendar's tag for a day cell, carrying the state it draws.
@@ -358,20 +349,13 @@ private data class DayLook(val background: Color, val ink: Color, val outline: B
 @Composable
 private fun dayLook(state: CalendarState): DayLook {
     val scheme = MaterialTheme.colorScheme
-    val dark = scheme.surface.luminance() < HALF
+    // The same greens as the paid chip: a recorded class and a paid
+    // month are the same kind of "done", and one token set keeps them
+    // from drifting apart.
+    val status = MaterialTheme.statusColors
     return when (state) {
-        CalendarState.TAKEN ->
-            DayLook(
-                if (dark) GreenTintDark else GreenTintLight,
-                if (dark) GreenInkDark else GreenInkLight,
-                false,
-            )
-        CalendarState.TODAY ->
-            DayLook(
-                if (dark) GreenFillDark else GreenFillLight,
-                if (dark) OnGreenFillDark else Color.White,
-                false,
-            )
+        CalendarState.TAKEN -> DayLook(status.paidContainer, status.onPaidContainer, false)
+        CalendarState.TODAY -> DayLook(status.successFill, status.onSuccessFill, false)
         CalendarState.UPCOMING -> DayLook(Color.Transparent, scheme.primary, true)
         CalendarState.NOT_RECORDED -> DayLook(scheme.surfaceContainerHigh, scheme.onSurfaceVariant, false)
         CalendarState.CANCELLED -> DayLook(Color.Transparent, scheme.onSurfaceVariant, false)

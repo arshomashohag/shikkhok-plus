@@ -21,8 +21,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
@@ -184,22 +182,23 @@ private fun OtpBox(
     modifier: Modifier = Modifier,
 ) {
     val scheme = MaterialTheme.colorScheme
+    val status = MaterialTheme.statusColors
     val shape = RoundedCornerShape(10.dp)
 
     // Two cues, not one: the border colour AND the fill change, so the
     // wrong-code state is not carried by hue alone.
     val border = when {
         state == OtpFieldState.WRONG -> scheme.error
-        state == OtpFieldState.CHECKING -> OtpOk
+        state == OtpFieldState.CHECKING -> status.successInk
         focused -> scheme.primary
         else -> scheme.outlineVariant
     }
     // The board's pale fills are drawn on a white page; on a dark one
-    // they would glare, so the dark theme keeps its own containers.
-    val light = scheme.surface.luminance() > HALF
+    // they would glare, so the dark status set carries its own
+    // containers for these two tints.
     val fill = when (state) {
-        OtpFieldState.WRONG -> if (light) OtpWrongFill else scheme.errorContainer
-        OtpFieldState.CHECKING -> if (light) OtpOkFill else scheme.surface
+        OtpFieldState.WRONG -> status.errorTint
+        OtpFieldState.CHECKING -> status.successTint
         OtpFieldState.EDITING -> scheme.surface
     }
     val width = if (state == OtpFieldState.EDITING && !focused) 1.5.dp else 2.dp
@@ -221,18 +220,6 @@ private fun OtpBox(
         )
     }
 }
-
-/** The confirming green from the design's OTP artboard. */
-private val OtpOk = Color(0xFF0F5427)
-
-/** The checking boxes' fill on the O3 board. */
-private val OtpOkFill = Color(0xFFF2FAF4)
-
-/** The wrong-code boxes' fill on the O3 board. */
-private val OtpWrongFill = Color(0xFFFFF6F5)
-
-/** Above this luminance a surface is a light theme's. */
-private const val HALF = 0.5f
 
 /** Stable test identifier for the code input. Not user-visible text. */
 const val TAG_OTP_FIELD: String = "auth_code_field"

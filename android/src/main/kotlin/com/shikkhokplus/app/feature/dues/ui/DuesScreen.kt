@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,6 +21,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -36,7 +38,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -57,6 +58,8 @@ import com.shikkhokplus.app.core.designsystem.PrimaryButton
 import com.shikkhokplus.app.core.designsystem.ShikkhokCard
 import com.shikkhokplus.app.core.designsystem.SkeletonList
 import com.shikkhokplus.app.core.designsystem.TextAction
+import com.shikkhokplus.app.core.designsystem.asHeading
+import com.shikkhokplus.app.core.designsystem.statusColors
 import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.core.format.monthName
 import com.shikkhokplus.app.core.ui.ago
@@ -124,6 +127,7 @@ const val TAG_DUES_REMIND_RESULT: String = "dues_remind_result"
  */
 data class DuesActions(
     val onRetry: () -> Unit = {},
+    val onRefresh: (() -> Unit)? = null,
     val onFilter: (DuesFilter) -> Unit = {},
     val onNarrow: (DuesBatch?) -> Unit = {},
     val onAskRemind: () -> Unit = {},
@@ -151,10 +155,13 @@ fun DuesScreen(
     actions: DuesActions,
     modifier: Modifier = Modifier,
     bottomBar: @Composable () -> Unit = {},
+    refreshing: Boolean = false,
 ) {
     ListScreenScaffold(
         title = stringResource(R.string.dues_title),
         modifier = modifier,
+        refreshing = refreshing,
+        onRefresh = actions.onRefresh,
         bottomBar = {
             Column {
                 if (state is DuesUiState.Loaded && state.summary.remindable > 0) {
@@ -167,12 +174,16 @@ fun DuesScreen(
         when (state) {
             DuesUiState.Idle -> Unit
             DuesUiState.Loading -> SkeletonList(modifier = Modifier.padding(top = 8.dp).testTag(TAG_DUES_LOADING))
+            // Scrollable so a pull works here too: "nobody owes" is
+            // exactly when a teacher pulls to see if that changed.
             DuesUiState.Empty ->
-                EmptyState(
-                    title = stringResource(R.string.dues_empty_title),
-                    body = stringResource(R.string.dues_nobody_owes),
-                    modifier = Modifier.padding(top = 8.dp).testTag(TAG_DUES_EMPTY),
-                )
+                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                    EmptyState(
+                        title = stringResource(R.string.dues_empty_title),
+                        body = stringResource(R.string.dues_nobody_owes),
+                        modifier = Modifier.padding(top = 8.dp).testTag(TAG_DUES_EMPTY),
+                    )
+                }
             is DuesUiState.Loaded -> Loaded(state, actions)
             is DuesUiState.Failed ->
                 ErrorCard(
@@ -238,6 +249,7 @@ private fun LazyListScope.groupSection(group: DuesGroupTotal, rows: List<DuesRow
                 stringResource(groupLabel(group.kind)),
                 style = GroupHeading,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.asHeading(),
             )
             Text(Numerals.money(group.total), style = GroupHeading, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -308,6 +320,11 @@ private fun ShareBar(groups: List<DuesGroupTotal>) {
             .padding(vertical = 8.dp)
             .height(12.dp)
             .semantics { contentDescription = description },
+        // A gap between parts, so each part is judged against the card
+        // rather than against its neighbour: the 30+ red and the
+        // 1–30 swatch are both 3:1 or better on the card, but not
+        // against each other.
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         groups.filter { it.share > 0 }.forEach { group ->
             Swatch(group.kind, Modifier.weight(group.share.toFloat()).height(12.dp))
@@ -351,7 +368,7 @@ private fun Swatch(kind: DuesGroupKind, modifier: Modifier) {
     val shape = RoundedCornerShape(3.dp)
     when (kind) {
         DuesGroupKind.OVER_30 -> Box(modifier.background(MaterialTheme.colorScheme.error, shape))
-        DuesGroupKind.LATE -> Box(modifier.background(LateSwatch, shape))
+        DuesGroupKind.LATE -> Box(modifier.background(MaterialTheme.statusColors.lateSwatch, shape))
         DuesGroupKind.NOT_LATE ->
             Box(
                 modifier
@@ -639,6 +656,3 @@ private fun groupLabel(kind: DuesGroupKind): Int =
 /** The board's group headings: 14/22 bold. */
 private val GroupHeading
     @Composable get() = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
-
-/** The 1-30 days late swatch, #E8908A on the board. */
-private val LateSwatch = Color(0xFFE8908A)

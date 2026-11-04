@@ -172,6 +172,45 @@ class DuesViewModelTest {
         }
 
     @Test
+    fun `a pull keeps the list and its filter on screen, and a second pull in flight is dropped`() =
+        runTest(dispatcher) {
+            val fake = FakeRepository()
+            val model = DuesViewModel(fake)
+            model.load()
+            advanceUntilIdle()
+            model.filter(DuesFilter.LATE_ONLY)
+
+            model.refresh()
+            model.refresh()
+
+            // A refresh is not a load: the rows stay, the spinner shows.
+            assertIs<DuesUiState.Loaded>(model.state.value)
+            assertEquals(true, model.refreshing.value)
+
+            advanceUntilIdle()
+
+            assertEquals(false, model.refreshing.value)
+            assertEquals(2, fake.calls, "the load, then ONE refresh")
+            assertEquals(DuesFilter.LATE_ONLY, assertIs<DuesUiState.Loaded>(model.state.value).filter)
+        }
+
+    @Test
+    fun `a failed pull says so rather than leaving stale rows looking fresh`() =
+        runTest(dispatcher) {
+            val fake = FakeRepository()
+            val model = DuesViewModel(fake)
+            model.load()
+            advanceUntilIdle()
+
+            fake.result = AuthResult.TransportFailure
+            model.refresh()
+            advanceUntilIdle()
+
+            assertIs<DuesUiState.Failed>(model.state.value)
+            assertEquals(false, model.refreshing.value)
+        }
+
+    @Test
     fun `a confirmed reminder goes to the marked seats, then reloads`() =
         runTest(dispatcher) {
             val repo = FakeRepository()

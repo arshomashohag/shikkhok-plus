@@ -6,16 +6,19 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -93,11 +96,15 @@ fun InboxScreen(
     modifier: Modifier = Modifier,
     onSelect: (InboxMessage) -> Unit = {},
     onMarkAllRead: () -> Unit = {},
+    refreshing: Boolean = false,
+    onRefresh: (() -> Unit)? = null,
 ) {
     ListScreenScaffold(
         title = stringResource(R.string.inbox_title),
         modifier = modifier,
         onBack = onBack,
+        refreshing = refreshing,
+        onRefresh = onRefresh,
         actions = {
             if (state is InboxUiState.Loaded && state.unread > 0) {
                 TextButton(onClick = onMarkAllRead, modifier = Modifier.testTag(TAG_INBOX_MARK_ALL)) {
@@ -118,11 +125,14 @@ fun InboxScreen(
                 )
             is InboxUiState.Loaded ->
                 if (state.messages.isEmpty()) {
-                    EmptyState(
-                        title = stringResource(R.string.inbox_empty_title),
-                        body = stringResource(R.string.inbox_empty_body),
-                        modifier = Modifier.padding(top = 8.dp).testTag(TAG_INBOX_EMPTY),
-                    )
+                    // Scrollable so a pull works on an empty inbox too.
+                    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                        EmptyState(
+                            title = stringResource(R.string.inbox_empty_title),
+                            body = stringResource(R.string.inbox_empty_body),
+                            modifier = Modifier.padding(top = 8.dp).testTag(TAG_INBOX_EMPTY),
+                        )
+                    }
                 } else {
                     LoadedMessages(state.messages, onSelect)
                 }

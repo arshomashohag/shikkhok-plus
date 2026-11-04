@@ -90,6 +90,22 @@ class GuardianFlowsTest {
     }
 
     @Test
+    fun `a pull keeps the child the guardian switched to while it was in flight`() = runTest(dispatcher) {
+        val model = GuardianViewModel(Fake())
+        model.load()
+        advanceUntilIdle()
+
+        model.refresh()
+        // Switched after pulling, before the answer lands. The child to
+        // keep is read when the answer arrives, so this one survives.
+        model.select(1)
+        advanceUntilIdle()
+
+        assertEquals("Ayan", (model.state.value as GuardianUiState.Loaded).child.name)
+        assertEquals(false, model.refreshing.value)
+    }
+
+    @Test
     fun `the payment history keeps the server's months and states`() = runTest(dispatcher) {
         val model = PaymentsViewModel(Fake())
 

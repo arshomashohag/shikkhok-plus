@@ -39,6 +39,7 @@ import com.shikkhokplus.app.core.designsystem.PrimaryButton
 import com.shikkhokplus.app.core.designsystem.ScreenScaffold
 import com.shikkhokplus.app.core.designsystem.SkeletonList
 import com.shikkhokplus.app.core.designsystem.TextAction
+import com.shikkhokplus.app.core.designsystem.asHeading
 import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.core.format.monthName
 import com.shikkhokplus.app.core.format.shortDate
@@ -104,6 +105,7 @@ data class GuardianActions(
     val onResult: (ResultCard, String) -> Unit = { _, _ -> },
     val onBatch: (String) -> Unit = {},
     val onRetry: () -> Unit = {},
+    val onRefresh: (() -> Unit)? = null,
 )
 
 /**
@@ -127,12 +129,15 @@ fun GuardianHomeScreen(
     modifier: Modifier = Modifier,
     bottomBar: @Composable () -> Unit = {},
     barActions: @Composable RowScope.() -> Unit = {},
+    refreshing: Boolean = false,
 ) {
     ScreenScaffold(
         title = stringResource(R.string.guardian_home_title),
         modifier = modifier,
         bottomBar = bottomBar,
         actions = barActions,
+        refreshing = refreshing,
+        onRefresh = actions.onRefresh,
     ) {
         when (state) {
             GuardianUiState.Idle -> Unit
@@ -176,11 +181,14 @@ private fun ColumnScope.Loaded(state: GuardianUiState.Loaded, actions: GuardianA
                 withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(Numerals.freeText(firstName(child.name))) }
                 append(stringResource(R.string.guardian_now_showing_after))
             },
-            color = Color(0xFFEEF1F5),
+            // The scheme's inverse pair, which is what Color.kt reserves
+            // for this notice: a fixed #2A2F36 was the light theme's value
+            // in both themes, and on the dark page it all but vanished.
+            color = MaterialTheme.colorScheme.inverseOnSurface,
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .background(Color(0xFF2A2F36), MaterialTheme.shapes.medium)
+                    .background(MaterialTheme.colorScheme.inverseSurface, MaterialTheme.shapes.medium)
                     .padding(horizontal = 14.dp, vertical = 10.dp),
         )
     }
@@ -510,7 +518,7 @@ private fun Section(text: String) {
         text,
         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(top = 4.dp),
+        modifier = Modifier.padding(top = 4.dp).asHeading(),
     )
 }
 

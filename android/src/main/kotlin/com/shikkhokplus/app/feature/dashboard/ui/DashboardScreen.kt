@@ -22,7 +22,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -37,6 +36,7 @@ import com.shikkhokplus.app.core.designsystem.ScreenScaffold
 import com.shikkhokplus.app.core.designsystem.ShikkhokCard
 import com.shikkhokplus.app.core.designsystem.SkeletonList
 import com.shikkhokplus.app.core.designsystem.TextAction
+import com.shikkhokplus.app.core.designsystem.statusColors
 import com.shikkhokplus.app.core.designsystem.styleFor
 import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.core.format.monthName
@@ -426,8 +426,7 @@ private fun FeesSection(
 
 @Composable
 private fun FeeMonthCell(month: DashboardFeeMonth) {
-    val dark = MaterialTheme.colorScheme.surface.luminance() < DARK_LUMINANCE
-    val style = styleFor(paymentStateOf(month.kind), dark)
+    val style = styleFor(paymentStateOf(month.kind), MaterialTheme.statusColors)
     val name = monthName(month.period)
     val description = stringResource(R.string.fee_strip_cell_desc, name, stateWord(month.kind))
     Column(
@@ -450,8 +449,6 @@ private fun FeeMonthCell(month: DashboardFeeMonth) {
         Text(name, style = MaterialTheme.typography.labelSmall)
     }
 }
-
-private const val DARK_LUMINANCE = 0.5f
 
 private fun paymentStateOf(kind: StripKind): PaymentState =
     when (kind) {
