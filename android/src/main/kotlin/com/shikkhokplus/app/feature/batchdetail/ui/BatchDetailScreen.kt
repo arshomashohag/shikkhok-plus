@@ -1,8 +1,10 @@
 package com.shikkhokplus.app.feature.batchdetail.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,13 +24,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
 import com.shikkhokplus.app.core.designsystem.ListScreenScaffold
-import com.shikkhokplus.app.core.designsystem.TextAction
 import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.core.ui.scheduleDays
 import com.shikkhokplus.app.core.ui.scheduleRange
@@ -85,7 +87,6 @@ fun BatchDetailScreen(
         subtitle = header?.let { feeLine(it) },
         onBack = onBack,
         actions = {
-            TextAction(stringResource(R.string.batch_schedule), onSchedule, Modifier.testTag(TAG_BATCH_SCHEDULE))
             IconButton(onClick = onEdit, modifier = Modifier.testTag(TAG_BATCH_EDIT)) {
                 Icon(
                     painterResource(R.drawable.ic_edit),
@@ -96,7 +97,7 @@ fun BatchDetailScreen(
         },
         modifier = modifier,
         header = {
-            header?.let { InfoTags(it) }
+            header?.let { InfoTags(it, onSchedule) }
             Tabs(tab, onSelect)
         },
     ) {
@@ -152,20 +153,53 @@ private fun ordinal(day: Int): String {
 }
 
 /**
- * The grey tags under the title: class days, time, subjects.
+ * The grey tags under the title: the schedule, which opens its editor,
+ * then the subjects.
  *
  * @param header The batch summary
+ * @param onSchedule Called to edit the class days and time
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun InfoTags(header: BatchHeader) {
-    val tags = listOf(scheduleDays(header.schedule), scheduleRange(header.schedule)) + header.subjects
+private fun InfoTags(header: BatchHeader, onSchedule: () -> Unit) {
+    // **One icon in the bar** (T7): the schedule is edited from its own
+    // chip, so the bar keeps only Edit. With no class days yet the chip
+    // reads "Schedule", so the way in never disappears.
+    val schedule =
+        listOf(scheduleDays(header.schedule), scheduleRange(header.schedule))
+            .filter { it.isNotBlank() }
+            .ifEmpty { listOf(stringResource(R.string.batch_schedule)) }
     FlowRow(
         Modifier.fillMaxWidth().padding(bottom = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        tags.filter { it.isNotBlank() }.forEach { tag ->
+        Row(
+            Modifier
+                .clip(MaterialTheme.shapes.small)
+                .background(MaterialTheme.colorScheme.surfaceContainer)
+                .clickable(onClickLabel = stringResource(R.string.batch_schedule), onClick = onSchedule)
+                .heightIn(min = 28.dp)
+                .padding(horizontal = 10.dp, vertical = 4.dp)
+                .testTag(TAG_BATCH_SCHEDULE),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            schedule.forEach { part ->
+                Text(
+                    Numerals.freeText(part),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+            Icon(
+                painterResource(R.drawable.ic_edit),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(14.dp),
+            )
+        }
+        header.subjects.filter { it.isNotBlank() }.forEach { tag ->
             Text(
                 Numerals.freeText(tag),
                 style = MaterialTheme.typography.labelSmall,

@@ -2,6 +2,7 @@ package com.shikkhokplus.app.feature.batchdetail
 
 import androidx.compose.ui.test.performScrollTo
 import com.shikkhokplus.app.feature.batchdetail.ui.TAG_BATCH_EDIT
+import com.shikkhokplus.app.feature.batchdetail.ui.TAG_BATCH_SCHEDULE
 import com.shikkhokplus.app.feature.batchdetail.ui.EditBatchScreen
 import com.shikkhokplus.app.core.ui.TAG_FORM_SUBMIT
 import com.shikkhokplus.app.core.network.BatchEdit
@@ -91,6 +92,31 @@ class BatchDetailScreenTest {
 
         assertEquals(listOf(BatchTab.NOTICES), chosen)
         assertEquals(1, added)
+    }
+
+    @Test
+    fun `the schedule chip opens the schedule, and reads Schedule with no class days`() {
+        // T7 draws one icon in the bar, so the way into the schedule is
+        // the schedule itself, and it must exist before any day is set.
+        var schedules = 0
+        compose.setContent {
+            ShikkhokTheme {
+                BatchDetailScreen(
+                    batchName = "Physics A",
+                    header = BatchHeader("Physics A", null, null, emptyList(), emptyList()),
+                    tab = BatchTab.STUDENTS,
+                    onSelect = {},
+                    onBack = {},
+                    onAdd = {},
+                    onSchedule = { schedules++ },
+                ) {}
+            }
+        }
+
+        compose.onNodeWithText("Schedule", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag(TAG_BATCH_SCHEDULE).performClick()
+
+        assertEquals(1, schedules)
     }
 
     @Test

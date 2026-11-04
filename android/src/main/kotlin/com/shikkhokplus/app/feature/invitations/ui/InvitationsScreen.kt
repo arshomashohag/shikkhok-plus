@@ -17,7 +17,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
-import com.shikkhokplus.app.core.designsystem.LogoLoader
+import com.shikkhokplus.app.core.designsystem.SkeletonList
 import com.shikkhokplus.app.core.designsystem.ListScreenScaffold
 import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.core.model.AcceptanceState
@@ -92,7 +92,7 @@ fun InvitationsScreen(
         when (state) {
             InvitationsUiState.Idle,
             InvitationsUiState.Loading,
-            -> LogoLoader()
+            -> SkeletonList()
 
             InvitationsUiState.Empty -> {
                 Text(

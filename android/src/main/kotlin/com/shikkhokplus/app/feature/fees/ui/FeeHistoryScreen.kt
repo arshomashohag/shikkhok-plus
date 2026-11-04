@@ -19,7 +19,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
-import com.shikkhokplus.app.core.designsystem.LogoLoader
+import com.shikkhokplus.app.core.designsystem.SkeletonList
 import com.shikkhokplus.app.core.designsystem.ListScreenScaffold
 import com.shikkhokplus.app.core.designsystem.TextAction
 import com.shikkhokplus.app.core.format.Numerals
@@ -121,7 +121,7 @@ fun FeeHistoryScreen(
     ) {
         when (state) {
             FeeUiState.Loading ->
-                LogoLoader(Modifier.testTag(TAG_FEES_LOADING))
+                SkeletonList(modifier = Modifier.testTag(TAG_FEES_LOADING))
 
             FeeUiState.Empty ->
                 // Nothing CHARGED yet is not the same as everything
