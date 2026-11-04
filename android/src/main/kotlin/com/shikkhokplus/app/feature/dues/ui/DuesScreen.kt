@@ -507,9 +507,13 @@ private fun DuesRowItem(row: DuesRow) {
                 style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
                 modifier = Modifier.testTag(TAG_DUES_AMOUNT),
             )
+            // **Late is red at any age** (T5 draws 7, 37 and 68 days alike
+            // as the overdue chip). Amber is the board's partly-paid chip,
+            // and a late row is not partly paid: the dues read carries no
+            // such flag, so no row here can honestly be amber.
             row.daysLate?.let { days ->
                 PaymentStateChip(
-                    if (row.group == DuesGroupKind.OVER_30) PaymentState.OVERDUE else PaymentState.PARTIAL,
+                    PaymentState.OVERDUE,
                     stringResource(R.string.dues_days, Numerals.count(days)),
                     modifier = Modifier.testTag(TAG_DUES_DAYS),
                     compact = true,

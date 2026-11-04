@@ -147,8 +147,10 @@ approved and is not audited here.
 
 ### T5 · Cross-batch dues — `feature/dues/ui/DuesScreen.kt`
 - [ ] Subtitle "All 7 batches · updated 2 min ago".
-- [ ] Chip colour: red overdue for late rows, amber only for partly paid
-  (today every 1–30-day row is amber).
+- [x] Chip colour: every late row is the red overdue chip, at any age, as
+  the board draws 7, 37 and 68 days (`feature/dues/ui/DuesScreen.kt`).
+- [?] Amber for a partly-paid row (the board's Nusrat): the dues read has
+  no partly-paid flag, so no row is amber yet.
 - [?] "Remind N late **guardians**" by SMS ("SMS in Bangla and English ·
   you approve the text first"); the app reminds students in-app. Product
   decision.
@@ -173,8 +175,12 @@ approved and is not audited here.
 - [ ] Header subtitle has the level ("HSC 2027"); one icon, no extra
   "Schedule" text action.
 - [ ] FAB hidden on empty Students (only "Add first student") and on Notices.
-- [ ] Declined chip: grey fill with dashed border (no DECLINED style in
-  `core/designsystem/PaymentStateChip.kt`).
+- [~] Declined chip: the board draws a grey fill with a **dashed**
+  border, but the design system reserves the dashed outline for
+  "not yet confirmed" (Verifying), and `PaymentStateTest` holds every
+  other state to a non-dashed outline so the cue keeps its meaning.
+  **Redraw the declined chip in the artboard** (for example grey fill,
+  solid outline, a cross icon) and it can then be built.
 - [~] Exams: the section stays "Marked". There is no publish step, so
   "Published" would claim one (see T3).
 - [?] Exams rows: "36.7 avg of 50" needs an average from the server.
@@ -238,8 +244,10 @@ approved and is not audited here.
   connection".
 
 ### S2 · Inside a batch — `StudentBatchScreen.kt`, `FamilyTabs.kt`
-- [ ] One scrolling page (next class, fee, Results, Coming up, Latest
-  notice, Topics, All notices) instead of tabs. The old strings
+- [?] One scrolling page (next class, fee, Results, Coming up, Latest
+  notice, Topics, All notices) instead of tabs. **Needs your decision:**
+  flattening the tabs removes the Classes tab with its calendar, which
+  was changed on purpose after the design was approved. The old strings
   (`student_result_rank`, `student_latest_notice`, `student_all_notices`,
   `student_results`) are still in `strings.xml`, unused.
 - [ ] Bar subtitle "teacher · HSC 2027".
@@ -317,7 +325,9 @@ approved and is not audited here.
   chart, fee strip) are not in the design — decide which stay.
 
 ### G3 · Payment history & pay — `PaymentsScreen.kt`, `PayScreen.kt`
-- [ ] "Paid in 2026" as the bar subtitle; no extra "Owed now ৳X" headline.
+- [x] "Paid in 2026 · ৳X" is the bar subtitle (`PaymentsScreen.kt`).
+- [ ] No extra "Owed now ৳X" headline: kept for now, since it is the one
+  place this screen says what is owed before the guardian pays.
 - [ ] CTA "Pay ৳1,500 for উচ্চতর গণিত".
 - [ ] Pay form: "Pay for তাসনিম", one "Child · batch · month" field,
   amount prefilled, "Sent a different amount?", "Send ৳1,500 for

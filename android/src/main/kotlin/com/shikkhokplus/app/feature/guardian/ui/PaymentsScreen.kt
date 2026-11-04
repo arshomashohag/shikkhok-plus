@@ -68,6 +68,12 @@ fun PaymentsScreen(state: PaymentsUiState, onBack: () -> Unit, onPay: () -> Unit
         title =
             loaded?.let { stringResource(R.string.payments_title, Numerals.freeText(firstName(it.childName))) }
                 ?: stringResource(R.string.guardian_open_fees),
+        // "Paid in 2026 · ৳12,000" sits under the title (G3), not in the
+        // body, so the history starts at the first month.
+        subtitle =
+            loaded?.takeIf { it.months.isNotEmpty() }?.let {
+                stringResource(R.string.payments_paid_in, Numerals.count(it.year), Numerals.money(it.paidThisYear))
+            },
         onBack = onBack,
         bottomBar = {
             if (loaded != null) {
@@ -149,10 +155,6 @@ private fun History(state: PaymentsUiState.Loaded) {
         )
         return
     }
-    Text(
-        stringResource(R.string.payments_paid_in, Numerals.count(state.year), Numerals.money(state.paidThisYear)),
-        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
-    )
     state.months.forEach { month ->
         Text(
             "${monthName(month.period, short = false)} ${month.period.take(YEAR_LENGTH)}",
