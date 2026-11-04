@@ -1210,6 +1210,14 @@
     <string name="my_children_missing_body_plain">Ask the teacher to add your number as the guardian.</string>
 
     <!-- Design parity, round 2. -->
+    <string name="more_offline_title">Offline.</string>
+    <string name="more_offline_body">This is what was last loaded. Log out still works; anything that changes your account needs a connection.</string>
+    <string name="more_needs_connection">Needs a connection</string>
+    <string name="more_unsent_sub">They send when you\'re back online.</string>
+    <plurals name="more_unsent_title">
+        <item quantity="one">%1$s record not sent yet</item>
+        <item quantity="other">%1$s records not sent yet</item>
+    </plurals>
     <string name="pay_until_verified">Until your teacher checks it, the fee shows as Verifying, not Paid.</string>
     <string name="payments_waiting">Send money · loading your payments</string>
     <string name="dashboard_load_failed">Couldn\'t load the results</string>

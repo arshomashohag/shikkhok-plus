@@ -62,6 +62,9 @@ object MenuIcons {
             "M10.5 18.5h3",
         )
 
+    /** An upward arrow from a line: records waiting to be sent (T9). */
+    val Upload: ImageVector = outline("Upload", "M12 15V3M7 8l5-5 5 5M5 21h14")
+
     /** A downward arrow onto a line: records and reports (T9). */
     val Download: ImageVector = outline("Download", "M12 3v12M7 10l5 5 5-5M5 21h14")
 
@@ -229,7 +232,7 @@ sealed interface MenuTrailing {
  * icon, 16/26 SemiBold title over a 13/20 sub-label.
  *
  * @param title The row's title
- * @param onClick Called when tapped
+ * @param onClick Called when tapped, or null for a row that only informs
  * @param modifier The layout modifier; tests tag the row through it
  * @param icon The leading icon, or null
  * @param subtitle The grey second line, or null
@@ -239,11 +242,12 @@ sealed interface MenuTrailing {
  * @param highlighted Draws the row on the pale primary wash the design
  *   uses for something waiting on the person, such as an invitation
  * @param destructive Draws the title in the error colour (delete account)
+ * @param enabled False greys the row and ignores taps, as offline does
  */
 @Composable
 fun MenuRow(
     title: String,
-    onClick: () -> Unit,
+    onClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
     icon: ImageVector? = null,
     subtitle: String? = null,
@@ -251,9 +255,13 @@ fun MenuRow(
     leading: @Composable (() -> Unit)? = null,
     highlighted: Boolean = false,
     destructive: Boolean = false,
+    enabled: Boolean = true,
 ) {
     val colors = MaterialTheme.colorScheme
-    val titleColor = if (destructive) colors.error else colors.onSurface
+    val base = if (destructive) colors.error else colors.onSurface
+    // A row that cannot act now (offline) keeps its place, greyed, so the
+    // screen does not rearrange itself when the connection returns.
+    val titleColor = if (enabled) base else base.copy(alpha = DISABLED_ALPHA)
     Row(
         modifier =
             modifier
@@ -269,7 +277,13 @@ fun MenuRow(
                     },
                 )
                 .heightIn(min = LocalTouchScale.current.rowSingle)
-                .clickable(role = Role.Button, onClick = onClick)
+                .then(
+                    if (onClick != null) {
+                        Modifier.clickable(role = Role.Button, enabled = enabled, onClick = onClick)
+                    } else {
+                        Modifier
+                    },
+                )
                 .padding(start = Spacing.screen, end = Spacing.listItem, top = Spacing.tight, bottom = Spacing.tight),
         horizontalArrangement = Arrangement.spacedBy(14.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -405,6 +419,9 @@ fun ProfileCard(
         }
     }
 }
+
+/** How faint a row that cannot act now is drawn. */
+private const val DISABLED_ALPHA = 0.5f
 
 /** How strongly a highlighted row's wash shows. */
 private const val HIGHLIGHT_ALPHA = 0.5f

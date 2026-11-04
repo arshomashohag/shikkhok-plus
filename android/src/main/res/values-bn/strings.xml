@@ -1155,6 +1155,14 @@
     <string name="my_children_missing_body_plain">শিক্ষককে আপনার নম্বর অভিভাবক হিসেবে যোগ করতে বলুন।</string>
 
     <!-- Design parity, round 2. -->
+    <string name="more_offline_title">অফলাইন।</string>
+    <string name="more_offline_body">শেষবার যা এসেছিল তা-ই দেখানো হচ্ছে। লগ আউট এখনও করা যাবে; অ্যাকাউন্টে কিছু বদলাতে সংযোগ লাগবে।</string>
+    <string name="more_needs_connection">সংযোগ লাগবে</string>
+    <string name="more_unsent_sub">আবার অনলাইনে এলে পাঠানো হবে।</string>
+    <plurals name="more_unsent_title">
+        <item quantity="one">%1$sটি রেকর্ড এখনও পাঠানো হয়নি</item>
+        <item quantity="other">%1$sটি রেকর্ড এখনও পাঠানো হয়নি</item>
+    </plurals>
     <string name="pay_until_verified">শিক্ষক যাচাই না করা পর্যন্ত ফি “যাচাই হচ্ছে” দেখাবে, “পরিশোধিত” নয়।</string>
     <string name="payments_waiting">টাকা পাঠান · পেমেন্ট আনা হচ্ছে</string>
     <string name="dashboard_load_failed">ফলাফল আনা যায়নি</string>

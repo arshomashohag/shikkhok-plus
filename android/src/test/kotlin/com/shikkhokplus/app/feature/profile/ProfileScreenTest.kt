@@ -21,6 +21,10 @@ import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_MY_CHILDREN
 import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_PAYMENT_METHODS
 import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_SIGN_OUT
 import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_SWITCH_LENS
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
+import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_OFFLINE
+import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_UNSENT
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -226,5 +230,29 @@ class ProfileScreenTest {
 
         compose.onNodeWithText("Try again", substring = true).performClick()
         assertEquals(true, retried)
+    }
+
+    @Test
+    fun `offline keeps the card, says so, and holds back what needs the server`() {
+        // T9/S4/G4 "Error · offline".
+        var invitations = 0
+        render(
+            state = viewing.copy(offline = true),
+            actions = MoreActions(onInvitations = { invitations++ }),
+        )
+
+        compose.onNodeWithTag(TAG_PROFILE_OFFLINE).assertIsDisplayed()
+        compose.onNodeWithText("Rahim").assertIsDisplayed()
+        compose.onNodeWithTag(TAG_PROFILE_EDIT).assertDoesNotExist()
+        compose.onNodeWithTag(TAG_PROFILE_INVITATIONS).assertIsNotEnabled()
+        compose.onNodeWithTag(TAG_PROFILE_SIGN_OUT).performScrollTo().assertIsEnabled()
+    }
+
+    @Test
+    fun `a teacher with unsent records is told how many`() {
+        render(lens = Lens.TEACHER, actions = MoreActions(onCollections = {}, unsent = 2))
+
+        compose.onNodeWithTag(TAG_PROFILE_UNSENT).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("2 records not sent yet").assertExists()
     }
 }

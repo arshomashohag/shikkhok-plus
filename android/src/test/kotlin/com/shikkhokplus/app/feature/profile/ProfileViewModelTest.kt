@@ -399,4 +399,29 @@ class ProfileViewModelTest {
         assertEquals(null, none.footprint.value)
         assertEquals(null, failed.footprint.value)
     }
+
+    @Test
+    fun `losing the connection keeps this session's profile, marked offline`() = runTest(dispatcher) {
+        val repo = FakeRepository()
+        val model = ProfileViewModel(repo)
+        model.load()
+        advanceUntilIdle()
+
+        repo.result = AuthResult.TransportFailure
+        model.load()
+        advanceUntilIdle()
+
+        val state = assertIs<ProfileUiState.Viewing>(model.state.value)
+        assertEquals("Rahim", state.selfName)
+        assertEquals(true, state.offline)
+    }
+
+    @Test
+    fun `offline with nothing read yet is still a failure`() = runTest(dispatcher) {
+        val model = ProfileViewModel(FakeRepository(result = AuthResult.TransportFailure))
+        model.load()
+        advanceUntilIdle()
+
+        assertIs<ProfileUiState.Failed>(model.state.value)
+    }
 }

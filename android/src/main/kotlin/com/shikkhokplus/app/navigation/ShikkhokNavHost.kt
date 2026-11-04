@@ -630,6 +630,7 @@ private fun ShikkhokGraph(
                             },
                             onRetry = model::retry,
                             onSwitchLens = session.onSwitch,
+                            unsent = remember { session.unsentWrites() },
                         ),
                     navigate = { route -> navController.navigate(route) },
                 ),

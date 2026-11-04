@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
@@ -68,6 +69,12 @@ const val TAG_PROFILE_SWITCH_LENS: String = "profile_switch_lens"
 /** The invitations row, shown to a student and a guardian. */
 const val TAG_PROFILE_INVITATIONS: String = "profile_invitations"
 
+/** The offline banner on More. */
+const val TAG_PROFILE_OFFLINE: String = "profile_offline"
+
+/** The teacher's "records not sent yet" row. */
+const val TAG_PROFILE_UNSENT: String = "profile_unsent"
+
 /** The guardian's "My children" row. */
 const val TAG_PROFILE_MY_CHILDREN: String = "profile_my_children"
 
@@ -91,6 +98,7 @@ const val TAG_PROFILE_MY_CHILDREN: String = "profile_my_children"
  * @property onCollections Opens the money reports (M1), or null
  * @property onInvitations Opens the invitations list, or null
  * @property onMyChildren Opens the guardian's children, or null
+ * @property unsent How many records this phone has not sent yet (T9)
  */
 data class MoreActions(
     val onEdit: () -> Unit = {},
@@ -102,6 +110,7 @@ data class MoreActions(
     val onCollections: (() -> Unit)? = null,
     val onInvitations: (() -> Unit)? = null,
     val onMyChildren: (() -> Unit)? = null,
+    val unsent: Int = 0,
 )
 
 /**
@@ -171,11 +180,21 @@ fun ProfileScreen(
                 if (state is ProfileUiState.Saved) {
                     Banner(title = stringResource(R.string.profile_saved), tone = BannerTone.NEUTRAL)
                 }
+                val offline = (state as? ProfileUiState.Viewing)?.offline == true
+                if (offline) {
+                    Banner(
+                        title = stringResource(R.string.more_offline_title),
+                        body = stringResource(R.string.more_offline_body),
+                        tone = BannerTone.NEUTRAL,
+                        modifier = Modifier.testTag(TAG_PROFILE_OFFLINE),
+                    )
+                }
                 MoreMenu(
                     profile = profileOf(state, summary),
                     lens = lens,
                     actions = actions,
                     version = version,
+                    offline = offline,
                 )
             }
         }
@@ -206,6 +225,7 @@ internal fun profileOf(state: ProfileUiState, summary: ProfileSummary?): Profile
  * @param lens The lens in use, or null
  * @param actions Where each row leads
  * @param version The app version, or null
+ * @param offline Whether rows that need the server are shown as waiting
  */
 @Composable
 private fun MoreMenu(
@@ -213,6 +233,7 @@ private fun MoreMenu(
     lens: Lens?,
     actions: MoreActions,
     version: String?,
+    offline: Boolean = false,
 ) {
     val name = profile.selfName?.takeIf { it.isNotBlank() }
     val phone = profile.phone?.let(Numerals::phone)
@@ -227,15 +248,16 @@ private fun MoreMenu(
                 parts.firstOrNull().orEmpty()
             }
         },
-        onEdit = actions.onEdit,
+        // Editing needs the server to save; offline it is not offered.
+        onEdit = actions.onEdit.takeUnless { offline },
         editLabel = stringResource(R.string.profile_edit),
         editTag = TAG_PROFILE_EDIT,
         modifier = Modifier.testTag(TAG_PROFILE_CARD),
     )
 
-    PeopleRows(lens, actions)
-    TeacherRows(actions)
-    AccountRows(actions)
+    PeopleRows(lens, actions, offline)
+    TeacherRows(actions, offline)
+    AccountRows(actions, offline)
 
     version?.let {
         Text(
@@ -257,9 +279,10 @@ private fun MoreMenu(
  *
  * @param lens The lens in use, for the invitations sub-label
  * @param actions Where each row leads
+ * @param offline Whether the rows wait for a connection
  */
 @Composable
-private fun PeopleRows(lens: Lens?, actions: MoreActions) {
+private fun PeopleRows(lens: Lens?, actions: MoreActions, offline: Boolean) {
     if (actions.onInvitations == null && actions.onMyChildren == null) return
     MenuCard {
         actions.onInvitations?.let { open ->
@@ -267,14 +290,15 @@ private fun PeopleRows(lens: Lens?, actions: MoreActions) {
                 title = stringResource(R.string.more_invitations),
                 subtitle =
                     stringResource(
-                        if (lens == Lens.GUARDIAN) {
-                            R.string.more_invitations_sub_guardian
-                        } else {
-                            R.string.more_invitations_sub_student
+                        when {
+                            offline -> R.string.more_needs_connection
+                            lens == Lens.GUARDIAN -> R.string.more_invitations_sub_guardian
+                            else -> R.string.more_invitations_sub_student
                         },
                     ),
                 icon = MenuIcons.Envelope,
                 onClick = open,
+                enabled = !offline,
                 modifier = Modifier.testTag(TAG_PROFILE_INVITATIONS),
             )
         }
@@ -282,8 +306,10 @@ private fun PeopleRows(lens: Lens?, actions: MoreActions) {
             if (actions.onInvitations != null) MenuDivider()
             MenuRow(
                 title = stringResource(R.string.more_my_children),
+                subtitle = stringResource(R.string.more_needs_connection).takeIf { offline },
                 icon = MenuIcons.Children,
                 onClick = open,
+                enabled = !offline,
                 modifier = Modifier.testTag(TAG_PROFILE_MY_CHILDREN),
             )
         }
@@ -294,16 +320,21 @@ private fun PeopleRows(lens: Lens?, actions: MoreActions) {
  * The teacher's GETTING PAID and YOUR RECORDS sections (T9).
  *
  * @param actions Where each row leads
+ * @param offline Whether the rows wait for a connection
  */
 @Composable
-private fun TeacherRows(actions: MoreActions) {
+private fun TeacherRows(actions: MoreActions, offline: Boolean) {
     actions.onPaymentMethods?.let { open ->
         MenuSection(stringResource(R.string.more_section_getting_paid)) {
             MenuRow(
                 title = stringResource(R.string.more_where_students_pay),
-                subtitle = stringResource(R.string.more_where_students_pay_sub),
+                subtitle =
+                    stringResource(
+                        if (offline) R.string.more_needs_connection else R.string.more_where_students_pay_sub,
+                    ),
                 icon = MenuIcons.Phone,
                 onClick = open,
+                enabled = !offline,
                 modifier = Modifier.testTag(TAG_PROFILE_PAYMENT_METHODS),
             )
         }
@@ -312,11 +343,31 @@ private fun TeacherRows(actions: MoreActions) {
         MenuSection(stringResource(R.string.more_section_records)) {
             MenuRow(
                 title = stringResource(R.string.profile_collections),
-                subtitle = stringResource(R.string.more_collections_sub),
+                subtitle =
+                    stringResource(if (offline) R.string.more_needs_connection else R.string.more_collections_sub),
                 icon = MenuIcons.Download,
                 onClick = open,
+                enabled = !offline,
                 modifier = Modifier.testTag(TAG_PROFILE_COLLECTIONS),
             )
+            // "2 records not sent yet" (T9): what this phone still holds,
+            // which logging out would delete. It informs; nothing to tap.
+            if (actions.unsent > 0) {
+                MenuDivider()
+                MenuRow(
+                    title =
+                        pluralStringResource(
+                            R.plurals.more_unsent_title,
+                            actions.unsent,
+                            Numerals.count(actions.unsent),
+                        ),
+                    subtitle = stringResource(R.string.more_unsent_sub),
+                    icon = MenuIcons.Upload,
+                    trailing = MenuTrailing.None,
+                    onClick = null,
+                    modifier = Modifier.testTag(TAG_PROFILE_UNSENT),
+                )
+            }
         }
     }
 }
@@ -331,11 +382,13 @@ private fun TeacherRows(actions: MoreActions) {
  * Log out and delete act through a confirmation, so they end in no
  * chevron. Delete is drawn in the error colour and is never a filled
  * control: the destructive step is the confirmation that follows (O5).
+ * Log out works offline; deleting needs the server.
  *
  * @param actions Where each row leads
+ * @param offline Whether rows that need the server wait for it
  */
 @Composable
-private fun AccountRows(actions: MoreActions) {
+private fun AccountRows(actions: MoreActions, offline: Boolean) {
     MenuSection(stringResource(R.string.more_section_account)) {
         actions.onSwitchLens?.let { switch ->
             MenuRow(
@@ -356,9 +409,11 @@ private fun AccountRows(actions: MoreActions) {
         MenuDivider()
         MenuRow(
             title = stringResource(R.string.more_delete_account),
+            subtitle = stringResource(R.string.more_needs_connection).takeIf { offline },
             icon = MenuIcons.Delete,
             trailing = MenuTrailing.None,
             destructive = true,
+            enabled = !offline,
             onClick = actions.onDeleteAccount,
             modifier = Modifier.testTag(TAG_PROFILE_DELETE),
         )

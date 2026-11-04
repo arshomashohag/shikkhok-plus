@@ -93,8 +93,13 @@ class ProfileViewModel(
                     }
                     is AuthResult.Refused ->
                         ProfileStateMapper.afterError(result.envelope)
+                    // **Offline, with this session's copy if there is one**:
+                    // the profile read earlier stays on screen, marked
+                    // offline, rather than an error replacing it.
                     AuthResult.TransportFailure ->
-                        ProfileStateMapper.afterTransportFailure()
+                        _summary.value?.let {
+                            ProfileUiState.Viewing(it.selfName, it.address, it.phone, offline = true)
+                        } ?: ProfileStateMapper.afterTransportFailure()
                 }
         }
     }

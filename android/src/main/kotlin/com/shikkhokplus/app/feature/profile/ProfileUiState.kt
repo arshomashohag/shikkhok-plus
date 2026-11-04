@@ -24,11 +24,16 @@ sealed interface ProfileUiState {
      * @property selfName The name this person chose, or null
      * @property address The address this person entered, or null
      * @property phone The sign-in number, shown read-only (O5)
+     * @property offline True when this is the copy read earlier in the
+     *   session, shown because the latest read could not reach the
+     *   server (T9, S4, G4 "Error · offline"). Nothing is stored on the
+     *   phone for this: the copy lives only as long as the screen does.
      */
     data class Viewing(
         val selfName: String?,
         val address: String?,
         val phone: String? = null,
+        val offline: Boolean = false,
     ) : ProfileUiState
 
     /**
