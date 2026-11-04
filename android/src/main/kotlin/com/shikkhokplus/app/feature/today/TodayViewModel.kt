@@ -42,11 +42,25 @@ class TodayViewModel(
         gate.run(viewModelScope) { _state.value = read() }
     }
 
+    /** The day the server returned last this session, for offline. */
+    private var lastLoaded: TodayUiState.Loaded? = null
+
+    /**
+     * Read the day.
+     *
+     * **Offline keeps this session's day** (T1), marked as such, so a
+     * teacher mid-class still sees their classes and can record a topic,
+     * which queues [BR3.1], rather than an error in place of the list.
+     *
+     * @return The state to show
+     */
     private suspend fun read(): TodayUiState =
         when (val result = repository.today()) {
-            is AuthResult.Ok -> TodayStateMapper.afterLoad(result.value)
+            is AuthResult.Ok ->
+                TodayStateMapper.afterLoad(result.value).also { if (it is TodayUiState.Loaded) lastLoaded = it }
             is AuthResult.Refused -> TodayStateMapper.afterError(result.envelope)
-            AuthResult.TransportFailure -> TodayStateMapper.afterTransportFailure()
+            AuthResult.TransportFailure ->
+                lastLoaded?.copy(offline = true) ?: TodayStateMapper.afterTransportFailure()
         }
 
     /** Read again, only when asked [TC-8, D-9]. */

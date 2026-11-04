@@ -111,4 +111,19 @@ class TodayStateMapperTest {
         assertIs<TodayUiState.Loaded>(model.state.value)
     }
 
+    @Test
+    fun `losing the connection keeps this session's day, marked offline`() = runTest(dispatcher) {
+        var answer: AuthResult<TodayDto> = AuthResult.Ok(day())
+        val model = TodayViewModel(object : TodayRepository {
+            override suspend fun today() = answer
+        })
+        model.load()
+        advanceUntilIdle()
+
+        answer = AuthResult.TransportFailure
+        model.refresh()
+        advanceUntilIdle()
+
+        assertEquals(true, assertIs<TodayUiState.Loaded>(model.state.value).offline)
+    }
 }

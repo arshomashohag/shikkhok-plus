@@ -27,6 +27,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
+import com.shikkhokplus.app.core.designsystem.BannerTone
+import com.shikkhokplus.app.core.designsystem.Banner
 import com.shikkhokplus.app.core.designsystem.SkeletonBlock
 import com.shikkhokplus.app.core.model.Money
 import com.shikkhokplus.app.core.designsystem.BodyCompact
@@ -149,7 +151,19 @@ fun TodayScreen(
                     SkeletonList(rows = 2)
                 }
                 is TodayUiState.FirstRun -> FirstRun(shown.outstanding, onCreateBatch)
-                is TodayUiState.Loaded -> Day(shown, pending, onOpenDues, onRecord, onMarks, onVerifyAll, onOpenPayment)
+                is TodayUiState.Loaded -> {
+                    // Offline (T1): the day stays; recording still works
+                    // and queues, approving waits for a connection.
+                    if (shown.offline) {
+                        Banner(
+                            title = stringResource(R.string.offline_title),
+                            body = stringResource(R.string.today_offline_body),
+                            tone = BannerTone.NEUTRAL,
+                            modifier = Modifier.testTag(TAG_TODAY_OFFLINE),
+                        )
+                    }
+                    Day(shown, pending, onOpenDues, onRecord, onMarks, onVerifyAll, onOpenPayment)
+                }
                 is TodayUiState.Failed ->
                     ErrorCard(
                         title = stringResource(R.string.today_load_failed),
@@ -489,6 +503,9 @@ private fun FirstRun(outstanding: Money?, onCreateBatch: () -> Unit) {
         }
     }
 }
+
+/** The offline banner over this session's day. */
+const val TAG_TODAY_OFFLINE: String = "today_offline"
 
 /** The first run's outstanding card. */
 const val TAG_TODAY_FIRST_RUN_OUTSTANDING: String = "today_first_run_outstanding"

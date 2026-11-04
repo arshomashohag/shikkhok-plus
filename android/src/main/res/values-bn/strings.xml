@@ -1155,6 +1155,7 @@
     <string name="my_children_missing_body_plain">শিক্ষককে আপনার নম্বর অভিভাবক হিসেবে যোগ করতে বলুন।</string>
 
     <!-- Design parity, round 2. -->
+    <string name="today_offline_body">শেষবার যেমন এসেছিল তেমন আজকের দিন। যে বিষয় লিখবেন তা রাখা থাকবে, অনলাইনে এলে পাঠানো হবে; পেমেন্ট অনুমোদনে সংযোগ লাগবে।</string>
     <string name="offline_title">অফলাইন।</string>
     <string name="offline_figures_from">%1$s যা এসেছিল তা-ই দেখানো হচ্ছে। আবার অনলাইনে এলে হালনাগাদ হবে।</string>
     <string name="more_offline_title">অফলাইন।</string>

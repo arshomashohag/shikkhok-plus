@@ -85,6 +85,8 @@ sealed interface TodayUiState {
      * @property classes Today's classes
      * @property toVerifyCount Payments waiting
      * @property toVerify The first few of them
+     * @property offline True when this is the day read earlier in the
+     *   session, shown because the latest read could not reach the server
      */
     data class Loaded(
         val date: String,
@@ -92,6 +94,7 @@ sealed interface TodayUiState {
         val classes: List<ClassRow>,
         val toVerifyCount: Int,
         val toVerify: List<ReviewCard>,
+        val offline: Boolean = false,
     ) : TodayUiState
 
     /**
