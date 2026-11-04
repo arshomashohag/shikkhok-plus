@@ -28,12 +28,23 @@ approved and is not audited here.
 
 ## Cross-cutting
 
-- [ ] **Offline with a saved copy.** No screen has the "Offline · showing
-  data from 10:42 am" state; a failed load always replaces the content
-  with an error card (T1, T5, T6, T7 fees, S1, S2, G1, G2, G3, and all
-  three More screens).
-- [ ] **Skeleton loading.** Most screens show `LogoLoader`; the
-  artboards draw skeleton cards (T1, T3, S1, S2).
+- [x] **Offline with a saved copy, within the session.** Today, Dues, My
+  batches, Inside a batch, the guardian home and all three More screens
+  keep what this session last read when a reload cannot reach the
+  server, under an "Offline · showing data from 10:42 am" banner
+  (`OfflineBanner`), with what needs the server held back: Remind,
+  Pay, Edit, Invitations, and every fee status, which could have been
+  approved since.
+- [?] **A copy that survives a restart.** The artboards' "saved copy"
+  after the app is closed means children's names, fees and marks
+  written to the phone's disk. That is a privacy decision (children's
+  data at rest on a shared family phone [RC-1, RC-8]), not a layout
+  one, so no disk cache was added; T6, T7 and G2/G3 still show an
+  error card when the first read of a session fails.
+- [x] **Skeleton loading.** T1, T3, S1 and S2 draw skeleton cards, as
+  the artboards do, and so do the list screens with no artboard of their
+  own (fee history, exams, classes, invitations, payments, My
+  children). Forms, sign-in and one-off waits keep `LogoLoader`.
 - [x] **Student and guardian navigation.** Students and guardians have no
   bottom bar: More opens from a profile button beside the inbox bell on
   their home (`navigation/StudentRoutes.kt` `FamilyBarActions`), pushed
@@ -106,8 +117,11 @@ approved and is not audited here.
   (৳0); step bubbles 28dp, step 1 filled primary, the rest grey
   (`feature/today/ui/TodayScreen.kt`).
 - [x] Loading: skeleton for the Outstanding card.
-- [ ] Offline with cache (see cross-cutting), including rows marked
-  "Recorded · not sent yet" and "can't approve while offline".
+- [x] Offline with this session's copy (see cross-cutting)
+  (`feature/today/ui/TodayScreen.kt` `TAG_TODAY_OFFLINE`).
+- [?] Rows marked "Recorded · not sent yet" and "can't approve while
+  offline": the day's read does not say which of its classes the
+  phone's queue still holds.
 - [x] Recorded topic shows without a "✓ " prefix.
 
 ### T2 · Record a class — `feature/record/ui/RecordClassSheet.kt`
@@ -194,7 +208,8 @@ approved and is not audited here.
   (`feature/dues/ui/DuesScreen.kt`).
 - [?] "paid up for October" and "November fees fall due on 10 Nov": the
   dues read carries neither the month nor the next due date.
-- [ ] Offline with cache, disabled Remind.
+- [x] Offline with this session's figures, Remind disabled
+  (`feature/dues/ui/DuesScreen.kt` `TAG_DUES_OFFLINE`).
 
 ### T6 · Batch list — `feature/batches/ui/BatchesScreen.kt`
 - [?] Fee-status chip per card ("৳7,200 late" / "৳4,800 due" / "All paid").
@@ -211,8 +226,11 @@ approved and is not audited here.
   untrue until it does.
 
 ### T7 · Single batch — `feature/batchdetail/ui/*`
-- [ ] Header subtitle has the level ("HSC 2027"); one icon, no extra
-  "Schedule" text action.
+- [x] One icon in the bar: the Schedule text action is gone, and the
+  schedule chip under the title opens the schedule (it reads "Schedule"
+  before any class day is set, so the way in never disappears).
+- [?] Header subtitle with the level ("HSC 2027"): the batch has no
+  level field.
 - [x] Add button hidden on Notices and on an empty roster, where "Add
   first student" is the action (`BatchDetailRoute.kt` `showsAdd`).
 - [~] Declined chip: the board draws a grey fill with a **dashed**
@@ -237,8 +255,11 @@ approved and is not audited here.
 - [x] Batch name as the bar subtitle, with "2 added so far" after it.
 - [x] "+88" prefix on both phone fields, through the shared
   `PhoneNumberField`; a malformed number is still caught while typing.
-- [ ] Fee as a "Batch fee · ৳1,200" toggle, not a free-text field (needs
-  the batch's fee on this screen; the field already says it inherits).
+- [x] Fee as a "Batch fee · ৳1,200" toggle (`CreateForms.kt`
+  `BatchFeeToggle`), read from the batch screen it was opened on; off,
+  the field asks for this student's own fee. On, nothing is sent, which
+  the server reads as inherit, never as zero [AC2.2.5]. A batch with no
+  fee keeps the plain field.
 - [~] Help lines: "New number. They'll get an SMS invite." is not added:
   nothing sends an SMS invite (invitations are accepted in the app), so
   the line would promise a message that never arrives. **Update the
@@ -250,7 +271,10 @@ approved and is not audited here.
   a local number has the wrong count (`CreateForms.kt` `phoneError`).
 - [x] Same-name hint: "Rahim is already in this batch", shown, never
   blocking, since two students can share a name.
-- [ ] "Open her profile" link on that hint.
+- [~] "Open her profile" link on that hint: a teacher has no student
+  profile to open (teacher-facing reads carry no profile fields,
+  [TC-13, D-5]), and "her" would be the app guessing a child's gender.
+  **The artboard should drop the link.**
 - [x] `feature/roster/ui/AddStudentScreen.kt` was never called — removed,
   with its test.
 
@@ -277,8 +301,9 @@ approved and is not audited here.
 - [~] Its add actions stay "+ Mobile banking" and "+ Bank account": bank
   accounts are part of the 2026-11-02 payment-methods spec, which the
   board predates. **Update the artboard.**
-- [ ] Error · offline: banner, "Needs a connection" sub-labels, "2
-  records not sent yet" row.
+- [x] Error · offline: banner, "Needs a connection" sub-labels, "2
+  records not sent yet" row (`ProfileScreen.kt` `TAG_PROFILE_OFFLINE`,
+  `TAG_PROFILE_UNSENT`).
 - [~] "Switch role" is code-only but needed by people who hold more than
   one lens; kept as a row in ACCOUNT. **Add it to the artboard.**
 
@@ -297,9 +322,11 @@ approved and is not audited here.
   number.
 - [x] Empty: the number on its own highlighted line.
 - [x] Loading skeleton (`MyBatchesScreen.kt`).
-- [ ] The student's name in the bar while loading.
-- [ ] Error with saved copy, offline banner, disabled "Pay a fee · needs
-  connection".
+- [?] The student's name in the bar while loading: nothing on the phone
+  holds the name before the first read answers. After it, the name stays
+  through a reload and offline.
+- [x] Offline with this session's copy, offline banner, Send money
+  disabled with "needs a connection" (`MyBatchesScreen.kt`).
 
 ### S2 · Inside a batch — `StudentBatchScreen.kt`, `FamilyTabs.kt`
 - [~] One scrolling page instead of tabs: **decided 2026-11-04 to keep
@@ -309,14 +336,23 @@ approved and is not audited here.
 - [x] Exams tab lists Results first, then Coming up, as the page does. The old strings
   (`student_result_rank`, `student_latest_notice`, `student_all_notices`,
   `student_results`) are still in `strings.xml`, unused.
-- [ ] Bar subtitle "teacher · HSC 2027".
-- [ ] Next class as a white card; "First class" label when none has happened.
-- [ ] Fee sub-line "November due 10 Nov"; no extra "Send money"/"Progress"
-  on the card.
+- [x] Bar subtitle names the teacher.
+- [?] The level ("HSC 2027") after it: the batch has no level field.
+- [x] Next class as a white card (`NextClassHero` `asCard`); S1 keeps
+  the blue hero.
+- [?] "First class" label when none has happened: the read does not say
+  whether a class has been held, and an empty topic list only says none
+  was recorded.
+- [x] Fee line: "November · ৳1,200", then "Due by 10 Nov".
+- [~] "Pay this" and "Progress" stay under the fee card: the
+  payment-methods spec puts Send money on every family fee (F1) and
+  Progress on every lens (D1). **Update the artboard.**
 - [?] Results with rank ("rank 5 of 19") and chevron.
 - [x] Loading: skeleton cards (`StudentBatchScreen.kt`).
-- [ ] Loading/Error: saved results, "Fee status unavailable / We don't
-  show a payment status we can't confirm", "Text only…" note.
+- [x] Offline: this session's results stay, and the fee is replaced by
+  "Fee status unavailable / We don't show a payment status we can't
+  confirm" (`TAG_STUDENT_FEE_UNAVAILABLE`).
+- [?] The "Text only…" note: the board does not say what it refers to.
 
 ### S3 · Submit payment — `feature/pay/ui/PayScreen.kt`
 - [~] One form, fee-first: **superseded by the 2026-11-02 payment-methods
@@ -327,8 +363,10 @@ approved and is not audited here.
   spec. **Redraw S3 from F1–F5.**
 - [~] Title and close X: superseded with the rest of S3 by the payment-
   methods spec (titles follow F2–F4).
-- [ ] Empty: "Which fee are you paying?" list, "রসায়ন isn't listed: your
-  payment is being checked".
+- [~] Empty: "Which fee are you paying?" list, "রসায়ন isn't listed: your
+  payment is being checked": superseded with the rest of S3. The spec
+  pays by method and accepts a payment when nothing is owed, so there is
+  no fee list to choose from (F1–F5).
 - [~] "Safe to wait… we'll keep it and resend" — payment submission is not
   an offline-queued write (only attendance and topic are, NFR5/BR3.1).
   **The artboard should drop this copy.**
@@ -349,10 +387,11 @@ approved and is not audited here.
 - [x] Reached from a profile button with Back, no bottom bar.
 - [?] Invitation badge count, Guardian row (name · number), Payment
   history row — need a lightweight "me" summary from the server.
-- [ ] Invitation card: "Added 14 Oct", "<teacher> added you to <batch>",
+- [?] Invitation card: "Added 14 Oct", "<teacher> added you to <batch>",
   Classes / Fee-with-due-day / Teacher-phone grid, explanation text,
   EARLIER section; "This isn't me · Decline"; title "Invitations".
-  `InvitationRow` lacks teacher, schedule, date and due day.
+  `InvitationRow` lacks teacher, schedule, date and due day: needs them
+  in the invitations read first.
 - [x] Edit profile as its own screen with close X, titled "Edit profile",
   "Full name".
 - [?] Mobile number "Change" with OTP to the new number — the app says the
@@ -362,7 +401,7 @@ approved and is not audited here.
   the lens model: one account holds every lens its seats grant, and
   Switch role exists for exactly that [TC-11, D-2]. Not built. **The
   artboard should drop or rewrite this copy.**
-- [ ] Error · offline.
+- [x] Error · offline: the same More screen as T9.
 
 ---
 
@@ -371,15 +410,18 @@ approved and is not audited here.
 ### G1 · Child home & switcher — `feature/guardian/ui/GuardianHomeScreen.kt`
 - [?] Combined total ("৳2,000 · September and October", "Pay ৳2,000")
   instead of one month's amount plus "N later months".
-- [ ] Switcher and child header pinned in a white header, no title.
-- [ ] Child sub-line with class level ("HSC 2027").
+- [x] Switcher and child header pinned in a white header under the bar,
+  no title (`ScreenScaffold` `pinned`); the page scrolls beneath it.
+- [?] Child sub-line with class level ("HSC 2027"): no level field.
 - [x] Pay goes to G3 (payments) first, where what was already paid sits
   above Send money.
 - [x] Empty: "Your children appear here as soon as they're linked." after
   the number to give the teacher.
 - [~] Empty bar title stays "Your students", the guardian home's title in
   every state.
-- [ ] Error with saved results, "Payments can't be shown right now…".
+- [x] Offline with this session's results, "Payments can't be shown
+  right now…" in place of the payment card
+  (`TAG_GUARDIAN_PAYMENTS_UNAVAILABLE`).
 - [x] 30dp chips, 14sp text (the nearest design step).
 
 ### G2 · Progress — implemented as `DashboardScreen`
@@ -394,13 +436,16 @@ approved and is not audited here.
   for a single exam from the server.
 - [x] Error copy "Couldn't load the results", with the server's reason
   under it.
-- [ ] Dashboard-only extras (child chips, range chips, tiles, attendance
-  chart, fee strip) are not in the design — decide which stay.
+- [~] Dashboard-only extras (child chips, range chips, tiles, attendance
+  chart, fee strip) stay: they are the progress dashboard the
+  payment-methods spec approved for all three lenses (D1, D2), which
+  this artboard predates. **Redraw G2 from D1–D2.**
 
 ### G3 · Payment history & pay — `PaymentsScreen.kt`, `PayScreen.kt`
 - [x] "Paid in 2026 · ৳X" is the bar subtitle (`PaymentsScreen.kt`).
-- [ ] No extra "Owed now ৳X" headline: kept for now, since it is the one
-  place this screen says what is owed before the guardian pays.
+- [~] The extra "Owed now ৳X" headline stays: it is the one place this
+  screen says what is owed before the guardian pays, and the server
+  sends it. **Add it to the artboard.**
 - [~] CTA stays "Send money" (spec F1).
 - [~] Pay form: superseded by the 2026-11-02 payment-methods spec, as for
   S3 (method-first, several children per payment, any amount). **Redraw
@@ -426,7 +471,7 @@ approved and is not audited here.
   confirmed they are the guardian [RC-1, D-5].
 - [?] Notifications, Text size, "Call for help · Talk to a person, in Bangla".
 - [x] Guardian type scale (64dp rows, 18sp titles, 21sp/700 title).
-- [ ] Error · offline.
+- [x] Error · offline: the same More screen as T9.
 
 ---
 

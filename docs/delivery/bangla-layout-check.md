@@ -108,6 +108,9 @@ rather than editing the old one.
 | Design parity | Edit profile | `S4` | *not yet checked* | `profile_teacher_name_note` (105) | |
 | Design parity | Log out sheet (with and without unsent records) | `T9` | *not yet checked* | `log_out_unsent_body` (44) | |
 | Design parity | My children | `G4` | *not yet checked* | `my_children_note` (100) | |
+| Design parity | Offline banner and withheld fee (Today, Dues, My batches, Inside a batch, guardian home, More) | `T1`, `T5`, `S1`, `S2`, `G1`, `T9` | *not yet checked* | `family_offline_body` (78) / `family_fee_unavailable_body` (78) | |
+| Design parity | Guardian home's pinned switcher and child header | `G1` | *not yet checked* | `guardian_payments_unavailable` (57) | |
+| Design parity | Add student's "Batch fee" toggle | `T8` | *not yet checked* | `student_add_batch_fee_help` (39) | |
 
 **D4's seven rows are open, and nothing automated discharges them.**
 The obligation is a check on a device in Bangla locale [team: Testing
@@ -124,7 +127,7 @@ screenshot harness, because the human closed that choice on 2026-10-23
 in favour of the manual per-screen check, and a correctness test does
 not discharge a layout obligation [project.md].
 
-**The four design-parity rows (2026-11-04) are open on the same terms**:
+**The seven design-parity rows (2026-11-04) are open on the same terms**:
 nothing automated discharges them. The More rows are the ones to watch —
 each row's title and grey sub-label sit beside a 22dp icon and a chevron
 in a 360dp-wide card, so a long Bangla sub-label wraps rather than
