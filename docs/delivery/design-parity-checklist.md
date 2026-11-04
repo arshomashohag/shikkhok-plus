@@ -285,7 +285,7 @@ approved and is not audited here.
   **Update the artboard, or have the server send the form to show.**
 - [x] Empty: "This screen updates by itself once you're added." after the
   number.
-- [ ] Empty: the number on its own highlighted line.
+- [x] Empty: the number on its own highlighted line.
 - [x] Loading skeleton (`MyBatchesScreen.kt`).
 - [ ] The student's name in the bar while loading.
 - [ ] Error with saved copy, offline banner, disabled "Pay a fee · needs
