@@ -29,16 +29,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.shikkhokplus.app.R
 import com.shikkhokplus.app.core.designsystem.EmptyState
 import com.shikkhokplus.app.core.designsystem.ErrorCard
+import com.shikkhokplus.app.core.designsystem.MoneyTotal
 import com.shikkhokplus.app.core.designsystem.PaymentState
 import com.shikkhokplus.app.core.designsystem.PaymentStateChip
 import com.shikkhokplus.app.core.designsystem.PrimaryButton
 import com.shikkhokplus.app.core.designsystem.ScreenScaffold
 import com.shikkhokplus.app.core.designsystem.SkeletonList
+import com.shikkhokplus.app.core.designsystem.Spacing
+import com.shikkhokplus.app.core.designsystem.StateFade
 import com.shikkhokplus.app.core.designsystem.TextAction
+import com.shikkhokplus.app.core.designsystem.asHeading
 import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.core.format.monthName
 import com.shikkhokplus.app.core.format.shortDate
@@ -104,6 +107,7 @@ data class GuardianActions(
     val onResult: (ResultCard, String) -> Unit = { _, _ -> },
     val onBatch: (String) -> Unit = {},
     val onRetry: () -> Unit = {},
+    val onRefresh: (() -> Unit)? = null,
 )
 
 /**
@@ -127,33 +131,38 @@ fun GuardianHomeScreen(
     modifier: Modifier = Modifier,
     bottomBar: @Composable () -> Unit = {},
     barActions: @Composable RowScope.() -> Unit = {},
+    refreshing: Boolean = false,
 ) {
     ScreenScaffold(
         title = stringResource(R.string.guardian_home_title),
         modifier = modifier,
         bottomBar = bottomBar,
         actions = barActions,
+        refreshing = refreshing,
+        onRefresh = actions.onRefresh,
     ) {
-        when (state) {
-            GuardianUiState.Idle -> Unit
-            GuardianUiState.Loading -> SkeletonList(modifier = Modifier.testTag(TAG_GUARDIAN_LOADING))
-            is GuardianUiState.Empty ->
-                EmptyState(
-                    title = stringResource(R.string.guardian_none_title),
-                    body =
-                        state.phone?.let { stringResource(R.string.guardian_none_body, Numerals.phone(it)) }
-                            ?: stringResource(R.string.guardian_empty_body),
-                    modifier = Modifier.testTag(TAG_GUARDIAN_EMPTY),
-                )
-            is GuardianUiState.Failed ->
-                ErrorCard(
-                    title = stringResource(MessageKeys.resolve(state.messageKey)),
-                    body = null,
-                    modifier = Modifier.testTag(TAG_GUARDIAN_ERROR),
-                    retryLabel = if (state.retryable) stringResource(R.string.dues_retry) else null,
-                    onRetry = if (state.retryable) actions.onRetry else null,
-                )
-            is GuardianUiState.Loaded -> Loaded(state, actions)
+        StateFade(state, spacing = Spacing.screen) { shown ->
+            when (shown) {
+                GuardianUiState.Idle -> Unit
+                GuardianUiState.Loading -> SkeletonList(modifier = Modifier.testTag(TAG_GUARDIAN_LOADING))
+                is GuardianUiState.Empty ->
+                    EmptyState(
+                        title = stringResource(R.string.guardian_none_title),
+                        body =
+                            shown.phone?.let { stringResource(R.string.guardian_none_body, Numerals.phone(it)) }
+                                ?: stringResource(R.string.guardian_empty_body),
+                        modifier = Modifier.testTag(TAG_GUARDIAN_EMPTY),
+                    )
+                is GuardianUiState.Failed ->
+                    ErrorCard(
+                        title = stringResource(MessageKeys.resolve(shown.messageKey)),
+                        body = null,
+                        modifier = Modifier.testTag(TAG_GUARDIAN_ERROR),
+                        retryLabel = if (shown.retryable) stringResource(R.string.dues_retry) else null,
+                        onRetry = if (shown.retryable) actions.onRetry else null,
+                    )
+                is GuardianUiState.Loaded -> Loaded(shown, actions)
+            }
         }
     }
 }
@@ -176,11 +185,14 @@ private fun ColumnScope.Loaded(state: GuardianUiState.Loaded, actions: GuardianA
                 withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(Numerals.freeText(firstName(child.name))) }
                 append(stringResource(R.string.guardian_now_showing_after))
             },
-            color = Color(0xFFEEF1F5),
+            // The scheme's inverse pair, which is what Color.kt reserves
+            // for this notice: a fixed #2A2F36 was the light theme's value
+            // in both themes, and on the dark page it all but vanished.
+            color = MaterialTheme.colorScheme.inverseOnSurface,
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .background(Color(0xFF2A2F36), MaterialTheme.shapes.medium)
+                    .background(MaterialTheme.colorScheme.inverseSurface, MaterialTheme.shapes.medium)
                     .padding(horizontal = 14.dp, vertical = 10.dp),
         )
     }
@@ -346,7 +358,7 @@ private fun PaymentCard(child: ChildCard, payment: GuardianPayment, actions: Gua
         }
         Text(
             Numerals.money(option.amountDue),
-            style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Bold),
+            style = MoneyTotal,
         )
         Text(
             buildAnnotatedString {
@@ -435,9 +447,11 @@ private fun ResultRow(result: ResultCard, onOpen: () -> Unit) {
             Quiet("${Numerals.freeText(result.title)} · ${shortDate(result.date)}")
         }
         Column(horizontalAlignment = Alignment.End) {
+            // The title step, so the mark reads larger than its "/total".
+            val markSize = MaterialTheme.typography.titleLarge.fontSize
             Text(
                 buildAnnotatedString {
-                    withStyle(SpanStyle(fontWeight = FontWeight.Bold, fontSize = 21.sp)) {
+                    withStyle(SpanStyle(fontWeight = FontWeight.Bold, fontSize = markSize)) {
                         append(Numerals.count(result.marks))
                     }
                     withStyle(SpanStyle(color = Color.Unspecified)) { append("/" + Numerals.count(result.totalMarks)) }
@@ -510,7 +524,7 @@ private fun Section(text: String) {
         text,
         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(top = 4.dp),
+        modifier = Modifier.padding(top = 4.dp).asHeading(),
     )
 }
 

@@ -261,6 +261,7 @@ fun ShikkhokNavHost(
             val model: DuesViewModel =
                 viewModel { DuesViewModel(HttpAnalyticsRepository(client)) }
             val state by model.state.collectAsState()
+            val refreshing by model.refreshing.collectAsState()
 
             LaunchedEffect(Unit) { model.load() }
 
@@ -274,7 +275,9 @@ fun ShikkhokNavHost(
                         onAskRemind = model::askToRemind,
                         onRemind = model::remind,
                         onDismissRemind = model::dismissRemind,
+                        onRefresh = model::refresh,
                     ),
+                refreshing = refreshing,
                 bottomBar = {
                     BottomNav(
                         destinations = tabsFor(session.lens),
@@ -544,6 +547,7 @@ fun ShikkhokNavHost(
             val model: GuardianViewModel =
                 viewModel { GuardianViewModel(HttpGuardianRepository(client)) }
             val state by model.state.collectAsState()
+            val refreshing by model.refreshing.collectAsState()
 
             LaunchedEffect(Unit) { model.load() }
 
@@ -565,7 +569,9 @@ fun ShikkhokNavHost(
                         },
                         onBatch = { seat -> navController.navigate(Destination.ChildBatch.of(seat)) },
                         onRetry = model::retry,
+                        onRefresh = model::refresh,
                     ),
+                refreshing = refreshing,
                 bottomBar = {
                     BottomNav(
                         destinations = tabsFor(session.lens),

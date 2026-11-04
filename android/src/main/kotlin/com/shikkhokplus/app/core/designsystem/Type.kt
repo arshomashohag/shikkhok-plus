@@ -1,6 +1,8 @@
 package com.shikkhokplus.app.core.designsystem
 
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -143,3 +145,27 @@ internal val ShikkhokTypography: Typography = Typography().let { base ->
         labelMedium = banglaSafe(13, 20, FontWeight.Medium),
     )
 }
+
+/**
+ * A screen's money total: the one amount the screen exists to show.
+ *
+ * The design's display step, 34/52 Bold — the step its type table
+ * reserves for money totals. Guardian home's next payment and Dues'
+ * "owed to you" are totals; Dues had drifted to the 26sp headline step
+ * while the design draws it at display, larger than the same figure in
+ * Today's summary card.
+ */
+val MoneyTotal: TextStyle
+    @Composable get() = MaterialTheme.typography.displaySmall
+
+/**
+ * An amount that leads a card: Today's outstanding summary, a payment
+ * under review, a month's collections.
+ *
+ * The headline step, 26/40 Bold. A name, not a new size: these call
+ * sites already used 26sp through three different slots
+ * (`headlineLarge`, `headlineMedium`, `headlineSmall`), which is how
+ * one of them drifted.
+ */
+val MoneyLead: TextStyle
+    @Composable get() = MaterialTheme.typography.headlineMedium

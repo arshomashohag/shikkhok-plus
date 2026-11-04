@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
 import com.shikkhokplus.app.core.designsystem.ErrorCard
 import com.shikkhokplus.app.core.designsystem.ListScreenScaffold
+import com.shikkhokplus.app.core.designsystem.MoneyLead
 import com.shikkhokplus.app.core.designsystem.ShikkhokCard
 import com.shikkhokplus.app.core.designsystem.SkeletonList
 import com.shikkhokplus.app.core.designsystem.TextAction
@@ -209,7 +210,7 @@ private fun Tiles(state: CollectionsUiState.Loaded) {
                 )
             }
             state.headlineCollected?.let {
-                Text(Numerals.money(it), style = MaterialTheme.typography.headlineSmall)
+                Text(Numerals.money(it), style = MoneyLead)
             }
             state.headlineCharged?.let {
                 Text(
@@ -223,7 +224,7 @@ private fun Tiles(state: CollectionsUiState.Loaded) {
                 stringResource(R.string.collections_still_owed),
                 style = MaterialTheme.typography.labelMedium,
             )
-            Text(Numerals.money(state.outstanding), style = MaterialTheme.typography.headlineSmall)
+            Text(Numerals.money(state.outstanding), style = MoneyLead)
             Text(
                 stringResource(R.string.collections_students_owing, state.owingStudents),
                 style = MaterialTheme.typography.bodySmall,

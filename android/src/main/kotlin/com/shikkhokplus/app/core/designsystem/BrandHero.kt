@@ -96,7 +96,7 @@ fun BrandHero(
             if (!compact && tagline != null) {
                 Text(
                     text = tagline,
-                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 15.sp, lineHeight = 24.sp),
+                    style = BodyCompact,
                     color = BrandTagline,
                     textAlign = TextAlign.Center,
                 )

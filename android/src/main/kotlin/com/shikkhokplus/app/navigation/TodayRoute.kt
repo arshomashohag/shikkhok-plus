@@ -47,6 +47,7 @@ internal fun NavGraphBuilder.todayRoute(
 ) {
     composable(Destination.Today.route) {
         val model: TodayViewModel = viewModel { TodayViewModel(HttpAnalyticsRepository(client)) }
+        val refreshing by model.refreshing.collectAsState()
         val recorder: RecordClassViewModel = viewModel { RecordClassViewModel(HttpRecordRepository(client), queue) }
         val state by model.state.collectAsState()
         val sheet by recorder.sheet.collectAsState()
@@ -62,6 +63,8 @@ internal fun NavGraphBuilder.todayRoute(
         TodayScreen(
             state = state,
             onRetry = model::retry,
+            refreshing = refreshing,
+            onRefresh = model::refresh,
             onOpenDues = onOpenDues,
             onRecord = { row ->
                 recorder.open(

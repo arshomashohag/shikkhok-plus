@@ -3,6 +3,7 @@ package com.shikkhokplus.app.core.designsystem
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 
 /**
  * The app's theme. Wraps every screen.
@@ -23,10 +24,17 @@ fun ShikkhokTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
-    MaterialTheme(
-        colorScheme = if (darkTheme) ShikkhokDarkColors else ShikkhokLightColors,
-        typography = ShikkhokTypography,
-        shapes = ShikkhokShapes,
-        content = content,
-    )
+    // The status colours follow the same switch as the scheme, so a
+    // screen forced light or dark gets matching chips — which the call
+    // sites used to approximate by testing the surface's luminance.
+    CompositionLocalProvider(
+        LocalStatusColors provides if (darkTheme) DarkStatusColors else LightStatusColors,
+    ) {
+        MaterialTheme(
+            colorScheme = if (darkTheme) ShikkhokDarkColors else ShikkhokLightColors,
+            typography = ShikkhokTypography,
+            shapes = ShikkhokShapes,
+            content = content,
+        )
+    }
 }

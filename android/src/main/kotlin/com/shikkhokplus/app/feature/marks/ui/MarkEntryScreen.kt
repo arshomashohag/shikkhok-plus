@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
 import com.shikkhokplus.app.core.designsystem.LogoLoader
 import com.shikkhokplus.app.core.designsystem.ListScreenScaffold
+import com.shikkhokplus.app.core.designsystem.rememberHaptics
 import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.feature.auth.MessageKeys
 import com.shikkhokplus.app.feature.marks.MarkRow
@@ -206,6 +207,10 @@ private fun MarkRowView(
     }
     var focused by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
+    // One light tick per student moved past, so a batch can be marked
+    // by rhythm without looking up after each entry. The keyboard's own
+    // key vibration says a key was pressed; this says a row is done.
+    val haptics = rememberHaptics()
     val commit = {
         focused = false
         typed.toIntOrNull()?.takeIf { it != row.marks }?.let { onMark(row, it) }
@@ -264,6 +269,7 @@ private fun MarkRowView(
                 keyboardActions =
                     KeyboardActions(onNext = {
                         commit()
+                        haptics.tick()
                         focusManager.moveFocus(FocusDirection.Down)
                     }),
                 modifier =
@@ -279,7 +285,10 @@ private fun MarkRowView(
             // empty field is a mark nobody has entered; absence is a
             // fact the teacher recorded [BR4.3].
             TextButton(
-                onClick = { onAbsent(row) },
+                onClick = {
+                    haptics.tick()
+                    onAbsent(row)
+                },
                 modifier = Modifier.testTag(TAG_MARK_ENTRY_ABSENT),
             ) {
                 Text(stringResource(R.string.mark_entry_absent))

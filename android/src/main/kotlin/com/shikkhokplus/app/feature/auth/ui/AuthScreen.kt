@@ -29,11 +29,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.shikkhokplus.app.R
 import com.shikkhokplus.app.core.designsystem.BackArrow
 import com.shikkhokplus.app.core.designsystem.Banner
 import com.shikkhokplus.app.core.designsystem.BannerTone
+import com.shikkhokplus.app.core.designsystem.BodyCompact
 import com.shikkhokplus.app.core.designsystem.BrandHero
 import com.shikkhokplus.app.core.designsystem.LogoLoader
 import com.shikkhokplus.app.core.designsystem.OtpField
@@ -460,7 +460,7 @@ private fun CodeStep(
                 wrong -> {
                     Text(
                         text = stringResource(R.string.auth_otp_wrong, rejected!!.attemptsLeft!!),
-                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 15.sp, lineHeight = 24.sp),
+                        style = BodyCompact,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.testTag(TAG_CODE_ERROR),

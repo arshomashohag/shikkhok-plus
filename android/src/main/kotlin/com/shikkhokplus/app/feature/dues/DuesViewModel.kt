@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.shikkhokplus.app.core.network.DuesResponseDto
 import com.shikkhokplus.app.core.network.ReminderResultDto
+import com.shikkhokplus.app.core.ui.RefreshGate
 import com.shikkhokplus.app.feature.auth.AuthResult
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -54,6 +55,11 @@ class DuesViewModel(
     /** What the screen renders. */
     val state: StateFlow<DuesUiState> = _state.asStateFlow()
 
+    private val gate = RefreshGate()
+
+    /** Whether a pull-to-refresh is in flight. */
+    val refreshing: StateFlow<Boolean> = gate.refreshing
+
     private var allRows: List<DuesRow> = emptyList()
 
     private var filter: DuesFilter = DuesFilter.ALL
@@ -70,6 +76,15 @@ class DuesViewModel(
     fun load() {
         _state.value = DuesUiState.Loading
         viewModelScope.launch { _state.value = read() }
+    }
+
+    /**
+     * Re-read on a pull, keeping the list and its filters on screen
+     * until the answer arrives. Started only by the person pulling
+     * [TC-8, D-9].
+     */
+    fun refresh() {
+        gate.run(viewModelScope) { _state.value = read() }
     }
 
     /**

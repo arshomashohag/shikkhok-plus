@@ -75,6 +75,7 @@ internal fun NavGraphBuilder.teachingRoutes(
     composable(Destination.Verify.route) {
         val model: VerifyViewModel = viewModel { VerifyViewModel(HttpVerificationRepository(client)) }
         val state by model.state.collectAsState()
+        val refreshing by model.refreshing.collectAsState()
 
         LaunchedEffect(Unit) { model.load() }
 
@@ -83,6 +84,8 @@ internal fun NavGraphBuilder.teachingRoutes(
             onBack = { navController.popBackStack() },
             onOpen = { navController.navigate(Destination.PaymentReview.of(it)) },
             onRetry = model::retry,
+            refreshing = refreshing,
+            onRefresh = model::refresh,
         )
     }
 

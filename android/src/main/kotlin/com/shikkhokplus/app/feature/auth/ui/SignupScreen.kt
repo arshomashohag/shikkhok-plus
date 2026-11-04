@@ -38,10 +38,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.shikkhokplus.app.R
 import com.shikkhokplus.app.core.designsystem.Banner
 import com.shikkhokplus.app.core.designsystem.BannerTone
+import com.shikkhokplus.app.core.designsystem.BodyCompact
 import com.shikkhokplus.app.core.designsystem.BrandMark
 import com.shikkhokplus.app.core.designsystem.LogoLoader
 import com.shikkhokplus.app.core.designsystem.PrimaryButton
@@ -224,7 +224,7 @@ private fun Header() {
         BrandMark(size = 40.dp)
         Text(
             text = stringResource(R.string.signup_title),
-            style = MaterialTheme.typography.headlineMedium.copy(fontSize = 24.sp, lineHeight = 36.sp),
+            style = MaterialTheme.typography.headlineMedium,
         )
     }
 }
@@ -486,7 +486,7 @@ private fun RoleCard(
             )
             Text(
                 text = stringResource(labelOf(role)),
-                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 15.sp, lineHeight = 24.sp),
+                style = BodyCompact,
                 fontWeight = FontWeight.SemiBold,
                 color = content,
             )

@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
 import com.shikkhokplus.app.core.designsystem.ErrorCard
 import com.shikkhokplus.app.core.designsystem.ListScreenScaffold
+import com.shikkhokplus.app.core.designsystem.MoneyLead
 import com.shikkhokplus.app.core.designsystem.PaymentState
 import com.shikkhokplus.app.core.designsystem.PaymentStateChip
 import com.shikkhokplus.app.core.designsystem.ShikkhokCard
@@ -146,7 +147,7 @@ private fun Month(
             }
         }
         Column(Modifier.testTag(TAG_BATCH_MONTH_HEADLINE)) {
-            Text(Numerals.money(state.collected), style = MaterialTheme.typography.headlineMedium)
+            Text(Numerals.money(state.collected), style = MoneyLead)
             Text(
                 stringResource(R.string.batch_month_collected_of, Numerals.money(state.charged)),
                 style = MaterialTheme.typography.bodyMedium,

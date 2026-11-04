@@ -1,10 +1,12 @@
 package com.shikkhokplus.app.core.designsystem
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -19,6 +21,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -63,6 +66,9 @@ import com.shikkhokplus.app.R
  *   half-finished task behind the bar.
  * @param subtitle A line under the title, inside the bar
  * @param actions Icons at the bar's end, such as "Edit batch"
+ * @param refreshing Whether a pull-to-refresh is in flight
+ * @param onRefresh What pulling down does; null, the default, means the
+ *   screen offers no pull-to-refresh
  * @param content The screen's own contents, in a column
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -76,6 +82,8 @@ fun ScreenScaffold(
     bottomBar: @Composable () -> Unit = {},
     subtitle: String? = null,
     actions: @Composable RowScope.() -> Unit = {},
+    refreshing: Boolean = false,
+    onRefresh: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Scaffold(
@@ -89,6 +97,8 @@ fun ScreenScaffold(
         ScreenBody(
             inner = inner,
             scrollable = scrollable,
+            refreshing = refreshing,
+            onRefresh = onRefresh,
             content = content,
         )
     }
@@ -122,6 +132,9 @@ fun ScreenScaffold(
  *   a batch's roster, a progress series — which had no way back on
  *   screen
  * @param actions Icons at the bar's end
+ * @param refreshing Whether a pull-to-refresh is in flight
+ * @param onRefresh What pulling down does; null, the default, means the
+ *   screen offers no pull-to-refresh
  * @param content The list, and anything else that scrolls with it
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -134,6 +147,8 @@ fun ListScreenScaffold(
     bottomBar: @Composable () -> Unit = {},
     onBack: (() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {},
+    refreshing: Boolean = false,
+    onRefresh: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Scaffold(
@@ -149,23 +164,29 @@ fun ListScreenScaffold(
         topBar = { ShikkhokTopBar(title, subtitle, onBack, null, actions) },
         containerColor = MaterialTheme.colorScheme.background,
     ) { inner ->
-        Column(
+        Refreshable(
+            refreshing = refreshing,
+            onRefresh = onRefresh,
             modifier =
                 Modifier
                     .fillMaxSize()
                     .padding(inner),
-            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Column(
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .widthIn(max = 480.dp)
-                        .padding(horizontal = Spacing.screen),
-                verticalArrangement = Arrangement.spacedBy(Spacing.tight),
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                header()
-                content()
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .widthIn(max = 480.dp)
+                            .padding(horizontal = Spacing.screen),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.tight),
+                ) {
+                    header()
+                    content()
+                }
             }
         }
     }
@@ -193,7 +214,7 @@ private fun ShikkhokTopBar(
     TopAppBar(
         title = {
             Column {
-                Text(text = title, style = MaterialTheme.typography.titleLarge)
+                Text(text = title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.asHeading())
                 if (subtitle != null) {
                     Text(
                         text = subtitle,
@@ -237,12 +258,16 @@ private fun ShikkhokTopBar(
  *
  * @param inner The scaffold's own insets
  * @param scrollable Whether to wrap in a scroller
+ * @param refreshing Whether a pull-to-refresh is in flight
+ * @param onRefresh What pulling down does, or null for none
  * @param content The screen's contents
  */
 @Composable
 private fun ScreenBody(
     inner: PaddingValues,
     scrollable: Boolean,
+    refreshing: Boolean,
+    onRefresh: (() -> Unit)?,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val outer =
@@ -256,26 +281,76 @@ private fun ScreenBody(
             // nothing on a phone.
             .widthIn(max = 480.dp)
             .padding(horizontal = Spacing.screen)
+            // With pull-to-refresh, the scroller fills the height so a
+            // pull that starts below short content still reaches it.
+            .let { if (onRefresh != null) it.fillMaxHeight() else it }
 
-    Column(
-        modifier = outer,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
+    Refreshable(refreshing = refreshing, onRefresh = onRefresh, modifier = outer) {
         Column(
-            modifier =
-                if (scrollable) {
-                    inner2.verticalScroll(rememberScrollState())
-                } else {
-                    inner2
-                },
-            verticalArrangement = Arrangement.spacedBy(Spacing.screen),
-            content = content,
-        )
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Column(
+                modifier =
+                    if (scrollable) {
+                        inner2.verticalScroll(rememberScrollState())
+                    } else {
+                        inner2
+                    },
+                verticalArrangement = Arrangement.spacedBy(Spacing.screen),
+                content = content,
+            )
+        }
+    }
+}
+
+/**
+ * Wrap a screen body in pull-to-refresh when the screen offers one.
+ *
+ * **Opt-in per screen.** A screen with no `onRefresh` gets a plain box
+ * and lays out exactly as before. Pulling only means something where
+ * the data can change while the person watches — a payment arriving, a
+ * due being cleared — which is the five screens that pass it: Today,
+ * Verify, Dues, the guardian's home and the inbox. There is no push
+ * yet, only a 15-minute unread poll, so this is how a teacher waiting
+ * for a bKash payment checks now.
+ *
+ * The gesture starts from scrollable content. Screens whose empty or
+ * caught-up state is a short fixed column make that column scrollable
+ * for this reason, so "nothing waiting yet" — the state a person is
+ * most likely to pull on — is not the one that ignores them.
+ *
+ * @param refreshing Whether a refresh is in flight
+ * @param onRefresh What a pull does, or null for no pull-to-refresh
+ * @param modifier The body's size and padding
+ * @param content The body
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun Refreshable(
+    refreshing: Boolean,
+    onRefresh: (() -> Unit)?,
+    modifier: Modifier,
+    content: @Composable () -> Unit,
+) {
+    if (onRefresh == null) {
+        Box(modifier) { content() }
+    } else {
+        PullToRefreshBox(
+            isRefreshing = refreshing,
+            onRefresh = onRefresh,
+            modifier = modifier.testTag(TAG_PULL_TO_REFRESH),
+        ) {
+            content()
+        }
     }
 }
 
 /** The scaffold's back arrow. Not user-visible text. */
 const val TAG_SCAFFOLD_BACK: String = "scaffold_back"
+
+/** The pull-to-refresh container, present only on screens that offer one. */
+const val TAG_PULL_TO_REFRESH: String = "pull_to_refresh"
 
 /**
  * A back arrow, drawn rather than imported.

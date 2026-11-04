@@ -21,7 +21,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.geometry.Size
@@ -127,9 +126,9 @@ fun PaymentStateChip(
     compact: Boolean = false,
 ) {
     // The app's theme, not the system's: a screen forced light or dark
-    // must get the matching chip.
-    val dark = MaterialTheme.colorScheme.surface.luminance() < DARK_LUMINANCE
-    val style = styleFor(state, dark)
+    // must get the matching chip, and ShikkhokTheme provides the set
+    // that matches its own switch.
+    val style = styleFor(state, MaterialTheme.statusColors)
     val radius = if (compact) 12.dp else 16.dp
     val shape: Shape = RoundedCornerShape(radius)
     val base = if (compact) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelLarge
@@ -195,57 +194,50 @@ private fun chipBorder(style: ChipStyle, radius: Dp): Modifier {
     }
 }
 
-/** Below this surface luminance the app is in its dark theme. */
-private const val DARK_LUMINANCE = 0.5f
-
 /**
- * Resolve the colours for a state.
- *
- * These are the design's literal values rather than theme roles,
- * because the five states are a closed vocabulary with measured
- * contrast (7:1 or better in both themes). Mapping them onto M3 roles
- * would let a theme change move them, and `error` in particular is
- * reserved for form errors — an overdue fee is not a form error.
+ * Resolve the colours for a state in one theme.
  *
  * @param state The state to resolve
  * @param dark Whether the dark theme is active
  * @return The resolved style
  */
-internal fun styleFor(state: PaymentState, dark: Boolean): ChipStyle = when (state) {
+internal fun styleFor(state: PaymentState, dark: Boolean): ChipStyle =
+    styleFor(state, if (dark) DarkStatusColors else LightStatusColors)
+
+/**
+ * Resolve the colours for a state.
+ *
+ * The values are the design's literal status colours from
+ * [StatusColors], not Material roles: the five states are a closed
+ * vocabulary with measured contrast, and `error` in particular is
+ * reserved for form errors — an overdue fee is not a form error.
+ *
+ * @param state The state to resolve
+ * @param colors The current theme's status colours
+ * @return The resolved style
+ */
+internal fun styleFor(state: PaymentState, colors: StatusColors): ChipStyle = when (state) {
     // Tonal fill, tick in a circle.
-    PaymentState.PAID -> if (dark) {
-        ChipStyle(Color(0xFF10301C), Color(0xFF8FD9A6), null, FillKind.TONAL)
-    } else {
-        ChipStyle(Color(0xFFDCF1E2), Color(0xFF0F5427), null, FillKind.TONAL)
-    }
+    PaymentState.PAID -> ChipStyle(colors.paidContainer, colors.onPaidContainer, null, FillKind.TONAL)
 
     // Tonal fill, half-filled circle, always shows the remainder.
-    PaymentState.PARTIAL -> if (dark) {
-        ChipStyle(Color(0xFF3A2A0C), Color(0xFFF5C26B), null, FillKind.TONAL)
-    } else {
-        ChipStyle(Color(0xFFFCE8C3), Color(0xFF663C00), null, FillKind.TONAL)
-    }
+    PaymentState.PARTIAL -> ChipStyle(colors.partialContainer, colors.onPartialContainer, null, FillKind.TONAL)
 
     // No fill, solid outline, empty circle, always shows the date.
-    PaymentState.DUE -> if (dark) {
-        ChipStyle(Color(0xFF15191E), Color(0xFFD7DCE3), Color(0xFF8A929E), FillKind.NONE)
-    } else {
-        ChipStyle(Color(0xFFFFFFFF), Color(0xFF2B3440), Color(0xFF6E7682), FillKind.NONE)
-    }
+    PaymentState.DUE -> ChipStyle(colors.dueContainer, colors.onDueContainer, colors.dueOutline, FillKind.NONE)
 
     // The only solid fill in the app. Triangle, bold, day count.
-    PaymentState.OVERDUE -> if (dark) {
-        ChipStyle(Color(0xFFFF7A6E), Color(0xFF1F0000), null, FillKind.SOLID)
-    } else {
-        ChipStyle(Color(0xFFA3201A), Color(0xFFFFFFFF), null, FillKind.SOLID)
-    }
+    PaymentState.OVERDUE -> ChipStyle(colors.overdueFill, colors.onOverdueFill, null, FillKind.SOLID)
 
     // Dashed outline — not yet confirmed — and a clock.
-    PaymentState.VERIFYING -> if (dark) {
-        ChipStyle(Color(0xFF2A1B45), Color(0xFFD1B8FF), Color(0xFFD1B8FF), FillKind.NONE, dashed = true)
-    } else {
-        ChipStyle(Color(0xFFEFE6FB), Color(0xFF5B2E9E), Color(0xFF5B2E9E), FillKind.NONE, dashed = true)
-    }
+    PaymentState.VERIFYING ->
+        ChipStyle(
+            colors.verifyingContainer,
+            colors.onVerifyingContainer,
+            colors.verifyingOutline,
+            FillKind.NONE,
+            dashed = true,
+        )
 }
 
 /** The state as a screen reader should say it. */

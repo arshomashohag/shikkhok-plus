@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.shikkhokplus.app.core.network.GuardianHomeDto
 import com.shikkhokplus.app.core.network.MeDto
+import com.shikkhokplus.app.core.ui.RefreshGate
 import com.shikkhokplus.app.feature.auth.AuthResult
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -48,32 +49,58 @@ class GuardianViewModel(
     /** What the screen renders. */
     val state: StateFlow<GuardianUiState> = _state.asStateFlow()
 
+    private val gate = RefreshGate()
+
+    /** Whether a pull-to-refresh is in flight. */
+    val refreshing: StateFlow<Boolean> = gate.refreshing
+
     /** Load this guardian's children, keeping the shown child if still there. */
     fun load() {
-        val shown = (_state.value as? GuardianUiState.Loaded)?.child?.key
+        val shown = shownChild()
         _state.value = GuardianUiState.Loading
-        viewModelScope.launch {
-            _state.value =
-                when (val result = repository.home()) {
-                    is AuthResult.Ok -> {
-                        val phone =
-                            if (result.value.children.isEmpty()) {
-                                (repository.me() as? AuthResult.Ok)?.value?.phone
-                            } else {
-                                null
-                            }
-                        val loaded = GuardianStateMapper.afterLoad(result.value, phone)
-                        if (loaded is GuardianUiState.Loaded && shown != null) {
-                            GuardianStateMapper.select(loaded, loaded.children.indexOfFirst { it.key == shown })
-                        } else {
-                            loaded
-                        }
-                    }
-                    is AuthResult.Refused -> GuardianStateMapper.afterError(result.envelope)
-                    AuthResult.TransportFailure -> GuardianStateMapper.afterTransportFailure()
-                }
-        }
+        viewModelScope.launch { _state.value = read { shown } }
     }
+
+    /**
+     * Re-read on a pull, keeping the screen until the answer arrives.
+     *
+     * The child to keep is read when the answer lands, not when the
+     * pull starts: a guardian who switches child while the refresh is
+     * in flight keeps the child they switched to [BR4.2]. Started only
+     * by the person pulling [TC-8, D-9].
+     */
+    fun refresh() {
+        gate.run(viewModelScope) { _state.value = read(::shownChild) }
+    }
+
+    private fun shownChild(): String? = (_state.value as? GuardianUiState.Loaded)?.child?.key
+
+    /**
+     * Read the children and keep the shown one if it is still there.
+     *
+     * @param shown Which child to keep, asked once the answer is in
+     * @return The state to show
+     */
+    private suspend fun read(shown: () -> String?): GuardianUiState =
+        when (val result = repository.home()) {
+            is AuthResult.Ok -> {
+                val phone =
+                    if (result.value.children.isEmpty()) {
+                        (repository.me() as? AuthResult.Ok)?.value?.phone
+                    } else {
+                        null
+                    }
+                val loaded = GuardianStateMapper.afterLoad(result.value, phone)
+                val keep = shown()
+                if (loaded is GuardianUiState.Loaded && keep != null) {
+                    GuardianStateMapper.select(loaded, loaded.children.indexOfFirst { it.key == keep })
+                } else {
+                    loaded
+                }
+            }
+            is AuthResult.Refused -> GuardianStateMapper.afterError(result.envelope)
+            AuthResult.TransportFailure -> GuardianStateMapper.afterTransportFailure()
+        }
 
     /**
      * Show a different child, **replacing** the current one [BR4.2].

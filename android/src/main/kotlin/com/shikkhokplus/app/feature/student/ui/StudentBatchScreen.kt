@@ -31,6 +31,7 @@ import com.shikkhokplus.app.core.designsystem.ListScreenScaffold
 import com.shikkhokplus.app.core.designsystem.LogoLoader
 import com.shikkhokplus.app.core.designsystem.ShikkhokCard
 import com.shikkhokplus.app.core.designsystem.TextAction
+import com.shikkhokplus.app.core.designsystem.asHeading
 import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.core.format.monthName
 import com.shikkhokplus.app.core.format.shortDate
@@ -332,7 +333,7 @@ internal fun Section(text: String) {
         text,
         style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(top = 6.dp),
+        modifier = Modifier.padding(top = 6.dp).asHeading(),
     )
 }
 

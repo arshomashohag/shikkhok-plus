@@ -1,11 +1,15 @@
 package com.shikkhokplus.app.feature.marks
 
 import androidx.activity.ComponentActivity
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import com.shikkhokplus.app.core.designsystem.FakeHaptics
+import com.shikkhokplus.app.core.designsystem.LocalHaptics
 import com.shikkhokplus.app.core.designsystem.ShikkhokTheme
 import com.shikkhokplus.app.feature.marks.ui.MarkEntryScreen
+import com.shikkhokplus.app.feature.marks.ui.TAG_MARK_ENTRY_ABSENT
 import com.shikkhokplus.app.feature.marks.ui.TAG_MARK_ENTRY_EDIT_EXAM
 import com.shikkhokplus.app.feature.marks.ui.TAG_MARK_ENTRY_HISTORY
 import org.junit.Rule
@@ -59,5 +63,19 @@ class MarkEntryActionsTest {
         compose.setContent { ShikkhokTheme { MarkEntryScreen(state = entry(writable = false)) } }
 
         compose.onNodeWithTag(TAG_MARK_ENTRY_EDIT_EXAM).assertDoesNotExist()
+    }
+
+    @Test
+    fun `marking a student absent ticks once`() {
+        val haptics = FakeHaptics()
+        compose.setContent {
+            CompositionLocalProvider(LocalHaptics provides haptics) {
+                ShikkhokTheme { MarkEntryScreen(state = entry()) }
+            }
+        }
+
+        compose.onNodeWithTag(TAG_MARK_ENTRY_ABSENT).performClick()
+
+        assertEquals(listOf("tick"), haptics.felt)
     }
 }

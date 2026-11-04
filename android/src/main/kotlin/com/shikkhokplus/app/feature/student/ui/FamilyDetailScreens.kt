@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
 import com.shikkhokplus.app.core.designsystem.LogoLoader
 import com.shikkhokplus.app.core.designsystem.ScreenScaffold
+import com.shikkhokplus.app.core.designsystem.asHeading
 import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.core.format.dayLabel
 import com.shikkhokplus.app.core.ui.CalendarClassUi
@@ -220,7 +221,7 @@ private fun Heading(text: String) {
         Text(
             text,
             style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-            modifier = Modifier.testTag(TAG_FAMILY_DETAIL_TITLE),
+            modifier = Modifier.testTag(TAG_FAMILY_DETAIL_TITLE).asHeading(),
         )
     }
 }

@@ -20,7 +20,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -30,14 +29,19 @@ import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
 import com.shikkhokplus.app.core.designsystem.BodyCompact
 import com.shikkhokplus.app.core.designsystem.ErrorCard
+import com.shikkhokplus.app.core.designsystem.MoneyLead
 import com.shikkhokplus.app.core.designsystem.PaymentState
 import com.shikkhokplus.app.core.designsystem.PaymentStateChip
 import com.shikkhokplus.app.core.designsystem.PrimaryButton
 import com.shikkhokplus.app.core.designsystem.ScreenScaffold
 import com.shikkhokplus.app.core.designsystem.ShikkhokCard
 import com.shikkhokplus.app.core.designsystem.SkeletonList
+import com.shikkhokplus.app.core.designsystem.Spacing
+import com.shikkhokplus.app.core.designsystem.StateFade
 import com.shikkhokplus.app.core.designsystem.TextAction
 import com.shikkhokplus.app.core.designsystem.TonalButton
+import com.shikkhokplus.app.core.designsystem.asHeading
+import com.shikkhokplus.app.core.designsystem.statusColors
 import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.core.format.dayHeading
 import com.shikkhokplus.app.core.format.monthName
@@ -110,6 +114,8 @@ fun TodayScreen(
     pending: Map<String, String> = emptyMap(),
     notice: @Composable () -> Unit = {},
     barActions: @Composable RowScope.() -> Unit = {},
+    refreshing: Boolean = false,
+    onRefresh: (() -> Unit)? = null,
 ) {
     val date =
         when (state) {
@@ -123,24 +129,28 @@ fun TodayScreen(
         modifier = modifier,
         bottomBar = bottomBar,
         actions = barActions,
+        refreshing = refreshing,
+        onRefresh = onRefresh,
     ) {
         notice()
-        when (state) {
-            TodayUiState.Loading -> {
-                Section(stringResource(R.string.today_classes))
-                SkeletonList(rows = 2)
-                Section(stringResource(R.string.today_to_verify))
-                SkeletonList(rows = 2)
+        StateFade(state, spacing = Spacing.screen) { shown ->
+            when (shown) {
+                TodayUiState.Loading -> {
+                    Section(stringResource(R.string.today_classes))
+                    SkeletonList(rows = 2)
+                    Section(stringResource(R.string.today_to_verify))
+                    SkeletonList(rows = 2)
+                }
+                is TodayUiState.FirstRun -> FirstRun(onCreateBatch)
+                is TodayUiState.Loaded -> Day(shown, pending, onOpenDues, onRecord, onMarks, onVerifyAll, onOpenPayment)
+                is TodayUiState.Failed ->
+                    ErrorCard(
+                        title = stringResource(R.string.today_load_failed),
+                        body = stringResource(MessageKeys.resolve(shown.messageKey)),
+                        retryLabel = stringResource(R.string.roster_retry).takeIf { shown.retryable },
+                        onRetry = onRetry.takeIf { shown.retryable },
+                    )
             }
-            is TodayUiState.FirstRun -> FirstRun(onCreateBatch)
-            is TodayUiState.Loaded -> Day(state, pending, onOpenDues, onRecord, onMarks, onVerifyAll, onOpenPayment)
-            is TodayUiState.Failed ->
-                ErrorCard(
-                    title = stringResource(R.string.today_load_failed),
-                    body = stringResource(MessageKeys.resolve(state.messageKey)),
-                    retryLabel = stringResource(R.string.roster_retry).takeIf { state.retryable },
-                    onRetry = onRetry.takeIf { state.retryable },
-                )
         }
     }
 }
@@ -218,7 +228,7 @@ private fun OwedCard(owed: OwedSummary, onOpen: () -> Unit) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 Numerals.money(owed.total),
-                style = MaterialTheme.typography.headlineMedium,
+                style = MoneyLead,
                 modifier = Modifier.weight(1f),
             )
             Text("›", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.outline)
@@ -397,7 +407,11 @@ private fun VerifyPreviewRow(card: ReviewCard, onOpen: () -> Unit) {
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color =
-                    if (card.comparison == Comparison.SHORT) PartialInk else MaterialTheme.colorScheme.onSurfaceVariant,
+                    if (card.comparison == Comparison.SHORT) {
+                        MaterialTheme.statusColors.partialInk
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
                 textAlign = TextAlign.End,
             )
         }
@@ -463,7 +477,7 @@ private fun Section(text: String, action: @Composable RowScope.() -> Unit = {}) 
             text,
             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f).asHeading(),
         )
         action()
     }
@@ -518,6 +532,3 @@ private fun ListRow(modifier: Modifier = Modifier, content: @Composable RowScope
 private fun Divider() {
     HorizontalDivider(Modifier.padding(start = 16.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh)
 }
-
-/** The partial-payment ink, for "of ৳1,200" on a short claim. */
-private val PartialInk = Color(0xFF663C00)

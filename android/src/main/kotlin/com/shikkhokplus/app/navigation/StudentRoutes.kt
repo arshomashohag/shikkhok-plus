@@ -98,6 +98,7 @@ internal fun NavGraphBuilder.studentRoutes(
     composable(Destination.Inbox.route) {
         val model: InboxViewModel = viewModel { InboxViewModel(HttpInboxRepository(client)) }
         val state by model.state.collectAsState()
+        val refreshing by model.refreshing.collectAsState()
 
         LaunchedEffect(Unit) { model.open() }
 
@@ -107,6 +108,8 @@ internal fun NavGraphBuilder.studentRoutes(
             onRetry = model::open,
             onSelect = { message -> model.select(message) { navController.navigate(it.route()) } },
             onMarkAllRead = model::markAllRead,
+            refreshing = refreshing,
+            onRefresh = model::refresh,
         )
     }
 
