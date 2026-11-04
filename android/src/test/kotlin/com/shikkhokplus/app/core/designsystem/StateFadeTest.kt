@@ -6,6 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.unit.dp
 import org.junit.Rule
@@ -45,7 +46,19 @@ class StateFadeTest {
             }
         }
         compose.waitForIdle()
-        return { state = it }
+        return { next -> compose.runOnUiThread { state = next } }
+    }
+
+    /**
+     * Step the paused clock a frame at a time until [text] is on screen.
+     *
+     * Frame by frame rather than by a fixed count, so the test does not
+     * depend on how many frames a recomposition takes to reach the tree.
+     */
+    private fun advanceUntilShown(text: String) {
+        compose.mainClock.advanceTimeUntil(timeoutMillis = Motion.ENTER_MS.toLong()) {
+            compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()
+        }
     }
 
     @Test
@@ -54,11 +67,11 @@ class StateFadeTest {
         compose.mainClock.autoAdvance = false
 
         set(Shown.Loaded("rows"))
-        compose.mainClock.advanceTimeByFrame()
-        compose.mainClock.advanceTimeBy(Motion.EXIT_MS / 2L)
+        advanceUntilShown("rows")
 
+        // The arriving content is on screen and the leaving content has
+        // not gone yet: that overlap is the fade.
         compose.onNodeWithText("loading").assertExists()
-        compose.onNodeWithText("rows").assertExists()
 
         compose.mainClock.advanceTimeBy(Motion.ENTER_MS * 2L)
         compose.onNodeWithText("loading").assertDoesNotExist()
@@ -70,9 +83,9 @@ class StateFadeTest {
         compose.mainClock.autoAdvance = false
 
         set(Shown.Loaded("new rows"))
-        compose.mainClock.advanceTimeByFrame()
+        advanceUntilShown("new rows")
 
-        compose.onNodeWithText("new rows").assertExists()
+        // No overlap: the moment the new rows exist, the old ones do not.
         compose.onNodeWithText("old rows").assertDoesNotExist()
     }
 }
