@@ -132,9 +132,12 @@ approved and is not audited here.
   the approval sheet, so this is a layout change to the decision flow,
   not a button row.
 - [ ] Subtitle "· oldest 2 days".
-- [ ] Partial sheet title "Approve ৳800 of ৳1,200"; options with amount,
-  target month and "November fee becomes ৳1,600"; confirm "· carry ৳400
-  to Nov".
+- [x] Partial sheet title "Approve ৳800 of ৳1,200", and "Add ৳400 to the
+  next fee." on carry forward when the server's shortfall figure applies
+  (`feature/verify/ui/ApprovalSheetView.kt`).
+- [?] Target month and "November fee becomes ৳1,600": the review read
+  carries neither the next period nor its resulting amount, and the
+  client never adds money.
 - [x] The approved chip says "Paid", not "Payment done".
 - [~] The heading stays "Decided today": the list holds rejections too,
   so "Approved today" would mislabel them. **Rename it in the artboard.**
