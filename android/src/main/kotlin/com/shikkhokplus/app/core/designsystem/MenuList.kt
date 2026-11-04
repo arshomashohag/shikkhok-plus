@@ -91,6 +91,10 @@ object MenuIcons {
     /** A bin: delete account (T9). */
     val Delete: ImageVector = outline("Delete", "M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3")
 
+    /** A head and shoulders: the profile button (S4, G4). */
+    val Person: ImageVector =
+        outline("Person", "M8 8a4 4 0 1 0 8 0a4 4 0 1 0-8 0", "M4 21c0-4 4-6 8-6s8 2 8 6")
+
     /** An X: closes a pushed form (Edit profile). */
     val Close: ImageVector = outline("Close", "M6 6l12 12M18 6L6 18")
 
@@ -126,6 +130,24 @@ object MenuIcons {
 
     /** The artboards' row-icon stroke width, in viewport units. */
     private const val STROKE = 2f
+}
+
+/** The profile button in a family home's bar. */
+const val TAG_PROFILE_BUTTON: String = "profile_button"
+
+/**
+ * The profile button at a student's or guardian's home (S4, G4): their
+ * way into More, which the artboards open from the bar rather than from
+ * a bottom tab.
+ *
+ * @param label What a screen reader says; the More screen's name
+ * @param onClick Called to open More
+ */
+@Composable
+fun ProfileButton(label: String, onClick: () -> Unit) {
+    androidx.compose.material3.IconButton(onClick = onClick, modifier = Modifier.testTag(TAG_PROFILE_BUTTON)) {
+        Icon(imageVector = MenuIcons.Person, contentDescription = label, modifier = Modifier.size(24.dp))
+    }
 }
 
 /**

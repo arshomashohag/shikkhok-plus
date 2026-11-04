@@ -74,4 +74,13 @@ class MoreActionsTest {
             assertTrue(Destination.Invitations.route !in routesFor(lens), "$lens still has an Invitations tab")
         }
     }
+
+    @Test
+    fun `students and guardians have no bottom bar, teachers and the lens-free do`() {
+        // S1, S4, G1, G4: a family opens More from the profile button.
+        assertTrue(isFamily(Lens.STUDENT))
+        assertTrue(isFamily(Lens.GUARDIAN))
+        assertTrue(!isFamily(Lens.TEACHER))
+        assertTrue(!isFamily(null))
+    }
 }

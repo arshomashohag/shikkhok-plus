@@ -373,13 +373,9 @@ private fun ShikkhokGraph(
 
         teachingRoutes(client, queue, navController)
 
-        studentRoutes(client, navController) {
-            BottomNav(
-                destinations = tabsFor(session.lens),
-                selectedIndex = tabIndexOf(session.lens, Destination.MyBatches.route),
-                onSelect = { navController.switchTab(it, session.lens) },
-            )
-        }
+        // **No bottom bar for a student** (S1, S4): More opens from the
+        // profile button in the bar, as the artboards draw it.
+        studentRoutes(client, navController) {}
 
         composable(
             route = Destination.Marksheet.route,
@@ -545,14 +541,9 @@ private fun ShikkhokGraph(
                         onRefresh = model::refresh,
                     ),
                 refreshing = refreshing,
-                bottomBar = {
-                    BottomNav(
-                        destinations = tabsFor(session.lens),
-                        selectedIndex = tabIndexOf(session.lens, Destination.GuardianHome.route),
-                        onSelect = { navController.switchTab(it, session.lens) },
-                    )
-                },
-                barActions = { InboxBellFor(client) { navController.navigate(Destination.Inbox.route) } },
+                // **No bottom bar for a guardian** (G1, G4): More opens
+                // from the profile button beside the bell.
+                barActions = { FamilyBarActions(client, navController) },
             )
         }
 
@@ -639,13 +630,10 @@ private fun ShikkhokGraph(
                         ),
                     navigate = { route -> navController.navigate(route) },
                 ),
-                bottomBar = {
-                    BottomNav(
-                        destinations = tabsFor(session.lens),
-                        selectedIndex = tabIndexOf(session.lens, Destination.Profile.route),
-                        onSelect = { navController.switchTab(it, session.lens) },
-                    )
-                },
+                bottomBar = { LensBar(session.lens, Destination.Profile.route, navController) },
+                // Pushed from a family home's profile button, so it has
+                // a way back; a teacher reaches it as a tab and needs none.
+                onBack = { navController.popBackStack(); Unit }.takeIf { isFamily(session.lens) },
             )
 
             if (confirmingSignOut) {
@@ -808,6 +796,34 @@ internal fun moreActionsFor(
             )
         null -> base
     }
+
+/**
+ * Whether this lens is a student's or a guardian's.
+ *
+ * **The two lenses with no bottom bar** (S1, S4, G1, G4). Their home is
+ * the one place they return to, and More opens from its profile button.
+ *
+ * @param lens The lens in use, or null
+ * @return True for a student or a guardian
+ */
+internal fun isFamily(lens: Lens?): Boolean = lens == Lens.STUDENT || lens == Lens.GUARDIAN
+
+/**
+ * The bottom bar for a tab route, or nothing for a family lens.
+ *
+ * @param lens The lens in use, or null
+ * @param route The route the bar is drawn on
+ * @param navController The app's controller
+ */
+@Composable
+internal fun LensBar(lens: Lens?, route: String, navController: NavHostController) {
+    if (isFamily(lens)) return
+    BottomNav(
+        destinations = tabsFor(lens),
+        selectedIndex = tabIndexOf(lens, route),
+        onSelect = { navController.switchTab(it, lens) },
+    )
+}
 
 /**
  * Which tab in this lens's bar is the given route.

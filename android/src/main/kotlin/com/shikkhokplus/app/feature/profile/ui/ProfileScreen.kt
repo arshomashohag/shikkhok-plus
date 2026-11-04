@@ -130,6 +130,8 @@ data class MoreActions(
  * @param version The app version for the footer, or null for none
  * @param bottomBar The navigation bar, supplied by the route so this
  *   screen stays renderable in a test without one
+ * @param onBack Called by the back arrow when More was pushed (a family
+ *   home's profile button), or null when it is a tab
  */
 @Composable
 fun ProfileScreen(
@@ -140,11 +142,13 @@ fun ProfileScreen(
     summary: ProfileSummary? = null,
     version: String? = null,
     bottomBar: @Composable () -> Unit = {},
+    onBack: (() -> Unit)? = null,
 ) {
     ScreenScaffold(
         title = stringResource(R.string.profile_title),
         modifier = modifier,
         bottomBar = bottomBar,
+        onBack = onBack,
     ) {
         when (state) {
             ProfileUiState.Loading -> LogoLoader()

@@ -34,14 +34,11 @@ approved and is not audited here.
   three More screens).
 - [ ] **Skeleton loading.** Most screens show `LogoLoader`; the
   artboards draw skeleton cards (T1, T3, S1, S2).
-- [ ] **Student and guardian navigation.** The artboards draw no bottom
-  bar for student and guardian: More opens from a profile button with
-  Back. *Partly closed:* Invitations is now a row inside More and no
-  longer a tab, so the bars are My batches · More and Children · More
-  (`navigation/ShikkhokNavHost.kt` `routesFor` / `tabsFor`). Still open:
-  replacing the bar with a profile button. The lens-free person keeps
-  Invitations as their home tab (`homeFor(null)`), since it is the only
-  place they can act.
+- [x] **Student and guardian navigation.** Students and guardians have no
+  bottom bar: More opens from a profile button beside the inbox bell on
+  their home (`navigation/StudentRoutes.kt` `FamilyBarActions`), pushed
+  with Back. Invitations is a row inside More. Teachers keep their four
+  tabs, and the lens-free person keeps Invitations · More.
 - [x] **Guardian type scale.** With the guardian lens, every screen takes
   `GuardianTypography` (row titles 18/30, grey lines 14/22, title 21/34
   Bold) and `GuardianTouch` (60dp main buttons, 56dp others, 64dp rows,
@@ -308,8 +305,7 @@ approved and is not audited here.
   knows how many invitations are pending, because a permanent highlight
   would say something is waiting when nothing is.
 - [x] "Log out" as a row; delete as a plain row.
-- [ ] Reached from a profile button with Back, no bottom bar (see
-  cross-cutting navigation).
+- [x] Reached from a profile button with Back, no bottom bar.
 - [?] Invitation badge count, Guardian row (name · number), Payment
   history row — need a lightweight "me" summary from the server.
 - [ ] Invitation card: "Added 14 Oct", "<teacher> added you to <batch>",
@@ -374,7 +370,7 @@ approved and is not audited here.
   on the home switcher. The class level ("HSC 2027") is not shown: the
   guardian read has no level field.
 - [x] "Log out" as a row.
-- [ ] Reached from a profile button (see cross-cutting navigation).
+- [x] Reached from a profile button, no bottom bar.
 - [ ] "Is আয়ান your child?" invitation with child chip, "Yes, this is my
   child" / "No, not my child".
 - [?] Notifications, Text size, "Call for help · Talk to a person, in Bangla".
