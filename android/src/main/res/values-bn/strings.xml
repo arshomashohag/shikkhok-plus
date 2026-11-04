@@ -1155,6 +1155,11 @@
     <string name="my_children_missing_body_plain">শিক্ষককে আপনার নম্বর অভিভাবক হিসেবে যোগ করতে বলুন।</string>
 
     <!-- Design parity, round 2. -->
+    <string name="mark_entry_backspace">একটি অঙ্ক মুছুন</string>
+    <string name="mark_entry_counter">%1$s/%2$s</string>
+    <string name="mark_entry_out_of">/%1$s</string>
+    <string name="mark_entry_now_entering">%1$s · এখন দিচ্ছেন</string>
+    <string name="mark_entry_next">পরের ↓</string>
     <string name="mark_entry_empty_title">এই ব্যাচে এখনও কোনো শিক্ষার্থী নেই</string>
     <string name="mark_entry_empty_body">ব্যাচে শিক্ষার্থী যোগ করুন, তারপর এখানে নম্বর দিন।</string>
     <string name="verify_reject_duplicate">ডুপ্লিকেট হিসেবে বাতিল</string>

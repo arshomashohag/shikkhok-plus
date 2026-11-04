@@ -114,9 +114,12 @@ approved and is not audited here.
   (the app shows a banner with OK).
 
 ### T3 · Marks entry — `feature/marks/ui/MarkEntryScreen.kt`
-- [ ] Continuous entry: "6/20" counter and progress bar, roll numbers,
-  compact "/25" rows, the "now entering" dock, keypad with Absent and
-  "Next ↓".
+- [x] Continuous entry: "6/20" counter and progress bar, roll numbers,
+  compact "/25" rows, the "now entering" dock, the app's own keypad with
+  Absent, backspace and "Next ↓" (`feature/marks/ui/MarkEntryScreen.kt`).
+  Entry opens on the first seat with no mark; Next saves and moves down.
+- [?] The keypad's decimal key: not drawn, because the API's mark is a
+  whole number (see half marks below).
 - [x] Exam in the title, "out of 25" as the subtitle
   (`feature/marks/ui/MarkEntryScreen.kt`).
 - [?] "subject · batch · date" in the subtitle: the entry read carries the
@@ -125,7 +128,7 @@ approved and is not audited here.
   type confirmed before the client changes.
 - [x] Empty: "No students in this batch yet".
 - [ ] Empty: an Add students button on it.
-- [ ] Loading: skeleton rows.
+- [x] Loading: skeleton rows.
 - [?] Draft → review → "Publish to students & guardians", "3 to fix",
   "Max 25" row errors. There is no draft/publish model; marks save per
   field. Needs a server model.
