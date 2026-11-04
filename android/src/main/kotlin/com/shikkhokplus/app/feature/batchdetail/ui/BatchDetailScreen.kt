@@ -63,6 +63,7 @@ const val TAG_BATCH_INFO: String = "batch_info"
  * @param onSchedule Called to edit the batch's class days and time
  * @param onEdit Called to edit the batch's name, subjects and fee
  * @param modifier The layout modifier
+ * @param showAdd Whether to draw the add button for the open tab
  * @param content The open tab's contents
  */
 @Composable
@@ -76,6 +77,7 @@ fun BatchDetailScreen(
     onSchedule: () -> Unit,
     onEdit: () -> Unit = {},
     modifier: Modifier = Modifier,
+    showAdd: Boolean = tab != BatchTab.NOTICES,
     content: @Composable () -> Unit,
 ) {
     ListScreenScaffold(
@@ -100,7 +102,10 @@ fun BatchDetailScreen(
     ) {
         Box(Modifier.fillMaxSize()) {
             content()
-            ExtendedFloatingActionButton(
+            // **No add button where the tab has its own** (T7): Notices
+            // writes from its inline composer, and an empty roster's
+            // "Add first student" is the one action on screen.
+            if (showAdd) ExtendedFloatingActionButton(
                 onClick = onAdd,
                 shape = MaterialTheme.shapes.large,
                 containerColor = MaterialTheme.colorScheme.primary,

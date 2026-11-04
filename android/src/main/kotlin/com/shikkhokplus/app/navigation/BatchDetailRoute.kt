@@ -36,6 +36,7 @@ import com.shikkhokplus.app.feature.roster.RosterViewModel
 import com.shikkhokplus.app.feature.sessions.SessionsUiState
 import com.shikkhokplus.app.feature.sessions.SessionsViewModel
 import com.shikkhokplus.app.feature.sessions.ui.AddSessionDialog
+import com.shikkhokplus.app.feature.roster.RosterUiState
 import io.ktor.client.HttpClient
 
 /**
@@ -106,6 +107,7 @@ internal fun NavGraphBuilder.batchDetailRoute(
             onBack = { navController.popBackStack() },
             onSchedule = { navController.navigate(Destination.BatchSchedule.of(id)) },
             onEdit = { editing = true },
+            showAdd = showsAdd(state.tab, rosterState),
             onAdd = {
                 when (state.tab) {
                     BatchTab.STUDENTS -> navController.navigate(Destination.AddStudent.of(id))
@@ -213,3 +215,20 @@ private fun afterAddingClass(state: SessionsUiState, adding: Boolean, reload: ()
     if (settled) reload()
     return !settled && state !is SessionsUiState.Failed
 }
+
+/**
+ * Whether a tab gets the floating add button (T7).
+ *
+ * Not on Notices, which writes from its own composer, and not on an
+ * empty roster, whose "Add first student" is the action.
+ *
+ * @param tab The open tab
+ * @param roster The roster's state
+ * @return True to draw the button
+ */
+private fun showsAdd(tab: BatchTab, roster: RosterUiState): Boolean =
+    when (tab) {
+        BatchTab.NOTICES -> false
+        BatchTab.STUDENTS -> roster !is RosterUiState.Empty
+        else -> true
+    }

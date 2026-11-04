@@ -21,6 +21,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
+import com.shikkhokplus.app.core.designsystem.PrimaryButton
+import androidx.compose.ui.Alignment
 import com.shikkhokplus.app.core.designsystem.Banner
 import com.shikkhokplus.app.core.designsystem.BannerTone
 import com.shikkhokplus.app.core.designsystem.EmptyState
@@ -68,16 +70,34 @@ fun NoticesTab(
 ) {
     var editing by remember { mutableStateOf<Notice?>(null) }
     var removing by remember { mutableStateOf<Notice?>(null) }
+    var draft by remember { mutableStateOf("") }
+    var posting by remember { mutableStateOf(false) }
 
     LaunchedEffect(write) {
         if (write == WriteState.Saved) {
             onAcknowledge()
             if (composing) onCloseCompose()
             editing = null
+            // The draft clears only once the server has the notice.
+            if (posting) draft = ""
+            posting = false
+        } else if (write is WriteState.Failed) {
+            posting = false
         }
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        // **Written in place** (T7), not behind a button and a dialog: a
+        // notice is a sentence or two, typed where the others are read.
+        Composer(
+            draft = draft,
+            onDraft = { draft = it },
+            saving = write == WriteState.Saving,
+            onSend = {
+                posting = true
+                onPost(draft)
+            },
+        )
         (write as? WriteState.Failed)?.let {
             Banner(stringResource(MessageKeys.resolve(it.messageKey)), tone = BannerTone.ERROR)
         }
@@ -157,6 +177,42 @@ private fun NoticeCard(notice: Notice, onEdit: () -> Unit, onRemove: () -> Unit)
         }
     }
 }
+
+/**
+ * The inline composer at the top of Notices: a field and Send.
+ *
+ * @param draft The text typed so far
+ * @param onDraft Called with each edit
+ * @param saving Whether a send is in flight
+ * @param onSend Called to post the draft
+ */
+@Composable
+private fun Composer(draft: String, onDraft: (String) -> Unit, saving: Boolean, onSend: () -> Unit) {
+    Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        ShikkhokTextField(
+            value = draft,
+            onValueChange = onDraft,
+            label = stringResource(R.string.batch_write_notice),
+            singleLine = false,
+            minLines = 1,
+            modifier = Modifier.weight(1f),
+            fieldModifier = Modifier.testTag(TAG_NOTICE_COMPOSER),
+        )
+        PrimaryButton(
+            text = stringResource(R.string.batch_notice_send),
+            onClick = onSend,
+            enabled = draft.isNotBlank() && !saving,
+            compact = true,
+            modifier = Modifier.testTag(TAG_NOTICE_COMPOSER_SEND),
+        )
+    }
+}
+
+/** The inline composer's field. */
+const val TAG_NOTICE_COMPOSER: String = "batch_notice_composer"
+
+/** The inline composer's Send. */
+const val TAG_NOTICE_COMPOSER_SEND: String = "batch_notice_composer_send"
 
 /**
  * Write or change a notice.

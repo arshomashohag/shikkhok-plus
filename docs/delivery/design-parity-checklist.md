@@ -201,7 +201,8 @@ approved and is not audited here.
 ### T7 · Single batch — `feature/batchdetail/ui/*`
 - [ ] Header subtitle has the level ("HSC 2027"); one icon, no extra
   "Schedule" text action.
-- [ ] FAB hidden on empty Students (only "Add first student") and on Notices.
+- [x] Add button hidden on Notices and on an empty roster, where "Add
+  first student" is the action (`BatchDetailRoute.kt` `showsAdd`).
 - [~] Declined chip: the board draws a grey fill with a **dashed**
   border, but the design system reserves the dashed outline for
   "not yet confirmed" (Verifying), and `PaymentStateTest` holds every
@@ -212,10 +213,12 @@ approved and is not audited here.
   "Published" would claim one (see T3).
 - [?] Exams rows: "36.7 avg of 50" needs an average from the server.
 - [?] Notices: auto-sent schedule-change card, "seen by N of M families".
-- [ ] Notices: inline bottom composer instead of FAB + dialog; no
-  Edit/Remove in the design.
-
-### T8 · Add student — `core/ui/CreateForms.kt` `StudentAddForm`
+- [x] Notices: an inline composer (field and Send) instead of a button and
+  a dialog; the draft clears once the server has the notice. It sits at
+  the top of the tab rather than the bottom, so it stays in reach above
+  a long list.
+- [~] Edit and Remove on a notice stay: a teacher must be able to correct
+  or take down what a family reads. **Add them to the artboard.**
 - [x] "Save & add next" beside Add student, and "2 added so far" in the bar
   once one lands (`navigation/AddStudentRoute.kt`); the form clears only
   after the server confirms.
