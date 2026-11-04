@@ -125,16 +125,25 @@ approved and is not audited here.
   field. Needs a server model.
 
 ### T4 · Payment verification — `feature/verify/ui/*`
-- [ ] Queue cards: TrxID, From, inline Reject / Partial / Approve.
+- [x] Queue cards show TrxID and the paying account
+  (`feature/verify/ui/VerifyScreen.kt`).
+- [ ] Inline Reject / Partial / Approve on the queue card. Partial needs
+  the approval sheet, so this is a layout change to the decision flow,
+  not a button row.
 - [ ] Subtitle "· oldest 2 days".
 - [ ] Partial sheet title "Approve ৳800 of ৳1,200"; options with amount,
   target month and "November fee becomes ৳1,600"; confirm "· carry ৳400
   to Nov".
-- [ ] Empty: "Approved today" heading, "Paid" chip, "Partial · ৳600 fwd"
+- [x] The approved chip says "Paid", not "Payment done".
+- [~] The heading stays "Decided today": the list holds rejections too,
+  so "Approved today" would mislabel them. **Rename it in the artboard.**
+- [ ] Empty: "Partial · ৳600 fwd"
   chip, time on rows, "can be undone for 24 hours", "…and on Today".
 - [ ] Loading: card skeletons with button blocks.
-- [ ] Duplicate: red-bordered warning on the queue card, date in the
-  warning, "Reject as duplicate" (primary) and "Approve anyway".
+- [x] Duplicate: red outline and "This ID was already used." on the
+  queue card.
+- [ ] Duplicate: date in the warning, "Reject as duplicate" (primary) and
+  "Approve anyway".
 
 ### T5 · Cross-batch dues — `feature/dues/ui/DuesScreen.kt`
 - [ ] Subtitle "All 7 batches · updated 2 min ago".
@@ -150,9 +159,14 @@ approved and is not audited here.
 
 ### T6 · Batch list — `feature/batches/ui/BatchesScreen.kt`
 - [?] Fee-status chip per card ("৳7,200 late" / "৳4,800 due" / "All paid").
-- [?] Schedule line ("HSC 2027 · Sat Mon Wed · 4:00 pm") and "Today moved
-  to 7:30 pm".
-- [ ] "18 students · ৳1,200/mo" instead of subjects and "X of Y accepted".
+- [x] Schedule line ("Sat · Mon · Wed · 4:00 pm"), falling back to the
+  subjects for a batch with no class days yet.
+- [?] The level ("HSC 2027") and "Today moved to 7:30 pm": no level field
+  and no schedule-change read exist.
+- [x] "18 students · ৳1,200/mo".
+- [~] "X of Y accepted" is kept under it while anyone has not accepted: a
+  pending seat grants no lens, and the teacher needs to see that from the
+  list. **Add it to the artboard.**
 - [ ] Error body "This phone has no saved copy yet…".
 
 ### T7 · Single batch — `feature/batchdetail/ui/*`
@@ -161,7 +175,9 @@ approved and is not audited here.
 - [ ] FAB hidden on empty Students (only "Add first student") and on Notices.
 - [ ] Declined chip: grey fill with dashed border (no DECLINED style in
   `core/designsystem/PaymentStateChip.kt`).
-- [ ] Exams: section "Published", rows show "36.7 avg of 50".
+- [~] Exams: the section stays "Marked". There is no publish step, so
+  "Published" would claim one (see T3).
+- [?] Exams rows: "36.7 avg of 50" needs an average from the server.
 - [?] Notices: auto-sent schedule-change card, "seen by N of M families".
 - [ ] Notices: inline bottom composer instead of FAB + dialog; no
   Edit/Remove in the design.
@@ -169,8 +185,8 @@ approved and is not audited here.
 ### T8 · Add student — `core/ui/CreateForms.kt` `StudentAddForm`
 - [ ] "Save" plus "Save & add next", "2 added so far" subtitle, batch
   subtitle.
-- [ ] "+88" prefix on both phone fields (`core/ui/PhoneNumberField.kt`
-  exists and is unused here).
+- [x] "+88" prefix on both phone fields, through the shared
+  `PhoneNumberField`; a malformed number is still caught while typing.
 - [ ] Fee as a "Batch fee · ৳1,200" toggle, not a free-text field.
 - [ ] Help lines: "New number. They'll get an SMS invite.", name auto-fill
   sentence, guardian "Lets a parent see marks…".
@@ -179,7 +195,8 @@ approved and is not audited here.
   has an account, to a teacher).
 - [ ] Phone error "This one has 10" (digit count).
 - [ ] Inline duplicate-name card with "Open her profile".
-- [ ] `feature/roster/ui/AddStudentScreen.kt` is never called — remove or wire.
+- [x] `feature/roster/ui/AddStudentScreen.kt` was never called — removed,
+  with its test.
 
 ### T9 · More — `feature/profile/ui/ProfileScreen.kt`
 - [x] Title "More", not "Your profile". *(More screen redesign,
@@ -212,7 +229,7 @@ approved and is not audited here.
 ## Student
 
 ### S1 · My batches — `feature/studentbatches` (`MyBatchesScreen.kt`)
-- [ ] Pay button "Pay a fee", not "Send money".
+- [x] Pay button "Pay a fee", not "Send money".
 - [ ] Hero caption uses the short teacher name ("মাহফুজ স্যার").
 - [ ] Empty: number on its own highlighted line; "This screen updates by
   itself once you're added."
@@ -243,8 +260,9 @@ approved and is not audited here.
 - [~] "Safe to wait… we'll keep it and resend" — payment submission is not
   an offline-queued write (only attendance and topic are, NFR5/BR3.1).
   **The artboard should drop this copy.**
-- [ ] Sent: title "Payment sent", chip "Verifying", bKash ID row, "Sent 17
-  Oct, 3:22 pm", "Until then the fee shows as Verifying, not Paid".
+- [x] Sent: title "Payment sent", chip "Verifying".
+- [ ] Sent: bKash ID row, "Sent 17 Oct, 3:22 pm", "Until then the fee
+  shows as Verifying, not Paid".
 
 ### S4 · More — `feature/profile/ui/ProfileScreen.kt`
 - [x] Title "More", profile card with avatar, "Student · number", Edit.

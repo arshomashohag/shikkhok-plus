@@ -1,6 +1,7 @@
 package com.shikkhokplus.app.feature.verify.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -145,7 +146,16 @@ private fun subtitleOf(state: VerifyUiState): String? =
  */
 @Composable
 private fun QueueRow(card: ReviewCard, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    ShikkhokCard(modifier.testTag(TAG_VERIFY_CARD).clickable(onClick = onClick)) {
+    // **A reused transaction ID is flagged on the queue, not only in
+    // the detail** (T4 "Error · duplicate"): the red outline is what
+    // stops a teacher approving it from the list without opening it.
+    val outline =
+        if (card.duplicate != null) {
+            Modifier.border(1.5.dp, MaterialTheme.colorScheme.error, MaterialTheme.shapes.medium)
+        } else {
+            Modifier
+        }
+    ShikkhokCard(modifier.testTag(TAG_VERIFY_CARD).then(outline).clickable(onClick = onClick)) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Initial(card.displayName)
             Column(Modifier.weight(1f)) {
@@ -158,9 +168,46 @@ private fun QueueRow(card: ReviewCard, modifier: Modifier = Modifier, onClick: (
             }
             Text(Numerals.money(card.totalAmount), style = MaterialTheme.typography.titleMedium)
         }
+        // TrxID and the account it came from (T4), so the teacher can
+        // match the payment against their bKash or Nagad SMS from the
+        // list. Both are absent for cash.
+        trxLine(card)?.let {
+            Text(
+                it,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.testTag(TAG_VERIFY_CARD_TRX),
+            )
+        }
+        if (card.duplicate != null) {
+            Text(
+                stringResource(R.string.verify_duplicate_title),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
         ComparisonChip(card)
     }
 }
+
+/**
+ * "TrxID BJK40OQ1IL · From 01712-345678", or null when neither is known.
+ *
+ * @param card The payment
+ * @return The line, or null
+ */
+@Composable
+private fun trxLine(card: ReviewCard): String? {
+    val parts =
+        listOfNotNull(
+            card.transactionId?.let { stringResource(R.string.verify_queue_trx, Numerals.transactionId(it)) },
+            card.fromAccount?.let { stringResource(R.string.verify_queue_from, Numerals.phone(it)) },
+        )
+    return parts.takeIf { it.isNotEmpty() }?.joinToString(" · ")
+}
+
+/** The TrxID and sender line on a queue card. */
+const val TAG_VERIFY_CARD_TRX: String = "verify_card_trx"
 
 /**
  * The server's comparison as a chip: matches, short or over.

@@ -53,6 +53,7 @@ object BatchesStateMapper {
                         enrollmentCount = dto.enrollmentCount,
                         acceptedCount = dto.acceptedCount,
                         active = dto.active,
+                        schedule = dto.schedule,
                     )
                 },
             )

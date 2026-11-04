@@ -638,7 +638,7 @@
     <string name="verify_all_caught_up_body">When a student or guardian submits a payment, it shows up here.</string>
     <string name="verify_decided_today">Decided today</string>
     <string name="verify_decision_pending">Pending</string>
-    <string name="verify_decision_approved">Payment done</string>
+    <string name="verify_decision_approved">Paid</string>
     <string name="verify_decision_rejected">Rejected</string>
     <string name="verify_detail_title">Check payment</string>
     <string name="verify_detail_title_decided">Payment</string>
@@ -1075,7 +1075,7 @@
     <string name="pay_txn_short">This looks too short. Check the ID in the %1$s SMS again.</string>
     <string name="pay_offline_title">Couldn\'t send. No connection.</string>
     <string name="pay_offline_body">Your details are kept. Tap send again when you\'re back online.</string>
-    <string name="pay_sent_title">Sent for checking</string>
+    <string name="pay_sent_title">Payment sent</string>
     <string name="pay_teacher_fallback">Your teacher</string>
     <string name="pay_sent_body_mobile">%1$s will check %2$s by %3$s against TrxID %4$s. You\'ll get a notification when it\'s approved or rejected.</string>
     <string name="pay_sent_body_bank">%1$s will check %2$s sent from account %3$s. You\'ll get a notification when it\'s approved or rejected.</string>
@@ -1083,14 +1083,14 @@
     <string name="pay_amount_row">Amount</string>
     <string name="pay_paid_on_row">Paid on</string>
     <string name="pay_status_row">Status</string>
-    <string name="pay_pending">Pending verification</string>
+    <string name="pay_pending">Verifying</string>
     <string name="pay_recorded_title">Already recorded</string>
     <string name="pay_recorded_body_approved">This payment of %1$s was already recorded, and %2$s has approved it.</string>
     <string name="pay_recorded_body_rejected">This payment of %1$s was already recorded, and %2$s did not accept it.</string>
     <string name="pay_done">Done</string>
     <string name="pay_nothing_title">Nothing to pay for yet</string>
     <string name="pay_nothing_body">You have no accepted classes to send money for.</string>
-    <string name="pay_open">Send money</string>
+    <string name="pay_open">Pay a fee</string>
     <string name="payments_send_money">Send money</string>
     <string name="payments_send_hint">You can send any amount, any time — even when nothing is due.</string>
     <string name="fees_payment_allocation_bearer_required">Choose which child carries the shortfall.</string>
@@ -1208,4 +1208,8 @@
     <string name="my_children_missing_title">A child is missing?</string>
     <string name="my_children_missing_body">Ask the teacher to add your number, %1$s, as the guardian.</string>
     <string name="my_children_missing_body_plain">Ask the teacher to add your number as the guardian.</string>
+
+    <!-- Design parity, round 2. -->
+    <string name="verify_queue_trx">TrxID %1$s</string>
+    <string name="verify_queue_from">From %1$s</string>
 </resources>

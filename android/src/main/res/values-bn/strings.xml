@@ -583,7 +583,7 @@
     <string name="verify_all_caught_up_body">শিক্ষার্থী বা অভিভাবক পেমেন্ট জমা দিলে তা এখানে দেখা যাবে।</string>
     <string name="verify_decided_today">আজকের সিদ্ধান্ত</string>
     <string name="verify_decision_pending">অপেক্ষায়</string>
-    <string name="verify_decision_approved">পেমেন্ট সম্পন্ন</string>
+    <string name="verify_decision_approved">পরিশোধিত</string>
     <string name="verify_decision_rejected">বাতিল</string>
     <string name="verify_detail_title">পেমেন্ট যাচাই</string>
     <string name="verify_detail_title_decided">পেমেন্ট</string>
@@ -1020,7 +1020,7 @@
     <string name="pay_txn_short">আইডিটি খুব ছোট মনে হচ্ছে। %1$s এসএমএস-এ আইডিটি আবার দেখুন।</string>
     <string name="pay_offline_title">পাঠানো যায়নি। সংযোগ নেই।</string>
     <string name="pay_offline_body">আপনার তথ্য রাখা আছে। অনলাইনে ফিরে আবার পাঠান চাপুন।</string>
-    <string name="pay_sent_title">যাচাইয়ের জন্য পাঠানো হয়েছে</string>
+    <string name="pay_sent_title">পেমেন্ট পাঠানো হয়েছে</string>
     <string name="pay_teacher_fallback">আপনার শিক্ষক</string>
     <string name="pay_sent_body_mobile">%1$s %3$s-এ পাঠানো %2$s ট্রানজেকশন আইডি %4$s-এর সাথে মিলিয়ে দেখবেন। অনুমোদন বা প্রত্যাখ্যান হলে আপনি নোটিফিকেশন পাবেন।</string>
     <string name="pay_sent_body_bank">%1$s অ্যাকাউন্ট %3$s থেকে পাঠানো %2$s মিলিয়ে দেখবেন। অনুমোদন বা প্রত্যাখ্যান হলে আপনি নোটিফিকেশন পাবেন।</string>
@@ -1028,14 +1028,14 @@
     <string name="pay_amount_row">পরিমাণ</string>
     <string name="pay_paid_on_row">দেওয়ার তারিখ</string>
     <string name="pay_status_row">অবস্থা</string>
-    <string name="pay_pending">যাচাই বাকি</string>
+    <string name="pay_pending">যাচাই হচ্ছে</string>
     <string name="pay_recorded_title">আগেই রেকর্ড করা হয়েছে</string>
     <string name="pay_recorded_body_approved">%1$s-এর এই পেমেন্টটি আগেই রেকর্ড করা হয়েছিল, এবং %2$s এটি অনুমোদন করেছেন।</string>
     <string name="pay_recorded_body_rejected">%1$s-এর এই পেমেন্টটি আগেই রেকর্ড করা হয়েছিল, কিন্তু %2$s এটি গ্রহণ করেননি।</string>
     <string name="pay_done">ঠিক আছে</string>
     <string name="pay_nothing_title">এখনও দেওয়ার মতো কিছু নেই</string>
     <string name="pay_nothing_body">টাকা পাঠানোর মতো কোনো গৃহীত ক্লাস আপনার নেই।</string>
-    <string name="pay_open">টাকা পাঠান</string>
+    <string name="pay_open">ফি দিন</string>
     <string name="payments_send_money">টাকা পাঠান</string>
     <string name="payments_send_hint">যেকোনো পরিমাণ, যেকোনো সময় পাঠাতে পারেন — কিছু বকেয়া না থাকলেও।</string>
     <string name="fees_payment_allocation_bearer_required">ঘাটতি কোন শিশু বহন করবে তা বেছে নিন।</string>
@@ -1153,4 +1153,8 @@
     <string name="my_children_missing_title">কোনো সন্তান নেই?</string>
     <string name="my_children_missing_body">শিক্ষককে আপনার নম্বর, %1$s, অভিভাবক হিসেবে যোগ করতে বলুন।</string>
     <string name="my_children_missing_body_plain">শিক্ষককে আপনার নম্বর অভিভাবক হিসেবে যোগ করতে বলুন।</string>
+
+    <!-- Design parity, round 2. -->
+    <string name="verify_queue_trx">TrxID %1$s</string>
+    <string name="verify_queue_from">%1$s থেকে</string>
 </resources>

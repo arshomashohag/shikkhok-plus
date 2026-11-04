@@ -346,25 +346,16 @@ fun StudentAddForm(
         // what links this seat to the student's own account; without it
         // the student could never reach their seat, which is how this
         // form shipped.
-        OutlinedTextField(
+        // **The shared `+88` field** (T8), checked as the teacher types:
+        // a ten-digit number is caught before a round trip.
+        PhoneNumberField(
             value = phone,
             onValueChange = { phone = it },
-            label = { Text(stringResource(R.string.student_add_student_phone)) },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-            isError = phone.isNotBlank() && !phoneIsValid(phone),
-            supportingText = {
-                Text(
-                    stringResource(
-                        if (phone.isBlank() || phoneIsValid(phone)) {
-                            R.string.student_add_student_phone_help
-                        } else {
-                            R.string.phone_invalid
-                        },
-                    ),
-                )
-            },
-            modifier = Modifier.fillMaxWidth().testTag(TAG_FORM_STUDENT_PHONE),
+            label = stringResource(R.string.student_add_student_phone),
+            help = stringResource(R.string.student_add_student_phone_help),
+            error = stringResource(R.string.phone_invalid).takeIf { phone.isNotBlank() && !phoneIsValid(phone) },
+            fieldModifier = Modifier.testTag(TAG_FORM_STUDENT_PHONE),
+            modifier = Modifier.fillMaxWidth(),
         )
         OutlinedTextField(
             value = name,
@@ -373,20 +364,13 @@ fun StudentAddForm(
             singleLine = true,
             modifier = Modifier.fillMaxWidth().testTag(TAG_FORM_NAME),
         )
-        OutlinedTextField(
+        PhoneNumberField(
             value = guardian,
             onValueChange = { guardian = it },
-            label = { Text(stringResource(R.string.student_add_guardian)) },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-            isError = !guardianOk,
-            supportingText =
-                if (guardianOk) {
-                    null
-                } else {
-                    { Text(stringResource(R.string.phone_invalid)) }
-                },
-            modifier = Modifier.fillMaxWidth().testTag(TAG_FORM_GUARDIAN),
+            label = stringResource(R.string.student_add_guardian),
+            error = stringResource(R.string.phone_invalid).takeIf { !guardianOk },
+            fieldModifier = Modifier.testTag(TAG_FORM_GUARDIAN),
+            modifier = Modifier.fillMaxWidth(),
         )
         OutlinedTextField(
             value = fee,
