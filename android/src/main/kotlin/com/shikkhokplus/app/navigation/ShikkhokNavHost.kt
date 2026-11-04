@@ -70,13 +70,10 @@ import com.shikkhokplus.app.feature.dashboard.DashboardReader
 import com.shikkhokplus.app.feature.marks.ui.ProgressScreen
 import com.shikkhokplus.app.feature.profile.ProfileViewModel
 import com.shikkhokplus.app.feature.profile.ui.ProfileScreen
-import com.shikkhokplus.app.feature.profile.ui.EditProfileScreen
 import com.shikkhokplus.app.feature.profile.ui.LogOutSheet
 import com.shikkhokplus.app.feature.profile.ui.MoreActions
 import com.shikkhokplus.app.feature.profile.ProfileUiState
-import com.shikkhokplus.app.feature.guardian.ui.MyChildrenScreen
 import com.shikkhokplus.app.BuildConfig
-import androidx.activity.compose.BackHandler
 import io.ktor.client.HttpClient
 
 /**
@@ -617,7 +614,7 @@ fun ShikkhokNavHost(
             // Pushed from More for a student or guardian (S4, G4), so it
             // has a way back; the lens-free person's home has none.
             val pushed = remember { navController.previousBackStackEntry != null }
-            val back: (() -> Unit)? = if (pushed) { { navController.popBackStack() } } else null
+            val back: (() -> Unit)? = { navController.popBackStack(); Unit }.takeIf { pushed }
 
             InvitationsScreen(
                 state = state,
@@ -690,75 +687,7 @@ fun ShikkhokNavHost(
             }
         }
 
-        composable(Destination.EditProfile.route) { entry ->
-            // The PROFILE's ViewModel, so More underneath shows the save
-            // the moment the server confirms it.
-            val parent =
-                remember(entry) { navController.getBackStackEntry(Destination.Profile.route) }
-            val model: ProfileViewModel =
-                viewModel(parent) { ProfileViewModel(HttpProfileRepository(client)) }
-            val state by model.state.collectAsState()
-            val summary by model.summary.collectAsState()
-            val close = {
-                model.cancelEdit()
-                navController.popBackStack()
-                Unit
-            }
-
-            // A confirmed save closes the form; More shows "Saved.".
-            LaunchedEffect(state) {
-                if (state is ProfileUiState.Saved) navController.popBackStack()
-            }
-            BackHandler(onBack = close)
-
-            EditProfileScreen(
-                state = state,
-                phone = summary?.phone,
-                onSave = { name, address -> model.save(name, address) },
-                onClose = close,
-                onRetry = model::retry,
-            )
-        }
-
-        composable(Destination.MyChildren.route) { entry ->
-            // **The home screen's ViewModel when it is on the stack**, so
-            // choosing a child here selects that child there [BR4.2]. The
-            // guardian's home is the start of their graph, so it normally
-            // is; a fresh one is the fallback, never a crash.
-            val home =
-                remember(entry) {
-                    runCatching { navController.getBackStackEntry(Destination.GuardianHome.route) }.getOrNull()
-                }
-            val model: GuardianViewModel =
-                if (home != null) {
-                    viewModel(home) { GuardianViewModel(HttpGuardianRepository(client)) }
-                } else {
-                    viewModel { GuardianViewModel(HttpGuardianRepository(client)) }
-                }
-            val state by model.state.collectAsState()
-            val profile =
-                remember(entry) {
-                    runCatching { navController.getBackStackEntry(Destination.Profile.route) }.getOrNull()
-                }
-            val phone =
-                profile?.let {
-                    val owner: ProfileViewModel = viewModel(it) { ProfileViewModel(HttpProfileRepository(client)) }
-                    owner.summary.collectAsState().value?.phone
-                }
-
-            LaunchedEffect(Unit) { model.load() }
-
-            MyChildrenScreen(
-                state = state,
-                phone = phone,
-                onBack = { navController.popBackStack() },
-                onChild = { index ->
-                    model.select(index)
-                    navController.switchTab(0, session.lens)
-                },
-                onRetry = model::retry,
-            )
-        }
+        profileRoutes(client, navController, session.lens)
 
         composable(Destination.PaymentMethods.route) {
             val model: PaymentMethodsViewModel =
@@ -974,7 +903,7 @@ internal fun homeFor(lens: Lens?): String =
  * @param index Which tab was chosen
  * @param lens The lens whose bar was tapped
  */
-private fun NavHostController.switchTab(index: Int, lens: Lens?) {
+internal fun NavHostController.switchTab(index: Int, lens: Lens?) {
     val route = routesFor(lens).getOrNull(index) ?: return
     if (currentDestination?.route == route) return
 
