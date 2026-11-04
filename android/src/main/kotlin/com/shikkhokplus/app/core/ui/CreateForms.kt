@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -48,6 +49,9 @@ const val TAG_FORM_GUARDIAN: String = "form_guardian"
 
 /** The submit button. */
 const val TAG_FORM_SUBMIT: String = "form_submit"
+
+/** "Save & add next" on the add-student form (T8). */
+const val TAG_FORM_SUBMIT_NEXT: String = "form_submit_next"
 
 /** The cancel button. */
 const val TAG_FORM_CANCEL: String = "form_cancel"
@@ -323,6 +327,8 @@ internal fun dueDayIsValid(raw: String): Boolean =
  * @param modifier The layout modifier
  * @param saving True while the write is in flight
  * @param error Why the last write failed, already resolved, or null
+ * @param onAddNext Called like [onAdd] by "Save & add next" (T8), or
+ *   null to offer only the one save
  */
 @Composable
 fun StudentAddForm(
@@ -331,6 +337,7 @@ fun StudentAddForm(
     modifier: Modifier = Modifier,
     saving: Boolean = false,
     error: String? = null,
+    onAddNext: ((String, String, String?, String?) -> Unit)? = null,
 ) {
     var phone by remember { mutableStateOf("") }
     var name by remember { mutableStateOf("") }
@@ -401,22 +408,23 @@ fun StudentAddForm(
             )
         }
 
+        val ready = !saving && name.isNotBlank() && phoneIsValid(phone) && guardianOk && feeIsValid(fee)
+        val send = { to: (String, String, String?, String?) -> Unit ->
+            to(name.trim(), phone.trim(), guardian.trim().ifBlank { null }, canonicalFee(fee))
+        }
+        onAddNext?.let { next ->
+            OutlinedButton(
+                onClick = { send(next) },
+                enabled = ready,
+                modifier = Modifier.fillMaxWidth().testTag(TAG_FORM_SUBMIT_NEXT),
+            ) {
+                Text(stringResource(R.string.student_add_submit_next))
+            }
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
-                onClick = {
-                    onAdd(
-                        name.trim(),
-                        phone.trim(),
-                        guardian.trim().ifBlank { null },
-                        canonicalFee(fee),
-                    )
-                },
-                enabled =
-                    !saving &&
-                        name.isNotBlank() &&
-                        phoneIsValid(phone) &&
-                        guardianOk &&
-                        feeIsValid(fee),
+                onClick = { send(onAdd) },
+                enabled = ready,
                 modifier = Modifier.testTag(TAG_FORM_SUBMIT),
             ) {
                 Text(stringResource(R.string.student_add_submit))

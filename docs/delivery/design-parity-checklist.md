@@ -193,8 +193,10 @@ approved and is not audited here.
   Edit/Remove in the design.
 
 ### T8 · Add student — `core/ui/CreateForms.kt` `StudentAddForm`
-- [ ] "Save" plus "Save & add next", "2 added so far" subtitle, batch
-  subtitle.
+- [x] "Save & add next" beside Add student, and "2 added so far" in the bar
+  once one lands (`navigation/AddStudentRoute.kt`); the form clears only
+  after the server confirms.
+- [ ] Batch name as the bar subtitle.
 - [x] "+88" prefix on both phone fields, through the shared
   `PhoneNumberField`; a malformed number is still caught while typing.
 - [ ] Fee as a "Batch fee · ৳1,200" toggle, not a free-text field.

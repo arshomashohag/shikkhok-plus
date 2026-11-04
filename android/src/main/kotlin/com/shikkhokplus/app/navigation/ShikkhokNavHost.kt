@@ -32,10 +32,8 @@ import com.shikkhokplus.app.feature.dues.DuesViewModel
 import com.shikkhokplus.app.feature.dues.ui.DuesActions
 import com.shikkhokplus.app.feature.dues.ui.DuesScreen
 import com.shikkhokplus.app.core.network.HttpBatchesRepository
-import com.shikkhokplus.app.core.network.HttpRosterRepository
 import com.shikkhokplus.app.core.network.HttpSignupRepository
 import com.shikkhokplus.app.core.ui.BatchCreateForm
-import com.shikkhokplus.app.core.ui.StudentAddForm
 import com.shikkhokplus.app.feature.auth.MessageKeys
 import com.shikkhokplus.app.core.ui.WriteState
 import com.shikkhokplus.app.feature.auth.AuthUiState
@@ -45,7 +43,6 @@ import com.shikkhokplus.app.feature.auth.SignupViewModel
 import com.shikkhokplus.app.feature.auth.ui.AuthScreen
 import com.shikkhokplus.app.feature.auth.ui.SignupScreen
 import com.shikkhokplus.app.feature.batches.BatchesViewModel
-import com.shikkhokplus.app.feature.roster.RosterViewModel
 import com.shikkhokplus.app.core.queue.QueueStore
 import com.shikkhokplus.app.core.session.Lens
 import com.shikkhokplus.app.core.network.HttpFeesRepository
@@ -343,60 +340,7 @@ fun ShikkhokNavHost(
 
         collectionsRoutes(client, navController)
 
-        composable(
-            route = Destination.AddStudent.route,
-            arguments =
-                listOf(
-                    navArgument(Destination.Roster.ARG_ID) { type = NavType.StringType },
-                ),
-        ) { entry ->
-            val id = entry.arguments?.getString(Destination.Roster.ARG_ID).orEmpty()
-
-            // Same reasoning as CreateBatch: the roster's ViewModel, so
-            // the added student is in the list this form returns to.
-            val parent =
-                remember(entry) {
-                    navController.getBackStackEntry(Destination.Roster.route)
-                }
-            val model: RosterViewModel =
-                viewModel(parent, key = id) {
-                    RosterViewModel(HttpRosterRepository(client))
-                }
-            val write by model.writeState.collectAsState()
-
-            // Close on the server's answer, for the reason CreateBatch
-            // gives: closing on the tap let a roster reload overwrite a
-            // refused add, so the student silently never existed.
-            LaunchedEffect(write) {
-                if (write == WriteState.Saved) {
-                    model.acknowledgeWrite()
-                    navController.popBackStack()
-                }
-            }
-            val leave = {
-                model.acknowledgeWrite()
-                navController.popBackStack()
-            }
-
-            ScreenScaffold(
-                title = stringResource(R.string.screen_title_add_student),
-                onBack = { leave() },
-            ) {
-                StudentAddForm(
-                    onAdd = { name, studentPhone, guardian, fee ->
-                        model.addStudent(
-                            displayName = name,
-                            studentPhone = studentPhone,
-                            guardianPhone = guardian,
-                            feeAmount = fee,
-                        )
-                    },
-                    onCancel = { leave() },
-                    saving = write == WriteState.Saving,
-                    error = writeError(write),
-                )
-            }
-        }
+        addStudentRoute(client, navController)
 
         teachingRoutes(client, queue, navController)
 

@@ -1155,6 +1155,11 @@
     <string name="my_children_missing_body_plain">শিক্ষককে আপনার নম্বর অভিভাবক হিসেবে যোগ করতে বলুন।</string>
 
     <!-- Design parity, round 2. -->
+    <string name="student_add_submit_next">সংরক্ষণ করে পরের জন</string>
+    <plurals name="student_add_added_so_far">
+        <item quantity="one">এ পর্যন্ত %1$d জন যোগ হয়েছে</item>
+        <item quantity="other">এ পর্যন্ত %1$d জন যোগ হয়েছে</item>
+    </plurals>
     <string name="verify_sheet_title_partial">%2$s-এর মধ্যে %1$s অনুমোদন</string>
     <string name="verify_carry_forward_amount">%1$s পরের ফি-তে যোগ হবে।</string>
     <string name="today_outstanding_title">বাকি</string>

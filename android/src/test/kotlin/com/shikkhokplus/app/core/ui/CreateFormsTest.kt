@@ -378,4 +378,34 @@ class CreateFormsTest {
 
         assertEquals(listOf(5, 0), sent?.map { it.weekday })
     }
+
+    @Test
+    fun `save and add next sends the same fields through its own callback`() {
+        // T8: a teacher adding a roster row by row stays on the form.
+        var next: Pair<String, String>? = null
+        var saved = false
+        compose.setContent {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                StudentAddForm(
+                    onAdd = { _, _, _, _ -> saved = true },
+                    onAddNext = { name, phone, _, _ -> next = name to phone },
+                    onCancel = {},
+                )
+            }
+        }
+
+        compose.onNodeWithTag(TAG_FORM_STUDENT_PHONE).performTextInput("01711-234567")
+        compose.onNodeWithTag(TAG_FORM_NAME).performTextInput("Rahim")
+        compose.onNodeWithTag(TAG_FORM_SUBMIT_NEXT).performScrollTo().performClick()
+
+        assertEquals("Rahim" to "01711-234567", next)
+        assertEquals(false, saved, "add-next must not also save-and-close")
+    }
+
+    @Test
+    fun `without an add-next callback there is one save`() {
+        compose.setContent { StudentAddForm(onAdd = { _, _, _, _ -> }, onCancel = {}) }
+
+        compose.onNodeWithTag(TAG_FORM_SUBMIT_NEXT).assertDoesNotExist()
+    }
 }

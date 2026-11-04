@@ -1210,6 +1210,11 @@
     <string name="my_children_missing_body_plain">Ask the teacher to add your number as the guardian.</string>
 
     <!-- Design parity, round 2. -->
+    <string name="student_add_submit_next">Save &amp; add next</string>
+    <plurals name="student_add_added_so_far">
+        <item quantity="one">%1$d added so far</item>
+        <item quantity="other">%1$d added so far</item>
+    </plurals>
     <string name="verify_sheet_title_partial">Approve %1$s of %2$s</string>
     <string name="verify_carry_forward_amount">Add %1$s to the next fee.</string>
     <string name="today_outstanding_title">Outstanding</string>
