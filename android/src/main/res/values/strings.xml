@@ -1210,6 +1210,11 @@
     <string name="my_children_missing_body_plain">Ask the teacher to add your number as the guardian.</string>
 
     <!-- Design parity, round 2. -->
+    <string name="dues_subtitle_owed">%1$s owed</string>
+    <string name="dues_subtitle_updated">%1$s · updated %2$s</string>
+    <string name="verify_duplicate_body_dated">Used before for %1$s (%2$s, %3$s, %4$s). Check before approving.</string>
+    <string name="verify_partial">Partial</string>
+    <string name="verify_review">Review</string>
     <string name="mark_entry_backspace">Delete a digit</string>
     <string name="mark_entry_counter">%1$s/%2$s</string>
     <string name="mark_entry_out_of">/%1$s</string>

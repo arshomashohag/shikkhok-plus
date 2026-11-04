@@ -138,9 +138,12 @@ approved and is not audited here.
 ### T4 · Payment verification — `feature/verify/ui/*`
 - [x] Queue cards show TrxID and the paying account
   (`feature/verify/ui/VerifyScreen.kt`).
-- [ ] Inline Reject / Partial / Approve on the queue card. Partial needs
-  the approval sheet, so this is a layout change to the decision flow,
-  not a button row.
+- [x] Inline Reject / Partial / Approve on the queue card
+  (`feature/verify/ui/VerifyScreen.kt` `QueueActions`). Approve decides
+  from the queue only for a payment the server says matches, with an
+  unused transaction ID; Partial, Reject and anything over or reused
+  open the review, where carry-forward, waive, the duplicate warning and
+  the reject confirmation live.
 - [ ] Subtitle "· oldest 2 days".
 - [x] Partial sheet title "Approve ৳800 of ৳1,200", and "Add ৳400 to the
   next fee." on carry forward when the server's shortfall figure applies
@@ -158,10 +161,13 @@ approved and is not audited here.
   queue card.
 - [x] Duplicate: "Reject as duplicate" is the filled choice and "Approve
   anyway" the outlined one (`feature/verify/ui/PaymentReviewScreen.kt`).
-- [ ] Duplicate: the date in the warning.
+- [x] Duplicate: the date it was decided, in the warning.
 
 ### T5 · Cross-batch dues — `feature/dues/ui/DuesScreen.kt`
-- [ ] Subtitle "All 7 batches · updated 2 min ago".
+- [x] Subtitle "৳48,600 owed · updated 2 min ago", from the phone's last
+  read (`DuesScreen.kt`).
+- [?] "All 7 batches": the dues read lists batches with dues only, so the
+  count of all batches is not known here.
 - [x] Chip colour: every late row is the red overdue chip, at any age, as
   the board draws 7, 37 and 68 days (`feature/dues/ui/DuesScreen.kt`).
 - [?] Amber for a partly-paid row (the board's Nusrat): the dues read has
@@ -169,7 +175,8 @@ approved and is not audited here.
 - [?] "Remind N late **guardians**" by SMS ("SMS in Bangla and English ·
   you approve the text first"); the app reminds students in-app. Product
   decision.
-- [ ] Collapsing header when scrolled.
+- [x] Collapsed header: the total owed stays in the bar's subtitle when
+  the summary card scrolls away, which is what the collapsed board shows.
 - [x] Empty keeps the "Owed to you ৳0" card, with the server's total
   (`feature/dues/ui/DuesScreen.kt`).
 - [?] "paid up for October" and "November fees fall due on 10 Nov": the

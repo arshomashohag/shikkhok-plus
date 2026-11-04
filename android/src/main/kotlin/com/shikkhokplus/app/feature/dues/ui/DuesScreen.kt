@@ -47,6 +47,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
+import com.shikkhokplus.app.core.ui.agoMillis
 import com.shikkhokplus.app.core.model.Money
 import com.shikkhokplus.app.core.designsystem.Banner
 import com.shikkhokplus.app.core.designsystem.BannerTone
@@ -163,6 +164,13 @@ fun DuesScreen(
 ) {
     ListScreenScaffold(
         title = stringResource(R.string.dues_title),
+        // "৳48,600 owed · updated 2 min ago" (T5): the total stays in the
+        // bar when the summary card scrolls away, and the age says how
+        // fresh the figures are.
+        subtitle = (state as? DuesUiState.Loaded)?.let { loaded ->
+            val owed = stringResource(R.string.dues_subtitle_owed, Numerals.money(loaded.summary.total))
+            loaded.loadedAt?.let { stringResource(R.string.dues_subtitle_updated, owed, agoMillis(it)) } ?: owed
+        },
         modifier = modifier,
         refreshing = refreshing,
         onRefresh = actions.onRefresh,

@@ -124,4 +124,12 @@ class DuesScreenTest {
         compose.onNodeWithTag(TAG_DUES_SUMMARY).assertExists()
         compose.onNodeWithTag(TAG_DUES_EMPTY).assertExists()
     }
+
+    @Test
+    fun `the bar keeps the total owed and says how fresh it is`() {
+        // T5: "৳6,000 owed · updated just now".
+        show(loaded().copy(loadedAt = System.currentTimeMillis()))
+
+        compose.onNodeWithText("৳6,000 owed · updated just now").assertExists()
+    }
 }

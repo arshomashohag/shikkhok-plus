@@ -1155,6 +1155,11 @@
     <string name="my_children_missing_body_plain">শিক্ষককে আপনার নম্বর অভিভাবক হিসেবে যোগ করতে বলুন।</string>
 
     <!-- Design parity, round 2. -->
+    <string name="dues_subtitle_owed">%1$s বাকি</string>
+    <string name="dues_subtitle_updated">%1$s · হালনাগাদ %2$s</string>
+    <string name="verify_duplicate_body_dated">আগে %1$s এর জন্য ব্যবহার হয়েছে (%2$s, %3$s, %4$s)। অনুমোদনের আগে দেখে নিন।</string>
+    <string name="verify_partial">আংশিক</string>
+    <string name="verify_review">দেখুন</string>
     <string name="mark_entry_backspace">একটি অঙ্ক মুছুন</string>
     <string name="mark_entry_counter">%1$s/%2$s</string>
     <string name="mark_entry_out_of">/%1$s</string>

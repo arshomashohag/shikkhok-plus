@@ -153,6 +153,8 @@ sealed interface DuesUiState {
      * @property batch The batch narrowed to, or null for all
      * @property batches Every batch with a row, for the batch filter
      * @property remind Where a "Remind" tap stands
+     * @property loadedAt When this phone last read the dues, for the bar's
+     *   "updated 2 min ago", or null
      */
     data class Loaded(
         val summary: DuesSummary,
@@ -161,6 +163,7 @@ sealed interface DuesUiState {
         val batch: DuesBatch? = null,
         val batches: List<DuesBatch> = emptyList(),
         val remind: RemindState = RemindState.Idle,
+        val loadedAt: Long? = null,
     ) : DuesUiState
 
     /**

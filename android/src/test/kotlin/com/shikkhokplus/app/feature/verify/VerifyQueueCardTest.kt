@@ -8,6 +8,12 @@ import androidx.compose.ui.test.onNodeWithText
 import com.shikkhokplus.app.core.designsystem.ShikkhokTheme
 import com.shikkhokplus.app.feature.verify.ui.TAG_VERIFY_CARD_TRX
 import com.shikkhokplus.app.feature.verify.ui.VerifyScreen
+import com.shikkhokplus.app.feature.verify.ui.QueueDecisions
+import com.shikkhokplus.app.feature.verify.ui.TAG_VERIFY_CARD_APPROVE
+import com.shikkhokplus.app.feature.verify.ui.TAG_VERIFY_CARD_PARTIAL
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
+import kotlin.test.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -28,14 +34,19 @@ class VerifyQueueCardTest {
     @get:Rule
     val compose = createComposeRule()
 
-    private fun show(vararg cards: ReviewCard) {
+    private fun show(
+        vararg cards: ReviewCard,
+        decisions: QueueDecisions = QueueDecisions(),
+        onOpen: (String) -> Unit = {},
+    ) {
         compose.setContent {
             ShikkhokTheme {
                 VerifyScreen(
                     state = VerifyUiState.Waiting(pending = cards.toList(), recent = emptyList()),
                     onBack = {},
-                    onOpen = {},
+                    onOpen = onOpen,
                     onRetry = {},
+                    decisions = decisions,
                 )
             }
         }
@@ -53,5 +64,35 @@ class VerifyQueueCardTest {
         show(assertNotNull(VerifyStateMapper.toCard(review().copy(transactionId = null, fromAccount = null))))
 
         compose.onAllNodesWithTag(TAG_VERIFY_CARD_TRX).assertCountEquals(0)
+    }
+
+    @Test
+    fun `a matching payment is approved from its card`() {
+        val approved = mutableListOf<String>()
+        show(
+            assertNotNull(VerifyStateMapper.toCard(review())),
+            decisions = QueueDecisions(onApprove = { approved += it.submissionId }),
+        )
+
+        compose.onNodeWithTag(TAG_VERIFY_CARD_APPROVE).performClick()
+
+        assertEquals(listOf("s-1"), approved)
+    }
+
+    @Test
+    fun `a short payment offers Partial, which opens the review`() {
+        val opened = mutableListOf<String>()
+        show(
+            assertNotNull(
+                VerifyStateMapper.toCard(review(comparison = "short", total = "1500.00", difference = "500.00")),
+            ),
+            decisions = QueueDecisions(onApprove = {}),
+            onOpen = { opened += it },
+        )
+
+        compose.onAllNodesWithTag(TAG_VERIFY_CARD_APPROVE).assertCountEquals(0)
+        compose.onNodeWithTag(TAG_VERIFY_CARD_PARTIAL).performClick()
+
+        assertEquals(listOf("s-1"), opened)
     }
 }

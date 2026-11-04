@@ -165,7 +165,14 @@ class DuesViewModel(
         if (next !is DuesUiState.Loaded) return next
         allRows = next.rows
         batch = batch?.takeIf { kept -> next.batches.any { it.id == kept.id } }
-        return next.copy(filter = filter, batch = batch, rows = DuesStateMapper.visible(allRows, filter, batch?.id))
+        return next.copy(
+            filter = filter,
+            batch = batch,
+            rows = DuesStateMapper.visible(allRows, filter, batch?.id),
+            // When this phone last read the server, for "updated 2 min
+            // ago" (T5). A phone-clock moment, never sent anywhere.
+            loadedAt = System.currentTimeMillis(),
+        )
     }
 
     /**

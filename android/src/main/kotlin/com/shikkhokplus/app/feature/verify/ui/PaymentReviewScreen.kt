@@ -501,8 +501,18 @@ private fun methodLine(method: ReviewMethod): String {
 private fun Duplicate(duplicate: DuplicateNote) {
     Banner(
         title = stringResource(R.string.verify_duplicate_title),
+        // With the date it was decided (T4), so the teacher can find it
+        // in their own SMS history.
         body =
-            stringResource(
+            duplicate.decidedAt?.let { at ->
+                stringResource(
+                    R.string.verify_duplicate_body_dated,
+                    Numerals.freeText(duplicate.displayName),
+                    stringResource(decisionLabel(duplicate.statusKey)),
+                    Numerals.money(duplicate.amount),
+                    shortDate(at.take(ISO_DATE_LENGTH)),
+                )
+            } ?: stringResource(
                 R.string.verify_duplicate_body,
                 Numerals.freeText(duplicate.displayName),
                 stringResource(decisionLabel(duplicate.statusKey)),
@@ -547,3 +557,6 @@ private fun Decision(card: ReviewCard) {
         }
     }
 }
+
+/** `yyyy-MM-dd`, the date part of an ISO timestamp. */
+private const val ISO_DATE_LENGTH = 10
