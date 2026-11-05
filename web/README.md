@@ -30,20 +30,40 @@ is same-origin and needs no CORS. With `SHIKKHOKPLUS_STAGING_OUTBOX=1`
 
 ## Deploying
 
-The build is static files. Two ways to serve it:
+`deploy.yml` does it, after the API release succeeds: it runs `make web`
+with `WEB_BASE=/ui/`, uploads `dist/` to the environment's web bucket
+under `ui/`, invalidates `/ui/*` and smokes the result through CloudFront.
 
-1. **Same origin as the API** (simplest): serve `dist/` from the host that
-   already fronts the API, with `index.html` as the fallback for unknown
-   paths that are not `/v1`, `/health`, `/account-deletion` or `/staging`.
-   Build with `VITE_API_BASE_URL` empty. No CORS is involved.
-2. **Its own origin** (static host or CDN): build with
-   `VITE_API_BASE_URL=https://<api host>` and set
-   `SHIKKHOKPLUS_WEB_ORIGINS=https://<web origin>` on the API. That is the
-   only thing that turns CORS on (`app/web_origins.py`): exact `https`
-   origins only, a wildcard refuses to start.
+Where it is served (`infra/modules/cdn/web.tf`): a private S3 bucket,
+read only by the API's own CloudFront distribution through Origin Access
+Control, on the paths `/ui` and `/ui/*`. So the UI and the API share one
+origin -- the app calls `/v1` on the host it was loaded from, no CORS is
+configured, and `SHIKKHOKPLUS_WEB_ORIGINS` stays unset. A CloudFront
+Function serves `index.html` for client-side routes such as `/ui/dues`.
 
-Either way, serve `sw.js` with `Cache-Control: no-cache` so an update is
-noticed, and everything under `assets/` as immutable.
+| Environment | Web client                                                                         |
+| ----------- | ---------------------------------------------------------------------------------- |
+| staging     | `https://app.shikkhokplus.<apex>/ui/` (also `https://api.shikkhokplus.<apex>/ui/`) |
+| production  | `https://app.shikkhokplus-prod.<apex>/ui/`                                         |
+
+`app.<zone>/` on its own redirects to `/ui/`. The hostname is the
+`ui_subdomain` Terraform variable; empty serves the UI only at
+`api.<zone>/ui/`.
+
+Upload order matters and is in the workflow: hashed `assets/` first
+(immutable), then `index.html`, `sw.js` and the manifest (`no-cache`),
+then old assets are pruned -- so a tab that loaded the previous release a
+moment ago still finds its files.
+
+**First deploy after this change needs `infra/bootstrap` re-applied** (from a
+laptop, as bootstrap always is): the infrastructure role gains the right
+to create `shikkhokplus-*-web-*` buckets, and the deploy role gains the
+upload, the invalidation and the three new SSM parameters.
+
+To serve a build somewhere else entirely, build with
+`VITE_API_BASE_URL=https://<api host>` and set
+`SHIKKHOKPLUS_WEB_ORIGINS=https://<web origin>` on the API
+(`app/web_origins.py`): exact `https` origins only.
 
 ## Decisions worth knowing
 

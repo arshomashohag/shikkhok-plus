@@ -576,3 +576,161 @@ jobs:
       - name: Forget the previous runtime env
         if: always()
         run: rm -f "$RUNNER_TEMP/previous-runtime.env"
+
+  # ---------------------------------------------------------------
+  # 4. The web client: build for /ui/, upload, invalidate, smoke.
+  # ---------------------------------------------------------------
+  #
+  # **After the API release, never beside it.** The web client calls the
+  # API this release just shipped, and a UI that reached users before
+  # its API would call routes that do not exist yet. `needs: release`
+  # also means a release that failed and rolled back ships no UI: the
+  # previous UI stays, matched to the previous API it was built for.
+  #
+  # **Served by the API's own distribution under /ui/**
+  # (infra/modules/cdn/web.tf), so the UI and /v1 share an origin and no
+  # CORS is configured. The bucket name and distribution id come from
+  # SSM parameters Terraform publishes, never from state [OPS-3].
+  web:
+    name: web client
+    needs: [plan, release]
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      # The blocking half of the two-speed CVE model for what the web
+      # client SHIPS, production only, as pip-audit is for the API.
+      # Build-time tooling is not shipped to anyone and is not gated
+      # here; check.yml annotates it on every push.
+      - name: Release gate - web dependency CVEs
+        if: inputs.environment == 'production'
+        working-directory: web
+        run: |
+          npm ci --no-audit --no-fund
+          npm audit --omit=dev --audit-level=high
+
+      # The same gate CI runs (generated-file drift, format, lint, types,
+      # tests, build), with the build aimed at /ui/: asset URLs, the
+      # manifest's scope and the service worker's scope all follow it.
+      - name: Check and build for /ui/
+        env:
+          WEB_BASE: /ui/
+        run: make web
+
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: deploy-web-${{ github.run_id }}
+
+      - name: Resolve where it goes
+        id: target
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          base="/shikkhokplus/shikkhokplus-${ENVIRONMENT}"
+          read_param() {
+            aws ssm get-parameter --name "$base/$1" --query 'Parameter.Value' --output text
+          }
+          if ! bucket=$(read_param web-bucket) || ! dist=$(read_param distribution-id) \
+             || ! url=$(read_param web-url); then
+            echo "::error::Cannot read the web client's target from SSM."
+            echo "Either the infrastructure job has not yet applied the web"
+            echo "resources (infra/modules/cdn/web.tf), or the deploy role"
+            echo "predates them: re-apply infra/bootstrap once, from a laptop."
+            exit 1
+          fi
+          {
+            echo "bucket=$bucket"
+            echo "distribution=$dist"
+            echo "url=$url"
+          } >> "$GITHUB_OUTPUT"
+          echo "| web client | $url |" >> "$GITHUB_STEP_SUMMARY"
+
+      # **Order is what keeps open tabs working.** Hashed assets first,
+      # immutable and not yet pruned, so a page that loaded the previous
+      # index.html a moment ago still finds its files. Then the entry
+      # files that name them, no-cache, so the new release is picked up
+      # on the next load. Only then are assets the new build no longer
+      # references removed. Source maps are not published.
+      - name: Upload
+        env:
+          BUCKET: ${{ steps.target.outputs.bucket }}
+        working-directory: web/dist
+        run: |
+          dest="s3://$BUCKET/ui"
+          aws s3 sync assets "$dest/assets" --exclude "*.map" --only-show-errors \
+            --cache-control "public, max-age=31536000, immutable"
+
+          aws s3 sync fonts "$dest/fonts" --only-show-errors --delete \
+            --cache-control "public, max-age=86400"
+          # .ttf is not in every MIME table the CLI consults; say it.
+          aws s3 cp fonts "$dest/fonts" --recursive --exclude "*" --include "*.ttf" \
+            --only-show-errors --content-type font/ttf --cache-control "public, max-age=86400"
+          aws s3 sync icons "$dest/icons" --only-show-errors --delete \
+            --cache-control "public, max-age=86400"
+
+          aws s3 sync . "$dest" --only-show-errors --delete \
+            --exclude "assets/*" --exclude "fonts/*" --exclude "icons/*" --exclude "*.map" \
+            --cache-control "no-cache"
+          aws s3 cp manifest.webmanifest "$dest/manifest.webmanifest" --only-show-errors \
+            --content-type application/manifest+json --cache-control "no-cache"
+
+          aws s3 sync assets "$dest/assets" --exclude "*.map" --only-show-errors --delete \
+            --cache-control "public, max-age=31536000, immutable"
+
+      # Entry files are no-cache already; the invalidation makes every edge
+      # drop its copy now rather than at its next revalidation, so the
+      # smoke below sees this release and not the last one.
+      - name: Invalidate
+        env:
+          DISTRIBUTION: ${{ steps.target.outputs.distribution }}
+        run: |
+          id=$(aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION" \
+            --paths "/ui" "/ui/*" --query 'Invalidation.Id' --output text)
+          echo "Waiting for invalidation $id..."
+          aws cloudfront wait invalidation-completed --distribution-id "$DISTRIBUTION" --id "$id"
+
+      # **Through CloudFront, and for THIS build**: the page must name the
+      # script this build produced, so a stale edge copy fails the smoke
+      # instead of passing it. Also a client route (the SPA fallback),
+      # the manifest's scope, and the UI hostname's root redirect.
+      - name: Smoke the web client
+        env:
+          URL: ${{ steps.target.outputs.url }}
+        run: |
+          set -euo pipefail
+          script=$(grep -o 'src="/ui/assets/[^"]*\.js"' web/dist/index.html | head -1 | cut -d'"' -f2)
+          origin="${URL%/ui/}"
+          for attempt in $(seq 1 12); do
+            if curl -fsS "$URL" | grep -qF "$script"; then break; fi
+            [ "$attempt" = 12 ] && { echo "::error::$URL does not serve this build ($script)."; exit 1; }
+            sleep 10
+          done
+          curl -fsS "${URL}dues" | grep -qF '<div id="root">' \
+            || { echo "::error::A client route did not fall back to index.html."; exit 1; }
+          curl -fsS "${URL}manifest.webmanifest" | grep -qF '"scope":"/ui/"' \
+            || { echo "::error::The manifest is missing or has the wrong scope."; exit 1; }
+          curl -fsS -o /dev/null "$origin$script" \
+            || { echo "::error::$script did not load."; exit 1; }
+          # Only a UI with its own hostname redirects "/"; on the API
+          # hostname "/" is the API's and is left alone.
+          case "$origin" in
+            https://api.*) ;;
+            *)
+              if [ "$(curl -s -o /dev/null -w '%{redirect_url}' "$origin/")" != "$origin/ui/" ]; then
+                echo "::error::$origin/ does not redirect to /ui/."; exit 1
+              fi
+              ;;
+          esac
+          echo "Web client is live at $URL"
