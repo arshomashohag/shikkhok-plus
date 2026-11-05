@@ -1,0 +1,99 @@
+/* Account area: inbox, profile, children, deletion. */
+
+.inbox-row {
+  align-items: flex-start;
+}
+.inbox-bell {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--error-container);
+  color: var(--on-error-container);
+}
+.inbox-title {
+  display: block;
+  font-weight: 500;
+}
+.inbox-row.unread .inbox-title {
+  font-weight: 700;
+}
+.inbox-line {
+  display: block;
+}
+.inbox-dot {
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  margin-top: 8px;
+  border-radius: 50%;
+  background: var(--primary);
+}
+.inbox-detail-title {
+  margin: 0 0 var(--s3);
+  font-size: 1.125rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.inbox-notice {
+  margin: 0 0 var(--s2);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.account-phone {
+  font-size: 1.0625rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.account-child {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+.account-child-batches {
+  margin: var(--s3) calc(-1 * var(--s4)) calc(-1 * var(--s4));
+  border-top: 1px solid var(--outline-variant);
+}
+.account-child-batches .row {
+  min-height: 56px;
+}
+
+.account-danger {
+  border: 1.5px solid var(--error);
+}
+.account-danger-title {
+  color: var(--error);
+  font-size: 1.125rem;
+}
+.account-list-card {
+  margin-top: var(--s3);
+}
+.account-list-card h2 {
+  margin: 0 0 var(--s2);
+  font-size: 0.875rem;
+}
+.account-list-card ul {
+  margin: 0;
+  padding-left: 20px;
+  line-height: 1.6;
+}
+.account-list-card .meta {
+  margin: var(--s2) 0 0;
+}
+
+.btn-delete {
+  background: var(--error);
+  color: var(--on-overdue-fill);
+}
+
+.account-done {
+  margin-top: var(--s6);
+  text-align: center;
+}
+.account-done h1 {
+  margin: var(--s2) 0;
+  font-size: 1.375rem;
+}
