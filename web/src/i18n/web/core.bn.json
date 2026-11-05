@@ -49,5 +49,13 @@
   "web_auth_point_teacher": "শিক্ষক: পুরো কীবোর্ডে নম্বর তুলুন, পেমেন্ট যাচাই করুন।",
   "web_auth_point_student": "শিক্ষার্থী: ক্লাস, ফলাফল আর ফি এক জায়গায়।",
   "web_auth_point_guardian": "অভিভাবক: প্রতিটি সন্তানের নম্বর আর পেমেন্ট।",
-  "web_auth_point_login": "আপনার মোবাইল নম্বরই লগইন। পাসওয়ার্ড লাগে না।"
+  "web_auth_point_login": "আপনার মোবাইল নম্বরই লগইন। পাসওয়ার্ড লাগে না।",
+  "web_verify_keys": "↑ ↓ দিয়ে সরান · A অনুমোদন · R বাতিল",
+  "web_verify_keys_label": "কীবোর্ড শর্টকাট",
+  "web_verify_col_student": "শিক্ষার্থী",
+  "web_verify_col_batch": "ব্যাচ",
+  "web_verify_col_time": "সিদ্ধান্ত",
+  "web_verify_col_amount": "পরিমাণ",
+  "web_verify_col_result": "ফলাফল",
+  "web_verify_open": "পেমেন্ট খুলুন"
 }

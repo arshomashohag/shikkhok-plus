@@ -5,12 +5,15 @@
  * the columns a phone has no room for, and Today gains its three figures.
  * Every value shown is the server's, unchanged.
  */
-import { screen, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { Route, Routes } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { json, renderScreen } from '../../test/render'
 import { Batches } from './Batches'
 import { StudentsList } from './people/StudentsList'
 import { Today } from './Today'
+import { Verify } from './Verify'
 
 const fetchMock = vi.fn()
 
@@ -159,5 +162,106 @@ describe('Today on a wide window', () => {
     expect(screen.getByText('Verify payments')).toBeInTheDocument()
     expect(screen.getByText('4')).toBeInTheDocument()
     expect(screen.getByText('Next: Physics · Batch A in 35 min')).toBeInTheDocument()
+  })
+})
+
+const review = (id: string, name: string, patch: Record<string, unknown> = {}) => ({
+  submission_id: id,
+  batch_name: 'Physics · Batch A',
+  children: [
+    {
+      claim_id: `c-${id}`,
+      enrollment_id: `e-${id}`,
+      display_name: name,
+      owed: '1200.00',
+      period: '2026-10',
+      approved_amount: null,
+    },
+  ],
+  comparison: 'matches',
+  difference: '0.00',
+  owed_together: '1200.00',
+  total_amount: '1200.00',
+  method: { kind: 'mobile', provider: 'bKash' },
+  paid_on: '2026-10-16',
+  status: 'pending',
+  submitted_at: new Date().toISOString(),
+  transaction_id: `TX${id}`,
+  from_account: null,
+  ...patch,
+})
+
+describe('Verify on a wide window', () => {
+  function renderQueue() {
+    renderScreen(
+      <Routes>
+        <Route path="/verify" element={<Verify />} />
+        <Route path="/verify/:id" element={<p>opened payment</p>} />
+      </Routes>,
+      '/verify',
+    )
+  }
+
+  it('lists the queue beside the chosen payment, moved with the arrow keys', async () => {
+    wideWindow(true)
+    api({
+      '/v1/claims/queue': {
+        pending: [review('s1', 'Rafsan'), review('s2', 'Sumaiya', { total_amount: '800.00' })],
+        decided_recently: [],
+      },
+    })
+    renderQueue()
+    const first = await screen.findByRole('button', { name: /Rafsan/ })
+    expect(first).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('article', { name: 'Rafsan' })).toBeInTheDocument()
+    await userEvent.keyboard('{ArrowDown}')
+    expect(screen.getByRole('button', { name: /Sumaiya/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('article', { name: 'Sumaiya' })).toBeInTheDocument()
+  })
+
+  it('R opens the rejection of the chosen payment; it never rejects from the list', async () => {
+    wideWindow(true)
+    api({ '/v1/claims/queue': { pending: [review('s1', 'Rafsan')], decided_recently: [] } })
+    renderQueue()
+    await screen.findByRole('article', { name: 'Rafsan' })
+    await userEvent.keyboard('r')
+    expect(await screen.findByText('opened payment')).toBeInTheDocument()
+    expect(fetchMock.mock.calls.every(([u]) => !(u as string).includes('/rejection'))).toBe(true)
+  })
+
+  it('A approves in one tap only what matches and is new', async () => {
+    wideWindow(true)
+    fetchMock.mockImplementation(async (url: string) =>
+      url.endsWith('/approval')
+        ? json(200, { ...review('s1', 'Rafsan'), status: 'approved' })
+        : json(200, { pending: [review('s1', 'Rafsan')], decided_recently: [] }),
+    )
+    renderQueue()
+    await screen.findByRole('article', { name: 'Rafsan' })
+    await userEvent.keyboard('a')
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some(([u]) => (u as string).endsWith('/s1/approval'))).toBe(true),
+    )
+  })
+
+  it('A on a short payment opens it instead of approving', async () => {
+    wideWindow(true)
+    api({
+      '/v1/claims/queue': {
+        pending: [
+          review('s1', 'Rafsan', {
+            comparison: 'short',
+            difference: '400.00',
+            total_amount: '800.00',
+          }),
+        ],
+        decided_recently: [],
+      },
+    })
+    renderQueue()
+    await screen.findByRole('article', { name: 'Rafsan' })
+    await userEvent.keyboard('a')
+    expect(await screen.findByText('opened payment')).toBeInTheDocument()
+    expect(fetchMock.mock.calls.every(([u]) => !(u as string).includes('/approval'))).toBe(true)
   })
 })
