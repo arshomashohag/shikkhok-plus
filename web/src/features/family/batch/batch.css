@@ -1,0 +1,113 @@
+/* Family batch & results area. Tokens and components come from styles/. */
+
+.fb-fee {
+  padding: 0;
+}
+.fb-fee-main {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s4);
+  color: inherit;
+  text-decoration: none;
+}
+.fb-fee-main .grow {
+  flex: 1;
+  min-width: 0;
+}
+.fb-fee .button-row {
+  margin: 0;
+  padding: 0 var(--s4) var(--s4);
+}
+
+.fb-month {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+  margin: 0 0 var(--s2);
+}
+.fb-month .icon-btn {
+  margin: 0;
+}
+.fb-month .icon-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.fb-month-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.fb-class {
+  align-items: flex-start;
+}
+.fb-class-date {
+  display: flex;
+  flex-direction: column;
+  width: 64px;
+  flex-shrink: 0;
+  font-size: 0.875rem;
+}
+.fb-topic {
+  display: block;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+.fb-clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.fb-heading {
+  margin: 0 0 var(--s1);
+  font-size: 1.25rem;
+  overflow-wrap: anywhere;
+}
+.fb-subheading {
+  margin: var(--s4) 0 var(--s1);
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--on-surface-variant);
+}
+.fb-mark {
+  margin: var(--s2) 0 0;
+}
+.fb-mark strong {
+  font-size: 2rem;
+}
+
+.fb-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+}
+.fb-table th,
+.fb-table td {
+  padding: var(--s3) var(--s4);
+  text-align: left;
+  vertical-align: top;
+  border-top: 1px solid var(--outline-variant);
+}
+.fb-table thead th {
+  border-top: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--on-surface-variant);
+}
+.fb-table tbody th {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.fb-table td {
+  white-space: nowrap;
+}
+.fb-table a {
+  color: inherit;
+  font-weight: 600;
+}

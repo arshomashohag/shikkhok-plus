@@ -1,1 +1,18 @@
-{}
+{
+  "web_fb_child_next_class": "{1}'s next class",
+  "web_fb_child_fee": "{1}'s fee",
+  "web_fb_child_results": "{1}'s results",
+  "web_fb_child_coming_up": "Coming up for {1}",
+  "web_fb_no_classes_month": "No classes this month",
+  "web_fb_rank_of": "{1} of {2}",
+  "web_fb_col_test": "Test",
+  "web_fb_col_rank": "Rank",
+  "web_fb_batch_average": "batch average {1}",
+  "web_fb_bands_title": "How the batch scored",
+  "web_fb_summary_up": "Marks went up in each of the last {1} tests, from {2} to {3} out of {4}.",
+  "web_fb_summary_down": "Marks went down over the last {1} tests, from {2} to {3} out of {4}.",
+  "web_fb_summary_same": "Marks stayed at {3} out of {4} over the last {1} tests.",
+  "web_fb_above_average": "Now above the batch average.",
+  "web_fb_below_average": "Now below the batch average.",
+  "web_fb_child_topics": "{1}'s topics covered"
+}
