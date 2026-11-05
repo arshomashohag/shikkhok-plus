@@ -9,13 +9,16 @@ import { SessionProvider } from './session/session'
 import './styles/tokens.css'
 import './styles/app.css'
 
+/** `/ui/` → `/ui`; `/` stays `/`. React Router wants no trailing slash. */
+const ROUTER_BASENAME = import.meta.env.BASE_URL.replace(/(.)\/$/, '$1')
+
 function WithLanguage() {
   const { lang } = usePrefs()
   return (
     <I18nProvider lang={lang}>
       <PwaProvider>
         <SessionProvider>
-          <BrowserRouter>
+          <BrowserRouter basename={ROUTER_BASENAME}>
             <App />
           </BrowserRouter>
         </SessionProvider>

@@ -9,7 +9,7 @@ export function LensPicker({ options }: { options: LensOption[] }) {
     <div className="auth-page">
       <div className="auth-card card">
         <div className="brand">
-          <img src="/icons/favicon.svg" alt="" />
+          <img src={`${import.meta.env.BASE_URL}icons/favicon.svg`} alt="" />
           <span>ShikkhokPlus</span>
         </div>
         <h1>{t('lens_picker_title')}</h1>

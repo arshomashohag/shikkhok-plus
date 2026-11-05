@@ -100,7 +100,7 @@ export function SignUp() {
     <div className="auth-page">
       <form className="auth-card card" onSubmit={onSubmit} noValidate>
         <div className="brand">
-          <img src="/icons/favicon.svg" alt="" />
+          <img src={`${import.meta.env.BASE_URL}icons/favicon.svg`} alt="" />
           <span>ShikkhokPlus</span>
         </div>
         <h1>{t('signup_title')}</h1>

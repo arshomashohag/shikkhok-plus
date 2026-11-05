@@ -65,7 +65,7 @@ export function AppShell() {
       <div className="titlebar-drag" />
       <nav className="rail" aria-label="ShikkhokPlus">
         <div className="rail-brand">
-          <img src="/icons/favicon.svg" alt="" />
+          <img src={`${import.meta.env.BASE_URL}icons/favicon.svg`} alt="" />
           <span>ShikkhokPlus</span>
         </div>
         <NavItems tabs={tabs} />

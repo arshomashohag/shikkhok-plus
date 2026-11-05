@@ -16,6 +16,12 @@
  *    the page cannot be talked into sending a token anywhere else.
  * 3. **Local development is same-origin** through Vite's proxy, so no
  *    CORS configuration is needed on a developer's machine.
+ * 4. **The path it is served under is fixed at build time** (`WEB_BASE`,
+ *    default `/`). The deploy builds with `/ui/`, the path CloudFront
+ *    routes to the web bucket on the API's own distribution
+ *    (infra/modules/cdn/web.tf). Assets, the manifest's scope and the
+ *    service worker's scope all follow it, so the worker can never
+ *    claim the API's paths.
  */
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
@@ -27,6 +33,12 @@ const VERSION = (
     version: string
   }
 ).version
+
+/** The path the app is served under: `/` locally, `/ui/` when deployed. */
+const BASE = process.env.WEB_BASE ?? '/'
+if (!/^\/([a-z0-9-]+\/)*$/.test(BASE)) {
+  throw new Error(`WEB_BASE must start and end with '/', got '${BASE}'`)
+}
 
 /** Where `npm run dev` forwards API calls. */
 const DEV_API_TARGET = process.env.SHIKKHOKPLUS_API ?? 'http://127.0.0.1:8000'
@@ -80,6 +92,7 @@ export default defineConfig(({ mode, command }) => {
   }
 
   return {
+    base: BASE,
     define: { __APP_VERSION__: JSON.stringify(VERSION) },
     plugins: [
       react(),
@@ -89,15 +102,15 @@ export default defineConfig(({ mode, command }) => {
         injectRegister: false,
         includeAssets: ['fonts/*.ttf', 'icons/*.svg', 'icons/apple-touch-icon.png'],
         manifest: {
-          id: '/',
+          id: BASE,
           name: 'ShikkhokPlus',
           short_name: 'ShikkhokPlus',
           description:
             'Classes, marks and fees for private tuition — for teachers, students and guardians.',
           lang: 'bn',
           dir: 'ltr',
-          start_url: '/',
-          scope: '/',
+          start_url: BASE,
+          scope: BASE,
           display: 'standalone',
           display_override: ['window-controls-overlay', 'standalone'],
           orientation: 'any',
@@ -115,13 +128,13 @@ export default defineConfig(({ mode, command }) => {
             },
           ],
           shortcuts: [
-            { name: 'Today', short_name: 'Today', url: '/today' },
-            { name: 'Dues', short_name: 'Dues', url: '/dues' },
+            { name: 'Today', short_name: 'Today', url: `${BASE}today` },
+            { name: 'Dues', short_name: 'Dues', url: `${BASE}dues` },
           ],
         },
         workbox: {
           globPatterns: ['**/*.{js,css,html,svg,png,ttf,woff2}'],
-          navigateFallback: '/index.html',
+          navigateFallback: `${BASE}index.html`,
           navigateFallbackDenylist: BACKEND_PATHS.map((p) => new RegExp(`^${p}(/|$)`)),
           // No runtimeCaching entry: API responses are never stored. See
           // the module comment, point 1.
