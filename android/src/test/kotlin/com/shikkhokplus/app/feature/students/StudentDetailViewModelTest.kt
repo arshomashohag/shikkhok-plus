@@ -178,7 +178,8 @@ class StudentDetailViewModelTest {
     }
 
     @Test
-    fun `a refused removal is shown and the student stays [D4]`() = runTest(dispatcher) {
+    fun `a refused removal is shown and the student stays`() = runTest(dispatcher) {
+        // D4: removal is the server's decision; a refusal never closes the screen.
         val model = StudentDetailViewModel(Fake(AuthResult.Ok(loaded), write = owes))
         model.load("s-1")
         advanceUntilIdle()
