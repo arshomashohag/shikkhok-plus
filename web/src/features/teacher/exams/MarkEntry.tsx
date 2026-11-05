@@ -196,125 +196,129 @@ function Entry({
         </p>
       ) : null}
 
-      {results.rows.length === 0 ? (
-        <EmptyState title={t('mark_entry_empty_title')} body={t('mark_entry_empty_body')} />
-      ) : (
-        <>
-          <PublishBar
-            results={results}
-            onPublished={reload}
-            onRefused={(key) => setOutlineMissing(key === PUBLISH_INCOMPLETE_KEY)}
-          />
-          <ul className="card flush list mark-list" aria-label={t('screen_title_mark_entry')}>
-            {results.rows.map((row, index) => {
-              const isCurrent = row.enrollmentId === current
-              const error = rowErrors[row.enrollmentId]
-              const flag = missing && row.editable && row.state === 'not_entered'
-              return (
-                <li
-                  key={row.enrollmentId}
-                  className={`mark-row${isCurrent ? ' current' : ''}${flag || error ? ' flagged' : ''}`}
-                >
-                  <span className="mark-roll">{rollLabel(index)}</span>
-                  <label className="mark-name" htmlFor={`mark-${row.enrollmentId}`}>
-                    {row.displayName}
-                  </label>
-                  {row.editable && !stale ? (
-                    <span className="mark-cell">
-                      <input
-                        id={`mark-${row.enrollmentId}`}
-                        ref={(el) => {
-                          if (el) inputs.current.set(row.enrollmentId, el)
-                          else inputs.current.delete(row.enrollmentId)
-                        }}
-                        className={`mark-input${flag ? ' missing' : ''}`}
-                        inputMode="decimal"
-                        autoComplete="off"
-                        enterKeyHint="next"
-                        placeholder={row.state === 'absent' ? t('mark_entry_absent') : ''}
-                        value={shown(row)}
-                        onFocus={() => setCurrent(row.enrollmentId)}
-                        onChange={(e) =>
-                          setDrafts((d) => ({
-                            ...d,
-                            [row.enrollmentId]: cleanTyped(e.target.value),
-                          }))
-                        }
-                        onBlur={() => commit(row)}
-                        onKeyDown={onKey(row)}
-                        aria-invalid={error || flag ? true : undefined}
-                        aria-describedby={error ? `mark-${row.enrollmentId}-error` : undefined}
-                      />
-                      {error ? (
-                        <span
-                          className="field-error mark-error"
-                          id={`mark-${row.enrollmentId}-error`}
-                          role="alert"
-                        >
-                          {error}
+      {/* A wide window puts the entry dock beside the list, as W-T3 does. */}
+      <div className="mark-layout">
+        <div>
+          {results.rows.length === 0 ? (
+            <EmptyState title={t('mark_entry_empty_title')} body={t('mark_entry_empty_body')} />
+          ) : (
+            <>
+              <PublishBar
+                results={results}
+                onPublished={reload}
+                onRefused={(key) => setOutlineMissing(key === PUBLISH_INCOMPLETE_KEY)}
+              />
+              <ul className="card flush list mark-list" aria-label={t('screen_title_mark_entry')}>
+                {results.rows.map((row, index) => {
+                  const isCurrent = row.enrollmentId === current
+                  const error = rowErrors[row.enrollmentId]
+                  const flag = missing && row.editable && row.state === 'not_entered'
+                  return (
+                    <li
+                      key={row.enrollmentId}
+                      className={`mark-row${isCurrent ? ' current' : ''}${flag || error ? ' flagged' : ''}`}
+                    >
+                      <span className="mark-roll">{rollLabel(index)}</span>
+                      <label className="mark-name" htmlFor={`mark-${row.enrollmentId}`}>
+                        {row.displayName}
+                      </label>
+                      {row.editable && !stale ? (
+                        <span className="mark-cell">
+                          <input
+                            id={`mark-${row.enrollmentId}`}
+                            ref={(el) => {
+                              if (el) inputs.current.set(row.enrollmentId, el)
+                              else inputs.current.delete(row.enrollmentId)
+                            }}
+                            className={`mark-input${flag ? ' missing' : ''}`}
+                            inputMode="decimal"
+                            autoComplete="off"
+                            enterKeyHint="next"
+                            placeholder={row.state === 'absent' ? t('mark_entry_absent') : ''}
+                            value={shown(row)}
+                            onFocus={() => setCurrent(row.enrollmentId)}
+                            onChange={(e) =>
+                              setDrafts((d) => ({
+                                ...d,
+                                [row.enrollmentId]: cleanTyped(e.target.value),
+                              }))
+                            }
+                            onBlur={() => commit(row)}
+                            onKeyDown={onKey(row)}
+                            aria-invalid={error || flag ? true : undefined}
+                            aria-describedby={error ? `mark-${row.enrollmentId}-error` : undefined}
+                          />
+                          {error ? (
+                            <span
+                              className="field-error mark-error"
+                              id={`mark-${row.enrollmentId}-error`}
+                              role="alert"
+                            >
+                              {error}
+                            </span>
+                          ) : null}
                         </span>
-                      ) : null}
-                    </span>
-                  ) : (
-                    <span className="mark-value">
-                      {row.state === 'joined_after'
-                        ? t('mark_entry_locked')
-                        : row.marks !== null
-                          ? formatMark(row.marks)
-                          : t(STATE_KEYS[row.state])}
-                    </span>
-                  )}
-                  <span className="mark-out-of">
-                    {row.state === 'joined_after'
-                      ? ''
-                      : t('mark_entry_out_of', results.exam.totalMarks)}
-                  </span>
-                </li>
-              )
-            })}
-          </ul>
-          <p className="meta mark-hint">{t('web_exams_keyboard_hint')}</p>
-        </>
-      )}
-
-      {currentRow && results.writable && !stale ? (
-        <div className="mark-dock" aria-label={t('mark_entry_now_entering', '')}>
-          <div className="grow">
-            <div className="meta">
-              {t(
-                'mark_entry_now_entering',
-                rollLabel(
-                  results.rows.findIndex((r) => r.enrollmentId === currentRow.enrollmentId),
-                ),
-              )}
+                      ) : (
+                        <span className="mark-value">
+                          {row.state === 'joined_after'
+                            ? t('mark_entry_locked')
+                            : row.marks !== null
+                              ? formatMark(row.marks)
+                              : t(STATE_KEYS[row.state])}
+                        </span>
+                      )}
+                      <span className="mark-out-of">
+                        {row.state === 'joined_after'
+                          ? ''
+                          : t('mark_entry_out_of', results.exam.totalMarks)}
+                      </span>
+                    </li>
+                  )
+                })}
+              </ul>
+              <p className="meta mark-hint">{t('web_exams_keyboard_hint')}</p>
+            </>
+          )}
+        </div>
+        {currentRow && results.writable && !stale ? (
+          <div className="mark-dock" aria-label={t('mark_entry_now_entering', '')}>
+            <div className="grow">
+              <div className="meta">
+                {t(
+                  'mark_entry_now_entering',
+                  rollLabel(
+                    results.rows.findIndex((r) => r.enrollmentId === currentRow.enrollmentId),
+                  ),
+                )}
+              </div>
+              <div className="title">{currentRow.displayName}</div>
             </div>
-            <div className="title">{currentRow.displayName}</div>
-          </div>
-          {currentRow.hasHistory ? (
+            {currentRow.hasHistory ? (
+              <button
+                type="button"
+                className="btn btn-text btn-small"
+                onClick={() => setHistoryFor(currentRow)}
+              >
+                {t('mark_history_open')}
+              </button>
+            ) : null}
             <button
               type="button"
-              className="btn btn-text btn-small"
-              onClick={() => setHistoryFor(currentRow)}
+              className="btn btn-outline btn-small"
+              // Keep focus in the list: clicking must not blur-save first.
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                skipCommit.current.add(currentRow.enrollmentId)
+                setDrafts(({ [currentRow.enrollmentId]: _, ...rest }) => rest)
+                void send(currentRow, { result_state: 'absent', marks: null })
+                moveNext(currentRow)
+              }}
             >
-              {t('mark_history_open')}
+              {t('mark_entry_absent')}
             </button>
-          ) : null}
-          <button
-            type="button"
-            className="btn btn-outline btn-small"
-            // Keep focus in the list: clicking must not blur-save first.
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => {
-              skipCommit.current.add(currentRow.enrollmentId)
-              setDrafts(({ [currentRow.enrollmentId]: _, ...rest }) => rest)
-              void send(currentRow, { result_state: 'absent', marks: null })
-              moveNext(currentRow)
-            }}
-          >
-            {t('mark_entry_absent')}
-          </button>
-        </div>
-      ) : null}
+          </div>
+        ) : null}
+      </div>
 
       {historyFor ? (
         <HistorySheet examId={examId} row={historyFor} onClose={() => setHistoryFor(null)} />

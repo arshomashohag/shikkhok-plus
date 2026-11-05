@@ -57,5 +57,9 @@
   "web_verify_col_time": "Decided",
   "web_verify_col_amount": "Amount",
   "web_verify_col_result": "Result",
-  "web_verify_open": "Open payment"
+  "web_verify_open": "Open payment",
+  "web_roster_col_student": "Student",
+  "web_roster_col_contact": "Phones and invitation",
+  "web_roster_col_fee": "This month",
+  "web_roster_col_actions": "Actions"
 }

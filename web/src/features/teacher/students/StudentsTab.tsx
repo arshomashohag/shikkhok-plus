@@ -18,6 +18,7 @@ import { readBatchFees, readRoster } from '../../../api/endpoints'
 import { ApiError } from '../../../api/errors'
 import { formatPhone } from '../../../core/format'
 import { useOnline, useResource } from '../../../core/useResource'
+import { useWide } from '../../../core/useWide'
 import { useT } from '../../../i18n/i18n'
 import { EmptyState, ErrorCard, FeeChip, Loading, Sheet, Snackbar } from '../../../ui/components'
 import { PlusIcon } from '../../../ui/icons'
@@ -63,6 +64,7 @@ export function StudentsTab({ batchId, batch }: BatchTabProps) {
   const { t, message } = useT()
   const online = useOnline()
   const { resource, reload } = useResource(() => load(batchId), [batchId])
+  const wide = useWide()
   const [open, setOpen] = useState<string | null>(null)
   const [dialog, setDialog] = useState<Dialog>(null)
   const [busy, setBusy] = useState(false)
@@ -157,77 +159,165 @@ export function StudentsTab({ batchId, batch }: BatchTabProps) {
             </button>
           </div>
         ) : null}
-        <ul className="card flush list">
-          {seats.map((seat) => {
-            const expanded = seat.declined || open === seat.enrollmentId
-            const line = seatLine(seat, formatPhone)
-              .map(([key, ...args]) => t(key, ...args))
-              .join(' · ')
-            return (
-              <li key={seat.enrollmentId} className="seat">
-                <button
-                  type="button"
-                  className="row"
-                  aria-expanded={expanded}
-                  aria-label={t('web_students_actions_for', label(seat))}
-                  onClick={() =>
-                    seat.declined ||
-                    setOpen((cur) => (cur === seat.enrollmentId ? null : seat.enrollmentId))
-                  }
-                >
-                  <span className="grow">
-                    <span className="title" style={{ display: 'block' }}>
-                      {label(seat)}
+        {wide ? (
+          <section className="card flush">
+            <div className="panel-head">
+              <h2>{batch?.name ?? ''}</h2>
+              <Link to={addLink} className="btn btn-primary btn-small">
+                <PlusIcon />
+                {t('batch_add_student')}
+              </Link>
+            </div>
+            <div className="table-wrap">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th scope="col">{t('web_roster_col_student')}</th>
+                    <th scope="col">{t('web_roster_col_contact')}</th>
+                    <th scope="col">{t('web_roster_col_fee')}</th>
+                    <th scope="col">
+                      <span className="visually-hidden">{t('web_roster_col_actions')}</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {seats.map((seat) => (
+                    <tr key={seat.enrollmentId}>
+                      <td className="title">{label(seat)}</td>
+                      <td>
+                        <span className={seat.declined ? 'meta danger' : 'meta'}>
+                          {seatLine(seat, formatPhone)
+                            .map(([key, ...args]) => t(key, ...args))
+                            .join(' · ')}
+                        </span>
+                        {seat.declined ? (
+                          <div className="meta">{t('batch_declined_help')}</div>
+                        ) : null}
+                      </td>
+                      <td>
+                        {seat.declined ? (
+                          <span className="chip chip-due">{t('batch_declined')}</span>
+                        ) : seat.chip && !feesError ? (
+                          <FeeChip chip={seat.chip} />
+                        ) : null}
+                      </td>
+                      <td className="num">
+                        {actionable ? (
+                          <span className="row-actions">
+                            {!seat.declined ? (
+                              <Link
+                                className="btn btn-text btn-small"
+                                to={paths.seatFees(
+                                  seat.enrollmentId,
+                                  seat.displayName,
+                                  batch?.name,
+                                )}
+                              >
+                                {t('batch_fee_history')}
+                              </Link>
+                            ) : null}
+                            {!seat.declined && seat.inactiveFrom === null ? (
+                              <button
+                                type="button"
+                                className="btn btn-text btn-small"
+                                onClick={() => setDialog({ kind: 'inactive', seat })}
+                              >
+                                {t('batch_mark_inactive')}
+                              </button>
+                            ) : null}
+                            {seat.isRemovable ? (
+                              <button
+                                type="button"
+                                className="btn btn-text btn-small danger"
+                                onClick={() => setDialog({ kind: 'remove', seat })}
+                              >
+                                {t('batch_remove')}
+                              </button>
+                            ) : null}
+                          </span>
+                        ) : null}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        ) : (
+          <ul className="card flush list">
+            {seats.map((seat) => {
+              const expanded = seat.declined || open === seat.enrollmentId
+              const line = seatLine(seat, formatPhone)
+                .map(([key, ...args]) => t(key, ...args))
+                .join(' · ')
+              return (
+                <li key={seat.enrollmentId} className="seat">
+                  <button
+                    type="button"
+                    className="row"
+                    aria-expanded={expanded}
+                    aria-label={t('web_students_actions_for', label(seat))}
+                    onClick={() =>
+                      seat.declined ||
+                      setOpen((cur) => (cur === seat.enrollmentId ? null : seat.enrollmentId))
+                    }
+                  >
+                    <span className="grow">
+                      <span className="title" style={{ display: 'block' }}>
+                        {label(seat)}
+                      </span>
+                      <span className={seat.declined ? 'meta danger' : 'meta'}>{line}</span>
                     </span>
-                    <span className={seat.declined ? 'meta danger' : 'meta'}>{line}</span>
-                  </span>
+                    {seat.declined ? (
+                      <span className="chip chip-due">{t('batch_declined')}</span>
+                    ) : seat.chip && !feesError ? (
+                      <FeeChip chip={seat.chip} />
+                    ) : null}
+                  </button>
                   {seat.declined ? (
-                    <span className="chip chip-due">{t('batch_declined')}</span>
-                  ) : seat.chip && !feesError ? (
-                    <FeeChip chip={seat.chip} />
+                    <p className="meta seat-help">{t('batch_declined_help')}</p>
                   ) : null}
-                </button>
-                {seat.declined ? (
-                  <p className="meta seat-help">{t('batch_declined_help')}</p>
-                ) : null}
-                {expanded && actionable ? (
-                  <div className="seat-actions">
-                    {!seat.declined ? (
-                      <Link
-                        className="btn btn-text btn-small"
-                        to={paths.seatFees(seat.enrollmentId, seat.displayName, batch?.name)}
-                      >
-                        {t('batch_fee_history')}
-                      </Link>
-                    ) : null}
-                    {!seat.declined && seat.inactiveFrom === null ? (
-                      <button
-                        type="button"
-                        className="btn btn-text btn-small"
-                        onClick={() => setDialog({ kind: 'inactive', seat })}
-                      >
-                        {t('batch_mark_inactive')}
-                      </button>
-                    ) : null}
-                    {seat.isRemovable ? (
-                      <button
-                        type="button"
-                        className="btn btn-text btn-small danger"
-                        onClick={() => setDialog({ kind: 'remove', seat })}
-                      >
-                        {t('batch_remove')}
-                      </button>
-                    ) : null}
-                  </div>
-                ) : null}
-              </li>
-            )
-          })}
-        </ul>
-        <Link to={addLink} className="btn btn-primary fab">
-          <PlusIcon />
-          {t('batch_add_student')}
-        </Link>
+                  {expanded && actionable ? (
+                    <div className="seat-actions">
+                      {!seat.declined ? (
+                        <Link
+                          className="btn btn-text btn-small"
+                          to={paths.seatFees(seat.enrollmentId, seat.displayName, batch?.name)}
+                        >
+                          {t('batch_fee_history')}
+                        </Link>
+                      ) : null}
+                      {!seat.declined && seat.inactiveFrom === null ? (
+                        <button
+                          type="button"
+                          className="btn btn-text btn-small"
+                          onClick={() => setDialog({ kind: 'inactive', seat })}
+                        >
+                          {t('batch_mark_inactive')}
+                        </button>
+                      ) : null}
+                      {seat.isRemovable ? (
+                        <button
+                          type="button"
+                          className="btn btn-text btn-small danger"
+                          onClick={() => setDialog({ kind: 'remove', seat })}
+                        >
+                          {t('batch_remove')}
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </li>
+              )
+            })}
+          </ul>
+        )}
+        {wide ? null : (
+          <Link to={addLink} className="btn btn-primary fab">
+            <PlusIcon />
+            {t('batch_add_student')}
+          </Link>
+        )}
       </>
     )
   }

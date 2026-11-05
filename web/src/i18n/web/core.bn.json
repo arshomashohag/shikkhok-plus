@@ -57,5 +57,9 @@
   "web_verify_col_time": "সিদ্ধান্ত",
   "web_verify_col_amount": "পরিমাণ",
   "web_verify_col_result": "ফলাফল",
-  "web_verify_open": "পেমেন্ট খুলুন"
+  "web_verify_open": "পেমেন্ট খুলুন",
+  "web_roster_col_student": "শিক্ষার্থী",
+  "web_roster_col_contact": "ফোন ও আমন্ত্রণ",
+  "web_roster_col_fee": "এ মাস",
+  "web_roster_col_actions": "কাজ"
 }

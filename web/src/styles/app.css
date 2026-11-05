@@ -1681,3 +1681,81 @@ a.tile:hover {
   font-size: 0.9375rem;
   gap: var(--s2) var(--s6);
 }
+
+/*
+ * Forms on a wide window. A single form reads best at a line length a
+ * person can scan, so it keeps a column of its own at the left; a form
+ * with a side panel (.split: what was covered, then attendance) puts the
+ * two side by side. The save bar becomes a right-aligned button rather
+ * than a full-width strip.
+ */
+@media (min-width: 900px) {
+  .shell-main > form.card,
+  .shell-main > .form-page {
+    max-width: 760px;
+  }
+  form.split {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    column-gap: var(--s6);
+    align-items: start;
+  }
+  form.split > * {
+    grid-column: 1 / -1;
+  }
+  form.split > .card:first-child {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  form.split > .section {
+    grid-column: 2;
+    grid-row: 1;
+    margin-top: 0;
+  }
+  .action-bar {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    background: none;
+  }
+  .action-bar::before {
+    display: none;
+  }
+  .action-bar .btn-money {
+    width: auto;
+    min-width: 280px;
+  }
+  .action-bar > .meta {
+    text-align: right !important;
+  }
+}
+
+/* Per-row actions at the end of a table row. */
+.row-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--s1);
+}
+
+/* A batch tab's floating action becomes a button at the top right of
+   the tab on a wide window, where the boards put a panel's action. */
+@media (min-width: 900px) {
+  .batch-tabpanel {
+    display: flex;
+    flex-direction: column;
+  }
+  .batch-tabpanel > * {
+    width: 100%;
+  }
+  .batch-tabpanel > .fab {
+    position: static;
+    order: -1;
+    align-self: flex-end;
+    width: auto;
+    min-height: var(--touch);
+    margin-bottom: var(--s4);
+    border-radius: var(--r-pill);
+    box-shadow: none;
+  }
+}
