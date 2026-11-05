@@ -1346,7 +1346,7 @@ fieldset.field {
 /* The grid's gap spaces its cells; the stacked-card margin must not. */
 .dash > .card,
 .card-grid > .card {
-  margin-top: 0;
+  margin-top: 0 !important;
 }
 .dash-3 {
   align-items: stretch;
@@ -1757,5 +1757,74 @@ a.tile:hover {
     margin-bottom: var(--s4);
     border-radius: var(--r-pill);
     box-shadow: none;
+  }
+}
+
+/*
+ * A list with a summary panel. On a phone the panel comes first and its
+ * action bar stays at the bottom of the screen; on a wide window the
+ * list sits left and the panel stays in view at the right.
+ */
+.side-layout {
+  display: flex;
+  flex-direction: column;
+}
+.side-layout .side-main {
+  order: 1;
+}
+.side-layout .side-panel .action-bar {
+  order: 2;
+}
+@media (max-width: 899.98px) {
+  .side-layout .side-panel {
+    display: contents;
+  }
+  .side-layout .side-panel > .card {
+    order: 0;
+  }
+  .side-layout .side-panel > .action-bar {
+    order: 2;
+  }
+}
+@media (min-width: 900px) {
+  .side-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(300px, 2fr);
+    gap: var(--s6);
+    align-items: start;
+  }
+  .side-layout .side-main {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .side-layout .side-main > .section:first-child {
+    margin-top: 0;
+  }
+  .side-layout .side-panel {
+    grid-column: 2;
+    grid-row: 1;
+    position: sticky;
+    top: var(--s6);
+  }
+  .side-layout .side-panel .action-bar {
+    position: static;
+    align-items: stretch;
+    margin-top: var(--s3);
+  }
+  .side-layout .side-panel .action-bar .btn-money {
+    width: 100%;
+  }
+  .seat-top > .card {
+    height: 100%;
+  }
+}
+
+/* Page widths by route (shell/pageWidth.ts); 80px is the side padding. */
+@media (min-width: 900px) {
+  .shell-main.width-form {
+    max-width: calc(760px + 80px);
+  }
+  .shell-main.width-reading {
+    max-width: calc(960px + 80px);
   }
 }

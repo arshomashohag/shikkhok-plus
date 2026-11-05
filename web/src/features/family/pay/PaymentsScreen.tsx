@@ -92,42 +92,46 @@ function ChildPayments({ seat }: { seat: string }) {
       />
       {resource.error ? <StaleBanner error={resource.error} loadedAt={resource.loadedAt} /> : null}
 
-      <div className="card" style={{ marginTop: resource.error ? 12 : 0 }}>
-        {next ? (
-          <>
-            <div className="label">{t('payments_owed_now')}</div>
-            <div className="hero-amount">{next.totalDue.format()}</div>
-            <div className="meta">
-              {next.batchName} · {formatMonth(next.period, lang)}
-            </div>
-          </>
-        ) : (
-          <div className="title">{t('payments_nothing_due')}</div>
-        )}
-      </div>
-
-      {payments.months.length === 0 ? (
-        <div className="empty">
-          <h2>{t('payments_empty_title')}</h2>
-          <p>{t('payments_empty_body', name)}</p>
+      <div className="side-layout">
+        <div className="side-panel">
+          <div className="card" style={{ marginTop: resource.error ? 12 : 0 }}>
+            {next ? (
+              <>
+                <div className="label">{t('payments_owed_now')}</div>
+                <div className="hero-amount">{next.totalDue.format()}</div>
+                <div className="meta">
+                  {next.batchName} · {formatMonth(next.period, lang)}
+                </div>
+              </>
+            ) : (
+              <div className="title">{t('payments_nothing_due')}</div>
+            )}
+          </div>
+          <div className="action-bar">
+            <p className="meta" style={{ textAlign: 'center', margin: '0 0 8px' }}>
+              {t('payments_send_hint')}
+            </p>
+            {canPay ? (
+              <Link className="btn btn-primary btn-money" to={familyPaths.pay('child', seat)}>
+                {t('payments_send_money')}
+              </Link>
+            ) : (
+              <button type="button" className="btn btn-primary btn-money" disabled>
+                {t('pay_needs_connection')}
+              </button>
+            )}
+          </div>
         </div>
-      ) : (
-        payments.months.map((m) => <Month key={m.period} period={m.period} lines={m.lines} />)
-      )}
-
-      <div className="action-bar">
-        <p className="meta" style={{ textAlign: 'center', margin: '0 0 8px' }}>
-          {t('payments_send_hint')}
-        </p>
-        {canPay ? (
-          <Link className="btn btn-primary btn-money" to={familyPaths.pay('child', seat)}>
-            {t('payments_send_money')}
-          </Link>
-        ) : (
-          <button type="button" className="btn btn-primary btn-money" disabled>
-            {t('pay_needs_connection')}
-          </button>
-        )}
+        <div className="side-main">
+          {payments.months.length === 0 ? (
+            <div className="empty">
+              <h2>{t('payments_empty_title')}</h2>
+              <p>{t('payments_empty_body', name)}</p>
+            </div>
+          ) : (
+            payments.months.map((m) => <Month key={m.period} period={m.period} lines={m.lines} />)
+          )}
+        </div>
       </div>
     </>
   )

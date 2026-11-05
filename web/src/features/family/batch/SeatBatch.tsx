@@ -110,15 +110,17 @@ export function SeatBatch({ reader }: { reader: Reader }) {
         <StaleBanner error={resource.error} loadedAt={resource.loadedAt} />
       ) : null}
       {view.subjects.length ? <p className="meta">{view.subjects.join(' · ')}</p> : null}
-      <NextClassCard next={view.next} following={view.following} identity={identity} />
-      <FeeCard
-        reader={reader}
-        seat={seat}
-        fee={view.fee}
-        stale={stale}
-        identity={identity}
-        onRetry={reload}
-      />
+      <div className="dash dash-2 seat-top">
+        <NextClassCard next={view.next} following={view.following} identity={identity} />
+        <FeeCard
+          reader={reader}
+          seat={seat}
+          fee={view.fee}
+          stale={stale}
+          identity={identity}
+          onRetry={reload}
+        />
+      </div>
       <div className="button-row" style={{ marginTop: 8 }}>
         <Link className="btn btn-text btn-small" to={familyPaths.progress(reader, seat)}>
           {t('dashboard_open_progress')}

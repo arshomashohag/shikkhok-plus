@@ -27,6 +27,7 @@ import {
   WalletIcon,
 } from '../ui/icons'
 import { tabsFor, homeFor, type Tab } from './nav'
+import { pageWidth } from './pageWidth'
 import { useUnreadCount } from '../features/account/area'
 import { formatPhone, initial } from '../core/format'
 
@@ -151,6 +152,7 @@ export function AppShell() {
   const name = session.me.self_name ?? phone
   const role = session.lens ? t(`lens_${session.lens}`) : t('web_role_none')
   const counts = { '/verify': verifyCount ?? 0 }
+  const width = pageWidth(useLocation().pathname)
 
   const toggle = () => {
     setCollapsed((c) => {
@@ -213,7 +215,7 @@ export function AppShell() {
           ) : null}
         </div>
       </nav>
-      <main id="main" className="shell-main" tabIndex={-1}>
+      <main id="main" className={`shell-main width-${width}`} tabIndex={-1}>
         {!online ? (
           <div className="banner" role="status" style={{ marginTop: 16 }}>
             <CloudOffIcon />
