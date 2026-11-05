@@ -1,5 +1,8 @@
 package com.shikkhokplus.app.feature.settings.ui
 
+import com.shikkhokplus.app.core.format.Numerals
+import com.shikkhokplus.app.core.designsystem.MenuIcons
+import com.shikkhokplus.app.core.designsystem.MenuRow
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -30,6 +33,9 @@ import com.shikkhokplus.app.core.settings.AppSettings
 import com.shikkhokplus.app.core.settings.TextSizeChoice
 import com.shikkhokplus.app.core.settings.ThemeChoice
 
+/** The Call for help row. */
+const val TAG_SETTINGS_CALL_HELP: String = "settings_call_help"
+
 /** The notifications switch. */
 const val TAG_SETTINGS_NOTIFICATIONS: String = "settings_notifications"
 
@@ -50,6 +56,9 @@ const val TAG_SETTINGS_TEXT: String = "settings_text_"
  * @param onChange Called with the settings after a change
  * @param onBack Called to leave
  * @param modifier The layout modifier
+ * @param supportPhone The support line, as the release build was given
+ *   it, or null to draw no help row
+ * @param onCallForHelp Called with the number to dial it
  */
 @Composable
 fun SettingsScreen(
@@ -57,6 +66,8 @@ fun SettingsScreen(
     onChange: (AppSettings) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    supportPhone: String? = null,
+    onCallForHelp: (String) -> Unit = {},
 ) {
     ScreenScaffold(title = stringResource(R.string.settings_title), onBack = onBack, modifier = modifier) {
         Section(stringResource(R.string.settings_section_notifications)) {
@@ -101,6 +112,19 @@ fun SettingsScreen(
                 tag = { TAG_SETTINGS_TEXT + it.name },
                 onSelect = { onChange(settings.copy(textSize = it)) },
             )
+        }
+        // **Call for help** (G4), for every role. Drawn only when the
+        // build carries a support number, so no row ever dials nothing.
+        supportPhone?.takeIf { it.isNotBlank() }?.let { number ->
+            Section(stringResource(R.string.settings_section_help)) {
+                MenuRow(
+                    title = stringResource(R.string.settings_call_for_help),
+                    subtitle = stringResource(R.string.settings_call_for_help_sub, Numerals.phone(number)),
+                    icon = MenuIcons.Phone,
+                    onClick = { onCallForHelp(number) },
+                    modifier = Modifier.testTag(TAG_SETTINGS_CALL_HELP),
+                )
+            }
         }
     }
 }

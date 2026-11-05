@@ -1294,4 +1294,8 @@
     <string name="marks_publish_incomplete">Every student needs a mark or Absent before you publish.</string>
     <string name="marks_too_precise">A mark can have at most 2 decimal places.</string>
     <string name="batch_exam_draft">Draft · not published</string>
+    <!-- Call for help (2026-11-05). -->
+    <string name="settings_section_help">HELP</string>
+    <string name="settings_call_for_help">Call for help</string>
+    <string name="settings_call_for_help_sub">Talk to a person, in Bangla · %1$s</string>
 </resources>

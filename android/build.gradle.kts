@@ -92,6 +92,15 @@ android {
         versionName = (project.findProperty("versionName") as String?)
             ?: "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // **The support line "Call for help" dials**, for every role,
+        // supplied by the release pipeline from the SUPPORT_PHONE
+        // Actions variable. Digits and a leading + only, so nothing but
+        // a number reaches generated source; empty hides the row.
+        buildConfigField(
+            "String",
+            "SUPPORT_PHONE",
+            "\"${(project.findProperty("supportPhone") as String?).orEmpty().filter { it.isDigit() || it == '+' }}\"",
+        )
     }
 
     // Package layout, not module layout: `core/*` and `feature/*` inside the

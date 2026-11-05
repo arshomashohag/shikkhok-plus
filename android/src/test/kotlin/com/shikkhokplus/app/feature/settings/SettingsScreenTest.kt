@@ -1,5 +1,8 @@
 package com.shikkhokplus.app.feature.settings
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import com.shikkhokplus.app.feature.settings.ui.TAG_SETTINGS_CALL_HELP
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertIsSelected
@@ -65,5 +68,31 @@ class SettingsScreenTest {
 
         compose.onNodeWithTag(TAG_SETTINGS_NOTIFICATIONS).assertIsOff()
         assertEquals(AppSettings(ThemeChoice.LIGHT, TextSizeChoice.LARGE, notifications = false), holder.state.value)
+    }
+
+    @Test
+    fun `call for help dials the build's support number, and is absent without one`() {
+        // Every role reaches Settings, so every role gets the row; a
+        // build with no number draws none rather than a row dialling nothing.
+        val dialled = mutableListOf<String>()
+        var number by mutableStateOf<String?>(null)
+        compose.setContent {
+            ShikkhokTheme {
+                SettingsScreen(
+                    settings = AppSettings(),
+                    onChange = {},
+                    onBack = {},
+                    supportPhone = number,
+                    onCallForHelp = { dialled += it },
+                )
+            }
+        }
+        compose.onNodeWithTag(TAG_SETTINGS_CALL_HELP).assertDoesNotExist()
+
+        number = "+8801711234567"
+        compose.waitForIdle()
+        compose.onNodeWithTag(TAG_SETTINGS_CALL_HELP).performScrollTo().performClick()
+
+        assertEquals(listOf("+8801711234567"), dialled)
     }
 }

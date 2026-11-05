@@ -1,5 +1,9 @@
 package com.shikkhokplus.app.navigation
 
+import androidx.compose.ui.platform.LocalContext
+import android.net.Uri
+import android.content.Intent
+import com.shikkhokplus.app.BuildConfig
 import com.shikkhokplus.app.feature.settings.ui.SettingsScreen
 import com.shikkhokplus.app.core.settings.SettingsHolder
 import androidx.activity.compose.BackHandler
@@ -44,10 +48,19 @@ internal fun NavGraphBuilder.profileRoutes(
     if (settings != null) {
         composable(Destination.Settings.route) {
             val chosen by settings.state.collectAsState()
+            val context = LocalContext.current
             SettingsScreen(
                 settings = chosen,
                 onChange = { next -> settings.update { next } },
                 onBack = { navController.popBackStack() },
+                supportPhone = BuildConfig.SUPPORT_PHONE.ifBlank { null },
+                // The dialler, with the number filled in: the person
+                // presses call. No calling permission is asked for.
+                onCallForHelp = { number ->
+                    runCatching {
+                        context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number")))
+                    }
+                },
             )
         }
     }
