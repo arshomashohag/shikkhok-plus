@@ -42,6 +42,13 @@ export const paths = {
   // students/
   studentAdd: (batchId: string) => `/batches/${id(batchId)}/students/new`,
 
+  // people/ -- a teacher's students, apart from any batch [0018]
+  students: () => '/students',
+  studentNew: (batchId?: string) =>
+    batchId ? `/students/new?batch=${id(batchId)}` : '/students/new',
+  studentDetail: (studentId: string) => `/students/${id(studentId)}`,
+  pickStudents: (batchId: string) => `/batches/${id(batchId)}/students/pick`,
+
   // money/
   payment: (submissionId: string) => `/verify/${id(submissionId)}`,
   seatFees: (enrollmentId: string, name?: string, batch?: string) =>

@@ -17,6 +17,7 @@ export function tabsFor(lens: Lens | null): Tab[] {
       return [
         { to: '/today', label: 'nav_today', icon: 'home' },
         { to: '/batches', label: 'nav_batches', icon: 'layers' },
+        { to: '/students', label: 'nav_students', icon: 'users' },
         { to: '/dues', label: 'nav_dues', icon: 'wallet' },
         more,
       ]

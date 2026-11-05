@@ -664,6 +664,32 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/v1/batches/{batch_id}/students': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Add Students To Batch
+     * @description Seat existing students in one batch, all or nothing.
+     *
+     *     :param batch_id: The batch
+     *     :param body: The students
+     *     :param lens: The teacher lens carrying the owner id
+     *     :param session: The request-scoped session
+     *     :return: How many were added
+     */
+    post: operations['add_students_to_batch_v1_batches__batch_id__students_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/v1/children/{enrollment_id}/calendar': {
     parameters: {
       query?: never
@@ -2398,10 +2424,137 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/v1/students': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List Students
+     * @description List this teacher's students, filtered server-side.
+     *
+     *     :param lens: The teacher lens carrying the owner id
+     *     :param session: The request-scoped session
+     *     :param batch_id: Only students in this batch
+     *     :param unassigned: Only students in no batch
+     *     :param exclude_batch_id: Only students NOT in this batch
+     *     :param q: Only students whose name or number contains this
+     *     :return: One row per student, by name
+     */
+    get: operations['list_students_v1_students_get']
+    put?: never
+    /**
+     * Create Student
+     * @description Record a student, optionally seating them in batches [D3].
+     *
+     *     :param body: The student and their batches
+     *     :param lens: The teacher lens carrying the owner id
+     *     :param session: The request-scoped session
+     *     :return: The new student
+     */
+    post: operations['create_student_v1_students_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/students/{student_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Read Student
+     * @description Read one student with every seat.
+     *
+     *     :param student_id: The student
+     *     :param lens: The teacher lens carrying the owner id
+     *     :param session: The request-scoped session
+     *     :return: The student
+     */
+    get: operations['read_student_v1_students__student_id__get']
+    put?: never
+    post?: never
+    /**
+     * Remove Student
+     * @description Remove a student in no active batch who owes nothing [D4].
+     *
+     *     :param student_id: The student
+     *     :param lens: The teacher lens carrying the owner id
+     *     :param session: The request-scoped session
+     *     :return: None
+     */
+    delete: operations['remove_student_v1_students__student_id__delete']
+    options?: never
+    head?: never
+    /**
+     * Update Student
+     * @description Edit a student's name or numbers, on every seat at once.
+     *
+     *     :param student_id: The student
+     *     :param body: What to change; omitted fields are unchanged
+     *     :param lens: The teacher lens carrying the owner id
+     *     :param session: The request-scoped session
+     *     :return: The student, as edited
+     */
+    patch: operations['update_student_v1_students__student_id__patch']
+    trace?: never
+  }
+  '/v1/students/{student_id}/enrollments': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Enroll Student
+     * @description Put an existing student in one more batch.
+     *
+     *     :param student_id: The student
+     *     :param body: The batch and an optional fee
+     *     :param lens: The teacher lens carrying the owner id
+     *     :param session: The request-scoped session
+     *     :return: The student, with the new seat
+     */
+    post: operations['enroll_student_v1_students__student_id__enrollments_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
 }
 export type webhooks = Record<string, never>
 export interface components {
   schemas: {
+    /**
+     * AddStudentsRequest
+     * @description Seat existing students in one batch, all or nothing.
+     *
+     *     :ivar student_ids: The students
+     */
+    AddStudentsRequest: {
+      /** Student Ids */
+      student_ids: string[]
+    }
+    /**
+     * AddStudentsResponse
+     * @description How many seats were created.
+     *
+     *     :ivar added: The count
+     */
+    AddStudentsResponse: {
+      /** Added */
+      added: number
+    }
     /**
      * AlreadyAddedResponse
      * @description What the lookup may say about a number [BR2.3, BR4.5].
@@ -3950,8 +4103,15 @@ export interface components {
      *         teacher typed the name, so the guardian can answer "is this my
      *         child?" (decided by the owner 2026-11-05). None for a student.
      *         Teacher-authored, never the child's own profile name
+     *     :ivar also_covers: The other batches of the same teacher this
+     *         decision also answers, by name [D1, 0018]. Acceptance is per
+     *         student, so a student in three classes is asked once; the
+     *         person is shown every class they are agreeing to, which keeps
+     *         the invitation at "what you are being asked to join"
      */
     InvitationResponse: {
+      /** Also Covers */
+      also_covers?: string[]
       /** Batch Name */
       batch_name: string
       /** Child Name */
@@ -5262,6 +5422,8 @@ export interface components {
      *     or an amount of its own.
      *
      *     :ivar enrollment_id: The teacher-facing key for this seat
+     *     :ivar student_id: The teacher's student this seat belongs to, the
+     *         teacher's own record and never an account id [0018]
      *     :ivar display_name: The teacher-typed name
      *     :ivar guardian_phone: The teacher-typed guardian contact
      *     :ivar fee_amount: This seat's fee, or null when it inherits
@@ -5308,6 +5470,8 @@ export interface components {
       is_removable: boolean
       /** Status */
       status: string
+      /** Student Id */
+      student_id: string | null
       /** Student State */
       student_state: string
     }
@@ -5663,6 +5827,147 @@ export interface components {
       subjects: string[]
       /** Teacher Display Name */
       teacher_display_name: string | null
+    }
+    /**
+     * StudentCreateRequest
+     * @description Record a student, and optionally seat them in batches [D3].
+     *
+     *     :ivar display_name: The teacher-typed name
+     *     :ivar student_phone: The student's number; unique per teacher [D2]
+     *     :ivar guardian_phone: The guardian's number, if one is recorded
+     *     :ivar enrollments: The batches to put them in, possibly none
+     */
+    StudentCreateRequest: {
+      /** Display Name */
+      display_name: string
+      /** Enrollments */
+      enrollments?: components['schemas']['StudentSeatRequest'][]
+      /** Guardian Phone */
+      guardian_phone?: string | null
+      /** Student Phone */
+      student_phone?: string | null
+    }
+    /**
+     * StudentEnrollRequest
+     * @description Put an existing student in one more batch.
+     *
+     *     :ivar batch_id: The batch
+     *     :ivar fee_amount: This seat's fee, or null to inherit the batch's
+     */
+    StudentEnrollRequest: {
+      /**
+       * Batch Id
+       * Format: uuid
+       */
+      batch_id: string
+      fee_amount?: components['schemas']['Money'] | null
+    }
+    /**
+     * StudentResponse
+     * @description One of this teacher's students, with every seat.
+     *
+     *     :ivar student_id: The student
+     *     :ivar display_name: The teacher-typed name
+     *     :ivar student_phone: The student's number as the teacher typed it
+     *     :ivar guardian_phone: The guardian's number as the teacher typed it
+     *     :ivar student_state: ``pending``, ``accepted`` or ``declined``
+     *     :ivar guardian_state: The same, or ``absent`` with no guardian
+     *     :ivar enrollments: The seats, by batch name; possibly none
+     *     :ivar total_outstanding: What the student owes across every seat
+     *     :ivar is_removable: Whether removing the student would succeed [D4]
+     */
+    StudentResponse: {
+      /** Display Name */
+      display_name: string
+      /** Enrollments */
+      enrollments: components['schemas']['StudentSeatResponse'][]
+      /** Guardian Phone */
+      guardian_phone: string | null
+      /** Guardian State */
+      guardian_state: string
+      /** Is Removable */
+      is_removable: boolean
+      /**
+       * Student Id
+       * Format: uuid
+       */
+      student_id: string
+      /** Student Phone */
+      student_phone: string | null
+      /** Student State */
+      student_state: string
+      total_outstanding: components['schemas']['Money']
+    }
+    /**
+     * StudentSeatRequest
+     * @description One batch to put a new student in.
+     *
+     *     :ivar batch_id: The batch
+     *     :ivar fee_amount: This seat's fee, or null to inherit the batch's.
+     *         Zero is a real fee of zero, a waiver
+     */
+    StudentSeatRequest: {
+      /**
+       * Batch Id
+       * Format: uuid
+       */
+      batch_id: string
+      fee_amount?: components['schemas']['Money'] | null
+    }
+    /**
+     * StudentSeatResponse
+     * @description One of a student's seats.
+     *
+     *     :ivar enrollment_id: The seat, which fees, attendance and marks use
+     *     :ivar batch_id: Its batch
+     *     :ivar batch_name: That batch's name
+     *     :ivar fee_amount: What the seat is charged -- its own fee, else the
+     *         batch default -- or null when neither is set
+     *     :ivar status: ``active``, or ``inactive`` once the student left
+     *     :ivar inactive_from: The date they left, if they did
+     *     :ivar outstanding: What this seat owes now
+     *     :ivar is_removable: Whether the seat itself can be deleted
+     */
+    StudentSeatResponse: {
+      /**
+       * Batch Id
+       * Format: uuid
+       */
+      batch_id: string
+      /** Batch Name */
+      batch_name: string
+      /**
+       * Enrollment Id
+       * Format: uuid
+       */
+      enrollment_id: string
+      fee_amount: components['schemas']['Money'] | null
+      /** Inactive From */
+      inactive_from: string | null
+      /** Is Removable */
+      is_removable: boolean
+      outstanding: components['schemas']['Money']
+      /** Status */
+      status: string
+    }
+    /**
+     * StudentUpdateRequest
+     * @description Edit a student's name or numbers. Omitted fields are unchanged.
+     *
+     *     A number can be changed only while nobody holding it has accepted
+     *     and it was never erased; the name can always change.
+     *
+     *     :ivar display_name: The new name
+     *     :ivar student_phone: The new student number, or null to clear it
+     *     :ivar guardian_phone: The new guardian number, or null to clear it
+     */
+    StudentUpdateRequest: {
+      /** Display Name */
+      display_name?: string | null
+      /** Guardian Phone */
+      guardian_phone?: string | null
+      /** Student Phone */
+      student_phone?: string | null
     }
     /**
      * SubjectOption
@@ -7274,6 +7579,41 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  add_students_to_batch_v1_batches__batch_id__students_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        batch_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AddStudentsRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AddStudentsResponse']
         }
       }
       /** @description Validation Error */
@@ -10364,6 +10704,203 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  list_students_v1_students_get: {
+    parameters: {
+      query?: {
+        batch_id?: string | null
+        unassigned?: boolean
+        exclude_batch_id?: string | null
+        q?: string | null
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['StudentResponse'][]
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  create_student_v1_students_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['StudentCreateRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['StudentResponse']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  read_student_v1_students__student_id__get: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        student_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['StudentResponse']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  remove_student_v1_students__student_id__delete: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        student_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  update_student_v1_students__student_id__patch: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        student_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['StudentUpdateRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['StudentResponse']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  enroll_student_v1_students__student_id__enrollments_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        student_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['StudentEnrollRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['StudentResponse']
         }
       }
       /** @description Validation Error */

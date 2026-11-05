@@ -233,12 +233,14 @@ describe('Students tab', () => {
     expect(screen.getByText("Fee status couldn't load")).toBeInTheDocument()
   })
 
-  it('empty: offers the first student', async () => {
+  it('empty: offers the first student, from the teacher list first', async () => {
+    // Students live apart from any batch [0018], so adding one to a batch
+    // opens the picker of existing students, with "New student" inside it.
     api((_m, u) => (u.endsWith('/roster') ? json(200, []) : json(200, noFees)))
     renderScreen(<StudentsTab {...props} />)
     expect(await screen.findByRole('link', { name: 'Add first student' })).toHaveAttribute(
       'href',
-      '/batches/b1/students/new',
+      '/batches/b1/students/pick',
     )
   })
 })

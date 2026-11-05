@@ -112,7 +112,9 @@ export function StudentsTab({ batchId, batch }: BatchTabProps) {
     }
   }
 
-  const addLink = paths.studentAdd(batchId)
+  // Existing students first, with "New student" for anyone not on the
+  // teacher's list yet [0018].
+  const addLink = paths.pickStudents(batchId)
   let body: React.ReactNode
   if (resource.state === 'loading') {
     body = <Loading rows={5} />

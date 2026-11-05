@@ -26,6 +26,7 @@ import { More } from './features/account/More'
 import { Settings } from './features/account/Settings'
 import { classesRoutes } from './features/teacher/classes'
 import { examsRoutes } from './features/teacher/exams'
+import { peopleRoutes } from './features/teacher/people'
 import { studentsRoutes } from './features/teacher/students'
 import { moneyRoutes } from './features/teacher/money'
 
@@ -39,7 +40,13 @@ const FAMILY_ROUTES = [...batchRoutes, ...payRoutes]
 const READER_LENS: Record<Reader, Lens> = { me: 'student', child: 'guardian' }
 
 /** Routes the teacher areas own (features/teacher/<area>/index.tsx). */
-const AREA_ROUTES = [...classesRoutes, ...examsRoutes, ...studentsRoutes, ...moneyRoutes]
+const AREA_ROUTES = [
+  ...classesRoutes,
+  ...examsRoutes,
+  ...studentsRoutes,
+  ...peopleRoutes,
+  ...moneyRoutes,
+]
 
 function Only({
   lens,

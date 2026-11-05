@@ -23,6 +23,7 @@ function row(patch: Partial<Schemas['RosterRowResponse']> = {}): Schemas['Roster
     is_removable: false,
     status: 'active',
     student_state: 'accepted',
+    student_id: 's1',
     ...patch,
   }
 }
