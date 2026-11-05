@@ -187,3 +187,33 @@ data class PaymentRejectionBodyDto(
     @EncodeDefault @SerialName("note") val note: String? = null,
     @EncodeDefault @SerialName("correcting") val correcting: Boolean = false,
 )
+
+/**
+ * Money a teacher received by hand for one seat, recorded as approved
+ * (`POST /v1/enrollments/{enrollment_id}/payments`).
+ *
+ * **The server decides the money.** It settles the seat's months oldest
+ * first, holds any excess as credit, and refuses a short amount without
+ * [shortfallDisposition] or a disposition on an amount that is not
+ * short. The client only asks the question when the typed amount looks
+ * short, exactly as the approval sheet does.
+ *
+ * @property amount What was received; more than zero
+ * @property channel `cash`, or a mobile service sent straight to the teacher
+ * @property reference A transaction id or receipt number, if any
+ * @property note Shown to the family with the record
+ * @property shortfallDisposition `carried` or `waived`, when short
+ * @property clientMutationId One UUID per opened sheet, reused on every
+ *   resend, so a record whose response was lost is replayed rather
+ *   than recorded twice
+ */
+@OptIn(ExperimentalSerializationApi::class)
+@Serializable
+data class RecordPaymentBodyDto(
+    @EncodeDefault @SerialName("amount") val amount: Money,
+    @EncodeDefault @SerialName("channel") val channel: String = "cash",
+    @EncodeDefault @SerialName("reference") val reference: String? = null,
+    @EncodeDefault @SerialName("note") val note: String? = null,
+    @EncodeDefault @SerialName("shortfall_disposition") val shortfallDisposition: String? = null,
+    @EncodeDefault @SerialName("client_mutation_id") val clientMutationId: String? = null,
+)

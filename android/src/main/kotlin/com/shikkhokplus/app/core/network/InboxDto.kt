@@ -57,6 +57,8 @@ data class NoticeBlockDto(
  * @property subjectName The subject
  * @property totalMarks The marks it is out of
  * @property topics What it covers, in the teacher's words
+ * @property cancelled Whether the teacher has cancelled it; absent from
+ *   a server older than cancelling, which reads as not cancelled
  */
 @Serializable
 data class ExamBlockDto(
@@ -66,6 +68,7 @@ data class ExamBlockDto(
     @SerialName("subject_name") val subjectName: String,
     @SerialName("total_marks") val totalMarks: Int,
     val topics: List<String> = emptyList(),
+    val cancelled: Boolean = false,
 )
 
 /**

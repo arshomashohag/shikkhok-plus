@@ -115,6 +115,9 @@ rather than editing the old one.
 | Design parity | Address in four parts (sign-up, Edit profile) | `O1`, `S4` | *not yet checked* | `address_required` / `address_postcode_invalid` | |
 | Design parity | Guardian invitation names the child | `G4` | *not yet checked* | `invitation_child_yes` | |
 | Design parity | Mark entry: publish bar and decimal key | `T3`, `T7` | *not yet checked* | `mark_entry_published` / `mark_entry_publish` | |
+| Record payment | Teacher's "Record payment" sheet (fee history), short amount showing carry-or-waive | `T5` | *not yet checked* | `fees_record_reference` (33) / `verify_carry_forward_body` | |
+| Exam cancel | "Cancel exam" confirmation on mark entry, and the Cancelled chip on the Exams tab | `T3`, `T7` | *not yet checked* | `exam_cancel_confirm_body` (102) | |
+| Inbox | Payment recorded and exam cancelled items, and the cancelled exam's detail | `S4`, `G4` | *not yet checked* | `marks_exam_published` (61) / `inbox_payment_recorded_body` (43) | |
 
 **D4's seven rows are open, and nothing automated discharges them.**
 The obligation is a check on a device in Bangla locale [team: Testing

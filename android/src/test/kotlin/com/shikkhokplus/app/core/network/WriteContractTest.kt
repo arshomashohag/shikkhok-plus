@@ -72,6 +72,23 @@ class WriteContractTest {
             },
             Write("patch", "/v1/me") { HttpProfileRepository(it).save("Rafi", ADDRESS) },
             Write("post", "/v1/exams/{exam_id}/publish") { HttpMarksRepository(it).publish(ID) },
+            // Cancelling an unpublished exam [0019], with and without a reason.
+            Write("post", "/v1/exams/{exam_id}/cancel") { HttpMarksRepository(it).cancelExam(ID, "Hartal") },
+            Write("post", "/v1/exams/{exam_id}/cancel") { HttpMarksRepository(it).cancelExam(ID, null) },
+            // A teacher records money received by hand, short and carried.
+            Write("post", "/v1/enrollments/{enrollment_id}/payments") {
+                HttpFeesRepository(it).recordPayment(
+                    ID,
+                    RecordPaymentBodyDto(
+                        amount = Money.of("1000.00"),
+                        channel = "bKash",
+                        reference = "9KD7Q2XL1M",
+                        note = "Rest next month",
+                        shortfallDisposition = "carried",
+                        clientMutationId = ID,
+                    ),
+                )
+            },
             Write("delete", "/v1/me") { HttpProfileRepository(it).deleteAccount() },
             Write("post", "/v1/invitations/{enrollment_id}/accept") {
                 HttpInvitationsRepository(it).accept(ID)

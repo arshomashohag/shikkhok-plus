@@ -43,6 +43,7 @@ sealed interface InboxContent {
      * @property subjectName The subject
      * @property totalMarks What it is out of
      * @property topics What it covers
+     * @property cancelled Whether the teacher has cancelled it
      */
     data class Exam(
         val title: String,
@@ -50,6 +51,7 @@ sealed interface InboxContent {
         val subjectName: String,
         val totalMarks: Int,
         val topics: List<String>,
+        val cancelled: Boolean = false,
     ) : InboxContent
 
     /**

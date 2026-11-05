@@ -1,7 +1,9 @@
 package com.shikkhokplus.app.feature.inbox
 
 import com.shikkhokplus.app.core.model.Money
+import com.shikkhokplus.app.core.network.ExamBlockDto
 import com.shikkhokplus.app.core.network.InboxDto
+import com.shikkhokplus.app.core.network.NotificationDetailDto
 import com.shikkhokplus.app.core.network.NotificationDto
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -35,11 +37,12 @@ class InboxMapperTest {
         val known =
             listOf(
                 "fee_reminder", "payment_approved", "payment_partial", "payment_rejected",
-                "notice", "exam_scheduled", "marks_available", "claim_to_verify",
+                "payment_recorded", "notice", "exam_scheduled", "exam_cancelled",
+                "marks_available", "claim_to_verify",
             )
         val kept = messages(*(known + "future").map { dto(it) }.toTypedArray())
 
-        assertEquals(8, kept.size)
+        assertEquals(10, kept.size)
         assertEquals(InboxKind.entries.toSet(), kept.map { it.kind }.toSet())
     }
 
@@ -53,7 +56,10 @@ class InboxMapperTest {
 
     @Test
     fun `notices, exams and payment results open their detail`() {
-        listOf("notice", "exam_scheduled", "payment_approved", "payment_partial", "payment_rejected").forEach {
+        listOf(
+            "notice", "exam_scheduled", "exam_cancelled", "payment_approved", "payment_partial",
+            "payment_rejected", "payment_recorded",
+        ).forEach {
             assertEquals(InboxTarget.Detail("n-1"), InboxMapper.targetOf(messages(dto(it)).single()), it)
         }
     }
@@ -107,5 +113,43 @@ class InboxMapperTest {
             InboxTarget.Detail("n-1"),
             InboxMapper.targetOf(messages(dto("fee_reminder", enrollment = null)).single()),
         )
+    }
+
+    @Test
+    fun `a cancelled exam opens to the exam, marked cancelled`() {
+        val exam =
+            ExamBlockDto(
+                examId = "x-1",
+                title = "Monthly",
+                date = "2026-11-20",
+                subjectName = "Physics",
+                totalMarks = 50,
+                cancelled = true,
+            )
+        val opened =
+            InboxMapper.afterDetail(
+                NotificationDetailDto(
+                    notificationId = "n-1",
+                    kind = "exam_cancelled",
+                    batchName = "Physics",
+                    createdAt = "2026-11-05T06:00:00Z",
+                    read = false,
+                    preview = "Monthly · 2026-11-20",
+                    exam = exam,
+                ),
+            )
+
+        val loaded = assertIs<InboxDetailUiState.Loaded>(opened)
+        assertEquals(InboxKind.EXAM_CANCELLED, loaded.detail.kind)
+        val content = assertIs<InboxContent.Exam>(loaded.detail.content)
+        assertEquals(true, content.cancelled)
+    }
+
+    @Test
+    fun `an exam block from a server older than cancelling reads as not cancelled`() {
+        val exam =
+            ExamBlockDto(examId = "x-1", title = "Monthly", date = "2026-11-20", subjectName = "P", totalMarks = 5)
+
+        assertEquals(false, exam.cancelled)
     }
 }

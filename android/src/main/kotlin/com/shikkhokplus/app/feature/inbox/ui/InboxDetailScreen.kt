@@ -30,6 +30,9 @@ import com.shikkhokplus.app.feature.inbox.PaymentOutcome
 /** The notice that an item can no longer be shown. */
 const val TAG_INBOX_UNAVAILABLE: String = "inbox_unavailable"
 
+/** The line saying an exam was cancelled. */
+const val TAG_INBOX_EXAM_CANCELLED: String = "inbox_exam_cancelled"
+
 /**
  * One opened inbox item.
  *
@@ -146,6 +149,14 @@ private fun NoticeBody(notice: InboxContent.Notice) {
 @Composable
 private fun ExamBody(exam: InboxContent.Exam) {
     Text(Numerals.freeText(exam.title), style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold))
+    if (exam.cancelled) {
+        Text(
+            stringResource(R.string.inbox_exam_cancelled_line),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.testTag(TAG_INBOX_EXAM_CANCELLED),
+        )
+    }
     Field(stringResource(R.string.inbox_exam_date), shortDate(exam.date))
     Field(stringResource(R.string.inbox_exam_subject), Numerals.freeText(exam.subjectName))
     Field(stringResource(R.string.inbox_exam_total), Numerals.count(exam.totalMarks))

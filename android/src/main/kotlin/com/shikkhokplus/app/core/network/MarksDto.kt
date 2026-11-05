@@ -1,5 +1,7 @@
 package com.shikkhokplus.app.core.network
 
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -41,6 +43,19 @@ data class ExamDto(
     val state: String = "complete",
     val topics: List<String> = emptyList(),
     val published: Boolean = false,
+    val cancelled: Boolean = false,
+    @SerialName("cancellation_reason") val cancellationReason: String? = null,
+)
+
+/**
+ * The body of `POST /v1/exams/{exam_id}/cancel`.
+ *
+ * @property reason A short note for the record, or null for none
+ */
+@OptIn(ExperimentalSerializationApi::class)
+@Serializable
+data class ExamCancelBodyDto(
+    @EncodeDefault @SerialName("reason") val reason: String? = null,
 )
 
 /**

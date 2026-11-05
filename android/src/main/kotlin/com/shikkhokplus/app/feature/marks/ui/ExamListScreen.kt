@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -139,6 +140,10 @@ private fun ExamRowView(exam: ExamRow, onOpen: (ExamRow) -> Unit) {
         }
         exam.subjectName?.let { Text(Numerals.freeText(it)) }
         Text(Numerals.freeText(exam.dateLabel))
+        // Kept on the list it was scheduled on, flagged [0019].
+        if (exam.cancelled) {
+            Text(stringResource(R.string.exam_cancelled_chip), color = MaterialTheme.colorScheme.error)
+        }
         // Both numbers are the SERVER's. A numerator formatted against
         // a denominator the client computed would be a count nobody
         // computed.

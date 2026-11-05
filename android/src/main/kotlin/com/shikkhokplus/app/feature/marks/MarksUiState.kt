@@ -15,6 +15,8 @@ package com.shikkhokplus.app.feature.marks
  * @property state `upcoming`, `needs_marks` or `complete`, the server's
  *   grouping for T7's Exams tab
  * @property published Whether its results are out to families
+ * @property cancelled Whether the teacher cancelled it [0019]: kept on
+ *   the list, flagged, and never written to again
  */
 data class ExamRow(
     val examId: String,
@@ -26,6 +28,7 @@ data class ExamRow(
     val expectedCount: Int,
     val state: String = "complete",
     val published: Boolean = false,
+    val cancelled: Boolean = false,
 )
 
 /**
@@ -136,8 +139,10 @@ sealed interface MarksUiState {
      *   guardians; until then they are the teacher's draft (2026-11-05)
      * @property toEnter Seats that could have sat it and have no result,
      *   from the server's counts; publishing waits for none
-     * @property publishError Why the last publish was refused, a message
-     *   key, or null
+     * @property publishError Why the last publish or cancel was refused,
+     *   a message key, or null
+     * @property cancelled Whether the teacher cancelled the exam [0019];
+     *   the server then reports it unwritable as well
      */
     data class EntryLoaded(
         val examId: String,
@@ -150,7 +155,16 @@ sealed interface MarksUiState {
         val published: Boolean = false,
         val toEnter: Int = 0,
         val publishError: String? = null,
-    ) : MarksUiState
+        val cancelled: Boolean = false,
+    ) : MarksUiState {
+        /**
+         * Whether "Cancel exam" is offered: an exam still on whose
+         * results are not out. The server refuses a published one and
+         * answers a second cancel with the exam as it is, so this only
+         * decides whether to show the action.
+         */
+        val canCancel: Boolean get() = !cancelled && !published
+    }
 
     /**
      * The marksheet, as a student or guardian sees it [BR6.2].
