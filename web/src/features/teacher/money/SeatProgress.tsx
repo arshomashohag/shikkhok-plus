@@ -8,6 +8,7 @@ import { useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router'
 import { formatMark, formatShortDate, formatShortMonth } from '../../../core/format'
 import { useResource } from '../../../core/useResource'
+import type { Schemas } from '../../../api/endpoints'
 import { useT } from '../../../i18n/i18n'
 import { ErrorCard, Loading, Section, StaleBanner, TopBar } from '../../../ui/components'
 import { readSeatDashboard, type DashboardRange } from './api'
@@ -27,17 +28,44 @@ export function SeatProgress() {
   const name = search.get('name') ?? undefined
   const batch = search.get('batch') ?? undefined
   const { t } = useT()
-  const [range, setRange] = useState<DashboardRange>('6m')
-  const { resource, reload } = useResource(
-    () => readSeatDashboard(enrollmentId, range).then(mapDashboard),
-    [enrollmentId, range],
+  return (
+    <DashboardView
+      title={t('screen_title_progress')}
+      subtitle={[name, batch].filter(Boolean).join(' · ') || undefined}
+      load={(range) => readSeatDashboard(enrollmentId, range)}
+      feesLink={moneyPaths.seatFees(enrollmentId, name, batch)}
+      cacheKey={enrollmentId}
+    />
   )
-  const subtitle = [name, batch].filter(Boolean).join(' · ') || undefined
+}
+
+/**
+ * The seat dashboard for any reader: the teacher's view of a student and
+ * the family's own view read the same response shape from different
+ * endpoints (`DashboardScreen.kt` takes a reader for the same reason).
+ */
+export function DashboardView({
+  title,
+  subtitle,
+  load,
+  feesLink,
+  cacheKey,
+}: {
+  title: string
+  subtitle?: string
+  load: (range: DashboardRange) => Promise<Schemas['DashboardResponse']>
+  feesLink: string
+  /** Re-read when this changes (the seat). */
+  cacheKey: string
+}) {
+  const { t } = useT()
+  const [range, setRange] = useState<DashboardRange>('6m')
+  const { resource, reload } = useResource(() => load(range).then(mapDashboard), [cacheKey, range])
 
   return (
     <>
-      <TopBar title={t('screen_title_progress')} subtitle={subtitle} back />
-      <div className="chips" role="group" aria-label={t('screen_title_progress')}>
+      <TopBar title={title} subtitle={subtitle} back />
+      <div className="chips" role="group" aria-label={title}>
         {RANGES.map(([value, label]) => (
           <button
             key={value}
@@ -60,7 +88,7 @@ export function SeatProgress() {
             {resource.error ? (
               <StaleBanner error={resource.error} loadedAt={resource.loadedAt} />
             ) : null}
-            <Body d={resource.data} feesLink={moneyPaths.seatFees(enrollmentId, name, batch)} />
+            <Body d={resource.data} feesLink={feesLink} />
           </>
         )}
       </div>
