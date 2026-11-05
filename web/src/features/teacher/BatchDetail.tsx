@@ -70,7 +70,7 @@ export function BatchDetail() {
             <Link
               className="icon-btn"
               to={paths.batchEdit(batchId)}
-              aria-label={t('web_batch_edit')}
+              aria-label={t('batch_edit_title')}
             >
               <EditIcon size={22} />
             </Link>

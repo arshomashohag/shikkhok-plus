@@ -19,6 +19,5 @@
   "web_role_none": "No role yet",
   "web_shared_computer": "On a shared computer, log out when you're done.",
   "web_verify_rejected": "Rejected {1}'s payment",
-  "web_verify_offline": "No connection. Nothing was approved.",
-  "web_batch_edit": "Edit batch"
+  "web_verify_offline": "No connection. Nothing was approved."
 }
