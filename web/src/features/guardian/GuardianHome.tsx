@@ -15,6 +15,7 @@ import { readGuardianHome, type Schemas } from '../../api/endpoints'
 import { formatMark, formatMonth, formatPhone, formatShortDate, initial } from '../../core/format'
 import { Money } from '../../core/money'
 import { useResource } from '../../core/useResource'
+import { useWide } from '../../core/useWide'
 import { useT } from '../../i18n/i18n'
 import { useReadySession } from '../../session/session'
 import {
@@ -100,6 +101,7 @@ export function GuardianHome() {
 
 function ChildView({ child }: { child: Child }) {
   const { t, lang } = useT()
+  const wide = useWide()
   const name = child.display_name
   const pay = child.next_payment ?? null
 
@@ -119,104 +121,111 @@ function ChildView({ child }: { child: Child }) {
         </div>
       </div>
 
-      {pay ? (
-        <div className="card">
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              gap: 8,
-              alignItems: 'center',
-            }}
-          >
-            <span className="label">{t('guardian_next_payment', name)}</span>
-            {pay.days_late !== null && pay.days_late !== undefined ? (
-              <span className="chip chip-overdue">
-                <WarningIcon size={14} />
-                {t('guardian_days_late', pay.days_late)}
-              </span>
-            ) : null}
-          </div>
-          <div className="hero-amount">{Money.fromWire(pay.amount_due).format()}</div>
-          <div className="meta">
-            {[
-              pay.batch_name,
-              formatMonth(pay.period, lang),
-              pay.due_date ? t('guardian_due_on', formatShortDate(pay.due_date, lang)) : null,
-            ]
-              .filter(Boolean)
-              .join(' · ')}
-          </div>
-          {pay.later_periods > 0 ? (
-            <div className="meta">
-              {t('guardian_more_owed', pay.later_periods, Money.fromWire(pay.total_due).format())}
+      <div className={wide ? 'dash dash-2' : undefined}>
+        <div>
+          {pay ? (
+            <div className="card" style={wide ? { border: '2px solid var(--primary)' } : undefined}>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  gap: 8,
+                  alignItems: 'center',
+                }}
+              >
+                <span className="label">{t('guardian_next_payment', name)}</span>
+                {pay.days_late !== null && pay.days_late !== undefined ? (
+                  <span className="chip chip-overdue">
+                    <WarningIcon size={14} />
+                    {t('guardian_days_late', pay.days_late)}
+                  </span>
+                ) : null}
+              </div>
+              <div className="hero-amount">{Money.fromWire(pay.amount_due).format()}</div>
+              <div className="meta">
+                {[
+                  pay.batch_name,
+                  formatMonth(pay.period, lang),
+                  pay.due_date ? t('guardian_due_on', formatShortDate(pay.due_date, lang)) : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </div>
+              {pay.later_periods > 0 ? (
+                <div className="meta">
+                  {t(
+                    'guardian_more_owed',
+                    pay.later_periods,
+                    Money.fromWire(pay.total_due).format(),
+                  )}
+                </div>
+              ) : null}
+              {/* G1: Pay opens the child's payments first, as on Android; that
+              screen offers Send money. */}
+              <div className="button-row">
+                <Link
+                  className="btn btn-primary btn-money"
+                  to={familyPaths.payments('child', pay.enrollment_id)}
+                >
+                  {t('guardian_pay_amount', Money.fromWire(pay.amount_due).format())}
+                </Link>
+              </div>
             </div>
           ) : null}
-          {/* G1: Pay opens the child's payments first, as on Android; that
-              screen offers Send money. */}
-          <div className="button-row">
+
+          {(child.waiting ?? []).map((w, i) => (
             <Link
-              className="btn btn-primary btn-money"
-              to={familyPaths.payments('child', pay.enrollment_id)}
+              key={i}
+              className="card card-link"
+              to={familyPaths.payments(
+                'child',
+                pay?.enrollment_id ?? child.batches?.[0]?.enrollment_id ?? '',
+              )}
+              style={{ display: 'flex', gap: 12, alignItems: 'center' }}
             >
-              {t('guardian_pay_amount', Money.fromWire(pay.amount_due).format())}
-            </Link>
-          </div>
-        </div>
-      ) : null}
-
-      {(child.waiting ?? []).map((w, i) => (
-        <Link
-          key={i}
-          className="card card-link"
-          to={familyPaths.payments(
-            'child',
-            pay?.enrollment_id ?? child.batches?.[0]?.enrollment_id ?? '',
-          )}
-          style={{ display: 'flex', gap: 12, alignItems: 'center' }}
-        >
-          <div className="grow">
-            <div className="title">
-              {w.batch_name} · {formatMonth(w.period, lang)}
-            </div>
-            <div className="amount">{Money.fromWire(w.amount).format()}</div>
-            {w.submitted_at ? (
-              <div className="meta">
-                {t('guardian_sent_checking', formatShortDate(w.submitted_at, lang))}
+              <div className="grow">
+                <div className="title">
+                  {w.batch_name} · {formatMonth(w.period, lang)}
+                </div>
+                <div className="amount">{Money.fromWire(w.amount).format()}</div>
+                {w.submitted_at ? (
+                  <div className="meta">
+                    {t('guardian_sent_checking', formatShortDate(w.submitted_at, lang))}
+                  </div>
+                ) : null}
               </div>
-            ) : null}
-          </div>
-          <FeeChip chip={{ kind: 'verifying', amount: null }} />
-        </Link>
-      ))}
-
-      <Section title={t('guardian_latest_results', name)}>
-        {(child.latest_results ?? []).length === 0 ? (
-          <div className="card meta">{t('student_results_empty')}</div>
-        ) : (
-          <ul className="card flush list">
-            {(child.latest_results ?? []).map((r, i) => (
-              <li key={i}>
-                <Link className="row" to={familyPaths.progress('child', r.enrollment_id)}>
-                  <div className="grow">
-                    <div className="title">{r.batch_name}</div>
-                    <div className="meta">
-                      {r.title} · {formatShortDate(r.date, lang)}
+              <FeeChip chip={{ kind: 'verifying', amount: null }} />
+            </Link>
+          ))}
+        </div>
+        <Section title={t('guardian_latest_results', name)}>
+          {(child.latest_results ?? []).length === 0 ? (
+            <div className="card meta">{t('student_results_empty')}</div>
+          ) : (
+            <ul className="card flush list">
+              {(child.latest_results ?? []).map((r, i) => (
+                <li key={i}>
+                  <Link className="row" to={familyPaths.progress('child', r.enrollment_id)}>
+                    <div className="grow">
+                      <div className="title">{r.batch_name}</div>
+                      <div className="meta">
+                        {r.title} · {formatShortDate(r.date, lang)}
+                      </div>
                     </div>
-                  </div>
-                  <div className="end">
-                    <span>
-                      <strong style={{ fontSize: '1.25rem' }}>{formatMark(r.marks)}</strong>
-                      {t('student_out_of', r.total_marks)}
-                    </span>
-                    <span className="meta">{trendLine(r, t)}</span>
-                  </div>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Section>
+                    <div className="end">
+                      <span>
+                        <strong style={{ fontSize: '1.25rem' }}>{formatMark(r.marks)}</strong>
+                        {t('student_out_of', r.total_marks)}
+                      </span>
+                      <span className="meta">{trendLine(r, t)}</span>
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Section>
+      </div>
 
       <Section title={t('guardian_batches_of', name)}>
         <ul className="card flush list">

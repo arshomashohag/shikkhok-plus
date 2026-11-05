@@ -50,7 +50,7 @@
   min-width: 0;
 }
 
-.kv {
+.kv-row {
   display: flex;
   justify-content: space-between;
   gap: var(--s3);

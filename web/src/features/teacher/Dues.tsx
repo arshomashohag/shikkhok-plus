@@ -17,6 +17,7 @@ import { readDues } from '../../api/endpoints'
 import { ApiError } from '../../api/errors'
 import { ago, formatShortMonth } from '../../core/format'
 import { useOnline, useResource } from '../../core/useResource'
+import { useWide } from '../../core/useWide'
 import { useT } from '../../i18n/i18n'
 import {
   ErrorCard,
@@ -50,6 +51,7 @@ export function Dues() {
   const [lateOnly, setLateOnly] = useState(false)
   const [notReminded, setNotReminded] = useState(false)
   const online = useOnline()
+  const wide = useWide()
   const [confirming, setConfirming] = useState(false)
   const [sending, setSending] = useState(false)
   const [snack, setSnack] = useState<string | null>(null)
@@ -133,98 +135,155 @@ export function Dues() {
       />
       {resource.error ? <StaleBanner error={resource.error} loadedAt={resource.loadedAt} /> : null}
 
-      <div className="card" style={{ marginTop: resource.error ? 12 : 0 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          <span className="label">{t('dues_owed_to_you')}</span>
-          <span className="meta">{t('dues_students', model.count)}</span>
+      <div
+        className={wide ? 'card dues-summary' : 'card'}
+        style={{ marginTop: resource.error ? 12 : 0 }}
+      >
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span className="label">{t('dues_owed_to_you')}</span>
+            <span className="meta">{t('dues_students', model.count)}</span>
+          </div>
+          <div className="hero-amount">{model.total.format()}</div>
         </div>
-        <div className="hero-amount">{model.total.format()}</div>
-        <div
-          className="progress-bar"
-          role="img"
-          aria-label={t(
-            'dues_bar_description',
-            ...BUCKET_ORDER.map((b) => model.groups.find((g) => g.bucket === b)?.count ?? 0),
+        <div>
+          <div
+            className="progress-bar"
+            role="img"
+            aria-label={t(
+              'dues_bar_description',
+              ...BUCKET_ORDER.map((b) => model.groups.find((g) => g.bucket === b)?.count ?? 0),
+            )}
+          >
+            {BUCKET_ORDER.map((b) => {
+              const g = model.groups.find((x) => x.bucket === b)
+              // `share` is the server's percentage of the total; drawn, not computed.
+              return g ? (
+                <span key={b} style={{ width: `${g.share}%`, background: SWATCH[b] }} />
+              ) : null
+            })}
+          </div>
+          <ul className="legend">
+            {BUCKET_ORDER.map((b) => {
+              const g = model.groups.find((x) => x.bucket === b)
+              if (!g) return null
+              return (
+                <li key={b}>
+                  <span className="swatch" style={{ background: SWATCH[b] }} />
+                  <span className="grow">{t('dues_legend', t(BUCKET_LABEL[b]), g.count)}</span>
+                  <span className="amount">{g.total.format()}</span>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      </div>
+
+      {wide ? (
+        <section className="card flush" style={{ marginTop: 24 }}>
+          <div className="toolbar">
+            <div className="chips">
+              <button
+                type="button"
+                className="chip chip-filter"
+                aria-pressed={lateOnly}
+                onClick={() => setLateOnly((v) => !v)}
+              >
+                {t('dues_filter_late')}
+              </button>
+              <button
+                type="button"
+                className="chip chip-filter"
+                aria-pressed={notReminded}
+                onClick={() => setNotReminded((v) => !v)}
+              >
+                {t('dues_filter_not_reminded')}
+              </button>
+            </div>
+          </div>
+          {grouped.length === 0 ? (
+            <p className="meta" style={{ padding: '16px 20px', margin: 0 }}>
+              {t('dues_filter_empty')}
+            </p>
+          ) : (
+            <DuesTable groups={grouped} />
           )}
-        >
-          {BUCKET_ORDER.map((b) => {
-            const g = model.groups.find((x) => x.bucket === b)
-            // `share` is the server's percentage of the total; drawn, not computed.
-            return g ? (
-              <span key={b} style={{ width: `${g.share}%`, background: SWATCH[b] }} />
-            ) : null
-          })}
-        </div>
-        <ul className="legend">
-          {BUCKET_ORDER.map((b) => {
-            const g = model.groups.find((x) => x.bucket === b)
-            if (!g) return null
-            return (
-              <li key={b}>
-                <span className="swatch" style={{ background: SWATCH[b] }} />
-                <span className="grow">{t('dues_legend', t(BUCKET_LABEL[b]), g.count)}</span>
-                <span className="amount">{g.total.format()}</span>
-              </li>
-            )
-          })}
-        </ul>
-      </div>
-
-      <div className="chips" style={{ marginTop: 16 }}>
-        <button
-          type="button"
-          className="chip chip-filter"
-          aria-pressed={lateOnly}
-          onClick={() => setLateOnly((v) => !v)}
-        >
-          {t('dues_filter_late')}
-        </button>
-        <button
-          type="button"
-          className="chip chip-filter"
-          aria-pressed={notReminded}
-          onClick={() => setNotReminded((v) => !v)}
-        >
-          {t('dues_filter_not_reminded')}
-        </button>
-      </div>
-
-      {grouped.length === 0 ? (
-        <p className="meta" style={{ marginTop: 16 }}>
-          {t('dues_filter_empty')}
-        </p>
+          {model.remindable > 0 ? (
+            <div className="dues-foot">
+              <span className="meta">
+                {online ? t('dues_remind_note') : t('web_dues_remind_offline')}
+              </span>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={!online || sending || resource.error !== null || resource.refreshing}
+                onClick={() => setConfirming(true)}
+              >
+                <BellIcon />
+                {t('dues_remind_button', model.remindable)}
+              </button>
+            </div>
+          ) : null}
+        </section>
       ) : (
-        grouped.map((g) => (
-          <Section
-            key={g.bucket}
-            title={t(BUCKET_LABEL[g.bucket])}
-            aside={g.total ? <span className="amount">{g.total.format()}</span> : null}
-          >
-            <ul className="card flush list">
-              {g.rows.map((r) => (
-                <DuesRowItem key={r.enrollmentId} row={r} />
-              ))}
-            </ul>
-          </Section>
-        ))
-      )}
+        <>
+          <div className="chips" style={{ marginTop: 16 }}>
+            <button
+              type="button"
+              className="chip chip-filter"
+              aria-pressed={lateOnly}
+              onClick={() => setLateOnly((v) => !v)}
+            >
+              {t('dues_filter_late')}
+            </button>
+            <button
+              type="button"
+              className="chip chip-filter"
+              aria-pressed={notReminded}
+              onClick={() => setNotReminded((v) => !v)}
+            >
+              {t('dues_filter_not_reminded')}
+            </button>
+          </div>
 
-      {model.remindable > 0 ? (
-        <div className="action-bar">
-          <button
-            type="button"
-            className="btn btn-primary btn-money"
-            disabled={!online || sending || resource.error !== null || resource.refreshing}
-            onClick={() => setConfirming(true)}
-          >
-            <BellIcon />
-            {t('dues_remind_button', model.remindable)}
-          </button>
-          <p className="meta" style={{ textAlign: 'center', margin: '8px 0 0' }}>
-            {online ? t('dues_remind_note') : t('web_dues_remind_offline')}
-          </p>
-        </div>
-      ) : null}
+          {grouped.length === 0 ? (
+            <p className="meta" style={{ marginTop: 16 }}>
+              {t('dues_filter_empty')}
+            </p>
+          ) : (
+            grouped.map((g) => (
+              <Section
+                key={g.bucket}
+                title={t(BUCKET_LABEL[g.bucket])}
+                aside={g.total ? <span className="amount">{g.total.format()}</span> : null}
+              >
+                <ul className="card flush list">
+                  {g.rows.map((r) => (
+                    <DuesRowItem key={r.enrollmentId} row={r} />
+                  ))}
+                </ul>
+              </Section>
+            ))
+          )}
+
+          {model.remindable > 0 ? (
+            <div className="action-bar">
+              <button
+                type="button"
+                className="btn btn-primary btn-money"
+                disabled={!online || sending || resource.error !== null || resource.refreshing}
+                onClick={() => setConfirming(true)}
+              >
+                <BellIcon />
+                {t('dues_remind_button', model.remindable)}
+              </button>
+              <p className="meta" style={{ textAlign: 'center', margin: '8px 0 0' }}>
+                {online ? t('dues_remind_note') : t('web_dues_remind_offline')}
+              </p>
+            </div>
+          ) : null}
+        </>
+      )}
       {confirming ? (
         <Sheet
           title={t('dues_remind_confirm_title', model.remindable)}
@@ -279,5 +338,72 @@ function DuesRowItem({ row }: { row: DuesRow }) {
         <FeeChip chip={duesChip(row)} />
       </div>
     </li>
+  )
+}
+
+function monthsOf(row: DuesRow, lang: 'bn' | 'en'): string | null {
+  return row.oldestPeriod && row.latestPeriod && row.oldestPeriod !== row.latestPeriod
+    ? `${formatShortMonth(row.oldestPeriod, lang)}–${formatShortMonth(row.latestPeriod, lang)}`
+    : row.latestPeriod
+      ? formatShortMonth(row.latestPeriod, lang)
+      : null
+}
+
+/**
+ * The wide-window form: one table, the server's buckets as group rows,
+ * each with the server's total for it.
+ */
+function DuesTable({
+  groups,
+}: {
+  groups: { bucket: DuesBucket; rows: DuesRow[]; total: import('../../core/money').Money | null }[]
+}) {
+  const { t, lang } = useT()
+  return (
+    <div className="table-wrap">
+      <table className="data-table">
+        <thead>
+          <tr>
+            <th scope="col">{t('web_dues_col_student')}</th>
+            <th scope="col">{t('web_dues_col_batch')}</th>
+            <th scope="col">{t('web_dues_col_months')}</th>
+            <th scope="col">{t('web_dues_col_reminded')}</th>
+            <th scope="col" className="num">
+              {t('web_dues_col_owed')}
+            </th>
+            <th scope="col">{t('web_dues_col_late')}</th>
+          </tr>
+        </thead>
+        {groups.map((g) => (
+          <tbody key={g.bucket}>
+            <tr className="group">
+              <td colSpan={4}>{t(BUCKET_LABEL[g.bucket])}</td>
+              <td className="num">{g.total ? g.total.format() : ''}</td>
+              <td />
+            </tr>
+            {g.rows.map((r) => (
+              <tr key={r.enrollmentId}>
+                <td className="title">{r.displayName}</td>
+                <td>{r.batchName}</td>
+                <td>{monthsOf(r, lang) ?? '—'}</td>
+                <td>
+                  {r.lastRemindedAt ? (
+                    <span className="meta">{ago(r.lastRemindedAt, new Date(), t)}</span>
+                  ) : r.bucket !== 'not_late' ? (
+                    <span className="meta danger">{t('web_dues_never')}</span>
+                  ) : (
+                    <span className="meta">—</span>
+                  )}
+                </td>
+                <td className="num amount">{r.outstanding.format()}</td>
+                <td>
+                  <FeeChip chip={duesChip(r)} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        ))}
+      </table>
+    </div>
   )
 }

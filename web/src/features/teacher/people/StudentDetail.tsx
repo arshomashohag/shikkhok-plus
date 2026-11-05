@@ -91,15 +91,15 @@ export function StudentDetail() {
         back={paths.students()}
       />
       <section className="card" style={{ marginTop: 8 }}>
-        <div className="kv">
+        <div className="kv-row">
           <span className="meta">{t('student_detail_student_link')}</span>
           <span className="title">{t(linkKey(student.studentState))}</span>
         </div>
-        <div className="kv">
+        <div className="kv-row">
           <span className="meta">{guardianLabel}</span>
           <span className="title">{t(linkKey(student.guardianState))}</span>
         </div>
-        <div className="kv">
+        <div className="kv-row">
           <span className="meta">{t('student_detail_total_due')}</span>
           <span className="title">{student.totalOutstanding.format()}</span>
         </div>

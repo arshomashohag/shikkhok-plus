@@ -12,10 +12,18 @@ import { signUp } from '../../api/endpoints'
 import { ApiError } from '../../api/errors'
 import { normalisePhone } from '../../core/format'
 import { toLatinDigits } from '../../core/money'
+import { AuthFrame } from './AuthFrame'
+import { GraduationIcon, TeacherIcon, UsersIcon } from '../../ui/icons'
 import { useT } from '../../i18n/i18n'
 
 type Role = 'teacher' | 'student' | 'guardian'
 type FieldName = 'name' | 'phone' | 'house' | 'road' | 'city' | 'postcode'
+
+const ROLE_ICONS = {
+  teacher: TeacherIcon,
+  student: GraduationIcon,
+  guardian: UsersIcon,
+} as const
 
 export function SignUp() {
   const { t, message } = useT()
@@ -97,44 +105,56 @@ export function SignUp() {
   )
 
   return (
-    <div className="auth-page">
-      <form className="auth-card card" onSubmit={onSubmit} noValidate>
-        <div className="brand">
-          <img src={`${import.meta.env.BASE_URL}icons/favicon.svg`} alt="" />
-          <span>ShikkhokPlus</span>
-        </div>
+    <AuthFrame wide>
+      <form onSubmit={onSubmit} noValidate>
         <h1>{t('signup_title')}</h1>
         <p className="meta">{t('signup_subhead')}</p>
 
         <fieldset className="field">
           <legend>{t('signup_role_label')}</legend>
-          <div className="segmented" role="group">
-            {(['teacher', 'student', 'guardian'] as const).map((r) => (
-              <button key={r} type="button" aria-pressed={role === r} onClick={() => setRole(r)}>
-                {t(`signup_role_${r}`)}
-              </button>
-            ))}
+          <div className="role-tiles" role="group">
+            {(['teacher', 'student', 'guardian'] as const).map((r) => {
+              const Icon = ROLE_ICONS[r]
+              return (
+                <button
+                  key={r}
+                  type="button"
+                  className="role-tile"
+                  aria-pressed={role === r}
+                  onClick={() => setRole(r)}
+                >
+                  <Icon size={28} />
+                  {t(`signup_role_${r}`)}
+                </button>
+              )
+            })}
           </div>
           <span className="help">{t(`signup_role_help_${role}`)}</span>
         </fieldset>
 
-        {field('name', t('signup_name_label'), { autoComplete: 'name' })}
-        <span className="help">{t('signup_name_help')}</span>
-        {field('phone', t('signup_phone_label'), {
-          type: 'tel',
-          inputMode: 'tel',
-          autoComplete: 'tel-national',
-          placeholder: t('auth_phone_hint'),
-        })}
-        <span className="help">{t('signup_phone_help')}</span>
-        {field('house', t('address_house_label'), { autoComplete: 'address-line1' })}
-        {field('road', t('address_road_label'), { autoComplete: 'address-line2' })}
-        {field('city', t('address_city_label'), { autoComplete: 'address-level2' })}
-        {field('postcode', t('address_postcode_label'), {
-          inputMode: 'numeric',
-          autoComplete: 'postal-code',
-          maxLength: '4',
-        })}
+        <div className="form-2">
+          <div>
+            {field('name', t('signup_name_label'), { autoComplete: 'name' })}
+            <span className="help">{t('signup_name_help')}</span>
+          </div>
+          <div>
+            {field('phone', t('signup_phone_label'), {
+              type: 'tel',
+              inputMode: 'tel',
+              autoComplete: 'tel-national',
+              placeholder: t('auth_phone_hint'),
+            })}
+            <span className="help">{t('signup_phone_help')}</span>
+          </div>
+          {field('house', t('address_house_label'), { autoComplete: 'address-line1' })}
+          {field('road', t('address_road_label'), { autoComplete: 'address-line2' })}
+          {field('city', t('address_city_label'), { autoComplete: 'address-level2' })}
+          {field('postcode', t('address_postcode_label'), {
+            inputMode: 'numeric',
+            autoComplete: 'postal-code',
+            maxLength: '4',
+          })}
+        </div>
 
         {formError ? (
           <div className="banner error" role="alert" style={{ marginTop: 16 }}>
@@ -151,6 +171,6 @@ export function SignUp() {
           {t('signup_have_account')} <Link to="/signin">{t('signup_log_in')}</Link>
         </p>
       </form>
-    </div>
+    </AuthFrame>
   )
 }

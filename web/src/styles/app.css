@@ -152,10 +152,37 @@ a {
 .rail {
   display: none;
 }
+/* The rail's count sits after the label; the bottom bar's on the icon. */
+.nav-count {
+  display: none;
+}
+/* Wide-window-only and phone-only pieces of one screen. */
+@media (max-width: 899.98px) {
+  .desktop-only {
+    display: none !important;
+  }
+}
+@media (min-width: 900px) {
+  .mobile-only {
+    display: none !important;
+  }
+}
 
+/*
+ * Desktop (the web boards, "Web · …"): a white side rail, then the
+ * content a small gap to its right on the page tone, filling the window
+ * up to --content-max. Left-aligned on purpose: centring a narrow
+ * column leaves empty bands either side, which reads as a stretched
+ * phone screen rather than a desktop application.
+ */
 @media (min-width: 900px) {
   .shell {
-    flex-direction: row;
+    display: grid;
+    grid-template-columns: var(--rail-width) minmax(0, 1fr);
+    align-items: start;
+  }
+  .shell.rail-collapsed {
+    grid-template-columns: var(--rail-collapsed) minmax(0, 1fr);
   }
   .bottom-nav {
     display: none;
@@ -166,54 +193,180 @@ a {
     display: flex;
     flex-direction: column;
     gap: var(--s1);
-    width: var(--rail-width);
     height: 100dvh;
-    flex-shrink: 0;
-    padding: var(--s4) var(--s3);
-    padding-top: calc(var(--s4) + env(titlebar-area-height, 0px));
+    min-width: 0;
+    padding: 20px var(--s3);
+    padding-top: calc(20px + env(titlebar-area-height, 0px));
     background: var(--surface);
-    border-right: 1px solid var(--outline-variant);
+    border-right: 1px solid var(--divider);
     overflow-y: auto;
+  }
+  .rail-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s2);
+    padding: 0 0 20px var(--s2);
   }
   .rail-brand {
     display: flex;
     align-items: center;
-    gap: var(--s3);
-    padding: var(--s2) var(--s3) var(--s6);
-    font-weight: 700;
-    font-size: 1.125rem;
+    gap: 10px;
+    min-width: 0;
+    font-weight: 800;
+    font-size: 1.25rem;
+    line-height: 28px;
+    color: var(--on-surface);
+    text-decoration: none;
   }
   .rail-brand img {
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+  }
+  .rail-brand .plus {
+    color: #5b8ed6;
+  }
+  .rail-toggle {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--on-surface-variant);
+    cursor: pointer;
+  }
+  .rail-toggle:hover {
+    background: var(--surface-container);
+    color: var(--on-surface);
   }
   .rail .nav-item {
-    flex: 0;
+    flex: none;
     flex-direction: row;
+    justify-content: flex-start;
     gap: var(--s3);
-    padding: 0 var(--s3);
+    min-height: 44px;
+    padding: 0 14px;
     border-radius: var(--r-pill);
     font-size: 0.9375rem;
+    font-weight: 600;
+  }
+  .rail .nav-item:hover {
+    background: var(--surface-container);
+    color: var(--on-surface);
   }
   .rail .nav-item .nav-icon {
     width: auto;
+    height: auto;
     background: none;
   }
   .rail .nav-item.active {
     background: var(--primary-container);
     color: var(--on-primary-container);
+    font-weight: 700;
+  }
+  .rail .nav-item.active .nav-icon {
+    background: none;
+  }
+  .rail .nav-item .nav-icon .nav-badge {
+    display: none;
+  }
+  .rail .nav-count {
+    display: inline-block;
+    margin-left: auto;
+    min-width: 24px;
+    height: 22px;
+    padding: 0 7px;
+    border-radius: 11px;
+    background: var(--overdue-fill);
+    color: var(--on-overdue-fill);
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 22px;
+    text-align: center;
   }
   .rail-footer {
     margin-top: auto;
     display: flex;
     flex-direction: column;
-    gap: var(--s2);
-    padding: var(--s3);
-    font-size: 0.8125rem;
-    color: var(--on-surface-variant);
+    gap: var(--s3);
+    padding-top: var(--s3);
   }
+  .rail-me {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    padding: 14px var(--s2) 0;
+    border-top: 1px solid var(--divider);
+    color: inherit;
+    text-decoration: none;
+  }
+  .rail-me .who {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .rail-me .name {
+    font-size: 0.875rem;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .rail-me .meta {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Collapsed: icons only, the labels kept for screen readers. */
+  .rail-collapsed .rail-top {
+    flex-direction: column;
+    padding: 0 0 16px;
+    gap: var(--s3);
+  }
+  .rail-collapsed .rail-brand span,
+  .rail-collapsed .rail .nav-label,
+  .rail-collapsed .rail-me .who,
+  .rail-collapsed .rail-footer .btn span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .rail-collapsed .rail .nav-item {
+    justify-content: center;
+    padding: 0;
+    position: relative;
+  }
+  .rail-collapsed .rail .nav-count {
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    font-size: 0.6875rem;
+    line-height: 18px;
+  }
+  .rail-collapsed .rail-me {
+    justify-content: center;
+    padding: 14px 0 0;
+  }
+  .rail-collapsed .rail-footer .btn {
+    padding: 0;
+  }
+
   .shell-main {
-    padding: var(--s4) var(--s6) var(--s8);
+    max-width: var(--content-max);
+    margin: 0;
+    padding: 28px 40px 56px;
   }
   .tabs {
     margin-left: 0;
@@ -274,10 +427,33 @@ a {
 }
 
 @media (min-width: 900px) {
+  /* The page header of the web boards: a 30px title, its line under it,
+     and the screen's actions at the right end of the same row. */
   .top-bar {
-    margin: 0 calc(-1 * var(--s6)) var(--s2);
-    padding-left: var(--s6);
-    padding-right: var(--s6);
+    position: static;
+    align-items: flex-end;
+    gap: var(--s4);
+    margin: 0 0 var(--s6);
+    padding: env(titlebar-area-height, 0px) 0 0;
+    background: none;
+  }
+  .top-bar h1 {
+    font-size: 1.875rem;
+    line-height: 44px;
+    font-weight: 700;
+  }
+  .top-bar .subtitle {
+    margin-top: 0;
+    font-size: 0.875rem;
+    line-height: 22px;
+  }
+  .top-bar .actions {
+    flex-wrap: wrap;
+    gap: var(--s3);
+    align-self: flex-end;
+  }
+  .top-bar .icon-btn {
+    align-self: center;
   }
 }
 
@@ -902,33 +1078,103 @@ fieldset.field {
   overflow-wrap: anywhere;
 }
 
-/* Auth: centred card on desktop, full-bleed on a phone. */
+/* Auth: the brand panel and the form, side by side on a wide window. */
 .auth-page {
   min-height: 100dvh;
   display: flex;
+  flex-direction: column;
+  background: var(--surface);
+}
+.auth-hero {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  padding: var(--s6) var(--s4);
+  background: #1d4f91;
+  color: #ffffff;
+}
+.auth-brand {
+  display: flex;
   align-items: center;
+  gap: 14px;
+  font-size: 1.5rem;
+  line-height: 1.3;
+  font-weight: 800;
+}
+.auth-brand .plus {
+  color: #a9c7ff;
+}
+.auth-tagline {
+  margin: 0;
+  max-width: 400px;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: #d8e3f7;
+}
+.auth-points {
+  display: none;
+  list-style: none;
+  margin: auto 0 0;
+  padding: 0;
+  flex-direction: column;
+  gap: 18px;
+}
+.auth-points li {
+  display: flex;
+  gap: var(--s3);
+  align-items: flex-start;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+.auth-points svg {
+  flex-shrink: 0;
+  margin-top: 3px;
+  color: #a9c7ff;
+}
+.auth-panel {
+  flex: 1;
+  display: flex;
   justify-content: center;
-  padding: var(--s4);
+  padding: var(--s6) var(--s4) 40px;
 }
 .auth-card {
   width: 100%;
   max-width: 440px;
 }
-.auth-card .brand {
-  display: flex;
-  align-items: center;
-  gap: var(--s3);
-  margin-bottom: var(--s6);
-  font-weight: 700;
-  font-size: 1.25rem;
-}
-.auth-card .brand img {
-  width: 48px;
-  height: 48px;
+.auth-card.wide {
+  max-width: 520px;
 }
 .auth-card h1 {
   margin: 0 0 var(--s2);
   font-size: 1.5rem;
+  line-height: 1.4;
+}
+@media (min-width: 900px) {
+  .auth-page {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  }
+  .auth-hero {
+    gap: var(--s8);
+    padding: 48px 56px;
+  }
+  .auth-brand {
+    font-size: 1.875rem;
+  }
+  .auth-tagline {
+    font-size: 1.0625rem;
+  }
+  .auth-points {
+    display: flex;
+  }
+  .auth-panel {
+    align-items: center;
+    padding: 48px var(--s6);
+  }
+  .auth-card h1 {
+    font-size: 1.875rem;
+    line-height: 44px;
+  }
 }
 
 .otp-input {
@@ -1014,4 +1260,371 @@ fieldset.field {
     animation: none !important;
     transition: none !important;
   }
+}
+
+/* ------------------------------------------------------- desktop */
+
+/*
+ * On a wide window surfaces become the boards' panels: white on the page
+ * tone, a hairline border, 16px corners. Rows divide with the same
+ * hairline. Nothing changes on a phone.
+ */
+@media (min-width: 900px) {
+  .card {
+    border: 1px solid var(--divider);
+    border-radius: var(--r-panel);
+    padding: 20px;
+  }
+  .card.flush {
+    padding: 0;
+  }
+  .row {
+    border-top-color: var(--divider);
+    padding: 14px 20px;
+  }
+  .section {
+    margin-top: var(--s6);
+  }
+  .section-head {
+    margin-bottom: var(--s3);
+    font-size: 1.125rem;
+    line-height: 28px;
+    font-weight: 700;
+    color: var(--on-surface);
+  }
+  .fab {
+    right: 40px;
+    bottom: var(--s6);
+  }
+  .tabs {
+    margin: 0 0 var(--s6);
+  }
+  .tabs button,
+  .tabs a {
+    flex: 0 0 auto;
+    padding: 0 var(--s6);
+  }
+  /* In a two-column dashboard the first section sits level with the
+     card beside it. */
+  .dash > .section {
+    margin-top: 0;
+  }
+}
+
+/* A panel with its own header row: title left, a link or action right. */
+.panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--s3);
+  flex-wrap: wrap;
+  padding: var(--s3) var(--s4);
+  border-bottom: 1px solid var(--outline-variant);
+}
+.panel-head h2 {
+  margin: 0;
+  font-size: 1.0625rem;
+  line-height: 1.5;
+  font-weight: 700;
+}
+@media (min-width: 900px) {
+  .panel-head {
+    padding: var(--s4) 20px;
+    border-bottom-color: var(--divider);
+  }
+  .panel-head h2 {
+    font-size: 1.125rem;
+  }
+}
+
+/* Dashboard grids: stacked on a phone, side by side on a wide window. */
+.dash {
+  display: grid;
+  gap: var(--s3);
+  align-items: start;
+}
+/* The grid's gap spaces its cells; the stacked-card margin must not. */
+.dash > .card,
+.card-grid > .card {
+  margin-top: 0;
+}
+.dash-3 {
+  align-items: stretch;
+}
+.dash + .dash,
+.dash + .section,
+.section + .dash {
+  margin-top: var(--s3);
+}
+@media (min-width: 900px) {
+  .dash {
+    gap: var(--s6);
+  }
+  .dash + .dash,
+  .dash + .section,
+  .section + .dash {
+    margin-top: var(--s6);
+  }
+  .dash-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .dash-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .dash-3-2 {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  }
+}
+
+/* A KPI tile: label, one big figure, one line under it. */
+.kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: inherit;
+  text-decoration: none;
+}
+a.kpi:hover {
+  border-color: var(--primary);
+}
+.kpi .label {
+  font-weight: 600;
+}
+.kpi .figure {
+  font-size: 2rem;
+  line-height: 1.35;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+@media (min-width: 900px) {
+  .kpi .figure {
+    font-size: 2.125rem;
+  }
+}
+
+/* Batch and child cards in an auto-filling grid, as on the boards. */
+.card-grid {
+  display: grid;
+  gap: var(--s3);
+}
+@media (min-width: 900px) {
+  .card-grid {
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 20px;
+  }
+}
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  color: inherit;
+  text-decoration: none;
+}
+a.tile:hover {
+  border-color: var(--primary);
+}
+.tile .tile-title {
+  font-size: 1.125rem;
+  line-height: 1.55;
+  font-weight: 600;
+}
+.tile .tile-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--s2);
+  flex-wrap: wrap;
+  margin-top: auto;
+  padding-top: var(--s3);
+  border-top: 1px solid var(--divider);
+  font-size: 0.875rem;
+}
+.tile.new-tile {
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed var(--outline);
+  background: transparent;
+  color: var(--primary);
+  font-weight: 700;
+  text-align: center;
+}
+.tile.new-tile:hover {
+  background: var(--surface);
+}
+@media (min-width: 900px) {
+  .tile {
+    min-height: 180px;
+  }
+}
+
+/* Tables: the wide-window form of a list, with columns a phone hides. */
+.table-wrap {
+  overflow-x: auto;
+}
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.data-table th {
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--divider);
+  background: var(--surface-container);
+  color: var(--on-surface-variant);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-align: left;
+  white-space: nowrap;
+}
+.data-table td {
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--divider);
+  font-size: 0.9375rem;
+  vertical-align: middle;
+}
+.data-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.data-table tbody tr.clickable {
+  cursor: pointer;
+}
+.data-table tbody tr.clickable:hover td {
+  background: var(--surface-container);
+}
+.data-table .num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.data-table .cell-person {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  min-width: 0;
+}
+.data-table .cell-person a {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: none;
+}
+.data-table .cell-person a:hover {
+  text-decoration: underline;
+}
+.data-table tr.group td {
+  background: var(--surface-container);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--on-surface-variant);
+}
+
+/* A toolbar row above a list: filters left, search right. */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2);
+}
+.toolbar .search {
+  order: -1;
+  flex: 1 1 100%;
+  min-height: var(--touch);
+  padding: 0 var(--s4);
+  border: 1px solid var(--outline);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  font-size: 1rem;
+}
+.toolbar .search:focus {
+  outline: none;
+  border: 2px solid var(--primary);
+}
+@media (min-width: 900px) {
+  .card > .toolbar:first-child {
+    padding: var(--s4) 20px;
+    border-bottom: 1px solid var(--divider);
+  }
+  .toolbar .search {
+    order: 0;
+    flex: 0 1 320px;
+    margin-left: auto;
+  }
+}
+
+/* Dues on a wide window: the figure left, its breakdown right. */
+@media (min-width: 900px) {
+  .dues-summary {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+    gap: var(--s8);
+    align-items: center;
+  }
+  .dues-summary .hero-amount {
+    font-size: 2.5rem;
+  }
+}
+.dues-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--s4);
+  flex-wrap: wrap;
+  padding: var(--s4) 20px;
+  border-top: 1px solid var(--divider);
+  background: var(--surface-container);
+}
+@media (min-width: 900px) {
+  .dues-summary .legend {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--s4);
+  }
+}
+
+/* Sign-up's account type: three large tiles, one chosen. */
+.role-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s3);
+}
+.role-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 88px;
+  border: 1.5px solid var(--outline-variant);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  color: var(--on-surface);
+  font-weight: 600;
+  cursor: pointer;
+}
+.role-tile:hover {
+  border-color: var(--primary);
+}
+.role-tile[aria-pressed='true'] {
+  border: 2px solid var(--primary);
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+}
+
+/* Two fields to a row on a wide window. */
+.form-2 {
+  display: grid;
+  column-gap: 20px;
+}
+@media (min-width: 900px) {
+  .form-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Help under a field that sits outside its .field wrapper. */
+.help {
+  display: block;
+  margin-top: var(--s1);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--on-surface-variant);
 }
