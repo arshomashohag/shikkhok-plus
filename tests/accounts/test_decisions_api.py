@@ -105,6 +105,12 @@ def test_an_invitation_carries_exactly_the_three_fields(
         # sheet shown to both roles told a guardian a debt was
         # cancelled when it was not.
         "role",
+        # `child_name` was added 2026-11-05, by the owner's decision, and
+        # this guard failed as it should: the guardian is shown the name
+        # the TEACHER typed for the seat, so they can tell whether the
+        # invitation is about their own child. It is never the child's
+        # own profile name, and a student's own link carries none.
+        "child_name",
     }
     assert body["batch_name"] == "Physics"
     assert body["decision"] == "pending"
@@ -157,6 +163,41 @@ def test_the_role_names_which_link_the_reader_holds(
     assert as_guardian.status_code == 200
     assert as_student.json()["role"] == "student"
     assert as_guardian.json()["role"] == "guardian"
+
+
+def test_a_guardian_is_told_which_child_and_a_student_is_not(
+    client: TestClient, owner_session: Session
+) -> None:
+    """Ask "Is Rahim your child?" (decided by the owner 2026-11-05).
+
+    Asserted from both sides of one seat: the guardian reads the name
+    the teacher typed, the student reads none, so a constant would fail.
+
+    :param client: A client against the restricted engine
+    :param owner_session: A session able to arrange fixture data
+    :return: None
+    """
+    teacher = make_teacher(owner_session, name="Physics")
+    student = make_account(owner_session)
+    guardian = make_account(owner_session)
+    enrollment_id = _seat(
+        owner_session,
+        teacher=teacher,
+        student_account_id=student,
+        guardian_account_id=guardian,
+    )
+
+    as_student = client.get(
+        f"/v1/invitations/{enrollment_id}",
+        headers=auth_header(owner_session, student),
+    )
+    as_guardian = client.get(
+        f"/v1/invitations/{enrollment_id}",
+        headers=auth_header(owner_session, guardian),
+    )
+
+    assert as_guardian.json()["child_name"] == "Rahim Uddin"
+    assert as_student.json()["child_name"] is None
 
 
 def test_a_person_cannot_reach_a_seat_that_is_not_theirs(

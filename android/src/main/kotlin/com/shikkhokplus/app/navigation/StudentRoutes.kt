@@ -1,5 +1,7 @@
 package com.shikkhokplus.app.navigation
 
+import com.shikkhokplus.app.core.offline.OfflineStudentRepository
+import com.shikkhokplus.app.core.offline.LocalOfflineCopies
 import com.shikkhokplus.app.feature.pay.ui.PayScreen
 import com.shikkhokplus.app.feature.pay.ui.PayActions
 import com.shikkhokplus.app.feature.pay.PayViewModel
@@ -50,7 +52,13 @@ internal fun NavGraphBuilder.studentRoutes(
     bottomBar: @Composable () -> Unit,
 ) {
     composable(Destination.MyBatches.route) {
-        val model: MyBatchesViewModel = viewModel { MyBatchesViewModel(HttpStudentRepository(client)) }
+        val copies = LocalOfflineCopies.current
+        val model: MyBatchesViewModel =
+            viewModel {
+                val network = HttpStudentRepository(client)
+                val reader = FamilyReader.SELF.name
+                MyBatchesViewModel(copies?.let { OfflineStudentRepository(network, it, reader) } ?: network)
+            }
         val state by model.state.collectAsState()
 
         LaunchedEffect(Unit) { model.load() }

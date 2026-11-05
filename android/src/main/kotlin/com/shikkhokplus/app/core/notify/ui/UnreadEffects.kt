@@ -20,15 +20,18 @@ import com.shikkhokplus.app.navigation.Destination
  * permission once, and clears the tray entry when the app comes forward.
  *
  * @param signedIn Whether a session is open
+ * @param enabled Whether Settings allows tray notifications
  */
 @Composable
-fun UnreadCheckEffects(signedIn: Boolean) {
+fun UnreadCheckEffects(signedIn: Boolean, enabled: Boolean = true) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val askPermission =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
-    LaunchedEffect(signedIn) {
-        if (signedIn) {
+    LaunchedEffect(signedIn, enabled) {
+        // Turned off in Settings: no tray checks, while the inbox fills.
+        if (signedIn && !enabled) UnreadSchedule.stop(context)
+        if (signedIn && enabled) {
             UnreadSchedule.start(context)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
                 !UnreadSchedule.permissionAsked(context)

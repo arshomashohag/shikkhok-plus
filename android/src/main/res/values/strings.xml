@@ -1260,4 +1260,42 @@
     <string name="progress_of_child">%1$s\'s progress</string>
     <string name="verify_queue_trx">TrxID %1$s</string>
     <string name="verify_queue_from">From %1$s</string>
+    <!-- Settings (2026-11-05). -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_section_notifications">NOTIFICATIONS</string>
+    <string name="settings_notifications">New messages on this phone</string>
+    <string name="settings_notifications_sub">Show new inbox messages in the notification tray. Your inbox keeps them either way.</string>
+    <string name="settings_section_theme">THEME</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_same_as_phone">Same as phone</string>
+    <string name="settings_section_text">TEXT SIZE</string>
+    <string name="settings_text_large">Larger</string>
+    <string name="settings_text_largest">Largest</string>
+    <string name="more_section_app">APP</string>
+    <string name="more_settings">Settings</string>
+    <string name="more_settings_sub">Notifications, theme and text size</string>
+    <!-- Address in four parts (2026-11-05). -->
+    <string name="address_house_label">House or flat</string>
+    <string name="address_road_label">Road and area</string>
+    <string name="address_city_label">City or district</string>
+    <string name="address_postcode_label">Postcode</string>
+    <string name="address_postcode_invalid">Postcodes have 4 digits</string>
+    <string name="address_required">Required</string>
+    <!-- Guardian invitation names the child (2026-11-05). -->
+    <string name="invitation_child_question">Is %1$s your child?</string>
+    <string name="invitation_child_yes">Yes, this is my child</string>
+    <string name="invitation_child_no">No, not my child</string>
+    <!-- Marks: decimal, and draft then publish (2026-11-05). -->
+    <string name="mark_entry_publish">Publish to students &amp; guardians</string>
+    <string name="mark_entry_publish_help">Only you can see these marks until you publish them.</string>
+    <string name="mark_entry_published">Published to students and guardians. A correction shows to them at once.</string>
+    <string name="mark_entry_to_enter">%1$s still to enter before publishing</string>
+    <string name="marks_publish_incomplete">Every student needs a mark or Absent before you publish.</string>
+    <string name="marks_too_precise">A mark can have at most 2 decimal places.</string>
+    <string name="batch_exam_draft">Draft · not published</string>
+    <!-- Call for help (2026-11-05). -->
+    <string name="settings_section_help">HELP</string>
+    <string name="settings_call_for_help">Call for help</string>
+    <string name="settings_call_for_help_sub">Talk to a person, in Bangla · %1$s</string>
 </resources>

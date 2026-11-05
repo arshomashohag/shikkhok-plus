@@ -1,5 +1,11 @@
 package com.shikkhokplus.app.navigation
 
+import androidx.compose.ui.platform.LocalContext
+import android.net.Uri
+import android.content.Intent
+import com.shikkhokplus.app.BuildConfig
+import com.shikkhokplus.app.feature.settings.ui.SettingsScreen
+import com.shikkhokplus.app.core.settings.SettingsHolder
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -31,12 +37,34 @@ import io.ktor.client.HttpClient
  * @param client The authenticated HTTP client
  * @param navController The app's controller
  * @param lens The lens in use, for the tab a chosen child returns to
+ * @param settings This phone's preferences, or null when none are kept
  */
 internal fun NavGraphBuilder.profileRoutes(
     client: HttpClient,
     navController: NavHostController,
     lens: Lens?,
+    settings: SettingsHolder? = null,
 ) {
+    if (settings != null) {
+        composable(Destination.Settings.route) {
+            val chosen by settings.state.collectAsState()
+            val context = LocalContext.current
+            SettingsScreen(
+                settings = chosen,
+                onChange = { next -> settings.update { next } },
+                onBack = { navController.popBackStack() },
+                supportPhone = BuildConfig.SUPPORT_PHONE.ifBlank { null },
+                // The dialler, with the number filled in: the person
+                // presses call. No calling permission is asked for.
+                onCallForHelp = { number ->
+                    runCatching {
+                        context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number")))
+                    }
+                },
+            )
+        }
+    }
+
     composable(Destination.EditProfile.route) { entry ->
         // The PROFILE's ViewModel, so More underneath shows the save
         // the moment the server confirms it.

@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.feature.auth
 
+import com.shikkhokplus.app.core.model.PostalAddress
 import com.shikkhokplus.app.core.model.SignupRole
 import com.shikkhokplus.app.core.network.AlreadyAddedDto
 import com.shikkhokplus.app.core.network.ErrorEnvelope
@@ -23,6 +24,9 @@ object SignupStateMapper {
 
     /** The key shown beside an empty name field. */
     const val NAME_KEY: String = "signup.name.required"
+
+    /** A part of the address missing, or a postcode that is not four digits. */
+    const val ADDRESS_KEY: String = "signup.address.required"
 
     /**
      * Map the already-added lookup.
@@ -60,17 +64,20 @@ object SignupStateMapper {
      * the validation-divergence erosion path, and the client's copy
      * would be the one that went stale.
      *
-     * The address is not validated at all: Bangladesh addresses do not
-     * decompose cleanly, and a format rule would reject real ones.
+     * The address is required in its four parts (decided 2026-11-05);
+     * only its shape is checked here -- each part filled in, the
+     * postcode four digits -- and the server checks the same.
      *
      * @param phone The typed number
      * @param selfName The typed name
+     * @param address The typed address
      * @return [SignupUiState.Invalid] with a key per bad field, or null
      *   when the form may be submitted
      */
     fun validate(
         phone: String,
         selfName: String,
+        address: PostalAddress,
     ): SignupUiState.Invalid? {
         val problems = mutableListOf<String>()
         if (phone.length !in MIN_PHONE..MAX_PHONE || !phone.any { it.isDigit() }) {
@@ -78,6 +85,9 @@ object SignupStateMapper {
         }
         if (selfName.isBlank()) {
             problems.add(NAME_KEY)
+        }
+        if (!address.isComplete) {
+            problems.add(ADDRESS_KEY)
         }
         return if (problems.isEmpty()) null else SignupUiState.Invalid(problems)
     }

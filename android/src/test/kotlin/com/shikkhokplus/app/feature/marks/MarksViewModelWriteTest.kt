@@ -42,6 +42,14 @@ class MarksViewModelWriteTest {
         var creates = 0
         var examReads = 0
 
+        var publishResult: AuthResult<Unit> = AuthResult.Ok(Unit)
+        var publishes = 0
+
+        override suspend fun publish(examId: String): AuthResult<Unit> {
+            publishes++
+            return publishResult
+        }
+
         override suspend fun exams(batchId: String): AuthResult<List<ExamDto>> {
             examReads++
             return AuthResult.Ok(emptyList())
@@ -69,8 +77,8 @@ class MarksViewModelWriteTest {
         var historyResult: AuthResult<List<CorrectionDto>> =
             AuthResult.Ok(
                 listOf(
-                    CorrectionDto("m-1", "marked", 18, "2026-10-17T06:00:00Z", superseded = true),
-                    CorrectionDto("m-2", "marked", 21, "2026-10-18T06:00:00Z", superseded = false),
+                    CorrectionDto("m-1", "marked", 18.0, "2026-10-17T06:00:00Z", superseded = true),
+                    CorrectionDto("m-2", "marked", 21.0, "2026-10-18T06:00:00Z", superseded = false),
                 ),
             )
 
@@ -88,16 +96,18 @@ class MarksViewModelWriteTest {
 
         override suspend fun markHistory(examId: String, enrollmentId: String) = historyResult
 
+        var resultsResult: AuthResult<ExamResultsPayload> = AuthResult.TransportFailure
+
         override suspend fun results(examId: String): AuthResult<ExamResultsPayload> {
             resultReads++
-            return AuthResult.TransportFailure
+            return resultsResult
         }
 
         override suspend fun writeMark(
             examId: String,
             enrollmentId: String,
             resultState: String,
-            marks: Int?,
+            marks: Double?,
         ) = AuthResult.TransportFailure
 
         override suspend fun marksheet(
@@ -207,14 +217,14 @@ class MarksViewModelWriteTest {
     fun `a seat's history opens oldest first with the replaced marks marked`() = runTest(dispatcher) {
         val model = MarksViewModel(Fake()).also { it.loadResults("x-1") }
         advanceUntilIdle()
-        val row = MarkRow("e-1", "Rahim", "mark.state.marked", 21, isEditable = true, hasHistory = true)
+        val row = MarkRow("e-1", "Rahim", "mark.state.marked", 21.0, isEditable = true, hasHistory = true)
 
         model.openHistory(row)
         assertEquals(MarkHistory("Rahim"), model.history.value, "reading")
         advanceUntilIdle()
 
         val entries = model.history.value?.entries.orEmpty()
-        assertEquals(listOf(18, 21), entries.map { it.marks })
+        assertEquals(listOf(18.0, 21.0), entries.map { it.marks })
         assertEquals(listOf(true, false), entries.map { it.superseded })
         assertEquals("mark.state.marked", entries.first().stateLabel)
 
@@ -233,5 +243,30 @@ class MarksViewModelWriteTest {
         advanceUntilIdle()
 
         assertEquals(true, model.history.value?.failed)
+    }
+
+    @Test
+    fun `publishing reads the results again, and a refusal stays on the entry screen`() = runTest(dispatcher) {
+        // Draft, review, publish (decided 2026-11-05). The server decides
+        // whether every seat has a result; its refusal is shown under the
+        // Publish button rather than replacing the list.
+        val repository = Fake()
+        repository.resultsResult =
+            AuthResult.Ok(ExamResultsPayload(ExamDto("x-1", "Mid-term", "2026-11-04", totalMarks = 50), emptyList()))
+        val model = MarksViewModel(repository).also { it.loadResults("x-1") }
+        advanceUntilIdle()
+
+        model.publish()
+        advanceUntilIdle()
+        assertEquals(1, repository.publishes)
+        assertEquals(2, repository.resultReads, "published, so read again")
+
+        repository.publishResult =
+            AuthResult.Refused(ErrorEnvelope(ErrorBody("MARKS_INCOMPLETE", false, "marks.publish.incomplete")))
+        model.publish()
+        advanceUntilIdle()
+
+        val state = assertIs<MarksUiState.EntryLoaded>(model.state.value)
+        assertEquals("marks.publish.incomplete", state.publishError)
     }
 }

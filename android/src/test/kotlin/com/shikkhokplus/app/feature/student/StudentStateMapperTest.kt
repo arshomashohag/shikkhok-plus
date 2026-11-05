@@ -130,7 +130,7 @@ class StudentStateMapperTest {
                     ),
                 nextSession = UpcomingSessionDto("2026-10-17", "16:00:00", "17:30:00", 35, moved = true),
                 isNext = true,
-                lastResult = LastResultDto("Weekly test 4", 44, 50, 5),
+                lastResult = LastResultDto("Weekly test 4", 44.0, 50, 5),
             )
 
         val row = (StudentStateMapper.afterBatches(listOf(dto), "+8801611477203", "Tasnim") as MyBatchesUiState.Loaded)
@@ -139,7 +139,7 @@ class StudentStateMapperTest {
         val only = row.rows.single()
         assertEquals(NextClass("2026-10-17", "16:00", "17:30", 35, true, null), only.nextClass)
         assertEquals(true, only.isNext)
-        assertEquals(LastResult("Weekly test 4", 44, 50, 5), only.lastResult)
+        assertEquals(LastResult("Weekly test 4", 44.0, 50, 5), only.lastResult)
         assertEquals(Money.of("1200.00"), only.fee?.charged)
         assertEquals("2026-10-08", only.fee?.paidOn)
     }
@@ -165,7 +165,7 @@ class StudentStateMapperTest {
                     ),
             )
         val progress =
-            listOf(ProgressEntryDto("x-1", "Weekly test 4", "2026-10-12", 50, "marked", 44, "Heat", 5, 19))
+            listOf(ProgressEntryDto("x-1", "Weekly test 4", "2026-10-12", 50, "marked", 44.0, "Heat", 5, 19))
 
         val loaded = StudentStateMapper.afterBatch(StudentBatchDto("e-1", "Physics A"), view, progress)
 

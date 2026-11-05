@@ -37,6 +37,7 @@ from app.authz.lenses import TeacherLens
 from app.db.models import Batch, Exam, Mark
 from app.errors import ConflictError, ValidationError
 from app.marks.exams import readable_exam
+from app.marks.value import MAX_PLACES, has_at_most_two_places
 from app.notifications.inbox import MARKS_AVAILABLE, deliver
 from app.notifications.recipients import child_names, seat_recipients
 from app.teaching.roster import readable_enrollment, refuse
@@ -48,6 +49,7 @@ __all__ = [
     "correction_history",
     "live_marks_for_exam",
     "record_mark",
+    "writable_exam",
 ]
 
 #: The four states a result can carry. Two of them -- ``not_entered``
@@ -82,13 +84,13 @@ class CorrectionEntry:
 
     mark_id: uuid.UUID
     result_state: str
-    marks: int | None
+    marks: float | None
     recorded_at: dt.datetime
     recorded_by_account_id: uuid.UUID | None
     superseded: bool
 
 
-def _writable_exam(
+def writable_exam(
     session: DbSession,
     *,
     lens: TeacherLens,
@@ -153,7 +155,7 @@ def record_mark(
     exam_id: uuid.UUID,
     enrollment_id: uuid.UUID,
     result_state: str,
-    marks: int | None,
+    marks: float | None,
 ) -> MarkResult:
     """Enter or correct one seat's result [BR4.2, BR4.4].
 
@@ -175,7 +177,7 @@ def record_mark(
     :raises ValidationError: The state is not enterable, the
         state/marks pairing is wrong, or the mark is out of range
     """
-    exam = _writable_exam(session, lens=lens, exam_id=exam_id)
+    exam = writable_exam(session, lens=lens, exam_id=exam_id)
 
     # The seat must be on the exam's own batch. A seat from another
     # batch would attach a result across the ownership boundary, the
@@ -200,6 +202,14 @@ def record_mark(
             message_key="marks.state_mismatch",
         )
 
+    # Two decimal places at most, as the column stores (decided
+    # 2026-11-05): a third would be rounded silently by the database.
+    if marks is not None and not has_at_most_two_places(marks):
+        raise ValidationError(
+            code="MARK_TOO_PRECISE",
+            message_key="marks.too_precise",
+            details={"places": str(MAX_PLACES)},
+        )
     if marks is not None and not 0 <= marks <= exam.total_marks:
         # The exam's total, NOT the value submitted [NFR24.14].
         raise ValidationError(
@@ -264,7 +274,10 @@ def record_mark(
         previous.superseded_by_id = fresh_id
         session.flush()
 
-    if previous is None:
+    # **Told only once the exam is published** (decided 2026-11-05): a
+    # draft is the teacher's own until they review it and publish, and
+    # publishing tells every seat at once.
+    if previous is None and exam.published_at is not None:
         announce_result(session, exam=exam, enrollment_id=enrollment_id, now=now)
 
     session.commit()
@@ -357,7 +370,7 @@ def live_marks_for_exam(
     session: DbSession,
     *,
     exam_id: uuid.UUID,
-) -> list[tuple[uuid.UUID, str, int | None]]:
+) -> list[tuple[uuid.UUID, str, float | None]]:
     """Read the live result per seat for one exam.
 
     Unscoped by design: every caller has already resolved a lens

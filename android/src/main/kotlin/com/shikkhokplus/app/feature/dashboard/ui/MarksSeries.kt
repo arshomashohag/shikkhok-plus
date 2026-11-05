@@ -39,6 +39,6 @@ fun marksSeries(exams: List<DashboardExamDto>): MarksSeries =
     )
 
 private fun fraction(
-    value: Int?,
+    value: Double?,
     total: Int,
-): Float? = if (value == null || total <= 0) null else (value / total.toFloat()).coerceIn(0f, 1f)
+): Float? = if (value == null || total <= 0) null else (value / total).toFloat().coerceIn(0f, 1f)

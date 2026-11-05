@@ -29,6 +29,9 @@ import com.shikkhokplus.app.feature.auth.MessageKeys
 import com.shikkhokplus.app.feature.marks.ExamRow
 import com.shikkhokplus.app.feature.marks.MarksUiState
 
+/** "Draft · not published" on a marked exam not yet out to families. */
+const val TAG_EXAM_DRAFT: String = "exam_draft"
+
 /** One exam row. */
 const val TAG_EXAM_ROW: String = "batch_exam_row"
 
@@ -128,6 +131,15 @@ private fun ExamRowView(row: ExamRow, onOpen: (String) -> Unit) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            // Marked but not yet out to families (decided 2026-11-05).
+            if (row.state == "complete" && !row.published) {
+                Text(
+                    stringResource(R.string.batch_exam_draft),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.testTag(TAG_EXAM_DRAFT),
+                )
+            }
         }
         when (row.state) {
             "needs_marks" ->

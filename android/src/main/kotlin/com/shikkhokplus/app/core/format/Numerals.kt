@@ -122,6 +122,18 @@ object Numerals {
     fun count(value: Int): String = value.toString()
 
     /**
+     * Render one mark on its own: `19.5`, or `19` with no trailing zero.
+     *
+     * Marks may be decimal (decided 2026-11-05). A mark is a count, never
+     * money, so it arrives as a Double; it is shown through BigDecimal so
+     * `19.5` never reads as `19.499999`.
+     *
+     * @param value The mark
+     * @return The mark as typed digits
+     */
+    fun mark(value: Double): String = value.toBigDecimal().stripTrailingZeros().toPlainString()
+
+    /**
      * Render a mark out of a total.
      *
      * A half mark is kept, a trailing zero is not: `47.5 / 50` and

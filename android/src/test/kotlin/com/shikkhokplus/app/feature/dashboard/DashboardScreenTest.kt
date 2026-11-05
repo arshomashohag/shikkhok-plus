@@ -46,7 +46,8 @@ class DashboardScreenTest {
 
     private fun state(
         reader: DashboardReader = DashboardReader.TEACHER,
-        exams: List<com.shikkhokplus.app.core.network.DashboardExamDto> = listOf(examDto(), examDto("x2", 60, 55, 90)),
+        exams: List<com.shikkhokplus.app.core.network.DashboardExamDto> =
+            listOf(examDto(), examDto("x2", 60.0, 55.0, 90.0)),
         children: List<DashboardChild> = emptyList(),
     ) = DashboardUiState.Loaded(
         reader = reader,
@@ -70,7 +71,7 @@ class DashboardScreenTest {
 
     @Test
     fun average_and_highest_lines_hidden_when_null() {
-        val exams = listOf(examDto("a", 81, null, null), examDto("b", 60, null, null))
+        val exams = listOf(examDto("a", 81.0, null, null), examDto("b", 60.0, null, null))
         compose.setContent { DashboardScreen(state(exams = exams), DashboardActions()) }
 
         compose.onNodeWithTag(TAG_DASHBOARD_EXAM_CHART).assertExists()
@@ -99,7 +100,7 @@ class DashboardScreenTest {
 
     @Test
     fun `series positions are the server's marks over the total and an absence is a gap`() {
-        val series = marksSeries(listOf(examDto("a", 50, 25, 100), examDto("b", null, null, null)))
+        val series = marksSeries(listOf(examDto("a", 50.0, 25.0, 100.0), examDto("b", null, null, null)))
 
         assertEquals(listOf(0.5f, null), series.own)
         assertEquals(listOf(0.25f, null), series.average)

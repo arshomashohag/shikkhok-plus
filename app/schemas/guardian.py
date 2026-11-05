@@ -49,9 +49,9 @@ class ChildResultResponse(BaseModel):
     batch_name: str
     title: str
     date: dt.date
-    marks: int = Field(ge=0)
+    marks: float = Field(ge=0)
     total_marks: int = Field(ge=1)
-    previous_marks: int | None = None
+    previous_marks: float | None = None
     trend: Literal["up", "down", "same", "first"]
 
 
@@ -178,7 +178,7 @@ class ProgressSummaryResponse(BaseModel):
 
     direction: Literal["up", "down", "same"]
     run: int = Field(ge=2)
-    first_marks: int = Field(ge=0)
-    last_marks: int = Field(ge=0)
+    first_marks: float = Field(ge=0)
+    last_marks: float = Field(ge=0)
     total_marks: int = Field(ge=1)
     above_average: bool | None = None

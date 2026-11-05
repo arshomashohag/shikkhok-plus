@@ -40,7 +40,7 @@ class MarksStateMapperTest {
     private fun result(
         enrollmentId: String = "e-1",
         state: String = "marked",
-        marks: Int? = 55,
+        marks: Double? = 55.0,
     ): ExamResultDto =
         ExamResultDto(
             enrollmentId = enrollmentId,
@@ -51,12 +51,12 @@ class MarksStateMapperTest {
 
     private fun marksheet(
         ownState: String = "marked",
-        ownMarks: Int? = 74,
+        ownMarks: Double? = 74.0,
         published: Boolean = false,
         rank: Int? = null,
         markedCount: Int? = null,
         average: Double? = null,
-        highest: Int? = null,
+        highest: Double? = null,
         bands: List<MarkBandDto> = emptyList(),
     ): MarksheetDto =
         MarksheetDto(
@@ -135,11 +135,11 @@ class MarksStateMapperTest {
                     "x-1",
                     "Mid-term",
                     100,
-                    listOf(result(state = "marked", marks = 0)),
+                    listOf(result(state = "marked", marks = 0.0)),
                 ),
             ).rows.single()
 
-        assertEquals(0, row.marks)
+        assertEquals(0.0, row.marks)
         assertEquals("mark.state.marked", row.stateLabel)
         assertNotEquals("mark.state.absent", row.stateLabel)
     }
@@ -200,7 +200,7 @@ class MarksStateMapperTest {
             )
 
         assertNull(loaded.comparison)
-        assertEquals(74, loaded.ownMarks)
+        assertEquals(74.0, loaded.ownMarks)
     }
 
     @Test
@@ -216,7 +216,7 @@ class MarksStateMapperTest {
                         rank = 4,
                         markedCount = 9,
                         average = 64.666_666,
-                        highest = 92,
+                        highest = 92.0,
                         bands =
                             listOf(
                                 MarkBandDto(80, 100, 3),
@@ -232,7 +232,7 @@ class MarksStateMapperTest {
         assertEquals(9, comparison.markedCount)
         // One decimal place, Latin digits: display formatting only.
         assertEquals("64.7", comparison.average)
-        assertEquals(92, comparison.highest)
+        assertEquals(92.0, comparison.highest)
         assertEquals(
             listOf("80-100", "60-79", "0-59"),
             comparison.bands.map { it.rangeLabel },
@@ -254,7 +254,7 @@ class MarksStateMapperTest {
                         rank = 1,
                         markedCount = 6,
                         average = 70.0,
-                        highest = 90,
+                        highest = 90.0,
                         bands = listOf(MarkBandDto(60, 100, 3), MarkBandDto(0, 59, 3)),
                     ),
                 ),
@@ -277,7 +277,7 @@ class MarksStateMapperTest {
                         rank = 4,
                         markedCount = 9,
                         average = null,
-                        highest = 92,
+                        highest = 92.0,
                     ),
                 ),
             )
@@ -300,7 +300,7 @@ class MarksStateMapperTest {
                         rank = null,
                         markedCount = 6,
                         average = 70.0,
-                        highest = 90,
+                        highest = 90.0,
                     ),
                 ),
             )
@@ -395,9 +395,9 @@ class MarksStateMapperTest {
             assertIs<MarksUiState.ProgressLoaded>(
                 MarksStateMapper.afterProgress(
                     listOf(
-                        ProgressEntryDto("x-1", "First", "01 Mar", 100, "marked", 70),
+                        ProgressEntryDto("x-1", "First", "01 Mar", 100, "marked", 70.0),
                         ProgressEntryDto("x-2", "Second", "01 Apr", 100, "absent", null),
-                        ProgressEntryDto("x-3", "Third", "01 May", 100, "marked", 80),
+                        ProgressEntryDto("x-3", "Third", "01 May", 100, "marked", 80.0),
                     ),
                     childDisplayName = "Rahim",
                     batchName = "Physics",
@@ -405,7 +405,7 @@ class MarksStateMapperTest {
             )
 
         assertEquals(3, loaded.entries.size)
-        assertEquals(listOf(70, null, 80), loaded.entries.map { it.marks })
+        assertEquals(listOf(70.0, null, 80.0), loaded.entries.map { it.marks })
         assertNull(loaded.entries[1].marks, "an absence must carry no numeric value")
         assertEquals("mark.state.absent", loaded.entries[1].stateLabel)
     }
@@ -416,8 +416,8 @@ class MarksStateMapperTest {
             assertIs<MarksUiState.ProgressLoaded>(
                 MarksStateMapper.afterProgress(
                     listOf(
-                        ProgressEntryDto("x-1", "First", "01 Mar", 100, "marked", 70),
-                        ProgressEntryDto("x-2", "Second", "01 Mar", 100, "marked", 80),
+                        ProgressEntryDto("x-1", "First", "01 Mar", 100, "marked", 70.0),
+                        ProgressEntryDto("x-2", "Second", "01 Mar", 100, "marked", 80.0),
                     ),
                     childDisplayName = "Rahim",
                     batchName = "Physics",

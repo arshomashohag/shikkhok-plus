@@ -479,7 +479,7 @@ private fun ResultRow(result: ResultCard, onOpen: () -> Unit) {
             Text(
                 buildAnnotatedString {
                     withStyle(SpanStyle(fontWeight = FontWeight.Bold, fontSize = markSize)) {
-                        append(Numerals.count(result.marks))
+                        append(Numerals.mark(result.marks))
                     }
                     withStyle(SpanStyle(color = Color.Unspecified)) { append("/" + Numerals.count(result.totalMarks)) }
                 },
@@ -497,7 +497,7 @@ private fun ResultRow(result: ResultCard, onOpen: () -> Unit) {
  */
 @Composable
 private fun trendLine(result: ResultCard): String {
-    val previous = result.previousMarks?.let(Numerals::count).orEmpty()
+    val previous = result.previousMarks?.let(Numerals::mark).orEmpty()
     return when (result.trend) {
         Trend.UP -> stringResource(R.string.guardian_up_from, previous)
         Trend.DOWN -> stringResource(R.string.guardian_down_from, previous)

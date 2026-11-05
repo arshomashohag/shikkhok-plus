@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.navigation
 
+import com.shikkhokplus.app.core.settings.SettingsHolder
 import com.shikkhokplus.app.core.session.Lens
 
 /**
@@ -25,6 +26,8 @@ import com.shikkhokplus.app.core.session.Lens
  *   undone
  * @property unsentWrites How many saved writes have not reached the
  *   server, so sign-out can say what ending the session would discard
+ * @property settings This phone's preferences, for the Settings screen,
+ *   or null where none are kept (a test)
  */
 data class SessionBinding(
     val lens: Lens?,
@@ -32,4 +35,5 @@ data class SessionBinding(
     val onLensesChanged: () -> Unit,
     val onEndSession: () -> Unit = {},
     val unsentWrites: () -> Int = { 0 },
+    val settings: SettingsHolder? = null,
 )

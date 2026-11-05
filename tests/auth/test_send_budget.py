@@ -192,7 +192,15 @@ def test_signups_sms_spends_the_sign_in_budget(
     phone = "+8801733333333"
     response = api_client.post(
         "/v1/accounts",
-        json={"phone": phone, "role": "student", "self_name": "Rahim"},
+        json={
+            "phone": phone,
+            "role": "student",
+            "self_name": "Rahim",
+            "address_house": "House 12",
+            "address_road": "Road 5",
+            "address_city": "Dhaka",
+            "address_postcode": "1205",
+        },
     )
 
     assert response.status_code == 201

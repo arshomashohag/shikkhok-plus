@@ -15,6 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
+from app.marks.value import centi
 from app.marks.views import ProgressEntry
 
 __all__ = ["ProgressSummary", "summarise"]
@@ -38,8 +39,8 @@ class ProgressSummary:
 
     direction: Direction
     run: int
-    first_marks: int
-    last_marks: int
+    first_marks: float
+    last_marks: float
     total_marks: int
     above_average: bool | None
 
@@ -56,7 +57,8 @@ def summarise(entries: list[ProgressEntry]) -> ProgressSummary | None:
 
     def step(index: int) -> Direction:
         (before, then), (after, now) = marked[index - 1], marked[index]
-        lhs, rhs = now * before.total_marks, then * after.total_marks
+        # In hundredths, so two equal decimal results compare equal.
+        lhs, rhs = centi(now) * before.total_marks, centi(then) * after.total_marks
         return "up" if lhs > rhs else "down" if lhs < rhs else "same"
 
     last_step = len(marked) - 1
@@ -73,5 +75,5 @@ def summarise(entries: list[ProgressEntry]) -> ProgressSummary | None:
         first_marks=first_marks,
         last_marks=last_marks,
         total_marks=last_entry.total_marks,
-        above_average=None if average is None else last_marks > average,
+        above_average=None if average is None else centi(last_marks) > centi(average),
     )

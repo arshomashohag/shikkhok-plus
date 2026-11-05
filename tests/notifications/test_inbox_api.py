@@ -328,6 +328,7 @@ def test_exam_detail_carries_topics_and_subject(
         total_marks=50,
         topics=["Motion", "Force"],
         created_at=NOW,
+        published_at=NOW,
     )
     owner_session.add(exam)
     owner_session.commit()

@@ -202,7 +202,8 @@ jobs:
           ./gradlew :android:bundleRelease :android:assembleRelease --no-daemon \
             -PversionName="${{ steps.version.outputs.name }}" \
             -PversionCode="${{ steps.version.outputs.code }}" \
-            -PapiBaseUrl="${{ vars.ANDROID_API_BASE_URL }}"
+            -PapiBaseUrl="${{ vars.ANDROID_API_BASE_URL }}" \
+            -PsupportPhone="${{ vars.SUPPORT_PHONE }}"
 
       - name: Remove the keystore
         if: always()

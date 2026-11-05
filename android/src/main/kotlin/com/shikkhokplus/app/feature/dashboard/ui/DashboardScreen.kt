@@ -406,9 +406,9 @@ private fun Legend(
 private fun LatestExam(exam: DashboardExamDto) {
     val parts =
         buildString {
-            append(exam.marks?.let { Numerals.count(it) } ?: "–")
-            exam.batchAverage?.let { append(stringResource(R.string.dashboard_latest_avg, Numerals.count(it))) }
-            exam.batchHighest?.let { append(stringResource(R.string.dashboard_latest_high, Numerals.count(it))) }
+            append(exam.marks?.let { Numerals.mark(it) } ?: "–")
+            exam.batchAverage?.let { append(stringResource(R.string.dashboard_latest_avg, Numerals.mark(it))) }
+            exam.batchHighest?.let { append(stringResource(R.string.dashboard_latest_high, Numerals.mark(it))) }
         }
     Row(
         Modifier.fillMaxWidth().testTag(TAG_DASHBOARD_LATEST_EXAM),

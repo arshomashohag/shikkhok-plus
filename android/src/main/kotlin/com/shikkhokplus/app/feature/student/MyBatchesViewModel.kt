@@ -37,7 +37,14 @@ class MyBatchesViewModel(
                         // The account, for S1's subtitle and the empty
                         // state's number. Its failure costs only those.
                         val me = (repository.phone() as? AuthResult.Ok)?.value
-                        StudentStateMapper.afterBatches(result.value, me?.phone, me?.selfName)
+                        StudentStateMapper.afterBatches(result.value, me?.phone, me?.selfName).let { state ->
+                            // The phone's saved copy, read back offline.
+                            if (result.savedAt != null && state is MyBatchesUiState.Loaded) {
+                                state.copy(offline = true)
+                            } else {
+                                state
+                            }
+                        }
                     }
                     is AuthResult.Refused -> {
                         val (key, retryable) = StudentStateMapper.failure(result.envelope)

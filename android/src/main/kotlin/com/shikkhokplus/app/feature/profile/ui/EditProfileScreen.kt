@@ -1,5 +1,7 @@
 package com.shikkhokplus.app.feature.profile.ui
 
+import com.shikkhokplus.app.core.ui.AddressFields
+import com.shikkhokplus.app.core.model.PostalAddress
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -46,7 +48,8 @@ const val TAG_EDIT_PROFILE_CLOSE: String = "edit_profile_close"
  *
  * @param state What to render; `Editing` draws the form
  * @param phone The sign-in number, shown read-only, or null
- * @param onSave Called with the edited name and address
+ * @param onSave Called with the edited name and address. Save waits
+ *   for all four address parts (decided 2026-11-05)
  * @param onClose Called by the X
  * @param onRetry Called when a retryable failure offers a retry
  * @param modifier Layout modifier from the caller
@@ -55,7 +58,7 @@ const val TAG_EDIT_PROFILE_CLOSE: String = "edit_profile_close"
 fun EditProfileScreen(
     state: ProfileUiState,
     phone: String?,
-    onSave: (name: String, address: String) -> Unit,
+    onSave: (name: String, address: PostalAddress) -> Unit,
     onClose: () -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
@@ -109,16 +112,16 @@ fun EditProfileScreen(
  * The edit form.
  *
  * @param initialName The name as it stands
- * @param initialAddress The address as it stands
+ * @param initialAddress The address as it stands, in its four parts
  * @param phone The sign-in number, or null
  * @param onSave Called with both values
  */
 @Composable
 private fun ProfileForm(
     initialName: String,
-    initialAddress: String,
+    initialAddress: PostalAddress,
     phone: String?,
-    onSave: (String, String) -> Unit,
+    onSave: (String, PostalAddress) -> Unit,
 ) {
     var name by remember(initialName) { mutableStateOf(initialName) }
     var address by remember(initialAddress) { mutableStateOf(initialAddress) }
@@ -135,13 +138,11 @@ private fun ProfileForm(
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
-    OutlinedTextField(
-        value = address,
-        onValueChange = { address = it },
-        label = { Text(stringResource(R.string.profile_address_label)) },
-        minLines = 2,
-        modifier = Modifier.fillMaxWidth().testTag(TAG_PROFILE_ADDRESS),
+    Text(
+        text = stringResource(R.string.profile_address_label),
+        style = MaterialTheme.typography.labelLarge,
     )
+    AddressFields(address = address, onChange = { address = it }, showMissing = true)
 
     // **Read-only, and said so** (O5). The number is the login; changing
     // it would go through the OTP path, never a profile edit, and that
@@ -164,6 +165,8 @@ private fun ProfileForm(
     PrimaryButton(
         text = stringResource(R.string.profile_save),
         onClick = { onSave(name, address) },
+        // The address is required, so Save waits for all four parts.
+        enabled = address.isComplete,
         modifier = Modifier.fillMaxWidth().testTag(TAG_PROFILE_SAVE),
     )
 }

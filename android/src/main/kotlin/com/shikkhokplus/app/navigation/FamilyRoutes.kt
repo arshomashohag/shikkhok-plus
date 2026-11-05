@@ -1,5 +1,7 @@
 package com.shikkhokplus.app.navigation
 
+import com.shikkhokplus.app.core.offline.OfflineStudentRepository
+import com.shikkhokplus.app.core.offline.LocalOfflineCopies
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -70,8 +72,12 @@ internal fun FamilyBatchRoute(
     reader: FamilyReader,
     seat: String,
 ) {
+    val copies = LocalOfflineCopies.current
     val model: StudentBatchViewModel =
-        viewModel(key = familyKey(reader, seat)) { StudentBatchViewModel(HttpStudentRepository(client, reader)) }
+        viewModel(key = familyKey(reader, seat)) {
+            val network = HttpStudentRepository(client, reader)
+            StudentBatchViewModel(copies?.let { OfflineStudentRepository(network, it, reader.name) } ?: network)
+        }
     val state by model.state.collectAsState()
     val tab by model.tab.collectAsState()
     val calendar by model.calendar.collectAsState()

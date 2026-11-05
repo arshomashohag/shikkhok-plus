@@ -27,6 +27,7 @@ class InvitationsStateMapperTest {
         decision: String = "pending",
         fee: Money? = null,
         role: String = "student",
+        childName: String? = null,
     ): InvitationDto =
         InvitationDto(
             enrollmentId = "e-1",
@@ -35,7 +36,19 @@ class InvitationsStateMapperTest {
             feeAmount = fee,
             decision = decision,
             role = role,
+            childName = childName,
         )
+
+    @Test
+    fun `a guardian's seat names the child, and a student's own never does`() {
+        // G4 "Is Rahim your child?" (decided 2026-11-05). A name on a
+        // student's own link would ask a student about themselves.
+        val guardian = InvitationsStateMapper.afterLoad(listOf(invitation(role = "guardian", childName = "Rahim")))
+        val student = InvitationsStateMapper.afterLoad(listOf(invitation(role = "student", childName = "Rahim")))
+
+        assertEquals("Rahim", assertIs<InvitationsUiState.Loaded>(guardian).rows.single().childName)
+        assertEquals(null, assertIs<InvitationsUiState.Loaded>(student).rows.single().childName)
+    }
 
     @Test
     fun `an empty list is its own state, not a loaded list of none`() {

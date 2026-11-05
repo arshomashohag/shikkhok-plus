@@ -38,15 +38,21 @@ data class AlreadyAddedDto(
  * @property phone The number this identity is keyed on
  * @property role The claimed role; nothing verifies it [BR4.2]
  * @property selfName The name the person chose for themselves
- * @property address Owner-private, and optional on the already-added
- *   path
+ * @property addressHouse House or flat. The four address parts are
+ *   owner-private and required on every path (decided 2026-11-05)
+ * @property addressRoad Road or area
+ * @property addressCity City or district
+ * @property addressPostcode Four digits
  */
 @Serializable
 data class SignupRequestDto(
     val phone: String,
     val role: String,
     @SerialName("self_name") val selfName: String,
-    val address: String? = null,
+    @SerialName("address_house") val addressHouse: String,
+    @SerialName("address_road") val addressRoad: String,
+    @SerialName("address_city") val addressCity: String,
+    @SerialName("address_postcode") val addressPostcode: String,
 )
 
 /**
@@ -90,6 +96,8 @@ data class SignupResponseDto(
  *   a student's decline stops their fee, a guardian's leaves the
  *   student's obligation intact. Decided server-side, never inferred
  *   from the lens hint the client supplied [TC-11, D-2]
+ * @property childName For a guardian, the child this seat is for, as the
+ *   teacher typed it; null for a student
  */
 @Serializable
 data class InvitationDto(
@@ -99,6 +107,7 @@ data class InvitationDto(
     @SerialName("fee_amount") val feeAmount: Money? = null,
     val decision: String,
     val role: String,
+    @SerialName("child_name") val childName: String? = null,
 )
 
 /**

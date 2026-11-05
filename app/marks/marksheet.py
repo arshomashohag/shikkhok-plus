@@ -47,6 +47,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from app.marks.results import SeatResult
+from app.marks.value import centi
 
 __all__ = [
     "BAND_WIDTH",
@@ -109,10 +110,10 @@ class Published:
     :ivar bands: The merged distribution
     """
 
-    viewer_marks: int | None
+    viewer_marks: float | None
     viewer_rank: int | None
     average: float
-    highest: int
+    highest: float
     marked_count: int
     bands: list[Band]
 
@@ -129,7 +130,7 @@ class Suppressed:
     :ivar reason: ``too_few_results`` or ``marking_incomplete``
     """
 
-    viewer_marks: int | None
+    viewer_marks: float | None
     reason: str
 
 
@@ -232,25 +233,39 @@ def _merge_small_bands(bands: list[Band]) -> list[Band]:
             working = [*working[: index - 1], merged, *working[index + 1 :]]
 
 
-def _distribution(marks: list[int], total_marks: int) -> list[Band]:
+def _distribution(marks: list[float], total_marks: int) -> list[Band]:
     """Band the marks and merge until every band is large enough.
 
     :param marks: Every marked result
     :param total_marks: The exam's denominator
     :return: The published bands
     """
+    edges = _band_edges(total_marks)
+    # **In hundredths, and up to the next band's floor.** A decimal mark
+    # such as 19.5 sits between one band's top (19) and the next one's
+    # bottom (20); it belongs to the lower band, and the top band keeps
+    # its own top, the full mark.
     raw = [
         Band(
             low=low,
             high=high,
-            count=sum(1 for mark in marks if low <= mark <= high),
+            count=sum(
+                1
+                for mark in marks
+                if low * 100 <= centi(mark)
+                and (
+                    centi(mark) <= high * 100
+                    if index == len(edges) - 1
+                    else centi(mark) < (high + 1) * 100
+                )
+            ),
         )
-        for low, high in _band_edges(total_marks)
+        for index, (low, high) in enumerate(edges)
     ]
     return _merge_small_bands(raw)
 
 
-def _rank_of(mark: int, marks: list[int]) -> int:
+def _rank_of(mark: float, marks: list[float]) -> int:
     """Return a mark's standard competition rank.
 
     Tied marks share a rank and the next distinct mark skips: two
@@ -262,7 +277,7 @@ def _rank_of(mark: int, marks: list[int]) -> int:
     :param marks: Every marked result
     :return: The 1-based rank
     """
-    return 1 + sum(1 for other in marks if other > mark)
+    return 1 + sum(1 for other in marks if centi(other) > centi(mark))
 
 
 def compute_marksheet(
@@ -310,7 +325,7 @@ def compute_marksheet(
         viewer_marks=viewer.marks,
         viewer_rank=(None if viewer.marks is None else _rank_of(viewer.marks, marks)),
         average=sum(marks) / len(marks),
-        highest=max(marks),
+        highest=max(marks, key=centi),
         marked_count=len(marks),
         bands=_distribution(marks, total_marks),
     )

@@ -193,6 +193,7 @@ def test_a_subject_with_an_exam_cannot_be_dropped(
             date=dt.date(2026, 10, 20),
             total_marks=100,
             created_at=dt.datetime.now(tz=dt.UTC),
+            published_at=dt.datetime.now(tz=dt.UTC),
         )
     )
     owner_session.commit()

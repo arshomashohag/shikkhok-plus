@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.feature.marks
 
+import kotlinx.coroutines.flow.update
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.shikkhokplus.app.core.network.CorrectionDto
@@ -44,8 +45,20 @@ enum class MarksheetReader {
     CHILD,
 }
 
+/** Publishes an exam's results; its own interface, as the one write that ends a draft. */
+interface ExamPublisher {
+    /**
+     * Publish an exam's results to its students and guardians
+     * (decided 2026-11-05). Until then they are the teacher's draft.
+     *
+     * @param examId The exam
+     * @return Nothing on success, or why the server refused
+     */
+    suspend fun publish(examId: String): AuthResult<Unit> = AuthResult.TransportFailure
+}
+
 /** What the marks repository must provide. */
-interface MarksRepository {
+interface MarksRepository : ExamPublisher {
     /**
      * List one batch's exams.
      *
@@ -134,8 +147,9 @@ interface MarksRepository {
         examId: String,
         enrollmentId: String,
         resultState: String,
-        marks: Int?,
+        marks: Double?,
     ): AuthResult<Unit>
+
 
     /**
      * Read one seat's marksheet [BR6.2].
@@ -376,6 +390,8 @@ class MarksViewModel(
                         writable = result.value.writable,
                         examDate = result.value.exam.date,
                         examTopics = result.value.exam.topics,
+                        published = result.value.exam.published,
+                        toEnter = (result.value.exam.expectedCount - result.value.exam.enteredCount).coerceAtLeast(0),
                     )
                 is AuthResult.Refused -> MarksStateMapper.afterError(result.envelope)
                 AuthResult.TransportFailure ->
@@ -442,7 +458,28 @@ class MarksViewModel(
      * @param resultState `marked` or `absent`
      * @param marks The score, or null for an absence
      */
-    fun writeMark(enrollmentId: String, resultState: String, marks: Int?) {
+    /**
+     * Publish the open exam's results, then read them again.
+     *
+     * **The server decides whether it may**: a refusal -- a seat still
+     * without a result -- is shown on the entry screen, which stays.
+     */
+    fun publish() {
+        val examId = lastExamId ?: return
+        viewModelScope.launch {
+            when (val result = repository.publish(examId)) {
+                is AuthResult.Ok -> refreshResults(examId)
+                is AuthResult.Refused -> withPublishError(result.envelope.error.messageKey)
+                AuthResult.TransportFailure -> withPublishError(MarksStateMapper.OFFLINE_KEY)
+            }
+        }
+    }
+
+    private fun withPublishError(key: String) {
+        _state.update { current -> (current as? MarksUiState.EntryLoaded)?.copy(publishError = key) ?: current }
+    }
+
+    fun writeMark(enrollmentId: String, resultState: String, marks: Double?) {
         val examId = lastExamId ?: return
         val write = suspend { repository.writeMark(examId, enrollmentId, resultState, marks) }
         lastWrite = write

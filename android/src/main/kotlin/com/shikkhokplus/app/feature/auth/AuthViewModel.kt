@@ -45,8 +45,15 @@ interface AuthRepository {
  * it from [TC-9].
  */
 sealed interface AuthResult<out T> {
-    /** The server answered successfully. */
-    data class Ok<T>(val value: T) : AuthResult<T>
+    /**
+     * The server answered successfully.
+     *
+     * @property value The answer
+     * @property savedAt Set when no answer arrived and this is the copy
+     *   the phone kept from an earlier one: when that was read. A screen
+     *   shows such a value as offline. Null for a live answer.
+     */
+    data class Ok<T>(val value: T, val savedAt: Long? = null) : AuthResult<T>
 
     /** The server refused, with an envelope saying why. */
     data class Refused(val envelope: ErrorEnvelope) : AuthResult<Nothing>

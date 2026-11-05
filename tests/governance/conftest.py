@@ -211,6 +211,7 @@ def build_populated_seat(owner_session: Session) -> PopulatedSeat:
         date=now.date(),
         total_marks=100,
         created_at=now,
+        published_at=now,
     )
     owner_session.add(exam)
     owner_session.commit()

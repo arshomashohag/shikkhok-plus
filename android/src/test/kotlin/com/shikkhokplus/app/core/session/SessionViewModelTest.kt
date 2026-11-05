@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.core.session
 
+import com.shikkhokplus.app.core.model.PostalAddress
 import com.shikkhokplus.app.core.network.LensEntryDto
 import com.shikkhokplus.app.core.network.MeDto
 import com.shikkhokplus.app.feature.auth.AuthResult
@@ -45,7 +46,7 @@ class SessionViewModelTest {
             return answers.removeFirstOrNull() ?: AuthResult.TransportFailure
         }
 
-        override suspend fun save(selfName: String?, address: String?) =
+        override suspend fun save(selfName: String?, address: PostalAddress?) =
             AuthResult.TransportFailure
 
         override suspend fun deleteAccount() = AuthResult.TransportFailure

@@ -288,7 +288,10 @@ def test_signup_is_refused_through_the_endpoint(
         "phone": phone,
         "role": "student",
         "self_name": "Rahim",
-        "address": None,
+        "address_house": "House 12",
+        "address_road": "Road 5",
+        "address_city": "Dhaka",
+        "address_postcode": "1205",
     }
 
     first = client.post("/v1/accounts", json=body)
@@ -324,7 +327,15 @@ def test_a_duplicate_number_is_refused_through_the_endpoint(
     :return: None
     """
     phone = _phone()
-    body = {"phone": phone, "role": "teacher", "self_name": "Karim"}
+    body = {
+        "phone": phone,
+        "role": "teacher",
+        "self_name": "Karim",
+        "address_house": "House 12",
+        "address_road": "Road 5",
+        "address_city": "Dhaka",
+        "address_postcode": "1205",
+    }
 
     assert client.post("/v1/accounts", json=body).status_code == 201
 
@@ -382,7 +393,15 @@ def test_the_account_exists_before_the_code_is_sent(
     try:
         response = client.post(
             "/v1/accounts",
-            json={"phone": phone, "role": "student", "self_name": "Rahim"},
+            json={
+                "phone": phone,
+                "role": "student",
+                "self_name": "Rahim",
+                "address_house": "House 12",
+                "address_road": "Road 5",
+                "address_city": "Dhaka",
+                "address_postcode": "1205",
+            },
         )
     finally:
         app.dependency_overrides.pop(get_gateway, None)

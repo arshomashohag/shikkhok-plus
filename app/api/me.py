@@ -30,6 +30,7 @@ from app.api.deps import authenticated_account, get_session
 from app.authz.rls import set_account_context
 from app.authz.summary import LensSummary, lens_summary
 from app.db.models import Account, Profile
+from app.schemas.address import CityField, HouseField, PostcodeField, RoadField
 
 router = APIRouter(prefix="/v1", tags=["me"])
 
@@ -59,7 +60,12 @@ class MeResponse(BaseModel):
     :ivar address: Their address, or None. **Owner-private** [BR3.4]:
         it sits in `OWNER_PRIVATE_FIELDS` and reaches no teacher-lens
         response, which the schema-wide privacy gate asserts. It is
-        returned HERE because this is the owner reading their own row
+        returned HERE because this is the owner reading their own row.
+        The free-text form, kept for an address typed before 2026-11-05
+    :ivar address_house: House or flat, or None. Owner-private, as above
+    :ivar address_road: Road or area, or None
+    :ivar address_city: City or district, or None
+    :ivar address_postcode: Four digits, or None
     :ivar phone: The number this account signs in with. The owner's own
         login, read by the owner on a lens-exempt route; the profile
         shows it read-only, and in-app deletion asks the person to type
@@ -69,6 +75,10 @@ class MeResponse(BaseModel):
     lenses: list[LensEntry] = Field(default_factory=list)
     self_name: str | None = None
     address: str | None = None
+    address_house: str | None = None
+    address_road: str | None = None
+    address_city: str | None = None
+    address_postcode: str | None = None
     phone: str | None = None
 
 
@@ -84,14 +94,27 @@ class ProfileUpdateRequest(BaseModel):
     Both are optional and omitting one leaves it unchanged, so the app
     can save a single edited field without resending the other.
 
+    Each address part, when sent, must be filled in: an address is
+    required (decided 2026-11-05), so a part can be corrected but not
+    blanked.
+
     :ivar self_name: The new name, or None to leave it alone
-    :ivar address: The new address, or None to leave it alone
+    :ivar address: The free-text address, for an app older than the four
+        parts, or None to leave it alone
+    :ivar address_house: The new house or flat, or None to leave it alone
+    :ivar address_road: The new road or area, or None to leave it alone
+    :ivar address_city: The new city or district, or None to leave it alone
+    :ivar address_postcode: The new postcode, or None to leave it alone
     """
 
     model_config = ConfigDict(extra="forbid")
 
     self_name: str | None = Field(default=None, max_length=200)
     address: str | None = Field(default=None, max_length=500)
+    address_house: HouseField | None = None
+    address_road: RoadField | None = None
+    address_city: CityField | None = None
+    address_postcode: PostcodeField | None = None
 
 
 def _entries(summary: LensSummary) -> list[LensEntry]:
@@ -126,6 +149,10 @@ def _me(session: Session, account_id: uuid.UUID, profile: Profile | None) -> MeR
         lenses=_entries(lens_summary(session, account_id)),
         self_name=profile.self_name if profile else None,
         address=profile.address if profile else None,
+        address_house=profile.address_house if profile else None,
+        address_road=profile.address_road if profile else None,
+        address_city=profile.address_city if profile else None,
+        address_postcode=profile.address_postcode if profile else None,
         phone=account.phone if account else None,
     )
 
@@ -199,6 +226,14 @@ def update_me(
         profile.self_name = body.self_name
     if body.address is not None:
         profile.address = body.address
+    if body.address_house is not None:
+        profile.address_house = body.address_house
+    if body.address_road is not None:
+        profile.address_road = body.address_road
+    if body.address_city is not None:
+        profile.address_city = body.address_city
+    if body.address_postcode is not None:
+        profile.address_postcode = body.address_postcode
 
     session.commit()
 

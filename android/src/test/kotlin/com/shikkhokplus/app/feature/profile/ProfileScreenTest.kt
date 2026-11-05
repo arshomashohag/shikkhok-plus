@@ -20,6 +20,7 @@ import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_INVITATIONS
 import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_MY_CHILDREN
 import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_PAYMENT_METHODS
 import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_SIGN_OUT
+import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_SETTINGS
 import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_SWITCH_LENS
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -101,7 +102,7 @@ class ProfileScreenTest {
         // More stays composed under Edit profile; a half-typed name in
         // the Editing state must not reach the card.
         render(
-            state = ProfileUiState.Editing(selfName = "Half-typ", address = ""),
+            state = ProfileUiState.Editing(selfName = "Half-typ"),
             summary = ProfileSummary(selfName = "Rahim", address = "Dhaka", phone = "+8801611477203"),
         )
 
@@ -254,5 +255,18 @@ class ProfileScreenTest {
 
         compose.onNodeWithTag(TAG_PROFILE_UNSENT).performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("2 records not sent yet").assertExists()
+    }
+
+    @Test
+    fun `settings is a row under APP, and works offline`() {
+        // A theme and a text size are kept on the phone, so nothing about
+        // them waits for a connection.
+        var opened = 0
+        render(state = viewing.copy(offline = true), actions = MoreActions(onSettings = { opened++ }))
+
+        compose.onNodeWithText("APP").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag(TAG_PROFILE_SETTINGS).performScrollTo().assertIsEnabled().performClick()
+
+        assertEquals(1, opened)
     }
 }

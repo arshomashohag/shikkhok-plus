@@ -43,6 +43,9 @@ from app.local_time import bangladesh_today
 from app.marks.exams import ExamRow
 from app.marks.results import SeatResult, progress_of, results_for_exam
 from app.marks.summary import Direction, summarise
+from app.marks.value import centi
+from app.marks.value import mean as mark_mean
+from app.marks.value import percent as mark_percent
 from app.marks.views import ProgressEntry
 from app.money import Money
 from app.teaching.roster import readable_enrollment, roster_predicate
@@ -143,11 +146,11 @@ class ExamPoint:
     title: str
     date: dt.date
     subject: str | None
-    marks: int | None
+    marks: float | None
     total: int
     percent: int | None
-    batch_average: int | None
-    batch_highest: int | None
+    batch_average: float | None
+    batch_highest: float | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -281,12 +284,16 @@ def _exams(
         requires the exam's marking to be complete before comparing
     :return: Exams the seat sat or missed, oldest first
     """
-    rows = session.execute(
+    query = (
         sa.select(Exam, BatchSubject.name)
         .join(BatchSubject, BatchSubject.id == Exam.batch_subject_id)
         .where(Exam.batch_id == batch_id, Exam.date >= first_day, Exam.date <= today)
         .order_by(Exam.date, Exam.id)
-    ).all()
+    )
+    if family:
+        # A family reads published exams only (decided 2026-11-05).
+        query = query.where(Exam.published_at.is_not(None))
+    rows = session.execute(query).all()
     points: list[ExamPoint] = []
     for exam, subject in rows:
         results = results_for_exam(session, exam=exam)
@@ -308,10 +315,10 @@ def _exams(
                 percent=(
                     None
                     if own.marks is None
-                    else percent_of(own.marks, exam.total_marks)
+                    else mark_percent(own.marks, exam.total_marks)
                 ),
-                batch_average=_mean_half_up(marked) if comparable else None,
-                batch_highest=max(marked) if comparable else None,
+                batch_average=mark_mean(marked) if comparable else None,
+                batch_highest=max(marked, key=centi) if comparable else None,
             )
         )
     return points

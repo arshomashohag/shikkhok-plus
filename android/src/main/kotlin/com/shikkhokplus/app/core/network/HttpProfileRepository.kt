@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.core.network
 
+import com.shikkhokplus.app.core.model.PostalAddress
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerialName
 import com.shikkhokplus.app.core.model.Money
@@ -38,16 +39,25 @@ class HttpProfileRepository(
      * Save an edited name and address.
      *
      * @param selfName The new name, or null to leave it alone
-     * @param address The new address, or null to leave it alone
+     * @param address The new address in its four parts, or null to
+     *   leave it alone
      * @return The updated profile, or why the server refused
      */
     override suspend fun save(
         selfName: String?,
-        address: String?,
+        address: PostalAddress?,
     ): AuthResult<MeDto> =
         call {
             client.patch("/v1/me") {
-                setBody(ProfileUpdateDto(selfName = selfName, address = address))
+                setBody(
+                    ProfileUpdateDto(
+                        selfName = selfName,
+                        addressHouse = address?.house?.trim(),
+                        addressRoad = address?.road?.trim(),
+                        addressCity = address?.city?.trim(),
+                        addressPostcode = address?.latinPostcode,
+                    ),
+                )
             }
         }
 

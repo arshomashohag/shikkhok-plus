@@ -79,6 +79,7 @@ object MarksStateMapper {
                     enteredCount = dto.enteredCount,
                     expectedCount = dto.expectedCount,
                     state = dto.state,
+                    published = dto.published,
                 )
             },
         )
@@ -93,6 +94,8 @@ object MarksStateMapper {
      * @param results One per seat
      * @param writable Whether marks may be written [BR5.5]
      * @param examTopics What the exam covers, for the edit form
+     * @param published Whether the results are out to families
+     * @param toEnter Seats still to enter, from the server's counts
      * @return The state the screen renders
      */
     fun afterResults(
@@ -103,6 +106,8 @@ object MarksStateMapper {
         writable: Boolean = true,
         examDate: String = "",
         examTopics: List<String> = emptyList(),
+        published: Boolean = false,
+        toEnter: Int = 0,
     ): MarksUiState {
         val rows =
             results.map { dto ->
@@ -126,7 +131,17 @@ object MarksStateMapper {
                 )
             }
 
-        return MarksUiState.EntryLoaded(examId, examTitle, totalMarks, rows, writable, examDate, examTopics)
+        return MarksUiState.EntryLoaded(
+            examId = examId,
+            examTitle = examTitle,
+            totalMarks = totalMarks,
+            rows = rows,
+            writable = writable,
+            examDate = examDate,
+            examTopics = examTopics,
+            published = published,
+            toEnter = toEnter,
+        )
     }
 
     /**

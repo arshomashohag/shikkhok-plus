@@ -164,11 +164,14 @@ class StudentBatchViewModel(
     private suspend fun readOnline(seat: String): StudentBatchUiState {
         val batches =
             when (val result = repository.batches()) {
-                is AuthResult.Ok -> result.value
+                is AuthResult.Ok -> result
                 else -> return failed(result)
             }
-        val batch = batches.firstOrNull { it.enrollmentId == seat } ?: return StudentStateMapper.notFound()
-        return readSeat(batch)
+        val batch = batches.value.firstOrNull { it.enrollmentId == seat } ?: return StudentStateMapper.notFound()
+        val state = readSeat(batch)
+        // Any part answered from the phone's saved copy marks the page
+        // offline, so its fee is withheld (S2).
+        return if (batches.savedAt != null && state is StudentBatchUiState.Loaded) state.copy(offline = true) else state
     }
 
     /**
@@ -178,21 +181,25 @@ class StudentBatchViewModel(
      * @return The state to show
      */
     private suspend fun readSeat(batch: StudentBatchDto): StudentBatchUiState {
-        val view =
+        val viewResult =
             when (val result = repository.batchView(batch.enrollmentId)) {
-                is AuthResult.Ok -> result.value
+                is AuthResult.Ok -> result
                 else -> return failed(result)
             }
+        val view = viewResult.value
         // The header's fee is the view's: the server's line for this seat,
         // for a guardian as for a student, never one picked from a list.
         val seat = batch.copy(currentFee = view.currentFee ?: batch.currentFee)
         // A refusal here is the teacher hiding marksheets from families:
         // the page still shows, with no results, rather than failing whole.
-        return when (val result = repository.progress(batch.enrollmentId)) {
-            is AuthResult.Ok -> StudentStateMapper.afterBatch(seat, view, result.value)
-            is AuthResult.Refused -> StudentStateMapper.afterBatch(seat, view, emptyList())
-            AuthResult.TransportFailure -> failed(result)
-        }
+        val state =
+            when (val result = repository.progress(batch.enrollmentId)) {
+                is AuthResult.Ok -> StudentStateMapper.afterBatch(seat, view, result.value)
+                is AuthResult.Refused -> StudentStateMapper.afterBatch(seat, view, emptyList())
+                AuthResult.TransportFailure -> failed(result)
+            }
+        val saved = viewResult.savedAt != null
+        return if (saved && state is StudentBatchUiState.Loaded) state.copy(offline = true) else state
     }
 
     /**

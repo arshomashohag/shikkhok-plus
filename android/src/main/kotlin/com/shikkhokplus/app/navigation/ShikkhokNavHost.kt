@@ -1,5 +1,10 @@
 package com.shikkhokplus.app.navigation
 
+import com.shikkhokplus.app.core.offline.keptBy
+import com.shikkhokplus.app.core.offline.OfflineProfileRepository
+import com.shikkhokplus.app.core.offline.OfflineGuardianRepository
+import com.shikkhokplus.app.core.offline.OfflineDuesRepository
+import com.shikkhokplus.app.core.offline.LocalOfflineCopies
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.Composable
@@ -284,8 +289,12 @@ private fun ShikkhokGraph(
         }
 
         composable(Destination.Dues.route) {
+            val copies = LocalOfflineCopies.current
             val model: DuesViewModel =
-                viewModel { DuesViewModel(HttpAnalyticsRepository(client)) }
+                viewModel {
+                    val network = HttpAnalyticsRepository(client)
+                    DuesViewModel(network.keptBy(copies, ::OfflineDuesRepository))
+                }
             val state by model.state.collectAsState()
             val refreshing by model.refreshing.collectAsState()
 
@@ -513,8 +522,12 @@ private fun ShikkhokGraph(
         }
 
         composable(Destination.GuardianHome.route) {
+            val copies = LocalOfflineCopies.current
             val model: GuardianViewModel =
-                viewModel { GuardianViewModel(HttpGuardianRepository(client)) }
+                viewModel {
+                    val network = HttpGuardianRepository(client)
+                    GuardianViewModel(network.keptBy(copies, ::OfflineGuardianRepository))
+                }
             val state by model.state.collectAsState()
             val refreshing by model.refreshing.collectAsState()
 
@@ -597,8 +610,12 @@ private fun ShikkhokGraph(
         }
 
         composable(Destination.Profile.route) {
+            val copies = LocalOfflineCopies.current
             val model: ProfileViewModel =
-                viewModel { ProfileViewModel(HttpProfileRepository(client)) }
+                viewModel {
+                    val network = HttpProfileRepository(client)
+                    ProfileViewModel(network.keptBy(copies, ::OfflineProfileRepository))
+                }
             val state by model.state.collectAsState()
             val summary by model.summary.collectAsState()
             var confirmingSignOut by remember { mutableStateOf(false) }
@@ -630,6 +647,7 @@ private fun ShikkhokGraph(
                             },
                             onRetry = model::retry,
                             onSwitchLens = session.onSwitch,
+                            onSettings = settingsOpener(session, navController),
                             unsent = remember { session.unsentWrites() },
                         ),
                     navigate = { route -> navController.navigate(route) },
@@ -652,7 +670,7 @@ private fun ShikkhokGraph(
             }
         }
 
-        profileRoutes(client, navController, session.lens)
+        profileRoutes(client, navController, session.lens, session.settings)
 
         composable(Destination.PaymentMethods.route) {
             val model: PaymentMethodsViewModel =
@@ -1040,3 +1058,14 @@ private fun teacherTabs(): List<NavDestination> =
             tag = "nav_tab_more",
         ),
     )
+
+/**
+ * What the Settings row does, or null where the session keeps no
+ * settings and so draws no row.
+ *
+ * @param session The session's bindings
+ * @param navController The app's controller
+ * @return The opener, or null
+ */
+internal fun settingsOpener(session: SessionBinding, navController: NavHostController): (() -> Unit)? =
+    if (session.settings == null) null else ({ navController.navigate(Destination.Settings.route) })

@@ -97,6 +97,7 @@ def exam(
         date=EXAM_DATE,
         total_marks=TOTAL_MARKS,
         created_at=dt.datetime.now(tz=dt.UTC),
+        published_at=dt.datetime.now(tz=dt.UTC),
     )
     owner_session.add(row)
     owner_session.commit()

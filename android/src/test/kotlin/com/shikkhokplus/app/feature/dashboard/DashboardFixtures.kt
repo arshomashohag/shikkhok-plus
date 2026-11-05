@@ -16,16 +16,16 @@ import com.shikkhokplus.app.feature.auth.AuthResult
 
 fun examDto(
     id: String = "x1",
-    marks: Int? = 81,
-    average: Int? = 72,
-    highest: Int? = 95,
+    marks: Double? = 81.0,
+    average: Double? = 72.0,
+    highest: Double? = 95.0,
 ) = DashboardExamDto(
     examId = id,
     title = "Ch-5 Motion",
     date = "2026-10-22",
     marks = marks,
     total = 100,
-    percent = marks,
+    percent = marks?.toInt(),
     batchAverage = average,
     batchHighest = highest,
 )

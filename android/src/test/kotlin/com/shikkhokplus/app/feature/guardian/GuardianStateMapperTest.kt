@@ -28,7 +28,7 @@ class GuardianStateMapperTest {
         assertEquals(Money.of("2000.00"), payment?.totalDue)
         assertEquals(1 to 37, payment?.let { it.laterPeriods to it.daysLate })
         assertEquals("Nagad", child.waiting.single().channel)
-        assertEquals(Trend.UP to 39, child.results.single().let { it.trend to it.previousMarks })
+        assertEquals(Trend.UP to 39.0, child.results.single().let { it.trend to it.previousMarks })
         assertEquals("16:00", child.batches.single().next?.startTime)
     }
 

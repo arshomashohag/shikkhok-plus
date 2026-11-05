@@ -27,7 +27,7 @@ object ProfileStateMapper {
      * @return The viewing state
      */
     fun afterLoad(dto: MeDto): ProfileUiState =
-        ProfileUiState.Viewing(selfName = dto.selfName, address = dto.address, phone = dto.phone)
+        ProfileUiState.Viewing(selfName = dto.selfName, address = dto.shownAddress, phone = dto.phone)
 
     /**
      * Map a successful save.
@@ -39,7 +39,7 @@ object ProfileStateMapper {
      * @return The saved state
      */
     fun afterSave(dto: MeDto): ProfileUiState =
-        ProfileUiState.Saved(selfName = dto.selfName, address = dto.address, phone = dto.phone)
+        ProfileUiState.Saved(selfName = dto.selfName, address = dto.shownAddress, phone = dto.phone)
 
     /**
      * Map a server error envelope.

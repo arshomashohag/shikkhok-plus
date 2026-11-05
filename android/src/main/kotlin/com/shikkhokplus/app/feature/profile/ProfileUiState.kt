@@ -1,5 +1,7 @@
 package com.shikkhokplus.app.feature.profile
 
+import com.shikkhokplus.app.core.model.PostalAddress
+
 /**
  * Everything the profile screen renders.
  *
@@ -40,11 +42,11 @@ sealed interface ProfileUiState {
      * The form is open.
      *
      * @property selfName The name being edited
-     * @property address The address being edited
+     * @property address The address being edited, in its four parts
      */
     data class Editing(
         val selfName: String,
-        val address: String,
+        val address: PostalAddress = PostalAddress(),
     ) : ProfileUiState
 
     /** The save is in flight. */
@@ -88,11 +90,13 @@ sealed interface ProfileUiState {
  * read or save, never on a keystroke.
  *
  * @property selfName The stored name, or null
- * @property address The stored address, or null
+ * @property address The stored address on one line, or null
  * @property phone The sign-in number, or null
+ * @property postal The stored address in its four parts, for the form
  */
 data class ProfileSummary(
     val selfName: String?,
     val address: String?,
     val phone: String?,
+    val postal: PostalAddress = PostalAddress(),
 )

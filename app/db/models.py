@@ -32,6 +32,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    Numeric,
     String,
     Text,
     Time,
@@ -336,7 +337,14 @@ class Profile(Base):
         already-added path reaches signup with no address yet. **Adding
         the column did not enrol it in the privacy gate**: the
         owner-private field set is matched by NAME and maintained by
-        hand, so ``address`` joins it in this same Unit [BR3.4]
+        hand, so ``address`` joins it in this same Unit [BR3.4]. Written
+        by nothing since ``0016``; kept so an address typed before it is
+        not lost
+    :ivar address_house: House or flat, required at sign-up since
+        ``0016``; owner-private like the rest of this row
+    :ivar address_road: Road or area
+    :ivar address_city: City or district
+    :ivar address_postcode: The four-digit postcode
     """
 
     __tablename__ = "profile"
@@ -349,6 +357,10 @@ class Profile(Base):
     self_name: Mapped[str | None] = mapped_column(Text, nullable=True)
     photo_ref: Mapped[str | None] = mapped_column(Text, nullable=True)
     address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    address_house: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    address_road: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    address_city: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    address_postcode: Mapped[str | None] = mapped_column(String(10), nullable=True)
 
 
 class OtpRequest(Base):
@@ -1633,6 +1645,10 @@ class Exam(Base):
     :ivar total_marks: The denominator, at least 1
     :ivar topics: What the exam covers, empty when the teacher named none
     :ivar created_at: When the exam was created
+    :ivar published_at: When the teacher published the results to
+        students and guardians, or None while they are a draft
+        (decided 2026-11-05). Families read no mark of an exam until
+        then; the teacher sees every mark either way
     """
 
     __tablename__ = "exam"
@@ -1659,6 +1675,9 @@ class Exam(Base):
     )
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
+    )
+    published_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
     )
 
     __table_args__ = (
@@ -1706,7 +1725,12 @@ class Mark(Base):
     result_state: Mapped[str] = mapped_column(_RESULT_STATE, nullable=False)
     # Nullable because the other three states have no number, and
     # storing zero for them is exactly the conflation FR4.3 forbids.
-    marks: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # NUMERIC(6,2) since 0017: a mark may be decimal (decided
+    # 2026-11-05). Exact in the column; read as a float, a count and
+    # never money, and compared in hundredths (``app.marks.value``).
+    marks: Mapped[float | None] = mapped_column(
+        Numeric(6, 2, asdecimal=False), nullable=True
+    )
     recorded_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )

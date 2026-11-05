@@ -1,5 +1,9 @@
 package com.shikkhokplus.app.feature.invitations
 
+import com.shikkhokplus.app.feature.invitations.ui.TAG_INVITATION_ACCEPT
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performScrollTo
+import com.shikkhokplus.app.feature.invitations.ui.TAG_INVITATION_CHILD
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -203,5 +207,34 @@ class InvitationsScreenTest {
             .onAllNodesWithText("/mo", substring = true)
             .fetchSemanticsNodes()
             .let { assertEquals(0, it.size) }
+    }
+
+    @Test
+    fun `a guardian is asked whether it is their child, with yes and no`() {
+        // G4, decided 2026-11-05: the name is the one the teacher typed.
+        var accepted: String? = null
+        var declined: String? = null
+        render(
+            InvitationsUiState.Loaded(listOf(seat.copy(heldAsGuardian = true, childName = "আয়ান"))),
+            onAccept = { accepted = it },
+            onDeclineRequested = { declined = it },
+        )
+
+        compose.onNodeWithTag(TAG_INVITATION_CHILD, useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("Is আয়ান your child?", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag(TAG_INVITATION_ACCEPT).performScrollTo().performClick()
+        compose.onNodeWithTag(TAG_INVITATION_DECLINE).performScrollTo().performClick()
+        compose.onNodeWithText("Yes, this is my child", useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("No, not my child", useUnmergedTree = true).assertExists()
+
+        assertEquals("e1", accepted)
+        assertEquals("e1", declined)
+    }
+
+    @Test
+    fun `a student's own invitation asks nothing about a child`() {
+        render(InvitationsUiState.Loaded(listOf(seat)))
+
+        compose.onNodeWithTag(TAG_INVITATION_CHILD, useUnmergedTree = true).assertDoesNotExist()
     }
 }

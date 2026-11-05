@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.core.network
 
+import com.shikkhokplus.app.core.model.PostalAddress
 import com.shikkhokplus.app.feature.auth.AuthResult
 import com.shikkhokplus.app.feature.auth.SignupRepository
 import io.ktor.client.HttpClient
@@ -60,14 +61,14 @@ class HttpSignupRepository(
      * @param phone The number this identity is keyed on
      * @param role The claimed role; nothing verifies it [BR4.2]
      * @param selfName The name the person chose for themselves
-     * @param address Owner-private, optional on the already-added path
+     * @param address Owner-private, in its four parts
      * @return The new account and the number the code went to
      */
     override suspend fun signup(
         phone: String,
         role: String,
         selfName: String,
-        address: String?,
+        address: PostalAddress,
     ): AuthResult<SignupResponseDto> =
         call {
             client.post("/v1/accounts") {
@@ -76,7 +77,10 @@ class HttpSignupRepository(
                         phone = phone,
                         role = role,
                         selfName = selfName,
-                        address = address,
+                        addressHouse = address.house.trim(),
+                        addressRoad = address.road.trim(),
+                        addressCity = address.city.trim(),
+                        addressPostcode = address.latinPostcode,
                     ),
                 )
             }

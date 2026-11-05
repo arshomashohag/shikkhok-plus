@@ -1,5 +1,7 @@
 package com.shikkhokplus.app.feature.auth.ui
 
+import com.shikkhokplus.app.core.ui.AddressFields
+import com.shikkhokplus.app.core.model.PostalAddress
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -62,8 +64,6 @@ const val TAG_SIGNUP_PHONE: String = "signup_phone"
 /** Test tag for the name field. */
 const val TAG_SIGNUP_NAME: String = "signup_name"
 
-/** Test tag for the address field. */
-const val TAG_SIGNUP_ADDRESS: String = "signup_address"
 
 /** Test tag for the submit control. */
 const val TAG_SIGNUP_SUBMIT: String = "signup_submit"
@@ -103,8 +103,9 @@ const val TAG_SIGNUP_SUBMITTING: String = "signup_submitting"
  *   cannot change it; hiding the control would leave them unable to
  *   tell whether the system understood them.
  *
- * The address stays optional, by the person's decision, so the board's
- * "Add your address" refusal is not drawn.
+ * The address is required, in four parts: house, road, city and a
+ * four-digit postcode (decided 2026-11-05). Send code waits for all
+ * four, and the board's "Add your address" names what is missing.
  *
  * @param state What to render
  * @param onSubmit Called with the whole payload, on the button
@@ -119,7 +120,7 @@ const val TAG_SIGNUP_SUBMITTING: String = "signup_submitting"
 @Composable
 fun SignupScreen(
     state: SignupUiState,
-    onSubmit: (phone: String, name: String, address: String, role: SignupRole) -> Unit,
+    onSubmit: (phone: String, name: String, address: PostalAddress, role: SignupRole) -> Unit,
     onGoToLogin: () -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
@@ -128,7 +129,7 @@ fun SignupScreen(
 ) {
     var phone by remember { mutableStateOf("") }
     var name by remember { mutableStateOf("") }
-    var address by remember { mutableStateOf("") }
+    var address by remember { mutableStateOf(PostalAddress()) }
 
     // **Nothing chosen at first**, as the board draws it: a preselected
     // role is one the person may submit without having chosen.
@@ -188,7 +189,7 @@ fun SignupScreen(
                         phone = phone,
                         enabled =
                             role != null && name.isNotBlank() && phone.isNotBlank() &&
-                                state != SignupUiState.Submitting,
+                                address.isComplete && state != SignupUiState.Submitting,
                         offerLogin = prefilled == null && !alreadyRegistered,
                         onSubmit = {
                             role?.let {
@@ -239,8 +240,8 @@ private fun Header() {
  * @param onPhoneLeft Called when the number field is left holding a valid number
  * @param name The name field's value
  * @param onNameChange Called on each edit of the name
- * @param address The address field's value
- * @param onAddressChange Called on each edit of the address
+ * @param address The address, in its four parts
+ * @param onAddressChange Called with the address after each edit
  * @param role The selected role, or null before one is chosen
  * @param onRoleChange Called when a role card is chosen
  * @param alreadyRegistered Whether the server refused the number as taken
@@ -256,8 +257,8 @@ private fun Form(
     onPhoneLeft: (String) -> Unit,
     name: String,
     onNameChange: (String) -> Unit,
-    address: String,
-    onAddressChange: (String) -> Unit,
+    address: PostalAddress,
+    onAddressChange: (PostalAddress) -> Unit,
     role: SignupRole?,
     onRoleChange: (SignupRole) -> Unit,
     alreadyRegistered: Boolean,
@@ -340,13 +341,10 @@ private fun Form(
             phoneField()
         }
 
-        ShikkhokTextField(
-            value = address,
-            onValueChange = onAddressChange,
-            label = stringResource(R.string.signup_address_label),
-            singleLine = false,
-            minLines = 2,
-            fieldModifier = Modifier.testTag(TAG_SIGNUP_ADDRESS),
+        AddressFields(
+            address = address,
+            onChange = onAddressChange,
+            showMissing = SignupStateMapper.ADDRESS_KEY in invalidKeys,
         )
     }
 }

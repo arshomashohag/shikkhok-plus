@@ -194,7 +194,7 @@ data class UpcomingSessionDto(
 @Serializable
 data class LastResultDto(
     val title: String,
-    val marks: Int,
+    val marks: Double,
     @SerialName("total_marks") val totalMarks: Int,
     val rank: Int? = null,
 )

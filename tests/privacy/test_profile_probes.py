@@ -203,6 +203,10 @@ def test_the_profile_table_carries_no_teacher_typed_field() -> None:
         "self_name",
         "photo_ref",
         "address",
+        "address_house",
+        "address_road",
+        "address_city",
+        "address_postcode",
     }
 
 

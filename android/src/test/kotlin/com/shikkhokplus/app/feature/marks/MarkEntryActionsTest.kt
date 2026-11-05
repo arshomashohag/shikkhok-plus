@@ -1,5 +1,11 @@
 package com.shikkhokplus.app.feature.marks
 
+import com.shikkhokplus.app.feature.marks.ui.TAG_MARK_ENTRY_TO_ENTER
+import com.shikkhokplus.app.feature.marks.ui.TAG_MARK_ENTRY_PUBLISHED
+import com.shikkhokplus.app.feature.marks.ui.TAG_MARK_ENTRY_PUBLISH
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -40,7 +46,7 @@ class MarkEntryActionsTest {
             examId = "x-1",
             examTitle = "Mid-term",
             totalMarks = 50,
-            rows = listOf(MarkRow("e-1", "Rahim", "mark.state.marked", 40, isEditable = writable, hasHistory = true)),
+            rows = listOf(MarkRow("e-1", "Rahim", "mark.state.marked", 40.0, isEditable = writable, hasHistory = true)),
             writable = writable,
             examDate = "2026-11-04",
         )
@@ -106,7 +112,7 @@ class MarkEntryActionsTest {
         entry().copy(
             rows =
                 listOf(
-                    MarkRow("e-1", "Rahim", "mark.state.marked", 40, isEditable = true),
+                    MarkRow("e-1", "Rahim", "mark.state.marked", 40.0, isEditable = true),
                     MarkRow("e-2", "Karim", "mark.state.not_entered", null, isEditable = true),
                     MarkRow("e-3", "Selim", "mark.state.not_entered", null, isEditable = true),
                 ),
@@ -121,7 +127,7 @@ class MarkEntryActionsTest {
 
     @Test
     fun `digits typed on the keypad are saved by Next, which moves down`() {
-        val saved = mutableListOf<Pair<String, Int>>()
+        val saved = mutableListOf<Pair<String, Double>>()
         compose.setContent {
             ShikkhokTheme {
                 MarkEntryScreen(state = two(), onMark = { row, mark -> saved += row.enrollmentId to mark })
@@ -132,13 +138,13 @@ class MarkEntryActionsTest {
         compose.onNodeWithTag(TAG_MARK_ENTRY_KEY + "_2").performClick()
         compose.onNodeWithTag(TAG_MARK_ENTRY_NEXT).performClick()
 
-        assertEquals(listOf("e-2" to 22), saved)
+        assertEquals(listOf("e-2" to 22.0), saved)
         compose.onNodeWithText("03 · now entering").assertExists()
     }
 
     @Test
     fun `next with nothing typed saves nothing, because empty is not zero`() {
-        val saved = mutableListOf<Int>()
+        val saved = mutableListOf<Double>()
         compose.setContent { ShikkhokTheme { MarkEntryScreen(state = two(), onMark = { _, mark -> saved += mark }) } }
 
         compose.onNodeWithTag(TAG_MARK_ENTRY_NEXT).performClick()
@@ -148,7 +154,7 @@ class MarkEntryActionsTest {
 
     @Test
     fun `backspace removes the last digit before it is saved`() {
-        val saved = mutableListOf<Int>()
+        val saved = mutableListOf<Double>()
         compose.setContent { ShikkhokTheme { MarkEntryScreen(state = two(), onMark = { _, mark -> saved += mark }) } }
 
         compose.onNodeWithTag(TAG_MARK_ENTRY_KEY + "_1").performClick()
@@ -156,7 +162,7 @@ class MarkEntryActionsTest {
         compose.onNodeWithTag(TAG_MARK_ENTRY_BACKSPACE).performClick()
         compose.onNodeWithTag(TAG_MARK_ENTRY_NEXT).performClick()
 
-        assertEquals(listOf(1), saved)
+        assertEquals(listOf(1.0), saved)
     }
 
     @Test
@@ -171,5 +177,40 @@ class MarkEntryActionsTest {
         compose.setContent { ShikkhokTheme { MarkEntryScreen(state = two().copy(writable = false)) } }
 
         compose.onNodeWithTag(TAG_MARK_ENTRY_DOCK).assertDoesNotExist()
+    }
+
+    @Test
+    fun `the point key types a decimal mark, two places at most`() {
+        // Decided 2026-11-05: a mark may be decimal, such as 19.5.
+        val saved = mutableListOf<Double>()
+        compose.setContent { ShikkhokTheme { MarkEntryScreen(state = two(), onMark = { _, mark -> saved += mark }) } }
+
+        listOf("1", "9", ".", ".", "2", "5", "7").forEach { key ->
+            compose.onNodeWithTag(TAG_MARK_ENTRY_KEY + "_" + key).performClick()
+        }
+        compose.onNodeWithTag(TAG_MARK_ENTRY_NEXT).performClick()
+
+        assertEquals(listOf(19.25), saved, "a second point and a third decimal are ignored")
+    }
+
+    @Test
+    fun `publish appears once every seat has a result, and says when it is out`() {
+        // Decided 2026-11-05: marks are the teacher's draft until published.
+        var publishes = 0
+        var state by mutableStateOf<MarksUiState>(entry().copy(toEnter = 2))
+        compose.setContent { ShikkhokTheme { MarkEntryScreen(state = state, onPublish = { publishes++ }) } }
+
+        compose.onNodeWithTag(TAG_MARK_ENTRY_TO_ENTER).assertExists()
+        compose.onNodeWithTag(TAG_MARK_ENTRY_PUBLISH).assertDoesNotExist()
+
+        state = entry()
+        compose.waitForIdle()
+        compose.onNodeWithTag(TAG_MARK_ENTRY_PUBLISH).performClick()
+        assertEquals(1, publishes)
+
+        state = entry().copy(published = true)
+        compose.waitForIdle()
+        compose.onNodeWithTag(TAG_MARK_ENTRY_PUBLISHED).assertExists()
+        compose.onNodeWithTag(TAG_MARK_ENTRY_PUBLISH).assertDoesNotExist()
     }
 }

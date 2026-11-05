@@ -151,6 +151,7 @@ def add_exam(
         date=date,
         total_marks=100,
         created_at=created_at or dt.datetime.now(tz=dt.UTC),
+        published_at=created_at or dt.datetime.now(tz=dt.UTC),
     )
     session.add(exam)
     session.commit()

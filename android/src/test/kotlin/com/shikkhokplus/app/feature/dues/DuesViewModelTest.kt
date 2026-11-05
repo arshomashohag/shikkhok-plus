@@ -284,4 +284,22 @@ class DuesViewModelTest {
         val state = assertIs<DuesUiState.Loaded>(model.state.value)
         assertEquals(true, state.offline)
     }
+
+    @Test
+    fun `a saved copy read back at a cold start shows offline, aged by when it was read`() =
+        runTest(dispatcher) {
+            // The phone's copy from an earlier session: nothing this
+            // session has loaded, yet the figures show, marked offline,
+            // with the age of the copy rather than of now.
+            val saved = (FakeRepository().result as AuthResult.Ok).value
+            val repo = FakeRepository(result = AuthResult.Ok(saved, savedAt = 1_000L))
+            val model = DuesViewModel(repo)
+
+            model.load()
+            advanceUntilIdle()
+
+            val state = assertIs<DuesUiState.Loaded>(model.state.value)
+            assertEquals(true, state.offline)
+            assertEquals(1_000L, state.loadedAt)
+        }
 }

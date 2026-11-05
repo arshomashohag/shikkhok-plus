@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.core.network
 
+import com.shikkhokplus.app.core.model.PostalAddress
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -28,7 +29,11 @@ data class LensEntryDto(
  *
  * @property lenses Every available lens, teacher first
  * @property selfName The name this person chose, or null
- * @property address Their address, or null
+ * @property address Their free-text address from before 2026-11-05, or null
+ * @property addressHouse House or flat, or null
+ * @property addressRoad Road or area, or null
+ * @property addressCity City or district, or null
+ * @property addressPostcode Four digits, or null
  * @property phone The number this account signs in with, shown
  *   read-only and typed back to confirm deletion
  */
@@ -37,8 +42,26 @@ data class MeDto(
     val lenses: List<LensEntryDto> = emptyList(),
     @SerialName("self_name") val selfName: String? = null,
     val address: String? = null,
+    @SerialName("address_house") val addressHouse: String? = null,
+    @SerialName("address_road") val addressRoad: String? = null,
+    @SerialName("address_city") val addressCity: String? = null,
+    @SerialName("address_postcode") val addressPostcode: String? = null,
     val phone: String? = null,
-)
+) {
+    /** The address in its four parts, empty where none is stored. */
+    val postal: PostalAddress
+        get() =
+            PostalAddress(
+                house = addressHouse.orEmpty(),
+                road = addressRoad.orEmpty(),
+                city = addressCity.orEmpty(),
+                postcode = addressPostcode.orEmpty(),
+            )
+
+    /** The address to read back: the four parts, or the older free text. */
+    val shownAddress: String?
+        get() = postal.oneLine() ?: address
+}
 
 /**
  * What a person may change about themselves.
@@ -51,10 +74,16 @@ data class MeDto(
  * edited field can be saved without resending the other.
  *
  * @property selfName The new name, or null to leave it alone
- * @property address The new address, or null to leave it alone
+ * @property addressHouse The new house or flat, or null to leave it alone
+ * @property addressRoad The new road or area, or null to leave it alone
+ * @property addressCity The new city or district, or null to leave it alone
+ * @property addressPostcode The new postcode, or null to leave it alone
  */
 @Serializable
 data class ProfileUpdateDto(
     @SerialName("self_name") val selfName: String? = null,
-    val address: String? = null,
+    @SerialName("address_house") val addressHouse: String? = null,
+    @SerialName("address_road") val addressRoad: String? = null,
+    @SerialName("address_city") val addressCity: String? = null,
+    @SerialName("address_postcode") val addressPostcode: String? = null,
 )

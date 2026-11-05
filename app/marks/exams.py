@@ -45,6 +45,8 @@ class ExamRow:
     :ivar total_marks: The denominator
     :ivar subject_name: The subject assessed
     :ivar topics: What it covers, in the teacher's order
+    :ivar published: Whether its results have been published to
+        students and guardians; False while they are a draft
     """
 
     exam_id: uuid.UUID
@@ -53,6 +55,7 @@ class ExamRow:
     total_marks: int
     subject_name: str
     topics: list[str] = field(default_factory=list)
+    published: bool = False
 
 
 def _owned_active_batch(
@@ -199,6 +202,7 @@ def create_exam(
         total_marks=row.total_marks,
         subject_name=subject.name,
         topics=list(row.topics),
+        published=row.published_at is not None,
     )
 
 
@@ -281,6 +285,7 @@ def update_exam(
         total_marks=row.total_marks,
         subject_name=name,
         topics=list(row.topics),
+        published=row.published_at is not None,
     )
 
 
@@ -314,6 +319,7 @@ def read_exam_row(
         total_marks=exam.total_marks,
         subject_name=subject or "",
         topics=list(exam.topics),
+        published=exam.published_at is not None,
     )
 
 
@@ -351,6 +357,7 @@ def list_exams(
             total_marks=entry[0].total_marks,
             subject_name=entry[1],
             topics=list(entry[0].topics),
+            published=entry[0].published_at is not None,
         )
         for entry in rows
     ]

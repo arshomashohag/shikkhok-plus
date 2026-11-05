@@ -150,6 +150,15 @@ class HttpMarksRepository(
     }
 
     /**
+     * Publish an exam's results to its students and guardians.
+     *
+     * @param examId The exam
+     * @return Nothing on success, or why the server refused
+     */
+    override suspend fun publish(examId: String): AuthResult<Unit> =
+        callDiscardingBody { client.post("/v1/exams/$examId/publish") }
+
+    /**
      * Write one seat's mark [BR4.2, BR4.4].
      *
      * @param examId The exam
@@ -162,7 +171,7 @@ class HttpMarksRepository(
         examId: String,
         enrollmentId: String,
         resultState: String,
-        marks: Int?,
+        marks: Double?,
     ): AuthResult<Unit> =
         callDiscardingBody {
             client.post("/v1/exams/$examId/marks") {

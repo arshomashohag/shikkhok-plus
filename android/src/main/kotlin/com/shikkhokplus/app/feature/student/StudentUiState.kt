@@ -54,7 +54,7 @@ data class NextClass(
  * @property totalMarks Out of how many
  * @property rank The rank, only where the marksheet publishes it
  */
-data class LastResult(val title: String, val marks: Int, val totalMarks: Int, val rank: Int?)
+data class LastResult(val title: String, val marks: Double, val totalMarks: Int, val rank: Int?)
 
 /**
  * The next exam to sit.

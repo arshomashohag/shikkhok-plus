@@ -388,6 +388,7 @@ def exam_a(owner_session: DbSession, teacher_a: TeacherFixture) -> uuid.UUID:
         date=EXAM_DATE,
         total_marks=100,
         created_at=dt.datetime.now(tz=dt.UTC),
+        published_at=dt.datetime.now(tz=dt.UTC),
     )
     owner_session.add(row)
     owner_session.commit()
