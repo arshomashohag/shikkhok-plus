@@ -121,7 +121,7 @@ class HttpMarksRepositoryTest {
         )
         assertEquals(false, ok.value.writable)
         assertEquals("Mid-term", ok.value.exam.title)
-        assertEquals(72, ok.value.results.single().marks)
+        assertEquals(72.0, ok.value.results.single().marks)
     }
 
     @Test

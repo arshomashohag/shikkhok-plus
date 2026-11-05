@@ -51,12 +51,12 @@ class MarksStateMapperTest {
 
     private fun marksheet(
         ownState: String = "marked",
-        ownMarks: Int? = 74,
+        ownMarks: Double? = 74.0,
         published: Boolean = false,
         rank: Int? = null,
         markedCount: Int? = null,
         average: Double? = null,
-        highest: Int? = null,
+        highest: Double? = null,
         bands: List<MarkBandDto> = emptyList(),
     ): MarksheetDto =
         MarksheetDto(
@@ -139,7 +139,7 @@ class MarksStateMapperTest {
                 ),
             ).rows.single()
 
-        assertEquals(0, row.marks)
+        assertEquals(0.0, row.marks)
         assertEquals("mark.state.marked", row.stateLabel)
         assertNotEquals("mark.state.absent", row.stateLabel)
     }
@@ -200,7 +200,7 @@ class MarksStateMapperTest {
             )
 
         assertNull(loaded.comparison)
-        assertEquals(74, loaded.ownMarks)
+        assertEquals(74.0, loaded.ownMarks)
     }
 
     @Test
@@ -232,7 +232,7 @@ class MarksStateMapperTest {
         assertEquals(9, comparison.markedCount)
         // One decimal place, Latin digits: display formatting only.
         assertEquals("64.7", comparison.average)
-        assertEquals(92, comparison.highest)
+        assertEquals(92.0, comparison.highest)
         assertEquals(
             listOf("80-100", "60-79", "0-59"),
             comparison.bands.map { it.rangeLabel },
@@ -405,7 +405,7 @@ class MarksStateMapperTest {
             )
 
         assertEquals(3, loaded.entries.size)
-        assertEquals(listOf(70, null, 80), loaded.entries.map { it.marks })
+        assertEquals(listOf(70.0, null, 80.0), loaded.entries.map { it.marks })
         assertNull(loaded.entries[1].marks, "an absence must carry no numeric value")
         assertEquals("mark.state.absent", loaded.entries[1].stateLabel)
     }

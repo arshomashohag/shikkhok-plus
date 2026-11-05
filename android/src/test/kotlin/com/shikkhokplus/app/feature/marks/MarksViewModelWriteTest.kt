@@ -224,7 +224,7 @@ class MarksViewModelWriteTest {
         advanceUntilIdle()
 
         val entries = model.history.value?.entries.orEmpty()
-        assertEquals(listOf(18, 21), entries.map { it.marks })
+        assertEquals(listOf(18.0, 21.0), entries.map { it.marks })
         assertEquals(listOf(true, false), entries.map { it.superseded })
         assertEquals("mark.state.marked", entries.first().stateLabel)
 
