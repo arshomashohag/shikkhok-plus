@@ -1,0 +1,69 @@
+package com.shikkhokplus.app.feature.settings
+
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import com.shikkhokplus.app.core.designsystem.ShikkhokTheme
+import com.shikkhokplus.app.core.settings.AppSettings
+import com.shikkhokplus.app.core.settings.InMemorySettingsStore
+import com.shikkhokplus.app.core.settings.SettingsHolder
+import com.shikkhokplus.app.core.settings.TextSizeChoice
+import com.shikkhokplus.app.core.settings.ThemeChoice
+import com.shikkhokplus.app.feature.settings.ui.SettingsScreen
+import com.shikkhokplus.app.feature.settings.ui.TAG_SETTINGS_NOTIFICATIONS
+import com.shikkhokplus.app.feature.settings.ui.TAG_SETTINGS_TEXT
+import com.shikkhokplus.app.feature.settings.ui.TAG_SETTINGS_THEME
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import kotlin.test.assertEquals
+
+/** Settings, rendered: each choice shows what is set and changes it. */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34])
+class SettingsScreenTest {
+
+    @get:Rule
+    val compose = createComposeRule()
+
+    private fun render(holder: SettingsHolder) {
+        compose.setContent {
+            val settings by holder.state.collectAsState()
+            ShikkhokTheme {
+                SettingsScreen(settings = settings, onChange = { next -> holder.update { next } }, onBack = {})
+            }
+        }
+    }
+
+    @Test
+    fun `it shows what is set now`() {
+        render(SettingsHolder(InMemorySettingsStore(AppSettings(theme = ThemeChoice.DARK))))
+
+        compose.onNodeWithText("Settings").assertExists()
+        compose.onNodeWithTag(TAG_SETTINGS_NOTIFICATIONS).assertIsOn()
+        compose.onNodeWithTag(TAG_SETTINGS_THEME + "DARK").assertIsSelected()
+        compose.onNodeWithTag(TAG_SETTINGS_TEXT + "SYSTEM").performScrollTo().assertIsSelected()
+    }
+
+    @Test
+    fun `turning notifications off, and picking a theme and a size, changes the settings`() {
+        val holder = SettingsHolder(InMemorySettingsStore())
+        render(holder)
+
+        compose.onNodeWithTag(TAG_SETTINGS_NOTIFICATIONS).performClick()
+        compose.onNodeWithTag(TAG_SETTINGS_THEME + "LIGHT").performClick()
+        compose.onNodeWithTag(TAG_SETTINGS_TEXT + "LARGE").performScrollTo().performClick()
+
+        compose.onNodeWithTag(TAG_SETTINGS_NOTIFICATIONS).assertIsOff()
+        assertEquals(AppSettings(ThemeChoice.LIGHT, TextSizeChoice.LARGE, notifications = false), holder.state.value)
+    }
+}

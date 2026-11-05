@@ -630,6 +630,8 @@ private fun ShikkhokGraph(
                             },
                             onRetry = model::retry,
                             onSwitchLens = session.onSwitch,
+                            onSettings =
+                                session.settings?.let { { navController.navigate(Destination.Settings.route) } },
                             unsent = remember { session.unsentWrites() },
                         ),
                     navigate = { route -> navController.navigate(route) },
@@ -652,7 +654,7 @@ private fun ShikkhokGraph(
             }
         }
 
-        profileRoutes(client, navController, session.lens)
+        profileRoutes(client, navController, session.lens, session.settings)
 
         composable(Destination.PaymentMethods.route) {
             val model: PaymentMethodsViewModel =

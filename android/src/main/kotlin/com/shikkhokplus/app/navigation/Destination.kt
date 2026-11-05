@@ -669,6 +669,11 @@ sealed interface Destination {
         override val route: String = "profile"
     }
 
+    /** Settings: notifications, theme and text size, pushed over More. */
+    data object Settings : Destination {
+        override val route: String = "settings"
+    }
+
     /** Edit profile (S4), pushed over More. */
     data object EditProfile : Destination {
         override val route: String = "profile/edit"

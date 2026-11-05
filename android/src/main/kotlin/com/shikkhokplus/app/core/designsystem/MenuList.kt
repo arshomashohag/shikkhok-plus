@@ -85,6 +85,10 @@ object MenuIcons {
             "M3 20c0-4 3-6 6-6s6 2 6 6M14 20c0-2.5 1.5-4 3-4s3 1.5 3 4",
         )
 
+    /** Three sliders: settings. */
+    val Settings: ImageVector =
+        outline("Settings", "M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1", "M15 4v4M9 10v4M17 16v4")
+
     /** Two arrows in a loop: switch role. */
     val Switch: ImageVector = outline("Switch", "M7 7h11l-3-3M17 17h-11l3 3")
 

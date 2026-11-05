@@ -1,5 +1,9 @@
 package com.shikkhokplus.app
 
+import androidx.compose.foundation.isSystemInDarkTheme
+import com.shikkhokplus.app.core.designsystem.TextScale
+import com.shikkhokplus.app.core.settings.SettingsHolder
+import com.shikkhokplus.app.core.settings.PreferencesSettingsStore
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -97,36 +101,49 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         openInbox = UnreadNotifier.opensInboxOnCreate(intent, savedInstanceState)
+        // This phone's own preferences (Settings): theme, text size and
+        // the tray notifications. Read before the first frame so the app
+        // opens in the theme the person chose rather than flashing to it.
+        val settings = SettingsHolder(PreferencesSettingsStore(getSharedPreferences(SETTINGS_FILE, MODE_PRIVATE)))
         setContent {
-            ShikkhokTheme {
-                Surface(
-                    // **safeDrawing, not statusBars.** It covers the
-                    // status bar, the navigation bar AND the display
-                    // cutout, which is what a phone with a notch
-                    // actually needs. Without this the first field
-                    // rendered UNDER the status bar and was half
-                    // hidden -- found on a real device, not in any
-                    // test, because a test renders with no insets at
-                    // all and passes either way.
-                    modifier = Modifier.windowInsetsPadding(
-                        WindowInsets.safeDrawing,
-                    ),
-                    color = MaterialTheme.colorScheme.background,
-                ) {
-                    if (BuildConfig.API_BASE_URL.isBlank()) {
-                        UnconfiguredNotice()
-                    } else {
-                        AppRoot(
-                            openInbox = openInbox,
-                            onInboxOpened = {
-                                UnreadNotifier.consume(intent)
-                                openInbox = false
-                            },
-                        )
+            val chosen by settings.state.collectAsState()
+            ShikkhokTheme(darkTheme = chosen.theme.isDark(isSystemInDarkTheme())) {
+                TextScale(chosen.textSize.scale) {
+                    Surface(
+                        // **safeDrawing, not statusBars.** It covers the
+                        // status bar, the navigation bar AND the display
+                        // cutout, which is what a phone with a notch
+                        // actually needs. Without this the first field
+                        // rendered UNDER the status bar and was half
+                        // hidden -- found on a real device, not in any
+                        // test, because a test renders with no insets at
+                        // all and passes either way.
+                        modifier = Modifier.windowInsetsPadding(
+                            WindowInsets.safeDrawing,
+                        ),
+                        color = MaterialTheme.colorScheme.background,
+                    ) {
+                        if (BuildConfig.API_BASE_URL.isBlank()) {
+                            UnconfiguredNotice()
+                        } else {
+                            AppRoot(
+                                openInbox = openInbox,
+                                onInboxOpened = {
+                                    UnreadNotifier.consume(intent)
+                                    openInbox = false
+                                },
+                                settings = settings,
+                            )
+                        }
                     }
                 }
             }
         }
+    }
+
+    private companion object {
+        /** The preferences file Settings are kept in. */
+        const val SETTINGS_FILE = "settings"
     }
 }
 
@@ -160,7 +177,7 @@ private fun UnconfiguredNotice() {
  * graph.
  */
 @Composable
-private fun AppRoot(openInbox: Boolean, onInboxOpened: () -> Unit) {
+private fun AppRoot(openInbox: Boolean, onInboxOpened: () -> Unit, settings: SettingsHolder) {
     val context = LocalContext.current
     val tokens = remember { EncryptedTokenStore.create(context) }
     // **One queue for the whole app, not one per screen.** The pending
@@ -312,7 +329,9 @@ private fun AppRoot(openInbox: Boolean, onInboxOpened: () -> Unit) {
     // notification permission is asked once, after sign-in; a refusal is
     // remembered and not asked again. The tray entry is cleared whenever
     // the app comes to the front.
-    UnreadCheckEffects(signedIn)
+    // Off in Settings, the tray stays quiet; the inbox still fills.
+    val notificationsOn = settings.state.collectAsState().value.notifications
+    UnreadCheckEffects(signedIn, notificationsOn)
 
     // **One way to end a session by choice, used by sign-out and
     // deletion.** It discards this account's unsent writes -- which the
@@ -369,6 +388,7 @@ private fun AppRoot(openInbox: Boolean, onInboxOpened: () -> Unit) {
                     onLensesChanged = sessionModel::refreshLenses,
                     onEndSession = endSession,
                     unsentWrites = { queue.read().size },
+                    settings = settings,
                 ),
             // Read ONCE per session. A live value here would rebuild the
             // whole NavHost on every change, discarding the back stack.

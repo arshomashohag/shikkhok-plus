@@ -59,11 +59,14 @@ approved and is not audited here.
   30dp chips), applied once around the navigation graph
   (`core/designsystem/Theme.kt` `GuardianScale`). Chip text is 14sp, the
   nearest design step to the board's 15sp.
-- [?] **Settings that do not exist yet:** Notifications preferences, Dark
+- [x] **Settings that do not exist yet:** Notifications preferences, Dark
   theme, Text size, Save data, Reminder SMS language, How-to videos,
   Call/message support, Tell another teacher. No screens, storage or
   strings exist for any of them. *Decided 2026-11-05:* build a Settings screen with
-  notifications, dark theme and text size.
+  notifications, dark theme and text size. Built: More › APP › Settings
+  for every role (`feature/settings/ui/SettingsScreen.kt`), kept on the
+  phone (`core/settings/AppSettings.kt`). The text size adds to the
+  phone's own; notifications off stops the tray check, not the inbox.
 
 ---
 

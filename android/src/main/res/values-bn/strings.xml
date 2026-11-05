@@ -1205,4 +1205,19 @@
     <string name="progress_of_child">%1$s-এর অগ্রগতি</string>
     <string name="verify_queue_trx">TrxID %1$s</string>
     <string name="verify_queue_from">%1$s থেকে</string>
+    <!-- Settings (2026-11-05). -->
+    <string name="settings_title">সেটিংস</string>
+    <string name="settings_section_notifications">নোটিফিকেশন</string>
+    <string name="settings_notifications">এই ফোনে নতুন বার্তা</string>
+    <string name="settings_notifications_sub">নতুন বার্তা নোটিফিকেশন ট্রেতে দেখান। ইনবক্সে বার্তা সবসময় থাকবে।</string>
+    <string name="settings_section_theme">থিম</string>
+    <string name="settings_theme_light">লাইট</string>
+    <string name="settings_theme_dark">ডার্ক</string>
+    <string name="settings_same_as_phone">ফোনের মতো</string>
+    <string name="settings_section_text">লেখার আকার</string>
+    <string name="settings_text_large">বড়</string>
+    <string name="settings_text_largest">সবচেয়ে বড়</string>
+    <string name="more_section_app">অ্যাপ</string>
+    <string name="more_settings">সেটিংস</string>
+    <string name="more_settings_sub">নোটিফিকেশন, থিম ও লেখার আকার</string>
 </resources>

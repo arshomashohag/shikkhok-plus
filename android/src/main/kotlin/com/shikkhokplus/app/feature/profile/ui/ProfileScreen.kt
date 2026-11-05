@@ -54,6 +54,9 @@ const val TAG_PROFILE_EDIT: String = "profile_edit"
 /** The delete-account row (O5). */
 const val TAG_PROFILE_DELETE: String = "profile_delete"
 
+/** The Settings row (APP). */
+const val TAG_PROFILE_SETTINGS: String = "profile_settings"
+
 /** The log-out row. */
 const val TAG_PROFILE_SIGN_OUT: String = "profile_sign_out"
 
@@ -99,6 +102,7 @@ const val TAG_PROFILE_MY_CHILDREN: String = "profile_my_children"
  * @property onInvitations Opens the invitations list, or null
  * @property onMyChildren Opens the guardian's children, or null
  * @property unsent How many records this phone has not sent yet (T9)
+ * @property onSettings Opens Settings, or null where none are kept
  */
 data class MoreActions(
     val onEdit: () -> Unit = {},
@@ -111,6 +115,7 @@ data class MoreActions(
     val onInvitations: (() -> Unit)? = null,
     val onMyChildren: (() -> Unit)? = null,
     val unsent: Int = 0,
+    val onSettings: (() -> Unit)? = null,
 )
 
 /**
@@ -257,6 +262,7 @@ private fun MoreMenu(
 
     PeopleRows(lens, actions, offline)
     TeacherRows(actions, offline)
+    AppRows(actions)
     AccountRows(actions, offline)
 
     version?.let {
@@ -416,6 +422,25 @@ private fun AccountRows(actions: MoreActions, offline: Boolean) {
             enabled = !offline,
             onClick = actions.onDeleteAccount,
             modifier = Modifier.testTag(TAG_PROFILE_DELETE),
+        )
+    }
+}
+
+/**
+ * The APP section: Settings, which this phone keeps and so works offline.
+ *
+ * @param actions Where each row leads
+ */
+@Composable
+private fun AppRows(actions: MoreActions) {
+    val open = actions.onSettings ?: return
+    MenuSection(stringResource(R.string.more_section_app)) {
+        MenuRow(
+            title = stringResource(R.string.more_settings),
+            subtitle = stringResource(R.string.more_settings_sub),
+            icon = MenuIcons.Settings,
+            onClick = open,
+            modifier = Modifier.testTag(TAG_PROFILE_SETTINGS),
         )
     }
 }

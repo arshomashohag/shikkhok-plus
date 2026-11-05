@@ -1,5 +1,7 @@
 package com.shikkhokplus.app.core.designsystem
 
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -37,6 +39,28 @@ fun ShikkhokTheme(
             content = content,
         )
     }
+}
+
+/**
+ * The person's chosen text size around [content] (Settings).
+ *
+ * **On top of the phone's own font scale**, never instead of it: a
+ * phone already set large stays large, and the choice here adds to it.
+ *
+ * @param scale The factor from Settings; 1 leaves text as the phone has it
+ * @param content What to draw
+ */
+@Composable
+fun TextScale(scale: Float, content: @Composable () -> Unit) {
+    if (scale == 1f) {
+        content()
+        return
+    }
+    val density = LocalDensity.current
+    CompositionLocalProvider(
+        LocalDensity provides Density(density.density, density.fontScale * scale),
+        content = content,
+    )
 }
 
 /**
