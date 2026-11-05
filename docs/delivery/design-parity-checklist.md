@@ -42,7 +42,8 @@ approved and is not audited here.
   written to the phone's disk. That is a privacy decision (children's
   data at rest on a shared family phone [RC-1, RC-8]), not a layout
   one, so no disk cache was added; T6, T7 and G2/G3 still show an
-  error card when the first read of a session fails.
+  error card when the first read of a session fails. *Decided 2026-11-05:* keep an
+  offline copy on the phone, overwritten by every successful read.
 - [x] **Skeleton loading.** T1, T3, S1 and S2 draw skeleton cards, as
   the artboards do, and so do the list screens with no artboard of their
   own (fee history, exams, classes, invitations, payments, My
@@ -61,7 +62,8 @@ approved and is not audited here.
 - [?] **Settings that do not exist yet:** Notifications preferences, Dark
   theme, Text size, Save data, Reminder SMS language, How-to videos,
   Call/message support, Tell another teacher. No screens, storage or
-  strings exist for any of them.
+  strings exist for any of them. *Decided 2026-11-05:* build a Settings screen with
+  notifications, dark theme and text size.
 
 ---
 
@@ -71,7 +73,8 @@ approved and is not audited here.
 - [?] Address required at sign-up: the app asks for it but does not
   require it. Requiring a child's or guardian's home address before they
   can use the app is a data-minimisation decision for the owner, not a
-  layout fix.
+  layout fix. *Decided 2026-11-05:* required, as separate House, Road, City and
+  Postcode fields.
 - [?] Already-added banner should name the teacher, role and batch
   ("মাহফুজুর রহমান added this number as a student in …"); the code uses
   generic copy. Needs the server to say who added the number.
@@ -151,14 +154,15 @@ approved and is not audited here.
 - [?] "subject · batch · date" in the subtitle: the entry read carries the
   exam's date only, not its subject or batch name.
 - [?] Half marks ("19.5"): the client takes `Int`. Needs the API's mark
-  type confirmed before the client changes.
+  type confirmed before the client changes. *Decided 2026-11-05:* a mark may be any
+  number, whole or decimal.
 - [x] Empty: "No students in this batch yet".
 - [?] Empty: an Add students button on it -- the entry read carries no
   batch id to open the batch's add-student form with.
 - [x] Loading: skeleton rows.
 - [?] Draft → review → "Publish to students & guardians", "3 to fix",
   "Max 25" row errors. There is no draft/publish model; marks save per
-  field. Needs a server model.
+  field. Needs a server model. *Decided 2026-11-05:* build draft → review → publish.
 
 ### T4 · Payment verification — `feature/verify/ui/*`
 - [x] Queue cards show TrxID and the paying account
@@ -200,9 +204,9 @@ approved and is not audited here.
   the board draws 7, 37 and 68 days (`feature/dues/ui/DuesScreen.kt`).
 - [?] Amber for a partly-paid row (the board's Nusrat): the dues read has
   no partly-paid flag, so no row is amber yet.
-- [?] "Remind N late **guardians**" by SMS ("SMS in Bangla and English ·
-  you approve the text first"); the app reminds students in-app. Product
-  decision.
+- [x] "Remind N late **guardians**" by SMS ("SMS in Bangla and English ·
+  you approve the text first"): *Decided 2026-11-05:* reminders stay in-app for now,
+  so this is not built.
 - [x] Collapsed header: the total owed stays in the bar's subtitle when
   the summary card scrolls away, which is what the collapsed board shows.
 - [x] Empty keeps the "Owed to you ৳0" card, with the server's total
@@ -263,9 +267,8 @@ approved and is not audited here.
 - [x] Help lines: "New number. They'll get an SMS invite." is not added:
   nothing sends an SMS invite (invitations are accepted in the app), so
   the line would promise a message that never arrives. *Artboard updated 2026-11-05.*
-- [?] Number lookup: "Checking…", "Found on ShikkhokPlus", auto-fill.
-  Needs a lookup endpoint (and a privacy review: it reveals that a number
-  has an account, to a teacher).
+- [x] Number lookup: "Checking…", "Found on ShikkhokPlus", auto-fill.
+  *Decided 2026-11-05:* not needed, so not built.
 - [x] Phone error "Mobile numbers have 11 digits. This one has 10." when
   a local number has the wrong count (`CreateForms.kt` `phoneError`).
 - [x] Same-name hint: "Rahim is already in this batch", shown, never
@@ -291,8 +294,8 @@ approved and is not audited here.
   anyway" (`feature/profile/ui/LogOutSheet.kt`). With nothing unsent it
   is a plain Log out / Cancel confirmation, now drawn as its own
   frame. *Artboard updated 2026-11-05.*
-- [?] "Free trial · 9 days left" card with Plans (no plan model; the app
-  charges nobody — see `team.md` Way of Working).
+- [x] "Free trial · 9 days left" card with Plans: *Decided 2026-11-05:* no plan model
+  for now, so not built.
 - [?] "Fee due date and reminders" row.
 - [?] "Everything is saved · Last synced" row.
 - [?] APP and HELP sections (see cross-cutting settings).
@@ -393,8 +396,8 @@ approved and is not audited here.
   in the invitations read first.
 - [x] Edit profile as its own screen with close X, titled "Edit profile",
   "Full name".
-- [?] Mobile number "Change" with OTP to the new number — the app says the
-  number cannot be changed. Needs a number-change endpoint.
+- [x] Mobile number "Change" with OTP to the new number: *Decided 2026-11-05:* the
+  number cannot be changed, as the app already says. Not built.
 - [x] "Account type" explanation ("To use ShikkhokPlus as a teacher or
   guardian, create a separate account with another number") contradicts
   the lens model: one account holds every lens its seats grant, and
@@ -464,7 +467,8 @@ approved and is not audited here.
   child" / "No, not my child". The invitation read carries no child
   name, and sending one is a privacy decision: it would show a child's
   name to whoever holds the number a teacher typed, before they have
-  confirmed they are the guardian [RC-1, D-5].
+  confirmed they are the guardian [RC-1, D-5]. *Decided 2026-11-05:* show the
+  child's name.
 - [?] Notifications, Text size, "Call for help · Talk to a person, in Bangla".
 - [x] Guardian type scale (64dp rows, 18sp titles, 21sp/700 title).
 - [x] Error · offline: the same More screen as T9.
