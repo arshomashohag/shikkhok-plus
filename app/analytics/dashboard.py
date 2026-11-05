@@ -287,7 +287,13 @@ def _exams(
     query = (
         sa.select(Exam, BatchSubject.name)
         .join(BatchSubject, BatchSubject.id == Exam.batch_subject_id)
-        .where(Exam.batch_id == batch_id, Exam.date >= first_day, Exam.date <= today)
+        .where(
+            Exam.batch_id == batch_id,
+            Exam.date >= first_day,
+            Exam.date <= today,
+            # A cancelled exam's drafted marks were never a result.
+            Exam.cancelled_at.is_(None),
+        )
         .order_by(Exam.date, Exam.id)
     )
     if family:

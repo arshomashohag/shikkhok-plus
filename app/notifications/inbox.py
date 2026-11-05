@@ -27,6 +27,7 @@ from app.money import Money
 
 __all__ = [
     "CLAIM_TO_VERIFY",
+    "EXAM_CANCELLED",
     "EXAM_SCHEDULED",
     "FEE_REMINDER",
     "INBOX_LIMIT",
@@ -71,6 +72,11 @@ NOTICE: Final[str] = "notice"
 
 #: An exam a teacher scheduled for a batch.
 EXAM_SCHEDULED: Final[str] = "exam_scheduled"
+
+#: An exam the teacher called off before its results were published.
+#: Replaces that exam's :data:`EXAM_SCHEDULED` items, so a family's inbox
+#: never holds both an invitation and its cancellation for one exam.
+EXAM_CANCELLED: Final[str] = "exam_cancelled"
 
 #: Marks a teacher published for an exam.
 MARKS_AVAILABLE: Final[str] = "marks_available"

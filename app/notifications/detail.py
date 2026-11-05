@@ -31,6 +31,7 @@ from app.errors import AuthorizationError
 from app.money import Money
 from app.notifications.inbox import (
     CLAIM_TO_VERIFY,
+    EXAM_CANCELLED,
     EXAM_SCHEDULED,
     NOTICE,
     PAYMENT_APPROVED,
@@ -81,6 +82,7 @@ class ExamDetail:
     :ivar subject_name: The subject
     :ivar total_marks: The denominator
     :ivar topics: What it covers
+    :ivar cancelled: Whether the teacher has cancelled it
     """
 
     exam_id: uuid.UUID
@@ -89,6 +91,7 @@ class ExamDetail:
     subject_name: str
     total_marks: int
     topics: list[str]
+    cancelled: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -215,6 +218,7 @@ def _exam(session: Session, source_id: uuid.UUID) -> ExamDetail | None:
         subject_name=subject,
         total_marks=row.total_marks,
         topics=list(row.topics),
+        cancelled=row.cancelled_at is not None,
     )
 
 
@@ -344,7 +348,7 @@ def _source(
     if item.kind == NOTICE and source is not None:
         notice = _notice(session, source)
         return notice, None, None, notice is not None
-    if item.kind == EXAM_SCHEDULED and source is not None:
+    if item.kind in (EXAM_SCHEDULED, EXAM_CANCELLED) and source is not None:
         exam = _exam(session, source)
         return None, exam, None, exam is not None
     if item.kind in _PAYMENT_KINDS and source is not None:

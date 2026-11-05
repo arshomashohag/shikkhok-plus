@@ -24,6 +24,7 @@ from app.money.wire import to_wire
 from app.notifications.detail import ItemDetail, open_item
 from app.notifications.inbox import (
     CLAIM_TO_VERIFY,
+    EXAM_CANCELLED,
     EXAM_SCHEDULED,
     FEE_REMINDER,
     MARKS_AVAILABLE,
@@ -60,6 +61,7 @@ Kind = Literal[
     "payment_recorded",
     "notice",
     "exam_scheduled",
+    "exam_cancelled",
     "marks_available",
     "claim_to_verify",
 ]
@@ -73,6 +75,7 @@ _PUBLISHED: dict[str, Kind] = {
     PAYMENT_RECORDED: "payment_recorded",
     NOTICE: "notice",
     EXAM_SCHEDULED: "exam_scheduled",
+    EXAM_CANCELLED: "exam_cancelled",
     MARKS_AVAILABLE: "marks_available",
     CLAIM_TO_VERIFY: "claim_to_verify",
 }

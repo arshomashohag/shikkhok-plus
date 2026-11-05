@@ -36,7 +36,7 @@ from sqlalchemy.orm import Session as DbSession
 from app.authz.lenses import TeacherLens
 from app.db.models import Batch, Exam, Mark
 from app.errors import ConflictError, ValidationError
-from app.marks.exams import readable_exam
+from app.marks.exams import cancelled_refusal, readable_exam
 from app.marks.value import MAX_PLACES, has_at_most_two_places
 from app.notifications.inbox import MARKS_AVAILABLE, deliver
 from app.notifications.recipients import child_names, seat_recipients
@@ -106,7 +106,8 @@ def writable_exam(
     :param exam_id: The exam
     :return: The exam row
     :raises AuthorizationError: This lens does not reach the exam
-    :raises ConflictError: The batch is inactive [BR5.5]
+    :raises ConflictError: The batch is inactive [BR5.5], or the exam
+        was cancelled [0019]
     """
     row = readable_exam(session, lens=lens, exam_id=exam_id)
 
@@ -118,6 +119,8 @@ def writable_exam(
             code="BATCH_INACTIVE",
             message_key="teaching.batch.inactive",
         )
+    if row.cancelled_at is not None:
+        raise cancelled_refusal()
     return row
 
 
@@ -135,13 +138,14 @@ def exam_is_writable(
 
     :param session: The session to read through
     :param exam_id: The exam
-    :return: True when the exam's batch is active
+    :return: True when the exam's batch is active and it is not cancelled
     """
-    batch_id = session.scalars(
-        sa.select(Exam.batch_id).where(Exam.id == exam_id)
+    found = session.execute(
+        sa.select(Exam.batch_id, Exam.cancelled_at).where(Exam.id == exam_id)
     ).one_or_none()
-    if batch_id is None:
+    if found is None or found.cancelled_at is not None:
         return False
+    batch_id = found.batch_id
     active = session.scalars(
         sa.select(Batch.active).where(Batch.id == batch_id)
     ).one_or_none()

@@ -1875,8 +1875,13 @@
       },
       "ExamBlock": {
         "additionalProperties": false,
-        "description": "An exam as it stands now.\n\n:ivar exam_id: The exam\n:ivar title: The teacher's name for it\n:ivar date: When it is held\n:ivar subject_name: The subject\n:ivar total_marks: The denominator\n:ivar topics: What it covers",
+        "description": "An exam as it stands now.\n\n:ivar exam_id: The exam\n:ivar title: The teacher's name for it\n:ivar date: When it is held\n:ivar subject_name: The subject\n:ivar total_marks: The denominator\n:ivar topics: What it covers\n:ivar cancelled: Whether the teacher has cancelled it",
         "properties": {
+          "cancelled": {
+            "default": false,
+            "title": "Cancelled",
+            "type": "boolean"
+          },
           "date": {
             "format": "date",
             "title": "Date",
@@ -1916,6 +1921,26 @@
           "total_marks"
         ],
         "title": "ExamBlock",
+        "type": "object"
+      },
+      "ExamCancelRequest": {
+        "additionalProperties": false,
+        "description": "Cancel an exam whose results are not published.\n\n:ivar reason: A short note for the record, if any",
+        "properties": {
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "title": "ExamCancelRequest",
         "type": "object"
       },
       "ExamCreateRequest": {
@@ -1967,6 +1992,22 @@
         "additionalProperties": false,
         "description": "One exam on the teacher's list, with its marking progress.\n\nCounted server-side, so the client never tallies a rows list to\ndecide what counts as entered.\n\n:ivar entered_count: Seats with a mark or an absence entered\n:ivar expected_count: Seats that could have sat the exam\n:ivar published: Whether the results are out to students and\n    guardians; a draft until the teacher publishes (2026-11-05)\n:ivar state: ``upcoming``, ``needs_marks`` or ``complete``, decided\n    by the server so the client never compares a date or a count",
         "properties": {
+          "cancellation_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancellation Reason"
+          },
+          "cancelled": {
+            "default": false,
+            "title": "Cancelled",
+            "type": "boolean"
+          },
           "date": {
             "format": "date",
             "title": "Date",
@@ -2037,8 +2078,24 @@
       },
       "ExamResponse": {
         "additionalProperties": false,
-        "description": "One assessment.\n\n:ivar exam_id: The exam\n:ivar title: The teacher's name for it\n:ivar date: When it was sat\n:ivar total_marks: The denominator, an integer COUNT\n:ivar subject_name: The subject assessed\n:ivar topics: What it covers, in the order the teacher gave",
+        "description": "One assessment.\n\n:ivar exam_id: The exam\n:ivar title: The teacher's name for it\n:ivar date: When it was sat\n:ivar total_marks: The denominator, an integer COUNT\n:ivar subject_name: The subject assessed\n:ivar topics: What it covers, in the order the teacher gave\n:ivar cancelled: Whether the teacher cancelled it [0019]. A flag\n    beside ``state`` rather than a new ``state`` value, so a client\n    built before cancelling existed still decodes the list\n:ivar cancellation_reason: The teacher's note on cancelling, if any",
         "properties": {
+          "cancellation_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancellation Reason"
+          },
+          "cancelled": {
+            "default": false,
+            "title": "Cancelled",
+            "type": "boolean"
+          },
           "date": {
             "format": "date",
             "title": "Date",
@@ -3271,6 +3328,7 @@
           "kind": {
             "enum": [
               "claim_to_verify",
+              "exam_cancelled",
               "exam_scheduled",
               "fee_reminder",
               "marks_available",
@@ -3408,6 +3466,7 @@
           "kind": {
             "enum": [
               "claim_to_verify",
+              "exam_cancelled",
               "exam_scheduled",
               "fee_reminder",
               "marks_available",
@@ -9874,6 +9933,107 @@
           }
         },
         "summary": "Update Batch Exam",
+        "tags": [
+          "marks"
+        ]
+      }
+    },
+    "/v1/exams/{exam_id}/cancel": {
+      "post": {
+        "description": "Cancel an exam whose results are not published, telling its families.\n\nRefused with ``EXAM_PUBLISHED`` once results are out. Cancelling a\ncancelled exam returns it unchanged and tells nobody again. Marks,\npublishing and edits are refused afterwards with ``EXAM_CANCELLED``.\n\n:param exam_id: The exam, from the route path\n:param session: The request-scoped session\n:param lens: The teacher lens; only the batch's owner reaches it\n:param body: Optional; a short reason for the record\n:return: The cancelled exam",
+        "operationId": "cancel_batch_exam_v1_exams__exam_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "exam_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Exam Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ExamCancelRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExamResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence, and the refusal when the marksheet toggle is off is the same one: an empty marksheet would still disclose that exams exist and how many."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Batch Exam",
         "tags": [
           "marks"
         ]
