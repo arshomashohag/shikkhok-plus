@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.feature.auth
 
+import com.shikkhokplus.app.core.model.PostalAddress
 import com.shikkhokplus.app.core.model.SignupRole
 import com.shikkhokplus.app.core.network.AlreadyAddedDto
 import com.shikkhokplus.app.core.network.ErrorBody
@@ -19,6 +20,23 @@ import kotlin.test.assertNull
  * decides.
  */
 class SignupStateMapperTest {
+
+    private companion object {
+        val HOME = PostalAddress("House 12", "Road 5", "Dhaka", "1205")
+    }
+
+    @Test
+    fun `an incomplete address or a postcode that is not four digits is named`() {
+        // Decided 2026-11-05: the address is required, in four parts.
+        // Format only: the server checks the same shape and decides.
+        val missingRoad = SignupStateMapper.validate("+8801700000000", "Rahim", HOME.copy(road = " "))
+        val shortPostcode = SignupStateMapper.validate("+8801700000000", "Rahim", HOME.copy(postcode = "120"))
+
+        assertEquals(listOf(SignupStateMapper.ADDRESS_KEY), missingRoad?.fieldKeys)
+        assertEquals(listOf(SignupStateMapper.ADDRESS_KEY), shortPostcode?.fieldKeys)
+        assertNull(SignupStateMapper.validate("+8801700000000", "Rahim", HOME.copy(postcode = "১২০৫")))
+    }
+
 
     @Test
     fun `a number with no seat gives the empty form`() {
@@ -76,12 +94,12 @@ class SignupStateMapperTest {
         // validation is format-only. Whether a number already has an
         // account is a server decision, and a client copy of that rule
         // is the validation-divergence erosion path.
-        assertNull(SignupStateMapper.validate("+8801700000000", "Rahim"))
+        assertNull(SignupStateMapper.validate("+8801700000000", "Rahim", HOME))
 
-        val tooShort = SignupStateMapper.validate("123", "Rahim")
+        val tooShort = SignupStateMapper.validate("123", "Rahim", HOME)
         assertEquals(listOf(SignupStateMapper.PHONE_KEY), tooShort?.fieldKeys)
 
-        val blankName = SignupStateMapper.validate("+8801700000000", "   ")
+        val blankName = SignupStateMapper.validate("+8801700000000", "   ", HOME)
         assertEquals(listOf(SignupStateMapper.NAME_KEY), blankName?.fieldKeys)
     }
 
@@ -90,7 +108,7 @@ class SignupStateMapperTest {
         // Bangladesh addresses do not decompose cleanly into line, city
         // and postcode, so a format rule would reject real ones. The
         // field is optional and unvalidated by design.
-        assertNull(SignupStateMapper.validate("+8801700000000", "Rahim"))
+        assertNull(SignupStateMapper.validate("+8801700000000", "Rahim", HOME))
     }
 
     @Test

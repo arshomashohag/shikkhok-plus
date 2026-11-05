@@ -1,5 +1,7 @@
 package com.shikkhokplus.app.feature.profile
 
+import androidx.compose.ui.test.assertIsNotEnabled
+import com.shikkhokplus.app.core.model.PostalAddress
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -10,7 +12,7 @@ import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import com.shikkhokplus.app.feature.profile.ui.EditProfileScreen
 import com.shikkhokplus.app.feature.profile.ui.TAG_EDIT_PROFILE_CLOSE
-import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_ADDRESS
+import com.shikkhokplus.app.core.ui.TAG_ADDRESS_CITY
 import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_NAME
 import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_PHONE
 import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_SAVE
@@ -33,12 +35,17 @@ import kotlin.test.assertEquals
 @Config(sdk = [34])
 class EditProfileScreenTest {
 
+    private companion object {
+        val HOME = PostalAddress("House 12", "Road 5", "Dhaka", "1205")
+    }
+
+
     @get:Rule
     val compose = createComposeRule()
 
     private fun render(
-        state: ProfileUiState = ProfileUiState.Editing(selfName = "Rahim", address = "Dhaka"),
-        onSave: (String, String) -> Unit = { _, _ -> },
+        state: ProfileUiState = ProfileUiState.Editing(selfName = "Rahim", address = HOME),
+        onSave: (String, PostalAddress) -> Unit = { _, _ -> },
         onClose: () -> Unit = {},
         onRetry: () -> Unit = {},
     ) {
@@ -81,16 +88,25 @@ class EditProfileScreenTest {
 
     @Test
     fun `saving reports both edited values`() {
-        var saved: Pair<String, String>? = null
+        var saved: Pair<String, PostalAddress>? = null
         render(onSave = { name, address -> saved = name to address })
 
         compose.onNodeWithTag(TAG_PROFILE_NAME).performTextClearance()
         compose.onNodeWithTag(TAG_PROFILE_NAME).performTextInput("Karim")
-        compose.onNodeWithTag(TAG_PROFILE_ADDRESS).performTextClearance()
-        compose.onNodeWithTag(TAG_PROFILE_ADDRESS).performTextInput("Khulna")
+        compose.onNodeWithTag(TAG_ADDRESS_CITY).performScrollTo().performTextClearance()
+        compose.onNodeWithTag(TAG_ADDRESS_CITY).performTextInput("Khulna")
         compose.onNodeWithTag(TAG_PROFILE_SAVE).performScrollTo().performClick()
 
-        assertEquals("Karim" to "Khulna", saved)
+        assertEquals("Karim" to HOME.copy(city = "Khulna"), saved)
+    }
+
+    @Test
+    fun `save waits for all four address parts, and a bad postcode says so`() {
+        // The address is required (decided 2026-11-05).
+        render(state = ProfileUiState.Editing(selfName = "Rahim", address = HOME.copy(postcode = "12")))
+
+        compose.onNodeWithTag(TAG_PROFILE_SAVE).performScrollTo().assertIsNotEnabled()
+        compose.onNodeWithText("Postcodes have 4 digits").performScrollTo().assertIsDisplayed()
     }
 
     @Test

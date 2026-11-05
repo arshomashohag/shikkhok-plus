@@ -1,5 +1,10 @@
 package com.shikkhokplus.app.feature.auth
 
+import com.shikkhokplus.app.core.ui.TAG_ADDRESS_POSTCODE
+import com.shikkhokplus.app.core.ui.TAG_ADDRESS_CITY
+import com.shikkhokplus.app.core.ui.TAG_ADDRESS_ROAD
+import com.shikkhokplus.app.core.ui.TAG_ADDRESS_HOUSE
+import com.shikkhokplus.app.core.model.PostalAddress
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -47,7 +52,7 @@ class SignupScreenTest {
 
     private fun render(
         state: SignupUiState,
-        onSubmit: (String, String, String, SignupRole) -> Unit = { _, _, _, _ -> },
+        onSubmit: (String, String, PostalAddress, SignupRole) -> Unit = { _, _, _, _ -> },
         onGoToLogin: () -> Unit = {},
         onRetry: () -> Unit = {},
     ) {
@@ -226,22 +231,53 @@ class SignupScreenTest {
         render(SignupUiState.Empty)
         compose.onNodeWithTag(TAG_SIGNUP_NAME).performTextInput("Rahim")
         compose.onNodeWithTag(TAG_SIGNUP_PHONE).performTextInput("01711-234567")
+        typeAddress()
 
-        compose.onNodeWithTag(TAG_SIGNUP_SUBMIT).assertIsNotEnabled()
+        compose.onNodeWithTag(TAG_SIGNUP_SUBMIT).performScrollTo().assertIsNotEnabled()
 
-        compose.onNodeWithText("Teacher").performClick()
+        compose.onNodeWithText("Teacher").performScrollTo().performClick()
         compose.onNodeWithTag(TAG_SIGNUP_SUBMIT).performScrollTo().assertIsEnabled()
     }
 
     @Test
-    fun `the chosen role is what is submitted`() {
-        var submitted: SignupRole? = null
-        render(SignupUiState.Empty, onSubmit = { _, _, _, role -> submitted = role })
+    fun `the chosen role and the address are what is submitted`() {
+        var submitted: Pair<SignupRole, PostalAddress>? = null
+        render(SignupUiState.Empty, onSubmit = { _, _, address, role -> submitted = role to address })
         compose.onNodeWithText("Guardian").performClick()
         compose.onNodeWithTag(TAG_SIGNUP_NAME).performTextInput("Rokshana")
         compose.onNodeWithTag(TAG_SIGNUP_PHONE).performTextInput("01819-552041")
+        typeAddress()
         compose.onNodeWithTag(TAG_SIGNUP_SUBMIT).performScrollTo().performClick()
 
-        assertEquals(SignupRole.GUARDIAN, submitted)
+        assertEquals(SignupRole.GUARDIAN to PostalAddress("House 12", "Road 5", "Dhaka", "১২০৫"), submitted)
+    }
+
+    @Test
+    fun `send code waits for every address part`() {
+        // Decided 2026-11-05: the address is required, in four parts.
+        render(SignupUiState.Empty)
+        compose.onNodeWithText("Student").performClick()
+        compose.onNodeWithTag(TAG_SIGNUP_NAME).performTextInput("Rahim")
+        compose.onNodeWithTag(TAG_SIGNUP_PHONE).performTextInput("01711-234567")
+        compose.onNodeWithTag(TAG_ADDRESS_HOUSE).performScrollTo().performTextInput("House 12")
+        compose.onNodeWithTag(TAG_ADDRESS_ROAD).performScrollTo().performTextInput("Road 5")
+        compose.onNodeWithTag(TAG_ADDRESS_CITY).performScrollTo().performTextInput("Dhaka")
+
+        compose.onNodeWithTag(TAG_SIGNUP_SUBMIT).performScrollTo().assertIsNotEnabled()
+
+        compose.onNodeWithTag(TAG_ADDRESS_POSTCODE).performScrollTo().performTextInput("120")
+        compose.onNodeWithText("Postcodes have 4 digits").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag(TAG_SIGNUP_SUBMIT).performScrollTo().assertIsNotEnabled()
+
+        compose.onNodeWithTag(TAG_ADDRESS_POSTCODE).performTextInput("5")
+        compose.onNodeWithTag(TAG_SIGNUP_SUBMIT).performScrollTo().assertIsEnabled()
+    }
+
+    /** Fill in the four address parts, the postcode in Bangla digits. */
+    private fun typeAddress() {
+        compose.onNodeWithTag(TAG_ADDRESS_HOUSE).performScrollTo().performTextInput("House 12")
+        compose.onNodeWithTag(TAG_ADDRESS_ROAD).performScrollTo().performTextInput("Road 5")
+        compose.onNodeWithTag(TAG_ADDRESS_CITY).performScrollTo().performTextInput("Dhaka")
+        compose.onNodeWithTag(TAG_ADDRESS_POSTCODE).performScrollTo().performTextInput("১২০৫")
     }
 }

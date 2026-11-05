@@ -108,6 +108,11 @@ class InvitationRow:
     :ivar role: Which link this account holds, ``student`` or
         ``guardian``. Present so the decline confirmation can say what
         a decline actually does for THIS holder
+    :ivar child_name: For a guardian's link, the student's name as the
+        teacher typed it, so the guardian can answer "is this my
+        child?" (decided by the owner 2026-11-05). None for a student's
+        own link. Teacher-authored, never the student's own profile
+        name, so it crosses no owner-private boundary [BR3.1]
     """
 
     enrollment_id: uuid.UUID
@@ -116,6 +121,7 @@ class InvitationRow:
     fee_amount: Money | None
     decision: str
     role: str
+    child_name: str | None = None
 
 
 #: Read ONE seat through its invitation lens, at BR1.4's width.
@@ -145,7 +151,7 @@ class InvitationRow:
 #: are literal SQL because none of them touches an amount.
 def _invitation_statement(
     *, account_id: uuid.UUID, enrollment_id: uuid.UUID
-) -> sa.Select[uuid.UUID, str, Money | None, str, str]:
+) -> sa.Select[uuid.UUID, str, Money | None, str, str, str | None]:
     """Build the one-seat read, scoped to its holder.
 
     The fee falls back to the batch default here rather than on the
@@ -188,6 +194,15 @@ def _invitation_statement(
                 (Enrollment.student_account_id == account_id, sa.literal("student")),
                 else_=sa.literal("guardian"),
             ),
+            # **The child, for a guardian** (decided 2026-11-05): the
+            # name the teacher typed on this seat, so a guardian can tell
+            # whether the invitation is about their own child. A student's
+            # own link gets none. Never ``Profile.self_name``: that is the
+            # child's own words and owner-private [BR3.1, TC-13].
+            sa.case(
+                (Enrollment.student_account_id == account_id, sa.null()),
+                else_=Enrollment.display_name,
+            ),
         )
         .join(Batch, Batch.id == Enrollment.batch_id)
         .where(
@@ -228,7 +243,7 @@ def read_invitation(session: Session, *, lens: InvitationLens) -> InvitationRow:
         # invitation.
         raise LookupError(str(lens.enrollment_id))
 
-    enrollment_id, batch_name, fee_amount, decision, role = row
+    enrollment_id, batch_name, fee_amount, decision, role, child_name = row
 
     subjects = [
         name
@@ -247,4 +262,5 @@ def read_invitation(session: Session, *, lens: InvitationLens) -> InvitationRow:
         fee_amount=fee_amount,
         decision=decision,
         role=role,
+        child_name=child_name,
     )

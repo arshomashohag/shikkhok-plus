@@ -40,6 +40,7 @@ __all__ = [
     "AccountCreated",
     "AlreadyAdded",
     "DuplicateNumber",
+    "PostalAddress",
     "SignupRole",
     "already_added",
     "create_account",
@@ -216,13 +217,29 @@ def already_added(session: Session, phone: str) -> AlreadyAdded:
     )
 
 
+@dataclass(frozen=True, slots=True)
+class PostalAddress:
+    """An address in the four parts sign-up asks for.
+
+    :ivar house: House or flat
+    :ivar road: Road or area
+    :ivar city: City or district
+    :ivar postcode: Four digits
+    """
+
+    house: str
+    road: str
+    city: str
+    postcode: str
+
+
 def create_account(
     session: Session,
     *,
     phone: str,
     role: SignupRole,
     self_name: str,
-    address: str | None = None,
+    address: PostalAddress | None = None,
     now: dt.datetime | None = None,
 ) -> AccountCreated:
     """Create an account, its profile, and an ``Owner`` only for Teacher.
@@ -252,7 +269,9 @@ def create_account(
     :param phone: The number this identity is keyed on
     :param role: The claimed role; nothing verifies it [BR4.2]
     :param self_name: The name the person chose for themselves
-    :param address: The address, or None on the already-added path
+    :param address: The address, in its four parts. The signup request
+        requires it on every path since 2026-11-05; None only for a
+        caller that is not a person signing up
     :param now: The moment of creation, or None for the clock
     :return: The new account and whether it owns batches
     :raises DuplicateNumber: The number already has an account
@@ -298,7 +317,16 @@ def create_account(
     # cannot leak to the next request to borrow this pooled connection.
     set_account_context(session, account.id)
 
-    session.add(Profile(account_id=account.id, self_name=self_name, address=address))
+    session.add(
+        Profile(
+            account_id=account.id,
+            self_name=self_name,
+            address_house=address.house if address else None,
+            address_road=address.road if address else None,
+            address_city=address.city if address else None,
+            address_postcode=address.postcode if address else None,
+        )
+    )
 
     is_teacher = role is SignupRole.TEACHER
     if is_teacher:

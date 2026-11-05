@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 
 from app.accounts.service import (
     DuplicateNumber,
+    PostalAddress,
     SignupRole,
     create_account,
 )
@@ -100,14 +101,19 @@ def test_the_name_lands_on_the_profile_and_not_on_the_account(
         phone=_phone(),
         role=SignupRole.STUDENT,
         self_name="Rahim Uddin",
-        address="12 Example Road, Dhaka",
+        address=PostalAddress("House 12", "Road 5, Dhanmondi", "Dhaka", "1205"),
     )
 
     profile = owner_session.get(Profile, created.account_id)
 
     assert profile is not None
     assert profile.self_name == "Rahim Uddin"
-    assert profile.address == "12 Example Road, Dhaka"
+    assert (
+        profile.address_house,
+        profile.address_road,
+        profile.address_city,
+        profile.address_postcode,
+    ) == ("House 12", "Road 5, Dhanmondi", "Dhaka", "1205")
     # The structural half: there is no personal field on `Account` to
     # have written it to instead.
     assert "self_name" not in Account.__table__.columns

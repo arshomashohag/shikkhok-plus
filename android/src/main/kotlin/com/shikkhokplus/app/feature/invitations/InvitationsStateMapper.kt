@@ -153,6 +153,9 @@ object InvitationsStateMapper {
             // had stopped is the guardian one, so the safer default is
             // the student sheet, which the student case also needs.
             heldAsGuardian = dto.role == "guardian",
+            // Sent only on a guardian's link, so a student's own seat
+            // never asks whether they are their own child.
+            childName = dto.childName?.takeIf { dto.role == "guardian" && it.isNotBlank() },
         )
     }
 }

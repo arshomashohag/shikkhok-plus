@@ -73,6 +73,10 @@ OWNER_PRIVATE_FIELDS: Final[frozenset[str]] = frozenset(
         "self_name",
         "photo_ref",
         "address",
+        "address_house",
+        "address_road",
+        "address_city",
+        "address_postcode",
     }
 )
 

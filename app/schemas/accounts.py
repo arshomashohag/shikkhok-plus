@@ -18,9 +18,10 @@ the committed contract can both read:
   account may do is resolved per request from the data, after the
   person verifies.
 
-``address`` appears on the signup REQUEST and on no response. It is a
-``Profile`` field and therefore owner-private [BR3.2, BR3.4], and the
-schema-wide invariant would flag any teacher-lens response carrying it.
+The address parts appear on the signup REQUEST and on no response. They
+are ``Profile`` fields and therefore owner-private [BR3.2, BR3.4], and
+the schema-wide invariant would flag any teacher-lens response carrying
+them.
 """
 
 from __future__ import annotations
@@ -30,6 +31,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.address import CityField, HouseField, PostcodeField, RoadField
 from app.schemas.money import MoneyField
 from app.schemas.phone import PhoneField
 
@@ -62,8 +64,11 @@ class SignupRequest(BaseModel):
     :ivar self_name: The name the person chose for themselves. Lands on
         ``Profile.self_name`` and never on an ``Enrollment.display_name``
         [BR3.1]
-    :ivar address: Owner-private, and optional because the
-        already-added path reaches signup with no address yet
+    :ivar address_house: House or flat. **Required**, on every path,
+        including a number a teacher already added (decided 2026-11-05)
+    :ivar address_road: Road or area, required
+    :ivar address_city: City or district, required
+    :ivar address_postcode: Four digits, required
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -71,7 +76,10 @@ class SignupRequest(BaseModel):
     phone: PhoneField
     role: RoleName
     self_name: str = Field(min_length=1, max_length=120)
-    address: str | None = Field(default=None, max_length=500)
+    address_house: HouseField
+    address_road: RoadField
+    address_city: CityField
+    address_postcode: PostcodeField
 
 
 class SignupResponse(BaseModel):
@@ -146,6 +154,10 @@ class InvitationResponse(BaseModel):
         This discloses nothing new -- the holder is on this seat -- and
         it is decided server-side rather than inferred from a lens hint
         the client supplied [TC-11, D-2]
+    :ivar child_name: For a guardian, the child this seat is for, as the
+        teacher typed the name, so the guardian can answer "is this my
+        child?" (decided by the owner 2026-11-05). None for a student.
+        Teacher-authored, never the child's own profile name
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -156,6 +168,7 @@ class InvitationResponse(BaseModel):
     fee_amount: MoneyField | None = None
     decision: Literal["pending", "declined"]
     role: Literal["student", "guardian"]
+    child_name: str | None = None
 
 
 class DecisionResponse(BaseModel):

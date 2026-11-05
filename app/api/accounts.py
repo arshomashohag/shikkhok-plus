@@ -127,6 +127,7 @@ def _as_response(row: InvitationRow) -> InvitationResponse:
         fee_amount=_to_wire(row.fee_amount),
         decision=decision,
         role=role,
+        child_name=row.child_name,
     )
 
 
@@ -184,7 +185,12 @@ def sign_up(
         phone=body.phone,
         role=_ROLES_BY_NAME[body.role],
         self_name=body.self_name,
-        address=body.address,
+        address=service.PostalAddress(
+            house=body.address_house,
+            road=body.address_road,
+            city=body.address_city,
+            postcode=body.address_postcode,
+        ),
     )
     write_audit(session, created.account_id, AuthEvent.ACCOUNT_CREATED, correlation_id)
 

@@ -112,6 +112,7 @@ rather than editing the old one.
 | Design parity | Guardian home's pinned switcher and child header | `G1` | *not yet checked* | `guardian_payments_unavailable` (57) | |
 | Design parity | Add student's "Batch fee" toggle | `T8` | *not yet checked* | `student_add_batch_fee_help` (39) | |
 | Design parity | Settings (notifications, theme, text size) | `T9`, `S4`, `G4` | *not yet checked* | `settings_notifications_sub` (65) | |
+| Design parity | Address in four parts (sign-up, Edit profile) | `O1`, `S4` | *not yet checked* | `address_required` / `address_postcode_invalid` | |
 
 **D4's seven rows are open, and nothing automated discharges them.**
 The obligation is a check on a device in Bangla locale [team: Testing
@@ -128,7 +129,7 @@ screenshot harness, because the human closed that choice on 2026-10-23
 in favour of the manual per-screen check, and a correctness test does
 not discharge a layout obligation [project.md].
 
-**The eight design-parity rows (2026-11-04) are open on the same terms**:
+**The nine design-parity rows (2026-11-04) are open on the same terms**:
 nothing automated discharges them. The More rows are the ones to watch —
 each row's title and grey sub-label sit beside a 22dp icon and a chevron
 in a 360dp-wide card, so a long Bangla sub-label wraps rather than

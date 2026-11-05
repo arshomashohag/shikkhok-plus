@@ -29,6 +29,9 @@ import com.shikkhokplus.app.feature.invitations.InvitationsUiState
 /** Test tag for the list of unaccepted seats. */
 const val TAG_INVITATION_LIST: String = "invitation_list"
 
+/** The "Is Rahim your child?" line on a guardian's invitation. */
+const val TAG_INVITATION_CHILD: String = "invitation_child"
+
 /** Test tag for the accept control on a seat. */
 const val TAG_INVITATION_ACCEPT: String = "invitation_accept"
 
@@ -198,6 +201,16 @@ private fun InvitationCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            // **"Is Rahim your child?"** (G4, decided 2026-11-05): a
+            // guardian is shown the name the teacher typed, so they can
+            // tell whether this invitation is about their own child.
+            row.childName?.let { child ->
+                Text(
+                    text = stringResource(R.string.invitation_child_question, Numerals.freeText(child)),
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.testTag(TAG_INVITATION_CHILD),
+                )
+            }
             Text(
                 text = row.batchName,
                 style = MaterialTheme.typography.titleMedium,
@@ -223,7 +236,11 @@ private fun InvitationCard(
                     .fillMaxWidth()
                     .testTag(TAG_INVITATION_ACCEPT),
             ) {
-                Text(stringResource(R.string.invitation_accept))
+                Text(
+                    stringResource(
+                        if (row.childName != null) R.string.invitation_child_yes else R.string.invitation_accept,
+                    ),
+                )
             }
             if (row.canDecline) {
                 OutlinedButton(
@@ -232,7 +249,11 @@ private fun InvitationCard(
                         .fillMaxWidth()
                         .testTag(TAG_INVITATION_DECLINE),
                 ) {
-                    Text(stringResource(R.string.invitation_decline))
+                    Text(
+                        stringResource(
+                            if (row.childName != null) R.string.invitation_child_no else R.string.invitation_decline,
+                        ),
+                    )
                 }
             }
         }

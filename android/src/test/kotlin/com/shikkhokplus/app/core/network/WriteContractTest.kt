@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.core.network
 
+import com.shikkhokplus.app.core.model.PostalAddress
 import com.shikkhokplus.app.core.model.Money
 import com.shikkhokplus.app.core.queue.AttendanceEntry
 import com.shikkhokplus.app.core.queue.QueuedWrite
@@ -39,6 +40,10 @@ import kotlin.test.assertTrue
  * The last test scans the repositories for every write call and fails
  * if one is not listed here.
  */
+
+/** A complete address, for the two writes that carry one. */
+private val ADDRESS = PostalAddress("House 1", "Road 2", "Dhaka", "1205")
+
 class WriteContractTest {
 
     /** One write: the server operation, and how to make the app send it. */
@@ -63,9 +68,9 @@ class WriteContractTest {
                 HttpAuthRepository(it, tokens).refresh()
             },
             Write("post", "/v1/accounts") {
-                HttpSignupRepository(it).signup("01711234567", "student", "Rafi", null)
+                HttpSignupRepository(it).signup("01711234567", "student", "Rafi", ADDRESS)
             },
-            Write("patch", "/v1/me") { HttpProfileRepository(it).save("Rafi", "Mirpur") },
+            Write("patch", "/v1/me") { HttpProfileRepository(it).save("Rafi", ADDRESS) },
             Write("delete", "/v1/me") { HttpProfileRepository(it).deleteAccount() },
             Write("post", "/v1/invitations/{enrollment_id}/accept") {
                 HttpInvitationsRepository(it).accept(ID)

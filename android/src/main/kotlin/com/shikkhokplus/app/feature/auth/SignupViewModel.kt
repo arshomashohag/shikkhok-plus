@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.feature.auth
 
+import com.shikkhokplus.app.core.model.PostalAddress
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.shikkhokplus.app.core.model.SignupRole
@@ -32,14 +33,14 @@ interface SignupRepository {
      * @param phone The number this identity is keyed on
      * @param role The claimed role; nothing verifies it
      * @param selfName The name the person chose for themselves
-     * @param address Owner-private, optional on the already-added path
+     * @param address Owner-private, in its four parts; required
      * @return The new account, a refusal, or a transport failure
      */
     suspend fun signup(
         phone: String,
         role: String,
         selfName: String,
-        address: String?,
+        address: PostalAddress,
     ): AuthResult<SignupResponseDto>
 }
 
@@ -162,19 +163,19 @@ class SignupViewModel(
      *
      * @param phone The number this identity is keyed on
      * @param selfName The name the person chose
-     * @param address Owner-private, optional
+     * @param address Owner-private, in its four parts; required
      * @param role The claimed role
      */
     fun submit(
         phone: String,
         selfName: String,
-        address: String?,
+        address: PostalAddress,
         role: SignupRole,
     ) {
         lastPhone = phone
         lastAction = { submit(phone, selfName, address, role) }
 
-        val invalid = SignupStateMapper.validate(phone, selfName)
+        val invalid = SignupStateMapper.validate(phone, selfName, address)
         if (invalid != null) {
             _state.value = invalid
             return
@@ -189,7 +190,7 @@ class SignupViewModel(
                             phone = phone,
                             role = role.wire,
                             selfName = selfName,
-                            address = address?.takeIf { it.isNotBlank() },
+                            address = address,
                         )
                 ) {
                     is AuthResult.Ok -> SignupStateMapper.afterSignup(result.value)

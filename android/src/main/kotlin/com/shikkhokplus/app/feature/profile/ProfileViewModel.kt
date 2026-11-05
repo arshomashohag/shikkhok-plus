@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.feature.profile
 
+import com.shikkhokplus.app.core.model.PostalAddress
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.shikkhokplus.app.core.network.DeletionSummaryDto
@@ -25,10 +26,11 @@ interface ProfileRepository {
      * Save an edited name and address.
      *
      * @param selfName The new name, or null to leave it alone
-     * @param address The new address, or null to leave it alone
+     * @param address The new address in its four parts, or null to
+     *   leave it alone
      * @return The updated profile, or why the server refused
      */
-    suspend fun save(selfName: String?, address: String?): AuthResult<MeDto>
+    suspend fun save(selfName: String?, address: PostalAddress?): AuthResult<MeDto>
 
     /**
      * Delete this account, for good [TC-19].
@@ -127,7 +129,7 @@ class ProfileViewModel(
         _state.value =
             ProfileUiState.Editing(
                 selfName = stored?.selfName.orEmpty(),
-                address = stored?.address.orEmpty(),
+                address = stored?.postal ?: PostalAddress(),
             )
     }
 
@@ -151,16 +153,15 @@ class ProfileViewModel(
     /**
      * Save the edited fields.
      *
-     * **A blank field is sent as null, not as an empty string.** Null
-     * means "leave it alone" to the server, so clearing a field is
-     * deliberately not possible here: the screen has no control that
-     * means "remove my address", and inventing one by sending `""`
-     * would erase data on a save the person thought was a no-op.
+     * **A blank name is sent as null, not as an empty string.** Null
+     * means "leave it alone" to the server. The address is required
+     * (decided 2026-11-05), so the form saves only a complete one; an
+     * incomplete one is sent as null and changes nothing.
      *
      * @param selfName The edited name
      * @param address The edited address
      */
-    fun save(selfName: String, address: String) {
+    fun save(selfName: String, address: PostalAddress) {
         lastAction = { save(selfName, address) }
         _state.value = ProfileUiState.Saving
         viewModelScope.launch {
@@ -169,7 +170,7 @@ class ProfileViewModel(
                     val result =
                         repository.save(
                             selfName = selfName.ifBlank { null },
-                            address = address.ifBlank { null },
+                            address = address.takeIf { it.isComplete },
                         )
                 ) {
                     is AuthResult.Ok -> {
@@ -262,6 +263,7 @@ class ProfileViewModel(
      * @param dto The profile as the server returned it
      */
     private fun remember(dto: MeDto) {
-        _summary.value = ProfileSummary(selfName = dto.selfName, address = dto.address, phone = dto.phone)
+        _summary.value =
+            ProfileSummary(selfName = dto.selfName, address = dto.shownAddress, phone = dto.phone, postal = dto.postal)
     }
 }

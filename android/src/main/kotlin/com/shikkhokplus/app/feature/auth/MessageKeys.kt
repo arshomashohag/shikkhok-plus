@@ -24,6 +24,7 @@ object MessageKeys {
         "phone.invalid" to R.string.phone_invalid,
         "signup.phone.invalid" to R.string.signup_phone_invalid,
         "signup.name.required" to R.string.signup_name_required,
+        "signup.address.required" to R.string.address_required,
         "schedule.duplicate_slot" to R.string.schedule_duplicate_slot,
         "enrollment.student_already_in_batch" to R.string.enrollment_student_already_in_batch,
         "auth.otp.not_valid" to R.string.auth_otp_not_valid,

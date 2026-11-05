@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.feature.auth
 
+import com.shikkhokplus.app.core.model.PostalAddress
 import com.shikkhokplus.app.core.model.SignupRole
 import com.shikkhokplus.app.core.network.AlreadyAddedDto
 import com.shikkhokplus.app.core.network.ErrorBody
@@ -34,6 +35,11 @@ import kotlin.test.assertIs
 @OptIn(ExperimentalCoroutinesApi::class)
 class SignupViewModelTest {
 
+    private companion object {
+        val HOME = PostalAddress("House 12", "Road 5", "Dhaka", "1205")
+    }
+
+
     private val dispatcher = StandardTestDispatcher()
 
     @BeforeTest
@@ -64,7 +70,7 @@ class SignupViewModelTest {
             phone: String,
             role: String,
             selfName: String,
-            address: String?,
+            address: PostalAddress,
         ): AuthResult<SignupResponseDto> {
             signupCalls++
             return signupResult
@@ -222,7 +228,7 @@ class SignupViewModelTest {
         val repo = FakeRepository()
         val model = SignupViewModel(repo)
 
-        model.submit("12", "Rahim", null, SignupRole.STUDENT)
+        model.submit("12", "Rahim", HOME, SignupRole.STUDENT)
         advanceUntilIdle()
 
         assertIs<SignupUiState.Invalid>(model.state.value)
@@ -234,7 +240,7 @@ class SignupViewModelTest {
         val repo = FakeRepository()
         val model = SignupViewModel(repo)
 
-        model.submit("+8801700000000", selfName = "  ", address = null, role = SignupRole.STUDENT)
+        model.submit("+8801700000000", selfName = "  ", address = HOME, role = SignupRole.STUDENT)
         advanceUntilIdle()
 
         assertIs<SignupUiState.Invalid>(model.state.value)
@@ -246,7 +252,7 @@ class SignupViewModelTest {
         val repo = FakeRepository()
         val model = SignupViewModel(repo)
 
-        model.submit("+8801700000000", "Rahim", null, SignupRole.STUDENT)
+        model.submit("+8801700000000", "Rahim", HOME, SignupRole.STUDENT)
         advanceUntilIdle()
 
         val state = assertIs<SignupUiState.CodeSent>(model.state.value)
@@ -266,7 +272,7 @@ class SignupViewModelTest {
                 )
             val model = SignupViewModel(repo)
 
-            model.submit("+8801700000000", "Rahim", null, SignupRole.STUDENT)
+            model.submit("+8801700000000", "Rahim", HOME, SignupRole.STUDENT)
             advanceUntilIdle()
 
             val state = assertIs<SignupUiState.Failed>(model.state.value)
@@ -283,7 +289,7 @@ class SignupViewModelTest {
             val repo = FakeRepository(signupResult = AuthResult.TransportFailure)
             val model = SignupViewModel(repo)
 
-            model.submit("+8801700000000", "Rahim", null, SignupRole.STUDENT)
+            model.submit("+8801700000000", "Rahim", HOME, SignupRole.STUDENT)
             advanceUntilIdle()
 
             val state = assertIs<SignupUiState.Failed>(model.state.value)

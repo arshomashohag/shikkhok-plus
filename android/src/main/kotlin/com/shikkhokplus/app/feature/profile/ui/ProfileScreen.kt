@@ -36,9 +36,6 @@ import com.shikkhokplus.app.feature.profile.ProfileUiState
 /** Test tag for the self-authored name field. */
 const val TAG_PROFILE_NAME: String = "profile_name"
 
-/** Test tag for the address field. */
-const val TAG_PROFILE_ADDRESS: String = "profile_address"
-
 /** Test tag for the save control. */
 const val TAG_PROFILE_SAVE: String = "profile_save"
 

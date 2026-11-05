@@ -2608,11 +2608,22 @@
       },
       "InvitationResponse": {
         "additionalProperties": false,
-        "description": "One unaccepted seat, in exactly the width BR1.4 permits.\n\nBatch name, subject and fee amount -- all teacher-authored, so this\nread crosses no privacy boundary -- plus the seat's own id, which\nthe accept and decline routes are keyed on, and this holder's own\ndecision so the screen can offer the right action without deciding\nwhat ``declined`` means for itself [TC-9].\n\n**There is no attendance, no mark, no other enrollment and no\nfurther batch field**, and no write action but accept and decline\non the link that names the holder [AC1.10.2].\n\n:ivar enrollment_id: The seat, which the decision routes are keyed on\n:ivar batch_name: The class being joined\n:ivar subject: The subjects taught, as the teacher named them\n:ivar fee_amount: This seat's fee, or None when it inherits the\n    batch default. None is NOT zero: zero is a waiver\n:ivar decision: This holder's own decision, ``pending`` or\n    ``declined``\n:ivar role: Which link this account holds on the seat. Present\n    because the DECLINE CONFIRMATION differs by role [BR5.2]: a\n    student's decline stops their fee, a guardian's leaves the\n    student's obligation entirely intact. The client had no\n    trustworthy way to tell them apart, and one confirmation shown\n    to both told a guardian a debt was cancelled when it was not.\n\n    This discloses nothing new -- the holder is on this seat -- and\n    it is decided server-side rather than inferred from a lens hint\n    the client supplied [TC-11, D-2]",
+        "description": "One unaccepted seat, in exactly the width BR1.4 permits.\n\nBatch name, subject and fee amount -- all teacher-authored, so this\nread crosses no privacy boundary -- plus the seat's own id, which\nthe accept and decline routes are keyed on, and this holder's own\ndecision so the screen can offer the right action without deciding\nwhat ``declined`` means for itself [TC-9].\n\n**There is no attendance, no mark, no other enrollment and no\nfurther batch field**, and no write action but accept and decline\non the link that names the holder [AC1.10.2].\n\n:ivar enrollment_id: The seat, which the decision routes are keyed on\n:ivar batch_name: The class being joined\n:ivar subject: The subjects taught, as the teacher named them\n:ivar fee_amount: This seat's fee, or None when it inherits the\n    batch default. None is NOT zero: zero is a waiver\n:ivar decision: This holder's own decision, ``pending`` or\n    ``declined``\n:ivar role: Which link this account holds on the seat. Present\n    because the DECLINE CONFIRMATION differs by role [BR5.2]: a\n    student's decline stops their fee, a guardian's leaves the\n    student's obligation entirely intact. The client had no\n    trustworthy way to tell them apart, and one confirmation shown\n    to both told a guardian a debt was cancelled when it was not.\n\n    This discloses nothing new -- the holder is on this seat -- and\n    it is decided server-side rather than inferred from a lens hint\n    the client supplied [TC-11, D-2]\n:ivar child_name: For a guardian, the child this seat is for, as the\n    teacher typed the name, so the guardian can answer \"is this my\n    child?\" (decided by the owner 2026-11-05). None for a student.\n    Teacher-authored, never the child's own profile name",
         "properties": {
           "batch_name": {
             "title": "Batch Name",
             "type": "string"
+          },
+          "child_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Child Name"
           },
           "decision": {
             "enum": [
@@ -2803,7 +2814,7 @@
         "type": "object"
       },
       "MeResponse": {
-        "description": "Everything this account can be.\n\n**No role, and no default lens.** The list says what is available;\nwhich one the person wants is their choice, and a server-chosen\ndefault would be a stored role by another name. A single-entry\nlist is the app's cue to skip the picker.\n\n:ivar lenses: Every available lens, teacher first\n:ivar self_name: The name this person chose for themselves, or\n    None before they have set one\n:ivar address: Their address, or None. **Owner-private** [BR3.4]:\n    it sits in `OWNER_PRIVATE_FIELDS` and reaches no teacher-lens\n    response, which the schema-wide privacy gate asserts. It is\n    returned HERE because this is the owner reading their own row\n:ivar phone: The number this account signs in with. The owner's own\n    login, read by the owner on a lens-exempt route; the profile\n    shows it read-only, and in-app deletion asks the person to type\n    it back as confirmation, which needs the app to know it",
+        "description": "Everything this account can be.\n\n**No role, and no default lens.** The list says what is available;\nwhich one the person wants is their choice, and a server-chosen\ndefault would be a stored role by another name. A single-entry\nlist is the app's cue to skip the picker.\n\n:ivar lenses: Every available lens, teacher first\n:ivar self_name: The name this person chose for themselves, or\n    None before they have set one\n:ivar address: Their address, or None. **Owner-private** [BR3.4]:\n    it sits in `OWNER_PRIVATE_FIELDS` and reaches no teacher-lens\n    response, which the schema-wide privacy gate asserts. It is\n    returned HERE because this is the owner reading their own row.\n    The free-text form, kept for an address typed before 2026-11-05\n:ivar address_house: House or flat, or None. Owner-private, as above\n:ivar address_road: Road or area, or None\n:ivar address_city: City or district, or None\n:ivar address_postcode: Four digits, or None\n:ivar phone: The number this account signs in with. The owner's own\n    login, read by the owner on a lens-exempt route; the profile\n    shows it read-only, and in-app deletion asks the person to type\n    it back as confirmation, which needs the app to know it",
         "properties": {
           "address": {
             "anyOf": [
@@ -2815,6 +2826,50 @@
               }
             ],
             "title": "Address"
+          },
+          "address_city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address City"
+          },
+          "address_house": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address House"
+          },
+          "address_postcode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address Postcode"
+          },
+          "address_road": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address Road"
           },
           "lenses": {
             "items": {
@@ -4460,7 +4515,7 @@
       },
       "ProfileUpdateRequest": {
         "additionalProperties": false,
-        "description": "What a person may change about themselves.\n\n**Name and address only.** A profile write cannot touch the phone\nnumber, which is the login and changes only through the OTP path,\nand it cannot touch a lens: a role is computed per request from\nowned batches and enrollments and has no stored field to set\n[TC-11, D-2].\n\nBoth are optional and omitting one leaves it unchanged, so the app\ncan save a single edited field without resending the other.\n\n:ivar self_name: The new name, or None to leave it alone\n:ivar address: The new address, or None to leave it alone",
+        "description": "What a person may change about themselves.\n\n**Name and address only.** A profile write cannot touch the phone\nnumber, which is the login and changes only through the OTP path,\nand it cannot touch a lens: a role is computed per request from\nowned batches and enrollments and has no stored field to set\n[TC-11, D-2].\n\nBoth are optional and omitting one leaves it unchanged, so the app\ncan save a single edited field without resending the other.\n\nEach address part, when sent, must be filled in: an address is\nrequired (decided 2026-11-05), so a part can be corrected but not\nblanked.\n\n:ivar self_name: The new name, or None to leave it alone\n:ivar address: The free-text address, for an app older than the four\n    parts, or None to leave it alone\n:ivar address_house: The new house or flat, or None to leave it alone\n:ivar address_road: The new road or area, or None to leave it alone\n:ivar address_city: The new city or district, or None to leave it alone\n:ivar address_postcode: The new postcode, or None to leave it alone",
         "properties": {
           "address": {
             "anyOf": [
@@ -4473,6 +4528,60 @@
               }
             ],
             "title": "Address"
+          },
+          "address_city": {
+            "anyOf": [
+              {
+                "description": "City or district.",
+                "maxLength": 60,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address City"
+          },
+          "address_house": {
+            "anyOf": [
+              {
+                "description": "House or flat number.",
+                "maxLength": 60,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address House"
+          },
+          "address_postcode": {
+            "anyOf": [
+              {
+                "description": "Four digits; Bangla digits are accepted and stored as Latin.",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address Postcode"
+          },
+          "address_road": {
+            "anyOf": [
+              {
+                "description": "Road number or name, and area.",
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address Road"
           },
           "self_name": {
             "anyOf": [
@@ -5431,19 +5540,33 @@
       },
       "SignupRequest": {
         "additionalProperties": false,
-        "description": "Create an account for a number nobody has registered.\n\nThe number is **typed by the person** and never read from the SIM\n[TC-4, D-35]: there is no device-side source for this field, here\nor anywhere in this product.\n\n:ivar phone: The number this identity is keyed on\n:ivar role: The claimed role; nothing verifies it [BR4.2]\n:ivar self_name: The name the person chose for themselves. Lands on\n    ``Profile.self_name`` and never on an ``Enrollment.display_name``\n    [BR3.1]\n:ivar address: Owner-private, and optional because the\n    already-added path reaches signup with no address yet",
+        "description": "Create an account for a number nobody has registered.\n\nThe number is **typed by the person** and never read from the SIM\n[TC-4, D-35]: there is no device-side source for this field, here\nor anywhere in this product.\n\n:ivar phone: The number this identity is keyed on\n:ivar role: The claimed role; nothing verifies it [BR4.2]\n:ivar self_name: The name the person chose for themselves. Lands on\n    ``Profile.self_name`` and never on an ``Enrollment.display_name``\n    [BR3.1]\n:ivar address_house: House or flat. **Required**, on every path,\n    including a number a teacher already added (decided 2026-11-05)\n:ivar address_road: Road or area, required\n:ivar address_city: City or district, required\n:ivar address_postcode: Four digits, required",
         "properties": {
-          "address": {
-            "anyOf": [
-              {
-                "maxLength": 500,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Address"
+          "address_city": {
+            "description": "City or district.",
+            "maxLength": 60,
+            "minLength": 1,
+            "title": "Address City",
+            "type": "string"
+          },
+          "address_house": {
+            "description": "House or flat number.",
+            "maxLength": 60,
+            "minLength": 1,
+            "title": "Address House",
+            "type": "string"
+          },
+          "address_postcode": {
+            "description": "Four digits; Bangla digits are accepted and stored as Latin.",
+            "title": "Address Postcode",
+            "type": "string"
+          },
+          "address_road": {
+            "description": "Road number or name, and area.",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Address Road",
+            "type": "string"
           },
           "phone": {
             "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
@@ -5467,6 +5590,10 @@
           }
         },
         "required": [
+          "address_city",
+          "address_house",
+          "address_postcode",
+          "address_road",
           "phone",
           "role",
           "self_name"

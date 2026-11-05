@@ -1220,4 +1220,15 @@
     <string name="more_section_app">অ্যাপ</string>
     <string name="more_settings">সেটিংস</string>
     <string name="more_settings_sub">নোটিফিকেশন, থিম ও লেখার আকার</string>
+    <!-- Address in four parts (2026-11-05). -->
+    <string name="address_house_label">বাসা বা ফ্ল্যাট</string>
+    <string name="address_road_label">রোড ও এলাকা</string>
+    <string name="address_city_label">শহর বা জেলা</string>
+    <string name="address_postcode_label">পোস্টকোড</string>
+    <string name="address_postcode_invalid">পোস্টকোড ৪ অঙ্কের</string>
+    <string name="address_required">অবশ্যই দিতে হবে</string>
+    <!-- Guardian invitation names the child (2026-11-05). -->
+    <string name="invitation_child_question">%1$s কি আপনার সন্তান?</string>
+    <string name="invitation_child_yes">হ্যাঁ, এটি আমার সন্তান</string>
+    <string name="invitation_child_no">না, আমার সন্তান নয়</string>
 </resources>

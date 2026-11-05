@@ -132,7 +132,15 @@ def _signup(client: TestClient, phone: str, role: str) -> None:
     """
     response = client.post(
         "/v1/accounts",
-        json={"phone": phone, "role": role, "self_name": "Someone"},
+        json={
+            "phone": phone,
+            "role": role,
+            "self_name": "Someone",
+            "address_house": "House 12",
+            "address_road": "Road 5",
+            "address_city": "Dhaka",
+            "address_postcode": "1205",
+        },
     )
     assert response.status_code in (200, 201), response.text
 

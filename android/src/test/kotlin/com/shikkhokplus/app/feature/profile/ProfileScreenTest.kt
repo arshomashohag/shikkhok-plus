@@ -102,7 +102,7 @@ class ProfileScreenTest {
         // More stays composed under Edit profile; a half-typed name in
         // the Editing state must not reach the card.
         render(
-            state = ProfileUiState.Editing(selfName = "Half-typ", address = ""),
+            state = ProfileUiState.Editing(selfName = "Half-typ"),
             summary = ProfileSummary(selfName = "Rahim", address = "Dhaka", phone = "+8801611477203"),
         )
 

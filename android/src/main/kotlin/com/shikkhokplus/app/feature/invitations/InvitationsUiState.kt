@@ -33,6 +33,9 @@ import com.shikkhokplus.app.core.model.Money
  *   sent a decision. The mapper owns it here, where a test can target
  *   it, and the rule it encodes is [BR5.4] -- an already-declined seat
  *   keeps its accept action and offers no second decline.
+ * @property childName For a guardian, the child this seat is for, so the
+ *   card can ask "Is Rahim your child?" (decided 2026-11-05); null for a
+ *   student's own seat
  */
 data class InvitationRow(
     val enrollmentId: String,
@@ -42,6 +45,7 @@ data class InvitationRow(
     val state: AcceptanceState,
     val canDecline: Boolean,
     val heldAsGuardian: Boolean,
+    val childName: String? = null,
 )
 
 /**

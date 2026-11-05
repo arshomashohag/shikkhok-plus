@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.feature.profile
 
+import com.shikkhokplus.app.core.model.PostalAddress
 import com.shikkhokplus.app.core.model.Money
 import com.shikkhokplus.app.core.network.DeletionSummaryDto
 import com.shikkhokplus.app.core.network.ErrorBody
@@ -29,6 +30,11 @@ import kotlin.test.assertIs
 @OptIn(ExperimentalCoroutinesApi::class)
 class ProfileViewModelTest {
 
+    private companion object {
+        val HOME = PostalAddress("House 12", "Road 5", "Dhaka", "1205")
+    }
+
+
     private val dispatcher = StandardTestDispatcher()
 
     @BeforeTest
@@ -44,7 +50,14 @@ class ProfileViewModelTest {
     private class FakeRepository(
         var result: AuthResult<MeDto> =
             AuthResult.Ok(
-                MeDto(selfName = "Rahim", address = "Dhaka 1205", phone = "+8801611477203"),
+                MeDto(
+                    selfName = "Rahim",
+                    addressHouse = "House 12",
+                    addressRoad = "Road 5",
+                    addressCity = "Dhaka",
+                    addressPostcode = "1205",
+                    phone = "+8801611477203",
+                ),
             ),
     ) : ProfileRepository {
         var deleteResult: AuthResult<Unit> = AuthResult.Ok(Unit)
@@ -63,7 +76,7 @@ class ProfileViewModelTest {
         var reads = 0
         var saves = 0
         var sentName: String? = "unset"
-        var sentAddress: String? = "unset"
+        var sentAddress: PostalAddress? = PostalAddress("unset")
 
         override suspend fun profile(): AuthResult<MeDto> {
             reads++
@@ -72,7 +85,7 @@ class ProfileViewModelTest {
 
         override suspend fun save(
             selfName: String?,
-            address: String?,
+            address: PostalAddress?,
         ): AuthResult<MeDto> {
             saves++
             sentName = selfName
@@ -97,7 +110,7 @@ class ProfileViewModelTest {
 
         val state = assertIs<ProfileUiState.Viewing>(model.state.value)
         assertEquals("Rahim", state.selfName)
-        assertEquals("Dhaka 1205", state.address)
+        assertEquals("House 12, Road 5, Dhaka 1205", state.address)
     }
 
     @Test
@@ -146,7 +159,12 @@ class ProfileViewModelTest {
             model.edit()
 
             assertEquals(
-                ProfileSummary(selfName = "Rahim", address = "Dhaka 1205", phone = "+8801611477203"),
+                ProfileSummary(
+                    selfName = "Rahim",
+                    address = "House 12, Road 5, Dhaka 1205",
+                    phone = "+8801611477203",
+                    postal = HOME,
+                ),
                 model.summary.value,
             )
         }
@@ -182,7 +200,7 @@ class ProfileViewModelTest {
 
             val state = assertIs<ProfileUiState.Editing>(model.state.value)
             assertEquals("Rahim", state.selfName)
-            assertEquals("Dhaka 1205", state.address)
+            assertEquals(HOME, state.address, "the four parts, ready to edit")
         }
 
     @Test
@@ -194,7 +212,7 @@ class ProfileViewModelTest {
             advanceUntilIdle()
             model.edit()
 
-            model.save("Karim", "Khulna")
+            model.save("Karim", HOME.copy(city = "Khulna"))
             model.cancelEdit()
 
             assertEquals(ProfileUiState.Saving, model.state.value)
@@ -206,7 +224,7 @@ class ProfileViewModelTest {
     fun `a save keeps the sign-in number for the card`() = runTest(dispatcher) {
         val model = ProfileViewModel(FakeRepository())
 
-        model.save("Rahim", "Dhaka 1205")
+        model.save("Rahim", HOME)
         advanceUntilIdle()
 
         val state = assertIs<ProfileUiState.Saved>(model.state.value)
@@ -215,20 +233,31 @@ class ProfileViewModelTest {
     }
 
     @Test
-    fun `a blank field is sent as null, never as an empty string`() =
+    fun `an incomplete address is sent as null, never as blank parts`() =
         runTest(dispatcher) {
-            // **Null means "leave it alone" to the server.** Sending
-            // "" would erase stored data on a save the person thought
-            // changed only the other field — and the screen has no
-            // control that means "remove my address".
+            // **Null means "leave it alone" to the server.** The address
+            // is required (decided 2026-11-05), so a part sent blank
+            // would be refused -- and must never erase the stored one.
             val repo = FakeRepository()
             val model = ProfileViewModel(repo)
 
-            model.save(selfName = "Rahim", address = "   ")
+            model.save(selfName = "Rahim", address = HOME.copy(road = "   "))
             advanceUntilIdle()
 
             assertEquals("Rahim", repo.sentName)
-            assertEquals(null, repo.sentAddress, "a blank field must not clear stored data")
+            assertEquals(null, repo.sentAddress, "an incomplete address must not clear stored data")
+        }
+
+    @Test
+    fun `a complete address is sent in its four parts`() =
+        runTest(dispatcher) {
+            val repo = FakeRepository()
+            val model = ProfileViewModel(repo)
+
+            model.save(selfName = "Rahim", address = HOME)
+            advanceUntilIdle()
+
+            assertEquals(HOME, repo.sentAddress)
         }
 
     @Test
@@ -237,7 +266,7 @@ class ProfileViewModelTest {
         // after a read.
         val model = ProfileViewModel(FakeRepository())
 
-        model.save("Rahim", "Dhaka 1205")
+        model.save("Rahim", HOME)
         advanceUntilIdle()
 
         assertIs<ProfileUiState.Saved>(model.state.value)
@@ -277,7 +306,7 @@ class ProfileViewModelTest {
             val repo = FakeRepository(result = AuthResult.TransportFailure)
             val model = ProfileViewModel(repo)
 
-            model.save("Rahim", "Dhaka")
+            model.save("Rahim", HOME)
             advanceUntilIdle()
 
             val state = assertIs<ProfileUiState.Failed>(model.state.value)

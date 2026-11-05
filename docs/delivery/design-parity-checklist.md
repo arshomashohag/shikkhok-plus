@@ -79,11 +79,17 @@ approved and is not audited here.
 ## Sign up & log in
 
 ### O1 · Create account — `feature/auth/ui/SignupScreen.kt`
-- [?] Address required at sign-up: the app asks for it but does not
+- [x] Address required at sign-up: the app asks for it but does not
   require it. Requiring a child's or guardian's home address before they
   can use the app is a data-minimisation decision for the owner, not a
   layout fix. *Decided 2026-11-05:* required, as separate House, Road, City and
-  Postcode fields.
+  Postcode fields. Built: migration `0016` adds the four columns to
+  `profile`, enrolled as owner-private; sign-up refuses a body missing
+  any part or with a postcode that is not four digits (Bangla digits are
+  accepted); Edit profile edits the parts and cannot blank one. The app
+  draws the four fields on both screens (`core/ui/AddressFields.kt`) and
+  Send code and Save wait for all four. An address typed before `0016`
+  is kept and still read back.
 - [?] Already-added banner should name the teacher, role and batch
   ("মাহফুজুর রহমান added this number as a student in …"); the code uses
   generic copy. Needs the server to say who added the number.
