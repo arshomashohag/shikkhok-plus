@@ -174,7 +174,7 @@ describe('Students tab', () => {
     expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull()
     expect(screen.getByRole('link', { name: 'Fee history' })).toHaveAttribute(
       'href',
-      '/seats/e2/fees',
+      '/seats/e2/fees?name=Rafsan&batch=Physics+%C2%B7+Batch+A',
     )
     await userEvent.click(screen.getByRole('button', { name: 'Actions for Tasnim' }))
     expect(screen.getByRole('button', { name: 'Remove' })).toBeInTheDocument()

@@ -8,6 +8,19 @@ export type BatchTab = 'students' | 'classes' | 'exams' | 'notices'
 
 const id = (s: string) => encodeURIComponent(s)
 
+/**
+ * Seat screens take the student's and batch's names as query parameters,
+ * because no seat response carries them (Android passes them as route
+ * arguments for the same reason). Optional: an id alone still opens it.
+ */
+function withNames(base: string, name?: string, batch?: string): string {
+  const q = new URLSearchParams()
+  if (name) q.set('name', name)
+  if (batch) q.set('batch', batch)
+  const s = q.toString()
+  return s ? `${base}?${s}` : base
+}
+
 export const paths = {
   today: () => '/today',
   batches: () => '/batches',
@@ -31,7 +44,10 @@ export const paths = {
 
   // money/
   payment: (submissionId: string) => `/verify/${id(submissionId)}`,
-  seatFees: (enrollmentId: string) => `/seats/${id(enrollmentId)}/fees`,
+  seatFees: (enrollmentId: string, name?: string, batch?: string) =>
+    withNames(`/seats/${id(enrollmentId)}/fees`, name, batch),
+  seatProgress: (enrollmentId: string, name?: string, batch?: string) =>
+    withNames(`/seats/${id(enrollmentId)}/progress`, name, batch),
   paymentMethods: () => '/payment-methods',
   paymentMethodNew: (kind: 'mobile' | 'bank') => `/payment-methods/new?kind=${kind}`,
   paymentMethodEdit: (methodId: string) => `/payment-methods/${id(methodId)}`,

@@ -193,7 +193,7 @@ export function StudentsTab({ batchId, batch }: BatchTabProps) {
                     {!seat.declined ? (
                       <Link
                         className="btn btn-text btn-small"
-                        to={paths.seatFees(seat.enrollmentId)}
+                        to={paths.seatFees(seat.enrollmentId, seat.displayName, batch?.name)}
                       >
                         {t('batch_fee_history')}
                       </Link>
