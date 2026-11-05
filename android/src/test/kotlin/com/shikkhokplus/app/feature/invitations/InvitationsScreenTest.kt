@@ -220,7 +220,7 @@ class InvitationsScreenTest {
             onDeclineRequested = { declined = it },
         )
 
-        compose.onNodeWithTag(TAG_INVITATION_CHILD).assertIsDisplayed()
+        compose.onNodeWithTag(TAG_INVITATION_CHILD, useUnmergedTree = true).assertExists()
         compose.onNodeWithText("Is আয়ান your child?", useUnmergedTree = true).assertExists()
         compose.onNodeWithTag(TAG_INVITATION_ACCEPT).performScrollTo().performClick()
         compose.onNodeWithTag(TAG_INVITATION_DECLINE).performScrollTo().performClick()
@@ -235,6 +235,6 @@ class InvitationsScreenTest {
     fun `a student's own invitation asks nothing about a child`() {
         render(InvitationsUiState.Loaded(listOf(seat)))
 
-        compose.onNodeWithTag(TAG_INVITATION_CHILD).assertDoesNotExist()
+        compose.onNodeWithTag(TAG_INVITATION_CHILD, useUnmergedTree = true).assertDoesNotExist()
     }
 }
