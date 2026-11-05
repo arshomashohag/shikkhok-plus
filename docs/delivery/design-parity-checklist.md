@@ -15,7 +15,9 @@ relative to `android/src/main/kotlin/com/shikkhokplus/app/`.
 - `[x]` — closed (the commit that closed it is noted).
 - `[~]` — **keep the code, change the design**: the artboard conflicts
   with a project rule, or the code deviates on purpose with a recorded
-  reason. These need an artboard edit, not a code change.
+  reason. These need an artboard edit, not a code change. All of them
+  were redrawn on 2026-11-05 and are now `[x]`, each marked *Artboard
+  updated*.
 - `[?]` — needs a server/API addition or a product decision before the
   client can match it. Not started on the client side on purpose: a row
   that opens nothing is worse than no row.
@@ -73,38 +75,37 @@ approved and is not audited here.
 - [?] Already-added banner should name the teacher, role and batch
   ("মাহফুজুর রহমান added this number as a student in …"); the code uses
   generic copy. Needs the server to say who added the number.
-- [~] Loading uses a full-window `LogoLoader` ("Creating your account…")
+- [x] Loading uses a full-window `LogoLoader` ("Creating your account…")
   instead of "Sending code…" in the button — deliberate per the code's
-  own comment.
-- [~] The "We sent a code to your number" banner stays: it is the
-  confirmation that the step worked. **Add it to the artboard.**
+  own comment. *Artboard updated 2026-11-05.*
+- [x] The "We sent a code to your number" banner stays: it is the
+  confirmation that the step worked. *Artboard updated 2026-11-05.*
 
 ### O2 · Log in — `feature/auth/ui/AuthScreen.kt`
-- [~] "Error · no account for this number" is not built, on purpose: the
+- [x] "Error · no account for this number" is not built, on purpose: the
   code answers every number the same way (BR2.7) and the project forbids
-  revealing whether a number exists. **The artboard should drop this state.**
+  revealing whether a number exists. *Artboard updated 2026-11-05.*
 - [x] Malformed-number copy: "Bangladeshi mobile numbers have 11 digits,
   starting 01." (every phone field shares it).
-- [~] Loading is the app-wide overlay loader, not a spinner in the
+- [x] Loading is the app-wide overlay loader, not a spinner in the
   button, by the owner's own rule for loaders (see `AuthScreen.kt`).
-  **Update the artboard.**
+  *Artboard updated 2026-11-05.*
 
 ### O3 · Enter the code — `feature/auth/ui/AuthScreen.kt`
-- [~] The sent line never shows the number ("If this number has an
+- [x] The sent line never shows the number ("If this number has an
   account, we sent it…") — same non-disclosure rule as O2. The design's
   "…to **01712-345678**" is fine only because the person just typed it;
-  decide and align.
-- [~] "Change" stays on its own line: inline in the sentence it would be
-  a tap target under the design system's 44px minimum. **Update the
-  artboard.**
-- [~] Checking uses the app-wide overlay loader ("Checking the code…"),
-  by the same rule. **Update the artboard.**
+  decide and align. *Artboard updated 2026-11-05.*
+- [x] "Change" stays on its own line: inline in the sentence it would be
+  a tap target under the design system's 44px minimum. *Artboard updated 2026-11-05.*
+- [x] Checking uses the app-wide overlay loader ("Checking the code…"),
+  by the same rule. *Artboard updated 2026-11-05.*
 - [?] Lockout note ("paused for 15 minutes"): the server reports a
   lockout as "temporarily unavailable" without its length, so the client
   cannot say 15 minutes truthfully.
-- [~] "No code? … create your account first" and Retry stay: they were
+- [x] "No code? … create your account first" and Retry stay: they were
   added after a teacher-added student waited on this screen with no way
-  on. **Add them to the artboard.**
+  on. *Artboard updated 2026-11-05.*
 
 ---
 
@@ -129,16 +130,16 @@ approved and is not audited here.
   changes (the class, the time, the batch), so it waits on that answer.
 - [?] Two labelled suggestions ("Continue", "Next"); `RecordSheet` holds one.
 - [x] Subjects as a segmented control (`RecordClassSheet.kt`).
-- [~] "Take attendance" stays: it is the sheet's way to the attendance
-  screen mid-class. **Add it to the artboard.**
-- [~] Save stays enabled on an empty topic — blank topics are allowed
-  (BR2.2). **The artboard should not grey it out.**
+- [x] "Take attendance" stays: it is the sheet's way to the attendance
+  screen mid-class. *Artboard updated 2026-11-05.*
+- [x] Save stays enabled on an empty topic — blank topics are allowed
+  (BR2.2). *Artboard updated 2026-11-05.*
 - [?] Loading suggestions state: the suggestion arrives with the sheet's
   own read, so there is no separate wait to draw.
-- [~] "Couldn't send. Will retry on its own." with Retry now: the app's
+- [x] "Couldn't send. Will retry on its own." with Retry now: the app's
   banner says "Saved on the phone. It sends when the connection returns."
   -- the same fact, and the queue already retries on reconnect, so a
-  Retry now would only repeat what it does. **Update the artboard.**
+  Retry now would only repeat what it does. *Artboard updated 2026-11-05.*
 - [x] Continuous entry: "6/20" counter and progress bar, roll numbers,
   compact "/25" rows, the "now entering" dock, the app's own keypad with
   Absent, backspace and "Next ↓" (`feature/marks/ui/MarkEntryScreen.kt`).
@@ -178,8 +179,8 @@ approved and is not audited here.
   carries neither the next period nor its resulting amount, and the
   client never adds money.
 - [x] The approved chip says "Paid", not "Payment done".
-- [~] The heading stays "Decided today": the list holds rejections too,
-  so "Approved today" would mislabel them. **Rename it in the artboard.**
+- [x] The heading stays "Decided today": the list holds rejections too,
+  so "Approved today" would mislabel them. *Artboard updated 2026-11-05.*
 - [?] Empty: "Partial · ৳600 fwd" chip and times on decided rows: the
   recent-decisions read carries no carried amount.
 - [x] Loading: skeleton rows (the board's button blocks are not drawn;
@@ -218,12 +219,12 @@ approved and is not audited here.
 - [?] The level ("HSC 2027") and "Today moved to 7:30 pm": no level field
   and no schedule-change read exist.
 - [x] "18 students · ৳1,200/mo".
-- [~] "X of Y accepted" is kept under it while anyone has not accepted: a
+- [x] "X of Y accepted" is kept under it while anyone has not accepted: a
   pending seat grants no lens, and the teacher needs to see that from the
-  list. **Add it to the artboard.**
-- [~] Error body "This phone has no saved copy yet…": the app keeps no
+  list. *Artboard updated 2026-11-05.*
+- [x] Error body "This phone has no saved copy yet…": the app keeps no
   saved copy (see offline, cross-cutting), so the sentence would be
-  untrue until it does.
+  untrue until it does. *Artboard updated 2026-11-05.*
 
 ### T7 · Single batch — `feature/batchdetail/ui/*`
 - [x] One icon in the bar: the Schedule text action is gone, and the
@@ -233,22 +234,21 @@ approved and is not audited here.
   level field.
 - [x] Add button hidden on Notices and on an empty roster, where "Add
   first student" is the action (`BatchDetailRoute.kt` `showsAdd`).
-- [~] Declined chip: the board draws a grey fill with a **dashed**
+- [x] Declined chip: the board draws a grey fill with a **dashed**
   border, but the design system reserves the dashed outline for
   "not yet confirmed" (Verifying), and `PaymentStateTest` holds every
   other state to a non-dashed outline so the cue keeps its meaning.
-  **Redraw the declined chip in the artboard** (for example grey fill,
-  solid outline, a cross icon) and it can then be built.
-- [~] Exams: the section stays "Marked". There is no publish step, so
-  "Published" would claim one (see T3).
+  The chip keeps the grey fill and cross, with a solid outline. *Artboard updated 2026-11-05.*
+- [x] Exams: the section stays "Marked". There is no publish step, so
+  "Published" would claim one (see T3). *Artboard updated 2026-11-05.*
 - [?] Exams rows: "36.7 avg of 50" needs an average from the server.
 - [?] Notices: auto-sent schedule-change card, "seen by N of M families".
 - [x] Notices: an inline composer (field and Send) instead of a button and
   a dialog; the draft clears once the server has the notice. It sits at
   the top of the tab rather than the bottom, so it stays in reach above
   a long list.
-- [~] Edit and Remove on a notice stay: a teacher must be able to correct
-  or take down what a family reads. **Add them to the artboard.**
+- [x] Edit and Remove on a notice stay: a teacher must be able to correct
+  or take down what a family reads. *Artboard updated 2026-11-05.*
 - [x] "Save & add next" beside Add student, and "2 added so far" in the bar
   once one lands (`navigation/AddStudentRoute.kt`); the form clears only
   after the server confirms.
@@ -260,10 +260,9 @@ approved and is not audited here.
   the field asks for this student's own fee. On, nothing is sent, which
   the server reads as inherit, never as zero [AC2.2.5]. A batch with no
   fee keeps the plain field.
-- [~] Help lines: "New number. They'll get an SMS invite." is not added:
+- [x] Help lines: "New number. They'll get an SMS invite." is not added:
   nothing sends an SMS invite (invitations are accepted in the app), so
-  the line would promise a message that never arrives. **Update the
-  artboard.**
+  the line would promise a message that never arrives. *Artboard updated 2026-11-05.*
 - [?] Number lookup: "Checking…", "Found on ShikkhokPlus", auto-fill.
   Needs a lookup endpoint (and a privacy review: it reveals that a number
   has an account, to a teacher).
@@ -271,10 +270,10 @@ approved and is not audited here.
   a local number has the wrong count (`CreateForms.kt` `phoneError`).
 - [x] Same-name hint: "Rahim is already in this batch", shown, never
   blocking, since two students can share a name.
-- [~] "Open her profile" link on that hint: a teacher has no student
+- [x] "Open her profile" link on that hint: a teacher has no student
   profile to open (teacher-facing reads carry no profile fields,
   [TC-13, D-5]), and "her" would be the app guessing a child's gender.
-  **The artboard should drop the link.**
+  *Artboard updated 2026-11-05.*
 - [x] `feature/roster/ui/AddStudentScreen.kt` was never called — removed,
   with its test.
 
@@ -290,34 +289,34 @@ approved and is not audited here.
 - [x] Log out is a bottom sheet: "Log out of ShikkhokPlus?", amber
   callout when work is unsent, "Stay and send them first" / "Log out
   anyway" (`feature/profile/ui/LogOutSheet.kt`). With nothing unsent it
-  is a plain Log out / Cancel confirmation; the artboard draws no such
-  state — add one.
+  is a plain Log out / Cancel confirmation, now drawn as its own
+  frame. *Artboard updated 2026-11-05.*
 - [?] "Free trial · 9 days left" card with Plans (no plan model; the app
   charges nobody — see `team.md` Way of Working).
 - [?] "Fee due date and reminders" row.
 - [?] "Everything is saved · Last synced" row.
 - [?] APP and HELP sections (see cross-cutting settings).
 - [x] "Where students pay" sub-screen title.
-- [~] Its add actions stay "+ Mobile banking" and "+ Bank account": bank
+- [x] Its add actions stay "+ Mobile banking" and "+ Bank account": bank
   accounts are part of the 2026-11-02 payment-methods spec, which the
-  board predates. **Update the artboard.**
+  board predates. *Artboard updated 2026-11-05.*
 - [x] Error · offline: banner, "Needs a connection" sub-labels, "2
   records not sent yet" row (`ProfileScreen.kt` `TAG_PROFILE_OFFLINE`,
   `TAG_PROFILE_UNSENT`).
-- [~] "Switch role" is code-only but needed by people who hold more than
-  one lens; kept as a row in ACCOUNT. **Add it to the artboard.**
+- [x] "Switch role" is code-only but needed by people who hold more than
+  one lens; kept as a row in ACCOUNT. *Artboard updated 2026-11-05.*
 
 ---
 
 ## Student
 
 ### S1 · My batches — `feature/studentbatches` (`MyBatchesScreen.kt`)
-- [~] Pay button stays "Send money": the later payment-methods spec
+- [x] Pay button stays "Send money": the later payment-methods spec
   (`docs/superpowers/specs/2026-11-02-payment-methods-and-progress-design.md`,
-  F1) fixes that label for every family screen. **Update the artboard.**
-- [~] Hero caption keeps the teacher's full name: a short form with
+  F1) fixes that label for every family screen. *Artboard updated 2026-11-05.*
+- [x] Hero caption keeps the teacher's full name: a short form with
   "স্যার" would be the app guessing a teacher's gender and nickname.
-  **Update the artboard, or have the server send the form to show.**
+  *Artboard updated 2026-11-05.*
 - [x] Empty: "This screen updates by itself once you're added." after the
   number.
 - [x] Empty: the number on its own highlighted line.
@@ -329,10 +328,10 @@ approved and is not audited here.
   disabled with "needs a connection" (`MyBatchesScreen.kt`).
 
 ### S2 · Inside a batch — `StudentBatchScreen.kt`, `FamilyTabs.kt`
-- [~] One scrolling page instead of tabs: **decided 2026-11-04 to keep
+- [x] One scrolling page instead of tabs: **decided 2026-11-04 to keep
   the tabs**, because flattening them removes the Classes tab and its
   calendar, which was changed on purpose. The artboard should be redrawn
-  with the tabs.
+  with the tabs. *Artboard updated 2026-11-05.*
 - [x] Exams tab lists Results first, then Coming up, as the page does. The old strings
   (`student_result_rank`, `student_latest_notice`, `student_all_notices`,
   `student_results`) are still in `strings.xml`, unused.
@@ -344,9 +343,9 @@ approved and is not audited here.
   whether a class has been held, and an empty topic list only says none
   was recorded.
 - [x] Fee line: "November · ৳1,200", then "Due by 10 Nov".
-- [~] "Pay this" and "Progress" stay under the fee card: the
+- [x] "Pay this" and "Progress" stay under the fee card: the
   payment-methods spec puts Send money on every family fee (F1) and
-  Progress on every lens (D1). **Update the artboard.**
+  Progress on every lens (D1). *Artboard updated 2026-11-05.*
 - [?] Results with rank ("rank 5 of 19") and chevron.
 - [x] Loading: skeleton cards (`StudentBatchScreen.kt`).
 - [x] Offline: this session's results stay, and the fee is replaced by
@@ -355,21 +354,21 @@ approved and is not audited here.
 - [?] The "Text only…" note: the board does not say what it refers to.
 
 ### S3 · Submit payment — `feature/pay/ui/PayScreen.kt`
-- [~] One form, fee-first: **superseded by the 2026-11-02 payment-methods
+- [x] One form, fee-first: **superseded by the 2026-11-02 payment-methods
   spec** (F1–F5). That spec, approved after this artboard, makes paying
   method-first from the teacher's own list (mobile banking, bank, or the
   built-in cash in hand), lets one payment cover several children in a
   batch, and accepts a payment when nothing is owed. The app follows the
-  spec. **Redraw S3 from F1–F5.**
-- [~] Title and close X: superseded with the rest of S3 by the payment-
-  methods spec (titles follow F2–F4).
-- [~] Empty: "Which fee are you paying?" list, "রসায়ন isn't listed: your
+  spec. *Artboard updated 2026-11-05.*
+- [x] Title and close X: superseded with the rest of S3 by the payment-
+  methods spec (titles follow F2–F4). *Artboard updated 2026-11-05.*
+- [x] Empty: "Which fee are you paying?" list, "রসায়ন isn't listed: your
   payment is being checked": superseded with the rest of S3. The spec
   pays by method and accepts a payment when nothing is owed, so there is
-  no fee list to choose from (F1–F5).
-- [~] "Safe to wait… we'll keep it and resend" — payment submission is not
+  no fee list to choose from (F1–F5). *Artboard updated 2026-11-05.*
+- [x] "Safe to wait… we'll keep it and resend" — payment submission is not
   an offline-queued write (only attendance and topic are, NFR5/BR3.1).
-  **The artboard should drop this copy.**
+  *Artboard updated 2026-11-05.*
 - [x] Sent: title "Payment sent", chip "Verifying".
 - [x] Sent: the transaction ID row, and "Until your teacher checks it, the
   fee shows as Verifying, not Paid."
@@ -396,11 +395,10 @@ approved and is not audited here.
   "Full name".
 - [?] Mobile number "Change" with OTP to the new number — the app says the
   number cannot be changed. Needs a number-change endpoint.
-- [~] "Account type" explanation ("To use ShikkhokPlus as a teacher or
+- [x] "Account type" explanation ("To use ShikkhokPlus as a teacher or
   guardian, create a separate account with another number") contradicts
   the lens model: one account holds every lens its seats grant, and
-  Switch role exists for exactly that [TC-11, D-2]. Not built. **The
-  artboard should drop or rewrite this copy.**
+  Switch role exists for exactly that [TC-11, D-2]. Not built. *Artboard updated 2026-11-05.*
 - [x] Error · offline: the same More screen as T9.
 
 ---
@@ -417,8 +415,8 @@ approved and is not audited here.
   above Send money.
 - [x] Empty: "Your children appear here as soon as they're linked." after
   the number to give the teacher.
-- [~] Empty bar title stays "Your students", the guardian home's title in
-  every state.
+- [x] Empty bar title stays "Your students", the guardian home's title in
+  every state. *Artboard updated 2026-11-05.*
 - [x] Offline with this session's results, "Payments can't be shown
   right now…" in place of the payment card
   (`TAG_GUARDIAN_PAYMENTS_UNAVAILABLE`).
@@ -436,28 +434,26 @@ approved and is not audited here.
   for a single exam from the server.
 - [x] Error copy "Couldn't load the results", with the server's reason
   under it.
-- [~] Dashboard-only extras (child chips, range chips, tiles, attendance
+- [x] Dashboard-only extras (child chips, range chips, tiles, attendance
   chart, fee strip) stay: they are the progress dashboard the
   payment-methods spec approved for all three lenses (D1, D2), which
-  this artboard predates. **Redraw G2 from D1–D2.**
+  this artboard predates. *Artboard updated 2026-11-05.*
 
 ### G3 · Payment history & pay — `PaymentsScreen.kt`, `PayScreen.kt`
 - [x] "Paid in 2026 · ৳X" is the bar subtitle (`PaymentsScreen.kt`).
-- [~] The extra "Owed now ৳X" headline stays: it is the one place this
+- [x] The extra "Owed now ৳X" headline stays: it is the one place this
   screen says what is owed before the guardian pays, and the server
-  sends it. **Add it to the artboard.**
-- [~] CTA stays "Send money" (spec F1).
-- [~] Pay form: superseded by the 2026-11-02 payment-methods spec, as for
-  S3 (method-first, several children per payment, any amount). **Redraw
-  from F1–F5.**
+  sends it. *Artboard updated 2026-11-05.*
+- [x] CTA stays "Send money" (spec F1). *Artboard updated 2026-11-05.*
+- [x] Pay form: superseded by the 2026-11-02 payment-methods spec, as for
+  S3 (method-first, several children per payment, any amount). *Artboard updated 2026-11-05.*
 - [x] Guardian scale on the pay form (it follows the lens).
 - [x] Loading keeps a disabled Send money in place.
 
 ### G4 · More — `feature/profile/ui/ProfileScreen.kt`
 - [x] Title "More", profile card (avatar, name, "Guardian · number").
-- [~] The artboard draws no Edit pill for a guardian. Kept, so a guardian
-  can still correct their own name and address. **Add it to the artboard,
-  or decide guardians cannot edit.**
+- [x] The artboard draws no Edit pill for a guardian. Kept, so a guardian
+  can still correct their own name and address. *Artboard updated 2026-11-05.*
 - [x] Invitations row; "My children" row and sub-screen
   (`feature/guardian/ui/MyChildrenScreen.kt`). Tapping a child selects it
   on the home switcher. The class level ("HSC 2027") is not shown: the
