@@ -34,6 +34,7 @@ from app.authz.summary import lens_summary
 from app.db.models import Account, Enrollment
 from app.money import Money
 from tests.batches.conftest import TeacherFixture, make_teacher
+from tests.students_support import student_for
 
 
 @pytest.fixture
@@ -76,6 +77,7 @@ def _seat(
     """
     record = Enrollment(
         batch_id=teacher.batch_id,
+        student_id=student_for(session, teacher.batch_id),
         student_account_id=student_account_id,
         guardian_account_id=guardian_account_id,
         student_decision=student_decision,

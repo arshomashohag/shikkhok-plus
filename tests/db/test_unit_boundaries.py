@@ -60,6 +60,10 @@ ORM_WRITE_METHODS = frozenset({"add", "add_all", "delete", "merge"})
 WRITE_PERMITTED: frozenset[str] = frozenset(
     {
         "app/batches/service.py",
+        # The one place a seat is CREATED since 0018 [D1]: a seat is
+        # made for a teacher's student, copying that student's links and
+        # decisions, and `app/batches/service.py` delegates to it.
+        "app/students/service.py",
         # The staging seeder. It writes `owner` because NO ENDPOINT
         # CREATES ONE -- that belongs to the subscription surface, which
         # no Unit has built -- and a teacher lens cannot resolve without
@@ -197,7 +201,7 @@ def test_the_ban_detects_an_orm_write_and_not_only_raw_sql() -> None:
     # The ORM writer specifically. WRITE_PERMITTED is a frozenset with
     # no order, and the staging seeder writes raw SQL -- so picking an
     # arbitrary member made this guard pass or fail by iteration order.
-    permitted = APP.parent / "app/batches/service.py"
+    permitted = APP.parent / "app/students/service.py"
     assert _orm_write_offenders(permitted) != [], (
         "the allowlisted module writes through the ORM, so if this finds "
         "nothing the AST walk is not working and the ban is vacuous"
@@ -273,8 +277,11 @@ def test_the_write_allowlist_has_not_grown_vacuous() -> None:
     # modules that create an account and record a decision. Moving this
     # number is the reviewable act -- `app/` holds far more modules than
     # four, so the ban still forbids something.
-    assert len(WRITE_PERMITTED) == 4, (
-        f"WRITE_PERMITTED holds {len(WRITE_PERMITTED)} modules, not 4: "
+    # Five since 0018: `app/students/service.py` is where a seat is now
+    # created, for one of the teacher's students, and the batches module
+    # delegates to it.
+    assert len(WRITE_PERMITTED) == 5, (
+        f"WRITE_PERMITTED holds {len(WRITE_PERMITTED)} modules, not 5: "
         f"{sorted(WRITE_PERMITTED)}. Each writes `owner` or "
         "`enrollment`, and each needs a reason that is a property of "
         "the module rather than a convenience."

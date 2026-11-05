@@ -139,6 +139,7 @@ _TABLE_DESCRIPTION: Final[dict[str, str]] = {
     "batch_subject": "A subject within a class",
     "schedule_slot": "A class's weekly timetable",
     "hidden_batch_preference": "Which classes you have hidden from your own view",
+    "student": "A teacher's record of a student: the name and numbers the teacher typed",
     "enrollment": "A student's place in a class, including the name the teacher typed",
     "fee_cycle": "The record that a fee was due for a month",
     "ledger_entry": "Amounts charged, paid and waived",

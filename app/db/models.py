@@ -266,6 +266,7 @@ __all__ = [
     "ReminderEvent",
     "ScheduleSlot",
     "Session",
+    "Student",
     "VerifyAttempt",
 ]
 
@@ -590,6 +591,59 @@ class Owner(Base):
     __table_args__ = (Index("ix_owner_account_id", "account_id"),)
 
 
+class Student(Base):
+    """A teacher's record of one student, independent of any batch.
+
+    Owned by ``owner``, never by an account: it is what the teacher typed
+    -- a name and two numbers -- and it grants no lens on its own. A
+    student sits in any number of the owner's batches, one
+    :class:`Enrollment` per batch [0018].
+
+    **The seats carry a synchronized copy of these fields.** Every read
+    that grants a lens, generates a fee or renders a roster reads the
+    seat, and ``app.students.service`` is the one writer that keeps every
+    seat of a student in step with this row in the same transaction.
+
+    :ivar id: Surrogate key
+    :ivar owner_id: The owner whose student this is
+    :ivar display_name: The teacher-typed name
+    :ivar student_phone: The student's number, canonical; unique per owner
+    :ivar guardian_phone: The guardian's number, canonical
+    :ivar archived_at: Set when the teacher removed a student whose seats
+        must outlive them as history; an archived student is hidden
+    :ivar created_at: When the student was recorded
+    """
+
+    __tablename__ = "student"
+
+    id: Mapped[uuid.UUID] = _uuid_column()
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("owner.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    display_name: Mapped[str] = mapped_column(Text, nullable=False)
+    student_phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    guardian_phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    archived_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+    __table_args__ = (
+        Index("ix_student_owner_id", "owner_id"),
+        Index(
+            "uq_student_owner_phone",
+            "owner_id",
+            "student_phone",
+            unique=True,
+            postgresql_where=text("student_phone IS NOT NULL"),
+        ),
+    )
+
+
 class Enrollment(Base):
     """A student's place in a batch, and the teacher-typed display name.
 
@@ -610,6 +664,7 @@ class Enrollment(Base):
 
     :ivar id: Surrogate key
     :ivar batch_id: The batch this seat belongs to
+    :ivar student_id: The owner's student this seat belongs to
     :ivar student_account_id: The student, or NULL while the seat is
         dormant
     :ivar guardian_account_id: The guardian recorded for this seat, if any
@@ -633,6 +688,14 @@ class Enrollment(Base):
 
     id: Mapped[uuid.UUID] = _uuid_column()
     batch_id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), nullable=False)
+    # Which of the owner's students this seat belongs to [0018].
+    # NULL only for a seat whose batch row is missing, which the 0018
+    # backfill could give no owner; every seat the app writes has one.
+    student_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("student.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
     # SET NULL on BOTH links, matched deliberately [BR1.2, 0007]. The
     # student link was CASCADE until 0007 while the guardian link beside
     # it was SET NULL, so one user action meant two different things
@@ -682,6 +745,13 @@ class Enrollment(Base):
         Index("ix_enrollment_batch_id", "batch_id"),
         Index("ix_enrollment_guardian_account_id", "guardian_account_id"),
         Index("ix_enrollment_student_phone", "student_phone"),
+        Index("ix_enrollment_student_id", "student_id"),
+        Index(
+            "uq_enrollment_batch_student_record",
+            "batch_id",
+            "student_id",
+            unique=True,
+        ),
         Index(
             "uq_enrollment_batch_student",
             "batch_id",

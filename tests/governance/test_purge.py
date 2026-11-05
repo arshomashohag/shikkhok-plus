@@ -136,12 +136,26 @@ def aged_life_of_account_rows(owner_session: Session) -> dict[str, int]:
         ),
         {"id": batch_id, "owner_id": owner_id, "name": "Aged", "at": LONG_AGO},
     )
+    # Every seat belongs to one of its owner's students [0018]; the
+    # seat's id is reused as the student's, as the backfill does.
+    owner_session.execute(
+        sa.text(
+            "INSERT INTO student (id, owner_id, display_name, created_at) "
+            "VALUES (:id, :owner_id, :name, :at)"
+        ),
+        {
+            "id": enrollment_id,
+            "owner_id": owner_id,
+            "name": "Aged Student",
+            "at": LONG_AGO,
+        },
+    )
     owner_session.execute(
         sa.text(
             "INSERT INTO enrollment "
-            "(id, batch_id, display_name, student_decision, "
+            "(id, batch_id, student_id, display_name, student_decision, "
             " guardian_decision, created_at) "
-            "VALUES (:id, :batch_id, :name, 'pending', 'pending', :at)"
+            "VALUES (:id, :batch_id, :id, :name, 'pending', 'pending', :at)"
         ),
         {
             "id": enrollment_id,
@@ -223,9 +237,11 @@ def test_no_life_of_account_table_appears_in_the_window_map(
     assert life_of_account & set(WINDOWS) == set(), (
         "a LIFE_OF_ACCOUNT table has acquired a purge window"
     )
-    assert len(life_of_account) == 20, (
+    # 21 since 0018 added `student`, kept for the life of the teacher's
+    # record exactly as the enrollments it groups are.
+    assert len(life_of_account) == 21, (
         f"the manifest now marks {len(life_of_account)} tables "
-        "LIFE_OF_ACCOUNT, not 20. If that is deliberate, this count is "
+        "LIFE_OF_ACCOUNT, not 21. If that is deliberate, this count is "
         "the claim that needs updating with it."
     )
 
@@ -457,10 +473,17 @@ def rows_either_side(owner_session: Session) -> dict[str, _Planted]:
     )
     owner_session.execute(
         sa.text(
+            "INSERT INTO student (id, owner_id, display_name, created_at) "
+            "VALUES (:id, :owner_id, 'S', :at)"
+        ),
+        {"id": enrollment_id, "owner_id": owner_id, "at": LONG_AGO},
+    )
+    owner_session.execute(
+        sa.text(
             "INSERT INTO enrollment "
-            "(id, batch_id, display_name, student_decision, "
+            "(id, batch_id, student_id, display_name, student_decision, "
             " guardian_decision, created_at) "
-            "VALUES (:id, :batch_id, 'S', 'pending', 'pending', :at)"
+            "VALUES (:id, :batch_id, :id, 'S', 'pending', 'pending', :at)"
         ),
         {"id": enrollment_id, "batch_id": batch_id, "at": LONG_AGO},
     )

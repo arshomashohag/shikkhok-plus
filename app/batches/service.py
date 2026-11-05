@@ -92,6 +92,7 @@ class RosterRow:
     breach this Unit is most likely to commit [security-design §C].
 
     :ivar enrollment_id: The teacher-facing key for this seat
+    :ivar student_id: The teacher's student this seat belongs to [0018]
     :ivar display_name: The teacher-typed name
     :ivar guardian_phone: The teacher-typed guardian contact, if any
     :ivar fee_amount: This seat's fee, or None when it inherits the
@@ -120,6 +121,7 @@ class RosterRow:
     """
 
     enrollment_id: uuid.UUID
+    student_id: uuid.UUID | None
     display_name: str
     guardian_phone: str | None
     fee_amount: Money | None
@@ -252,6 +254,7 @@ def _roster_row(record: Enrollment) -> RosterRow:
     """
     return RosterRow(
         enrollment_id=record.id,
+        student_id=record.student_id,
         display_name=record.display_name,
         guardian_phone=record.guardian_phone,
         fee_amount=record.fee_amount,
@@ -856,43 +859,38 @@ def add_enrollment(
     """
     _owned_batch(session, lens=lens, batch_id=batch_id)
 
-    student_account = student_account_id or _account_for(session, student_phone)
-    _refuse_second_seat(
-        session,
-        batch_id=batch_id,
-        student_phone=student_phone,
-        student_account_id=student_account,
-    )
+    # **The seat belongs to one of the teacher's students** [0018]. A
+    # number the teacher already has is that student, so adding them
+    # here seats the existing student in one more batch rather than
+    # creating a second record of the same child [D2]. Linking,
+    # decisions and erasure markers are copied by `seat_for`, which is
+    # the one place a seat is created.
+    from app.students.service import find_or_create_student, seat_for
 
-    # **Link to a person who is ALREADY signed up** [BR5.1]. A number with
-    # no account waits on the seat and links at sign-up instead. Before
-    # this, a guardian who signed up first was never linked at all, and a
-    # student could not be linked by any route.
-    #
-    # Linking is not agreeing: both decisions are stated `pending` below
-    # whatever this finds, so the person is offered an invitation and
-    # granted nothing. Nothing the teacher reads changes either -- the
-    # roster reports decisions, not links -- so this reveals to no
-    # teacher whether a number has an account.
-    record = Enrollment(
-        batch_id=batch_id,
-        student_account_id=student_account_id or _account_for(session, student_phone),
-        guardian_account_id=guardian_account_id
-        or _account_for(session, guardian_phone),
-        display_name=display_name,
-        guardian_phone=guardian_phone,
-        student_phone=student_phone,
-        fee_amount=fee_amount,
-        joined_on=joined_on,
-        # STATED, because the columns carry no default [ADR-013]. A seat
-        # a teacher creates is pending from creation whether or not the
-        # number already has an account: naming someone is not their
-        # agreement, which is the whole of BR5.1.
-        student_decision="pending",
-        guardian_decision="pending",
-        created_at=dt.datetime.now(tz=dt.UTC),
-    )
-    session.add(record)
+    try:
+        student = find_or_create_student(
+            session,
+            lens=lens,
+            display_name=display_name,
+            student_phone=student_phone,
+            guardian_phone=guardian_phone,
+            reuse_by_phone=True,
+        )
+        record = seat_for(
+            session,
+            lens=lens,
+            student=student,
+            batch_id=batch_id,
+            fee_amount=fee_amount,
+            joined_on=joined_on,
+        )
+        if student_account_id is not None:
+            record.student_account_id = student_account_id
+        if guardian_account_id is not None:
+            record.guardian_account_id = guardian_account_id
+    except ConflictError:
+        session.rollback()
+        raise
     session.commit()
     return _roster_row(record)
 

@@ -1,6 +1,41 @@
 {
   "components": {
     "schemas": {
+      "AddStudentsRequest": {
+        "additionalProperties": false,
+        "description": "Seat existing students in one batch, all or nothing.\n\n:ivar student_ids: The students",
+        "properties": {
+          "student_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Student Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "student_ids"
+        ],
+        "title": "AddStudentsRequest",
+        "type": "object"
+      },
+      "AddStudentsResponse": {
+        "description": "How many seats were created.\n\n:ivar added: The count",
+        "properties": {
+          "added": {
+            "title": "Added",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "added"
+        ],
+        "title": "AddStudentsResponse",
+        "type": "object"
+      },
       "AlreadyAddedResponse": {
         "additionalProperties": false,
         "description": "What the lookup may say about a number [BR2.3, BR4.5].\n\n**Three fields, and the absences are the requirement.** No teacher\nname, no teacher id, no batch name, no batch subject, no fee, no\nenrollment id. With any of those this becomes an oracle for who\nteaches whom, readable by anyone who can type a phone number\n[AC1.12.2].\n\n:ivar already_added: Whether a teacher recorded this number\n:ivar display_name: The teacher-typed name to pre-fill as\n    correctable, or None\n:ivar role: The role to lock the form to, or None",
@@ -2613,8 +2648,15 @@
       },
       "InvitationResponse": {
         "additionalProperties": false,
-        "description": "One unaccepted seat, in exactly the width BR1.4 permits.\n\nBatch name, subject and fee amount -- all teacher-authored, so this\nread crosses no privacy boundary -- plus the seat's own id, which\nthe accept and decline routes are keyed on, and this holder's own\ndecision so the screen can offer the right action without deciding\nwhat ``declined`` means for itself [TC-9].\n\n**There is no attendance, no mark, no other enrollment and no\nfurther batch field**, and no write action but accept and decline\non the link that names the holder [AC1.10.2].\n\n:ivar enrollment_id: The seat, which the decision routes are keyed on\n:ivar batch_name: The class being joined\n:ivar subject: The subjects taught, as the teacher named them\n:ivar fee_amount: This seat's fee, or None when it inherits the\n    batch default. None is NOT zero: zero is a waiver\n:ivar decision: This holder's own decision, ``pending`` or\n    ``declined``\n:ivar role: Which link this account holds on the seat. Present\n    because the DECLINE CONFIRMATION differs by role [BR5.2]: a\n    student's decline stops their fee, a guardian's leaves the\n    student's obligation entirely intact. The client had no\n    trustworthy way to tell them apart, and one confirmation shown\n    to both told a guardian a debt was cancelled when it was not.\n\n    This discloses nothing new -- the holder is on this seat -- and\n    it is decided server-side rather than inferred from a lens hint\n    the client supplied [TC-11, D-2]\n:ivar child_name: For a guardian, the child this seat is for, as the\n    teacher typed the name, so the guardian can answer \"is this my\n    child?\" (decided by the owner 2026-11-05). None for a student.\n    Teacher-authored, never the child's own profile name",
+        "description": "One unaccepted seat, in exactly the width BR1.4 permits.\n\nBatch name, subject and fee amount -- all teacher-authored, so this\nread crosses no privacy boundary -- plus the seat's own id, which\nthe accept and decline routes are keyed on, and this holder's own\ndecision so the screen can offer the right action without deciding\nwhat ``declined`` means for itself [TC-9].\n\n**There is no attendance, no mark, no other enrollment and no\nfurther batch field**, and no write action but accept and decline\non the link that names the holder [AC1.10.2].\n\n:ivar enrollment_id: The seat, which the decision routes are keyed on\n:ivar batch_name: The class being joined\n:ivar subject: The subjects taught, as the teacher named them\n:ivar fee_amount: This seat's fee, or None when it inherits the\n    batch default. None is NOT zero: zero is a waiver\n:ivar decision: This holder's own decision, ``pending`` or\n    ``declined``\n:ivar role: Which link this account holds on the seat. Present\n    because the DECLINE CONFIRMATION differs by role [BR5.2]: a\n    student's decline stops their fee, a guardian's leaves the\n    student's obligation entirely intact. The client had no\n    trustworthy way to tell them apart, and one confirmation shown\n    to both told a guardian a debt was cancelled when it was not.\n\n    This discloses nothing new -- the holder is on this seat -- and\n    it is decided server-side rather than inferred from a lens hint\n    the client supplied [TC-11, D-2]\n:ivar child_name: For a guardian, the child this seat is for, as the\n    teacher typed the name, so the guardian can answer \"is this my\n    child?\" (decided by the owner 2026-11-05). None for a student.\n    Teacher-authored, never the child's own profile name\n:ivar also_covers: The other batches of the same teacher this\n    decision also answers, by name [D1, 0018]. Acceptance is per\n    student, so a student in three classes is asked once; the\n    person is shown every class they are agreeing to, which keeps\n    the invitation at \"what you are being asked to join\"",
         "properties": {
+          "also_covers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Also Covers",
+            "type": "array"
+          },
           "batch_name": {
             "title": "Batch Name",
             "type": "string"
@@ -5112,7 +5154,7 @@
         "type": "object"
       },
       "RosterRowResponse": {
-        "description": "One seat as a teacher sees it.\n\n``status`` is a **server-computed decision**, not an input to one\n[TC-9]: the client switches on this enum and never compares a date\nor an amount of its own.\n\n:ivar enrollment_id: The teacher-facing key for this seat\n:ivar display_name: The teacher-typed name\n:ivar guardian_phone: The teacher-typed guardian contact\n:ivar fee_amount: This seat's fee, or null when it inherits\n:ivar status: ``dormant``, ``active`` or ``inactive``.\n\n    **Unchanged, and the two new fields sit beside it rather than\n    replacing it.** Acceptance is a different axis from activity:\n    an inactive seat keeps whatever decisions its links carry,\n    because leaving a batch is not un-accepting it. Folding the two\n    together would produce a product of two axes and a value set\n    nobody can switch on exhaustively\n:ivar student_state: The student link's own decision --\n    ``pending``, ``accepted`` or ``declined`` [BR2.1]\n:ivar guardian_state: The guardian link's own decision, plus\n    ``absent`` when no guardian was recorded [BR2.2]. ``absent`` is\n    a fourth VALUE and not a null, because a decision nobody was\n    asked for is not an outstanding one\n:ivar is_removable: Whether removal would succeed [BR3.1].\n\n    **A decision the client reads and never derives** [NFR14.31].\n    Removal tests two conditions -- no link accepted, and no erasure\n    marker set -- and this row carries only the first. A client\n    inferring removability from the link states it displays would\n    offer the action on an erased seat, which is a wrong answer\n    presented as an available action rather than a style violation\n:ivar inactive_from: The recorded date, if any",
+        "description": "One seat as a teacher sees it.\n\n``status`` is a **server-computed decision**, not an input to one\n[TC-9]: the client switches on this enum and never compares a date\nor an amount of its own.\n\n:ivar enrollment_id: The teacher-facing key for this seat\n:ivar student_id: The teacher's student this seat belongs to, the\n    teacher's own record and never an account id [0018]\n:ivar display_name: The teacher-typed name\n:ivar guardian_phone: The teacher-typed guardian contact\n:ivar fee_amount: This seat's fee, or null when it inherits\n:ivar status: ``dormant``, ``active`` or ``inactive``.\n\n    **Unchanged, and the two new fields sit beside it rather than\n    replacing it.** Acceptance is a different axis from activity:\n    an inactive seat keeps whatever decisions its links carry,\n    because leaving a batch is not un-accepting it. Folding the two\n    together would produce a product of two axes and a value set\n    nobody can switch on exhaustively\n:ivar student_state: The student link's own decision --\n    ``pending``, ``accepted`` or ``declined`` [BR2.1]\n:ivar guardian_state: The guardian link's own decision, plus\n    ``absent`` when no guardian was recorded [BR2.2]. ``absent`` is\n    a fourth VALUE and not a null, because a decision nobody was\n    asked for is not an outstanding one\n:ivar is_removable: Whether removal would succeed [BR3.1].\n\n    **A decision the client reads and never derives** [NFR14.31].\n    Removal tests two conditions -- no link accepted, and no erasure\n    marker set -- and this row carries only the first. A client\n    inferring removability from the link states it displays would\n    offer the action on an erased seat, which is a wrong answer\n    presented as an available action rather than a style violation\n:ivar inactive_from: The recorded date, if any",
         "properties": {
           "display_name": {
             "title": "Display Name",
@@ -5168,6 +5210,18 @@
             "title": "Status",
             "type": "string"
           },
+          "student_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Student Id"
+          },
           "student_state": {
             "title": "Student State",
             "type": "string"
@@ -5182,6 +5236,7 @@
           "inactive_from",
           "is_removable",
           "status",
+          "student_id",
           "student_state"
         ],
         "title": "RosterRowResponse",
@@ -5710,6 +5765,287 @@
           "teacher_display_name"
         ],
         "title": "StudentBatchResponse",
+        "type": "object"
+      },
+      "StudentCreateRequest": {
+        "additionalProperties": false,
+        "description": "Record a student, and optionally seat them in batches [D3].\n\n:ivar display_name: The teacher-typed name\n:ivar student_phone: The student's number; unique per teacher [D2]\n:ivar guardian_phone: The guardian's number, if one is recorded\n:ivar enrollments: The batches to put them in, possibly none",
+        "properties": {
+          "display_name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "enrollments": {
+            "items": {
+              "$ref": "#/components/schemas/StudentSeatRequest"
+            },
+            "maxItems": 50,
+            "title": "Enrollments",
+            "type": "array"
+          },
+          "guardian_phone": {
+            "anyOf": [
+              {
+                "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guardian Phone"
+          },
+          "student_phone": {
+            "anyOf": [
+              {
+                "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Student Phone"
+          }
+        },
+        "required": [
+          "display_name"
+        ],
+        "title": "StudentCreateRequest",
+        "type": "object"
+      },
+      "StudentEnrollRequest": {
+        "additionalProperties": false,
+        "description": "Put an existing student in one more batch.\n\n:ivar batch_id: The batch\n:ivar fee_amount: This seat's fee, or null to inherit the batch's",
+        "properties": {
+          "batch_id": {
+            "format": "uuid",
+            "title": "Batch Id",
+            "type": "string"
+          },
+          "fee_amount": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "batch_id"
+        ],
+        "title": "StudentEnrollRequest",
+        "type": "object"
+      },
+      "StudentResponse": {
+        "description": "One of this teacher's students, with every seat.\n\n:ivar student_id: The student\n:ivar display_name: The teacher-typed name\n:ivar student_phone: The student's number as the teacher typed it\n:ivar guardian_phone: The guardian's number as the teacher typed it\n:ivar student_state: ``pending``, ``accepted`` or ``declined``\n:ivar guardian_state: The same, or ``absent`` with no guardian\n:ivar enrollments: The seats, by batch name; possibly none\n:ivar total_outstanding: What the student owes across every seat\n:ivar is_removable: Whether removing the student would succeed [D4]",
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "enrollments": {
+            "items": {
+              "$ref": "#/components/schemas/StudentSeatResponse"
+            },
+            "title": "Enrollments",
+            "type": "array"
+          },
+          "guardian_phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guardian Phone"
+          },
+          "guardian_state": {
+            "title": "Guardian State",
+            "type": "string"
+          },
+          "is_removable": {
+            "title": "Is Removable",
+            "type": "boolean"
+          },
+          "student_id": {
+            "format": "uuid",
+            "title": "Student Id",
+            "type": "string"
+          },
+          "student_phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Student Phone"
+          },
+          "student_state": {
+            "title": "Student State",
+            "type": "string"
+          },
+          "total_outstanding": {
+            "$ref": "#/components/schemas/Money"
+          }
+        },
+        "required": [
+          "display_name",
+          "enrollments",
+          "guardian_phone",
+          "guardian_state",
+          "is_removable",
+          "student_id",
+          "student_phone",
+          "student_state",
+          "total_outstanding"
+        ],
+        "title": "StudentResponse",
+        "type": "object"
+      },
+      "StudentSeatRequest": {
+        "additionalProperties": false,
+        "description": "One batch to put a new student in.\n\n:ivar batch_id: The batch\n:ivar fee_amount: This seat's fee, or null to inherit the batch's.\n    Zero is a real fee of zero, a waiver",
+        "properties": {
+          "batch_id": {
+            "format": "uuid",
+            "title": "Batch Id",
+            "type": "string"
+          },
+          "fee_amount": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "batch_id"
+        ],
+        "title": "StudentSeatRequest",
+        "type": "object"
+      },
+      "StudentSeatResponse": {
+        "description": "One of a student's seats.\n\n:ivar enrollment_id: The seat, which fees, attendance and marks use\n:ivar batch_id: Its batch\n:ivar batch_name: That batch's name\n:ivar fee_amount: What the seat is charged -- its own fee, else the\n    batch default -- or null when neither is set\n:ivar status: ``active``, or ``inactive`` once the student left\n:ivar inactive_from: The date they left, if they did\n:ivar outstanding: What this seat owes now\n:ivar is_removable: Whether the seat itself can be deleted",
+        "properties": {
+          "batch_id": {
+            "format": "uuid",
+            "title": "Batch Id",
+            "type": "string"
+          },
+          "batch_name": {
+            "title": "Batch Name",
+            "type": "string"
+          },
+          "enrollment_id": {
+            "format": "uuid",
+            "title": "Enrollment Id",
+            "type": "string"
+          },
+          "fee_amount": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "inactive_from": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inactive From"
+          },
+          "is_removable": {
+            "title": "Is Removable",
+            "type": "boolean"
+          },
+          "outstanding": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "batch_id",
+          "batch_name",
+          "enrollment_id",
+          "fee_amount",
+          "inactive_from",
+          "is_removable",
+          "outstanding",
+          "status"
+        ],
+        "title": "StudentSeatResponse",
+        "type": "object"
+      },
+      "StudentUpdateRequest": {
+        "additionalProperties": false,
+        "description": "Edit a student's name or numbers. Omitted fields are unchanged.\n\nA number can be changed only while nobody holding it has accepted\nand it was never erased; the name can always change.\n\n:ivar display_name: The new name\n:ivar student_phone: The new student number, or null to clear it\n:ivar guardian_phone: The new guardian number, or null to clear it",
+        "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "guardian_phone": {
+            "anyOf": [
+              {
+                "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guardian Phone"
+          },
+          "student_phone": {
+            "anyOf": [
+              {
+                "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Student Phone"
+          }
+        },
+        "title": "StudentUpdateRequest",
         "type": "object"
       },
       "SubjectOption": {
@@ -8088,6 +8424,60 @@
         "summary": "Create Session",
         "tags": [
           "teaching"
+        ]
+      }
+    },
+    "/v1/batches/{batch_id}/students": {
+      "post": {
+        "description": "Seat existing students in one batch, all or nothing.\n\n:param batch_id: The batch\n:param body: The students\n:param lens: The teacher lens carrying the owner id\n:param session: The request-scoped session\n:return: How many were added",
+        "operationId": "add_students_to_batch_v1_batches__batch_id__students_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddStudentsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddStudentsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Students To Batch",
+        "tags": [
+          "students"
         ]
       }
     },
@@ -12188,6 +12578,330 @@
         "summary": "Write Session Topic",
         "tags": [
           "teaching"
+        ]
+      }
+    },
+    "/v1/students": {
+      "get": {
+        "description": "List this teacher's students, filtered server-side.\n\n:param lens: The teacher lens carrying the owner id\n:param session: The request-scoped session\n:param batch_id: Only students in this batch\n:param unassigned: Only students in no batch\n:param exclude_batch_id: Only students NOT in this batch\n:param q: Only students whose name or number contains this\n:return: One row per student, by name",
+        "operationId": "list_students_v1_students_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "batch_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Batch Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "unassigned",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Unassigned",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "exclude_batch_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Exclude Batch Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 60,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/StudentResponse"
+                  },
+                  "title": "Response List Students V1 Students Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Students",
+        "tags": [
+          "students"
+        ]
+      },
+      "post": {
+        "description": "Record a student, optionally seating them in batches [D3].\n\n:param body: The student and their batches\n:param lens: The teacher lens carrying the owner id\n:param session: The request-scoped session\n:return: The new student",
+        "operationId": "create_student_v1_students_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StudentCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Student",
+        "tags": [
+          "students"
+        ]
+      }
+    },
+    "/v1/students/{student_id}": {
+      "delete": {
+        "description": "Remove a student in no active batch who owes nothing [D4].\n\n:param student_id: The student\n:param lens: The teacher lens carrying the owner id\n:param session: The request-scoped session\n:return: None",
+        "operationId": "remove_student_v1_students__student_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "student_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Student Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Student",
+        "tags": [
+          "students"
+        ]
+      },
+      "get": {
+        "description": "Read one student with every seat.\n\n:param student_id: The student\n:param lens: The teacher lens carrying the owner id\n:param session: The request-scoped session\n:return: The student",
+        "operationId": "read_student_v1_students__student_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "student_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Student Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Student",
+        "tags": [
+          "students"
+        ]
+      },
+      "patch": {
+        "description": "Edit a student's name or numbers, on every seat at once.\n\n:param student_id: The student\n:param body: What to change; omitted fields are unchanged\n:param lens: The teacher lens carrying the owner id\n:param session: The request-scoped session\n:return: The student, as edited",
+        "operationId": "update_student_v1_students__student_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "student_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Student Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StudentUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Student",
+        "tags": [
+          "students"
+        ]
+      }
+    },
+    "/v1/students/{student_id}/enrollments": {
+      "post": {
+        "description": "Put an existing student in one more batch.\n\n:param student_id: The student\n:param body: The batch and an optional fee\n:param lens: The teacher lens carrying the owner id\n:param session: The request-scoped session\n:return: The student, with the new seat",
+        "operationId": "enroll_student_v1_students__student_id__enrollments_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "student_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Student Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StudentEnrollRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Enroll Student",
+        "tags": [
+          "students"
         ]
       }
     }

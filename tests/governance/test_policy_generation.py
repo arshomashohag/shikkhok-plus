@@ -566,7 +566,9 @@ def test_no_raw_table_name_appears_in_the_generated_region() -> None:
     :return: None
     """
     region = render()
-    english_words = {"session", "account", "exam", "mark", "batch", "owner"}
+    # `student` since 0018: the policy has always said "a student's place
+    # in a class", and the table took the word rather than the reverse.
+    english_words = {"session", "account", "exam", "mark", "batch", "owner", "student"}
 
     for table in DISPOSITIONS:
         if table in english_words:

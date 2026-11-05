@@ -43,6 +43,7 @@ from app.db.models import (
 )
 from app.db.models import Session as ClassSession
 from app.money import Money
+from tests.students_support import student_for
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,6 +154,7 @@ def build_populated_seat(owner_session: Session) -> PopulatedSeat:
 
     enrollment = Enrollment(
         batch_id=batch.id,
+        student_id=student_for(owner_session, batch.id),
         student_account_id=student,
         guardian_account_id=guardian,
         guardian_phone=guardian_phone,

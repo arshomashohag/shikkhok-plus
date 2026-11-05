@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import Account, Enrollment, Owner
 from app.money import Money
+from tests.students_support import student_for
 
 
 @dataclass(frozen=True, slots=True)
@@ -130,6 +131,7 @@ def enroll(
 
     record = Enrollment(
         batch_id=batch_id,
+        student_id=student_for(session, batch_id),
         student_account_id=student_account_id,
         guardian_account_id=guardian_account_id,
         guardian_phone=guardian_phone,

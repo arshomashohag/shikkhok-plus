@@ -217,6 +217,17 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
             "resolves it against the full schema."
         ),
     ),
+    "student": TableGovernance(
+        disposition=Disposition.RETAIN_WITH_BASIS,
+        retention=RetentionClass.LIFE_OF_ACCOUNT,
+        basis=(
+            "The teacher's own record of a student: the name and the "
+            "numbers the TEACHER typed, the same fields every one of "
+            "that student's enrollments carries. It holds nothing the "
+            "student or guardian wrote and links to no account, so it "
+            "is retained on the same basis as the enrollments it groups."
+        ),
+    ),
     "batch": TableGovernance(
         disposition=Disposition.RETAIN_WITH_BASIS,
         retention=RetentionClass.LIFE_OF_ACCOUNT,

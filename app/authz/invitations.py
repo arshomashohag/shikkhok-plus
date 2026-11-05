@@ -24,12 +24,16 @@ own seat decides once and sees the seat once, so this returns one lens
 per enrollment rather than one per link. The storage stays per-link
 [BR5.2]; the deduplication is a property of what is LISTED, which is
 precisely the distinction BR5.3 draws between the data and the action.
+
+**Since ``0018`` the listing is one lens per STUDENT** [D1]: a student in
+several of a teacher's batches is one invitation, standing for all of
+them, and accepting it accepts each.
 """
 
 from __future__ import annotations
 
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
@@ -54,12 +58,19 @@ __all__ = ["InvitationRow", "available_invitations", "read_invitation"]
 #: who ACCEPTED as student an invitation to the same seat because its
 #: guardian link is still pending, re-listing a seat they already hold.
 #:
+#: **One invitation per STUDENT, not per seat** [D1, 0018]. A student
+#: in three of a teacher's batches is one question -- the earliest
+#: unaccepted seat stands for them -- and accepting it accepts every
+#: seat of that student (``app.accounts.decisions``). A seat with no
+#: student (``0018``'s one NULL case) stands for itself.
+#:
 #: The erasure markers are read for the same reason the role grants
 #: read them [BR6.2]: an erased link names an account that no longer
 #: exists, and offering it an invitation would invite a ghost.
 _INVITATION_QUERY = sa.text(
     """
-    SELECT id FROM enrollment
+    SELECT id FROM (
+    SELECT DISTINCT ON (COALESCE(student_id, id)) id, created_at FROM enrollment
     WHERE (
         student_account_id = :account_id
         AND student_decision IN ('pending', 'declined')
@@ -69,6 +80,8 @@ _INVITATION_QUERY = sa.text(
         AND guardian_decision IN ('pending', 'declined')
         AND guardian_relink_blocked_at IS NULL
     )
+    ORDER BY COALESCE(student_id, id), created_at, id
+    ) AS per_student
     ORDER BY created_at, id
     """
 )
@@ -108,6 +121,8 @@ class InvitationRow:
     :ivar role: Which link this account holds, ``student`` or
         ``guardian``. Present so the decline confirmation can say what
         a decline actually does for THIS holder
+    :ivar also_covers: The other batches this decision answers [D1]: the
+        same student's other seats on which this account holds a link
     :ivar child_name: For a guardian's link, the student's name as the
         teacher typed it, so the guardian can answer "is this my
         child?" (decided by the owner 2026-11-05). None for a student's
@@ -122,6 +137,7 @@ class InvitationRow:
     decision: str
     role: str
     child_name: str | None = None
+    also_covers: list[str] = field(default_factory=list)
 
 
 #: Read ONE seat through its invitation lens, at BR1.4's width.
@@ -255,6 +271,31 @@ def read_invitation(session: Session, *, lens: InvitationLens) -> InvitationRow:
         ).all()
     ]
 
+    # **The other classes this decision answers** [D1]. Accepting a
+    # student's invitation accepts every seat of that student on which
+    # this account holds a link, so the person is shown each of them.
+    # Scoped exactly as the decision write is: same student, a link
+    # naming this account.
+    this_seat = sa.select(Enrollment.student_id).where(
+        Enrollment.id == lens.enrollment_id
+    )
+    also_covers = [
+        name
+        for (name,) in session.execute(
+            sa.select(Batch.name)
+            .join(Enrollment, Enrollment.batch_id == Batch.id)
+            .where(
+                Enrollment.student_id == this_seat.scalar_subquery(),
+                Enrollment.id != lens.enrollment_id,
+                sa.or_(
+                    Enrollment.student_account_id == lens.account_id,
+                    Enrollment.guardian_account_id == lens.account_id,
+                ),
+            )
+            .order_by(Batch.name)
+        ).all()
+    ]
+
     return InvitationRow(
         enrollment_id=enrollment_id,
         batch_name=batch_name,
@@ -263,4 +304,5 @@ def read_invitation(session: Session, *, lens: InvitationLens) -> InvitationRow:
         decision=decision,
         role=role,
         child_name=child_name,
+        also_covers=also_covers,
     )

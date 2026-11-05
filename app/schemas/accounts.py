@@ -158,6 +158,11 @@ class InvitationResponse(BaseModel):
         teacher typed the name, so the guardian can answer "is this my
         child?" (decided by the owner 2026-11-05). None for a student.
         Teacher-authored, never the child's own profile name
+    :ivar also_covers: The other batches of the same teacher this
+        decision also answers, by name [D1, 0018]. Acceptance is per
+        student, so a student in three classes is asked once; the
+        person is shown every class they are agreeing to, which keeps
+        the invitation at "what you are being asked to join"
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -169,6 +174,7 @@ class InvitationResponse(BaseModel):
     decision: Literal["pending", "declined"]
     role: Literal["student", "guardian"]
     child_name: str | None = None
+    also_covers: list[str] = Field(default_factory=list)
 
 
 class DecisionResponse(BaseModel):

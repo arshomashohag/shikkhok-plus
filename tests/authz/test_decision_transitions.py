@@ -30,6 +30,7 @@ from sqlalchemy.orm import Session
 from app.accounts.decisions import accept_seat, decline_seat
 from app.authz.lenses import InvitationLens
 from app.db.models import Account, Enrollment
+from tests.students_support import student_for
 
 
 def _account(session: Session) -> uuid.UUID:
@@ -86,6 +87,7 @@ def _seat(
     """
     record = Enrollment(
         batch_id=uuid.uuid4(),
+        student_id=student_for(session, uuid.uuid4()),
         student_account_id=student_account_id,
         guardian_account_id=guardian_account_id,
         student_decision=student_decision,

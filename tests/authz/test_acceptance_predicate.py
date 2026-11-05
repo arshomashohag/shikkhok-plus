@@ -32,6 +32,7 @@ from app.authz.lenses import GuardianLens, StudentLens
 from app.authz.resolve import available_lenses
 from app.authz.summary import lens_summary
 from app.db.models import Account, Enrollment
+from tests.students_support import student_for
 
 
 @pytest.fixture
@@ -74,6 +75,7 @@ def _seat(
     """
     record = Enrollment(
         batch_id=uuid.uuid4(),
+        student_id=student_for(session, uuid.uuid4()),
         student_account_id=student_account_id,
         guardian_account_id=guardian_account_id,
         student_decision=student_decision,

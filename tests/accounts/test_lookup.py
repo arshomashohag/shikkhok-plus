@@ -31,6 +31,7 @@ from app.batches.service import list_batches
 from app.db.models import Enrollment
 from app.schemas.accounts import AlreadyAddedResponse
 from tests.batches.conftest import TeacherFixture, make_teacher
+from tests.students_support import student_for
 
 
 def _phone() -> str:
@@ -57,6 +58,7 @@ def _guardian_seat(
     """
     record = Enrollment(
         batch_id=teacher.batch_id,
+        student_id=student_for(session, teacher.batch_id),
         display_name="Rahim Uddin",
         guardian_phone=guardian_phone,
         student_decision="pending",
@@ -154,6 +156,7 @@ def test_a_student_number_is_found_before_any_account_exists(
     owner_session.add(
         Enrollment(
             batch_id=teacher.batch_id,
+            student_id=student_for(owner_session, teacher.batch_id),
             display_name="Karim Hossain",
             student_phone=phone,
             student_decision="pending",
@@ -187,6 +190,7 @@ def test_a_relink_blocked_seat_is_not_reported(
     owner_session.add(
         Enrollment(
             batch_id=teacher.batch_id,
+            student_id=student_for(owner_session, teacher.batch_id),
             display_name="Karim Hossain",
             student_phone=phone,
             student_decision="pending",

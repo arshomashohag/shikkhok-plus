@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 from app.authz.lenses import GuardianLens, StudentLens, TeacherLens
 from app.authz.resolve import LensResolver, available_lenses
 from app.db.models import Account, Enrollment, Owner
+from tests.students_support import student_for
 
 
 @pytest.fixture
@@ -82,6 +83,7 @@ def _enroll(session: Session, account_id: uuid.UUID, role: str) -> uuid.UUID:
     }
     record = Enrollment(
         batch_id=uuid.uuid4(),
+        student_id=student_for(session, uuid.uuid4()),
         display_name="Teacher Typed Name",
         created_at=dt.datetime.now(tz=dt.UTC),
         **decisions,

@@ -155,6 +155,7 @@ def _roster_row_response(row: service.RosterRow) -> RosterRowResponse:
     """
     return RosterRowResponse(
         enrollment_id=row.enrollment_id,
+        student_id=row.student_id,
         display_name=row.display_name,
         guardian_phone=row.guardian_phone,
         fee_amount=_to_wire(row.fee_amount),

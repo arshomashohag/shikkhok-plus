@@ -25,6 +25,7 @@ from sqlalchemy.orm import Session
 
 from app.authz.rls import clear_account_context, set_account_context
 from app.db.models import Account, Enrollment, Profile
+from tests.students_support import student_for
 
 TEACHER_TYPED_NAME = "Rahim (class 8)"
 SELF_CHOSEN_NAME = "Md. Rahim Uddin"
@@ -53,6 +54,7 @@ def student(owner_session: Session) -> uuid.UUID:
     owner_session.add(
         Enrollment(
             batch_id=uuid.uuid4(),
+            student_id=student_for(owner_session, uuid.uuid4()),
             student_account_id=account.id,
             display_name=TEACHER_TYPED_NAME,
             # Stated, never defaulted [ADR-013]. Accepted, because this

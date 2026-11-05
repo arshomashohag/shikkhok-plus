@@ -35,6 +35,7 @@ from app.contract.privacy import OWNER_PRIVATE_FIELDS, forbidden_fields
 from app.db.models import Enrollment, Profile
 from tests.accounts.conftest import auth_header, make_account
 from tests.batches.conftest import TeacherFixture, make_teacher
+from tests.students_support import student_for
 
 #: What a teacher must never read.
 HOME_ADDRESS = "House 7, Road 11, Dhanmondi, Dhaka"
@@ -57,6 +58,7 @@ def _seat(
     """
     record = Enrollment(
         batch_id=teacher.batch_id,
+        student_id=student_for(session, teacher.batch_id),
         student_account_id=student_account_id,
         display_name="Rahim Uddin",
         student_decision=student_decision,
@@ -200,6 +202,7 @@ def test_a_guardian_cannot_read_a_non_childs_enrollment(
 
     mine = Enrollment(
         batch_id=teacher.batch_id,
+        student_id=student_for(owner_session, teacher.batch_id),
         student_account_id=my_child,
         guardian_account_id=guardian,
         display_name="My child",

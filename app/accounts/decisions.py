@@ -10,6 +10,11 @@ own seat decides once rather than twice. So these functions move
 the split case and two in the self-guardian case, and never a column
 belonging to somebody else.
 
+**Since ``0018`` "this seat" means every seat of the same student**
+[D1]. Acceptance is per student, decided by the owner on 2026-11-05: a
+student in three of a teacher's batches is asked once, and the decision
+is written to each of their seats on which this account holds a link.
+
 **The asymmetry in :func:`decline_seat` is the design** [BR5.4]. A
 decline is durable against the teacher -- no teacher action clears it,
 and re-adding the number does not re-prompt -- and reversible by its
@@ -46,6 +51,14 @@ __all__ = ["accept_seat", "decline_seat"]
 #: too, so there is no parameter a caller could forge and no row this
 #: statement can reach that its holder does not hold.
 #:
+#: **Every seat of the same student, not only this one** [D1, 0018].
+#: Acceptance is per student: a person accepts a teacher's student once
+#: and every batch that student sits in is covered. The CASEs still
+#: test each link's own account, so a seat where this account holds no
+#: link is untouched, and the scope stays the student the lens reached.
+#: ``id =`` stays beside the student match so a seat with no student
+#: (``0018``'s one NULL case) still records its own decision.
+#:
 #: The erasure markers are not tested here. A link whose holder erased
 #: resolves no invitation lens [BR6.2, invitations.py], so this
 #: statement is never reached for one -- and adding the condition would
@@ -64,7 +77,13 @@ _SET_DECISION = sa.text(
             THEN CAST(:decision AS enrollment_decision)
             ELSE guardian_decision
         END
-    WHERE id = :enrollment_id
+    WHERE (
+        id = :enrollment_id
+        OR student_id = (
+            SELECT student_id FROM enrollment WHERE id = :enrollment_id
+        )
+    )
+      AND (student_account_id = :account_id OR guardian_account_id = :account_id)
     """
 )
 

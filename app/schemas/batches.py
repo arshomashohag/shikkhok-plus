@@ -235,6 +235,8 @@ class RosterRowResponse(BaseModel):
     or an amount of its own.
 
     :ivar enrollment_id: The teacher-facing key for this seat
+    :ivar student_id: The teacher's student this seat belongs to, the
+        teacher's own record and never an account id [0018]
     :ivar display_name: The teacher-typed name
     :ivar guardian_phone: The teacher-typed guardian contact
     :ivar fee_amount: This seat's fee, or null when it inherits
@@ -264,6 +266,7 @@ class RosterRowResponse(BaseModel):
     """
 
     enrollment_id: uuid.UUID
+    student_id: uuid.UUID | None
     display_name: str
     guardian_phone: str | None
     fee_amount: MoneyField | None

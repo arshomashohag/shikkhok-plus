@@ -41,11 +41,12 @@ VERSIONS: Final[pathlib.Path] = (
 #: claims wrapped in submissions -- again, and ``0015`` -- the payment
 #: replay key and the append-only grants -- once more, and ``0016`` --
 #: the address in four parts -- again, and ``0017`` -- decimal marks and
-#: publishing -- once more.
-EXPECTED_REVISIONS: Final[int] = 17
+#: publishing -- once more, and ``0018`` -- a teacher's students, apart
+#: from any batch -- again.
+EXPECTED_REVISIONS: Final[int] = 18
 
-#: The head ``0017`` leaves behind.
-EXPECTED_HEAD: Final[str] = "0017"
+#: The head ``0018`` leaves behind.
+EXPECTED_HEAD: Final[str] = "0018"
 
 
 def _revision_files() -> list[pathlib.Path]:

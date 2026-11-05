@@ -218,7 +218,8 @@ def test_d5_adds_no_migration_and_no_governance_entry() -> None:
 
     ``dispositions.py`` held 25 when D5 shipped and holds 28 since
     ``notification`` arrived with the inbox and ``0013`` added the two
-    payment tables; D5 itself added none.
+    payment tables, and 29 since ``0018`` added ``student``; D5 itself
+    added none.
     Stated as an absence because a
     materialised rollup is the obvious optimisation and it would
     contradict BR1.4 outright.
@@ -227,9 +228,9 @@ def test_d5_adds_no_migration_and_no_governance_entry() -> None:
     """
     from app.governance.dispositions import DISPOSITIONS
 
-    assert len(DISPOSITIONS) == 28, (
+    assert len(DISPOSITIONS) == 29, (
         f"the governance manifest holds {len(DISPOSITIONS)} entries, not "
-        "28. D5 creates no table, so it adds no disposition [BR4.2]."
+        "29. D5 creates no table, so it adds no disposition [BR4.2]."
     )
 
 

@@ -128,6 +128,7 @@ def _as_response(row: InvitationRow) -> InvitationResponse:
         decision=decision,
         role=role,
         child_name=row.child_name,
+        also_covers=row.also_covers,
     )
 
 

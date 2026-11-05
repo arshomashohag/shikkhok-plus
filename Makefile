@@ -202,7 +202,7 @@ test:
 		--cov=app.marks \
 		--cov=app.notifications \
 		--cov=app.schemas \
-		--cov=app.teaching --cov=app.web_origins \
+		--cov=app.students --cov=app.teaching --cov=app.web_origins \
 		--cov-report= \
 		--cov-config=.coveragerc-backend
 	@echo ""

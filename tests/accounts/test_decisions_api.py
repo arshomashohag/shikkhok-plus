@@ -26,6 +26,7 @@ from app.db.models import Enrollment
 from app.money import Money
 from tests.accounts.conftest import auth_header, make_account
 from tests.batches.conftest import TeacherFixture, make_teacher
+from tests.students_support import student_for
 
 
 def _seat(
@@ -49,6 +50,7 @@ def _seat(
     """
     record = Enrollment(
         batch_id=teacher.batch_id,
+        student_id=student_for(session, teacher.batch_id),
         student_account_id=student_account_id,
         guardian_account_id=guardian_account_id,
         display_name="Rahim Uddin",
@@ -111,6 +113,13 @@ def test_an_invitation_carries_exactly_the_three_fields(
         # invitation is about their own child. It is never the child's
         # own profile name, and a student's own link carries none.
         "child_name",
+        # `also_covers` was added 2026-11-05 [D1, 0018], and this guard
+        # failed as it should. Acceptance became per student, so one
+        # decision answers every class of the same teacher the student
+        # sits in; the person is shown the NAMES of those classes,
+        # which is exactly "what you are being asked to join" and
+        # nothing past it.
+        "also_covers",
     }
     assert body["batch_name"] == "Physics"
     assert body["decision"] == "pending"

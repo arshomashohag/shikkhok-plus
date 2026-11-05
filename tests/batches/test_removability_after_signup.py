@@ -38,6 +38,7 @@ from app.batches.service import (
 )
 from app.db.models import Account, Enrollment
 from tests.batches.conftest import TeacherFixture, make_teacher
+from tests.students_support import student_for
 
 
 def _lens(teacher: TeacherFixture) -> TeacherLens:
@@ -85,6 +86,7 @@ def _seat(
     """
     record = Enrollment(
         batch_id=batch_id,
+        student_id=student_for(session, batch_id),
         student_account_id=student_account_id,
         student_decision=student_decision,
         guardian_decision=guardian_decision,
