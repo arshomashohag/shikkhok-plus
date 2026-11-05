@@ -57,7 +57,7 @@ from app.api.auth import (
     get_gateway,
     ip_prefix_of,
 )
-from app.api.deps import authenticated_account, get_session
+from app.api.deps import authenticated_account, get_session, token_subject
 from app.auth import otp
 from app.auth.ceilings import CeilingChecker, SendBudget
 from app.auth.delivery import send_within_budget
@@ -566,7 +566,10 @@ def read_deletion_summary(
 
 @router.delete("/v1/me", response_model=DeletionResponse)
 def delete_own_account(
-    account_id: Annotated[uuid.UUID, Depends(authenticated_account)],
+    # The token's subject, NOT authenticated_account: a second tap on
+    # Delete arrives with a token whose account this route has just
+    # removed, and must report the deletion rather than a 401 [BR1.4].
+    account_id: Annotated[uuid.UUID, Depends(token_subject)],
     session: Annotated[Session, Depends(get_session)],
 ) -> DeletionResponse:
     """Delete the authenticated account.

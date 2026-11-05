@@ -18,6 +18,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated, Protocol, cast
 
+import sqlalchemy as sa
 from fastapi import Depends, Request
 from sqlalchemy.orm import Session
 
@@ -46,6 +47,12 @@ __all__ = [
 #: Where the verified account is memoized for the rest of the request.
 _ACCOUNT_MEMO = "_aidlc_account_id"
 
+#: The memo for the token's subject alone, before the account is looked up.
+_SUBJECT_MEMO = "_aidlc_token_subject"
+
+#: Whether the account a token names still exists. Indexed on the key.
+_ACCOUNT_EXISTS = sa.text("SELECT 1 FROM account WHERE id = :account_id")
+
 
 class _HasState(Protocol):
     """The one attribute of a request lens resolution touches."""
@@ -63,26 +70,24 @@ def get_session(request: Request) -> Session:
     return session
 
 
-def authenticated_account(request: Request) -> uuid.UUID:
-    """Return the account this request's access token names.
+def token_subject(request: Request) -> uuid.UUID:
+    """Return the account a validly signed, unexpired token names.
 
-    **U4 is the first Unit with an authenticated, lensed route**, so
-    this is where the Bearer header first gets read. U3 shipped
-    :func:`verify_access_token` and three routes that did not need it:
-    two are public and the third authenticates by refresh token in the
-    body.
+    **Signature and expiry only** -- the account may no longer exist.
+    Every route but one wants :func:`authenticated_account`, which also
+    requires the account; this is for ``DELETE /v1/me``, which must stay
+    idempotent for a token whose account it has already deleted [BR1.4].
 
-    Resolved per request and memoized on ``request.state``, so a route
-    taking two lens dependencies verifies the token once. The memo is
-    request-scoped like the lens memo and for the same reason -- a
-    process-level cache would be a cached authentication.
+    Memoized on ``request.state`` so the token is verified once per
+    request; request-scoped, because a process-level cache would be a
+    cached authentication.
 
     :param request: The incoming request
-    :return: The authenticated account id
+    :return: The token's subject
     :raises AuthorizationError: The header is missing or the token is
         unverifiable, expired or malformed
     """
-    memo: object = getattr(request.state, _ACCOUNT_MEMO, None)
+    memo: object = getattr(request.state, _SUBJECT_MEMO, None)
     if isinstance(memo, uuid.UUID):
         return memo
 
@@ -98,7 +103,47 @@ def authenticated_account(request: Request) -> uuid.UUID:
     # verify_access_token raises AuthorizationError itself for an
     # expired, unsigned or unknown-kid token, so it is not re-wrapped:
     # doing so would flatten its 401 into this module's default 403.
-    account_id = verify_access_token(token)
+    subject = verify_access_token(token)
+    setattr(request.state, _SUBJECT_MEMO, subject)
+    return subject
+
+
+def authenticated_account(request: Request) -> uuid.UUID:
+    """Return the account this request's access token names -- if it exists.
+
+    **Authentication is the signature AND an account row.** An access
+    token lives fifteen minutes and cannot be recalled, so after
+    ``DELETE /v1/me`` it stayed validly signed for an account that was
+    gone: reads answered 200 with every field null and ``PATCH /v1/me``
+    raised a 500 updating a row that was not there. A token naming a
+    deleted account now gets the same 401 as an expired one, so a client
+    does what it does for any ended session: refresh, which fails because
+    the refresh tokens went with the account, then sign out.
+
+    One indexed primary-key read per request, memoized with the rest, so
+    a route taking two lens dependencies pays for it once.
+
+    :param request: The incoming request
+    :return: The authenticated account id
+    :raises AuthorizationError: The token is missing, unverifiable,
+        expired or malformed, or names an account that no longer exists
+    """
+    memo: object = getattr(request.state, _ACCOUNT_MEMO, None)
+    if isinstance(memo, uuid.UUID):
+        return memo
+
+    account_id = token_subject(request)
+    found = (
+        get_session(request)
+        .execute(_ACCOUNT_EXISTS, {"account_id": account_id})
+        .first()
+    )
+    if found is None:
+        raise AuthorizationError(
+            code="NOT_AUTHENTICATED",
+            message_key="auth.token.not_valid",
+            status=401,
+        )
     setattr(request.state, _ACCOUNT_MEMO, account_id)
     return account_id
 
