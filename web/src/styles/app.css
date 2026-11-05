@@ -420,6 +420,19 @@ button.row {
   border-radius: var(--r-card);
   padding: var(--s4);
 }
+a.hero {
+  display: block;
+  color: var(--on-primary);
+  text-decoration: none;
+}
+.card-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+a.card-link:hover {
+  background: var(--surface-container);
+}
 .hero .meta {
   color: inherit;
   opacity: 0.92;

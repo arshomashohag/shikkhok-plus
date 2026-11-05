@@ -3,7 +3,9 @@
  * month's fee chip. Paying a fee is in the Android app for this slice; the
  * button is not shown rather than shown disabled.
  */
+import { Link } from 'react-router'
 import { listMyBatches } from '../../api/endpoints'
+import { familyPaths } from '../family/reader'
 import { formatMark, formatMonth, formatPhone, howSoon, whenLabel } from '../../core/format'
 import { useResource } from '../../core/useResource'
 import { useT } from '../../i18n/i18n'
@@ -60,17 +62,25 @@ export function MyBatches() {
       <TopBar title={t('my_batches_title')} subtitle={subtitle} />
       {resource.error ? <StaleBanner error={resource.error} loadedAt={resource.loadedAt} /> : null}
       {next?.nextSession ? (
-        <div className="hero" style={{ marginTop: resource.error ? 12 : 0 }}>
+        <Link
+          className="hero"
+          to={familyPaths.batch('me', next.enrollmentId)}
+          style={{ marginTop: resource.error ? 12 : 0 }}
+        >
           <div className="meta">{howSoon(next.nextSession.startsInMinutes, t)}</div>
           <div className="hero-amount">{whenLabel(next.nextSession, lang, t)}</div>
           <div className="meta">
             {[next.batchName, next.teacherName].filter(Boolean).join(' · ')}
           </div>
-        </div>
+        </Link>
       ) : null}
       <div className="grid-2" style={{ marginTop: 12 }}>
         {batches.map((b) => (
-          <article key={b.enrollmentId} className="card">
+          <Link
+            key={b.enrollmentId}
+            className="card card-link"
+            to={familyPaths.batch('me', b.enrollmentId)}
+          >
             <div className="title">{b.batchName}</div>
             {b.nextSession?.moved ? (
               <div className="meta accent">
@@ -109,8 +119,18 @@ export function MyBatches() {
                 {b.fee ? <FeeChip chip={b.fee.chip} /> : null}
               </div>
             </div>
-          </article>
+          </Link>
         ))}
+      </div>
+      {/* S1: one way to pay, at the bottom. It opens on the next class's
+          batch (Android opens the first); every batch is selectable there. */}
+      <div className="action-bar">
+        <Link
+          className="btn btn-primary btn-money"
+          to={familyPaths.pay('me', (next ?? batches[0])?.enrollmentId ?? '')}
+        >
+          {t('pay_open')}
+        </Link>
       </div>
     </>
   )

@@ -9,6 +9,8 @@
  * summary in one response; nothing is fetched or computed per child.
  */
 import { useState } from 'react'
+import { Link } from 'react-router'
+import { familyPaths } from '../family/reader'
 import { readGuardianHome, type Schemas } from '../../api/endpoints'
 import { formatMark, formatMonth, formatPhone, formatShortDate, initial } from '../../core/format'
 import { Money } from '../../core/money'
@@ -24,7 +26,7 @@ import {
   StaleBanner,
   TopBar,
 } from '../../ui/components'
-import { WarningIcon } from '../../ui/icons'
+import { ChevronIcon, WarningIcon } from '../../ui/icons'
 
 type Child = Schemas['ChildSummaryResponse']
 
@@ -150,11 +152,29 @@ function ChildView({ child }: { child: Child }) {
               {t('guardian_more_owed', pay.later_periods, Money.fromWire(pay.total_due).format())}
             </div>
           ) : null}
+          {/* G1: Pay opens the child's payments first, as on Android; that
+              screen offers Send money. */}
+          <div className="button-row">
+            <Link
+              className="btn btn-primary btn-money"
+              to={familyPaths.payments('child', pay.enrollment_id)}
+            >
+              {t('guardian_pay_amount', Money.fromWire(pay.amount_due).format())}
+            </Link>
+          </div>
         </div>
       ) : null}
 
       {(child.waiting ?? []).map((w, i) => (
-        <div key={i} className="card" style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+        <Link
+          key={i}
+          className="card card-link"
+          to={familyPaths.payments(
+            'child',
+            pay?.enrollment_id ?? child.batches?.[0]?.enrollment_id ?? '',
+          )}
+          style={{ display: 'flex', gap: 12, alignItems: 'center' }}
+        >
           <div className="grow">
             <div className="title">
               {w.batch_name} · {formatMonth(w.period, lang)}
@@ -167,7 +187,7 @@ function ChildView({ child }: { child: Child }) {
             ) : null}
           </div>
           <FeeChip chip={{ kind: 'verifying', amount: null }} />
-        </div>
+        </Link>
       ))}
 
       <Section title={t('guardian_latest_results', name)}>
@@ -176,20 +196,22 @@ function ChildView({ child }: { child: Child }) {
         ) : (
           <ul className="card flush list">
             {(child.latest_results ?? []).map((r, i) => (
-              <li key={i} className="row">
-                <div className="grow">
-                  <div className="title">{r.batch_name}</div>
-                  <div className="meta">
-                    {r.title} · {formatShortDate(r.date, lang)}
+              <li key={i}>
+                <Link className="row" to={familyPaths.progress('child', r.enrollment_id)}>
+                  <div className="grow">
+                    <div className="title">{r.batch_name}</div>
+                    <div className="meta">
+                      {r.title} · {formatShortDate(r.date, lang)}
+                    </div>
                   </div>
-                </div>
-                <div className="end">
-                  <span>
-                    <strong style={{ fontSize: '1.25rem' }}>{formatMark(r.marks)}</strong>
-                    {t('student_out_of', r.total_marks)}
-                  </span>
-                  <span className="meta">{trendLine(r, t)}</span>
-                </div>
+                  <div className="end">
+                    <span>
+                      <strong style={{ fontSize: '1.25rem' }}>{formatMark(r.marks)}</strong>
+                      {t('student_out_of', r.total_marks)}
+                    </span>
+                    <span className="meta">{trendLine(r, t)}</span>
+                  </div>
+                </Link>
               </li>
             ))}
           </ul>
@@ -199,11 +221,14 @@ function ChildView({ child }: { child: Child }) {
       <Section title={t('guardian_batches_of', name)}>
         <ul className="card flush list">
           {(child.batches ?? []).map((b) => (
-            <li key={b.enrollment_id} className="row">
-              <div className="grow">
-                <div className="title">{b.batch_name}</div>
-                <div className="meta">{b.teacher_display_name ?? ''}</div>
-              </div>
+            <li key={b.enrollment_id}>
+              <Link className="row" to={familyPaths.batch('child', b.enrollment_id)}>
+                <div className="grow">
+                  <div className="title">{b.batch_name}</div>
+                  <div className="meta">{b.teacher_display_name ?? ''}</div>
+                </div>
+                <ChevronIcon />
+              </Link>
             </li>
           ))}
         </ul>
