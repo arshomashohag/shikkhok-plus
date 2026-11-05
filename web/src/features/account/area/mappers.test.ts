@@ -60,6 +60,24 @@ describe('mapInbox', () => {
     expect(model.messages).toEqual([])
   })
 
+  it('keeps the two kinds added for recorded payments and cancelled exams', () => {
+    const model = mapInbox({
+      unread: 2,
+      items: [
+        item({ kind: 'payment_recorded' }),
+        item({
+          notification_id: 'n2',
+          kind: 'exam_cancelled',
+          amount: null,
+          period: null,
+          preview: 'Monthly · 2026-11-20',
+        }),
+      ],
+    })
+    expect(model.messages.map((m) => m.kind)).toEqual(['payment_recorded', 'exam_cancelled'])
+    expect(inboxBody(model.messages[1] as InboxMessage, t, (p) => p)).toBe('Monthly · 2026-11-20')
+  })
+
   it('refuses a number where money belongs', () => {
     expect(() =>
       mapInbox({ unread: 0, items: [item({ amount: 1200 as unknown as string })] }),
@@ -84,6 +102,7 @@ describe('inbox wording', () => {
     ['payment_approved', 'inbox_payment_approved_body(৳1,200,2026-10)'],
     ['payment_partial', 'inbox_payment_partial_body(৳1,200,2026-10)'],
     ['payment_rejected', 'inbox_payment_rejected_body(৳1,200,2026-10)'],
+    ['payment_recorded', 'inbox_payment_recorded_body(৳1,200,2026-10)'],
     ['claim_to_verify', 'inbox_claim_to_verify_body(৳1,200,2026-10)'],
   ] as const)('words a %s from the amount and month the server sent', (kind, line) => {
     expect(inboxBody(one({ kind }), t, (p) => p)).toBe(line)
@@ -204,10 +223,30 @@ describe('mapDetail', () => {
         subject_name: 'Physics',
         total_marks: 50,
         topics: ['Heat', 'Light'],
+        cancelled: false,
       },
     })
     expect(exam).toMatchObject({
-      content: { kind: 'exam', totalMarks: 50, topics: ['Heat', 'Light'] },
+      content: { kind: 'exam', totalMarks: 50, topics: ['Heat', 'Light'], cancelled: false },
+    })
+    const cancelled = mapDetail({
+      ...base,
+      kind: 'exam_cancelled',
+      payment: null,
+      exam: {
+        exam_id: 'e1',
+        title: 'Monthly',
+        date: '2026-11-20',
+        subject_name: 'Physics',
+        total_marks: 50,
+        topics: [],
+        cancelled: true,
+      },
+    })
+    expect(cancelled).toMatchObject({
+      state: 'available',
+      kind: 'exam_cancelled',
+      content: { kind: 'exam', cancelled: true },
     })
   })
 })

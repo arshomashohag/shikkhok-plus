@@ -18,7 +18,7 @@ import { EmptyState, ErrorCard, Loading, StaleBanner, TopBar } from '../../../ui
 import { paths } from '../paths'
 import { readResults } from './api'
 import { mapResults, progressOf, rollLabel, STATE_KEYS, type ResultRow } from './mappers'
-import { HistorySheet, PublishBar } from './parts'
+import { CancelExam, HistorySheet, PublishBar } from './parts'
 
 export function ExamResults() {
   const { examId = '' } = useParams()
@@ -58,12 +58,17 @@ export function ExamResults() {
           .filter(Boolean)
           .join(' · ')}
         back
+        actions={fresh ? <CancelExam exam={results.exam} onCancelled={reload} /> : undefined}
       />
       {resource.error ? <StaleBanner error={resource.error} loadedAt={resource.loadedAt} /> : null}
       {!results.exam.published && results.writable ? (
         <p className="meta accent">{t('batch_exam_draft')}</p>
       ) : null}
-      {!results.writable ? <p className="banner">{t('mark_entry_read_only')}</p> : null}
+      {results.exam.cancelled ? (
+        <p className="banner">{t('marks_exam_cancelled')}</p>
+      ) : !results.writable ? (
+        <p className="banner">{t('mark_entry_read_only')}</p>
+      ) : null}
 
       {results.rows.length === 0 ? (
         <EmptyState title={t('mark_entry_empty_title')} body={t('mark_entry_empty_body')} />

@@ -221,3 +221,13 @@
   align-items: center;
   margin-bottom: var(--s3);
 }
+
+/* "Record payment" under a seat in the batch month, outside its link. */
+.money-record-row {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 var(--s3) var(--s2);
+}
+.money-record-open {
+  margin-top: var(--s3);
+}

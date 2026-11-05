@@ -21,6 +21,9 @@ export interface ExamItem {
   expectedCount: number
   state: ExamState
   published: boolean
+  /** Called off by the teacher; kept on the list, flagged, and never written again. */
+  cancelled: boolean
+  cancellationReason: string | null
   topics: string[]
 }
 
@@ -35,19 +38,38 @@ export function mapExam(dto: Schemas['ExamListItemResponse']): ExamItem {
     expectedCount: dto.expected_count,
     state: dto.state,
     published: dto.published ?? false,
+    // A server from before cancelling existed sends no flag: not cancelled.
+    cancelled: dto.cancelled ?? false,
+    cancellationReason: dto.cancellation_reason ?? null,
     topics: (dto.topics ?? []).map(String),
   }
 }
 
-/** The tab's three groups, as ExamsTab.kt: needs marks, coming up, marked (newest first). */
+/**
+ * Whether "Cancel exam" is offered: an exam still on whose results are
+ * not out. The server refuses a published one (`marks.exam.published`)
+ * and answers a second cancel with the exam as it is, so this only
+ * decides whether to show the button.
+ */
+export function canCancel(exam: Pick<ExamItem, 'cancelled' | 'published'>): boolean {
+  return !exam.cancelled && !exam.published
+}
+
+/**
+ * The tab's groups, as ExamsTab.kt: needs marks, coming up, marked (newest
+ * first), then cancelled. A cancelled exam leaves the three working groups
+ * whatever its marking state, so it never asks for marks.
+ */
 export function groupExams(exams: ExamItem[]): { titleKey: string; exams: ExamItem[] }[] {
+  const on = exams.filter((e) => !e.cancelled)
   return [
-    { titleKey: 'batch_exams_needs_marks', exams: exams.filter((e) => e.state === 'needs_marks') },
-    { titleKey: 'batch_exams_coming', exams: exams.filter((e) => e.state === 'upcoming') },
+    { titleKey: 'batch_exams_needs_marks', exams: on.filter((e) => e.state === 'needs_marks') },
+    { titleKey: 'batch_exams_coming', exams: on.filter((e) => e.state === 'upcoming') },
     {
       titleKey: 'batch_exams_done',
-      exams: exams.filter((e) => e.state === 'complete').reverse(),
+      exams: on.filter((e) => e.state === 'complete').reverse(),
     },
+    { titleKey: 'exam_cancelled_chip', exams: exams.filter((e) => e.cancelled) },
   ].filter((g) => g.exams.length > 0)
 }
 

@@ -5,16 +5,25 @@
  * payment line. "Progress" opens the seat's dashboard.
  *
  * Every figure is the server's; the strip's states are the server's.
+ *
+ * "Record payment" opens {@link RecordPaymentSheet}, starting at what the
+ * server says is owed; once the server accepts it the history re-reads.
  */
+import { useCallback, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router'
 import { formatMonth, formatShortDate, formatShortMonth } from '../../../core/format'
+import { Money } from '../../../core/money'
 import { useResource } from '../../../core/useResource'
 import { useT } from '../../../i18n/i18n'
-import { ErrorCard, Loading, StaleBanner, TopBar } from '../../../ui/components'
+import { ErrorCard, Loading, Snackbar, StaleBanner, TopBar } from '../../../ui/components'
 import { readSeatFees } from './api'
 import { mapFeeHistory, STRIP_GLYPH, STRIP_WORD, type MonthCell } from './fees'
 import { HistoryLineText } from './HistoryLineText'
 import { moneyPaths } from './paths'
+import { RecordPaymentSheet } from './RecordPaymentSheet'
+
+/** What a seat with nothing charged yet owes: the server's zero. */
+const NOTHING_OWED = Money.fromWire('0.00')
 
 export function SeatFees() {
   const { enrollmentId = '' } = useParams()
@@ -27,6 +36,9 @@ export function SeatFees() {
     [enrollmentId],
   )
   const subtitle = [name, batch].filter(Boolean).join(' · ') || undefined
+  const [recording, setRecording] = useState(false)
+  const [snack, setSnack] = useState<string | null>(null)
+  const dismissSnack = useCallback(() => setSnack(null), [])
   const progress = (
     <Link
       className="btn btn-text btn-small"
@@ -54,18 +66,34 @@ export function SeatFees() {
   }
 
   const history = resource.data
+  const owed = history.kind === 'loaded' ? history.totalOutstanding : NOTHING_OWED
+  const record = (
+    <button
+      type="button"
+      className="btn btn-primary btn-small money-record-open"
+      onClick={() => setRecording(true)}
+    >
+      {t('fees_record_payment')}
+    </button>
+  )
   return (
     <>
       <TopBar title={t('screen_title_fee_history')} subtitle={subtitle} back actions={progress} />
       {resource.error ? <StaleBanner error={resource.error} loadedAt={resource.loadedAt} /> : null}
       {history.kind === 'empty' ? (
-        <div className="card meta">{t('fees_empty')}</div>
+        <div className="card">
+          <p className="meta" style={{ marginTop: 0 }}>
+            {t('fees_empty')}
+          </p>
+          {record}
+        </div>
       ) : (
         <>
           <div className="card">
             <div className="hero-amount" style={{ margin: 0 }}>
               {t('fees_total_outstanding', history.totalOutstanding.format())}
             </div>
+            {record}
           </div>
           {history.months.length > 0 ? <MonthStrip months={history.months} /> : null}
           <ul className="card flush list" style={{ marginTop: 12 }}>
@@ -96,6 +124,20 @@ export function SeatFees() {
           </ul>
         </>
       )}
+      {recording ? (
+        <RecordPaymentSheet
+          enrollmentId={enrollmentId}
+          name={subtitle}
+          owed={owed}
+          onClose={() => setRecording(false)}
+          onRecorded={() => {
+            setRecording(false)
+            setSnack(t('fees_record_done'))
+            reload()
+          }}
+        />
+      ) : null}
+      {snack ? <Snackbar text={snack} onDismiss={dismissSnack} /> : null}
     </>
   )
 }

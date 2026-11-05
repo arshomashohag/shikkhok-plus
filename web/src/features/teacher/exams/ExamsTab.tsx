@@ -2,7 +2,8 @@
  * T7 · Exams tab: needs marks, coming up, and marked (newest first), as
  * ExamsTab.kt groups them. A marked exam opens its results; any other
  * opens mark entry. "Draft · not published" marks a marked exam families
- * cannot see yet.
+ * cannot see yet. A cancelled exam stays on the tab under its own heading
+ * with a Cancelled chip, and opens its read-only results.
  */
 import { Link } from 'react-router'
 import { formatShortDate } from '../../../core/format'
@@ -69,7 +70,9 @@ export function ExamsTab({ batchId }: BatchTabProps) {
 function ExamRow({ exam }: { exam: ExamItem }) {
   const { t, lang } = useT()
   const to =
-    exam.state === 'complete' ? paths.examResults(exam.examId) : paths.examMarks(exam.examId)
+    exam.state === 'complete' || exam.cancelled
+      ? paths.examResults(exam.examId)
+      : paths.examMarks(exam.examId)
   return (
     <li>
       <Link className="row" to={to} style={{ minHeight: 64 }}>
@@ -82,16 +85,19 @@ function ExamRow({ exam }: { exam: ExamItem }) {
               t('batch_exam_out_of', exam.totalMarks),
             ].join(' · ')}
           </div>
-          {exam.state === 'complete' && !exam.published ? (
+          {exam.state === 'complete' && !exam.published && !exam.cancelled ? (
             <div className="meta accent">{t('batch_exam_draft')}</div>
           ) : null}
         </div>
-        {exam.state === 'needs_marks' ? (
+        {exam.cancelled ? (
+          <span className="chip exam-cancelled-chip">{t('exam_cancelled_chip')}</span>
+        ) : null}
+        {exam.state === 'needs_marks' && !exam.cancelled ? (
           <span className="btn btn-tonal btn-small" aria-hidden="true">
             {t('batch_enter_marks')}
           </span>
         ) : null}
-        {exam.state === 'complete' ? (
+        {exam.state === 'complete' && !exam.cancelled ? (
           <span className="meta">
             {t('batch_exam_entered', exam.enteredCount, exam.expectedCount)}
           </span>

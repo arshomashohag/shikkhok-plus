@@ -135,3 +135,13 @@ export function filterOf(kind: SeatKind): MonthFilter | null {
 export function visibleSeats(seats: MonthSeat[], filter: MonthFilter): MonthSeat[] {
   return filter === 'all' ? seats : seats.filter((s) => filterOf(s.kind) === filter)
 }
+
+/**
+ * Whether the month's row offers "Record payment": a seat the server
+ * reports as still owing (part paid, due or overdue). A seat being checked
+ * already has a payment waiting, which the teacher decides on its own
+ * screen; a settled seat has nothing to record against.
+ */
+export function canRecordFor(seat: Pick<MonthSeat, 'kind'>): boolean {
+  return seat.kind === 'partial' || seat.kind === 'due' || seat.kind === 'overdue'
+}
