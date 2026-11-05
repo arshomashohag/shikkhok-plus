@@ -99,3 +99,6 @@ terraform.tfvars
 
 # Superpowers brainstorm mockups and plan scratch
 .superpowers/
+
+# Git worktrees Claude Code creates for parallel agents; scratch checkouts, never content.
+.claude/worktrees/
