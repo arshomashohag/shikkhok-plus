@@ -29,6 +29,12 @@ object MessageKeys {
         "marks.publish.incomplete" to R.string.marks_publish_incomplete,
         "schedule.duplicate_slot" to R.string.schedule_duplicate_slot,
         "enrollment.student_already_in_batch" to R.string.enrollment_student_already_in_batch,
+        "student.not_found" to R.string.student_not_found,
+        "student.phone_taken" to R.string.student_phone_taken,
+        "student.number_accepted" to R.string.student_number_accepted,
+        "student.number_erased" to R.string.student_number_erased,
+        "student.remove.in_active_batch" to R.string.student_remove_in_active_batch,
+        "student.remove.owes" to R.string.student_remove_owes,
         "auth.otp.not_valid" to R.string.auth_otp_not_valid,
         // Takes the tries-left count as its argument; the code screen
         // formats it from `CodeRejected.attemptsLeft`.

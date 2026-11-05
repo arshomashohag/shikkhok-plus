@@ -593,6 +593,12 @@
     <string name="session_add_note">A one-off class, outside the weekly schedule.</string>
     <!-- The student's home (S1) and batch view (S2). -->
     <string name="enrollment_student_already_in_batch">This student is already in this batch.</string>
+    <string name="student_not_found">This student is not in your list.</string>
+    <string name="student_phone_taken">Another of your students already has this number.</string>
+    <string name="student_number_accepted">This number has been accepted, so it can no longer be changed.</string>
+    <string name="student_number_erased">The person with this number deleted their account, so it cannot be changed.</string>
+    <string name="student_remove_in_active_batch">This student is still in a batch. Have them leave every batch first.</string>
+    <string name="student_remove_owes">This student still owes money, so they cannot be removed.</string>
     <string name="nav_my_batches">My batches</string>
     <string name="my_batches_title">My batches</string>
     <string name="my_batches_empty_title">You\'re not in a batch yet</string>
@@ -1298,4 +1304,53 @@
     <string name="settings_section_help">HELP</string>
     <string name="settings_call_for_help">Call for help</string>
     <string name="settings_call_for_help_sub">Talk to a person, in Bangla · %1$s</string>
+
+    <!-- A teacher's students, apart from any batch [0018]. -->
+    <string name="nav_students">Students</string>
+    <string name="students_title">Students</string>
+    <string name="students_search">Search name or phone</string>
+    <string name="students_filter_all">All</string>
+    <string name="students_filter_unassigned">Not in a batch</string>
+    <string name="students_not_in_batch">Not in a batch</string>
+    <string name="students_empty_title">No students yet</string>
+    <string name="students_empty_body">Add each student once, then put them in any of your batches.</string>
+    <string name="students_empty_filtered">No student matches this.</string>
+    <string name="students_error_title">Your students did not load</string>
+    <string name="students_add">Add student</string>
+    <string name="student_add_batches">Add to batches (optional)</string>
+    <string name="student_add_batches_choose">Choose batches</string>
+    <string name="student_add_batches_help">You can add them to a batch later.</string>
+    <string name="student_add_batches_none">You have no batches yet. Save the student and add them to one later.</string>
+    <string name="student_add_seat_fee">Fee in %1$s (optional)</string>
+    <string name="student_add_no_batch">Saved without a batch. You can add them to one later.</string>
+    <string name="student_detail_batches">Batches</string>
+    <string name="student_detail_no_batches">Not in any batch yet.</string>
+    <string name="student_detail_add_batch">Add to another batch</string>
+    <string name="student_detail_total_due">Total due</string>
+    <string name="student_detail_seat_fee">Fee %1$s</string>
+    <string name="student_detail_seat_due">Due %1$s</string>
+    <string name="student_detail_left">Left this batch</string>
+    <string name="student_detail_leave">Leave batch</string>
+    <string name="student_detail_leave_title">%1$s leaves %2$s?</string>
+    <string name="student_detail_leave_body">No new fees from today. Anything already owed stays owed.</string>
+    <string name="student_detail_remove_seat">Remove from batch</string>
+    <string name="student_detail_remove">Remove student</string>
+    <string name="student_detail_remove_title">Remove %1$s?</string>
+    <string name="student_detail_remove_body">They leave your student list. Their past fees, attendance and marks stay.</string>
+    <string name="student_detail_remove_blocked">To remove this student, they must leave every batch and owe nothing.</string>
+    <string name="student_detail_edit">Edit name and phones</string>
+    <string name="student_detail_save">Save</string>
+    <string name="student_detail_student_link">Student sign-in</string>
+    <string name="student_detail_guardian_link">Guardian</string>
+    <string name="student_detail_no_guardian">No guardian recorded</string>
+    <string name="student_link_pending">Pending</string>
+    <string name="student_link_accepted">Accepted</string>
+    <string name="student_link_declined">Declined</string>
+    <string name="student_detail_error_title">This student did not load</string>
+    <string name="pick_students_title">Add to %1$s</string>
+    <string name="pick_students_new">New student</string>
+    <string name="pick_students_empty">All your students are already in this batch.</string>
+    <string name="pick_students_add">Add %1$s</string>
+    <string name="action_confirm">Confirm</string>
+    <string name="student_add_same_name_any">%1$s is already on your list. Add them only if this is a different student.</string>
 </resources>

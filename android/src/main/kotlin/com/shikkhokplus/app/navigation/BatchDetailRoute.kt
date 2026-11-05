@@ -110,7 +110,9 @@ internal fun NavGraphBuilder.batchDetailRoute(
             showAdd = showsAdd(state.tab, rosterState),
             onAdd = {
                 when (state.tab) {
-                    BatchTab.STUDENTS -> navController.navigate(Destination.AddStudent.of(id))
+                    // Existing students first, with "New student" for
+                    // anyone not on the teacher's list yet [0018].
+                    BatchTab.STUDENTS -> navController.navigate(Destination.PickStudents.of(id, name))
                     BatchTab.CLASSES -> addingClass = true
                     BatchTab.EXAMS -> navController.navigate(Destination.CreateExam.of(id))
                     BatchTab.NOTICES -> composingNotice = true
@@ -122,7 +124,7 @@ internal fun NavGraphBuilder.batchDetailRoute(
                     StudentsTab(
                         roster = rosterState,
                         fees = state.fees,
-                        onAddFirst = { navController.navigate(Destination.AddStudent.of(id)) },
+                        onAddFirst = { navController.navigate(Destination.PickStudents.of(id, name)) },
                         onFeeHistory = { row ->
                             navController.navigate(
                                 Destination.FeeHistory.of(

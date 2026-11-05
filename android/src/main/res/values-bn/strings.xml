@@ -538,6 +538,12 @@
     <string name="session_add_note">সাপ্তাহিক সময়সূচির বাইরে একবারের একটি ক্লাস।</string>
     <!-- The student's home (S1) and batch view (S2). -->
     <string name="enrollment_student_already_in_batch">এই শিক্ষার্থী আগে থেকেই এই ব্যাচে আছে।</string>
+    <string name="student_not_found">এই শিক্ষার্থী আপনার তালিকায় নেই।</string>
+    <string name="student_phone_taken">আপনার আরেকজন শিক্ষার্থীর এই নম্বর আছে।</string>
+    <string name="student_number_accepted">এই নম্বরে আমন্ত্রণ গ্রহণ করা হয়েছে, তাই এটি আর বদলানো যাবে না।</string>
+    <string name="student_number_erased">এই নম্বরের মানুষটি তাঁর অ্যাকাউন্ট মুছে ফেলেছেন, তাই এটি বদলানো যাবে না।</string>
+    <string name="student_remove_in_active_batch">এই শিক্ষার্থী এখনও একটি ব্যাচে আছে। আগে সব ব্যাচ থেকে বের করুন।</string>
+    <string name="student_remove_owes">এই শিক্ষার্থীর এখনও বকেয়া আছে, তাই সরানো যাবে না।</string>
     <string name="nav_my_batches">আমার ব্যাচ</string>
     <string name="my_batches_title">আমার ব্যাচ</string>
     <string name="my_batches_empty_title">আপনি এখনও কোনো ব্যাচে নেই</string>
@@ -1243,4 +1249,53 @@
     <string name="settings_section_help">সাহায্য</string>
     <string name="settings_call_for_help">সাহায্যের জন্য ফোন করুন</string>
     <string name="settings_call_for_help_sub">একজন মানুষের সঙ্গে বাংলায় কথা বলুন · %1$s</string>
+
+    <!-- A teacher's students, apart from any batch [0018]. -->
+    <string name="nav_students">শিক্ষার্থী</string>
+    <string name="students_title">শিক্ষার্থী</string>
+    <string name="students_search">নাম বা ফোন খুঁজুন</string>
+    <string name="students_filter_all">সবাই</string>
+    <string name="students_filter_unassigned">কোনো ব্যাচে নেই</string>
+    <string name="students_not_in_batch">কোনো ব্যাচে নেই</string>
+    <string name="students_empty_title">এখনও কোনো শিক্ষার্থী নেই</string>
+    <string name="students_empty_body">প্রত্যেক শিক্ষার্থীকে একবার যোগ করুন, তারপর যেকোনো ব্যাচে রাখুন।</string>
+    <string name="students_empty_filtered">এর সাথে মেলে এমন কোনো শিক্ষার্থী নেই।</string>
+    <string name="students_error_title">আপনার শিক্ষার্থীদের তালিকা আসেনি</string>
+    <string name="students_add">শিক্ষার্থী যোগ করুন</string>
+    <string name="student_add_batches">ব্যাচে যোগ করুন (ঐচ্ছিক)</string>
+    <string name="student_add_batches_choose">ব্যাচ বেছে নিন</string>
+    <string name="student_add_batches_help">পরে কোনো ব্যাচে যোগ করতে পারবেন।</string>
+    <string name="student_add_batches_none">আপনার এখনও কোনো ব্যাচ নেই। শিক্ষার্থী সংরক্ষণ করুন, পরে ব্যাচে যোগ করুন।</string>
+    <string name="student_add_seat_fee">%1$s-এর ফি (ঐচ্ছিক)</string>
+    <string name="student_add_no_batch">কোনো ব্যাচ ছাড়াই সংরক্ষণ হবে। পরে ব্যাচে যোগ করতে পারবেন।</string>
+    <string name="student_detail_batches">ব্যাচ</string>
+    <string name="student_detail_no_batches">এখনও কোনো ব্যাচে নেই।</string>
+    <string name="student_detail_add_batch">আরেকটি ব্যাচে যোগ করুন</string>
+    <string name="student_detail_total_due">মোট বকেয়া</string>
+    <string name="student_detail_seat_fee">ফি %1$s</string>
+    <string name="student_detail_seat_due">বকেয়া %1$s</string>
+    <string name="student_detail_left">এই ব্যাচ ছেড়েছে</string>
+    <string name="student_detail_leave">ব্যাচ ছাড়ুন</string>
+    <string name="student_detail_leave_title">%1$s কি %2$s ছাড়বে?</string>
+    <string name="student_detail_leave_body">আজ থেকে নতুন কোনো ফি হবে না। আগের বকেয়া থেকে যাবে।</string>
+    <string name="student_detail_remove_seat">ব্যাচ থেকে সরান</string>
+    <string name="student_detail_remove">শিক্ষার্থী সরান</string>
+    <string name="student_detail_remove_title">%1$s-কে সরাবেন?</string>
+    <string name="student_detail_remove_body">তালিকা থেকে সরে যাবে। আগের ফি, উপস্থিতি ও নম্বর থেকে যাবে।</string>
+    <string name="student_detail_remove_blocked">সরাতে হলে শিক্ষার্থীকে সব ব্যাচ ছাড়তে হবে এবং কোনো বকেয়া থাকা চলবে না।</string>
+    <string name="student_detail_edit">নাম ও ফোন বদলান</string>
+    <string name="student_detail_save">সংরক্ষণ</string>
+    <string name="student_detail_student_link">শিক্ষার্থীর সাইন-ইন</string>
+    <string name="student_detail_guardian_link">অভিভাবক</string>
+    <string name="student_detail_no_guardian">কোনো অভিভাবক যোগ করা নেই</string>
+    <string name="student_link_pending">অপেক্ষমাণ</string>
+    <string name="student_link_accepted">গ্রহণ করেছে</string>
+    <string name="student_link_declined">প্রত্যাখ্যান করেছে</string>
+    <string name="student_detail_error_title">এই শিক্ষার্থীর তথ্য আসেনি</string>
+    <string name="pick_students_title">%1$s-এ যোগ করুন</string>
+    <string name="pick_students_new">নতুন শিক্ষার্থী</string>
+    <string name="pick_students_empty">আপনার সব শিক্ষার্থী আগে থেকেই এই ব্যাচে আছে।</string>
+    <string name="pick_students_add">%1$s জনকে যোগ করুন</string>
+    <string name="action_confirm">নিশ্চিত করুন</string>
+    <string name="student_add_same_name_any">%1$s আগে থেকেই আপনার তালিকায় আছে। ভিন্ন শিক্ষার্থী হলে তবেই যোগ করুন।</string>
 </resources>

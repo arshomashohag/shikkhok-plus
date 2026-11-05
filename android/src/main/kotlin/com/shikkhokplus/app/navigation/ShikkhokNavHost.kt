@@ -273,6 +273,14 @@ private fun ShikkhokGraph(
             )
         }
 
+        teacherStudentsRoutes(client, navController) {
+            BottomNav(
+                destinations = tabsFor(session.lens),
+                selectedIndex = tabIndexOf(session.lens, Destination.Students.route),
+                onSelect = { navController.switchTab(it, session.lens) },
+            )
+        }
+
         todayRoute(
             client = client,
             queue = queue,
@@ -942,6 +950,7 @@ internal fun routesFor(lens: Lens?): List<String> =
             listOf(
                 Destination.Today.route,
                 Destination.Batches.route,
+                Destination.Students.route,
                 Destination.Dues.route,
                 Destination.Profile.route,
             )
@@ -1026,11 +1035,12 @@ private fun tabsFor(lens: Lens?): List<NavDestination> =
     }
 
 /**
- * The teacher's four destinations, as the design fixes them.
+ * The teacher's five destinations: the design's four, with Students
+ * between Batches and Dues since students live apart from any batch
+ * (decided by the owner 2026-11-05).
  *
- * Kept as its own function because it is the only bar with four
- * tabs and the only one whose shape the design artboards fix; the
- * other two are built inline in [tabsFor].
+ * Kept as its own function because it is the only bar with more than
+ * two tabs; the other bars are built inline in [tabsFor].
  *
  * @return The tabs, in the design's order
  */
@@ -1046,6 +1056,13 @@ private fun teacherTabs(): List<NavDestination> =
             label = stringResource(R.string.nav_batches),
             icon = painterResource(R.drawable.ic_nav_batches),
             tag = "nav_tab_batches",
+        ),
+        // Students live apart from any batch [0018], so they get their
+        // own tab rather than living inside each batch.
+        NavDestination(
+            label = stringResource(R.string.nav_students),
+            icon = painterResource(R.drawable.ic_person),
+            tag = "nav_tab_students",
         ),
         NavDestination(
             label = stringResource(R.string.nav_dues),

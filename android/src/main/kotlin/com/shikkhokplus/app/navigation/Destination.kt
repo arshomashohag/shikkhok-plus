@@ -51,6 +51,74 @@ sealed interface Destination {
         override val route: String = "dues"
     }
 
+    /** The teacher's students, apart from any batch [0018]. A tab. */
+    data object Students : Destination {
+        override val route: String = "students"
+    }
+
+    /**
+     * The add-a-student form, optionally with one batch already chosen.
+     *
+     * Opened from the Students tab with no batch, and from a roster's
+     * "New student" with that roster's batch chosen.
+     */
+    data object NewStudent : Destination {
+        override val route: String = "students-add?batch={batchId}"
+
+        /** The optional batch argument's name. */
+        const val ARG_BATCH: String = "batchId"
+
+        /**
+         * Build a concrete route.
+         *
+         * @param batchId A batch to start chosen, or null for none
+         * @return The route to navigate to
+         */
+        fun of(batchId: String? = null): String = if (batchId == null) "students-add" else "students-add?batch=$batchId"
+    }
+
+    /** One of the teacher's students, with every batch they sit in. */
+    data object StudentDetail : Destination {
+        override val route: String = "students/{studentId}"
+
+        /** The student argument's name. */
+        const val ARG_ID: String = "studentId"
+
+        /**
+         * Build a concrete route for one student.
+         *
+         * @param studentId The student
+         * @return The route to navigate to
+         */
+        fun of(studentId: String): String = "students/$studentId"
+    }
+
+    /**
+     * A roster's "add students": existing students not in this batch,
+     * with "New student" for anyone not on the list yet.
+     */
+    data object PickStudents : Destination {
+        override val route: String = "batches/{batchId}/students/pick?name={batchName}"
+
+        /** The batch argument's name. */
+        const val ARG_ID: String = "batchId"
+
+        /** The batch name argument's name, for the title. */
+        const val ARG_NAME: String = "batchName"
+
+        /**
+         * Build a concrete route for one batch.
+         *
+         * @param id The batch
+         * @param name Its name, for the title
+         * @return The route to navigate to
+         */
+        fun of(
+            id: String,
+            name: String,
+        ): String = "batches/$id/students/pick?name=${java.net.URLEncoder.encode(name, "UTF-8")}"
+    }
+
     /** The create-a-class form. */
     data object CreateBatch : Destination {
         override val route: String = "batches/new"
