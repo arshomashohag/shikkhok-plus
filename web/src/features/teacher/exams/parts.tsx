@@ -82,7 +82,7 @@ export function CancelExam({ exam, onCancelled }: { exam: ExamItem; onCancelled:
             </button>
             <button
               type="button"
-              className="btn btn-primary grow danger"
+              className="btn btn-destructive grow"
               disabled={busy}
               onClick={() => void confirm()}
             >

@@ -737,6 +737,10 @@ a.card-link:hover {
   color: var(--error);
   border-color: var(--error);
 }
+.btn-destructive {
+  background: var(--error);
+  color: var(--on-overdue-fill);
+}
 .btn-text {
   background: transparent;
   color: var(--primary);

@@ -178,7 +178,7 @@
 
 /* W-T3: the list, with the student being entered in a panel beside it. */
 @media (min-width: 900px) {
-  .mark-layout {
+  .mark-layout:has(> .mark-dock) {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 300px;
     gap: var(--s6);
