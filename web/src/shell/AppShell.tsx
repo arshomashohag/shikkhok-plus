@@ -19,6 +19,7 @@ import {
   WalletIcon,
 } from '../ui/icons'
 import { tabsFor, type Tab } from './nav'
+import { useUnreadCount } from '../features/account/area'
 import { formatPhone } from '../core/format'
 
 const ICONS = {
@@ -30,7 +31,7 @@ const ICONS = {
   more: MoreIcon,
 } as const
 
-function NavItems({ tabs }: { tabs: Tab[] }) {
+function NavItems({ tabs, unread }: { tabs: Tab[]; unread: number }) {
   const { t } = useT()
   return tabs.map((tab) => {
     const Icon = ICONS[tab.icon]
@@ -42,6 +43,12 @@ function NavItems({ tabs }: { tabs: Tab[] }) {
       >
         <span className="nav-icon">
           <Icon size={22} />
+          {/* The inbox lives under More, so More carries its unread count. */}
+          {tab.to === '/more' && unread > 0 ? (
+            <span className="nav-badge" aria-label={t('web_account_unread_count', unread)}>
+              {unread > 99 ? '99+' : unread}
+            </span>
+          ) : null}
         </span>
         <span>{t(tab.label)}</span>
       </NavLink>
@@ -55,6 +62,7 @@ export function AppShell() {
   const pwa = usePwa()
   const online = useOnline()
   const tabs = tabsFor(session.lens)
+  const unread = useUnreadCount() ?? 0
   const who = session.me.self_name ?? (session.me.phone ? formatPhone(session.me.phone) : '')
 
   return (
@@ -68,7 +76,7 @@ export function AppShell() {
           <img src={`${import.meta.env.BASE_URL}icons/favicon.svg`} alt="" />
           <span>ShikkhokPlus</span>
         </div>
-        <NavItems tabs={tabs} />
+        <NavItems tabs={tabs} unread={unread} />
         <div className="rail-footer">
           {pwa.canInstall ? (
             <button
@@ -93,7 +101,7 @@ export function AppShell() {
         <Outlet />
       </main>
       <nav className="bottom-nav" aria-label="ShikkhokPlus">
-        <NavItems tabs={tabs} />
+        <NavItems tabs={tabs} unread={unread} />
       </nav>
       {pwa.updateReady ? (
         <Snackbar
