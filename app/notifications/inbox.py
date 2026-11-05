@@ -27,6 +27,7 @@ from app.money import Money
 
 __all__ = [
     "CLAIM_TO_VERIFY",
+    "EXAM_CANCELLED",
     "EXAM_SCHEDULED",
     "FEE_REMINDER",
     "INBOX_LIMIT",
@@ -34,6 +35,7 @@ __all__ = [
     "NOTICE",
     "PAYMENT_APPROVED",
     "PAYMENT_PARTIAL",
+    "PAYMENT_RECORDED",
     "PAYMENT_REJECTED",
     "Inbox",
     "InboxItem",
@@ -59,11 +61,22 @@ PAYMENT_REJECTED: Final[str] = "payment_rejected"
 #: A payment the teacher approved for less than was claimed.
 PAYMENT_PARTIAL: Final[str] = "payment_partial"
 
+#: Money the teacher received by hand and recorded themselves. Distinct
+#: from :data:`PAYMENT_APPROVED`, whose copy answers a payment the family
+#: reported: here the family reported nothing, so "your payment was
+#: approved" would describe an event that did not happen.
+PAYMENT_RECORDED: Final[str] = "payment_recorded"
+
 #: A notice a teacher posted to a batch.
 NOTICE: Final[str] = "notice"
 
 #: An exam a teacher scheduled for a batch.
 EXAM_SCHEDULED: Final[str] = "exam_scheduled"
+
+#: An exam the teacher called off before its results were published.
+#: Replaces that exam's :data:`EXAM_SCHEDULED` items, so a family's inbox
+#: never holds both an invitation and its cancellation for one exam.
+EXAM_CANCELLED: Final[str] = "exam_cancelled"
 
 #: Marks a teacher published for an exam.
 MARKS_AVAILABLE: Final[str] = "marks_available"

@@ -1719,6 +1719,9 @@ class Exam(Base):
         students and guardians, or None while they are a draft
         (decided 2026-11-05). Families read no mark of an exam until
         then; the teacher sees every mark either way
+    :ivar cancelled_at: When the teacher cancelled it, or None while it
+        is on. Only an unpublished exam can be cancelled [0019]
+    :ivar cancellation_reason: The teacher's short note, if any
     """
 
     __tablename__ = "exam"
@@ -1749,6 +1752,10 @@ class Exam(Base):
     published_at: Mapped[dt.datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    cancelled_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    cancellation_reason: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
     __table_args__ = (
         Index("ix_exam_batch_id", "batch_id"),
@@ -1756,6 +1763,11 @@ class Exam(Base):
         # At least 1: a total of zero makes every percentage undefined
         # and every band degenerate.
         CheckConstraint("total_marks >= 1", name="ck_exam_total_marks_positive"),
+        # Results families have read are corrected, never cancelled away.
+        CheckConstraint(
+            "cancelled_at IS NULL OR published_at IS NULL",
+            name="ck_exam_cancelled_not_published",
+        ),
     )
 
 

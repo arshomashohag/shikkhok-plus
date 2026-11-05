@@ -254,6 +254,11 @@ function Content({ content }: { content: InboxContent }) {
     case 'exam':
       return (
         <dl className="kv">
+          {content.cancelled ? (
+            <dd className="danger" style={{ gridColumn: '1 / -1' }}>
+              {t('inbox_exam_cancelled_line')}
+            </dd>
+          ) : null}
           <dt>{t('inbox_exam_date')}</dt>
           <dd>{formatShortDate(content.date, lang)}</dd>
           <dt>{t('inbox_exam_subject')}</dt>

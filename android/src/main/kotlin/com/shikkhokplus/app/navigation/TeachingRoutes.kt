@@ -435,6 +435,7 @@ internal fun NavGraphBuilder.teachingRoutes(
             onEditExam = { editingExam = true },
             onHistory = model::openHistory,
             onPublish = model::publish,
+            onCancelExam = model::cancelExam,
         )
         history?.let { MarkHistorySheet(it, onDismiss = model::closeHistory) }
         (state as? MarksUiState.EntryLoaded)?.takeIf { editingExam }?.let { open ->

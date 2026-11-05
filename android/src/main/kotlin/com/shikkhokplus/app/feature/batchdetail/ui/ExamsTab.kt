@@ -1,6 +1,7 @@
 package com.shikkhokplus.app.feature.batchdetail.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -38,9 +39,13 @@ const val TAG_EXAM_ROW: String = "batch_exam_row"
 /** An exam's "Enter marks" button. */
 const val TAG_EXAM_ENTER: String = "batch_exam_enter"
 
+/** "Cancelled" on an exam the teacher called off. */
+const val TAG_EXAM_CANCELLED: String = "exam_cancelled"
+
 /**
  * The Exams tab: exams grouped as the server says they stand — needing
- * marks, coming up, done.
+ * marks, coming up, done — then the cancelled ones, which stay on the
+ * tab they were scheduled on, flagged, and open read-only.
  *
  * @param state The exams' state
  * @param onOpen Called with an exam id to enter or review marks
@@ -71,11 +76,15 @@ fun ExamsTab(state: MarksUiState, onOpen: (String) -> Unit, onRetry: () -> Unit)
  */
 @Composable
 private fun ExamGroups(exams: List<ExamRow>, onOpen: (String) -> Unit) {
+    // A cancelled exam leaves the working groups whatever its marking
+    // state, so it never asks for marks.
+    val on = exams.filterNot { it.cancelled }
     val groups =
         listOf(
-            R.string.batch_exams_needs_marks to exams.filter { it.state == "needs_marks" },
-            R.string.batch_exams_coming to exams.filter { it.state == "upcoming" },
-            R.string.batch_exams_done to exams.filter { it.state == "complete" }.asReversed(),
+            R.string.batch_exams_needs_marks to on.filter { it.state == "needs_marks" },
+            R.string.batch_exams_coming to on.filter { it.state == "upcoming" },
+            R.string.batch_exams_done to on.filter { it.state == "complete" }.asReversed(),
+            R.string.exam_cancelled_chip to exams.filter { it.cancelled },
         ).filter { it.second.isNotEmpty() }
     LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         groups.forEach { (title, rows) ->
@@ -132,7 +141,7 @@ private fun ExamRowView(row: ExamRow, onOpen: (String) -> Unit) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             // Marked but not yet out to families (decided 2026-11-05).
-            if (row.state == "complete" && !row.published) {
+            if (row.state == "complete" && !row.published && !row.cancelled) {
                 Text(
                     stringResource(R.string.batch_exam_draft),
                     style = MaterialTheme.typography.bodySmall,
@@ -140,6 +149,19 @@ private fun ExamRowView(row: ExamRow, onOpen: (String) -> Unit) {
                     modifier = Modifier.testTag(TAG_EXAM_DRAFT),
                 )
             }
+        }
+        if (row.cancelled) {
+            Text(
+                stringResource(R.string.exam_cancelled_chip),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier =
+                    Modifier
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.small)
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                        .testTag(TAG_EXAM_CANCELLED),
+            )
+            return@Row
         }
         when (row.state) {
             "needs_marks" ->

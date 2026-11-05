@@ -129,7 +129,7 @@ def test_every_stored_kind_is_published(
     teacher: TeacherFixture,
     account_factory: Callable[[], uuid.UUID],
 ) -> None:
-    """All eight kinds list without raising.
+    """All ten kinds list without raising.
 
     :param api_client: The test client
     :param owner_session: An arranging session
@@ -143,8 +143,10 @@ def test_every_stored_kind_is_published(
         kinds.PAYMENT_APPROVED,
         kinds.PAYMENT_PARTIAL,
         kinds.PAYMENT_REJECTED,
+        kinds.PAYMENT_RECORDED,
         kinds.NOTICE,
         kinds.EXAM_SCHEDULED,
+        kinds.EXAM_CANCELLED,
         kinds.MARKS_AVAILABLE,
         kinds.CLAIM_TO_VERIFY,
     ]
@@ -351,6 +353,7 @@ def test_exam_detail_carries_topics_and_subject(
         "subject_name": "Physics",
         "total_marks": 50,
         "topics": ["Motion", "Force"],
+        "cancelled": False,
     }
 
 

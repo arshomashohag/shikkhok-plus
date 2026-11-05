@@ -17,8 +17,10 @@ export type InboxKind =
   | 'payment_approved'
   | 'payment_partial'
   | 'payment_rejected'
+  | 'payment_recorded'
   | 'notice'
   | 'exam_scheduled'
+  | 'exam_cancelled'
   | 'marks_available'
   | 'claim_to_verify'
 
@@ -27,8 +29,10 @@ const KINDS: readonly InboxKind[] = [
   'payment_approved',
   'payment_partial',
   'payment_rejected',
+  'payment_recorded',
   'notice',
   'exam_scheduled',
+  'exam_cancelled',
   'marks_available',
   'claim_to_verify',
 ]
@@ -88,8 +92,10 @@ export const TITLE_KEY: Record<InboxKind, string> = {
   payment_approved: 'inbox_payment_approved_title',
   payment_partial: 'inbox_payment_partial_title',
   payment_rejected: 'inbox_payment_rejected_title',
+  payment_recorded: 'inbox_payment_recorded_title',
   notice: 'inbox_notice_title',
   exam_scheduled: 'inbox_exam_scheduled_title',
+  exam_cancelled: 'inbox_exam_cancelled_title',
   marks_available: 'inbox_marks_available_title',
   claim_to_verify: 'inbox_claim_to_verify_title',
 }
@@ -123,9 +129,11 @@ export function inboxBody(
         ? 'inbox_payment_partial_body'
         : m.kind === 'payment_rejected'
           ? 'inbox_payment_rejected_body'
-          : m.kind === 'claim_to_verify'
-            ? 'inbox_claim_to_verify_body'
-            : 'inbox_fee_reminder_body'
+          : m.kind === 'payment_recorded'
+            ? 'inbox_payment_recorded_body'
+            : m.kind === 'claim_to_verify'
+              ? 'inbox_claim_to_verify_body'
+              : 'inbox_fee_reminder_body'
   return t(key, money, monthName(m.period))
 }
 
@@ -178,6 +186,8 @@ export type InboxContent =
       subjectName: string
       totalMarks: number
       topics: string[]
+      /** The teacher called it off; its date no longer stands. */
+      cancelled: boolean
     }
   | {
       kind: 'payment'
@@ -218,6 +228,7 @@ export function mapDetail(dto: Schemas['NotificationDetailResponse']): InboxDeta
       subjectName: dto.exam.subject_name,
       totalMarks: dto.exam.total_marks,
       topics: (dto.exam.topics as unknown[]).map(String),
+      cancelled: dto.exam.cancelled ?? false,
     }
   } else if (dto.payment) {
     content = {

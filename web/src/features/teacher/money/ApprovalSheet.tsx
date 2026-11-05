@@ -123,39 +123,7 @@ export function ApprovalSheet({
       </div>
 
       {state.needsDisposition ? (
-        <fieldset className="field">
-          <legend className="visually-hidden">{t('fees_verification_disposition_required')}</legend>
-          <label className="choice">
-            <input
-              type="radio"
-              name="disposition"
-              checked={input.disposition === 'carried'}
-              onChange={() => choose('carried')}
-            />
-            <span>
-              <span className="title">{t('verify_carry_forward')}</span>
-              <br />
-              <span className="meta">
-                {difference
-                  ? t('verify_carry_forward_amount', difference)
-                  : t('verify_carry_forward_body')}
-              </span>
-            </span>
-          </label>
-          <label className="choice">
-            <input
-              type="radio"
-              name="disposition"
-              checked={input.disposition === 'waived'}
-              onChange={() => choose('waived')}
-            />
-            <span>
-              <span className="title">{t('verify_waive')}</span>
-              <br />
-              <span className="meta">{t('verify_waive_body')}</span>
-            </span>
-          </label>
-        </fieldset>
+        <DispositionChoice value={input.disposition} difference={difference} onChoose={choose} />
       ) : null}
 
       {state.needsChild ? (
@@ -211,5 +179,60 @@ export function ApprovalSheet({
         </button>
       </div>
     </Sheet>
+  )
+}
+
+/**
+ * Carry forward or waive: the question a short amount must answer [BR5.4].
+ * Neither is preselected, because the two have opposite consequences for
+ * the family. Shared by this sheet and the "Record payment" sheet, so the
+ * teacher reads the same choice in the same words on both.
+ */
+export function DispositionChoice({
+  value,
+  difference,
+  onChoose,
+}: {
+  value: Disposition | null
+  /** The shortfall in words, when the server has said what it is. */
+  difference: string | null
+  onChoose: (disposition: Disposition) => void
+}) {
+  const { t } = useT()
+  const name = useId()
+  return (
+    <fieldset className="field">
+      <legend className="visually-hidden">{t('fees_verification_disposition_required')}</legend>
+      <label className="choice">
+        <input
+          type="radio"
+          name={name}
+          checked={value === 'carried'}
+          onChange={() => onChoose('carried')}
+        />
+        <span>
+          <span className="title">{t('verify_carry_forward')}</span>
+          <br />
+          <span className="meta">
+            {difference
+              ? t('verify_carry_forward_amount', difference)
+              : t('verify_carry_forward_body')}
+          </span>
+        </span>
+      </label>
+      <label className="choice">
+        <input
+          type="radio"
+          name={name}
+          checked={value === 'waived'}
+          onChange={() => onChoose('waived')}
+        />
+        <span>
+          <span className="title">{t('verify_waive')}</span>
+          <br />
+          <span className="meta">{t('verify_waive_body')}</span>
+        </span>
+      </label>
+    </fieldset>
   )
 }

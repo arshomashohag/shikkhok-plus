@@ -37,7 +37,7 @@ import {
   type ExamResults,
   type ResultRow,
 } from './mappers'
-import { HistorySheet, PUBLISH_INCOMPLETE_KEY, PublishBar } from './parts'
+import { CancelExam, HistorySheet, PUBLISH_INCOMPLETE_KEY, PublishBar } from './parts'
 
 export function MarkEntry() {
   const { examId = '' } = useParams()
@@ -180,6 +180,7 @@ function Entry({
                 {t('exam_edit_title')}
               </button>
             ) : null}
+            {stale ? null : <CancelExam exam={results.exam} onCancelled={reload} />}
           </>
         }
       />
@@ -189,7 +190,11 @@ function Entry({
         </div>
       ) : null}
 
-      {!results.writable ? <p className="banner">{t('mark_entry_read_only')}</p> : null}
+      {results.exam.cancelled ? (
+        <p className="banner">{t('marks_exam_cancelled')}</p>
+      ) : !results.writable ? (
+        <p className="banner">{t('mark_entry_read_only')}</p>
+      ) : null}
       {stale ? (
         <p className="banner" role="status">
           {t('error_network_unreachable')}

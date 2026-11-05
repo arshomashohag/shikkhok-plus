@@ -233,22 +233,45 @@ private fun ComparisonLine(sheet: ApprovalSheet) {
  */
 @Composable
 private fun Disposition(sheet: ApprovalSheet, actions: SheetActions) {
+    // With the server's figure for the shortfall, say how much moves
+    // (T4 "carry ৳400"); for any other amount, the plain line.
+    CarryOrWaive(
+        selected = sheet.disposition,
+        shortfall = sheet.shownDifference?.let(Numerals::money),
+        onChoose = actions.onDisposition,
+    )
+}
+
+/**
+ * Carry forward or waive: the question a short amount must answer
+ * [BR5.4]. Neither is preselected, because the two have opposite
+ * consequences for the family. Shared by the approval sheet and the
+ * teacher's "Record payment" sheet, so both ask it in the same words.
+ *
+ * @param selected `carried`, `waived`, or null while unanswered
+ * @param shortfall The shortfall in words, when the server has said it
+ * @param onChoose Called with `carried` or `waived`
+ */
+@Composable
+fun CarryOrWaive(
+    selected: String?,
+    shortfall: String?,
+    onChoose: (String) -> Unit,
+) {
     Option(
         title = stringResource(R.string.verify_carry_forward),
-        // With the server's figure for the shortfall, say how much moves
-        // (T4 "carry ৳400"); for any other amount, the plain line.
         body =
-            sheet.shownDifference?.let { stringResource(R.string.verify_carry_forward_amount, Numerals.money(it)) }
+            shortfall?.let { stringResource(R.string.verify_carry_forward_amount, it) }
                 ?: stringResource(R.string.verify_carry_forward_body),
-        selected = sheet.disposition == CARRIED,
-        onSelect = { actions.onDisposition(CARRIED) },
+        selected = selected == CARRIED,
+        onSelect = { onChoose(CARRIED) },
         modifier = Modifier.testTag(TAG_SHEET_CARRY),
     )
     Option(
         title = stringResource(R.string.verify_waive),
         body = stringResource(R.string.verify_waive_body),
-        selected = sheet.disposition == WAIVED,
-        onSelect = { actions.onDisposition(WAIVED) },
+        selected = selected == WAIVED,
+        onSelect = { onChoose(WAIVED) },
         modifier = Modifier.testTag(TAG_SHEET_WAIVE),
     )
 }

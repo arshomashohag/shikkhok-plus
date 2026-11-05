@@ -159,6 +159,16 @@ class HttpMarksRepository(
         callDiscardingBody { client.post("/v1/exams/$examId/publish") }
 
     /**
+     * Cancel an exam whose results are not published [0019].
+     *
+     * @param examId The exam
+     * @param reason A short note for the record, or null
+     * @return The cancelled exam, or why the server refused
+     */
+    override suspend fun cancelExam(examId: String, reason: String?): AuthResult<ExamDto> =
+        call { client.post("/v1/exams/$examId/cancel") { setBody(ExamCancelBodyDto(reason)) } }
+
+    /**
      * Write one seat's mark [BR4.2, BR4.4].
      *
      * @param examId The exam

@@ -25,6 +25,7 @@ EXPECTED_MUTATION_ID_BODIES: frozenset[tuple[str, str]] = frozenset(
         ("POST", "/v1/sessions/{session_id}/attendance"),
         ("PUT", "/v1/sessions/{session_id}/topic"),
         ("POST", "/v1/payments"),
+        ("POST", "/v1/enrollments/{enrollment_id}/payments"),
     }
 )
 

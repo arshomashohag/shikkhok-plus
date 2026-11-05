@@ -235,6 +235,10 @@ object MessageKeys {
         "marks.exam.total_invalid" to R.string.marks_exam_total_invalid,
         "marks.exam.total_below_recorded" to
             R.string.marks_exam_total_below_recorded,
+        // A cancelled exam takes no more writes; a published one cannot
+        // be cancelled [0019].
+        "marks.exam.cancelled" to R.string.marks_exam_cancelled,
+        "marks.exam.published" to R.string.marks_exam_published,
         // D6: the one deletion refusal that is NOT contentless. Every
         // other refusal on the deletion path discloses nothing, because
         // a stranger could be asking; this one is reached only after

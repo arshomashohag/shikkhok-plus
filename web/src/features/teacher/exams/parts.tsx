@@ -1,14 +1,99 @@
 /**
- * Pieces both exam screens use: the publish bar and the mark history sheet.
+ * Pieces both exam screens use: the publish bar, the mark history sheet,
+ * and "Cancel exam" with its confirmation.
  */
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { ApiError } from '../../../api/errors'
 import { ago, formatMark } from '../../../core/format'
 import { useResource } from '../../../core/useResource'
 import { useT } from '../../../i18n/i18n'
 import { Loading, Sheet } from '../../../ui/components'
-import { readMarkHistory, publishExam } from './api'
-import { mapHistory, STATE_KEYS, type ExamResults, type ResultRow } from './mappers'
+import { cancelExam, readMarkHistory, publishExam } from './api'
+import {
+  canCancel,
+  mapHistory,
+  STATE_KEYS,
+  type ExamItem,
+  type ExamResults,
+  type ResultRow,
+} from './mappers'
+
+/** The longest reason the server stores. */
+export const CANCEL_REASON_MAX = 200
+
+/**
+ * "Cancel exam", offered only for an exam still on whose results are not
+ * published. Nothing is sent until the teacher confirms in the sheet,
+ * which says that every student and guardian will be told. A refusal is
+ * shown in the server's own words.
+ */
+export function CancelExam({ exam, onCancelled }: { exam: ExamItem; onCancelled: () => void }) {
+  const { t, message } = useT()
+  const [open, setOpen] = useState(false)
+  const [reason, setReason] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const id = useId()
+  if (!canCancel(exam)) return null
+
+  async function confirm() {
+    setBusy(true)
+    setError(null)
+    try {
+      const trimmed = reason.trim().slice(0, CANCEL_REASON_MAX)
+      await cancelExam(exam.examId, { reason: trimmed === '' ? null : trimmed })
+      setOpen(false)
+      onCancelled()
+    } catch (e) {
+      setError(message(e instanceof ApiError ? e.messageKey : 'error.unexpected'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <>
+      <button type="button" className="btn btn-text btn-small danger" onClick={() => setOpen(true)}>
+        {t('exam_cancel_action')}
+      </button>
+      {open ? (
+        <Sheet
+          title={t('exam_cancel_confirm_title', exam.title)}
+          subtitle={t('exam_cancel_confirm_body')}
+          onClose={() => setOpen(false)}
+        >
+          {error ? (
+            <div className="banner error" role="alert">
+              {error}
+            </div>
+          ) : null}
+          <div className="field">
+            <label htmlFor={`${id}-reason`}>{t('exam_cancel_reason')}</label>
+            <textarea
+              id={`${id}-reason`}
+              maxLength={CANCEL_REASON_MAX}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+            />
+          </div>
+          <div className="form-actions">
+            <button type="button" className="btn btn-outline" onClick={() => setOpen(false)}>
+              {t('exam_cancel_keep')}
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary grow danger"
+              disabled={busy}
+              onClick={() => void confirm()}
+            >
+              {t('exam_cancel_action')}
+            </button>
+          </div>
+        </Sheet>
+      ) : null}
+    </>
+  )
+}
 
 /** The server's code when a seat that could have sat the exam has no result. */
 export const PUBLISH_INCOMPLETE_KEY = 'marks.publish.incomplete'

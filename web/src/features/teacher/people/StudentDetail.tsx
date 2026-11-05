@@ -18,11 +18,13 @@ import { ErrorCard, Loading, Sheet, Snackbar, TopBar } from '../../../ui/compone
 import { mapBatch } from '../mappers'
 import { paths } from '../paths'
 import { removeEnrollment, setInactiveFrom } from '../students/api'
+import { RecordPaymentSheet } from '../money/RecordPaymentSheet'
 import { bangladeshToday } from '../students/mappers'
 import { enrollStudent, readStudent, removeStudent } from './api'
 import { linkKey, mapStudent, otherBatches, type SeatLine } from './mappers'
 
-type Dialog = { kind: 'leave'; seat: SeatLine } | { kind: 'remove' } | null
+type Dialog =
+  { kind: 'leave'; seat: SeatLine } | { kind: 'remove' } | { kind: 'record'; seat: SeatLine } | null
 
 export function StudentDetail() {
   const { studentId = '' } = useParams()
@@ -131,6 +133,14 @@ export function StudentDetail() {
                       .join(' · ')}
                   </span>
                 </Link>
+                <button
+                  type="button"
+                  className="btn btn-text"
+                  disabled={busy}
+                  onClick={() => setDialog({ kind: 'record', seat })}
+                >
+                  {t('fees_record_payment')}
+                </button>
                 {seat.removable ? (
                   <button
                     type="button"
@@ -240,6 +250,19 @@ export function StudentDetail() {
             </button>
           </div>
         </Sheet>
+      ) : null}
+      {dialog?.kind === 'record' ? (
+        <RecordPaymentSheet
+          enrollmentId={dialog.seat.enrollmentId}
+          name={`${student.name} · ${dialog.seat.batchName}`}
+          owed={dialog.seat.outstanding}
+          onClose={close}
+          onRecorded={() => {
+            setDialog(null)
+            setSnack(t('fees_record_done'))
+            reload()
+          }}
+        />
       ) : null}
       {snack ? <Snackbar text={snack} onDismiss={dismiss} /> : null}
     </>

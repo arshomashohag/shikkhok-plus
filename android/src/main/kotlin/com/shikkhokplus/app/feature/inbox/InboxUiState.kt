@@ -16,11 +16,17 @@ enum class InboxKind {
     /** A payment the teacher did not accept. */
     PAYMENT_REJECTED,
 
+    /** Money the teacher received by hand and recorded themselves. */
+    PAYMENT_RECORDED,
+
     /** A notice a teacher posted. */
     NOTICE,
 
     /** An exam a teacher scheduled. */
     EXAM_SCHEDULED,
+
+    /** An exam a teacher cancelled before its results were out. */
+    EXAM_CANCELLED,
 
     /** Marks a teacher released. */
     MARKS_AVAILABLE,

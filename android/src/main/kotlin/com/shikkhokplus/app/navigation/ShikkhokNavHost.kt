@@ -59,6 +59,8 @@ import com.shikkhokplus.app.core.network.HttpProfileRepository
 import com.shikkhokplus.app.feature.fees.FeeReader
 import com.shikkhokplus.app.feature.fees.FeesViewModel
 import com.shikkhokplus.app.feature.fees.ui.FeeHistoryScreen
+import com.shikkhokplus.app.feature.fees.ui.RecordActions
+import com.shikkhokplus.app.feature.fees.ui.RecordPaymentSheetView
 import com.shikkhokplus.app.feature.guardian.GuardianViewModel
 import com.shikkhokplus.app.feature.guardian.ui.GuardianActions
 import com.shikkhokplus.app.feature.guardian.ui.GuardianHomeScreen
@@ -508,9 +510,16 @@ private fun ShikkhokGraph(
                     entry.arguments?.getString(Destination.FeeHistory.ARG_READER),
                 )
 
+            // Only the teacher's reader gets the write: a family screen is
+            // built without one and so cannot offer "Record payment".
             val model: FeesViewModel =
-                viewModel(key = seat) { FeesViewModel(HttpFeesRepository(client)) }
+                viewModel(key = "$seat:${reader.name}") {
+                    val repository = HttpFeesRepository(client)
+                    FeesViewModel(repository, recorder = repository.takeIf { reader == FeeReader.TEACHER })
+                }
             val state by model.state.collectAsState()
+            val sheet by model.sheet.collectAsState()
+            val recorded by model.recorded.collectAsState()
 
             LaunchedEffect(seat, reader) { model.load(seat, reader) }
 
@@ -526,7 +535,24 @@ private fun ShikkhokGraph(
                     } else {
                         null
                     },
+                onRecordPayment = if (model.canRecord) model::openRecord else null,
+                recorded = recorded,
             )
+            sheet?.let {
+                RecordPaymentSheetView(
+                    sheet = it,
+                    actions =
+                        RecordActions(
+                            onType = model::typeRecordAmount,
+                            onChannel = model::chooseRecordChannel,
+                            onReference = model::typeRecordReference,
+                            onNote = model::typeRecordNote,
+                            onDisposition = model::chooseRecordDisposition,
+                            onConfirm = model::confirmRecord,
+                            onDismiss = model::dismissRecord,
+                        ),
+                )
+            }
         }
 
         composable(Destination.GuardianHome.route) {

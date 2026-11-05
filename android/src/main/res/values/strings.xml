@@ -1353,4 +1353,27 @@
     <string name="pick_students_add">Add %1$s</string>
     <string name="action_confirm">Confirm</string>
     <string name="student_add_same_name_any">%1$s is already on your list. Add them only if this is a different student.</string>
+    <!-- A teacher records money received by hand (POST /v1/enrollments/{id}/payments). -->
+    <string name="fees_record_payment">Record payment</string>
+    <string name="fees_record_title">Record a payment received</string>
+    <string name="fees_record_owed">Owed now: %1$s</string>
+    <string name="fees_record_channel">Received as</string>
+    <string name="fees_record_channel_cash">Cash</string>
+    <string name="fees_record_reference">Reference or transaction ID (optional)</string>
+    <string name="fees_record_note">Note to the family (optional)</string>
+    <string name="fees_record_confirm">Record %1$s</string>
+    <string name="fees_record_done">Payment recorded</string>
+    <string name="inbox_payment_recorded_title">Payment recorded · %1$s</string>
+    <string name="inbox_payment_recorded_body">Your teacher recorded %1$s received for %2$s.</string>
+    <!-- A teacher cancels an exam whose results are not published (POST /v1/exams/{id}/cancel). -->
+    <string name="exam_cancel_action">Cancel exam</string>
+    <string name="exam_cancel_confirm_title">Cancel %1$s?</string>
+    <string name="exam_cancel_confirm_body">Every student and guardian in the batch will be told. No marks can be entered or published for it afterwards.</string>
+    <string name="exam_cancel_reason">Reason (optional)</string>
+    <string name="exam_cancel_keep">Keep exam</string>
+    <string name="exam_cancelled_chip">Cancelled</string>
+    <string name="marks_exam_cancelled">This exam was cancelled. Nothing more can be entered for it.</string>
+    <string name="marks_exam_published">Its results are already published, so this exam cannot be cancelled.</string>
+    <string name="inbox_exam_cancelled_title">Exam cancelled · %1$s</string>
+    <string name="inbox_exam_cancelled_line">This exam was cancelled.</string>
 </resources>

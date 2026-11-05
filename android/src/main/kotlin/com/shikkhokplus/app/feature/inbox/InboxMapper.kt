@@ -20,8 +20,10 @@ object InboxMapper {
             "payment_approved" to InboxKind.PAYMENT_APPROVED,
             "payment_partial" to InboxKind.PAYMENT_PARTIAL,
             "payment_rejected" to InboxKind.PAYMENT_REJECTED,
+            "payment_recorded" to InboxKind.PAYMENT_RECORDED,
             "notice" to InboxKind.NOTICE,
             "exam_scheduled" to InboxKind.EXAM_SCHEDULED,
+            "exam_cancelled" to InboxKind.EXAM_CANCELLED,
             "marks_available" to InboxKind.MARKS_AVAILABLE,
             "claim_to_verify" to InboxKind.CLAIM_TO_VERIFY,
         )
@@ -134,7 +136,9 @@ object InboxMapper {
      */
     private fun contentOf(dto: NotificationDetailDto): InboxContent? =
         dto.notice?.let { InboxContent.Notice(it.body, it.postedAt, it.editedAt) }
-            ?: dto.exam?.let { InboxContent.Exam(it.title, it.date, it.subjectName, it.totalMarks, it.topics) }
+            ?: dto.exam?.let {
+                InboxContent.Exam(it.title, it.date, it.subjectName, it.totalMarks, it.topics, it.cancelled)
+            }
             ?: dto.payment?.let {
                 InboxContent.Payment(it.period, it.claimed, it.approved, outcomeOf(it.outcome), it.reason)
             }

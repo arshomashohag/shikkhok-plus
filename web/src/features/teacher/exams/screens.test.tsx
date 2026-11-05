@@ -82,6 +82,23 @@ describe('ExamsTab', () => {
     expect(await screen.findByText('No exams yet')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Add an exam' })).toBeInTheDocument()
   })
+
+  it('keeps a cancelled exam on the tab, flagged, opening its results', async () => {
+    fetchMock.mockResolvedValue(
+      json(200, [
+        exam({ exam_id: 'n1', title: 'Weekly test 5' }),
+        exam({ exam_id: 'k1', title: 'Hartal test', cancelled: true }),
+      ]),
+    )
+    renderScreen(<ExamsTab {...tab} />)
+    const link = await screen.findByRole('link', { name: /Hartal test/ })
+    expect(link).toHaveAttribute('href', '/exams/k1/results')
+    expect(within(link).getByText('Cancelled')).toBeInTheDocument()
+    expect(within(link).queryByText('Enter marks')).toBeNull()
+    // Its own group, not "Needs marks", whatever its marking state.
+    const needs = screen.getByText('Needs marks').closest('section')
+    expect(needs && within(needs).queryByText('Hartal test')).toBeNull()
+  })
 })
 
 describe('CreateExam', () => {
@@ -267,5 +284,82 @@ describe('ExamResults', () => {
     const dialog = await screen.findByRole('dialog')
     expect(await within(dialog).findByText(/Replaced/)).toBeInTheDocument()
     expect(within(dialog).getByText(/Current/)).toBeInTheDocument()
+  })
+})
+
+describe('Cancel exam', () => {
+  function renderResults() {
+    renderScreen(
+      <Routes>
+        <Route path="/exams/:examId/results" element={<ExamResults />} />
+      </Routes>,
+      '/exams/x1/results',
+    )
+  }
+
+  it('asks first, then cancels with the reason and shows the exam as cancelled', async () => {
+    let cancelled = false
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (init?.method === 'POST' && url.endsWith('/cancel')) {
+        cancelled = true
+        return json(200, { ...exam(), cancelled: true })
+      }
+      return json(200, results(cancelled ? { writable: false } : {}, { cancelled }))
+    })
+    renderResults()
+    await userEvent.click(await screen.findByRole('button', { name: 'Cancel exam' }))
+
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByText('Cancel Class test 2?')).toBeInTheDocument()
+    expect(
+      within(dialog).getByText(/Every student and guardian in the batch will be told/),
+    ).toBeInTheDocument()
+    expect(calls('/v1/exams/x1/cancel')).toHaveLength(0)
+
+    await userEvent.type(within(dialog).getByLabelText('Reason (optional)'), ' Hartal ')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel exam' }))
+
+    expect(
+      await screen.findByText('This exam was cancelled. Nothing more can be entered for it.'),
+    ).toBeInTheDocument()
+    expect(body(calls('/v1/exams/x1/cancel')[0]!)).toEqual({ reason: 'Hartal' })
+    expect(screen.queryByRole('button', { name: 'Cancel exam' })).toBeNull()
+  })
+
+  it('keeping the exam sends nothing', async () => {
+    fetchMock.mockResolvedValue(json(200, results()))
+    renderResults()
+    await userEvent.click(await screen.findByRole('button', { name: 'Cancel exam' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Keep exam' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(calls('/v1/exams/x1/cancel')).toHaveLength(0)
+  })
+
+  it('is not offered once results are published', async () => {
+    fetchMock.mockResolvedValue(json(200, results({}, { state: 'complete', published: true })))
+    renderResults()
+    expect(await screen.findByText(/Published to students and guardians/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Cancel exam' })).toBeNull()
+  })
+
+  it('shows the server’s refusal in words', async () => {
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) =>
+      init?.method === 'POST' && url.endsWith('/cancel')
+        ? json(409, {
+            error: {
+              code: 'EXAM_PUBLISHED',
+              message_key: 'marks.exam.published',
+              retryable: false,
+            },
+          })
+        : json(200, results()),
+    )
+    renderResults()
+    await userEvent.click(await screen.findByRole('button', { name: 'Cancel exam' }))
+    const dialog = screen.getByRole('dialog')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel exam' }))
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      'Its results are already published, so this exam cannot be cancelled.',
+    )
   })
 })

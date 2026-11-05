@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
 import com.shikkhokplus.app.core.designsystem.SkeletonList
 import com.shikkhokplus.app.core.designsystem.ListScreenScaffold
+import com.shikkhokplus.app.core.designsystem.PrimaryButton
 import com.shikkhokplus.app.core.designsystem.TextAction
 import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.core.format.monthName
@@ -96,6 +97,9 @@ const val TAG_FEES_RETRY: String = "fees_retry"
  * @param modifier Layout modifier
  * @param onOpenProgress Opens this seat's progress dashboard, or null
  *   where the reader has no such link here
+ * @param onRecordPayment Opens "Record payment", or null for a reader
+ *   who cannot record one (only the seat's teacher can)
+ * @param recorded Whether a record was just accepted, to confirm it
  */
 @Composable
 fun FeeHistoryScreen(
@@ -104,6 +108,8 @@ fun FeeHistoryScreen(
     onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     onOpenProgress: (() -> Unit)? = null,
+    onRecordPayment: (() -> Unit)? = null,
+    recorded: Boolean = false,
 ) {
     ListScreenScaffold(
         title = stringResource(R.string.screen_title_fee_history),
@@ -119,17 +125,36 @@ fun FeeHistoryScreen(
             }
         },
     ) {
+        if (recorded) {
+            Text(
+                stringResource(R.string.fees_record_done),
+                modifier = Modifier.testTag(TAG_FEES_RECORDED),
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+        val record: @Composable () -> Unit = {
+            if (onRecordPayment != null) {
+                PrimaryButton(
+                    text = stringResource(R.string.fees_record_payment),
+                    onClick = onRecordPayment,
+                    compact = true,
+                    modifier = Modifier.testTag(TAG_FEES_RECORD),
+                )
+            }
+        }
         when (state) {
             FeeUiState.Loading ->
                 SkeletonList(modifier = Modifier.testTag(TAG_FEES_LOADING))
 
-            FeeUiState.Empty ->
+            FeeUiState.Empty -> {
                 // Nothing CHARGED yet is not the same as everything
                 // paid, and a blank list explains neither.
                 Text(
                     stringResource(R.string.fees_empty),
                     Modifier.testTag(TAG_FEES_EMPTY),
                 )
+                record()
+            }
 
             is FeeUiState.Loaded -> {
                 Text(
@@ -140,6 +165,7 @@ fun FeeHistoryScreen(
                     modifier = Modifier.testTag(TAG_FEES_TOTAL),
                     style = MaterialTheme.typography.titleMedium,
                 )
+                record()
                 LazyColumn(
                     modifier = Modifier.testTag(TAG_FEES_LIST),
                     verticalArrangement = Arrangement.spacedBy(8.dp),

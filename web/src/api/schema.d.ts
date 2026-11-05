@@ -1136,6 +1136,38 @@ export interface paths {
     patch: operations['set_inactive_from_v1_enrollments__enrollment_id__inactive_from_patch']
     trace?: never
   }
+  '/v1/enrollments/{enrollment_id}/payments': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Record Payment Received
+     * @description Record money this teacher received by hand for one seat.
+     *
+     *     Recorded as a payment the teacher submitted and approved in one
+     *     transaction, so balances, history and analytics read it as they
+     *     read an approved family payment. A resend under the same
+     *     ``client_mutation_id`` returns the original with the same 201.
+     *
+     *     :param enrollment_id: The seat, from the route path
+     *     :param body: The amount, channel, reference, note, date and the
+     *         carry-or-waive when short
+     *     :param session: The request-scoped session
+     *     :param lens: The teacher lens; only the batch's owner reaches the seat
+     *     :return: The recorded payment, as the teacher reviews it
+     */
+    post: operations['record_payment_received_v1_enrollments__enrollment_id__payments_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/v1/exams/{exam_id}': {
     parameters: {
       query?: never
@@ -1156,6 +1188,36 @@ export interface paths {
      */
     put: operations['update_batch_exam_v1_exams__exam_id__put']
     post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/exams/{exam_id}/cancel': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Cancel Batch Exam
+     * @description Cancel an exam whose results are not published, telling its families.
+     *
+     *     Refused with ``EXAM_PUBLISHED`` once results are out. Cancelling a
+     *     cancelled exam returns it unchanged and tells nobody again. Marks,
+     *     publishing and edits are refused afterwards with ``EXAM_CANCELLED``.
+     *
+     *     :param exam_id: The exam, from the route path
+     *     :param session: The request-scoped session
+     *     :param lens: The teacher lens; only the batch's owner reaches it
+     *     :param body: Optional; a short reason for the record
+     *     :return: The cancelled exam
+     */
+    post: operations['cancel_batch_exam_v1_exams__exam_id__cancel_post']
     delete?: never
     options?: never
     head?: never
@@ -3600,8 +3662,14 @@ export interface components {
      *     :ivar subject_name: The subject
      *     :ivar total_marks: The denominator
      *     :ivar topics: What it covers
+     *     :ivar cancelled: Whether the teacher has cancelled it
      */
     ExamBlock: {
+      /**
+       * Cancelled
+       * @default false
+       */
+      cancelled: boolean
       /**
        * Date
        * Format: date
@@ -3620,6 +3688,16 @@ export interface components {
       topics: string[]
       /** Total Marks */
       total_marks: number
+    }
+    /**
+     * ExamCancelRequest
+     * @description Cancel an exam whose results are not published.
+     *
+     *     :ivar reason: A short note for the record, if any
+     */
+    ExamCancelRequest: {
+      /** Reason */
+      reason?: string | null
     }
     /**
      * ExamCreateRequest
@@ -3664,6 +3742,13 @@ export interface components {
      *         by the server so the client never compares a date or a count
      */
     ExamListItemResponse: {
+      /** Cancellation Reason */
+      cancellation_reason?: string | null
+      /**
+       * Cancelled
+       * @default false
+       */
+      cancelled: boolean
       /**
        * Date
        * Format: date
@@ -3707,8 +3792,19 @@ export interface components {
      *     :ivar total_marks: The denominator, an integer COUNT
      *     :ivar subject_name: The subject assessed
      *     :ivar topics: What it covers, in the order the teacher gave
+     *     :ivar cancelled: Whether the teacher cancelled it [0019]. A flag
+     *         beside ``state`` rather than a new ``state`` value, so a client
+     *         built before cancelling existed still decodes the list
+     *     :ivar cancellation_reason: The teacher's note on cancelling, if any
      */
     ExamResponse: {
+      /** Cancellation Reason */
+      cancellation_reason?: string | null
+      /**
+       * Cancelled
+       * @default false
+       */
+      cancelled: boolean
       /**
        * Date
        * Format: date
@@ -4474,12 +4570,14 @@ export interface components {
        */
       kind:
         | 'claim_to_verify'
+        | 'exam_cancelled'
         | 'exam_scheduled'
         | 'fee_reminder'
         | 'marks_available'
         | 'notice'
         | 'payment_approved'
         | 'payment_partial'
+        | 'payment_recorded'
         | 'payment_rejected'
       notice?: components['schemas']['NoticeBlock'] | null
       /**
@@ -4532,12 +4630,14 @@ export interface components {
        */
       kind:
         | 'claim_to_verify'
+        | 'exam_cancelled'
         | 'exam_scheduled'
         | 'fee_reminder'
         | 'marks_available'
         | 'notice'
         | 'payment_approved'
         | 'payment_partial'
+        | 'payment_recorded'
         | 'payment_rejected'
       /**
        * Notification Id
@@ -5271,6 +5371,46 @@ export interface components {
        * @enum {string}
        */
       viewer_result_state: 'absent' | 'joined_after' | 'marked' | 'not_entered'
+    }
+    /**
+     * ReceivedPaymentRequest
+     * @description Money a teacher received by hand for one seat, recorded as approved.
+     *
+     *     ``shortfall_disposition`` follows the approval rule exactly [BR5.4]:
+     *     required when ``amount`` is less than the seat owes across its unpaid
+     *     months, refused otherwise, and never defaulted. More than is owed is
+     *     held as credit. The server decides all three, because only it knows
+     *     what is owed.
+     *
+     *     :ivar amount: What was received; more than zero
+     *     :ivar channel: ``cash`` by default, or one of the mobile services the
+     *         payment-method routes list, for money sent straight to the teacher
+     *     :ivar reference: A transaction id or receipt number, if any
+     *     :ivar note: Shown to the family with the record
+     *     :ivar paid_on: The day the money changed hands; today when omitted
+     *     :ivar shortfall_disposition: Carried or waived, when short
+     *     :ivar client_mutation_id: The client's retry key, one per record. A
+     *         resend by the same account returns the original payment with the
+     *         original 201 and records nothing; the same key with a different
+     *         payment is a 409
+     */
+    ReceivedPaymentRequest: {
+      amount: components['schemas']['Money']
+      /**
+       * Channel
+       * @default cash
+       */
+      channel: string
+      /** Client Mutation Id */
+      client_mutation_id?: string | null
+      /** Note */
+      note?: string | null
+      /** Paid On */
+      paid_on?: string | null
+      /** Reference */
+      reference?: string | null
+      /** Shortfall Disposition */
+      shortfall_disposition?: ('carried' | 'waived') | null
     }
     /**
      * RecentDecisionResponse
@@ -8426,6 +8566,77 @@ export interface operations {
       }
     }
   }
+  record_payment_received_v1_enrollments__enrollment_id__payments_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        enrollment_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ReceivedPaymentRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['PaymentReviewResponse']
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
   update_batch_exam_v1_exams__exam_id__put: {
     parameters: {
       query?: never
@@ -8438,6 +8649,77 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': components['schemas']['ExamUpdateRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ExamResponse']
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this. Deliberately indistinguishable from absence, and the refusal when the marksheet toggle is off is the same one: an empty marksheet would still disclose that exams exist and how many. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  cancel_batch_exam_v1_exams__exam_id__cancel_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        exam_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: {
+      content: {
+        'application/json': components['schemas']['ExamCancelRequest'] | null
       }
     }
     responses: {

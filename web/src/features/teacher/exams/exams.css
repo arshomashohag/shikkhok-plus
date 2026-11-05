@@ -199,3 +199,9 @@
     box-shadow: none;
   }
 }
+
+/* A cancelled exam on the batch's Exams tab. */
+.exam-cancelled-chip {
+  color: var(--on-surface-variant);
+  border-color: var(--outline-variant);
+}

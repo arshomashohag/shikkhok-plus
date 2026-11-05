@@ -31,6 +31,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 __all__ = [
     "BandResponse",
     "CorrectionEntryResponse",
+    "ExamCancelRequest",
     "ExamCreateRequest",
     "ExamListItemResponse",
     "ExamResponse",
@@ -72,6 +73,10 @@ class ExamResponse(BaseModel):
     :ivar total_marks: The denominator, an integer COUNT
     :ivar subject_name: The subject assessed
     :ivar topics: What it covers, in the order the teacher gave
+    :ivar cancelled: Whether the teacher cancelled it [0019]. A flag
+        beside ``state`` rather than a new ``state`` value, so a client
+        built before cancelling existed still decodes the list
+    :ivar cancellation_reason: The teacher's note on cancelling, if any
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -82,6 +87,8 @@ class ExamResponse(BaseModel):
     total_marks: int = Field(ge=1)
     subject_name: str
     topics: list[str] = Field(default_factory=list)
+    cancelled: bool = False
+    cancellation_reason: str | None = None
 
 
 class ExamListItemResponse(ExamResponse):
@@ -102,6 +109,17 @@ class ExamListItemResponse(ExamResponse):
     expected_count: int = Field(ge=0)
     state: Literal["upcoming", "needs_marks", "complete"]
     published: bool = False
+
+
+class ExamCancelRequest(BaseModel):
+    """Cancel an exam whose results are not published.
+
+    :ivar reason: A short note for the record, if any
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    reason: str | None = Field(default=None, max_length=200)
 
 
 class ExamCreateRequest(BaseModel):

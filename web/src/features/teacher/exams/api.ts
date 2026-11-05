@@ -20,6 +20,10 @@ export const createExam = (batchId: string, body: Schemas['ExamCreateRequest']) 
 export const updateExam = (examId: string, body: Schemas['ExamUpdateRequest']) =>
   request<Schemas['ExamResponse']>('PUT', `/v1/exams/${id(examId)}`, { body })
 
+/** Cancel an exam whose results are not published; every family is told. */
+export const cancelExam = (examId: string, body: Schemas['ExamCancelRequest']) =>
+  request<Schemas['ExamResponse']>('POST', `/v1/exams/${id(examId)}/cancel`, { body })
+
 export const readResults = (examId: string) =>
   request<Schemas['ExamResultsResponse']>('GET', `/v1/exams/${id(examId)}/results`)
 
