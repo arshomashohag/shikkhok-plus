@@ -1,0 +1,223 @@
+/* Money area. Tokens only; no new colours. */
+
+.money-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+.money-detail > .card + .card {
+  margin-top: 0;
+}
+
+/* Per-child owed lines and their total. */
+.money-lines {
+  margin: var(--s3) 0 0;
+  font-size: 0.9375rem;
+}
+.money-lines > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s3);
+  padding: 2px 0;
+}
+.money-lines dt {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.money-lines dd {
+  margin: 0;
+  text-align: right;
+}
+.money-lines-total {
+  border-top: 1px solid var(--outline-variant);
+  margin-top: var(--s1);
+  padding-top: var(--s2) !important;
+  font-weight: 600;
+}
+
+/* "৳" before the amount field. */
+.money-input {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--outline);
+  border-radius: var(--r-field);
+  background: var(--surface);
+  padding-left: var(--s4);
+}
+.money-input:focus-within {
+  border: 2px solid var(--primary);
+}
+.money-input span {
+  font-weight: 600;
+  color: var(--on-surface-variant);
+}
+.field .money-input input {
+  flex: 1;
+  border: 0;
+  padding-left: var(--s2);
+  background: transparent;
+}
+.field .money-input input:focus {
+  border: 0;
+}
+
+/* A reused transaction ID: rejecting becomes the filled choice. */
+.btn-danger-filled {
+  background: var(--error);
+  color: var(--surface);
+}
+.money-stack {
+  flex-direction: column;
+}
+.money-danger-text {
+  color: var(--error);
+}
+
+/* The six-month strip: glyph + month, shape as well as colour. */
+.money-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(44px, 1fr));
+  gap: var(--s2);
+  list-style: none;
+  margin: var(--s3) 0;
+  padding: 0;
+}
+.money-strip-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s1);
+  font-size: 0.75rem;
+  color: var(--on-surface-variant);
+}
+.money-strip-glyph {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 1rem;
+  border: 1px solid transparent;
+}
+.strip-paid .money-strip-glyph {
+  background: var(--paid-container);
+  color: var(--on-paid-container);
+}
+.strip-partly_paid .money-strip-glyph {
+  background: var(--partial-container);
+  color: var(--on-partial-container);
+}
+.strip-unpaid .money-strip-glyph {
+  background: var(--overdue-fill);
+  color: var(--on-overdue-fill);
+}
+.strip-waived .money-strip-glyph {
+  background: var(--surface);
+  color: var(--on-due-container);
+  border-color: var(--due-outline);
+}
+.strip-checking .money-strip-glyph {
+  background: var(--verifying-container);
+  color: var(--on-verifying-container);
+  border: 1px dashed var(--verifying-outline);
+}
+
+/* Tiles. */
+.money-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--s3);
+}
+.money-tiles > .card + .card {
+  margin-top: 0;
+}
+.money-tiles .hero-amount {
+  font-size: 1.5rem;
+}
+
+/* Horizontal bars drawn at the server's percent. */
+.money-bars {
+  list-style: none;
+  margin: 0;
+  padding: var(--s3) var(--s4);
+}
+.money-bars li {
+  display: grid;
+  grid-template-columns: minmax(48px, 30%) 1fr auto;
+  align-items: center;
+  gap: var(--s3);
+  min-height: 32px;
+  font-size: 0.875rem;
+}
+.money-bar {
+  display: block;
+  height: 10px;
+  border-radius: var(--r-pill);
+  background: var(--surface-container-high);
+  overflow: hidden;
+}
+.money-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--primary);
+}
+.money-latest {
+  padding-bottom: var(--s2);
+  border-bottom: 1px solid var(--outline-variant);
+}
+
+/* Collections chart: two bars a month at the server's heights. */
+.money-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--s2);
+  height: 160px;
+  margin: var(--s3) 0;
+}
+.money-chart-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s1);
+  height: 100%;
+  border: 1px solid transparent;
+  border-radius: var(--r-field);
+  background: none;
+  padding: var(--s1);
+  cursor: pointer;
+  font-size: 0.75rem;
+  color: var(--on-surface-variant);
+}
+.money-chart-col[aria-pressed='true'] {
+  border-color: var(--primary);
+  color: var(--on-surface);
+  font-weight: 700;
+}
+.money-chart-bars {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 3px;
+}
+.money-chart-bars span {
+  width: 40%;
+  max-width: 18px;
+  border-radius: 3px 3px 0 0;
+}
+.money-chart-bars .charged {
+  background: var(--outline-variant);
+}
+.money-chart-bars .collected {
+  background: var(--primary);
+}
+
+.money-month-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--s3);
+}

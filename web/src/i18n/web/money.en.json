@@ -1,1 +1,4 @@
-{}
+{
+  "web_money_approved_amount": "{1} approved",
+  "web_money_offline_nothing_changed": "No connection. Nothing was changed."
+}
