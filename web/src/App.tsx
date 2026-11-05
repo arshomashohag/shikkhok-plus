@@ -29,6 +29,15 @@ import { examsRoutes } from './features/teacher/exams'
 import { studentsRoutes } from './features/teacher/students'
 import { moneyRoutes } from './features/teacher/money'
 
+import { batchRoutes } from './features/family/batch'
+import { payRoutes } from './features/family/pay'
+import { accountRoutes } from './features/account/area'
+import { seatPattern, type Reader } from './features/family/reader'
+
+/** Seat routes the family areas own, mounted once per reader. */
+const FAMILY_ROUTES = [...batchRoutes, ...payRoutes]
+const READER_LENS: Record<Reader, Lens> = { me: 'student', child: 'guardian' }
+
 /** Routes the teacher areas own (features/teacher/<area>/index.tsx). */
 const AREA_ROUTES = [...classesRoutes, ...examsRoutes, ...studentsRoutes, ...moneyRoutes]
 
@@ -165,6 +174,25 @@ export function App() {
               </Only>
             }
           />
+        ))}
+        {(['me', 'child'] as const).flatMap((reader) =>
+          FAMILY_ROUTES.map((r) => {
+            const path = r.path ? `${seatPattern(reader)}/${r.path}` : seatPattern(reader)
+            return (
+              <Route
+                key={path}
+                path={path}
+                element={
+                  <Only lens={READER_LENS[reader]} current={lens}>
+                    {r.element(reader)}
+                  </Only>
+                }
+              />
+            )
+          }),
+        )}
+        {accountRoutes.map((r) => (
+          <Route key={r.path} path={r.path} element={r.element} />
         ))}
         <Route path="/invitations" element={<Invitations />} />
         <Route path="/more" element={<More />} />
