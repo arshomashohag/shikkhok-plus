@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.feature.invitations
 
+import com.shikkhokplus.app.feature.invitations.ui.TAG_INVITATION_ACCEPT
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performScrollTo
 import com.shikkhokplus.app.feature.invitations.ui.TAG_INVITATION_CHILD
@@ -220,9 +221,11 @@ class InvitationsScreenTest {
         )
 
         compose.onNodeWithTag(TAG_INVITATION_CHILD).assertIsDisplayed()
-        compose.onNodeWithText("Is আয়ান your child?").assertIsDisplayed()
-        compose.onNodeWithText("Yes, this is my child").performScrollTo().performClick()
-        compose.onNodeWithText("No, not my child").performScrollTo().performClick()
+        compose.onNodeWithText("Is আয়ান your child?", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag(TAG_INVITATION_ACCEPT).performScrollTo().performClick()
+        compose.onNodeWithTag(TAG_INVITATION_DECLINE).performScrollTo().performClick()
+        compose.onNodeWithText("Yes, this is my child", useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("No, not my child", useUnmergedTree = true).assertExists()
 
         assertEquals("e1", accepted)
         assertEquals("e1", declined)

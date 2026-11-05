@@ -71,6 +71,7 @@ class WriteContractTest {
                 HttpSignupRepository(it).signup("01711234567", "student", "Rafi", ADDRESS)
             },
             Write("patch", "/v1/me") { HttpProfileRepository(it).save("Rafi", ADDRESS) },
+            Write("post", "/v1/exams/{exam_id}/publish") { HttpMarksRepository(it).publish(ID) },
             Write("delete", "/v1/me") { HttpProfileRepository(it).deleteAccount() },
             Write("post", "/v1/invitations/{enrollment_id}/accept") {
                 HttpInvitationsRepository(it).accept(ID)

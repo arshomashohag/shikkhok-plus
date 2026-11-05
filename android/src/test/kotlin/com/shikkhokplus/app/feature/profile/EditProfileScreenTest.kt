@@ -82,8 +82,8 @@ class EditProfileScreenTest {
         render()
 
         compose.onNodeWithTag(TAG_PROFILE_PHONE).performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("01611-477203").assertIsDisplayed()
-        compose.onNodeWithText("cannot be changed", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("01611-477203").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("cannot be changed", substring = true).performScrollTo().assertIsDisplayed()
     }
 
     @Test
