@@ -45,8 +45,20 @@ enum class MarksheetReader {
     CHILD,
 }
 
+/** Publishes an exam's results; its own interface, as the one write that ends a draft. */
+interface ExamPublisher {
+    /**
+     * Publish an exam's results to its students and guardians
+     * (decided 2026-11-05). Until then they are the teacher's draft.
+     *
+     * @param examId The exam
+     * @return Nothing on success, or why the server refused
+     */
+    suspend fun publish(examId: String): AuthResult<Unit> = AuthResult.TransportFailure
+}
+
 /** What the marks repository must provide. */
-interface MarksRepository {
+interface MarksRepository : ExamPublisher {
     /**
      * List one batch's exams.
      *
@@ -138,14 +150,6 @@ interface MarksRepository {
         marks: Double?,
     ): AuthResult<Unit>
 
-    /**
-     * Publish an exam's results to its students and guardians
-     * (decided 2026-11-05). Until then they are the teacher's draft.
-     *
-     * @param examId The exam
-     * @return Nothing on success, or why the server refused
-     */
-    suspend fun publish(examId: String): AuthResult<Unit> = AuthResult.TransportFailure
 
     /**
      * Read one seat's marksheet [BR6.2].

@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.navigation
 
+import com.shikkhokplus.app.core.offline.keptBy
 import com.shikkhokplus.app.core.offline.OfflineProfileRepository
 import com.shikkhokplus.app.core.offline.OfflineGuardianRepository
 import com.shikkhokplus.app.core.offline.OfflineDuesRepository
@@ -292,7 +293,7 @@ private fun ShikkhokGraph(
             val model: DuesViewModel =
                 viewModel {
                     val network = HttpAnalyticsRepository(client)
-                    DuesViewModel(copies?.let { OfflineDuesRepository(network, it) } ?: network)
+                    DuesViewModel(network.keptBy(copies, ::OfflineDuesRepository))
                 }
             val state by model.state.collectAsState()
             val refreshing by model.refreshing.collectAsState()
@@ -525,7 +526,7 @@ private fun ShikkhokGraph(
             val model: GuardianViewModel =
                 viewModel {
                     val network = HttpGuardianRepository(client)
-                    GuardianViewModel(copies?.let { OfflineGuardianRepository(network, it) } ?: network)
+                    GuardianViewModel(network.keptBy(copies, ::OfflineGuardianRepository))
                 }
             val state by model.state.collectAsState()
             val refreshing by model.refreshing.collectAsState()
@@ -613,7 +614,7 @@ private fun ShikkhokGraph(
             val model: ProfileViewModel =
                 viewModel {
                     val network = HttpProfileRepository(client)
-                    ProfileViewModel(copies?.let { OfflineProfileRepository(network, it) } ?: network)
+                    ProfileViewModel(network.keptBy(copies, ::OfflineProfileRepository))
                 }
             val state by model.state.collectAsState()
             val summary by model.summary.collectAsState()
@@ -646,8 +647,7 @@ private fun ShikkhokGraph(
                             },
                             onRetry = model::retry,
                             onSwitchLens = session.onSwitch,
-                            onSettings =
-                                session.settings?.let { { navController.navigate(Destination.Settings.route) } },
+                            onSettings = settingsOpener(session, navController),
                             unsent = remember { session.unsentWrites() },
                         ),
                     navigate = { route -> navController.navigate(route) },
@@ -1058,3 +1058,14 @@ private fun teacherTabs(): List<NavDestination> =
             tag = "nav_tab_more",
         ),
     )
+
+/**
+ * What the Settings row does, or null where the session keeps no
+ * settings and so draws no row.
+ *
+ * @param session The session's bindings
+ * @param navController The app's controller
+ * @return The opener, or null
+ */
+internal fun settingsOpener(session: SessionBinding, navController: NavHostController): (() -> Unit)? =
+    if (session.settings == null) null else ({ navController.navigate(Destination.Settings.route) })

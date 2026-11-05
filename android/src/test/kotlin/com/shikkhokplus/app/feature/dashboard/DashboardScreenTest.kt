@@ -46,7 +46,8 @@ class DashboardScreenTest {
 
     private fun state(
         reader: DashboardReader = DashboardReader.TEACHER,
-        exams: List<com.shikkhokplus.app.core.network.DashboardExamDto> = listOf(examDto(), examDto("x2", 60.0, 55.0, 90.0)),
+        exams: List<com.shikkhokplus.app.core.network.DashboardExamDto> =
+            listOf(examDto(), examDto("x2", 60.0, 55.0, 90.0)),
         children: List<DashboardChild> = emptyList(),
     ) = DashboardUiState.Loaded(
         reader = reader,

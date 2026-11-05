@@ -110,3 +110,13 @@ class OfflineProfileRepository(
     override suspend fun profile(): AuthResult<MeDto> =
         copies.through("profile", MeDto.serializer()) { inner.profile() }
 }
+
+/**
+ * This repository, kept offline by [copies] when the session has them.
+ *
+ * @param copies The session's copies, or null to keep nothing
+ * @param wrap The offline repository for this kind
+ * @return The wrapped repository, or this one unchanged
+ */
+fun <R> R.keptBy(copies: OfflineCopies?, wrap: (R, OfflineCopies) -> R): R =
+    if (copies == null) this else wrap(this, copies)

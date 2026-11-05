@@ -41,11 +41,17 @@ enum class TextSizeChoice(val scale: Float) {
     SYSTEM(1.0f),
 
     /** A step larger. */
-    LARGE(1.15f),
+    LARGE(LARGE_SCALE),
 
     /** Two steps larger. */
-    LARGEST(1.3f),
+    LARGEST(LARGEST_SCALE),
 }
+
+/** A step above the phone's text size. */
+private const val LARGE_SCALE = 1.15f
+
+/** Two steps above the phone's text size. */
+private const val LARGEST_SCALE = 1.3f
 
 /**
  * The person's own preferences for this phone.
