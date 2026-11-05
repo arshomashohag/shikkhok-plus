@@ -1,15 +1,22 @@
 /** Exams area: Exams tab, create exam, Marks entry (T3), review and publish, results. */
-import type { TeacherRoute } from '../area'
-import { CreateExam } from './ExamForm'
-import { ExamResults } from './ExamResults'
-import { MarkEntry } from './MarkEntry'
+import { lazyComponent, lazyScreen } from '../../../core/lazy'
+import type { BatchTabProps, TeacherRoute } from '../area'
 import './exams.css'
 
-export { ExamsTab } from './ExamsTab'
+export const ExamsTab = lazyComponent<BatchTabProps, typeof import('./ExamsTab')>(
+  () => import('./ExamsTab'),
+  'ExamsTab',
+)
 
 export const examsRoutes: TeacherRoute[] = [
   // Paths match `paths.examNew`, `paths.examMarks` and `paths.examResults`.
-  { path: '/batches/:batchId/exams/new', element: <CreateExam /> },
-  { path: '/exams/:examId/marks', element: <MarkEntry /> },
-  { path: '/exams/:examId/results', element: <ExamResults /> },
+  {
+    path: '/batches/:batchId/exams/new',
+    element: lazyScreen(() => import('./ExamForm'), 'CreateExam'),
+  },
+  { path: '/exams/:examId/marks', element: lazyScreen(() => import('./MarkEntry'), 'MarkEntry') },
+  {
+    path: '/exams/:examId/results',
+    element: lazyScreen(() => import('./ExamResults'), 'ExamResults'),
+  },
 ]

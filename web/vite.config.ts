@@ -154,6 +154,17 @@ export default defineConfig(({ mode, command }) => {
     build: {
       target: 'es2022',
       sourcemap: true,
+      rollupOptions: {
+        output: {
+          // React and the router change far less often than the app, so
+          // they get their own long-lived chunk: a deploy that changes a
+          // screen leaves this one in every browser's cache.
+          manualChunks(id) {
+            if (/node_modules\/(react|react-dom|react-router|scheduler)\//.test(id)) return 'vendor'
+            return undefined
+          },
+        },
+      },
     },
     test: {
       environment: 'jsdom',
