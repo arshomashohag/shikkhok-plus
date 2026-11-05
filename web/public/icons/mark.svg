@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" fill="none">
+  <!-- The ShikkhokPlus mark, transcribed from android/src/main/res/drawable/ic_launcher_foreground.xml.
+       A teacher and a student behind an open book, with a tick that rises into an arrow. -->
+  <rect width="108" height="108" fill="#1D4F91"/>
+  <path fill="#FFFFFF" d="M40,33 m-9,0 a9,9 0 1,0 18,0 a9,9 0 1,0 -18,0"/>
+  <path fill="#FFFFFF" d="M28,84 V56 a12,12 0 0 1 24,0 v28 Z"/>
+  <path fill="#A9C7FF" d="M64,42 m-7,0 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0"/>
+  <path fill="#A9C7FF" d="M54,84 V63 a10,10 0 0 1 20,0 v21 Z"/>
+  <path stroke="#1D4F91" stroke-width="2.4" stroke-linejoin="round" d="M40,63 c6,0 10,2 13,5 v16 c-3,-3 -7,-4 -13,-4 Z"/>
+  <path stroke="#1D4F91" stroke-width="2.4" stroke-linejoin="round" d="M66,63 c-6,0 -10,2 -13,5 v16 c3,-3 7,-4 13,-4 Z"/>
+  <path stroke="#1D4F91" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" d="M46,72 L53,80 L79,41.5"/>
+  <path fill="#1D4F91" stroke="#1D4F91" stroke-width="4" stroke-linejoin="round" d="M85.6,31.8 L84.7,42.1 L76.4,36.5 Z"/>
+  <path stroke="#A9C7FF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" d="M46,72 L53,80 L79,41.5"/>
+  <path fill="#A9C7FF" stroke="#A9C7FF" stroke-width="1.5" stroke-linejoin="round" d="M85.6,31.8 L84.7,42.1 L76.4,36.5 Z"/>
+</svg>

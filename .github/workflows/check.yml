@@ -383,3 +383,39 @@ jobs:
           name: android-unit-results
           path: android/build/test-results/testDebugUnitTest/
           if-no-files-found: warn
+
+  web:
+    name: web
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Split from the other two for the same reason they are split from each
+    # other: a web change never waits on a Kotlin build, and the minutes
+    # stay attributable per surface.
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      # The same target a developer runs: generated-file drift (API types
+      # against openapi.json, strings against the Android bundles, fonts
+      # against Android's), Prettier, ESLint, tsc, Vitest, then the
+      # production build with its service worker.
+      - name: make web
+        run: make web
+
+      # The ANNOTATING half of the two-speed CVE model, as pip-audit is for
+      # Python: it reports on every push and never blocks it. Runtime
+      # dependencies are audited separately from the build toolchain so a
+      # finding in a shipped package cannot hide among dev-only noise.
+      - name: Dependency CVEs (annotating, non-blocking)
+        continue-on-error: true
+        working-directory: web
+        run: |
+          npm audit --omit=dev --audit-level=low \
+            || echo "::warning::npm audit found issues in packages the web client SHIPS. These block the release gate."
+          npm audit --audit-level=high \
+            || echo "::warning::npm audit found high or critical issues in the web build toolchain."

@@ -1,0 +1,23 @@
+{
+  "web_install": "অ্যাপ ইনস্টল করুন",
+  "web_install_sub": "ডেস্কটপ বা হোম স্ক্রিন থেকে ShikkhokPlus আলাদা উইন্ডোতে খুলুন",
+  "web_installed": "ইনস্টল করা আছে",
+  "web_update_ready": "নতুন সংস্করণ তৈরি।",
+  "web_update_reload": "আবার লোড করুন",
+  "web_offline_ready": "এখন সংযোগ ছাড়াও ShikkhokPlus খুলবে।",
+  "web_language": "ভাষা",
+  "web_language_sub": "বাংলা or English",
+  "web_settings_sub": "থিম, লেখার আকার ও ভাষা",
+  "web_section_language": "ভাষা",
+  "web_offline_banner": "আপনি অফলাইনে আছেন। স্ক্রিনে যা আছে তা শেষবার লোড করা তথ্য; আবার অনলাইনে না আসা পর্যন্ত কিছু বদলাবে না।",
+  "web_offline_shell": "এই স্ক্রিনের জন্য সংযোগ লাগবে। এই কম্পিউটারে কিছু সংরক্ষণ করা হয় না, তাই অনলাইনে ফেরার আগে দেখানোর মতো কিছু নেই।",
+  "web_not_on_web_title": "ওয়েবে এখনো আসেনি",
+  "web_not_on_web_body": "ShikkhokPlus-এর এই অংশটি আপাতত Android অ্যাপে আছে। শিগগিরই ওয়েবেও আসছে।",
+  "web_skip_to_content": "মূল অংশে যান",
+  "web_signed_in_as": "{1} হিসেবে লগ ইন করা",
+  "web_more_payments_on_android": "একাধিক সন্তানের মধ্যে পেমেন্ট ভাগ করা বা বেশি পাওয়া টাকা জমা রাখা আপাতত Android অ্যাপে আছে।",
+  "web_role_none": "এখনো কোনো ভূমিকা নেই",
+  "web_shared_computer": "শেয়ার করা কম্পিউটারে কাজ শেষ হলে লগ আউট করুন।",
+  "web_verify_rejected": "{1}-এর পেমেন্ট বাতিল করা হয়েছে",
+  "web_verify_offline": "সংযোগ নেই। কিছুই অনুমোদন করা হয়নি।"
+}

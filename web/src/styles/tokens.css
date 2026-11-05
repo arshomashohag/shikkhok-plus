@@ -1,0 +1,190 @@
+/*
+ * Design tokens, from claude_design/design_system.html and the Android
+ * theme (core/designsystem/Color.kt, StatusColors.kt). Hex values are the
+ * Android ones exactly, so a screenshot of either client matches.
+ *
+ * "One blue for actions. Everything else is ink, until money is involved."
+ * Every text token is 7:1 or better in both themes; outline is for borders
+ * and icons only and never carries text.
+ */
+
+@font-face {
+  font-family: 'Noto ShikkhokPlus';
+  src: url('/fonts/noto_regular.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Noto ShikkhokPlus';
+  src: url('/fonts/noto_medium.ttf') format('truetype');
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Noto ShikkhokPlus';
+  src: url('/fonts/noto_semibold.ttf') format('truetype');
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Noto ShikkhokPlus';
+  src: url('/fonts/noto_bold.ttf') format('truetype');
+  font-weight: 700;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: light;
+
+  /* M3 roles · light */
+  --primary: #1d4f91;
+  --on-primary: #ffffff;
+  --primary-container: #d8e3f7;
+  --on-primary-container: #0b2447;
+  --secondary: #4a5668;
+  --error: #a3201a;
+  --error-container: #fce3e1;
+  --on-error-container: #6a110c;
+  --background: #f4f6f9;
+  --surface: #ffffff;
+  --surface-container: #eef1f5;
+  --surface-container-high: #e4e8ee;
+  --on-surface: #15191f;
+  --on-surface-variant: #434a55;
+  --outline: #6e7682;
+  --outline-variant: #c9ced6;
+  --inverse-surface: #2a2f36;
+  --inverse-on-surface: #eef1f5;
+  --inverse-primary: #a9c7ff;
+  --info-container: #eef3fc;
+  --scrim: rgb(21 25 31 / 45%);
+
+  /* Payment states · light */
+  --paid-container: #dcf1e2;
+  --on-paid-container: #0f5427;
+  --partial-container: #fce8c3;
+  --on-partial-container: #663c00;
+  --due-container: #ffffff;
+  --on-due-container: #2b3440;
+  --due-outline: #6e7682;
+  --overdue-fill: #a3201a;
+  --on-overdue-fill: #ffffff;
+  --verifying-container: #efe6fb;
+  --on-verifying-container: #5b2e9e;
+  --verifying-outline: #5b2e9e;
+  --late-swatch: #db6f67;
+
+  /* Spacing · 4 icon-label, 8 chips, 12 list items, 16 margin, 24 sections, 32 money */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s6: 24px;
+  --s8: 32px;
+
+  /* Shape · fields 8, cards 12, chips/sheets 16 */
+  --r-field: 8px;
+  --r-card: 12px;
+  --r-sheet: 16px;
+  --r-pill: 999px;
+
+  /* Type · Noto Sans + Noto Sans Bengali merged, as on Android */
+  --font: 'Noto ShikkhokPlus', 'Noto Sans Bengali', 'Noto Sans', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  --text-scale: 1;
+
+  /* Motion · 150ms fades, no shimmer */
+  --fade: 150ms ease-out;
+
+  /* Layout */
+  --rail-width: 248px;
+  --content-max: 760px;
+  --touch: 48px;
+  --money-touch: 56px;
+}
+
+:root[data-text-scale='large'] {
+  --text-scale: 1.15;
+}
+:root[data-text-scale='largest'] {
+  --text-scale: 1.3;
+}
+
+/* Dark: near-black, not #000 — pure black smears on cheap panels. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --primary: #a9c7ff;
+    --on-primary: #0b2447;
+    --primary-container: #1e3f6e;
+    --on-primary-container: #d8e3f7;
+    --secondary: #b9c4d6;
+    --error: #ffb4ab;
+    --error-container: #5c1712;
+    --on-error-container: #ffdad6;
+    --background: #0f1215;
+    --surface: #15191e;
+    --surface-container: #1c2128;
+    --surface-container-high: #252b33;
+    --on-surface: #e6e9ee;
+    --on-surface-variant: #b5bcc7;
+    --outline: #8a929e;
+    --outline-variant: #343b45;
+    --inverse-surface: #e6e9ee;
+    --inverse-on-surface: #15191e;
+    --inverse-primary: #1d4f91;
+    --info-container: #1a2a44;
+    --scrim: rgb(0 0 0 / 60%);
+    --paid-container: #10301c;
+    --on-paid-container: #8fd9a6;
+    --partial-container: #3a2a0c;
+    --on-partial-container: #f5c26b;
+    --due-container: transparent;
+    --on-due-container: #d7dce3;
+    --due-outline: #8a929e;
+    --overdue-fill: #ff7a6e;
+    --on-overdue-fill: #1f0000;
+    --verifying-container: #2a1b45;
+    --on-verifying-container: #d1b8ff;
+    --verifying-outline: #d1b8ff;
+    --late-swatch: #c9554d;
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --primary: #a9c7ff;
+  --on-primary: #0b2447;
+  --primary-container: #1e3f6e;
+  --on-primary-container: #d8e3f7;
+  --secondary: #b9c4d6;
+  --error: #ffb4ab;
+  --error-container: #5c1712;
+  --on-error-container: #ffdad6;
+  --background: #0f1215;
+  --surface: #15191e;
+  --surface-container: #1c2128;
+  --surface-container-high: #252b33;
+  --on-surface: #e6e9ee;
+  --on-surface-variant: #b5bcc7;
+  --outline: #8a929e;
+  --outline-variant: #343b45;
+  --inverse-surface: #e6e9ee;
+  --inverse-on-surface: #15191e;
+  --inverse-primary: #1d4f91;
+  --info-container: #1a2a44;
+  --scrim: rgb(0 0 0 / 60%);
+  --paid-container: #10301c;
+  --on-paid-container: #8fd9a6;
+  --partial-container: #3a2a0c;
+  --on-partial-container: #f5c26b;
+  --due-container: transparent;
+  --on-due-container: #d7dce3;
+  --due-outline: #8a929e;
+  --overdue-fill: #ff7a6e;
+  --on-overdue-fill: #1f0000;
+  --verifying-container: #2a1b45;
+  --on-verifying-container: #d1b8ff;
+  --verifying-outline: #d1b8ff;
+  --late-swatch: #c9554d;
+}

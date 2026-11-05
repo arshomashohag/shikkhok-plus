@@ -1,0 +1,23 @@
+{
+  "web_install": "Install app",
+  "web_install_sub": "Open ShikkhokPlus in its own window, from your desktop or home screen",
+  "web_installed": "Installed",
+  "web_update_ready": "A new version is ready.",
+  "web_update_reload": "Reload",
+  "web_offline_ready": "ShikkhokPlus now opens without a connection.",
+  "web_language": "Language",
+  "web_language_sub": "বাংলা or English",
+  "web_settings_sub": "Theme, text size and language",
+  "web_section_language": "LANGUAGE",
+  "web_offline_banner": "You're offline. What's on screen is what was last loaded; nothing changes until you're back online.",
+  "web_offline_shell": "This screen needs a connection. Nothing is stored on this computer, so there's nothing to show until you're back online.",
+  "web_not_on_web_title": "Not on the web yet",
+  "web_not_on_web_body": "This part of ShikkhokPlus is in the Android app for now. It is coming to the web next.",
+  "web_skip_to_content": "Skip to content",
+  "web_signed_in_as": "Signed in as {1}",
+  "web_more_payments_on_android": "Splitting a payment across children, or crediting an overpayment, is in the Android app for now.",
+  "web_role_none": "No role yet",
+  "web_shared_computer": "On a shared computer, log out when you're done.",
+  "web_verify_rejected": "Rejected {1}'s payment",
+  "web_verify_offline": "No connection. Nothing was approved."
+}
