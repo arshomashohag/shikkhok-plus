@@ -153,3 +153,27 @@ export const EditIcon = (p: IconProps) => (
     <path d="m13.5 6.5 4 4" />
   </Svg>
 )
+export const PanelIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="3" y="4" width="18" height="16" rx="2" />
+    <path d="M9 4v16" />
+  </Svg>
+)
+export const CheckBadgeIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="3" y="6" width="18" height="13" rx="2" />
+    <path d="m8.5 12.5 2.5 2.5 4.5-5" />
+  </Svg>
+)
+export const TeacherIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="3" y="4" width="18" height="12" rx="1.5" />
+    <path d="M7 20h10M12 16v4M7 9h6M7 12h4" />
+  </Svg>
+)
+export const GraduationIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="m2 9 10-5 10 5-10 5z" />
+    <path d="M6 11v5c3 2 9 2 12 0v-5" />
+  </Svg>
+)

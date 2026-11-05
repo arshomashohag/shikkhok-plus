@@ -50,6 +50,25 @@ class MarksViewModelWriteTest {
             return publishResult
         }
 
+        var cancelResult: AuthResult<ExamDto> =
+            AuthResult.Ok(ExamDto("x-1", "Mid-term", "2026-11-04", totalMarks = 50, cancelled = true))
+        val cancels = mutableListOf<Pair<String, String?>>()
+
+        override suspend fun cancelExam(examId: String, reason: String?): AuthResult<ExamDto> {
+            cancels += examId to reason
+            if (cancelResult is AuthResult.Ok<*>) {
+                resultsResult =
+                    AuthResult.Ok(
+                        ExamResultsPayload(
+                            ExamDto("x-1", "Mid-term", "2026-11-04", totalMarks = 50, cancelled = true),
+                            emptyList(),
+                            writable = false,
+                        ),
+                    )
+            }
+            return cancelResult
+        }
+
         override suspend fun exams(batchId: String): AuthResult<List<ExamDto>> {
             examReads++
             return AuthResult.Ok(emptyList())
@@ -268,5 +287,81 @@ class MarksViewModelWriteTest {
 
         val state = assertIs<MarksUiState.EntryLoaded>(model.state.value)
         assertEquals("marks.publish.incomplete", state.publishError)
+    }
+
+    @Test
+    fun `cancelling sends the trimmed reason, then reads the exam again as cancelled`() = runTest(dispatcher) {
+        // [0019] The server tells every family and refuses later writes;
+        // the screen only reads back what it now says.
+        val repository = Fake()
+        repository.resultsResult =
+            AuthResult.Ok(ExamResultsPayload(ExamDto("x-1", "Mid-term", "2026-11-04", totalMarks = 50), emptyList()))
+        val model = MarksViewModel(repository).also { it.loadResults("x-1") }
+        advanceUntilIdle()
+        assertEquals(true, assertIs<MarksUiState.EntryLoaded>(model.state.value).canCancel)
+
+        model.cancelExam("  Hartal  ")
+        advanceUntilIdle()
+
+        assertEquals(listOf<Pair<String, String?>>("x-1" to "Hartal"), repository.cancels)
+        assertEquals(2, repository.resultReads, "cancelled, so read again")
+        val state = assertIs<MarksUiState.EntryLoaded>(model.state.value)
+        assertEquals(true, state.cancelled)
+        assertEquals(false, state.writable)
+        assertEquals(false, state.canCancel)
+    }
+
+    @Test
+    fun `a blank reason is sent as none`() = runTest(dispatcher) {
+        val repository = Fake()
+        repository.resultsResult =
+            AuthResult.Ok(ExamResultsPayload(ExamDto("x-1", "Mid-term", "2026-11-04", totalMarks = 50), emptyList()))
+        val model = MarksViewModel(repository).also { it.loadResults("x-1") }
+        advanceUntilIdle()
+
+        model.cancelExam("   ")
+        advanceUntilIdle()
+
+        assertEquals(listOf<Pair<String, String?>>("x-1" to null), repository.cancels)
+    }
+
+    @Test
+    fun `a published exam is not offered, and the server's refusal stays on the entry screen`() =
+        runTest(dispatcher) {
+            val repository = Fake()
+            repository.resultsResult =
+                AuthResult.Ok(
+                    ExamResultsPayload(
+                        ExamDto("x-1", "Mid-term", "2026-11-04", totalMarks = 50, published = true),
+                        emptyList(),
+                    ),
+                )
+            repository.cancelResult =
+                AuthResult.Refused(ErrorEnvelope(ErrorBody("EXAM_PUBLISHED", false, "marks.exam.published")))
+            val model = MarksViewModel(repository).also { it.loadResults("x-1") }
+            advanceUntilIdle()
+            assertEquals(false, assertIs<MarksUiState.EntryLoaded>(model.state.value).canCancel)
+
+            model.cancelExam("")
+            advanceUntilIdle()
+
+            val state = assertIs<MarksUiState.EntryLoaded>(model.state.value)
+            assertEquals("marks.exam.published", state.publishError)
+            assertEquals(1, repository.resultReads, "refused, so nothing to read again")
+        }
+
+    @Test
+    fun `a cancelled exam on the list carries its flag`() {
+        val state =
+            MarksStateMapper.afterExams(
+                "Batch A",
+                listOf(
+                    ExamDto("x-1", "Mid-term", "2026-11-04", totalMarks = 50, cancelled = true),
+                    ExamDto("x-2", "Weekly", "2026-11-11", totalMarks = 20),
+                ),
+            )
+
+        val exams = assertIs<MarksUiState.ExamsLoaded>(state).exams
+        assertEquals(listOf(true, false), exams.map { it.cancelled })
     }
 }

@@ -49,6 +49,7 @@ __all__ = [
     "PaymentReviewResponse",
     "PaymentSubmitRequest",
     "PaymentSubmittedResponse",
+    "ReceivedPaymentRequest",
     "RecentDecisionResponse",
     "ReminderRequest",
     "ReminderResponse",
@@ -265,6 +266,39 @@ class PaymentApprovalRequest(BaseModel):
     credit_to_enrollment_id: uuid.UUID | None = None
     note: str | None = Field(default=None, max_length=500)
     correcting: bool = False
+
+
+class ReceivedPaymentRequest(BaseModel):
+    """Money a teacher received by hand for one seat, recorded as approved.
+
+    ``shortfall_disposition`` follows the approval rule exactly [BR5.4]:
+    required when ``amount`` is less than the seat owes across its unpaid
+    months, refused otherwise, and never defaulted. More than is owed is
+    held as credit. The server decides all three, because only it knows
+    what is owed.
+
+    :ivar amount: What was received; more than zero
+    :ivar channel: ``cash`` by default, or one of the mobile services the
+        payment-method routes list, for money sent straight to the teacher
+    :ivar reference: A transaction id or receipt number, if any
+    :ivar note: Shown to the family with the record
+    :ivar paid_on: The day the money changed hands; today when omitted
+    :ivar shortfall_disposition: Carried or waived, when short
+    :ivar client_mutation_id: The client's retry key, one per record. A
+        resend by the same account returns the original payment with the
+        original 201 and records nothing; the same key with a different
+        payment is a 409
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    amount: MoneyField
+    channel: str = Field(default="cash", min_length=1, max_length=32)
+    reference: str | None = Field(default=None, max_length=64)
+    note: str | None = Field(default=None, max_length=500)
+    paid_on: dt.date | None = None
+    shortfall_disposition: ShortfallDisposition | None = None
+    client_mutation_id: uuid.UUID | None = None
 
 
 class PaymentRejectionRequest(BaseModel):

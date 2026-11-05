@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -41,15 +42,18 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.shikkhokplus.app.R
+import com.shikkhokplus.app.core.designsystem.DestructiveButton
 import com.shikkhokplus.app.core.designsystem.EmptyState
 import com.shikkhokplus.app.core.designsystem.ListScreenScaffold
 import com.shikkhokplus.app.core.designsystem.Reach
+import com.shikkhokplus.app.core.designsystem.ShikkhokTextField
 import com.shikkhokplus.app.core.designsystem.SkeletonList
 import com.shikkhokplus.app.core.designsystem.Spacing
 import com.shikkhokplus.app.core.designsystem.TextAction
 import com.shikkhokplus.app.core.designsystem.rememberHaptics
 import com.shikkhokplus.app.core.format.Numerals
 import com.shikkhokplus.app.feature.auth.MessageKeys
+import com.shikkhokplus.app.feature.marks.CANCEL_REASON_MAX
 import com.shikkhokplus.app.feature.marks.MarkRow
 import com.shikkhokplus.app.feature.marks.MarksUiState
 
@@ -119,6 +123,18 @@ const val TAG_MARK_ENTRY_NEXT: String = "mark_entry_next"
 /** The dock's delete-one-digit control. */
 const val TAG_MARK_ENTRY_BACKSPACE: String = "mark_entry_backspace"
 
+/** "Cancel exam", offered while the exam is on and unpublished. */
+const val TAG_MARK_ENTRY_CANCEL: String = "mark_entry_cancel"
+
+/** The confirmation's own "Cancel exam" button. */
+const val TAG_MARK_ENTRY_CANCEL_CONFIRM: String = "mark_entry_cancel_confirm"
+
+/** The confirmation's reason field. */
+const val TAG_MARK_ENTRY_CANCEL_REASON: String = "mark_entry_cancel_reason"
+
+/** The note on a cancelled exam. */
+const val TAG_MARK_ENTRY_CANCELLED: String = "mark_entry_cancelled"
+
 /**
  * Mark entry for one exam [FR4.2, FR4.3], as continuous entry (T3).
  *
@@ -153,6 +169,8 @@ const val TAG_MARK_ENTRY_BACKSPACE: String = "mark_entry_backspace"
  * @param onHistory Called to see every mark recorded for a seat
  * @param onPublish Called to publish the results to students and
  *   guardians, once every seat has one (decided 2026-11-05)
+ * @param onCancelExam Called with the teacher's reason once they have
+ *   confirmed cancelling the exam [0019]
  */
 @Composable
 fun MarkEntryScreen(
@@ -164,6 +182,7 @@ fun MarkEntryScreen(
     onEditExam: () -> Unit = {},
     onHistory: (MarkRow) -> Unit = {},
     onPublish: () -> Unit = {},
+    onCancelExam: (String) -> Unit = {},
 ) {
     val loaded = state as? MarksUiState.EntryLoaded
     val entry = rememberEntry(loaded, onMark)
@@ -177,6 +196,7 @@ fun MarkEntryScreen(
             loaded?.let {
                 Progress(it.rows)
                 PublishBar(it, onPublish)
+                CancelExam(it, onCancelExam)
             }
         },
         bottomBar = { DockFor(loaded, entry, onAbsent, onHistory) },
@@ -211,7 +231,13 @@ fun MarkEntryScreen(
  */
 @Composable
 private fun EntryList(state: MarksUiState.EntryLoaded, entry: Entry) {
-    if (!state.writable) {
+    if (state.cancelled) {
+        Text(
+            stringResource(R.string.marks_exam_cancelled),
+            Modifier.testTag(TAG_MARK_ENTRY_CANCELLED),
+            color = MaterialTheme.colorScheme.error,
+        )
+    } else if (!state.writable) {
         Text(
             stringResource(R.string.mark_entry_read_only),
             Modifier.testTag(TAG_MARK_ENTRY_READ_ONLY),
@@ -297,6 +323,59 @@ private fun PublishBar(state: MarksUiState.EntryLoaded, onPublish: () -> Unit) {
             )
         }
     }
+}
+
+/**
+ * "Cancel exam" and its confirmation [0019].
+ *
+ * Offered only while the exam is on and its results are not out; the
+ * server refuses a published one, and that refusal shows in the publish
+ * bar. **Nothing is sent until the teacher confirms**, in a dialog that
+ * says every student and guardian will be told.
+ *
+ * @param state The exam
+ * @param onCancelExam Called with the reason once confirmed
+ */
+@Composable
+private fun CancelExam(state: MarksUiState.EntryLoaded, onCancelExam: (String) -> Unit) {
+    if (!state.canCancel) return
+    var asking by remember(state.examId) { mutableStateOf(false) }
+    var reason by remember(state.examId) { mutableStateOf("") }
+    TextAction(
+        stringResource(R.string.exam_cancel_action),
+        { asking = true },
+        Modifier.testTag(TAG_MARK_ENTRY_CANCEL),
+    )
+    if (!asking) return
+    AlertDialog(
+        onDismissRequest = { asking = false },
+        title = { Text(stringResource(R.string.exam_cancel_confirm_title, Numerals.freeText(state.examTitle))) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(stringResource(R.string.exam_cancel_confirm_body))
+                ShikkhokTextField(
+                    value = reason,
+                    onValueChange = { reason = it.take(CANCEL_REASON_MAX) },
+                    label = stringResource(R.string.exam_cancel_reason),
+                    fieldModifier = Modifier.testTag(TAG_MARK_ENTRY_CANCEL_REASON),
+                )
+            }
+        },
+        confirmButton = {
+            DestructiveButton(
+                text = stringResource(R.string.exam_cancel_action),
+                onClick = {
+                    asking = false
+                    onCancelExam(reason)
+                },
+                filled = true,
+                modifier = Modifier.testTag(TAG_MARK_ENTRY_CANCEL_CONFIRM),
+            )
+        },
+        dismissButton = {
+            TextAction(stringResource(R.string.exam_cancel_keep), { asking = false })
+        },
+    )
 }
 
 /**

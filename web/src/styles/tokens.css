@@ -98,7 +98,13 @@
 
   /* Layout */
   --rail-width: 248px;
-  --content-max: 760px;
+  --rail-collapsed: 76px;
+  /* Desktop content sits a small gap from the rail and fills the window
+     up to this width, as the web boards draw it; it is not centred. */
+  --content-max: 1240px;
+  /* Hairlines between rows and around cards on desktop. */
+  --divider: #e4e8ee;
+  --r-panel: 16px;
   --touch: 48px;
   --money-touch: 56px;
 }
@@ -130,6 +136,7 @@
     --on-surface-variant: #b5bcc7;
     --outline: #8a929e;
     --outline-variant: #343b45;
+    --divider: #2a3039;
     --inverse-surface: #e6e9ee;
     --inverse-on-surface: #15191e;
     --inverse-primary: #1d4f91;
@@ -169,6 +176,7 @@
   --on-surface-variant: #b5bcc7;
   --outline: #8a929e;
   --outline-variant: #343b45;
+  --divider: #2a3039;
   --inverse-surface: #e6e9ee;
   --inverse-on-surface: #15191e;
   --inverse-primary: #1d4f91;

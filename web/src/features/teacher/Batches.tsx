@@ -8,6 +8,7 @@ import { ApiError } from '../../api/errors'
 import { formatClock } from '../../core/format'
 import { Money, toLatinDigits } from '../../core/money'
 import { useResource } from '../../core/useResource'
+import { useWide } from '../../core/useWide'
 import { useT } from '../../i18n/i18n'
 import { useSession } from '../../session/session'
 import { EmptyState, ErrorCard, Loading, StaleBanner, TopBar } from '../../ui/components'
@@ -39,14 +40,23 @@ export function useScheduleLine() {
 export function Batches() {
   const { t, plural } = useT()
   const scheduleLine = useScheduleLine()
+  const wide = useWide()
   const { resource, reload } = useResource(() => listBatches().then((b) => b.map(mapBatch)), [])
 
-  const fab = (
+  // A phone reaches "New batch" from the floating button; a wide window
+  // from the page header, as the web boards put it.
+  const fab = wide ? null : (
     <Link to="/batches/new" className="btn btn-primary fab">
       <PlusIcon />
       {t('batch_create_title')}
     </Link>
   )
+  const headerAction = wide ? (
+    <Link to="/batches/new" className="btn btn-primary">
+      <PlusIcon />
+      {t('batch_create_title')}
+    </Link>
+  ) : null
 
   if (resource.state === 'loading') {
     return (
@@ -86,27 +96,53 @@ export function Batches() {
   const students = batches.reduce((n, b) => n + b.enrollmentCount, 0)
   return (
     <>
-      <TopBar title={t('batches_title')} subtitle={t('batches_count', batches.length, students)} />
+      <TopBar
+        title={t('batches_title')}
+        subtitle={t('batches_count', batches.length, students)}
+        actions={headerAction}
+      />
       {resource.error ? <StaleBanner error={resource.error} loadedAt={resource.loadedAt} /> : null}
-      <div className="grid-2" style={{ marginTop: 12 }}>
+      <div className="card-grid" style={{ marginTop: resource.error ? 12 : 0 }}>
         {batches.map((b) => {
-          const line = [b.subjects.join(', '), scheduleLine(b)].filter(Boolean).join(' · ')
+          const schedule = scheduleLine(b)
           return (
-            <Link
-              key={b.id}
-              to={`/batches/${b.id}`}
-              className="card"
-              style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}
-            >
-              <div className="title">{b.name}</div>
-              {line ? <div className="meta">{line}</div> : null}
-              <div className="meta" style={{ marginTop: 4, color: 'var(--on-surface)' }}>
-                {plural('batches_student_count', b.enrollmentCount)}
-                {b.defaultFee ? ` · ${t('batch_fee_monthly', b.defaultFee.format())}` : ''}
+            <Link key={b.id} to={`/batches/${b.id}`} className="card tile">
+              <div>
+                <div className="tile-title">{b.name}</div>
+                <div className="meta">
+                  {[b.subjects.join(', '), schedule].filter(Boolean).join(' · ')}
+                </div>
+              </div>
+              {b.feeDueDay && b.defaultFee ? (
+                <div className="meta">{t('batch_fee_due', b.defaultFee.format(), b.feeDueDay)}</div>
+              ) : null}
+              <div className="tile-foot">
+                <span>
+                  {plural('batches_student_count', b.enrollmentCount)}
+                  {b.defaultFee && !b.feeDueDay
+                    ? ` · ${t('batch_fee_monthly', b.defaultFee.format())}`
+                    : ''}
+                </span>
+                {b.enrollmentCount > 0 ? (
+                  <span className="chip chip-neutral">
+                    {t('web_batches_joined', b.acceptedCount, b.enrollmentCount)}
+                  </span>
+                ) : (
+                  <span className="meta accent">{t('batch_add_first_student')}</span>
+                )}
               </div>
             </Link>
           )
         })}
+        {wide ? (
+          <Link to="/batches/new" className="card tile new-tile">
+            <PlusIcon />
+            {t('batch_create_title')}
+            <span className="meta" style={{ fontWeight: 400, maxWidth: 240 }}>
+              {t('web_batches_new_hint')}
+            </span>
+          </Link>
+        ) : null}
       </div>
       {fab}
     </>

@@ -1298,4 +1298,27 @@
     <string name="pick_students_add">%1$s জনকে যোগ করুন</string>
     <string name="action_confirm">নিশ্চিত করুন</string>
     <string name="student_add_same_name_any">%1$s আগে থেকেই আপনার তালিকায় আছে। ভিন্ন শিক্ষার্থী হলে তবেই যোগ করুন।</string>
+    <!-- A teacher records money received by hand (POST /v1/enrollments/{id}/payments). -->
+    <string name="fees_record_payment">পেমেন্ট লিখুন</string>
+    <string name="fees_record_title">হাতে পাওয়া পেমেন্ট লিখুন</string>
+    <string name="fees_record_owed">এখন বাকি: %1$s</string>
+    <string name="fees_record_channel">কীভাবে পেয়েছেন</string>
+    <string name="fees_record_channel_cash">নগদ</string>
+    <string name="fees_record_reference">রেফারেন্স বা লেনদেন আইডি (ঐচ্ছিক)</string>
+    <string name="fees_record_note">পরিবারের জন্য নোট (ঐচ্ছিক)</string>
+    <string name="fees_record_confirm">%1$s লিখুন</string>
+    <string name="fees_record_done">পেমেন্ট লেখা হয়েছে</string>
+    <string name="inbox_payment_recorded_title">পেমেন্ট লেখা হয়েছে · %1$s</string>
+    <string name="inbox_payment_recorded_body">শিক্ষক %2$s মাসের জন্য %1$s পাওয়া লিখেছেন।</string>
+    <!-- A teacher cancels an exam whose results are not published (POST /v1/exams/{id}/cancel). -->
+    <string name="exam_cancel_action">পরীক্ষা বাতিল করুন</string>
+    <string name="exam_cancel_confirm_title">%1$s বাতিল করবেন?</string>
+    <string name="exam_cancel_confirm_body">ব্যাচের প্রত্যেক শিক্ষার্থী ও অভিভাবককে জানানো হবে। এরপর এই পরীক্ষার নম্বর লেখা বা প্রকাশ করা যাবে না।</string>
+    <string name="exam_cancel_reason">কারণ (ঐচ্ছিক)</string>
+    <string name="exam_cancel_keep">পরীক্ষা রাখুন</string>
+    <string name="exam_cancelled_chip">বাতিল</string>
+    <string name="marks_exam_cancelled">এই পরীক্ষা বাতিল করা হয়েছে। এতে আর কিছু লেখা যাবে না।</string>
+    <string name="marks_exam_published">ফলাফল আগেই প্রকাশিত হয়েছে, তাই এই পরীক্ষা বাতিল করা যাবে না।</string>
+    <string name="inbox_exam_cancelled_title">পরীক্ষা বাতিল · %1$s</string>
+    <string name="inbox_exam_cancelled_line">এই পরীক্ষা বাতিল করা হয়েছে।</string>
 </resources>

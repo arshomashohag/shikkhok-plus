@@ -2,9 +2,12 @@ package com.shikkhokplus.app.core.network
 
 import com.shikkhokplus.app.feature.auth.AuthResult
 import com.shikkhokplus.app.feature.fees.FeesRepository
+import com.shikkhokplus.app.feature.fees.RecordPaymentRepository
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
 
 /**
  * The fee history repository, over HTTP.
@@ -19,11 +22,14 @@ import io.ktor.client.request.parameter
  * Every response carries the server's own `total_outstanding`. The
  * client never sums the rows [D-20].
  *
+ * The teacher's one write here, recording money received by hand, goes
+ * to the seat's own payments route under the teacher lens.
+ *
  * @property client The authenticated HTTP client
  */
 class HttpFeesRepository(
     private val client: HttpClient,
-) : FeesRepository {
+) : FeesRepository, RecordPaymentRepository {
 
     /**
      * Read the signed-in student's own history for one seat.
@@ -65,4 +71,18 @@ class HttpFeesRepository(
         enrollmentId: String,
     ): AuthResult<FeeHistoryDto> =
         call { client.get("/v1/enrollments/$enrollmentId/fees") }
+
+    /**
+     * Record money received by hand for one seat, approved in one step.
+     *
+     * @param enrollmentId The seat, which must be on one of the
+     *   teacher's own batches
+     * @param body The amount, channel, reference, note and carry-or-waive
+     * @return The recorded payment, a refusal, or a transport failure
+     */
+    override suspend fun recordPayment(
+        enrollmentId: String,
+        body: RecordPaymentBodyDto,
+    ): AuthResult<PaymentReviewDto> =
+        call { client.post("/v1/enrollments/$enrollmentId/payments") { setBody(body) } }
 }

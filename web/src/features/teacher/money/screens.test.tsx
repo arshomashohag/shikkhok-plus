@@ -92,6 +92,90 @@ describe('SeatFees', () => {
     at('/seats/e1/fees', '/seats/:enrollmentId/fees', <SeatFees />)
     expect(await screen.findByText('No fee has been charged yet.')).toBeInTheDocument()
   })
+
+  const owing = {
+    cycles: [
+      {
+        period: '2026-10',
+        charged: '1500.00',
+        outstanding: '1500.00',
+        status: 'unpaid',
+        due_date: '2026-10-10',
+      },
+    ],
+    total_outstanding: '1500.00',
+    month_states: [],
+  }
+
+  it('records cash received, asking carry or waive only when short', async () => {
+    fetchMock.mockImplementation(async (_u: string, init: RequestInit) =>
+      init.method === 'POST' ? json(201, {}) : json(200, owing),
+    )
+    at('/seats/e1/fees?name=Tasnim', '/seats/:enrollmentId/fees', <SeatFees />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Record payment' }))
+
+    const sheet = screen.getByRole('dialog')
+    expect(within(sheet).getByText('Owed now: ৳1,500')).toBeInTheDocument()
+    const amount = within(sheet).getByLabelText('Amount you received')
+    expect(amount).toHaveValue('1500')
+    expect(within(sheet).getByLabelText('Received as')).toHaveValue('cash')
+    expect(within(sheet).queryByText('Carry forward')).toBeNull()
+
+    await userEvent.clear(amount)
+    await userEvent.type(amount, '1000')
+    const confirm = within(sheet).getByRole('button', { name: 'Record ৳1,000' })
+    expect(confirm).toBeDisabled()
+    await userEvent.click(within(sheet).getByText('Carry forward'))
+    await userEvent.type(
+      within(sheet).getByLabelText('Note to the family (optional)'),
+      'Rest later',
+    )
+    await userEvent.click(confirm)
+
+    expect(await screen.findByText('Payment recorded')).toBeInTheDocument()
+    const [sent] = calls('POST', '/v1/enrollments/e1/payments')
+    expect(JSON.parse(sent![1].body as string)).toEqual({
+      amount: '1000.00',
+      channel: 'cash',
+      reference: null,
+      note: 'Rest later',
+      shortfall_disposition: 'carried',
+      client_mutation_id: expect.any(String),
+    })
+    // The history is read again, so what shows is what the server recorded.
+    expect(calls('GET', '/v1/enrollments/e1/fees').length).toBe(2)
+  })
+
+  it('keeps the sheet open with the server’s refusal, and resends under the same key', async () => {
+    let posts = 0
+    fetchMock.mockImplementation(async (_u: string, init: RequestInit) => {
+      if (init.method !== 'POST') return json(200, owing)
+      posts += 1
+      return posts === 1
+        ? json(400, {
+            error: {
+              code: 'SHORTFALL_DISPOSITION_REQUIRED',
+              message_key: 'fees.verification.disposition_required',
+              retryable: false,
+            },
+          })
+        : json(201, {})
+    })
+    at('/seats/e1/fees', '/seats/:enrollmentId/fees', <SeatFees />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Record payment' }))
+    const sheet = screen.getByRole('dialog')
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Record ৳1,500' }))
+
+    expect(await within(sheet).findByRole('alert')).toHaveTextContent(
+      'Choose whether the rest stays owed or is waived.',
+    )
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Record ৳1,500' }))
+    expect(await screen.findByText('Payment recorded')).toBeInTheDocument()
+    const [first, second] = calls('POST', '/v1/enrollments/e1/payments').map(
+      ([, init]) => JSON.parse((init as RequestInit).body as string) as Record<string, unknown>,
+    )
+    expect(second!.client_mutation_id).toBe(first!.client_mutation_id)
+  })
 })
 
 describe('PaymentMethods', () => {
@@ -314,5 +398,39 @@ describe('BatchMonth', () => {
       'href',
       '/seats/c/fees?name=Chandni&batch=Physics',
     )
+  })
+
+  it('offers Record payment on a seat that still owes, and only there', async () => {
+    fetchMock.mockImplementation(async (url: string, init: RequestInit) =>
+      url === '/v1/batches'
+        ? json(200, [{ id: 'b1', name: 'Physics' }])
+        : init.method === 'POST'
+          ? json(201, {})
+          : json(200, {
+              period: '2026-10',
+              charged: '2400.00',
+              collected: '1200.00',
+              counts: { paid: 1, checking: 0, owed: 1 },
+              seats: [
+                { enrollment_id: 'a', display_name: 'Anika', outstanding: '0.00', state: 'paid' },
+                {
+                  enrollment_id: 'c',
+                  display_name: 'Chandni',
+                  outstanding: '1200.00',
+                  state: 'unpaid',
+                  days_overdue: 25,
+                },
+              ],
+            }),
+    )
+    at('/batches/b1/month/2026-10', '/batches/:batchId/month/:period', <BatchMonthScreen />)
+    const record = await screen.findAllByRole('button', { name: 'Record payment' })
+    expect(record).toHaveLength(1)
+    await userEvent.click(record[0]!)
+    const sheet = screen.getByRole('dialog')
+    expect(within(sheet).getByText('Chandni')).toBeInTheDocument()
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Record ৳1,200' }))
+    expect(await screen.findByText('Payment recorded')).toBeInTheDocument()
+    expect(calls('POST', '/v1/enrollments/c/payments')).toHaveLength(1)
   })
 })

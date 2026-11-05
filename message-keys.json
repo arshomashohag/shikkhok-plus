@@ -45,6 +45,8 @@
     "fees.verification.disposition_required",
     "fees.verification.disposition_unknown",
     "inbox.not_available",
+    "marks.exam.cancelled",
+    "marks.exam.published",
     "marks.exam.total_below_recorded",
     "marks.exam.total_invalid",
     "marks.out_of_range",

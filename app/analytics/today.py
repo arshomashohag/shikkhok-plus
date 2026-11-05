@@ -196,7 +196,11 @@ def _classes(session: Session, lens: TeacherLens, now: dt.datetime) -> list[Toda
     for exam_id, batch_id, title in session.execute(
         sa.select(Exam.id, Exam.batch_id, Exam.title)
         .join(Batch, Batch.id == Exam.batch_id)
-        .where(Batch.owner_id == lens.owner_id, Exam.date == today)
+        .where(
+            Batch.owner_id == lens.owner_id,
+            Exam.date == today,
+            Exam.cancelled_at.is_(None),
+        )
         .order_by(Exam.created_at)
     ).all():
         exams.setdefault(batch_id, (exam_id, title))

@@ -80,6 +80,7 @@ object MarksStateMapper {
                     expectedCount = dto.expectedCount,
                     state = dto.state,
                     published = dto.published,
+                    cancelled = dto.cancelled,
                 )
             },
         )
@@ -108,6 +109,7 @@ object MarksStateMapper {
         examTopics: List<String> = emptyList(),
         published: Boolean = false,
         toEnter: Int = 0,
+        cancelled: Boolean = false,
     ): MarksUiState {
         val rows =
             results.map { dto ->
@@ -141,6 +143,7 @@ object MarksStateMapper {
             examTopics = examTopics,
             published = published,
             toEnter = toEnter,
+            cancelled = cancelled,
         )
     }
 

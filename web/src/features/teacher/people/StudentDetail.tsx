@@ -18,11 +18,13 @@ import { ErrorCard, Loading, Sheet, Snackbar, TopBar } from '../../../ui/compone
 import { mapBatch } from '../mappers'
 import { paths } from '../paths'
 import { removeEnrollment, setInactiveFrom } from '../students/api'
+import { RecordPaymentSheet } from '../money/RecordPaymentSheet'
 import { bangladeshToday } from '../students/mappers'
 import { enrollStudent, readStudent, removeStudent } from './api'
 import { linkKey, mapStudent, otherBatches, type SeatLine } from './mappers'
 
-type Dialog = { kind: 'leave'; seat: SeatLine } | { kind: 'remove' } | null
+type Dialog =
+  { kind: 'leave'; seat: SeatLine } | { kind: 'remove' } | { kind: 'record'; seat: SeatLine } | null
 
 export function StudentDetail() {
   const { studentId = '' } = useParams()
@@ -90,91 +92,101 @@ export function StudentDetail() {
         subtitle={student.studentPhone ? formatPhone(student.studentPhone) : undefined}
         back={paths.students()}
       />
-      <section className="card" style={{ marginTop: 8 }}>
-        <div className="kv">
-          <span className="meta">{t('student_detail_student_link')}</span>
-          <span className="title">{t(linkKey(student.studentState))}</span>
-        </div>
-        <div className="kv">
-          <span className="meta">{guardianLabel}</span>
-          <span className="title">{t(linkKey(student.guardianState))}</span>
-        </div>
-        <div className="kv">
-          <span className="meta">{t('student_detail_total_due')}</span>
-          <span className="title">{student.totalOutstanding.format()}</span>
-        </div>
-      </section>
+      <div className="student-detail">
+        <section className="card" style={{ marginTop: 8 }}>
+          <div className="kv-row">
+            <span className="meta">{t('student_detail_student_link')}</span>
+            <span className="title">{t(linkKey(student.studentState))}</span>
+          </div>
+          <div className="kv-row">
+            <span className="meta">{guardianLabel}</span>
+            <span className="title">{t(linkKey(student.guardianState))}</span>
+          </div>
+          <div className="kv-row">
+            <span className="meta">{t('student_detail_total_due')}</span>
+            <span className="title">{student.totalOutstanding.format()}</span>
+          </div>
+        </section>
 
-      <h2 className="section-label">{t('student_detail_batches')}</h2>
-      {student.seats.length === 0 ? (
-        <p className="meta">{t('student_detail_no_batches')}</p>
-      ) : (
-        <ul className="list card" style={{ padding: 0 }}>
-          {student.seats.map((seat) => (
-            <li key={seat.enrollmentId} className="row">
-              <Link
-                className="grow"
-                style={{ color: 'inherit', textDecoration: 'none' }}
-                to={paths.seatFees(seat.enrollmentId, student.name, seat.batchName)}
-              >
-                <span className="title" style={{ display: 'block' }}>
-                  {seat.batchName}
-                </span>
-                <span className="meta">
-                  {[
-                    seat.fee ? t('student_detail_seat_fee', seat.fee.format()) : null,
-                    t('student_detail_seat_due', seat.outstanding.format()),
-                    seat.active ? null : t('student_detail_left'),
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </span>
-              </Link>
-              {seat.removable ? (
+        <h2 className="section-label">{t('student_detail_batches')}</h2>
+        {student.seats.length === 0 ? (
+          <p className="meta">{t('student_detail_no_batches')}</p>
+        ) : (
+          <ul className="list card" style={{ padding: 0 }}>
+            {student.seats.map((seat) => (
+              <li key={seat.enrollmentId} className="row">
+                <Link
+                  className="grow"
+                  style={{ color: 'inherit', textDecoration: 'none' }}
+                  to={paths.seatFees(seat.enrollmentId, student.name, seat.batchName)}
+                >
+                  <span className="title" style={{ display: 'block' }}>
+                    {seat.batchName}
+                  </span>
+                  <span className="meta">
+                    {[
+                      seat.fee ? t('student_detail_seat_fee', seat.fee.format()) : null,
+                      t('student_detail_seat_due', seat.outstanding.format()),
+                      seat.active ? null : t('student_detail_left'),
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </span>
+                </Link>
                 <button
                   type="button"
                   className="btn btn-text"
                   disabled={busy}
-                  onClick={() => void act(() => removeEnrollment(seat.enrollmentId))}
+                  onClick={() => setDialog({ kind: 'record', seat })}
                 >
-                  {t('student_detail_remove_seat')}
+                  {t('fees_record_payment')}
                 </button>
-              ) : seat.active ? (
-                <button
-                  type="button"
-                  className="btn btn-text"
-                  disabled={busy}
-                  onClick={() => setDialog({ kind: 'leave', seat })}
-                >
-                  {t('student_detail_leave')}
-                </button>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {others.length > 0 ? (
-        <div className="field" style={{ marginTop: 12 }}>
-          <label htmlFor="add-to-batch">{t('student_detail_add_batch')}</label>
-          <select
-            id="add-to-batch"
-            value=""
-            disabled={busy}
-            onChange={(e) => {
-              const batchId = e.target.value
-              if (batchId) void act(() => enrollStudent(student.id, batchId))
-            }}
-          >
-            <option value="">{t('student_add_batches_choose')}</option>
-            {others.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.defaultFee ? `${b.name} · ${b.defaultFee.format()}` : b.name}
-              </option>
+                {seat.removable ? (
+                  <button
+                    type="button"
+                    className="btn btn-text"
+                    disabled={busy}
+                    onClick={() => void act(() => removeEnrollment(seat.enrollmentId))}
+                  >
+                    {t('student_detail_remove_seat')}
+                  </button>
+                ) : seat.active ? (
+                  <button
+                    type="button"
+                    className="btn btn-text"
+                    disabled={busy}
+                    onClick={() => setDialog({ kind: 'leave', seat })}
+                  >
+                    {t('student_detail_leave')}
+                  </button>
+                ) : null}
+              </li>
             ))}
-          </select>
-        </div>
-      ) : null}
+          </ul>
+        )}
+
+        {others.length > 0 ? (
+          <div className="field" style={{ marginTop: 12 }}>
+            <label htmlFor="add-to-batch">{t('student_detail_add_batch')}</label>
+            <select
+              id="add-to-batch"
+              value=""
+              disabled={busy}
+              onChange={(e) => {
+                const batchId = e.target.value
+                if (batchId) void act(() => enrollStudent(student.id, batchId))
+              }}
+            >
+              <option value="">{t('student_add_batches_choose')}</option>
+              {others.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.defaultFee ? `${b.name} · ${b.defaultFee.format()}` : b.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
+      </div>
 
       <div style={{ marginTop: 16 }}>
         {student.removable ? (
@@ -238,6 +250,19 @@ export function StudentDetail() {
             </button>
           </div>
         </Sheet>
+      ) : null}
+      {dialog?.kind === 'record' ? (
+        <RecordPaymentSheet
+          enrollmentId={dialog.seat.enrollmentId}
+          name={`${student.name} · ${dialog.seat.batchName}`}
+          owed={dialog.seat.outstanding}
+          onClose={close}
+          onRecorded={() => {
+            setDialog(null)
+            setSnack(t('fees_record_done'))
+            reload()
+          }}
+        />
       ) : null}
       {snack ? <Snackbar text={snack} onDismiss={dismiss} /> : null}
     </>

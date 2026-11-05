@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Schemas } from '../../../api/endpoints'
 import {
+  canCancel,
   cleanTyped,
   groupExams,
   mapExam,
@@ -27,6 +28,7 @@ function exam(
     expected_count: 4,
     state: 'needs_marks',
     published: false,
+    cancelled: false,
     topics: [],
     ...patch,
   }
@@ -145,4 +147,33 @@ it('rolls, topics and their limits', () => {
   expect(topicsValid(Array.from({ length: 20 }, () => 'x'))).toBe(true)
   expect(topicsValid(Array.from({ length: 21 }, () => 'x'))).toBe(false)
   expect(topicsValid(['x'.repeat(121)])).toBe(false)
+})
+
+describe('cancelled exams', () => {
+  it('reads a missing flag from an older server as not cancelled', () => {
+    const older: Partial<Schemas['ExamListItemResponse']> = { ...exam() }
+    delete older.cancelled
+    expect(mapExam(older as Schemas['ExamListItemResponse']).cancelled).toBe(false)
+  })
+
+  it('moves a cancelled exam out of the working groups into its own, last', () => {
+    const groups = groupExams(
+      [
+        exam({ exam_id: 'a' }),
+        exam({ exam_id: 'b', cancelled: true, cancellation_reason: 'Hartal' }),
+        exam({ exam_id: 'c', state: 'upcoming', cancelled: true }),
+      ].map(mapExam),
+    )
+    expect(groups.map((g) => [g.titleKey, g.exams.map((e) => e.examId)])).toEqual([
+      ['batch_exams_needs_marks', ['a']],
+      ['exam_cancelled_chip', ['b', 'c']],
+    ])
+    expect(groups[1]?.exams[0]?.cancellationReason).toBe('Hartal')
+  })
+
+  it('offers cancelling only an exam still on whose results are not out', () => {
+    expect(canCancel(mapExam(exam()))).toBe(true)
+    expect(canCancel(mapExam(exam({ published: true })))).toBe(false)
+    expect(canCancel(mapExam(exam({ cancelled: true })))).toBe(false)
+  })
 })

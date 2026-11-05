@@ -50,7 +50,7 @@
   min-width: 0;
 }
 
-.kv {
+.kv-row {
   display: flex;
   justify-content: space-between;
   gap: var(--s3);
@@ -63,4 +63,25 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--on-surface-variant);
+}
+
+/* On a wide window the student's summary sits left, their batches right. */
+@media (min-width: 900px) {
+  .student-detail {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+    column-gap: var(--s6);
+    align-items: start;
+  }
+  .student-detail > * {
+    grid-column: 2;
+  }
+  .student-detail > .card:first-child {
+    grid-column: 1;
+    grid-row: 1 / span 4;
+    margin-top: 0 !important;
+  }
+  .student-detail > .section-label:nth-child(2) {
+    margin-top: 0;
+  }
 }

@@ -308,8 +308,10 @@ private fun titleOf(kind: InboxKind): Int =
         InboxKind.PAYMENT_APPROVED -> R.string.inbox_payment_approved_title
         InboxKind.PAYMENT_PARTIAL -> R.string.inbox_payment_partial_title
         InboxKind.PAYMENT_REJECTED -> R.string.inbox_payment_rejected_title
+        InboxKind.PAYMENT_RECORDED -> R.string.inbox_payment_recorded_title
         InboxKind.NOTICE -> R.string.inbox_notice_title
         InboxKind.EXAM_SCHEDULED -> R.string.inbox_exam_scheduled_title
+        InboxKind.EXAM_CANCELLED -> R.string.inbox_exam_cancelled_title
         InboxKind.MARKS_AVAILABLE -> R.string.inbox_marks_available_title
         InboxKind.CLAIM_TO_VERIFY -> R.string.inbox_claim_to_verify_title
     }
@@ -336,6 +338,7 @@ private fun body(message: InboxMessage): String? {
                     InboxKind.PAYMENT_APPROVED -> R.string.inbox_payment_approved_body
                     InboxKind.PAYMENT_PARTIAL -> R.string.inbox_payment_partial_body
                     InboxKind.PAYMENT_REJECTED -> R.string.inbox_payment_rejected_body
+                    InboxKind.PAYMENT_RECORDED -> R.string.inbox_payment_recorded_body
                     InboxKind.CLAIM_TO_VERIFY -> R.string.inbox_claim_to_verify_body
                     else -> R.string.inbox_fee_reminder_body
                 },

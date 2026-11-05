@@ -11,6 +11,7 @@ import { issueCode, verifyCode } from '../../api/endpoints'
 import { ApiError } from '../../api/errors'
 import { formatPhone, normalisePhone } from '../../core/format'
 import { toLatinDigits } from '../../core/money'
+import { AuthFrame } from './AuthFrame'
 import { useT } from '../../i18n/i18n'
 import { useSession } from '../../session/session'
 
@@ -95,108 +96,101 @@ export function SignIn() {
   }
 
   return (
-    <div className="auth-page">
-      <div className="auth-card card">
-        <div className="brand">
-          <img src={`${import.meta.env.BASE_URL}icons/favicon.svg`} alt="" />
-          <span>ShikkhokPlus</span>
-        </div>
-
-        {step.step === 'phone' ? (
-          <form onSubmit={onPhone} noValidate>
-            <h1>{t('auth_headline')}</h1>
-            <p className="meta">{t('auth_subhead')}</p>
-            <div className="field">
-              <label htmlFor="phone">{t('auth_phone_label')}</label>
-              <input
-                id="phone"
-                name="phone"
-                type="tel"
-                inputMode="tel"
-                autoComplete="tel-national"
-                placeholder={t('auth_phone_hint')}
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                aria-invalid={error ? true : undefined}
-                aria-describedby={error ? 'phone-error' : undefined}
-                autoFocus
-              />
-              {error ? (
-                <span id="phone-error" className="field-error" role="alert">
-                  {error}
-                </span>
-              ) : null}
-            </div>
-            <div className="button-row">
-              <button type="submit" className="btn btn-primary btn-money" disabled={busy}>
-                {busy ? t('auth_sending') : t('auth_request_code')}
-              </button>
-            </div>
-            <p className="meta" style={{ marginTop: 24 }}>
-              {t('auth_new_here')} <Link to="/signup">{t('auth_create_account')}</Link>
-            </p>
-          </form>
-        ) : (
-          <div>
-            <h1>{t('auth_code_label')}</h1>
-            <p className="meta">
-              {t('auth_code_sent')} <strong>{formatPhone(step.phone)}</strong>
-            </p>
-            <div className="field">
-              <label htmlFor="code" className="visually-hidden">
-                {t('auth_code_label')}
-              </label>
-              <input
-                ref={codeRef}
-                id="code"
-                name="code"
-                className="otp-input"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                maxLength={6}
-                value={code}
-                disabled={busy}
-                onChange={(e) => onCode(e.target.value)}
-                aria-invalid={error ? true : undefined}
-                aria-describedby="code-help"
-              />
-              <span id="code-help" className="help">
-                {busy ? t('auth_checking_code') : t('auth_code_auto_checks')}
+    <AuthFrame>
+      {step.step === 'phone' ? (
+        <form onSubmit={onPhone} noValidate>
+          <h1>{t('auth_headline')}</h1>
+          <p className="meta">{t('auth_subhead')}</p>
+          <div className="field">
+            <label htmlFor="phone">{t('auth_phone_label')}</label>
+            <input
+              id="phone"
+              name="phone"
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel-national"
+              placeholder={t('auth_phone_hint')}
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              aria-invalid={error ? true : undefined}
+              aria-describedby={error ? 'phone-error' : undefined}
+              autoFocus
+            />
+            {error ? (
+              <span id="phone-error" className="field-error" role="alert">
+                {error}
               </span>
-              {error ? (
-                <span className="field-error" role="alert">
-                  {error}
-                </span>
-              ) : null}
-            </div>
-            <div className="button-row">
-              <button
-                type="button"
-                className="btn btn-outline"
-                disabled={busy || resendIn > 0}
-                onClick={() => void requestCode(step.phone)}
-              >
-                {resendIn > 0
-                  ? t('auth_resend_in', `0:${String(resendIn).padStart(2, '0')}`)
-                  : t('auth_resend')}
-              </button>
-              <button
-                type="button"
-                className="btn btn-text"
-                onClick={() => {
-                  setStep({ step: 'phone' })
-                  setError(null)
-                }}
-              >
-                {t('auth_change_number')}
-              </button>
-            </div>
-            <p className="meta" style={{ marginTop: 24 }}>
-              {t('auth_no_code_hint')} <Link to="/signup">{t('auth_create_account')}</Link>
-            </p>
+            ) : null}
           </div>
-        )}
-      </div>
-    </div>
+          <div className="button-row">
+            <button type="submit" className="btn btn-primary btn-money" disabled={busy}>
+              {busy ? t('auth_sending') : t('auth_request_code')}
+            </button>
+          </div>
+          <p className="meta" style={{ marginTop: 24 }}>
+            {t('auth_new_here')} <Link to="/signup">{t('auth_create_account')}</Link>
+          </p>
+        </form>
+      ) : (
+        <div>
+          <h1>{t('auth_code_label')}</h1>
+          <p className="meta">
+            {t('auth_code_sent')} <strong>{formatPhone(step.phone)}</strong>
+          </p>
+          <div className="field">
+            <label htmlFor="code" className="visually-hidden">
+              {t('auth_code_label')}
+            </label>
+            <input
+              ref={codeRef}
+              id="code"
+              name="code"
+              className="otp-input"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              value={code}
+              disabled={busy}
+              onChange={(e) => onCode(e.target.value)}
+              aria-invalid={error ? true : undefined}
+              aria-describedby="code-help"
+            />
+            <span id="code-help" className="help">
+              {busy ? t('auth_checking_code') : t('auth_code_auto_checks')}
+            </span>
+            {error ? (
+              <span className="field-error" role="alert">
+                {error}
+              </span>
+            ) : null}
+          </div>
+          <div className="button-row">
+            <button
+              type="button"
+              className="btn btn-outline"
+              disabled={busy || resendIn > 0}
+              onClick={() => void requestCode(step.phone)}
+            >
+              {resendIn > 0
+                ? t('auth_resend_in', `0:${String(resendIn).padStart(2, '0')}`)
+                : t('auth_resend')}
+            </button>
+            <button
+              type="button"
+              className="btn btn-text"
+              onClick={() => {
+                setStep({ step: 'phone' })
+                setError(null)
+              }}
+            >
+              {t('auth_change_number')}
+            </button>
+          </div>
+          <p className="meta" style={{ marginTop: 24 }}>
+            {t('auth_no_code_hint')} <Link to="/signup">{t('auth_create_account')}</Link>
+          </p>
+        </div>
+      )}
+    </AuthFrame>
   )
 }

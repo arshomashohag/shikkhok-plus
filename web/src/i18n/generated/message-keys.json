@@ -64,6 +64,8 @@
   "mark.state.joined_after": "mark_state_joined_after",
   "mark.state.marked": "mark_state_marked",
   "mark.state.not_entered": "mark_state_not_entered",
+  "marks.exam.cancelled": "marks_exam_cancelled",
+  "marks.exam.published": "marks_exam_published",
   "marks.exam.total_below_recorded": "marks_exam_total_below_recorded",
   "marks.exam.total_invalid": "marks_exam_total_invalid",
   "marks.out_of_range": "marks_out_of_range",

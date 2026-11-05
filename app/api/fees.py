@@ -42,6 +42,7 @@ from app.fees import views
 from app.fees.decisions import approve_submission, reject_submission
 from app.fees.payables import Payables, payables
 from app.fees.queue import PaymentReview, payment_review, verification_queue
+from app.fees.received import ReceivedPayment, record_received_payment
 from app.fees.reminders import remind
 from app.fees.submissions import (
     PaymentDraft,
@@ -70,6 +71,7 @@ from app.schemas.fees import (
     PaymentReviewResponse,
     PaymentSubmitRequest,
     PaymentSubmittedResponse,
+    ReceivedPaymentRequest,
     RecentDecisionResponse,
     ReminderRequest,
     ReminderResponse,
@@ -301,6 +303,51 @@ def read_enrollment_fees_as_teacher(
         views.enrollment_fee_history(
             session, lens=lens, enrollment_id=enrollment_id, months=months
         )
+    )
+
+
+@router.post(
+    "/enrollments/{enrollment_id}/payments",
+    response_model=PaymentReviewResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses=_WRITE_ERRORS,
+)
+def record_payment_received(
+    enrollment_id: uuid.UUID,
+    body: ReceivedPaymentRequest,
+    session: Annotated[Session, Depends(get_session)],
+    lens: Annotated[TeacherLens, Depends(teacher_lens)],
+) -> PaymentReviewResponse:
+    """Record money this teacher received by hand for one seat.
+
+    Recorded as a payment the teacher submitted and approved in one
+    transaction, so balances, history and analytics read it as they
+    read an approved family payment. A resend under the same
+    ``client_mutation_id`` returns the original with the same 201.
+
+    :param enrollment_id: The seat, from the route path
+    :param body: The amount, channel, reference, note, date and the
+        carry-or-waive when short
+    :param session: The request-scoped session
+    :param lens: The teacher lens; only the batch's owner reaches the seat
+    :return: The recorded payment, as the teacher reviews it
+    """
+    submission = record_received_payment(
+        session,
+        lens=lens,
+        enrollment_id=enrollment_id,
+        payment=ReceivedPayment(
+            amount=parse(body.amount.root),
+            channel=body.channel,
+            reference=body.reference,
+            note=body.note,
+            paid_on=body.paid_on,
+            shortfall_disposition=body.shortfall_disposition,
+            client_mutation_id=body.client_mutation_id,
+        ),
+    )
+    return payment_review_response(
+        payment_review(session, lens=lens, submission_id=submission.id)
     )
 
 

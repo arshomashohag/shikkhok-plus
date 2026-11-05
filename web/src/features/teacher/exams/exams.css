@@ -175,3 +175,33 @@
   text-decoration: line-through;
   color: var(--on-surface-variant);
 }
+
+/* W-T3: the list, with the student being entered in a panel beside it. */
+@media (min-width: 900px) {
+  .mark-layout:has(> .mark-dock) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: var(--s6);
+    align-items: start;
+  }
+  .mark-layout .mark-dock {
+    position: sticky;
+    top: var(--s6);
+    bottom: auto;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--s3);
+    margin: 0;
+    padding: 20px;
+    border: 1px solid var(--divider);
+    border-radius: var(--r-panel);
+    background: var(--surface);
+    box-shadow: none;
+  }
+}
+
+/* A cancelled exam on the batch's Exams tab. */
+.exam-cancelled-chip {
+  color: var(--on-surface-variant);
+  border-color: var(--outline-variant);
+}

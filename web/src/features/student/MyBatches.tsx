@@ -8,6 +8,7 @@ import { listMyBatches } from '../../api/endpoints'
 import { familyPaths } from '../family/reader'
 import { formatMark, formatMonth, formatPhone, howSoon, whenLabel } from '../../core/format'
 import { useResource } from '../../core/useResource'
+import { useWide } from '../../core/useWide'
 import { useT } from '../../i18n/i18n'
 import { useReadySession } from '../../session/session'
 import { ErrorCard, FeeChip, Loading, StaleBanner, TopBar } from '../../ui/components'
@@ -15,6 +16,7 @@ import { mapStudentBatch } from './mappers'
 
 export function MyBatches() {
   const { t, lang } = useT()
+  const wide = useWide()
   const { session } = useReadySession()
   const { resource, reload } = useResource(
     () => listMyBatches().then((r) => r.map(mapStudentBatch)),
@@ -59,7 +61,20 @@ export function MyBatches() {
   const next = batches.find((b) => b.isNext && b.nextSession) ?? null
   return (
     <>
-      <TopBar title={t('my_batches_title')} subtitle={subtitle} />
+      <TopBar
+        title={t('my_batches_title')}
+        subtitle={subtitle}
+        actions={
+          wide ? (
+            <Link
+              className="btn btn-primary"
+              to={familyPaths.pay('me', (next ?? batches[0])?.enrollmentId ?? '')}
+            >
+              {t('pay_open')}
+            </Link>
+          ) : null
+        }
+      />
       {resource.error ? <StaleBanner error={resource.error} loadedAt={resource.loadedAt} /> : null}
       {next?.nextSession ? (
         <Link
@@ -74,11 +89,11 @@ export function MyBatches() {
           </div>
         </Link>
       ) : null}
-      <div className="grid-2" style={{ marginTop: 12 }}>
+      <div className="card-grid" style={{ marginTop: wide ? 24 : 12 }}>
         {batches.map((b) => (
           <Link
             key={b.enrollmentId}
-            className="card card-link"
+            className="card card-link tile"
             to={familyPaths.batch('me', b.enrollmentId)}
           >
             <div className="title">{b.batchName}</div>
@@ -124,14 +139,16 @@ export function MyBatches() {
       </div>
       {/* S1: one way to pay, at the bottom. It opens on the next class's
           batch (Android opens the first); every batch is selectable there. */}
-      <div className="action-bar">
-        <Link
-          className="btn btn-primary btn-money"
-          to={familyPaths.pay('me', (next ?? batches[0])?.enrollmentId ?? '')}
-        >
-          {t('pay_open')}
-        </Link>
-      </div>
+      {wide ? null : (
+        <div className="action-bar">
+          <Link
+            className="btn btn-primary btn-money"
+            to={familyPaths.pay('me', (next ?? batches[0])?.enrollmentId ?? '')}
+          >
+            {t('pay_open')}
+          </Link>
+        </div>
+      )}
     </>
   )
 }

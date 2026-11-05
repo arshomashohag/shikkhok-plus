@@ -13,12 +13,13 @@
  * approval sheet, carry-or-waive, the child picker and the duplicate
  * warning live. `?act=` there opens the right control on arrival.
  */
-import { useCallback, useState } from 'react'
-import { Link } from 'react-router'
+import { useCallback, useEffect, useState } from 'react'
+import { Link, useNavigate } from 'react-router'
 import { readQueue } from '../../api/endpoints'
 import { ApiError } from '../../api/errors'
 import { ago, formatShortDate, initial } from '../../core/format'
 import { useResource } from '../../core/useResource'
+import { useWide } from '../../core/useWide'
 import { useT } from '../../i18n/i18n'
 import {
   Avatar,
@@ -48,6 +49,8 @@ export function Verify() {
   const [busy, setBusy] = useState<string | null>(null)
   const [snack, setSnack] = useState<{ text: string; retry?: () => void } | null>(null)
   const dismissSnack = useCallback(() => setSnack(null), [])
+  const wide = useWide()
+  const [selectedId, setSelectedId] = useState<string | null>(null)
 
   async function approveAsReported(review: PaymentReview) {
     const body = oneTap(review) ? asReportedBody(review, '', false) : null
@@ -84,7 +87,16 @@ export function Verify() {
     // A failed refresh hides the buttons: never decide against stale data.
     const decidable = resource.error === null && !resource.refreshing
     subtitle = pending.length ? t('verify_waiting', pending.length) : t('verify_nothing_waiting')
-    body = (
+    body = wide ? (
+      <WideQueue
+        pending={pending}
+        decided={decidedRecently}
+        decidable={decidable && busy === null}
+        selectedId={selectedId}
+        onSelect={setSelectedId}
+        onApprove={(r) => void approveAsReported(r)}
+      />
+    ) : (
       <>
         {pending.length === 0 ? (
           <div className="card">
@@ -132,7 +144,18 @@ export function Verify() {
 
   return (
     <>
-      <TopBar title={t('verify_title')} subtitle={subtitle} back="/today" />
+      <TopBar
+        title={t('verify_title')}
+        subtitle={subtitle}
+        back={wide ? undefined : '/today'}
+        actions={
+          wide && resource.state === 'loaded' && resource.data.pending.length > 0 ? (
+            <span className="meta" aria-label={t('web_verify_keys_label')}>
+              {t('web_verify_keys')}
+            </span>
+          ) : null
+        }
+      />
       {body}
       {snack ? (
         <Snackbar
@@ -151,20 +174,209 @@ function open(review: PaymentReview, act?: 'approve' | 'reject'): string {
   return `${paths.payment(review.submissionId)}${act ? `?act=${act}` : ''}`
 }
 
+/** Whether a key press belongs to a field or a control rather than the queue. */
+function typingIn(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  return (
+    target.isContentEditable ||
+    ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) ||
+    target.closest('.sheet') !== null
+  )
+}
+
+/**
+ * The wide-window queue (W-T4): the waiting payments on the left, the
+ * chosen one in full on the right, and today's decisions as a table.
+ * ↑ and ↓ move the choice; A approves only what one tap may approve
+ * (anything else opens the payment, where the approval sheet asks its
+ * questions); R opens the rejection. Nothing here decides an amount.
+ */
+function WideQueue({
+  pending,
+  decided,
+  decidable,
+  selectedId,
+  onSelect,
+  onApprove,
+}: {
+  pending: PaymentReview[]
+  decided: import('./mappers').QueueModel['decidedRecently']
+  decidable: boolean
+  selectedId: string | null
+  onSelect: (id: string) => void
+  onApprove: (review: PaymentReview) => void
+}) {
+  const { t } = useT()
+  const navigate = useNavigate()
+  const index = Math.max(
+    0,
+    pending.findIndex((r) => r.submissionId === selectedId),
+  )
+  const selected = pending[index] ?? null
+
+  useEffect(() => {
+    if (pending.length === 0) return
+    function onKey(e: KeyboardEvent) {
+      if (e.altKey || e.ctrlKey || e.metaKey || typingIn(e.target)) return
+      const current = pending[index]
+      if (!current) return
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        const next = pending[index + (e.key === 'ArrowDown' ? 1 : -1)]
+        if (next) {
+          e.preventDefault()
+          onSelect(next.submissionId)
+          document.getElementById(`q-${next.submissionId}`)?.focus()
+        }
+      } else if (decidable && (e.key === 'a' || e.key === 'A')) {
+        e.preventDefault()
+        if (oneTap(current)) onApprove(current)
+        else navigate(open(current, current.comparison === 'short' ? 'approve' : undefined))
+      } else if (decidable && (e.key === 'r' || e.key === 'R')) {
+        e.preventDefault()
+        navigate(open(current, 'reject'))
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [pending, index, decidable, onSelect, onApprove, navigate])
+
+  return (
+    <>
+      {pending.length === 0 ? (
+        <div className="card">
+          <EmptyState title={t('verify_all_caught_up')} body={t('verify_all_caught_up_body')} />
+        </div>
+      ) : (
+        <div className="dash queue-split">
+          <section className="card flush queue-list" aria-label={t('verify_title')}>
+            {pending.map((r) => {
+              const name = reviewName(r)
+              const on = r.submissionId === selected?.submissionId
+              return (
+                <button
+                  key={r.submissionId}
+                  id={`q-${r.submissionId}`}
+                  type="button"
+                  className="queue-item"
+                  aria-pressed={on}
+                  onClick={() => onSelect(r.submissionId)}
+                >
+                  <Avatar letter={initial(name)} />
+                  <span className="grow">
+                    <span className="title">{name}</span>
+                    <span className="meta">
+                      {[r.channelLabel, r.batchName, ago(r.submittedAt, new Date(), t)]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </span>
+                  </span>
+                  <span className="end">
+                    <span className="amount">{r.totalAmount.format()}</span>
+                    {r.duplicateOf ? (
+                      <span className="chip chip-overdue">{t('verify_duplicate_title')}</span>
+                    ) : (
+                      <span className="meta">
+                        {r.comparison === 'matches'
+                          ? t('verify_line_exact')
+                          : r.comparison === 'short'
+                            ? t('verify_line_short', r.difference.format())
+                            : t('verify_line_over', r.difference.format())}
+                      </span>
+                    )}
+                  </span>
+                </button>
+              )
+            })}
+          </section>
+          {selected ? (
+            <ReviewCard
+              key={selected.submissionId}
+              review={selected}
+              decidable={decidable}
+              onApprove={() => onApprove(selected)}
+              detail
+            />
+          ) : null}
+        </div>
+      )}
+      {decided.length > 0 ? (
+        <section className="card flush" style={{ marginTop: 24 }} aria-labelledby="decided">
+          <div className="panel-head">
+            <h2 id="decided">{t('verify_decided_today')}</h2>
+          </div>
+          <div className="table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th scope="col">{t('web_verify_col_student')}</th>
+                  <th scope="col">{t('web_verify_col_batch')}</th>
+                  <th scope="col">{t('web_verify_col_time')}</th>
+                  <th scope="col" className="num">
+                    {t('web_verify_col_amount')}
+                  </th>
+                  <th scope="col">{t('web_verify_col_result')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {decided.map((d) => (
+                  <tr
+                    key={d.submissionId}
+                    className="clickable"
+                    onClick={() => navigate(paths.payment(d.submissionId))}
+                  >
+                    <td>
+                      <Link
+                        to={paths.payment(d.submissionId)}
+                        className="title"
+                        style={{ color: 'inherit', textDecoration: 'none' }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {d.displayName}
+                      </Link>
+                    </td>
+                    <td>{d.batchName}</td>
+                    <td className="meta">{ago(d.decidedAt, new Date(), t)}</td>
+                    <td className="num amount">{d.amount.format()}</td>
+                    <td>
+                      {d.status === 'approved' ? (
+                        <FeeChip chip={{ kind: 'paid' }} />
+                      ) : (
+                        <span className="chip chip-neutral">{t('verify_decision_rejected')}</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
+    </>
+  )
+}
+
 function ReviewCard({
   review,
   decidable,
   onApprove,
+  detail,
 }: {
   review: PaymentReview
   decidable: boolean
   onApprove: () => void
+  /** Drawn as the right-hand panel of the wide queue: larger figure. */
+  detail?: boolean
 }) {
   const { t, lang } = useT()
   const name = reviewName(review)
 
   return (
-    <article className={review.duplicateOf ? 'card error' : 'card'} aria-label={name}>
+    <article
+      className={[review.duplicateOf ? 'card error' : 'card', detail ? 'review-detail' : '']
+        .filter(Boolean)
+        .join(' ')}
+      aria-label={name}
+    >
       <Link
         to={open(review)}
         style={{

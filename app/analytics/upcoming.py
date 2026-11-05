@@ -84,7 +84,12 @@ def next_exam(
         )
         .join(Batch, Batch.id == Exam.batch_id)
         .join(BatchSubject, BatchSubject.id == Exam.batch_subject_id)
-        .where(Batch.owner_id == lens.owner_id, Exam.date >= today)
+        .where(
+            Batch.owner_id == lens.owner_id,
+            Exam.date >= today,
+            # A cancelled exam is not coming [0019].
+            Exam.cancelled_at.is_(None),
+        )
         # The stated tiebreaker [BR3.3]: created_at before exam_id so a
         # tie is broken by something meaningful to a person, with the id
         # as the final total order. "Deterministic" with no key named is

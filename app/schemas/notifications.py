@@ -49,8 +49,10 @@ class NotificationResponse(BaseModel):
         "payment_approved",
         "payment_partial",
         "payment_rejected",
+        "payment_recorded",
         "notice",
         "exam_scheduled",
+        "exam_cancelled",
         "marks_available",
         "claim_to_verify",
     ]
@@ -102,6 +104,7 @@ class ExamBlock(BaseModel):
     :ivar subject_name: The subject
     :ivar total_marks: The denominator
     :ivar topics: What it covers
+    :ivar cancelled: Whether the teacher has cancelled it
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -112,6 +115,7 @@ class ExamBlock(BaseModel):
     subject_name: str
     total_marks: int
     topics: list[str]
+    cancelled: bool = False
 
 
 class PaymentBlock(BaseModel):

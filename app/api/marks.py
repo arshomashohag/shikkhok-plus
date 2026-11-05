@@ -25,7 +25,13 @@ from app.api.teaching import family_exam_response
 from app.authz.lenses import GuardianLens, StudentLens, TeacherLens
 from app.marks import views
 from app.marks.entry import correction_history, exam_is_writable, record_mark
-from app.marks.exams import create_exam, read_exam_row, update_exam
+from app.marks.exams import (
+    ExamRow,
+    cancel_exam,
+    create_exam,
+    read_exam_row,
+    update_exam,
+)
 from app.marks.marksheet import Published
 from app.marks.results import (
     ExamProgress,
@@ -39,6 +45,7 @@ from app.schemas.errors import ErrorEnvelope
 from app.schemas.marks import (
     BandResponse,
     CorrectionEntryResponse,
+    ExamCancelRequest,
     ExamCreateRequest,
     ExamListItemResponse,
     ExamResponse,
@@ -141,6 +148,26 @@ def _exam_list_item(entry: ExamProgress) -> ExamListItemResponse:
         expected_count=entry.expected_count,
         state=entry.state,
         published=entry.exam.published,
+        cancelled=entry.exam.cancelled,
+        cancellation_reason=entry.exam.cancellation_reason,
+    )
+
+
+def _exam_response(row: ExamRow) -> ExamResponse:
+    """Render one exam for the wire.
+
+    :param row: The exam
+    :return: The response body
+    """
+    return ExamResponse(
+        exam_id=row.exam_id,
+        title=row.title,
+        date=row.date,
+        total_marks=row.total_marks,
+        subject_name=row.subject_name,
+        topics=row.topics,
+        cancelled=row.cancelled,
+        cancellation_reason=row.cancellation_reason,
     )
 
 
@@ -243,14 +270,7 @@ def create_batch_exam(
         total_marks=body.total_marks,
         topics=body.topics,
     )
-    return ExamResponse(
-        exam_id=row.exam_id,
-        title=row.title,
-        date=row.date,
-        total_marks=row.total_marks,
-        subject_name=row.subject_name,
-        topics=row.topics,
-    )
+    return _exam_response(row)
 
 
 @router.put(
@@ -281,13 +301,39 @@ def update_batch_exam(
         total_marks=body.total_marks,
         topics=body.topics,
     )
-    return ExamResponse(
-        exam_id=row.exam_id,
-        title=row.title,
-        date=row.date,
-        total_marks=row.total_marks,
-        subject_name=row.subject_name,
-        topics=row.topics,
+    return _exam_response(row)
+
+
+@router.post(
+    "/exams/{exam_id}/cancel",
+    response_model=ExamResponse,
+    responses=_WRITE_ERRORS,
+)
+def cancel_batch_exam(
+    exam_id: uuid.UUID,
+    session: Annotated[DbSession, Depends(get_session)],
+    lens: Annotated[TeacherLens, Depends(teacher_lens)],
+    body: ExamCancelRequest | None = None,
+) -> ExamResponse:
+    """Cancel an exam whose results are not published, telling its families.
+
+    Refused with ``EXAM_PUBLISHED`` once results are out. Cancelling a
+    cancelled exam returns it unchanged and tells nobody again. Marks,
+    publishing and edits are refused afterwards with ``EXAM_CANCELLED``.
+
+    :param exam_id: The exam, from the route path
+    :param session: The request-scoped session
+    :param lens: The teacher lens; only the batch's owner reaches it
+    :param body: Optional; a short reason for the record
+    :return: The cancelled exam
+    """
+    return _exam_response(
+        cancel_exam(
+            session,
+            lens=lens,
+            exam_id=exam_id,
+            reason=body.reason if body is not None else None,
+        )
     )
 
 

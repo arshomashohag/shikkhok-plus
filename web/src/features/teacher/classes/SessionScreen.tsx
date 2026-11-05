@@ -432,7 +432,7 @@ function RecordForm({
   }
 
   return (
-    <form onSubmit={save} noValidate>
+    <form className="split" onSubmit={save} noValidate>
       <div className="card">
         <SubjectPicker subjects={subjects} value={subjectId} onChange={setSubjectId} />
         <TextArea
@@ -666,6 +666,7 @@ function PlanForm({
 
   return (
     <form
+      className="split"
       onSubmit={(e) => {
         e.preventDefault()
         void send(true)

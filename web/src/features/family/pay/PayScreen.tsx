@@ -216,7 +216,7 @@ export function PayScreen({ reader }: { reader: Reader }) {
   return (
     <>
       <TopBar title={title} back={step.step === 'sent' ? close : true} />
-      {body}
+      <div className="form-page">{body}</div>
     </>
   )
 }

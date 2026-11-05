@@ -4,13 +4,20 @@
  * latest payment line. Previous / next walk the months; next stops at
  * the month Dhaka is in. A seat opens its fee history.
  */
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { listBatches } from '../../../api/endpoints'
 import { formatMonth } from '../../../core/format'
 import { useResource } from '../../../core/useResource'
 import { useT } from '../../../i18n/i18n'
-import { EmptyState, ErrorCard, Loading, StaleBanner, TopBar } from '../../../ui/components'
+import {
+  EmptyState,
+  ErrorCard,
+  Loading,
+  Snackbar,
+  StaleBanner,
+  TopBar,
+} from '../../../ui/components'
 import {
   CheckCircleIcon,
   ClockIcon,
@@ -20,10 +27,17 @@ import {
 } from '../../../ui/icons'
 import { paths } from '../paths'
 import { readBatchMonth } from './api'
-import { mapBatchMonth, visibleSeats, type MonthFilter, type MonthSeat } from './collections'
+import {
+  canRecordFor,
+  mapBatchMonth,
+  visibleSeats,
+  type MonthFilter,
+  type MonthSeat,
+} from './collections'
 import { dhakaPeriod, isPeriod, shiftPeriod } from './format'
 import { HistoryLineText } from './HistoryLineText'
 import { moneyPaths } from './paths'
+import { RecordPaymentSheet } from './RecordPaymentSheet'
 
 export function BatchMonthScreen() {
   const { batchId = '', period: rawPeriod = '' } = useParams()
@@ -31,6 +45,9 @@ export function BatchMonthScreen() {
   const { t, lang } = useT()
   const navigate = useNavigate()
   const [filter, setFilter] = useState<MonthFilter>('all')
+  const [recording, setRecording] = useState<MonthSeat | null>(null)
+  const [snack, setSnack] = useState<string | null>(null)
+  const dismissSnack = useCallback(() => setSnack(null), [])
   const { resource, reload } = useResource(
     () =>
       Promise.all([
@@ -121,6 +138,17 @@ export function BatchMonthScreen() {
                   </div>
                   <SeatChip seat={s} />
                 </Link>
+                {canRecordFor(s) ? (
+                  <div className="money-record-row">
+                    <button
+                      type="button"
+                      className="btn btn-text btn-small"
+                      onClick={() => setRecording(s)}
+                    >
+                      {t('fees_record_payment')}
+                    </button>
+                  </div>
+                ) : null}
               </li>
             ))}
           </ul>
@@ -133,6 +161,20 @@ export function BatchMonthScreen() {
     <>
       <TopBar title={t('screen_title_batch_fees')} subtitle={batchName} back />
       {body}
+      {recording ? (
+        <RecordPaymentSheet
+          enrollmentId={recording.enrollmentId}
+          name={recording.displayName}
+          owed={recording.outstanding}
+          onClose={() => setRecording(null)}
+          onRecorded={() => {
+            setRecording(null)
+            setSnack(t('fees_record_done'))
+            reload()
+          }}
+        />
+      ) : null}
+      {snack ? <Snackbar text={snack} onDismiss={dismissSnack} /> : null}
     </>
   )
 }

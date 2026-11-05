@@ -7,7 +7,13 @@ import type { Lens } from '../session/session'
 export interface Tab {
   to: string
   label: string
-  icon: 'home' | 'layers' | 'wallet' | 'users' | 'mail' | 'more'
+  icon: 'home' | 'layers' | 'wallet' | 'users' | 'mail' | 'more' | 'verify'
+  /**
+   * Only in the desktop side rail. A wide window has room for a direct
+   * entry the phone's five-slot bar does not, as the web boards draw it;
+   * the screen itself is the same one Today's "See all" opens.
+   */
+  desktopOnly?: boolean
 }
 
 export function tabsFor(lens: Lens | null): Tab[] {
@@ -19,6 +25,7 @@ export function tabsFor(lens: Lens | null): Tab[] {
         { to: '/batches', label: 'nav_batches', icon: 'layers' },
         { to: '/students', label: 'nav_students', icon: 'users' },
         { to: '/dues', label: 'nav_dues', icon: 'wallet' },
+        { to: '/verify', label: 'web_nav_verify', icon: 'verify', desktopOnly: true },
         more,
       ]
     case 'student':

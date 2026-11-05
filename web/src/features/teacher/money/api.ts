@@ -23,6 +23,17 @@ export const rejectPayment = (submissionId: string, body: Schemas['PaymentReject
     body,
   })
 
+/**
+ * Record money the teacher received by hand for one seat, approved in the
+ * same step. The body's `client_mutation_id` makes a resend a replay.
+ */
+export const recordPayment = (enrollmentId: string, body: Schemas['ReceivedPaymentRequest']) =>
+  request<Schemas['PaymentReviewResponse']>(
+    'POST',
+    `/v1/enrollments/${enc(enrollmentId)}/payments`,
+    { body },
+  )
+
 // -------------------------------------------------------------- one seat
 
 export const readSeatFees = (enrollmentId: string, months = 6) =>

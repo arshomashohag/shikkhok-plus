@@ -543,7 +543,9 @@ def _family_exams(
     query = (
         sa.select(Exam, BatchSubject.name)
         .join(BatchSubject, BatchSubject.id == Exam.batch_subject_id)
-        .where(Exam.batch_id == batch_id)
+        # A cancelled exam is neither coming nor done; its inbox item
+        # is where a family reads that it was called off.
+        .where(Exam.batch_id == batch_id, Exam.cancelled_at.is_(None))
     )
     if exam_id is not None:
         query = query.where(Exam.id == exam_id)
@@ -628,7 +630,11 @@ def _next_exam(
     row = session.execute(
         sa.select(Exam.title, Exam.date, Exam.total_marks, BatchSubject.name)
         .join(BatchSubject, BatchSubject.id == Exam.batch_subject_id)
-        .where(Exam.batch_id == batch_id, Exam.date >= today)
+        .where(
+            Exam.batch_id == batch_id,
+            Exam.date >= today,
+            Exam.cancelled_at.is_(None),
+        )
         .order_by(Exam.date, Exam.id)
         .limit(1)
     ).one_or_none()

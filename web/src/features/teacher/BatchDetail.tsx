@@ -116,7 +116,7 @@ export function BatchDetail() {
         ))}
       </div>
 
-      <div role="tabpanel">
+      <div role="tabpanel" className="batch-tabpanel">
         {tab === 'students' ? <StudentsTab {...tabProps} /> : null}
         {tab === 'classes' ? <ClassesTab {...tabProps} /> : null}
         {tab === 'exams' ? <ExamsTab {...tabProps} /> : null}

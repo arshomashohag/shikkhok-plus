@@ -1,4 +1,4 @@
-"""Exam creation and editing [BR4.1].
+"""Exam creation, editing and cancellation [BR4.1].
 
 **The subject-belongs-to-batch check is an authorization boundary, not
 a validation nicety** [§ 2.4]. A ``batch_subject_id`` from another
@@ -9,6 +9,22 @@ a foreign key, it is a check somebody can omit.
 The refusal is the shared ``NOT_AVAILABLE`` rather than a descriptive
 one: the subject id is an unreachable resource, and naming it as wrong
 is the oracle [BR4.1].
+
+**Cancelling** [0019] is for an exam whose results are not published.
+A cancelled exam is never deleted: its row, any marks drafted against
+it, and the families' inbox items all stay, and it is shown
+
+* on the teacher's exam list for the batch, in its usual place, flagged
+  ``cancelled`` -- the teacher made the decision and should be able to
+  see it, and an exam silently vanishing from the list they scheduled it
+  on is the more surprising behaviour;
+* nowhere else: not in the teacher's next-exam or today views, not on a
+  family's batch view or upcoming exam, not on any dashboard. Those
+  answer "what is coming" or "how did it go", and for a cancelled exam
+  the answer is nothing.
+
+Nothing more can be written to it: marks, publishing and edits are
+refused with ``EXAM_CANCELLED``.
 """
 
 from __future__ import annotations
@@ -23,14 +39,22 @@ from sqlalchemy.orm import Session as DbSession
 from app.authz.lenses import TeacherLens
 from app.db.models import Batch, BatchSubject, Exam
 from app.errors import ConflictError, ValidationError
-from app.notifications.inbox import EXAM_SCHEDULED
+from app.notifications.inbox import EXAM_CANCELLED, EXAM_SCHEDULED, remove_for_source
 from app.notifications.recipients import (
     deliver_to_families,
     mark_unread_for_families,
 )
 from app.teaching.roster import refuse
 
-__all__ = ["ExamRow", "create_exam", "list_exams", "readable_exam", "update_exam"]
+__all__ = [
+    "ExamRow",
+    "cancel_exam",
+    "cancelled_refusal",
+    "create_exam",
+    "list_exams",
+    "readable_exam",
+    "update_exam",
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,6 +71,8 @@ class ExamRow:
     :ivar topics: What it covers, in the teacher's order
     :ivar published: Whether its results have been published to
         students and guardians; False while they are a draft
+    :ivar cancelled: Whether the teacher cancelled it [0019]
+    :ivar cancellation_reason: The teacher's note on cancelling, if any
     """
 
     exam_id: uuid.UUID
@@ -56,6 +82,36 @@ class ExamRow:
     subject_name: str
     topics: list[str] = field(default_factory=list)
     published: bool = False
+    cancelled: bool = False
+    cancellation_reason: str | None = None
+
+    @classmethod
+    def of(cls, exam: Exam, subject_name: str) -> ExamRow:
+        """Describe a stored exam.
+
+        :param exam: The exam row
+        :param subject_name: Its subject's name
+        :return: The description every reader of an exam shares
+        """
+        return cls(
+            exam_id=exam.id,
+            title=exam.title,
+            date=exam.date,
+            total_marks=exam.total_marks,
+            subject_name=subject_name,
+            topics=list(exam.topics),
+            published=exam.published_at is not None,
+            cancelled=exam.cancelled_at is not None,
+            cancellation_reason=exam.cancellation_reason,
+        )
+
+
+def cancelled_refusal() -> ConflictError:
+    """Build the refusal for a write against a cancelled exam.
+
+    :return: The conflict
+    """
+    return ConflictError(code="EXAM_CANCELLED", message_key="marks.exam.cancelled")
 
 
 def _owned_active_batch(
@@ -195,15 +251,7 @@ def create_exam(
     )
     session.commit()
 
-    return ExamRow(
-        exam_id=row.id,
-        title=row.title,
-        date=row.date,
-        total_marks=row.total_marks,
-        subject_name=subject.name,
-        topics=list(row.topics),
-        published=row.published_at is not None,
-    )
+    return ExamRow.of(row, subject.name)
 
 
 def update_exam(
@@ -231,12 +279,14 @@ def update_exam(
     :param topics: Its new topics, replacing the old list; None keeps them
     :return: The updated exam
     :raises AuthorizationError: This lens does not reach the exam
-    :raises ConflictError: The batch is inactive, or a live mark
-        already exceeds the proposed total
+    :raises ConflictError: The batch is inactive, the exam is cancelled,
+        or a live mark already exceeds the proposed total
     :raises ValidationError: The total is below one
     """
     row = readable_exam(session, lens=lens, exam_id=exam_id)
     _owned_active_batch(session, lens=lens, batch_id=row.batch_id)
+    if row.cancelled_at is not None:
+        raise cancelled_refusal()
     _validate_total(total_marks)
 
     # **Lowering the total below a mark already recorded would leave a
@@ -278,15 +328,69 @@ def update_exam(
     name = session.scalars(
         sa.select(BatchSubject.name).where(BatchSubject.id == row.batch_subject_id)
     ).one()
-    return ExamRow(
-        exam_id=row.id,
-        title=row.title,
-        date=row.date,
-        total_marks=row.total_marks,
-        subject_name=name,
-        topics=list(row.topics),
-        published=row.published_at is not None,
+    return ExamRow.of(row, name)
+
+
+def cancel_exam(
+    session: DbSession,
+    *,
+    lens: TeacherLens,
+    exam_id: uuid.UUID,
+    reason: str | None = None,
+    now: dt.datetime | None = None,
+) -> ExamRow:
+    """Cancel an exam whose results are not published, and tell its families.
+
+    **Idempotent.** Cancelling a cancelled exam returns it as it is: the
+    first time and reason stand and nobody is told twice, so a retried
+    tap cannot send a second round of messages.
+
+    **The families' items are replaced, not added to.** Every
+    ``exam_scheduled`` item for this exam is removed and an
+    ``exam_cancelled`` item delivered, the way a corrected payment
+    decision replaces the earlier decision's items: an inbox holding
+    "exam on 20 April" beside "exam cancelled" asks the reader to work
+    out which is current. Recipients are exactly those a new exam would
+    reach today (:func:`deliver_to_families`), so a seat that has left
+    or a link still pending hears nothing, as it heard nothing of the
+    exam being scheduled. The preview carries the title and the ISO date,
+    because the item outlives any later read of the exam.
+
+    :param session: The session to work through
+    :param lens: The teacher lens
+    :param exam_id: The exam
+    :param reason: The teacher's short note; blank is stored as none
+    :param now: When it was cancelled; the current time by default
+    :return: The cancelled exam
+    :raises AuthorizationError: This lens does not reach the exam
+    :raises ConflictError: Its results are published, or the batch is
+        inactive
+    """
+    row = readable_exam(session, lens=lens, exam_id=exam_id)
+    subject = session.scalars(
+        sa.select(BatchSubject.name).where(BatchSubject.id == row.batch_subject_id)
+    ).one()
+    if row.cancelled_at is not None:
+        return ExamRow.of(row, subject)
+    if row.published_at is not None:
+        raise ConflictError(code="EXAM_PUBLISHED", message_key="marks.exam.published")
+    batch = _owned_active_batch(session, lens=lens, batch_id=row.batch_id)
+
+    when = now or dt.datetime.now(tz=dt.UTC)
+    row.cancelled_at = when
+    row.cancellation_reason = (reason or "").strip() or None
+    session.flush()
+    remove_for_source(session, kind=EXAM_SCHEDULED, source_id=row.id)
+    deliver_to_families(
+        session,
+        batch=batch,
+        kind=EXAM_CANCELLED,
+        source_id=row.id,
+        preview=f"{row.title} · {row.date.isoformat()}",
+        now=when,
     )
+    session.commit()
+    return ExamRow.of(row, subject)
 
 
 def read_exam_row(
@@ -312,15 +416,7 @@ def read_exam_row(
     subject = session.scalars(
         sa.select(BatchSubject.name).where(BatchSubject.id == exam.batch_subject_id)
     ).one_or_none()
-    return ExamRow(
-        exam_id=exam.id,
-        title=exam.title,
-        date=exam.date,
-        total_marks=exam.total_marks,
-        subject_name=subject or "",
-        topics=list(exam.topics),
-        published=exam.published_at is not None,
-    )
+    return ExamRow.of(exam, subject or "")
 
 
 def list_exams(
@@ -329,7 +425,10 @@ def list_exams(
     lens: TeacherLens,
     batch_id: uuid.UUID,
 ) -> list[ExamRow]:
-    """List one batch's exams, oldest first.
+    """List one batch's exams, oldest first, cancelled ones included.
+
+    A cancelled exam stays in its place, flagged, because this is the
+    list the teacher scheduled it on; see the module docstring.
 
     :param session: The session to read through
     :param lens: The teacher lens
@@ -349,15 +448,4 @@ def list_exams(
         .where(Exam.batch_id == batch_id)
         .order_by(Exam.date, Exam.id)
     ).all()
-    return [
-        ExamRow(
-            exam_id=entry[0].id,
-            title=entry[0].title,
-            date=entry[0].date,
-            total_marks=entry[0].total_marks,
-            subject_name=entry[1],
-            topics=list(entry[0].topics),
-            published=entry[0].published_at is not None,
-        )
-        for entry in rows
-    ]
+    return [ExamRow.of(entry[0], entry[1]) for entry in rows]

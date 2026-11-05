@@ -968,3 +968,39 @@ id = "test_deleting_twice_still_reports_the_deletion"
 file = "tests/auth/test_deleted_account_token.py"
 criterion = "A second DELETE /v1/me with the same token reports 200: the double tap is not an error, so this one route checks the token's signature only"
 rule = "BR1.4"
+
+[[test]]
+id = "test_partial_carried_stays_owed_on_its_month"
+file = "tests/fees/test_received_payments.py"
+criterion = "A teacher recording 1000 of 1500 cash, carried, leaves October partly paid with 500 owed and writes no forgiveness or carry entry"
+rule = "BR5.4"
+
+[[test]]
+id = "test_partial_waived_forgives_the_rest"
+file = "tests/fees/test_received_payments.py"
+criterion = "A teacher recording 1000 of 1500 cash, waived, writes a 1000 receipt and a 500 forgiveness on October; nothing is owed"
+rule = "BR5.4"
+
+[[test]]
+id = "test_partial_without_a_disposition_is_refused"
+file = "tests/fees/test_received_payments.py"
+criterion = "Recording less than is owed with no carry-or-waive is a 400 SHORTFALL_DISPOSITION_REQUIRED and writes no payment, entry or message"
+rule = "BR5.4"
+
+[[test]]
+id = "test_overpayment_becomes_credit_never_a_negative_balance"
+file = "tests/fees/test_received_payments.py"
+criterion = "2000 recorded against 1500 owed is a 1500 receipt plus a 500 credit_grant; outstanding is zero, never negative"
+rule = "BR4.2"
+
+[[test]]
+id = "test_a_replay_records_once"
+file = "tests/fees/test_received_payments.py"
+criterion = "The same client_mutation_id sent twice returns the same payment and leaves exactly one receipt and one family message"
+rule = "PA-DB-1"
+
+[[test]]
+id = "test_another_teachers_seat_is_not_available"
+file = "tests/fees/test_received_payments.py"
+criterion = "Teacher B recording on teacher A's seat gets the same NOT_AVAILABLE body as an absent seat, and nothing is written"
+rule = "TC-11"

@@ -57,8 +57,25 @@ interface ExamPublisher {
     suspend fun publish(examId: String): AuthResult<Unit> = AuthResult.TransportFailure
 }
 
+/** The longest cancellation reason the server stores. */
+const val CANCEL_REASON_MAX: Int = 200
+
+/** Cancels an exam; its own interface, as the one write that ends an exam. */
+interface ExamCanceller {
+    /**
+     * Cancel an exam whose results are not published [0019]. Every
+     * student and guardian of the batch is told; a second cancel
+     * returns the exam as it is.
+     *
+     * @param examId The exam
+     * @param reason A short note for the record, or null
+     * @return The cancelled exam, or why the server refused
+     */
+    suspend fun cancelExam(examId: String, reason: String?): AuthResult<ExamDto> = AuthResult.TransportFailure
+}
+
 /** What the marks repository must provide. */
-interface MarksRepository : ExamPublisher {
+interface MarksRepository : ExamPublisher, ExamCanceller {
     /**
      * List one batch's exams.
      *
@@ -392,6 +409,7 @@ class MarksViewModel(
                         examTopics = result.value.exam.topics,
                         published = result.value.exam.published,
                         toEnter = (result.value.exam.expectedCount - result.value.exam.enteredCount).coerceAtLeast(0),
+                        cancelled = result.value.exam.cancelled,
                     )
                 is AuthResult.Refused -> MarksStateMapper.afterError(result.envelope)
                 AuthResult.TransportFailure ->
@@ -468,6 +486,27 @@ class MarksViewModel(
         val examId = lastExamId ?: return
         viewModelScope.launch {
             when (val result = repository.publish(examId)) {
+                is AuthResult.Ok -> refreshResults(examId)
+                is AuthResult.Refused -> withPublishError(result.envelope.error.messageKey)
+                AuthResult.TransportFailure -> withPublishError(MarksStateMapper.OFFLINE_KEY)
+            }
+        }
+    }
+
+    /**
+     * Cancel the open exam, once the teacher has confirmed, then read it
+     * again so the screen shows it cancelled and unwritable.
+     *
+     * **The server decides whether it may**: a published exam is
+     * refused, and the refusal is shown on the entry screen, which stays.
+     *
+     * @param reason A short note for the record; blank is sent as none
+     */
+    fun cancelExam(reason: String) {
+        val examId = lastExamId ?: return
+        val note = reason.trim().take(CANCEL_REASON_MAX).takeIf { it.isNotEmpty() }
+        viewModelScope.launch {
+            when (val result = repository.cancelExam(examId, note)) {
                 is AuthResult.Ok -> refreshResults(examId)
                 is AuthResult.Refused -> withPublishError(result.envelope.error.messageKey)
                 AuthResult.TransportFailure -> withPublishError(MarksStateMapper.OFFLINE_KEY)
