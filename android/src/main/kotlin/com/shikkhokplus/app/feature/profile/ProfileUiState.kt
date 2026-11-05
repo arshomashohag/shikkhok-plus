@@ -1,5 +1,7 @@
 package com.shikkhokplus.app.feature.profile
 
+import com.shikkhokplus.app.core.model.PostalAddress
+
 /**
  * Everything the profile screen renders.
  *

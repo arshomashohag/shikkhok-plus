@@ -109,7 +109,10 @@ class SignupViewModel(
         // `submit` runs the same validation, and a genuinely malformed
         // number is refused there, where the person has said they are
         // finished.
-        val invalid = SignupStateMapper.validate(phone, selfName = "placeholder")
+        // Only the number is being judged here, so the name and address
+        // stand in as complete.
+        val invalid =
+            SignupStateMapper.validate(phone, selfName = "placeholder", address = PostalAddress("-", "-", "-", "0000"))
         if (invalid != null && SignupStateMapper.PHONE_KEY in invalid.fieldKeys) {
             lookedUp = null
             if (_state.value !is SignupUiState.Empty) _state.value = SignupUiState.Empty

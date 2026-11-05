@@ -499,8 +499,9 @@ approved and is not audited here.
   "Yes, this is my child" / "No, not my child".
 - [x] Notifications, Text size, "Call for help · Talk to a person, in Bangla":
   in Settings for every role. The number is the `SUPPORT_PHONE` Actions
-  variable, passed to the release build; the row is hidden without one
-  and opens the dialler, so no calling permission is asked for.
+  variable, passed to the release build, and +8801995835189 when the
+  variable is not set. It opens the dialler, so no calling permission is
+  asked for.
 - [x] Guardian type scale (64dp rows, 18sp titles, 21sp/700 title).
 - [x] Error · offline: the same More screen as T9.
 
