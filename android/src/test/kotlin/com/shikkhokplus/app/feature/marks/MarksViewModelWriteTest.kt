@@ -303,7 +303,7 @@ class MarksViewModelWriteTest {
         model.cancelExam("  Hartal  ")
         advanceUntilIdle()
 
-        assertEquals(listOf("x-1" to "Hartal"), repository.cancels)
+        assertEquals(listOf<Pair<String, String?>>("x-1" to "Hartal"), repository.cancels)
         assertEquals(2, repository.resultReads, "cancelled, so read again")
         val state = assertIs<MarksUiState.EntryLoaded>(model.state.value)
         assertEquals(true, state.cancelled)
