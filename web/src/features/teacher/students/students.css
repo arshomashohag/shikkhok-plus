@@ -1,0 +1,131 @@
+/* Students & notices area. Tokens and base components are in styles/. */
+
+.seat + .seat {
+  border-top: 1px solid var(--outline-variant);
+}
+.seat > .row {
+  border-top: 0;
+}
+.seat-help {
+  margin: -8px var(--s4) var(--s2);
+}
+.seat-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1);
+  padding: 0 var(--s3) var(--s3);
+}
+.btn.danger {
+  color: var(--error);
+}
+
+/* T8: a phone field with the +88 prefix the design draws. */
+.phone-field {
+  display: flex;
+  align-items: stretch;
+}
+.phone-field .prefix {
+  display: grid;
+  place-items: center;
+  padding: 0 var(--s3);
+  border: 1px solid var(--outline);
+  border-right: 0;
+  border-radius: var(--r-field) 0 0 var(--r-field);
+  background: var(--surface-container);
+  color: var(--on-surface-variant);
+}
+.phone-field input {
+  flex: 1;
+  min-width: 0;
+  border-radius: 0 var(--r-field) var(--r-field) 0 !important;
+}
+
+/* The batch-fee toggle: a row with a switch, as T8. */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s3) var(--s4);
+  border-radius: var(--r-card);
+  background: var(--surface-container);
+  cursor: pointer;
+}
+.toggle-row .grow {
+  flex: 1;
+}
+/* Prefixed with .toggle-row so the base `.field input` rule cannot win. */
+.toggle-row input.switch {
+  appearance: none;
+  min-height: 0;
+  padding: 0;
+  position: relative;
+  flex-shrink: 0;
+  width: 52px;
+  height: 32px;
+  margin: 0;
+  border-radius: var(--r-pill);
+  border: 2px solid var(--outline);
+  background: var(--surface-container-high);
+  cursor: pointer;
+  transition: background var(--fade);
+}
+.toggle-row input.switch:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 2px;
+}
+.toggle-row input.switch::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--outline);
+  transition: transform var(--fade);
+}
+.toggle-row input.switch:checked {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+.toggle-row input.switch:checked::after {
+  transform: translateX(20px);
+  background: var(--on-primary);
+}
+
+.form-actions {
+  display: flex;
+  gap: var(--s2);
+  margin-top: var(--s6);
+}
+.form-actions .grow {
+  flex: 1;
+}
+
+/* Notices. */
+.notice-body {
+  margin: 0 0 var(--s2);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 1rem;
+}
+.composer {
+  display: flex;
+  gap: var(--s2);
+  align-items: flex-end;
+  margin-top: var(--s4);
+}
+.composer textarea {
+  flex: 1;
+  min-height: 56px;
+  max-height: 200px;
+  padding: var(--s3) var(--s4);
+  border: 1px solid var(--outline);
+  border-radius: var(--r-sheet);
+  background: var(--surface);
+  resize: vertical;
+}
+.composer textarea:focus {
+  outline: none;
+  border: 2px solid var(--primary);
+}

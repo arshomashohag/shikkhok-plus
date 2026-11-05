@@ -1,1 +1,14 @@
-{}
+{
+  "web_students_actions_for": "Actions for {1}",
+  "web_students_inactive_title": "Mark {1} inactive?",
+  "web_students_inactive_body": "From today no new monthly fee is charged. What they already owe stays owed, and their other batches are not affected.",
+  "web_students_marked_inactive": "{1} is marked inactive",
+  "web_students_removed": "{1} was removed from this batch",
+  "web_students_monthly_fee": "Monthly fee",
+  "web_students_phone_prefix": "+88",
+  "web_notices_sent": "Notice sent",
+  "web_notices_updated": "Notice updated",
+  "web_notices_removed": "Notice taken down",
+  "web_notices_edit_title": "Edit notice",
+  "web_dues_remind_offline": "Reminders need a connection."
+}

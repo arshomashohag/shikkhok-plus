@@ -1,10 +1,11 @@
 /** Students & notices area: Students tab, Add student (T8), Notices tab, Dues reminders. */
-import { NotOnWebYet } from '../../common/NotOnWebYet'
-import type { BatchTabProps, TeacherRoute } from '../area'
+import type { TeacherRoute } from '../area'
+import { AddStudent } from './AddStudent'
+import './students.css'
+
 export { StudentsTab } from './StudentsTab'
+export { NoticesTab } from './NoticesTab'
 
-export function NoticesTab(_props: BatchTabProps) {
-  return <NotOnWebYet />
-}
-
-export const studentsRoutes: TeacherRoute[] = []
+export const studentsRoutes: TeacherRoute[] = [
+  { path: '/batches/:batchId/students/new', element: <AddStudent /> },
+]

@@ -5,14 +5,32 @@
  * outstanding balance is not zero, which the server decided, and its
  * bucket is the one the server assigned [PU-7.2]. The filters only hide
  * rows the server already sent.
+ *
+ * **Who a reminder reaches is the server's too**: "Remind N late students"
+ * sends to the seats the server marked `remindable` — whatever filter is
+ * on screen — and its count is the server's `summary.remindable`. A
+ * reminder needs a connection and a fresh read, so the button is held back
+ * offline or while the figures on screen could not be refreshed.
  */
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { readDues } from '../../api/endpoints'
+import { ApiError } from '../../api/errors'
 import { ago, formatShortMonth } from '../../core/format'
-import { useResource } from '../../core/useResource'
+import { useOnline, useResource } from '../../core/useResource'
 import { useT } from '../../i18n/i18n'
-import { ErrorCard, FeeChip, Loading, Section, StaleBanner, TopBar } from '../../ui/components'
+import {
+  ErrorCard,
+  FeeChip,
+  Loading,
+  Section,
+  Sheet,
+  Snackbar,
+  StaleBanner,
+  TopBar,
+} from '../../ui/components'
+import { BellIcon } from '../../ui/icons'
 import { BUCKET_ORDER, duesChip, mapDues, type DuesBucket, type DuesRow } from './mappers'
+import { sendReminders } from './students/api'
 
 const BUCKET_LABEL: Record<DuesBucket, string> = {
   over_30: 'dues_group_over_30',
@@ -27,10 +45,15 @@ const SWATCH: Record<DuesBucket, string> = {
 }
 
 export function Dues() {
-  const { t } = useT()
+  const { t, message } = useT()
   const { resource, reload } = useResource(() => readDues().then(mapDues), [])
   const [lateOnly, setLateOnly] = useState(false)
   const [notReminded, setNotReminded] = useState(false)
+  const online = useOnline()
+  const [confirming, setConfirming] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [snack, setSnack] = useState<string | null>(null)
+  const dismiss = useCallback(() => setSnack(null), [])
 
   const grouped = useMemo(() => {
     if (resource.state !== 'loaded') return []
@@ -62,6 +85,29 @@ export function Dues() {
   }
 
   const model = resource.data
+
+  async function remind() {
+    // The seats the server marked, not the ones a filter leaves on screen.
+    const targets = model.rows.filter((r) => r.remindable).map((r) => r.enrollmentId)
+    if (targets.length === 0) return
+    setSending(true)
+    try {
+      const result = await sendReminders(targets)
+      setConfirming(false)
+      setSnack(t('dues_remind_sent', result.sent))
+      reload()
+    } catch (e) {
+      setConfirming(false)
+      setSnack(
+        e instanceof ApiError && e.offline
+          ? t('web_dues_remind_offline')
+          : message(e instanceof ApiError ? e.messageKey : 'error.unexpected'),
+      )
+    } finally {
+      setSending(false)
+    }
+  }
+
   if (model.count === 0) {
     return (
       <>
@@ -162,6 +208,49 @@ export function Dues() {
           </Section>
         ))
       )}
+
+      {model.remindable > 0 ? (
+        <div className="action-bar">
+          <button
+            type="button"
+            className="btn btn-primary btn-money"
+            disabled={!online || sending || resource.error !== null || resource.refreshing}
+            onClick={() => setConfirming(true)}
+          >
+            <BellIcon />
+            {t('dues_remind_button', model.remindable)}
+          </button>
+          <p className="meta" style={{ textAlign: 'center', margin: '8px 0 0' }}>
+            {online ? t('dues_remind_note') : t('web_dues_remind_offline')}
+          </p>
+        </div>
+      ) : null}
+      {confirming ? (
+        <Sheet
+          title={t('dues_remind_confirm_title', model.remindable)}
+          onClose={() => setConfirming(false)}
+        >
+          <p className="meta">{t('dues_remind_confirm_body')}</p>
+          <div className="button-row">
+            <button
+              type="button"
+              className="btn btn-primary btn-money"
+              disabled={sending || !online}
+              onClick={() => void remind()}
+            >
+              {t('dues_remind_send')}
+            </button>
+            <button
+              type="button"
+              className="btn btn-text btn-money"
+              onClick={() => setConfirming(false)}
+            >
+              {t('dues_remind_cancel')}
+            </button>
+          </div>
+        </Sheet>
+      ) : null}
+      {snack ? <Snackbar text={snack} onDismiss={dismiss} /> : null}
     </>
   )
 }

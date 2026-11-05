@@ -1,20 +1,40 @@
 /**
- * T7 · Students tab. Moved out of BatchDetail so the students area owns
- * it. Fee chips load separately from names, as the design's Loading/Error
+ * T7 · Students tab: who is in the batch, where each stands on fees, and
+ * what the teacher can do about a seat.
+ *
+ * Fee chips load separately from names, as the design's Loading/Error
  * board draws: names still show when fee status could not load, and fee
  * status is hidden rather than shown out of date.
+ *
+ * Seat actions follow `StudentsTab.kt`: tap a student to open Fee history,
+ * Mark inactive and — only where the server says `is_removable` — Remove.
+ * A declined seat (usually a mistyped number) shows its actions at once.
+ * A removal the server refuses comes back with a code naming the remedy,
+ * and the refusal offers exactly that remedy.
  */
+import { useCallback, useState } from 'react'
+import { Link } from 'react-router'
 import { readBatchFees, readRoster } from '../../../api/endpoints'
 import { ApiError } from '../../../api/errors'
 import { formatPhone } from '../../../core/format'
-import { useResource } from '../../../core/useResource'
+import { useOnline, useResource } from '../../../core/useResource'
 import { useT } from '../../../i18n/i18n'
-import { EmptyState, ErrorCard, FeeChip, Loading } from '../../../ui/components'
+import { EmptyState, ErrorCard, FeeChip, Loading, Sheet, Snackbar } from '../../../ui/components'
+import { PlusIcon } from '../../../ui/icons'
 import type { BatchTabProps } from '../area'
-import { mapRoster, type RosterSeat } from '../mappers'
+import { paths } from '../paths'
+import { removeEnrollment, setInactiveFrom } from './api'
+import {
+  bangladeshToday,
+  mapSeats,
+  removalRemedy,
+  seatLine,
+  type RemovalRemedy,
+  type Seat,
+} from './mappers'
 
 interface Loaded {
-  seats: RosterSeat[]
+  seats: Seat[]
   feesError: ApiError | null
 }
 
@@ -28,48 +48,267 @@ async function load(batchId: string): Promise<Loaded> {
   ])
   if (!fees.ok && !(fees.e instanceof ApiError)) throw fees.e
   return {
-    seats: mapRoster(roster, fees.ok ? fees.f : null),
+    seats: mapSeats(roster, fees.ok ? fees.f : null),
     feesError: fees.ok ? null : (fees.e as ApiError),
   }
 }
 
-export function StudentsTab({ batchId }: BatchTabProps) {
-  const { t } = useT()
-  const { resource, reload } = useResource(() => load(batchId), [batchId])
+type Dialog =
+  | { kind: 'remove'; seat: Seat }
+  | { kind: 'refused'; seat: Seat; messageKey: string; remedy: RemovalRemedy }
+  | { kind: 'inactive'; seat: Seat }
+  | null
 
-  if (resource.state === 'loading') return <Loading rows={5} />
-  if (resource.state === 'failed') {
-    return <ErrorCard title={t('batch_not_found')} error={resource.error} onRetry={reload} />
+export function StudentsTab({ batchId, batch }: BatchTabProps) {
+  const { t, message } = useT()
+  const online = useOnline()
+  const { resource, reload } = useResource(() => load(batchId), [batchId])
+  const [open, setOpen] = useState<string | null>(null)
+  const [dialog, setDialog] = useState<Dialog>(null)
+  const [busy, setBusy] = useState(false)
+  const [snack, setSnack] = useState<string | null>(null)
+  const dismiss = useCallback(() => setSnack(null), [])
+
+  const label = (seat: Seat) =>
+    seat.declined
+      ? seat.guardianPhone
+        ? formatPhone(seat.guardianPhone)
+        : t('roster_declined_no_number')
+      : seat.displayName
+
+  async function remove(seat: Seat) {
+    setBusy(true)
+    try {
+      await removeEnrollment(seat.enrollmentId)
+      setDialog(null)
+      setSnack(t('web_students_removed', label(seat)))
+      reload()
+    } catch (e) {
+      const error = e instanceof ApiError ? e : null
+      const remedy = error ? removalRemedy(error.code) : null
+      if (error && remedy) {
+        setDialog({ kind: 'refused', seat, messageKey: error.messageKey, remedy })
+      } else {
+        setDialog(null)
+        setSnack(message(error?.messageKey ?? 'error.unexpected'))
+      }
+    } finally {
+      setBusy(false)
+    }
   }
-  const { seats, feesError } = resource.data
-  if (seats.length === 0) return <EmptyState title={t('roster_empty')} />
+
+  async function markInactive(seat: Seat) {
+    setBusy(true)
+    try {
+      await setInactiveFrom(seat.enrollmentId, bangladeshToday())
+      setDialog(null)
+      setSnack(t('web_students_marked_inactive', label(seat)))
+      reload()
+    } catch (e) {
+      setDialog(null)
+      setSnack(message(e instanceof ApiError ? e.messageKey : 'error.unexpected'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const addLink = paths.studentAdd(batchId)
+  let body: React.ReactNode
+  if (resource.state === 'loading') {
+    body = <Loading rows={5} />
+  } else if (resource.state === 'failed') {
+    body = <ErrorCard title={t('batch_students_failed')} error={resource.error} onRetry={reload} />
+  } else if (resource.data.seats.length === 0) {
+    body = (
+      <EmptyState
+        title={t('batch_students_empty')}
+        body={t('batch_students_empty_body')}
+        action={
+          <Link to={addLink} className="btn btn-primary btn-money">
+            {t('batch_add_first_student')}
+          </Link>
+        }
+      />
+    )
+  } else {
+    const { seats, feesError } = resource.data
+    // Acting on a seat needs a fresh read: no actions on a stale roster.
+    const actionable = resource.error === null && !resource.refreshing && online
+    body = (
+      <>
+        {batch && batch.acceptedCount < batch.enrollmentCount ? (
+          <div className="banner" role="status" style={{ marginBottom: 12 }}>
+            <span>
+              <strong>
+                {t('batch_accepted_count', batch.acceptedCount, batch.enrollmentCount)}
+              </strong>{' '}
+              {t('batch_accepted_body')}
+            </span>
+          </div>
+        ) : null}
+        {feesError ? (
+          <div className="card error" role="status" style={{ marginBottom: 12 }}>
+            <div className="title">{t('batch_fees_failed')}</div>
+            <p className="meta">{t('batch_fees_failed_body')}</p>
+            <button type="button" className="btn btn-outline" onClick={reload}>
+              {t('roster_retry')}
+            </button>
+          </div>
+        ) : null}
+        <ul className="card flush list">
+          {seats.map((seat) => {
+            const expanded = seat.declined || open === seat.enrollmentId
+            const line = seatLine(seat, formatPhone)
+              .map(([key, ...args]) => t(key, ...args))
+              .join(' · ')
+            return (
+              <li key={seat.enrollmentId} className="seat">
+                <button
+                  type="button"
+                  className="row"
+                  aria-expanded={expanded}
+                  aria-label={t('web_students_actions_for', label(seat))}
+                  onClick={() =>
+                    seat.declined ||
+                    setOpen((cur) => (cur === seat.enrollmentId ? null : seat.enrollmentId))
+                  }
+                >
+                  <span className="grow">
+                    <span className="title" style={{ display: 'block' }}>
+                      {label(seat)}
+                    </span>
+                    <span className={seat.declined ? 'meta danger' : 'meta'}>{line}</span>
+                  </span>
+                  {seat.declined ? (
+                    <span className="chip chip-due">{t('batch_declined')}</span>
+                  ) : seat.chip && !feesError ? (
+                    <FeeChip chip={seat.chip} />
+                  ) : null}
+                </button>
+                {seat.declined ? (
+                  <p className="meta seat-help">{t('batch_declined_help')}</p>
+                ) : null}
+                {expanded && actionable ? (
+                  <div className="seat-actions">
+                    {!seat.declined ? (
+                      <Link
+                        className="btn btn-text btn-small"
+                        to={paths.seatFees(seat.enrollmentId)}
+                      >
+                        {t('batch_fee_history')}
+                      </Link>
+                    ) : null}
+                    {!seat.declined && seat.inactiveFrom === null ? (
+                      <button
+                        type="button"
+                        className="btn btn-text btn-small"
+                        onClick={() => setDialog({ kind: 'inactive', seat })}
+                      >
+                        {t('batch_mark_inactive')}
+                      </button>
+                    ) : null}
+                    {seat.isRemovable ? (
+                      <button
+                        type="button"
+                        className="btn btn-text btn-small danger"
+                        onClick={() => setDialog({ kind: 'remove', seat })}
+                      >
+                        {t('batch_remove')}
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
+              </li>
+            )
+          })}
+        </ul>
+        <Link to={addLink} className="btn btn-primary fab">
+          <PlusIcon />
+          {t('batch_add_student')}
+        </Link>
+      </>
+    )
+  }
+
   return (
     <>
-      {feesError ? (
-        <div className="card error" role="status" style={{ marginBottom: 12 }}>
-          <div className="title">{t('batch_fees_failed')}</div>
-          <p className="meta">{t('batch_fees_failed_body')}</p>
-          <button type="button" className="btn btn-outline" onClick={reload}>
-            {t('auth_retry')}
-          </button>
-        </div>
+      {body}
+      {dialog?.kind === 'remove' ? (
+        <Sheet title={t('roster_remove_confirm_title')} onClose={() => setDialog(null)}>
+          <p className="meta">{t('roster_remove_confirm_body', label(dialog.seat))}</p>
+          <div className="button-row">
+            <button
+              type="button"
+              className="btn btn-danger btn-money"
+              disabled={busy}
+              onClick={() => void remove(dialog.seat)}
+            >
+              {t('roster_remove_confirm')}
+            </button>
+            <button
+              type="button"
+              className="btn btn-text btn-money"
+              onClick={() => setDialog(null)}
+            >
+              {t('action_cancel')}
+            </button>
+          </div>
+        </Sheet>
       ) : null}
-      <ul className="card flush list">
-        {seats.map((s) => (
-          <li key={s.enrollmentId} className="row">
-            <div className="grow">
-              <div className="title">{s.displayName}</div>
-              <div className="meta">
-                {s.guardianPhone
-                  ? `${t('roster_link_guardian')} ${formatPhone(s.guardianPhone)}`
-                  : t('roster_link_absent')}
-                {s.status === 'inactive' ? ` · ${t('roster_status_inactive')}` : ''}
-              </div>
-            </div>
-            {s.chip && !feesError ? <FeeChip chip={s.chip} /> : null}
-          </li>
-        ))}
-      </ul>
+      {dialog?.kind === 'refused' ? (
+        <Sheet title={t('roster_remove_refused_title')} onClose={() => setDialog(null)}>
+          <p className="meta">
+            {dialog.remedy === 'mark-inactive'
+              ? t('roster_remove_claimed_remedy')
+              : t('roster_remove_erased_remedy')}
+          </p>
+          <div className="button-row">
+            {dialog.remedy === 'mark-inactive' ? (
+              <button
+                type="button"
+                className="btn btn-primary btn-money"
+                disabled={busy}
+                onClick={() => void markInactive(dialog.seat)}
+              >
+                {t('roster_mark_inactive')}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className="btn btn-text btn-money"
+              onClick={() => setDialog(null)}
+            >
+              {t('action_close')}
+            </button>
+          </div>
+        </Sheet>
+      ) : null}
+      {dialog?.kind === 'inactive' ? (
+        <Sheet
+          title={t('web_students_inactive_title', label(dialog.seat))}
+          onClose={() => setDialog(null)}
+        >
+          <p className="meta">{t('web_students_inactive_body')}</p>
+          <div className="button-row">
+            <button
+              type="button"
+              className="btn btn-primary btn-money"
+              disabled={busy}
+              onClick={() => void markInactive(dialog.seat)}
+            >
+              {t('roster_mark_inactive')}
+            </button>
+            <button
+              type="button"
+              className="btn btn-text btn-money"
+              onClick={() => setDialog(null)}
+            >
+              {t('action_cancel')}
+            </button>
+          </div>
+        </Sheet>
+      ) : null}
+      {snack ? <Snackbar text={snack} onDismiss={dismiss} /> : null}
     </>
   )
 }
