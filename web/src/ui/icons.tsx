@@ -147,3 +147,9 @@ export const SwapIcon = (p: IconProps) => (
     <path d="M7 4 3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7" />
   </Svg>
 )
+export const EditIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 20h4L19 9l-4-4L4 16z" />
+    <path d="m13.5 6.5 4 4" />
+  </Svg>
+)

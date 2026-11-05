@@ -6,7 +6,7 @@
  * The open tab is in the URL (`?tab=exams`), so a screen that finishes —
  * creating an exam, recording a class — can return to the tab it came from.
  */
-import { useParams, useSearchParams } from 'react-router'
+import { Link, useParams, useSearchParams } from 'react-router'
 import { listBatches } from '../../api/endpoints'
 import { formatClock } from '../../core/format'
 import { useResource } from '../../core/useResource'
@@ -17,7 +17,8 @@ import { WEEKDAY_KEYS } from './Batches'
 import { ClassesTab } from './classes'
 import { ExamsTab } from './exams'
 import { NoticesTab, StudentsTab } from './students'
-import type { BatchTab } from './paths'
+import { paths, type BatchTab } from './paths'
+import { EditIcon } from '../../ui/icons'
 
 const TABS: readonly BatchTab[] = ['students', 'classes', 'exams', 'notices']
 
@@ -64,6 +65,17 @@ export function BatchDetail() {
         title={batch?.name ?? t('roster_title_fallback')}
         subtitle={subtitle}
         back="/batches"
+        actions={
+          batch ? (
+            <Link
+              className="icon-btn"
+              to={paths.batchEdit(batchId)}
+              aria-label={t('web_batch_edit')}
+            >
+              <EditIcon size={22} />
+            </Link>
+          ) : null
+        }
       />
       {batch ? (
         <div className="chips" style={{ marginBottom: 12 }}>
@@ -84,6 +96,9 @@ export function BatchDetail() {
               {s}
             </span>
           ))}
+          <Link className="chip chip-filter" to={paths.batchSchedule(batchId)}>
+            {t('roster_open_schedule')}
+          </Link>
         </div>
       ) : null}
 

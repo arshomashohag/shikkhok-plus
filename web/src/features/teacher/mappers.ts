@@ -25,6 +25,7 @@ export interface TodayClass {
   startsInMinutes: number | null
   topic: string | null
   topicLogged: boolean
+  examId: string | null
   examTitle: string | null
 }
 
@@ -90,6 +91,7 @@ export function mapToday(dto: Schemas['TodayResponse']): TodayModel {
       startsInMinutes: c.starts_in_minutes ?? null,
       topic: c.topic ?? null,
       topicLogged: c.topic_logged,
+      examId: c.exam_id ?? null,
       examTitle: c.exam_title ?? null,
     })),
     toVerify: dto.to_verify.map(mapReview),

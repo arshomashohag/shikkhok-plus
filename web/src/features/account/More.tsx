@@ -10,11 +10,14 @@ import { Section, TopBar } from '../../ui/components'
 import {
   ChevronIcon,
   DownloadIcon,
+  LayersIcon,
   LogOutIcon,
   MailIcon,
   SettingsIcon,
   SwapIcon,
+  WalletIcon,
 } from '../../ui/icons'
+import { paths } from '../teacher/paths'
 
 export function More() {
   const { t } = useT()
@@ -51,6 +54,35 @@ export function More() {
                 </button>
               </li>
             ))}
+          </ul>
+        </Section>
+      ) : null}
+
+      {session.lens === 'teacher' ? (
+        <Section title={t('more_section_getting_paid')}>
+          <ul className="card flush list">
+            <li>
+              <Link className="row" to={paths.paymentMethods()}>
+                <WalletIcon />
+                <span className="grow">
+                  <span className="title">{t('more_where_students_pay')}</span>
+                  <br />
+                  <span className="meta">{t('more_where_students_pay_sub')}</span>
+                </span>
+                <ChevronIcon />
+              </Link>
+            </li>
+            <li>
+              <Link className="row" to={paths.collections()}>
+                <LayersIcon />
+                <span className="grow">
+                  <span className="title">{t('profile_collections')}</span>
+                  <br />
+                  <span className="meta">{t('more_collections_sub')}</span>
+                </span>
+                <ChevronIcon />
+              </Link>
+            </li>
           </ul>
         </Section>
       ) : null}

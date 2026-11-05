@@ -9,6 +9,7 @@ import { useResource } from '../../core/useResource'
 import { useT } from '../../i18n/i18n'
 import { Avatar, ErrorCard, Loading, Section, StaleBanner, TopBar } from '../../ui/components'
 import { CheckIcon, ChevronIcon, WarningIcon } from '../../ui/icons'
+import { paths } from './paths'
 import { mapToday, reviewName, type TodayClass, type TodayModel } from './mappers'
 
 export function Today() {
@@ -122,7 +123,7 @@ function TodayLoaded({
         title={t('today_to_verify_count', model.toVerifyCount)}
         aside={
           model.toVerifyCount > 0 ? (
-            <Link to="/verify" className="btn btn-text btn-small">
+            <Link to={paths.verify()} className="btn btn-text btn-small">
               {t('today_see_all')}
             </Link>
           ) : null
@@ -137,7 +138,7 @@ function TodayLoaded({
               const period = r.children[0]?.period
               return (
                 <li key={r.submissionId}>
-                  <Link className="row" to="/verify">
+                  <Link className="row" to={paths.payment(r.submissionId)}>
                     <Avatar letter={initial(name)} />
                     <div className="grow">
                       <div className="title">{name}</div>
@@ -193,9 +194,19 @@ function ClassRow({ item }: { item: TodayClass }) {
   } else {
     status = <span className="meta">{t('today_not_recorded')}</span>
   }
+  // T1: a class not yet recorded offers Record; an exam day offers Marks.
+  // Both open a screen; nothing is written from this row.
+  const action =
+    item.status === 'cancelled'
+      ? null
+      : item.examId
+        ? { to: paths.examMarks(item.examId), label: t('today_marks') }
+        : !item.topicLogged
+          ? { to: paths.session(item.batchId, item.sessionId), label: t('today_record') }
+          : null
   return (
-    <li>
-      <Link className={item.isNext ? 'row highlight' : 'row'} to={`/batches/${item.batchId}`}>
+    <li className={item.isNext ? 'row highlight' : 'row'}>
+      <Link className="today-class" to={paths.session(item.batchId, item.sessionId)}>
         <div style={{ width: 56, flexShrink: 0 }}>
           <div className="amount">{clock.time}</div>
           <div className="meta">{clock.meridiem}</div>
@@ -205,6 +216,11 @@ function ClassRow({ item }: { item: TodayClass }) {
           {status}
         </div>
       </Link>
+      {action ? (
+        <Link className="btn btn-tonal btn-small" to={action.to}>
+          {action.label}
+        </Link>
+      ) : null}
     </li>
   )
 }
