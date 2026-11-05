@@ -1287,7 +1287,7 @@
     <string name="invitation_child_yes">Yes, this is my child</string>
     <string name="invitation_child_no">No, not my child</string>
     <!-- Marks: decimal, and draft then publish (2026-11-05). -->
-    <string name="mark_entry_publish">Publish to students & guardians</string>
+    <string name="mark_entry_publish">Publish to students &amp; guardians</string>
     <string name="mark_entry_publish_help">Only you can see these marks until you publish them.</string>
     <string name="mark_entry_published">Published to students and guardians. A correction shows to them at once.</string>
     <string name="mark_entry_to_enter">%1$s still to enter before publishing</string>
