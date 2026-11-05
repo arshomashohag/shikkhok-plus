@@ -24,6 +24,13 @@ import { Invitations } from './features/account/Invitations'
 import { LensPicker } from './features/account/LensPicker'
 import { More } from './features/account/More'
 import { Settings } from './features/account/Settings'
+import { classesRoutes } from './features/teacher/classes'
+import { examsRoutes } from './features/teacher/exams'
+import { studentsRoutes } from './features/teacher/students'
+import { moneyRoutes } from './features/teacher/money'
+
+/** Routes the teacher areas own (features/teacher/<area>/index.tsx). */
+const AREA_ROUTES = [...classesRoutes, ...examsRoutes, ...studentsRoutes, ...moneyRoutes]
 
 function Only({
   lens,
@@ -148,6 +155,17 @@ export function App() {
             </Only>
           }
         />
+        {AREA_ROUTES.map((r) => (
+          <Route
+            key={r.path}
+            path={r.path}
+            element={
+              <Only lens="teacher" current={lens}>
+                {r.element}
+              </Only>
+            }
+          />
+        ))}
         <Route path="/invitations" element={<Invitations />} />
         <Route path="/more" element={<More />} />
         <Route path="/settings" element={<Settings />} />

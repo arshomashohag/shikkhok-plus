@@ -10,16 +10,30 @@ import { createContext, useCallback, useContext, useMemo, type ReactNode } from 
 import en from './generated/strings.en.json'
 import bn from './generated/strings.bn.json'
 import messageKeys from './generated/message-keys.json'
-import webEn from './web.en.json'
-import webBn from './web.bn.json'
+
+/**
+ * Web-only strings, one file per area (`web/<area>.<lang>.json`), so
+ * areas built in parallel never edit the same file. Keys start `web_`.
+ */
+const WEB = import.meta.glob<Record<string, string>>('./web/*.json', {
+  eager: true,
+  import: 'default',
+})
+function webStrings(lang: Lang): Record<string, string> {
+  return Object.entries(WEB)
+    .filter(([path]) => path.endsWith(`.${lang}.json`))
+    .reduce<Record<string, string>>((all, [, strings]) => ({ ...all, ...strings }), {})
+}
+export const WEB_EN = webStrings('en')
+export const WEB_BN = webStrings('bn')
 import type { Lang } from '../core/format'
 
 type Entry = string | { one?: string; other?: string; [q: string]: string | undefined }
 type Bundle = Record<string, Entry>
 
 export const BUNDLES: Record<Lang, Bundle> = {
-  en: { ...(en as Bundle), ...webEn },
-  bn: { ...(bn as Bundle), ...webBn },
+  en: { ...(en as Bundle), ...WEB_EN },
+  bn: { ...(bn as Bundle), ...WEB_BN },
 }
 
 /** Server `message_key` → string resource name. */

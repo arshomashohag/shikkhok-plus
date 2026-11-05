@@ -1,18 +1,24 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { BUNDLES, MESSAGE_KEYS, translate, translateMessage, translatePlural } from './i18n'
-import webEn from './web.en.json'
-import webBn from './web.bn.json'
+import {
+  BUNDLES,
+  MESSAGE_KEYS,
+  translate,
+  translateMessage,
+  translatePlural,
+  WEB_BN,
+  WEB_EN,
+} from './i18n'
 
 describe('bundles', () => {
   it('has every string in both languages', () => {
     expect(Object.keys(BUNDLES.bn).sort()).toEqual(Object.keys(BUNDLES.en).sort())
-    expect(Object.keys(webBn).sort()).toEqual(Object.keys(webEn).sort())
+    expect(Object.keys(WEB_BN).sort()).toEqual(Object.keys(WEB_EN).sort())
   })
 
   it('keeps web-only keys out of the Android namespace', () => {
-    for (const key of Object.keys(webEn)) expect(key.startsWith('web_')).toBe(true)
+    for (const key of Object.keys(WEB_EN)) expect(key.startsWith('web_')).toBe(true)
   })
 
   it('fills positional arguments and plurals', () => {
