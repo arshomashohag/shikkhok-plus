@@ -221,7 +221,7 @@ private fun MarkText(row: ProgressRow) {
         Text(
             buildAnnotatedString {
                 withStyle(SpanStyle(fontWeight = FontWeight.Bold, fontSize = markSize)) {
-                    append(Numerals.count(marks))
+                    append(Numerals.mark(marks))
                 }
                 append(stringResource(R.string.student_out_of, Numerals.count(row.totalMarks)))
             },

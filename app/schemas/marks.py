@@ -1,6 +1,7 @@
 """Request and response bodies for exams, marks and the marksheet.
 
-**``total_marks`` and ``marks`` are integer COUNTS and never money.**
+**``total_marks`` is an integer COUNT and ``marks`` a count with at most
+two decimal places (decided 2026-11-05); neither is ever money.**
 They must never acquire a money type, for the same reason
 ``Batch.collection_number`` must not. ``total_marks`` matches the
 money-name gate's ``total`` token and carries a per-field exemption
@@ -91,6 +92,8 @@ class ExamListItemResponse(ExamResponse):
 
     :ivar entered_count: Seats with a mark or an absence entered
     :ivar expected_count: Seats that could have sat the exam
+    :ivar published: Whether the results are out to students and
+        guardians; a draft until the teacher publishes (2026-11-05)
     :ivar state: ``upcoming``, ``needs_marks`` or ``complete``, decided
         by the server so the client never compares a date or a count
     """
@@ -98,6 +101,7 @@ class ExamListItemResponse(ExamResponse):
     entered_count: int = Field(ge=0)
     expected_count: int = Field(ge=0)
     state: Literal["upcoming", "needs_marks", "complete"]
+    published: bool = False
 
 
 class ExamCreateRequest(BaseModel):
@@ -161,7 +165,7 @@ class MarkWriteRequest(BaseModel):
 
     enrollment_id: uuid.UUID
     result_state: EnterableState
-    marks: int | None = Field(default=None, ge=0)
+    marks: float | None = Field(default=None, ge=0)
 
 
 class SeatResultResponse(BaseModel):
@@ -183,7 +187,7 @@ class SeatResultResponse(BaseModel):
     enrollment_id: uuid.UUID
     display_name: str
     result_state: ResultState
-    marks: int | None = None
+    marks: float | None = None
 
 
 class ExamResultsResponse(BaseModel):
@@ -226,7 +230,7 @@ class CorrectionEntryResponse(BaseModel):
 
     mark_id: uuid.UUID
     result_state: ResultState
-    marks: int | None = None
+    marks: float | None = None
     recorded_at: dt.datetime
     superseded: bool
 
@@ -275,10 +279,10 @@ class PublishedMarksheetResponse(BaseModel):
     exam_title: str
     total_marks: int = Field(ge=1)
     viewer_result_state: ResultState
-    viewer_marks: int | None = None
+    viewer_marks: float | None = None
     viewer_rank: int | None = None
     average: float
-    highest: int
+    highest: float
     marked_count: int
     bands: list[BandResponse]
 
@@ -304,7 +308,7 @@ class SuppressedMarksheetResponse(BaseModel):
     exam_title: str
     total_marks: int = Field(ge=1)
     viewer_result_state: ResultState
-    viewer_marks: int | None = None
+    viewer_marks: float | None = None
     reason: SuppressionReason
 
 
@@ -339,7 +343,7 @@ class ProgressEntryResponse(BaseModel):
     date: dt.date
     total_marks: int = Field(ge=1)
     result_state: ResultState
-    marks: int | None = None
+    marks: float | None = None
     subject_name: str | None = None
     rank: int | None = Field(default=None, ge=1)
     ranked_out_of: int | None = Field(default=None, ge=1)

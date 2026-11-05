@@ -68,9 +68,9 @@ data class ResultCard(
     val batchName: String,
     val title: String,
     val date: String,
-    val marks: Int,
+    val marks: Double,
     val totalMarks: Int,
-    val previousMarks: Int?,
+    val previousMarks: Double?,
     val trend: Trend,
 )
 

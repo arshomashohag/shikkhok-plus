@@ -197,7 +197,7 @@ private fun ComparisonBody(comparison: MarksheetComparison) {
         Modifier.testTag(TAG_MARKSHEET_AVERAGE),
     )
     Text(
-        stringResource(R.string.marksheet_highest, Numerals.count(comparison.highest)),
+        stringResource(R.string.marksheet_highest, Numerals.mark(comparison.highest)),
         Modifier.testTag(TAG_MARKSHEET_HIGHEST),
     )
 

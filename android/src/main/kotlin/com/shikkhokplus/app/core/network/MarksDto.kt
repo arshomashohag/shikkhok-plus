@@ -26,6 +26,8 @@ import kotlinx.serialization.Serializable
  * @property state `upcoming`, `needs_marks` or `complete`, decided by the
  *   server so the client never compares a date or a count
  * @property topics What the exam covers, in the teacher's order
+ * @property published Whether its results are out to students and
+ *   guardians; a draft until the teacher publishes (decided 2026-11-05)
  */
 @Serializable
 data class ExamDto(
@@ -38,6 +40,7 @@ data class ExamDto(
     @SerialName("expected_count") val expectedCount: Int = 0,
     val state: String = "complete",
     val topics: List<String> = emptyList(),
+    val published: Boolean = false,
 )
 
 /**
@@ -66,7 +69,7 @@ data class ExamResultDto(
     @SerialName("enrollment_id") val enrollmentId: String,
     @SerialName("display_name") val displayName: String,
     @SerialName("result_state") val resultState: String,
-    val marks: Int? = null,
+    val marks: Double? = null,
 )
 
 /**
@@ -88,7 +91,7 @@ data class ExamResultDto(
 data class MarkWriteBody(
     @SerialName("enrollment_id") val enrollmentId: String,
     @SerialName("result_state") val resultState: String,
-    val marks: Int? = null,
+    val marks: Double? = null,
 )
 
 /**
@@ -150,11 +153,11 @@ data class MarksheetDto(
     @SerialName("exam_title") val examTitle: String,
     @SerialName("total_marks") val totalMarks: Int,
     @SerialName("viewer_result_state") val viewerResultState: String,
-    @SerialName("viewer_marks") val viewerMarks: Int? = null,
+    @SerialName("viewer_marks") val viewerMarks: Double? = null,
     @SerialName("viewer_rank") val viewerRank: Int? = null,
     @SerialName("marked_count") val markedCount: Int? = null,
     val average: Double? = null,
-    val highest: Int? = null,
+    val highest: Double? = null,
     val bands: List<MarkBandDto> = emptyList(),
     val reason: String? = null,
 )
@@ -191,7 +194,7 @@ data class ProgressEntryDto(
     val date: String,
     @SerialName("total_marks") val totalMarks: Int,
     @SerialName("result_state") val resultState: String,
-    val marks: Int? = null,
+    val marks: Double? = null,
     @SerialName("subject_name") val subjectName: String? = null,
     val rank: Int? = null,
     @SerialName("ranked_out_of") val rankedOutOf: Int? = null,
@@ -269,7 +272,7 @@ data class ExamUpdateRequestDto(
 data class CorrectionDto(
     @SerialName("mark_id") val markId: String,
     @SerialName("result_state") val resultState: String,
-    val marks: Int? = null,
+    val marks: Double? = null,
     @SerialName("recorded_at") val recordedAt: String,
     val superseded: Boolean,
 )

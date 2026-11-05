@@ -266,6 +266,7 @@ def test_a_guardian_sees_a_series_in_exam_date_order(
             date=when,
             total_marks=TOTAL_MARKS,
             created_at=dt.datetime.now(tz=dt.UTC),
+            published_at=dt.datetime.now(tz=dt.UTC),
         )
         owner_session.add(row)
         owner_session.commit()
@@ -427,6 +428,7 @@ def test_the_marksheet_never_spans_two_batches(
         date=EXAM_DATE,
         total_marks=TOTAL_MARKS,
         created_at=dt.datetime.now(tz=dt.UTC),
+        published_at=dt.datetime.now(tz=dt.UTC),
     )
     owner_session.add(second_exam)
     owner_session.commit()
@@ -508,6 +510,7 @@ def test_an_exam_from_another_batch_is_unreachable(
         date=EXAM_DATE,
         total_marks=TOTAL_MARKS,
         created_at=dt.datetime.now(tz=dt.UTC),
+        published_at=dt.datetime.now(tz=dt.UTC),
     )
     owner_session.add(their_exam)
     owner_session.commit()

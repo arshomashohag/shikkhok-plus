@@ -60,7 +60,7 @@ class SeatResult:
     enrollment_id: uuid.UUID
     display_name: str
     result_state: str
-    marks: int | None
+    marks: float | None
 
 
 def exam_results(

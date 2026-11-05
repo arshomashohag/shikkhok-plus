@@ -1231,4 +1231,12 @@
     <string name="invitation_child_question">%1$s কি আপনার সন্তান?</string>
     <string name="invitation_child_yes">হ্যাঁ, এটি আমার সন্তান</string>
     <string name="invitation_child_no">না, আমার সন্তান নয়</string>
+    <!-- Marks: decimal, and draft then publish (2026-11-05). -->
+    <string name="mark_entry_publish">শিক্ষার্থী ও অভিভাবকদের কাছে প্রকাশ করুন</string>
+    <string name="mark_entry_publish_help">প্রকাশ না করা পর্যন্ত এই নম্বর শুধু আপনি দেখতে পাবেন।</string>
+    <string name="mark_entry_published">শিক্ষার্থী ও অভিভাবকদের কাছে প্রকাশিত। সংশোধন করলে তারা সঙ্গে সঙ্গে দেখবে।</string>
+    <string name="mark_entry_to_enter">প্রকাশের আগে আরও %1$s জনের নম্বর দিতে হবে</string>
+    <string name="marks_publish_incomplete">প্রকাশের আগে প্রত্যেক শিক্ষার্থীর নম্বর বা অনুপস্থিত দিন।</string>
+    <string name="marks_too_precise">নম্বরে দশমিকের পরে সর্বোচ্চ ২ ঘর থাকতে পারে।</string>
+    <string name="batch_exam_draft">খসড়া · প্রকাশিত নয়</string>
 </resources>

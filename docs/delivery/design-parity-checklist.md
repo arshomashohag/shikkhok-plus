@@ -162,22 +162,33 @@ approved and is not audited here.
   compact "/25" rows, the "now entering" dock, the app's own keypad with
   Absent, backspace and "Next ↓" (`feature/marks/ui/MarkEntryScreen.kt`).
   Entry opens on the first seat with no mark; Next saves and moves down.
-- [?] The keypad's decimal key: not drawn, because the API's mark is a
-  whole number (see half marks below).
+- [x] The keypad's decimal key: drawn, two places at most
+  (`MarkEntryScreen.kt` `typedNext`), since a mark may now be decimal.
 - [x] Exam in the title, "out of 25" as the subtitle
   (`feature/marks/ui/MarkEntryScreen.kt`).
 - [?] "subject · batch · date" in the subtitle: the entry read carries the
   exam's date only, not its subject or batch name.
-- [?] Half marks ("19.5"): the client takes `Int`. Needs the API's mark
+- [x] Half marks ("19.5"): the client takes `Int`. Needs the API's mark
   type confirmed before the client changes. *Decided 2026-11-05:* a mark may be any
-  number, whole or decimal.
+  number, whole or decimal. Built: migration `0017` makes `mark.marks`
+  `NUMERIC(6,2)`; a third decimal place is refused (`marks.too_precise`);
+  ranks, directions, percents and averages compare in hundredths
+  (`app/marks/value.py`), and marksheet bands place 19.5 in the band
+  below 20.
 - [x] Empty: "No students in this batch yet".
 - [?] Empty: an Add students button on it -- the entry read carries no
   batch id to open the batch's add-student form with.
 - [x] Loading: skeleton rows.
-- [?] Draft → review → "Publish to students & guardians", "3 to fix",
+- [x] Draft → review → "Publish to students & guardians", "3 to fix",
   "Max 25" row errors. There is no draft/publish model; marks save per
   field. Needs a server model. *Decided 2026-11-05:* build draft → review → publish.
+  Built: `exam.published_at` (existing exams backfilled as published);
+  families read no mark, marksheet, progress point or dashboard figure
+  of a draft, and nobody is told about one. `POST /v1/exams/{id}/publish`
+  is refused while a seat has no result and tells every seat at once.
+  The entry screen shows "N still to enter before publishing", then
+  Publish, then "Published"; T7 marks a finished draft "Draft · not
+  published". Row errors such as "Max 25" stay server refusals.
 
 ### T4 · Payment verification — `feature/verify/ui/*`
 - [x] Queue cards show TrxID and the paying account
@@ -478,12 +489,14 @@ approved and is not audited here.
   guardian read has no level field.
 - [x] "Log out" as a row.
 - [x] Reached from a profile button, no bottom bar.
-- [?] "Is আয়ান your child?" invitation with child chip, "Yes, this is my
+- [x] "Is আয়ান your child?" invitation with child chip, "Yes, this is my
   child" / "No, not my child". The invitation read carries no child
   name, and sending one is a privacy decision: it would show a child's
   name to whoever holds the number a teacher typed, before they have
   confirmed they are the guardian [RC-1, D-5]. *Decided 2026-11-05:* show the
-  child's name.
+  child's name. Built: a guardian's invitation carries the name the
+  teacher typed for the seat (never the child's own profile name), with
+  "Yes, this is my child" / "No, not my child".
 - [?] Notifications, Text size, "Call for help · Talk to a person, in Bangla".
 - [x] Guardian type scale (64dp rows, 18sp titles, 21sp/700 title).
 - [x] Error · offline: the same More screen as T9.

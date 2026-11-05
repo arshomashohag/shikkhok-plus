@@ -92,6 +92,7 @@ def test_the_batch_page_names_the_next_class_the_moved_one_and_the_exam(
             date=dt.date(2099, 3, 7),
             total_marks=100,
             created_at=dt.datetime.now(tz=dt.UTC),
+            published_at=dt.datetime.now(tz=dt.UTC),
         )
     )
     owner_session.commit()

@@ -126,7 +126,7 @@ class WriteContractTest {
                 HttpMarksRepository(it).createExam(ID, "Mid-term", "2026-11-04", 100, ID, listOf("Motion"))
             },
             Write("post", "/v1/exams/{exam_id}/marks") {
-                HttpMarksRepository(it).writeMark(ID, ID, "marked", 70)
+                HttpMarksRepository(it).writeMark(ID, ID, "marked", 70.5)
             },
             Write("post", "/v1/payments/{submission_id}/approval") {
                 HttpVerificationRepository(it).approve(

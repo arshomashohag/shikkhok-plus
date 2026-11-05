@@ -89,11 +89,11 @@ class DashboardExamResponse(BaseModel):
     title: str
     date: dt.date
     subject: str | None
-    marks: int | None
+    marks: float | None
     total: int
     percent: int | None
-    batch_average: int | None
-    batch_highest: int | None
+    batch_average: float | None
+    batch_highest: float | None
 
 
 class DashboardFeeMonthResponse(BaseModel):

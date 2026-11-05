@@ -101,6 +101,18 @@ const val TAG_MARK_ENTRY_DOCK: String = "mark_entry_dock"
 /** One keypad key; the digit or action follows the underscore. */
 const val TAG_MARK_ENTRY_KEY: String = "mark_entry_key"
 
+/** The draft, review and publish bar above the list. */
+const val TAG_MARK_ENTRY_PUBLISH_BAR: String = "mark_entry_publish_bar"
+
+/** The Publish button. */
+const val TAG_MARK_ENTRY_PUBLISH: String = "mark_entry_publish"
+
+/** "Published to students and guardians." */
+const val TAG_MARK_ENTRY_PUBLISHED: String = "mark_entry_published"
+
+/** "3 still to enter before publishing." */
+const val TAG_MARK_ENTRY_TO_ENTER: String = "mark_entry_to_enter"
+
 /** The keypad's Next key. */
 const val TAG_MARK_ENTRY_NEXT: String = "mark_entry_next"
 
@@ -139,16 +151,19 @@ const val TAG_MARK_ENTRY_BACKSPACE: String = "mark_entry_backspace"
  * @param modifier Layout modifier
  * @param onEditExam Called by the pencil, to edit the exam
  * @param onHistory Called to see every mark recorded for a seat
+ * @param onPublish Called to publish the results to students and
+ *   guardians, once every seat has one (decided 2026-11-05)
  */
 @Composable
 fun MarkEntryScreen(
     state: MarksUiState,
-    onMark: (MarkRow, Int) -> Unit = { _, _ -> },
+    onMark: (MarkRow, Double) -> Unit = { _, _ -> },
     onAbsent: (MarkRow) -> Unit = {},
     onRetry: () -> Unit = {},
     modifier: Modifier = Modifier,
     onEditExam: () -> Unit = {},
     onHistory: (MarkRow) -> Unit = {},
+    onPublish: () -> Unit = {},
 ) {
     val loaded = state as? MarksUiState.EntryLoaded
     val entry = rememberEntry(loaded, onMark)
@@ -158,7 +173,12 @@ fun MarkEntryScreen(
         subtitle = loaded?.let { stringResource(R.string.batch_exam_out_of, Numerals.count(it.totalMarks)) },
         modifier = modifier,
         actions = { BarActions(loaded, onEditExam) },
-        header = { loaded?.let { Progress(it.rows) } },
+        header = {
+            loaded?.let {
+                Progress(it.rows)
+                PublishBar(it, onPublish)
+            }
+        },
         bottomBar = { DockFor(loaded, entry, onAbsent, onHistory) },
     ) {
         when (state) {
@@ -226,6 +246,60 @@ private fun EntryList(state: MarksUiState.EntryLoaded, entry: Entry) {
 }
 
 /**
+ * Draft, review, publish (decided 2026-11-05).
+ *
+ * Until the teacher publishes, the marks are theirs alone; the bar says
+ * so and offers Publish once every seat has a result. **Whether it may
+ * is the server's**: the count of seats still to enter comes from its
+ * counts, and a refusal is shown here, under the button.
+ *
+ * @param state The exam
+ * @param onPublish Called to publish
+ */
+@Composable
+private fun PublishBar(state: MarksUiState.EntryLoaded, onPublish: () -> Unit) {
+    if (!state.writable || state.rows.isEmpty()) return
+    Column(
+        Modifier.fillMaxWidth().padding(vertical = 8.dp).testTag(TAG_MARK_ENTRY_PUBLISH_BAR),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        when {
+            state.published ->
+                Text(
+                    stringResource(R.string.mark_entry_published),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag(TAG_MARK_ENTRY_PUBLISHED),
+                )
+            state.toEnter > 0 ->
+                Text(
+                    stringResource(R.string.mark_entry_to_enter, Numerals.count(state.toEnter)),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag(TAG_MARK_ENTRY_TO_ENTER),
+                )
+            else -> {
+                Text(
+                    stringResource(R.string.mark_entry_publish_help),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Button(onClick = onPublish, modifier = Modifier.fillMaxWidth().testTag(TAG_MARK_ENTRY_PUBLISH)) {
+                    Text(stringResource(R.string.mark_entry_publish))
+                }
+            }
+        }
+        state.publishError?.let {
+            Text(
+                stringResource(MessageKeys.resolve(it)),
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
+    }
+}
+
+/**
  * The dock and keypad, when the exam takes writes and a seat is open.
  *
  * @param loaded The exam, or null while it loads
@@ -279,7 +353,7 @@ private class Entry(
  * @return The entry
  */
 @Composable
-private fun rememberEntry(loaded: MarksUiState.EntryLoaded?, onMark: (MarkRow, Int) -> Unit): Entry {
+private fun rememberEntry(loaded: MarksUiState.EntryLoaded?, onMark: (MarkRow, Double) -> Unit): Entry {
     val rows = loaded?.rows.orEmpty()
     val editable = if (loaded?.writable == true) rows.filter { it.isEditable } else emptyList()
     var openId by remember(loaded?.examId) { mutableStateOf<String?>(null) }
@@ -288,12 +362,12 @@ private fun rememberEntry(loaded: MarksUiState.EntryLoaded?, onMark: (MarkRow, I
             ?: editable.firstOrNull { it.stateLabel == NOT_ENTERED_KEY }
             ?: editable.firstOrNull()
     var typed by remember(current?.enrollmentId, current?.marks) {
-        mutableStateOf(current?.marks?.toString().orEmpty())
+        mutableStateOf(current?.marks?.let(Numerals::mark).orEmpty())
     }
     val haptics = rememberHaptics()
     val save = {
         val seat = current
-        if (seat != null) typed.toIntOrNull()?.takeIf { it != seat.marks }?.let { onMark(seat, it) }
+        if (seat != null) typedMark(typed)?.takeIf { it != seat.marks }?.let { onMark(seat, it) }
     }
     return Entry(
         current = current,
@@ -304,7 +378,7 @@ private fun rememberEntry(loaded: MarksUiState.EntryLoaded?, onMark: (MarkRow, I
                 openId = row.enrollmentId
             }
         },
-        type = { digit -> if (typed.length < MAX_DIGITS) typed += digit },
+        type = { key -> typed = typedNext(typed, key) },
         backspace = { typed = typed.dropLast(1) },
         next = {
             save()
@@ -439,7 +513,7 @@ private fun MarkLine(
                 )
             row.marks != null ->
                 Text(
-                    Numerals.count(row.marks),
+                    Numerals.mark(row.marks),
                     style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
                     textAlign = TextAlign.Center,
                     modifier = Modifier.width(64.dp).testTag(TAG_MARK_ENTRY_STATE),
@@ -557,7 +631,10 @@ private fun Dock(
 }
 
 /**
- * Three columns of keys: 1 to 9, then a blank, 0 and Next.
+ * Three columns of keys: 1 to 9, then the decimal point, 0 and Next.
+ *
+ * The point is there because a mark may be decimal (decided 2026-11-05),
+ * such as 19.5; two places at most, as the server keeps.
  *
  * @param entry Where the keys type
  */
@@ -572,7 +649,6 @@ private fun Keypad(entry: Entry) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 keys.forEach { key ->
                     when (key) {
-                        ' ' -> Box(Modifier.weight(1f))
                         NEXT -> Key(stringResource(R.string.mark_entry_next), TAG_MARK_ENTRY_NEXT, entry.next)
                         else -> Key(key.toString(), TAG_MARK_ENTRY_KEY + "_" + key) { entry.type(key) }
                     }
@@ -623,7 +699,43 @@ private const val ABSENT_KEY = "mark.state.absent"
 private const val NEXT = '>'
 
 /** The keypad's layout; a space is an empty cell. */
-private val KEY_ROWS = listOf("123", "456", "789", " 0$NEXT").map { it.toList() }
+private val KEY_ROWS = listOf("123", "456", "789", "${POINT}0$NEXT").map { it.toList() }
 
-/** Enough digits for any exam total; the range is the server's check. */
+/** Enough whole digits for any exam total; the range is the server's check. */
 private const val MAX_DIGITS = 3
+
+/** Decimal places a mark may carry, as the server stores it. */
+private const val MAX_DECIMALS = 2
+
+/** The decimal point key. */
+private const val POINT = '.'
+
+/**
+ * The text after one key: a digit or the point, within three whole
+ * digits and two decimals, and one point at most.
+ *
+ * **Format only.** Whether the mark is within the exam's total is the
+ * server's check.
+ *
+ * @param typed What is typed so far
+ * @param key The key pressed
+ * @return The new text, unchanged when the key does not fit
+ */
+internal fun typedNext(typed: String, key: Char): String {
+    val point = typed.indexOf(POINT)
+    return when {
+        key == POINT && point >= 0 -> typed
+        key == POINT -> (typed.ifEmpty { "0" }) + POINT
+        point >= 0 && typed.length - point - 1 >= MAX_DECIMALS -> typed
+        point < 0 && typed.length >= MAX_DIGITS -> typed
+        else -> typed + key
+    }
+}
+
+/**
+ * The mark the typed text stands for, or null while it is not one.
+ *
+ * @param typed What is typed, such as `19.5` or `19.`
+ * @return The mark, or null for nothing typed
+ */
+internal fun typedMark(typed: String): Double? = typed.trimEnd(POINT).takeIf { it.isNotEmpty() }?.toDoubleOrNull()

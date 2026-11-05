@@ -30,7 +30,7 @@ from sqlalchemy.orm import Session as DbSession
 from app.authz.lenses import GuardianLens, Lens, StudentLens, TeacherLens
 from app.db.models import Batch, BatchSubject, Enrollment, Exam, Mark, Notification
 from app.errors import ConflictError
-from app.marks.entry import announce_result
+from app.marks.entry import announce_result, writable_exam
 from app.marks.marksheet import Marksheet, Published, compute_marksheet
 from app.marks.results import SeatResult, results_for_exam
 from app.notifications.inbox import MARKS_AVAILABLE
@@ -40,6 +40,7 @@ __all__ = [
     "ProgressEntry",
     "SeatMarksheet",
     "guardian_progress",
+    "publish_exam",
     "seat_marksheet",
     "set_marksheet_visible",
 ]
@@ -94,7 +95,7 @@ class ProgressEntry:
     date: dt.date
     total_marks: int
     result_state: str
-    marks: int | None
+    marks: float | None
     subject_name: str | None = None
     rank: int | None = None
     ranked_out_of: int | None = None
@@ -154,6 +155,11 @@ def seat_marksheet(
     if not isinstance(lens, TeacherLens) and not _marksheet_is_visible(
         session, batch_id=seat.batch_id
     ):
+        raise refuse()
+    # **A draft is the teacher's own** (decided 2026-11-05): a family
+    # reads an exam's marksheet only once its results are published,
+    # and is refused the same way as for an exam that is not theirs.
+    if not isinstance(lens, TeacherLens) and exam.published_at is None:
         raise refuse()
 
     results = results_for_exam(session, exam=exam)
@@ -229,7 +235,11 @@ def _announce_held_results(session: DbSession, *, batch_id: uuid.UUID) -> None:
     pairs = session.execute(
         sa.select(Exam, Mark.enrollment_id)
         .join(Mark, Mark.exam_id == Exam.id)
-        .where(Exam.batch_id == batch_id, Mark.superseded_by_id.is_(None))
+        .where(
+            Exam.batch_id == batch_id,
+            Exam.published_at.is_not(None),
+            Mark.superseded_by_id.is_(None),
+        )
         .order_by(Exam.id, Mark.enrollment_id)
     ).all()
     for exam, enrollment_id in pairs:
@@ -297,7 +307,9 @@ def guardian_progress(
             ),
         )
         .join(Enrollment, Enrollment.id == enrollment_id)
-        .where(Exam.batch_id == seat.batch_id)
+        # Published exams only (decided 2026-11-05): a family never reads
+        # a draft's marks, nor learns from a gap that one exists.
+        .where(Exam.batch_id == seat.batch_id, Exam.published_at.is_not(None))
         # The ORDER is the server's decision, asserted in the response.
         .order_by(Exam.date, Exam.id)
     ).all()
@@ -371,3 +383,52 @@ def _published_rank(
     if not isinstance(sheet, Published) or sheet.viewer_rank is None:
         return None, None, None
     return sheet.viewer_rank, sheet.marked_count, sheet.average
+
+
+def publish_exam(
+    session: DbSession,
+    *,
+    lens: TeacherLens,
+    exam_id: uuid.UUID,
+) -> None:
+    """Publish an exam's results to its students and guardians.
+
+    **Draft, review, publish** (decided 2026-11-05). Marks are the
+    teacher's own while they enter and review them; publishing is the
+    one moment families can read them, and every seat with a result is
+    told at once, as the marksheet toggle allows. Publishing again is a
+    no-op, and a correction after it is read at once but announced to
+    nobody, as a correction always was.
+
+    **Refused while any seat that could have sat it has no result**, so
+    a family never reads "not entered" beside a published sheet. An
+    absence is a result and counts.
+
+    :param session: The session to write through
+    :param lens: The teacher lens
+    :param exam_id: The exam
+    :return: None
+    :raises AuthorizationError: This lens does not reach the exam
+    :raises ConflictError: The batch is inactive, or a seat still has
+        no result
+    """
+    exam = writable_exam(session, lens=lens, exam_id=exam_id)
+    if exam.published_at is not None:
+        return
+    results = results_for_exam(session, exam=exam)
+    missing = sum(1 for result in results if result.result_state == "not_entered")
+    if missing:
+        raise ConflictError(
+            code="MARKS_INCOMPLETE",
+            message_key="marks.publish.incomplete",
+            details={"not_entered": str(missing)},
+        )
+    now = dt.datetime.now(tz=dt.UTC)
+    exam.published_at = now
+    session.flush()
+    for result in results:
+        if result.result_state in ("marked", "absent"):
+            announce_result(
+                session, exam=exam, enrollment_id=result.enrollment_id, now=now
+            )
+    session.commit()

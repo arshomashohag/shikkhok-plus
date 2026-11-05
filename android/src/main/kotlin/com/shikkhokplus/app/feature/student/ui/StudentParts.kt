@@ -162,7 +162,7 @@ fun LastResultText(result: LastResult?) {
     val rank = result.rank?.let { " " + stringResource(R.string.student_rank, Numerals.count(it)) }.orEmpty()
     Text(
         buildAnnotatedString {
-            withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(Numerals.count(result.marks)) }
+            withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(Numerals.mark(result.marks)) }
             append(outOf)
             append(rank)
         },

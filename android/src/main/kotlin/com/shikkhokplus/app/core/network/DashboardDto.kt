@@ -64,11 +64,11 @@ data class DashboardExamDto(
     val title: String,
     val date: String,
     val subject: String? = null,
-    val marks: Int? = null,
+    val marks: Double? = null,
     val total: Int,
     val percent: Int? = null,
-    @SerialName("batch_average") val batchAverage: Int? = null,
-    @SerialName("batch_highest") val batchHighest: Int? = null,
+    @SerialName("batch_average") val batchAverage: Double? = null,
+    @SerialName("batch_highest") val batchHighest: Double? = null,
 )
 
 /**

@@ -163,14 +163,14 @@ class HttpMarksRepositoryTest {
             examId = "x-1",
             enrollmentId = "e-1",
             resultState = "marked",
-            marks = 72,
+            marks = 72.5,
         )
 
         val sent = engine.requestHistory.single()
         val body = (sent.body as TextContent).text
         assertEquals("/v1/exams/x-1/marks", sent.url.encodedPath)
         assertTrue(body.contains("\"result_state\":\"marked\""), body)
-        assertTrue(body.contains("\"marks\":72"), body)
+        assertTrue(body.contains("\"marks\":72.5"), body)
         assertTrue("version" !in body, body)
         assertTrue("mutation" !in body, body)
     }

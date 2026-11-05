@@ -140,6 +140,7 @@ def _exam_list_item(entry: ExamProgress) -> ExamListItemResponse:
         entered_count=entry.entered_count,
         expected_count=entry.expected_count,
         state=entry.state,
+        published=entry.exam.published,
     )
 
 
@@ -364,6 +365,31 @@ def write_exam_mark(
         result_state=body.result_state,
         marks=body.marks,
     )
+
+
+@router.post(
+    "/exams/{exam_id}/publish",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses=_WRITE_ERRORS,
+)
+def publish_exam(
+    exam_id: uuid.UUID,
+    session: Annotated[DbSession, Depends(get_session)],
+    lens: Annotated[TeacherLens, Depends(teacher_lens)],
+) -> None:
+    """Publish an exam's results to its students and guardians.
+
+    Draft, review, publish (decided 2026-11-05): until this, families
+    read none of the exam's marks. Refused with
+    ``marks.publish.incomplete`` while a seat that could have sat it has
+    no result; publishing again changes nothing.
+
+    :param exam_id: The exam, from the route path
+    :param session: The request-scoped session
+    :param lens: The teacher lens
+    :return: None
+    """
+    views.publish_exam(session, lens=lens, exam_id=exam_id)
 
 
 @router.get(

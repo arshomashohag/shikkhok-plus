@@ -32,6 +32,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    Numeric,
     String,
     Text,
     Time,
@@ -1644,6 +1645,10 @@ class Exam(Base):
     :ivar total_marks: The denominator, at least 1
     :ivar topics: What the exam covers, empty when the teacher named none
     :ivar created_at: When the exam was created
+    :ivar published_at: When the teacher published the results to
+        students and guardians, or None while they are a draft
+        (decided 2026-11-05). Families read no mark of an exam until
+        then; the teacher sees every mark either way
     """
 
     __tablename__ = "exam"
@@ -1670,6 +1675,9 @@ class Exam(Base):
     )
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
+    )
+    published_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
     )
 
     __table_args__ = (
@@ -1717,7 +1725,12 @@ class Mark(Base):
     result_state: Mapped[str] = mapped_column(_RESULT_STATE, nullable=False)
     # Nullable because the other three states have no number, and
     # storing zero for them is exactly the conflation FR4.3 forbids.
-    marks: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # NUMERIC(6,2) since 0017: a mark may be decimal (decided
+    # 2026-11-05). Exact in the column; read as a float, a count and
+    # never money, and compared in hundredths (``app.marks.value``).
+    marks: Mapped[float | None] = mapped_column(
+        Numeric(6, 2, asdecimal=False), nullable=True
+    )
     recorded_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )

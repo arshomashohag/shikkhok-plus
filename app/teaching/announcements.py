@@ -549,9 +549,13 @@ def _family_exams(
         query = query.where(Exam.id == exam_id)
     marked = set(
         session.scalars(
-            sa.select(Mark.exam_id).where(
+            sa.select(Mark.exam_id)
+            .join(Exam, Exam.id == Mark.exam_id)
+            .where(
                 Mark.enrollment_id == enrollment_id,
                 Mark.superseded_by_id.is_(None),
+                # A draft's mark says nothing to a family yet.
+                Exam.published_at.is_not(None),
             )
         ).all()
     )

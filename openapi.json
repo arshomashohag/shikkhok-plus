@@ -812,12 +812,12 @@
           "marks": {
             "minimum": 0.0,
             "title": "Marks",
-            "type": "integer"
+            "type": "number"
           },
           "previous_marks": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "number"
               },
               {
                 "type": "null"
@@ -1070,7 +1070,7 @@
           "marks": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "number"
               },
               {
                 "type": "null"
@@ -1171,7 +1171,7 @@
           "batch_average": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "number"
               },
               {
                 "type": "null"
@@ -1182,7 +1182,7 @@
           "batch_highest": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "number"
               },
               {
                 "type": "null"
@@ -1203,7 +1203,7 @@
           "marks": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "number"
               },
               {
                 "type": "null"
@@ -1930,7 +1930,7 @@
       },
       "ExamListItemResponse": {
         "additionalProperties": false,
-        "description": "One exam on the teacher's list, with its marking progress.\n\nCounted server-side, so the client never tallies a rows list to\ndecide what counts as entered.\n\n:ivar entered_count: Seats with a mark or an absence entered\n:ivar expected_count: Seats that could have sat the exam\n:ivar state: ``upcoming``, ``needs_marks`` or ``complete``, decided\n    by the server so the client never compares a date or a count",
+        "description": "One exam on the teacher's list, with its marking progress.\n\nCounted server-side, so the client never tallies a rows list to\ndecide what counts as entered.\n\n:ivar entered_count: Seats with a mark or an absence entered\n:ivar expected_count: Seats that could have sat the exam\n:ivar published: Whether the results are out to students and\n    guardians; a draft until the teacher publishes (2026-11-05)\n:ivar state: ``upcoming``, ``needs_marks`` or ``complete``, decided\n    by the server so the client never compares a date or a count",
         "properties": {
           "date": {
             "format": "date",
@@ -1951,6 +1951,11 @@
             "minimum": 0.0,
             "title": "Expected Count",
             "type": "integer"
+          },
+          "published": {
+            "default": false,
+            "title": "Published",
+            "type": "boolean"
           },
           "state": {
             "enum": [
@@ -2710,7 +2715,7 @@
           "marks": {
             "minimum": 0.0,
             "title": "Marks",
-            "type": "integer"
+            "type": "number"
           },
           "rank": {
             "anyOf": [
@@ -2774,7 +2779,7 @@
             "anyOf": [
               {
                 "minimum": 0.0,
-                "type": "integer"
+                "type": "number"
               },
               {
                 "type": "null"
@@ -4628,7 +4633,7 @@
           "marks": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "number"
               },
               {
                 "type": "null"
@@ -4728,12 +4733,12 @@
           "first_marks": {
             "minimum": 0.0,
             "title": "First Marks",
-            "type": "integer"
+            "type": "number"
           },
           "last_marks": {
             "minimum": 0.0,
             "title": "Last Marks",
-            "type": "integer"
+            "type": "number"
           },
           "run": {
             "minimum": 2.0,
@@ -4777,7 +4782,7 @@
           },
           "highest": {
             "title": "Highest",
-            "type": "integer"
+            "type": "number"
           },
           "marked_count": {
             "title": "Marked Count",
@@ -4797,7 +4802,7 @@
           "viewer_marks": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "number"
               },
               {
                 "type": "null"
@@ -5299,7 +5304,7 @@
           "marks": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "number"
               },
               {
                 "type": "null"
@@ -5794,7 +5799,7 @@
           "viewer_marks": {
             "anyOf": [
               {
-                "type": "integer"
+                "type": "number"
               },
               {
                 "type": "null"
@@ -9464,6 +9469,83 @@
           }
         },
         "summary": "Read Mark History",
+        "tags": [
+          "marks"
+        ]
+      }
+    },
+    "/v1/exams/{exam_id}/publish": {
+      "post": {
+        "description": "Publish an exam's results to its students and guardians.\n\nDraft, review, publish (decided 2026-11-05): until this, families\nread none of the exam's marks. Refused with\n``marks.publish.incomplete`` while a seat that could have sat it has\nno result; publishing again changes nothing.\n\n:param exam_id: The exam, from the route path\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: None",
+        "operationId": "publish_exam_v1_exams__exam_id__publish_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "exam_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Exam Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence, and the refusal when the marksheet toggle is off is the same one: an empty marksheet would still disclose that exams exist and how many."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Publish Exam",
         "tags": [
           "marks"
         ]

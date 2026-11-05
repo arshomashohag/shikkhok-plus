@@ -159,7 +159,7 @@ class LastResultResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     title: str
-    marks: int = Field(ge=0)
+    marks: float = Field(ge=0)
     total_marks: int = Field(ge=1)
     rank: int | None = Field(default=None, ge=1)
 

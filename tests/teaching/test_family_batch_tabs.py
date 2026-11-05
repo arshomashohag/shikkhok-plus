@@ -44,6 +44,7 @@ def _exam(
         total_marks=50,
         topics=topics or [],
         created_at=dt.datetime.now(tz=dt.UTC),
+        published_at=dt.datetime.now(tz=dt.UTC),
     )
     session.add(exam)
     session.commit()

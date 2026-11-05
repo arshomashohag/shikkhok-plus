@@ -14,6 +14,7 @@ package com.shikkhokplus.app.feature.marks
  *   out a seat that joined after the exam date
  * @property state `upcoming`, `needs_marks` or `complete`, the server's
  *   grouping for T7's Exams tab
+ * @property published Whether its results are out to families
  */
 data class ExamRow(
     val examId: String,
@@ -24,6 +25,7 @@ data class ExamRow(
     val enteredCount: Int,
     val expectedCount: Int,
     val state: String = "complete",
+    val published: Boolean = false,
 )
 
 /**
@@ -46,7 +48,7 @@ data class MarkRow(
     val enrollmentId: String,
     val displayName: String,
     val stateLabel: String,
-    val marks: Int?,
+    val marks: Double?,
     val isEditable: Boolean,
     val hasHistory: Boolean = false,
 )
@@ -89,7 +91,7 @@ data class MarksheetComparison(
     val rank: Int?,
     val markedCount: Int,
     val average: String,
-    val highest: Int,
+    val highest: Double,
     val bands: List<MarkBand>,
 )
 
@@ -130,6 +132,12 @@ sealed interface MarksUiState {
      *   server-side** [BR5.5]
      * @property examDate Its date, `yyyy-MM-dd`, for the edit form
      * @property examTopics What it covers, for the edit form
+     * @property published Whether the results are out to students and
+     *   guardians; until then they are the teacher's draft (2026-11-05)
+     * @property toEnter Seats that could have sat it and have no result,
+     *   from the server's counts; publishing waits for none
+     * @property publishError Why the last publish was refused, a message
+     *   key, or null
      */
     data class EntryLoaded(
         val examId: String,
@@ -139,6 +147,9 @@ sealed interface MarksUiState {
         val writable: Boolean,
         val examDate: String = "",
         val examTopics: List<String> = emptyList(),
+        val published: Boolean = false,
+        val toEnter: Int = 0,
+        val publishError: String? = null,
     ) : MarksUiState
 
     /**
@@ -162,7 +173,7 @@ sealed interface MarksUiState {
         val examTitle: String,
         val totalMarks: Int,
         val ownStateLabel: String,
-        val ownMarks: Int?,
+        val ownMarks: Double?,
         val comparison: MarksheetComparison?,
     ) : MarksUiState
 
@@ -233,7 +244,7 @@ data class ProgressRow(
     val dateLabel: String,
     val totalMarks: Int,
     val stateLabel: String,
-    val marks: Int?,
+    val marks: Double?,
     val subjectName: String? = null,
     val rank: Int? = null,
     val rankedOutOf: Int? = null,
@@ -249,7 +260,7 @@ data class ProgressRow(
  */
 data class HistoryEntry(
     val stateLabel: String,
-    val marks: Int?,
+    val marks: Double?,
     val recordedAt: String,
     val superseded: Boolean,
 )

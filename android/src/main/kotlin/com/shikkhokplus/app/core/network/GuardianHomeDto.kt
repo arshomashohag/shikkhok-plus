@@ -22,9 +22,9 @@ data class ChildResultDto(
     @SerialName("batch_name") val batchName: String,
     val title: String,
     val date: String,
-    val marks: Int,
+    val marks: Double,
     @SerialName("total_marks") val totalMarks: Int,
-    @SerialName("previous_marks") val previousMarks: Int? = null,
+    @SerialName("previous_marks") val previousMarks: Double? = null,
     val trend: String,
 )
 

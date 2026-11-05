@@ -87,7 +87,7 @@ private fun EntryRow(entry: HistoryEntry) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            entry.marks?.let(Numerals::count) ?: stringResource(MessageKeys.resolve(entry.stateLabel)),
+            entry.marks?.let(Numerals::mark) ?: stringResource(MessageKeys.resolve(entry.stateLabel)),
             style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold, textDecoration = decoration),
             modifier = Modifier.weight(1f),
         )

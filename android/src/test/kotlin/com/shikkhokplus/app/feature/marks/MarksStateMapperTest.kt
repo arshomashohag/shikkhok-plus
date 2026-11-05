@@ -40,7 +40,7 @@ class MarksStateMapperTest {
     private fun result(
         enrollmentId: String = "e-1",
         state: String = "marked",
-        marks: Int? = 55,
+        marks: Double? = 55.0,
     ): ExamResultDto =
         ExamResultDto(
             enrollmentId = enrollmentId,
@@ -135,7 +135,7 @@ class MarksStateMapperTest {
                     "x-1",
                     "Mid-term",
                     100,
-                    listOf(result(state = "marked", marks = 0)),
+                    listOf(result(state = "marked", marks = 0.0)),
                 ),
             ).rows.single()
 
@@ -216,7 +216,7 @@ class MarksStateMapperTest {
                         rank = 4,
                         markedCount = 9,
                         average = 64.666_666,
-                        highest = 92,
+                        highest = 92.0,
                         bands =
                             listOf(
                                 MarkBandDto(80, 100, 3),
@@ -254,7 +254,7 @@ class MarksStateMapperTest {
                         rank = 1,
                         markedCount = 6,
                         average = 70.0,
-                        highest = 90,
+                        highest = 90.0,
                         bands = listOf(MarkBandDto(60, 100, 3), MarkBandDto(0, 59, 3)),
                     ),
                 ),
@@ -277,7 +277,7 @@ class MarksStateMapperTest {
                         rank = 4,
                         markedCount = 9,
                         average = null,
-                        highest = 92,
+                        highest = 92.0,
                     ),
                 ),
             )
@@ -300,7 +300,7 @@ class MarksStateMapperTest {
                         rank = null,
                         markedCount = 6,
                         average = 70.0,
-                        highest = 90,
+                        highest = 90.0,
                     ),
                 ),
             )
@@ -395,9 +395,9 @@ class MarksStateMapperTest {
             assertIs<MarksUiState.ProgressLoaded>(
                 MarksStateMapper.afterProgress(
                     listOf(
-                        ProgressEntryDto("x-1", "First", "01 Mar", 100, "marked", 70),
+                        ProgressEntryDto("x-1", "First", "01 Mar", 100, "marked", 70.0),
                         ProgressEntryDto("x-2", "Second", "01 Apr", 100, "absent", null),
-                        ProgressEntryDto("x-3", "Third", "01 May", 100, "marked", 80),
+                        ProgressEntryDto("x-3", "Third", "01 May", 100, "marked", 80.0),
                     ),
                     childDisplayName = "Rahim",
                     batchName = "Physics",
@@ -416,8 +416,8 @@ class MarksStateMapperTest {
             assertIs<MarksUiState.ProgressLoaded>(
                 MarksStateMapper.afterProgress(
                     listOf(
-                        ProgressEntryDto("x-1", "First", "01 Mar", 100, "marked", 70),
-                        ProgressEntryDto("x-2", "Second", "01 Mar", 100, "marked", 80),
+                        ProgressEntryDto("x-1", "First", "01 Mar", 100, "marked", 70.0),
+                        ProgressEntryDto("x-2", "Second", "01 Mar", 100, "marked", 80.0),
                     ),
                     childDisplayName = "Rahim",
                     batchName = "Physics",
