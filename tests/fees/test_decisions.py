@@ -217,14 +217,18 @@ def test_full_approval_marks_every_child_paid(
         )
 
 
-def test_short_carry_lands_on_the_chosen_child(
+def test_short_carry_stays_owed_by_the_chosen_child(
     api_client: TestClient,
     owner_session: Session,
     restricted_session: Session,
     teacher: TeacherFixture,
     account_factory: Callable[[], uuid.UUID],
 ) -> None:
-    """1500 of 2000, carried by Tanvir: Tania paid, Tanvir carries 500.
+    """1500 of 2000, carried by Tanvir: Tania paid, Tanvir still owes 500.
+
+    The chosen child bears the shortfall, and it stays on the month it
+    belongs to: October reads "partly paid" for Tanvir, and nothing is
+    moved into November.
 
     :param api_client: The test client
     :param owner_session: An arranging session
@@ -251,10 +255,18 @@ def test_short_carry_lands_on_the_chosen_child(
         fee_status(restricted_session, enrollment_id=family.tania, period=OCTOBER)
         == "paid"
     )
-    assert _kinds(restricted_session, family.tanvir)["carry_forward"] == [
-        ("2026-11", Money("500.00"))
-    ]
-    assert "carry_forward" not in _kinds(restricted_session, family.tania)
+    assert (
+        fee_status(restricted_session, enrollment_id=family.tanvir, period=OCTOBER)
+        == "partly_paid"
+    )
+    assert _fold(restricted_session, family.tanvir) == (
+        {OCTOBER: Money("500.00")},
+        Money.ZERO,
+    )
+    for seat in (family.tania, family.tanvir):
+        kinds = _kinds(restricted_session, seat)
+        assert "carry_forward" not in kinds
+        assert "carried_out" not in kinds
 
 
 def test_short_waive_forgives_without_carry(
@@ -814,14 +826,19 @@ def test_two_month_child_short_waived_forgives_the_later_month(
     )
 
 
-def test_two_month_child_short_carried_moves_the_rest_on(
+def test_two_month_child_short_carried_stays_on_the_unpaid_month(
     api_client: TestClient,
     owner_session: Session,
     restricted_session: Session,
     teacher: TeacherFixture,
     account_factory: Callable[[], uuid.UUID],
 ) -> None:
-    """1500 of 2000, carried: 500 is owed in December and nowhere else.
+    """1500 of 2000, carried: October paid, November still owes 500.
+
+    Oldest first: October takes 1000, November 500. The 500 left stays
+    on November -- it used to move on to December, a month nobody had
+    been charged for, which made November read "paid" and the student
+    stop being late.
 
     :param api_client: The test client
     :param owner_session: An arranging session
@@ -846,9 +863,77 @@ def test_two_month_child_short_carried_moves_the_rest_on(
 
     assert response.status_code == 200, response.text  # type: ignore[attr-defined]
     assert _fold(restricted_session, family.tania) == (
-        {"2026-12": Money("500.00")},
+        {NOVEMBER: Money("500.00")},
         Money.ZERO,
     )
+    assert (
+        fee_status(restricted_session, enrollment_id=family.tania, period=OCTOBER)
+        == "paid"
+    )
+    assert (
+        fee_status(restricted_session, enrollment_id=family.tania, period=NOVEMBER)
+        == "partly_paid"
+    )
+
+
+def test_three_months_owed_pays_the_oldest_first_and_keeps_the_rest_owed(
+    api_client: TestClient,
+    owner_session: Session,
+    restricted_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """500 a month for three months, 1200 paid, carried.
+
+    The worked case the product owner asked about, computed by hand:
+    October takes 500 and is paid, November takes 500 and is paid,
+    December takes the last 200 and is partly paid with 300 left.
+    Nothing lands on a month beyond what it owes, the 300 still owed is
+    on the NEWEST month, and no carry entry is written anywhere.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param restricted_session: The application's session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    family = _family(owner_session, teacher, account_factory, owed="500.00")
+    for period in (NOVEMBER, "2026-12"):
+        charge_period(
+            owner_session, enrollment_id=family.tania, period=period, amount="500.00"
+        )
+    owner_session.commit()
+    submission = _submit(
+        api_client, owner_session, family, "1200.00", seats=[family.tania]
+    )
+
+    response = _approve(
+        api_client,
+        owner_session,
+        teacher,
+        submission,
+        "1200.00",
+        shortfall_disposition="carried",
+    )
+
+    assert response.status_code == 200, response.text  # type: ignore[attr-defined]
+    statuses = [
+        fee_status(restricted_session, enrollment_id=family.tania, period=p)
+        for p in (OCTOBER, NOVEMBER, "2026-12")
+    ]
+    assert statuses == ["paid", "paid", "partly_paid"]
+    assert _fold(restricted_session, family.tania) == (
+        {"2026-12": Money("300.00")},
+        Money.ZERO,
+    )
+    receipts = _kinds(restricted_session, family.tania)["receipt"]
+    assert sorted(receipts) == [
+        (OCTOBER, Money("500.00")),
+        (NOVEMBER, Money("500.00")),
+        ("2026-12", Money("200.00")),
+    ]
+    assert "carry_forward" not in _kinds(restricted_session, family.tania)
 
 
 def test_below_one_month_waived_forgives_the_whole_shortfall_shown(
@@ -1401,8 +1486,10 @@ def test_a_full_approval_corrected_to_short_is_offered_and_accepted(
         "matches",
         "0.00",
     )
+    # Tanvir's 500 stays owed on October, the month it belongs to; a
+    # carry no longer moves it into November.
     assert _fold(restricted_session, family.tanvir) == (
-        {NOVEMBER: Money("500.00")},
+        {OCTOBER: Money("500.00")},
         Money.ZERO,
     )
 

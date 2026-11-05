@@ -42,8 +42,7 @@ from app.db.models import (
 )
 from app.errors import ConflictError, ValidationError
 from app.fees.balances import derive_for_enrollment
-from app.fees.ledger_writer import append_carry_pair, append_entry, supersede
-from app.fees.periods import Period
+from app.fees.ledger_writer import append_entry, supersede
 from app.money import Money, apply_credit, settle_oldest_first
 from app.notifications.inbox import (
     CLAIM_TO_VERIFY,
@@ -448,27 +447,19 @@ def verify_claim_in_transaction(
             created_by_account_id=verified_by_account_id,
         )
 
-    if shortfall.is_positive():
-        if shortfall_disposition == "carried":
-            append_carry_pair(
-                session,
-                enrollment_id=claim.enrollment_id,
-                amount=shortfall,
-                origin=period,
-                receiver=str(Period.parse(period).next()),
-                payment_claim_id=claim.id,
-                created_by_account_id=verified_by_account_id,
-            )
-        else:
-            append_entry(
-                session,
-                enrollment_id=claim.enrollment_id,
-                period=period,
-                kind="forgiveness",
-                amount=shortfall,
-                payment_claim_id=claim.id,
-                created_by_account_id=verified_by_account_id,
-            )
+    # A carried shortfall is written as NOTHING: it stays owed on this
+    # month, which therefore reads "partly paid" and is late from its own
+    # due date. See _dispose_shortfalls for why it no longer moves.
+    if shortfall.is_positive() and shortfall_disposition == "waived":
+        append_entry(
+            session,
+            enrollment_id=claim.enrollment_id,
+            period=period,
+            kind="forgiveness",
+            amount=shortfall,
+            payment_claim_id=claim.id,
+            created_by_account_id=verified_by_account_id,
+        )
 
     claim.status = "approved_full" if shortfall.is_zero() else "approved_partial"
     claim.approved_amount = approved_amount
@@ -514,12 +505,25 @@ def _dispose_shortfalls(
     disposition: str | None,
     verified_by_account_id: uuid.UUID,
 ) -> None:
-    """Carry or waive what each month is still short of, oldest first.
+    """Apply the teacher's choice to each month still short, oldest first.
 
-    A carry moves the month's shortfall into the month after it. When
-    that month is itself short, what was carried into it moves on with
-    its own shortfall, so the whole amount ends in one month rather than
-    leaving part of it behind.
+    **Waived** forgives each month's shortfall on that month.
+
+    **Carried now means "still owed", and writes nothing.** It used to
+    move each month's shortfall into the next month, cascading so the
+    whole amount landed in the month after the last one owed. That made
+    every month it passed through read "paid" although nobody paid it,
+    and moved the debt to a month not yet due, so a student who owed
+    four months stopped being late. Leaving the shortfall where it is
+    keeps three things true without any further rule: each month's
+    status says whether that month was paid, lateness runs from the
+    oldest unpaid month's own due date, and the next payment settles the
+    oldest month first (:func:`settle_oldest_first`). The total owed is
+    the same either way -- a carry pair always summed to zero.
+
+    Carry entries already in a ledger are still read and reversed
+    correctly by the fold and by :func:`_reverse_prior_entries`; only
+    new decisions stop writing them.
 
     :param session: The session to write through
     :param claim: The claim the entries belong to
@@ -528,24 +532,10 @@ def _dispose_shortfalls(
     :param verified_by_account_id: Who decided
     :return: None
     """
-    carried_into: dict[str, Money] = {}
+    if disposition != "waived":
+        return
     for period, short in shortfalls:
-        if disposition == "carried":
-            moving = short + carried_into.get(period, Money.ZERO)
-            if not moving.is_positive():
-                continue
-            receiver = str(Period.parse(period).next())
-            append_carry_pair(
-                session,
-                enrollment_id=claim.enrollment_id,
-                amount=moving,
-                origin=period,
-                receiver=receiver,
-                payment_claim_id=claim.id,
-                created_by_account_id=verified_by_account_id,
-            )
-            carried_into[receiver] = carried_into.get(receiver, Money.ZERO) + moving
-        elif short.is_positive():
+        if short.is_positive():
             append_entry(
                 session,
                 enrollment_id=claim.enrollment_id,

@@ -930,3 +930,41 @@ id = "test_refuses_negative_credit_index"
 file = "tests/money/test_allocation.py"
 criterion = "A credit index of -1 raises ALLOCATION_INDEX_OUT_OF_RANGE rather than Python's negative indexing crediting the last child"
 rule = "R4"
+
+# --- 2026-11-05: a carried shortfall stays owed on its own month --------
+# "Carried" used to move each month's shortfall into the next, cascading
+# into the month after the last one owed: every month it passed through
+# read "paid" though nobody paid it, and a student who owed four months
+# stopped being late. The product owner chose to keep it owed in place.
+
+[[test]]
+id = "test_a_carried_shortfall_stays_owed_on_its_own_month"
+file = "tests/fees/test_verification.py"
+criterion = "1000 charged, 600 approved, carried: January owes 400.00 and reads partly_paid, nothing is owed in February, and no carry entry exists. A carry that moved the 400 would make January read paid"
+rule = "BR5.4"
+
+[[test]]
+id = "test_three_months_owed_pays_the_oldest_first_and_keeps_the_rest_owed"
+file = "tests/fees/test_decisions.py"
+criterion = "500 a month for October, November and December, 1200 paid, carried: receipts are 500, 500, 200 oldest first, statuses read paid, paid, partly_paid, and 300.00 is owed on December alone. Under the old cascade all three read paid"
+rule = "BR5.4"
+
+[[test]]
+id = "test_two_month_child_short_carried_stays_on_the_unpaid_month"
+file = "tests/fees/test_decisions.py"
+criterion = "October and November at 1000, 1500 paid, carried: October paid, November partly_paid with 500.00 owed there and nowhere else; it used to land in December, a month nobody was charged for"
+rule = "BR5.4"
+
+# --- 2026-11-05: a deleted account's token stops working ----------------
+
+[[test]]
+id = "test_a_deleted_accounts_token_cannot_write_me"
+file = "tests/auth/test_deleted_account_token.py"
+criterion = "PATCH /v1/me with the unexpired token of an account deleted a moment ago is the ordinary 401 auth.token.not_valid, not the unhandled 500 it was; authentication is the signature AND an account row"
+rule = "BR1.4"
+
+[[test]]
+id = "test_deleting_twice_still_reports_the_deletion"
+file = "tests/auth/test_deleted_account_token.py"
+criterion = "A second DELETE /v1/me with the same token reports 200: the double tap is not an error, so this one route checks the token's signature only"
+rule = "BR1.4"

@@ -32,6 +32,7 @@ from app.errors import ValidationError
 from app.fees.balances import derive_for_enrollment
 from app.fees.claims import submit_claim
 from app.fees.ledger_writer import append_entry
+from app.fees.status import fee_status
 from app.fees.verification import reject_claim, verify_claim
 from app.money import Money
 from tests.batches.conftest import TeacherFixture
@@ -108,15 +109,17 @@ def test_the_shortfall_is_charged_minus_approved_not_claimed_minus_approved(
     assert outcome.shortfall == Money("400.00")
 
 
-def test_the_carried_shortfall_lands_in_the_next_period(
+def test_a_carried_shortfall_stays_owed_on_its_own_month(
     restricted_session: Session,
     owner_session: Session,
     teacher: TeacherFixture,
     seat: uuid.UUID,
     account_factory: object,
 ) -> None:
-    # Computed: carried leaves 0.00 in the origin and 400.00 in the
-    # next period.
+    # Computed: 1000 charged, 600 approved, carried. The 400 stays owed
+    # on January itself -- no carry entry, no February balance -- so the
+    # month reads "partly paid" and its lateness is its own due date.
+    # It used to move to February, which made January read "paid".
     _charge(restricted_session, seat, "2027-01", "1000.00")
     claim = _claim(restricted_session, seat, account_factory(), "1500.00")
 
@@ -129,9 +132,12 @@ def test_the_carried_shortfall_lands_in_the_next_period(
     )
 
     derived = derive_for_enrollment(restricted_session, seat)
-    assert derived.per_cycle["2027-01"] == Money("0.00")
-    assert derived.per_cycle["2027-02"] == Money("400.00")
+    assert derived.per_cycle == {"2027-01": Money("400.00")}
     assert derived.total_outstanding == Money("400.00")
+    assert derived.total_carry_forward == Money("0.00")
+    assert fee_status(restricted_session, enrollment_id=seat, period="2027-01") == (
+        "partly_paid"
+    )
 
 
 def test_the_waived_shortfall_carries_nothing(

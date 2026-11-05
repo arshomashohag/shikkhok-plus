@@ -94,6 +94,12 @@ def append_carry_pair(
 ) -> tuple[LedgerEntryRow, LedgerEntryRow]:
     """Append both halves of a carry, or neither.
 
+    **No payment decision calls this any more** (2026-11-05): a carried
+    shortfall now stays owed on its own month rather than moving (see
+    ``app.fees.verification._dispose_shortfalls``). It stays as the only
+    sanctioned way to write a carry, because ledgers already hold carry
+    pairs and any repair of them must keep both halves equal.
+
     **The pair comes from ``app.money.carry_forward``**, which returns
     both entries from one call and refuses an amount exceeding what the
     origin owes [BR3.2]. The origin balance is read here and always

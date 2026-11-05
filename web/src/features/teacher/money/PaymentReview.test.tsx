@@ -77,7 +77,7 @@ it('names the child who carries a shortfall on a payment two children share', as
   const confirm = within(dialog).getByRole('button', { name: 'Approve ৳1,500' })
   await userEvent.click(within(dialog).getByLabelText(/Carry forward/))
   expect(confirm).toBeDisabled() // still needs the child
-  expect(within(dialog).getByText('Carry ৳500 onto')).toBeInTheDocument()
+  expect(within(dialog).getByText('Who still owes ৳500')).toBeInTheDocument()
   await userEvent.click(within(dialog).getByRole('radio', { name: /^Ayan/ }))
   expect(confirm).toBeEnabled()
   await userEvent.click(confirm)
