@@ -1,1 +1,27 @@
-{}
+{
+  "web_classes_no_class_day": "No class on this day.",
+  "web_classes_month_empty": "No classes this month.",
+  "web_classes_date": "Date",
+  "web_classes_starts": "Starts",
+  "web_classes_added": "Class added.",
+  "web_classes_saved": "Class saved.",
+  "web_classes_plan_saved": "Plan saved.",
+  "web_classes_change": "Change this class",
+  "web_classes_move": "Move to another day or time",
+  "web_classes_move_title": "Move this class",
+  "web_classes_move_save": "Move class",
+  "web_classes_moved": "Class moved.",
+  "web_classes_cancel": "Cancel this class",
+  "web_classes_cancel_title": "Cancel this class?",
+  "web_classes_cancel_body": "Students and guardians see it as cancelled. Attendance and topics can't be recorded for a cancelled class.",
+  "web_classes_cancel_confirm": "Cancel class",
+  "web_classes_keep": "Keep the class",
+  "web_classes_cancelled_done": "Class cancelled.",
+  "web_classes_not_found": "Couldn't load this class",
+  "web_classes_all_present": "Mark everyone present",
+  "web_classes_conflict_topic_mine": "What you wrote",
+  "web_classes_conflict_topic_theirs": "What the record says now",
+  "web_classes_schedule_saved": "Schedule saved.",
+  "web_classes_batch_saved": "Changes saved.",
+  "web_classes_nothing_changed": "Nothing changed."
+}

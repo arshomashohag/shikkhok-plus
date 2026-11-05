@@ -1,9 +1,15 @@
 /** Classes area: Classes tab, Record a class (T2), attendance, schedule and batch editing. */
-import { NotOnWebYet } from '../../common/NotOnWebYet'
-import type { BatchTabProps, TeacherRoute } from '../area'
+import type { TeacherRoute } from '../area'
+import { EditBatchScreen } from './EditBatchScreen'
+import { ScheduleScreen } from './ScheduleScreen'
+import { SessionScreen } from './SessionScreen'
+import './classes.css'
 
-export function ClassesTab(_props: BatchTabProps) {
-  return <NotOnWebYet />
-}
+export { ClassesTab } from './ClassesTab'
 
-export const classesRoutes: TeacherRoute[] = []
+/** Patterns match `paths.session`, `paths.batchSchedule` and `paths.batchEdit`. */
+export const classesRoutes: TeacherRoute[] = [
+  { path: '/batches/:batchId/classes/:sessionId', element: <SessionScreen /> },
+  { path: '/batches/:batchId/schedule', element: <ScheduleScreen /> },
+  { path: '/batches/:batchId/edit', element: <EditBatchScreen /> },
+]
