@@ -35,6 +35,7 @@ from app.notifications.inbox import (
     NOTICE,
     PAYMENT_APPROVED,
     PAYMENT_PARTIAL,
+    PAYMENT_RECORDED,
     PAYMENT_REJECTED,
     InboxItem,
     owned_item,
@@ -51,7 +52,9 @@ __all__ = [
 
 PaymentOutcome = Literal["approved", "partial", "rejected", "pending"]
 
-_PAYMENT_KINDS = frozenset({PAYMENT_APPROVED, PAYMENT_PARTIAL, PAYMENT_REJECTED})
+_PAYMENT_KINDS = frozenset(
+    {PAYMENT_APPROVED, PAYMENT_PARTIAL, PAYMENT_RECORDED, PAYMENT_REJECTED}
+)
 
 
 @dataclass(frozen=True, slots=True)

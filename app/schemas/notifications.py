@@ -49,6 +49,7 @@ class NotificationResponse(BaseModel):
         "payment_approved",
         "payment_partial",
         "payment_rejected",
+        "payment_recorded",
         "notice",
         "exam_scheduled",
         "marks_available",

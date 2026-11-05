@@ -116,6 +116,10 @@ NON_MONEY_FIELDS: Final[dict[tuple[str, str], str]] = {
         "A DATE, not an amount: the day the payer says the money moved. "
         "The request's money property, `amount`, references Money."
     ),
+    ("ReceivedPaymentRequest", "paid_on"): (
+        "A DATE, not an amount: the day the teacher received the money. "
+        "The request's money property, `amount`, references Money."
+    ),
     ("PaymentSubmittedResponse", "paid_on"): (
         "The same date echoed back. The response's money property, "
         "`total_amount`, references Money."

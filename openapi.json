@@ -3277,6 +3277,7 @@
               "notice",
               "payment_approved",
               "payment_partial",
+              "payment_recorded",
               "payment_rejected"
             ],
             "title": "Kind",
@@ -3413,6 +3414,7 @@
               "notice",
               "payment_approved",
               "payment_partial",
+              "payment_recorded",
               "payment_rejected"
             ],
             "title": "Kind",
@@ -4884,6 +4886,90 @@
           "viewer_result_state"
         ],
         "title": "PublishedMarksheetResponse",
+        "type": "object"
+      },
+      "ReceivedPaymentRequest": {
+        "additionalProperties": false,
+        "description": "Money a teacher received by hand for one seat, recorded as approved.\n\n``shortfall_disposition`` follows the approval rule exactly [BR5.4]:\nrequired when ``amount`` is less than the seat owes across its unpaid\nmonths, refused otherwise, and never defaulted. More than is owed is\nheld as credit. The server decides all three, because only it knows\nwhat is owed.\n\n:ivar amount: What was received; more than zero\n:ivar channel: ``cash`` by default, or one of the mobile services the\n    payment-method routes list, for money sent straight to the teacher\n:ivar reference: A transaction id or receipt number, if any\n:ivar note: Shown to the family with the record\n:ivar paid_on: The day the money changed hands; today when omitted\n:ivar shortfall_disposition: Carried or waived, when short\n:ivar client_mutation_id: The client's retry key, one per record. A\n    resend by the same account returns the original payment with the\n    original 201 and records nothing; the same key with a different\n    payment is a 409",
+        "properties": {
+          "amount": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "channel": {
+            "default": "cash",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Channel",
+            "type": "string"
+          },
+          "client_mutation_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Mutation Id"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "paid_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paid On"
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference"
+          },
+          "shortfall_disposition": {
+            "anyOf": [
+              {
+                "enum": [
+                  "carried",
+                  "waived"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shortfall Disposition"
+          }
+        },
+        "required": [
+          "amount"
+        ],
+        "title": "ReceivedPaymentRequest",
         "type": "object"
       },
       "RecentDecisionResponse": {
@@ -9602,6 +9688,100 @@
         "summary": "Set Inactive From",
         "tags": [
           "batches"
+        ]
+      }
+    },
+    "/v1/enrollments/{enrollment_id}/payments": {
+      "post": {
+        "description": "Record money this teacher received by hand for one seat.\n\nRecorded as a payment the teacher submitted and approved in one\ntransaction, so balances, history and analytics read it as they\nread an approved family payment. A resend under the same\n``client_mutation_id`` returns the original with the same 201.\n\n:param enrollment_id: The seat, from the route path\n:param body: The amount, channel, reference, note, date and the\n    carry-or-waive when short\n:param session: The request-scoped session\n:param lens: The teacher lens; only the batch's owner reaches the seat\n:return: The recorded payment, as the teacher reviews it",
+        "operationId": "record_payment_received_v1_enrollments__enrollment_id__payments_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enrollment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enrollment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReceivedPaymentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentReviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Payment Received",
+        "tags": [
+          "fees"
         ]
       }
     },

@@ -34,6 +34,7 @@ __all__ = [
     "NOTICE",
     "PAYMENT_APPROVED",
     "PAYMENT_PARTIAL",
+    "PAYMENT_RECORDED",
     "PAYMENT_REJECTED",
     "Inbox",
     "InboxItem",
@@ -58,6 +59,12 @@ PAYMENT_REJECTED: Final[str] = "payment_rejected"
 
 #: A payment the teacher approved for less than was claimed.
 PAYMENT_PARTIAL: Final[str] = "payment_partial"
+
+#: Money the teacher received by hand and recorded themselves. Distinct
+#: from :data:`PAYMENT_APPROVED`, whose copy answers a payment the family
+#: reported: here the family reported nothing, so "your payment was
+#: approved" would describe an event that did not happen.
+PAYMENT_RECORDED: Final[str] = "payment_recorded"
 
 #: A notice a teacher posted to a batch.
 NOTICE: Final[str] = "notice"

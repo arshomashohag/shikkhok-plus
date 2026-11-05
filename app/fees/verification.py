@@ -57,6 +57,7 @@ from app.notifications.recipients import child_names, seat_recipients
 
 __all__ = [
     "VerificationOutcome",
+    "check_disposition",
     "reject_claim",
     "reject_claim_in_transaction",
     "settle_claim_in_transaction",
@@ -417,7 +418,7 @@ def verify_claim_in_transaction(
     charged = derived.per_cycle.get(period, Money.ZERO)
 
     shortfall = shortfall_of(charged, approved_amount)
-    _check_disposition(shortfall, shortfall_disposition)
+    check_disposition(shortfall, shortfall_disposition)
 
     # The receipt is capped at what the cycle owed; the excess is
     # credit, never a negative balance [BR4.2]. Cash in is
@@ -470,7 +471,7 @@ def verify_claim_in_transaction(
     return VerificationOutcome(claim=claim, shortfall=shortfall)
 
 
-def _check_disposition(shortfall: Money, shortfall_disposition: str | None) -> None:
+def check_disposition(shortfall: Money, shortfall_disposition: str | None) -> None:
     """Require a disposition exactly when something is left short [BR5.4].
 
     :param shortfall: What the approval leaves unpaid
@@ -589,7 +590,7 @@ def settle_claim_in_transaction(
     periods = sorted(p for p, owed in per_cycle.items() if owed.is_positive())
     settlement = settle_oldest_first(approved_amount, [per_cycle[p] for p in periods])
     shortfall = Money.sum(settlement.shortfalls)
-    _check_disposition(shortfall, shortfall_disposition)
+    check_disposition(shortfall, shortfall_disposition)
 
     for period, receipt in zip(periods, settlement.receipts, strict=True):
         if receipt.is_positive():

@@ -71,6 +71,7 @@ SNAPSHOT_ROUTES: Final[frozenset[tuple[str, str]]] = frozenset(
         ("GET", "/v1/payments/{submission_id}"),
         ("POST", "/v1/payments/{submission_id}/approval"),
         ("POST", "/v1/payments/{submission_id}/rejection"),
+        ("POST", "/v1/enrollments/{enrollment_id}/payments"),
         ("GET", "/v1/claims/queue"),
         ("GET", "/v1/me/today"),
     }
