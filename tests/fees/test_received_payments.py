@@ -934,3 +934,91 @@ def test_the_record_shows_in_the_seat_history(
     assert lines[0]["channel"] == "cash"
     assert lines[0]["status"] == "approved_full"
     assert lines[0]["decision_note"] == "Paid at the door"
+
+
+def test_a_date_long_before_joining_is_refused(
+    api_client: TestClient,
+    owner_session: Session,
+    restricted_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """Money cannot have been received months before the seat existed.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param restricted_session: The application's session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    seat = _seat(owner_session, teacher, account_factory)
+
+    response = _record(
+        api_client,
+        owner_session,
+        teacher,
+        seat.enrollment_id,
+        "1500.00",
+        paid_on=bangladesh_today() - dt.timedelta(days=400),
+    )
+
+    assert _status(response) == 400
+    assert _code(response) == "PAYMENT_DATE_TOO_EARLY"
+    _nothing_written(restricted_session, seat.enrollment_id)
+
+
+def test_the_constraint_not_the_lookup_stops_a_second_record(
+    owner_session: Session,
+    restricted_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """With the fast-path lookup blinded, a resend is still one payment.
+
+    Two simultaneous resends both miss the lookup; only the unique
+    constraint stops the second. Blinding the lookup for the resend
+    proves the constraint is what holds.
+
+    :param owner_session: An arranging session
+    :param restricted_session: The application's session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :param monkeypatch: The patcher
+    :return: None
+    """
+    from app.fees import received
+
+    seat = _seat(owner_session, teacher, account_factory)
+    lens = TeacherLens(account_id=teacher.account_id, owner_id=teacher.owner_id)
+    payment = ReceivedPayment(amount=Money("1500.00"), client_mutation_id=uuid.uuid4())
+    first = record_received_payment(
+        restricted_session,
+        lens=lens,
+        enrollment_id=seat.enrollment_id,
+        payment=payment,
+    )
+
+    real = received._prior
+    calls: list[int] = []
+
+    def blinded(session: Session, **kwargs: object) -> PaymentSubmission | None:
+        calls.append(1)
+        if len(calls) == 1:
+            return None
+        return real(session, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(received, "_prior", blinded)
+    second = record_received_payment(
+        restricted_session,
+        lens=lens,
+        enrollment_id=seat.enrollment_id,
+        payment=payment,
+    )
+
+    assert second.id == first.id
+    assert len(calls) == 2
+    assert _kinds(restricted_session, seat.enrollment_id)["receipt"] == [
+        (OCTOBER, Money("1500.00"))
+    ]
