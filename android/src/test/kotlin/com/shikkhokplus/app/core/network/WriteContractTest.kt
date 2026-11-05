@@ -167,6 +167,25 @@ class WriteContractTest {
             Write("delete", "/v1/payment-methods/{method_id}") {
                 HttpPaymentMethodsRepository(it).retire(ID)
             },
+            // A teacher's students, apart from any batch [0018].
+            Write("post", "/v1/students") {
+                HttpTeacherStudentsRepository(it).create(
+                    "Rafiq",
+                    "01812345678",
+                    "01711223344",
+                    listOf(StudentSeatBody(ID, null), StudentSeatBody(ID, "900.00")),
+                )
+            },
+            Write("patch", "/v1/students/{student_id}") {
+                HttpTeacherStudentsRepository(it).rename(ID, "Rafiqul", null, null)
+            },
+            Write("delete", "/v1/students/{student_id}") { HttpTeacherStudentsRepository(it).removeStudent(ID) },
+            Write("post", "/v1/students/{student_id}/enrollments") {
+                HttpTeacherStudentsRepository(it).enroll(ID, ID)
+            },
+            Write("post", "/v1/batches/{batch_id}/students") {
+                HttpTeacherStudentsRepository(it).addToBatch(ID, listOf(ID))
+            },
             Write("post", "/v1/reminders") { HttpAnalyticsRepository(it).remind(listOf(ID)) },
             Write("post", "/v1/me/notifications/read") { HttpInboxRepository(it).markAllRead() },
             Write("post", "/v1/me/notifications/{notification_id}/read") { HttpInboxRepository(it).markRead(ID) },

@@ -50,6 +50,9 @@ class ContractConformanceTest {
             Contract("/v1/batches", ListSerializer(BatchDto.serializer())),
             Contract("/v1/batches/{batch_id}/schedule", ListSerializer(ScheduleSlotDto.serializer())),
             Contract("/v1/batches/{batch_id}/roster", ListSerializer(RosterRowDto.serializer())),
+            // A teacher's students, apart from any batch [0018].
+            Contract("/v1/students", ListSerializer(TeacherStudentDto.serializer())),
+            Contract("/v1/students/{student_id}", TeacherStudentDto.serializer()),
             Contract("/v1/invitations", ListSerializer(InvitationDto.serializer())),
             Contract("/v1/invitations/{enrollment_id}", InvitationDto.serializer()),
             Contract("/v1/accounts/already-added", AlreadyAddedDto.serializer()),
