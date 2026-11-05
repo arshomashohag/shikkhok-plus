@@ -1,0 +1,177 @@
+/*
+ * Exams area. Marks entry follows the "Marks entry" artboard: roll, name,
+ * a 64-tall row, the mark box on the right with "/25" after it; the row
+ * being entered is tinted, a refused or missing mark is outlined in error.
+ */
+
+.exam-form-pair {
+  display: grid;
+  gap: 0 var(--s3);
+}
+@media (min-width: 560px) {
+  .exam-form-pair {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.mark-counter {
+  align-self: center;
+  font-size: 0.875rem;
+}
+
+.mark-progress {
+  height: 3px;
+  margin: 0 calc(-1 * var(--s4)) var(--s3);
+  background: var(--surface-container-high);
+}
+.mark-progress span {
+  display: block;
+  height: 100%;
+  background: var(--primary);
+}
+
+.publish-bar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  margin-bottom: var(--s3);
+}
+.publish-bar p {
+  margin: 0;
+}
+
+.mark-row {
+  display: grid;
+  grid-template-columns: 28px 1fr auto 44px;
+  align-items: center;
+  gap: var(--s3);
+  min-height: 64px;
+  padding: var(--s2) var(--s4);
+  border-top: 1px solid var(--outline-variant);
+}
+.mark-list > .mark-row:first-child {
+  border-top: 0;
+}
+.mark-row.current {
+  background: var(--primary-container);
+}
+.mark-row.flagged {
+  background: var(--error-container);
+}
+.mark-roll {
+  font-size: 0.8125rem;
+  color: var(--on-surface-variant);
+  font-variant-numeric: tabular-nums;
+}
+.mark-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.mark-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.mark-input {
+  width: 64px;
+  height: 48px;
+  padding: 0;
+  border: 1.5px solid var(--outline-variant);
+  border-radius: var(--r-field);
+  background: var(--surface);
+  text-align: center;
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.mark-input::placeholder {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--on-surface-variant);
+}
+.mark-input:focus {
+  outline: none;
+  border: 2px solid var(--primary);
+}
+.mark-input[aria-invalid='true'] {
+  border: 2px solid var(--error);
+}
+.mark-input.missing {
+  border: 2px dashed var(--error);
+}
+.mark-error {
+  max-width: 160px;
+  text-align: center;
+  font-size: 0.75rem;
+}
+.mark-value {
+  min-width: 64px;
+  text-align: center;
+  font-size: 1.125rem;
+  font-variant-numeric: tabular-nums;
+}
+.mark-value .meta {
+  font-size: 0.875rem;
+}
+.mark-out-of {
+  font-size: 0.875rem;
+  color: var(--on-surface-variant);
+}
+.mark-actions {
+  display: flex;
+  gap: var(--s1);
+}
+/* Results rows carry History and Correct. On a narrow window they go on a
+   second line, so a long Bangla name keeps its width. */
+.mark-list .mark-row:has(.mark-actions) {
+  grid-template-columns: 28px 1fr auto;
+}
+.mark-row:has(.mark-actions) .mark-actions {
+  grid-column: 2 / -1;
+  justify-content: flex-end;
+  margin-top: calc(-1 * var(--s2));
+}
+@media (min-width: 640px) {
+  .mark-list .mark-row:has(.mark-actions) {
+    grid-template-columns: 28px 1fr auto auto;
+  }
+  .mark-row:has(.mark-actions) .mark-actions {
+    grid-column: auto;
+    margin-top: 0;
+  }
+}
+.mark-hint {
+  margin: var(--s2) 0 var(--s4);
+}
+
+.mark-dock {
+  position: sticky;
+  bottom: calc(80px + env(safe-area-inset-bottom));
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  margin-top: var(--s3);
+  padding: var(--s3) var(--s4);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  border: 1px solid var(--outline-variant);
+}
+.mark-dock .grow {
+  flex: 1;
+  min-width: 0;
+}
+@media (min-width: 900px) {
+  .mark-dock {
+    bottom: var(--s4);
+  }
+  .mark-progress {
+    margin: 0 0 var(--s3);
+  }
+}
+
+.history-superseded {
+  text-decoration: line-through;
+  color: var(--on-surface-variant);
+}

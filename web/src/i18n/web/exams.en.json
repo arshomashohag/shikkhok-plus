@@ -1,1 +1,5 @@
-{}
+{
+  "web_exams_keyboard_hint": "Type a mark and press Enter to go to the next student. Each mark is saved as you go.",
+  "web_exams_correct": "Enter or correct marks",
+  "web_exams_correct_one": "Correct"
+}

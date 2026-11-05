@@ -1,9 +1,15 @@
 /** Exams area: Exams tab, create exam, Marks entry (T3), review and publish, results. */
-import { NotOnWebYet } from '../../common/NotOnWebYet'
-import type { BatchTabProps, TeacherRoute } from '../area'
+import type { TeacherRoute } from '../area'
+import { CreateExam } from './ExamForm'
+import { ExamResults } from './ExamResults'
+import { MarkEntry } from './MarkEntry'
+import './exams.css'
 
-export function ExamsTab(_props: BatchTabProps) {
-  return <NotOnWebYet />
-}
+export { ExamsTab } from './ExamsTab'
 
-export const examsRoutes: TeacherRoute[] = []
+export const examsRoutes: TeacherRoute[] = [
+  // Paths match `paths.examNew`, `paths.examMarks` and `paths.examResults`.
+  { path: '/batches/:batchId/exams/new', element: <CreateExam /> },
+  { path: '/exams/:examId/marks', element: <MarkEntry /> },
+  { path: '/exams/:examId/results', element: <ExamResults /> },
+]
