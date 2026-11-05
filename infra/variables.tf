@@ -231,3 +231,17 @@ variable "alert_email" {
   type        = string
   default     = null
 }
+
+variable "ui_subdomain" {
+  description = <<-EOT
+    Host part of the web client's own hostname under the project zone,
+    e.g. "app" -> app.shikkhokplus.nirmatabd.com (staging) or
+    app.shikkhokplus-prod.nirmatabd.com (production). It is a second
+    alias on the API's distribution, so the UI and /v1 share one origin.
+    Empty for none: the UI is then at https://<api host>/ui/ only.
+    Changing it replaces the CloudFront certificate (safely: the new one
+    is attached before the old one is removed).
+  EOT
+  type        = string
+  default     = "app"
+}

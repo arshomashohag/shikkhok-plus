@@ -20,6 +20,11 @@
 #   * **Caching becomes available later without re-architecture** --
 #     when U6 ships marksheets or any static asset arrives, it is a
 #     cache-policy change rather than a new component.
+#
+# That last point has now happened once: the web client is served from
+# a private bucket under /ui/ on this same distribution, with its own
+# cached behaviours (web.tf). The API's default behaviour is unchanged
+# and still caches nothing.
 
 terraform {
   required_providers {
@@ -54,8 +59,13 @@ locals {
 resource "aws_acm_certificate" "api" {
   provider = aws.us_east_1
 
-  domain_name       = local.api_fqdn
-  validation_method = "DNS"
+  domain_name = local.api_fqdn
+  # The web client's own hostname, when it has one, on the same
+  # certificate: a distribution takes exactly one. Adding or renaming it
+  # REPLACES the certificate, which create_before_destroy makes safe --
+  # the new one is issued and attached before the old one goes.
+  subject_alternative_names = local.ui_fqdn == "" ? [] : [local.ui_fqdn]
+  validation_method         = "DNS"
 
   lifecycle {
     # Replace before destroying: deleting a certificate still attached
@@ -107,7 +117,7 @@ resource "aws_acm_certificate_validation" "api" {
 resource "aws_cloudfront_distribution" "api" {
   enabled         = true
   comment         = "${var.name_prefix} API"
-  aliases         = [local.api_fqdn]
+  aliases         = compact([local.api_fqdn, local.ui_fqdn])
   is_ipv6_enabled = true
 
   # **PriceClass_100 is not a saving here, it is a latency decision.**
@@ -157,6 +167,45 @@ resource "aws_cloudfront_distribution" "api" {
     }
   }
 
+  # The web client's bucket. See web.tf.
+  origin {
+    domain_name              = aws_s3_bucket.web.bucket_regional_domain_name
+    origin_id                = "shikkhokplus-web"
+    origin_access_control_id = aws_cloudfront_origin_access_control.web.id
+  }
+
+  # **/ui and /ui/* go to the bucket; everything else stays the API.**
+  # Listed before the default, and CloudFront takes the first match, so
+  # no API route can be shadowed unless it starts with /ui -- and none
+  # does (openapi.json's paths are /v1, /health and /account-deletion).
+  #
+  # Two behaviours because "/ui/*" does not match "/ui": the bare path
+  # is redirected to /ui/ by the function, and must reach it to be.
+  dynamic "ordered_cache_behavior" {
+    for_each = ["/ui", "/ui/*"]
+    content {
+      path_pattern           = ordered_cache_behavior.value
+      target_origin_id       = "shikkhokplus-web"
+      viewer_protocol_policy = "redirect-to-https"
+
+      # Static files: nothing to write, so nothing but reads.
+      allowed_methods = ["GET", "HEAD"]
+      cached_methods  = ["GET", "HEAD"]
+
+      # Same files for everyone, no cookie, header or query in the key.
+      # index.html and sw.js are uploaded no-cache and each deploy
+      # invalidates /ui/*, so a release is visible at once.
+      cache_policy_id            = data.aws_cloudfront_cache_policy.optimized.id
+      response_headers_policy_id = aws_cloudfront_response_headers_policy.web.id
+      compress                   = true
+
+      function_association {
+        event_type   = "viewer-request"
+        function_arn = aws_cloudfront_function.ui_router.arn
+      }
+    }
+  }
+
   default_cache_behavior {
     target_origin_id       = "shikkhokplus-origin"
     viewer_protocol_policy = "redirect-to-https"
@@ -176,6 +225,16 @@ resource "aws_cloudfront_distribution" "api" {
     origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer.id
 
     compress = true
+
+    # Only when the UI has its own hostname: "/" on that hostname goes
+    # to /ui/. The API has no route at "/", so no API request changes.
+    dynamic "function_association" {
+      for_each = aws_cloudfront_function.ui_host_root
+      content {
+        event_type   = "viewer-request"
+        function_arn = function_association.value.arn
+      }
+    }
   }
 
   restrictions {
@@ -227,6 +286,23 @@ resource "aws_route53_record" "api_ipv6" {
   zone_id = var.zone_id
   name    = local.api_fqdn
   type    = "AAAA"
+
+  alias {
+    name                   = aws_cloudfront_distribution.api.domain_name
+    zone_id                = aws_cloudfront_distribution.api.hosted_zone_id
+    evaluate_target_health = false
+  }
+}
+
+# The web client's hostname, when it has one: the same distribution as
+# the API, so https://<ui host>/ui/ and https://<ui host>/v1 are one
+# origin. Alias records, as for the API.
+resource "aws_route53_record" "ui" {
+  for_each = local.ui_fqdn == "" ? toset([]) : toset(["A", "AAAA"])
+
+  zone_id = var.zone_id
+  name    = local.ui_fqdn
+  type    = each.key
 
   alias {
     name                   = aws_cloudfront_distribution.api.domain_name

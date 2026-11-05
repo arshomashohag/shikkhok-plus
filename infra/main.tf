@@ -269,6 +269,7 @@ module "cdn" {
   api_subdomain    = var.api_subdomain
   origin_subdomain = var.origin_subdomain
   origin_secret    = module.app.origin_secret
+  ui_subdomain     = var.ui_subdomain
 }
 
 # **The public URL, published where the workflows can read it without
@@ -283,6 +284,31 @@ resource "aws_ssm_parameter" "api_url" {
   type        = "String"
   value       = module.cdn.api_url
   description = "The public API URL. Read by deploy.yml's smoke and security-scan.yml."
+}
+
+# **Where deploy.yml puts the web client, on the same terms** [OPS-3]:
+# the deploy role reads these three parameters instead of Terraform
+# state. The bucket and distribution are not secrets, but they are the
+# only two names the upload and the invalidation need.
+resource "aws_ssm_parameter" "web_bucket" {
+  name        = "/shikkhokplus/${local.name_prefix}/web-bucket"
+  type        = "String"
+  value       = module.cdn.web_bucket
+  description = "Bucket deploy.yml uploads the built web client to, under ui/."
+}
+
+resource "aws_ssm_parameter" "distribution_id" {
+  name        = "/shikkhokplus/${local.name_prefix}/distribution-id"
+  type        = "String"
+  value       = module.cdn.distribution_id
+  description = "The distribution deploy.yml invalidates after uploading the web client."
+}
+
+resource "aws_ssm_parameter" "web_url" {
+  name        = "/shikkhokplus/${local.name_prefix}/web-url"
+  type        = "String"
+  value       = module.cdn.web_url
+  description = "The web client's public URL. Read by deploy.yml's web smoke."
 }
 
 module "database" {
