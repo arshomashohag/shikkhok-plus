@@ -89,7 +89,14 @@ class ProfileViewModel(
                 when (val result = repository.profile()) {
                     is AuthResult.Ok -> {
                         remember(result.value)
-                        ProfileStateMapper.afterLoad(result.value)
+                        ProfileStateMapper.afterLoad(result.value).let { state ->
+                            // The phone's saved copy, read back offline.
+                            if (result.savedAt != null && state is ProfileUiState.Viewing) {
+                                state.copy(offline = true)
+                            } else {
+                                state
+                            }
+                        }
                     }
                     is AuthResult.Refused ->
                         ProfileStateMapper.afterError(result.envelope)

@@ -57,7 +57,11 @@ class TodayViewModel(
     private suspend fun read(): TodayUiState =
         when (val result = repository.today()) {
             is AuthResult.Ok ->
-                TodayStateMapper.afterLoad(result.value).also { if (it is TodayUiState.Loaded) lastLoaded = it }
+                TodayStateMapper.afterLoad(result.value).let { state ->
+                    // The phone's saved copy, read back with no connection:
+                    // shown, and marked offline.
+                    if (result.savedAt != null && state is TodayUiState.Loaded) state.copy(offline = true) else state
+                }.also { if (it is TodayUiState.Loaded && !it.offline) lastLoaded = it }
             is AuthResult.Refused -> TodayStateMapper.afterError(result.envelope)
             AuthResult.TransportFailure ->
                 lastLoaded?.copy(offline = true) ?: TodayStateMapper.afterTransportFailure()

@@ -178,9 +178,11 @@ class DuesViewModel(
             batch = batch,
             rows = DuesStateMapper.visible(allRows, filter, batch?.id),
             // When this phone last read the server, for "updated 2 min
-            // ago" (T5). A phone-clock moment, never sent anywhere.
-            loadedAt = System.currentTimeMillis(),
-        ).also { lastLoaded = it }
+            // ago" (T5). A phone-clock moment, never sent anywhere. A
+            // saved copy, read back offline, keeps the moment it was read.
+            loadedAt = (result as? AuthResult.Ok)?.savedAt ?: System.currentTimeMillis(),
+            offline = (result as? AuthResult.Ok)?.savedAt != null,
+        ).also { if (!it.offline) lastLoaded = it }
     }
 
     /**

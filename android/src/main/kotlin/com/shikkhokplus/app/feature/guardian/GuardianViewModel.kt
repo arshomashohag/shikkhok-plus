@@ -92,11 +92,14 @@ class GuardianViewModel(
                     }
                 val loaded = GuardianStateMapper.afterLoad(result.value, phone)
                 val keep = shown()
-                if (loaded is GuardianUiState.Loaded && keep != null) {
-                    GuardianStateMapper.select(loaded, loaded.children.indexOfFirst { it.key == keep })
-                } else {
-                    loaded
-                }
+                val chosen =
+                    if (loaded is GuardianUiState.Loaded && keep != null) {
+                        GuardianStateMapper.select(loaded, loaded.children.indexOfFirst { it.key == keep })
+                    } else {
+                        loaded
+                    }
+                // The phone's saved copy, read back offline: payments held.
+                if (result.savedAt != null && chosen is GuardianUiState.Loaded) chosen.copy(offline = true) else chosen
             }
             is AuthResult.Refused -> GuardianStateMapper.afterError(result.envelope)
             // **Offline keeps this session's children** (G1), marked so:

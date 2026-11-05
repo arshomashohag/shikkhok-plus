@@ -1,5 +1,9 @@
 package com.shikkhokplus.app
 
+import androidx.compose.runtime.CompositionLocalProvider
+import com.shikkhokplus.app.core.offline.LocalOfflineCopies
+import com.shikkhokplus.app.core.offline.EncryptedOfflineStore
+import com.shikkhokplus.app.core.offline.OfflineCopies
 import androidx.compose.foundation.isSystemInDarkTheme
 import com.shikkhokplus.app.core.designsystem.TextScale
 import com.shikkhokplus.app.core.settings.SettingsHolder
@@ -196,6 +200,10 @@ private fun AppRoot(openInbox: Boolean, onInboxOpened: () -> Unit, settings: Set
                 currentAccount = tokens::accountId,
             )
         }
+    // **What the server said last, kept on the phone** for a screen opened
+    // without a connection, and overwritten by every successful read.
+    // Encrypted, scoped to the signed-in account, cleared at sign-out.
+    val copies = remember { OfflineCopies(EncryptedOfflineStore.create(context), tokens::accountId) }
     // Raised from the network layer, off the main thread, when an
     // expired session could not be renewed; handled below by
     // `endLapsedSession`. A snapshot state is safe to write from any
@@ -344,6 +352,7 @@ private fun AppRoot(openInbox: Boolean, onInboxOpened: () -> Unit, settings: Set
     // nobody signed in and discard nothing.
     val endSession = {
         UnreadSchedule.stop(context)
+        copies.clear()
         queue.clear()
         tokens.clear()
         authModel.signOut()
@@ -376,27 +385,29 @@ private fun AppRoot(openInbox: Boolean, onInboxOpened: () -> Unit, settings: Set
     // ViewModel holding the old account's data is discarded with the
     // back stack, rather than left one Back press away.
     key(signedIn) {
-        val navController = rememberNavController()
+        CompositionLocalProvider(LocalOfflineCopies provides copies) {
+            val navController = rememberNavController()
 
-        ShikkhokNavHost(
-            client = client,
-            queue = queue,
-            session =
-                SessionBinding(
-                    lens = lens,
-                    onSwitch = if (multiLens) sessionModel::switchLens else null,
-                    onLensesChanged = sessionModel::refreshLenses,
-                    onEndSession = endSession,
-                    unsentWrites = { queue.read().size },
-                    settings = settings,
-                ),
-            // Read ONCE per session. A live value here would rebuild the
-            // whole NavHost on every change, discarding the back stack.
-            signedIn = remember { signedIn },
-            navController = navController,
-            authModel = authModel,
-        )
+            ShikkhokNavHost(
+                client = client,
+                queue = queue,
+                session =
+                    SessionBinding(
+                        lens = lens,
+                        onSwitch = if (multiLens) sessionModel::switchLens else null,
+                        onLensesChanged = sessionModel::refreshLenses,
+                        onEndSession = endSession,
+                        unsentWrites = { queue.read().size },
+                        settings = settings,
+                    ),
+                // Read ONCE per session. A live value here would rebuild the
+                // whole NavHost on every change, discarding the back stack.
+                signedIn = remember { signedIn },
+                navController = navController,
+                authModel = authModel,
+            )
 
-        OpenInboxEffect(navController, openInbox && signedIn, onInboxOpened)
+            OpenInboxEffect(navController, openInbox && signedIn, onInboxOpened)
+        }
     }
 }

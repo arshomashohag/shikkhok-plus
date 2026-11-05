@@ -37,13 +37,19 @@ approved and is not audited here.
   (`OfflineBanner`), with what needs the server held back: Remind,
   Pay, Edit, Invitations, and every fee status, which could have been
   approved since.
-- [?] **A copy that survives a restart.** The artboards' "saved copy"
+- [x] **A copy that survives a restart.** The artboards' "saved copy"
   after the app is closed means children's names, fees and marks
   written to the phone's disk. That is a privacy decision (children's
   data at rest on a shared family phone [RC-1, RC-8]), not a layout
   one, so no disk cache was added; T6, T7 and G2/G3 still show an
   error card when the first read of a session fails. *Decided 2026-11-05:* keep an
   offline copy on the phone, overwritten by every successful read.
+  Built (`core/offline/`): Today, Dues, My batches, Inside a batch, the
+  guardian home and More keep their last answer, encrypted through the
+  Android Keystore and keyed by account. It is read back only when no
+  answer arrives, shown under the offline banner with Pay, Remind, Edit
+  and fee statuses held back; a refusal deletes it, and sign-out and
+  account deletion clear them all.
 - [x] **Skeleton loading.** T1, T3, S1 and S2 draw skeleton cards, as
   the artboards do, and so do the list screens with no artboard of their
   own (fee history, exams, classes, invitations, payments, My

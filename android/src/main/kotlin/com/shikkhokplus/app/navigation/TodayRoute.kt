@@ -1,5 +1,7 @@
 package com.shikkhokplus.app.navigation
 
+import com.shikkhokplus.app.core.offline.OfflineTodayRepository
+import com.shikkhokplus.app.core.offline.LocalOfflineCopies
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -46,7 +48,12 @@ internal fun NavGraphBuilder.todayRoute(
     bottomBar: @Composable () -> Unit,
 ) {
     composable(Destination.Today.route) {
-        val model: TodayViewModel = viewModel { TodayViewModel(HttpAnalyticsRepository(client)) }
+        val copies = LocalOfflineCopies.current
+        val model: TodayViewModel =
+            viewModel {
+                val network = HttpAnalyticsRepository(client)
+                TodayViewModel(copies?.let { OfflineTodayRepository(network, it) } ?: network)
+            }
         val refreshing by model.refreshing.collectAsState()
         val recorder: RecordClassViewModel = viewModel { RecordClassViewModel(HttpRecordRepository(client), queue) }
         val state by model.state.collectAsState()
