@@ -612,7 +612,17 @@ a.card-link:hover {
   bottom: calc(80px + env(safe-area-inset-bottom));
   margin-top: var(--s6);
   padding: var(--s3) 0;
-  background: linear-gradient(transparent, var(--background) 30%);
+  /* Opaque, so help text in the bar never sits over the list it scrolls
+     above; the fade is drawn above the bar instead. */
+  background: var(--background);
+}
+.action-bar::before {
+  content: '';
+  position: absolute;
+  inset: auto 0 100% 0;
+  height: var(--s4);
+  background: linear-gradient(transparent, var(--background));
+  pointer-events: none;
 }
 @media (min-width: 900px) {
   .action-bar {

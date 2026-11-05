@@ -97,18 +97,23 @@ To serve a build somewhere else entirely, build with
 
 ## What is built
 
-| Role     | Screens                                                                                                                                                        |
-| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Everyone | Sign in (phone + 6-digit code), create account, role picker, invitations, More, Settings (language, theme, text size), install, update prompt                  |
-| Teacher  | Today (T1), Batches (T6), new batch, Single batch — Students tab (T7), Dues (T5), Verify payments with partial, carry/waive, reject and duplicate warning (T4) |
-| Student  | My batches (S1)                                                                                                                                                |
-| Guardian | Home with child switcher (G1)                                                                                                                                  |
+Every screen the Android app has, for every role.
 
-Not yet on the web, and said so on screen where a tab exists: record a
-class (T2), marks entry (T3), add student (T8), the Classes/Exams/Notices
-tabs, reminders, student payment submission (S3), guardian payments and
-progress, fee history, payment methods, profile edit, account deletion
-and the inbox.
+| Role     | Screens                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Everyone | Sign in, create account, role picker, invitations, inbox (unread count on More), edit profile, delete account, More, Settings (language, theme, text size), install and update prompts                                                                                                                                                                                                                                                                                                                         |
+| Teacher  | Today (T1); batches, new batch, edit batch, schedule; a batch's Students (T7), Classes, Exams and Notices tabs; add student (T8), mark inactive, remove; record a class (T2) with attendance, plan, move and cancel; new and edit exam, marks entry (T3), publish, results and corrections; Dues (T5) with reminders; verify payments (T4) and the payment itself, including split payments and changing a decision; a student's fee history and progress; where students pay; collections and a batch's month |
+| Student  | My batches (S1); a batch (S2) with classes, exams, notices and teacher; a class, an exam, its marksheet, a notice; progress and dashboard; fee history; send money (S3)                                                                                                                                                                                                                                                                                                                                        |
+| Guardian | Children (G1); each child's batch and everything a student sees about it; progress (G3) with the trend; payments (G2); send money for one or several children; my children                                                                                                                                                                                                                                                                                                                                     |
+
+**How it is organised.** Each area owns a directory and its own string
+files: `features/teacher/{classes,exams,students,money}`,
+`features/family/{batch,pay}` and `features/account/area`. Every teacher
+URL is in `features/teacher/paths.ts`; student and guardian screens are
+written once with a reader (`'me'` or `'child'`, `features/family/reader.ts`)
+and mounted under `/my/:seat` and `/child/:seat`. Every area screen loads
+on first use (`core/lazy.tsx`), and React with the router is a separate
+long-lived chunk.
 
 ## Follow-ups
 
@@ -118,9 +123,8 @@ and the inbox.
 - **Bangla layout check for web screens.** Screens were checked by
   screenshot in Bangla and English during development; the web screens
   are not yet in `docs/delivery/bangla-layout-check.md`.
-- **Split the language bundles.** Both languages ship in the main chunk
-  (~145 kB gzipped in all); loading only the active one would halve the
-  strings' share.
+- **Split the language bundles.** Both languages' strings ship in the entry
+  chunk; loading only the active one would take about 50 kB off it.
 - `npm audit` reports 0 issues in shipped packages and 12 low/moderate in
   the build toolchain (`typescript-eslint`'s `minimatch`, `workbox-build`'s
   `glob`); CI annotates them. ESLint 9 is out of support; moving to 10 is
