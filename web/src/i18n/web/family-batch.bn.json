@@ -1,0 +1,18 @@
+{
+  "web_fb_child_next_class": "{1}-এর পরের ক্লাস",
+  "web_fb_child_fee": "{1}-এর বেতন",
+  "web_fb_child_results": "{1}-এর ফলাফল",
+  "web_fb_child_coming_up": "{1}-এর সামনে যা আছে",
+  "web_fb_no_classes_month": "এই মাসে কোনো ক্লাস নেই",
+  "web_fb_rank_of": "{2} জনের মধ্যে {1}",
+  "web_fb_col_test": "পরীক্ষা",
+  "web_fb_col_rank": "অবস্থান",
+  "web_fb_batch_average": "ব্যাচের গড় {1}",
+  "web_fb_bands_title": "ব্যাচের নম্বর কেমন ছিল",
+  "web_fb_summary_up": "গত {1}টি পরীক্ষার প্রতিটিতে নম্বর বেড়েছে, {4}-এর মধ্যে {2} থেকে {3}।",
+  "web_fb_summary_down": "গত {1}টি পরীক্ষায় নম্বর কমেছে, {4}-এর মধ্যে {2} থেকে {3}।",
+  "web_fb_summary_same": "গত {1}টি পরীক্ষায় নম্বর {4}-এর মধ্যে {3}-এই আছে।",
+  "web_fb_above_average": "এখন ব্যাচের গড়ের চেয়ে বেশি।",
+  "web_fb_below_average": "এখন ব্যাচের গড়ের চেয়ে কম।",
+  "web_fb_child_topics": "{1}-এর ক্লাসে যা পড়ানো হয়েছে"
+}

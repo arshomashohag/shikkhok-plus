@@ -1,0 +1,215 @@
+/*
+ * The classes area. Day colours are the Android calendar's (dayLook in
+ * MonthCalendar.kt): taken shares the paid chip's green, today is the solid
+ * success fill, upcoming is outlined in the action blue, not recorded is
+ * grey, cancelled is struck through. Each also differs in its label.
+ */
+
+.classes-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--s2);
+  margin-bottom: var(--s3);
+}
+
+.calendar {
+  padding: var(--s3);
+}
+.calendar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+  margin-bottom: var(--s2);
+}
+.calendar-head .icon-btn {
+  margin: 0;
+}
+.calendar-head .icon-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.calendar-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+.calendar-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+}
+.calendar-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: var(--s1);
+}
+.calendar-weekday {
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--on-surface-variant);
+}
+.calendar-row > span {
+  display: flex;
+  justify-content: center;
+}
+.calendar-day {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  max-width: 48px;
+  aspect-ratio: 1;
+  min-height: 40px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  background: transparent;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+button.calendar-day {
+  cursor: pointer;
+}
+.calendar-quiet {
+  color: var(--on-surface-variant);
+  font-weight: 400;
+}
+.calendar-day[aria-pressed='true'] {
+  outline: 3px solid var(--primary);
+  outline-offset: 1px;
+}
+.calendar-taken {
+  background: var(--paid-container);
+  color: var(--on-paid-container);
+}
+.calendar-today {
+  background: var(--on-paid-container);
+  color: var(--paid-container);
+}
+.calendar-upcoming {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.calendar-not_recorded {
+  background: var(--surface-container-high);
+  color: var(--on-surface-variant);
+}
+.calendar-cancelled {
+  color: var(--on-surface-variant);
+  text-decoration: line-through;
+}
+.calendar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s4);
+  margin: var(--s3) 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.8125rem;
+  color: var(--on-surface-variant);
+}
+.calendar-legend li {
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+}
+.calendar-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+}
+.calendar-swatch.calendar-cancelled {
+  border-color: var(--outline);
+}
+.calendar-swatch.calendar-upcoming {
+  border-color: var(--primary);
+}
+
+.class-state {
+  font-weight: 600;
+}
+.class-state-today,
+.class-state-taken {
+  color: var(--on-paid-container);
+}
+.class-state-upcoming {
+  color: var(--primary);
+}
+.class-state-not_recorded,
+.class-state-cancelled {
+  color: var(--on-surface-variant);
+}
+
+/* Attendance: one row per seat, a two-way switch the size of a touch. */
+.seat-toggle {
+  display: inline-flex;
+  border-radius: var(--r-pill);
+  overflow: hidden;
+  border: 1px solid var(--outline);
+}
+.seat-toggle button {
+  min-height: 40px;
+  min-width: 84px;
+  padding: 0 var(--s3);
+  border: 0;
+  background: transparent;
+  font-weight: 600;
+  cursor: pointer;
+}
+.seat-toggle button[aria-pressed='true'].present {
+  background: var(--paid-container);
+  color: var(--on-paid-container);
+}
+.seat-toggle button[aria-pressed='true'].absent {
+  background: var(--error-container);
+  color: var(--on-error-container);
+}
+
+.suggestion {
+  display: block;
+  width: 100%;
+  margin-top: var(--s2);
+  padding: var(--s3);
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--r-field);
+  background: var(--surface-container);
+  text-align: left;
+  cursor: pointer;
+}
+
+.choice-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+.choice-pills button {
+  min-height: var(--touch);
+  padding: 0 var(--s4);
+  border: 1px solid var(--outline);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  font-weight: 600;
+  cursor: pointer;
+}
+.choice-pills button[aria-pressed='true'] {
+  border-color: var(--primary);
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+}
+
+.conflict-cols {
+  display: grid;
+  gap: var(--s3);
+  margin-top: var(--s3);
+}
+@media (min-width: 700px) {
+  .conflict-cols {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.conflict-cols .card {
+  border: 1px solid var(--outline-variant);
+}

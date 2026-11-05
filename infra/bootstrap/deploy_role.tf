@@ -152,10 +152,49 @@ resource "aws_iam_role_policy" "deploy" {
         ]
       },
       {
-        Sid      = "PublicUrl"
+        # The public URLs, and the two names the web upload needs, all
+        # published by Terraform so this role never reads state [OPS-3].
+        Sid    = "PublicUrl"
+        Effect = "Allow"
+        Action = ["ssm:GetParameter"]
+        Resource = [
+          for name in ["api-url", "web-url", "web-bucket", "distribution-id"] :
+          "arn:aws:ssm:*:${data.aws_caller_identity.current.account_id}:parameter/shikkhokplus/shikkhokplus-${each.key}/${name}"
+        ]
+      },
+      {
+        # **The web client upload**: this environment's web bucket, under
+        # ui/ only. List is bucket-level, for `aws s3 sync` to compare;
+        # Delete is for removing files the new build no longer has.
+        Sid      = "WebBucketList"
         Effect   = "Allow"
-        Action   = ["ssm:GetParameter"]
-        Resource = "arn:aws:ssm:*:${data.aws_caller_identity.current.account_id}:parameter/shikkhokplus/shikkhokplus-${each.key}/api-url"
+        Action   = ["s3:ListBucket"]
+        Resource = "arn:aws:s3:::shikkhokplus-${each.key}-web-*"
+      },
+      {
+        Sid    = "WebBucketObjects"
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject",
+        ]
+        Resource = "arn:aws:s3:::shikkhokplus-${each.key}-web-*/ui/*"
+      },
+      {
+        # **Invalidation after the upload**, so a release is visible at
+        # once rather than when edge copies expire. The distribution id
+        # is created by the main module, after this bootstrap, so it is
+        # not known here: the grant is account-wide for these two
+        # actions. An invalidation only empties caches -- the worst this
+        # can do is make the next requests go to the origin.
+        Sid    = "WebInvalidation"
+        Effect = "Allow"
+        Action = [
+          "cloudfront:CreateInvalidation",
+          "cloudfront:GetInvalidation",
+        ]
+        Resource = "arn:aws:cloudfront::${data.aws_caller_identity.current.account_id}:distribution/*"
       },
       {
         # Encrypting and decrypting the runtime env SecureString.

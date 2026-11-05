@@ -29,6 +29,7 @@ from app.config import check_startup_configuration
 from app.db.session import build_engine
 from app.errors import register_error_handler
 from app.logging_setup import configure_logging
+from app.web_origins import register_web_origins
 
 __all__ = ["app", "create_app"]
 
@@ -65,6 +66,10 @@ def create_app() -> FastAPI:
     )
     register_error_handler(app)
     _register_request_scope(app)
+    # After the request scope, so it wraps it: a CORS preflight is
+    # answered without opening a database session. Off unless the web
+    # client is served from its own origin; see app/web_origins.py.
+    register_web_origins(app)
     _register_routes(app)
     _publish_shared_components(app)
     return app

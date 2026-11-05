@@ -18,6 +18,10 @@ environment = "staging"
 # api.<zone>
 api_subdomain = "api"
 
+# The web client's hostname: app.<zone>, served by the API's own
+# distribution under /ui/. "" to serve it only at api.<zone>/ui/.
+ui_subdomain = "app"
+
 # **No SSH key and no operator IP.** Access is SSM Session Manager:
 #   aws ssm start-session --target $(terraform output -raw app_instance_id)
 

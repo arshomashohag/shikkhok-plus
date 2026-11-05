@@ -108,3 +108,13 @@ output "alarm_topic_arn" {
   description = "SNS topic every alarm in this environment notifies."
   value       = aws_sns_topic.alerts.arn
 }
+
+output "web_url" {
+  description = "The web client. deploy.yml uploads it; this is where it is served."
+  value       = module.cdn.web_url
+}
+
+output "web_bucket" {
+  description = "The bucket the built web client is uploaded to, under ui/."
+  value       = module.cdn.web_bucket
+}

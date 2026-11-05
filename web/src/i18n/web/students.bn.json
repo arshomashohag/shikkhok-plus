@@ -1,0 +1,14 @@
+{
+  "web_students_actions_for": "{1}-এর অপশন",
+  "web_students_inactive_title": "{1}-কে নিষ্ক্রিয় করবেন?",
+  "web_students_inactive_body": "আজ থেকে নতুন কোনো মাসিক বেতন ধরা হবে না। আগের বকেয়া যেমন আছে তেমনই থাকবে, আর অন্য ব্যাচে কোনো পরিবর্তন হবে না।",
+  "web_students_marked_inactive": "{1}-কে নিষ্ক্রিয় করা হয়েছে",
+  "web_students_removed": "{1}-কে এই ব্যাচ থেকে সরানো হয়েছে",
+  "web_students_monthly_fee": "মাসিক বেতন",
+  "web_students_phone_prefix": "+88",
+  "web_notices_sent": "নোটিশ পাঠানো হয়েছে",
+  "web_notices_updated": "নোটিশ বদলানো হয়েছে",
+  "web_notices_removed": "নোটিশ সরিয়ে নেওয়া হয়েছে",
+  "web_notices_edit_title": "নোটিশ বদলান",
+  "web_dues_remind_offline": "রিমাইন্ডার পাঠাতে ইন্টারনেট সংযোগ লাগবে।"
+}

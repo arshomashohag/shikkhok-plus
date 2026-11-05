@@ -47,3 +47,19 @@ variable "origin_subdomain" {
   type        = string
   default     = "origin"
 }
+
+variable "ui_subdomain" {
+  description = <<-EOT
+    Host part of the web client's own hostname, e.g. "app" for
+    app.shikkhokplus.nirmatabd.com, added as a second alias on this
+    distribution. Empty for none: the web client is then served only at
+    https://<api host>/ui/. Changing it replaces the certificate.
+  EOT
+  type        = string
+  default     = "app"
+
+  validation {
+    condition     = can(regex("^([a-z0-9]([a-z0-9-]*[a-z0-9])?)?$", var.ui_subdomain))
+    error_message = "ui_subdomain must be a single DNS label (lower-case letters, digits, hyphens) or empty."
+  }
+}

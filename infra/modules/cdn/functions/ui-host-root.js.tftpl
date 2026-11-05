@@ -1,0 +1,19 @@
+// Viewer-request function on the DEFAULT (API) behaviour.
+//
+// The UI's own hostname shares this distribution with the API, so a
+// person typing just the hostname reaches the default behaviour -- the
+// API, which has no route at "/". This sends exactly that request, and
+// nothing else, to the web client. Every other request, on either
+// hostname, passes through untouched: the API never serves "/".
+function handler(event) {
+  var request = event.request;
+  var host = request.headers.host ? request.headers.host.value : '';
+  if (request.uri === '/' && host === '${ui_fqdn}') {
+    return {
+      statusCode: 302,
+      statusDescription: 'Found',
+      headers: { location: { value: '/ui/' } },
+    };
+  }
+  return request;
+}

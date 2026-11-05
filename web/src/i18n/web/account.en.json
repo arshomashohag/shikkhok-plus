@@ -1,0 +1,8 @@
+{
+  "web_account_unread": "Unread",
+  "web_account_unread_count": "{1} unread",
+  "web_account_inbox_sub": "Fee reminders, payment updates and notices",
+  "web_account_delete_offline": "No connection. Your account was not deleted.",
+  "web_account_deleting": "Deleting…",
+  "web_account_done_body": "Your login, name and address are gone. Close this to sign out of this browser."
+}

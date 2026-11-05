@@ -1,0 +1,86 @@
+/* Family paying screens (S3, G2). Tokens from styles/tokens.css. */
+
+.pay-heading {
+  margin: var(--s4) 0 var(--s1);
+  font-size: 1.125rem;
+}
+
+.pay-group {
+  margin: var(--s4) 0 var(--s2);
+}
+
+/* A method or cash: a 64px row, outlined, the whole row the target. */
+.pay-method {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  width: 100%;
+  min-height: 64px;
+  margin-top: var(--s2);
+  padding: var(--s2) var(--s4);
+  border: 1.5px solid var(--outline);
+  border-radius: var(--r-field);
+  background: var(--surface);
+  text-align: left;
+  cursor: pointer;
+}
+.pay-method:hover {
+  background: var(--surface-container);
+}
+.pay-method .grow {
+  display: flex;
+  flex-direction: column;
+}
+.pay-method-chevron {
+  font-size: 1.5rem;
+  color: var(--on-surface-variant);
+}
+
+.pay-batches {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+.pay-batch {
+  display: flex;
+  flex-direction: column;
+  min-height: var(--touch);
+  padding: var(--s2) var(--s4);
+  border: 1.5px solid var(--outline-variant);
+  border-radius: 10px;
+  background: var(--surface);
+  text-align: left;
+  cursor: pointer;
+}
+.pay-batch[aria-checked='true'] {
+  border: 2px solid var(--primary);
+  background: var(--info-container);
+}
+
+/* Where to send it: the number large, with Copy beside it. */
+.pay-destination {
+  padding: var(--s3) var(--s4);
+  border-radius: var(--r-card);
+  background: var(--surface-container);
+}
+.pay-number-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+.pay-number {
+  font-size: 1.375rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.pay-change {
+  margin: var(--s1) 0 0 calc(-1 * var(--s3));
+}
+
+.pay-sent-body {
+  margin: var(--s3) 0;
+  font-size: 1.0625rem;
+  line-height: 1.5;
+}

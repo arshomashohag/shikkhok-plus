@@ -221,7 +221,7 @@
     <string name="fees_claim_approved_partial">আংশিক গৃহীত</string>
     <string name="fees_claim_rejected">গৃহীত হয়নি</string>
     <string name="fees_claim_corrected">আপনার শিক্ষক এই সিদ্ধান্ত বদলেছেন।</string>
-    <string name="fees_disposition_carried">বাকিটা পরের মাসে যুক্ত হবে</string>
+    <string name="fees_disposition_carried">বাকিটা এখনো বকেয়া</string>
     <string name="fees_disposition_waived">বাকিটা মকুব করা হয়েছে</string>
 
     <!-- D3-এর সার্ভার বার্তা-কী। অ্যাপ বিল্ড হওয়ার আগেই প্রতিটির
@@ -234,8 +234,8 @@
     <string name="fees_claim_channel_unknown">কীভাবে টাকা দিয়েছেন তা বেছে নিন।</string>
     <string name="fees_claim_not_found">ওই পেমেন্টের রেকর্ড পাওয়া যাচ্ছে না।</string>
     <string name="fees_verification_amount_negative">শূন্য বা তার বেশি পরিমাণ লিখুন।</string>
-    <string name="fees_verification_disposition_required">বাকিটা পরের মাসে যাবে নাকি মকুব হবে তা বেছে নিন।</string>
-    <string name="fees_verification_disposition_not_applicable">কিছুই বাকি নেই, তাই পরে নেওয়ার বা মকুবের কিছু নেই।</string>
+    <string name="fees_verification_disposition_required">বাকিটা বকেয়া থাকবে নাকি মকুব হবে তা বেছে নিন।</string>
+    <string name="fees_verification_disposition_not_applicable">কিছুই বাকি নেই, তাই বকেয়া রাখার বা মকুবের কিছু নেই।</string>
     <string name="fees_verification_disposition_unknown">ওই পছন্দটি চেনা যাচ্ছে না।</string>
     <string name="fees_verification_already_decided">এই পেমেন্ট নিয়ে ইতিমধ্যে সিদ্ধান্ত নেওয়া হয়েছে। রিফ্রেশ করে দেখুন।</string>
 
@@ -616,12 +616,12 @@
     <string name="verify_line_short_plain">বাকির চেয়ে কম</string>
     <string name="verify_line_over">%1$s বেশি</string>
     <string name="verify_line_over_plain">বাকির চেয়ে বেশি</string>
-    <string name="verify_carry_forward">পরের মাসে যোগ</string>
-    <string name="verify_carry_forward_body">পরের বেতনের সাথে যোগ হবে।</string>
+    <string name="verify_carry_forward">বকেয়া রাখুন</string>
+    <string name="verify_carry_forward_body">এটি নিজের মাসেই বকেয়া থাকবে। পরের পেমেন্ট আগে সবচেয়ে পুরোনো মাস শোধ করবে।</string>
     <string name="verify_waive">মওকুফ</string>
     <string name="verify_waive_body">ছেড়ে দিন। এই মাস পরিশোধিত হিসেবে বন্ধ হবে।</string>
-    <string name="verify_carry_onto">%1$s যোগ হবে যার বেতনে</string>
-    <string name="verify_carry_onto_plain">কম অংশ যোগ হবে যার বেতনে</string>
+    <string name="verify_carry_onto">%1$s কার বকেয়া থাকবে</string>
+    <string name="verify_carry_onto_plain">কম অংশ কার বকেয়া থাকবে</string>
     <string name="verify_waive_for">কম অংশ মওকুফ হবে যার</string>
     <string name="verify_credit_to">বাড়তি অংশ জমা হবে যার</string>
     <string name="verify_marked_paid">— %1$s পরিশোধিত হিসেবে চিহ্নিত হবে</string>
@@ -1038,11 +1038,11 @@
     <string name="pay_open">টাকা পাঠান</string>
     <string name="payments_send_money">টাকা পাঠান</string>
     <string name="payments_send_hint">যেকোনো পরিমাণ, যেকোনো সময় পাঠাতে পারেন — কিছু বকেয়া না থাকলেও।</string>
-    <string name="fees_payment_allocation_bearer_required">ঘাটতি কোন শিশু বহন করবে তা বেছে নিন।</string>
+    <string name="fees_payment_allocation_bearer_required">ঘাটতি কোন শিশুর বকেয়া থাকবে তা বেছে নিন।</string>
     <string name="fees_payment_allocation_child_not_applicable">যেখানে দরকার নেই সেখানে একটি শিশুর নাম দেওয়া হয়েছে।</string>
     <string name="fees_payment_allocation_credit_child_required">বাড়তি টাকা কোন শিশুর ক্রেডিট হবে তা বেছে নিন।</string>
-    <string name="fees_payment_allocation_disposition_not_applicable">বকেয়ার চেয়ে কম পেলেই কেবল পরের মাসে নেওয়া বা মওকুফ করা যায়।</string>
-    <string name="fees_payment_allocation_disposition_required">ঘাটতি পরের মাসে নেবেন নাকি মওকুফ করবেন তা বেছে নিন।</string>
+    <string name="fees_payment_allocation_disposition_not_applicable">বকেয়ার চেয়ে কম পেলেই কেবল বকেয়া রাখা বা মওকুফ করা যায়।</string>
+    <string name="fees_payment_allocation_disposition_required">ঘাটতি বকেয়া থাকবে নাকি মওকুফ হবে তা বেছে নিন।</string>
     <string name="fees_payment_allocation_invalid">এই ভাগ এই পেমেন্টে প্রয়োগ করা যাবে না।</string>
     <string name="fees_payment_amount_not_positive">শূন্যের চেয়ে বেশি পরিমাণ লিখুন।</string>
     <string name="fees_payment_approval_zero">কিছুই পাওয়া যায়নি, তাই এটি অনুমোদন করা যাবে না। এর বদলে পেমেন্টটি বাতিল করুন।</string>
@@ -1199,7 +1199,7 @@
         <item quantity="other">এ পর্যন্ত %1$d জন যোগ হয়েছে</item>
     </plurals>
     <string name="verify_sheet_title_partial">%2$s-এর মধ্যে %1$s অনুমোদন</string>
-    <string name="verify_carry_forward_amount">%1$s পরের ফি-তে যোগ হবে।</string>
+    <string name="verify_carry_forward_amount">%1$s নিজের মাসেই বকেয়া থাকবে।</string>
     <string name="today_outstanding_title">বাকি</string>
     <string name="today_total_owed">সব ব্যাচ মিলিয়ে মোট বাকি</string>
     <string name="progress_of_child">%1$s-এর অগ্রগতি</string>

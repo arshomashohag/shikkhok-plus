@@ -333,13 +333,15 @@ data "aws_iam_policy_document" "ci_state" {
     resources = [aws_s3_bucket.state.arn]
   }
 
-  # **The app's own config bucket**, which the main module creates and
-  # owns -- the compose file the host fetches at boot.
+  # **The app's own buckets**, which the main module creates and owns:
+  # the config bucket (the compose file the host fetches at boot) and
+  # the web bucket (the built web client CloudFront serves under /ui/).
   #
   # Scoped by NAME PREFIX rather than granted account-wide: this role
-  # can create and destroy `shikkhokplus-*-config-*` and nothing else,
-  # so it cannot touch the state bucket's siblings or another
-  # project's data.
+  # can create and destroy `shikkhokplus-*-config-*` and
+  # `shikkhokplus-*-web-*` and nothing else, so it cannot touch the
+  # state bucket's siblings or another project's data. It writes no
+  # object into the web bucket -- the deploy role uploads the build.
   #
   # Both halves are needed and neither is obvious from the create
   # alone: the Get* actions are how Terraform reads a bucket back to
@@ -376,7 +378,10 @@ data "aws_iam_policy_document" "ci_state" {
       "s3:GetBucketObjectLockConfiguration",
       "s3:PutBucketTagging",
     ]
-    resources = ["arn:aws:s3:::shikkhokplus-*-config-*"]
+    resources = [
+      "arn:aws:s3:::shikkhokplus-*-config-*",
+      "arn:aws:s3:::shikkhokplus-*-web-*",
+    ]
   }
 
   statement {

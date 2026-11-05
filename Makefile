@@ -10,11 +10,23 @@
 
 PY ?= python3
 
-.PHONY: check format lint typecheck test gates contract openapi install clean android lock audit android-quality
+.PHONY: check format lint typecheck test gates contract openapi install clean android lock audit android-quality web web-dev
 
-check: lint typecheck test android android-quality
+check: lint typecheck test android android-quality web
 	@echo ""
 	@echo "All gates passed."
+
+## The web client (web/): generated-file drift, format, lint, types,
+## tests and the production build, in that order. `npm ci` installs
+## exactly what package-lock.json pins and fails if package.json and the
+## lockfile disagree -- the install reads the lockfile, it never
+## re-resolves [project: ALWAYS lock dependency resolution].
+web:
+	cd web && npm ci --no-audit --no-fund && npm run check
+
+## Run the web client against a local API on :8000 (`make up` first).
+web-dev:
+	cd web && npm ci --no-audit --no-fund && npm run dev
 
 ## Regenerate the Python lockfile. THE ONLY SANCTIONED WAY to update
 ## requirements.txt.
@@ -190,7 +202,7 @@ test:
 		--cov=app.marks \
 		--cov=app.notifications \
 		--cov=app.schemas \
-		--cov=app.teaching \
+		--cov=app.teaching --cov=app.web_origins \
 		--cov-report= \
 		--cov-config=.coveragerc-backend
 	@echo ""

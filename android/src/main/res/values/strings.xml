@@ -261,7 +261,7 @@
     <string name="fees_claim_approved_partial">Accepted in part</string>
     <string name="fees_claim_rejected">Not accepted</string>
     <string name="fees_claim_corrected">Your teacher changed this decision.</string>
-    <string name="fees_disposition_carried">The rest carries to next month</string>
+    <string name="fees_disposition_carried">The rest is still owed</string>
     <string name="fees_disposition_waived">The rest was waived</string>
 
     <!-- Server message keys D3 adds. Each must exist here before the
@@ -275,8 +275,8 @@
     <string name="fees_claim_channel_unknown">Choose how you paid.</string>
     <string name="fees_claim_not_found">That payment record is not available.</string>
     <string name="fees_verification_amount_negative">Enter an amount of zero or more.</string>
-    <string name="fees_verification_disposition_required">Choose whether the rest carries forward or is waived.</string>
-    <string name="fees_verification_disposition_not_applicable">Nothing is left over, so there is nothing to carry or waive.</string>
+    <string name="fees_verification_disposition_required">Choose whether the rest stays owed or is waived.</string>
+    <string name="fees_verification_disposition_not_applicable">Nothing is left over, so there is nothing to keep owed or waive.</string>
     <string name="fees_verification_disposition_unknown">That choice is not recognised.</string>
     <string name="fees_verification_already_decided">Someone has already recorded a decision on this payment. Refresh to see it.</string>
 
@@ -672,11 +672,11 @@
     <string name="verify_line_over">%1$s over</string>
     <string name="verify_line_over_plain">More than what is owed</string>
     <string name="verify_carry_forward">Carry forward</string>
-    <string name="verify_carry_forward_body">Add it to the next fee.</string>
+    <string name="verify_carry_forward_body">It stays owed on its own month. The next payment settles the oldest month first.</string>
     <string name="verify_waive">Waive</string>
     <string name="verify_waive_body">Let it go. This month closes as paid.</string>
-    <string name="verify_carry_onto">Carry %1$s onto</string>
-    <string name="verify_carry_onto_plain">Carry the shortfall onto</string>
+    <string name="verify_carry_onto">Who still owes %1$s</string>
+    <string name="verify_carry_onto_plain">Who still owes the shortfall</string>
     <string name="verify_waive_for">Waive the shortfall for</string>
     <string name="verify_credit_to">Credit the extra to</string>
     <string name="verify_marked_paid">— %1$s is marked paid</string>
@@ -1093,11 +1093,11 @@
     <string name="pay_open">Send money</string>
     <string name="payments_send_money">Send money</string>
     <string name="payments_send_hint">You can send any amount, any time — even when nothing is due.</string>
-    <string name="fees_payment_allocation_bearer_required">Choose which child carries the shortfall.</string>
+    <string name="fees_payment_allocation_bearer_required">Choose which child still owes the shortfall.</string>
     <string name="fees_payment_allocation_child_not_applicable">A child was named where none is needed.</string>
     <string name="fees_payment_allocation_credit_child_required">Choose which child receives the extra as credit.</string>
-    <string name="fees_payment_allocation_disposition_not_applicable">Carry or waive applies only when less than the amount owed was received.</string>
-    <string name="fees_payment_allocation_disposition_required">Choose whether to carry or waive the shortfall.</string>
+    <string name="fees_payment_allocation_disposition_not_applicable">Keeping it owed or waiving applies only when less than the amount owed was received.</string>
+    <string name="fees_payment_allocation_disposition_required">Choose whether the shortfall stays owed or is waived.</string>
     <string name="fees_payment_allocation_invalid">That split cannot be applied to this payment.</string>
     <string name="fees_payment_amount_not_positive">Enter an amount greater than zero.</string>
     <string name="fees_payment_approval_zero">Nothing was received, so this can\'t be approved. Reject the payment instead.</string>
@@ -1254,7 +1254,7 @@
         <item quantity="other">%1$d added so far</item>
     </plurals>
     <string name="verify_sheet_title_partial">Approve %1$s of %2$s</string>
-    <string name="verify_carry_forward_amount">Add %1$s to the next fee.</string>
+    <string name="verify_carry_forward_amount">%1$s stays owed on its own month.</string>
     <string name="today_outstanding_title">Outstanding</string>
     <string name="today_total_owed">Total owed across all batches</string>
     <string name="progress_of_child">%1$s\'s progress</string>
