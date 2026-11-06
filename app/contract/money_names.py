@@ -116,6 +116,11 @@ NON_MONEY_COLUMNS: Final[dict[tuple[str, str], str]] = {
         "they chose it [0020]. Not an amount; the submission's amount is "
         "`total_amount`."
     ),
+    ("expense", "extra_fee_id"): (
+        "A UUID foreign key naming the exam or other fee an expense was "
+        "spent for, not an amount [0021]. The expense's money column, "
+        "`amount`, is a NUMERIC(12,2) checked by this same gate."
+    ),
 }
 
 #: Response-schema properties that match a money token and carry
@@ -335,6 +340,18 @@ NON_MONEY_FIELDS: Final[dict[tuple[str, str], str]] = {
     ),
     ("SeatExtraFeeResponse", "extra_fee_id"): (
         "A UUID naming an extra fee, not an amount [0020]. Matches the "
+        "'fee' token; every money property of this schema references Money."
+    ),
+    ("ExpenseRequest", "extra_fee_id"): (
+        "A UUID naming an extra fee, not an amount [0021]. Matches the "
+        "'fee' token; every money property of this schema references Money."
+    ),
+    ("ExpenseResponse", "extra_fee_id"): (
+        "A UUID naming an extra fee, not an amount [0021]. Matches the "
+        "'fee' token; every money property of this schema references Money."
+    ),
+    ("MoneyFeeLineResponse", "extra_fee_id"): (
+        "A UUID naming an extra fee, not an amount [0021]. Matches the "
         "'fee' token; every money property of this schema references Money."
     ),
 }

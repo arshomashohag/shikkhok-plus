@@ -29,6 +29,8 @@ EXPECTED_MUTATION_ID_BODIES: frozenset[tuple[str, str]] = frozenset(
         # Raising an exam or other fee charges every student, so a
         # resend after a lost response must not charge them twice [0020].
         ("POST", "/v1/batches/{batch_id}/extra-fees"),
+        # A retried expense record must not count the money twice [0021].
+        ("POST", "/v1/expenses"),
     }
 )
 
