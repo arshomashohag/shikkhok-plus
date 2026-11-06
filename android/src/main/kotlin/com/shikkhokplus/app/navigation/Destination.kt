@@ -775,6 +775,37 @@ sealed interface Destination {
         override val route: String = "centre/members"
     }
 
+    /** The chosen centre's teachers and staff, for its managers. */
+    data object CentreStaff : Destination {
+        override val route: String = "centre/staff"
+    }
+
+    /** Inviting a teacher to the chosen centre. */
+    data object InviteStaffTeacher : Destination {
+        override val route: String = "centre/staff/teachers/new"
+    }
+
+    /** Adding someone who works at the chosen centre without app access. */
+    data object AddOtherStaff : Destination {
+        override val route: String = "centre/staff/new"
+    }
+
+    /** Correcting one staff record. */
+    data object EditStaff : Destination {
+        override val route: String = "centre/staff/{staffId}/edit"
+
+        /** The record argument's name. */
+        const val ARG_STAFF: String = "staffId"
+
+        /**
+         * Build a concrete route.
+         *
+         * @param staffId The record
+         * @return The route to navigate to
+         */
+        fun of(staffId: String): String = "centre/staff/$staffId/edit"
+    }
+
     /** The coaching centres' offers to this account, from a teacher's More. */
     data object CentreOffers : Destination {
         override val route: String = "centre-offers"

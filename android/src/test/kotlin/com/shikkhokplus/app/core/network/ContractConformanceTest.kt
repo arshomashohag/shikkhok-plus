@@ -55,6 +55,8 @@ class ContractConformanceTest {
             // A centre's members, for its managers, and centres' offers.
             Contract("/v1/centre/members", ListSerializer(MemberDto.serializer())),
             Contract("/v1/memberships", ListSerializer(MembershipDto.serializer())),
+            // The centre's Teachers & staff console.
+            Contract("/v1/centre/staff", ListSerializer(StaffDto.serializer())),
             Contract("/v1/batches", ListSerializer(BatchDto.serializer())),
             Contract("/v1/batches/{batch_id}/schedule", ListSerializer(ScheduleSlotDto.serializer())),
             Contract("/v1/batches/{batch_id}/roster", ListSerializer(RosterRowDto.serializer())),
