@@ -1551,7 +1551,16 @@ export interface paths {
       path?: never
       cookie?: never
     }
-    get?: never
+    /**
+     * Read One Exam
+     * @description Read one exam, with its examiner at a centre [C4].
+     *
+     *     :param exam_id: The exam, from the route path
+     *     :param session: The request-scoped session
+     *     :param lens: The teacher lens
+     *     :return: The exam
+     */
+    get: operations['read_one_exam_v1_exams__exam_id__get']
     /**
      * Update Batch Exam
      * @description Edit an exam's title, date or total.
@@ -1594,6 +1603,35 @@ export interface paths {
      *     :return: The cancelled exam
      */
     post: operations['cancel_batch_exam_v1_exams__exam_id__cancel_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/exams/{exam_id}/examiner': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    /**
+     * Name Exam Examiner
+     * @description Name, change or clear the centre member who marks this exam [C4].
+     *
+     *     Manager-only: the teacher lens of a centre. A solo tutor marks their
+     *     own exams and is refused with ``NOT_A_CENTRE``.
+     *
+     *     :param exam_id: The exam, from the route path
+     *     :param body: The examiner, or null to clear
+     *     :param session: The request-scoped session
+     *     :param lens: The manager's lens on the centre
+     *     :return: The exam with its examiner
+     */
+    put: operations['name_exam_examiner_v1_exams__exam_id__examiner_put']
+    post?: never
     delete?: never
     options?: never
     head?: never
@@ -2393,6 +2431,103 @@ export interface paths {
      *     :return: One entry per exam, oldest first
      */
     get: operations['read_my_progress_v1_me_enrollments__enrollment_id__progress_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/me/exams': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List My Exams
+     * @description List the exams I am the examiner of, across every centre.
+     *
+     *     :param account_id: The authenticated account
+     *     :param session: The request-scoped session
+     *     :return: The exams, newest first
+     */
+    get: operations['list_my_exams_v1_me_exams_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/me/exams/{exam_id}/marks': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Write Examiner Mark
+     * @description Enter or correct one seat's result on an exam I mark.
+     *
+     *     :param body: The seat, the state and the number
+     *     :param lens: The lens for this one exam
+     *     :param session: The request-scoped session
+     *     :return: None
+     */
+    post: operations['write_examiner_mark_v1_me_exams__exam_id__marks_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/me/exams/{exam_id}/publish': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Publish Examiner Exam
+     * @description Publish an exam I mark to its students and guardians.
+     *
+     *     :param lens: The lens for this one exam
+     *     :param session: The request-scoped session
+     *     :return: None
+     */
+    post: operations['publish_examiner_exam_v1_me_exams__exam_id__publish_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/me/exams/{exam_id}/results': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Read Examiner Results
+     * @description Read every seat's result on one exam I mark: names and results only.
+     *
+     *     :param lens: The lens for this one exam
+     *     :param session: The request-scoped session
+     *     :return: The exam, one row per seat, and whether marks are accepted
+     */
+    get: operations['read_examiner_results_v1_me_exams__exam_id__results_get']
     put?: never
     post?: never
     delete?: never
@@ -4519,6 +4654,9 @@ export interface components {
      *     :ivar title: The teacher's name for it
      *     :ivar date: When it was sat
      *     :ivar total_marks: The denominator, at least 1
+     *     :ivar examiner_member_id: At a centre, the member who marks it; left
+     *         out, the batch's one weekly teacher is the default. Read on
+     *         creation only: an edit changes the examiner through its own route
      *     :ivar topics: What it covers: at most 20, each 1 to 120 characters
      */
     ExamCreateRequest: {
@@ -4532,6 +4670,8 @@ export interface components {
        * Format: date
        */
       date: string
+      /** Examiner Member Id */
+      examiner_member_id?: string | null
       /** Title */
       title: string
       /** Topics */
@@ -4573,6 +4713,10 @@ export interface components {
        * Format: uuid
        */
       exam_id: string
+      /** Examiner Member Id */
+      examiner_member_id?: string | null
+      /** Examiner Name */
+      examiner_name?: string | null
       /** Expected Count */
       expected_count: number
       /**
@@ -4627,6 +4771,10 @@ export interface components {
        * Format: uuid
        */
       exam_id: string
+      /** Examiner Member Id */
+      examiner_member_id?: string | null
+      /** Examiner Name */
+      examiner_name?: string | null
       /** Subject Name */
       subject_name: string
       /** Title */
@@ -4689,6 +4837,57 @@ export interface components {
       topics?: string[] | null
       /** Total Marks */
       total_marks: number
+    }
+    /**
+     * ExamineeResponse
+     * @description One seat on an exam, as its examiner sees it: a name and a result.
+     *
+     *     :ivar enrollment_id: The seat, to mark against
+     *     :ivar display_name: The name the centre typed for the student
+     *     :ivar result_state: ``marked``, ``absent``, ``not_entered`` or
+     *         ``joined_after``
+     *     :ivar marks: The number, for ``marked``
+     */
+    ExamineeResponse: {
+      /** Display Name */
+      display_name: string
+      /**
+       * Enrollment Id
+       * Format: uuid
+       */
+      enrollment_id: string
+      /** Marks */
+      marks?: number | null
+      /**
+       * Result State
+       * @enum {string}
+       */
+      result_state: 'absent' | 'joined_after' | 'marked' | 'not_entered'
+    }
+    /**
+     * ExaminerRequest
+     * @description Name, change or clear an exam's examiner [C4].
+     *
+     *     :ivar examiner_member_id: The centre member who marks it, or null
+     */
+    ExaminerRequest: {
+      /** Examiner Member Id */
+      examiner_member_id: string | null
+    }
+    /**
+     * ExaminerResultsResponse
+     * @description An exam's results as its examiner sees them.
+     *
+     *     :ivar exam: The exam
+     *     :ivar results: One row per seat
+     *     :ivar writable: Whether a mark would be accepted now
+     */
+    ExaminerResultsResponse: {
+      exam: components['schemas']['MyExamResponse']
+      /** Results */
+      results: components['schemas']['ExamineeResponse'][]
+      /** Writable */
+      writable: boolean
     }
     /**
      * ExpenseMonthResponse
@@ -5867,6 +6066,46 @@ export interface components {
       subject?: string | null
       /** Topic Logged */
       topic_logged: boolean
+    }
+    /**
+     * MyExamResponse
+     * @description One exam the caller marks [C4].
+     *
+     *     :ivar exam_id: The exam
+     *     :ivar centre_name: Its centre
+     *     :ivar batch_name: Its batch
+     *     :ivar subject_name: Its subject
+     *     :ivar title: Its name
+     *     :ivar date: When it was sat
+     *     :ivar total_marks: The denominator
+     *     :ivar published: Whether its results have been published
+     *     :ivar cancelled: Whether it was cancelled
+     */
+    MyExamResponse: {
+      /** Batch Name */
+      batch_name: string
+      /** Cancelled */
+      cancelled: boolean
+      /** Centre Name */
+      centre_name: string
+      /**
+       * Date
+       * Format: date
+       */
+      date: string
+      /**
+       * Exam Id
+       * Format: uuid
+       */
+      exam_id: string
+      /** Published */
+      published: boolean
+      /** Subject Name */
+      subject_name: string
+      /** Title */
+      title: string
+      /** Total Marks */
+      total_marks: number
     }
     /**
      * NextExamResponse
@@ -11660,6 +11899,55 @@ export interface operations {
       }
     }
   }
+  read_one_exam_v1_exams__exam_id__get: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        exam_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ExamResponse']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this. Deliberately indistinguishable from absence, and the refusal when the marksheet toggle is off is the same one: an empty marksheet would still disclose that exams exist and how many. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
   update_batch_exam_v1_exams__exam_id__put: {
     parameters: {
       query?: never
@@ -11743,6 +12031,77 @@ export interface operations {
     requestBody?: {
       content: {
         'application/json': components['schemas']['ExamCancelRequest'] | null
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ExamResponse']
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this. Deliberately indistinguishable from absence, and the refusal when the marksheet toggle is off is the same one: an empty marksheet would still disclose that exams exist and how many. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  name_exam_examiner_v1_exams__exam_id__examiner_put: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        exam_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ExaminerRequest']
       }
     }
     responses: {
@@ -13188,6 +13547,263 @@ export interface operations {
       }
       /** @description No lens reaches this. Deliberately indistinguishable from absence, and the refusal when the marksheet toggle is off is the same one: an empty marksheet would still disclose that exams exist and how many. */
       403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  list_my_exams_v1_me_exams_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MyExamResponse'][]
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No examiner lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description EXAM_REASSIGNED when another member marks it now, or the exam's state forbids the write. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  write_examiner_mark_v1_me_exams__exam_id__marks_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        exam_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['MarkWriteRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No examiner lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description EXAM_REASSIGNED when another member marks it now, or the exam's state forbids the write. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  publish_examiner_exam_v1_me_exams__exam_id__publish_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        exam_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No examiner lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description EXAM_REASSIGNED when another member marks it now, or the exam's state forbids the write. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  read_examiner_results_v1_me_exams__exam_id__results_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        exam_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ExaminerResultsResponse']
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No examiner lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description EXAM_REASSIGNED when another member marks it now, or the exam's state forbids the write. Refetch and decide. */
+      409: {
         headers: {
           [name: string]: unknown
         }

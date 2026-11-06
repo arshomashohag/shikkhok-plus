@@ -13,7 +13,7 @@ import uuid
 import sqlalchemy as sa
 from sqlalchemy.orm import Session as DbSession
 
-from app.db.models import ScheduleSlot, Session
+from app.db.models import Exam, ScheduleSlot, Session
 from app.local_time import bangladesh_today
 
 __all__ = ["unassign_member"]
@@ -22,11 +22,11 @@ __all__ = ["unassign_member"]
 def unassign_member(
     session: DbSession, *, member_id: uuid.UUID, today: dt.date | None = None
 ) -> None:
-    """Free a removed teacher's weekly slots and future, unheld classes.
+    """Free a removed teacher's weekly slots, future classes and open exams.
 
-    Held and past classes keep their teacher as the record of who taught;
-    the manager sees the rest as unassigned on the timetable. Adds to the
-    caller's transaction.
+    Held and past classes keep their teacher, and published exams their
+    examiner, as the record of who taught and who marked; the manager
+    sees the rest as unassigned. Adds to the caller's transaction.
 
     :param session: The session to write through
     :param member_id: The membership that ended
@@ -46,4 +46,13 @@ def unassign_member(
             Session.status == "scheduled",
         )
         .values(teacher_member_id=None)
+    )
+    session.execute(
+        sa.update(Exam)
+        .where(
+            Exam.examiner_member_id == member_id,
+            Exam.published_at.is_(None),
+            Exam.cancelled_at.is_(None),
+        )
+        .values(examiner_member_id=None)
     )

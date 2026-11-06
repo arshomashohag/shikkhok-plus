@@ -2239,6 +2239,13 @@ class Exam(Base):
         DateTime(timezone=True), nullable=True
     )
     cancellation_reason: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    # [0025] The centre member who enters and publishes this exam's
+    # marks. NULL for a solo tutor, and for a centre exam not given one.
+    examiner_member_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("owner_member.id", ondelete="SET NULL"),
+        nullable=True,
+    )
 
     __table_args__ = (
         Index("ix_exam_batch_id", "batch_id"),

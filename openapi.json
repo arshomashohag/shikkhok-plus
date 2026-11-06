@@ -2175,7 +2175,7 @@
       },
       "ExamCreateRequest": {
         "additionalProperties": false,
-        "description": "Create or edit an assessment [BR4.1].\n\n:ivar batch_subject_id: One of the batch's own subjects\n:ivar title: The teacher's name for it\n:ivar date: When it was sat\n:ivar total_marks: The denominator, at least 1\n:ivar topics: What it covers: at most 20, each 1 to 120 characters",
+        "description": "Create or edit an assessment [BR4.1].\n\n:ivar batch_subject_id: One of the batch's own subjects\n:ivar title: The teacher's name for it\n:ivar date: When it was sat\n:ivar total_marks: The denominator, at least 1\n:ivar examiner_member_id: At a centre, the member who marks it; left\n    out, the batch's one weekly teacher is the default. Read on\n    creation only: an edit changes the examiner through its own route\n:ivar topics: What it covers: at most 20, each 1 to 120 characters",
         "properties": {
           "batch_subject_id": {
             "format": "uuid",
@@ -2186,6 +2186,18 @@
             "format": "date",
             "title": "Date",
             "type": "string"
+          },
+          "examiner_member_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Examiner Member Id"
           },
           "title": {
             "maxLength": 200,
@@ -2252,6 +2264,29 @@
             "format": "uuid",
             "title": "Exam Id",
             "type": "string"
+          },
+          "examiner_member_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Examiner Member Id"
+          },
+          "examiner_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Examiner Name"
           },
           "expected_count": {
             "minimum": 0.0,
@@ -2335,6 +2370,29 @@
             "format": "uuid",
             "title": "Exam Id",
             "type": "string"
+          },
+          "examiner_member_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Examiner Member Id"
+          },
+          "examiner_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Examiner Name"
           },
           "subject_name": {
             "title": "Subject Name",
@@ -2438,6 +2496,97 @@
           "total_marks"
         ],
         "title": "ExamUpdateRequest",
+        "type": "object"
+      },
+      "ExamineeResponse": {
+        "description": "One seat on an exam, as its examiner sees it: a name and a result.\n\n:ivar enrollment_id: The seat, to mark against\n:ivar display_name: The name the centre typed for the student\n:ivar result_state: ``marked``, ``absent``, ``not_entered`` or\n    ``joined_after``\n:ivar marks: The number, for ``marked``",
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "enrollment_id": {
+            "format": "uuid",
+            "title": "Enrollment Id",
+            "type": "string"
+          },
+          "marks": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Marks"
+          },
+          "result_state": {
+            "enum": [
+              "absent",
+              "joined_after",
+              "marked",
+              "not_entered"
+            ],
+            "title": "Result State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "display_name",
+          "enrollment_id",
+          "result_state"
+        ],
+        "title": "ExamineeResponse",
+        "type": "object"
+      },
+      "ExaminerRequest": {
+        "additionalProperties": false,
+        "description": "Name, change or clear an exam's examiner [C4].\n\n:ivar examiner_member_id: The centre member who marks it, or null",
+        "properties": {
+          "examiner_member_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Examiner Member Id"
+          }
+        },
+        "required": [
+          "examiner_member_id"
+        ],
+        "title": "ExaminerRequest",
+        "type": "object"
+      },
+      "ExaminerResultsResponse": {
+        "description": "An exam's results as its examiner sees them.\n\n:ivar exam: The exam\n:ivar results: One row per seat\n:ivar writable: Whether a mark would be accepted now",
+        "properties": {
+          "exam": {
+            "$ref": "#/components/schemas/MyExamResponse"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/ExamineeResponse"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "writable": {
+            "title": "Writable",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "exam",
+          "results",
+          "writable"
+        ],
+        "title": "ExaminerResultsResponse",
         "type": "object"
       },
       "ExpenseMonthResponse": {
@@ -4423,6 +4572,62 @@
           "topic_logged"
         ],
         "title": "MyClassResponse",
+        "type": "object"
+      },
+      "MyExamResponse": {
+        "description": "One exam the caller marks [C4].\n\n:ivar exam_id: The exam\n:ivar centre_name: Its centre\n:ivar batch_name: Its batch\n:ivar subject_name: Its subject\n:ivar title: Its name\n:ivar date: When it was sat\n:ivar total_marks: The denominator\n:ivar published: Whether its results have been published\n:ivar cancelled: Whether it was cancelled",
+        "properties": {
+          "batch_name": {
+            "title": "Batch Name",
+            "type": "string"
+          },
+          "cancelled": {
+            "title": "Cancelled",
+            "type": "boolean"
+          },
+          "centre_name": {
+            "title": "Centre Name",
+            "type": "string"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "exam_id": {
+            "format": "uuid",
+            "title": "Exam Id",
+            "type": "string"
+          },
+          "published": {
+            "title": "Published",
+            "type": "boolean"
+          },
+          "subject_name": {
+            "title": "Subject Name",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "total_marks": {
+            "title": "Total Marks",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "batch_name",
+          "cancelled",
+          "centre_name",
+          "date",
+          "exam_id",
+          "published",
+          "subject_name",
+          "title",
+          "total_marks"
+        ],
+        "title": "MyExamResponse",
         "type": "object"
       },
       "NextExamResponse": {
@@ -13665,6 +13870,68 @@
       }
     },
     "/v1/exams/{exam_id}": {
+      "get": {
+        "description": "Read one exam, with its examiner at a centre [C4].\n\n:param exam_id: The exam, from the route path\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: The exam",
+        "operationId": "read_one_exam_v1_exams__exam_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "exam_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Exam Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExamResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence, and the refusal when the marksheet toggle is off is the same one: an empty marksheet would still disclose that exams exist and how many."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read One Exam",
+        "tags": [
+          "marks"
+        ]
+      },
       "put": {
         "description": "Edit an exam's title, date or total.\n\n:param exam_id: The exam, from the route path\n:param body: Its new values\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: The updated exam",
         "operationId": "update_batch_exam_v1_exams__exam_id__put",
@@ -13854,6 +14121,100 @@
           }
         },
         "summary": "Cancel Batch Exam",
+        "tags": [
+          "marks"
+        ]
+      }
+    },
+    "/v1/exams/{exam_id}/examiner": {
+      "put": {
+        "description": "Name, change or clear the centre member who marks this exam [C4].\n\nManager-only: the teacher lens of a centre. A solo tutor marks their\nown exams and is refused with ``NOT_A_CENTRE``.\n\n:param exam_id: The exam, from the route path\n:param body: The examiner, or null to clear\n:param session: The request-scoped session\n:param lens: The manager's lens on the centre\n:return: The exam with its examiner",
+        "operationId": "name_exam_examiner_v1_exams__exam_id__examiner_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "exam_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Exam Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExaminerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExamResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence, and the refusal when the marksheet toggle is off is the same one: an empty marksheet would still disclose that exams exist and how many."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Name Exam Examiner",
         "tags": [
           "marks"
         ]
@@ -15733,6 +16094,320 @@
         "summary": "Read My Progress",
         "tags": [
           "marks"
+        ]
+      }
+    },
+    "/v1/me/exams": {
+      "get": {
+        "description": "List the exams I am the examiner of, across every centre.\n\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:return: The exams, newest first",
+        "operationId": "list_my_exams_v1_me_exams_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MyExamResponse"
+                  },
+                  "title": "Response List My Exams V1 Me Exams Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No examiner lens reaches this; absence reads the same."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "EXAM_REASSIGNED when another member marks it now, or the exam's state forbids the write. Refetch and decide."
+          }
+        },
+        "summary": "List My Exams",
+        "tags": [
+          "my-exams"
+        ]
+      }
+    },
+    "/v1/me/exams/{exam_id}/marks": {
+      "post": {
+        "description": "Enter or correct one seat's result on an exam I mark.\n\n:param body: The seat, the state and the number\n:param lens: The lens for this one exam\n:param session: The request-scoped session\n:return: None",
+        "operationId": "write_examiner_mark_v1_me_exams__exam_id__marks_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "exam_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Exam Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarkWriteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No examiner lens reaches this; absence reads the same."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "EXAM_REASSIGNED when another member marks it now, or the exam's state forbids the write. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Write Examiner Mark",
+        "tags": [
+          "my-exams"
+        ]
+      }
+    },
+    "/v1/me/exams/{exam_id}/publish": {
+      "post": {
+        "description": "Publish an exam I mark to its students and guardians.\n\n:param lens: The lens for this one exam\n:param session: The request-scoped session\n:return: None",
+        "operationId": "publish_examiner_exam_v1_me_exams__exam_id__publish_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "exam_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Exam Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No examiner lens reaches this; absence reads the same."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "EXAM_REASSIGNED when another member marks it now, or the exam's state forbids the write. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Publish Examiner Exam",
+        "tags": [
+          "my-exams"
+        ]
+      }
+    },
+    "/v1/me/exams/{exam_id}/results": {
+      "get": {
+        "description": "Read every seat's result on one exam I mark: names and results only.\n\n:param lens: The lens for this one exam\n:param session: The request-scoped session\n:return: The exam, one row per seat, and whether marks are accepted",
+        "operationId": "read_examiner_results_v1_me_exams__exam_id__results_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "exam_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Exam Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExaminerResultsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No examiner lens reaches this; absence reads the same."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "EXAM_REASSIGNED when another member marks it now, or the exam's state forbids the write. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Examiner Results",
+        "tags": [
+          "my-exams"
         ]
       }
     },

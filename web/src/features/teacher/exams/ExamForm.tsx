@@ -18,6 +18,8 @@ import { useT } from '../../../i18n/i18n'
 import { ErrorCard, Loading, TopBar } from '../../../ui/components'
 import { paths } from '../paths'
 import { createExam, readBatch } from './api'
+import { DEFAULT_EXAMINER, ExaminerPicker } from './Examiner'
+import { useInCentre } from '../../../session/useInCentre'
 import { topicsOf, topicsValid } from './mappers'
 
 export interface ExamValues {
@@ -192,6 +194,8 @@ export function CreateExam() {
   const { resource, reload } = useResource(() => readBatch(batchId), [batchId])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const inCentre = useInCentre()
+  const [examiner, setExaminer] = useState(DEFAULT_EXAMINER)
 
   async function create(values: ExamValues) {
     if (!values.subjectId) return
@@ -204,6 +208,7 @@ export function CreateExam() {
         total_marks: values.totalMarks,
         topics: values.topics,
         batch_subject_id: values.subjectId,
+        ...(inCentre && examiner !== DEFAULT_EXAMINER ? { examiner_member_id: examiner } : {}),
       })
       // As Android: close on the server's answer, never on the tap.
       navigate(back, { replace: true })
@@ -230,6 +235,7 @@ export function CreateExam() {
       ) : null}
       {resource.state === 'loaded' ? (
         <div className="card">
+          {inCentre ? <ExaminerPicker value={examiner} onChange={setExaminer} /> : null}
           <ExamFields
             subjects={resource.data?.subject_options ?? []}
             saving={saving}

@@ -213,6 +213,9 @@ NON_MONEY_FIELDS: Final[dict[tuple[str, str], str]] = {
     ("ExamBlock", "total_marks"): (
         "The same count on an inbox item's exam detail, not money."
     ),
+    ("MyExamResponse", "total_marks"): (
+        "The same count on an examiner's own exam list and results [C4], not money."
+    ),
     ("ExamCreateRequest", "total_marks"): (
         "The same count inbound, on creation. A request schema reaches the gate too."
     ),

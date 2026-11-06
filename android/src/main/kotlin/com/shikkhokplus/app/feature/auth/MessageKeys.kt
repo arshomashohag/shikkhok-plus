@@ -139,6 +139,8 @@ object MessageKeys {
             R.string.staff_pay_rate_not_allowed,
         "staff.pay.rate_required" to
             R.string.staff_pay_rate_required,
+        "exam.reassigned" to
+            R.string.exam_reassigned,
         "class.reassigned" to
             R.string.class_reassigned,
         "centre.member.already_invited" to

@@ -23,10 +23,11 @@ from fastapi import Depends, Request
 from sqlalchemy.orm import Session
 
 from app.auth.tokens import verify_access_token
-from app.authz.classes import resolve_class_lens
+from app.authz.classes import resolve_class_lens, resolve_examiner_lens
 from app.authz.invitations import available_invitations
 from app.authz.lenses import (
     ClassTeacherLens,
+    ExaminerLens,
     GuardianLens,
     InvitationLens,
     Lens,
@@ -42,6 +43,7 @@ __all__ = [
     "WORKSPACE_HEADER",
     "choose_workspace",
     "class_teacher_lens",
+    "examiner_lens",
     "family_lens",
     "family_lenses",
     "guardian_lens",
@@ -412,3 +414,18 @@ def class_teacher_lens(
     :return: The lens for that one class
     """
     return resolve_class_lens(session, account_id=account_id, session_id=session_id)
+
+
+def examiner_lens(
+    exam_id: uuid.UUID,
+    session: Annotated[Session, Depends(get_session)],
+    account_id: Annotated[uuid.UUID, Depends(authenticated_account)],
+) -> ExaminerLens:
+    """Resolve the examiner lens for the one exam in the path [C4].
+
+    :param exam_id: The exam, from the route path
+    :param session: The session to query through
+    :param account_id: The authenticated account
+    :return: The lens for that one exam
+    """
+    return resolve_examiner_lens(session, account_id=account_id, exam_id=exam_id)

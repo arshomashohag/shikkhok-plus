@@ -36,14 +36,16 @@ from dataclasses import dataclass, field
 import sqlalchemy as sa
 from sqlalchemy.orm import Session as DbSession
 
-from app.authz.lenses import TeacherLens
-from app.db.models import Batch, BatchSubject, Exam
+from app.authz.lenses import ExaminerLens, TeacherLens
+from app.centres.service import centre_of
+from app.db.models import Batch, BatchSubject, Exam, OwnerMember, ScheduleSlot
 from app.errors import ConflictError, ValidationError
 from app.notifications.inbox import EXAM_CANCELLED, EXAM_SCHEDULED, remove_for_source
 from app.notifications.recipients import (
     deliver_to_families,
     mark_unread_for_families,
 )
+from app.teaching.assignment import check_assignment
 from app.teaching.roster import refuse
 
 __all__ = [
@@ -73,6 +75,8 @@ class ExamRow:
         students and guardians; False while they are a draft
     :ivar cancelled: Whether the teacher cancelled it [0019]
     :ivar cancellation_reason: The teacher's note on cancelling, if any
+    :ivar examiner_member_id: The centre member who marks it [0025], or
+        None
     """
 
     exam_id: uuid.UUID
@@ -84,6 +88,7 @@ class ExamRow:
     published: bool = False
     cancelled: bool = False
     cancellation_reason: str | None = None
+    examiner_member_id: uuid.UUID | None = None
 
     @classmethod
     def of(cls, exam: Exam, subject_name: str) -> ExamRow:
@@ -103,6 +108,7 @@ class ExamRow:
             published=exam.published_at is not None,
             cancelled=exam.cancelled_at is not None,
             cancellation_reason=exam.cancellation_reason,
+            examiner_member_id=exam.examiner_member_id,
         )
 
 
@@ -139,19 +145,26 @@ def _owned_active_batch(
     return row
 
 
-def readable_exam(session: DbSession, *, lens: TeacherLens, exam_id: uuid.UUID) -> Exam:
+def readable_exam(
+    session: DbSession, *, lens: TeacherLens | ExaminerLens, exam_id: uuid.UUID
+) -> Exam:
     """Return an exam this teacher lens reaches, or refuse.
 
+    **An examiner's lens reaches one exam only** [C4]: the one it was
+    resolved for, while its membership is still that exam's examiner.
+    Both clauses sit in this query beside the owner's.
+
     :param session: The session to read through
-    :param lens: The teacher lens
+    :param lens: The teacher lens, or an examiner's lens for one exam
     :param exam_id: The exam
     :return: The exam row
     :raises AuthorizationError: No batch this lens owns holds it
     """
+    scope = [Exam.id == exam_id, Batch.owner_id == lens.owner_id]
+    if isinstance(lens, ExaminerLens):
+        scope += [Exam.id == lens.exam_id, Exam.examiner_member_id == lens.member_id]
     row = session.scalars(
-        sa.select(Exam)
-        .join(Batch, Batch.id == Exam.batch_id)
-        .where(Exam.id == exam_id, Batch.owner_id == lens.owner_id)
+        sa.select(Exam).join(Batch, Batch.id == Exam.batch_id).where(*scope)
     ).one_or_none()
     if row is None:
         raise refuse()
@@ -207,8 +220,15 @@ def create_exam(
     date: dt.date,
     total_marks: int,
     topics: list[str] | None = None,
+    examiner_member_id: uuid.UUID | None = None,
+    examiner_named: bool = False,
 ) -> ExamRow:
     """Create one exam on one of this teacher's batches [BR4.1].
+
+    **At a centre the manager names the examiner** [decided 2026-11-06].
+    Left unnamed, the batch's one weekly teacher is the default when it
+    has exactly one; otherwise the exam has none until a manager names
+    one. A solo tutor marks their own exams and names nobody.
 
     :param session: The session to work through
     :param lens: The teacher lens
@@ -218,6 +238,9 @@ def create_exam(
     :param date: When it was sat
     :param total_marks: The denominator, at least 1
     :param topics: What it covers, kept in order; none by default
+    :param examiner_member_id: The examiner the manager named, or None
+    :param examiner_named: Whether the request named one, even as None;
+        when it did not, the default applies
     :return: The new exam
     :raises AuthorizationError: This lens does not own the batch, or
         the subject is not that batch's
@@ -229,6 +252,13 @@ def create_exam(
         session, batch_id=batch_id, batch_subject_id=batch_subject_id
     )
     _validate_total(total_marks)
+    examiner = (
+        examiner_member_id
+        if examiner_named
+        else default_examiner(session, batch_id=batch_id)
+    )
+    if examiner is not None:
+        check_assignment(session, lens=lens, teacher_member_id=examiner, room_id=None)
 
     row = Exam(
         batch_id=batch_id,
@@ -238,6 +268,7 @@ def create_exam(
         total_marks=total_marks,
         topics=list(topics or []),
         created_at=dt.datetime.now(tz=dt.UTC),
+        examiner_member_id=examiner,
     )
     session.add(row)
     session.flush()
@@ -449,3 +480,68 @@ def list_exams(
         .order_by(Exam.date, Exam.id)
     ).all()
     return [ExamRow.of(entry[0], entry[1]) for entry in rows]
+
+
+def default_examiner(session: DbSession, *, batch_id: uuid.UUID) -> uuid.UUID | None:
+    """Return the batch's one weekly teacher, when it has exactly one.
+
+    :param session: The session to read through
+    :param batch_id: The batch
+    :return: That membership, or None for none or several
+    """
+    teachers = set(
+        session.scalars(
+            sa.select(ScheduleSlot.teacher_member_id).where(
+                ScheduleSlot.batch_id == batch_id,
+                ScheduleSlot.teacher_member_id.is_not(None),
+            )
+        )
+    )
+    return teachers.pop() if len(teachers) == 1 else None
+
+
+def examiner_name(session: DbSession, member_id: uuid.UUID | None) -> str | None:
+    """Read the name the centre typed for an examiner.
+
+    :param session: The session to read through
+    :param member_id: The examiner, or None
+    :return: Their name, or None
+    """
+    if member_id is None:
+        return None
+    return session.scalar(
+        sa.select(OwnerMember.display_name).where(OwnerMember.id == member_id)
+    )
+
+
+def set_examiner(
+    session: DbSession,
+    *,
+    lens: TeacherLens,
+    exam_id: uuid.UUID,
+    examiner_member_id: uuid.UUID | None,
+) -> ExamRow:
+    """Name, change or clear an exam's examiner. Commits.
+
+    :param session: The session to write through
+    :param lens: The manager's lens on the centre
+    :param exam_id: The exam
+    :param examiner_member_id: The new examiner, or None to clear
+    :return: The exam
+    :raises AuthorizationError: Not this workspace's exam
+    :raises ConflictError: A solo workspace, or the exam is cancelled
+    :raises ValidationError: The examiner is not a live member here
+    """
+    exam = readable_exam(session, lens=lens, exam_id=exam_id)
+    if exam.cancelled_at is not None:
+        raise cancelled_refusal()
+    centre_of(session, lens)
+    check_assignment(
+        session, lens=lens, teacher_member_id=examiner_member_id, room_id=None
+    )
+    exam.examiner_member_id = examiner_member_id
+    subject = session.scalar(
+        sa.select(BatchSubject.name).where(BatchSubject.id == exam.batch_subject_id)
+    )
+    session.commit()
+    return ExamRow.of(exam, subject or "")

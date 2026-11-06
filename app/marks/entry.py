@@ -33,7 +33,7 @@ from dataclasses import dataclass
 import sqlalchemy as sa
 from sqlalchemy.orm import Session as DbSession
 
-from app.authz.lenses import TeacherLens
+from app.authz.lenses import ExaminerLens, TeacherLens
 from app.db.models import Batch, Exam, Mark
 from app.errors import ConflictError, ValidationError
 from app.marks.exams import cancelled_refusal, readable_exam
@@ -93,7 +93,7 @@ class CorrectionEntry:
 def writable_exam(
     session: DbSession,
     *,
-    lens: TeacherLens,
+    lens: TeacherLens | ExaminerLens,
     exam_id: uuid.UUID,
 ) -> Exam:
     """Return an exam this lens may write marks against.
@@ -155,7 +155,7 @@ def exam_is_writable(
 def record_mark(
     session: DbSession,
     *,
-    lens: TeacherLens,
+    lens: TeacherLens | ExaminerLens,
     exam_id: uuid.UUID,
     enrollment_id: uuid.UUID,
     result_state: str,

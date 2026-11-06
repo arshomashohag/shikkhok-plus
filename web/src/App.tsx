@@ -23,6 +23,7 @@ import { GuardianHome } from './features/guardian/GuardianHome'
 import { Invitations } from './features/account/Invitations'
 import { ClassScreen } from './features/classTeacher/ClassScreen'
 import { MyClasses } from './features/classTeacher/MyClasses'
+import { MyExamMarks, MyExams } from './features/classTeacher/MyExams'
 import { LensPicker } from './features/account/LensPicker'
 import { More } from './features/account/More'
 import { Settings } from './features/account/Settings'
@@ -174,6 +175,22 @@ export function App() {
           element={
             <Only lens="class_teacher" current={lens}>
               <ClassScreen />
+            </Only>
+          }
+        />
+        <Route
+          path="/my-exams"
+          element={
+            <Only lens="class_teacher" current={lens}>
+              <MyExams />
+            </Only>
+          }
+        />
+        <Route
+          path="/my-exams/:examId"
+          element={
+            <Only lens="class_teacher" current={lens}>
+              <MyExamMarks />
             </Only>
           }
         />

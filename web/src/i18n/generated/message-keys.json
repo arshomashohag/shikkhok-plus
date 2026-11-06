@@ -22,6 +22,7 @@
   "error.network.unreachable": "error_network_unreachable",
   "error.topic_version_conflict": "topic_version_conflict",
   "error.unexpected": "error_unexpected",
+  "exam.reassigned": "exam_reassigned",
   "expenses.already_voided": "expenses_already_voided",
   "expenses.amount_not_positive": "expenses_amount_not_positive",
   "expenses.batch_not_found": "expenses_batch_not_found",

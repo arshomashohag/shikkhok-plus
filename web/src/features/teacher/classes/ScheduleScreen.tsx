@@ -23,7 +23,7 @@ import {
   type SlotAssignment,
 } from './mappers'
 import { listMembers, listRooms } from '../../../api/endpoints'
-import { useOptionalSession } from '../../../session/session'
+import { useInCentre } from '../../../session/useInCentre'
 import { assignable, liveRooms } from '../centre/timetable'
 
 export function ScheduleScreen() {
@@ -52,15 +52,6 @@ export function ScheduleScreen() {
       ) : null}
     </>
   )
-}
-
-/** Whether the workspace the session acts on is a coaching centre. */
-function useInCentre(): boolean {
-  const session = useOptionalSession()
-  if (!session) return false
-  const workspaces = session.me.workspaces ?? []
-  const current = workspaces.find((w) => w.owner_id === session.workspace) ?? workspaces[0]
-  return session.lens === 'teacher' && current?.kind === 'centre'
 }
 
 /** The teacher and room pickers a centre's schedule shows. */

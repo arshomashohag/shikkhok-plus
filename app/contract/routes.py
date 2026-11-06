@@ -178,10 +178,13 @@ LENS_EXEMPT_AUTHENTICATED: frozenset[tuple[str, str]] = frozenset(
         # the authenticated account id, and the three per-class routes
         # beneath it each resolve a ClassTeacherLens for one class.
         ("GET", "/v1/me/classes"),
+        # The exams a centre member marks [C4], on the same reasoning;
+        # the per-exam routes beneath it each resolve an ExaminerLens.
+        ("GET", "/v1/me/exams"),
     }
 )
 
-#: Every route a centre teacher's lens reaches [C4]. **Exactly these**,
+#: Every route a centre teacher's lens reaches [C4], class or exam. **Exactly these**,
 #: and the set is asserted equal to what the application registers, so
 #: opening a route to centre teachers is a visible diff and never an
 #: accident: a ``ClassTeacherLens`` is not a ``TeacherLens``, and no
@@ -191,6 +194,11 @@ CLASS_TEACHER_ROUTES: frozenset[tuple[str, str]] = frozenset(
         ("GET", "/v1/me/classes/{session_id}/attendance"),
         ("POST", "/v1/me/classes/{session_id}/attendance"),
         ("PUT", "/v1/me/classes/{session_id}/topic"),
+        # The examiner's three [C4]: results, marks and publishing, for
+        # the one exam an ExaminerLens carries.
+        ("GET", "/v1/me/exams/{exam_id}/results"),
+        ("POST", "/v1/me/exams/{exam_id}/marks"),
+        ("POST", "/v1/me/exams/{exam_id}/publish"),
     }
 )
 
@@ -300,11 +308,14 @@ def unlensed_routes(app: FastAPI) -> list[RouteViolation]:
 def class_teacher_routes(app: FastAPI) -> set[tuple[str, str]]:
     """List every route whose dependencies yield a centre teacher's lens.
 
+    Either kind: the per-class ``ClassTeacherLens`` or the per-exam
+    ``ExaminerLens``.
+
     :param app: The application to enumerate
     :return: ``(method, path)`` per such route
     """
     from app.authz.annotations import resolve_lens_type
-    from app.authz.lenses import ClassTeacherLens
+    from app.authz.lenses import ClassTeacherLens, ExaminerLens
 
     def yields(dependant: Dependant) -> bool:
         """Report whether this dependency tree yields a class-teacher lens.
@@ -313,7 +324,7 @@ def class_teacher_routes(app: FastAPI) -> set[tuple[str, str]]:
         :return: True if any node returns a ``ClassTeacherLens``
         """
         lens = resolve_lens_type(dependant.call) if dependant.call else None
-        if lens is not None and issubclass(lens, ClassTeacherLens):
+        if lens is not None and issubclass(lens, ClassTeacherLens | ExaminerLens):
             return True
         return any(yields(sub) for sub in dependant.dependencies)
 

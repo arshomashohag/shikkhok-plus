@@ -29,7 +29,11 @@ export function tabsFor(lens: Lens | null): Tab[] {
         more,
       ]
     case 'class_teacher':
-      return [{ to: '/my-classes', label: 'nav_my_classes', icon: 'layers' }, more]
+      return [
+        { to: '/my-classes', label: 'nav_my_classes', icon: 'layers' },
+        { to: '/my-exams', label: 'nav_my_exams', icon: 'verify' },
+        more,
+      ]
     case 'student':
       return [{ to: '/my-batches', label: 'nav_my_batches', icon: 'layers' }, more]
     case 'guardian':

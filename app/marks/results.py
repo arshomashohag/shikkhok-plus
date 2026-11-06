@@ -22,7 +22,7 @@ from typing import Literal
 import sqlalchemy as sa
 from sqlalchemy.orm import Session as DbSession
 
-from app.authz.lenses import TeacherLens
+from app.authz.lenses import ExaminerLens, TeacherLens
 from app.db.models import Enrollment, Exam
 from app.local_time import bangladesh_today
 from app.marks.entry import live_marks_for_exam
@@ -66,7 +66,7 @@ class SeatResult:
 def exam_results(
     session: DbSession,
     *,
-    lens: TeacherLens,
+    lens: TeacherLens | ExaminerLens,
     exam_id: uuid.UUID,
 ) -> list[SeatResult]:
     """Return every batch seat's result for one exam [BR4.3].
