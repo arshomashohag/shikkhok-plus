@@ -118,3 +118,8 @@ output "web_bucket" {
   description = "The bucket the built web client is uploaded to, under ui/."
   value       = module.cdn.web_bucket
 }
+
+output "seeder_function_name" {
+  description = "The seeder to invoke (deploy/README.md), or null when enable_seeder is off."
+  value       = module.seeder.function_name
+}

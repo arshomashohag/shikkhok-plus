@@ -201,7 +201,7 @@ test:
 		--cov=app.local_time --cov=app.logging_setup --cov=app.main \
 		--cov=app.marks \
 		--cov=app.notifications \
-		--cov=app.schemas \
+		--cov=app.schemas --cov=app.seed \
 		--cov=app.students --cov=app.teaching --cov=app.web_origins \
 		--cov-report= \
 		--cov-config=.coveragerc-backend

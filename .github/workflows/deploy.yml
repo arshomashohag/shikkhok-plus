@@ -237,6 +237,10 @@ jobs:
           # Where alarms are emailed [OPS-11]. Unset is allowed and
           # reported by the alert_email_status output, not hidden.
           TF_VAR_alert_email: ${{ vars.ALERT_EMAIL }}
+          # The performance-test seeder (infra/modules/seeder). Set the
+          # `staging-infra` environment variable ENABLE_SEEDER to `true`
+          # to create it; unset means off. Production refuses it at plan.
+          TF_VAR_enable_seeder: ${{ vars.ENABLE_SEEDER == 'true' }}
         run: terraform plan -input=false -no-color -out=tfplan | tee plan.txt
 
       - name: What is about to be applied
@@ -367,6 +371,14 @@ jobs:
           # redeploy rather than a rebuild.
           tags: ${{ steps.ecr.outputs.repository }}:${{ needs.plan.outputs.sha }}
           push: true
+          # **A plain single-platform manifest, no attestations.** buildx
+          # otherwise pushes an OCI image index carrying a provenance
+          # attestation, which Lambda refuses outright -- and the staging
+          # seeder (infra/modules/seeder) runs this same image. The host's
+          # `docker pull` accepts either shape, so this changes the
+          # manifest the registry holds and not what any host runs.
+          provenance: false
+          sbom: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -572,6 +584,33 @@ jobs:
             deploy/roll.sh "shikkhokplus-${ENVIRONMENT}"
           fi
           echo "::error::Deploy failed and was rolled back to ${PREVIOUS_TAG:0:12}."
+
+      # **The staging seeder follows the release** (infra/modules/seeder),
+      # so it never writes against a schema its code predates. After the
+      # rollback step, so it runs only for a release that stands, and
+      # non-blocking: a test tool must not fail a good release or hold
+      # back the web client behind it. A failure is a warning on the run.
+      #
+      # **One field of the response is printed, never the response.**
+      # UpdateFunctionCode answers with the function's configuration,
+      # environment included -- its database URL.
+      - name: Move the seeder to this release
+        continue-on-error: true
+        env:
+          FUNCTION: shikkhokplus-${{ inputs.environment }}-seeder
+          IMAGE: ${{ steps.ecr.outputs.repository }}:${{ needs.plan.outputs.sha }}
+        run: |
+          if status=$(aws lambda update-function-code --function-name "$FUNCTION" \
+                --image-uri "$IMAGE" --query 'LastUpdateStatus' --output text \
+                2>"$RUNNER_TEMP/seeder.err"); then
+            echo "Seeder moved to this release (update ${status})."
+          elif grep -q ResourceNotFoundException "$RUNNER_TEMP/seeder.err"; then
+            echo "No seeder in this environment: enable_seeder is off."
+          else
+            cat "$RUNNER_TEMP/seeder.err"
+            echo "::warning::The seeder was not moved to this release; it runs the previous image until the next deploy."
+            exit 1
+          fi
 
       - name: Forget the previous runtime env
         if: always()

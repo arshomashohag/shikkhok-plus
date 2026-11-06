@@ -531,6 +531,25 @@ resource "aws_iam_policy" "workload_boundary" {
         Resource = "arn:aws:autoscaling:*:${data.aws_caller_identity.current.account_id}:autoScalingGroup:*:autoScalingGroupName/shikkhokplus-*"
       },
       {
+        # **The staging seeder's network interfaces** (modules/seeder):
+        # what a Lambda function in a VPC calls to attach to it. EC2
+        # does not scope these by resource. A ceiling, not a grant: the
+        # app host's role does not hold them, and the CI role that
+        # creates roles already holds ec2:* itself, so no role it makes
+        # can reach further than the CI role already does.
+        Sid    = "LambdaVpcNetworking"
+        Effect = "Allow"
+        Action = [
+          "ec2:CreateNetworkInterface",
+          "ec2:DescribeNetworkInterfaces",
+          "ec2:DescribeSubnets",
+          "ec2:DeleteNetworkInterface",
+          "ec2:AssignPrivateIpAddresses",
+          "ec2:UnassignPrivateIpAddresses",
+        ]
+        Resource = "*"
+      },
+      {
         Sid      = "Logs"
         Effect   = "Allow"
         Action   = ["logs:CreateLogStream", "logs:PutLogEvents", "logs:DescribeLogStreams"]
@@ -653,6 +672,15 @@ resource "aws_iam_role_policy" "ci_infrastructure" {
         Resource = "*"
       },
       {
+        # **The staging seeder** (modules/seeder), by this project's
+        # function names only. ListVersionsByFunction and the rest are
+        # what aws_lambda_function reads back on every plan.
+        Sid      = "SeederFunction"
+        Effect   = "Allow"
+        Action   = ["lambda:*"]
+        Resource = "arn:aws:lambda:*:${data.aws_caller_identity.current.account_id}:function:shikkhokplus-*"
+      },
+      {
         # **Logs, alarms and the alert topic** [OPS-11], each scoped to
         # this project's names.
         Sid    = "Observability"
@@ -770,14 +798,16 @@ resource "aws_iam_role_policy" "ci_infrastructure" {
         }
       },
       {
-        # Passing an instance role to EC2 -- the launch template's
-        # instance profile -- and to nothing else.
-        Sid      = "PassOnlyToEc2"
+        # Passing a role to EC2 -- the launch template's instance
+        # profile -- and to Lambda, for the staging seeder's execution
+        # role. To nothing else. Every role passable here is under
+        # /shikkhokplus/ and so carries the workload boundary.
+        Sid      = "PassOnlyToEc2AndLambda"
         Effect   = "Allow"
         Action   = ["iam:PassRole"]
         Resource = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/shikkhokplus/*"
         Condition = {
-          StringEquals = { "iam:PassedToService" = "ec2.amazonaws.com" }
+          StringEquals = { "iam:PassedToService" = ["ec2.amazonaws.com", "lambda.amazonaws.com"] }
         }
       },
       {
