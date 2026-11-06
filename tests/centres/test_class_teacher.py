@@ -306,3 +306,20 @@ def test_the_lens_picker_offers_the_centre_teacher_their_classes(
     me = setup.centre.client.get("/v1/me", headers=setup.headers()).json()
     assert {"kind": "class_teacher", "count": 1} in me["lenses"]
     assert all(entry["kind"] != "teacher" for entry in me["lenses"])
+
+
+def test_a_resent_attendance_is_recognised_as_a_replay(setup: Setup) -> None:
+    """The same key twice returns the original result and writes once."""
+    body = {
+        "base_attendance_version": 0,
+        "client_mutation_id": str(uuid.uuid4()),
+        "seats": [{"enrollment_id": str(setup.seat), "present": True}],
+    }
+    url = f"/v1/me/classes/{setup.target.id}/attendance"
+    first = setup.centre.client.post(url, json=body, headers=setup.headers())
+    again = setup.centre.client.post(url, json=body, headers=setup.headers())
+    assert first.status_code == again.status_code == 200, again.text
+    assert again.json() == first.json()
+    setup.centre.session.expire_all()
+    row = setup.centre.session.get(ClassSession, setup.target.id)
+    assert row is not None and row.attendance_version == 1
