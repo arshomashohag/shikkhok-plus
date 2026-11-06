@@ -187,6 +187,17 @@ MEMBER_ROLE_VALUES: tuple[str, ...] = ("manager", "teacher")
 
 _MEMBER_ROLE = PgEnum(*MEMBER_ROLE_VALUES, name="member_role", create_type=False)
 
+#: What a staff record is [0023]: a teacher, who may have app access, or
+#: anyone else the centre employs, who never does.
+STAFF_KIND_VALUES: tuple[str, ...] = ("teacher", "other")
+
+_STAFF_KIND = PgEnum(*STAFF_KIND_VALUES, name="staff_kind", create_type=False)
+
+#: How a person is paid [0023, D12].
+PAY_BASIS_VALUES: tuple[str, ...] = ("monthly", "per_class", "none")
+
+_PAY_BASIS = PgEnum(*PAY_BASIS_VALUES, name="pay_basis", create_type=False)
+
 #: A reminder's delivery outcome [BR7.2]. ``pending`` exists because the
 #: event commits BEFORE the push is dispatched: writing it afterwards
 #: loses the record of a send that happened if the process dies between
@@ -292,12 +303,14 @@ __all__ = [
     "MEMBER_ROLE_VALUES",
     "OWNER_KIND_VALUES",
     "PAYMENT_PURPOSE_VALUES",
+    "PAY_BASIS_VALUES",
     "REMINDER_OUTCOME_VALUES",
     "RESULT_STATE_VALUES",
     "RETENTION_PURGE_JOB",
     "SESSION_GENERATION_JOB",
     "SESSION_ORIGIN_VALUES",
     "SESSION_STATUS_VALUES",
+    "STAFF_KIND_VALUES",
     "SUBMISSION_KIND_VALUES",
     "Account",
     "Announcement",
@@ -327,6 +340,7 @@ __all__ = [
     "ReminderEvent",
     "ScheduleSlot",
     "Session",
+    "Staff",
     "Student",
     "VerifyAttempt",
 ]
@@ -2399,4 +2413,87 @@ class Notification(Base):
     __table_args__ = (
         Index("ix_notification_account_created", "account_id", "created_at"),
         Index("ix_notification_source", "kind", "source_id"),
+    )
+
+
+class Staff(Base):
+    """A person a centre employs, as its manager records them [0023].
+
+    **Grants nothing.** App access is an ``owner_member`` row, linked here
+    by ``member_id`` for a teacher; this row holds what the manager typed.
+    The address columns carry their own names, never the profile's, so no
+    profile field can reach a teacher-facing response through this table.
+
+    :ivar id: Surrogate key
+    :ivar owner_id: The centre
+    :ivar kind: ``teacher`` or ``other``
+    :ivar display_name: The name the manager typed
+    :ivar phone: Their number, canonical, or None
+    :ivar email: Their email, format-checked only, or None
+    :ivar staff_house: House or flat, or None
+    :ivar staff_road: Road or area, or None
+    :ivar staff_city: City or district, or None
+    :ivar staff_postcode: Four digits, or None
+    :ivar role_label: What they do, for other staff, or None
+    :ivar member_id: The membership giving a teacher app access, or None
+    :ivar pay_basis: ``monthly``, ``per_class`` or ``none``
+    :ivar pay_rate: The salary or the rate per class; None for ``none``
+    :ivar joined_on: When they started
+    :ivar left_on: When they left, or None
+    :ivar created_by_account_id: The manager who recorded them
+    :ivar created_at: When the record was made
+    """
+
+    __tablename__ = "staff"
+
+    id: Mapped[uuid.UUID] = _uuid_column()
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("owner.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    kind: Mapped[str] = mapped_column(_STAFF_KIND, nullable=False)
+    display_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    email: Mapped[str | None] = mapped_column(String(254), nullable=True)
+    staff_house: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    staff_road: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    staff_city: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    staff_postcode: Mapped[str | None] = mapped_column(String(4), nullable=True)
+    role_label: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    member_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("owner_member.id", ondelete="SET NULL"),
+        nullable=True,
+        unique=True,
+    )
+    pay_basis: Mapped[str] = mapped_column(_PAY_BASIS, nullable=False)
+    pay_rate: Mapped[Money | None] = mapped_column(MoneyColumn, nullable=True)
+    joined_on: Mapped[dt.date] = mapped_column(Date, nullable=False)
+    left_on: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
+    created_by_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("account.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+    __table_args__ = (
+        CheckConstraint("length(trim(display_name)) > 0", name="ck_staff_display_name"),
+        CheckConstraint(
+            "(pay_basis = 'none' AND pay_rate IS NULL) "
+            "OR (pay_basis <> 'none' AND pay_rate > 0)",
+            name="ck_staff_pay_terms",
+        ),
+        CheckConstraint(
+            "kind = 'teacher' OR member_id IS NULL",
+            name="ck_staff_only_teachers_have_access",
+        ),
+        CheckConstraint(
+            "left_on IS NULL OR left_on >= joined_on",
+            name="ck_staff_left_after_joined",
+        ),
+        Index("ix_staff_owner_id", "owner_id"),
     )

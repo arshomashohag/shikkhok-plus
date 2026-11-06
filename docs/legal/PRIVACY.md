@@ -161,6 +161,7 @@ actually does, and our build fails if the two stop matching.
 | A class that was held, on a date | no time limit |
 | A class's weekly timetable | no time limit |
 | A coaching centre's record of its managers and teachers: the name and number it entered, and their role | no time limit |
+| A coaching centre's record of the people it employs: name, phone, email, address, role and pay terms, entered by its manager | no time limit |
 | A note a teacher posted to a class | no time limit |
 | A payment you reported, and the teacher's decision on it | no time limit |
 | A payment you reported, grouped across your children | no time limit |
@@ -193,7 +194,7 @@ These records are about how the service itself is running, not about any person.
 
 **A teacher's classes stay with their students.** If you are a teacher and delete your account, your sign-in, your own name and address are removed, and so are your name and payment number on each of your classes. The classes themselves stay as read-only history for your students and their guardians: their record of who came to each class, their results and fee records are theirs too. No new fees fall due on those classes, and amounts already recorded as owed stay on the records, where nobody can collect them.
 
-<!-- governance manifest digest: 6fe57b32ef3229848014e6777705441bf362c3d4b53ac43286137372080a5ab5
+<!-- governance manifest digest: 4a2f190131afbd26ac153ec01c4499da9f8c701d479792152a76a1cb9c816b2e
      Covers every disposition, retention class and basis, so a
      change to any of them fails the drift gate even when it
      does not alter the text above. Regenerate; do not edit. -->

@@ -52,6 +52,22 @@ export const inviteMember = (body: Schemas['MemberInviteRequest']) =>
 export const revokeMember = (memberId: string) =>
   request<undefined>('POST', `/v1/centre/members/${enc(memberId)}/revoke`)
 
+export const listStaff = () => request<Schemas['StaffResponse'][]>('GET', '/v1/centre/staff')
+
+export const inviteStaffTeacher = (body: Schemas['StaffTeacherRequest']) =>
+  request<Schemas['StaffResponse']>('POST', '/v1/centre/staff/teachers', { body })
+
+export const addOtherStaff = (body: Schemas['StaffOtherRequest']) =>
+  request<Schemas['StaffResponse']>('POST', '/v1/centre/staff', { body })
+
+export const updateStaff = (staffId: string, body: Schemas['StaffUpdateRequest']) =>
+  request<Schemas['StaffResponse']>('PATCH', `/v1/centre/staff/${enc(staffId)}`, { body })
+
+export const markStaffLeft = (staffId: string, leftOn: string | null) =>
+  request<Schemas['StaffResponse']>('POST', `/v1/centre/staff/${enc(staffId)}/leave`, {
+    body: leftOn ? { left_on: leftOn } : {},
+  })
+
 export const listMemberships = () =>
   request<Schemas['MembershipResponse'][]>('GET', '/v1/memberships')
 

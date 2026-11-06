@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
+import pytest
 from fastapi import Depends, FastAPI
 from pydantic import BaseModel
 
@@ -416,3 +417,63 @@ def test_a_teacher_lens_subclass_is_still_teacher_facing() -> None:
         return {}
 
     assert [v.field for v in forbidden_fields(app)] == ["self_name"]
+
+
+# ---------------------------------------------------------------- staff [0023]
+
+
+class StaffCard(BaseModel):
+    """A response carrying a staff member's address, outside the console."""
+
+    display_name: str
+    staff_city: str
+
+
+def test_a_staff_field_outside_the_console_is_reported() -> None:
+    """The gate fires on a staff address served by any other route.
+
+    Built on the family lens on purpose: the staff check covers every
+    route whatever its lens, unlike the teacher-facing profile check.
+
+    :return: None
+    """
+    from app.contract.privacy import staff_field_leaks
+
+    leaks = staff_field_leaks(_app_with(StaffCard, _student_lens))
+    assert [(path, field) for path, _, field in leaks] == [("/v1/probe", "staff_city")]
+
+
+def test_a_staff_field_inside_the_console_is_permitted() -> None:
+    """The same schema under the console's prefix is the manager's own read.
+
+    :return: None
+    """
+    from app.contract.privacy import STAFF_ROUTE_PREFIX, staff_field_leaks
+
+    app = FastAPI()
+
+    @app.get(f"{STAFF_ROUTE_PREFIX}/probe", response_model=StaffCard)
+    def _probe() -> dict[str, str]:
+        return {}
+
+    assert staff_field_leaks(app) == []
+
+
+def test_the_application_serves_staff_fields_only_in_the_console(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The real application: no staff contact or address escapes the console.
+
+    :param monkeypatch: The patcher
+    :return: None
+    """
+    from app.contract.privacy import staff_field_leaks
+
+    monkeypatch.setenv("SHIKKHOKPLUS_OTP_HMAC_KEY", "x")
+    monkeypatch.setenv(
+        "SHIKKHOKPLUS_JWT_KEYS", "k1:test-signing-key-padded-to-thirty-two"
+    )
+    monkeypatch.setenv("SHIKKHOKPLUS_JWT_ACTIVE_KID", "k1")
+    from app.main import create_app
+
+    assert staff_field_leaks(create_app()) == []

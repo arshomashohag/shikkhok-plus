@@ -32,6 +32,7 @@ Schemathesis passes it and the pass is evidence of nothing about privacy
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Final, Literal
 
@@ -45,10 +46,13 @@ from app.contract.routes import _api_routes
 __all__ = [
     "FORBIDDEN_ACCOUNT_ID_FIELDS",
     "OWNER_PRIVATE_FIELDS",
+    "STAFF_PRIVATE_FIELDS",
+    "STAFF_ROUTE_PREFIX",
     "FieldViolation",
     "forbidden_fields",
     "is_teacher_facing",
     "lens_types_of",
+    "staff_field_leaks",
 ]
 
 #: Fields of the owner-private ``Profile``, visible only to its own account.
@@ -91,6 +95,26 @@ FORBIDDEN_ACCOUNT_ID_FIELDS: Final[frozenset[str]] = frozenset(
 )
 
 
+#: A centre employee's own contact and address [0023]. Adults' personal
+#: data that **only the centre's managers** may read, so these fields may
+#: appear in a response only beneath :data:`STAFF_ROUTE_PREFIX`. Named
+#: apart from the profile's address fields on purpose: reusing those
+#: would have meant exempting them, weakening the profile boundary for
+#: every route.
+STAFF_PRIVATE_FIELDS: Final[frozenset[str]] = frozenset(
+    {
+        "email",
+        "staff_house",
+        "staff_road",
+        "staff_city",
+        "staff_postcode",
+    }
+)
+
+#: The manager-only staff console, the one place staff fields are served.
+STAFF_ROUTE_PREFIX: Final = "/v1/centre/staff"
+
+
 @dataclass(frozen=True, slots=True)
 class FieldViolation:
     """A forbidden field found in a teacher-facing response schema.
@@ -124,6 +148,7 @@ def _walk(
     schema: dict[str, object],
     definitions: dict[str, dict[str, object]],
     seen: set[str],
+    classify: Callable[[str], object | None] = _classify,
 ) -> list[tuple[str, str]]:
     """Collect forbidden field names reachable from a schema.
 
@@ -135,6 +160,7 @@ def _walk(
     :param schema: The schema node to walk
     :param definitions: The document's component schemas, for ``$ref``
     :param seen: Component names already visited on this path
+    :param classify: Which field names count as forbidden
     :return: One ``(component, field)`` pair per forbidden field found
     """
     found: list[tuple[str, str]] = []
@@ -146,28 +172,28 @@ def _walk(
             return found
         target = definitions.get(name)
         if target is not None:
-            return _walk(target, definitions, seen | {name})
+            return _walk(target, definitions, seen | {name}, classify)
         return found
 
     properties = schema.get("properties")
     if isinstance(properties, dict):
         for field, child in properties.items():
-            classification = _classify(str(field))
+            classification = classify(str(field))
             if classification is not None:
                 found.append((schema.get("title", "?"), str(field)))  # type: ignore[arg-type]
             if isinstance(child, dict):
-                found.extend(_walk(child, definitions, seen))
+                found.extend(_walk(child, definitions, seen, classify))
 
     items = schema.get("items")
     if isinstance(items, dict):
-        found.extend(_walk(items, definitions, seen))
+        found.extend(_walk(items, definitions, seen, classify))
 
     for keyword in ("allOf", "anyOf", "oneOf"):
         branches = schema.get(keyword)
         if isinstance(branches, list):
             for branch in branches:
                 if isinstance(branch, dict):
-                    found.extend(_walk(branch, definitions, seen))
+                    found.extend(_walk(branch, definitions, seen, classify))
 
     return found
 
@@ -223,6 +249,42 @@ def forbidden_fields(app: FastAPI) -> list[FieldViolation]:
             )
 
     return violations
+
+
+def _staff_field(field: str) -> str | None:
+    """Report whether a field name is staff-private.
+
+    :param field: The field name
+    :return: The name when it is staff-private, else None
+    """
+    return field if field in STAFF_PRIVATE_FIELDS else None
+
+
+def staff_field_leaks(app: FastAPI) -> list[tuple[str, str, str]]:
+    """List staff-private fields served anywhere but the staff console.
+
+    **Every route, whatever its lens**, not only teacher-facing ones: a
+    staff member's address must not reach a family, a centre teacher or
+    the account's own reader by way of a schema reused elsewhere.
+
+    :param app: The application whose generated schema is checked
+    :return: ``(path, component, field)`` per leak, empty when clean
+    """
+    document = app.openapi()
+    definitions: dict[str, dict[str, object]] = (
+        document.get("components", {}).get("schemas", {}) or {}
+    )
+    leaks: list[tuple[str, str, str]] = []
+    for route in _api_routes(app):
+        if route.response_model is None or route.path.startswith(STAFF_ROUTE_PREFIX):
+            continue
+        name = getattr(route.response_model, "__name__", "?")
+        component = definitions.get(name)
+        if component is None:
+            continue
+        for schema_name, field in _walk(component, definitions, {name}, _staff_field):
+            leaks.append((route.path, str(schema_name), field))
+    return leaks
 
 
 def lens_types_of(route: APIRoute) -> set[type]:

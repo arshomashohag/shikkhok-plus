@@ -34,6 +34,7 @@ from app.errors import AuthorizationError, ConflictError, ValidationError
 __all__ = [
     "MemberRow",
     "WorkspaceRow",
+    "add_invitation",
     "centre_of",
     "create_centre",
     "invite_member",
@@ -193,9 +194,48 @@ def invite_member(
         live membership here
     """
     centre = centre_of(session, lens)
+    member = add_invitation(
+        session,
+        centre_id=centre.id,
+        invited_by=lens.account_id,
+        phone=phone,
+        display_name=display_name,
+        role=role,
+        now=now,
+    )
+    session.commit()
+    return member.id
+
+
+def add_invitation(
+    session: Session,
+    *,
+    centre_id: uuid.UUID,
+    invited_by: uuid.UUID,
+    phone: str,
+    display_name: str,
+    role: str,
+    now: dt.datetime | None = None,
+) -> OwnerMember:
+    """Add a pending membership, refusing a number already live here.
+
+    The one writer of an invitation, shared by the member routes and the
+    staff console so both apply the same rule. Adds to the caller's
+    transaction, flushes, and does not commit.
+
+    :param session: The session to write through
+    :param centre_id: The centre, already checked to be one
+    :param invited_by: The inviting manager's account
+    :param phone: The canonical number invited
+    :param display_name: The name the manager typed
+    :param role: ``manager`` or ``teacher``
+    :param now: The moment, or None for the clock
+    :return: The new membership
+    :raises ConflictError: The number already holds a live membership here
+    """
     live = session.scalar(
         sa.select(OwnerMember.id).where(
-            OwnerMember.owner_id == centre.id,
+            OwnerMember.owner_id == centre_id,
             OwnerMember.invited_phone == phone,
             OwnerMember.revoked_at.is_(None),
         )
@@ -206,18 +246,18 @@ def invite_member(
         )
     holder = session.scalar(sa.select(Account.id).where(Account.phone == phone))
     member = OwnerMember(
-        owner_id=centre.id,
+        owner_id=centre_id,
         account_id=holder,
         invited_phone=phone,
         display_name=_clean(display_name),
         role=role,
         decision="pending",
-        invited_by_account_id=lens.account_id,
+        invited_by_account_id=invited_by,
         created_at=_now(now),
     )
     session.add(member)
-    session.commit()
-    return member.id
+    session.flush()
+    return member
 
 
 def list_members(session: Session, *, lens: TeacherLens) -> list[MemberRow]:

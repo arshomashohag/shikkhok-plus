@@ -144,6 +144,7 @@ _TABLE_DESCRIPTION: Final[dict[str, str]] = {
     "fee_cycle": "The record that a fee was due for a month",
     "ledger_entry": "Amounts charged, paid and waived",
     "expense": "What a teacher recorded spending, such as on printing or rent",
+    "staff": "A coaching centre's record of the people it employs: name, phone, email, address, role and pay terms, entered by its manager",
     "owner_member": "A coaching centre's record of its managers and teachers: the name and number it entered, and their role",
     "extra_fee": "An exam or other fee a teacher raised, with its due date",
     "extra_fee_charge": "The record that a student was asked to pay an exam or other fee",

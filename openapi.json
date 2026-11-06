@@ -7115,6 +7115,594 @@
         "title": "SignupResponse",
         "type": "object"
       },
+      "StaffLeaveRequest": {
+        "additionalProperties": false,
+        "description": "Mark someone as having left.\n\n:ivar left_on: Their last day; today when omitted",
+        "properties": {
+          "left_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Left On"
+          }
+        },
+        "title": "StaffLeaveRequest",
+        "type": "object"
+      },
+      "StaffOtherRequest": {
+        "additionalProperties": false,
+        "description": "Record someone who works at the centre without app access.\n\n:ivar phone: Their number, or None\n:ivar role_label: What they do",
+        "properties": {
+          "display_name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "maxLength": 254,
+                "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "joined_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Joined On"
+          },
+          "pay_basis": {
+            "enum": [
+              "monthly",
+              "none",
+              "per_class"
+            ],
+            "title": "Pay Basis",
+            "type": "string"
+          },
+          "pay_rate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          },
+          "role_label": {
+            "anyOf": [
+              {
+                "maxLength": 60,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Label"
+          },
+          "staff_city": {
+            "anyOf": [
+              {
+                "description": "City or district.",
+                "maxLength": 60,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Staff City"
+          },
+          "staff_house": {
+            "anyOf": [
+              {
+                "description": "House or flat number.",
+                "maxLength": 60,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Staff House"
+          },
+          "staff_postcode": {
+            "anyOf": [
+              {
+                "description": "Four digits; Bangla digits are accepted and stored as Latin.",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Staff Postcode"
+          },
+          "staff_road": {
+            "anyOf": [
+              {
+                "description": "Road number or name, and area.",
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Staff Road"
+          }
+        },
+        "required": [
+          "display_name",
+          "pay_basis"
+        ],
+        "title": "StaffOtherRequest",
+        "type": "object"
+      },
+      "StaffResponse": {
+        "description": "One staff record, as the centre's manager sees it.\n\n:ivar staff_id: The record\n:ivar kind: ``teacher`` or ``other``\n:ivar display_name: Their name\n:ivar role_label: What they do, or None\n:ivar phone: Their number, or None\n:ivar email: Their email, or None\n:ivar staff_house: House or flat, or None\n:ivar staff_road: Road or area, or None\n:ivar staff_city: City or district, or None\n:ivar staff_postcode: Four digits, or None\n:ivar pay_basis: How they are paid\n:ivar pay_rate: The salary or rate per class, or None\n:ivar joined_on: When they started\n:ivar left_on: When they left, or None\n:ivar status: ``active`` or ``left``\n:ivar access: Where their app access stands",
+        "properties": {
+          "access": {
+            "description": "none, invited, declined, active or revoked",
+            "enum": [
+              "active",
+              "declined",
+              "invited",
+              "none",
+              "revoked"
+            ],
+            "title": "Access",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "joined_on": {
+            "format": "date",
+            "title": "Joined On",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "other",
+              "teacher"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "left_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Left On"
+          },
+          "pay_basis": {
+            "enum": [
+              "monthly",
+              "none",
+              "per_class"
+            ],
+            "title": "Pay Basis",
+            "type": "string"
+          },
+          "pay_rate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          },
+          "role_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Label"
+          },
+          "staff_city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Staff City"
+          },
+          "staff_house": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Staff House"
+          },
+          "staff_id": {
+            "format": "uuid",
+            "title": "Staff Id",
+            "type": "string"
+          },
+          "staff_postcode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Staff Postcode"
+          },
+          "staff_road": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Staff Road"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "left"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "access",
+          "display_name",
+          "joined_on",
+          "kind",
+          "pay_basis",
+          "staff_id",
+          "status"
+        ],
+        "title": "StaffResponse",
+        "type": "object"
+      },
+      "StaffTeacherRequest": {
+        "additionalProperties": false,
+        "description": "Invite a teacher: their record, and an offer of app access.\n\n:ivar phone: The number the offer goes to, typed by the manager",
+        "properties": {
+          "display_name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "maxLength": 254,
+                "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "joined_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Joined On"
+          },
+          "pay_basis": {
+            "enum": [
+              "monthly",
+              "none",
+              "per_class"
+            ],
+            "title": "Pay Basis",
+            "type": "string"
+          },
+          "pay_rate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "phone": {
+            "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
+            "title": "Phone",
+            "type": "string"
+          },
+          "staff_city": {
+            "anyOf": [
+              {
+                "description": "City or district.",
+                "maxLength": 60,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Staff City"
+          },
+          "staff_house": {
+            "anyOf": [
+              {
+                "description": "House or flat number.",
+                "maxLength": 60,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Staff House"
+          },
+          "staff_postcode": {
+            "anyOf": [
+              {
+                "description": "Four digits; Bangla digits are accepted and stored as Latin.",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Staff Postcode"
+          },
+          "staff_road": {
+            "anyOf": [
+              {
+                "description": "Road number or name, and area.",
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Staff Road"
+          }
+        },
+        "required": [
+          "display_name",
+          "pay_basis",
+          "phone"
+        ],
+        "title": "StaffTeacherRequest",
+        "type": "object"
+      },
+      "StaffUpdateRequest": {
+        "additionalProperties": false,
+        "description": "Correct a record. An omitted field is unchanged; null clears it.\n\nThe kind and the phone a teacher's access was offered to are not\nhere: a teacher's number is the membership's, and a person does not\nchange from teacher to other staff by an edit.\n\n:ivar display_name: Their name\n:ivar email: Their email\n:ivar staff_house: House or flat\n:ivar staff_road: Road or area\n:ivar staff_city: City or district\n:ivar staff_postcode: Four digits\n:ivar role_label: What they do, for other staff\n:ivar pay_basis: How they are paid\n:ivar pay_rate: The salary or rate per class\n:ivar joined_on: When they started",
+        "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "maxLength": 254,
+                "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "joined_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Joined On"
+          },
+          "pay_basis": {
+            "anyOf": [
+              {
+                "enum": [
+                  "monthly",
+                  "none",
+                  "per_class"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pay Basis"
+          },
+          "pay_rate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Money"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "role_label": {
+            "anyOf": [
+              {
+                "maxLength": 60,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Label"
+          },
+          "staff_city": {
+            "anyOf": [
+              {
+                "description": "City or district.",
+                "maxLength": 60,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Staff City"
+          },
+          "staff_house": {
+            "anyOf": [
+              {
+                "description": "House or flat number.",
+                "maxLength": 60,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Staff House"
+          },
+          "staff_postcode": {
+            "anyOf": [
+              {
+                "description": "Four digits; Bangla digits are accepted and stored as Latin.",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Staff Postcode"
+          },
+          "staff_road": {
+            "anyOf": [
+              {
+                "description": "Road number or name, and area.",
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Staff Road"
+          }
+        },
+        "title": "StaffUpdateRequest",
+        "type": "object"
+      },
       "StudentBatchResponse": {
         "additionalProperties": false,
         "description": "One batch a student is in (S1).\n\n:ivar enrollment_id: Their seat; every other student read takes it\n:ivar batch_name: The batch\n:ivar teacher_display_name: What the teacher is called, or None\n:ivar subjects: The subjects taught\n:ivar schedule: The weekly classes\n:ivar current_fee: The latest fee period, or None before the first\n:ivar next_session: This batch's next class, or null\n:ivar is_next: Whether that class is the student's next one across\n    every batch -- true on at most one row\n:ivar last_result: The latest marked result, or null",
@@ -10325,6 +10913,504 @@
         "summary": "Revoke Centre Member",
         "tags": [
           "centres"
+        ]
+      }
+    },
+    "/v1/centre/staff": {
+      "get": {
+        "description": "List the centre's teachers and staff, active first.\n\n:param lens: The manager's lens on the centre\n:param session: The request-scoped session\n:return: Every record",
+        "operationId": "list_staff_v1_centre_staff_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/StaffResponse"
+                  },
+                  "title": "Response List Staff V1 Centre Staff Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          }
+        },
+        "summary": "List Staff",
+        "tags": [
+          "staff"
+        ]
+      },
+      "post": {
+        "description": "Record someone who works at the centre without app access.\n\n:param body: Their details and pay terms\n:param lens: The manager's lens on the centre\n:param session: The request-scoped session\n:return: The new record",
+        "operationId": "add_other_staff_v1_centre_staff_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StaffOtherRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Other Staff",
+        "tags": [
+          "staff"
+        ]
+      }
+    },
+    "/v1/centre/staff/teachers": {
+      "post": {
+        "description": "Record a teacher and offer them app access; nothing is granted yet.\n\n:param body: Their details and pay terms\n:param lens: The manager's lens on the centre\n:param session: The request-scoped session\n:return: The new record",
+        "operationId": "invite_teacher_v1_centre_staff_teachers_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StaffTeacherRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Invite Teacher",
+        "tags": [
+          "staff"
+        ]
+      }
+    },
+    "/v1/centre/staff/{staff_id}": {
+      "get": {
+        "description": "Read one record.\n\n:param staff_id: The record\n:param lens: The manager's lens on the centre\n:param session: The request-scoped session\n:return: The record",
+        "operationId": "read_staff_v1_centre_staff__staff_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "staff_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Staff Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Staff",
+        "tags": [
+          "staff"
+        ]
+      },
+      "patch": {
+        "description": "Correct a record; an omitted field is unchanged and null clears it.\n\n:param staff_id: The record\n:param body: The fields to change\n:param lens: The manager's lens on the centre\n:param session: The request-scoped session\n:return: The corrected record",
+        "operationId": "update_staff_v1_centre_staff__staff_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "staff_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Staff Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StaffUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Staff",
+        "tags": [
+          "staff"
+        ]
+      }
+    },
+    "/v1/centre/staff/{staff_id}/leave": {
+      "post": {
+        "description": "Record that someone left; their app access ends in the same step.\n\n:param staff_id: The record\n:param body: Their last day\n:param lens: The manager's lens on the centre\n:param session: The request-scoped session\n:return: The record, marked left",
+        "operationId": "mark_left_v1_centre_staff__staff_id__leave_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "staff_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Staff Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StaffLeaveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Mark Left",
+        "tags": [
+          "staff"
         ]
       }
     },

@@ -97,6 +97,7 @@ def _register_routes(app: FastAPI) -> None:
     from app.api.me import router as me_router
     from app.api.notifications import router as notifications_router
     from app.api.payment_methods import router as payment_methods_router
+    from app.api.staff import router as staff_router
     from app.api.students import router as students_router
     from app.api.teaching import router as teaching_router
 
@@ -121,6 +122,7 @@ def _register_routes(app: FastAPI) -> None:
         me_router,
         notifications_router,
         payment_methods_router,
+        staff_router,
         students_router,
         teaching_router,
     ):

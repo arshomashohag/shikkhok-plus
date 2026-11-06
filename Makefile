@@ -194,7 +194,7 @@ test:
 		--cov=app.money \
 		--cov=app.accounts --cov=app.analytics --cov=app.expenses --cov=app.guardians \
 		--cov=app.api --cov=app.audit --cov=app.auth --cov=app.authz \
-		--cov=app.batches --cov=app.centres \
+		--cov=app.batches --cov=app.centres --cov=app.staff \
 		--cov=app.config --cov=app.contract --cov=app.db --cov=app.errors \
 		--cov=app.fees \
 		--cov=app.gateway --cov=app.governance \
