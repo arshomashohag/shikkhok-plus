@@ -1,7 +1,7 @@
 # Extra fees, expenses, staff and payroll — design
 
 Date: 2026-11-06
-Status: draft for approval (four questions open, each with a proposed default)
+Status: draft for approval (all product decisions recorded)
 Builds on: `2026-11-06-coaching-centre-design.md` (workspaces, managers,
 centre teachers, class assignment)
 
@@ -228,7 +228,8 @@ Teachers & staff. On Android as well as web, because solo tutors are
 phone-first: raising a fee and recording an expense are short forms.
 The staff console and payroll start on web only.
 
-**Centre teacher:** none of this, unless question 2 below says otherwise.
+**Centre teacher:** a read-only **My pay** (D15) — their own salary lines,
+adjustments and payments, per workspace. Nothing else in this note.
 
 **Families:** extra fees appear beside months on the fees screen; the pay
 sheet gains the "payment for" choice.
@@ -261,19 +262,17 @@ first and help every solo tutor now.
 
 M1 and P1 touch money paths and are test-first throughout.
 
-## Open questions, with proposed defaults
+## Decided 2026-11-06 (the proposed defaults, accepted)
 
-1. **Pay bases.** Default: fixed monthly and per held class. Paying a
-   teacher a share of a batch's collected fees is common too, but it ties
-   payroll to the fee ledger and is left for later unless you need it now.
-2. **Does a centre teacher see their own pay?** Default: yes — a
-   read-only "My pay" with their own salary lines and payments, nothing
-   else. It is their data, not anyone else's. Say no if you want the
-   teacher's access to stay exactly the four things already decided.
-3. **Receipt photos on expenses.** Default: not now. Photos add file
-   storage and new personal-data handling; a note field covers the
-   receipt number.
-4. **Who may choose "payment for".** Default: the family when reporting,
-   and the approver may change it. The alternative — only the approver
-   decides — is simpler for families but hides from them what their money
-   was applied to until approval.
+| # | Decision |
+|---|---|
+| D12 | **Pay bases** are fixed monthly and per held class. A share of collected fees is not built. |
+| D13 | **No receipt photos** on expenses for now; the note field carries a receipt number. |
+| D14 | **"Payment for"** is chosen by the family when reporting and may be changed by the approver, with the change kept visible. |
+| D15 | **A centre teacher sees their own pay**, read-only: their salary lines, adjustments and payments, and no one else's. |
+
+D15 adds one route to the centre teacher's allowlist (see the centre
+design, section 3). It is scoped by `staff.member_id` = the caller's
+membership, and its response schema carries no rate or detail of any other
+staff record. Those are rules about who may see what, so the route is
+written test-first.

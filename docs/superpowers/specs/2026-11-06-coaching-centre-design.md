@@ -22,7 +22,7 @@ same account.
 | # | Decision |
 |---|---|
 | D1 | One person can be a solo tutor **and** teach at one or more centres, with one account. |
-| D2 | A solo tutor keeps full control of their own batches. At a centre, a teacher sees **only their own classes** in the schedule, and can **update the class topic, take attendance and enter marks — nothing else**. They never see another teacher's classes. |
+| D2 | A solo tutor keeps full control of their own batches. At a centre, a teacher sees **only their own classes** in the schedule, and can **update the class topic, take attendance and enter marks — nothing else** (later extended by D15: they also see their own pay). They never see another teacher's classes. |
 | D3 | Marks are entered and published by the subject's teacher **and** by a manager. A manager has **every read and write permission** in the centre. |
 | D4 | **Only a manager** assigns, reassigns or swaps the teacher of a class. |
 | D5 | A class can have a **room**, chosen when the class is created. Optional. |
@@ -134,6 +134,7 @@ accepted, unrevoked memberships instead of `LIMIT 1`.
 | Take attendance (including the offline queue) | existing attendance write | assigned to me **at replay time** |
 | Update topic and notes | existing topic write | assigned to me |
 | Exams I examine, enter and publish marks | existing marks routes | `examiner_member_id = me` |
+| My pay, read-only (added by D15 in the fees design) | new `GET /v1/me/pay?owner_id` | `staff.member_id = me` |
 
 Privacy is enforced by **schema**, not by filtering: the class-teacher
 roster is a separate response type carrying `enrollment_id` and the
