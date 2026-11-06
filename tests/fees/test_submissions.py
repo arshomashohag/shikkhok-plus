@@ -717,6 +717,8 @@ def test_owed_together_is_served_in_child_order(
             {"enrollment_id": str(tania), "display_name": "Tania", "owed": "0.00"},
             {"enrollment_id": str(tanvir), "display_name": "Tanvir", "owed": "1200.00"},
         ],
+        # No exam or other fee was raised, so nothing else to pay for [0020].
+        "extra_fee_options": [],
     }
     assert stranger.status_code == 403
 
