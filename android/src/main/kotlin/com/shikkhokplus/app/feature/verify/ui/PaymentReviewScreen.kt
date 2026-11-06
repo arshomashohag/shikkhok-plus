@@ -1,5 +1,11 @@
 package com.shikkhokplus.app.feature.verify.ui
 
+import com.shikkhokplus.app.core.network.MONTHLY_PURPOSE
+import androidx.compose.ui.semantics.Role
+import androidx.compose.material3.RadioButton
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
@@ -99,6 +105,20 @@ const val TAG_REVIEW_OWED_TOGETHER: String = "review_owed_together"
 /** A refused or failed decision, shown above the payment. */
 const val TAG_VERIFY_ERROR: String = "verify_error"
 
+/** The "Payment for" section. */
+const val TAG_REVIEW_PURPOSE: String = "review_purpose"
+
+/** The note that the payment is applied other than the family chose. */
+const val TAG_REVIEW_PURPOSE_CHANGED: String = "review_purpose_changed"
+
+/**
+ * Tag for one "Payment for" choice.
+ *
+ * @param choice `monthly` or a fee id
+ * @return The tag
+ */
+fun purposeChoiceTag(choice: String): String = "review_purpose_$choice"
+
 /**
  * What the payment screen can do, grouped so the screen stays readable.
  *
@@ -109,6 +129,7 @@ const val TAG_VERIFY_ERROR: String = "verify_error"
  * @property onChangeDecision Offer a decided payment's actions again
  * @property onRetry Read the payment again
  * @property sheet What the approval sheet can do
+ * @property onChoosePurpose Try the payment against `monthly` or a fee
  */
 class ReviewActions(
     val onBack: () -> Unit,
@@ -118,6 +139,7 @@ class ReviewActions(
     val onChangeDecision: () -> Unit,
     val onRetry: () -> Unit,
     val sheet: SheetActions,
+    val onChoosePurpose: (String) -> Unit = {},
 )
 
 /**
@@ -183,6 +205,7 @@ private fun Loaded(state: ReviewUiState.Loaded, actions: ReviewActions) {
         }
         Summary(card)
         Facts(card)
+        Purpose(state, actions.onChoosePurpose)
         card.duplicate?.let { Duplicate(it) }
             ?: Text(
                 stringResource(R.string.verify_no_duplicate),
@@ -237,6 +260,104 @@ private fun Loaded(state: ReviewUiState.Loaded, actions: ReviewActions) {
                 TextButton(onClick = { rejecting = false }) { Text(stringResource(R.string.action_cancel)) }
             },
         )
+    }
+}
+
+/**
+ * "Payment for": what the payment is applied to, beside what the family
+ * chose. While it can be decided the teacher may try it against the
+ * monthly fee or another fee; the server re-measures it, so the summary
+ * above always shows the comparison for the chosen purpose.
+ *
+ * @param state The loaded payment
+ * @param onChoose Called with `monthly` or a fee id
+ */
+@Composable
+private fun Purpose(state: ReviewUiState.Loaded, onChoose: (String) -> Unit) {
+    val purpose = state.purpose
+    if (!purpose.shown) return
+    val monthly = stringResource(R.string.payment_for_monthly)
+    val applied = purpose.applied?.let { Numerals.freeText(it.label) } ?: monthly
+    val requested = purpose.requested?.let { Numerals.freeText(it.label) } ?: monthly
+    Column(Modifier.fillMaxWidth().testTag(TAG_REVIEW_PURPOSE), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(stringResource(R.string.payment_for_title), style = MaterialTheme.typography.labelLarge)
+        if (!state.canDecide) {
+            Text(
+                text =
+                    if (purpose.changed) {
+                        stringResource(R.string.payment_for_applied_instead, applied, requested)
+                    } else {
+                        stringResource(R.string.payment_for_applied, applied)
+                    },
+                style = MaterialTheme.typography.bodyLarge,
+            )
+            return@Column
+        }
+        Column(Modifier.selectableGroup()) {
+            PurposeChoice(
+                choice = MONTHLY_PURPOSE,
+                label = monthly,
+                detail = null,
+                selected = purpose.applied == null,
+                familyChose = purpose.requested == null,
+                enabled = !state.busy,
+                onChoose = onChoose,
+            )
+            purpose.fees.forEach { fee ->
+                PurposeChoice(
+                    choice = fee.extraFeeId,
+                    label = Numerals.freeText(fee.label),
+                    detail = stringResource(R.string.extra_fees_due, shortDate(fee.dueOn)),
+                    selected = purpose.applied?.extraFeeId == fee.extraFeeId,
+                    familyChose = purpose.requested?.extraFeeId == fee.extraFeeId,
+                    enabled = !state.busy,
+                    onChoose = onChoose,
+                )
+            }
+        }
+        if (purpose.changed) {
+            Banner(
+                title = stringResource(R.string.payment_for_changed, applied, requested),
+                tone = BannerTone.INFO,
+                modifier = Modifier.testTag(TAG_REVIEW_PURPOSE_CHANGED),
+            )
+        }
+    }
+}
+
+@Composable
+private fun PurposeChoice(
+    choice: String,
+    label: String,
+    detail: String?,
+    selected: Boolean,
+    familyChose: Boolean,
+    enabled: Boolean,
+    onChoose: (String) -> Unit,
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .selectable(selected = selected, enabled = enabled, role = Role.RadioButton) { onChoose(choice) }
+            .testTag(purposeChoiceTag(choice)),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        RadioButton(selected = selected, onClick = null, enabled = enabled)
+        Column(Modifier.weight(1f)) {
+            Text(label, style = MaterialTheme.typography.bodyLarge)
+            detail?.let {
+                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        if (familyChose) {
+            Text(
+                stringResource(R.string.payment_for_family_chose),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
     }
 }
 

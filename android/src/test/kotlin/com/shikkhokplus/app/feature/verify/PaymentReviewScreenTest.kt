@@ -1,5 +1,12 @@
 package com.shikkhokplus.app.feature.verify
 
+import kotlin.test.assertIs
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsSelected
+import com.shikkhokplus.app.feature.verify.ui.purposeChoiceTag
+import com.shikkhokplus.app.feature.verify.ui.TAG_REVIEW_PURPOSE_CHANGED
+import com.shikkhokplus.app.feature.verify.ui.TAG_REVIEW_PURPOSE
+import com.shikkhokplus.app.core.network.ExtraFeeRefDto
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertTextContains
@@ -54,6 +61,7 @@ class PaymentReviewScreenTest {
             onReject = { log += "reject:$it" },
             onChangeDecision = { log += "change" },
             onRetry = {},
+            onChoosePurpose = { log += "purpose:$it" },
             sheet =
                 SheetActions(
                     onType = {},
@@ -158,4 +166,55 @@ class PaymentReviewScreenTest {
 
         assertEquals(listOf("approve:"), log)
     }
+
+    private val examFee = ExtraFeeRefDto("f-1", "Half-yearly exam", "exam", "2026-11-20")
+
+    private fun loaded(purpose: PaymentPurposeView, status: String = "pending") =
+        assertIs<ReviewUiState.Loaded>(VerifyStateMapper.afterDetail(review(status = status))).copy(purpose = purpose)
+
+    @Test
+    fun `payment for lists monthly and each fee, marks the family's choice and reports a new one`() {
+        val log = mutableListOf<String>()
+        render(loaded(PaymentPurposeView(applied = examFee, requested = examFee, options = listOf(examFee))), log = log)
+
+        compose.onNodeWithTag(TAG_REVIEW_PURPOSE).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag(purposeChoiceTag("f-1")).assertIsSelected()
+        compose.onNodeWithText("Family chose").assertIsDisplayed()
+        compose.onNodeWithTag(TAG_REVIEW_PURPOSE_CHANGED).assertDoesNotExist()
+
+        compose.onNodeWithTag(purposeChoiceTag("monthly")).performScrollTo().performClick()
+        assertEquals(listOf("purpose:monthly"), log)
+    }
+
+    @Test
+    fun `applying elsewhere than the family chose says so`() {
+        render(
+            loaded(PaymentPurposeView(applied = null, requested = examFee, options = listOf(examFee))),
+            log = mutableListOf(),
+        )
+
+        compose.onNodeWithTag(TAG_REVIEW_PURPOSE_CHANGED).performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun `a decided payment states what it was applied to`() {
+        render(
+            loaded(PaymentPurposeView(applied = null, requested = examFee), status = "approved"),
+            log = mutableListOf(),
+        )
+
+        compose
+            .onNodeWithText("Applied to Monthly fee · they chose Half-yearly exam")
+            .performScrollTo()
+            .assertIsDisplayed()
+        compose.onNodeWithTag(purposeChoiceTag("monthly")).assertDoesNotExist()
+    }
+
+    @Test
+    fun `no fee in play draws no payment-for section`() {
+        render(loaded(PaymentPurposeView()), log = mutableListOf())
+
+        compose.onNodeWithTag(TAG_REVIEW_PURPOSE).assertDoesNotExist()
+    }
+
 }

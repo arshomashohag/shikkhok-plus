@@ -80,7 +80,11 @@ class VerifyViewModelTest {
     private class Decisions : PaymentReviewRepository {
         val approved = mutableListOf<Pair<String, String>>()
 
-        override suspend fun detail(submissionId: String): AuthResult<PaymentReviewDto> = AuthResult.Ok(review())
+        override suspend fun detail(
+            submissionId: String,
+            purpose: String?,
+            extraFeeId: String?,
+        ): AuthResult<PaymentReviewDto> = AuthResult.Ok(review())
 
         override suspend fun approve(submissionId: String, body: PaymentApprovalBodyDto): AuthResult<PaymentReviewDto> {
             approved += submissionId to body.receivedAmount.toString()

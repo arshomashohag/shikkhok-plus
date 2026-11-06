@@ -120,6 +120,7 @@ internal fun NavGraphBuilder.teachingRoutes(
                     onReject = model::reject,
                     onChangeDecision = model::changeDecision,
                     onRetry = model::retry,
+                    onChoosePurpose = model::choosePurpose,
                     sheet =
                         SheetActions(
                             onType = model::typeAmount,

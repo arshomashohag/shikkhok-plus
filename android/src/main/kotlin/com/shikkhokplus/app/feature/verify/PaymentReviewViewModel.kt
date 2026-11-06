@@ -1,5 +1,7 @@
 package com.shikkhokplus.app.feature.verify
 
+import com.shikkhokplus.app.core.network.EXTRA_PURPOSE
+import com.shikkhokplus.app.core.network.MONTHLY_PURPOSE
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.shikkhokplus.app.core.network.PaymentApprovalBodyDto
@@ -68,6 +70,8 @@ class PaymentReviewViewModel(
                     receivedAmount = loaded.card.totalAmount,
                     note = note.trim().takeIf { it.isNotEmpty() },
                     correcting = loaded.correcting,
+                    purpose = purposeFor(loaded.preview),
+                    extraFeeId = loaded.preview.takeIf { purposeFor(it) == EXTRA_PURPOSE },
                 ),
             )
         } else {
@@ -155,6 +159,8 @@ class PaymentReviewViewModel(
                 creditToEnrollmentId = bearer.takeIf { sheet.side == AmountSide.OVER },
                 note = sheet.note.trim().takeIf { it.isNotEmpty() },
                 correcting = loaded.correcting,
+                purpose = purposeFor(loaded.preview),
+                extraFeeId = loaded.preview.takeIf { purposeFor(it) == EXTRA_PURPOSE },
             ),
         )
     }
@@ -180,6 +186,33 @@ class PaymentReviewViewModel(
      *
      * @return The state, or null while busy, undecidable or not loaded
      */
+    /**
+     * Try the payment against another purpose: the monthly fee or one
+     * exam or other fee. The server measures it against that purpose and
+     * writes nothing; approving then applies it there.
+     *
+     * @param choice [MONTHLY_PURPOSE] or a fee the choice lists
+     */
+    fun choosePurpose(choice: String) {
+        val loaded = decidable() ?: return
+        val current = loaded.purpose.applied?.extraFeeId ?: MONTHLY_PURPOSE
+        if (choice == current) return
+        if (choice != MONTHLY_PURPOSE && loaded.purpose.fees.none { it.extraFeeId == choice }) return
+        _state.value = loaded.copy(busy = true, errorKey = null)
+        viewModelScope.launch {
+            val fee = choice.takeIf { it != MONTHLY_PURPOSE }
+            _state.value =
+                when (val result = repository.detail(submissionId, purposeFor(choice), fee)) {
+                    is AuthResult.Ok ->
+                        (VerifyStateMapper.afterDetail(result.value) as? ReviewUiState.Loaded)
+                            ?.copy(correcting = loaded.correcting, preview = choice)
+                            ?: loaded.copy(busy = false, errorKey = VerifyStateMapper.UNEXPECTED_KEY)
+                    is AuthResult.Refused -> loaded.copy(busy = false, errorKey = result.envelope.error.messageKey)
+                    AuthResult.TransportFailure -> loaded.copy(busy = false, errorKey = VerifyStateMapper.OFFLINE_KEY)
+                }
+        }
+    }
+
     private fun decidable(): ReviewUiState.Loaded? =
         (_state.value as? ReviewUiState.Loaded)?.takeIf { it.canDecide && !it.busy }
 
@@ -248,3 +281,16 @@ class PaymentReviewViewModel(
             AuthResult.TransportFailure -> VerifyStateMapper.detailOffline()
         }
 }
+
+/**
+ * The purpose an approval sends for a preview.
+ *
+ * @param preview [MONTHLY_PURPOSE], a fee id, or null for as stored
+ * @return The purpose to send, or null to send none
+ */
+private fun purposeFor(preview: String?): String? =
+    when (preview) {
+        null -> null
+        MONTHLY_PURPOSE -> MONTHLY_PURPOSE
+        else -> EXTRA_PURPOSE
+    }

@@ -154,6 +154,19 @@ class WriteContractTest {
                     PaymentApprovalBodyDto(Money.of("800.00"), "carried", carriedByEnrollmentId = ID),
                 )
             },
+            // Applying a payment to an exam or other fee, and to the monthly fee.
+            Write("post", "/v1/payments/{submission_id}/approval") {
+                HttpVerificationRepository(it).approve(
+                    ID,
+                    PaymentApprovalBodyDto(Money.of("500.00"), purpose = "extra", extraFeeId = ID),
+                )
+            },
+            Write("post", "/v1/payments/{submission_id}/approval") {
+                HttpVerificationRepository(it).approve(
+                    ID,
+                    PaymentApprovalBodyDto(Money.of("500.00"), purpose = "monthly"),
+                )
+            },
             Write("post", "/v1/payments/{submission_id}/rejection") {
                 HttpVerificationRepository(it).reject(ID, "Not received", false)
             },

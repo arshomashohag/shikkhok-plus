@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.feature.verify
 
+import com.shikkhokplus.app.core.network.EXTRA_PURPOSE
 import com.shikkhokplus.app.core.network.DuplicatePaymentDto
 import com.shikkhokplus.app.core.network.ErrorEnvelope
 import com.shikkhokplus.app.core.network.PaymentReviewDto
@@ -85,8 +86,21 @@ object VerifyStateMapper {
      * @return The loaded state, or a failure for a value outside the known set
      */
     fun afterDetail(dto: PaymentReviewDto): ReviewUiState =
-        toCard(dto)?.let { ReviewUiState.Loaded(it) }
+        toCard(dto)?.let { ReviewUiState.Loaded(it, purpose = purposeOf(dto)) }
             ?: ReviewUiState.Failed(UNEXPECTED_KEY, retryable = false)
+
+    /**
+     * Read what a payment is for. A fee is named only alongside `extra`.
+     *
+     * @param dto The payment
+     * @return The applied and chosen purposes and the options
+     */
+    fun purposeOf(dto: PaymentReviewDto): PaymentPurposeView =
+        PaymentPurposeView(
+            applied = dto.extraFee.takeIf { dto.purpose == EXTRA_PURPOSE },
+            requested = dto.requestedExtraFee.takeIf { dto.requestedPurpose == EXTRA_PURPOSE },
+            options = dto.extraFeeOptions,
+        )
 
     /**
      * Map a refusal of a payment read.
