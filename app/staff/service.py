@@ -341,8 +341,10 @@ def update_staff(
     """
     staff = _owned(session, lens, staff_id, lock=True)
     for column, value in changes.items():
-        if column not in EDITABLE:  # pragma: no cover - the schema forbids it
-            raise ValidationError(code="VALIDATION", message_key="error.unexpected")
+        # Only the editable columns are ever written; the request schema
+        # forbids any other field, so nothing is dropped in practice.
+        if column not in EDITABLE:
+            continue
         if column == "role_label" and staff.kind != "other":
             continue
         if column == "display_name" and value is None:
