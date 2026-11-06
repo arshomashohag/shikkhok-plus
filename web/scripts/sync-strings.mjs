@@ -37,11 +37,27 @@ function decode(raw) {
   return s
 }
 
+/**
+ * Refuse an apostrophe Android's resource compiler would reject.
+ *
+ * aapt2 fails the whole Android build on a bare `'` outside a quoted
+ * string, and the Android build cannot run everywhere the web check does.
+ * Failing here moves that error from CI to the first local `npm run check`.
+ */
+function refuseBareApostrophe(file, name, raw) {
+  const s = raw.trim()
+  if (s.startsWith('"') && s.endsWith('"')) return
+  if (/(^|[^\\])'/.test(s)) {
+    throw new Error(`${file}: string "${name}" has an unescaped apostrophe; write \\' instead`)
+  }
+}
+
 /** Parse one strings.xml into { name: text | { one, other } }. */
 function parse(file) {
   const xml = readFileSync(file, 'utf8').replace(/<!--[\s\S]*?-->/g, '')
   const out = {}
   for (const m of xml.matchAll(/<string\s+name="([^"]+)"[^>]*>([\s\S]*?)<\/string>/g)) {
+    refuseBareApostrophe(file, m[1], m[2])
     out[m[1]] = decode(m[2])
   }
   for (const m of xml.matchAll(/<plurals\s+name="([^"]+)"[^>]*>([\s\S]*?)<\/plurals>/g)) {

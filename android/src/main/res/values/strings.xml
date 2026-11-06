@@ -1465,7 +1465,7 @@
     <!-- Rooms and the timetable [0024] -->
     <string name="room_name_taken">A room with this name already exists.</string>
     <string name="schedule_clash">This clashes with another class at the same time.</string>
-    <string name="schedule_room_unknown">Choose one of this centre's rooms.</string>
+    <string name="schedule_room_unknown">Choose one of this centre\'s rooms.</string>
     <string name="schedule_teacher_unknown">Choose a teacher who is part of this centre.</string>
     <string name="timetable_range_too_long">Choose at most 31 days.</string>
 
