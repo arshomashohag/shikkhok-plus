@@ -5,6 +5,7 @@ import com.shikkhokplus.app.feature.verify.PaymentReviewRepository
 import com.shikkhokplus.app.feature.verify.VerifyRepository
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
+import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 
@@ -19,8 +20,17 @@ class HttpVerificationRepository(
 
     override suspend fun queue(): AuthResult<VerificationQueueDto> = call { client.get("/v1/claims/queue") }
 
-    override suspend fun detail(submissionId: String): AuthResult<PaymentReviewDto> =
-        call { client.get("/v1/payments/$submissionId") }
+    override suspend fun detail(
+        submissionId: String,
+        purpose: String?,
+        extraFeeId: String?,
+    ): AuthResult<PaymentReviewDto> =
+        call {
+            client.get("/v1/payments/$submissionId") {
+                purpose?.let { parameter("purpose", it) }
+                extraFeeId?.let { parameter("extra_fee_id", it) }
+            }
+        }
 
     override suspend fun approve(
         submissionId: String,

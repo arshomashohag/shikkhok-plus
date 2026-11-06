@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.feature.verify
 
+import com.shikkhokplus.app.core.network.ExtraFeeRefDto
 import com.shikkhokplus.app.core.model.Money
 import com.shikkhokplus.app.core.network.ErrorBody
 import com.shikkhokplus.app.core.network.ErrorEnvelope
@@ -49,9 +50,17 @@ class PaymentReviewViewModelTest {
         val approvals = mutableListOf<PaymentApprovalBodyDto>()
         val rejections = mutableListOf<Pair<String?, Boolean>>()
 
-        override suspend fun detail(submissionId: String): AuthResult<PaymentReviewDto> {
+        val previews = mutableListOf<Pair<String?, String?>>()
+        var previewed: PaymentReviewDto? = null
+
+        override suspend fun detail(
+            submissionId: String,
+            purpose: String?,
+            extraFeeId: String?,
+        ): AuthResult<PaymentReviewDto> {
             reads += 1
-            return detail
+            previews += purpose to extraFeeId
+            return if (purpose != null) previewed?.let { AuthResult.Ok(it) } ?: detail else detail
         }
 
         override suspend fun approve(
@@ -336,4 +345,147 @@ class PaymentReviewViewModelTest {
         val failed = assertIs<ReviewUiState.Failed>(model.state.value)
         assertEquals("fees.not_available", failed.messageKey)
     }
+
+    private val examFee = ExtraFeeRefDto("f-1", "Half-yearly exam", "exam", "2026-11-20")
+
+    /** A family payment they said was for the exam fee, which the teacher may move to monthly. */
+    private fun forExam(comparison: String = "matches", total: String = "500.00") =
+        review(comparison = comparison, total = total, owedTogether = "500.00").copy(
+            purpose = "extra",
+            extraFee = examFee,
+            requestedPurpose = "extra",
+            requestedExtraFee = examFee,
+            extraFeeOptions = listOf(examFee),
+        )
+
+    @Test
+    fun `what the family chose is read from the server and shown applied`() = runTest(dispatcher) {
+        val model = PaymentReviewViewModel(Fake(AuthResult.Ok(forExam())))
+        model.load("s-1")
+        advanceUntilIdle()
+
+        val loaded = assertIs<ReviewUiState.Loaded>(model.state.value)
+        assertEquals("f-1", loaded.purpose.applied?.extraFeeId)
+        assertEquals("f-1", loaded.purpose.requested?.extraFeeId)
+        assertFalse(loaded.purpose.changed)
+        assertNull(loaded.preview)
+    }
+
+    @Test
+    fun `a payment with no fee to choose shows no payment-for choice`() = runTest(dispatcher) {
+        val model = PaymentReviewViewModel(Fake(AuthResult.Ok(review())))
+        model.load("s-1")
+        advanceUntilIdle()
+
+        assertFalse(assertIs<ReviewUiState.Loaded>(model.state.value).purpose.shown)
+    }
+
+    @Test
+    fun `trying the monthly fee asks the server to measure it there and writes nothing`() = runTest(dispatcher) {
+        val fake = Fake(AuthResult.Ok(forExam()))
+        fake.previewed =
+            review(comparison = "short", total = "500.00", owedTogether = "2000.00", difference = "1500.00").copy(
+                requestedPurpose = "extra",
+                requestedExtraFee = examFee,
+                extraFeeOptions = listOf(examFee),
+            )
+        val model = PaymentReviewViewModel(fake)
+        model.load("s-1")
+        advanceUntilIdle()
+
+        model.choosePurpose("monthly")
+        advanceUntilIdle()
+
+        assertEquals(listOf<Pair<String?, String?>>(null to null, "monthly" to null), fake.previews)
+        val loaded = assertIs<ReviewUiState.Loaded>(model.state.value)
+        assertEquals("monthly", loaded.preview)
+        assertNull(loaded.purpose.applied)
+        assertTrue(loaded.purpose.changed)
+        // The comparison is the server's for the new purpose.
+        assertEquals(Comparison.SHORT, loaded.card.comparison)
+        assertTrue(fake.approvals.isEmpty())
+    }
+
+    @Test
+    fun `approving after a preview applies the payment there`() = runTest(dispatcher) {
+        val fake = Fake(AuthResult.Ok(review().copy(extraFeeOptions = listOf(examFee))))
+        fake.previewed = forExam(total = "2000.00").copy(requestedPurpose = "monthly", requestedExtraFee = null)
+        val model = PaymentReviewViewModel(fake)
+        model.load("s-1")
+        advanceUntilIdle()
+
+        model.choosePurpose("f-1")
+        advanceUntilIdle()
+        model.approve()
+        advanceUntilIdle()
+
+        assertEquals("extra" to "f-1", fake.previews.last())
+        val body = fake.approvals.single()
+        assertEquals("extra", body.purpose)
+        assertEquals("f-1", body.extraFeeId)
+    }
+
+    @Test
+    fun `moving a fee payment to the monthly fee sends monthly and no fee`() = runTest(dispatcher) {
+        val fake = Fake(AuthResult.Ok(forExam()))
+        fake.previewed = review(total = "500.00", owedTogether = "500.00")
+        val model = PaymentReviewViewModel(fake)
+        model.load("s-1")
+        advanceUntilIdle()
+
+        model.choosePurpose("monthly")
+        advanceUntilIdle()
+        model.approve()
+        advanceUntilIdle()
+
+        assertEquals("monthly", fake.approvals.single().purpose)
+        assertNull(fake.approvals.single().extraFeeId)
+    }
+
+    @Test
+    fun `approving as stored sends no purpose`() = runTest(dispatcher) {
+        val fake = Fake(AuthResult.Ok(forExam()))
+        val model = PaymentReviewViewModel(fake)
+        model.load("s-1")
+        advanceUntilIdle()
+
+        model.approve()
+        advanceUntilIdle()
+
+        assertNull(fake.approvals.single().purpose)
+        assertNull(fake.approvals.single().extraFeeId)
+    }
+
+    @Test
+    fun `the current purpose and a fee not offered are not previewed`() = runTest(dispatcher) {
+        val fake = Fake(AuthResult.Ok(forExam()))
+        val model = PaymentReviewViewModel(fake)
+        model.load("s-1")
+        advanceUntilIdle()
+
+        model.choosePurpose("f-1")
+        model.choosePurpose("f-unknown")
+        advanceUntilIdle()
+
+        assertEquals(1, fake.reads)
+    }
+
+    @Test
+    fun `a preview that cannot be read keeps the payment and says why`() = runTest(dispatcher) {
+        val fake = Fake(AuthResult.Ok(forExam()))
+        val model = PaymentReviewViewModel(fake)
+        model.load("s-1")
+        advanceUntilIdle()
+        fake.detail = AuthResult.TransportFailure
+
+        model.choosePurpose("monthly")
+        advanceUntilIdle()
+
+        val loaded = assertIs<ReviewUiState.Loaded>(model.state.value)
+        assertEquals("error.network.unreachable", loaded.errorKey)
+        assertFalse(loaded.busy)
+        assertNull(loaded.preview)
+        assertEquals("f-1", loaded.purpose.applied?.extraFeeId)
+    }
+
 }

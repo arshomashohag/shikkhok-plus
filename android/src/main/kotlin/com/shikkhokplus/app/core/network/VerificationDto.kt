@@ -95,6 +95,12 @@ data class DuplicatePaymentDto(
  * @property decisionNote The teacher's note on the decision
  * @property decidedAt When it was decided
  * @property duplicateOf The earlier payment quoting the same reference
+ * @property purpose What the payment is applied to: `monthly` or `extra`;
+ *   while previewing, what it would be applied to
+ * @property extraFee The fee it is applied to, with `extra`
+ * @property requestedPurpose What the family said it was for
+ * @property requestedExtraFee The fee the family chose, with `extra`
+ * @property extraFeeOptions The fees the teacher may apply it to instead
  */
 @Serializable
 data class PaymentReviewDto(
@@ -117,7 +123,18 @@ data class PaymentReviewDto(
     @SerialName("decision_note") val decisionNote: String? = null,
     @SerialName("decided_at") val decidedAt: String? = null,
     @SerialName("duplicate_of") val duplicateOf: DuplicatePaymentDto? = null,
+    @SerialName("purpose") val purpose: String = MONTHLY_PURPOSE,
+    @SerialName("extra_fee") val extraFee: ExtraFeeRefDto? = null,
+    @SerialName("requested_purpose") val requestedPurpose: String = MONTHLY_PURPOSE,
+    @SerialName("requested_extra_fee") val requestedExtraFee: ExtraFeeRefDto? = null,
+    @SerialName("extra_fee_options") val extraFeeOptions: List<ExtraFeeRefDto> = emptyList(),
 )
+
+/** The purpose the server assumes when a payment names none. */
+const val MONTHLY_PURPOSE: String = "monthly"
+
+/** The purpose of a payment for one exam or other fee. */
+const val EXTRA_PURPOSE: String = "extra"
 
 /**
  * A payment decided in the last day.
@@ -163,6 +180,9 @@ data class VerificationQueueDto(
  * @property creditToEnrollmentId The child who gets an excess as credit
  * @property note Shown to the family with the decision
  * @property correcting True when revising a decided payment
+ * @property purpose `monthly` or `extra` when the teacher applies the
+ *   payment to something other than what is stored; omitted otherwise
+ * @property extraFeeId The fee, alongside `extra`
  */
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
@@ -173,6 +193,8 @@ data class PaymentApprovalBodyDto(
     @EncodeDefault @SerialName("credit_to_enrollment_id") val creditToEnrollmentId: String? = null,
     @EncodeDefault @SerialName("note") val note: String? = null,
     @EncodeDefault @SerialName("correcting") val correcting: Boolean = false,
+    @SerialName("purpose") val purpose: String? = null,
+    @SerialName("extra_fee_id") val extraFeeId: String? = null,
 )
 
 /**

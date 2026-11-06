@@ -18,12 +18,22 @@ interface VerifyRepository {
 /** What reviewing one payment needs from the server (R2 to R4). */
 interface PaymentReviewRepository {
     /**
-     * Read one payment.
+     * Read one payment, optionally measured against another purpose.
+     *
+     * A preview writes nothing: the server answers with the payment as
+     * it would read if applied to [purpose], so the comparison and the
+     * difference stay the server's.
      *
      * @param submissionId The payment
+     * @param purpose `monthly` or `extra` to preview, or null for as stored
+     * @param extraFeeId The fee to preview against, with `extra`
      * @return The payment, a refusal, or a transport failure
      */
-    suspend fun detail(submissionId: String): AuthResult<PaymentReviewDto>
+    suspend fun detail(
+        submissionId: String,
+        purpose: String? = null,
+        extraFeeId: String? = null,
+    ): AuthResult<PaymentReviewDto>
 
     /**
      * Approve a payment with what was received.

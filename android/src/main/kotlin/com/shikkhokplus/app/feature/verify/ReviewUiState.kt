@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.feature.verify
 
+import com.shikkhokplus.app.core.network.ExtraFeeRefDto
 import com.shikkhokplus.app.core.model.Money
 
 /** How the amount in the approval sheet stands against what is owed. */
@@ -74,6 +75,33 @@ data class ApprovalSheet(
                 (!needsChild || childId != null)
 }
 
+/**
+ * What a payment is for, as the server reports it.
+ *
+ * Null means the monthly fee throughout. While the teacher previews
+ * another purpose, [applied] is the previewed one: the server measured
+ * the payment against it.
+ *
+ * @property applied The fee it is applied to, or null for monthly
+ * @property requested The fee the family chose, or null for monthly
+ * @property options The fees the teacher may apply it to instead
+ */
+data class PaymentPurposeView(
+    val applied: ExtraFeeRefDto? = null,
+    val requested: ExtraFeeRefDto? = null,
+    val options: List<ExtraFeeRefDto> = emptyList(),
+) {
+    /** Every fee the choice lists: the options, and the applied and chosen ones. */
+    val fees: List<ExtraFeeRefDto>
+        get() = (options + listOfNotNull(requested, applied)).distinctBy { it.extraFeeId }
+
+    /** Whether there is anything to choose between, or to say. */
+    val shown: Boolean get() = fees.isNotEmpty()
+
+    /** Whether it is applied to something other than what the family chose. */
+    val changed: Boolean get() = applied?.extraFeeId != requested?.extraFeeId
+}
+
 /** Everything R2 and R3 render. */
 sealed interface ReviewUiState {
     /** The payment is loading. */
@@ -86,12 +114,17 @@ sealed interface ReviewUiState {
      * @property busy Whether a decision is being sent
      * @property errorKey A refused or failed write's message key
      * @property correcting True once the teacher chose to change a decision
+     * @property purpose What the payment is for
+     * @property preview `monthly` or a fee id while the teacher tries
+     *   another purpose; null while it reads as stored
      */
     data class Loaded(
         val card: ReviewCard,
         val busy: Boolean = false,
         val errorKey: String? = null,
         val correcting: Boolean = false,
+        val purpose: PaymentPurposeView = PaymentPurposeView(),
+        val preview: String? = null,
     ) : ReviewUiState {
         /** Whether Approve and Reject are offered. */
         val canDecide: Boolean get() = card.status == ReviewStatus.PENDING || correcting
