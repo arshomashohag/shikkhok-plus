@@ -213,6 +213,13 @@ NON_MONEY_FIELDS: Final[dict[tuple[str, str], str]] = {
     ("ExamBlock", "total_marks"): (
         "The same count on an inbox item's exam detail, not money."
     ),
+    ("SalaryPaymentRequest", "paid_on"): (
+        "The DATE a salary payment was made [P1], not an amount. Matches "
+        "'paid'. The amount beside it is the Money component."
+    ),
+    ("SalaryPaymentResponse", "paid_on"): (
+        "The same date on a payment read back, not money."
+    ),
     ("MyExamResponse", "total_marks"): (
         "The same count on an examiner's own exam list and results [C4], not money."
     ),

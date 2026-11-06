@@ -347,6 +347,26 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
             "only what the centre itself entered."
         ),
     ),
+    "salary_line": TableGovernance(
+        disposition=Disposition.RETAIN_WITH_BASIS,
+        retention=RetentionClass.LIFE_OF_ACCOUNT,
+        basis=(
+            "A coaching centre's payroll record: one line per staff member "
+            "per month with the pay basis, the rate, the classes held and "
+            "the approved salary. Kept as a financial record of what the "
+            "centre owed and paid. Only the centre's managers and the "
+            "person it pays can read it."
+        ),
+    ),
+    "salary_adjustment": TableGovernance(
+        disposition=Disposition.RETAIN_WITH_BASIS,
+        retention=RetentionClass.LIFE_OF_ACCOUNT,
+        basis=(
+            "A named addition or deduction on a salary line, such as a "
+            "bonus or an advance recovered: part of the same payroll "
+            "record, kept with it."
+        ),
+    ),
     "room": TableGovernance(
         disposition=Disposition.NOT_PERSONAL,
         retention=RetentionClass.LIFE_OF_ACCOUNT,

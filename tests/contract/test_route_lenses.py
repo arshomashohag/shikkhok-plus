@@ -168,6 +168,7 @@ def test_lens_exempt_set_holds_exactly_the_known_routes() -> None:
             # resolve a ClassTeacherLens [C4].
             ("GET", "/v1/me/classes"),
             ("GET", "/v1/me/exams"),
+            ("GET", "/v1/me/pay"),
         }
     )
 

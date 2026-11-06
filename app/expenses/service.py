@@ -57,6 +57,8 @@ class ExpenseDraft:
     :ivar batch_id: The batch it was for, if any
     :ivar extra_fee_id: The exam or other fee it was for, if any
     :ivar client_mutation_id: The app's retry key, if sent
+    :ivar salary_line_id: The salary line this pays [0026], if any; set
+        only by the payroll module, never from the expense form
     """
 
     category: str
@@ -68,6 +70,7 @@ class ExpenseDraft:
     batch_id: uuid.UUID | None = None
     extra_fee_id: uuid.UUID | None = None
     client_mutation_id: uuid.UUID | None = None
+    salary_line_id: uuid.UUID | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -259,6 +262,7 @@ def record_expense(
             recorded_by_account_id=lens.account_id,
             client_mutation_id=draft.client_mutation_id,
             created_at=dt.datetime.now(tz=dt.UTC),
+            salary_line_id=draft.salary_line_id,
         )
         .on_conflict_do_nothing(constraint=REPLAY_CONSTRAINT)
         .returning(Expense.id)

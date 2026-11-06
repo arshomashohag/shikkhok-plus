@@ -32,6 +32,7 @@ export function tabsFor(lens: Lens | null): Tab[] {
       return [
         { to: '/my-classes', label: 'nav_my_classes', icon: 'layers' },
         { to: '/my-exams', label: 'nav_my_exams', icon: 'verify' },
+        { to: '/my-pay', label: 'nav_my_pay', icon: 'wallet' },
         more,
       ]
     case 'student':

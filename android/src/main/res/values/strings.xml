@@ -1435,6 +1435,37 @@
     <string name="family_extra_fees_title">Exam &amp; other fees</string>
     <string name="family_extra_fee_line">%1$s · due %2$s</string>
 
+    <!-- Payroll [P1] -->
+    <string name="payroll_title">Payroll</string>
+    <string name="payroll_sub">Salaries by month: draw, adjust, approve, pay</string>
+    <string name="payroll_draw">Draw this month\'s salaries</string>
+    <string name="payroll_empty">No salaries for this month yet. Draw them from the staff records.</string>
+    <string name="payroll_basis_monthly">Monthly %1$s</string>
+    <string name="payroll_basis_per_class">%1$s classes × %2$s</string>
+    <string name="payroll_owed">Owed %1$s</string>
+    <string name="payroll_paid_remaining">Paid %1$s · left %2$s</string>
+    <string name="payroll_status_draft">Draft</string>
+    <string name="payroll_status_approved">Approved</string>
+    <string name="payroll_approve">Approve</string>
+    <string name="payroll_adjust">Bonus or deduction</string>
+    <string name="payroll_addition">Bonus or addition</string>
+    <string name="payroll_deduction">Deduction</string>
+    <string name="payroll_label">What it is for</string>
+    <string name="payroll_amount">Amount</string>
+    <string name="payroll_pay">Pay</string>
+    <string name="payroll_pay_title">Record a salary payment</string>
+    <string name="payroll_paid_on">Paid on</string>
+    <string name="payroll_note">Note (optional)</string>
+    <string name="payroll_remove">Remove</string>
+    <string name="nav_my_pay">My pay</string>
+    <string name="my_pay_title">My pay</string>
+    <string name="my_pay_empty">No approved salary yet.</string>
+    <string name="payroll_approved">This salary is approved and can no longer be changed.</string>
+    <string name="payroll_below_zero">Deductions can\'t be more than the salary.</string>
+    <string name="payroll_not_approved">Approve this salary before paying it.</string>
+    <string name="payroll_overpaid">This is more than the salary still owed.</string>
+    <string name="payroll_amount_not_positive">Enter an amount greater than zero.</string>
+
     <!-- Centre teachers [C4] -->
     <string name="examiner_label">Examiner</string>
     <string name="examiner_default">Batch teacher</string>

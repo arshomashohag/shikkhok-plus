@@ -1380,6 +1380,37 @@
     <string name="family_extra_fees_title">পরীক্ষা ও অন্যান্য ফি</string>
     <string name="family_extra_fee_line">%1$s · শেষ তারিখ %2$s</string>
 
+    <!-- Payroll [P1] -->
+    <string name="payroll_title">বেতন</string>
+    <string name="payroll_sub">মাসভিত্তিক বেতন: তৈরি, সমন্বয়, অনুমোদন, পরিশোধ</string>
+    <string name="payroll_draw">এই মাসের বেতন তৈরি করুন</string>
+    <string name="payroll_empty">এই মাসের জন্য এখনো কোনো বেতন নেই। কর্মীদের তথ্য থেকে তৈরি করুন।</string>
+    <string name="payroll_basis_monthly">মাসিক %1$s</string>
+    <string name="payroll_basis_per_class">%1$s টি ক্লাস × %2$s</string>
+    <string name="payroll_owed">প্রাপ্য %1$s</string>
+    <string name="payroll_paid_remaining">পরিশোধিত %1$s · বাকি %2$s</string>
+    <string name="payroll_status_draft">খসড়া</string>
+    <string name="payroll_status_approved">অনুমোদিত</string>
+    <string name="payroll_approve">অনুমোদন করুন</string>
+    <string name="payroll_adjust">বোনাস বা কর্তন</string>
+    <string name="payroll_addition">বোনাস বা যোগ</string>
+    <string name="payroll_deduction">কর্তন</string>
+    <string name="payroll_label">কী জন্য</string>
+    <string name="payroll_amount">পরিমাণ</string>
+    <string name="payroll_pay">পরিশোধ করুন</string>
+    <string name="payroll_pay_title">বেতন পরিশোধ লিখুন</string>
+    <string name="payroll_paid_on">পরিশোধের তারিখ</string>
+    <string name="payroll_note">নোট (ঐচ্ছিক)</string>
+    <string name="payroll_remove">মুছুন</string>
+    <string name="nav_my_pay">আমার বেতন</string>
+    <string name="my_pay_title">আমার বেতন</string>
+    <string name="my_pay_empty">এখনো কোনো অনুমোদিত বেতন নেই।</string>
+    <string name="payroll_approved">এই বেতন অনুমোদিত হয়েছে, আর বদলানো যাবে না।</string>
+    <string name="payroll_below_zero">কর্তন বেতনের চেয়ে বেশি হতে পারে না।</string>
+    <string name="payroll_not_approved">বেতন দেওয়ার আগে অনুমোদন করুন।</string>
+    <string name="payroll_overpaid">এটি বাকি বেতনের চেয়ে বেশি।</string>
+    <string name="payroll_amount_not_positive">শূন্যের চেয়ে বেশি পরিমাণ লিখুন।</string>
+
     <!-- Centre teachers [C4] -->
     <string name="examiner_label">পরীক্ষক</string>
     <string name="examiner_default">ব্যাচের শিক্ষক</string>

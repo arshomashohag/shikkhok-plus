@@ -786,6 +786,159 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/v1/centre/payroll/lines/{line_id}/adjustments': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Add Adjustment
+     * @description Add a named addition or deduction to a draft line.
+     *
+     *     :param line_id: The line
+     *     :param body: The kind, label and amount
+     *     :param lens: The manager's lens on the centre
+     *     :param session: The request-scoped session
+     *     :return: The line, refolded
+     */
+    post: operations['add_adjustment_v1_centre_payroll_lines__line_id__adjustments_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/centre/payroll/lines/{line_id}/adjustments/{adjustment_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /**
+     * Remove Adjustment
+     * @description Remove an adjustment from a draft line.
+     *
+     *     :param line_id: The line
+     *     :param adjustment_id: The adjustment
+     *     :param lens: The manager's lens on the centre
+     *     :param session: The request-scoped session
+     *     :return: The line, refolded
+     */
+    delete: operations['remove_adjustment_v1_centre_payroll_lines__line_id__adjustments__adjustment_id__delete']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/centre/payroll/lines/{line_id}/approve': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Approve Line
+     * @description Approve a draft line, freezing its class count and base.
+     *
+     *     :param line_id: The line
+     *     :param lens: The manager's lens on the centre
+     *     :param session: The request-scoped session
+     *     :return: The line, frozen
+     */
+    post: operations['approve_line_v1_centre_payroll_lines__line_id__approve_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/centre/payroll/lines/{line_id}/payments': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Pay Line
+     * @description Record a payment against an approved line, as a salary expense.
+     *
+     *     :param line_id: The line
+     *     :param body: The amount, the date, the retry key and a note
+     *     :param lens: The manager's lens on the centre
+     *     :param session: The request-scoped session
+     *     :return: The line, with the payment counted
+     */
+    post: operations['pay_line_v1_centre_payroll_lines__line_id__payments_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/centre/payroll/{period}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Read Month
+     * @description List a month's salary lines.
+     *
+     *     :param period: The month
+     *     :param lens: The manager's lens on the centre
+     *     :param session: The request-scoped session
+     *     :return: The lines, by name
+     */
+    get: operations['read_month_v1_centre_payroll__period__get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/centre/payroll/{period}/lines': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Draw Month
+     * @description Draw the month's lines for every paid staff member, once.
+     *
+     *     :param period: The month
+     *     :param lens: The manager's lens on the centre
+     *     :param session: The request-scoped session
+     *     :return: Every line the month has
+     */
+    post: operations['draw_month_v1_centre_payroll__period__lines_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/v1/centre/rooms': {
     parameters: {
       query?: never
@@ -2702,6 +2855,30 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/v1/me/pay': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Read My Pay
+     * @description List my approved salary lines at every centre, newest month first.
+     *
+     *     :param account_id: The authenticated account
+     *     :param session: The request-scoped session
+     *     :return: My lines, with their adjustments and payments
+     */
+    get: operations['read_my_pay_v1_me_pay_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/v1/me/payables': {
     parameters: {
       query?: never
@@ -3425,6 +3602,48 @@ export interface components {
     AddStudentsResponse: {
       /** Added */
       added: number
+    }
+    /**
+     * AdjustmentRequest
+     * @description Add a named addition or deduction to a draft line.
+     *
+     *     :ivar kind: ``addition`` or ``deduction``
+     *     :ivar label: What it is for
+     *     :ivar amount: How much, above zero; the kind carries the sign
+     */
+    AdjustmentRequest: {
+      amount: components['schemas']['Money']
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: 'addition' | 'deduction'
+      /** Label */
+      label: string
+    }
+    /**
+     * AdjustmentResponse
+     * @description One adjustment on a line.
+     *
+     *     :ivar adjustment_id: The adjustment
+     *     :ivar kind: ``addition`` or ``deduction``
+     *     :ivar label: What it is for
+     *     :ivar amount: How much
+     */
+    AdjustmentResponse: {
+      /**
+       * Adjustment Id
+       * Format: uuid
+       */
+      adjustment_id: string
+      amount: components['schemas']['Money']
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: 'addition' | 'deduction'
+      /** Label */
+      label: string
     }
     /**
      * AlreadyAddedResponse
@@ -7361,6 +7580,107 @@ export interface components {
       present?: boolean | null
     }
     /**
+     * SalaryLineResponse
+     * @description One salary line, every figure the server's.
+     *
+     *     :ivar line_id: The line
+     *     :ivar staff_id: The person
+     *     :ivar staff_name: The name the centre typed
+     *     :ivar centre_name: The centre
+     *     :ivar period: ``YYYY-MM``
+     *     :ivar basis: ``monthly`` or ``per_class``
+     *     :ivar rate: The salary or the rate per class
+     *     :ivar classes_held: Classes held; live for a draft, frozen once approved
+     *     :ivar base: The base; live for a draft, frozen once approved
+     *     :ivar owed: Base plus additions less deductions
+     *     :ivar paid: Everything paid against it
+     *     :ivar remaining: What is still owed
+     *     :ivar status: ``draft`` or ``approved``
+     *     :ivar adjustments: Its adjustments
+     *     :ivar payments: Its standing payments
+     */
+    SalaryLineResponse: {
+      /** Adjustments */
+      adjustments: components['schemas']['AdjustmentResponse'][]
+      base: components['schemas']['Money']
+      /**
+       * Basis
+       * @enum {string}
+       */
+      basis: 'monthly' | 'per_class'
+      /** Centre Name */
+      centre_name: string
+      /** Classes Held */
+      classes_held: number
+      /**
+       * Line Id
+       * Format: uuid
+       */
+      line_id: string
+      owed: components['schemas']['Money']
+      paid: components['schemas']['Money']
+      /** Payments */
+      payments: components['schemas']['SalaryPaymentResponse'][]
+      /** Period */
+      period: string
+      rate: components['schemas']['Money']
+      remaining: components['schemas']['Money']
+      /**
+       * Staff Id
+       * Format: uuid
+       */
+      staff_id: string
+      /** Staff Name */
+      staff_name: string
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: 'approved' | 'draft'
+    }
+    /**
+     * SalaryPaymentRequest
+     * @description Record a payment against an approved line.
+     *
+     *     :ivar amount: How much, above zero
+     *     :ivar paid_on: When; today when omitted
+     *     :ivar client_mutation_id: The retry key, so a resend pays once
+     *     :ivar note: A receipt number or note
+     */
+    SalaryPaymentRequest: {
+      amount: components['schemas']['Money']
+      /**
+       * Client Mutation Id
+       * Format: uuid
+       */
+      client_mutation_id: string
+      /** Note */
+      note?: string | null
+      /** Paid On */
+      paid_on?: string | null
+    }
+    /**
+     * SalaryPaymentResponse
+     * @description One standing payment against a line.
+     *
+     *     :ivar expense_id: The expense that records it
+     *     :ivar amount: How much
+     *     :ivar paid_on: When
+     */
+    SalaryPaymentResponse: {
+      amount: components['schemas']['Money']
+      /**
+       * Expense Id
+       * Format: uuid
+       */
+      expense_id: string
+      /**
+       * Paid On
+       * Format: date
+       */
+      paid_on: string
+    }
+    /**
      * ScheduleRequest
      * @description A batch's complete weekly schedule, replacing the old one.
      *
@@ -10156,6 +10476,417 @@ export interface operations {
         }
       }
       /** @description Valid request; current state forbids it. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  add_adjustment_v1_centre_payroll_lines__line_id__adjustments_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        line_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AdjustmentRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SalaryLineResponse']
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; the line's state forbids it. Refetch, decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  remove_adjustment_v1_centre_payroll_lines__line_id__adjustments__adjustment_id__delete: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        line_id: string
+        adjustment_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SalaryLineResponse']
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; the line's state forbids it. Refetch, decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  approve_line_v1_centre_payroll_lines__line_id__approve_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        line_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SalaryLineResponse']
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; the line's state forbids it. Refetch, decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  pay_line_v1_centre_payroll_lines__line_id__payments_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        line_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SalaryPaymentRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SalaryLineResponse']
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; the line's state forbids it. Refetch, decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  read_month_v1_centre_payroll__period__get: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        period: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SalaryLineResponse'][]
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; the line's state forbids it. Refetch, decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  draw_month_v1_centre_payroll__period__lines_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        period: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SalaryLineResponse'][]
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; the line's state forbids it. Refetch, decide. */
       409: {
         headers: {
           [name: string]: unknown
@@ -13998,6 +14729,62 @@ export interface operations {
       }
       /** @description This account holds no teacher lens. */
       403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  read_my_pay_v1_me_pay_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SalaryLineResponse'][]
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; the line's state forbids it. Refetch, decide. */
+      409: {
         headers: {
           [name: string]: unknown
         }

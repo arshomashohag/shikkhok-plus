@@ -58,6 +58,11 @@ function parse(file) {
   const out = {}
   for (const m of xml.matchAll(/<string\s+name="([^"]+)"[^>]*>([\s\S]*?)<\/string>/g)) {
     refuseBareApostrophe(file, m[1], m[2])
+    // aapt2 fails the Android build on a name defined twice; here the
+    // second would silently overwrite the first, so refuse it instead.
+    if (Object.hasOwn(out, m[1])) {
+      throw new Error(`${file}: string "${m[1]}" is defined more than once`)
+    }
     out[m[1]] = decode(m[2])
   }
   for (const m of xml.matchAll(/<plurals\s+name="([^"]+)"[^>]*>([\s\S]*?)<\/plurals>/g)) {

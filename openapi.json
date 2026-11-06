@@ -36,6 +36,69 @@
         "title": "AddStudentsResponse",
         "type": "object"
       },
+      "AdjustmentRequest": {
+        "additionalProperties": false,
+        "description": "Add a named addition or deduction to a draft line.\n\n:ivar kind: ``addition`` or ``deduction``\n:ivar label: What it is for\n:ivar amount: How much, above zero; the kind carries the sign",
+        "properties": {
+          "amount": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "kind": {
+            "enum": [
+              "addition",
+              "deduction"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "amount",
+          "kind",
+          "label"
+        ],
+        "title": "AdjustmentRequest",
+        "type": "object"
+      },
+      "AdjustmentResponse": {
+        "description": "One adjustment on a line.\n\n:ivar adjustment_id: The adjustment\n:ivar kind: ``addition`` or ``deduction``\n:ivar label: What it is for\n:ivar amount: How much",
+        "properties": {
+          "adjustment_id": {
+            "format": "uuid",
+            "title": "Adjustment Id",
+            "type": "string"
+          },
+          "amount": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "kind": {
+            "enum": [
+              "addition",
+              "deduction"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "adjustment_id",
+          "amount",
+          "kind",
+          "label"
+        ],
+        "title": "AdjustmentResponse",
+        "type": "object"
+      },
       "AlreadyAddedResponse": {
         "additionalProperties": false,
         "description": "What the lookup may say about a number [BR2.3, BR4.5].\n\n**Three fields, and the absences are the requirement.** No teacher\nname, no teacher id, no batch name, no batch subject, no fee, no\nenrollment id. With any of those this becomes an oracle for who\nteaches whom, readable by anyone who can type a phone number\n[AC1.12.2].\n\n:ivar already_added: Whether a teacher recorded this number\n:ivar display_name: The teacher-typed name to pre-fill as\n    correctable, or None\n:ivar role: The role to lock the form to, or None",
@@ -7071,6 +7134,170 @@
         "title": "RosterSeatResponse",
         "type": "object"
       },
+      "SalaryLineResponse": {
+        "description": "One salary line, every figure the server's.\n\n:ivar line_id: The line\n:ivar staff_id: The person\n:ivar staff_name: The name the centre typed\n:ivar centre_name: The centre\n:ivar period: ``YYYY-MM``\n:ivar basis: ``monthly`` or ``per_class``\n:ivar rate: The salary or the rate per class\n:ivar classes_held: Classes held; live for a draft, frozen once approved\n:ivar base: The base; live for a draft, frozen once approved\n:ivar owed: Base plus additions less deductions\n:ivar paid: Everything paid against it\n:ivar remaining: What is still owed\n:ivar status: ``draft`` or ``approved``\n:ivar adjustments: Its adjustments\n:ivar payments: Its standing payments",
+        "properties": {
+          "adjustments": {
+            "items": {
+              "$ref": "#/components/schemas/AdjustmentResponse"
+            },
+            "title": "Adjustments",
+            "type": "array"
+          },
+          "base": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "basis": {
+            "enum": [
+              "monthly",
+              "per_class"
+            ],
+            "title": "Basis",
+            "type": "string"
+          },
+          "centre_name": {
+            "title": "Centre Name",
+            "type": "string"
+          },
+          "classes_held": {
+            "title": "Classes Held",
+            "type": "integer"
+          },
+          "line_id": {
+            "format": "uuid",
+            "title": "Line Id",
+            "type": "string"
+          },
+          "owed": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "paid": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "payments": {
+            "items": {
+              "$ref": "#/components/schemas/SalaryPaymentResponse"
+            },
+            "title": "Payments",
+            "type": "array"
+          },
+          "period": {
+            "title": "Period",
+            "type": "string"
+          },
+          "rate": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "remaining": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "staff_id": {
+            "format": "uuid",
+            "title": "Staff Id",
+            "type": "string"
+          },
+          "staff_name": {
+            "title": "Staff Name",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "approved",
+              "draft"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "adjustments",
+          "base",
+          "basis",
+          "centre_name",
+          "classes_held",
+          "line_id",
+          "owed",
+          "paid",
+          "payments",
+          "period",
+          "rate",
+          "remaining",
+          "staff_id",
+          "staff_name",
+          "status"
+        ],
+        "title": "SalaryLineResponse",
+        "type": "object"
+      },
+      "SalaryPaymentRequest": {
+        "additionalProperties": false,
+        "description": "Record a payment against an approved line.\n\n:ivar amount: How much, above zero\n:ivar paid_on: When; today when omitted\n:ivar client_mutation_id: The retry key, so a resend pays once\n:ivar note: A receipt number or note",
+        "properties": {
+          "amount": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "client_mutation_id": {
+            "format": "uuid",
+            "title": "Client Mutation Id",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "paid_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paid On"
+          }
+        },
+        "required": [
+          "amount",
+          "client_mutation_id"
+        ],
+        "title": "SalaryPaymentRequest",
+        "type": "object"
+      },
+      "SalaryPaymentResponse": {
+        "description": "One standing payment against a line.\n\n:ivar expense_id: The expense that records it\n:ivar amount: How much\n:ivar paid_on: When",
+        "properties": {
+          "amount": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "expense_id": {
+            "format": "uuid",
+            "title": "Expense Id",
+            "type": "string"
+          },
+          "paid_on": {
+            "format": "date",
+            "title": "Paid On",
+            "type": "string"
+          }
+        },
+        "required": [
+          "amount",
+          "expense_id",
+          "paid_on"
+        ],
+        "title": "SalaryPaymentResponse",
+        "type": "object"
+      },
       "ScheduleRequest": {
         "additionalProperties": false,
         "description": "A batch's complete weekly schedule, replacing the old one.\n\n:ivar slots: Every weekly class; empty clears the schedule",
@@ -11580,6 +11807,548 @@
         "summary": "Revoke Centre Member",
         "tags": [
           "centres"
+        ]
+      }
+    },
+    "/v1/centre/payroll/lines/{line_id}/adjustments": {
+      "post": {
+        "description": "Add a named addition or deduction to a draft line.\n\n:param line_id: The line\n:param body: The kind, label and amount\n:param lens: The manager's lens on the centre\n:param session: The request-scoped session\n:return: The line, refolded",
+        "operationId": "add_adjustment_v1_centre_payroll_lines__line_id__adjustments_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "line_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Line Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdjustmentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SalaryLineResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; the line's state forbids it. Refetch, decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Adjustment",
+        "tags": [
+          "payroll"
+        ]
+      }
+    },
+    "/v1/centre/payroll/lines/{line_id}/adjustments/{adjustment_id}": {
+      "delete": {
+        "description": "Remove an adjustment from a draft line.\n\n:param line_id: The line\n:param adjustment_id: The adjustment\n:param lens: The manager's lens on the centre\n:param session: The request-scoped session\n:return: The line, refolded",
+        "operationId": "remove_adjustment_v1_centre_payroll_lines__line_id__adjustments__adjustment_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "line_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Line Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "adjustment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Adjustment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SalaryLineResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; the line's state forbids it. Refetch, decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Adjustment",
+        "tags": [
+          "payroll"
+        ]
+      }
+    },
+    "/v1/centre/payroll/lines/{line_id}/approve": {
+      "post": {
+        "description": "Approve a draft line, freezing its class count and base.\n\n:param line_id: The line\n:param lens: The manager's lens on the centre\n:param session: The request-scoped session\n:return: The line, frozen",
+        "operationId": "approve_line_v1_centre_payroll_lines__line_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "line_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Line Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SalaryLineResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; the line's state forbids it. Refetch, decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve Line",
+        "tags": [
+          "payroll"
+        ]
+      }
+    },
+    "/v1/centre/payroll/lines/{line_id}/payments": {
+      "post": {
+        "description": "Record a payment against an approved line, as a salary expense.\n\n:param line_id: The line\n:param body: The amount, the date, the retry key and a note\n:param lens: The manager's lens on the centre\n:param session: The request-scoped session\n:return: The line, with the payment counted",
+        "operationId": "pay_line_v1_centre_payroll_lines__line_id__payments_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "line_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Line Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SalaryPaymentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SalaryLineResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; the line's state forbids it. Refetch, decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Pay Line",
+        "tags": [
+          "payroll"
+        ]
+      }
+    },
+    "/v1/centre/payroll/{period}": {
+      "get": {
+        "description": "List a month's salary lines.\n\n:param period: The month\n:param lens: The manager's lens on the centre\n:param session: The request-scoped session\n:return: The lines, by name",
+        "operationId": "read_month_v1_centre_payroll__period__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "period",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
+              "title": "Period",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SalaryLineResponse"
+                  },
+                  "title": "Response Read Month V1 Centre Payroll  Period  Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; the line's state forbids it. Refetch, decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Month",
+        "tags": [
+          "payroll"
+        ]
+      }
+    },
+    "/v1/centre/payroll/{period}/lines": {
+      "post": {
+        "description": "Draw the month's lines for every paid staff member, once.\n\n:param period: The month\n:param lens: The manager's lens on the centre\n:param session: The request-scoped session\n:return: Every line the month has",
+        "operationId": "draw_month_v1_centre_payroll__period__lines_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "period",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$",
+              "title": "Period",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SalaryLineResponse"
+                  },
+                  "title": "Response Draw Month V1 Centre Payroll  Period  Lines Post",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; the line's state forbids it. Refetch, decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Draw Month",
+        "tags": [
+          "payroll"
         ]
       }
     },
@@ -16632,6 +17401,72 @@
         "summary": "Read Overview",
         "tags": [
           "analytics"
+        ]
+      }
+    },
+    "/v1/me/pay": {
+      "get": {
+        "description": "List my approved salary lines at every centre, newest month first.\n\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:return: My lines, with their adjustments and payments",
+        "operationId": "read_my_pay_v1_me_pay_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SalaryLineResponse"
+                  },
+                  "title": "Response Read My Pay V1 Me Pay Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; the line's state forbids it. Refetch, decide."
+          }
+        },
+        "summary": "Read My Pay",
+        "tags": [
+          "payroll"
         ]
       }
     },

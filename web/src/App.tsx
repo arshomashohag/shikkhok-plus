@@ -24,6 +24,7 @@ import { Invitations } from './features/account/Invitations'
 import { ClassScreen } from './features/classTeacher/ClassScreen'
 import { MyClasses } from './features/classTeacher/MyClasses'
 import { MyExamMarks, MyExams } from './features/classTeacher/MyExams'
+import { MyPay } from './features/classTeacher/MyPay'
 import { LensPicker } from './features/account/LensPicker'
 import { More } from './features/account/More'
 import { Settings } from './features/account/Settings'
@@ -191,6 +192,14 @@ export function App() {
           element={
             <Only lens="class_teacher" current={lens}>
               <MyExamMarks />
+            </Only>
+          }
+        />
+        <Route
+          path="/my-pay"
+          element={
+            <Only lens="class_teacher" current={lens}>
+              <MyPay />
             </Only>
           }
         />

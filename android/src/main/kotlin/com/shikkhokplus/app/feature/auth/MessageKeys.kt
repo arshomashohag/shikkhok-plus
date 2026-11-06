@@ -139,6 +139,16 @@ object MessageKeys {
             R.string.staff_pay_rate_not_allowed,
         "staff.pay.rate_required" to
             R.string.staff_pay_rate_required,
+        "payroll.approved" to
+            R.string.payroll_approved,
+        "payroll.below_zero" to
+            R.string.payroll_below_zero,
+        "payroll.not_approved" to
+            R.string.payroll_not_approved,
+        "payroll.overpaid" to
+            R.string.payroll_overpaid,
+        "payroll.amount_not_positive" to
+            R.string.payroll_amount_not_positive,
         "exam.reassigned" to
             R.string.exam_reassigned,
         "class.reassigned" to

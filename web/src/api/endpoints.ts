@@ -120,6 +120,37 @@ export const writeMyExamMark = (examId: string, body: Schemas['MarkWriteRequest'
 export const publishMyExam = (examId: string) =>
   request<undefined>('POST', `/v1/me/exams/${enc(examId)}/publish`)
 
+export const readPayroll = (period: string) =>
+  request<Schemas['SalaryLineResponse'][]>('GET', `/v1/centre/payroll/${enc(period)}`)
+
+export const drawPayroll = (period: string) =>
+  request<Schemas['SalaryLineResponse'][]>('POST', `/v1/centre/payroll/${enc(period)}/lines`)
+
+export const addSalaryAdjustment = (lineId: string, body: Schemas['AdjustmentRequest']) =>
+  request<Schemas['SalaryLineResponse']>(
+    'POST',
+    `/v1/centre/payroll/lines/${enc(lineId)}/adjustments`,
+    { body },
+  )
+
+export const removeSalaryAdjustment = (lineId: string, adjustmentId: string) =>
+  request<Schemas['SalaryLineResponse']>(
+    'DELETE',
+    `/v1/centre/payroll/lines/${enc(lineId)}/adjustments/${enc(adjustmentId)}`,
+  )
+
+export const approveSalary = (lineId: string) =>
+  request<Schemas['SalaryLineResponse']>('POST', `/v1/centre/payroll/lines/${enc(lineId)}/approve`)
+
+export const paySalary = (lineId: string, body: Schemas['SalaryPaymentRequest']) =>
+  request<Schemas['SalaryLineResponse']>(
+    'POST',
+    `/v1/centre/payroll/lines/${enc(lineId)}/payments`,
+    { body },
+  )
+
+export const readMyPay = () => request<Schemas['SalaryLineResponse'][]>('GET', '/v1/me/pay')
+
 export const listMemberships = () =>
   request<Schemas['MembershipResponse'][]>('GET', '/v1/memberships')
 

@@ -26,6 +26,7 @@ from ._ledger import (
     relief_of,
 )
 from ._money import Money
+from ._payroll import SalaryTotals, salary_base, salary_totals
 from ._rounding import EXPONENT, MAX_INTEGER_DIGITS, ROUNDING
 from ._settlement import Settlement, settle_oldest_first
 
@@ -40,6 +41,7 @@ __all__ = [
     "LedgerEntryKind",
     "Money",
     "MoneyValidationError",
+    "SalaryTotals",
     "Settlement",
     # Exported at D3, which is the first caller. It was private only
     # because nothing outside this package had yet needed to decide how
@@ -53,5 +55,9 @@ __all__ = [
     "carry_forward",
     "derive",
     "relief_of",
+    # Exported at P1, the payroll unit: a salary's base and its owed,
+    # paid and remaining figures are computed here, never at a call site.
+    "salary_base",
+    "salary_totals",
     "settle_oldest_first",
 ]
