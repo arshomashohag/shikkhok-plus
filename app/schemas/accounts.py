@@ -29,7 +29,7 @@ from __future__ import annotations
 import uuid
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.schemas.address import CityField, HouseField, PostcodeField, RoadField
 from app.schemas.money import MoneyField
@@ -51,6 +51,11 @@ __all__ = [
 #: diff rather than a silent one.
 RoleName = Literal["teacher", "student", "guardian"]
 
+#: What sign-up accepts: the three roles, and ``coaching`` [0022], which
+#: creates a centre and makes the person its first manager. Kept apart
+#: from :data:`RoleName` because the lookup never locks a form to it.
+SignupRoleName = Literal["teacher", "student", "guardian", "coaching"]
+
 
 class SignupRequest(BaseModel):
     """Create an account for a number nobody has registered.
@@ -69,17 +74,33 @@ class SignupRequest(BaseModel):
     :ivar address_road: Road or area, required
     :ivar address_city: City or district, required
     :ivar address_postcode: Four digits, required
+    :ivar centre_name: The centre's name. Required for ``coaching`` and
+        refused for every other role
     """
 
     model_config = ConfigDict(extra="forbid")
 
     phone: PhoneField
-    role: RoleName
+    role: SignupRoleName
     self_name: str = Field(min_length=1, max_length=120)
     address_house: HouseField
     address_road: RoadField
     address_city: CityField
     address_postcode: PostcodeField
+    centre_name: str | None = Field(default=None, min_length=1, max_length=120)
+
+    @model_validator(mode="after")
+    def _centre_name_matches_role(self) -> SignupRequest:
+        """Require a centre name for ``coaching`` and refuse it otherwise.
+
+        :return: The request
+        :raises ValueError: The name is missing or blank for a centre, or
+            sent for any other role
+        """
+        named = self.centre_name is not None and self.centre_name.strip() != ""
+        if (self.role == "coaching") != named:
+            raise ValueError("centre_name is required for coaching and only for it")
+        return self
 
 
 class SignupResponse(BaseModel):

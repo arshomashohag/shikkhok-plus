@@ -159,6 +159,17 @@ LENS_EXEMPT_AUTHENTICATED: frozenset[tuple[str, str]] = frozenset(
         # authenticated account itself owns, and an account owning
         # nothing must get zeros rather than a lens refusal.
         ("GET", "/v1/me/deletion-summary"),
+        # Opening a coaching centre, added 2026-11-06 on DELETE /v1/me's
+        # reasoning: it acts on the authenticated account itself, which
+        # becomes the new centre's first manager, and an account holding
+        # no lens must still be able to open one. It reads no other
+        # account's data and takes no id from the request.
+        ("POST", "/v1/centres"),
+        # The centre offers this account holds, exempt on exactly GET
+        # /v1/invitations's reasoning: it REPORTS which membership lenses
+        # exist, and the two per-offer routes beneath it each resolve a
+        # MembershipLens.
+        ("GET", "/v1/memberships"),
     }
 )
 

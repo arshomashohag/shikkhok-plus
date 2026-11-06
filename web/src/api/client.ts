@@ -9,6 +9,7 @@
  */
 import { ApiError, errorFrom, networkError } from './errors'
 import { isFresh, readTokens, renew } from './tokens'
+import { currentWorkspace, WORKSPACE_HEADER } from './workspace'
 
 /** Empty for same-origin; otherwise the https origin of the API. */
 export const API_BASE: string = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
@@ -40,7 +41,11 @@ async function send(
 ): Promise<Response> {
   const headers: Record<string, string> = { Accept: 'application/json' }
   if (options.body !== undefined) headers['Content-Type'] = 'application/json'
-  if (token) headers.Authorization = `Bearer ${token}`
+  if (token) {
+    headers.Authorization = `Bearer ${token}`
+    const workspace = currentWorkspace()
+    if (workspace) headers[WORKSPACE_HEADER] = workspace
+  }
   try {
     return await fetch(urlFor(path, options.query), {
       method,

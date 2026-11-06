@@ -98,6 +98,12 @@ WRITE_PERMITTED: frozenset[str] = frozenset(
         # be speaking for somebody else.
         "app/accounts/service.py",
         "app/accounts/decisions.py",
+        # The third place an owner row comes from [0022]: a coaching
+        # centre, an owner with NO account, created by the Coaching
+        # sign-up and by opening a centre from an existing account. It
+        # writes `owner` only to create the centre, never an existing
+        # owner and never `enrollment`.
+        "app/centres/service.py",
     }
 )
 
@@ -279,9 +285,10 @@ def test_the_write_allowlist_has_not_grown_vacuous() -> None:
     # four, so the ban still forbids something.
     # Five since 0018: `app/students/service.py` is where a seat is now
     # created, for one of the teacher's students, and the batches module
-    # delegates to it.
-    assert len(WRITE_PERMITTED) == 5, (
-        f"WRITE_PERMITTED holds {len(WRITE_PERMITTED)} modules, not 5: "
+    # delegates to it. Six since 0022: `app/centres/service.py` creates
+    # a coaching centre, the owner with no account.
+    assert len(WRITE_PERMITTED) == 6, (
+        f"WRITE_PERMITTED holds {len(WRITE_PERMITTED)} modules, not 6: "
         f"{sorted(WRITE_PERMITTED)}. Each writes `owner` or "
         "`enrollment`, and each needs a reason that is a property of "
         "the module rather than a convenience."

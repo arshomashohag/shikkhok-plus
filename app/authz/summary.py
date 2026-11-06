@@ -68,10 +68,24 @@ _SUMMARY_QUERY = sa.text(
             WHERE account_id = :account_id
             ORDER BY created_at, id LIMIT 1
         ) AS owner_id,
+        EXISTS (
+            SELECT 1 FROM owner_member m
+            WHERE m.account_id = :account_id
+              AND m.role = 'manager'
+              AND m.decision = 'accepted'
+              AND m.revoked_at IS NULL
+        ) AS manages_a_centre,
         (
             SELECT count(*) FROM batch b
-            JOIN owner o ON o.id = b.owner_id
-            WHERE o.account_id = :account_id
+            WHERE b.owner_id IN (
+                SELECT id FROM owner WHERE account_id = :account_id
+                UNION
+                SELECT m.owner_id FROM owner_member m
+                WHERE m.account_id = :account_id
+                  AND m.role = 'manager'
+                  AND m.decision = 'accepted'
+                  AND m.revoked_at IS NULL
+            )
         ) AS teacher_batches,
         (
             SELECT count(*) FROM enrollment
@@ -139,7 +153,7 @@ def lens_summary(session: Session, account_id: uuid.UUID) -> LensSummary:
     """
     row = session.execute(_SUMMARY_QUERY, {"account_id": account_id}).one()
     return LensSummary(
-        is_teacher=row.owner_id is not None,
+        is_teacher=row.owner_id is not None or bool(row.manages_a_centre),
         teacher_batches=row.teacher_batches,
         student_enrollments=row.student_enrollments,
         guardian_children=row.guardian_children,

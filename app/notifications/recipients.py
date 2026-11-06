@@ -18,7 +18,7 @@ from dataclasses import dataclass
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
-from app.db.models import Batch, Enrollment, Owner
+from app.db.models import Batch, Enrollment, Owner, OwnerMember
 from app.local_time import bangladesh_today
 from app.notifications.inbox import deliver, mark_unread_for_source
 
@@ -29,7 +29,7 @@ __all__ = [
     "family_recipients",
     "mark_unread_for_families",
     "seat_recipients",
-    "teacher_recipient",
+    "teacher_recipients",
 ]
 
 
@@ -105,18 +105,39 @@ def seat_recipients(session: Session, *, enrollment_id: uuid.UUID) -> list[Recip
     return [] if seat is None else _recipients(seat)
 
 
-def teacher_recipient(session: Session, *, batch_id: uuid.UUID) -> uuid.UUID | None:
-    """Find the account that owns a batch.
+def teacher_recipients(session: Session, *, batch_id: uuid.UUID) -> list[uuid.UUID]:
+    """Find who acts for the owner of a batch.
+
+    A solo tutor's own account; for a coaching centre [0022], every
+    manager whose membership is accepted and unrevoked, oldest first. The
+    same predicates the lens query grants by, so a notification never
+    reaches someone who could not open it.
 
     :param session: The session to read through
     :param batch_id: The batch
-    :return: The owner's account, or None if there is none
+    :return: The accounts, possibly none
     """
-    return session.scalar(
-        sa.select(Owner.account_id)
+    solo = (
+        sa.select(Owner.account_id.label("account_id"), Owner.created_at)
         .join(Batch, Batch.owner_id == Owner.id)
-        .where(Batch.id == batch_id)
+        .where(Batch.id == batch_id, Owner.account_id.is_not(None))
     )
+    managers = (
+        sa.select(OwnerMember.account_id.label("account_id"), OwnerMember.created_at)
+        .join(Batch, Batch.owner_id == OwnerMember.owner_id)
+        .where(
+            Batch.id == batch_id,
+            OwnerMember.account_id.is_not(None),
+            OwnerMember.role == "manager",
+            OwnerMember.decision == "accepted",
+            OwnerMember.revoked_at.is_(None),
+        )
+    )
+    union = sa.union_all(solo, managers).subquery()
+    found = session.scalars(
+        sa.select(union.c.account_id).order_by(union.c.created_at)
+    ).all()
+    return [account for account in dict.fromkeys(found) if account is not None]
 
 
 def deliver_to_families(

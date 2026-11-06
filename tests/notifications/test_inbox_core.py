@@ -31,7 +31,7 @@ from app.notifications.recipients import (
     Recipient,
     family_recipients,
     seat_recipients,
-    teacher_recipient,
+    teacher_recipients,
 )
 from tests.batches.conftest import enroll, make_teacher
 
@@ -250,11 +250,10 @@ def test_teacher_recipient_is_batch_owner_account(owner_session: Session) -> Non
     """The batch's owner account is the teacher recipient."""
     teacher = make_teacher(owner_session)
 
-    assert (
-        teacher_recipient(owner_session, batch_id=teacher.batch_id)
-        == teacher.account_id
-    )
-    assert teacher_recipient(owner_session, batch_id=uuid.uuid4()) is None
+    assert teacher_recipients(owner_session, batch_id=teacher.batch_id) == [
+        teacher.account_id
+    ]
+    assert teacher_recipients(owner_session, batch_id=uuid.uuid4()) == []
 
 
 def test_a_teacher_is_a_recipient_only_where_they_are_the_guardian(
@@ -276,4 +275,4 @@ def test_a_teacher_is_a_recipient_only_where_they_are_the_guardian(
 
     assert t1.account_id not in [r.account_id for r in in_x]
     assert in_y == [Recipient(t1.account_id, seat, "Rahim")]
-    assert teacher_recipient(owner_session, batch_id=t2.batch_id) == t2.account_id
+    assert teacher_recipients(owner_session, batch_id=t2.batch_id) == [t2.account_id]

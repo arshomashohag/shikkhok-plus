@@ -242,6 +242,17 @@ _RETIRE_OWNED_BATCHES: Final = sa.text(
 )
 
 
+#: Ends every live centre membership the account holds [0022], in the
+#: deletion's transaction. The record stays as the centre's own -- the
+#: name and number its manager typed -- while ``SET NULL`` clears the
+#: link to the account; ending it first means signing up again on the
+#: number cannot relink it, because only an unrevoked offer links.
+_END_MEMBERSHIPS: Final = sa.text(
+    "UPDATE owner_member SET revoked_at = now() "
+    "WHERE account_id = :account_id AND revoked_at IS NULL"
+)
+
+
 def delete_account(session: Session, phone: str) -> DeletionResult:
     """Delete the account registered to a number, or report it absent.
 
@@ -304,6 +315,7 @@ def delete_account(session: Session, phone: str) -> DeletionResult:
     # A teacher's batches stay with their students [BR1.6 amended].
     # Retired before the account row goes, in the same transaction.
     session.execute(_RETIRE_OWNED_BATCHES, {"account_id": account_id})
+    session.execute(_END_MEMBERSHIPS, {"account_id": account_id})
 
     for table, target in sorted(HARD_DELETE_SCOPES.items()):
         if target.scope is not Scope.ACCOUNT_COLUMN or table == "account":

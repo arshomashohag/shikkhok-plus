@@ -839,6 +839,50 @@
         "title": "CategoryTotalResponse",
         "type": "object"
       },
+      "CentreCreateRequest": {
+        "additionalProperties": false,
+        "description": "Open a coaching centre, as its first manager.\n\n:ivar name: The centre's name, shown to its members and families\n:ivar manager_name: How the centre's members see you",
+        "properties": {
+          "manager_name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Manager Name",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "manager_name",
+          "name"
+        ],
+        "title": "CentreCreateRequest",
+        "type": "object"
+      },
+      "CentreResponse": {
+        "description": "The centre just opened.\n\n:ivar owner_id: The workspace id, sent as ``X-Workspace-Id`` to act on it\n:ivar name: Its name",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "owner_id": {
+            "format": "uuid",
+            "title": "Owner Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "owner_id"
+        ],
+        "title": "CentreResponse",
+        "type": "object"
+      },
       "ChargeableStudentResponse": {
         "additionalProperties": false,
         "description": "A student a fee raised today would charge.\n\n:ivar enrollment_id: The seat\n:ivar display_name: The teacher-typed name",
@@ -3636,7 +3680,7 @@
         "type": "object"
       },
       "MeResponse": {
-        "description": "Everything this account can be.\n\n**No role, and no default lens.** The list says what is available;\nwhich one the person wants is their choice, and a server-chosen\ndefault would be a stored role by another name. A single-entry\nlist is the app's cue to skip the picker.\n\n:ivar lenses: Every available lens, teacher first\n:ivar self_name: The name this person chose for themselves, or\n    None before they have set one\n:ivar address: Their address, or None. **Owner-private** [BR3.4]:\n    it sits in `OWNER_PRIVATE_FIELDS` and reaches no teacher-lens\n    response, which the schema-wide privacy gate asserts. It is\n    returned HERE because this is the owner reading their own row.\n    The free-text form, kept for an address typed before 2026-11-05\n:ivar address_house: House or flat, or None. Owner-private, as above\n:ivar address_road: Road or area, or None\n:ivar address_city: City or district, or None\n:ivar address_postcode: Four digits, or None\n:ivar phone: The number this account signs in with. The owner's own\n    login, read by the owner on a lens-exempt route; the profile\n    shows it read-only, and in-app deletion asks the person to type\n    it back as confirmation, which needs the app to know it",
+        "description": "Everything this account can be.\n\n**No role, and no default lens.** The list says what is available;\nwhich one the person wants is their choice, and a server-chosen\ndefault would be a stored role by another name. A single-entry\nlist is the app's cue to skip the picker.\n\n:ivar lenses: Every available lens, teacher first\n:ivar self_name: The name this person chose for themselves, or\n    None before they have set one\n:ivar address: Their address, or None. **Owner-private** [BR3.4]:\n    it sits in `OWNER_PRIVATE_FIELDS` and reaches no teacher-lens\n    response, which the schema-wide privacy gate asserts. It is\n    returned HERE because this is the owner reading their own row.\n    The free-text form, kept for an address typed before 2026-11-05\n:ivar address_house: House or flat, or None. Owner-private, as above\n:ivar address_road: Road or area, or None\n:ivar address_city: City or district, or None\n:ivar address_postcode: Four digits, or None\n:ivar phone: The number this account signs in with. The owner's own\n    login, read by the owner on a lens-exempt route; the profile\n    shows it read-only, and in-app deletion asks the person to type\n    it back as confirmation, which needs the app to know it\n:ivar workspaces: Every workspace the teacher lens may act on, solo\n    first [0022]. A client sends the chosen one's ``owner_id`` as\n    ``X-Workspace-Id``; with one entry, or none, there is nothing to\n    choose",
         "properties": {
           "address": {
             "anyOf": [
@@ -3721,9 +3765,170 @@
               }
             ],
             "title": "Self Name"
+          },
+          "workspaces": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceResponse"
+            },
+            "title": "Workspaces",
+            "type": "array"
           }
         },
         "title": "MeResponse",
+        "type": "object"
+      },
+      "MemberInviteRequest": {
+        "additionalProperties": false,
+        "description": "Invite a number to the centre.\n\n:ivar phone: The number, typed by the manager\n:ivar display_name: The name the centre knows them by\n:ivar role: ``manager`` or ``teacher``",
+        "properties": {
+          "display_name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "phone": {
+            "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
+            "title": "Phone",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "manager",
+              "teacher"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "display_name",
+          "phone",
+          "role"
+        ],
+        "title": "MemberInviteRequest",
+        "type": "object"
+      },
+      "MemberResponse": {
+        "description": "One membership, as a manager sees it.\n\n:ivar member_id: The membership\n:ivar display_name: The name the centre typed\n:ivar phone: The number invited\n:ivar role: ``manager`` or ``teacher``\n:ivar decision: Where the offer stands\n:ivar invited_at: When they were invited\n:ivar revoked: Whether the membership has been ended\n:ivar is_you: Whether this is the caller's own membership",
+        "properties": {
+          "decision": {
+            "enum": [
+              "accepted",
+              "declined",
+              "pending"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "invited_at": {
+            "format": "date-time",
+            "title": "Invited At",
+            "type": "string"
+          },
+          "is_you": {
+            "title": "Is You",
+            "type": "boolean"
+          },
+          "member_id": {
+            "format": "uuid",
+            "title": "Member Id",
+            "type": "string"
+          },
+          "phone": {
+            "title": "Phone",
+            "type": "string"
+          },
+          "revoked": {
+            "title": "Revoked",
+            "type": "boolean"
+          },
+          "role": {
+            "enum": [
+              "manager",
+              "teacher"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision",
+          "display_name",
+          "invited_at",
+          "is_you",
+          "member_id",
+          "phone",
+          "revoked",
+          "role"
+        ],
+        "title": "MemberResponse",
+        "type": "object"
+      },
+      "MembershipDecisionResponse": {
+        "description": "What the holder decided.\n\n:ivar member_id: The membership\n:ivar decision: ``accepted`` or ``declined``",
+        "properties": {
+          "decision": {
+            "enum": [
+              "accepted",
+              "declined"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "member_id": {
+            "format": "uuid",
+            "title": "Member Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision",
+          "member_id"
+        ],
+        "title": "MembershipDecisionResponse",
+        "type": "object"
+      },
+      "MembershipResponse": {
+        "description": "One offer, as the person invited sees it.\n\n:ivar member_id: The membership\n:ivar centre_name: The centre making the offer\n:ivar role: ``manager`` or ``teacher``\n:ivar decision: ``pending`` or ``declined``",
+        "properties": {
+          "centre_name": {
+            "title": "Centre Name",
+            "type": "string"
+          },
+          "decision": {
+            "enum": [
+              "declined",
+              "pending"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "member_id": {
+            "format": "uuid",
+            "title": "Member Id",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "manager",
+              "teacher"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "centre_name",
+          "decision",
+          "member_id",
+          "role"
+        ],
+        "title": "MembershipResponse",
         "type": "object"
       },
       "Money": {
@@ -6814,7 +7019,7 @@
       },
       "SignupRequest": {
         "additionalProperties": false,
-        "description": "Create an account for a number nobody has registered.\n\nThe number is **typed by the person** and never read from the SIM\n[TC-4, D-35]: there is no device-side source for this field, here\nor anywhere in this product.\n\n:ivar phone: The number this identity is keyed on\n:ivar role: The claimed role; nothing verifies it [BR4.2]\n:ivar self_name: The name the person chose for themselves. Lands on\n    ``Profile.self_name`` and never on an ``Enrollment.display_name``\n    [BR3.1]\n:ivar address_house: House or flat. **Required**, on every path,\n    including a number a teacher already added (decided 2026-11-05)\n:ivar address_road: Road or area, required\n:ivar address_city: City or district, required\n:ivar address_postcode: Four digits, required",
+        "description": "Create an account for a number nobody has registered.\n\nThe number is **typed by the person** and never read from the SIM\n[TC-4, D-35]: there is no device-side source for this field, here\nor anywhere in this product.\n\n:ivar phone: The number this identity is keyed on\n:ivar role: The claimed role; nothing verifies it [BR4.2]\n:ivar self_name: The name the person chose for themselves. Lands on\n    ``Profile.self_name`` and never on an ``Enrollment.display_name``\n    [BR3.1]\n:ivar address_house: House or flat. **Required**, on every path,\n    including a number a teacher already added (decided 2026-11-05)\n:ivar address_road: Road or area, required\n:ivar address_city: City or district, required\n:ivar address_postcode: Four digits, required\n:ivar centre_name: The centre's name. Required for ``coaching`` and\n    refused for every other role",
         "properties": {
           "address_city": {
             "description": "City or district.",
@@ -6842,6 +7047,19 @@
             "title": "Address Road",
             "type": "string"
           },
+          "centre_name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Centre Name"
+          },
           "phone": {
             "description": "A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.",
             "title": "Phone",
@@ -6849,6 +7067,7 @@
           },
           "role": {
             "enum": [
+              "coaching",
               "guardian",
               "student",
               "teacher"
@@ -7868,6 +8087,41 @@
           "period"
         ],
         "title": "WaitingPaymentResponse",
+        "type": "object"
+      },
+      "WorkspaceResponse": {
+        "description": "One workspace this account may act on.\n\n:ivar owner_id: The id to send as ``X-Workspace-Id``\n:ivar kind: ``solo`` for a tutor's own, ``centre`` for a centre\n:ivar name: The centre's name, or None for a solo workspace",
+        "properties": {
+          "kind": {
+            "enum": [
+              "centre",
+              "solo"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "owner_id": {
+            "format": "uuid",
+            "title": "Owner Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "owner_id"
+        ],
+        "title": "WorkspaceResponse",
         "type": "object"
       }
     }
@@ -9848,6 +10102,311 @@
         "summary": "Add Students To Batch",
         "tags": [
           "students"
+        ]
+      }
+    },
+    "/v1/centre/members": {
+      "get": {
+        "description": "List the centre's members, live ones first.\n\n:param lens: The manager's lens on the centre\n:param session: The request-scoped session\n:return: Every membership the centre has recorded",
+        "operationId": "list_centre_members_v1_centre_members_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MemberResponse"
+                  },
+                  "title": "Response List Centre Members V1 Centre Members Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          }
+        },
+        "summary": "List Centre Members",
+        "tags": [
+          "centres"
+        ]
+      },
+      "post": {
+        "description": "Invite a number to the centre; nothing is granted until they accept.\n\n:param body: The number, name and role\n:param lens: The manager's lens on the centre\n:param session: The request-scoped session\n:return: The new, pending membership",
+        "operationId": "invite_centre_member_v1_centre_members_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemberInviteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Invite Centre Member",
+        "tags": [
+          "centres"
+        ]
+      }
+    },
+    "/v1/centre/members/{member_id}/revoke": {
+      "post": {
+        "description": "End a membership; the member loses the centre on their next request.\n\n:param member_id: The membership\n:param lens: The manager's lens on the centre\n:param session: The request-scoped session\n:return: None",
+        "operationId": "revoke_centre_member_v1_centre_members__member_id__revoke_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "member_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Member Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Centre Member",
+        "tags": [
+          "centres"
+        ]
+      }
+    },
+    "/v1/centres": {
+      "post": {
+        "description": "Open a coaching centre with the caller as its first manager.\n\n:param body: The centre's name and the caller's name in it\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:return: The new workspace",
+        "operationId": "open_centre_v1_centres_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CentreCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CentreResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Open Centre",
+        "tags": [
+          "centres"
         ]
       }
     },
@@ -13182,6 +13741,180 @@
         "summary": "Read Today",
         "tags": [
           "analytics"
+        ]
+      }
+    },
+    "/v1/memberships": {
+      "get": {
+        "description": "List the centres inviting this account, unanswered or declined.\n\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:return: One entry per offer, oldest first",
+        "operationId": "list_memberships_v1_memberships_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MembershipResponse"
+                  },
+                  "title": "Response List Memberships V1 Memberships Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          }
+        },
+        "summary": "List Memberships",
+        "tags": [
+          "centres"
+        ]
+      }
+    },
+    "/v1/memberships/{member_id}/accept": {
+      "post": {
+        "description": "Accept an offer, from ``pending`` or from ``declined``.\n\n:param lens: The membership lens carrying the one offer\n:param session: The request-scoped session\n:return: The offer and the decision",
+        "operationId": "accept_membership_v1_memberships__member_id__accept_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "member_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Member Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MembershipDecisionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Accept Membership",
+        "tags": [
+          "centres"
+        ]
+      }
+    },
+    "/v1/memberships/{member_id}/decline": {
+      "post": {
+        "description": "Decline an offer; the holder may still accept it later.\n\n:param lens: The membership lens carrying the one offer\n:param session: The request-scoped session\n:return: The offer and the decision",
+        "operationId": "decline_membership_v1_memberships__member_id__decline_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "member_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Member Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MembershipDecisionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decline Membership",
+        "tags": [
+          "centres"
         ]
       }
     },

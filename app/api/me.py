@@ -29,8 +29,10 @@ from sqlalchemy.orm import Session
 from app.api.deps import authenticated_account, get_session
 from app.authz.rls import set_account_context
 from app.authz.summary import LensSummary, lens_summary
+from app.centres.service import workspaces_of
 from app.db.models import Account, Profile
 from app.schemas.address import CityField, HouseField, PostcodeField, RoadField
+from app.schemas.centres import WorkspaceResponse
 
 router = APIRouter(prefix="/v1", tags=["me"])
 
@@ -70,9 +72,14 @@ class MeResponse(BaseModel):
         login, read by the owner on a lens-exempt route; the profile
         shows it read-only, and in-app deletion asks the person to type
         it back as confirmation, which needs the app to know it
+    :ivar workspaces: Every workspace the teacher lens may act on, solo
+        first [0022]. A client sends the chosen one's ``owner_id`` as
+        ``X-Workspace-Id``; with one entry, or none, there is nothing to
+        choose
     """
 
     lenses: list[LensEntry] = Field(default_factory=list)
+    workspaces: list[WorkspaceResponse] = Field(default_factory=list)
     self_name: str | None = None
     address: str | None = None
     address_house: str | None = None
@@ -154,6 +161,12 @@ def _me(session: Session, account_id: uuid.UUID, profile: Profile | None) -> MeR
         address_city=profile.address_city if profile else None,
         address_postcode=profile.address_postcode if profile else None,
         phone=account.phone if account else None,
+        workspaces=[
+            WorkspaceResponse.model_validate(
+                {"owner_id": row.owner_id, "kind": row.kind, "name": row.name}
+            )
+            for row in workspaces_of(session, account_id)
+        ],
     )
 
 
