@@ -86,6 +86,11 @@ owner_member  id, owner_id, account_id NULL, invited_phone, display_name,
 - A `kind = 'teacher'` owner has exactly one member; invitations are only
   possible on an `organisation`. A centre always keeps at least one accepted
   manager — enforced in the transaction that revokes or demotes, and tested.
+- **Sign-up offers a fourth account type, Coaching** (owner decision
+  2026-11-06). Choosing it asks for the centre's name and, in the same
+  transaction as the account, creates an `organisation` owner and an
+  accepted `manager` membership for the person signing up. Like the other
+  three types it only picks the home screen; it is not stored as a role.
 - Staff are invited by phone and gain nothing until they accept, exactly as
   a seat does. Revoking sets `revoked_at`; the next request has no lens.
 - Rooms: `room(id, owner_id, name, archived_at)`, managed by managers.
