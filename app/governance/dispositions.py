@@ -347,6 +347,20 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
             "only what the centre itself entered."
         ),
     ),
+    "staff": TableGovernance(
+        disposition=Disposition.RETAIN_WITH_BASIS,
+        retention=RetentionClass.LIFE_OF_ACCOUNT,
+        basis=(
+            "A coaching centre's employment record of a teacher or other "
+            "staff member: the name, phone number, email, address, role "
+            "and pay terms its manager entered, and when they joined and "
+            "left. Kept as the centre's record of who it employed and on "
+            "what terms, which its payroll is set against. Only the "
+            "centre's managers can read it; no teacher, student or family "
+            "can. When the person leaves, the record is marked left and "
+            "any app access it gave ends."
+        ),
+    ),
     "expense": TableGovernance(
         disposition=Disposition.RETAIN_WITH_BASIS,
         retention=RetentionClass.LIFE_OF_ACCOUNT,

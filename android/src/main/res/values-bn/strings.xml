@@ -1380,6 +1380,49 @@
     <string name="family_extra_fees_title">পরীক্ষা ও অন্যান্য ফি</string>
     <string name="family_extra_fee_line">%1$s · শেষ তারিখ %2$s</string>
 
+    <!-- Teachers and staff console [0023] -->
+    <string name="staff_title">শিক্ষক ও কর্মী</string>
+    <string name="staff_sub">তথ্য, যোগাযোগ ও বেতনের শর্ত</string>
+    <string name="staff_invite_teacher">শিক্ষককে আমন্ত্রণ জানান</string>
+    <string name="staff_add_other">অন্য কর্মী যোগ করুন</string>
+    <string name="staff_kind_teacher">শিক্ষক</string>
+    <string name="staff_kind_other">কর্মী</string>
+    <string name="staff_status_left">%1$s তারিখে চলে গেছেন</string>
+    <string name="staff_access_none">অ্যাপে প্রবেশাধিকার নেই</string>
+    <string name="staff_access_invited">অ্যাপে আমন্ত্রিত</string>
+    <string name="staff_access_declined">অ্যাপের আমন্ত্রণ প্রত্যাখ্যান করেছেন</string>
+    <string name="staff_access_active">অ্যাপ ব্যবহার করেন</string>
+    <string name="staff_access_revoked">অ্যাপে প্রবেশাধিকার শেষ</string>
+    <string name="staff_pay_monthly">মাসে %1$s</string>
+    <string name="staff_pay_per_class">প্রতি ক্লাসে %1$s</string>
+    <string name="staff_pay_none">বেতন নেই</string>
+    <string name="staff_name_label">নাম</string>
+    <string name="staff_phone_label">ফোন নম্বর</string>
+    <string name="staff_email_label">ইমেইল (ঐচ্ছিক)</string>
+    <string name="staff_role_label">কী কাজ করেন</string>
+    <string name="staff_pay_basis_label">কীভাবে বেতন দেওয়া হয়</string>
+    <string name="staff_pay_basis_monthly">মাসিক বেতন</string>
+    <string name="staff_pay_basis_per_class">প্রতি ক্লাস হিসেবে</string>
+    <string name="staff_pay_basis_none">বেতন নেই</string>
+    <string name="staff_pay_rate_label">পরিমাণ</string>
+    <string name="staff_joined_label">যোগদানের তারিখ</string>
+    <string name="staff_address_heading">ঠিকানা (ঐচ্ছিক)</string>
+    <string name="staff_save">সংরক্ষণ করুন</string>
+    <string name="staff_edit">সম্পাদনা</string>
+    <string name="staff_leave">চলে গেছেন হিসেবে চিহ্নিত করুন</string>
+    <string name="staff_leave_confirm">%1$s-কে চলে গেছেন হিসেবে চিহ্নিত করবেন? অ্যাপে প্রবেশাধিকার সঙ্গে সঙ্গে শেষ হবে।</string>
+    <string name="staff_left_label">শেষ কার্যদিবস</string>
+    <string name="staff_empty">এখনো কোনো শিক্ষক বা কর্মী নেই। একজন শিক্ষককে আমন্ত্রণ জানান বা এখানে কাজ করেন এমন কাউকে যোগ করুন।</string>
+    <string name="staff_invite_help">এখনই তাঁদের তথ্য সংরক্ষিত হবে। গ্রহণ করলে তবেই অ্যাপে প্রবেশাধিকার পাবেন।</string>
+    <string name="staff_saved">সংরক্ষিত হয়েছে।</string>
+    <string name="staff_marked_left">%1$s-কে চলে গেছেন হিসেবে চিহ্নিত করা হয়েছে।</string>
+
+    <!-- Staff records [0023] -->
+    <string name="staff_already_left">এই ব্যক্তিকে আগেই চলে যাওয়া হিসেবে চিহ্নিত করা হয়েছে।</string>
+    <string name="staff_left_before_joined">চলে যাওয়ার তারিখ যোগ দেওয়ার তারিখের আগে হতে পারে না।</string>
+    <string name="staff_pay_rate_not_allowed">বেতনের পরিমাণ মুছুন, অথবা কীভাবে বেতন দেওয়া হয় তা বেছে নিন।</string>
+    <string name="staff_pay_rate_required">শূন্যের চেয়ে বেশি বেতনের পরিমাণ লিখুন।</string>
+
     <!-- Coaching centres [0022] -->
     <string name="centre_member_already_invited">এই নম্বরটি আগে থেকেই সেন্টারে আছে।</string>
     <string name="centre_member_already_revoked">এই ব্যক্তিকে আগেই সরানো হয়েছে।</string>

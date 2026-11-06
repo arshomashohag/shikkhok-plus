@@ -786,6 +786,125 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/v1/centre/staff': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List Staff
+     * @description List the centre's teachers and staff, active first.
+     *
+     *     :param lens: The manager's lens on the centre
+     *     :param session: The request-scoped session
+     *     :return: Every record
+     */
+    get: operations['list_staff_v1_centre_staff_get']
+    put?: never
+    /**
+     * Add Other Staff
+     * @description Record someone who works at the centre without app access.
+     *
+     *     :param body: Their details and pay terms
+     *     :param lens: The manager's lens on the centre
+     *     :param session: The request-scoped session
+     *     :return: The new record
+     */
+    post: operations['add_other_staff_v1_centre_staff_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/centre/staff/teachers': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Invite Teacher
+     * @description Record a teacher and offer them app access; nothing is granted yet.
+     *
+     *     :param body: Their details and pay terms
+     *     :param lens: The manager's lens on the centre
+     *     :param session: The request-scoped session
+     *     :return: The new record
+     */
+    post: operations['invite_teacher_v1_centre_staff_teachers_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/centre/staff/{staff_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Read Staff
+     * @description Read one record.
+     *
+     *     :param staff_id: The record
+     *     :param lens: The manager's lens on the centre
+     *     :param session: The request-scoped session
+     *     :return: The record
+     */
+    get: operations['read_staff_v1_centre_staff__staff_id__get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    /**
+     * Update Staff
+     * @description Correct a record; an omitted field is unchanged and null clears it.
+     *
+     *     :param staff_id: The record
+     *     :param body: The fields to change
+     *     :param lens: The manager's lens on the centre
+     *     :param session: The request-scoped session
+     *     :return: The corrected record
+     */
+    patch: operations['update_staff_v1_centre_staff__staff_id__patch']
+    trace?: never
+  }
+  '/v1/centre/staff/{staff_id}/leave': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Mark Left
+     * @description Record that someone left; their app access ends in the same step.
+     *
+     *     :param staff_id: The record
+     *     :param body: Their last day
+     *     :param lens: The manager's lens on the centre
+     *     :param session: The request-scoped session
+     *     :return: The record, marked left
+     */
+    post: operations['mark_left_v1_centre_staff__staff_id__leave_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/v1/centres': {
     parameters: {
       query?: never
@@ -6997,6 +7116,195 @@ export interface components {
       code_sent_to: string
     }
     /**
+     * StaffLeaveRequest
+     * @description Mark someone as having left.
+     *
+     *     :ivar left_on: Their last day; today when omitted
+     */
+    StaffLeaveRequest: {
+      /** Left On */
+      left_on?: string | null
+    }
+    /**
+     * StaffOtherRequest
+     * @description Record someone who works at the centre without app access.
+     *
+     *     :ivar phone: Their number, or None
+     *     :ivar role_label: What they do
+     */
+    StaffOtherRequest: {
+      /** Display Name */
+      display_name: string
+      /** Email */
+      email?: string | null
+      /** Joined On */
+      joined_on?: string | null
+      /**
+       * Pay Basis
+       * @enum {string}
+       */
+      pay_basis: 'monthly' | 'none' | 'per_class'
+      pay_rate?: components['schemas']['Money'] | null
+      /** Phone */
+      phone?: string | null
+      /** Role Label */
+      role_label?: string | null
+      /** Staff City */
+      staff_city?: string | null
+      /** Staff House */
+      staff_house?: string | null
+      /** Staff Postcode */
+      staff_postcode?: string | null
+      /** Staff Road */
+      staff_road?: string | null
+    }
+    /**
+     * StaffResponse
+     * @description One staff record, as the centre's manager sees it.
+     *
+     *     :ivar staff_id: The record
+     *     :ivar kind: ``teacher`` or ``other``
+     *     :ivar display_name: Their name
+     *     :ivar role_label: What they do, or None
+     *     :ivar phone: Their number, or None
+     *     :ivar email: Their email, or None
+     *     :ivar staff_house: House or flat, or None
+     *     :ivar staff_road: Road or area, or None
+     *     :ivar staff_city: City or district, or None
+     *     :ivar staff_postcode: Four digits, or None
+     *     :ivar pay_basis: How they are paid
+     *     :ivar pay_rate: The salary or rate per class, or None
+     *     :ivar joined_on: When they started
+     *     :ivar left_on: When they left, or None
+     *     :ivar status: ``active`` or ``left``
+     *     :ivar access: Where their app access stands
+     */
+    StaffResponse: {
+      /**
+       * Access
+       * @description none, invited, declined, active or revoked
+       * @enum {string}
+       */
+      access: 'active' | 'declined' | 'invited' | 'none' | 'revoked'
+      /** Display Name */
+      display_name: string
+      /** Email */
+      email?: string | null
+      /**
+       * Joined On
+       * Format: date
+       */
+      joined_on: string
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: 'other' | 'teacher'
+      /** Left On */
+      left_on?: string | null
+      /**
+       * Pay Basis
+       * @enum {string}
+       */
+      pay_basis: 'monthly' | 'none' | 'per_class'
+      pay_rate?: components['schemas']['Money'] | null
+      /** Phone */
+      phone?: string | null
+      /** Role Label */
+      role_label?: string | null
+      /** Staff City */
+      staff_city?: string | null
+      /** Staff House */
+      staff_house?: string | null
+      /**
+       * Staff Id
+       * Format: uuid
+       */
+      staff_id: string
+      /** Staff Postcode */
+      staff_postcode?: string | null
+      /** Staff Road */
+      staff_road?: string | null
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: 'active' | 'left'
+    }
+    /**
+     * StaffTeacherRequest
+     * @description Invite a teacher: their record, and an offer of app access.
+     *
+     *     :ivar phone: The number the offer goes to, typed by the manager
+     */
+    StaffTeacherRequest: {
+      /** Display Name */
+      display_name: string
+      /** Email */
+      email?: string | null
+      /** Joined On */
+      joined_on?: string | null
+      /**
+       * Pay Basis
+       * @enum {string}
+       */
+      pay_basis: 'monthly' | 'none' | 'per_class'
+      pay_rate?: components['schemas']['Money'] | null
+      /**
+       * Phone
+       * @description A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.
+       */
+      phone: string
+      /** Staff City */
+      staff_city?: string | null
+      /** Staff House */
+      staff_house?: string | null
+      /** Staff Postcode */
+      staff_postcode?: string | null
+      /** Staff Road */
+      staff_road?: string | null
+    }
+    /**
+     * StaffUpdateRequest
+     * @description Correct a record. An omitted field is unchanged; null clears it.
+     *
+     *     The kind and the phone a teacher's access was offered to are not
+     *     here: a teacher's number is the membership's, and a person does not
+     *     change from teacher to other staff by an edit.
+     *
+     *     :ivar display_name: Their name
+     *     :ivar email: Their email
+     *     :ivar staff_house: House or flat
+     *     :ivar staff_road: Road or area
+     *     :ivar staff_city: City or district
+     *     :ivar staff_postcode: Four digits
+     *     :ivar role_label: What they do, for other staff
+     *     :ivar pay_basis: How they are paid
+     *     :ivar pay_rate: The salary or rate per class
+     *     :ivar joined_on: When they started
+     */
+    StaffUpdateRequest: {
+      /** Display Name */
+      display_name?: string | null
+      /** Email */
+      email?: string | null
+      /** Joined On */
+      joined_on?: string | null
+      /** Pay Basis */
+      pay_basis?: ('monthly' | 'none' | 'per_class') | null
+      pay_rate?: components['schemas']['Money'] | null
+      /** Role Label */
+      role_label?: string | null
+      /** Staff City */
+      staff_city?: string | null
+      /** Staff House */
+      staff_house?: string | null
+      /** Staff Postcode */
+      staff_postcode?: string | null
+      /** Staff Road */
+      staff_road?: string | null
+    }
+    /**
      * StudentBatchResponse
      * @description One batch a student is in (S1).
      *
@@ -9117,6 +9425,409 @@ export interface operations {
           [name: string]: unknown
         }
         content?: never
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  list_staff_v1_centre_staff_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['StaffResponse'][]
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  add_other_staff_v1_centre_staff_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['StaffOtherRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['StaffResponse']
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  invite_teacher_v1_centre_staff_teachers_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['StaffTeacherRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['StaffResponse']
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  read_staff_v1_centre_staff__staff_id__get: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        staff_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['StaffResponse']
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  update_staff_v1_centre_staff__staff_id__patch: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        staff_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['StaffUpdateRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['StaffResponse']
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  mark_left_v1_centre_staff__staff_id__leave_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        staff_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['StaffLeaveRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['StaffResponse']
+        }
       }
       /** @description The request is wrong. Fix and resubmit; never retry as-is. */
       400: {

@@ -18,6 +18,7 @@ import {
   ChevronIcon,
   LayersIcon,
   PlusIcon,
+  TeacherIcon,
   UsersIcon,
   WarningIcon,
 } from '../../ui/icons'
@@ -148,6 +149,24 @@ export function WorkspaceSection({ online }: { online: boolean }) {
               )
             })
           : null}
+        {teacher && current?.kind === 'centre' ? (
+          <li>
+            <button
+              type="button"
+              className="row"
+              disabled={!online}
+              onClick={() => navigate(paths.centreStaff())}
+            >
+              <TeacherIcon />
+              <span className="grow">
+                <span className="title">{t('staff_title')}</span>
+                <br />
+                <span className="meta">{online ? t('staff_sub') : t('more_needs_connection')}</span>
+              </span>
+              <ChevronIcon />
+            </button>
+          </li>
+        ) : null}
         {teacher && current?.kind === 'centre' ? (
           <li>
             <button

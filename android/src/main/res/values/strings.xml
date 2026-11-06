@@ -1435,6 +1435,49 @@
     <string name="family_extra_fees_title">Exam &amp; other fees</string>
     <string name="family_extra_fee_line">%1$s · due %2$s</string>
 
+    <!-- Teachers and staff console [0023] -->
+    <string name="staff_title">Teachers &amp; staff</string>
+    <string name="staff_sub">Records, contact details and pay terms</string>
+    <string name="staff_invite_teacher">Invite a teacher</string>
+    <string name="staff_add_other">Add other staff</string>
+    <string name="staff_kind_teacher">Teacher</string>
+    <string name="staff_kind_other">Staff</string>
+    <string name="staff_status_left">Left on %1$s</string>
+    <string name="staff_access_none">No app access</string>
+    <string name="staff_access_invited">Invited to the app</string>
+    <string name="staff_access_declined">Declined the app invitation</string>
+    <string name="staff_access_active">Uses the app</string>
+    <string name="staff_access_revoked">App access ended</string>
+    <string name="staff_pay_monthly">%1$s a month</string>
+    <string name="staff_pay_per_class">%1$s a class</string>
+    <string name="staff_pay_none">Not paid</string>
+    <string name="staff_name_label">Name</string>
+    <string name="staff_phone_label">Phone number</string>
+    <string name="staff_email_label">Email (optional)</string>
+    <string name="staff_role_label">What they do</string>
+    <string name="staff_pay_basis_label">How they are paid</string>
+    <string name="staff_pay_basis_monthly">Monthly salary</string>
+    <string name="staff_pay_basis_per_class">Per class taught</string>
+    <string name="staff_pay_basis_none">Not paid</string>
+    <string name="staff_pay_rate_label">Amount</string>
+    <string name="staff_joined_label">Joined on</string>
+    <string name="staff_address_heading">Address (optional)</string>
+    <string name="staff_save">Save</string>
+    <string name="staff_edit">Edit</string>
+    <string name="staff_leave">Mark as left</string>
+    <string name="staff_leave_confirm">Mark %1$s as left? Any app access ends at once.</string>
+    <string name="staff_left_label">Last day</string>
+    <string name="staff_empty">No teachers or staff yet. Invite a teacher or add someone who works here.</string>
+    <string name="staff_invite_help">Their record is kept now. They get app access only once they accept.</string>
+    <string name="staff_saved">Saved.</string>
+    <string name="staff_marked_left">%1$s is marked as left.</string>
+
+    <!-- Staff records [0023] -->
+    <string name="staff_already_left">This person is already marked as left.</string>
+    <string name="staff_left_before_joined">The leaving date can\'t be before the joining date.</string>
+    <string name="staff_pay_rate_not_allowed">Remove the pay amount, or choose how they are paid.</string>
+    <string name="staff_pay_rate_required">Enter a pay amount greater than zero.</string>
+
     <!-- Coaching centres [0022] -->
     <string name="centre_member_already_invited">This number already has a place in the centre.</string>
     <string name="centre_member_already_revoked">This person has already been removed.</string>

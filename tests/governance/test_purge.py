@@ -241,10 +241,11 @@ def test_no_life_of_account_table_appears_in_the_window_map(
     # record exactly as the enrollments it groups are; 24 since 0020
     # added the extra fee, its charges and its ledger, kept as the
     # monthly ledger is; 25 since 0021 added the teacher's expenses; 26
-    # since 0022 added a centre's record of its members.
-    assert len(life_of_account) == 26, (
+    # since 0022 added a centre's record of its members; 27 since 0023
+    # added its staff records.
+    assert len(life_of_account) == 27, (
         f"the manifest now marks {len(life_of_account)} tables "
-        "LIFE_OF_ACCOUNT, not 26. If that is deliberate, this count is "
+        "LIFE_OF_ACCOUNT, not 27. If that is deliberate, this count is "
         "the claim that needs updating with it."
     )
 
