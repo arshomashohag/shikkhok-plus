@@ -271,6 +271,14 @@ class WriteContractTest {
             Write("patch", "/v1/centre/staff/{staff_id}") { HttpStaffRepository(it).update(ID, staffBody) },
             Write("post", "/v1/centre/staff/{staff_id}/leave") { HttpStaffRepository(it).leave(ID, "2026-11-06") },
             Write("post", "/v1/centre/staff/{staff_id}/leave") { HttpStaffRepository(it).leave(ID, null) },
+            // One class's teacher and room, a swap, and the rooms.
+            Write("post", "/v1/sessions/{session_id}/assignment") { HttpTimetableRepository(it).assign(ID, ID, ID) },
+            Write("post", "/v1/sessions/{session_id}/assignment") {
+                HttpTimetableRepository(it).assign(ID, null, null)
+            },
+            Write("post", "/v1/centre/sessions/swap") { HttpTimetableRepository(it).swap(ID, ID) },
+            Write("post", "/v1/centre/rooms") { HttpTimetableRepository(it).addRoom("Room A") },
+            Write("patch", "/v1/centre/rooms/{room_id}") { HttpTimetableRepository(it).archiveRoom(ID, true) },
             Write("post", "/v1/payment-methods") {
                 HttpPaymentMethodsRepository(it).create(MOBILE_DRAFT)
             },

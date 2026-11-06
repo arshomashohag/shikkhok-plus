@@ -76,6 +76,9 @@ const val TAG_PROFILE_OPEN_CENTRE: String = "profile_open_centre"
 /** The centre's members row, shown to a teacher in a centre. */
 const val TAG_PROFILE_CENTRE_MEMBERS: String = "profile_centre_members"
 
+/** The centre's timetable row, shown to a teacher in a centre. */
+const val TAG_PROFILE_CENTRE_TIMETABLE: String = "profile_centre_timetable"
+
 /** The centre's teachers and staff row, shown to a teacher in a centre. */
 const val TAG_PROFILE_CENTRE_STAFF: String = "profile_centre_staff"
 
@@ -132,6 +135,7 @@ const val TAG_PROFILE_MY_CHILDREN: String = "profile_my_children"
  * @property onOpenCentre Opens a coaching centre, or null
  * @property onCentreMembers Opens the centre's members, or null outside a centre
  * @property onCentreStaff Opens the centre's teachers and staff, or null outside a centre
+ * @property onCentreTimetable Opens the centre's timetable, or null outside a centre
  * @property onCentreOffers Opens the centres' offers, or null
  * @property onInvitations Opens the invitations list, or null
  * @property onMyChildren Opens the guardian's children, or null
@@ -154,6 +158,7 @@ data class MoreActions(
     val onOpenCentre: (() -> Unit)? = null,
     val onCentreMembers: (() -> Unit)? = null,
     val onCentreStaff: (() -> Unit)? = null,
+    val onCentreTimetable: (() -> Unit)? = null,
     val onCentreOffers: (() -> Unit)? = null,
     val onInvitations: (() -> Unit)? = null,
     val onMyChildren: (() -> Unit)? = null,
@@ -431,6 +436,17 @@ private fun CentreRows(actions: MoreActions, offline: Boolean) {
             onClick = members,
             enabled = !offline,
             modifier = Modifier.testTag(TAG_PROFILE_CENTRE_MEMBERS),
+        )
+        MenuDivider()
+    }
+    actions.onCentreTimetable?.let { timetable ->
+        MenuRow(
+            title = stringResource(R.string.timetable_title),
+            subtitle = if (offline) needs else stringResource(R.string.timetable_sub),
+            icon = MenuIcons.Settings,
+            onClick = timetable,
+            enabled = !offline,
+            modifier = Modifier.testTag(TAG_PROFILE_CENTRE_TIMETABLE),
         )
         MenuDivider()
     }
