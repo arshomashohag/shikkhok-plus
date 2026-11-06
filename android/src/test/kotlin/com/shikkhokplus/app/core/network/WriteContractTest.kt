@@ -72,6 +72,10 @@ class WriteContractTest {
             Write("post", "/v1/accounts") {
                 HttpSignupRepository(it).signup("01711234567", "student", "Rafi", ADDRESS)
             },
+            // Signing up as a coaching centre, with its name.
+            Write("post", "/v1/accounts") {
+                HttpSignupRepository(it).signup("01711234567", "coaching", "Rahima", ADDRESS, "Udayan Coaching")
+            },
             Write("patch", "/v1/me") { HttpProfileRepository(it).save("Rafi", ADDRESS) },
             Write("post", "/v1/exams/{exam_id}/publish") { HttpMarksRepository(it).publish(ID) },
             // Cancelling an unpublished exam [0019], with and without a reason.

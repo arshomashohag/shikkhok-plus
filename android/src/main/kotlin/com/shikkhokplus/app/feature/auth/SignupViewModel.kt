@@ -34,6 +34,7 @@ interface SignupRepository {
      * @param role The claimed role; nothing verifies it
      * @param selfName The name the person chose for themselves
      * @param address Owner-private, in its four parts; required
+     * @param centreName The coaching centre to open, with `coaching` only
      * @return The new account, a refusal, or a transport failure
      */
     suspend fun signup(
@@ -41,6 +42,7 @@ interface SignupRepository {
         role: String,
         selfName: String,
         address: PostalAddress,
+        centreName: String? = null,
     ): AuthResult<SignupResponseDto>
 }
 
@@ -168,15 +170,17 @@ class SignupViewModel(
      * @param selfName The name the person chose
      * @param address Owner-private, in its four parts; required
      * @param role The claimed role
+     * @param centreName The coaching centre to open; sent with Coaching only
      */
     fun submit(
         phone: String,
         selfName: String,
         address: PostalAddress,
         role: SignupRole,
+        centreName: String? = null,
     ) {
         lastPhone = phone
-        lastAction = { submit(phone, selfName, address, role) }
+        lastAction = { submit(phone, selfName, address, role, centreName) }
 
         val invalid = SignupStateMapper.validate(phone, selfName, address)
         if (invalid != null) {
@@ -194,6 +198,7 @@ class SignupViewModel(
                             role = role.wire,
                             selfName = selfName,
                             address = address,
+                            centreName = centreName?.trim()?.takeIf { role == SignupRole.COACHING && it.isNotEmpty() },
                         )
                 ) {
                     is AuthResult.Ok -> SignupStateMapper.afterSignup(result.value)

@@ -62,6 +62,7 @@ class HttpSignupRepository(
      * @param role The claimed role; nothing verifies it [BR4.2]
      * @param selfName The name the person chose for themselves
      * @param address Owner-private, in its four parts
+     * @param centreName The coaching centre to open, or null
      * @return The new account and the number the code went to
      */
     override suspend fun signup(
@@ -69,6 +70,7 @@ class HttpSignupRepository(
         role: String,
         selfName: String,
         address: PostalAddress,
+        centreName: String?,
     ): AuthResult<SignupResponseDto> =
         call {
             client.post("/v1/accounts") {
@@ -81,6 +83,7 @@ class HttpSignupRepository(
                         addressRoad = address.road.trim(),
                         addressCity = address.city.trim(),
                         addressPostcode = address.latinPostcode,
+                        centreName = centreName,
                     ),
                 )
             }

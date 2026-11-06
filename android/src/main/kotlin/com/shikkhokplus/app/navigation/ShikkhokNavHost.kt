@@ -248,12 +248,13 @@ private fun ShikkhokGraph(
 
             SignupScreen(
                 state = state,
-                onSubmit = { phone, name, address, role ->
+                onSubmit = { phone, name, address, role, centreName ->
                     model.submit(
                         phone = phone,
                         selfName = name,
                         address = address,
                         role = role,
+                        centreName = centreName,
                     )
                 },
                 // **Back to sign-in, not forward to it.** Signup issues

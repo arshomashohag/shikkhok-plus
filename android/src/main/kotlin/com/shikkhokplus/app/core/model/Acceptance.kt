@@ -19,6 +19,9 @@ enum class SignupRole(val wire: String) {
     /** Creates an `Owner` row on the server, and only this one does. */
     TEACHER("teacher"),
 
+    /** Opens a coaching centre on the server, its first manager the account. */
+    COACHING("coaching"),
+
     /** Carries no server-side consequence of its own. */
     STUDENT("student"),
 
