@@ -36,8 +36,16 @@ class HttpPayRepository(
             )
         }
 
-    override suspend fun owed(enrollmentIds: List<String>): AuthResult<OwedTogetherDto> =
-        call { client.get("/v1/payments/owed") { enrollmentIds.forEach { parameter("enrollment_id", it) } } }
+    override suspend fun owed(
+        enrollmentIds: List<String>,
+        extraFeeId: String?,
+    ): AuthResult<OwedTogetherDto> =
+        call {
+            client.get("/v1/payments/owed") {
+                enrollmentIds.forEach { parameter("enrollment_id", it) }
+                extraFeeId?.let { parameter("extra_fee_id", it) }
+            }
+        }
 
     override suspend fun submit(payment: PaymentSubmitDto): AuthResult<PaymentSubmittedDto> =
         call { client.post("/v1/payments") { setBody(payment) } }

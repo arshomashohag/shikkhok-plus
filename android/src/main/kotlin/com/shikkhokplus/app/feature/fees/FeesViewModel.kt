@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.shikkhokplus.app.core.model.Money
 import com.shikkhokplus.app.core.network.FeeHistoryDto
+import com.shikkhokplus.app.core.network.SeatExtraFeesDto
 import com.shikkhokplus.app.core.network.PaymentReviewDto
 import com.shikkhokplus.app.core.network.RecordPaymentBodyDto
 import com.shikkhokplus.app.feature.auth.AuthResult
@@ -58,6 +59,15 @@ interface FeesRepository {
      * @return The history, a refusal, or a transport failure
      */
     suspend fun enrollmentFees(enrollmentId: String): AuthResult<FeeHistoryDto>
+
+    /**
+     * Read the exam and other fees one seat was charged. One route for
+     * every lens; the server decides whether this caller may read it.
+     *
+     * @param enrollmentId The seat
+     * @return The fees, a refusal, or a transport failure
+     */
+    suspend fun seatExtraFees(enrollmentId: String): AuthResult<SeatExtraFeesDto>
 }
 
 /**
@@ -121,6 +131,15 @@ class FeesViewModel(
     /** True once a record was accepted, until the sheet is opened again. */
     val recorded: StateFlow<Boolean> = _recorded.asStateFlow()
 
+    private val _extraFees = MutableStateFlow<List<ExtraFeeRow>>(emptyList())
+
+    /**
+     * The seat's exam and other fees. Read beside the monthly history and
+     * shown only when the read succeeds: a failure here hides a section
+     * rather than failing the screen the monthly fees already fill.
+     */
+    val extraFees: StateFlow<List<ExtraFeeRow>> = _extraFees.asStateFlow()
+
     /** Whether this screen may offer "Record payment" at all. */
     val canRecord: Boolean get() = recorder != null
 
@@ -142,6 +161,13 @@ class FeesViewModel(
         seat = enrollmentId
         lastReader = reader
         _state.value = FeeUiState.Loading
+        viewModelScope.launch {
+            val extra = repository.seatExtraFees(enrollmentId)
+            _extraFees.value =
+                (extra as? AuthResult.Ok)?.value?.fees.orEmpty().map {
+                    ExtraFeeRow(it.extraFeeId, it.label, it.owed, it.dueOn, it.status)
+                }
+        }
         viewModelScope.launch {
             val result =
                 when (reader) {

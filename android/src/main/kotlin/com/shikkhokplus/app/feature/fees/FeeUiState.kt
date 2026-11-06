@@ -129,6 +129,23 @@ data class ClaimRow(
 )
 
 /**
+ * One exam or other fee on a seat, as the family's fee screen draws it.
+ *
+ * @property extraFeeId The fee
+ * @property label Its name
+ * @property owed What is still owed, as the server folded it
+ * @property dueOn When it is due, `yyyy-MM-dd`
+ * @property status The server's status; drawn through its own label
+ */
+data class ExtraFeeRow(
+    val extraFeeId: String,
+    val label: String,
+    val owed: Money,
+    val dueOn: String,
+    val status: String,
+)
+
+/**
  * Everything the fee screens can be showing.
  *
  * A sealed hierarchy rather than a struct of nullables, so a `when`

@@ -521,6 +521,7 @@ private fun ShikkhokGraph(
             val state by model.state.collectAsState()
             val sheet by model.sheet.collectAsState()
             val recorded by model.recorded.collectAsState()
+            val extraFees by model.extraFees.collectAsState()
 
             LaunchedEffect(seat, reader) { model.load(seat, reader) }
 
@@ -538,6 +539,7 @@ private fun ShikkhokGraph(
                     },
                 onRecordPayment = if (model.canRecord) model::openRecord else null,
                 recorded = recorded,
+                extraFees = extraFees,
             )
             sheet?.let {
                 RecordPaymentSheetView(

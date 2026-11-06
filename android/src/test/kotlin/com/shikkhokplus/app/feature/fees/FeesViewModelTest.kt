@@ -1,5 +1,8 @@
 package com.shikkhokplus.app.feature.fees
 
+import kotlin.test.assertTrue
+import com.shikkhokplus.app.core.network.SeatExtraFeeDto
+import com.shikkhokplus.app.core.network.SeatExtraFeesDto
 import com.shikkhokplus.app.core.model.Money
 import com.shikkhokplus.app.core.network.ErrorBody
 import com.shikkhokplus.app.core.network.ErrorEnvelope
@@ -60,6 +63,7 @@ class FeesViewModelTest {
     private class FakeRepository(
         var result: AuthResult<FeeHistoryDto>,
     ) : FeesRepository {
+        var extra: AuthResult<SeatExtraFeesDto> = AuthResult.Ok(SeatExtraFeesDto())
         var mine = 0
         var child = 0
         var enrollment = 0
@@ -80,6 +84,7 @@ class FeesViewModelTest {
             enrollment++
             return result
         }
+        override suspend fun seatExtraFees(enrollmentId: String): AuthResult<SeatExtraFeesDto> = extra
     }
 
     @Test
@@ -189,4 +194,50 @@ class FeesViewModelTest {
             assertEquals(2, repo.child, "retry must repeat the guardian route")
             assertEquals(0, repo.mine, "retry must not change lens")
         }
+
+    @Test
+    fun `a seat's exam and other fees are read beside its months`() = runTest(dispatcher) {
+        val repo = FakeRepository(AuthResult.Ok(history()))
+        repo.extra =
+            AuthResult.Ok(
+                SeatExtraFeesDto(
+                    listOf(
+                        SeatExtraFeeDto(
+                            extraFeeId = "f-1",
+                            label = "Half-yearly exam",
+                            purpose = "exam",
+                            dueOn = "2026-11-20",
+                            charged = Money.of("500.00"),
+                            paid = Money.of("200.00"),
+                            owed = Money.of("300.00"),
+                            status = "partly_paid",
+                        ),
+                    ),
+                ),
+            )
+        val model = FeesViewModel(repo)
+
+        model.load("e-1", FeeReader.GUARDIAN)
+        advanceUntilIdle()
+
+        assertEquals(
+            listOf(ExtraFeeRow("f-1", "Half-yearly exam", Money.of("300.00"), "2026-11-20", "partly_paid")),
+            model.extraFees.value,
+        )
+        assertIs<FeeUiState.Loaded>(model.state.value)
+    }
+
+    @Test
+    fun `a failed extra-fee read hides the section and leaves the months standing`() = runTest(dispatcher) {
+        val repo = FakeRepository(AuthResult.Ok(history()))
+        repo.extra = AuthResult.TransportFailure
+        val model = FeesViewModel(repo)
+
+        model.load("e-1", FeeReader.STUDENT)
+        advanceUntilIdle()
+
+        assertTrue(model.extraFees.value.isEmpty())
+        assertIs<FeeUiState.Loaded>(model.state.value)
+    }
+
 }

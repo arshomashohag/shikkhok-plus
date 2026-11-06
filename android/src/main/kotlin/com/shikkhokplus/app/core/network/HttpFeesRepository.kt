@@ -72,6 +72,9 @@ class HttpFeesRepository(
     ): AuthResult<FeeHistoryDto> =
         call { client.get("/v1/enrollments/$enrollmentId/fees") }
 
+    override suspend fun seatExtraFees(enrollmentId: String): AuthResult<SeatExtraFeesDto> =
+        call { client.get("/v1/enrollments/$enrollmentId/extra-fees") }
+
     /**
      * Record money received by hand for one seat, approved in one step.
      *

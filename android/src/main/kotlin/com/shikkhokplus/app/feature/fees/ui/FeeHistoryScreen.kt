@@ -1,5 +1,9 @@
 package com.shikkhokplus.app.feature.fees.ui
 
+import com.shikkhokplus.app.feature.fees.ExtraFeeRow
+import com.shikkhokplus.app.core.format.shortDate
+import com.shikkhokplus.app.core.designsystem.asHeading
+import com.shikkhokplus.app.core.designsystem.ShikkhokCard
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -110,6 +114,7 @@ fun FeeHistoryScreen(
     onOpenProgress: (() -> Unit)? = null,
     onRecordPayment: (() -> Unit)? = null,
     recorded: Boolean = false,
+    extraFees: List<ExtraFeeRow> = emptyList(),
 ) {
     ListScreenScaffold(
         title = stringResource(R.string.screen_title_fee_history),
@@ -154,6 +159,8 @@ fun FeeHistoryScreen(
                     Modifier.testTag(TAG_FEES_EMPTY),
                 )
                 record()
+                // An exam fee can be charged before any monthly one.
+                ExtraFeesSection(extraFees)
             }
 
             is FeeUiState.Loaded -> {
@@ -175,6 +182,9 @@ fun FeeHistoryScreen(
                     }
                     items(state.rows, key = { it.period }) { row ->
                         FeePeriodRow(row, state.months.firstOrNull { it.period == row.period })
+                    }
+                    if (extraFees.isNotEmpty()) {
+                        item(key = "extra-fees") { ExtraFeesSection(extraFees) }
                     }
                 }
             }
@@ -302,3 +312,69 @@ private fun stateWord(kind: StripKind): String =
             StripKind.CHECKING -> R.string.fee_strip_checking
         },
     )
+
+/** The exam and other fees section. */
+const val TAG_FEES_EXTRA: String = "fees_extra"
+
+/**
+ * Tag for one exam or other fee row.
+ *
+ * @param extraFeeId The fee
+ * @return The tag
+ */
+fun extraFeeRowTag(extraFeeId: String): String = "fees_extra_$extraFeeId"
+
+/**
+ * The seat's exam and other fees, each with what is owed, when it is due
+ * and the server's status. Nothing is drawn when there are none.
+ *
+ * @param fees The fees, soonest due first
+ */
+@Composable
+private fun ExtraFeesSection(fees: List<ExtraFeeRow>) {
+    if (fees.isEmpty()) return
+    Column(
+        modifier = Modifier.fillMaxWidth().testTag(TAG_FEES_EXTRA),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            text = stringResource(R.string.family_extra_fees_title),
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.asHeading(),
+        )
+        fees.forEach { fee ->
+            ShikkhokCard(modifier = Modifier.testTag(extraFeeRowTag(fee.extraFeeId))) {
+                Text(Numerals.freeText(fee.label), style = MaterialTheme.typography.titleSmall)
+                Text(
+                    text =
+                        stringResource(
+                            R.string.family_extra_fee_line,
+                            Numerals.money(fee.owed),
+                            shortDate(fee.dueOn),
+                        ),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = stringResource(extraFeeStatusLabel(fee.status)),
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The label for an extra fee's status; one this build does not know
+ * reads as unpaid, which overstates nothing the family owes.
+ *
+ * @param status The server's status
+ * @return The string resource
+ */
+private fun extraFeeStatusLabel(status: String): Int =
+    when (status) {
+        "paid" -> R.string.fees_status_paid
+        "partly_paid" -> R.string.fees_status_partly_paid
+        "waived" -> R.string.fees_status_waived
+        else -> R.string.fees_status_unpaid
+    }

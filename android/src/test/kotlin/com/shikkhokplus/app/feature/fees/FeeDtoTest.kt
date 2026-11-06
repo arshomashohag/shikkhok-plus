@@ -1,5 +1,7 @@
 package com.shikkhokplus.app.feature.fees
 
+import com.shikkhokplus.app.core.network.OwedTogetherDto
+import com.shikkhokplus.app.core.network.SeatExtraFeesDto
 import com.shikkhokplus.app.core.model.Money
 import com.shikkhokplus.app.core.network.BatchFeesDto
 import com.shikkhokplus.app.core.network.ClaimDto
@@ -373,4 +375,47 @@ class FeeDtoTest {
             json.decodeFromString<CollectionsDto>(body.replace("\"%s\"", "5000").replace("\"9500.00\"", "9500"))
         }
     }
+
+    // -----------------------------------------------------------------
+    // SeatExtraFeesDto: a seat's exam and other fees.
+    // -----------------------------------------------------------------
+
+    private val seatExtra =
+        """
+        {"fees": [{
+          "extra_fee_id": "f-1", "label": "Half-yearly exam", "purpose": "exam",
+          "due_on": "2026-11-20", "charged": "500.00", "paid": "200.00",
+          "owed": "300.00", "status": "partly_paid"
+        }]}
+        """.trimIndent()
+
+    @Test
+    fun `a seat's extra fees decode money from JSON strings`() {
+        val fee = json.decodeFromString<SeatExtraFeesDto>(seatExtra).fees.single()
+        assertEquals(Money.of("500.00"), fee.charged)
+        assertEquals(Money.of("200.00"), fee.paid)
+        assertEquals(Money.of("300.00"), fee.owed)
+        assertEquals("partly_paid", fee.status)
+    }
+
+    @Test
+    fun `a seat's extra fee rejects a JSON number for owed`() {
+        assertFailsWith<Exception> {
+            json.decodeFromString<SeatExtraFeesDto>(seatExtra.replace("\"owed\": \"300.00\"", "\"owed\": 300"))
+        }
+    }
+
+    @Test
+    fun `what is owed together carries the fees a payment could be for`() {
+        val decoded =
+            json.decodeFromString<OwedTogetherDto>(
+                """
+                {"owed_together": "1000.00", "children": [],
+                 "extra_fee_options": [{"extra_fee_id": "f-1", "label": "Exam", "purpose": "exam", "due_on": "2026-11-20"}]}
+                """.trimIndent(),
+            )
+        assertEquals(listOf("f-1"), decoded.extraFeeOptions.map { it.extraFeeId })
+        assertEquals(Money.of("1000.00"), decoded.owedTogether)
+    }
+
 }
