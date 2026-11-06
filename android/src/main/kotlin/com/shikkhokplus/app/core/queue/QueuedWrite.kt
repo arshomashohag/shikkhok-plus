@@ -103,6 +103,10 @@ data class AttendanceEntry(
  * @property conflictKey The server's `message_key` for the last
  *   conflict, so the screen can tell a class that already started from
  *   a topic someone else saved first
+ * @property workspaceId The workspace this write was made in, stamped by
+ *   the store when it is queued and sent back with it on every replay, so
+ *   switching workspace never moves a queued write to another; null for
+ *   the default workspace
  * @property accountId The account this write was made under, stamped by
  *   [QueueStore] when it is stored rather than by each screen, so no
  *   caller can forget it. **The queue sends an item only under the
@@ -129,6 +133,7 @@ data class QueuedWrite(
     val notes: String? = null,
     @SerialName("conflict_key") val conflictKey: String? = null,
     @SerialName("account_id") val accountId: String? = null,
+    @SerialName("workspace_id") val workspaceId: String? = null,
 ) {
     /**
      * Mark this item failed, recording whether the server allows a retry.

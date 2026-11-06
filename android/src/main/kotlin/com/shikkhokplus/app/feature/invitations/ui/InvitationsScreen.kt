@@ -70,6 +70,7 @@ const val TAG_DECLINE_SHEET: String = "decline_sheet"
  * @param onBack Called by the back arrow when the list was pushed from
  *   More (S4, G4), or null on the lens-free person's home, which has
  *   nowhere to go back to
+ * @param offers The coaching centres' offers, drawn above the seats
  */
 @Composable
 fun InvitationsScreen(
@@ -83,11 +84,13 @@ fun InvitationsScreen(
     modifier: Modifier = Modifier,
     onBackToList: () -> Unit = {},
     onBack: (() -> Unit)? = null,
+    offers: @Composable () -> Unit = {},
 ) {
     ListScreenScaffold(
         title = stringResource(R.string.invitations_title),
         onBack = onBack,
         modifier = modifier,
+        header = { offers() },
     ) {
         // The title is in the app bar. It was rendered here too,
         // so every screen showed its name twice.

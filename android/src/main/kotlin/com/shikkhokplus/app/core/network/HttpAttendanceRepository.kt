@@ -1,5 +1,7 @@
 package com.shikkhokplus.app.core.network
 
+import io.ktor.client.request.header
+import com.shikkhokplus.app.core.session.WORKSPACE_HEADER
 import com.shikkhokplus.app.core.queue.QueueTarget
 import com.shikkhokplus.app.core.queue.QueuedWrite
 import com.shikkhokplus.app.core.queue.SendOutcome
@@ -106,10 +108,12 @@ class HttpAttendanceRepository(
                 when (item.target) {
                     QueueTarget.TOPIC ->
                         client.put("/v1/sessions/${item.sessionId}/topic") {
+                            item.workspaceId?.let { header(WORKSPACE_HEADER, it) }
                             setBody(topicBody(item))
                         }
                     QueueTarget.ATTENDANCE ->
                         client.post("/v1/sessions/${item.sessionId}/attendance") {
+                            item.workspaceId?.let { header(WORKSPACE_HEADER, it) }
                             setBody(
                                 SubmitBody(
                                     baseAttendanceVersion = item.baseVersion,

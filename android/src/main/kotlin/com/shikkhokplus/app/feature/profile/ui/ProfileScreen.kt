@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.feature.profile.ui
 
+import com.shikkhokplus.app.core.network.WorkspaceDto
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -69,6 +70,23 @@ const val TAG_PROFILE_EXPENSES: String = "profile_expenses"
 /** The monthly summary row, shown to a teacher. */
 const val TAG_PROFILE_MONEY_SUMMARY: String = "profile_money_summary"
 
+/** The open-a-centre row, shown to a teacher. */
+const val TAG_PROFILE_OPEN_CENTRE: String = "profile_open_centre"
+
+/** The centre's members row, shown to a teacher in a centre. */
+const val TAG_PROFILE_CENTRE_MEMBERS: String = "profile_centre_members"
+
+/** The centres' offers row, shown to a teacher. */
+const val TAG_PROFILE_CENTRE_OFFERS: String = "profile_centre_offers"
+
+/**
+ * Tag for one workspace row.
+ *
+ * @param ownerId The workspace
+ * @return The tag
+ */
+fun workspaceRowTag(ownerId: String): String = "profile_workspace_$ownerId"
+
 /** The switch-role row. Absent for a person with one lens. */
 const val TAG_PROFILE_SWITCH_LENS: String = "profile_switch_lens"
 
@@ -104,6 +122,13 @@ const val TAG_PROFILE_MY_CHILDREN: String = "profile_my_children"
  * @property onCollections Opens the money reports (M1), or null
  * @property onExpenses Opens the expense list, or null
  * @property onMoneySummary Opens the monthly summary, or null
+ * @property workspaces The workspaces the server offers, solo first;
+ *   listed to switch between only when there is more than one
+ * @property currentWorkspace The workspace in effect, or null
+ * @property onSwitchWorkspace Moves into another workspace, or null
+ * @property onOpenCentre Opens a coaching centre, or null
+ * @property onCentreMembers Opens the centre's members, or null outside a centre
+ * @property onCentreOffers Opens the centres' offers, or null
  * @property onInvitations Opens the invitations list, or null
  * @property onMyChildren Opens the guardian's children, or null
  * @property unsent How many records this phone has not sent yet (T9)
@@ -119,6 +144,12 @@ data class MoreActions(
     val onCollections: (() -> Unit)? = null,
     val onExpenses: (() -> Unit)? = null,
     val onMoneySummary: (() -> Unit)? = null,
+    val workspaces: List<WorkspaceDto> = emptyList(),
+    val currentWorkspace: WorkspaceDto? = null,
+    val onSwitchWorkspace: ((String) -> Unit)? = null,
+    val onOpenCentre: (() -> Unit)? = null,
+    val onCentreMembers: (() -> Unit)? = null,
+    val onCentreOffers: (() -> Unit)? = null,
     val onInvitations: (() -> Unit)? = null,
     val onMyChildren: (() -> Unit)? = null,
     val unsent: Int = 0,
@@ -330,6 +361,75 @@ private fun PeopleRows(lens: Lens?, actions: MoreActions, offline: Boolean) {
 }
 
 /**
+ * WORKSPACE: which workspace the teacher screens act on, the centre's
+ * members while in a centre, opening a centre, and centres' offers.
+ *
+ * The list is the server's own (`GET /v1/me`), so it offers nothing the
+ * server would then refuse; with one workspace there is nothing to list.
+ *
+ * @param actions Where each row leads
+ * @param offline Whether the rows wait for a connection
+ */
+@Composable
+private fun WorkspaceRows(actions: MoreActions, offline: Boolean) {
+    val open = actions.onOpenCentre ?: return
+    val needs = stringResource(R.string.more_needs_connection)
+    MenuSection(stringResource(R.string.workspace_section)) {
+        val switch = actions.onSwitchWorkspace
+        if (switch != null && actions.workspaces.size > 1) {
+            actions.workspaces.forEach { workspace ->
+                val here = workspace.ownerId == actions.currentWorkspace?.ownerId
+                MenuRow(
+                    title =
+                        if (workspace.isCentre) {
+                            Numerals.freeText(workspace.name.orEmpty())
+                        } else {
+                            stringResource(R.string.workspace_solo)
+                        },
+                    subtitle = stringResource(if (here) R.string.workspace_current else R.string.workspace_switch),
+                    icon = MenuIcons.Switch,
+                    trailing = if (here) MenuTrailing.None else MenuTrailing.Chevron,
+                    onClick = if (here) null else ({ switch(workspace.ownerId) }),
+                    highlighted = here,
+                    modifier = Modifier.testTag(workspaceRowTag(workspace.ownerId)),
+                )
+                MenuDivider()
+            }
+        }
+        actions.onCentreMembers?.let { members ->
+            MenuRow(
+                title = stringResource(R.string.centre_members_title),
+                subtitle = if (offline) needs else stringResource(R.string.centre_members_sub),
+                icon = MenuIcons.Person,
+                onClick = members,
+                enabled = !offline,
+                modifier = Modifier.testTag(TAG_PROFILE_CENTRE_MEMBERS),
+            )
+            MenuDivider()
+        }
+        actions.onCentreOffers?.let { offers ->
+            MenuRow(
+                title = stringResource(R.string.membership_offers_title),
+                subtitle = if (offline) needs else stringResource(R.string.invitations_title),
+                icon = MenuIcons.Envelope,
+                onClick = offers,
+                enabled = !offline,
+                modifier = Modifier.testTag(TAG_PROFILE_CENTRE_OFFERS),
+            )
+            MenuDivider()
+        }
+        MenuRow(
+            title = stringResource(R.string.centre_open_title),
+            subtitle = if (offline) needs else stringResource(R.string.centre_open_sub),
+            icon = MenuIcons.Upload,
+            onClick = open,
+            enabled = !offline,
+            modifier = Modifier.testTag(TAG_PROFILE_OPEN_CENTRE),
+        )
+    }
+}
+
+/**
  * The teacher's GETTING PAID and YOUR RECORDS sections (T9).
  *
  * @param actions Where each row leads
@@ -337,6 +437,7 @@ private fun PeopleRows(lens: Lens?, actions: MoreActions, offline: Boolean) {
  */
 @Composable
 private fun TeacherRows(actions: MoreActions, offline: Boolean) {
+    WorkspaceRows(actions, offline)
     actions.onPaymentMethods?.let { open ->
         MenuSection(stringResource(R.string.more_section_getting_paid)) {
             MenuRow(

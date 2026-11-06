@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.navigation
 
+import com.shikkhokplus.app.core.network.WorkspaceDto
 import com.shikkhokplus.app.core.session.Lens
 import com.shikkhokplus.app.feature.profile.ui.MoreActions
 import kotlin.test.Test
@@ -30,6 +31,10 @@ class MoreActionsTest {
         assertNotNull(actions.onCollections).invoke()
         assertNotNull(actions.onExpenses).invoke()
         assertNotNull(actions.onMoneySummary).invoke()
+        assertNotNull(actions.onOpenCentre).invoke()
+        assertNotNull(actions.onCentreOffers).invoke()
+        // Outside a centre there are no members to manage.
+        assertNull(actions.onCentreMembers)
 
         assertEquals(
             listOf(
@@ -37,6 +42,8 @@ class MoreActionsTest {
                 Destination.Collections.route,
                 Destination.Expenses.route,
                 Destination.MoneySummary.route,
+                Destination.OpenCentre.route,
+                Destination.CentreOffers.route,
             ),
             routes,
         )
@@ -94,5 +101,19 @@ class MoreActionsTest {
         assertTrue(isFamily(Lens.GUARDIAN))
         assertTrue(!isFamily(Lens.TEACHER))
         assertTrue(!isFamily(null))
+    }
+
+    @Test
+    fun `a teacher in a centre also gets its members`() {
+        val routes = mutableListOf<String>()
+        val actions =
+            moreActionsFor(
+                Lens.TEACHER,
+                MoreActions(currentWorkspace = WorkspaceDto("w-centre", "centre", "Udayan")),
+                navigate = { routes += it },
+            )
+
+        assertNotNull(actions.onCentreMembers).invoke()
+        assertEquals(listOf(Destination.CentreMembers.route), routes)
     }
 }

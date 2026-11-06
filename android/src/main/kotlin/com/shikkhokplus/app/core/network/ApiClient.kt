@@ -1,6 +1,8 @@
 package com.shikkhokplus.app.core.network
 
+import com.shikkhokplus.app.core.session.WORKSPACE_HEADER
 import io.ktor.client.HttpClient
+import io.ktor.client.plugins.api.createClientPlugin
 import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
@@ -57,6 +59,8 @@ object ApiClient {
      * @param tokenStore Supplies the access token for each request
      * @param onSessionEnded Called when an expired session cannot be
      *   renewed because the server refused the stored refresh token
+     * @param workspace Supplies the chosen workspace for each request, or
+     *   null to send no workspace header and use the server's default
      * @return The configured client
      * @throws IllegalArgumentException If [baseUrl] is not https
      */
@@ -65,6 +69,7 @@ object ApiClient {
         engine: HttpClientEngine = OkHttp.create(),
         tokenStore: TokenStore = TokenStore.InMemory(),
         onSessionEnded: () -> Unit = {},
+        workspace: () -> String? = { null },
     ): HttpClient {
         val url = io.ktor.http.Url(baseUrl)
         require(url.protocol == URLProtocol.HTTPS || isLoopback(url.host)) {
@@ -80,6 +85,20 @@ object ApiClient {
             expectSuccess = false
 
             install(ContentNegotiation) { json(json) }
+
+            // **The chosen workspace, unless the request names its own.**
+            // A queued write replays under the workspace it was made in;
+            // `defaultRequest` would append the current one beside it, and
+            // the server would read two workspaces.
+            install(
+                createClientPlugin("Workspace") {
+                    onRequest { request, _ ->
+                        if (!request.headers.contains(WORKSPACE_HEADER)) {
+                            workspace()?.let { request.headers.append(WORKSPACE_HEADER, it) }
+                        }
+                    }
+                },
+            )
 
             defaultRequest {
                 url(baseUrl)

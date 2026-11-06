@@ -765,6 +765,21 @@ sealed interface Destination {
         override val route: String = "money-summary"
     }
 
+    /** Opening a coaching centre, from More. */
+    data object OpenCentre : Destination {
+        override val route: String = "centres/new"
+    }
+
+    /** The chosen centre's members, for its managers. */
+    data object CentreMembers : Destination {
+        override val route: String = "centre/members"
+    }
+
+    /** The coaching centres' offers to this account, from a teacher's More. */
+    data object CentreOffers : Destination {
+        override val route: String = "centre-offers"
+    }
+
     /** One batch in one month (M2). */
     data object BatchMonth : Destination {
         override val route: String = "batches/{batchId}/month?period={period}&name={batchName}"

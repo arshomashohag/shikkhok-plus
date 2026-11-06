@@ -1,5 +1,10 @@
 package com.shikkhokplus.app
 
+import com.shikkhokplus.app.core.session.offlineScope
+import com.shikkhokplus.app.core.session.WorkspaceHolder
+import com.shikkhokplus.app.core.session.PreferencesWorkspaceStore
+import com.shikkhokplus.app.core.session.LocalWorkspaces
+import android.content.Context
 import androidx.compose.runtime.CompositionLocalProvider
 import com.shikkhokplus.app.core.offline.LocalOfflineCopies
 import com.shikkhokplus.app.core.offline.EncryptedOfflineStore
@@ -171,6 +176,9 @@ private fun UnconfiguredNotice() {
     }
 }
 
+/** Where the chosen workspace is kept. */
+private const val WORKSPACE_FILE = "workspace"
+
 /**
  * Builds the session-scoped dependencies and starts the graph.
  *
@@ -184,6 +192,15 @@ private fun UnconfiguredNotice() {
 private fun AppRoot(openInbox: Boolean, onInboxOpened: () -> Unit, settings: SettingsHolder) {
     val context = LocalContext.current
     val tokens = remember { EncryptedTokenStore.create(context) }
+    // **Which workspace the teacher screens act on**, kept between
+    // launches and checked by the server on every request. Read first,
+    // because the queue, the offline copies and the client all ask it.
+    val workspaces =
+        remember {
+            WorkspaceHolder(
+                PreferencesWorkspaceStore(context.getSharedPreferences(WORKSPACE_FILE, Context.MODE_PRIVATE)),
+            )
+        }
     // **One queue for the whole app, not one per screen.** The pending
     // attendance writes are a single ordered list [BR3.5]; a store
     // built per route would split that list by screen, and a write
@@ -198,12 +215,21 @@ private fun AppRoot(openInbox: Boolean, onInboxOpened: () -> Unit, settings: Set
             QueueStore(
                 java.io.File(context.filesDir, "attendance-queue.json"),
                 currentAccount = tokens::accountId,
+                // The workspace in effect when a write is made, never null
+                // once the server has offered one, so a later switch does
+                // not move a queued write.
+                currentWorkspace = { workspaces.current() ?: workspaces.effective()?.ownerId },
             )
         }
     // **What the server said last, kept on the phone** for a screen opened
     // without a connection, and overwritten by every successful read.
     // Encrypted, scoped to the signed-in account, cleared at sign-out.
-    val copies = remember { OfflineCopies(EncryptedOfflineStore.create(context), tokens::accountId) }
+    val copies =
+        remember {
+            OfflineCopies(EncryptedOfflineStore.create(context), {
+                offlineScope(tokens.accountId(), workspaces.current())
+            })
+        }
     // Raised from the network layer, off the main thread, when an
     // expired session could not be renewed; handled below by
     // `endLapsedSession`. A snapshot state is safe to write from any
@@ -215,6 +241,7 @@ private fun AppRoot(openInbox: Boolean, onInboxOpened: () -> Unit, settings: Set
                 BuildConfig.API_BASE_URL,
                 tokenStore = tokens,
                 onSessionEnded = { sessionLapsed = true },
+                workspace = workspaces::current,
             )
         }
     val repository = remember { HttpAuthRepository(client = client, tokens = tokens) }
@@ -261,7 +288,7 @@ private fun AppRoot(openInbox: Boolean, onInboxOpened: () -> Unit, settings: Set
     // already fixed once for the sign-in screen -- except worse,
     // because the wrong screen here is one the server refuses.
     val sessionModel: SessionViewModel =
-        viewModel { SessionViewModel(HttpProfileRepository(client)) }
+        viewModel { SessionViewModel(HttpProfileRepository(client), workspaces) }
     val sessionState by sessionModel.state.collectAsState()
 
     // Only for someone who IS signed in: a signed-out person has no
@@ -354,6 +381,7 @@ private fun AppRoot(openInbox: Boolean, onInboxOpened: () -> Unit, settings: Set
         UnreadSchedule.stop(context)
         copies.clear()
         queue.clear()
+        workspaces.clear()
         tokens.clear()
         authModel.signOut()
     }
@@ -385,7 +413,7 @@ private fun AppRoot(openInbox: Boolean, onInboxOpened: () -> Unit, settings: Set
     // ViewModel holding the old account's data is discarded with the
     // back stack, rather than left one Back press away.
     key(signedIn) {
-        CompositionLocalProvider(LocalOfflineCopies provides copies) {
+        CompositionLocalProvider(LocalOfflineCopies provides copies, LocalWorkspaces provides workspaces) {
             val navController = rememberNavController()
 
             ShikkhokNavHost(
