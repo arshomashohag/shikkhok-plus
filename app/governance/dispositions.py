@@ -335,6 +335,18 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
             "while the person's link to it does not."
         ),
     ),
+    "owner_member": TableGovernance(
+        disposition=Disposition.RETAIN_WITH_BASIS,
+        retention=RetentionClass.LIFE_OF_ACCOUNT,
+        basis=(
+            "A coaching centre's own record of who works there: the name "
+            "and phone number its manager typed, the role, and when the "
+            "person was invited, answered and left. When a member deletes "
+            "their account the membership is ended and its link to the "
+            "account cleared; the centre keeps the record, which names "
+            "only what the centre itself entered."
+        ),
+    ),
     "expense": TableGovernance(
         disposition=Disposition.RETAIN_WITH_BASIS,
         retention=RetentionClass.LIFE_OF_ACCOUNT,

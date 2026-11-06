@@ -33,6 +33,8 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from app.authz.rls import set_account_context
+from app.centres.memberships import link_memberships
+from app.centres.service import create_centre
 from app.db.models import Account, Owner, Profile
 from app.errors import ConflictError
 
@@ -64,6 +66,11 @@ class SignupRole(enum.Enum):
     TEACHER = "teacher"
     STUDENT = "student"
     GUARDIAN = "guardian"
+    #: A coaching centre [0022]: creates the centre, an owner with no
+    #: account, and makes this person its first manager. No solo
+    #: workspace is created; a manager who also tutors alone opens one
+    #: later.
+    COACHING = "coaching"
 
 
 class DuplicateNumber(ConflictError):
@@ -240,6 +247,7 @@ def create_account(
     role: SignupRole,
     self_name: str,
     address: PostalAddress | None = None,
+    centre_name: str | None = None,
     now: dt.datetime | None = None,
 ) -> AccountCreated:
     """Create an account, its profile, and an ``Owner`` only for Teacher.
@@ -272,6 +280,7 @@ def create_account(
     :param address: The address, in its four parts. The signup request
         requires it on every path since 2026-11-05; None only for a
         caller that is not a person signing up
+    :param centre_name: The centre's name, for ``COACHING`` only
     :param now: The moment of creation, or None for the clock
     :return: The new account and whether it owns batches
     :raises DuplicateNumber: The number already has an account
@@ -334,7 +343,20 @@ def create_account(
         # recorded on the account, here or anywhere.
         session.add(Owner(account_id=account.id, created_at=moment))
 
+    if role is SignupRole.COACHING:
+        create_centre(
+            session,
+            account_id=account.id,
+            name=centre_name or "",
+            manager_name=self_name,
+            now=moment,
+        )
+        is_teacher = True
+
     _link_existing_seats(session, account_id=account.id, phone=phone)
+    # A centre may have invited this number before it had an account.
+    # Linked, never accepted: the person still answers the invitation.
+    link_memberships(session, account_id=account.id, phone=phone)
 
     session.commit()
     return AccountCreated(account_id=account.id, is_teacher=is_teacher)

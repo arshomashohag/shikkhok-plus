@@ -27,6 +27,7 @@ import {
   saveTokens,
   type TokenResponse,
 } from '../api/tokens'
+import { reconcileWorkspace, storeWorkspace } from '../api/workspace'
 
 export type Lens = 'teacher' | 'student' | 'guardian'
 
@@ -47,6 +48,11 @@ export type Session =
       lens: Lens | null
       /** True when the person must pick before anything else opens. */
       choosing: boolean
+      /**
+       * The workspace teacher requests act on: a tutor's own or a centre
+       * they manage. Null when there is none to act on.
+       */
+      workspace: string | null
     }
 
 const LENS_KEY = 'sp.lens'
@@ -97,6 +103,8 @@ interface SessionValue {
   signIn: (tokens: TokenResponse) => void
   signOut: () => void
   chooseLens: (lens: Lens) => void
+  /** Act on another workspace; every screen re-reads under it. */
+  chooseWorkspace: (id: string) => void
   /** Re-read `/v1/me`, e.g. after accepting an invitation or creating a first batch. */
   refresh: () => void
 }
@@ -130,7 +138,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       (me) => {
         if (!live) return
         const options = readLenses(me.lenses)
-        setSession({ state: 'ready', me, options, ...resolveLens(options, storedLens()) })
+        setSession({
+          state: 'ready',
+          me,
+          options,
+          ...resolveLens(options, storedLens()),
+          workspace: reconcileWorkspace(me.workspaces ?? []),
+        })
       },
       (e: unknown) => {
         if (!live) return
@@ -157,6 +171,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(() => {
     clearTokens()
     storeLens(null)
+    storeWorkspace(null)
+  }, [])
+
+  const chooseWorkspace = useCallback((id: string) => {
+    storeWorkspace(id)
+    setSession((s) => (s.state === 'ready' ? { ...s, workspace: id } : s))
   }, [])
 
   const chooseLens = useCallback((lens: Lens) => {
@@ -174,8 +194,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [session.state, refresh])
 
   const value = useMemo(
-    () => ({ session, signIn, signOut, chooseLens, refresh }),
-    [session, signIn, signOut, chooseLens, refresh],
+    () => ({ session, signIn, signOut, chooseLens, chooseWorkspace, refresh }),
+    [session, signIn, signOut, chooseLens, chooseWorkspace, refresh],
   )
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
 }

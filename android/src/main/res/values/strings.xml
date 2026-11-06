@@ -1435,6 +1435,53 @@
     <string name="family_extra_fees_title">Exam &amp; other fees</string>
     <string name="family_extra_fee_line">%1$s · due %2$s</string>
 
+    <!-- Coaching centres [0022] -->
+    <string name="centre_member_already_invited">This number already has a place in the centre.</string>
+    <string name="centre_member_already_revoked">This person has already been removed.</string>
+    <string name="centre_member_last_manager">A centre needs at least one manager. Add another manager first.</string>
+    <string name="centre_name_required">Enter a name.</string>
+    <string name="centre_not_a_centre">This is only for a coaching centre.</string>
+
+    <!-- Coaching centres: screens [0022] -->
+    <string name="signup_role_coaching">Coaching</string>
+    <string name="signup_role_help_coaching">For a coaching centre with managers and teachers. You will be its first manager.</string>
+    <string name="signup_centre_name_label">Coaching centre name</string>
+    <string name="signup_centre_name_required">Enter the centre\'s name.</string>
+    <string name="workspace_section">Workspace</string>
+    <string name="workspace_solo">My own batches</string>
+    <string name="workspace_current">Open now</string>
+    <string name="workspace_switch">Switch to this</string>
+    <string name="centre_open_title">Open a coaching centre</string>
+    <string name="centre_open_sub">Run a centre with managers and teachers, apart from your own batches.</string>
+    <string name="centre_name_label">Centre name</string>
+    <string name="centre_manager_name_label">Your name in the centre</string>
+    <string name="centre_open_submit">Open centre</string>
+    <string name="centre_opened">%1$s is open. You are its manager.</string>
+    <string name="centre_members_title">Managers and teachers</string>
+    <string name="centre_members_sub">Invite people and remove them</string>
+    <string name="centre_member_role_manager">Manager</string>
+    <string name="centre_member_role_teacher">Teacher</string>
+    <string name="centre_member_pending">Invited, not answered yet</string>
+    <string name="centre_member_declined">Declined</string>
+    <string name="centre_member_accepted">Joined</string>
+    <string name="centre_member_revoked">Removed</string>
+    <string name="centre_member_you">You</string>
+    <string name="centre_invite_title">Invite someone</string>
+    <string name="centre_invite_name_label">Name</string>
+    <string name="centre_invite_phone_label">Phone number</string>
+    <string name="centre_invite_role_label">Role</string>
+    <string name="centre_invite_submit">Send invitation</string>
+    <string name="centre_invite_help">They get nothing until they accept. A teacher sees only their own classes once scheduling arrives.</string>
+    <string name="centre_invite_sent">Invitation sent to %1$s.</string>
+    <string name="centre_member_remove">Remove</string>
+    <string name="centre_member_remove_confirm">Remove %1$s from the centre? They lose access at once.</string>
+    <string name="centre_member_removed">%1$s was removed.</string>
+    <string name="centre_members_empty">Nobody else yet. Invite a manager or a teacher.</string>
+    <string name="membership_offers_title">Coaching centres</string>
+    <string name="membership_offer_line">Invites you as %1$s</string>
+    <string name="membership_accepted">You joined %1$s.</string>
+    <string name="membership_declined">You declined %1$s. You can still accept.</string>
+
     <!-- Expenses and the monthly summary [0021] -->
     <string name="expenses_already_voided">This expense was already voided.</string>
     <string name="expenses_amount_not_positive">Enter an amount greater than zero.</string>

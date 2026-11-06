@@ -76,7 +76,10 @@ _ROLE_NAMES: dict[service.SignupRole, RoleName] = {
     service.SignupRole.GUARDIAN: "guardian",
 }
 
-_ROLES_BY_NAME = {name: role for role, name in _ROLE_NAMES.items()}
+_ROLES_BY_NAME: dict[str, service.SignupRole] = {
+    **{name: role for role, name in _ROLE_NAMES.items()},
+    "coaching": service.SignupRole.COACHING,
+}
 
 
 def get_gateway() -> SmsGateway:
@@ -192,6 +195,7 @@ def sign_up(
             city=body.address_city,
             postcode=body.address_postcode,
         ),
+        centre_name=body.centre_name,
     )
     write_audit(session, created.account_id, AuthEvent.ACCOUNT_CREATED, correlation_id)
 

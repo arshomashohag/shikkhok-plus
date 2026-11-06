@@ -44,7 +44,7 @@ WEB_ORIGINS_ENV: Final = "SHIKKHOKPLUS_WEB_ORIGINS"
 _LOOPBACK: Final = frozenset({"localhost", "127.0.0.1", "[::1]"})
 
 #: Every header the web client sends. Nothing else is needed.
-_ALLOWED_HEADERS: Final = ("Authorization", "Content-Type", "Accept")
+_ALLOWED_HEADERS: Final = ("Authorization", "Content-Type", "Accept", "X-Workspace-Id")
 
 #: Preflight results may be cached by the browser for this long.
 _PREFLIGHT_MAX_AGE_S: Final = 600

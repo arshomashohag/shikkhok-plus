@@ -57,7 +57,7 @@ from app.fees.purposes import MONTHLY, Target, owed_for_target, resolve_target
 from app.local_time import DHAKA, bangladesh_today
 from app.money import Money, allocate_payment
 from app.notifications.inbox import CLAIM_TO_VERIFY, deliver
-from app.notifications.recipients import teacher_recipient
+from app.notifications.recipients import teacher_recipients
 from app.teaching.roster import readable_enrollment
 
 __all__ = [
@@ -699,13 +699,13 @@ def _tell_the_teacher(
     :param seats: The covered seats, in child order
     :return: None
     """
-    teacher = teacher_recipient(session, batch_id=submission.batch_id)
-    if teacher is None:
+    teachers = teacher_recipients(session, batch_id=submission.batch_id)
+    if not teachers:
         return
     batch = session.get(Batch, submission.batch_id)
     deliver(
         session,
-        account_ids=[teacher],
+        account_ids=teachers,
         kind=CLAIM_TO_VERIFY,
         batch_name=batch.name if batch is not None else "",
         now=dt.datetime.now(tz=dt.UTC),
@@ -713,5 +713,7 @@ def _tell_the_teacher(
         period=first_claim.period,
         amount=submission.total_amount,
         source_id=submission.id,
-        child_names={teacher: ", ".join(seat.display_name for seat in seats)},
+        child_names=dict.fromkeys(
+            teachers, ", ".join(seat.display_name for seat in seats)
+        ),
     )

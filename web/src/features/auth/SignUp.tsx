@@ -13,14 +13,15 @@ import { ApiError } from '../../api/errors'
 import { normalisePhone } from '../../core/format'
 import { toLatinDigits } from '../../core/money'
 import { AuthFrame } from './AuthFrame'
-import { GraduationIcon, TeacherIcon, UsersIcon } from '../../ui/icons'
+import { GraduationIcon, LayersIcon, TeacherIcon, UsersIcon } from '../../ui/icons'
 import { useT } from '../../i18n/i18n'
 
-type Role = 'teacher' | 'student' | 'guardian'
-type FieldName = 'name' | 'phone' | 'house' | 'road' | 'city' | 'postcode'
+type Role = 'teacher' | 'coaching' | 'student' | 'guardian'
+type FieldName = 'centre' | 'name' | 'phone' | 'house' | 'road' | 'city' | 'postcode'
 
 const ROLE_ICONS = {
   teacher: TeacherIcon,
+  coaching: LayersIcon,
   student: GraduationIcon,
   guardian: UsersIcon,
 } as const
@@ -30,6 +31,7 @@ export function SignUp() {
   const navigate = useNavigate()
   const [role, setRole] = useState<Role>('teacher')
   const [values, setValues] = useState<Record<FieldName, string>>({
+    centre: '',
     name: '',
     phone: '',
     house: '',
@@ -50,6 +52,7 @@ export function SignUp() {
 
   function validate(): { phone: string; postcode: string } | null {
     const next: Partial<Record<FieldName, string>> = {}
+    if (role === 'coaching' && !values.centre.trim()) next.centre = t('signup_centre_name_required')
     if (!values.name.trim()) next.name = t('signup_name_required')
     const phone = normalisePhone(values.phone)
     if (!phone) next.phone = t('phone_invalid')
@@ -77,6 +80,7 @@ export function SignUp() {
         address_road: values.road.trim(),
         address_city: values.city.trim(),
         address_postcode: ok.postcode,
+        ...(role === 'coaching' ? { centre_name: values.centre.trim() } : {}),
       })
       navigate('/signin', { replace: true, state: { phone: ok.phone } })
     } catch (err) {
@@ -113,7 +117,7 @@ export function SignUp() {
         <fieldset className="field">
           <legend>{t('signup_role_label')}</legend>
           <div className="role-tiles" role="group">
-            {(['teacher', 'student', 'guardian'] as const).map((r) => {
+            {(['teacher', 'coaching', 'student', 'guardian'] as const).map((r) => {
               const Icon = ROLE_ICONS[r]
               return (
                 <button
@@ -131,6 +135,8 @@ export function SignUp() {
           </div>
           <span className="help">{t(`signup_role_help_${role}`)}</span>
         </fieldset>
+
+        {role === 'coaching' ? field('centre', t('signup_centre_name_label')) : null}
 
         <div className="form-2">
           <div>

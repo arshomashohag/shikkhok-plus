@@ -177,6 +177,16 @@ _EXPENSE_CATEGORY = PgEnum(
     create_type=False,
 )
 
+#: What an owner is [0022]: a solo tutor, or a coaching centre.
+OWNER_KIND_VALUES: tuple[str, ...] = ("teacher", "organisation")
+
+_OWNER_KIND = PgEnum(*OWNER_KIND_VALUES, name="owner_kind", create_type=False)
+
+#: A member's part in a centre [0022].
+MEMBER_ROLE_VALUES: tuple[str, ...] = ("manager", "teacher")
+
+_MEMBER_ROLE = PgEnum(*MEMBER_ROLE_VALUES, name="member_role", create_type=False)
+
 #: A reminder's delivery outcome [BR7.2]. ``pending`` exists because the
 #: event commits BEFORE the push is dispatched: writing it afterwards
 #: loses the record of a send that happened if the process dies between
@@ -279,6 +289,8 @@ __all__ = [
     "EXTRA_FEE_PURPOSE_VALUES",
     "FEE_GENERATION_JOB",
     "LEDGER_KIND_VALUES",
+    "MEMBER_ROLE_VALUES",
+    "OWNER_KIND_VALUES",
     "PAYMENT_PURPOSE_VALUES",
     "REMINDER_OUTCOME_VALUES",
     "RESULT_STATE_VALUES",
@@ -306,6 +318,7 @@ __all__ = [
     "Mark",
     "OtpRequest",
     "Owner",
+    "OwnerMember",
     "PaymentClaim",
     "Profile",
     "QueuedSubmission",
@@ -635,8 +648,96 @@ class Owner(Base):
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )
+    # [0022] A solo tutor or a coaching centre. Defaults to the solo
+    # tutor every owner has always been; a centre is created only by the
+    # one path that names it.
+    kind: Mapped[str] = mapped_column(
+        _OWNER_KIND, nullable=False, server_default=text("'teacher'")
+    )
+    name: Mapped[str | None] = mapped_column(String(120), nullable=True)
 
-    __table_args__ = (Index("ix_owner_account_id", "account_id"),)
+    __table_args__ = (
+        Index("ix_owner_account_id", "account_id"),
+        CheckConstraint(
+            "kind = 'teacher' OR account_id IS NULL",
+            name="ck_owner_organisation_has_no_account",
+        ),
+        CheckConstraint(
+            "kind = 'teacher' OR length(trim(name)) > 0",
+            name="ck_owner_organisation_is_named",
+        ),
+    )
+
+
+class OwnerMember(Base):
+    """One person's place in a coaching centre [0022].
+
+    **Nothing until accepted.** An invitation names a phone number, and a
+    number is not that person's agreement -- the rule a seat follows. The
+    lens a membership gives is granted only while ``decision`` is
+    ``accepted`` and ``revoked_at`` is unset, both read inside the
+    granting query.
+
+    :ivar id: Surrogate key
+    :ivar owner_id: The centre
+    :ivar account_id: The person, once an account holds the number
+    :ivar invited_phone: The number invited, canonical
+    :ivar display_name: The name the inviting manager typed
+    :ivar role: ``manager`` or ``teacher``
+    :ivar decision: ``pending``, ``accepted`` or ``declined``
+    :ivar invited_by_account_id: Who invited them
+    :ivar created_at: When they were invited
+    :ivar decided_at: When they accepted or declined
+    :ivar revoked_at: When a manager ended the membership, or None
+    """
+
+    __tablename__ = "owner_member"
+
+    id: Mapped[uuid.UUID] = _uuid_column()
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("owner.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    account_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("account.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    invited_phone: Mapped[str] = mapped_column(String(20), nullable=False)
+    display_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    role: Mapped[str] = mapped_column(_MEMBER_ROLE, nullable=False)
+    decision: Mapped[str] = mapped_column(_DECISION, nullable=False)
+    invited_by_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("account.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    decided_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    revoked_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "length(trim(display_name)) > 0", name="ck_owner_member_display_name"
+        ),
+        Index("ix_owner_member_owner_id", "owner_id"),
+        Index("ix_owner_member_account_id", "account_id"),
+        Index("ix_owner_member_invited_phone", "invited_phone"),
+        Index(
+            "uq_owner_member_live_phone",
+            "owner_id",
+            "invited_phone",
+            unique=True,
+            postgresql_where=text("revoked_at IS NULL"),
+        ),
+    )
 
 
 class Student(Base):

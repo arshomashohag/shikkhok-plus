@@ -121,6 +121,16 @@ object MessageKeys {
             R.string.fees_extra_required,
         "fees.extra.student_not_in_batch" to
             R.string.fees_extra_student_not_in_batch,
+        "centre.member.already_invited" to
+            R.string.centre_member_already_invited,
+        "centre.member.already_revoked" to
+            R.string.centre_member_already_revoked,
+        "centre.member.last_manager" to
+            R.string.centre_member_last_manager,
+        "centre.name.required" to
+            R.string.centre_name_required,
+        "centre.not_a_centre" to
+            R.string.centre_not_a_centre,
         "expenses.already_voided" to
             R.string.expenses_already_voided,
         "expenses.amount_not_positive" to

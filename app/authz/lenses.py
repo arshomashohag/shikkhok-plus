@@ -102,3 +102,22 @@ class InvitationLens(Lens):
     """
 
     enrollment_id: UUID
+
+
+@dataclass(frozen=True, slots=True)
+class MembershipLens(Lens):
+    """Reach for one centre membership its holder has not accepted [0022].
+
+    The centre counterpart of :class:`InvitationLens`, for the same
+    reasons: a membership offer is a SET resolved by its own statement,
+    never by the hot-path query, and the id living inside the lens is
+    what stops a handler widening to a second membership.
+
+    **Granted on ``pending`` OR ``declined``, and never once revoked.**
+    A decline is reversible by its holder; a revocation is the centre's
+    decision and only the centre can make a new offer.
+
+    :ivar member_id: The one membership this lens reaches
+    """
+
+    member_id: UUID

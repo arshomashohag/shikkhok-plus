@@ -78,14 +78,29 @@ MEMO_ATTRIBUTE = "lenses"
 #:
 #: The predicates add no join and no round trip [NFR20.1]: both columns
 #: are on rows this statement already reads.
+#:
+#: **The teacher branch is a SET of workspaces since 0022**: an account's
+#: own solo workspace (``owner.account_id``) first, then every coaching
+#: centre where it holds an ACCEPTED, UNREVOKED ``manager`` membership.
+#: Both predicates sit inside the granting query for the reason the
+#: seat's decision does: a check above a query is one the next query can
+#: bypass. A ``teacher`` membership grants no teacher lens here.
 _LENS_QUERY = sa.text(
     """
     SELECT
-        (
-            SELECT id FROM owner
-            WHERE account_id = :account_id
-            ORDER BY created_at, id LIMIT 1
-        ) AS owner_id,
+        ARRAY(
+            SELECT w.id FROM (
+                SELECT o.id, 0 AS solo_last, o.created_at FROM owner o
+                WHERE o.account_id = :account_id
+                UNION ALL
+                SELECT m.owner_id, 1, m.created_at FROM owner_member m
+                WHERE m.account_id = :account_id
+                  AND m.role = 'manager'
+                  AND m.decision = 'accepted'
+                  AND m.revoked_at IS NULL
+            ) AS w
+            ORDER BY w.solo_last, w.created_at, w.id
+        ) AS owner_ids,
         EXISTS (
             SELECT 1 FROM enrollment
             WHERE student_account_id = :account_id
@@ -120,11 +135,13 @@ def available_lenses(session: Session, account_id: uuid.UUID) -> list[Lens]:
     row = session.execute(_LENS_QUERY, {"account_id": account_id}).one()
     lenses: list[Lens] = []
 
-    if row.owner_id is not None:
-        # The owner id is the scoping value a teacher-facing query needs,
-        # which is what makes the lens a data dependency rather than a
-        # guard someone can forget to add.
-        lenses.append(TeacherLens(account_id=account_id, owner_id=row.owner_id))
+    # One teacher lens per workspace, the solo one first. The owner id is
+    # the scoping value a teacher-facing query needs, which is what makes
+    # the lens a data dependency rather than a guard someone can forget.
+    lenses.extend(
+        TeacherLens(account_id=account_id, owner_id=owner_id)
+        for owner_id in dict.fromkeys(row.owner_ids or [])
+    )
 
     if row.is_student:
         lenses.append(StudentLens(account_id=account_id))

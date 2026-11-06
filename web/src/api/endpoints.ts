@@ -39,6 +39,28 @@ export const acceptInvitation = (enrollmentId: string) =>
 export const declineInvitation = (enrollmentId: string) =>
   request<unknown>('POST', `/v1/invitations/${enc(enrollmentId)}/decline`)
 
+// ------------------------------------------------------------- centres [0022]
+
+export const openCentre = (body: Schemas['CentreCreateRequest']) =>
+  request<Schemas['CentreResponse']>('POST', '/v1/centres', { body })
+
+export const listMembers = () => request<Schemas['MemberResponse'][]>('GET', '/v1/centre/members')
+
+export const inviteMember = (body: Schemas['MemberInviteRequest']) =>
+  request<Schemas['MemberResponse']>('POST', '/v1/centre/members', { body })
+
+export const revokeMember = (memberId: string) =>
+  request<undefined>('POST', `/v1/centre/members/${enc(memberId)}/revoke`)
+
+export const listMemberships = () =>
+  request<Schemas['MembershipResponse'][]>('GET', '/v1/memberships')
+
+export const acceptMembership = (memberId: string) =>
+  request<Schemas['MembershipDecisionResponse']>('POST', `/v1/memberships/${enc(memberId)}/accept`)
+
+export const declineMembership = (memberId: string) =>
+  request<Schemas['MembershipDecisionResponse']>('POST', `/v1/memberships/${enc(memberId)}/decline`)
+
 // -------------------------------------------------------------- teacher
 
 export const readToday = () => request<Schemas['TodayResponse']>('GET', '/v1/me/today')

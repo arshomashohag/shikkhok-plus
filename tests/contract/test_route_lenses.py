@@ -160,6 +160,10 @@ def test_lens_exempt_set_holds_exactly_the_known_routes() -> None:
             ("GET", "/v1/me/notifications/{notification_id}"),
             ("POST", "/v1/me/notifications/{notification_id}/read"),
             ("GET", "/v1/me/deletion-summary"),
+            # Opening a centre acts on the caller itself, and the offer
+            # listing reports which membership lenses exist [0022].
+            ("POST", "/v1/centres"),
+            ("GET", "/v1/memberships"),
         }
     )
 

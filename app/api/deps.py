@@ -28,17 +28,22 @@ from app.authz.lenses import (
     GuardianLens,
     InvitationLens,
     Lens,
+    MembershipLens,
     StudentLens,
     TeacherLens,
 )
 from app.authz.resolve import LensResolver
+from app.centres.memberships import available_memberships
 from app.errors import AuthorizationError
 
 __all__ = [
+    "WORKSPACE_HEADER",
+    "choose_workspace",
     "family_lens",
     "family_lenses",
     "guardian_lens",
     "invitation_lens",
+    "membership_lens",
     "student_lens",
     "teacher_lens",
 ]
@@ -180,12 +185,46 @@ def teacher_lens(
     :param request: The request carrying the lens memo
     :param session: The session to query through
     :param account_id: The authenticated account
-    :return: The teacher lens
-    :raises AuthorizationError: This account owns no batches
+    :return: The teacher lens for the workspace this request acts on
+    :raises AuthorizationError: This account manages no workspace, or
+        not the one the request names
     """
-    for lens in _resolved(request, session, account_id):
-        if isinstance(lens, TeacherLens):
-            return lens
+    workspaces = [
+        lens
+        for lens in _resolved(request, session, account_id)
+        if isinstance(lens, TeacherLens)
+    ]
+    return choose_workspace(workspaces, request.headers.get(WORKSPACE_HEADER))
+
+
+#: The header a client names the workspace it acts on with [0022].
+WORKSPACE_HEADER = "X-Workspace-Id"
+
+
+def choose_workspace(
+    workspaces: list[TeacherLens], requested: str | None
+) -> TeacherLens:
+    """Pick the workspace a request acts on, from those the account manages.
+
+    **The header is a choice, never a grant** [TC-11]. It selects among
+    the workspaces the account's own data already gives it, resolved by
+    the same query as every lens; naming any other workspace is refused
+    with the same code as naming none, so it cannot test which centres
+    exist. Without the header the solo workspace comes first, which is
+    what every client sent before centres existed.
+
+    :param workspaces: The account's teacher lenses, solo first
+    :param requested: The header's value, if sent
+    :return: The chosen lens
+    :raises AuthorizationError: No workspace, or one not in the list
+    """
+    if requested is None or not requested.strip():
+        if workspaces:
+            return workspaces[0]
+    else:
+        for lens in workspaces:
+            if str(lens.owner_id) == requested.strip():
+                return lens
     raise AuthorizationError(
         code="NO_TEACHER_LENS",
         message_key="authz.lens.not_available",
@@ -322,5 +361,32 @@ def invitation_lens(
             return lens
     raise AuthorizationError(
         code="NO_INVITATION_LENS",
+        message_key="authz.lens.not_available",
+    )
+
+
+def membership_lens(
+    member_id: uuid.UUID,
+    session: Annotated[Session, Depends(get_session)],
+    account_id: Annotated[uuid.UUID, Depends(authenticated_account)],
+) -> MembershipLens:
+    """Resolve the membership lens for one centre offer named in the path.
+
+    Resolved by its own statement and never memoized, on
+    :func:`invitation_lens`'s reasoning; the path id is checked against
+    the grant, so a handler cannot reach a second offer.
+
+    :param member_id: The membership, from the route path
+    :param session: The session to query through
+    :param account_id: The authenticated account
+    :return: The membership lens for that one offer
+    :raises AuthorizationError: No unanswered, unrevoked offer with that
+        id names this account
+    """
+    for lens in available_memberships(session, account_id):
+        if lens.member_id == member_id:
+            return lens
+    raise AuthorizationError(
+        code="NO_MEMBERSHIP_LENS",
         message_key="authz.lens.not_available",
     )

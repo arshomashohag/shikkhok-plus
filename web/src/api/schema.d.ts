@@ -728,6 +728,89 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/v1/centre/members': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List Centre Members
+     * @description List the centre's members, live ones first.
+     *
+     *     :param lens: The manager's lens on the centre
+     *     :param session: The request-scoped session
+     *     :return: Every membership the centre has recorded
+     */
+    get: operations['list_centre_members_v1_centre_members_get']
+    put?: never
+    /**
+     * Invite Centre Member
+     * @description Invite a number to the centre; nothing is granted until they accept.
+     *
+     *     :param body: The number, name and role
+     *     :param lens: The manager's lens on the centre
+     *     :param session: The request-scoped session
+     *     :return: The new, pending membership
+     */
+    post: operations['invite_centre_member_v1_centre_members_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/centre/members/{member_id}/revoke': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Revoke Centre Member
+     * @description End a membership; the member loses the centre on their next request.
+     *
+     *     :param member_id: The membership
+     *     :param lens: The manager's lens on the centre
+     *     :param session: The request-scoped session
+     *     :return: None
+     */
+    post: operations['revoke_centre_member_v1_centre_members__member_id__revoke_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/centres': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Open Centre
+     * @description Open a coaching centre with the caller as its first manager.
+     *
+     *     :param body: The centre's name and the caller's name in it
+     *     :param account_id: The authenticated account
+     *     :param session: The request-scoped session
+     *     :return: The new workspace
+     */
+    post: operations['open_centre_v1_centres_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/v1/children/{enrollment_id}/calendar': {
     parameters: {
       query?: never
@@ -2219,6 +2302,78 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/v1/memberships': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List Memberships
+     * @description List the centres inviting this account, unanswered or declined.
+     *
+     *     :param account_id: The authenticated account
+     *     :param session: The request-scoped session
+     *     :return: One entry per offer, oldest first
+     */
+    get: operations['list_memberships_v1_memberships_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/memberships/{member_id}/accept': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Accept Membership
+     * @description Accept an offer, from ``pending`` or from ``declined``.
+     *
+     *     :param lens: The membership lens carrying the one offer
+     *     :param session: The request-scoped session
+     *     :return: The offer and the decision
+     */
+    post: operations['accept_membership_v1_memberships__member_id__accept_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/memberships/{member_id}/decline': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Decline Membership
+     * @description Decline an offer; the holder may still accept it later.
+     *
+     *     :param lens: The membership lens carrying the one offer
+     *     :param session: The request-scoped session
+     *     :return: The offer and the decision
+     */
+    post: operations['decline_membership_v1_memberships__member_id__decline_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/v1/money/summary': {
     parameters: {
       query?: never
@@ -3241,6 +3396,35 @@ export interface components {
         | 'transport'
         | 'utilities'
       total: components['schemas']['Money']
+    }
+    /**
+     * CentreCreateRequest
+     * @description Open a coaching centre, as its first manager.
+     *
+     *     :ivar name: The centre's name, shown to its members and families
+     *     :ivar manager_name: How the centre's members see you
+     */
+    CentreCreateRequest: {
+      /** Manager Name */
+      manager_name: string
+      /** Name */
+      name: string
+    }
+    /**
+     * CentreResponse
+     * @description The centre just opened.
+     *
+     *     :ivar owner_id: The workspace id, sent as ``X-Workspace-Id`` to act on it
+     *     :ivar name: Its name
+     */
+    CentreResponse: {
+      /** Name */
+      name: string
+      /**
+       * Owner Id
+       * Format: uuid
+       */
+      owner_id: string
     }
     /**
      * ChargeableStudentResponse
@@ -4933,6 +5117,10 @@ export interface components {
      *         login, read by the owner on a lens-exempt route; the profile
      *         shows it read-only, and in-app deletion asks the person to type
      *         it back as confirmation, which needs the app to know it
+     *     :ivar workspaces: Every workspace the teacher lens may act on, solo
+     *         first [0022]. A client sends the chosen one's ``owner_id`` as
+     *         ``X-Workspace-Id``; with one entry, or none, there is nothing to
+     *         choose
      */
     MeResponse: {
       /** Address */
@@ -4951,6 +5139,120 @@ export interface components {
       phone?: string | null
       /** Self Name */
       self_name?: string | null
+      /** Workspaces */
+      workspaces?: components['schemas']['WorkspaceResponse'][]
+    }
+    /**
+     * MemberInviteRequest
+     * @description Invite a number to the centre.
+     *
+     *     :ivar phone: The number, typed by the manager
+     *     :ivar display_name: The name the centre knows them by
+     *     :ivar role: ``manager`` or ``teacher``
+     */
+    MemberInviteRequest: {
+      /** Display Name */
+      display_name: string
+      /**
+       * Phone
+       * @description A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.
+       */
+      phone: string
+      /**
+       * Role
+       * @enum {string}
+       */
+      role: 'manager' | 'teacher'
+    }
+    /**
+     * MemberResponse
+     * @description One membership, as a manager sees it.
+     *
+     *     :ivar member_id: The membership
+     *     :ivar display_name: The name the centre typed
+     *     :ivar phone: The number invited
+     *     :ivar role: ``manager`` or ``teacher``
+     *     :ivar decision: Where the offer stands
+     *     :ivar invited_at: When they were invited
+     *     :ivar revoked: Whether the membership has been ended
+     *     :ivar is_you: Whether this is the caller's own membership
+     */
+    MemberResponse: {
+      /**
+       * Decision
+       * @enum {string}
+       */
+      decision: 'accepted' | 'declined' | 'pending'
+      /** Display Name */
+      display_name: string
+      /**
+       * Invited At
+       * Format: date-time
+       */
+      invited_at: string
+      /** Is You */
+      is_you: boolean
+      /**
+       * Member Id
+       * Format: uuid
+       */
+      member_id: string
+      /** Phone */
+      phone: string
+      /** Revoked */
+      revoked: boolean
+      /**
+       * Role
+       * @enum {string}
+       */
+      role: 'manager' | 'teacher'
+    }
+    /**
+     * MembershipDecisionResponse
+     * @description What the holder decided.
+     *
+     *     :ivar member_id: The membership
+     *     :ivar decision: ``accepted`` or ``declined``
+     */
+    MembershipDecisionResponse: {
+      /**
+       * Decision
+       * @enum {string}
+       */
+      decision: 'accepted' | 'declined'
+      /**
+       * Member Id
+       * Format: uuid
+       */
+      member_id: string
+    }
+    /**
+     * MembershipResponse
+     * @description One offer, as the person invited sees it.
+     *
+     *     :ivar member_id: The membership
+     *     :ivar centre_name: The centre making the offer
+     *     :ivar role: ``manager`` or ``teacher``
+     *     :ivar decision: ``pending`` or ``declined``
+     */
+    MembershipResponse: {
+      /** Centre Name */
+      centre_name: string
+      /**
+       * Decision
+       * @enum {string}
+       */
+      decision: 'declined' | 'pending'
+      /**
+       * Member Id
+       * Format: uuid
+       */
+      member_id: string
+      /**
+       * Role
+       * @enum {string}
+       */
+      role: 'manager' | 'teacher'
     }
     /**
      * Money
@@ -6632,6 +6934,8 @@ export interface components {
      *     :ivar address_road: Road or area, required
      *     :ivar address_city: City or district, required
      *     :ivar address_postcode: Four digits, required
+     *     :ivar centre_name: The centre's name. Required for ``coaching`` and
+     *         refused for every other role
      */
     SignupRequest: {
       /**
@@ -6654,6 +6958,8 @@ export interface components {
        * @description Road number or name, and area.
        */
       address_road: string
+      /** Centre Name */
+      centre_name?: string | null
       /**
        * Phone
        * @description A Bangladeshi mobile number. Any common spelling is accepted (01711234567, 01711-234567, +8801711234567, Bangla digits); it is stored and returned as +8801XXXXXXXXX.
@@ -6663,7 +6969,7 @@ export interface components {
        * Role
        * @enum {string}
        */
-      role: 'guardian' | 'student' | 'teacher'
+      role: 'coaching' | 'guardian' | 'student' | 'teacher'
       /** Self Name */
       self_name: string
     }
@@ -7230,6 +7536,28 @@ export interface components {
       period: string
       /** Submitted At */
       submitted_at?: string | null
+    }
+    /**
+     * WorkspaceResponse
+     * @description One workspace this account may act on.
+     *
+     *     :ivar owner_id: The id to send as ``X-Workspace-Id``
+     *     :ivar kind: ``solo`` for a tutor's own, ``centre`` for a centre
+     *     :ivar name: The centre's name, or None for a solo workspace
+     */
+    WorkspaceResponse: {
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: 'centre' | 'solo'
+      /** Name */
+      name?: string | null
+      /**
+       * Owner Id
+       * Format: uuid
+       */
+      owner_id: string
     }
   }
   responses: never
@@ -8634,6 +8962,265 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['AddStudentsResponse']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  list_centre_members_v1_centre_members_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MemberResponse'][]
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  invite_centre_member_v1_centre_members_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['MemberInviteRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MemberResponse']
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  revoke_centre_member_v1_centre_members__member_id__revoke_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        member_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  open_centre_v1_centres_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CentreCreateRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['CentreResponse']
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
         }
       }
       /** @description Validation Error */
@@ -11128,6 +11715,142 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  list_memberships_v1_memberships_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MembershipResponse'][]
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  accept_membership_v1_memberships__member_id__accept_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        member_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MembershipDecisionResponse']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  decline_membership_v1_memberships__member_id__decline_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        member_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MembershipDecisionResponse']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
         }
       }
     }

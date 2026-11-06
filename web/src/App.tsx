@@ -29,6 +29,7 @@ import { examsRoutes } from './features/teacher/exams'
 import { peopleRoutes } from './features/teacher/people'
 import { studentsRoutes } from './features/teacher/students'
 import { moneyRoutes } from './features/teacher/money'
+import { centreRoutes } from './features/teacher/centre'
 
 import { batchRoutes } from './features/family/batch'
 import { payRoutes } from './features/family/pay'
@@ -46,6 +47,7 @@ const AREA_ROUTES = [
   ...studentsRoutes,
   ...peopleRoutes,
   ...moneyRoutes,
+  ...centreRoutes,
 ]
 
 function Only({
@@ -104,8 +106,10 @@ export function App() {
   if (session.choosing) return <LensPicker options={session.options} />
 
   const lens = session.lens
+  // Keyed on the workspace, so switching between a tutor's own batches and
+  // a centre re-reads every screen under the new one.
   return (
-    <Routes>
+    <Routes key={session.workspace ?? 'default'}>
       <Route element={<AppShell />}>
         <Route
           path="/today"

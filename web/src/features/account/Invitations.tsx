@@ -4,13 +4,85 @@
  * screen asks, then re-reads `/v1/me` to learn what changed.
  */
 import { useState } from 'react'
-import { acceptInvitation, declineInvitation, listInvitations } from '../../api/endpoints'
+import {
+  acceptInvitation,
+  acceptMembership,
+  declineInvitation,
+  declineMembership,
+  listInvitations,
+  listMemberships,
+} from '../../api/endpoints'
 import { ApiError } from '../../api/errors'
 import { Money } from '../../core/money'
 import { useResource } from '../../core/useResource'
 import { useT } from '../../i18n/i18n'
 import { useSession } from '../../session/session'
-import { EmptyState, ErrorCard, Loading, Snackbar, TopBar } from '../../ui/components'
+import { EmptyState, ErrorCard, Loading, Section, Snackbar, TopBar } from '../../ui/components'
+
+/**
+ * Coaching centres inviting this account. Accepting a manager offer adds
+ * the centre as a workspace; the server decides, and `/v1/me` reports it.
+ */
+function CentreOffers({ onSnack }: { onSnack: (text: string) => void }) {
+  const { t, message } = useT()
+  const { refresh } = useSession()
+  const { resource, reload } = useResource(() => listMemberships(), [])
+  const [busy, setBusy] = useState<string | null>(null)
+
+  if (resource.state !== 'loaded' || resource.data.length === 0) return null
+
+  async function answer(id: string, accept: boolean, centre: string) {
+    setBusy(id)
+    try {
+      await (accept ? acceptMembership(id) : declineMembership(id))
+      onSnack(accept ? t('membership_accepted', centre) : t('membership_declined', centre))
+      reload()
+      refresh()
+    } catch (e) {
+      onSnack(e instanceof ApiError ? message(e.messageKey) : t('error_unexpected'))
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  return (
+    <Section title={t('membership_offers_title')}>
+      <div className="grid-2">
+        {resource.data.map((offer) => (
+          <article key={offer.member_id} className="card">
+            <div className="title">{offer.centre_name}</div>
+            <div className="meta">
+              {t('membership_offer_line', t(`centre_member_role_${offer.role}`))}
+            </div>
+            <div className="meta" style={{ marginTop: 4 }}>
+              {offer.decision === 'declined'
+                ? t('invitation_state_declined')
+                : t('invitation_state_pending')}
+            </div>
+            <div className="button-row">
+              <button
+                type="button"
+                className="btn btn-outline"
+                disabled={busy !== null || offer.decision === 'declined'}
+                onClick={() => void answer(offer.member_id, false, offer.centre_name)}
+              >
+                {t('invitation_decline')}
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary grow"
+                disabled={busy !== null}
+                onClick={() => void answer(offer.member_id, true, offer.centre_name)}
+              >
+                {t('invitation_accept')}
+              </button>
+            </div>
+          </article>
+        ))}
+      </div>
+    </Section>
+  )
+}
 
 export function Invitations() {
   const { t, message } = useT()
@@ -97,6 +169,7 @@ export function Invitations() {
   return (
     <>
       <TopBar title={t('invitations_title')} />
+      <CentreOffers onSnack={setSnack} />
       {body}
       {snack ? <Snackbar text={snack} onDismiss={() => setSnack(null)} /> : null}
     </>

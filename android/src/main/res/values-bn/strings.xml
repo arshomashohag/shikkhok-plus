@@ -1380,6 +1380,53 @@
     <string name="family_extra_fees_title">পরীক্ষা ও অন্যান্য ফি</string>
     <string name="family_extra_fee_line">%1$s · শেষ তারিখ %2$s</string>
 
+    <!-- Coaching centres [0022] -->
+    <string name="centre_member_already_invited">এই নম্বরটি আগে থেকেই সেন্টারে আছে।</string>
+    <string name="centre_member_already_revoked">এই ব্যক্তিকে আগেই সরানো হয়েছে।</string>
+    <string name="centre_member_last_manager">সেন্টারে অন্তত একজন ম্যানেজার থাকতে হবে। আগে আরেকজন ম্যানেজার যোগ করুন।</string>
+    <string name="centre_name_required">একটি নাম লিখুন।</string>
+    <string name="centre_not_a_centre">এটি শুধু কোচিং সেন্টারের জন্য।</string>
+
+    <!-- Coaching centres: screens [0022] -->
+    <string name="signup_role_coaching">কোচিং</string>
+    <string name="signup_role_help_coaching">ম্যানেজার ও শিক্ষকসহ কোচিং সেন্টারের জন্য। আপনি হবেন এর প্রথম ম্যানেজার।</string>
+    <string name="signup_centre_name_label">কোচিং সেন্টারের নাম</string>
+    <string name="signup_centre_name_required">সেন্টারের নাম লিখুন।</string>
+    <string name="workspace_section">কাজের জায়গা</string>
+    <string name="workspace_solo">আমার নিজের ব্যাচ</string>
+    <string name="workspace_current">এখন খোলা</string>
+    <string name="workspace_switch">এটিতে যান</string>
+    <string name="centre_open_title">কোচিং সেন্টার খুলুন</string>
+    <string name="centre_open_sub">নিজের ব্যাচের বাইরে, ম্যানেজার ও শিক্ষকদের নিয়ে সেন্টার চালান।</string>
+    <string name="centre_name_label">সেন্টারের নাম</string>
+    <string name="centre_manager_name_label">সেন্টারে আপনার নাম</string>
+    <string name="centre_open_submit">সেন্টার খুলুন</string>
+    <string name="centre_opened">%1$s খোলা হয়েছে। আপনি এর ম্যানেজার।</string>
+    <string name="centre_members_title">ম্যানেজার ও শিক্ষক</string>
+    <string name="centre_members_sub">আমন্ত্রণ জানান ও সরান</string>
+    <string name="centre_member_role_manager">ম্যানেজার</string>
+    <string name="centre_member_role_teacher">শিক্ষক</string>
+    <string name="centre_member_pending">আমন্ত্রিত, এখনো উত্তর দেননি</string>
+    <string name="centre_member_declined">প্রত্যাখ্যান করেছেন</string>
+    <string name="centre_member_accepted">যোগ দিয়েছেন</string>
+    <string name="centre_member_revoked">সরানো হয়েছে</string>
+    <string name="centre_member_you">আপনি</string>
+    <string name="centre_invite_title">কাউকে আমন্ত্রণ জানান</string>
+    <string name="centre_invite_name_label">নাম</string>
+    <string name="centre_invite_phone_label">ফোন নম্বর</string>
+    <string name="centre_invite_role_label">ভূমিকা</string>
+    <string name="centre_invite_submit">আমন্ত্রণ পাঠান</string>
+    <string name="centre_invite_help">গ্রহণ না করা পর্যন্ত তাঁরা কিছুই পাবেন না। শিডিউল চালু হলে একজন শিক্ষক শুধু নিজের ক্লাস দেখবেন।</string>
+    <string name="centre_invite_sent">%1$s-কে আমন্ত্রণ পাঠানো হয়েছে।</string>
+    <string name="centre_member_remove">সরান</string>
+    <string name="centre_member_remove_confirm">%1$s-কে সেন্টার থেকে সরাবেন? তাঁরা সঙ্গে সঙ্গে প্রবেশাধিকার হারাবেন।</string>
+    <string name="centre_member_removed">%1$s-কে সরানো হয়েছে।</string>
+    <string name="centre_members_empty">এখনো আর কেউ নেই। একজন ম্যানেজার বা শিক্ষককে আমন্ত্রণ জানান।</string>
+    <string name="membership_offers_title">কোচিং সেন্টার</string>
+    <string name="membership_offer_line">আপনাকে %1$s হিসেবে আমন্ত্রণ জানিয়েছে</string>
+    <string name="membership_accepted">আপনি %1$s-এ যোগ দিয়েছেন।</string>
+    <string name="membership_declined">আপনি %1$s প্রত্যাখ্যান করেছেন। এখনো গ্রহণ করতে পারেন।</string>
+
     <!-- Expenses and the monthly summary [0021] -->
     <string name="expenses_already_voided">এই খরচটি আগেই বাতিল করা হয়েছে।</string>
     <string name="expenses_amount_not_positive">শূন্যের চেয়ে বেশি পরিমাণ লিখুন।</string>

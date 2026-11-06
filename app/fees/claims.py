@@ -32,7 +32,7 @@ from app.errors import ValidationError
 from app.fees.purposes import MONTHLY, Target, point_claim
 from app.money import Money
 from app.notifications.inbox import CLAIM_TO_VERIFY, deliver
-from app.notifications.recipients import teacher_recipient
+from app.notifications.recipients import teacher_recipients
 
 __all__ = ["CASH", "MOBILE_SERVICES", "record_claim", "submit_claim"]
 
@@ -161,13 +161,13 @@ def _tell_the_teacher(session: Session, claim: PaymentClaim) -> None:
     seat = session.get(Enrollment, claim.enrollment_id)
     if seat is None:
         return
-    teacher = teacher_recipient(session, batch_id=seat.batch_id)
-    if teacher is None:
+    teachers = teacher_recipients(session, batch_id=seat.batch_id)
+    if not teachers:
         return
     batch = session.get(Batch, seat.batch_id)
     deliver(
         session,
-        account_ids=[teacher],
+        account_ids=teachers,
         kind=CLAIM_TO_VERIFY,
         batch_name=batch.name if batch is not None else "",
         now=dt.datetime.now(tz=dt.UTC),
@@ -175,5 +175,5 @@ def _tell_the_teacher(session: Session, claim: PaymentClaim) -> None:
         period=claim.period,
         amount=claim.claimed_amount,
         source_id=claim.id,
-        child_names={teacher: seat.display_name},
+        child_names={teacher: seat.display_name for teacher in teachers},
     )

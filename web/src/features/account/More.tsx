@@ -31,6 +31,7 @@ import {
 import { paths } from '../teacher/paths'
 import { accountPaths } from '../family/reader'
 import { useUnreadCount } from './area/unread'
+import { WorkspaceSection } from './Workspaces'
 
 /** One More row: a link when there is somewhere to go, else greyed. */
 function Row({
@@ -165,6 +166,22 @@ export function More() {
           </ul>
         </Section>
       ) : null}
+
+      {family ? null : (
+        <Section title={t('more_invitations')}>
+          <ul className="card flush list">
+            <Row
+              to="/invitations"
+              icon={<MailIcon />}
+              title={t('membership_offers_title')}
+              sub={needsConnection ?? t('more_invitations')}
+              disabled={!online}
+            />
+          </ul>
+        </Section>
+      )}
+
+      <WorkspaceSection online={online} />
 
       {session.lens === 'teacher' ? (
         <>

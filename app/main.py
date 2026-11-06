@@ -86,6 +86,7 @@ def _register_routes(app: FastAPI) -> None:
     from app.api.analytics import router as analytics_router
     from app.api.auth import router as auth_router
     from app.api.batches import router as batches_router
+    from app.api.centres import router as centres_router
     from app.api.deletion import router as deletion_router
     from app.api.expenses import router as expenses_router
     from app.api.extra_fees import router as extra_fees_router
@@ -109,6 +110,7 @@ def _register_routes(app: FastAPI) -> None:
         analytics_router,
         auth_router,
         batches_router,
+        centres_router,
         deletion_router,
         expenses_router,
         extra_fees_router,
