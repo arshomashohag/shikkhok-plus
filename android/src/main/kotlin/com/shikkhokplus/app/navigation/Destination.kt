@@ -822,6 +822,16 @@ sealed interface Destination {
         fun of(examId: String): String = "me/exams/$examId"
     }
 
+    /** The chosen centre's payroll, for its managers. */
+    data object CentrePayroll : Destination {
+        override val route: String = "centre/payroll"
+    }
+
+    /** My own approved pay, at every centre. */
+    data object MyPay : Destination {
+        override val route: String = "me/pay"
+    }
+
     /** The chosen centre's rooms. */
     data object CentreRooms : Destination {
         override val route: String = "centre/rooms"
