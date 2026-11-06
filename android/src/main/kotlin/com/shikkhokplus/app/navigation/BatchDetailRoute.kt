@@ -106,6 +106,7 @@ internal fun NavGraphBuilder.batchDetailRoute(
             onSelect = detail::select,
             onBack = { navController.popBackStack() },
             onSchedule = { navController.navigate(Destination.BatchSchedule.of(id)) },
+            onExtraFees = { navController.navigate(Destination.ExtraFees.of(id)) },
             onEdit = { editing = true },
             showAdd = showsAdd(state.tab, rosterState),
             onAdd = {

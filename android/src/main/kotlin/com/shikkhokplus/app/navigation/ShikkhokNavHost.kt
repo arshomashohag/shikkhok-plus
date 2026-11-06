@@ -388,6 +388,7 @@ private fun ShikkhokGraph(
 
         collectionsRoutes(client, navController)
         expensesRoutes(client, navController)
+        extraFeesRoutes(client, navController)
 
         addStudentRoute(client, navController)
 

@@ -192,6 +192,35 @@ class WriteContractTest {
                     ),
                 )
             },
+            // Raising a fee with a waiver and an exclusion, and recording
+            // cash against one.
+            Write("post", "/v1/batches/{batch_id}/extra-fees") {
+                HttpExtraFeesRepository(it).raise(
+                    ID,
+                    ExtraFeeRaiseRequestDto(
+                        purpose = "exam",
+                        label = "Half-yearly exam",
+                        examId = ID,
+                        amount = Money.of("500.00"),
+                        dueOn = "2026-11-20",
+                        seatAmounts = listOf(SeatAmountDto(ID, Money.ZERO)),
+                        excludedEnrollmentIds = listOf(ID),
+                        clientMutationId = ID,
+                    ),
+                )
+            },
+            Write("post", "/v1/enrollments/{enrollment_id}/payments") {
+                HttpFeesRepository(it).recordPayment(
+                    ID,
+                    RecordPaymentBodyDto(
+                        amount = Money.of("300.00"),
+                        shortfallDisposition = "carried",
+                        clientMutationId = ID,
+                        purpose = "extra",
+                        extraFeeId = ID,
+                    ),
+                )
+            },
             Write("post", "/v1/payment-methods") {
                 HttpPaymentMethodsRepository(it).create(MOBILE_DRAFT)
             },

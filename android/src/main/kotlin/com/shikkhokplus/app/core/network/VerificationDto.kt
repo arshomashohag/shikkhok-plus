@@ -206,6 +206,9 @@ data class PaymentRejectionBodyDto(
  * @property clientMutationId One UUID per opened sheet, reused on every
  *   resend, so a record whose response was lost is replayed rather
  *   than recorded twice
+ * @property purpose `extra` when the money is for one exam or other fee;
+ *   omitted for the monthly fee
+ * @property extraFeeId The fee, alongside `extra`
  */
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
@@ -216,4 +219,6 @@ data class RecordPaymentBodyDto(
     @EncodeDefault @SerialName("note") val note: String? = null,
     @EncodeDefault @SerialName("shortfall_disposition") val shortfallDisposition: String? = null,
     @EncodeDefault @SerialName("client_mutation_id") val clientMutationId: String? = null,
+    @SerialName("purpose") val purpose: String? = null,
+    @SerialName("extra_fee_id") val extraFeeId: String? = null,
 )
