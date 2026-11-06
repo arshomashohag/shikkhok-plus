@@ -206,6 +206,18 @@ _ASSIGNMENT_SOURCE = PgEnum(
     *ASSIGNMENT_SOURCE_VALUES, name="assignment_source", create_type=False
 )
 
+#: Where a salary line stands [0026].
+SALARY_STATUS_VALUES: tuple[str, ...] = ("draft", "approved")
+
+_SALARY_STATUS = PgEnum(*SALARY_STATUS_VALUES, name="salary_status", create_type=False)
+
+#: Which way an adjustment moves a salary; its amount is never negative.
+ADJUSTMENT_KIND_VALUES: tuple[str, ...] = ("addition", "deduction")
+
+_ADJUSTMENT_KIND = PgEnum(
+    *ADJUSTMENT_KIND_VALUES, name="adjustment_kind", create_type=False
+)
+
 #: A reminder's delivery outcome [BR7.2]. ``pending`` exists because the
 #: event commits BEFORE the push is dispatched: writing it afterwards
 #: loses the record of a send that happened if the process dies between
@@ -300,6 +312,7 @@ _RESULT_STATE = PgEnum(
 )
 
 __all__ = [
+    "ADJUSTMENT_KIND_VALUES",
     "ASSIGNMENT_SOURCE_VALUES",
     "CLAIM_STATUS_VALUES",
     "DECISION_VALUES",
@@ -316,6 +329,7 @@ __all__ = [
     "REMINDER_OUTCOME_VALUES",
     "RESULT_STATE_VALUES",
     "RETENTION_PURGE_JOB",
+    "SALARY_STATUS_VALUES",
     "SESSION_GENERATION_JOB",
     "SESSION_ORIGIN_VALUES",
     "SESSION_STATUS_VALUES",
@@ -348,6 +362,8 @@ __all__ = [
     "RefreshToken",
     "ReminderEvent",
     "Room",
+    "SalaryAdjustment",
+    "SalaryLine",
     "ScheduleSlot",
     "Session",
     "Staff",
@@ -1768,6 +1784,13 @@ class Expense(Base):
     )
     void_reason: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
+    # [0026] The salary line this payment is against, or None.
+    salary_line_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("salary_line.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
     __table_args__ = (
         CheckConstraint("amount > 0", name="ck_expense_amount_positive"),
         CheckConstraint("length(trim(what)) > 0", name="ck_expense_what"),
@@ -1781,6 +1804,7 @@ class Expense(Base):
             name="uq_expense_account_mutation",
         ),
         Index("ix_expense_owner_spent_on", "owner_id", "spent_on"),
+        Index("ix_expense_salary_line", "salary_line_id"),
     )
 
 
@@ -2576,4 +2600,103 @@ class Room(Base):
     __table_args__ = (
         CheckConstraint("length(trim(name)) > 0", name="ck_room_name"),
         Index("ix_room_owner_id", "owner_id"),
+    )
+
+
+class SalaryLine(Base):
+    """One staff member's pay for one month [0026].
+
+    The basis and rate are copied from the staff record when the line is
+    drawn, so a later change never reprices a drawn month. ``classes_held``
+    and ``base_amount`` are NULL while the line is a draft -- its figures
+    are computed live -- and frozen on approval.
+
+    :ivar id: Surrogate key
+    :ivar owner_id: The centre
+    :ivar staff_id: The person
+    :ivar period: ``YYYY-MM``
+    :ivar basis: ``monthly`` or ``per_class``
+    :ivar rate: The salary, or the rate per class
+    :ivar classes_held: Frozen on approval; None while a draft
+    :ivar base_amount: Frozen on approval; None while a draft
+    :ivar status: ``draft`` or ``approved``
+    :ivar approved_by_account_id: The approving manager
+    :ivar approved_at: When it was approved
+    :ivar created_at: When the line was drawn
+    """
+
+    __tablename__ = "salary_line"
+
+    id: Mapped[uuid.UUID] = _uuid_column()
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("owner.id", ondelete="CASCADE"), nullable=False
+    )
+    staff_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("staff.id", ondelete="CASCADE"), nullable=False
+    )
+    period: Mapped[str] = mapped_column(String(7), nullable=False)
+    basis: Mapped[str] = mapped_column(_PAY_BASIS, nullable=False)
+    rate: Mapped[Money] = mapped_column(MoneyColumn, nullable=False)
+    classes_held: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    base_amount: Mapped[Money | None] = mapped_column(MoneyColumn, nullable=True)
+    status: Mapped[str] = mapped_column(_SALARY_STATUS, nullable=False)
+    approved_by_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("account.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    approved_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+    __table_args__ = (
+        UniqueConstraint("staff_id", "period", name="uq_salary_line_staff_period"),
+        CheckConstraint(
+            "period ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'", name="ck_salary_line_period"
+        ),
+        CheckConstraint("basis <> 'none'", name="ck_salary_line_paid_basis"),
+        CheckConstraint("rate > 0", name="ck_salary_line_rate_positive"),
+        CheckConstraint(
+            "(status = 'draft' AND base_amount IS NULL AND approved_at IS NULL) "
+            "OR (status = 'approved' AND base_amount IS NOT NULL "
+            "AND base_amount >= 0 AND classes_held >= 0 AND approved_at IS NOT NULL)",
+            name="ck_salary_line_frozen_on_approval",
+        ),
+        Index("ix_salary_line_owner_period", "owner_id", "period"),
+    )
+
+
+class SalaryAdjustment(Base):
+    """A named addition or deduction on one salary line [0026].
+
+    :ivar id: Surrogate key
+    :ivar salary_line_id: The line
+    :ivar kind: ``addition`` or ``deduction``; the amount carries no sign
+    :ivar label: What it is for, such as "Bonus" or "Advance recovered"
+    :ivar amount: Above zero
+    :ivar created_at: When it was added
+    """
+
+    __tablename__ = "salary_adjustment"
+
+    id: Mapped[uuid.UUID] = _uuid_column()
+    salary_line_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("salary_line.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    kind: Mapped[str] = mapped_column(_ADJUSTMENT_KIND, nullable=False)
+    label: Mapped[str] = mapped_column(String(80), nullable=False)
+    amount: Mapped[Money] = mapped_column(MoneyColumn, nullable=False)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+    __table_args__ = (
+        CheckConstraint("amount > 0", name="ck_salary_adjustment_amount_positive"),
+        CheckConstraint("length(trim(label)) > 0", name="ck_salary_adjustment_label"),
+        Index("ix_salary_adjustment_line", "salary_line_id"),
     )

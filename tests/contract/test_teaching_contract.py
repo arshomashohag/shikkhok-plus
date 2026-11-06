@@ -36,6 +36,9 @@ EXPECTED_MUTATION_ID_BODIES: frozenset[tuple[str, str]] = frozenset(
         # same write functions, so a replay must be recognised alike.
         ("POST", "/v1/me/classes/{session_id}/attendance"),
         ("PUT", "/v1/me/classes/{session_id}/topic"),
+        # A salary payment is an expense with the expense's own retry key,
+        # so a resend after a lost response pays once [P1].
+        ("POST", "/v1/centre/payroll/lines/{line_id}/payments"),
     }
 )
 

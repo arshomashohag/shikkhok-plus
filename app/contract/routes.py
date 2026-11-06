@@ -181,6 +181,10 @@ LENS_EXEMPT_AUTHENTICATED: frozenset[tuple[str, str]] = frozenset(
         # The exams a centre member marks [C4], on the same reasoning;
         # the per-exam routes beneath it each resolve an ExaminerLens.
         ("GET", "/v1/me/exams"),
+        # My pay [P1, D15], on the same reasoning: it reports only the
+        # salary lines paying the authenticated account, through its own
+        # live memberships, in the query that reads them.
+        ("GET", "/v1/me/pay"),
     }
 )
 

@@ -20,6 +20,7 @@ import {
   PlusIcon,
   TeacherIcon,
   UsersIcon,
+  WalletIcon,
   WarningIcon,
 } from '../../ui/icons'
 import { paths } from '../teacher/paths'
@@ -163,6 +164,26 @@ export function WorkspaceSection({ online }: { online: boolean }) {
                 <br />
                 <span className="meta">
                   {online ? t('timetable_sub') : t('more_needs_connection')}
+                </span>
+              </span>
+              <ChevronIcon />
+            </button>
+          </li>
+        ) : null}
+        {teacher && current?.kind === 'centre' ? (
+          <li>
+            <button
+              type="button"
+              className="row"
+              disabled={!online}
+              onClick={() => navigate(paths.centrePayroll())}
+            >
+              <WalletIcon />
+              <span className="grow">
+                <span className="title">{t('payroll_title')}</span>
+                <br />
+                <span className="meta">
+                  {online ? t('payroll_sub') : t('more_needs_connection')}
                 </span>
               </span>
               <ChevronIcon />

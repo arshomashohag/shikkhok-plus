@@ -67,5 +67,6 @@ export const paths = {
   centreMembers: () => '/centre-members',
   centreStaff: () => '/centre-staff',
   centreTimetable: () => '/centre-timetable',
+  centrePayroll: () => '/centre-payroll',
   batchMonth: (batchId: string, period: string) => `/batches/${id(batchId)}/month/${id(period)}`,
 } as const
