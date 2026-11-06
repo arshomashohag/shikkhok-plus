@@ -52,6 +52,9 @@ class ContractConformanceTest {
             // A batch's exam and other fees, for its teacher.
             Contract("/v1/batches/{batch_id}/extra-fees", BatchExtraFeesDto.serializer()),
             Contract("/v1/extra-fees/{extra_fee_id}", ExtraFeeDetailDto.serializer()),
+            // A centre's members, for its managers, and centres' offers.
+            Contract("/v1/centre/members", ListSerializer(MemberDto.serializer())),
+            Contract("/v1/memberships", ListSerializer(MembershipDto.serializer())),
             Contract("/v1/batches", ListSerializer(BatchDto.serializer())),
             Contract("/v1/batches/{batch_id}/schedule", ListSerializer(ScheduleSlotDto.serializer())),
             Contract("/v1/batches/{batch_id}/roster", ListSerializer(RosterRowDto.serializer())),

@@ -36,6 +36,8 @@ data class LensEntryDto(
  * @property addressPostcode Four digits, or null
  * @property phone The number this account signs in with, shown
  *   read-only and typed back to confirm deletion
+ * @property workspaces The workspaces this account manages, solo first;
+ *   the server's own answer to which a teacher may act on
  */
 @Serializable
 data class MeDto(
@@ -47,6 +49,7 @@ data class MeDto(
     @SerialName("address_city") val addressCity: String? = null,
     @SerialName("address_postcode") val addressPostcode: String? = null,
     val phone: String? = null,
+    val workspaces: List<WorkspaceDto> = emptyList(),
 ) {
     /** The address in its four parts, empty where none is stored. */
     val postal: PostalAddress
@@ -87,3 +90,20 @@ data class ProfileUpdateDto(
     @SerialName("address_city") val addressCity: String? = null,
     @SerialName("address_postcode") val addressPostcode: String? = null,
 )
+
+/**
+ * One workspace a teacher may act on.
+ *
+ * @property ownerId The workspace, sent back as `X-Workspace-Id`
+ * @property kind `solo` or `centre`
+ * @property name The centre's name; null for the solo workspace
+ */
+@Serializable
+data class WorkspaceDto(
+    @SerialName("owner_id") val ownerId: String,
+    @SerialName("kind") val kind: String,
+    @SerialName("name") val name: String? = null,
+) {
+    /** Whether this is a coaching centre rather than the solo workspace. */
+    val isCentre: Boolean get() = kind == "centre"
+}

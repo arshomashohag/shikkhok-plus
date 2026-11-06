@@ -26,9 +26,12 @@ import kotlinx.coroutines.launch
  * each launch costs one request that startup already makes.
  *
  * @property repository Where the lens list comes from
+ * @property workspaces Told which workspaces the server offers on every
+ *   read of the account, or null where nothing acts on a workspace
  */
 class SessionViewModel(
     private val repository: ProfileRepository,
+    private val workspaces: WorkspaceHolder? = null,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<SessionUiState>(SessionUiState.Resolving)
@@ -48,7 +51,10 @@ class SessionViewModel(
         viewModelScope.launch {
             _state.value =
                 when (val result = repository.profile()) {
-                    is AuthResult.Ok -> SessionStateMapper.afterLoad(result.value)
+                    is AuthResult.Ok -> {
+                        workspaces?.reconcile(result.value.workspaces)
+                        SessionStateMapper.afterLoad(result.value)
+                    }
                     is AuthResult.Refused ->
                         SessionStateMapper.afterError(result.envelope)
                     AuthResult.TransportFailure ->
@@ -111,6 +117,7 @@ class SessionViewModel(
         viewModelScope.launch {
             val result = repository.profile()
             if (result !is AuthResult.Ok) return@launch
+            workspaces?.reconcile(result.value.workspaces)
             val resolved = SessionStateMapper.afterLoad(result.value)
             val current = _state.value
 

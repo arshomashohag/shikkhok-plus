@@ -389,6 +389,7 @@ private fun ShikkhokGraph(
         collectionsRoutes(client, navController)
         expensesRoutes(client, navController)
         extraFeesRoutes(client, navController)
+        centresRoutes(client, navController, session.onLensesChanged)
 
         addStudentRoute(client, navController)
 
@@ -634,8 +635,12 @@ private fun ShikkhokGraph(
             val pushed = remember { navController.previousBackStackEntry != null }
             val back: (() -> Unit)? = { navController.popBackStack(); Unit }.takeIf { pushed }
 
+            // A coaching centre's offers sit above the seats.
+            val offers = centreOffersSlot(client, session.onLensesChanged)
+
             InvitationsScreen(
                 state = state,
+                offers = offers,
                 onBack = back,
                 onOpen = model::open,
                 onAccept = model::accept,
@@ -673,7 +678,9 @@ private fun ShikkhokGraph(
                 actions = moreActionsFor(
                     lens = session.lens,
                     base =
-                        MoreActions(
+                        withWorkspaces(
+                            navController,
+                            MoreActions(
                             onEdit = {
                                 model.edit()
                                 navController.navigate(Destination.EditProfile.route)
@@ -687,6 +694,7 @@ private fun ShikkhokGraph(
                             onSwitchLens = session.onSwitch,
                             onSettings = settingsOpener(session, navController),
                             unsent = remember { session.unsentWrites() },
+                        ),
                         ),
                     navigate = { route -> navController.navigate(route) },
                 ),
@@ -849,6 +857,9 @@ internal fun moreActionsFor(
                 onCollections = { navigate(Destination.Collections.route) },
                 onExpenses = { navigate(Destination.Expenses.route) },
                 onMoneySummary = { navigate(Destination.MoneySummary.route) },
+                onOpenCentre = { navigate(Destination.OpenCentre.route) },
+                onCentreOffers = { navigate(Destination.CentreOffers.route) },
+                onCentreMembers = centreMembersOpener(base, navigate),
             )
         Lens.STUDENT -> base.copy(onInvitations = { navigate(Destination.Invitations.route) })
         Lens.GUARDIAN ->

@@ -84,11 +84,14 @@ data class QueueFile(
  * @property currentAccount The signed-in account, or null when nobody
  *   is. Read on every call, never cached, so an account change is seen
  *   by the very next read
+ * @property currentWorkspace The chosen workspace, or null for the
+ *   default; stamped on each write as it is queued
  */
 class QueueStore(
     private val file: File,
     private val json: Json = DEFAULT_JSON,
     val currentAccount: () -> String? = { null },
+    val currentWorkspace: () -> String? = { null },
 ) {
 
     /**
@@ -257,7 +260,10 @@ class QueueStore(
      * @return The queue as it now stands
      */
     fun enqueue(item: QueuedWrite): List<QueuedWrite> {
-        val updated = read() + item
+        // The workspace is fixed when the write is made: a switch before
+        // the replay must not send it to another workspace.
+        val stamped = if (item.workspaceId == null) item.copy(workspaceId = currentWorkspace()) else item
+        val updated = read() + stamped
         write(updated)
         // Read back rather than echoed, so the caller sees each item
         // as stored -- stamped with its account.

@@ -234,6 +234,15 @@ class WriteContractTest {
                     ),
                 )
             },
+            // Opening a centre, inviting and removing a member, and
+            // answering a centre's offer.
+            Write("post", "/v1/centres") { HttpCentresRepository(it).open("Udayan Coaching", "Rahima") },
+            Write("post", "/v1/centre/members") {
+                HttpCentresRepository(it).invite("Karim", "01811223344", "teacher")
+            },
+            Write("post", "/v1/centre/members/{member_id}/revoke") { HttpCentresRepository(it).revoke(ID) },
+            Write("post", "/v1/memberships/{member_id}/accept") { HttpCentresRepository(it).accept(ID) },
+            Write("post", "/v1/memberships/{member_id}/decline") { HttpCentresRepository(it).decline(ID) },
             Write("post", "/v1/payment-methods") {
                 HttpPaymentMethodsRepository(it).create(MOBILE_DRAFT)
             },
