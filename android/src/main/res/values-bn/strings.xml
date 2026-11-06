@@ -1381,6 +1381,24 @@
     <string name="family_extra_fee_line">%1$s · শেষ তারিখ %2$s</string>
 
     <!-- Centre teachers [C4] -->
+    <string name="examiner_label">পরীক্ষক</string>
+    <string name="examiner_default">ব্যাচের শিক্ষক</string>
+    <string name="examiner_none">এখনো কেউ নয়</string>
+    <string name="examiner_help">পরীক্ষক নম্বর দেন ও প্রকাশ করেন।</string>
+    <string name="examiner_changed">পরীক্ষক বদলানো হয়েছে।</string>
+    <string name="nav_my_exams">আমার পরীক্ষা</string>
+    <string name="my_exams_title">আমার পরীক্ষা</string>
+    <string name="my_exams_empty">আপনার নম্বর দেওয়ার মতো কোনো পরীক্ষা নেই।</string>
+    <string name="my_exam_published">প্রকাশিত</string>
+    <string name="my_exam_draft">এখনো প্রকাশিত হয়নি</string>
+    <string name="my_exam_marks_label">%1$s-এর মধ্যে নম্বর</string>
+    <string name="my_exam_absent">অনুপস্থিত</string>
+    <string name="my_exam_save">সংরক্ষণ করুন</string>
+    <string name="my_exam_publish">ফলাফল প্রকাশ করুন</string>
+    <string name="my_exam_published_done">ফলাফল প্রকাশিত হয়েছে।</string>
+    <string name="my_exam_joined_after">পরীক্ষার পরে যোগ দিয়েছে</string>
+    <string name="my_exam_not_entered">দেওয়া হয়নি</string>
+    <string name="exam_reassigned">এখন অন্য একজন শিক্ষক এই পরীক্ষার নম্বর দেন। আপনার পরিবর্তন সংরক্ষিত হয়নি।</string>
     <string name="lens_class_teacher">সেন্টারের শিক্ষক</string>
     <string name="lens_class_teacher_count">%1$s টি সেন্টার</string>
     <string name="nav_my_classes">আমার ক্লাস</string>

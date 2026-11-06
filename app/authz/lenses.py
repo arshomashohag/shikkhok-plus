@@ -146,3 +146,23 @@ class ClassTeacherLens(Lens):
     owner_id: UUID
     member_id: UUID
     session_id: UUID
+
+
+@dataclass(frozen=True, slots=True)
+class ExaminerLens(Lens):
+    """Reach for one exam a centre member is the examiner of [C4].
+
+    The exam counterpart of :class:`ClassTeacherLens`, for the same
+    reasons: not a ``TeacherLens``, resolved per exam from the path, and
+    granted only while the caller's live membership is the exam's
+    examiner, so the routes it reaches are an explicit allowlist and a
+    moved exam is refused.
+
+    :ivar owner_id: The centre the exam belongs to
+    :ivar member_id: The caller's membership there
+    :ivar exam_id: The one exam this lens reaches
+    """
+
+    owner_id: UUID
+    member_id: UUID
+    exam_id: UUID

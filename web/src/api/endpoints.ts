@@ -109,6 +109,17 @@ export const writeClassTopic = (sessionId: string, body: Schemas['TopicWriteRequ
     body,
   })
 
+export const listMyExams = () => request<Schemas['MyExamResponse'][]>('GET', '/v1/me/exams')
+
+export const readMyExamResults = (examId: string) =>
+  request<Schemas['ExaminerResultsResponse']>('GET', `/v1/me/exams/${enc(examId)}/results`)
+
+export const writeMyExamMark = (examId: string, body: Schemas['MarkWriteRequest']) =>
+  request<undefined>('POST', `/v1/me/exams/${enc(examId)}/marks`, { body })
+
+export const publishMyExam = (examId: string) =>
+  request<undefined>('POST', `/v1/me/exams/${enc(examId)}/publish`)
+
 export const listMemberships = () =>
   request<Schemas['MembershipResponse'][]>('GET', '/v1/memberships')
 

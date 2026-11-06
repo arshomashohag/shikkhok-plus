@@ -103,7 +103,10 @@ def test_no_class_teacher_response_carries_contact_guardian_or_money(
     """
     document = app.openapi()
     definitions = document["components"]["schemas"]
-    reached = {path for _, path in CLASS_TEACHER_ROUTES} | {"/v1/me/classes"}
+    reached = {path for _, path in CLASS_TEACHER_ROUTES} | {
+        "/v1/me/classes",
+        "/v1/me/exams",
+    }
     offenders: list[tuple[str, str]] = []
     for route in _api_routes(app):
         if route.path not in reached or route.response_model is None:

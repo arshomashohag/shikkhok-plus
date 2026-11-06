@@ -27,7 +27,7 @@ from dataclasses import dataclass
 import sqlalchemy as sa
 from sqlalchemy.orm import Session as DbSession
 
-from app.authz.lenses import GuardianLens, Lens, StudentLens, TeacherLens
+from app.authz.lenses import ExaminerLens, GuardianLens, Lens, StudentLens, TeacherLens
 from app.db.models import Batch, BatchSubject, Enrollment, Exam, Mark, Notification
 from app.errors import ConflictError
 from app.marks.entry import announce_result, writable_exam
@@ -388,7 +388,7 @@ def _published_rank(
 def publish_exam(
     session: DbSession,
     *,
-    lens: TeacherLens,
+    lens: TeacherLens | ExaminerLens,
     exam_id: uuid.UUID,
 ) -> None:
     """Publish an exam's results to its students and guardians.

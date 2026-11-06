@@ -14,6 +14,8 @@ import { Link, useParams } from 'react-router'
 import { formatMark, formatShortDate } from '../../../core/format'
 import { useResource } from '../../../core/useResource'
 import { useT } from '../../../i18n/i18n'
+import { useInCentre } from '../../../session/useInCentre'
+import { ExaminerControl } from './Examiner'
 import { EmptyState, ErrorCard, Loading, StaleBanner, TopBar } from '../../../ui/components'
 import { paths } from '../paths'
 import { readResults } from './api'
@@ -22,6 +24,7 @@ import { CancelExam, HistorySheet, PublishBar } from './parts'
 
 export function ExamResults() {
   const { examId = '' } = useParams()
+  const inCentre = useInCentre()
   const { t, lang } = useT()
   const { resource, reload } = useResource(() => readResults(examId).then(mapResults), [examId])
   const [historyFor, setHistoryFor] = useState<ResultRow | null>(null)
@@ -68,6 +71,12 @@ export function ExamResults() {
         <p className="banner">{t('marks_exam_cancelled')}</p>
       ) : !results.writable ? (
         <p className="banner">{t('mark_entry_read_only')}</p>
+      ) : null}
+
+      {inCentre ? (
+        <div className="card">
+          <ExaminerControl examId={examId} />
+        </div>
       ) : null}
 
       {results.rows.length === 0 ? (

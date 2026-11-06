@@ -1436,6 +1436,24 @@
     <string name="family_extra_fee_line">%1$s · due %2$s</string>
 
     <!-- Centre teachers [C4] -->
+    <string name="examiner_label">Examiner</string>
+    <string name="examiner_default">Batch teacher</string>
+    <string name="examiner_none">Nobody yet</string>
+    <string name="examiner_help">The examiner enters and publishes the marks.</string>
+    <string name="examiner_changed">Examiner changed.</string>
+    <string name="nav_my_exams">My exams</string>
+    <string name="my_exams_title">My exams</string>
+    <string name="my_exams_empty">No exams for you to mark.</string>
+    <string name="my_exam_published">Published</string>
+    <string name="my_exam_draft">Not published yet</string>
+    <string name="my_exam_marks_label">Marks out of %1$s</string>
+    <string name="my_exam_absent">Absent</string>
+    <string name="my_exam_save">Save</string>
+    <string name="my_exam_publish">Publish results</string>
+    <string name="my_exam_published_done">Results published.</string>
+    <string name="my_exam_joined_after">Joined after the exam</string>
+    <string name="my_exam_not_entered">Not entered</string>
+    <string name="exam_reassigned">Another teacher marks this exam now. Your changes were not saved.</string>
     <string name="lens_class_teacher">Centre teacher</string>
     <string name="lens_class_teacher_count">%1$s centres</string>
     <string name="nav_my_classes">My classes</string>

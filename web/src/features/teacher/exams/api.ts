@@ -38,3 +38,12 @@ export const readMarkHistory = (examId: string, enrollmentId: string) =>
     'GET',
     `/v1/exams/${id(examId)}/marks/${id(enrollmentId)}/history`,
   )
+
+export const readExam = (examId: string) =>
+  request<Schemas['ExamResponse']>('GET', `/v1/exams/${id(examId)}`)
+
+/** Name, change or clear the centre member who marks this exam. */
+export const setExaminer = (examId: string, examinerMemberId: string | null) =>
+  request<Schemas['ExamResponse']>('PUT', `/v1/exams/${id(examId)}/examiner`, {
+    body: { examiner_member_id: examinerMemberId },
+  })

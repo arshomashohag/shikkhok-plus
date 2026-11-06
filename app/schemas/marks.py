@@ -37,6 +37,7 @@ __all__ = [
     "ExamResponse",
     "ExamResultsResponse",
     "ExamUpdateRequest",
+    "ExaminerRequest",
     "MarkWriteRequest",
     "MarksheetResponse",
     "ProgressEntryResponse",
@@ -89,6 +90,8 @@ class ExamResponse(BaseModel):
     topics: list[str] = Field(default_factory=list)
     cancelled: bool = False
     cancellation_reason: str | None = None
+    examiner_member_id: uuid.UUID | None = None
+    examiner_name: str | None = None
 
 
 class ExamListItemResponse(ExamResponse):
@@ -129,6 +132,9 @@ class ExamCreateRequest(BaseModel):
     :ivar title: The teacher's name for it
     :ivar date: When it was sat
     :ivar total_marks: The denominator, at least 1
+    :ivar examiner_member_id: At a centre, the member who marks it; left
+        out, the batch's one weekly teacher is the default. Read on
+        creation only: an edit changes the examiner through its own route
     :ivar topics: What it covers: at most 20, each 1 to 120 characters
     """
 
@@ -139,6 +145,7 @@ class ExamCreateRequest(BaseModel):
     date: dt.date
     total_marks: int = Field(ge=1)
     topics: list[ExamTopic] = Field(default_factory=list, max_length=20)
+    examiner_member_id: uuid.UUID | None = None
 
 
 class ExamUpdateRequest(BaseModel):
@@ -366,3 +373,14 @@ class ProgressEntryResponse(BaseModel):
     rank: int | None = Field(default=None, ge=1)
     ranked_out_of: int | None = Field(default=None, ge=1)
     batch_average: float | None = Field(default=None, ge=0)
+
+
+class ExaminerRequest(BaseModel):
+    """Name, change or clear an exam's examiner [C4].
+
+    :ivar examiner_member_id: The centre member who marks it, or null
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    examiner_member_id: uuid.UUID | None

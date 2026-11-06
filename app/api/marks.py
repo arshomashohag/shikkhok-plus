@@ -29,7 +29,9 @@ from app.marks.exams import (
     ExamRow,
     cancel_exam,
     create_exam,
+    examiner_name,
     read_exam_row,
+    set_examiner,
     update_exam,
 )
 from app.marks.marksheet import Published
@@ -47,6 +49,7 @@ from app.schemas.marks import (
     CorrectionEntryResponse,
     ExamCancelRequest,
     ExamCreateRequest,
+    ExaminerRequest,
     ExamListItemResponse,
     ExamResponse,
     ExamResultsResponse,
@@ -153,13 +156,16 @@ def _exam_list_item(entry: ExamProgress) -> ExamListItemResponse:
     )
 
 
-def _exam_response(row: ExamRow) -> ExamResponse:
+def _exam_response(row: ExamRow, session: DbSession) -> ExamResponse:
     """Render one exam for the wire.
 
     :param row: The exam
+    :param session: The session to read the examiner's name through
     :return: The response body
     """
     return ExamResponse(
+        examiner_member_id=row.examiner_member_id,
+        examiner_name=examiner_name(session, row.examiner_member_id),
         exam_id=row.exam_id,
         title=row.title,
         date=row.date,
@@ -269,8 +275,30 @@ def create_batch_exam(
         date=body.date,
         total_marks=body.total_marks,
         topics=body.topics,
+        examiner_member_id=body.examiner_member_id,
+        examiner_named="examiner_member_id" in body.model_fields_set,
     )
-    return _exam_response(row)
+    return _exam_response(row, session)
+
+
+@router.get(
+    "/exams/{exam_id}",
+    response_model=ExamResponse,
+    responses=_AUTH_ERRORS,
+)
+def read_one_exam(
+    exam_id: uuid.UUID,
+    session: Annotated[DbSession, Depends(get_session)],
+    lens: Annotated[TeacherLens, Depends(teacher_lens)],
+) -> ExamResponse:
+    """Read one exam, with its examiner at a centre [C4].
+
+    :param exam_id: The exam, from the route path
+    :param session: The request-scoped session
+    :param lens: The teacher lens
+    :return: The exam
+    """
+    return _exam_response(read_exam_row(session, lens=lens, exam_id=exam_id), session)
 
 
 @router.put(
@@ -301,7 +329,7 @@ def update_batch_exam(
         total_marks=body.total_marks,
         topics=body.topics,
     )
-    return _exam_response(row)
+    return _exam_response(row, session)
 
 
 @router.post(
@@ -328,13 +356,45 @@ def cancel_batch_exam(
     :return: The cancelled exam
     """
     return _exam_response(
-        cancel_exam(
+        session=session,
+        row=cancel_exam(
             session,
             lens=lens,
             exam_id=exam_id,
             reason=body.reason if body is not None else None,
-        )
+        ),
     )
+
+
+@router.put(
+    "/exams/{exam_id}/examiner",
+    response_model=ExamResponse,
+    responses=_WRITE_ERRORS,
+)
+def name_exam_examiner(
+    exam_id: uuid.UUID,
+    body: ExaminerRequest,
+    session: Annotated[DbSession, Depends(get_session)],
+    lens: Annotated[TeacherLens, Depends(teacher_lens)],
+) -> ExamResponse:
+    """Name, change or clear the centre member who marks this exam [C4].
+
+    Manager-only: the teacher lens of a centre. A solo tutor marks their
+    own exams and is refused with ``NOT_A_CENTRE``.
+
+    :param exam_id: The exam, from the route path
+    :param body: The examiner, or null to clear
+    :param session: The request-scoped session
+    :param lens: The manager's lens on the centre
+    :return: The exam with its examiner
+    """
+    row = set_examiner(
+        session,
+        lens=lens,
+        exam_id=exam_id,
+        examiner_member_id=body.examiner_member_id,
+    )
+    return _exam_response(row, session)
 
 
 @router.get(

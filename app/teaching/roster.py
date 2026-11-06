@@ -37,12 +37,13 @@ from sqlalchemy.orm import Session as DbSession
 
 from app.authz.lenses import (
     ClassTeacherLens,
+    ExaminerLens,
     GuardianLens,
     Lens,
     StudentLens,
     TeacherLens,
 )
-from app.db.models import Batch, Enrollment, Session
+from app.db.models import Batch, Enrollment, Exam, Session
 from app.errors import AuthorizationError, ConflictError
 from app.errors.codes import NOT_AVAILABLE
 
@@ -228,6 +229,23 @@ def readable_enrollment(
             )
         ).one_or_none()
         if owned is None:
+            raise refuse()
+        return record
+
+    if isinstance(lens, ExaminerLens):
+        # [C4] A seat on the one exam's batch, in the examiner's centre.
+        # The exam's batch is read in the same query, so the lens cannot
+        # reach a seat on any other batch of the centre.
+        on_exam = session.scalars(
+            sa.select(Batch.id)
+            .join(Exam, Exam.batch_id == Batch.id)
+            .where(
+                Exam.id == lens.exam_id,
+                Batch.id == record.batch_id,
+                Batch.owner_id == lens.owner_id,
+            )
+        ).one_or_none()
+        if on_exam is None:
             raise refuse()
         return record
 

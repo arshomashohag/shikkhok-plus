@@ -20,11 +20,11 @@ import uuid
 import sqlalchemy as sa
 from sqlalchemy.orm import Session as DbSession
 
-from app.authz.lenses import ClassTeacherLens
-from app.db.models import Batch, OwnerMember, Session
+from app.authz.lenses import ClassTeacherLens, ExaminerLens
+from app.db.models import Batch, Exam, OwnerMember, Session
 from app.errors import AuthorizationError, ConflictError
 
-__all__ = ["resolve_class_lens"]
+__all__ = ["resolve_class_lens", "resolve_examiner_lens"]
 
 
 def resolve_class_lens(
@@ -67,4 +67,46 @@ def resolve_class_lens(
         owner_id=owner_id,
         member_id=member_id,
         session_id=session_id,
+    )
+
+
+def resolve_examiner_lens(
+    session: DbSession, *, account_id: uuid.UUID, exam_id: uuid.UUID
+) -> ExaminerLens:
+    """Grant the lens for one exam the caller examines, or refuse.
+
+    The same two refusals as :func:`resolve_class_lens`, for the same
+    reasons.
+
+    :param session: The session to read through
+    :param account_id: The authenticated account
+    :param exam_id: The exam, from the route path
+    :return: The lens for that one exam
+    :raises AuthorizationError: No such exam, or no live membership in
+        its centre
+    :raises ConflictError: A member there, but not this exam's examiner
+    """
+    row = session.execute(
+        sa.select(Exam.examiner_member_id, Batch.owner_id, OwnerMember.id)
+        .join(Batch, Batch.id == Exam.batch_id)
+        .join(
+            OwnerMember,
+            sa.and_(
+                OwnerMember.owner_id == Batch.owner_id,
+                OwnerMember.account_id == account_id,
+                OwnerMember.decision == "accepted",
+                OwnerMember.revoked_at.is_(None),
+            ),
+        )
+        .where(Exam.id == exam_id)
+    ).first()
+    if row is None:
+        raise AuthorizationError(
+            code="NO_EXAM_LENS", message_key="authz.lens.not_available"
+        )
+    examiner, owner_id, member_id = row
+    if examiner != member_id:
+        raise ConflictError(code="EXAM_REASSIGNED", message_key="exam.reassigned")
+    return ExaminerLens(
+        account_id=account_id, owner_id=owner_id, member_id=member_id, exam_id=exam_id
     )

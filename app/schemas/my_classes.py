@@ -16,7 +16,14 @@ from pydantic import BaseModel
 
 from app.schemas.schedule import HHMM
 
-__all__ = ["ClassRosterResponse", "ClassRosterSeatResponse", "MyClassResponse"]
+__all__ = [
+    "ClassRosterResponse",
+    "ClassRosterSeatResponse",
+    "ExamineeResponse",
+    "ExaminerResultsResponse",
+    "MyClassResponse",
+    "MyExamResponse",
+]
 
 
 class MyClassResponse(BaseModel):
@@ -74,3 +81,57 @@ class ClassRosterResponse(BaseModel):
     writable: bool
     topic: str | None = None
     topic_version: int
+
+
+class MyExamResponse(BaseModel):
+    """One exam the caller marks [C4].
+
+    :ivar exam_id: The exam
+    :ivar centre_name: Its centre
+    :ivar batch_name: Its batch
+    :ivar subject_name: Its subject
+    :ivar title: Its name
+    :ivar date: When it was sat
+    :ivar total_marks: The denominator
+    :ivar published: Whether its results have been published
+    :ivar cancelled: Whether it was cancelled
+    """
+
+    exam_id: uuid.UUID
+    centre_name: str
+    batch_name: str
+    subject_name: str
+    title: str
+    date: dt.date
+    total_marks: int
+    published: bool
+    cancelled: bool
+
+
+class ExamineeResponse(BaseModel):
+    """One seat on an exam, as its examiner sees it: a name and a result.
+
+    :ivar enrollment_id: The seat, to mark against
+    :ivar display_name: The name the centre typed for the student
+    :ivar result_state: ``marked``, ``absent``, ``not_entered`` or
+        ``joined_after``
+    :ivar marks: The number, for ``marked``
+    """
+
+    enrollment_id: uuid.UUID
+    display_name: str
+    result_state: Literal["marked", "absent", "not_entered", "joined_after"]
+    marks: float | None = None
+
+
+class ExaminerResultsResponse(BaseModel):
+    """An exam's results as its examiner sees them.
+
+    :ivar exam: The exam
+    :ivar results: One row per seat
+    :ivar writable: Whether a mark would be accepted now
+    """
+
+    exam: MyExamResponse
+    results: list[ExamineeResponse]
+    writable: bool
