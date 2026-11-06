@@ -21,6 +21,8 @@ import { Verify } from './features/teacher/Verify'
 import { MyBatches } from './features/student/MyBatches'
 import { GuardianHome } from './features/guardian/GuardianHome'
 import { Invitations } from './features/account/Invitations'
+import { ClassScreen } from './features/classTeacher/ClassScreen'
+import { MyClasses } from './features/classTeacher/MyClasses'
 import { LensPicker } from './features/account/LensPicker'
 import { More } from './features/account/More'
 import { Settings } from './features/account/Settings'
@@ -156,6 +158,22 @@ export function App() {
           element={
             <Only lens="teacher" current={lens}>
               <Verify />
+            </Only>
+          }
+        />
+        <Route
+          path="/my-classes"
+          element={
+            <Only lens="class_teacher" current={lens}>
+              <MyClasses />
+            </Only>
+          }
+        />
+        <Route
+          path="/my-classes/:sessionId"
+          element={
+            <Only lens="class_teacher" current={lens}>
+              <ClassScreen />
             </Only>
           }
         />

@@ -1435,6 +1435,25 @@
     <string name="family_extra_fees_title">Exam &amp; other fees</string>
     <string name="family_extra_fee_line">%1$s · due %2$s</string>
 
+    <!-- Centre teachers [C4] -->
+    <string name="lens_class_teacher">Centre teacher</string>
+    <string name="lens_class_teacher_count">%1$s centres</string>
+    <string name="nav_my_classes">My classes</string>
+    <string name="my_classes_title">My classes</string>
+    <string name="my_classes_sub">The classes assigned to you</string>
+    <string name="my_classes_empty">No classes assigned to you on these days.</string>
+    <string name="my_class_attendance">Attendance</string>
+    <string name="my_class_present">Present</string>
+    <string name="my_class_absent">Absent</string>
+    <string name="my_class_save_attendance">Save attendance</string>
+    <string name="my_class_topic_label">What was taught</string>
+    <string name="my_class_save_topic">Save topic</string>
+    <string name="my_class_saved">Saved.</string>
+    <string name="my_class_not_writable">This class can no longer be changed.</string>
+    <string name="my_class_topic_logged">Topic written</string>
+    <string name="my_class_no_students">No students on this class yet.</string>
+    <string name="class_reassigned">This class has moved to another teacher. Your changes were not saved.</string>
+
     <!-- Timetable and rooms: screens [0024] -->
     <string name="timetable_title">Timetable</string>
     <string name="timetable_sub">Every class, with its teacher and room</string>
