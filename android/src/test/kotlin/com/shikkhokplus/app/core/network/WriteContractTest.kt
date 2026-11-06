@@ -55,6 +55,19 @@ class WriteContractTest {
         val send: suspend (HttpClient) -> Any?,
     )
 
+    private val staffBody =
+        StaffBodyDto(
+            displayName = "Karim",
+            email = "karim@example.com",
+            staffHouse = "12",
+            staffRoad = "Road 5",
+            staffCity = "Dhaka",
+            staffPostcode = "1205",
+            payBasis = "monthly",
+            payRate = Money.of("8000.00"),
+            joinedOn = "2026-01-01",
+        )
+
     private val slots = listOf(ScheduleSlotDto(0, "16:00", "17:00"))
 
     private val writes: List<Write> =
@@ -247,6 +260,17 @@ class WriteContractTest {
             Write("post", "/v1/centre/members/{member_id}/revoke") { HttpCentresRepository(it).revoke(ID) },
             Write("post", "/v1/memberships/{member_id}/accept") { HttpCentresRepository(it).accept(ID) },
             Write("post", "/v1/memberships/{member_id}/decline") { HttpCentresRepository(it).decline(ID) },
+            // Inviting a teacher, adding other staff, correcting a record
+            // and marking someone as left.
+            Write("post", "/v1/centre/staff/teachers") {
+                HttpStaffRepository(it).inviteTeacher(staffBody.copy(phone = "01811223344"))
+            },
+            Write("post", "/v1/centre/staff") {
+                HttpStaffRepository(it).addOther(staffBody.copy(roleLabel = "Office"))
+            },
+            Write("patch", "/v1/centre/staff/{staff_id}") { HttpStaffRepository(it).update(ID, staffBody) },
+            Write("post", "/v1/centre/staff/{staff_id}/leave") { HttpStaffRepository(it).leave(ID, "2026-11-06") },
+            Write("post", "/v1/centre/staff/{staff_id}/leave") { HttpStaffRepository(it).leave(ID, null) },
             Write("post", "/v1/payment-methods") {
                 HttpPaymentMethodsRepository(it).create(MOBILE_DRAFT)
             },

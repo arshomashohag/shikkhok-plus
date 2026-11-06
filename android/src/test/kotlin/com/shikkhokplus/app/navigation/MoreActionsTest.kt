@@ -33,8 +33,9 @@ class MoreActionsTest {
         assertNotNull(actions.onMoneySummary).invoke()
         assertNotNull(actions.onOpenCentre).invoke()
         assertNotNull(actions.onCentreOffers).invoke()
-        // Outside a centre there are no members to manage.
+        // Outside a centre there are no members or staff to manage.
         assertNull(actions.onCentreMembers)
+        assertNull(actions.onCentreStaff)
 
         assertEquals(
             listOf(
@@ -114,6 +115,7 @@ class MoreActionsTest {
             )
 
         assertNotNull(actions.onCentreMembers).invoke()
-        assertEquals(listOf(Destination.CentreMembers.route), routes)
+        assertNotNull(actions.onCentreStaff).invoke()
+        assertEquals(listOf(Destination.CentreMembers.route, Destination.CentreStaff.route), routes)
     }
 }
