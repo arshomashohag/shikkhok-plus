@@ -1,8 +1,9 @@
 # Coaching centres — design
 
 Date: 2026-11-06
-Status: draft for approval (architecture and product decisions recorded;
-three questions open, each with a proposed default)
+Status: draft for approval (all product decisions recorded). Staff,
+payroll, extra fees and expenses are designed in
+`2026-11-06-fees-expenses-and-staff-design.md`.
 
 ## Why
 
@@ -248,17 +249,12 @@ Each step ships on its own and leaves solo tutors unchanged.
 Out of scope: teacher salaries/payroll (new money-module arithmetic, its
 own intent), multi-branch centres, billing.
 
-## Open questions, with proposed defaults
+## Decided 2026-11-06 (the proposed defaults, accepted)
 
-1. **Who creates an exam at a centre?** Default: a manager creates it and
-   names the examiner; the examiner enters and publishes marks (D3). The
-   alternative — a teacher creating exams for subjects they teach — widens
-   the narrow lens beyond D2's list.
-2. **Clashes with a tutor's private schedule.** Default: conflicts are
-   checked within one centre only, and a centre never learns anything about
-   a tutor's private batches. The alternative is a cross-workspace check
-   that reports only "busy then", which leaks that a private class exists.
-3. **What a teacher keeps after reassignment.** Default: a reassigned
-   class moves entirely to the new teacher, including its past attendance
-   view; a revoked teacher loses everything at once. The alternative keeps
-   read access to classes they actually taught.
+1. **Exams at a centre:** a manager creates the exam and names the
+   examiner; the examiner enters and publishes its marks.
+2. **Clashes with a tutor's private schedule:** checked within one centre
+   only. A centre learns nothing about a tutor's private batches.
+3. **After reassignment:** a reassigned class moves entirely to the new
+   teacher, past attendance view included. A revoked teacher loses
+   everything at once.
