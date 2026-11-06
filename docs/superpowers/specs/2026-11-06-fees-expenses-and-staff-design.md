@@ -162,8 +162,17 @@ staff        id, owner_id, kind ('teacher' | 'other'),
   the app.
 - **Other staff** are `kind = 'other'` records with no member: name,
   contact, role label, pay terms. They never get app access.
-- Address reuses the existing four-part structured address. Email is new
-  personal data in the app: format-checked only, used for nothing yet.
+- Address uses the same four parts as sign-up (house, road and area, city,
+  postcode). **It must not reuse the profile's address field names.**
+  `app/schemas/address.py` enrols those names in `OWNER_PRIVATE_FIELDS`, and
+  the schema-wide gate refuses any teacher-lens response carrying them — so a
+  manager's staff page built from the same fields fails CI, and the tempting
+  fix (exempting the names) would weaken the profile boundary for every
+  route. Staff address fields get their own names (`staff_house`,
+  `staff_road`, `staff_city`, `staff_postcode`) on a staff-only schema, and
+  the gate is extended so no centre-teacher schema carries those either.
+  Email is new personal data in the app: format-checked only, used for
+  nothing yet.
 - **Only managers see staff records.** A centre teacher sees no one's
   details, including colleagues'. The OpenAPI-wide schema test is extended
   so no centre-teacher schema carries a staff phone, email or address.
