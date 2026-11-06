@@ -14,13 +14,23 @@ import { WEEKDAY_KEYS } from '../Batches'
 import { WEEK_ORDER } from '../mappers'
 import { paths } from '../paths'
 import { readSchedule, writeSchedule } from './api'
-import { draftFromSlots, slotsFromDraft, type ScheduleDraft } from './mappers'
+import {
+  assignmentFromSlots,
+  draftFromSlots,
+  slotsFromDraft,
+  withAssignment,
+  type ScheduleDraft,
+  type SlotAssignment,
+} from './mappers'
+import { listMembers, listRooms } from '../../../api/endpoints'
+import { useOptionalSession } from '../../../session/session'
+import { assignable, liveRooms } from '../centre/timetable'
 
 export function ScheduleScreen() {
   const { batchId = '' } = useParams()
   const { t } = useT()
   const { resource, reload } = useResource(
-    () => readSchedule(batchId).then(draftFromSlots),
+    () => readSchedule(batchId).then((slots) => ({ draft: draftFromSlots(slots), slots })),
     [batchId],
   )
   const back = paths.batch(batchId, 'classes')
@@ -33,23 +43,92 @@ export function ScheduleScreen() {
         <ErrorCard title={t('screen_title_schedule')} error={resource.error} onRetry={reload} />
       ) : null}
       {resource.state === 'loaded' ? (
-        <ScheduleForm batchId={batchId} initial={resource.data} fresh={resource.error === null} />
+        <ScheduleForm
+          batchId={batchId}
+          initial={resource.data.draft}
+          assigned={assignmentFromSlots(resource.data.slots)}
+          fresh={resource.error === null}
+        />
       ) : null}
     </>
+  )
+}
+
+/** Whether the workspace the session acts on is a coaching centre. */
+function useInCentre(): boolean {
+  const session = useOptionalSession()
+  if (!session) return false
+  const workspaces = session.me.workspaces ?? []
+  const current = workspaces.find((w) => w.owner_id === session.workspace) ?? workspaces[0]
+  return session.lens === 'teacher' && current?.kind === 'centre'
+}
+
+/** The teacher and room pickers a centre's schedule shows. */
+function AssignmentPickers({
+  value,
+  onChange,
+}: {
+  value: SlotAssignment
+  onChange: (next: SlotAssignment) => void
+}) {
+  const { t } = useT()
+  const members = useResource(() => listMembers(), [])
+  const rooms = useResource(() => listRooms(), [])
+  if (members.resource.state !== 'loaded' || rooms.resource.state !== 'loaded') return null
+  return (
+    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+      <div className="field" style={{ flex: 1, minWidth: 160 }}>
+        <label htmlFor="sc-teacher">{t('timetable_teacher_label')}</label>
+        <select
+          id="sc-teacher"
+          value={value.teacher ?? ''}
+          onChange={(e) => onChange({ ...value, teacher: e.target.value || null })}
+        >
+          <option value="">{t('timetable_none_option')}</option>
+          {assignable(members.resource.data).map((m) => (
+            <option key={m.member_id} value={m.member_id}>
+              {m.display_name}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="field" style={{ flex: 1, minWidth: 160 }}>
+        <label htmlFor="sc-room">{t('timetable_room_label')}</label>
+        <select
+          id="sc-room"
+          value={value.room ?? ''}
+          onChange={(e) => onChange({ ...value, room: e.target.value || null })}
+        >
+          <option value="">{t('timetable_none_option')}</option>
+          {liveRooms(rooms.resource.data).map((r) => (
+            <option key={r.room_id} value={r.room_id}>
+              {r.name}
+            </option>
+          ))}
+        </select>
+      </div>
+      <p className="meta" style={{ flexBasis: '100%', margin: 0 }}>
+        {t('schedule_teacher_room_help')}
+      </p>
+    </div>
   )
 }
 
 function ScheduleForm({
   batchId,
   initial,
+  assigned,
   fresh,
 }: {
   batchId: string
   initial: ScheduleDraft
+  assigned: SlotAssignment
   fresh: boolean
 }) {
   const { t, lang, message } = useT()
   const navigate = useNavigate()
+  const inCentre = useInCentre()
+  const [assignment, setAssignment] = useState(assigned)
   const [draft, setDraft] = useState(initial)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -63,7 +142,8 @@ function ScheduleForm({
     setBusy(true)
     setError(null)
     try {
-      await writeSchedule(batchId, slotsFromDraft(draft))
+      const slots = slotsFromDraft(draft)
+      await writeSchedule(batchId, inCentre ? withAssignment(slots, assignment) : slots)
       navigate(paths.batch(batchId, 'classes'))
     } catch (err) {
       setError(err instanceof ApiError ? message(err.messageKey) : t('error_unexpected'))
@@ -118,6 +198,9 @@ function ScheduleForm({
       ) : (
         <p className="meta">{t('schedule_none')}</p>
       )}
+      {inCentre && draft.days.length > 0 ? (
+        <AssignmentPickers value={assignment} onChange={setAssignment} />
+      ) : null}
       <p className="meta">{t('schedule_keeps_sessions')}</p>
       {error ? (
         <div className="banner error" role="alert" style={{ marginTop: 16 }}>

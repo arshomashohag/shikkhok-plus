@@ -86,7 +86,11 @@
     "marks.too_precise",
     "money.month_invalid",
     "phone.invalid",
+    "room.name_taken",
+    "schedule.clash",
     "schedule.duplicate_slot",
+    "schedule.room_unknown",
+    "schedule.teacher_unknown",
     "signup.number.already_registered",
     "signup.temporarily_unavailable",
     "staff.already_left",
@@ -108,6 +112,7 @@
     "teaching.seat.not_on_roster",
     "teaching.session.already_exists",
     "teaching.session.cancelled",
-    "teaching.topic.class_started"
+    "teaching.topic.class_started",
+    "timetable.range_too_long"
   ]
 }

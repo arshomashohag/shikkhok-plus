@@ -68,6 +68,29 @@ export const markStaffLeft = (staffId: string, leftOn: string | null) =>
     body: leftOn ? { left_on: leftOn } : {},
   })
 
+export const listRooms = () => request<Schemas['RoomResponse'][]>('GET', '/v1/centre/rooms')
+
+export const addRoom = (name: string) =>
+  request<Schemas['RoomResponse']>('POST', '/v1/centre/rooms', { body: { name } })
+
+export const updateRoom = (roomId: string, body: Schemas['RoomUpdateRequest']) =>
+  request<Schemas['RoomResponse']>('PATCH', `/v1/centre/rooms/${enc(roomId)}`, { body })
+
+export const readTimetable = (from: string, to: string) =>
+  request<Schemas['TimetableClassResponse'][]>('GET', '/v1/centre/timetable', {
+    query: { from, to },
+  })
+
+export const assignClass = (sessionId: string, body: Schemas['AssignmentRequest']) =>
+  request<Schemas['TimetableClassResponse']>('POST', `/v1/sessions/${enc(sessionId)}/assignment`, {
+    body,
+  })
+
+export const swapClasses = (first: string, second: string) =>
+  request<Schemas['TimetableClassResponse'][]>('POST', '/v1/centre/sessions/swap', {
+    body: { first_session_id: first, second_session_id: second },
+  })
+
 export const listMemberships = () =>
   request<Schemas['MembershipResponse'][]>('GET', '/v1/memberships')
 

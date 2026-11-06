@@ -211,3 +211,30 @@ export function slotsFromDraft(draft: ScheduleDraft): Schemas['ScheduleSlotWire'
     .sort((a, b) => a - b)
     .map((weekday) => ({ weekday, start_time: draft.start, end_time: draft.end }))
 }
+
+/** A centre class's teacher and room, applied to every day of the draft. */
+export interface SlotAssignment {
+  teacher: string | null
+  room: string | null
+}
+
+/** The assignment the stored schedule carries, read from its first slot. */
+export function assignmentFromSlots(slots: Schemas['ScheduleSlotWire'][]): SlotAssignment {
+  const first = slots[0]
+  return { teacher: first?.teacher_member_id ?? null, room: first?.room_id ?? null }
+}
+
+/**
+ * The slots with a teacher and room on every one. Only a centre sends this;
+ * slots sent without them keep whatever the server already holds.
+ */
+export function withAssignment(
+  slots: Schemas['ScheduleSlotWire'][],
+  assignment: SlotAssignment,
+): Schemas['ScheduleSlotWire'][] {
+  return slots.map((s) => ({
+    ...s,
+    teacher_member_id: assignment.teacher,
+    room_id: assignment.room,
+  }))
+}

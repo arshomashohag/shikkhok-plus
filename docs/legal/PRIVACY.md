@@ -187,6 +187,7 @@ These records are about how the service itself is running, not about any person.
 
 | Data | Removed anyway after |
 |---|---|
+| A coaching centre's names for its rooms | no time limit |
 | Counters that limit sign-in attempts | 48 hours |
 | When our scheduled jobs last ran; it names nobody | no time limit |
 
@@ -194,7 +195,7 @@ These records are about how the service itself is running, not about any person.
 
 **A teacher's classes stay with their students.** If you are a teacher and delete your account, your sign-in, your own name and address are removed, and so are your name and payment number on each of your classes. The classes themselves stay as read-only history for your students and their guardians: their record of who came to each class, their results and fee records are theirs too. No new fees fall due on those classes, and amounts already recorded as owed stay on the records, where nobody can collect them.
 
-<!-- governance manifest digest: 4a2f190131afbd26ac153ec01c4499da9f8c701d479792152a76a1cb9c816b2e
+<!-- governance manifest digest: 2cf3f876e582355ca88da03b4158059cc6a9bf91c1dc05ea409c0000c18c60db
      Covers every disposition, retention class and basis, so a
      change to any of them fails the drift gate even when it
      does not alter the text above. Regenerate; do not edit. -->

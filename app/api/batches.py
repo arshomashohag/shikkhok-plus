@@ -42,7 +42,7 @@ from app.schemas.batches import (
     SubjectOption,
 )
 from app.schemas.money import Money as WireMoney
-from app.schemas.schedule import ScheduleSlotWire
+from app.schemas.schedule import ScheduleSlotWire, WeeklyClassWire
 from app.teaching.schedule import (
     refuse_duplicate_slots,
     set_schedule,
@@ -406,7 +406,7 @@ def list_my_batches(
             teacher_display_name=row.teacher_display_name,
             subjects=row.subjects,
             schedule=[
-                ScheduleSlotWire(
+                WeeklyClassWire(
                     weekday=weekday,
                     start_time=start.strftime("%H:%M"),
                     end_time=end.strftime("%H:%M"),

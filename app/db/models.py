@@ -198,6 +198,14 @@ PAY_BASIS_VALUES: tuple[str, ...] = ("monthly", "per_class", "none")
 
 _PAY_BASIS = PgEnum(*PAY_BASIS_VALUES, name="pay_basis", create_type=False)
 
+#: Whether a class follows its weekly slot's teacher and room, or a
+#: manager set them for that class alone [0024].
+ASSIGNMENT_SOURCE_VALUES: tuple[str, ...] = ("slot", "override")
+
+_ASSIGNMENT_SOURCE = PgEnum(
+    *ASSIGNMENT_SOURCE_VALUES, name="assignment_source", create_type=False
+)
+
 #: A reminder's delivery outcome [BR7.2]. ``pending`` exists because the
 #: event commits BEFORE the push is dispatched: writing it afterwards
 #: loses the record of a send that happened if the process dies between
@@ -292,6 +300,7 @@ _RESULT_STATE = PgEnum(
 )
 
 __all__ = [
+    "ASSIGNMENT_SOURCE_VALUES",
     "CLAIM_STATUS_VALUES",
     "DECISION_VALUES",
     "DISPOSITION_VALUES",
@@ -338,6 +347,7 @@ __all__ = [
     "RateLimitCounter",
     "RefreshToken",
     "ReminderEvent",
+    "Room",
     "ScheduleSlot",
     "Session",
     "Staff",
@@ -1208,6 +1218,18 @@ class ScheduleSlot(Base):
     weekday: Mapped[int] = mapped_column(Integer, nullable=False)
     start_time: Mapped[dt.time] = mapped_column(Time, nullable=False)
     end_time: Mapped[dt.time] = mapped_column(Time, nullable=False)
+    # [0024] Who teaches this weekly class and where, at a centre. NULL
+    # for a solo tutor, and for a centre class not yet assigned.
+    teacher_member_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("owner_member.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    room_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("room.id", ondelete="SET NULL"),
+        nullable=True,
+    )
 
 
 class HiddenBatchPreference(Base):
@@ -1940,6 +1962,22 @@ class Session(Base):
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )
+    # [0024] Who teaches this class and where. Copied from the slot at
+    # generation; ``override`` when a manager set them for this class
+    # alone, so a later change to the slot leaves it as it is.
+    teacher_member_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("owner_member.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    room_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("room.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    assignment_source: Mapped[str] = mapped_column(
+        _ASSIGNMENT_SOURCE, nullable=False, server_default=text("'slot'")
+    )
 
     __table_args__ = (
         # The whole idempotency mechanism [BR1.3]. Generation inserts
@@ -2496,4 +2534,39 @@ class Staff(Base):
             name="ck_staff_left_after_joined",
         ),
         Index("ix_staff_owner_id", "owner_id"),
+    )
+
+
+class Room(Base):
+    """One of a coaching centre's rooms [0024].
+
+    Archived rather than deleted, so a room no longer used stays named on
+    the classes that met in it.
+
+    :ivar id: Surrogate key
+    :ivar owner_id: The centre
+    :ivar name: Its name, unique among the centre's live rooms
+    :ivar created_at: When it was added
+    :ivar archived_at: When it stopped being offered, or None
+    """
+
+    __tablename__ = "room"
+
+    id: Mapped[uuid.UUID] = _uuid_column()
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("owner.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    name: Mapped[str] = mapped_column(String(60), nullable=False)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    archived_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    __table_args__ = (
+        CheckConstraint("length(trim(name)) > 0", name="ck_room_name"),
+        Index("ix_room_owner_id", "owner_id"),
     )

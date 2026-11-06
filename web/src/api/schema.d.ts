@@ -786,6 +786,90 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/v1/centre/rooms': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List Rooms
+     * @description List the centre's rooms, live ones first.
+     *
+     *     :param lens: The manager's lens on the centre
+     *     :param session: The request-scoped session
+     *     :return: Every room
+     */
+    get: operations['list_rooms_v1_centre_rooms_get']
+    put?: never
+    /**
+     * Add Room
+     * @description Add a room.
+     *
+     *     :param body: Its name
+     *     :param lens: The manager's lens on the centre
+     *     :param session: The request-scoped session
+     *     :return: The new room
+     */
+    post: operations['add_room_v1_centre_rooms_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/centre/rooms/{room_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    /**
+     * Update Room
+     * @description Rename, archive or restore a room.
+     *
+     *     :param room_id: The room
+     *     :param body: What to change
+     *     :param lens: The manager's lens on the centre
+     *     :param session: The request-scoped session
+     *     :return: The room
+     */
+    patch: operations['update_room_v1_centre_rooms__room_id__patch']
+    trace?: never
+  }
+  '/v1/centre/sessions/swap': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Swap Classes
+     * @description Exchange the teachers of two classes.
+     *
+     *     :param body: The two classes
+     *     :param lens: The manager's lens on the centre
+     *     :param session: The request-scoped session
+     *     :return: Both classes as the timetable shows them
+     */
+    post: operations['swap_classes_v1_centre_sessions_swap_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/v1/centre/staff': {
     parameters: {
       query?: never
@@ -899,6 +983,32 @@ export interface paths {
      *     :return: The record, marked left
      */
     post: operations['mark_left_v1_centre_staff__staff_id__leave_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/centre/timetable': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Read Timetable
+     * @description List every class of the centre between two dates, at most 31 days.
+     *
+     *     :param lens: The manager's lens on the centre
+     *     :param session: The request-scoped session
+     *     :param first: The first date, inclusive
+     *     :param last: The last date, inclusive
+     *     :return: The classes, soonest first
+     */
+    get: operations['read_timetable_v1_centre_timetable_get']
+    put?: never
+    post?: never
     delete?: never
     options?: never
     head?: never
@@ -2779,6 +2889,32 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/v1/sessions/{session_id}/assignment': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Assign Class
+     * @description Set one class's teacher and room, apart from its weekly slot.
+     *
+     *     :param session_id: The class
+     *     :param body: Its teacher and room
+     *     :param lens: The manager's lens on the centre
+     *     :param session: The request-scoped session
+     *     :return: The class as the timetable shows it
+     */
+    post: operations['assign_class_v1_sessions__session_id__assignment_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/v1/sessions/{session_id}/attendance': {
     parameters: {
       query?: never
@@ -3135,6 +3271,19 @@ export interface components {
       created_at: string
       /** Edited */
       edited: boolean
+    }
+    /**
+     * AssignmentRequest
+     * @description Set one class's teacher and room, apart from its weekly slot.
+     *
+     *     :ivar teacher_member_id: Its teacher, or null for none
+     *     :ivar room_id: Its room, or null for none
+     */
+    AssignmentRequest: {
+      /** Room Id */
+      room_id: string | null
+      /** Teacher Member Id */
+      teacher_member_id: string | null
     }
     /**
      * AttendanceEntryResponse
@@ -6625,6 +6774,48 @@ export interface components {
       period: string
     }
     /**
+     * RoomCreateRequest
+     * @description Add a room.
+     *
+     *     :ivar name: Its name
+     */
+    RoomCreateRequest: {
+      /** Name */
+      name: string
+    }
+    /**
+     * RoomResponse
+     * @description One room.
+     *
+     *     :ivar room_id: The room
+     *     :ivar name: Its name
+     *     :ivar archived: Whether it is no longer offered
+     */
+    RoomResponse: {
+      /** Archived */
+      archived: boolean
+      /** Name */
+      name: string
+      /**
+       * Room Id
+       * Format: uuid
+       */
+      room_id: string
+    }
+    /**
+     * RoomUpdateRequest
+     * @description Rename, archive or restore a room.
+     *
+     *     :ivar name: Its new name, or None to keep it
+     *     :ivar archived: True to archive, False to restore, None to leave
+     */
+    RoomUpdateRequest: {
+      /** Archived */
+      archived?: boolean | null
+      /** Name */
+      name?: string | null
+    }
+    /**
      * RosterFeeRowResponse
      * @description One seat's fee position, as its teacher sees it.
      *
@@ -6776,12 +6967,20 @@ export interface components {
      *     :ivar weekday: 0-6, Monday through Sunday
      *     :ivar start_time: When it starts, ``HH:MM``
      *     :ivar end_time: When it ends, ``HH:MM``, after the start
+     *     :ivar teacher_member_id: Who teaches it, at a centre [0024]. Left out,
+     *         a re-save keeps the stored teacher; null clears it. A solo tutor
+     *         never sends it
+     *     :ivar room_id: Where, at a centre; left out keeps it, null clears it
      */
     ScheduleSlotWire: {
       /** End Time */
       end_time: string
+      /** Room Id */
+      room_id?: string | null
       /** Start Time */
       start_time: string
+      /** Teacher Member Id */
+      teacher_member_id?: string | null
       /** Weekday */
       weekday: number
     }
@@ -7336,7 +7535,7 @@ export interface components {
       last_result?: components['schemas']['LastResultResponse'] | null
       next_session?: components['schemas']['UpcomingSessionResponse'] | null
       /** Schedule */
-      schedule: components['schemas']['ScheduleSlotWire'][]
+      schedule: components['schemas']['WeeklyClassWire'][]
       /** Subjects */
       subjects: string[]
       /** Teacher Display Name */
@@ -7572,6 +7771,80 @@ export interface components {
        * @enum {string}
        */
       viewer_result_state: 'absent' | 'joined_after' | 'marked' | 'not_entered'
+    }
+    /**
+     * SwapRequest
+     * @description Exchange the teachers of two classes.
+     *
+     *     :ivar first_session_id: One class
+     *     :ivar second_session_id: The other
+     */
+    SwapRequest: {
+      /**
+       * First Session Id
+       * Format: uuid
+       */
+      first_session_id: string
+      /**
+       * Second Session Id
+       * Format: uuid
+       */
+      second_session_id: string
+    }
+    /**
+     * TimetableClassResponse
+     * @description One class on the centre's timetable.
+     *
+     *     :ivar session_id: The class
+     *     :ivar batch_id: Its batch
+     *     :ivar batch_name: Its batch's name
+     *     :ivar subject: Its subject, or None
+     *     :ivar date: Its date
+     *     :ivar start_time: When it starts, ``HH:MM``
+     *     :ivar end_time: When it ends, ``HH:MM``, or None
+     *     :ivar status: ``scheduled``, ``held`` or ``cancelled``
+     *     :ivar teacher_member_id: Its teacher, or None
+     *     :ivar teacher_name: The name the centre typed for them, or None
+     *     :ivar room_id: Its room, or None
+     *     :ivar room_name: The room's name, or None
+     *     :ivar overridden: Whether a manager set it apart from its slot
+     */
+    TimetableClassResponse: {
+      /**
+       * Batch Id
+       * Format: uuid
+       */
+      batch_id: string
+      /** Batch Name */
+      batch_name: string
+      /**
+       * Date
+       * Format: date
+       */
+      date: string
+      /** End Time */
+      end_time?: string | null
+      /** Overridden */
+      overridden: boolean
+      /** Room Id */
+      room_id?: string | null
+      /** Room Name */
+      room_name?: string | null
+      /**
+       * Session Id
+       * Format: uuid
+       */
+      session_id: string
+      /** Start Time */
+      start_time: string
+      /** Status */
+      status: string
+      /** Subject */
+      subject?: string | null
+      /** Teacher Member Id */
+      teacher_member_id?: string | null
+      /** Teacher Name */
+      teacher_name?: string | null
     }
     /**
      * TodayClassResponse
@@ -7844,6 +8117,25 @@ export interface components {
       period: string
       /** Submitted At */
       submitted_at?: string | null
+    }
+    /**
+     * WeeklyClassWire
+     * @description One weekly class as a family sees it: the day and the times only.
+     *
+     *     Kept apart from :class:`ScheduleSlotWire` so a family's schema never
+     *     grows the centre's assignment fields [0024].
+     *
+     *     :ivar weekday: 0-6, Monday through Sunday
+     *     :ivar start_time: When it starts, ``HH:MM``
+     *     :ivar end_time: When it ends, ``HH:MM``
+     */
+    WeeklyClassWire: {
+      /** End Time */
+      end_time: string
+      /** Start Time */
+      start_time: string
+      /** Weekday */
+      weekday: number
     }
     /**
      * WorkspaceResponse
@@ -9473,6 +9765,271 @@ export interface operations {
       }
     }
   }
+  list_rooms_v1_centre_rooms_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['RoomResponse'][]
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. CLASS_CLASH names the class it collides with in details. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  add_room_v1_centre_rooms_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['RoomCreateRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['RoomResponse']
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. CLASS_CLASH names the class it collides with in details. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  update_room_v1_centre_rooms__room_id__patch: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        room_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['RoomUpdateRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['RoomResponse']
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. CLASS_CLASH names the class it collides with in details. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  swap_classes_v1_centre_sessions_swap_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SwapRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['TimetableClassResponse'][]
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. CLASS_CLASH names the class it collides with in details. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
   list_staff_v1_centre_staff_get: {
     parameters: {
       query?: never
@@ -9857,6 +10414,74 @@ export interface operations {
         }
       }
       /** @description Valid request; current state forbids it. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  read_timetable_v1_centre_timetable_get: {
+    parameters: {
+      query: {
+        from: string
+        to: string
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['TimetableClassResponse'][]
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. CLASS_CLASH names the class it collides with in details. */
       409: {
         headers: {
           [name: string]: unknown
@@ -13271,6 +13896,77 @@ export interface operations {
       }
       /** @description No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle. */
       403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  assign_class_v1_sessions__session_id__assignment_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        session_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AssignmentRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['TimetableClassResponse']
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. CLASS_CLASH names the class it collides with in details. */
+      409: {
         headers: {
           [name: string]: unknown
         }

@@ -30,6 +30,7 @@ from app.db.models import OwnerMember, Staff
 from app.errors import AuthorizationError, ConflictError, ValidationError
 from app.local_time import bangladesh_today
 from app.money import Money
+from app.teaching.unassign import unassign_member
 
 __all__ = [
     "StaffDraft",
@@ -391,5 +392,6 @@ def leave(
         member = session.get(OwnerMember, staff.member_id, with_for_update=True)
         if member is not None and member.revoked_at is None:
             member.revoked_at = now or dt.datetime.now(tz=dt.UTC)
+            unassign_member(session, member_id=member.id)
     session.commit()
     return _view(session, staff)

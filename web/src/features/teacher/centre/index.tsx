@@ -5,4 +5,5 @@ import type { TeacherRoute } from '../area'
 export const centreRoutes: TeacherRoute[] = [
   { path: '/centre-members', element: lazyScreen(() => import('./Members'), 'Members') },
   { path: '/centre-staff', element: lazyScreen(() => import('./Staff'), 'Staff') },
+  { path: '/centre-timetable', element: lazyScreen(() => import('./Timetable'), 'Timetable') },
 ]

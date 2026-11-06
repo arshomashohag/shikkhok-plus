@@ -1435,6 +1435,40 @@
     <string name="family_extra_fees_title">Exam &amp; other fees</string>
     <string name="family_extra_fee_line">%1$s · due %2$s</string>
 
+    <!-- Timetable and rooms: screens [0024] -->
+    <string name="timetable_title">Timetable</string>
+    <string name="timetable_sub">Every class, with its teacher and room</string>
+    <string name="timetable_unassigned">No teacher yet</string>
+    <string name="timetable_empty">No classes on these days.</string>
+    <string name="timetable_prev_week">Previous week</string>
+    <string name="timetable_next_week">Next week</string>
+    <string name="timetable_change">Teacher and room</string>
+    <string name="timetable_teacher_label">Teacher</string>
+    <string name="timetable_room_label">Room</string>
+    <string name="timetable_none_option">None</string>
+    <string name="timetable_this_class_only">Changes this class only. Its weekly schedule stays as it is.</string>
+    <string name="timetable_swap_label">Or swap teachers with</string>
+    <string name="timetable_swap_none">Don\'t swap</string>
+    <string name="timetable_swap_submit">Swap teachers</string>
+    <string name="timetable_overridden">Changed for this class</string>
+    <string name="timetable_cancelled">Cancelled</string>
+    <string name="timetable_clash_detail">Clashes with %1$s at %2$s</string>
+    <string name="rooms_title">Rooms</string>
+    <string name="rooms_add">Add room</string>
+    <string name="rooms_name_label">Room name</string>
+    <string name="rooms_archive">Stop using</string>
+    <string name="rooms_restore">Use again</string>
+    <string name="rooms_archived">Not in use</string>
+    <string name="rooms_empty">No rooms yet.</string>
+    <string name="schedule_teacher_room_help">The teacher and room apply to every day above. To change one class, use the timetable.</string>
+
+    <!-- Rooms and the timetable [0024] -->
+    <string name="room_name_taken">A room with this name already exists.</string>
+    <string name="schedule_clash">This clashes with another class at the same time.</string>
+    <string name="schedule_room_unknown">Choose one of this centre's rooms.</string>
+    <string name="schedule_teacher_unknown">Choose a teacher who is part of this centre.</string>
+    <string name="timetable_range_too_long">Choose at most 31 days.</string>
+
     <!-- Teachers and staff console [0023] -->
     <string name="staff_title">Teachers &amp; staff</string>
     <string name="staff_sub">Records, contact details and pay terms</string>

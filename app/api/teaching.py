@@ -231,6 +231,8 @@ def _wire_slots(slots: list[Slot]) -> list[ScheduleSlotWire]:
             weekday=slot.weekday,
             start_time=slot.start_time.strftime("%H:%M"),
             end_time=slot.end_time.strftime("%H:%M"),
+            teacher_member_id=slot.teacher_member_id,
+            room_id=slot.room_id,
         )
         for slot in slots
     ]
