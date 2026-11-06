@@ -18,6 +18,7 @@ from app.schemas.money import MoneyField
 
 __all__ = [
     "BatchExtraFeesResponse",
+    "ChargeableStudentResponse",
     "ExtraFeeDetailResponse",
     "ExtraFeeKind",
     "ExtraFeeRaiseRequest",
@@ -154,15 +155,30 @@ class ExtraFeeDetailResponse(ExtraFeeSummaryResponse):
     students: list[ExtraFeeStudentResponse]
 
 
+class ChargeableStudentResponse(BaseModel):
+    """A student a fee raised today would charge.
+
+    :ivar enrollment_id: The seat
+    :ivar display_name: The teacher-typed name
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    enrollment_id: uuid.UUID
+    display_name: str
+
+
 class BatchExtraFeesResponse(BaseModel):
-    """Every fee raised on a batch, newest first.
+    """Every fee raised on a batch, newest first, and who a new one charges.
 
     :ivar fees: The fees
+    :ivar chargeable_students: The students a fee raised now would charge
     """
 
     model_config = ConfigDict(extra="forbid")
 
     fees: list[ExtraFeeSummaryResponse]
+    chargeable_students: list[ChargeableStudentResponse] = []
 
 
 class SeatExtraFeeResponse(BaseModel):

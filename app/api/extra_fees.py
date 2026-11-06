@@ -25,6 +25,7 @@ from app.fees.extra import (
     FeeDraft,
     StudentRow,
     batch_extra_fees,
+    chargeable_students,
     extra_fee_detail,
     raise_extra_fee,
     seat_extra_fees,
@@ -35,6 +36,7 @@ from app.money.wire import parse, to_wire
 from app.schemas.errors import ErrorEnvelope
 from app.schemas.extra_fees import (
     BatchExtraFeesResponse,
+    ChargeableStudentResponse,
     ExtraFeeDetailResponse,
     ExtraFeeRaiseRequest,
     ExtraFeeStudentResponse,
@@ -188,7 +190,13 @@ def read_batch_extra_fees(
         fees=[
             _summary(fee)
             for fee in batch_extra_fees(session, lens=lens, batch_id=batch_id)
-        ]
+        ],
+        chargeable_students=[
+            ChargeableStudentResponse(enrollment_id=seat_id, display_name=name)
+            for seat_id, name in chargeable_students(
+                session, lens=lens, batch_id=batch_id
+            )
+        ],
     )
 
 

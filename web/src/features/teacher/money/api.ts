@@ -10,8 +10,20 @@ const enc = encodeURIComponent
 
 // ---------------------------------------------------------------- payments
 
-export const readPayment = (submissionId: string) =>
-  request<Schemas['PaymentReviewResponse']>('GET', `/v1/payments/${enc(submissionId)}`)
+/**
+ * Read one payment. `preview` measures it against the monthly fee
+ * (`'monthly'`) or one extra fee (its id) instead of what it is applied
+ * to now; the server writes nothing for a preview.
+ */
+export const readPayment = (submissionId: string, preview: string | null = null) =>
+  request<Schemas['PaymentReviewResponse']>('GET', `/v1/payments/${enc(submissionId)}`, {
+    query:
+      preview === null
+        ? {}
+        : preview === 'monthly'
+          ? { purpose: 'monthly' }
+          : { purpose: 'extra', extra_fee_id: preview },
+  })
 
 export const approvePayment = (submissionId: string, body: Schemas['PaymentApprovalRequest']) =>
   request<Schemas['PaymentReviewResponse']>('POST', `/v1/payments/${enc(submissionId)}/approval`, {

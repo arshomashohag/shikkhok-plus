@@ -441,6 +441,8 @@ class PaymentReviewResponse(BaseModel):
     :ivar extra_fee: The fee it is applied to, when ``extra``
     :ivar requested_purpose: What the family chose
     :ivar requested_extra_fee: The fee the family chose, if any
+    :ivar extra_fee_options: Every extra fee each covered child was charged,
+        which the teacher may apply the payment to instead
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -468,6 +470,7 @@ class PaymentReviewResponse(BaseModel):
     extra_fee: ExtraFeeRefResponse | None = None
     requested_purpose: PaymentPurpose = "monthly"
     requested_extra_fee: ExtraFeeRefResponse | None = None
+    extra_fee_options: list[ExtraFeeRefResponse] = []
 
 
 class RecentDecisionResponse(BaseModel):
@@ -733,3 +736,11 @@ class OwedTogetherResponse(BaseModel):
 
     owed_together: MoneyField
     children: list[OwedChildResponse]
+    extra_fee_options: list[ExtraFeeRefResponse] = Field(
+        default_factory=list,
+        description=(
+            "Exam and other fees every chosen child was charged and still "
+            "owes something on together, which a payment may be for instead "
+            "of the monthly fee."
+        ),
+    )

@@ -33,6 +33,7 @@ export function RecordPaymentSheet({
   enrollmentId,
   name,
   owed,
+  extraFeeId,
   onClose,
   onRecorded,
 }: {
@@ -41,6 +42,8 @@ export function RecordPaymentSheet({
   name?: string
   /** What the seat owes now, as the server computed it. */
   owed: Money
+  /** Record it against this exam or other fee rather than the months. */
+  extraFeeId?: string
   onClose: () => void
   /** Called with the amount recorded, in words, once the server accepted it. */
   onRecorded: (amount: string) => void
@@ -51,7 +54,7 @@ export function RecordPaymentSheet({
   const [errorText, setErrorText] = useState<string | null>(null)
   const id = useId()
   const state = recordState(owed, input)
-  const body = recordBody(owed, input)
+  const body = recordBody(owed, input, extraFeeId)
 
   const comparison =
     state.side === 'exact'

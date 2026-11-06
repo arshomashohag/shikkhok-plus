@@ -1338,4 +1338,45 @@
     <string name="marks_exam_published">ফলাফল আগেই প্রকাশিত হয়েছে, তাই এই পরীক্ষা বাতিল করা যাবে না।</string>
     <string name="inbox_exam_cancelled_title">পরীক্ষা বাতিল · %1$s</string>
     <string name="inbox_exam_cancelled_line">এই পরীক্ষা বাতিল করা হয়েছে।</string>
+
+    <!-- Exam and other fees, and what a payment is for [0020] -->
+    <string name="extra_fees_title">পরীক্ষা ও অন্যান্য ফি</string>
+    <string name="extra_fees_open">পরীক্ষা ও অন্যান্য ফি</string>
+    <string name="extra_fees_empty">এখনও কোনো পরীক্ষা বা অন্য ফি নেই। পরীক্ষা বা কোনো খরচ এলে একটি যোগ করুন।</string>
+    <string name="extra_fees_load_failed">ফি লোড করা যায়নি।</string>
+    <string name="extra_fees_raise">ফি যোগ করুন</string>
+    <string name="extra_fees_kind_exam">পরীক্ষার ফি</string>
+    <string name="extra_fees_kind_other">অন্য ফি</string>
+    <string name="extra_fees_collected">%2$s এর মধ্যে %1$s আদায় হয়েছে</string>
+    <string name="extra_fees_counts">%2$s জনের মধ্যে %1$s জন দিয়েছে · %3$s জনের বাকি %4$s</string>
+    <string name="extra_fees_due">শেষ তারিখ %1$s</string>
+    <string name="extra_fees_for_exam">%1$s এর জন্য</string>
+    <string name="extra_fees_fully_paid">সম্পূর্ণ পরিশোধিত</string>
+    <string name="extra_fees_form_title">ফি যোগ করুন</string>
+    <string name="extra_fees_form_kind">ফির ধরন</string>
+    <string name="extra_fees_form_label">পরিবার যে নাম দেখবে</string>
+    <string name="extra_fees_form_exam">কোন পরীক্ষার জন্য</string>
+    <string name="extra_fees_form_no_exam">কোনো পরীক্ষার সাথে যুক্ত নয়</string>
+    <string name="extra_fees_form_amount">প্রতি শিক্ষার্থীর পরিমাণ</string>
+    <string name="extra_fees_form_due">শেষ তারিখ</string>
+    <string name="extra_fees_form_students">শিক্ষার্থী</string>
+    <string name="extra_fees_form_charge">ফি নিন</string>
+    <string name="extra_fees_form_waive">মওকুফ</string>
+    <string name="extra_fees_form_leave_out">বাদ দিন</string>
+    <string name="extra_fees_form_note">কম পেমেন্ট এই ফিতেই বাকি থাকে বা মওকুফ হয়। এটি কখনো মাসিক ফিতে যায় না।</string>
+    <string name="extra_fees_form_summary">%2$s জন শিক্ষার্থীর কাছে মোট %1$s।</string>
+    <string name="extra_fees_raise_for">%1$s জনের জন্য যোগ করুন</string>
+    <string name="extra_fees_raised">%1$s যোগ হয়েছে</string>
+    <string name="extra_fees_record_payment">পেমেন্ট লিখুন</string>
+    <string name="extra_fees_student_line">%1$s দিয়েছে · %2$s বাকি</string>
+    <string name="payment_for_title">পেমেন্ট কিসের জন্য</string>
+    <string name="payment_for_monthly">মাসিক ফি</string>
+    <string name="payment_for_family_chose">পরিবার বেছে নিয়েছে</string>
+    <string name="payment_for_changed">তারা %2$s বেছে নিয়েছিল, আপনি এটি %1$s এ দিচ্ছেন। তারা এটি দেখতে পাবে।</string>
+    <string name="payment_for_applied">%1$s এর জন্য</string>
+    <string name="payment_for_applied_instead">%1$s এ দেওয়া হয়েছে · তারা %2$s বেছে নিয়েছিল</string>
+    <string name="pay_for_question">এই পেমেন্ট কিসের জন্য?</string>
+    <string name="pay_for_owed">%1$s বাকি · শেষ তারিখ %2$s</string>
+    <string name="family_extra_fees_title">পরীক্ষা ও অন্যান্য ফি</string>
+    <string name="family_extra_fee_line">%1$s · শেষ তারিখ %2$s</string>
 </resources>

@@ -400,8 +400,16 @@
       },
       "BatchExtraFeesResponse": {
         "additionalProperties": false,
-        "description": "Every fee raised on a batch, newest first.\n\n:ivar fees: The fees",
+        "description": "Every fee raised on a batch, newest first, and who a new one charges.\n\n:ivar fees: The fees\n:ivar chargeable_students: The students a fee raised now would charge",
         "properties": {
+          "chargeable_students": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ChargeableStudentResponse"
+            },
+            "title": "Chargeable Students",
+            "type": "array"
+          },
           "fees": {
             "items": {
               "$ref": "#/components/schemas/ExtraFeeSummaryResponse"
@@ -800,6 +808,27 @@
           "state"
         ],
         "title": "CalendarDayResponse",
+        "type": "object"
+      },
+      "ChargeableStudentResponse": {
+        "additionalProperties": false,
+        "description": "A student a fee raised today would charge.\n\n:ivar enrollment_id: The seat\n:ivar display_name: The teacher-typed name",
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "enrollment_id": {
+            "format": "uuid",
+            "title": "Enrollment Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "display_name",
+          "enrollment_id"
+        ],
+        "title": "ChargeableStudentResponse",
         "type": "object"
       },
       "ChildBatchResponse": {
@@ -4020,6 +4049,14 @@
             "title": "Children",
             "type": "array"
           },
+          "extra_fee_options": {
+            "description": "Exam and other fees every chosen child was charged and still owes something on together, which a payment may be for instead of the monthly fee.",
+            "items": {
+              "$ref": "#/components/schemas/ExtraFeeRefResponse"
+            },
+            "title": "Extra Fee Options",
+            "type": "array"
+          },
           "owed_together": {
             "$ref": "#/components/schemas/Money"
           }
@@ -4693,7 +4730,7 @@
       },
       "PaymentReviewResponse": {
         "additionalProperties": false,
-        "description": "One payment as its teacher reviews it (R1, R2, R3).\n\n``method`` is the destination as the family was shown it when they\npaid, so a later edit of the method does not change what the\nteacher checks against.\n\n:ivar submission_id: The submission\n:ivar batch_name: The batch\n:ivar children: The children covered, in child order\n:ivar owed_together: What they owe together now\n:ivar total_amount: What the payer says they sent\n:ivar comparison: ``matches``, ``short`` or ``over``\n:ivar difference: How far from what is owed, never negative\n:ivar method: The destination snapshot\n:ivar transaction_id: The mobile reference, if any\n:ivar from_account: The paying bank account, if any\n:ivar paid_on: The day the money moved\n:ivar submitted_at: When it was reported\n:ivar submitted_by: ``student`` or ``guardian``, or null\n:ivar submitter_phone: The number the teacher holds for them\n:ivar payer_note: The payer's note\n:ivar status: ``pending``, ``approved`` or ``rejected``\n:ivar decision_note: The teacher's note on the decision\n:ivar decided_at: When it was decided, or null\n:ivar duplicate_of: The earlier payment quoting the same reference\n:ivar purpose: What the payment is applied to\n:ivar extra_fee: The fee it is applied to, when ``extra``\n:ivar requested_purpose: What the family chose\n:ivar requested_extra_fee: The fee the family chose, if any",
+        "description": "One payment as its teacher reviews it (R1, R2, R3).\n\n``method`` is the destination as the family was shown it when they\npaid, so a later edit of the method does not change what the\nteacher checks against.\n\n:ivar submission_id: The submission\n:ivar batch_name: The batch\n:ivar children: The children covered, in child order\n:ivar owed_together: What they owe together now\n:ivar total_amount: What the payer says they sent\n:ivar comparison: ``matches``, ``short`` or ``over``\n:ivar difference: How far from what is owed, never negative\n:ivar method: The destination snapshot\n:ivar transaction_id: The mobile reference, if any\n:ivar from_account: The paying bank account, if any\n:ivar paid_on: The day the money moved\n:ivar submitted_at: When it was reported\n:ivar submitted_by: ``student`` or ``guardian``, or null\n:ivar submitter_phone: The number the teacher holds for them\n:ivar payer_note: The payer's note\n:ivar status: ``pending``, ``approved`` or ``rejected``\n:ivar decision_note: The teacher's note on the decision\n:ivar decided_at: When it was decided, or null\n:ivar duplicate_of: The earlier payment quoting the same reference\n:ivar purpose: What the payment is applied to\n:ivar extra_fee: The fee it is applied to, when ``extra``\n:ivar requested_purpose: What the family chose\n:ivar requested_extra_fee: The fee the family chose, if any\n:ivar extra_fee_options: Every extra fee each covered child was charged,\n    which the teacher may apply the payment to instead",
         "properties": {
           "batch_name": {
             "title": "Batch Name",
@@ -4760,6 +4797,14 @@
                 "type": "null"
               }
             ]
+          },
+          "extra_fee_options": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ExtraFeeRefResponse"
+            },
+            "title": "Extra Fee Options",
+            "type": "array"
           },
           "from_account": {
             "anyOf": [
@@ -12900,7 +12945,7 @@
     },
     "/v1/payments/{submission_id}": {
       "get": {
-        "description": "Read one payment on this teacher's batches (R2).\n\n:param submission_id: The submission, from the route path\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: The payment as the teacher reviews it",
+        "description": "Read one payment on this teacher's batches (R2).\n\n``purpose`` (with ``extra_fee_id``) previews the payment against\nsomething else it could be applied to, writing nothing.\n\n:param submission_id: The submission, from the route path\n:param session: The request-scoped session\n:param lens: The teacher lens\n:param purpose: Preview against ``monthly`` or ``extra``\n:param extra_fee_id: The fee, when previewing ``extra``\n:return: The payment as the teacher reviews it",
         "operationId": "read_payment_v1_payments__submission_id__get",
         "parameters": [
           {
@@ -12911,6 +12956,43 @@
               "format": "uuid",
               "title": "Submission Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "purpose",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "extra",
+                    "monthly"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Purpose"
+            }
+          },
+          {
+            "in": "query",
+            "name": "extra_fee_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Extra Fee Id"
             }
           }
         ],

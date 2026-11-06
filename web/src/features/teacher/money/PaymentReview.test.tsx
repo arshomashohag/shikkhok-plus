@@ -207,3 +207,57 @@ it('shows the facts and the server’s duplicate warning, and reverses the defau
   expect(screen.getByRole('button', { name: 'Reject as duplicate' })).toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Approve anyway' })).toBeInTheDocument()
 })
+
+it('measures the payment against the exam fee the teacher picks, then approves it there', async () => {
+  const fee = {
+    extra_fee_id: 'fee-1',
+    purpose: 'exam',
+    label: 'Half-yearly exam fee',
+    due_on: '2026-11-15',
+  }
+  const single = {
+    ...base,
+    children: [base.children[0]],
+    total_amount: '500.00',
+    owed_together: '1200.00',
+    difference: '700.00',
+    comparison: 'short',
+    extra_fee_options: [fee],
+  }
+  fetchMock.mockImplementation(async (url: string, init: RequestInit) => {
+    if (url.endsWith('/approval')) return json(200, { ...single, status: 'approved' })
+    if (url.includes('purpose=extra'))
+      return json(200, {
+        ...single,
+        owed_together: '500.00',
+        difference: '0.00',
+        comparison: 'matches',
+        purpose: 'extra',
+        extra_fee: fee,
+      })
+    void init
+    return json(200, single)
+  })
+  show('/verify/s1')
+
+  const picker = await screen.findByRole('radiogroup', { name: 'Payment for' })
+  await userEvent.click(within(picker).getByLabelText(/Half-yearly exam fee/))
+
+  await waitFor(() =>
+    expect(fetchMock.mock.calls.some(([u]) => (u as string).includes('extra_fee_id=fee-1'))).toBe(
+      true,
+    ),
+  )
+  expect(
+    await screen.findByText(/applying this to Half-yearly exam fee instead of Monthly fee/),
+  ).toBeInTheDocument()
+
+  await userEvent.click(screen.getByRole('button', { name: 'Approve' }))
+  await waitFor(() =>
+    expect(posted('/approval')).toMatchObject({
+      received_amount: '500.00',
+      purpose: 'extra',
+      extra_fee_id: 'fee-1',
+    }),
+  )
+})

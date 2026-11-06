@@ -506,6 +506,44 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/v1/batches/{batch_id}/extra-fees': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Read Batch Extra Fees
+     * @description List every fee raised on one of this teacher's batches.
+     *
+     *     :param batch_id: The batch, from the route path
+     *     :param session: The request-scoped session
+     *     :param lens: The teacher lens
+     *     :return: The fees, newest first
+     */
+    get: operations['read_batch_extra_fees_v1_batches__batch_id__extra_fees_get']
+    put?: never
+    /**
+     * Raise Fee
+     * @description Raise an exam or other fee and charge the batch's students.
+     *
+     *     A resend under the same ``client_mutation_id`` returns the original
+     *     fee with the same 201 and charges nobody twice.
+     *
+     *     :param batch_id: The batch, from the route path
+     *     :param body: The fee as the teacher typed it
+     *     :param session: The request-scoped session
+     *     :param lens: The teacher lens
+     *     :return: The fee with its totals
+     */
+    post: operations['raise_fee_v1_batches__batch_id__extra_fees_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/v1/batches/{batch_id}/fees': {
     parameters: {
       query?: never
@@ -1084,6 +1122,32 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/v1/enrollments/{enrollment_id}/extra-fees': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Read Seat Extra Fees
+     * @description List the exam and other fees one seat was charged.
+     *
+     *     :param enrollment_id: The seat, from the route path
+     *     :param request: The request carrying the lens memo
+     *     :param session: The request-scoped session
+     *     :param lens: The authenticated family lens
+     *     :return: The fees, soonest due first
+     */
+    get: operations['read_seat_extra_fees_v1_enrollments__enrollment_id__extra_fees_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/v1/enrollments/{enrollment_id}/fees': {
     parameters: {
       query?: never
@@ -1336,6 +1400,31 @@ export interface paths {
      *     :return: The exam, one row per seat, and whether it is writable
      */
     get: operations['read_exam_results_v1_exams__exam_id__results_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/extra-fees/{extra_fee_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Read Extra Fee
+     * @description Read one fee with every student charged.
+     *
+     *     :param extra_fee_id: The fee, from the route path
+     *     :param session: The request-scoped session
+     *     :param lens: The teacher lens
+     *     :return: The fee and its students
+     */
+    get: operations['read_extra_fee_v1_extra_fees__extra_fee_id__get']
     put?: never
     post?: never
     delete?: never
@@ -2182,6 +2271,7 @@ export interface paths {
      *     :param session: The request-scoped session
      *     :param lens: The authenticated family lens
      *     :param enrollment_id: The children, repeated once per child
+     *     :param extra_fee_id: Ask about one extra fee rather than the months
      *     :return: The total and each child's figure, in child order
      */
     get: operations['read_owed_together_v1_payments_owed_get']
@@ -2204,9 +2294,14 @@ export interface paths {
      * Read Payment
      * @description Read one payment on this teacher's batches (R2).
      *
+     *     ``purpose`` (with ``extra_fee_id``) previews the payment against
+     *     something else it could be applied to, writing nothing.
+     *
      *     :param submission_id: The submission, from the route path
      *     :param session: The request-scoped session
      *     :param lens: The teacher lens
+     *     :param purpose: Preview against ``monthly`` or ``extra``
+     *     :param extra_fee_id: The fee, when previewing ``extra``
      *     :return: The payment as the teacher reviews it
      */
     get: operations['read_payment_v1_payments__submission_id__get']
@@ -2840,6 +2935,22 @@ export interface components {
       teacher_display_name?: string | null
     }
     /**
+     * BatchExtraFeesResponse
+     * @description Every fee raised on a batch, newest first, and who a new one charges.
+     *
+     *     :ivar fees: The fees
+     *     :ivar chargeable_students: The students a fee raised now would charge
+     */
+    BatchExtraFeesResponse: {
+      /**
+       * Chargeable Students
+       * @default []
+       */
+      chargeable_students: components['schemas']['ChargeableStudentResponse'][]
+      /** Fees */
+      fees: components['schemas']['ExtraFeeSummaryResponse'][]
+    }
+    /**
      * BatchFeesResponse
      * @description One batch in one month.
      *
@@ -3022,6 +3133,22 @@ export interface components {
        * @enum {string}
        */
       state: 'cancelled' | 'not_recorded' | 'taken' | 'today' | 'upcoming'
+    }
+    /**
+     * ChargeableStudentResponse
+     * @description A student a fee raised today would charge.
+     *
+     *     :ivar enrollment_id: The seat
+     *     :ivar display_name: The teacher-typed name
+     */
+    ChargeableStudentResponse: {
+      /** Display Name */
+      display_name: string
+      /**
+       * Enrollment Id
+       * Format: uuid
+       */
+      enrollment_id: string
     }
     /**
      * ChildBatchResponse
@@ -3879,6 +4006,209 @@ export interface components {
       total_marks: number
     }
     /**
+     * ExtraFeeDetailResponse
+     * @description One fee with every student charged.
+     *
+     *     :ivar students: Each student's row, by display name
+     */
+    ExtraFeeDetailResponse: {
+      amount: components['schemas']['Money']
+      charged_total: components['schemas']['Money']
+      collected_total: components['schemas']['Money']
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string
+      /**
+       * Due On
+       * Format: date
+       */
+      due_on: string
+      /** Exam Id */
+      exam_id?: string | null
+      /** Exam Title */
+      exam_title?: string | null
+      /**
+       * Extra Fee Id
+       * Format: uuid
+       */
+      extra_fee_id: string
+      /** Label */
+      label: string
+      owed_total: components['schemas']['Money']
+      /** Owing Count */
+      owing_count: number
+      /** Paid Count */
+      paid_count: number
+      /**
+       * Purpose
+       * @enum {string}
+       */
+      purpose: 'exam' | 'other'
+      /** Student Count */
+      student_count: number
+      /** Students */
+      students: components['schemas']['ExtraFeeStudentResponse'][]
+      /** Waived Count */
+      waived_count: number
+    }
+    /**
+     * ExtraFeeRaiseRequest
+     * @description Raise an exam or other fee on a batch.
+     *
+     *     :ivar purpose: ``exam`` or ``other``
+     *     :ivar label: The name families see
+     *     :ivar exam_id: The exam an exam fee is for, if linked
+     *     :ivar amount: The per-student amount
+     *     :ivar due_on: When it is due
+     *     :ivar seat_amounts: Students given a different amount
+     *     :ivar excluded_enrollment_ids: Students left out
+     *     :ivar client_mutation_id: One UUID per fee being raised, reused on
+     *         every resend. A resend returns the original fee with the original
+     *         201 and charges nobody twice; the same id with a different fee is
+     *         a 409
+     */
+    ExtraFeeRaiseRequest: {
+      amount: components['schemas']['Money']
+      /** Client Mutation Id */
+      client_mutation_id?: string | null
+      /**
+       * Due On
+       * Format: date
+       */
+      due_on: string
+      /** Exam Id */
+      exam_id?: string | null
+      /** Excluded Enrollment Ids */
+      excluded_enrollment_ids?: string[]
+      /** Label */
+      label: string
+      /**
+       * Purpose
+       * @enum {string}
+       */
+      purpose: 'exam' | 'other'
+      /** Seat Amounts */
+      seat_amounts?: components['schemas']['SeatAmountRequest'][]
+    }
+    /**
+     * ExtraFeeRefResponse
+     * @description An extra fee as a payment names it.
+     *
+     *     :ivar extra_fee_id: The fee
+     *     :ivar purpose: ``exam`` or ``other``
+     *     :ivar label: The name families see
+     *     :ivar due_on: When it is due
+     */
+    ExtraFeeRefResponse: {
+      /**
+       * Due On
+       * Format: date
+       */
+      due_on: string
+      /**
+       * Extra Fee Id
+       * Format: uuid
+       */
+      extra_fee_id: string
+      /** Label */
+      label: string
+      /**
+       * Purpose
+       * @enum {string}
+       */
+      purpose: 'exam' | 'other'
+    }
+    /**
+     * ExtraFeeStudentResponse
+     * @description One student under one fee, as the teacher sees it.
+     *
+     *     :ivar enrollment_id: The seat
+     *     :ivar display_name: The teacher-typed name
+     *     :ivar charged: What was charged
+     *     :ivar paid: What arrived
+     *     :ivar owed: What is still owed
+     *     :ivar status: The server's status
+     */
+    ExtraFeeStudentResponse: {
+      charged: components['schemas']['Money']
+      /** Display Name */
+      display_name: string
+      /**
+       * Enrollment Id
+       * Format: uuid
+       */
+      enrollment_id: string
+      owed: components['schemas']['Money']
+      paid: components['schemas']['Money']
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: 'paid' | 'partly_paid' | 'unpaid' | 'waived'
+    }
+    /**
+     * ExtraFeeSummaryResponse
+     * @description One fee with its totals.
+     *
+     *     :ivar extra_fee_id: The fee
+     *     :ivar purpose: ``exam`` or ``other``
+     *     :ivar label: The name families see
+     *     :ivar exam_id: The linked exam, if any
+     *     :ivar exam_title: That exam's title, if any
+     *     :ivar amount: The per-student amount it was raised with
+     *     :ivar due_on: When it is due
+     *     :ivar created_at: When it was raised
+     *     :ivar student_count: Students charged
+     *     :ivar paid_count: Students paid
+     *     :ivar waived_count: Students waived
+     *     :ivar owing_count: Students still owing
+     *     :ivar charged_total: Everything charged
+     *     :ivar collected_total: Everything that arrived
+     *     :ivar owed_total: Everything still owed
+     */
+    ExtraFeeSummaryResponse: {
+      amount: components['schemas']['Money']
+      charged_total: components['schemas']['Money']
+      collected_total: components['schemas']['Money']
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string
+      /**
+       * Due On
+       * Format: date
+       */
+      due_on: string
+      /** Exam Id */
+      exam_id?: string | null
+      /** Exam Title */
+      exam_title?: string | null
+      /**
+       * Extra Fee Id
+       * Format: uuid
+       */
+      extra_fee_id: string
+      /** Label */
+      label: string
+      owed_total: components['schemas']['Money']
+      /** Owing Count */
+      owing_count: number
+      /** Paid Count */
+      paid_count: number
+      /**
+       * Purpose
+       * @enum {string}
+       */
+      purpose: 'exam' | 'other'
+      /** Student Count */
+      student_count: number
+      /** Waived Count */
+      waived_count: number
+    }
+    /**
      * FamilyBatchViewResponse
      * @description What a student or guardian sees of one batch [BR7.2].
      *
@@ -4729,6 +5059,11 @@ export interface components {
     OwedTogetherResponse: {
       /** Children */
       children: components['schemas']['OwedChildResponse'][]
+      /**
+       * Extra Fee Options
+       * @description Exam and other fees every chosen child was charged and still owes something on together, which a payment may be for instead of the monthly fee.
+       */
+      extra_fee_options?: components['schemas']['ExtraFeeRefResponse'][]
       owed_together: components['schemas']['Money']
     }
     /**
@@ -4799,6 +5134,10 @@ export interface components {
      *     :ivar credit_to_enrollment_id: The child who gets an excess as credit
      *     :ivar note: Shown to the family with the decision
      *     :ivar correcting: True when deliberately revising a decided payment
+     *     :ivar purpose: Apply the payment to the monthly fee or to an extra
+     *         fee, whatever the family chose; omitted keeps what it is for now.
+     *         The family is shown both what they chose and what it was applied to
+     *     :ivar extra_fee_id: The fee, when ``purpose`` is ``extra``
      */
     PaymentApprovalRequest: {
       /** Carried By Enrollment Id */
@@ -4810,8 +5149,12 @@ export interface components {
       correcting: boolean
       /** Credit To Enrollment Id */
       credit_to_enrollment_id?: string | null
+      /** Extra Fee Id */
+      extra_fee_id?: string | null
       /** Note */
       note?: string | null
+      /** Purpose */
+      purpose?: ('extra' | 'monthly') | null
       received_amount: components['schemas']['Money']
       /** Shortfall Disposition */
       shortfall_disposition?: ('carried' | 'waived') | null
@@ -5053,6 +5396,12 @@ export interface components {
      *     :ivar decision_note: The teacher's note on the decision
      *     :ivar decided_at: When it was decided, or null
      *     :ivar duplicate_of: The earlier payment quoting the same reference
+     *     :ivar purpose: What the payment is applied to
+     *     :ivar extra_fee: The fee it is applied to, when ``extra``
+     *     :ivar requested_purpose: What the family chose
+     *     :ivar requested_extra_fee: The fee the family chose, if any
+     *     :ivar extra_fee_options: Every extra fee each covered child was charged,
+     *         which the teacher may apply the payment to instead
      */
     PaymentReviewResponse: {
       /** Batch Name */
@@ -5070,6 +5419,12 @@ export interface components {
       decision_note?: string | null
       difference: components['schemas']['Money']
       duplicate_of?: components['schemas']['DuplicatePaymentResponse'] | null
+      extra_fee?: components['schemas']['ExtraFeeRefResponse'] | null
+      /**
+       * Extra Fee Options
+       * @default []
+       */
+      extra_fee_options: components['schemas']['ExtraFeeRefResponse'][]
       /** From Account */
       from_account?: string | null
       method: components['schemas']['PaymentDestinationResponse']
@@ -5081,6 +5436,19 @@ export interface components {
       paid_on: string
       /** Payer Note */
       payer_note?: string | null
+      /**
+       * Purpose
+       * @default monthly
+       * @enum {string}
+       */
+      purpose: 'extra' | 'monthly'
+      requested_extra_fee?: components['schemas']['ExtraFeeRefResponse'] | null
+      /**
+       * Requested Purpose
+       * @default monthly
+       * @enum {string}
+       */
+      requested_purpose: 'extra' | 'monthly'
       /**
        * Status
        * @enum {string}
@@ -5140,6 +5508,11 @@ export interface components {
       client_mutation_id?: string | null
       /** Enrollment Ids */
       enrollment_ids: string[]
+      /**
+       * Extra Fee Id
+       * @description The fee, when purpose is extra.
+       */
+      extra_fee_id?: string | null
       /** From Account */
       from_account?: string | null
       /** Note */
@@ -5151,6 +5524,11 @@ export interface components {
       paid_on: string
       /** Payment Method Id */
       payment_method_id?: string | null
+      /**
+       * Purpose
+       * @description What the payment is for. Omitted, as an older app sends it, it pays the monthly fee, which is what every payment did before this field.
+       */
+      purpose?: ('extra' | 'monthly') | null
       /** Transaction Id */
       transaction_id?: string | null
     }
@@ -5403,10 +5781,17 @@ export interface components {
       channel: string
       /** Client Mutation Id */
       client_mutation_id?: string | null
+      /** Extra Fee Id */
+      extra_fee_id?: string | null
       /** Note */
       note?: string | null
       /** Paid On */
       paid_on?: string | null
+      /**
+       * Purpose
+       * @description What the money was for; omitted means the monthly fee.
+       */
+      purpose?: ('extra' | 'monthly') | null
       /** Reference */
       reference?: string | null
       /** Shortfall Disposition */
@@ -5668,6 +6053,71 @@ export interface components {
       start_time: string
       /** Weekday */
       weekday: number
+    }
+    /**
+     * SeatAmountRequest
+     * @description One student given a different amount; zero waives it.
+     *
+     *     :ivar enrollment_id: The seat
+     *     :ivar amount: Their amount, zero or more
+     */
+    SeatAmountRequest: {
+      amount: components['schemas']['Money']
+      /**
+       * Enrollment Id
+       * Format: uuid
+       */
+      enrollment_id: string
+    }
+    /**
+     * SeatExtraFeeResponse
+     * @description One fee as a student or guardian sees it.
+     *
+     *     :ivar extra_fee_id: The fee, which a payment names
+     *     :ivar purpose: ``exam`` or ``other``
+     *     :ivar label: The name
+     *     :ivar due_on: When it is due
+     *     :ivar charged: What was charged
+     *     :ivar paid: What arrived
+     *     :ivar owed: What is still owed
+     *     :ivar status: The server's status
+     */
+    SeatExtraFeeResponse: {
+      charged: components['schemas']['Money']
+      /**
+       * Due On
+       * Format: date
+       */
+      due_on: string
+      /**
+       * Extra Fee Id
+       * Format: uuid
+       */
+      extra_fee_id: string
+      /** Label */
+      label: string
+      owed: components['schemas']['Money']
+      paid: components['schemas']['Money']
+      /**
+       * Purpose
+       * @enum {string}
+       */
+      purpose: 'exam' | 'other'
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: 'paid' | 'partly_paid' | 'unpaid' | 'waived'
+    }
+    /**
+     * SeatExtraFeesResponse
+     * @description Every extra fee one seat was charged, soonest due first.
+     *
+     *     :ivar fees: The fees
+     */
+    SeatExtraFeesResponse: {
+      /** Fees */
+      fees: components['schemas']['SeatExtraFeeResponse'][]
     }
     /**
      * SeatMarkRequest
@@ -7339,6 +7789,126 @@ export interface operations {
       }
     }
   }
+  read_batch_extra_fees_v1_batches__batch_id__extra_fees_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        batch_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['BatchExtraFeesResponse']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this. Deliberately indistinguishable from absence: one code covers both. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  raise_fee_v1_batches__batch_id__extra_fees_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        batch_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ExtraFeeRaiseRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ExtraFeeSummaryResponse']
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this. Deliberately indistinguishable from absence: one code covers both. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
   read_batch_fees_v1_batches__batch_id__fees_get: {
     parameters: {
       query?: {
@@ -8482,6 +9052,55 @@ export interface operations {
       }
     }
   }
+  read_seat_extra_fees_v1_enrollments__enrollment_id__extra_fees_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        enrollment_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SeatExtraFeesResponse']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this. Deliberately indistinguishable from absence: one code covers both. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
   read_enrollment_fees_as_teacher_v1_enrollments__enrollment_id__fees_get: {
     parameters: {
       query?: {
@@ -8993,6 +9612,55 @@ export interface operations {
         }
       }
       /** @description No lens reaches this. Deliberately indistinguishable from absence, and the refusal when the marksheet toggle is off is the same one: an empty marksheet would still disclose that exams exist and how many. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  read_extra_fee_v1_extra_fees__extra_fee_id__get: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        extra_fee_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ExtraFeeDetailResponse']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this. Deliberately indistinguishable from absence: one code covers both. */
       403: {
         headers: {
           [name: string]: unknown
@@ -10227,6 +10895,7 @@ export interface operations {
     parameters: {
       query: {
         enrollment_id: string[]
+        extra_fee_id?: string | null
       }
       header?: never
       path?: never
@@ -10292,7 +10961,10 @@ export interface operations {
   }
   read_payment_v1_payments__submission_id__get: {
     parameters: {
-      query?: never
+      query?: {
+        purpose?: ('extra' | 'monthly') | null
+        extra_fee_id?: string | null
+      }
       header?: never
       path: {
         submission_id: string

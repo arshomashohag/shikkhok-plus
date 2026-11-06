@@ -41,7 +41,7 @@ from app.db.models import Enrollment, PaymentClaim
 from app.fees import views
 from app.fees.decisions import approve_submission, reject_submission
 from app.fees.payables import Payables, payables
-from app.fees.purposes import FeeRef
+from app.fees.purposes import FeeRef, Target, fees_charging_all, owed_for_target
 from app.fees.queue import PaymentReview, payment_review, verification_queue
 from app.fees.received import ReceivedPayment, record_received_payment
 from app.fees.reminders import remind
@@ -54,7 +54,7 @@ from app.fees.submissions import (
 from app.money import Money as DomainMoney
 from app.money.wire import parse, to_wire
 from app.schemas.errors import ErrorEnvelope
-from app.schemas.extra_fees import ExtraFeeRefResponse
+from app.schemas.extra_fees import ExtraFeeRefResponse, PaymentPurpose
 from app.schemas.fees import (
     BatchFeesResponse,
     ClaimResponse,
@@ -563,7 +563,27 @@ def read_owed_together(
         purpose=None if extra_fee_id is None else "extra",
         extra_fee_id=extra_fee_id,
     )
+    seats = [child.seat.id for child in children]
+    options = [
+        ref
+        for ref in fees_charging_all(
+            session, batch_id=children[0].seat.batch_id, enrollment_ids=seats
+        )
+        if DomainMoney.sum(
+            [
+                owed_for_target(
+                    session,
+                    target=Target(purpose="extra", extra_fee_id=ref.extra_fee_id),
+                    enrollment_id=seat,
+                )
+                for seat in seats
+            ]
+        ).is_positive()
+    ]
     return OwedTogetherResponse(
+        extra_fee_options=[
+            wire for wire in (_fee_ref(ref) for ref in options) if wire is not None
+        ],
         owed_together=_to_wire(DomainMoney.sum([child.owed for child in children])),
         children=[
             OwedChildResponse(
@@ -643,6 +663,11 @@ def payment_review_response(review: PaymentReview) -> PaymentReviewResponse:
         extra_fee=_fee_ref(review.extra_fee),
         requested_purpose=review.requested_purpose,
         requested_extra_fee=_fee_ref(review.requested_extra_fee),
+        extra_fee_options=[
+            ref
+            for ref in (_fee_ref(option) for option in review.extra_fee_options)
+            if ref is not None
+        ],
     )
 
 
@@ -655,16 +680,29 @@ def read_payment(
     submission_id: uuid.UUID,
     session: Annotated[Session, Depends(get_session)],
     lens: Annotated[TeacherLens, Depends(teacher_lens)],
+    purpose: PaymentPurpose | None = None,
+    extra_fee_id: uuid.UUID | None = None,
 ) -> PaymentReviewResponse:
     """Read one payment on this teacher's batches (R2).
+
+    ``purpose`` (with ``extra_fee_id``) previews the payment against
+    something else it could be applied to, writing nothing.
 
     :param submission_id: The submission, from the route path
     :param session: The request-scoped session
     :param lens: The teacher lens
+    :param purpose: Preview against ``monthly`` or ``extra``
+    :param extra_fee_id: The fee, when previewing ``extra``
     :return: The payment as the teacher reviews it
     """
     return payment_review_response(
-        payment_review(session, lens=lens, submission_id=submission_id)
+        payment_review(
+            session,
+            lens=lens,
+            submission_id=submission_id,
+            preview_purpose=purpose,
+            preview_extra_fee_id=extra_fee_id,
+        )
     )
 
 

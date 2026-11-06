@@ -359,8 +359,13 @@ def test_a_declined_or_departed_student_is_not_charged(
         when=bangladesh_today() - dt.timedelta(days=1),
     )
 
+    offered = api_client.get(
+        f"/v1/batches/{teacher.batch_id}/extra-fees",
+        headers=bearer(owner_session, teacher.account_id),
+    ).json()["chargeable_students"]
     fee = _fee_id(_raise(api_client, owner_session, teacher))
 
+    assert [s["display_name"] for s in offered] == ["Tania"]
     assert set(_seats(api_client, owner_session, teacher, fee)) == {"Tania"}
 
 
@@ -650,6 +655,21 @@ def test_the_review_shows_what_the_family_owes_on_that_fee(
     assert review["purpose"] == "extra"
     assert review["extra_fee"]["label"] == "Half-yearly exam fee"
     assert review["requested_purpose"] == "extra"
+    assert [option["label"] for option in review["extra_fee_options"]] == [
+        "Half-yearly exam fee"
+    ]
+    as_monthly = api_client.get(
+        f"/v1/payments/{submission}?purpose=monthly",
+        headers=bearer(owner_session, teacher.account_id),
+    ).json()
+    assert (as_monthly["owed_together"], as_monthly["comparison"]) == (
+        "1000.00",
+        "short",
+    )
+    assert (as_monthly["purpose"], as_monthly["requested_purpose"]) == (
+        "monthly",
+        "extra",
+    )
 
 
 def test_a_short_exam_fee_needs_a_choice_and_carried_stays_owed(
@@ -1221,6 +1241,9 @@ def test_the_owed_line_can_ask_about_one_fee(
 
     assert monthly.json()["owed_together"] == "2000.00"
     assert extra.json()["owed_together"] == "1000.00"
+    assert [o["label"] for o in monthly.json()["extra_fee_options"]] == [
+        "Half-yearly exam fee"
+    ]
 
 
 @pytest.mark.parametrize(

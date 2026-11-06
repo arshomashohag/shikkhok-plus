@@ -39,6 +39,7 @@ __all__ = [
     "Target",
     "charge_for",
     "fee_refs",
+    "fees_charging_all",
     "owed_for_claim",
     "owed_for_target",
     "point_claim",
@@ -95,6 +96,46 @@ def fee_refs(
         )
         for fee in session.scalars(sa.select(ExtraFee).where(ExtraFee.id.in_(wanted)))
     }
+
+
+def fees_charging_all(
+    session: Session, *, batch_id: uuid.UUID, enrollment_ids: list[uuid.UUID]
+) -> list[FeeRef]:
+    """List the batch's fees every one of these seats was charged, soonest first.
+
+    What a payment covering these seats can be applied to besides the
+    monthly fee: a fee one of them was never charged cannot settle that
+    child's share.
+
+    :param session: The session to read through
+    :param batch_id: The batch
+    :param enrollment_ids: The seats a payment covers
+    :return: The fees
+    """
+    wanted = set(enrollment_ids)
+    if not wanted:
+        return []
+    rows = session.execute(
+        sa.select(ExtraFee, ExtraFeeCharge.enrollment_id)
+        .join(ExtraFeeCharge, ExtraFeeCharge.extra_fee_id == ExtraFee.id)
+        .where(
+            ExtraFee.batch_id == batch_id,
+            ExtraFeeCharge.enrollment_id.in_(wanted),
+        )
+        .order_by(ExtraFee.due_on, ExtraFee.created_at, ExtraFee.id)
+    ).all()
+    seats: dict[uuid.UUID, set[uuid.UUID]] = {}
+    fees: dict[uuid.UUID, ExtraFee] = {}
+    for fee, seat in rows:
+        fees[fee.id] = fee
+        seats.setdefault(fee.id, set()).add(seat)
+    return [
+        FeeRef(
+            extra_fee_id=fee.id, purpose=fee.purpose, label=fee.label, due_on=fee.due_on
+        )
+        for fee_id, fee in fees.items()
+        if seats[fee_id] == wanted
+    ]
 
 
 #: The months, which is what a payment naming nothing is for.

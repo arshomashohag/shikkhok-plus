@@ -99,6 +99,9 @@ export function BatchDetail() {
           <Link className="chip chip-filter" to={paths.batchSchedule(batchId)}>
             {t('roster_open_schedule')}
           </Link>
+          <Link className="chip chip-filter" to={paths.extraFees(batchId)}>
+            {t('extra_fees_open')}
+          </Link>
         </div>
       ) : null}
 

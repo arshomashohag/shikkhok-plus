@@ -51,6 +51,7 @@ __all__ = [
     "SeatFee",
     "StudentRow",
     "batch_extra_fees",
+    "chargeable_students",
     "extra_fee_detail",
     "raise_extra_fee",
     "seat_extra_fees",
@@ -549,6 +550,34 @@ def batch_extra_fees(
     return [
         _summary(fee, rows[fee.id], titles.get(fee.exam_id) if fee.exam_id else None)
         for fee in fees
+    ]
+
+
+def chargeable_students(
+    session: Session,
+    *,
+    lens: TeacherLens,
+    batch_id: uuid.UUID,
+    today: dt.date | None = None,
+) -> list[tuple[uuid.UUID, str]]:
+    """List who a fee raised today would charge, for the raise form.
+
+    The same seats :func:`raise_extra_fee` charges, so the form never
+    offers a student the server would refuse.
+
+    :param session: The session to read through
+    :param lens: The teacher lens
+    :param batch_id: The batch
+    :param today: Bangladesh's date; the real clock by default
+    :return: Each seat's id and teacher-typed name, by name
+    :raises AuthorizationError: The batch is absent or not this lens's
+    """
+    _owned_batch(session, lens=lens, batch_id=batch_id)
+    return [
+        (seat.id, seat.display_name)
+        for seat in _chargeable_seats(
+            session, batch_id=batch_id, today=today or bangladesh_today()
+        )
     ]
 
 

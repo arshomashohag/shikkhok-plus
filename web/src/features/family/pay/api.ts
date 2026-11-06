@@ -31,11 +31,16 @@ export const readSeatMethods = (reader: Reader, seat: string) =>
  * `enrollment_id` repeats, one per seat, which the shared request helper
  * cannot express, so the query string is built here.
  */
-export const readOwedTogether = (seats: readonly string[]) => {
+export const readOwedTogether = (seats: readonly string[], extraFeeId: string | null = null) => {
   const query = new URLSearchParams()
   for (const s of seats) query.append('enrollment_id', s)
+  if (extraFeeId !== null) query.append('extra_fee_id', extraFeeId)
   return request<Schemas['OwedTogetherResponse']>('GET', `/v1/payments/owed?${query.toString()}`)
 }
+
+/** The exam and other fees one seat was charged, soonest due first. */
+export const readSeatExtraFees = (seat: string) =>
+  request<Schemas['SeatExtraFeesResponse']>('GET', `/v1/enrollments/${enc(seat)}/extra-fees`)
 
 export const submitPayment = (body: Schemas['PaymentSubmitRequest']) =>
   request<Schemas['PaymentSubmittedResponse']>('POST', '/v1/payments', { body })

@@ -42,8 +42,11 @@ import {
   canDecide,
   mapPaymentDetail,
   openSheet,
+  purposeFields,
   rejectionBody,
+  samePurpose,
   type PaymentDetail,
+  type PaymentFor,
   type SheetInput,
 } from './review'
 
@@ -51,9 +54,12 @@ export function PaymentReviewScreen() {
   const { submissionId = '' } = useParams()
   const [search, setSearch] = useSearchParams()
   const { t, message } = useT()
+  // 'monthly' or a fee id while the teacher is trying another purpose;
+  // the server measures the payment against it and writes nothing.
+  const [preview, setPreview] = useState<string | null>(null)
   const { resource, reload } = useResource(
-    () => readPayment(submissionId).then(mapPaymentDetail),
-    [submissionId],
+    () => readPayment(submissionId, preview).then(mapPaymentDetail),
+    [submissionId, preview],
   )
   // The payment as the last write returned it, until the next read.
   const [written, setWritten] = useState<PaymentDetail | null>(null)
@@ -98,6 +104,7 @@ export function PaymentReviewScreen() {
       setRejecting(false)
       setCorrecting(false)
       setNote('')
+      setPreview(null)
       setSnack(done(decided))
     } catch (e) {
       const error = e instanceof ApiError ? e : null
@@ -119,7 +126,7 @@ export function PaymentReviewScreen() {
     const body = asReportedBody(d, note, correcting)
     if (body) {
       void write(
-        () => approvePayment(d.submissionId, body),
+        () => approvePayment(d.submissionId, { ...body, ...purposeFields(preview) }),
         (x) => t('payments_approved', x.totalAmount.format(), reviewName(x)),
       )
     } else {
@@ -173,6 +180,17 @@ export function PaymentReviewScreen() {
         ) : (
           <p className="meta">{t('verify_no_duplicate')}</p>
         )}
+
+        {deciding && (detail.options.length > 0 || detail.requested !== null) ? (
+          <PurposeCard
+            detail={detail}
+            busy={busy || resource.state !== 'loaded' || loaded?.refreshing === true}
+            onChoose={(choice) => {
+              setErrorText(null)
+              setPreview(choice?.id ?? 'monthly')
+            }}
+          />
+        ) : null}
 
         {deciding ? (
           <div className="card">
@@ -268,7 +286,7 @@ export function PaymentReviewScreen() {
           onClose={() => setSheet(null)}
           onConfirm={(body, received) =>
             void write(
-              () => approvePayment(detail.submissionId, body),
+              () => approvePayment(detail.submissionId, { ...body, ...purposeFields(preview) }),
               (x) => t('payments_approved', received, reviewName(x)),
             )
           }
@@ -295,6 +313,69 @@ export function PaymentReviewScreen() {
   )
 }
 
+/** The label one "payment for" choice reads as. */
+function useForLabel(): (choice: PaymentFor) => string {
+  const { t } = useT()
+  return (choice) => choice?.label ?? t('payment_for_monthly')
+}
+
+/**
+ * "Payment for": the monthly fee and every extra fee each covered child
+ * was charged. Choosing one re-reads the payment measured against it, so
+ * "matches" or "short" is always the server's answer for what is chosen.
+ */
+function PurposeCard({
+  detail,
+  busy,
+  onChoose,
+}: {
+  detail: PaymentDetail
+  busy: boolean
+  onChoose: (choice: PaymentFor) => void
+}) {
+  const { t, lang } = useT()
+  const label = useForLabel()
+  const choices: PaymentFor[] = [null, ...detail.options]
+  return (
+    <fieldset className="card" style={{ border: undefined }}>
+      <legend className="label">{t('payment_for_title')}</legend>
+      <div className="list" role="radiogroup" aria-label={t('payment_for_title')}>
+        {choices.map((choice) => {
+          const on = samePurpose(choice, detail.appliedTo)
+          return (
+            <label key={choice?.id ?? 'monthly'} className="row" style={{ cursor: 'pointer' }}>
+              <input
+                type="radio"
+                name="payment-for"
+                checked={on}
+                disabled={busy}
+                onChange={() => onChoose(choice)}
+              />
+              <span className="grow">
+                <span className="title">{label(choice)}</span>
+                {choice ? (
+                  <span className="meta">
+                    {' '}
+                    · {t('extra_fees_due', formatShortDate(choice.dueOn, lang))}
+                  </span>
+                ) : null}
+              </span>
+              {samePurpose(choice, detail.requested) ? (
+                <span className="chip chip-neutral">{t('payment_for_family_chose')}</span>
+              ) : null}
+            </label>
+          )
+        })}
+      </div>
+      {samePurpose(detail.appliedTo, detail.requested) ? null : (
+        <p className="meta" role="status">
+          {t('payment_for_changed', label(detail.appliedTo), label(detail.requested))}
+        </p>
+      )}
+    </fieldset>
+  )
+}
+
 function StatusChip({ status }: { status: PaymentDetail['status'] }) {
   const { t } = useT()
   if (status === 'approved')
@@ -306,7 +387,14 @@ function StatusChip({ status }: { status: PaymentDetail['status'] }) {
 
 function Summary({ detail }: { detail: PaymentDetail }) {
   const { t, lang } = useT()
+  const label = useForLabel()
   const name = reviewName(detail)
+  const forLine =
+    detail.appliedTo === null && detail.requested === null
+      ? null
+      : samePurpose(detail.appliedTo, detail.requested)
+        ? t('payment_for_applied', label(detail.appliedTo))
+        : t('payment_for_applied_instead', label(detail.appliedTo), label(detail.requested))
   return (
     <section className="card" aria-label={name}>
       <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
@@ -314,6 +402,7 @@ function Summary({ detail }: { detail: PaymentDetail }) {
         <div className="grow">
           <div className="title">{name}</div>
           <div className="meta">{detail.batchName}</div>
+          {forLine ? <div className="meta">{forLine}</div> : null}
         </div>
         <StatusChip status={detail.status} />
       </div>

@@ -1393,4 +1393,45 @@
     <string name="marks_exam_published">Its results are already published, so this exam cannot be cancelled.</string>
     <string name="inbox_exam_cancelled_title">Exam cancelled · %1$s</string>
     <string name="inbox_exam_cancelled_line">This exam was cancelled.</string>
+
+    <!-- Exam and other fees, and what a payment is for [0020] -->
+    <string name="extra_fees_title">Exam &amp; other fees</string>
+    <string name="extra_fees_open">Exam &amp; other fees</string>
+    <string name="extra_fees_empty">No exam or other fees yet. Raise one when an exam or a cost comes up.</string>
+    <string name="extra_fees_load_failed">Could not load the fees.</string>
+    <string name="extra_fees_raise">Raise a fee</string>
+    <string name="extra_fees_kind_exam">Exam fee</string>
+    <string name="extra_fees_kind_other">Other fee</string>
+    <string name="extra_fees_collected">%1$s of %2$s collected</string>
+    <string name="extra_fees_counts">%1$s of %2$s paid · %3$s owe %4$s</string>
+    <string name="extra_fees_due">Due %1$s</string>
+    <string name="extra_fees_for_exam">For %1$s</string>
+    <string name="extra_fees_fully_paid">Fully paid</string>
+    <string name="extra_fees_form_title">Raise a fee</string>
+    <string name="extra_fees_form_kind">Kind of fee</string>
+    <string name="extra_fees_form_label">Name families see</string>
+    <string name="extra_fees_form_exam">For which exam</string>
+    <string name="extra_fees_form_no_exam">Not linked to an exam</string>
+    <string name="extra_fees_form_amount">Amount per student</string>
+    <string name="extra_fees_form_due">Due on</string>
+    <string name="extra_fees_form_students">Students</string>
+    <string name="extra_fees_form_charge">Charge</string>
+    <string name="extra_fees_form_waive">Waive</string>
+    <string name="extra_fees_form_leave_out">Leave out</string>
+    <string name="extra_fees_form_note">A short payment stays owed on this fee or is waived. It never moves into a monthly fee.</string>
+    <string name="extra_fees_form_summary">Charges %1$s across %2$s students.</string>
+    <string name="extra_fees_raise_for">Raise for %1$s students</string>
+    <string name="extra_fees_raised">%1$s raised</string>
+    <string name="extra_fees_record_payment">Record payment</string>
+    <string name="extra_fees_student_line">%1$s paid · %2$s owed</string>
+    <string name="payment_for_title">Payment for</string>
+    <string name="payment_for_monthly">Monthly fee</string>
+    <string name="payment_for_family_chose">Family chose</string>
+    <string name="payment_for_changed">You are applying this to %1$s instead of %2$s, which they chose. They will see this.</string>
+    <string name="payment_for_applied">For %1$s</string>
+    <string name="payment_for_applied_instead">Applied to %1$s · they chose %2$s</string>
+    <string name="pay_for_question">What is this payment for?</string>
+    <string name="pay_for_owed">%1$s owed · due %2$s</string>
+    <string name="family_extra_fees_title">Exam &amp; other fees</string>
+    <string name="family_extra_fee_line">%1$s · due %2$s</string>
 </resources>
