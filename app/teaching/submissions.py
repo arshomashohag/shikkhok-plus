@@ -81,7 +81,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.orm import Session as DbSession
 
-from app.authz.lenses import TeacherLens
+from app.authz.lenses import ClassTeacherLens, TeacherLens
 from app.db.models import Attendance, Enrollment, QueuedSubmission, Session
 from app.errors import ConflictError
 from app.local_time import DHAKA, bangladesh_now
@@ -343,7 +343,7 @@ def _assert_seats_are_on_the_roster(
 def submit_roster(
     session: DbSession,
     *,
-    lens: TeacherLens,
+    lens: TeacherLens | ClassTeacherLens,
     session_id: uuid.UUID,
     base_version: int,
     client_mutation_id: uuid.UUID,
@@ -461,7 +461,7 @@ def submit_roster(
 def write_topic(
     session: DbSession,
     *,
-    lens: TeacherLens,
+    lens: TeacherLens | ClassTeacherLens,
     session_id: uuid.UUID,
     base_version: int,
     client_mutation_id: uuid.UUID,

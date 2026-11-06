@@ -31,6 +31,11 @@ EXPECTED_MUTATION_ID_BODIES: frozenset[tuple[str, str]] = frozenset(
         ("POST", "/v1/batches/{batch_id}/extra-fees"),
         # A retried expense record must not count the money twice [0021].
         ("POST", "/v1/expenses"),
+        # A centre teacher's two classroom writes [C4]: the same mid-class
+        # queue paths as the teacher's attendance and topic, through the
+        # same write functions, so a replay must be recognised alike.
+        ("POST", "/v1/me/classes/{session_id}/attendance"),
+        ("PUT", "/v1/me/classes/{session_id}/topic"),
     }
 )
 

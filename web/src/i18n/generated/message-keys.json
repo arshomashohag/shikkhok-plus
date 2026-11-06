@@ -14,6 +14,7 @@
   "centre.member.last_manager": "centre_member_last_manager",
   "centre.name.required": "centre_name_required",
   "centre.not_a_centre": "centre_not_a_centre",
+  "class.reassigned": "class_reassigned",
   "enrollment.remove.claimed": "enrollment_remove_claimed",
   "enrollment.remove.erased": "enrollment_remove_erased",
   "enrollment.student_already_in_batch": "enrollment_student_already_in_batch",

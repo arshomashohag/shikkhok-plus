@@ -24,9 +24,11 @@ from fastapi.routing import APIRoute
 from app.authz.annotations import resolve_lens_type
 
 __all__ = [
+    "CLASS_TEACHER_ROUTES",
     "LENS_EXEMPT_AUTHENTICATED",
     "PUBLIC_ROUTES",
     "RouteViolation",
+    "class_teacher_routes",
     "unlensed_routes",
 ]
 
@@ -170,6 +172,25 @@ LENS_EXEMPT_AUTHENTICATED: frozenset[tuple[str, str]] = frozenset(
         # exist, and the two per-offer routes beneath it each resolve a
         # MembershipLens.
         ("GET", "/v1/memberships"),
+        # A centre teacher's own classes [C4], exempt on GET
+        # /v1/invitations's reasoning: it REPORTS which classes the
+        # account's memberships are assigned, derived in the query from
+        # the authenticated account id, and the three per-class routes
+        # beneath it each resolve a ClassTeacherLens for one class.
+        ("GET", "/v1/me/classes"),
+    }
+)
+
+#: Every route a centre teacher's lens reaches [C4]. **Exactly these**,
+#: and the set is asserted equal to what the application registers, so
+#: opening a route to centre teachers is a visible diff and never an
+#: accident: a ``ClassTeacherLens`` is not a ``TeacherLens``, and no
+#: route accepts it unless it is written for it and listed here.
+CLASS_TEACHER_ROUTES: frozenset[tuple[str, str]] = frozenset(
+    {
+        ("GET", "/v1/me/classes/{session_id}/attendance"),
+        ("POST", "/v1/me/classes/{session_id}/attendance"),
+        ("PUT", "/v1/me/classes/{session_id}/topic"),
     }
 )
 
@@ -274,3 +295,30 @@ def unlensed_routes(app: FastAPI) -> list[RouteViolation]:
                 violations.append(RouteViolation(method=method, path=route.path))
 
     return violations
+
+
+def class_teacher_routes(app: FastAPI) -> set[tuple[str, str]]:
+    """List every route whose dependencies yield a centre teacher's lens.
+
+    :param app: The application to enumerate
+    :return: ``(method, path)`` per such route
+    """
+    from app.authz.annotations import resolve_lens_type
+    from app.authz.lenses import ClassTeacherLens
+
+    def yields(dependant: Dependant) -> bool:
+        """Report whether this dependency tree yields a class-teacher lens.
+
+        :param dependant: The dependency node
+        :return: True if any node returns a ``ClassTeacherLens``
+        """
+        lens = resolve_lens_type(dependant.call) if dependant.call else None
+        if lens is not None and issubclass(lens, ClassTeacherLens):
+            return True
+        return any(yields(sub) for sub in dependant.dependencies)
+
+    found: set[tuple[str, str]] = set()
+    for route in _api_routes(app):
+        if yields(route.dependant):
+            found.update((method, route.path) for method in route.methods or set())
+    return found

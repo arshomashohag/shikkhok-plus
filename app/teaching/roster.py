@@ -35,7 +35,13 @@ from dataclasses import dataclass
 import sqlalchemy as sa
 from sqlalchemy.orm import Session as DbSession
 
-from app.authz.lenses import GuardianLens, Lens, StudentLens, TeacherLens
+from app.authz.lenses import (
+    ClassTeacherLens,
+    GuardianLens,
+    Lens,
+    StudentLens,
+    TeacherLens,
+)
 from app.db.models import Batch, Enrollment, Session
 from app.errors import AuthorizationError, ConflictError
 from app.errors.codes import NOT_AVAILABLE
@@ -93,7 +99,7 @@ class RosterSeat:
 def readable_session(
     session: DbSession,
     *,
-    lens: TeacherLens,
+    lens: TeacherLens | ClassTeacherLens,
     session_id: uuid.UUID,
 ) -> Session:
     """Return a session this teacher lens reaches, or refuse.
@@ -102,16 +108,26 @@ def readable_session(
     [BR5.2, reader 2]. The refusal does not distinguish an invented id
     from another teacher's real one.
 
+    **A centre teacher's lens reaches one class only** [C4]: the one it
+    was resolved for, and only while that class is still assigned to the
+    lens's membership. Both clauses sit in this query, beside the owner's,
+    so a caller holding the lens cannot widen it to a second class.
+
     :param session: The session to read through
-    :param lens: The teacher lens carrying the owner id
+    :param lens: The teacher lens carrying the owner id, or a centre
+        teacher's lens carrying one class
     :param session_id: The session being read
     :return: The session row
     :raises AuthorizationError: No batch this lens owns holds it
     """
+    scope = [Session.id == session_id, Batch.owner_id == lens.owner_id]
+    if isinstance(lens, ClassTeacherLens):
+        scope += [
+            Session.id == lens.session_id,
+            Session.teacher_member_id == lens.member_id,
+        ]
     row = session.scalars(
-        sa.select(Session)
-        .join(Batch, Batch.id == Session.batch_id)
-        .where(Session.id == session_id, Batch.owner_id == lens.owner_id)
+        sa.select(Session).join(Batch, Batch.id == Session.batch_id).where(*scope)
     ).one_or_none()
     if row is None:
         raise refuse()
@@ -121,7 +137,7 @@ def readable_session(
 def writable_session(
     session: DbSession,
     *,
-    lens: TeacherLens,
+    lens: TeacherLens | ClassTeacherLens,
     session_id: uuid.UUID,
 ) -> Session:
     """Return a session this lens may WRITE to, or refuse.
@@ -276,7 +292,7 @@ def roster_predicate(
 def session_roster(
     session: DbSession,
     *,
-    lens: TeacherLens,
+    lens: TeacherLens | ClassTeacherLens,
     session_id: uuid.UUID,
 ) -> list[RosterSeat]:
     """List the seats on one session's roster [BR1.5, BR5.2 reader 1].

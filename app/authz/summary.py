@@ -96,7 +96,14 @@ _SUMMARY_QUERY = sa.text(
             SELECT count(*) FROM enrollment
             WHERE guardian_account_id = :account_id
               AND guardian_decision = 'accepted'
-        ) AS guardian_children
+        ) AS guardian_children,
+        (
+            SELECT count(DISTINCT m.owner_id) FROM owner_member m
+            WHERE m.account_id = :account_id
+              AND m.role = 'teacher'
+              AND m.decision = 'accepted'
+              AND m.revoked_at IS NULL
+        ) AS teaching_centres
     """
 )
 
@@ -109,12 +116,15 @@ class LensSummary:
     :ivar teacher_batches: Batches owned; zero for a new teacher
     :ivar student_enrollments: Seats held as the student
     :ivar guardian_children: Seats held as the guardian
+    :ivar teaching_centres: Centres where the account teaches assigned
+        classes, through an accepted teacher membership [C4]
     """
 
     is_teacher: bool
     teacher_batches: int
     student_enrollments: int
     guardian_children: int
+    teaching_centres: int = 0
 
     @property
     def is_student(self) -> bool:
@@ -133,6 +143,14 @@ class LensSummary:
         return self.guardian_children > 0
 
     @property
+    def is_class_teacher(self) -> bool:
+        """Whether this account teaches at a centre.
+
+        :return: True when a live teacher membership names it
+        """
+        return self.teaching_centres > 0
+
+    @property
     def lens_count(self) -> int:
         """How many lenses the account can choose between.
 
@@ -141,7 +159,9 @@ class LensSummary:
 
         :return: The number of available lenses
         """
-        return sum((self.is_teacher, self.is_student, self.is_guardian))
+        return sum(
+            (self.is_teacher, self.is_class_teacher, self.is_student, self.is_guardian)
+        )
 
 
 def lens_summary(session: Session, account_id: uuid.UUID) -> LensSummary:
@@ -157,4 +177,5 @@ def lens_summary(session: Session, account_id: uuid.UUID) -> LensSummary:
         teacher_batches=row.teacher_batches,
         student_enrollments=row.student_enrollments,
         guardian_children=row.guardian_children,
+        teaching_centres=row.teaching_centres,
     )

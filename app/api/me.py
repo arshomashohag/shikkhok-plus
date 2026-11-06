@@ -40,7 +40,7 @@ router = APIRouter(prefix="/v1", tags=["me"])
 class LensEntry(BaseModel):
     """One lens the account can choose.
 
-    :ivar kind: Which lens: teacher, student or guardian
+    :ivar kind: Which lens: teacher, class_teacher, student or guardian
     :ivar count: How much sits behind it
     """
 
@@ -127,8 +127,8 @@ class ProfileUpdateRequest(BaseModel):
 def _entries(summary: LensSummary) -> list[LensEntry]:
     """Render a summary as the ordered list the picker shows.
 
-    Teacher first, then student, then guardian — a fixed order, so the
-    picker does not reshuffle between sign-ins as counts change.
+    Teacher first, then centre teacher, then student, then guardian — a
+    fixed order, so the picker does not reshuffle between sign-ins.
 
     :param summary: The resolved summary
     :return: One entry per available lens
@@ -136,6 +136,10 @@ def _entries(summary: LensSummary) -> list[LensEntry]:
     entries: list[LensEntry] = []
     if summary.is_teacher:
         entries.append(LensEntry(kind="teacher", count=summary.teacher_batches))
+    if summary.is_class_teacher:
+        # [C4] A centre teacher's own classes; the count is the centres
+        # taught at, since the classes change daily.
+        entries.append(LensEntry(kind="class_teacher", count=summary.teaching_centres))
     if summary.is_student:
         entries.append(LensEntry(kind="student", count=summary.student_enrollments))
     if summary.is_guardian:

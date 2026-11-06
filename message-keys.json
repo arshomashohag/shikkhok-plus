@@ -16,6 +16,7 @@
     "centre.member.last_manager",
     "centre.name.required",
     "centre.not_a_centre",
+    "class.reassigned",
     "enrollment.remove.claimed",
     "enrollment.remove.erased",
     "enrollment.student_already_in_batch",

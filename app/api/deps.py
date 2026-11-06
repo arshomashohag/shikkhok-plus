@@ -23,8 +23,10 @@ from fastapi import Depends, Request
 from sqlalchemy.orm import Session
 
 from app.auth.tokens import verify_access_token
+from app.authz.classes import resolve_class_lens
 from app.authz.invitations import available_invitations
 from app.authz.lenses import (
+    ClassTeacherLens,
     GuardianLens,
     InvitationLens,
     Lens,
@@ -39,6 +41,7 @@ from app.errors import AuthorizationError
 __all__ = [
     "WORKSPACE_HEADER",
     "choose_workspace",
+    "class_teacher_lens",
     "family_lens",
     "family_lenses",
     "guardian_lens",
@@ -390,3 +393,22 @@ def membership_lens(
         code="NO_MEMBERSHIP_LENS",
         message_key="authz.lens.not_available",
     )
+
+
+def class_teacher_lens(
+    session_id: uuid.UUID,
+    session: Annotated[Session, Depends(get_session)],
+    account_id: Annotated[uuid.UUID, Depends(authenticated_account)],
+) -> ClassTeacherLens:
+    """Resolve the class-teacher lens for the one class in the path [C4].
+
+    Resolved by its own statement and never memoized, on
+    :func:`invitation_lens`'s reasoning; the class arrives as a path
+    parameter and the grant is checked against it.
+
+    :param session_id: The class, from the route path
+    :param session: The session to query through
+    :param account_id: The authenticated account
+    :return: The lens for that one class
+    """
+    return resolve_class_lens(session, account_id=account_id, session_id=session_id)

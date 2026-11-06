@@ -2057,6 +2057,90 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/v1/me/classes': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List My Classes
+     * @description List the classes assigned to me, across every centre, at most 31 days.
+     *
+     *     :param account_id: The authenticated account
+     *     :param session: The request-scoped session
+     *     :param first: The first date, inclusive
+     *     :param last: The last date, inclusive
+     *     :return: My classes, soonest first
+     */
+    get: operations['list_my_classes_v1_me_classes_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/me/classes/{session_id}/attendance': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Read Class Roster
+     * @description Read the roster of one class assigned to me: names and marks only.
+     *
+     *     :param lens: The lens for this one class
+     *     :param session: The request-scoped session
+     *     :return: The seats, their version, and whether a write is accepted
+     */
+    get: operations['read_class_roster_v1_me_classes__session_id__attendance_get']
+    put?: never
+    /**
+     * Submit Class Roster
+     * @description Take attendance for one class assigned to me, the whole roster at once.
+     *
+     *     :param body: The version, the replay key and every seat's mark
+     *     :param lens: The lens for this one class
+     *     :param session: The request-scoped session
+     *     :return: The version now in force
+     */
+    post: operations['submit_class_roster_v1_me_classes__session_id__attendance_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/me/classes/{session_id}/topic': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    /**
+     * Write Class Topic
+     * @description Log the topic of one class assigned to me.
+     *
+     *     :param body: The version, the replay key and the topic
+     *     :param lens: The lens for this one class
+     *     :param session: The request-scoped session
+     *     :return: The topic version now in force
+     */
+    put: operations['write_class_topic_v1_me_classes__session_id__topic_put']
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/v1/me/deletion-summary': {
     parameters: {
       query?: never
@@ -3859,6 +3943,47 @@ export interface components {
       verified_at?: string | null
     }
     /**
+     * ClassRosterResponse
+     * @description A class's roster as its assigned teacher sees it.
+     *
+     *     :ivar seats: Every seat on the roster
+     *     :ivar attendance_version: The version a write is composed against
+     *     :ivar writable: Whether a write would be accepted now
+     *     :ivar topic: What was taught, as last written, or None
+     *     :ivar topic_version: The version a topic write is composed against
+     */
+    ClassRosterResponse: {
+      /** Attendance Version */
+      attendance_version: number
+      /** Seats */
+      seats: components['schemas']['ClassRosterSeatResponse'][]
+      /** Topic */
+      topic?: string | null
+      /** Topic Version */
+      topic_version: number
+      /** Writable */
+      writable: boolean
+    }
+    /**
+     * ClassRosterSeatResponse
+     * @description One student on a class teacher's roster: a name and a mark.
+     *
+     *     :ivar enrollment_id: The seat, to mark against
+     *     :ivar display_name: The name the centre typed for the student
+     *     :ivar present: The recorded mark, or None while unmarked
+     */
+    ClassRosterSeatResponse: {
+      /** Display Name */
+      display_name: string
+      /**
+       * Enrollment Id
+       * Format: uuid
+       */
+      enrollment_id: string
+      /** Present */
+      present?: boolean | null
+    }
+    /**
      * CollectionsResponse
      * @description Collections over months for a set of batches.
      *
@@ -5312,7 +5437,7 @@ export interface components {
      * LensEntry
      * @description One lens the account can choose.
      *
-     *     :ivar kind: Which lens: teacher, student or guardian
+     *     :ivar kind: Which lens: teacher, class_teacher, student or guardian
      *     :ivar count: How much sits behind it
      */
     LensEntry: {
@@ -5696,6 +5821,52 @@ export interface components {
       /** Period */
       period: string
       received: components['schemas']['Money']
+    }
+    /**
+     * MyClassResponse
+     * @description One class assigned to the caller.
+     *
+     *     :ivar session_id: The class
+     *     :ivar centre_name: The centre it belongs to
+     *     :ivar batch_name: Its batch
+     *     :ivar subject: Its subject, or None
+     *     :ivar date: Its date
+     *     :ivar start_time: When it starts, ``HH:MM``
+     *     :ivar end_time: When it ends, ``HH:MM``, or None
+     *     :ivar status: ``scheduled``, ``held`` or ``cancelled``
+     *     :ivar room_name: Where, or None
+     *     :ivar topic_logged: Whether its topic has been written
+     */
+    MyClassResponse: {
+      /** Batch Name */
+      batch_name: string
+      /** Centre Name */
+      centre_name: string
+      /**
+       * Date
+       * Format: date
+       */
+      date: string
+      /** End Time */
+      end_time?: string | null
+      /** Room Name */
+      room_name?: string | null
+      /**
+       * Session Id
+       * Format: uuid
+       */
+      session_id: string
+      /** Start Time */
+      start_time: string
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: 'cancelled' | 'held' | 'scheduled'
+      /** Subject */
+      subject?: string | null
+      /** Topic Logged */
+      topic_logged: boolean
     }
     /**
      * NextExamResponse
@@ -12395,6 +12566,247 @@ export interface operations {
       }
       /** @description No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle. */
       403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  list_my_classes_v1_me_classes_get: {
+    parameters: {
+      query: {
+        from: string
+        to: string
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MyClassResponse'][]
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No class lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description CLASS_REASSIGNED when the class has moved to another teacher, or a stale version. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  read_class_roster_v1_me_classes__session_id__attendance_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        session_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ClassRosterResponse']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No class lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description CLASS_REASSIGNED when the class has moved to another teacher, or a stale version. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  submit_class_roster_v1_me_classes__session_id__attendance_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        session_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AttendanceSubmitRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AttendanceSubmitResponse']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No class lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description CLASS_REASSIGNED when the class has moved to another teacher, or a stale version. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  write_class_topic_v1_me_classes__session_id__topic_put: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        session_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['TopicWriteRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['TopicWriteResponse']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No class lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description CLASS_REASSIGNED when the class has moved to another teacher, or a stale version. Refetch and decide. */
+      409: {
         headers: {
           [name: string]: unknown
         }

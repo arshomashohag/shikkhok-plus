@@ -1380,6 +1380,25 @@
     <string name="family_extra_fees_title">পরীক্ষা ও অন্যান্য ফি</string>
     <string name="family_extra_fee_line">%1$s · শেষ তারিখ %2$s</string>
 
+    <!-- Centre teachers [C4] -->
+    <string name="lens_class_teacher">সেন্টারের শিক্ষক</string>
+    <string name="lens_class_teacher_count">%1$s টি সেন্টার</string>
+    <string name="nav_my_classes">আমার ক্লাস</string>
+    <string name="my_classes_title">আমার ক্লাস</string>
+    <string name="my_classes_sub">আপনাকে দেওয়া ক্লাসগুলো</string>
+    <string name="my_classes_empty">এই দিনগুলোতে আপনার কোনো ক্লাস নেই।</string>
+    <string name="my_class_attendance">উপস্থিতি</string>
+    <string name="my_class_present">উপস্থিত</string>
+    <string name="my_class_absent">অনুপস্থিত</string>
+    <string name="my_class_save_attendance">উপস্থিতি সংরক্ষণ করুন</string>
+    <string name="my_class_topic_label">কী পড়ানো হয়েছে</string>
+    <string name="my_class_save_topic">বিষয় সংরক্ষণ করুন</string>
+    <string name="my_class_saved">সংরক্ষিত হয়েছে।</string>
+    <string name="my_class_not_writable">এই ক্লাসটি আর বদলানো যাবে না।</string>
+    <string name="my_class_topic_logged">বিষয় লেখা হয়েছে</string>
+    <string name="my_class_no_students">এই ক্লাসে এখনো কোনো শিক্ষার্থী নেই।</string>
+    <string name="class_reassigned">এই ক্লাসটি অন্য শিক্ষকের কাছে চলে গেছে। আপনার পরিবর্তন সংরক্ষিত হয়নি।</string>
+
     <!-- Timetable and rooms: screens [0024] -->
     <string name="timetable_title">রুটিন</string>
     <string name="timetable_sub">প্রতিটি ক্লাস, শিক্ষক ও রুমসহ</string>

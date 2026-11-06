@@ -29,7 +29,7 @@ import {
 } from '../api/tokens'
 import { reconcileWorkspace, storeWorkspace } from '../api/workspace'
 
-export type Lens = 'teacher' | 'student' | 'guardian'
+export type Lens = 'teacher' | 'class_teacher' | 'student' | 'guardian'
 
 export interface LensOption {
   lens: Lens
@@ -56,7 +56,7 @@ export type Session =
     }
 
 const LENS_KEY = 'sp.lens'
-const LENSES: readonly Lens[] = ['teacher', 'student', 'guardian']
+const LENSES: readonly Lens[] = ['teacher', 'class_teacher', 'student', 'guardian']
 
 export function readLenses(entries: Schemas['LensEntry'][] | undefined): LensOption[] {
   return (entries ?? []).flatMap((e) => {

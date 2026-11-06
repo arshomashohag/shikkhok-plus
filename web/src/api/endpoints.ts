@@ -91,6 +91,24 @@ export const swapClasses = (first: string, second: string) =>
     body: { first_session_id: first, second_session_id: second },
   })
 
+export const listMyClasses = (from: string, to: string) =>
+  request<Schemas['MyClassResponse'][]>('GET', '/v1/me/classes', { query: { from, to } })
+
+export const readClassRoster = (sessionId: string) =>
+  request<Schemas['ClassRosterResponse']>('GET', `/v1/me/classes/${enc(sessionId)}/attendance`)
+
+export const submitClassRoster = (sessionId: string, body: Schemas['AttendanceSubmitRequest']) =>
+  request<Schemas['AttendanceSubmitResponse']>(
+    'POST',
+    `/v1/me/classes/${enc(sessionId)}/attendance`,
+    { body },
+  )
+
+export const writeClassTopic = (sessionId: string, body: Schemas['TopicWriteRequest']) =>
+  request<Schemas['TopicWriteResponse']>('PUT', `/v1/me/classes/${enc(sessionId)}/topic`, {
+    body,
+  })
+
 export const listMemberships = () =>
   request<Schemas['MembershipResponse'][]>('GET', '/v1/memberships')
 

@@ -28,6 +28,8 @@ export function tabsFor(lens: Lens | null): Tab[] {
         { to: '/verify', label: 'web_nav_verify', icon: 'verify', desktopOnly: true },
         more,
       ]
+    case 'class_teacher':
+      return [{ to: '/my-classes', label: 'nav_my_classes', icon: 'layers' }, more]
     case 'student':
       return [{ to: '/my-batches', label: 'nav_my_batches', icon: 'layers' }, more]
     case 'guardian':
@@ -42,6 +44,8 @@ export function homeFor(lens: Lens | null): string {
   switch (lens) {
     case 'teacher':
       return '/batches'
+    case 'class_teacher':
+      return '/my-classes'
     case 'student':
       return '/my-batches'
     case 'guardian':

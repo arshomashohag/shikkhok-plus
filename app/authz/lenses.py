@@ -121,3 +121,28 @@ class MembershipLens(Lens):
     """
 
     member_id: UUID
+
+
+@dataclass(frozen=True, slots=True)
+class ClassTeacherLens(Lens):
+    """Reach for one class a centre teacher is assigned to [C4, D2].
+
+    **Not a :class:`TeacherLens`, deliberately.** Every existing teacher
+    route takes a ``TeacherLens``, so a type that is not one cannot reach
+    any of them: a centre teacher reaches only the routes written for this
+    lens, which the route gate holds to an explicit allowlist. That is the
+    fail-closed default the design asks for.
+
+    **Resolved per class, from the path.** The caller must hold a live
+    membership in the class's centre and the class must be assigned to
+    that membership at the moment of the request -- so a write queued
+    before a manager moved the class is refused when it replays.
+
+    :ivar owner_id: The centre the class belongs to
+    :ivar member_id: The caller's membership there
+    :ivar session_id: The one class this lens reaches
+    """
+
+    owner_id: UUID
+    member_id: UUID
+    session_id: UUID
