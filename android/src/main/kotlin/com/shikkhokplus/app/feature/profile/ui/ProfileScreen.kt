@@ -646,6 +646,7 @@ private fun MenuSection(header: String, rows: @Composable () -> Unit) {
 internal fun roleLabel(lens: Lens): Int =
     when (lens) {
         Lens.TEACHER -> R.string.signup_role_teacher
+        Lens.CLASS_TEACHER -> R.string.lens_class_teacher
         Lens.STUDENT -> R.string.signup_role_student
         Lens.GUARDIAN -> R.string.signup_role_guardian
     }

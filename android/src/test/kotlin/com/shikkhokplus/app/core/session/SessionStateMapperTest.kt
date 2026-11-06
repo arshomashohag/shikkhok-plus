@@ -151,6 +151,7 @@ class SessionStateMapperTest {
     fun `lens parsing accepts the server's casing and rejects nonsense`() {
         assertEquals(Lens.TEACHER, Lens.parse("teacher"))
         assertEquals(Lens.GUARDIAN, Lens.parse("GUARDIAN"))
+        assertEquals(Lens.CLASS_TEACHER, Lens.parse("class_teacher"))
         assertEquals(null, Lens.parse("admin"))
         assertEquals(null, Lens.parse(""))
     }

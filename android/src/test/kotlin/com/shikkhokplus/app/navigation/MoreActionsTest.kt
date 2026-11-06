@@ -5,6 +5,7 @@ import com.shikkhokplus.app.core.session.Lens
 import com.shikkhokplus.app.feature.profile.ui.MoreActions
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -76,6 +77,22 @@ class MoreActionsTest {
 
         assertEquals(listOf(Destination.Invitations.route, Destination.MyChildren.route), routes)
         assertNull(actions.onPaymentMethods)
+    }
+
+    @Test
+    fun `a centre teacher gets other centres' offers and nothing of a centre's money`() {
+        val (actions, routes) = opened(Lens.CLASS_TEACHER)
+
+        assertNotNull(actions.onCentreOffers).invoke()
+
+        assertEquals(listOf(Destination.CentreOffers.route), routes)
+        assertNull(actions.onPaymentMethods)
+        assertNull(actions.onCollections)
+        assertNull(actions.onExpenses)
+        assertNull(actions.onMoneySummary)
+        assertNull(actions.onOpenCentre)
+        assertNull(actions.onInvitations)
+        assertFalse(isFamily(Lens.CLASS_TEACHER), "a centre teacher has a bar")
     }
 
     @Test

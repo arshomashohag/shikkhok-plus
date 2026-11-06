@@ -98,6 +98,8 @@ class DestinationTest {
                 Destination.RaiseExtraFee.of("b-1"),
                 Destination.ExtraFeeDetail.of("f-1"),
                 Destination.EditStaff.of("s-1"),
+                Destination.MyClass.of("c-1"),
+                Destination.MyExamMarks.of("x-1"),
             )
 
         built.forEach {
