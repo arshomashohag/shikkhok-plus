@@ -23,13 +23,23 @@ class MoreActionsTest {
     }
 
     @Test
-    fun `a teacher gets where students pay and the reports, and nothing for families`() {
+    fun `a teacher gets where students pay, the reports and spending, and nothing for families`() {
         val (actions, routes) = opened(Lens.TEACHER)
 
         assertNotNull(actions.onPaymentMethods).invoke()
         assertNotNull(actions.onCollections).invoke()
+        assertNotNull(actions.onExpenses).invoke()
+        assertNotNull(actions.onMoneySummary).invoke()
 
-        assertEquals(listOf(Destination.PaymentMethods.route, Destination.Collections.route), routes)
+        assertEquals(
+            listOf(
+                Destination.PaymentMethods.route,
+                Destination.Collections.route,
+                Destination.Expenses.route,
+                Destination.MoneySummary.route,
+            ),
+            routes,
+        )
         assertNull(actions.onInvitations)
         assertNull(actions.onMyChildren)
     }
@@ -43,6 +53,8 @@ class MoreActionsTest {
         assertEquals(listOf(Destination.Invitations.route), routes)
         assertNull(actions.onPaymentMethods)
         assertNull(actions.onCollections)
+        assertNull(actions.onExpenses)
+        assertNull(actions.onMoneySummary)
         assertNull(actions.onMyChildren)
     }
 

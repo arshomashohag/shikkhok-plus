@@ -702,6 +702,21 @@ sealed interface Destination {
         override val route: String = "collections"
     }
 
+    /** One month's expenses, opened from More. */
+    data object Expenses : Destination {
+        override val route: String = "expenses"
+    }
+
+    /** Recording an expense. */
+    data object RecordExpense : Destination {
+        override val route: String = "expenses/new"
+    }
+
+    /** The month's money in and out, opened from More. */
+    data object MoneySummary : Destination {
+        override val route: String = "money-summary"
+    }
+
     /** One batch in one month (M2). */
     data object BatchMonth : Destination {
         override val route: String = "batches/{batchId}/month?period={period}&name={batchName}"

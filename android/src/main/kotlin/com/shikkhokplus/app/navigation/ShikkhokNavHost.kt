@@ -387,6 +387,7 @@ private fun ShikkhokGraph(
         batchDetailRoute(client, queue, navController)
 
         collectionsRoutes(client, navController)
+        expensesRoutes(client, navController)
 
         addStudentRoute(client, navController)
 
@@ -843,6 +844,8 @@ internal fun moreActionsFor(
             base.copy(
                 onPaymentMethods = { navigate(Destination.PaymentMethods.route) },
                 onCollections = { navigate(Destination.Collections.route) },
+                onExpenses = { navigate(Destination.Expenses.route) },
+                onMoneySummary = { navigate(Destination.MoneySummary.route) },
             )
         Lens.STUDENT -> base.copy(onInvitations = { navigate(Destination.Invitations.route) })
         Lens.GUARDIAN ->
