@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.feature.auth
 
+import com.shikkhokplus.app.feature.auth.ui.TAG_SIGNUP_CENTRE_NAME
 import com.shikkhokplus.app.core.ui.TAG_ADDRESS_POSTCODE
 import com.shikkhokplus.app.core.ui.TAG_ADDRESS_CITY
 import com.shikkhokplus.app.core.ui.TAG_ADDRESS_ROAD
@@ -52,7 +53,7 @@ class SignupScreenTest {
 
     private fun render(
         state: SignupUiState,
-        onSubmit: (String, String, PostalAddress, SignupRole) -> Unit = { _, _, _, _ -> },
+        onSubmit: (String, String, PostalAddress, SignupRole, String?) -> Unit = { _, _, _, _, _ -> },
         onGoToLogin: () -> Unit = {},
         onRetry: () -> Unit = {},
     ) {
@@ -242,7 +243,7 @@ class SignupScreenTest {
     @Test
     fun `the chosen role and the address are what is submitted`() {
         var submitted: Pair<SignupRole, PostalAddress>? = null
-        render(SignupUiState.Empty, onSubmit = { _, _, address, role -> submitted = role to address })
+        render(SignupUiState.Empty, onSubmit = { _, _, address, role, _ -> submitted = role to address })
         compose.onNodeWithText("Guardian").performClick()
         compose.onNodeWithTag(TAG_SIGNUP_NAME).performTextInput("Rokshana")
         compose.onNodeWithTag(TAG_SIGNUP_PHONE).performTextInput("01819-552041")
@@ -280,4 +281,29 @@ class SignupScreenTest {
         compose.onNodeWithTag(TAG_ADDRESS_CITY).performScrollTo().performTextInput("Dhaka")
         compose.onNodeWithTag(TAG_ADDRESS_POSTCODE).performScrollTo().performTextInput("১২০৫")
     }
+
+    @Test
+    fun `coaching asks for the centre's name and waits for it`() {
+        var submitted: Pair<SignupRole, String?>? = null
+        render(SignupUiState.Empty, onSubmit = { _, _, _, role, centre -> submitted = role to centre })
+        compose.onNodeWithText("Coaching").performScrollTo().performClick()
+        compose.onNodeWithTag(TAG_SIGNUP_NAME).performTextInput("Rahima")
+        compose.onNodeWithTag(TAG_SIGNUP_PHONE).performTextInput("01711-234567")
+        typeAddress()
+
+        compose.onNodeWithTag(TAG_SIGNUP_SUBMIT).performScrollTo().assertIsNotEnabled()
+        compose.onNodeWithTag(TAG_SIGNUP_CENTRE_NAME).performScrollTo().performTextInput("Udayan Coaching")
+        compose.onNodeWithTag(TAG_SIGNUP_SUBMIT).performScrollTo().assertIsEnabled().performClick()
+
+        assertEquals(SignupRole.COACHING to "Udayan Coaching", submitted)
+    }
+
+    @Test
+    fun `no other role shows the centre's name`() {
+        render(SignupUiState.Empty)
+        compose.onNodeWithText("Teacher").performScrollTo().performClick()
+
+        compose.onNodeWithTag(TAG_SIGNUP_CENTRE_NAME).assertDoesNotExist()
+    }
+
 }

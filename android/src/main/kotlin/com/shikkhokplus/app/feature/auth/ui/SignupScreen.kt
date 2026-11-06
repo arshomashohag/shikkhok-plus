@@ -74,6 +74,12 @@ const val TAG_SIGNUP_ROLE_GROUP: String = "signup_role_group"
 /** Test tag for the progress shown while the account is created. */
 const val TAG_SIGNUP_SUBMITTING: String = "signup_submitting"
 
+/** The coaching centre's name field, shown with the Coaching role. */
+const val TAG_SIGNUP_CENTRE_NAME: String = "signup_centre_name"
+
+/** The longest centre name the server stores. */
+private const val CENTRE_NAME_MAX: Int = 120
+
 /**
  * `O1`, signup.
  *
@@ -108,7 +114,8 @@ const val TAG_SIGNUP_SUBMITTING: String = "signup_submitting"
  * four, and the board's "Add your address" names what is missing.
  *
  * @param state What to render
- * @param onSubmit Called with the whole payload, on the button
+ * @param onSubmit Called with the whole payload, on the button: the
+ *   centre's name is passed with the Coaching role only
  * @param onGoToLogin Called from "Log in"
  * @param onRetry Called when a retryable failure offers a retry
  * @param modifier Layout modifier from the caller
@@ -120,7 +127,7 @@ const val TAG_SIGNUP_SUBMITTING: String = "signup_submitting"
 @Composable
 fun SignupScreen(
     state: SignupUiState,
-    onSubmit: (phone: String, name: String, address: PostalAddress, role: SignupRole) -> Unit,
+    onSubmit: (phone: String, name: String, address: PostalAddress, role: SignupRole, centreName: String?) -> Unit,
     onGoToLogin: () -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
@@ -130,6 +137,7 @@ fun SignupScreen(
     var phone by remember { mutableStateOf("") }
     var name by remember { mutableStateOf("") }
     var address by remember { mutableStateOf(PostalAddress()) }
+    var centreName by remember { mutableStateOf("") }
 
     // **Nothing chosen at first**, as the board draws it: a preselected
     // role is one the person may submit without having chosen.
@@ -180,6 +188,8 @@ fun SignupScreen(
                             onAddressChange = { address = it },
                             role = role,
                             onRoleChange = { chosenRole = it },
+                            centreName = centreName,
+                            onCentreNameChange = { centreName = it },
                             alreadyRegistered = alreadyRegistered,
                             onGoToLogin = onGoToLogin,
                             onRetry = onRetry,
@@ -187,13 +197,17 @@ fun SignupScreen(
                     }
                     Bar(
                         phone = phone,
-                        enabled =
-                            role != null && name.isNotBlank() && phone.isNotBlank() &&
-                                address.isComplete && state != SignupUiState.Submitting,
+                        enabled = canSend(state, role, name, phone, address, centreName),
                         offerLogin = prefilled == null && !alreadyRegistered,
                         onSubmit = {
                             role?.let {
-                                onSubmit(phone, name.ifEmpty { prefilled?.prefilledName.orEmpty() }, address, it)
+                                onSubmit(
+                                    phone,
+                                    name.ifEmpty { prefilled?.prefilledName.orEmpty() },
+                                    address,
+                                    it,
+                                    centreName.takeIf { _ -> it == SignupRole.COACHING },
+                                )
                             }
                         },
                         onGoToLogin = onGoToLogin,
@@ -261,6 +275,8 @@ private fun Form(
     onAddressChange: (PostalAddress) -> Unit,
     role: SignupRole?,
     onRoleChange: (SignupRole) -> Unit,
+    centreName: String,
+    onCentreNameChange: (String) -> Unit,
     alreadyRegistered: Boolean,
     onGoToLogin: () -> Unit,
     onRetry: () -> Unit,
@@ -291,6 +307,14 @@ private fun Form(
         )
 
         RolePicker(role = role, locked = prefilled != null, onRoleChange = onRoleChange)
+        if (role == SignupRole.COACHING) {
+            ShikkhokTextField(
+                value = centreName,
+                onValueChange = { onCentreNameChange(it.take(CENTRE_NAME_MAX)) },
+                label = stringResource(R.string.signup_centre_name_label),
+                fieldModifier = Modifier.testTag(TAG_SIGNUP_CENTRE_NAME),
+            )
+        }
 
         val nameField: @Composable () -> Unit = {
             ShikkhokTextField(
@@ -553,6 +577,7 @@ private fun Bar(
  */
 private fun labelOf(role: SignupRole): Int = when (role) {
     SignupRole.TEACHER -> R.string.signup_role_teacher
+    SignupRole.COACHING -> R.string.signup_role_coaching
     SignupRole.STUDENT -> R.string.signup_role_student
     SignupRole.GUARDIAN -> R.string.signup_role_guardian
 }
@@ -565,6 +590,7 @@ private fun labelOf(role: SignupRole): Int = when (role) {
  */
 private fun helpOf(role: SignupRole): Int = when (role) {
     SignupRole.TEACHER -> R.string.signup_role_help_teacher
+    SignupRole.COACHING -> R.string.signup_role_help_coaching
     SignupRole.STUDENT -> R.string.signup_role_help_student
     SignupRole.GUARDIAN -> R.string.signup_role_help_guardian
 }
@@ -577,6 +603,7 @@ private fun helpOf(role: SignupRole): Int = when (role) {
  */
 private fun iconOf(role: SignupRole): ImageVector = when (role) {
     SignupRole.TEACHER -> RoleIcons.Teacher
+    SignupRole.COACHING -> RoleIcons.Teacher
     SignupRole.STUDENT -> RoleIcons.Student
     SignupRole.GUARDIAN -> RoleIcons.Guardian
 }
@@ -586,3 +613,28 @@ private const val LOCKED_ALPHA = 0.45f
 
 /** The refusal of a number that already has an account. */
 private const val ALREADY_REGISTERED_KEY = "signup.number.already_registered"
+
+/**
+ * Whether the form has the shape of a sign-up: format only, the server
+ * decides the rest.
+ *
+ * @param state The screen's state
+ * @param role The role chosen or locked, or null
+ * @param name The name typed
+ * @param phone The number typed
+ * @param address The address typed
+ * @param centreName The centre's name, needed with Coaching only
+ * @return True when Send code can be pressed
+ */
+private fun canSend(
+    state: SignupUiState,
+    role: SignupRole?,
+    name: String,
+    phone: String,
+    address: PostalAddress,
+    centreName: String,
+): Boolean =
+    role != null && name.isNotBlank() && phone.isNotBlank() && address.isComplete &&
+        state != SignupUiState.Submitting &&
+        // A coaching account opens a centre, so it needs its name.
+        (role != SignupRole.COACHING || centreName.isNotBlank())
