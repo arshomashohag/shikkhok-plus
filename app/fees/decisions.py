@@ -39,7 +39,7 @@ from sqlalchemy.orm import Session
 from app.authz.lenses import TeacherLens
 from app.db.models import Batch, Enrollment, PaymentClaim, PaymentSubmission
 from app.errors import ConflictError, ValidationError
-from app.fees.balances import derive_for_enrollment
+from app.fees.purposes import owed_for_claim, point_claim, resolve_target
 from app.fees.queue import covered_children
 from app.fees.verification import (
     reject_claim_in_transaction,
@@ -290,8 +290,21 @@ def approve_submission(
     credit_to_enrollment_id: uuid.UUID | None,
     note: str | None,
     correcting: bool = False,
+    purpose: str | None = None,
+    extra_fee_id: uuid.UUID | None = None,
 ) -> PaymentSubmission:
     """Approve a payment, split across its children, in one transaction.
+
+    **The teacher may apply the payment to something other than what the
+    family chose** [0020]: ``purpose`` (with ``extra_fee_id`` for an
+    extra fee) re-points every child's claim after the prior decision is
+    withdrawn from the ledger it was written to. None keeps what the
+    payment is for now. The family's own choice is never overwritten;
+    it stays on ``requested_purpose`` so they can be shown both.
+
+    **An extra fee takes no excess.** It holds no credit, so receiving
+    more than the children owe on it is refused; the teacher approves
+    what is owed or applies the payment to the monthly fee.
 
     :param session: The session to write through
     :param lens: The deciding teacher's lens
@@ -302,10 +315,15 @@ def approve_submission(
     :param credit_to_enrollment_id: The child receiving an excess
     :param note: The teacher's note to the family
     :param correcting: True when deliberately revising a decision
+    :param purpose: ``monthly`` or ``extra`` to change what the payment
+        is for, or None to keep it
+    :param extra_fee_id: The fee, when ``purpose`` is ``extra``
     :return: The approved submission
     :raises AuthorizationError: It is absent or not this lens's
     :raises ValidationError: Nothing was received, a chosen child is
-        not covered, or the allocation refused the choices
+        not covered, the purpose names no fee of this batch or a child
+        it did not charge, more than an extra fee owes was received, or
+        the allocation refused the choices
     :raises ConflictError: It was already decided and this is not a
         declared correction
     """
@@ -323,11 +341,23 @@ def approve_submission(
 
     for claim, _seat in covered:
         withdraw_decision(session, claim, verified_by_account_id=lens.account_id)
-    owed = [
-        derive_for_enrollment(session, seat.id).total_outstanding
-        for _claim, seat in covered
-    ]
     try:
+        if purpose is not None:
+            target = resolve_target(
+                session,
+                purpose=purpose,
+                extra_fee_id=extra_fee_id,
+                batch_id=submission.batch_id,
+            )
+            submission.purpose = target.purpose
+            submission.extra_fee_id = target.extra_fee_id
+            for claim, _seat in covered:
+                point_claim(session, claim, target=target)
+        owed = [owed_for_claim(session, claim) for claim, _seat in covered]
+        if submission.purpose == "extra" and received > Money.sum(owed):
+            raise ValidationError(
+                code="EXTRA_FEE_OVERPAID", message_key="fees.extra.overpaid"
+            )
         allocation = _allocate(
             received,
             owed,

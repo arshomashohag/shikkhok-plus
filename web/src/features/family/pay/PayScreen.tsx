@@ -423,6 +423,11 @@ function FormStep({
     note: '',
   }))
   const [owed, setOwed] = useState<Schemas['OwedTogetherResponse'] | null>(null)
+  // The exam or other fee this payment is for; null is the monthly fee.
+  const [forFee, setForFee] = useState<string | null>(null)
+  // Kept from the monthly read so the choice stays on screen while a fee's
+  // own figure is being read.
+  const [feeOptions, setFeeOptions] = useState<Schemas['ExtraFeeRefResponse'][]>([])
   const [sending, setSending] = useState(false)
   const [failed, setFailed] = useState<ApiError | null>(null)
   const [attempt, setAttempt] = useState<PaymentAttempt | null>(null)
@@ -437,9 +442,10 @@ function FormStep({
   useEffect(() => {
     let live = true
     setOwed(null)
-    readOwedTogether(selectedKey.split(',')).then(
+    readOwedTogether(selectedKey.split(','), forFee).then(
       (o) => {
         if (!live) return
+        if (forFee === null) setFeeOptions(o.extra_fee_options ?? [])
         const previous = owedRef.current
         const before = previous ? suggestedAmount(Money.fromWire(previous.owed_together)) : ''
         owedRef.current = o
@@ -457,11 +463,16 @@ function FormStep({
     return () => {
       live = false
     }
+  }, [selectedKey, forFee])
+
+  // A different set of children may not share the chosen fee.
+  useEffect(() => {
+    setForFee(null)
   }, [selectedKey])
 
   const { request, problem } = useMemo(
-    () => requestOf(scope.selected, choice, form),
-    [scope.selected, choice, form],
+    () => requestOf(scope.selected, choice, form, forFee),
+    [scope.selected, choice, form, forFee],
   )
   const set = (k: keyof PayForm) => (e: { target: { value: string } }) =>
     setForm((f) => ({ ...f, [k]: e.target.value }))
@@ -511,6 +522,31 @@ function FormStep({
           onScope({ ...scope, selected: toggleSeat(scope.batch, scope.selected, s) })
         }
       />
+
+      {feeOptions.length > 0 ? (
+        <fieldset className="field" style={{ border: 0, padding: 0 }}>
+          <legend>{t('pay_for_question')}</legend>
+          <div className="list" role="radiogroup" aria-label={t('pay_for_question')}>
+            {[null, ...feeOptions].map((fee) => (
+              <label
+                key={fee?.extra_fee_id ?? 'monthly'}
+                className="row"
+                style={{ cursor: 'pointer' }}
+              >
+                <input
+                  type="radio"
+                  name="pay-for"
+                  checked={forFee === (fee?.extra_fee_id ?? null)}
+                  onChange={() => setForFee(fee?.extra_fee_id ?? null)}
+                />
+                <span className="grow">
+                  <span className="title">{fee ? fee.label : t('payment_for_monthly')}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      ) : null}
 
       {owed && owedTogether ? (
         <p className="meta" role="status">

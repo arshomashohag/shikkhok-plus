@@ -10,13 +10,15 @@ import { Link, useParams } from 'react-router'
 import { formatMonth, formatShortDate } from '../../../core/format'
 import { useOnline, useResource } from '../../../core/useResource'
 import { useT } from '../../../i18n/i18n'
-import { ErrorCard, Loading, StaleBanner, TopBar } from '../../../ui/components'
+import { ErrorCard, FeeChip, Loading, StaleBanner, TopBar } from '../../../ui/components'
+import { Money } from '../../../core/money'
+import { chargeChip } from '../../teacher/money/ExtraFees'
 import { mapFeeHistory } from '../../teacher/money/fees'
 import { HistoryLineText } from '../../teacher/money/HistoryLineText'
 import { MonthStrip } from '../../teacher/money/SeatFees'
 import '../../teacher/money/money.css'
 import { familyPaths, type Reader } from '../reader'
-import { readFamilyFees } from './api'
+import { readFamilyFees, readSeatExtraFees } from './api'
 import './pay.css'
 
 export function FamilyFees({ reader }: { reader: Reader }) {
@@ -26,6 +28,22 @@ export function FamilyFees({ reader }: { reader: Reader }) {
   const { resource, reload } = useResource(
     () => readFamilyFees(reader, seat).then(mapFeeHistory),
     [reader, seat],
+  )
+  // Exam and other fees sit beside the months. A failure here hides only
+  // this section: the months above are still the server's whole answer.
+  const { resource: extra } = useResource(
+    () =>
+      readSeatExtraFees(seat).then((r) =>
+        r.fees.map((f) => ({
+          id: f.extra_fee_id,
+          label: f.label,
+          dueOn: f.due_on,
+          owed: Money.fromWire(f.owed),
+          charged: Money.fromWire(f.charged),
+          status: f.status,
+        })),
+      ),
+    [seat],
   )
   const progress = (
     <Link className="btn btn-text btn-small" to={familyPaths.dashboard(reader, seat)}>
@@ -94,6 +112,30 @@ export function FamilyFees({ reader }: { reader: Reader }) {
           </ul>
         </>
       )}
+      {extra.state === 'loaded' && extra.data.length > 0 ? (
+        <section
+          className="card flush"
+          style={{ marginTop: 12 }}
+          aria-labelledby="extra-fees-title"
+        >
+          <div className="label" id="extra-fees-title" style={{ padding: '12px 16px 0' }}>
+            {t('family_extra_fees_title')}
+          </div>
+          <ul className="list">
+            {extra.data.map((f) => (
+              <li key={f.id} className="row">
+                <div className="grow">
+                  <div className="title">{f.label}</div>
+                  <div className="meta">
+                    {t('family_extra_fee_line', f.owed.format(), formatShortDate(f.dueOn, lang))}
+                  </div>
+                </div>
+                <FeeChip chip={chargeChip(f.status, f.owed, f.dueOn)} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       <div className="action-bar">
         {canPay ? (
           <Link className="btn btn-primary btn-money" to={familyPaths.pay(reader, seat)}>

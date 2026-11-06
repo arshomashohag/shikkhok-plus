@@ -1004,3 +1004,33 @@ id = "test_another_teachers_seat_is_not_available"
 file = "tests/fees/test_received_payments.py"
 criterion = "Teacher B recording on teacher A's seat gets the same NOT_AVAILABLE body as an absent seat, and nothing is written"
 rule = "TC-11"
+
+[[test]]
+id = "test_raising_touches_no_monthly_balance"
+file = "tests/fees/test_extra_fees.py"
+criterion = "Raising an exam fee writes no ledger_entry row and every seat still owes exactly its monthly figure, so no monthly reader can see an extra fee"
+rule = "0020"
+
+[[test]]
+id = "test_overlapping_resends_of_a_raise_record_one_fee"
+file = "tests/fees/test_extra_fees.py"
+criterion = "Four concurrent raises under one retry key produce exactly one fee and one charge entry per seat; the constraint, not a lookup, stops the rest"
+rule = "0020"
+
+[[test]]
+id = "test_approving_more_than_an_exam_fee_is_refused"
+file = "tests/fees/test_extra_fees.py"
+criterion = "700 against a 500 exam fee is refused with EXTRA_FEE_OVERPAID and writes no entry, because an extra fee holds no credit"
+rule = "0020"
+
+[[test]]
+id = "test_correcting_across_purposes_moves_the_money_back"
+file = "tests/fees/test_extra_fees.py"
+criterion = "An exam-fee approval corrected to the monthly fee leaves the exam fee 500 owed again and October 500 owed, each ledger compensated in place"
+rule = "0020"
+
+[[test]]
+id = "test_an_older_app_sending_no_purpose_pays_the_month"
+file = "tests/fees/test_extra_fees.py"
+criterion = "A payment with no purpose field settles the months exactly as before 0020 and leaves the exam fee untouched"
+rule = "0020"

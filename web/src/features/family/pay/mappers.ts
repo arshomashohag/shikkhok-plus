@@ -123,10 +123,16 @@ export type FormProblem = 'transaction_id_short'
  * (`PayMapper.requestOf`). A form that is merely incomplete has neither a
  * request nor a problem: the button stays off and nothing is shouted.
  */
+/**
+ * Build the payment request. `extraFeeId` names the exam or other fee it
+ * is for; null pays the monthly fee and sends no purpose at all, exactly
+ * as every payment did before the field existed.
+ */
 export function requestOf(
   selected: readonly string[],
   choice: PayChoice,
   form: PayForm,
+  extraFeeId: string | null = null,
 ): { request: Schemas['PaymentSubmitRequest'] | null; problem: FormProblem | null } {
   const amount = Money.fromTyped(form.amount)
   const reference = form.transactionId.trim()
@@ -152,6 +158,7 @@ export function requestOf(
       transaction_id: kind === 'mobile' ? reference : null,
       from_account: kind === 'bank' ? account : null,
       note: form.note.trim() || null,
+      ...(extraFeeId !== null ? { purpose: 'extra' as const, extra_fee_id: extraFeeId } : {}),
     },
     problem: null,
   }

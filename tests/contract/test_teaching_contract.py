@@ -26,6 +26,9 @@ EXPECTED_MUTATION_ID_BODIES: frozenset[tuple[str, str]] = frozenset(
         ("PUT", "/v1/sessions/{session_id}/topic"),
         ("POST", "/v1/payments"),
         ("POST", "/v1/enrollments/{enrollment_id}/payments"),
+        # Raising an exam or other fee charges every student, so a
+        # resend after a lost response must not charge them twice [0020].
+        ("POST", "/v1/batches/{batch_id}/extra-fees"),
     }
 )
 

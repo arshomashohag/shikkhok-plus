@@ -86,6 +86,7 @@ def _register_routes(app: FastAPI) -> None:
     from app.api.auth import router as auth_router
     from app.api.batches import router as batches_router
     from app.api.deletion import router as deletion_router
+    from app.api.extra_fees import router as extra_fees_router
     from app.api.fees import router as fees_router
     from app.api.guardian import router as guardian_router
     from app.api.health import router as health_router
@@ -107,6 +108,7 @@ def _register_routes(app: FastAPI) -> None:
         auth_router,
         batches_router,
         deletion_router,
+        extra_fees_router,
         fees_router,
         guardian_router,
         health_router,

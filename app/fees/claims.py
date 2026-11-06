@@ -29,9 +29,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import Batch, Enrollment, PaymentClaim
 from app.errors import ValidationError
-from app.fees.balances import oldest_unpaid_period
-from app.fees.periods import Period
-from app.local_time import bangladesh_today
+from app.fees.purposes import MONTHLY, Target, point_claim
 from app.money import Money
 from app.notifications.inbox import CLAIM_TO_VERIFY, deliver
 from app.notifications.recipients import teacher_recipient
@@ -54,11 +52,12 @@ def record_claim(
     submitted_by_account_id: uuid.UUID,
     claimed_amount: Money,
     channel: str,
+    target: Target,
     transaction_id: str | None = None,
     submission_id: uuid.UUID | None = None,
     today: dt.date | None = None,
 ) -> PaymentClaim:
-    """Add one pending claim against the oldest unpaid cycle.
+    """Add one pending claim against the oldest unpaid cycle, or a fee.
 
     **Paying when nothing is owed is accepted**: a seat with no unpaid
     cycle resolves to Bangladesh's current period, and on approval the
@@ -73,17 +72,16 @@ def record_claim(
     :param submitted_by_account_id: Who is claiming
     :param claimed_amount: What they say they paid, or this child's share
     :param channel: Which service the money moved through
+    :param target: What it is for: the months, or one extra fee. Stated
+        by every caller, never defaulted [0020]
     :param transaction_id: The reference they quote, if any
     :param submission_id: The submission this claim is a share of, if any
     :param today: Bangladesh's date; the real clock by default
     :return: The pending claim
+    :raises ValidationError: The seat was not charged the named fee
     """
-    period = oldest_unpaid_period(session, enrollment_id) or str(
-        Period.containing(today or bangladesh_today())
-    )
     claim = PaymentClaim(
         enrollment_id=enrollment_id,
-        period=period,
         claimed_amount=claimed_amount,
         channel=channel,
         transaction_id=transaction_id,
@@ -92,6 +90,7 @@ def record_claim(
         status="pending",
         payment_submission_id=submission_id,
     )
+    point_claim(session, claim, target=target, today=today)
     session.add(claim)
     session.flush()
     return claim
@@ -140,6 +139,7 @@ def submit_claim(
         submitted_by_account_id=submitted_by_account_id,
         claimed_amount=claimed_amount,
         channel=channel,
+        target=MONTHLY,
         transaction_id=transaction_id,
         submission_id=submission_id,
         today=today,

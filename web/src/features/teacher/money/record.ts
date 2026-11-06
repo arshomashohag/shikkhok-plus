@@ -83,6 +83,7 @@ export function typeRecordAmount(owed: Money, input: RecordInput, typed: string)
 export function recordBody(
   owed: Money,
   input: RecordInput,
+  extraFeeId?: string,
 ): Schemas['ReceivedPaymentRequest'] | null {
   const state = recordState(owed, input)
   if (!state.canConfirm || !state.received) return null
@@ -93,6 +94,7 @@ export function recordBody(
     note: trimmed(input.note, RECORD_NOTE_MAX),
     shortfall_disposition: state.needsDisposition ? input.disposition : null,
     client_mutation_id: input.clientMutationId,
+    ...(extraFeeId ? { purpose: 'extra' as const, extra_fee_id: extraFeeId } : {}),
   }
 }
 

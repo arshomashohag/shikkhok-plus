@@ -87,6 +87,40 @@ object MessageKeys {
             R.string.fees_payment_allocation_bearer_required,
         "fees.payment.allocation_child_not_applicable" to
             R.string.fees_payment_allocation_child_not_applicable,
+        "fees.claim.not_verifiable" to
+            R.string.fees_claim_not_verifiable,
+        "fees.extra.amount_negative" to
+            R.string.fees_extra_amount_negative,
+        "fees.extra.batch_inactive" to
+            R.string.fees_extra_batch_inactive,
+        "fees.extra.exam_not_applicable" to
+            R.string.fees_extra_exam_not_applicable,
+        "fees.extra.exam_not_found" to
+            R.string.fees_extra_exam_not_found,
+        "fees.extra.kind_unknown" to
+            R.string.fees_extra_kind_unknown,
+        "fees.extra.label_required" to
+            R.string.fees_extra_label_required,
+        "fees.extra.label_too_long" to
+            R.string.fees_extra_label_too_long,
+        "fees.extra.mutation_id_already_used" to
+            R.string.fees_extra_mutation_id_already_used,
+        "fees.extra.no_students" to
+            R.string.fees_extra_no_students,
+        "fees.extra.not_applicable" to
+            R.string.fees_extra_not_applicable,
+        "fees.extra.not_charged" to
+            R.string.fees_extra_not_charged,
+        "fees.extra.not_found" to
+            R.string.fees_extra_not_found,
+        "fees.extra.overpaid" to
+            R.string.fees_extra_overpaid,
+        "fees.extra.purpose_unknown" to
+            R.string.fees_extra_purpose_unknown,
+        "fees.extra.required" to
+            R.string.fees_extra_required,
+        "fees.extra.student_not_in_batch" to
+            R.string.fees_extra_student_not_in_batch,
         "fees.payment.allocation_credit_child_required" to
             R.string.fees_payment_allocation_credit_child_required,
         "fees.payment.allocation_disposition_not_applicable" to

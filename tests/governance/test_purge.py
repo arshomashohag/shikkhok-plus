@@ -238,10 +238,12 @@ def test_no_life_of_account_table_appears_in_the_window_map(
         "a LIFE_OF_ACCOUNT table has acquired a purge window"
     )
     # 21 since 0018 added `student`, kept for the life of the teacher's
-    # record exactly as the enrollments it groups are.
-    assert len(life_of_account) == 21, (
+    # record exactly as the enrollments it groups are; 24 since 0020
+    # added the extra fee, its charges and its ledger, kept as the
+    # monthly ledger is.
+    assert len(life_of_account) == 24, (
         f"the manifest now marks {len(life_of_account)} tables "
-        "LIFE_OF_ACCOUNT, not 21. If that is deliberate, this count is "
+        "LIFE_OF_ACCOUNT, not 24. If that is deliberate, this count is "
         "the claim that needs updating with it."
     )
 

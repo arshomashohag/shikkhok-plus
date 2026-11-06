@@ -25,6 +25,17 @@ export interface PaymentMethodLine {
   number: string | null
 }
 
+/** An exam or other fee, as a payment names it. */
+export interface FeeRef {
+  id: string
+  label: string
+  kind: 'exam' | 'other'
+  dueOn: string
+}
+
+/** What a payment is for: the months (`null`) or one fee. */
+export type PaymentFor = FeeRef | null
+
 export interface PaymentDetail extends PaymentReview {
   status: ReviewStatus
   decidedAt: string | null
@@ -34,6 +45,37 @@ export interface PaymentDetail extends PaymentReview {
   method: PaymentMethodLine
   /** Per child, what was approved, once decided. */
   approved: Record<string, Money | null>
+  /** What it is applied to (or, in a preview, would be). */
+  appliedTo: PaymentFor
+  /** What the family chose. */
+  requested: PaymentFor
+  /** The extra fees every covered child was charged, which it could go to. */
+  options: FeeRef[]
+}
+
+function feeRef(dto: Schemas['ExtraFeeRefResponse'] | null | undefined): PaymentFor {
+  return dto
+    ? { id: dto.extra_fee_id, label: dto.label, kind: dto.purpose, dueOn: dto.due_on }
+    : null
+}
+
+/** Whether two "payment for" values name the same thing. */
+export function samePurpose(a: PaymentFor, b: PaymentFor): boolean {
+  return (a?.id ?? null) === (b?.id ?? null)
+}
+
+/**
+ * The purpose fields for an approval, sent only when the teacher chose
+ * something other than what the payment is applied to now: `preview` is
+ * `'monthly'`, a fee id, or null for no change.
+ */
+export function purposeFields(
+  preview: string | null,
+): Pick<Schemas['PaymentApprovalRequest'], 'purpose' | 'extra_fee_id'> {
+  if (preview === null) return {}
+  return preview === 'monthly'
+    ? { purpose: 'monthly', extra_fee_id: null }
+    : { purpose: 'extra', extra_fee_id: preview }
 }
 
 export function mapPaymentDetail(dto: Schemas['PaymentReviewResponse']): PaymentDetail {
@@ -55,6 +97,11 @@ export function mapPaymentDetail(dto: Schemas['PaymentReviewResponse']): Payment
     approved: Object.fromEntries(
       dto.children.map((c) => [c.enrollment_id, Money.fromWireOrNull(c.approved_amount)]),
     ),
+    appliedTo: dto.purpose === 'extra' ? feeRef(dto.extra_fee) : null,
+    requested: dto.requested_purpose === 'extra' ? feeRef(dto.requested_extra_fee) : null,
+    options: (dto.extra_fee_options ?? [])
+      .map((o) => feeRef(o))
+      .filter((o): o is FeeRef => o !== null),
   }
 }
 

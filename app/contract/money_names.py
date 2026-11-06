@@ -84,6 +84,38 @@ NON_MONEY_COLUMNS: Final[dict[tuple[str, str], str]] = {
         "so there is no money value on exam for this exemption to hide, "
         "and `mark.marks` does not match any token at all."
     ),
+    ("extra_fee", "due_on"): (
+        "A DATE, not an amount: the day an exam or other fee falls due "
+        "[0020]. Matches 'fee' and 'due'. The fee's money column, `amount`,"
+        " is a NUMERIC(12,2) checked by this same gate."
+    ),
+    ("extra_fee_charge", "extra_fee_id"): (
+        "A UUID foreign key naming the fee a student's charge sits under, "
+        "not an amount [0020]. The table carries no money column of any "
+        "kind -- like fee_cycle, every figure is folded from "
+        "extra_fee_entry -- so there is nothing on it for this exemption to"
+        " hide."
+    ),
+    ("extra_fee_entry", "extra_fee_charge_id"): (
+        "A UUID foreign key naming the student's charge an entry moves, not"
+        " an amount [0020]. The entry's money column, `amount`, is a "
+        "NUMERIC(12,2) checked by this same gate."
+    ),
+    ("payment_claim", "extra_fee_charge_id"): (
+        "A UUID foreign key naming the student's charge a claim settles, "
+        "not an amount [0020]. The claim's amounts, `claimed_amount` and "
+        "`approved_amount`, are checked by this same gate."
+    ),
+    ("payment_submission", "extra_fee_id"): (
+        "A UUID foreign key naming the extra fee a payment is applied to, "
+        "not an amount [0020]. The submission's amount is `total_amount`, "
+        "checked by this same gate."
+    ),
+    ("payment_submission", "requested_extra_fee_id"): (
+        "A UUID foreign key naming the extra fee the family chose, kept as "
+        "they chose it [0020]. Not an amount; the submission's amount is "
+        "`total_amount`."
+    ),
 }
 
 #: Response-schema properties that match a money token and carry
@@ -243,6 +275,67 @@ NON_MONEY_FIELDS: Final[dict[tuple[str, str], str]] = {
         "`outstanding` -- which references the shared Money component "
         "and is still checked, so this exemption narrows the gate by "
         "exactly one field that was never money."
+    ),
+    ("ExtraFeeDetailResponse", "due_on"): (
+        "A DATE, not an amount: the day the extra fee falls due [0020]. "
+        "Matches 'fee' and 'due'; every money property of this schema "
+        "references Money."
+    ),
+    ("ExtraFeeDetailResponse", "extra_fee_id"): (
+        "A UUID naming an extra fee, not an amount [0020]. Matches the "
+        "'fee' token; every money property of this schema references Money."
+    ),
+    ("ExtraFeeDetailResponse", "paid_count"): (
+        "A COUNT of students whose charge reads paid, not an amount [0020]."
+        " The schema's money properties reference Money."
+    ),
+    ("ExtraFeeRaiseRequest", "due_on"): (
+        "A DATE, not an amount: the day the extra fee falls due [0020]. "
+        "Matches 'fee' and 'due'; every money property of this schema "
+        "references Money."
+    ),
+    ("ExtraFeeRefResponse", "due_on"): (
+        "A DATE, not an amount: the day the extra fee falls due [0020]. "
+        "Matches 'fee' and 'due'; every money property of this schema "
+        "references Money."
+    ),
+    ("ExtraFeeRefResponse", "extra_fee_id"): (
+        "A UUID naming an extra fee, not an amount [0020]. Matches the "
+        "'fee' token; every money property of this schema references Money."
+    ),
+    ("ExtraFeeSummaryResponse", "due_on"): (
+        "A DATE, not an amount: the day the extra fee falls due [0020]. "
+        "Matches 'fee' and 'due'; every money property of this schema "
+        "references Money."
+    ),
+    ("ExtraFeeSummaryResponse", "extra_fee_id"): (
+        "A UUID naming an extra fee, not an amount [0020]. Matches the "
+        "'fee' token; every money property of this schema references Money."
+    ),
+    ("ExtraFeeSummaryResponse", "paid_count"): (
+        "A COUNT of students whose charge reads paid, not an amount [0020]."
+        " The schema's money properties reference Money."
+    ),
+    ("PaymentApprovalRequest", "extra_fee_id"): (
+        "A UUID naming an extra fee, not an amount [0020]. Matches the "
+        "'fee' token; every money property of this schema references Money."
+    ),
+    ("PaymentSubmitRequest", "extra_fee_id"): (
+        "A UUID naming an extra fee, not an amount [0020]. Matches the "
+        "'fee' token; every money property of this schema references Money."
+    ),
+    ("ReceivedPaymentRequest", "extra_fee_id"): (
+        "A UUID naming an extra fee, not an amount [0020]. Matches the "
+        "'fee' token; every money property of this schema references Money."
+    ),
+    ("SeatExtraFeeResponse", "due_on"): (
+        "A DATE, not an amount: the day the extra fee falls due [0020]. "
+        "Matches 'fee' and 'due'; every money property of this schema "
+        "references Money."
+    ),
+    ("SeatExtraFeeResponse", "extra_fee_id"): (
+        "A UUID naming an extra fee, not an amount [0020]. Matches the "
+        "'fee' token; every money property of this schema references Money."
     ),
 }
 

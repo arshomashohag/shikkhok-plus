@@ -50,8 +50,8 @@ from app.authz.lenses import TeacherLens
 from app.db.models import Batch, Enrollment, PaymentClaim, PaymentSubmission
 from app.errors import AuthorizationError, ConflictError, ValidationError
 from app.errors.codes import NOT_AVAILABLE
-from app.fees.balances import derive_for_enrollment
 from app.fees.claims import CASH, MOBILE_SERVICES, record_claim
+from app.fees.purposes import owed_for_target, resolve_target
 from app.fees.submissions import EARLIEST_DAYS_BEFORE_JOINING, REPLAY_CONSTRAINT
 from app.fees.verification import (
     check_disposition,
@@ -82,6 +82,8 @@ class ReceivedPayment:
     :ivar shortfall_disposition: ``carried`` or ``waived`` exactly when
         the amount is below what the seat owes, else None
     :ivar client_mutation_id: The client's retry key, or None
+    :ivar purpose: ``monthly`` or ``extra``; None pays the months
+    :ivar extra_fee_id: The fee, when the purpose is ``extra``
     """
 
     amount: Money
@@ -91,6 +93,8 @@ class ReceivedPayment:
     paid_on: dt.date | None = None
     shortfall_disposition: str | None = None
     client_mutation_id: uuid.UUID | None = None
+    purpose: str | None = None
+    extra_fee_id: uuid.UUID | None = None
 
 
 def _blank_to_none(value: str | None) -> str | None:
@@ -295,7 +299,19 @@ def record_received_payment(
 
     day = today or bangladesh_today()
     _check(payment, seat=seat, today=day)
-    owed = derive_for_enrollment(session, seat.id).total_outstanding
+    target = resolve_target(
+        session,
+        purpose=payment.purpose,
+        extra_fee_id=payment.extra_fee_id,
+        batch_id=seat.batch_id,
+    )
+    owed = owed_for_target(session, target=target, enrollment_id=seat.id)
+    if target.extra_fee_id is not None and payment.amount > owed:
+        # An extra fee holds no credit [0020]: refused before anything
+        # is written, rather than half-recorded and rolled back.
+        raise ValidationError(
+            code="EXTRA_FEE_OVERPAID", message_key="fees.extra.overpaid"
+        )
     disposition = payment.shortfall_disposition
     check_disposition(shortfall_of(owed, payment.amount), disposition)
 
@@ -320,6 +336,10 @@ def record_received_payment(
             submitted_at=now,
             status="pending",
             client_mutation_id=payment.client_mutation_id,
+            purpose=target.purpose,
+            extra_fee_id=target.extra_fee_id,
+            requested_purpose=target.purpose,
+            requested_extra_fee_id=target.extra_fee_id,
         )
         .on_conflict_do_nothing(constraint=REPLAY_CONSTRAINT)
         .returning(PaymentSubmission.id)
@@ -341,6 +361,7 @@ def record_received_payment(
         enrollment_id=seat.id,
         submitted_by_account_id=lens.account_id,
         claimed_amount=payment.amount,
+        target=target,
         channel=payment.channel,
         transaction_id=reference,
         submission_id=submission.id,

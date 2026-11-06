@@ -44,7 +44,17 @@ from app.db.models import (
     PaymentClaim,
     PaymentSubmission,
 )
-from app.fees.balances import derive_for_enrollment
+from app.fees.extra_ledger import extra_decision_relief
+from app.fees.purposes import (
+    FeeRef,
+    Purpose,
+    Target,
+    fee_refs,
+    fees_charging_all,
+    owed_for_claim,
+    owed_for_target,
+    resolve_target,
+)
 from app.fees.status import SubmissionStatus
 from app.fees.submissions import child_order
 from app.fees.verification import shortfall_of
@@ -133,6 +143,11 @@ class PaymentReview:
     :ivar decision_note: The teacher's note on the decision
     :ivar decided_at: When it was decided, or None
     :ivar duplicate_of: The earlier submission quoting the same reference
+    :ivar purpose: What the teacher applies it to, ``monthly`` or ``extra``
+    :ivar extra_fee: The fee it is applied to, when ``extra``
+    :ivar requested_purpose: What the family chose
+    :ivar requested_extra_fee: The fee the family chose, if any
+    :ivar extra_fee_options: The extra fees it could be applied to instead
     """
 
     submission_id: uuid.UUID
@@ -154,6 +169,11 @@ class PaymentReview:
     decision_note: str | None
     decided_at: dt.datetime | None
     duplicate_of: DuplicatePayment | None
+    purpose: Purpose = "monthly"
+    extra_fee: FeeRef | None = None
+    requested_purpose: Purpose = "monthly"
+    requested_extra_fee: FeeRef | None = None
+    extra_fee_options: tuple[FeeRef, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -358,29 +378,66 @@ def _review(
     pairs: list[tuple[PaymentClaim, Enrollment]],
     batch_name: str,
     duplicate_of: DuplicatePayment | None,
+    preview: Target | None = None,
 ) -> PaymentReview:
     """Assemble one payment's review from its rows.
+
+    **A preview measures the payment against something else it could be
+    applied to** [0020], so the teacher sees "matches" or "৳200 short"
+    for the exam fee before approving it there, and the client compares
+    nothing. Nothing is written. A decided payment's own relief counts
+    only when the preview is what it is applied to now.
 
     :param session: The session to read through
     :param submission: The submission
     :param pairs: Its claims and seats, in child order
     :param batch_name: The batch's name
     :param duplicate_of: The earlier submission it repeats, if any
+    :param preview: Another purpose to measure it against, or None
     :return: The review
     """
-    relief = (
+    current = Target(
+        purpose="extra" if submission.purpose == "extra" else "monthly",
+        extra_fee_id=submission.extra_fee_id,
+    )
+    target = current if preview is None else preview
+    # A decided payment is measured against what was owed before it, in
+    # whichever ledger its current decision lives: a claim re-pointed by
+    # a correction has no live entries left in the other one.
+    claims = [claim for claim, _seat in pairs]
+    relief = {} if submission.status == "pending" else _decision_relief(session, claims)
+    extra_relief = (
         {}
         if submission.status == "pending"
-        else _decision_relief(session, [claim for claim, _seat in pairs])
+        else extra_decision_relief(session, [claim.id for claim in claims])
     )
+    fees = fee_refs(
+        session,
+        [target.extra_fee_id, submission.requested_extra_fee_id],
+    )
+
+    def owed(claim: PaymentClaim, seat: Enrollment) -> Money:
+        """Measure one child against the target, before this decision.
+
+        :param claim: The child's claim
+        :param seat: The child's seat
+        :return: What they owe for the target
+        """
+        if target != current:
+            return owed_for_target(session, target=target, enrollment_id=seat.id)
+        return (
+            owed_for_claim(session, claim)
+            + relief.get(claim.id, Money.ZERO)
+            + extra_relief.get(claim.id, Money.ZERO)
+        )
+
     children = [
         ReviewChild(
             claim_id=claim.id,
             enrollment_id=seat.id,
             display_name=seat.display_name,
             period=claim.period,
-            owed=derive_for_enrollment(session, seat.id).total_outstanding
-            + relief.get(claim.id, Money.ZERO),
+            owed=owed(claim, seat),
             approved_amount=claim.approved_amount,
         )
         for claim, seat in pairs
@@ -408,6 +465,23 @@ def _review(
         decision_note=submission.decision_note,
         decided_at=submission.decided_at,
         duplicate_of=duplicate_of,
+        purpose=target.purpose,
+        extra_fee=None if target.extra_fee_id is None else fees[target.extra_fee_id],
+        requested_purpose=(
+            "extra" if submission.requested_purpose == "extra" else "monthly"
+        ),
+        requested_extra_fee=(
+            None
+            if submission.requested_extra_fee_id is None
+            else fees[submission.requested_extra_fee_id]
+        ),
+        extra_fee_options=tuple(
+            fees_charging_all(
+                session,
+                batch_id=submission.batch_id,
+                enrollment_ids=[seat.id for _claim, seat in pairs],
+            )
+        ),
     )
 
 
@@ -485,14 +559,21 @@ def payment_review(
     *,
     lens: TeacherLens,
     submission_id: uuid.UUID,
+    preview_purpose: str | None = None,
+    preview_extra_fee_id: uuid.UUID | None = None,
 ) -> PaymentReview:
     """Read one payment on this teacher's batches, decided or not (R2).
 
     :param session: The session to read through
     :param lens: The teacher lens
     :param submission_id: The submission
+    :param preview_purpose: Measure it against ``monthly`` or ``extra``
+        instead of what it is applied to now; None for no preview
+    :param preview_extra_fee_id: The fee, when previewing ``extra``
     :return: The review
     :raises AuthorizationError: It is absent or not this lens's
+    :raises ValidationError: The preview names no fee of this batch, or
+        one a covered child was not charged
     """
     submission = owned_submission(session, lens=lens, submission_id=submission_id)
     batch_name = session.scalars(
@@ -516,4 +597,21 @@ def payment_review(
     candidates = [*earlier, submission]
     children = covered_children(session, [s.id for s in candidates])
     duplicate = _duplicates(candidates, children).get(submission.id)
-    return _review(session, submission, children[submission.id], batch_name, duplicate)
+    preview = (
+        None
+        if preview_purpose is None
+        else resolve_target(
+            session,
+            purpose=preview_purpose,
+            extra_fee_id=preview_extra_fee_id,
+            batch_id=submission.batch_id,
+        )
+    )
+    return _review(
+        session,
+        submission,
+        children[submission.id],
+        batch_name,
+        duplicate,
+        preview=preview,
+    )

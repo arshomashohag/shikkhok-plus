@@ -52,8 +52,8 @@ from app.db.models import (
     PaymentSubmission,
 )
 from app.errors import AuthorizationError, ConflictError, ValidationError
-from app.fees.balances import derive_for_enrollment
 from app.fees.claims import CASH, record_claim
+from app.fees.purposes import MONTHLY, Target, owed_for_target, resolve_target
 from app.local_time import DHAKA, bangladesh_today
 from app.money import Money, allocate_payment
 from app.notifications.inbox import CLAIM_TO_VERIFY, deliver
@@ -123,6 +123,9 @@ class PaymentDraft:
     :ivar note: Free text for the teacher
     :ivar client_mutation_id: The app's retry key, or None from a build
         that sends none
+    :ivar purpose: ``monthly`` or ``extra``, or None from a build that
+        sends none, which pays the months as every payment did before
+    :ivar extra_fee_id: The fee, when the purpose is ``extra``
     """
 
     enrollment_ids: tuple[uuid.UUID, ...]
@@ -134,6 +137,8 @@ class PaymentDraft:
     from_account: str | None
     note: str | None
     client_mutation_id: uuid.UUID | None = None
+    purpose: str | None = None
+    extra_fee_id: uuid.UUID | None = None
 
     def check_amount(self) -> None:
         """Refuse a payment of nothing.
@@ -263,23 +268,66 @@ def _covered_seats(
 
 
 def owed_children(
-    session: Session, *, lens: FamilyLens, enrollment_ids: Sequence[uuid.UUID]
+    session: Session,
+    *,
+    lens: FamilyLens,
+    enrollment_ids: Sequence[uuid.UUID],
+    purpose: str | None = None,
+    extra_fee_id: uuid.UUID | None = None,
 ) -> list[OwedChild]:
-    """Read what each covered child owes, in child order.
+    """Read what each covered child owes for one purpose, in child order.
 
     :param session: The session to read through
     :param lens: The student or guardian lens
     :param enrollment_ids: The children named
+    :param purpose: ``monthly`` or ``extra``; None means the months
+    :param extra_fee_id: The fee, when ``extra``
     :return: Each child's seat and outstanding
     :raises AuthorizationError: A seat is out of reach
-    :raises ValidationError: None named, or they span two batches
+    :raises ValidationError: None named, they span two batches, the
+        purpose names no fee of their batch, or a child was not charged it
     """
-    return [
+    return _owed_for(
+        session,
+        lens=lens,
+        enrollment_ids=enrollment_ids,
+        purpose=purpose,
+        extra_fee_id=extra_fee_id,
+    )[1]
+
+
+def _owed_for(
+    session: Session,
+    *,
+    lens: FamilyLens,
+    enrollment_ids: Sequence[uuid.UUID],
+    purpose: str | None,
+    extra_fee_id: uuid.UUID | None,
+) -> tuple[Target, list[OwedChild]]:
+    """Check the purpose against the covered seats and read what each owes.
+
+    :param session: The session to read through
+    :param lens: The student or guardian lens
+    :param enrollment_ids: The children named
+    :param purpose: ``monthly``, ``extra`` or None
+    :param extra_fee_id: The fee, if any
+    :return: The checked target, and each child's seat and outstanding
+    :raises AuthorizationError: A seat is out of reach
+    :raises ValidationError: As :func:`owed_children`
+    """
+    seats = _covered_seats(session, lens=lens, enrollment_ids=enrollment_ids)
+    target = resolve_target(
+        session,
+        purpose=purpose,
+        extra_fee_id=extra_fee_id,
+        batch_id=seats[0].batch_id,
+    )
+    return target, [
         OwedChild(
             seat=seat,
-            owed=derive_for_enrollment(session, seat.id).total_outstanding,
+            owed=owed_for_target(session, target=target, enrollment_id=seat.id),
         )
-        for seat in _covered_seats(session, lens=lens, enrollment_ids=enrollment_ids)
+        for seat in seats
     ]
 
 
@@ -419,7 +467,13 @@ def submit_payment(
     if prior is not None:
         return _replayed(session, prior, draft)
 
-    children = owed_children(session, lens=lens, enrollment_ids=draft.enrollment_ids)
+    target, children = _owed_for(
+        session,
+        lens=lens,
+        enrollment_ids=draft.enrollment_ids,
+        purpose=draft.purpose,
+        extra_fee_id=draft.extra_fee_id,
+    )
     batch_id = children[0].seat.batch_id
     method = _offered_method(session, batch_id=batch_id, draft=draft)
     draft.check_reference(None if method is None else method.kind)
@@ -453,6 +507,10 @@ def submit_payment(
             submitted_at=dt.datetime.now(tz=dt.UTC),
             status="pending",
             client_mutation_id=draft.client_mutation_id,
+            purpose=target.purpose,
+            extra_fee_id=target.extra_fee_id,
+            requested_purpose=target.purpose,
+            requested_extra_fee_id=target.extra_fee_id,
         )
         .on_conflict_do_nothing(constraint=REPLAY_CONSTRAINT)
         .returning(PaymentSubmission.id)
@@ -487,6 +545,7 @@ def submit_payment(
             submitted_by_account_id=lens.account_id,
             claimed_amount=share,
             channel=channel,
+            target=target,
             transaction_id=transaction_id,
             submission_id=submission.id,
             today=day,
@@ -589,8 +648,14 @@ def _same_payment(
             )
         ).all()
     )
+    asked = (
+        (MONTHLY.purpose, None)
+        if draft.purpose in (None, MONTHLY.purpose)
+        else (draft.purpose, draft.extra_fee_id)
+    )
     return (
         same_destination
+        and (prior.requested_purpose, prior.requested_extra_fee_id) == asked
         and children == set(draft.enrollment_ids)
         and prior.total_amount == draft.amount
         and prior.paid_on == draft.paid_on

@@ -28,6 +28,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.extra_fees import ExtraFeeRefResponse, PaymentPurpose
 from app.schemas.money import MoneyField
 from app.schemas.payment_methods import PaymentDestinationResponse
 
@@ -256,6 +257,10 @@ class PaymentApprovalRequest(BaseModel):
     :ivar credit_to_enrollment_id: The child who gets an excess as credit
     :ivar note: Shown to the family with the decision
     :ivar correcting: True when deliberately revising a decided payment
+    :ivar purpose: Apply the payment to the monthly fee or to an extra
+        fee, whatever the family chose; omitted keeps what it is for now.
+        The family is shown both what they chose and what it was applied to
+    :ivar extra_fee_id: The fee, when ``purpose`` is ``extra``
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -266,6 +271,8 @@ class PaymentApprovalRequest(BaseModel):
     credit_to_enrollment_id: uuid.UUID | None = None
     note: str | None = Field(default=None, max_length=500)
     correcting: bool = False
+    purpose: PaymentPurpose | None = None
+    extra_fee_id: uuid.UUID | None = None
 
 
 class ReceivedPaymentRequest(BaseModel):
@@ -299,6 +306,11 @@ class ReceivedPaymentRequest(BaseModel):
     paid_on: dt.date | None = None
     shortfall_disposition: ShortfallDisposition | None = None
     client_mutation_id: uuid.UUID | None = None
+    purpose: PaymentPurpose | None = Field(
+        default=None,
+        description="What the money was for; omitted means the monthly fee.",
+    )
+    extra_fee_id: uuid.UUID | None = None
 
 
 class PaymentRejectionRequest(BaseModel):
@@ -425,6 +437,12 @@ class PaymentReviewResponse(BaseModel):
     :ivar decision_note: The teacher's note on the decision
     :ivar decided_at: When it was decided, or null
     :ivar duplicate_of: The earlier payment quoting the same reference
+    :ivar purpose: What the payment is applied to
+    :ivar extra_fee: The fee it is applied to, when ``extra``
+    :ivar requested_purpose: What the family chose
+    :ivar requested_extra_fee: The fee the family chose, if any
+    :ivar extra_fee_options: Every extra fee each covered child was charged,
+        which the teacher may apply the payment to instead
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -448,6 +466,11 @@ class PaymentReviewResponse(BaseModel):
     decision_note: str | None = None
     decided_at: dt.datetime | None = None
     duplicate_of: DuplicatePaymentResponse | None = None
+    purpose: PaymentPurpose = "monthly"
+    extra_fee: ExtraFeeRefResponse | None = None
+    requested_purpose: PaymentPurpose = "monthly"
+    requested_extra_fee: ExtraFeeRefResponse | None = None
+    extra_fee_options: list[ExtraFeeRefResponse] = []
 
 
 class RecentDecisionResponse(BaseModel):
@@ -634,6 +657,17 @@ class PaymentSubmitRequest(BaseModel):
             "a different body is a 409."
         ),
     )
+    purpose: PaymentPurpose | None = Field(
+        default=None,
+        description=(
+            "What the payment is for. Omitted, as an older app sends it, "
+            "it pays the monthly fee, which is what every payment did "
+            "before this field."
+        ),
+    )
+    extra_fee_id: uuid.UUID | None = Field(
+        default=None, description="The fee, when purpose is extra."
+    )
 
 
 class SubmittedClaimResponse(BaseModel):
@@ -702,3 +736,11 @@ class OwedTogetherResponse(BaseModel):
 
     owed_together: MoneyField
     children: list[OwedChildResponse]
+    extra_fee_options: list[ExtraFeeRefResponse] = Field(
+        default_factory=list,
+        description=(
+            "Exam and other fees every chosen child was charged and still "
+            "owes something on together, which a payment may be for instead "
+            "of the monthly fee."
+        ),
+    )

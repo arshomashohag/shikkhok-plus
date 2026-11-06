@@ -1175,6 +1175,8 @@ def test_a_wrapped_legacy_claim_is_reviewed_and_decided(
         submitted_by_account_id=student,
         submitted_at=claim.submitted_at,
         status="pending",
+        purpose="monthly",
+        requested_purpose="monthly",
     )
     owner_session.add(legacy)
     owner_session.flush()

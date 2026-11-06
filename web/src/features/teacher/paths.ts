@@ -56,6 +56,9 @@ export const paths = {
   seatProgress: (enrollmentId: string, name?: string, batch?: string) =>
     withNames(`/seats/${id(enrollmentId)}/progress`, name, batch),
   paymentMethods: () => '/payment-methods',
+  extraFees: (batchId: string) => `/batches/${id(batchId)}/fees`,
+  extraFeeNew: (batchId: string) => `/batches/${id(batchId)}/fees/new`,
+  extraFee: (feeId: string) => `/extra-fees/${id(feeId)}`,
   paymentMethodNew: (kind: 'mobile' | 'bank') => `/payment-methods/new?kind=${kind}`,
   paymentMethodEdit: (methodId: string) => `/payment-methods/${id(methodId)}`,
   collections: () => '/collections',
