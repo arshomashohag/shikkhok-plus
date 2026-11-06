@@ -171,6 +171,7 @@ const val TAG_MARK_ENTRY_CANCELLED: String = "mark_entry_cancelled"
  *   guardians, once every seat has one (decided 2026-11-05)
  * @param onCancelExam Called with the teacher's reason once they have
  *   confirmed cancelling the exam [0019]
+ * @param examiner Who marks the exam, drawn only for a manager in a centre
  */
 @Composable
 fun MarkEntryScreen(
@@ -183,6 +184,7 @@ fun MarkEntryScreen(
     onHistory: (MarkRow) -> Unit = {},
     onPublish: () -> Unit = {},
     onCancelExam: (String) -> Unit = {},
+    examiner: @Composable () -> Unit = {},
 ) {
     val loaded = state as? MarksUiState.EntryLoaded
     val entry = rememberEntry(loaded, onMark)
@@ -195,6 +197,7 @@ fun MarkEntryScreen(
         header = {
             loaded?.let {
                 Progress(it.rows)
+                examiner()
                 PublishBar(it, onPublish)
                 CancelExam(it, onCancelExam)
             }

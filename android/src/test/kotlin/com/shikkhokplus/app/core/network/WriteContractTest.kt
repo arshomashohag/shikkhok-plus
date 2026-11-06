@@ -279,6 +279,26 @@ class WriteContractTest {
             Write("post", "/v1/centre/sessions/swap") { HttpTimetableRepository(it).swap(ID, ID) },
             Write("post", "/v1/centre/rooms") { HttpTimetableRepository(it).addRoom("Room A") },
             Write("patch", "/v1/centre/rooms/{room_id}") { HttpTimetableRepository(it).archiveRoom(ID, true) },
+            // A centre teacher's attendance and topic for one assigned class.
+            Write("post", "/v1/me/classes/{session_id}/attendance") {
+                HttpMyClassesRepository(it).submitAttendance(
+                    ID,
+                    ClassAttendanceBodyDto(1, ID, listOf(ClassSeatMarkDto(ID, true))),
+                )
+            },
+            // An examiner's marks and publish, and naming an exam's examiner.
+            Write("post", "/v1/me/exams/{exam_id}/marks") {
+                HttpMyExamsRepository(it).mark(ID, MarkWriteBody(ID, "marked", 18.0))
+            },
+            Write("post", "/v1/me/exams/{exam_id}/marks") {
+                HttpMyExamsRepository(it).mark(ID, MarkWriteBody(ID, "absent"))
+            },
+            Write("post", "/v1/me/exams/{exam_id}/publish") { HttpMyExamsRepository(it).publish(ID) },
+            Write("put", "/v1/exams/{exam_id}/examiner") { HttpExaminerRepository(it).setExaminer(ID, ID) },
+            Write("put", "/v1/exams/{exam_id}/examiner") { HttpExaminerRepository(it).setExaminer(ID, null) },
+            Write("put", "/v1/me/classes/{session_id}/topic") {
+                HttpMyClassesRepository(it).writeTopic(ID, ClassTopicBodyDto(1, ID, "Vectors", plan = false))
+            },
             Write("post", "/v1/payment-methods") {
                 HttpPaymentMethodsRepository(it).create(MOBILE_DRAFT)
             },

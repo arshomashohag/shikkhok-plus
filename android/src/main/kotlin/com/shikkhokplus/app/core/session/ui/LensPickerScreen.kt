@@ -123,6 +123,7 @@ private fun LensRow(
 private fun labelOf(lens: Lens): Int =
     when (lens) {
         Lens.TEACHER -> R.string.lens_teacher
+        Lens.CLASS_TEACHER -> R.string.lens_class_teacher
         Lens.STUDENT -> R.string.lens_student
         Lens.GUARDIAN -> R.string.lens_guardian
     }
@@ -139,6 +140,7 @@ private fun labelOf(lens: Lens): Int =
 private fun countLabelOf(lens: Lens): Int =
     when (lens) {
         Lens.TEACHER -> R.string.lens_teacher_count
+        Lens.CLASS_TEACHER -> R.string.lens_class_teacher_count
         Lens.STUDENT -> R.string.lens_student_count
         Lens.GUARDIAN -> R.string.lens_guardian_count
     }

@@ -6,9 +6,9 @@ import com.shikkhokplus.app.core.network.LensEntryDto
  * A lens this account can take [TC-11, D-2].
  *
  * **A closed set, parsed from the server's string.** The wire carries
- * `teacher`, `student` or `guardian`; a value outside that set is a
- * server the client does not understand, and the honest answer is to
- * drop it rather than invent a fourth role on the device.
+ * `teacher`, `class_teacher`, `student` or `guardian`; a value outside
+ * that set is a server the client does not understand, and the honest
+ * answer is to drop it rather than invent another role on the device.
  *
  * **This is a VIEW selector, never an authorization fact.** The server
  * resolves the real lens per request from owned batches and
@@ -20,6 +20,12 @@ import com.shikkhokplus.app.core.network.LensEntryDto
 enum class Lens {
     /** Runs classes. */
     TEACHER,
+
+    /**
+     * Teaches classes a coaching centre assigned to them: their own
+     * classes' rosters and topics, nothing of the centre's money.
+     */
+    CLASS_TEACHER,
 
     /** Attends classes. */
     STUDENT,
@@ -33,7 +39,7 @@ enum class Lens {
         /**
          * Parse one server entry.
          *
-         * @param wire The `kind` the server sent
+         * @param wire The `kind` the server sent, `class_teacher` included
          * @return The lens, or null when it is not one this app knows
          */
         fun parse(wire: String): Lens? =
@@ -60,7 +66,7 @@ data class LensOption(
  * Read the server's lens list into the ones this app can open.
  *
  * **Order is preserved, not sorted.** The server documents a fixed
- * order — teacher, then student, then guardian — so the picker does
+ * order — teacher, centre teacher, student, then guardian — so the picker does
  * not reshuffle between sign-ins as counts change. Re-sorting here
  * would reintroduce exactly that.
  *

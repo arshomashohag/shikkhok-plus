@@ -780,6 +780,48 @@ sealed interface Destination {
         override val route: String = "centre/timetable"
     }
 
+    /** A centre teacher's assigned classes, a week at a time. */
+    data object MyClasses : Destination {
+        override val route: String = "me/classes"
+    }
+
+    /** One assigned class: its roster's attendance and its topic. */
+    data object MyClass : Destination {
+        override val route: String = "me/classes/{sessionId}"
+
+        /** The class argument's name. */
+        const val ARG_SESSION: String = "sessionId"
+
+        /**
+         * Build a concrete route.
+         *
+         * @param sessionId The class
+         * @return The route to navigate to
+         */
+        fun of(sessionId: String): String = "me/classes/$sessionId"
+    }
+
+    /** The exams a centre asked me to mark. */
+    data object MyExams : Destination {
+        override val route: String = "me/exams"
+    }
+
+    /** One exam's marks, as its examiner enters them. */
+    data object MyExamMarks : Destination {
+        override val route: String = "me/exams/{examId}"
+
+        /** The exam argument's name. */
+        const val ARG_EXAM: String = "examId"
+
+        /**
+         * Build a concrete route.
+         *
+         * @param examId The exam
+         * @return The route to navigate to
+         */
+        fun of(examId: String): String = "me/exams/$examId"
+    }
+
     /** The chosen centre's rooms. */
     data object CentreRooms : Destination {
         override val route: String = "centre/rooms"

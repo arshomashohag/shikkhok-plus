@@ -60,6 +60,13 @@ class ContractConformanceTest {
             // The centre's timetable and rooms.
             Contract("/v1/centre/timetable", ListSerializer(TimetableClassDto.serializer())),
             Contract("/v1/centre/rooms", ListSerializer(RoomDto.serializer())),
+            // A centre teacher's own classes, and one class's roster.
+            Contract("/v1/me/classes", ListSerializer(MyClassDto.serializer())),
+            Contract("/v1/me/classes/{session_id}/attendance", ClassRosterDto.serializer()),
+            // An examiner's exams and one exam's results, and who marks an exam.
+            Contract("/v1/me/exams", ListSerializer(MyExamDto.serializer())),
+            Contract("/v1/me/exams/{exam_id}/results", ExaminerResultsDto.serializer()),
+            Contract("/v1/exams/{exam_id}", ExamExaminerDto.serializer()),
             Contract("/v1/batches", ListSerializer(BatchDto.serializer())),
             Contract("/v1/batches/{batch_id}/schedule", ListSerializer(ScheduleSlotDto.serializer())),
             Contract("/v1/batches/{batch_id}/roster", ListSerializer(RosterRowDto.serializer())),
