@@ -1380,6 +1380,40 @@
     <string name="family_extra_fees_title">পরীক্ষা ও অন্যান্য ফি</string>
     <string name="family_extra_fee_line">%1$s · শেষ তারিখ %2$s</string>
 
+    <!-- Timetable and rooms: screens [0024] -->
+    <string name="timetable_title">রুটিন</string>
+    <string name="timetable_sub">প্রতিটি ক্লাস, শিক্ষক ও রুমসহ</string>
+    <string name="timetable_unassigned">এখনো শিক্ষক নেই</string>
+    <string name="timetable_empty">এই দিনগুলোতে কোনো ক্লাস নেই।</string>
+    <string name="timetable_prev_week">আগের সপ্তাহ</string>
+    <string name="timetable_next_week">পরের সপ্তাহ</string>
+    <string name="timetable_change">শিক্ষক ও রুম</string>
+    <string name="timetable_teacher_label">শিক্ষক</string>
+    <string name="timetable_room_label">রুম</string>
+    <string name="timetable_none_option">নেই</string>
+    <string name="timetable_this_class_only">শুধু এই ক্লাসটি বদলাবে। সাপ্তাহিক রুটিন যেমন আছে তেমন থাকবে।</string>
+    <string name="timetable_swap_label">অথবা শিক্ষক বদল করুন</string>
+    <string name="timetable_swap_none">বদল করবেন না</string>
+    <string name="timetable_swap_submit">শিক্ষক বদল করুন</string>
+    <string name="timetable_overridden">এই ক্লাসের জন্য বদলানো</string>
+    <string name="timetable_cancelled">বাতিল</string>
+    <string name="timetable_clash_detail">%2$s-এ %1$s-এর সঙ্গে মিলে যাচ্ছে</string>
+    <string name="rooms_title">রুম</string>
+    <string name="rooms_add">রুম যোগ করুন</string>
+    <string name="rooms_name_label">রুমের নাম</string>
+    <string name="rooms_archive">ব্যবহার বন্ধ করুন</string>
+    <string name="rooms_restore">আবার ব্যবহার করুন</string>
+    <string name="rooms_archived">ব্যবহারে নেই</string>
+    <string name="rooms_empty">এখনো কোনো রুম নেই।</string>
+    <string name="schedule_teacher_room_help">শিক্ষক ও রুম ওপরের প্রতিটি দিনে প্রযোজ্য। একটি ক্লাস বদলাতে রুটিন ব্যবহার করুন।</string>
+
+    <!-- Rooms and the timetable [0024] -->
+    <string name="room_name_taken">এই নামে একটি রুম আগে থেকেই আছে।</string>
+    <string name="schedule_clash">একই সময়ে অন্য একটি ক্লাসের সঙ্গে এটি মিলে যাচ্ছে।</string>
+    <string name="schedule_room_unknown">এই সেন্টারের একটি রুম বেছে নিন।</string>
+    <string name="schedule_teacher_unknown">এই সেন্টারের একজন শিক্ষক বেছে নিন।</string>
+    <string name="timetable_range_too_long">সর্বোচ্চ 31 দিন বেছে নিন।</string>
+
     <!-- Teachers and staff console [0023] -->
     <string name="staff_title">শিক্ষক ও কর্মী</string>
     <string name="staff_sub">তথ্য, যোগাযোগ ও বেতনের শর্ত</string>

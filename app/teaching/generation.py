@@ -110,6 +110,8 @@ def _insert_session(
     date: dt.date,
     start_time: dt.time,
     end_time: dt.time | None,
+    teacher_member_id: uuid.UUID | None = None,
+    room_id: uuid.UUID | None = None,
 ) -> bool:
     """Insert one generated session, treating a conflict as success.
 
@@ -128,7 +130,60 @@ def _insert_session(
     :param date: The occurrence's date
     :param start_time: When it starts
     :param end_time: When it ends, or None
+    :param teacher_member_id: The slot's teacher at a centre, or None
+    :param room_id: The slot's room at a centre, or None
     :return: True if this call created the row, False if it conflicted
+    """
+    if teacher_member_id is not None or room_id is not None:
+        # In a savepoint, so a class that would double-book its teacher
+        # or room -- because a manager put them elsewhere at that time --
+        # is created UNASSIGNED rather than failing the whole slot. The
+        # manager then sees an unassigned class on the timetable.
+        try:
+            with session.begin_nested():
+                return _insert(
+                    session,
+                    batch_id=batch_id,
+                    date=date,
+                    start_time=start_time,
+                    end_time=end_time,
+                    teacher_member_id=teacher_member_id,
+                    room_id=room_id,
+                )
+        except sa.exc.IntegrityError as error:
+            if getattr(error.orig, "sqlstate", None) != "23P01":
+                raise
+    return _insert(
+        session,
+        batch_id=batch_id,
+        date=date,
+        start_time=start_time,
+        end_time=end_time,
+        teacher_member_id=None,
+        room_id=None,
+    )
+
+
+def _insert(
+    session: DbSession,
+    *,
+    batch_id: uuid.UUID,
+    date: dt.date,
+    start_time: dt.time,
+    end_time: dt.time | None,
+    teacher_member_id: uuid.UUID | None,
+    room_id: uuid.UUID | None,
+) -> bool:
+    """Run the one insert, ``ON CONFLICT DO NOTHING`` on the batch key.
+
+    :param session: The session to write through
+    :param batch_id: The batch meeting
+    :param date: The occurrence's date
+    :param start_time: When it starts
+    :param end_time: When it ends, or None
+    :param teacher_member_id: Its teacher, or None
+    :param room_id: Its room, or None
+    :return: True if this call created the row
     """
     statement = (
         pg_insert(Session)
@@ -145,6 +200,9 @@ def _insert_session(
             attendance_version=0,
             topic_version=0,
             created_at=dt.datetime.now(tz=dt.UTC),
+            teacher_member_id=teacher_member_id,
+            room_id=room_id,
+            assignment_source="slot",
         )
         .on_conflict_do_nothing(constraint="uq_session_batch_date_start")
         .returning(Session.id)
@@ -183,6 +241,8 @@ def generate_sessions(
             ScheduleSlot.weekday,
             ScheduleSlot.start_time,
             ScheduleSlot.end_time,
+            ScheduleSlot.teacher_member_id,
+            ScheduleSlot.room_id,
         )
         # BR5.5: an inactive batch is read-only history, so it accrues
         # no new sessions. The join is the filter rather than a check
@@ -194,7 +254,7 @@ def generate_sessions(
         .order_by(ScheduleSlot.batch_id, ScheduleSlot.weekday)
     ).all()
 
-    for batch_id, weekday, start_time, end_time in rows:
+    for batch_id, weekday, start_time, end_time, teacher, room in rows:
         try:
             for date in horizon_dates(when, weekday):
                 if _insert_session(
@@ -203,6 +263,8 @@ def generate_sessions(
                     date=date,
                     start_time=start_time,
                     end_time=end_time,
+                    teacher_member_id=teacher,
+                    room_id=room,
                 ):
                     created += 1
                 else:

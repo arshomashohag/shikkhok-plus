@@ -206,6 +206,12 @@ export function useSession(): SessionValue {
   return value
 }
 
+/** The session when one is ready, else null; never throws. */
+export function useOptionalSession(): Extract<Session, { state: 'ready' }> | null {
+  const value = useContext(SessionContext)
+  return value?.session.state === 'ready' ? value.session : null
+}
+
 /** The signed-in session; for screens that only render when ready. */
 export function useReadySession() {
   const { session, ...rest } = useSession()

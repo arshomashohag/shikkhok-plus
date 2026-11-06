@@ -30,6 +30,7 @@ from sqlalchemy.orm import Session
 from app.authz.lenses import TeacherLens
 from app.db.models import Account, Owner, OwnerMember
 from app.errors import AuthorizationError, ConflictError, ValidationError
+from app.teaching.unassign import unassign_member
 
 __all__ = [
     "MemberRow",
@@ -345,6 +346,7 @@ def revoke_member(
                 code="LAST_MANAGER", message_key="centre.member.last_manager"
             )
     member.revoked_at = _now(now)
+    unassign_member(session, member_id=member.id)
     session.commit()
 
 

@@ -155,6 +155,26 @@ export function WorkspaceSection({ online }: { online: boolean }) {
               type="button"
               className="row"
               disabled={!online}
+              onClick={() => navigate(paths.centreTimetable())}
+            >
+              <LayersIcon />
+              <span className="grow">
+                <span className="title">{t('timetable_title')}</span>
+                <br />
+                <span className="meta">
+                  {online ? t('timetable_sub') : t('more_needs_connection')}
+                </span>
+              </span>
+              <ChevronIcon />
+            </button>
+          </li>
+        ) : null}
+        {teacher && current?.kind === 'centre' ? (
+          <li>
+            <button
+              type="button"
+              className="row"
+              disabled={!online}
               onClick={() => navigate(paths.centreStaff())}
             >
               <TeacherIcon />

@@ -121,6 +121,16 @@ object MessageKeys {
             R.string.fees_extra_required,
         "fees.extra.student_not_in_batch" to
             R.string.fees_extra_student_not_in_batch,
+        "room.name_taken" to
+            R.string.room_name_taken,
+        "schedule.clash" to
+            R.string.schedule_clash,
+        "schedule.room_unknown" to
+            R.string.schedule_room_unknown,
+        "schedule.teacher_unknown" to
+            R.string.schedule_teacher_unknown,
+        "timetable.range_too_long" to
+            R.string.timetable_range_too_long,
         "staff.already_left" to
             R.string.staff_already_left,
         "staff.left_before_joined" to

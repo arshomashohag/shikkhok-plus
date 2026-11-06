@@ -62,6 +62,7 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from app.governance.dispositions import DISPOSITIONS, Disposition
+from app.teaching.unassign import unassign_member
 
 __all__ = [
     "HARD_DELETE_SCOPES",
@@ -210,6 +211,14 @@ HARD_DELETE_SCOPES: Final[dict[str, _Target]] = {
             "own 48-hour window instead [DESIGN-7]."
         ),
     ),
+    "room": _Target(
+        scope=Scope.NOT_PERSONAL,
+        column=None,
+        note=(
+            "A centre's name for one of its rooms. It names no person, so "
+            "a person's deletion has nothing in it to remove."
+        ),
+    ),
     "job_heartbeat": _Target(
         scope=Scope.NOT_PERSONAL,
         column=None,
@@ -250,6 +259,12 @@ _RETIRE_OWNED_BATCHES: Final = sa.text(
 _END_MEMBERSHIPS: Final = sa.text(
     "UPDATE owner_member SET revoked_at = now() "
     "WHERE account_id = :account_id AND revoked_at IS NULL"
+)
+
+
+#: The live memberships whose future classes a deletion frees first.
+_LIVE_MEMBERSHIPS: Final = sa.text(
+    "SELECT id FROM owner_member WHERE account_id = :account_id AND revoked_at IS NULL"
 )
 
 
@@ -315,6 +330,8 @@ def delete_account(session: Session, phone: str) -> DeletionResult:
     # A teacher's batches stay with their students [BR1.6 amended].
     # Retired before the account row goes, in the same transaction.
     session.execute(_RETIRE_OWNED_BATCHES, {"account_id": account_id})
+    for (member_id,) in session.execute(_LIVE_MEMBERSHIPS, {"account_id": account_id}):
+        unassign_member(session, member_id=member_id)
     session.execute(_END_MEMBERSHIPS, {"account_id": account_id})
 
     for table, target in sorted(HARD_DELETE_SCOPES.items()):

@@ -347,6 +347,15 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
             "only what the centre itself entered."
         ),
     ),
+    "room": TableGovernance(
+        disposition=Disposition.NOT_PERSONAL,
+        retention=RetentionClass.LIFE_OF_ACCOUNT,
+        basis=(
+            "A deletion request does nothing to these rows, because they "
+            "are not about a person: a coaching centre's name for one of "
+            "its rooms, kept so the classes that met in it stay readable."
+        ),
+    ),
     "staff": TableGovernance(
         disposition=Disposition.RETAIN_WITH_BASIS,
         retention=RetentionClass.LIFE_OF_ACCOUNT,

@@ -100,6 +100,7 @@ def _register_routes(app: FastAPI) -> None:
     from app.api.staff import router as staff_router
     from app.api.students import router as students_router
     from app.api.teaching import router as teaching_router
+    from app.api.timetable import router as timetable_router
 
     # Recorded as they are included, so the contract gates enumerate
     # what this application ACTUALLY registered. A gate reading a
@@ -125,6 +126,7 @@ def _register_routes(app: FastAPI) -> None:
         staff_router,
         students_router,
         teaching_router,
+        timetable_router,
     ):
         app.include_router(router)
         app.state.included_routers.append(router)

@@ -25,7 +25,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.schemas.fees import CurrentFeeResponse
 from app.schemas.money import MoneyField
 from app.schemas.phone import PhoneField
-from app.schemas.schedule import ScheduleSlotWire
+from app.schemas.schedule import ScheduleSlotWire, WeeklyClassWire
 from app.schemas.teaching import UpcomingSessionResponse
 
 __all__ = [
@@ -185,7 +185,7 @@ class StudentBatchResponse(BaseModel):
     batch_name: str
     teacher_display_name: str | None
     subjects: list[str]
-    schedule: list[ScheduleSlotWire]
+    schedule: list[WeeklyClassWire]
     current_fee: CurrentFeeResponse | None
     next_session: UpcomingSessionResponse | None = None
     is_next: bool = False

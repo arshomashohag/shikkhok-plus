@@ -109,10 +109,14 @@
   "queue.state.conflicted": "queue_state_conflicted",
   "queue.state.failed": "queue_state_failed",
   "queue.state.queued": "queue_state_queued",
+  "room.name_taken": "room_name_taken",
   "roster.status.active": "roster_status_active",
   "roster.status.dormant": "roster_status_dormant",
   "roster.status.inactive": "roster_status_inactive",
+  "schedule.clash": "schedule_clash",
   "schedule.duplicate_slot": "schedule_duplicate_slot",
+  "schedule.room_unknown": "schedule_room_unknown",
+  "schedule.teacher_unknown": "schedule_teacher_unknown",
   "session.status.cancelled": "session_status_cancelled",
   "session.status.held": "session_status_held",
   "session.status.scheduled": "session_status_scheduled",
@@ -140,5 +144,6 @@
   "teaching.seat.not_on_roster": "teaching_seat_not_on_roster",
   "teaching.session.already_exists": "teaching_session_already_exists",
   "teaching.session.cancelled": "teaching_session_cancelled",
-  "teaching.topic.class_started": "topic_class_started"
+  "teaching.topic.class_started": "topic_class_started",
+  "timetable.range_too_long": "timetable_range_too_long"
 }
