@@ -1389,8 +1389,8 @@
     <string name="payroll_basis_per_class">%1$s টি ক্লাস × %2$s</string>
     <string name="payroll_owed">প্রাপ্য %1$s</string>
     <string name="payroll_paid_remaining">পরিশোধিত %1$s · বাকি %2$s</string>
-    <string name="payroll_draft">খসড়া</string>
-    <string name="payroll_approved">অনুমোদিত</string>
+    <string name="payroll_status_draft">খসড়া</string>
+    <string name="payroll_status_approved">অনুমোদিত</string>
     <string name="payroll_approve">অনুমোদন করুন</string>
     <string name="payroll_adjust">বোনাস বা কর্তন</string>
     <string name="payroll_addition">বোনাস বা যোগ</string>

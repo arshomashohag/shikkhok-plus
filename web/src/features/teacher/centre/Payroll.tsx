@@ -219,7 +219,7 @@ export function SalaryCard({
     <article className="card">
       <div className="title">
         {line.staff_name} ·{' '}
-        {line.status === 'approved' ? t('payroll_approved') : t('payroll_draft')}
+        {line.status === 'approved' ? t('payroll_status_approved') : t('payroll_status_draft')}
       </div>
       <div className="meta">
         {basisLine(line, t)} · {t('payroll_owed', money(line.owed))}

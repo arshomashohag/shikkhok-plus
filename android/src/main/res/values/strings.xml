@@ -1444,8 +1444,8 @@
     <string name="payroll_basis_per_class">%1$s classes × %2$s</string>
     <string name="payroll_owed">Owed %1$s</string>
     <string name="payroll_paid_remaining">Paid %1$s · left %2$s</string>
-    <string name="payroll_draft">Draft</string>
-    <string name="payroll_approved">Approved</string>
+    <string name="payroll_status_draft">Draft</string>
+    <string name="payroll_status_approved">Approved</string>
     <string name="payroll_approve">Approve</string>
     <string name="payroll_adjust">Bonus or deduction</string>
     <string name="payroll_addition">Bonus or addition</string>
