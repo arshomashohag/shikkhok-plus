@@ -121,6 +121,24 @@ object MessageKeys {
             R.string.fees_extra_required,
         "fees.extra.student_not_in_batch" to
             R.string.fees_extra_student_not_in_batch,
+        "expenses.already_voided" to
+            R.string.expenses_already_voided,
+        "expenses.amount_not_positive" to
+            R.string.expenses_amount_not_positive,
+        "expenses.batch_not_found" to
+            R.string.expenses_batch_not_found,
+        "expenses.category_unknown" to
+            R.string.expenses_category_unknown,
+        "expenses.date_in_future" to
+            R.string.expenses_date_in_future,
+        "expenses.fee_not_found" to
+            R.string.expenses_fee_not_found,
+        "expenses.mutation_id_already_used" to
+            R.string.expenses_mutation_id_already_used,
+        "expenses.what_required" to
+            R.string.expenses_what_required,
+        "money.month_invalid" to
+            R.string.money_month_invalid,
         "fees.payment.allocation_credit_child_required" to
             R.string.fees_payment_allocation_credit_child_required,
         "fees.payment.allocation_disposition_not_applicable" to

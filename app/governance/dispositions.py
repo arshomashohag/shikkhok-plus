@@ -335,6 +335,18 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
             "while the person's link to it does not."
         ),
     ),
+    "expense": TableGovernance(
+        disposition=Disposition.RETAIN_WITH_BASIS,
+        retention=RetentionClass.LIFE_OF_ACCOUNT,
+        basis=(
+            "A teacher's own record of what they spent -- a category, a "
+            "description, an amount, a date and optionally the business "
+            "paid -- kept as a financial record beside the fees it is set "
+            "against. It names no student and no guardian, no family can "
+            "read it, and it is append-only: a mistake is voided with a "
+            "reason, never rewritten."
+        ),
+    ),
     "extra_fee": TableGovernance(
         disposition=Disposition.RETAIN_WITH_BASIS,
         retention=RetentionClass.LIFE_OF_ACCOUNT,

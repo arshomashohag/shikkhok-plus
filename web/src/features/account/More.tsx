@@ -188,6 +188,20 @@ export function More() {
                 sub={needsConnection ?? t('more_collections_sub')}
                 disabled={!online}
               />
+              <Row
+                to={paths.expenses()}
+                icon={<WalletIcon />}
+                title={t('expenses_title')}
+                sub={needsConnection ?? t('summary_basis')}
+                disabled={!online}
+              />
+              <Row
+                to={paths.moneySummary()}
+                icon={<LayersIcon />}
+                title={t('summary_title')}
+                sub={needsConnection ?? t('summary_basis')}
+                disabled={!online}
+              />
             </ul>
           </Section>
         </>

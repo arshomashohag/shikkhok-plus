@@ -158,6 +158,25 @@ _EXTRA_FEE_PURPOSE = PgEnum(
 #: The only ledger kinds an extra fee's entries take: no carry, no credit.
 EXTRA_FEE_ENTRY_KIND_VALUES: tuple[str, ...] = ("charge", "receipt", "forgiveness")
 
+#: What an expense was spent on [0021]: a closed set of keys each client
+#: renders in Bangla or English, which a typed name never could be.
+EXPENSE_CATEGORY_VALUES: tuple[str, ...] = (
+    "exam_paper",
+    "printing",
+    "rent",
+    "utilities",
+    "materials",
+    "transport",
+    "salary",
+    "other",
+)
+
+_EXPENSE_CATEGORY = PgEnum(
+    *EXPENSE_CATEGORY_VALUES,
+    name="expense_category",
+    create_type=False,
+)
+
 #: A reminder's delivery outcome [BR7.2]. ``pending`` exists because the
 #: event commits BEFORE the push is dispatched: writing it afterwards
 #: loses the record of a send that happened if the process dies between
@@ -255,6 +274,7 @@ __all__ = [
     "CLAIM_STATUS_VALUES",
     "DECISION_VALUES",
     "DISPOSITION_VALUES",
+    "EXPENSE_CATEGORY_VALUES",
     "EXTRA_FEE_ENTRY_KIND_VALUES",
     "EXTRA_FEE_PURPOSE_VALUES",
     "FEE_GENERATION_JOB",
@@ -275,6 +295,7 @@ __all__ = [
     "BatchSubject",
     "Enrollment",
     "Exam",
+    "Expense",
     "ExtraFee",
     "ExtraFeeCharge",
     "ExtraFeeEntry",
@@ -1537,6 +1558,92 @@ class ExtraFeeEntry(Base):
         ),
         Index("ix_extra_fee_entry_charge_id", "extra_fee_charge_id"),
         Index("ix_extra_fee_entry_payment_claim_id", "payment_claim_id"),
+    )
+
+
+class Expense(Base):
+    """One amount an owner spent [0021].
+
+    **Append-only.** A mistake is voided, with who and why, and entered
+    again; ``amount`` is never rewritten, and the application role holds
+    no ``UPDATE`` on it.
+
+    :ivar id: Surrogate key
+    :ivar owner_id: Whose spending this is
+    :ivar category: One of :data:`EXPENSE_CATEGORY_VALUES`
+    :ivar what: The detail, as typed
+    :ivar amount: What was spent, more than zero
+    :ivar spent_on: The day the money went
+    :ivar payee: Who it was paid to, if said
+    :ivar note: A receipt number or other note, if any
+    :ivar batch_id: The batch it was for, if any
+    :ivar extra_fee_id: The exam or other fee it was spent for, if any
+    :ivar recorded_by_account_id: Who recorded it
+    :ivar client_mutation_id: The app's retry key, if sent
+    :ivar created_at: When it was recorded
+    :ivar voided_at: When it was voided, or None while it stands
+    :ivar voided_by_account_id: Who voided it
+    :ivar void_reason: Why
+    """
+
+    __tablename__ = "expense"
+
+    id: Mapped[uuid.UUID] = _uuid_column()
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("owner.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    category: Mapped[str] = mapped_column(_EXPENSE_CATEGORY, nullable=False)
+    what: Mapped[str] = mapped_column(String(120), nullable=False)
+    amount: Mapped[Money] = mapped_column(MoneyColumn, nullable=False)
+    spent_on: Mapped[dt.date] = mapped_column(Date, nullable=False)
+    payee: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    note: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    batch_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("batch.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    extra_fee_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("extra_fee.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    recorded_by_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("account.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    client_mutation_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), nullable=True
+    )
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    voided_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    voided_by_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("account.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    void_reason: Mapped[str | None] = mapped_column(String(200), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint("amount > 0", name="ck_expense_amount_positive"),
+        CheckConstraint("length(trim(what)) > 0", name="ck_expense_what"),
+        CheckConstraint(
+            "voided_at IS NOT NULL OR void_reason IS NULL",
+            name="ck_expense_void_reason_only_when_voided",
+        ),
+        UniqueConstraint(
+            "recorded_by_account_id",
+            "client_mutation_id",
+            name="uq_expense_account_mutation",
+        ),
+        Index("ix_expense_owner_spent_on", "owner_id", "spent_on"),
     )
 
 

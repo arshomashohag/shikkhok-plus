@@ -176,6 +176,7 @@ actually does, and our build fails if the two stop matching.
 | The link between a class and the teacher who runs it | no time limit |
 | The record that a fee was due for a month | no time limit |
 | The record that a student was asked to pay an exam or other fee | no time limit |
+| What a teacher recorded spending, such as on printing or rent | no time limit |
 | Whether a student attended a class | no time limit |
 
 ### Not about you, and not changed when you delete your account
@@ -191,7 +192,7 @@ These records are about how the service itself is running, not about any person.
 
 **A teacher's classes stay with their students.** If you are a teacher and delete your account, your sign-in, your own name and address are removed, and so are your name and payment number on each of your classes. The classes themselves stay as read-only history for your students and their guardians: their record of who came to each class, their results and fee records are theirs too. No new fees fall due on those classes, and amounts already recorded as owed stay on the records, where nobody can collect them.
 
-<!-- governance manifest digest: 6ad396888899048c635d7c3cc3f4b91f80bf2b22ccbd8f0b9e1e13f56f9a9de4
+<!-- governance manifest digest: c46de35fd0afbd99c3136f83c60433c48b83b54ce7a1362a0d4c7ea50d417a45
      Covers every disposition, retention class and basis, so a
      change to any of them fails the drift gate even when it
      does not alter the text above. Regenerate; do not edit. -->

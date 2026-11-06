@@ -810,6 +810,35 @@
         "title": "CalendarDayResponse",
         "type": "object"
       },
+      "CategoryTotalResponse": {
+        "additionalProperties": false,
+        "description": "What one category came to.\n\n:ivar category: The category\n:ivar total: Its total, voided expenses left out",
+        "properties": {
+          "category": {
+            "enum": [
+              "exam_paper",
+              "materials",
+              "other",
+              "printing",
+              "rent",
+              "salary",
+              "transport",
+              "utilities"
+            ],
+            "title": "Category",
+            "type": "string"
+          },
+          "total": {
+            "$ref": "#/components/schemas/Money"
+          }
+        },
+        "required": [
+          "category",
+          "total"
+        ],
+        "title": "CategoryTotalResponse",
+        "type": "object"
+      },
       "ChargeableStudentResponse": {
         "additionalProperties": false,
         "description": "A student a fee raised today would charge.\n\n:ivar enrollment_id: The seat\n:ivar display_name: The teacher-typed name",
@@ -2257,6 +2286,282 @@
         "title": "ExamUpdateRequest",
         "type": "object"
       },
+      "ExpenseMonthResponse": {
+        "additionalProperties": false,
+        "description": "One month's expenses with the server's totals.\n\n:ivar month: ``YYYY-MM``\n:ivar total: What was spent, voided expenses left out\n:ivar by_category: Each category's total, largest first\n:ivar expenses: Every expense, voided ones included, newest first",
+        "properties": {
+          "by_category": {
+            "items": {
+              "$ref": "#/components/schemas/CategoryTotalResponse"
+            },
+            "title": "By Category",
+            "type": "array"
+          },
+          "expenses": {
+            "items": {
+              "$ref": "#/components/schemas/ExpenseResponse"
+            },
+            "title": "Expenses",
+            "type": "array"
+          },
+          "month": {
+            "title": "Month",
+            "type": "string"
+          },
+          "total": {
+            "$ref": "#/components/schemas/Money"
+          }
+        },
+        "required": [
+          "by_category",
+          "expenses",
+          "month",
+          "total"
+        ],
+        "title": "ExpenseMonthResponse",
+        "type": "object"
+      },
+      "ExpenseRequest": {
+        "additionalProperties": false,
+        "description": "Record one expense.\n\n:ivar category: What it was spent on\n:ivar what: The detail, as typed\n:ivar amount: What was spent, more than zero\n:ivar spent_on: The day the money went; not in the future\n:ivar payee: Who it was paid to\n:ivar note: A receipt number or note\n:ivar batch_id: The batch it was for\n:ivar extra_fee_id: The exam or other fee it was for\n:ivar client_mutation_id: One per expense being recorded; a resend\n    returns the original and records nothing",
+        "properties": {
+          "amount": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "batch_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch Id"
+          },
+          "category": {
+            "enum": [
+              "exam_paper",
+              "materials",
+              "other",
+              "printing",
+              "rent",
+              "salary",
+              "transport",
+              "utilities"
+            ],
+            "title": "Category",
+            "type": "string"
+          },
+          "client_mutation_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Mutation Id"
+          },
+          "extra_fee_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extra Fee Id"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "payee": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payee"
+          },
+          "spent_on": {
+            "format": "date",
+            "title": "Spent On",
+            "type": "string"
+          },
+          "what": {
+            "maxLength": 120,
+            "title": "What",
+            "type": "string"
+          }
+        },
+        "required": [
+          "amount",
+          "category",
+          "spent_on",
+          "what"
+        ],
+        "title": "ExpenseRequest",
+        "type": "object"
+      },
+      "ExpenseResponse": {
+        "additionalProperties": false,
+        "description": "One expense.\n\n:ivar expense_id: The expense\n:ivar category: What it was spent on\n:ivar what: The detail\n:ivar amount: What was spent\n:ivar spent_on: The day\n:ivar payee: Who it was paid to\n:ivar note: The note\n:ivar batch_id: The batch it was for\n:ivar extra_fee_id: The exam or other fee it was for\n:ivar voided: Whether it was voided; a voided expense counts for nothing\n:ivar void_reason: Why it was voided\n:ivar voided_at: When",
+        "properties": {
+          "amount": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "batch_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch Id"
+          },
+          "category": {
+            "enum": [
+              "exam_paper",
+              "materials",
+              "other",
+              "printing",
+              "rent",
+              "salary",
+              "transport",
+              "utilities"
+            ],
+            "title": "Category",
+            "type": "string"
+          },
+          "expense_id": {
+            "format": "uuid",
+            "title": "Expense Id",
+            "type": "string"
+          },
+          "extra_fee_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extra Fee Id"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "payee": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payee"
+          },
+          "spent_on": {
+            "format": "date",
+            "title": "Spent On",
+            "type": "string"
+          },
+          "void_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Void Reason"
+          },
+          "voided": {
+            "title": "Voided",
+            "type": "boolean"
+          },
+          "voided_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voided At"
+          },
+          "what": {
+            "title": "What",
+            "type": "string"
+          }
+        },
+        "required": [
+          "amount",
+          "category",
+          "expense_id",
+          "spent_on",
+          "voided",
+          "what"
+        ],
+        "title": "ExpenseResponse",
+        "type": "object"
+      },
+      "ExpenseVoidRequest": {
+        "additionalProperties": false,
+        "description": "Void an expense, keeping it on the record.\n\n:ivar reason: Why, shown beside it",
+        "properties": {
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "title": "ExpenseVoidRequest",
+        "type": "object"
+      },
       "ExtraFeeDetailResponse": {
         "additionalProperties": false,
         "description": "One fee with every student charged.\n\n:ivar students: Each student's row, by display name",
@@ -3426,6 +3731,122 @@
         "pattern": "^[0-9]+\\.[0-9]{2}$",
         "title": "Money",
         "type": "string"
+      },
+      "MoneyCollectedResponse": {
+        "additionalProperties": false,
+        "description": "What came in during a month, by what it was for.\n\n:ivar monthly: For monthly fees\n:ivar exam: For exam fees\n:ivar other: For other fees\n:ivar total: The three together",
+        "properties": {
+          "exam": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "monthly": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "other": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "total": {
+            "$ref": "#/components/schemas/Money"
+          }
+        },
+        "required": [
+          "exam",
+          "monthly",
+          "other",
+          "total"
+        ],
+        "title": "MoneyCollectedResponse",
+        "type": "object"
+      },
+      "MoneyFeeLineResponse": {
+        "additionalProperties": false,
+        "description": "One extra fee's takings against what was spent for it.\n\n:ivar extra_fee_id: The fee\n:ivar label: Its name\n:ivar collected: Paid against it\n:ivar spent: Spent for it",
+        "properties": {
+          "collected": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "extra_fee_id": {
+            "format": "uuid",
+            "title": "Extra Fee Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "spent": {
+            "$ref": "#/components/schemas/Money"
+          }
+        },
+        "required": [
+          "collected",
+          "extra_fee_id",
+          "label",
+          "spent"
+        ],
+        "title": "MoneyFeeLineResponse",
+        "type": "object"
+      },
+      "MoneySummaryResponse": {
+        "additionalProperties": false,
+        "description": "One month's money, in and out, and what is owed today.\n\n:ivar month: ``YYYY-MM``\n:ivar collected: What came in, by purpose\n:ivar spent_total: What went out\n:ivar spent_by_category: Each category's total, largest first\n:ivar net: The difference between them, never negative\n:ivar net_kind: ``surplus``, ``deficit`` or ``even``\n:ivar owed_monthly: Monthly fees still owed today\n:ivar owed_extra: Exam and other fees still owed today\n:ivar extra_fees: Fees due this month or spent for this month",
+        "properties": {
+          "collected": {
+            "$ref": "#/components/schemas/MoneyCollectedResponse"
+          },
+          "extra_fees": {
+            "items": {
+              "$ref": "#/components/schemas/MoneyFeeLineResponse"
+            },
+            "title": "Extra Fees",
+            "type": "array"
+          },
+          "month": {
+            "title": "Month",
+            "type": "string"
+          },
+          "net": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "net_kind": {
+            "enum": [
+              "deficit",
+              "even",
+              "surplus"
+            ],
+            "title": "Net Kind",
+            "type": "string"
+          },
+          "owed_extra": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "owed_monthly": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "spent_by_category": {
+            "items": {
+              "$ref": "#/components/schemas/CategoryTotalResponse"
+            },
+            "title": "Spent By Category",
+            "type": "array"
+          },
+          "spent_total": {
+            "$ref": "#/components/schemas/Money"
+          }
+        },
+        "required": [
+          "collected",
+          "extra_fees",
+          "month",
+          "net",
+          "net_kind",
+          "owed_extra",
+          "owed_monthly",
+          "spent_by_category",
+          "spent_total"
+        ],
+        "title": "MoneySummaryResponse",
+        "type": "object"
       },
       "MonthCollectionResponse": {
         "additionalProperties": false,
@@ -11213,6 +11634,270 @@
         ]
       }
     },
+    "/v1/expenses": {
+      "get": {
+        "description": "One month's expenses with the server's totals; this month by default.\n\n:param session: The request-scoped session\n:param lens: The teacher lens\n:param month: ``YYYY-MM``\n:return: The month",
+        "operationId": "read_expenses_v1_expenses_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "month",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Month"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseMonthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Expenses",
+        "tags": [
+          "expenses"
+        ]
+      },
+      "post": {
+        "description": "Record one expense. A resend under the same key returns the original.\n\n:param body: The expense as typed\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: The expense",
+        "operationId": "create_expense_v1_expenses_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExpenseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Expense",
+        "tags": [
+          "expenses"
+        ]
+      }
+    },
+    "/v1/expenses/{expense_id}/void": {
+      "post": {
+        "description": "Void an expense, keeping it on the record.\n\n:param expense_id: The expense, from the route path\n:param body: Why\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: The voided expense",
+        "operationId": "void_one_expense_v1_expenses__expense_id__void_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "expense_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Expense Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExpenseVoidRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpenseResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Void One Expense",
+        "tags": [
+          "expenses"
+        ]
+      }
+    },
     "/v1/extra-fees/{extra_fee_id}": {
       "get": {
         "description": "Read one fee with every student charged.\n\n:param extra_fee_id: The fee, from the route path\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: The fee and its students",
@@ -12497,6 +13182,96 @@
         "summary": "Read Today",
         "tags": [
           "analytics"
+        ]
+      }
+    },
+    "/v1/money/summary": {
+      "get": {
+        "description": "One month's money in and out, and what is owed today.\n\n:param session: The request-scoped session\n:param lens: The teacher lens\n:param month: ``YYYY-MM``; this month by default\n:return: The summary",
+        "operationId": "read_money_summary_v1_money_summary_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "month",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Month"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MoneySummaryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this; absence reads the same."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Money Summary",
+        "tags": [
+          "expenses"
         ]
       }
     },

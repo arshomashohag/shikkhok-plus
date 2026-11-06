@@ -62,5 +62,7 @@ export const paths = {
   paymentMethodNew: (kind: 'mobile' | 'bank') => `/payment-methods/new?kind=${kind}`,
   paymentMethodEdit: (methodId: string) => `/payment-methods/${id(methodId)}`,
   collections: () => '/collections',
+  expenses: () => '/expenses',
+  moneySummary: () => '/money-summary',
   batchMonth: (batchId: string, period: string) => `/batches/${id(batchId)}/month/${id(period)}`,
 } as const

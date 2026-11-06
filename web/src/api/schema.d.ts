@@ -1408,6 +1408,66 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/v1/expenses': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Read Expenses
+     * @description One month's expenses with the server's totals; this month by default.
+     *
+     *     :param session: The request-scoped session
+     *     :param lens: The teacher lens
+     *     :param month: ``YYYY-MM``
+     *     :return: The month
+     */
+    get: operations['read_expenses_v1_expenses_get']
+    put?: never
+    /**
+     * Create Expense
+     * @description Record one expense. A resend under the same key returns the original.
+     *
+     *     :param body: The expense as typed
+     *     :param session: The request-scoped session
+     *     :param lens: The teacher lens
+     *     :return: The expense
+     */
+    post: operations['create_expense_v1_expenses_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/expenses/{expense_id}/void': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Void One Expense
+     * @description Void an expense, keeping it on the record.
+     *
+     *     :param expense_id: The expense, from the route path
+     *     :param body: Why
+     *     :param session: The request-scoped session
+     *     :param lens: The teacher lens
+     *     :return: The voided expense
+     */
+    post: operations['void_one_expense_v1_expenses__expense_id__void_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/v1/extra-fees/{extra_fee_id}': {
     parameters: {
       query?: never
@@ -2151,6 +2211,31 @@ export interface paths {
      *     :return: Money owed, today's classes and payments waiting
      */
     get: operations['read_today_v1_me_today_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/money/summary': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Read Money Summary
+     * @description One month's money in and out, and what is owed today.
+     *
+     *     :param session: The request-scoped session
+     *     :param lens: The teacher lens
+     *     :param month: ``YYYY-MM``; this month by default
+     *     :return: The summary
+     */
+    get: operations['read_money_summary_v1_money_summary_get']
     put?: never
     post?: never
     delete?: never
@@ -3135,6 +3220,29 @@ export interface components {
       state: 'cancelled' | 'not_recorded' | 'taken' | 'today' | 'upcoming'
     }
     /**
+     * CategoryTotalResponse
+     * @description What one category came to.
+     *
+     *     :ivar category: The category
+     *     :ivar total: Its total, voided expenses left out
+     */
+    CategoryTotalResponse: {
+      /**
+       * Category
+       * @enum {string}
+       */
+      category:
+        | 'exam_paper'
+        | 'materials'
+        | 'other'
+        | 'printing'
+        | 'rent'
+        | 'salary'
+        | 'transport'
+        | 'utilities'
+      total: components['schemas']['Money']
+    }
+    /**
      * ChargeableStudentResponse
      * @description A student a fee raised today would charge.
      *
@@ -4006,6 +4114,141 @@ export interface components {
       total_marks: number
     }
     /**
+     * ExpenseMonthResponse
+     * @description One month's expenses with the server's totals.
+     *
+     *     :ivar month: ``YYYY-MM``
+     *     :ivar total: What was spent, voided expenses left out
+     *     :ivar by_category: Each category's total, largest first
+     *     :ivar expenses: Every expense, voided ones included, newest first
+     */
+    ExpenseMonthResponse: {
+      /** By Category */
+      by_category: components['schemas']['CategoryTotalResponse'][]
+      /** Expenses */
+      expenses: components['schemas']['ExpenseResponse'][]
+      /** Month */
+      month: string
+      total: components['schemas']['Money']
+    }
+    /**
+     * ExpenseRequest
+     * @description Record one expense.
+     *
+     *     :ivar category: What it was spent on
+     *     :ivar what: The detail, as typed
+     *     :ivar amount: What was spent, more than zero
+     *     :ivar spent_on: The day the money went; not in the future
+     *     :ivar payee: Who it was paid to
+     *     :ivar note: A receipt number or note
+     *     :ivar batch_id: The batch it was for
+     *     :ivar extra_fee_id: The exam or other fee it was for
+     *     :ivar client_mutation_id: One per expense being recorded; a resend
+     *         returns the original and records nothing
+     */
+    ExpenseRequest: {
+      amount: components['schemas']['Money']
+      /** Batch Id */
+      batch_id?: string | null
+      /**
+       * Category
+       * @enum {string}
+       */
+      category:
+        | 'exam_paper'
+        | 'materials'
+        | 'other'
+        | 'printing'
+        | 'rent'
+        | 'salary'
+        | 'transport'
+        | 'utilities'
+      /** Client Mutation Id */
+      client_mutation_id?: string | null
+      /** Extra Fee Id */
+      extra_fee_id?: string | null
+      /** Note */
+      note?: string | null
+      /** Payee */
+      payee?: string | null
+      /**
+       * Spent On
+       * Format: date
+       */
+      spent_on: string
+      /** What */
+      what: string
+    }
+    /**
+     * ExpenseResponse
+     * @description One expense.
+     *
+     *     :ivar expense_id: The expense
+     *     :ivar category: What it was spent on
+     *     :ivar what: The detail
+     *     :ivar amount: What was spent
+     *     :ivar spent_on: The day
+     *     :ivar payee: Who it was paid to
+     *     :ivar note: The note
+     *     :ivar batch_id: The batch it was for
+     *     :ivar extra_fee_id: The exam or other fee it was for
+     *     :ivar voided: Whether it was voided; a voided expense counts for nothing
+     *     :ivar void_reason: Why it was voided
+     *     :ivar voided_at: When
+     */
+    ExpenseResponse: {
+      amount: components['schemas']['Money']
+      /** Batch Id */
+      batch_id?: string | null
+      /**
+       * Category
+       * @enum {string}
+       */
+      category:
+        | 'exam_paper'
+        | 'materials'
+        | 'other'
+        | 'printing'
+        | 'rent'
+        | 'salary'
+        | 'transport'
+        | 'utilities'
+      /**
+       * Expense Id
+       * Format: uuid
+       */
+      expense_id: string
+      /** Extra Fee Id */
+      extra_fee_id?: string | null
+      /** Note */
+      note?: string | null
+      /** Payee */
+      payee?: string | null
+      /**
+       * Spent On
+       * Format: date
+       */
+      spent_on: string
+      /** Void Reason */
+      void_reason?: string | null
+      /** Voided */
+      voided: boolean
+      /** Voided At */
+      voided_at?: string | null
+      /** What */
+      what: string
+    }
+    /**
+     * ExpenseVoidRequest
+     * @description Void an expense, keeping it on the record.
+     *
+     *     :ivar reason: Why, shown beside it
+     */
+    ExpenseVoidRequest: {
+      /** Reason */
+      reason?: string | null
+    }
+    /**
      * ExtraFeeDetailResponse
      * @description One fee with every student charged.
      *
@@ -4714,6 +4957,73 @@ export interface components {
      * @description A BDT amount in canonical form: exactly two decimal places, no thousands separator, no currency symbol, no sign. Always a JSON string, never a JSON number.
      */
     Money: string
+    /**
+     * MoneyCollectedResponse
+     * @description What came in during a month, by what it was for.
+     *
+     *     :ivar monthly: For monthly fees
+     *     :ivar exam: For exam fees
+     *     :ivar other: For other fees
+     *     :ivar total: The three together
+     */
+    MoneyCollectedResponse: {
+      exam: components['schemas']['Money']
+      monthly: components['schemas']['Money']
+      other: components['schemas']['Money']
+      total: components['schemas']['Money']
+    }
+    /**
+     * MoneyFeeLineResponse
+     * @description One extra fee's takings against what was spent for it.
+     *
+     *     :ivar extra_fee_id: The fee
+     *     :ivar label: Its name
+     *     :ivar collected: Paid against it
+     *     :ivar spent: Spent for it
+     */
+    MoneyFeeLineResponse: {
+      collected: components['schemas']['Money']
+      /**
+       * Extra Fee Id
+       * Format: uuid
+       */
+      extra_fee_id: string
+      /** Label */
+      label: string
+      spent: components['schemas']['Money']
+    }
+    /**
+     * MoneySummaryResponse
+     * @description One month's money, in and out, and what is owed today.
+     *
+     *     :ivar month: ``YYYY-MM``
+     *     :ivar collected: What came in, by purpose
+     *     :ivar spent_total: What went out
+     *     :ivar spent_by_category: Each category's total, largest first
+     *     :ivar net: The difference between them, never negative
+     *     :ivar net_kind: ``surplus``, ``deficit`` or ``even``
+     *     :ivar owed_monthly: Monthly fees still owed today
+     *     :ivar owed_extra: Exam and other fees still owed today
+     *     :ivar extra_fees: Fees due this month or spent for this month
+     */
+    MoneySummaryResponse: {
+      collected: components['schemas']['MoneyCollectedResponse']
+      /** Extra Fees */
+      extra_fees: components['schemas']['MoneyFeeLineResponse'][]
+      /** Month */
+      month: string
+      net: components['schemas']['Money']
+      /**
+       * Net Kind
+       * @enum {string}
+       */
+      net_kind: 'deficit' | 'even' | 'surplus'
+      owed_extra: components['schemas']['Money']
+      owed_monthly: components['schemas']['Money']
+      /** Spent By Category */
+      spent_by_category: components['schemas']['CategoryTotalResponse'][]
+      spent_total: components['schemas']['Money']
+    }
     /**
      * MonthCollectionResponse
      * @description One month of the collections report.
@@ -9631,6 +9941,213 @@ export interface operations {
       }
     }
   }
+  read_expenses_v1_expenses_get: {
+    parameters: {
+      query?: {
+        month?: string | null
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ExpenseMonthResponse']
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  create_expense_v1_expenses_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ExpenseRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ExpenseResponse']
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  void_one_expense_v1_expenses__expense_id__void_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        expense_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ExpenseVoidRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ExpenseResponse']
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
   read_extra_fee_v1_extra_fees__extra_fee_id__get: {
     parameters: {
       query?: never
@@ -10611,6 +11128,73 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  read_money_summary_v1_money_summary_get: {
+    parameters: {
+      query?: {
+        month?: string | null
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MoneySummaryResponse']
+        }
+      }
+      /** @description The request is wrong. Fix and resubmit; never retry as-is. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this; absence reads the same. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Valid request; current state forbids it. Refetch and decide. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
         }
       }
     }

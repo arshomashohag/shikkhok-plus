@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Awaitable, Callable
+from typing import Any
 
 from fastapi import FastAPI, Request, Response
 from sqlalchemy import Engine
@@ -86,6 +87,7 @@ def _register_routes(app: FastAPI) -> None:
     from app.api.auth import router as auth_router
     from app.api.batches import router as batches_router
     from app.api.deletion import router as deletion_router
+    from app.api.expenses import router as expenses_router
     from app.api.extra_fees import router as extra_fees_router
     from app.api.fees import router as fees_router
     from app.api.guardian import router as guardian_router
@@ -108,6 +110,7 @@ def _register_routes(app: FastAPI) -> None:
         auth_router,
         batches_router,
         deletion_router,
+        expenses_router,
         extra_fees_router,
         fees_router,
         guardian_router,
@@ -246,22 +249,41 @@ def _publish_shared_components(app: FastAPI) -> None:
     from app.schemas.errors import ErrorEnvelope
     from app.schemas.money import Money
 
-    document = app.openapi()
-    schemas = document.setdefault("components", {}).setdefault("schemas", {})
-    for model in (Money, ErrorEnvelope):
-        schemas.update(
-            model.model_json_schema(ref_template="#/components/schemas/{model}").pop(
-                "$defs", {}
-            )
-        )
-        schemas[model.__name__] = {
-            key: value
-            for key, value in model.model_json_schema(
-                ref_template="#/components/schemas/{model}"
-            ).items()
-            if key != "$defs"
-        }
-    app.openapi_schema = document
+    build = app.openapi
+
+    def openapi() -> dict[str, Any]:
+        """Build the document once, on first use, with the components in.
+
+        **Lazy, and that is a measured requirement** [CI time]. Building
+        the whole document costs about half a second and grows with every
+        route; done inside :func:`create_app` it was paid by every test
+        that builds an app, hundreds of times a run, and took the backend
+        job past its time limit. The document served and committed is
+        unchanged: the same injection, applied to the same document, the
+        first time anything asks for it.
+
+        :return: The document
+        """
+        if app.openapi_schema is None:
+            document = build()
+            schemas = document.setdefault("components", {}).setdefault("schemas", {})
+            for model in (Money, ErrorEnvelope):
+                schemas.update(
+                    model.model_json_schema(
+                        ref_template="#/components/schemas/{model}"
+                    ).pop("$defs", {})
+                )
+                schemas[model.__name__] = {
+                    key: value
+                    for key, value in model.model_json_schema(
+                        ref_template="#/components/schemas/{model}"
+                    ).items()
+                    if key != "$defs"
+                }
+            app.openapi_schema = document
+        return app.openapi_schema
+
+    app.openapi = openapi  # type: ignore[method-assign]
 
 
 app = create_app()

@@ -33,6 +33,11 @@ export const moneyRoutes: TeacherRoute[] = [
     element: lazyScreen(() => import('./PaymentMethods'), 'EditPaymentMethod'),
   },
   { path: '/collections', element: lazyScreen(() => import('./Collections'), 'Collections') },
+  { path: '/expenses', element: lazyScreen(() => import('./Expenses'), 'Expenses') },
+  {
+    path: '/money-summary',
+    element: lazyScreen(() => import('./Expenses'), 'MoneySummaryScreen'),
+  },
   {
     path: '/batches/:batchId/fees',
     element: lazyScreen(() => import('./ExtraFees'), 'BatchExtraFees'),
