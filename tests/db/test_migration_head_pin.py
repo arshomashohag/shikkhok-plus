@@ -43,11 +43,12 @@ VERSIONS: Final[pathlib.Path] = (
 #: the address in four parts -- again, and ``0017`` -- decimal marks and
 #: publishing -- once more, and ``0018`` -- a teacher's students, apart
 #: from any batch -- again, and ``0019`` -- cancelling an unpublished
-#: exam -- once more.
-EXPECTED_REVISIONS: Final[int] = 19
+#: exam -- once more, and ``0020`` -- exam and other fees, and what a
+#: payment is for -- again.
+EXPECTED_REVISIONS: Final[int] = 20
 
-#: The head ``0019`` leaves behind.
-EXPECTED_HEAD: Final[str] = "0019"
+#: The head ``0020`` leaves behind.
+EXPECTED_HEAD: Final[str] = "0020"
 
 
 def _revision_files() -> list[pathlib.Path]:

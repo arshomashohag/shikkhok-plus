@@ -44,7 +44,8 @@ from app.db.models import (
     PaymentClaim,
     PaymentSubmission,
 )
-from app.fees.balances import derive_for_enrollment
+from app.fees.extra_ledger import extra_decision_relief
+from app.fees.purposes import FeeRef, Purpose, fee_refs, owed_for_claim
 from app.fees.status import SubmissionStatus
 from app.fees.submissions import child_order
 from app.fees.verification import shortfall_of
@@ -133,6 +134,10 @@ class PaymentReview:
     :ivar decision_note: The teacher's note on the decision
     :ivar decided_at: When it was decided, or None
     :ivar duplicate_of: The earlier submission quoting the same reference
+    :ivar purpose: What the teacher applies it to, ``monthly`` or ``extra``
+    :ivar extra_fee: The fee it is applied to, when ``extra``
+    :ivar requested_purpose: What the family chose
+    :ivar requested_extra_fee: The fee the family chose, if any
     """
 
     submission_id: uuid.UUID
@@ -154,6 +159,10 @@ class PaymentReview:
     decision_note: str | None
     decided_at: dt.datetime | None
     duplicate_of: DuplicatePayment | None
+    purpose: Purpose = "monthly"
+    extra_fee: FeeRef | None = None
+    requested_purpose: Purpose = "monthly"
+    requested_extra_fee: FeeRef | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -368,10 +377,18 @@ def _review(
     :param duplicate_of: The earlier submission it repeats, if any
     :return: The review
     """
-    relief = (
+    # A decided payment is measured against what was owed before it, in
+    # whichever ledger its current decision lives: a claim re-pointed by
+    # a correction has no live entries left in the other one.
+    claims = [claim for claim, _seat in pairs]
+    relief = {} if submission.status == "pending" else _decision_relief(session, claims)
+    extra_relief = (
         {}
         if submission.status == "pending"
-        else _decision_relief(session, [claim for claim, _seat in pairs])
+        else extra_decision_relief(session, [claim.id for claim in claims])
+    )
+    fees = fee_refs(
+        session, [submission.extra_fee_id, submission.requested_extra_fee_id]
     )
     children = [
         ReviewChild(
@@ -379,8 +396,9 @@ def _review(
             enrollment_id=seat.id,
             display_name=seat.display_name,
             period=claim.period,
-            owed=derive_for_enrollment(session, seat.id).total_outstanding
-            + relief.get(claim.id, Money.ZERO),
+            owed=owed_for_claim(session, claim)
+            + relief.get(claim.id, Money.ZERO)
+            + extra_relief.get(claim.id, Money.ZERO),
             approved_amount=claim.approved_amount,
         )
         for claim, seat in pairs
@@ -408,6 +426,18 @@ def _review(
         decision_note=submission.decision_note,
         decided_at=submission.decided_at,
         duplicate_of=duplicate_of,
+        purpose="extra" if submission.purpose == "extra" else "monthly",
+        extra_fee=(
+            None if submission.extra_fee_id is None else fees[submission.extra_fee_id]
+        ),
+        requested_purpose=(
+            "extra" if submission.requested_purpose == "extra" else "monthly"
+        ),
+        requested_extra_fee=(
+            None
+            if submission.requested_extra_fee_id is None
+            else fees[submission.requested_extra_fee_id]
+        ),
     )
 
 

@@ -42,6 +42,11 @@ from app.db.models import (
 )
 from app.errors import ConflictError, ValidationError
 from app.fees.balances import derive_for_enrollment
+from app.fees.extra_ledger import (
+    append_extra_entry,
+    owed_on_charge,
+    reverse_extra_entries,
+)
 from app.fees.ledger_writer import append_entry, supersede
 from app.money import Money, apply_credit, settle_oldest_first
 from app.notifications.inbox import (
@@ -371,9 +376,17 @@ def withdraw_decision(
     previous = _previous_decision(claim)
     if previous is None:
         return None
-    _reverse_prior_entries(
-        session, claim, verified_by_account_id=verified_by_account_id
-    )
+    # Reversed in the ledger the decision was WRITTEN to [0020]. A
+    # correction that changes what the payment is for re-points the
+    # claim only after this, so the old decision is undone where it is.
+    if claim.extra_fee_charge_id is not None:
+        reverse_extra_entries(
+            session, claim, verified_by_account_id=verified_by_account_id
+        )
+    else:
+        _reverse_prior_entries(
+            session, claim, verified_by_account_id=verified_by_account_id
+        )
     claim.previous_decision = previous
     claim.status = _UNDECIDED
     return previous
@@ -412,6 +425,13 @@ def verify_claim_in_transaction(
             message_key="fees.verification.amount_negative",
         )
     withdraw_decision(session, claim, verified_by_account_id=verified_by_account_id)
+    if claim.extra_fee_charge_id is not None:
+        # The single-claim path predates extra fees and settles a month.
+        # An extra-fee claim is only ever decided through its submission.
+        raise ValidationError(
+            code="CLAIM_NOT_VERIFIABLE",
+            message_key="fees.claim.not_verifiable",
+        )
 
     period = claim.period
     derived = derive_for_enrollment(session, claim.enrollment_id)
@@ -585,6 +605,15 @@ def settle_claim_in_transaction(
             message_key="fees.verification.amount_negative",
         )
     withdraw_decision(session, claim, verified_by_account_id=verified_by_account_id)
+    if claim.extra_fee_charge_id is not None:
+        return _settle_extra(
+            session,
+            claim,
+            charge_id=claim.extra_fee_charge_id,
+            approved_amount=approved_amount,
+            shortfall_disposition=shortfall_disposition,
+            verified_by_account_id=verified_by_account_id,
+        )
 
     per_cycle = derive_for_enrollment(session, claim.enrollment_id).per_cycle
     periods = sorted(p for p, owed in per_cycle.items() if owed.is_positive())
@@ -622,6 +651,70 @@ def settle_claim_in_transaction(
             verified_by_account_id=verified_by_account_id,
         )
 
+    claim.status = "approved_full" if shortfall.is_zero() else "approved_partial"
+    claim.approved_amount = approved_amount
+    claim.rejection_reason = None
+    claim.shortfall_disposition = shortfall_disposition
+    claim.verified_by_account_id = verified_by_account_id
+    claim.verified_at = dt.datetime.now(tz=dt.UTC)
+    return VerificationOutcome(claim=claim, shortfall=shortfall)
+
+
+def _settle_extra(
+    session: Session,
+    claim: PaymentClaim,
+    *,
+    charge_id: uuid.UUID,
+    approved_amount: Money,
+    shortfall_disposition: str | None,
+    verified_by_account_id: uuid.UUID,
+) -> VerificationOutcome:
+    """Approve one child's share against their charge under an extra fee.
+
+    **No more than the charge owes** [0020]. An extra fee holds no
+    credit -- the money has no month to wait for -- so an excess is
+    refused rather than kept; the teacher approves what the fee owes, or
+    applies the payment to the monthly fee instead.
+
+    **Carried means "still owed", and writes nothing**, as for a month:
+    the shortfall stays on the charge. **Waived** forgives it there.
+    Nothing reaches the monthly ledger either way.
+
+    :param session: The session to write through
+    :param claim: The child's claim, undecided
+    :param charge_id: The child's charge
+    :param approved_amount: What the allocation approved for this child
+    :param shortfall_disposition: ``carried`` or ``waived`` when short
+    :param verified_by_account_id: Who decided
+    :return: The decided claim and the child's shortfall on the fee
+    :raises ValidationError: More than the charge owes, or the
+        disposition is missing, unknown or not applicable
+    """
+    owed = owed_on_charge(session, charge_id)
+    if approved_amount > owed:
+        raise ValidationError(
+            code="EXTRA_FEE_OVERPAID", message_key="fees.extra.overpaid"
+        )
+    shortfall = owed - approved_amount
+    check_disposition(shortfall, shortfall_disposition)
+    if approved_amount.is_positive():
+        append_extra_entry(
+            session,
+            charge_id=charge_id,
+            kind="receipt",
+            amount=approved_amount,
+            payment_claim_id=claim.id,
+            created_by_account_id=verified_by_account_id,
+        )
+    if shortfall.is_positive() and shortfall_disposition == "waived":
+        append_extra_entry(
+            session,
+            charge_id=charge_id,
+            kind="forgiveness",
+            amount=shortfall,
+            payment_claim_id=claim.id,
+            created_by_account_id=verified_by_account_id,
+        )
     claim.status = "approved_full" if shortfall.is_zero() else "approved_partial"
     claim.approved_amount = approved_amount
     claim.rejection_reason = None

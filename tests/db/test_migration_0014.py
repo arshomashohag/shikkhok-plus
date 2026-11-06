@@ -227,8 +227,9 @@ def test_0014_downgrade_removes_only_what_it_made(staged: Engine) -> None:
             sa.text(
                 "INSERT INTO payment_submission (id, batch_id, "
                 "destination_snapshot, total_amount, paid_on, submitted_at, "
-                'status) VALUES (:id, :batch, \'{"kind": "cash"}\', 500, '
-                "'2026-11-01', :now, 'pending')"
+                "status, purpose, requested_purpose) VALUES (:id, :batch, "
+                "'{\"kind\": \"cash\"}', 500, '2026-11-01', :now, 'pending', "
+                "'monthly', 'monthly')"
             ),
             {"id": uuid.uuid4(), "batch": batch_id, "now": SUBMITTED},
         )

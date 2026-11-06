@@ -398,6 +398,24 @@
         "title": "BatchCreateRequest",
         "type": "object"
       },
+      "BatchExtraFeesResponse": {
+        "additionalProperties": false,
+        "description": "Every fee raised on a batch, newest first.\n\n:ivar fees: The fees",
+        "properties": {
+          "fees": {
+            "items": {
+              "$ref": "#/components/schemas/ExtraFeeSummaryResponse"
+            },
+            "title": "Fees",
+            "type": "array"
+          }
+        },
+        "required": [
+          "fees"
+        ],
+        "title": "BatchExtraFeesResponse",
+        "type": "object"
+      },
       "BatchFeesResponse": {
         "additionalProperties": false,
         "description": "One batch in one month.\n\n:ivar period: The month, as ``YYYY-MM``\n:ivar collected: Cash in for the month after corrections\n:ivar charged: What the month was billed\n:ivar counts: Seats per filter\n:ivar seats: One row per seat",
@@ -2210,6 +2228,372 @@
         "title": "ExamUpdateRequest",
         "type": "object"
       },
+      "ExtraFeeDetailResponse": {
+        "additionalProperties": false,
+        "description": "One fee with every student charged.\n\n:ivar students: Each student's row, by display name",
+        "properties": {
+          "amount": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "charged_total": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "collected_total": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "due_on": {
+            "format": "date",
+            "title": "Due On",
+            "type": "string"
+          },
+          "exam_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exam Id"
+          },
+          "exam_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exam Title"
+          },
+          "extra_fee_id": {
+            "format": "uuid",
+            "title": "Extra Fee Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "owed_total": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "owing_count": {
+            "title": "Owing Count",
+            "type": "integer"
+          },
+          "paid_count": {
+            "title": "Paid Count",
+            "type": "integer"
+          },
+          "purpose": {
+            "enum": [
+              "exam",
+              "other"
+            ],
+            "title": "Purpose",
+            "type": "string"
+          },
+          "student_count": {
+            "title": "Student Count",
+            "type": "integer"
+          },
+          "students": {
+            "items": {
+              "$ref": "#/components/schemas/ExtraFeeStudentResponse"
+            },
+            "title": "Students",
+            "type": "array"
+          },
+          "waived_count": {
+            "title": "Waived Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "amount",
+          "charged_total",
+          "collected_total",
+          "created_at",
+          "due_on",
+          "extra_fee_id",
+          "label",
+          "owed_total",
+          "owing_count",
+          "paid_count",
+          "purpose",
+          "student_count",
+          "students",
+          "waived_count"
+        ],
+        "title": "ExtraFeeDetailResponse",
+        "type": "object"
+      },
+      "ExtraFeeRaiseRequest": {
+        "additionalProperties": false,
+        "description": "Raise an exam or other fee on a batch.\n\n:ivar purpose: ``exam`` or ``other``\n:ivar label: The name families see\n:ivar exam_id: The exam an exam fee is for, if linked\n:ivar amount: The per-student amount\n:ivar due_on: When it is due\n:ivar seat_amounts: Students given a different amount\n:ivar excluded_enrollment_ids: Students left out\n:ivar client_mutation_id: One UUID per fee being raised, reused on\n    every resend. A resend returns the original fee with the original\n    201 and charges nobody twice; the same id with a different fee is\n    a 409",
+        "properties": {
+          "amount": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "client_mutation_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Mutation Id"
+          },
+          "due_on": {
+            "format": "date",
+            "title": "Due On",
+            "type": "string"
+          },
+          "exam_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exam Id"
+          },
+          "excluded_enrollment_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 500,
+            "title": "Excluded Enrollment Ids",
+            "type": "array"
+          },
+          "label": {
+            "maxLength": 200,
+            "title": "Label",
+            "type": "string"
+          },
+          "purpose": {
+            "enum": [
+              "exam",
+              "other"
+            ],
+            "title": "Purpose",
+            "type": "string"
+          },
+          "seat_amounts": {
+            "items": {
+              "$ref": "#/components/schemas/SeatAmountRequest"
+            },
+            "maxItems": 500,
+            "title": "Seat Amounts",
+            "type": "array"
+          }
+        },
+        "required": [
+          "amount",
+          "due_on",
+          "label",
+          "purpose"
+        ],
+        "title": "ExtraFeeRaiseRequest",
+        "type": "object"
+      },
+      "ExtraFeeRefResponse": {
+        "additionalProperties": false,
+        "description": "An extra fee as a payment names it.\n\n:ivar extra_fee_id: The fee\n:ivar purpose: ``exam`` or ``other``\n:ivar label: The name families see\n:ivar due_on: When it is due",
+        "properties": {
+          "due_on": {
+            "format": "date",
+            "title": "Due On",
+            "type": "string"
+          },
+          "extra_fee_id": {
+            "format": "uuid",
+            "title": "Extra Fee Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "purpose": {
+            "enum": [
+              "exam",
+              "other"
+            ],
+            "title": "Purpose",
+            "type": "string"
+          }
+        },
+        "required": [
+          "due_on",
+          "extra_fee_id",
+          "label",
+          "purpose"
+        ],
+        "title": "ExtraFeeRefResponse",
+        "type": "object"
+      },
+      "ExtraFeeStudentResponse": {
+        "additionalProperties": false,
+        "description": "One student under one fee, as the teacher sees it.\n\n:ivar enrollment_id: The seat\n:ivar display_name: The teacher-typed name\n:ivar charged: What was charged\n:ivar paid: What arrived\n:ivar owed: What is still owed\n:ivar status: The server's status",
+        "properties": {
+          "charged": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "enrollment_id": {
+            "format": "uuid",
+            "title": "Enrollment Id",
+            "type": "string"
+          },
+          "owed": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "paid": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "status": {
+            "enum": [
+              "paid",
+              "partly_paid",
+              "unpaid",
+              "waived"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "charged",
+          "display_name",
+          "enrollment_id",
+          "owed",
+          "paid",
+          "status"
+        ],
+        "title": "ExtraFeeStudentResponse",
+        "type": "object"
+      },
+      "ExtraFeeSummaryResponse": {
+        "additionalProperties": false,
+        "description": "One fee with its totals.\n\n:ivar extra_fee_id: The fee\n:ivar purpose: ``exam`` or ``other``\n:ivar label: The name families see\n:ivar exam_id: The linked exam, if any\n:ivar exam_title: That exam's title, if any\n:ivar amount: The per-student amount it was raised with\n:ivar due_on: When it is due\n:ivar created_at: When it was raised\n:ivar student_count: Students charged\n:ivar paid_count: Students paid\n:ivar waived_count: Students waived\n:ivar owing_count: Students still owing\n:ivar charged_total: Everything charged\n:ivar collected_total: Everything that arrived\n:ivar owed_total: Everything still owed",
+        "properties": {
+          "amount": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "charged_total": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "collected_total": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "due_on": {
+            "format": "date",
+            "title": "Due On",
+            "type": "string"
+          },
+          "exam_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exam Id"
+          },
+          "exam_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exam Title"
+          },
+          "extra_fee_id": {
+            "format": "uuid",
+            "title": "Extra Fee Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "owed_total": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "owing_count": {
+            "title": "Owing Count",
+            "type": "integer"
+          },
+          "paid_count": {
+            "title": "Paid Count",
+            "type": "integer"
+          },
+          "purpose": {
+            "enum": [
+              "exam",
+              "other"
+            ],
+            "title": "Purpose",
+            "type": "string"
+          },
+          "student_count": {
+            "title": "Student Count",
+            "type": "integer"
+          },
+          "waived_count": {
+            "title": "Waived Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "amount",
+          "charged_total",
+          "collected_total",
+          "created_at",
+          "due_on",
+          "extra_fee_id",
+          "label",
+          "owed_total",
+          "owing_count",
+          "paid_count",
+          "purpose",
+          "student_count",
+          "waived_count"
+        ],
+        "title": "ExtraFeeSummaryResponse",
+        "type": "object"
+      },
       "FamilyBatchViewResponse": {
         "additionalProperties": false,
         "description": "What a student or guardian sees of one batch [BR7.2].\n\n``served_at`` is BR7.3's server timestamp, so a client rendering\nthis from cache can state its age without consulting the device\nclock -- which is the thing excluded from decisions.\n\n:ivar next_session_date: The next scheduled session's date, or\n    null\n:ivar next_session_start_time: Its start time, or null\n:ivar past_sessions: Past sessions with topics and attendance\n:ivar announcements: The batch's visible notes\n:ivar served_at: When the server computed this\n:ivar next_session: The next class, or null\n:ivar following_sessions: The classes after it, soonest first\n:ivar upcoming_exam: The next exam still to be sat, or null\n:ivar teacher: The teacher's display name and subjects\n:ivar exams: Every exam, upcoming soonest first then done newest first\n:ivar current_fee: The seat's latest fee period, the same line the\n    student's batch list carries, or null before the first",
@@ -3736,7 +4120,7 @@
       },
       "PaymentApprovalRequest": {
         "additionalProperties": false,
-        "description": "Approve a payment, saying what was received and how to split it (R4).\n\n``shortfall_disposition`` is required when less than the children\nowe together was received, and refused otherwise; it carries no\ndefault, because carrying and waiving have opposite consequences for\nthe family [BR5.4]. For more than one child a short payment also\nnames who carries it and an over payment names who gets the credit.\nThe server enforces both, because only it knows what is owed.\n\n``correcting`` is the teacher saying \"I know this payment is already\ndecided and I am revising it\" [BR5.7, FR9.2]; without it a second\ndecision is refused, so a concurrent repeat cannot credit twice.\n\n:ivar received_amount: What the teacher received; more than zero,\n    since a payment nothing came in for is rejected rather than\n    approved\n:ivar shortfall_disposition: Carried or waived, when short\n:ivar carried_by_enrollment_id: The child who carries a shortfall\n:ivar credit_to_enrollment_id: The child who gets an excess as credit\n:ivar note: Shown to the family with the decision\n:ivar correcting: True when deliberately revising a decided payment",
+        "description": "Approve a payment, saying what was received and how to split it (R4).\n\n``shortfall_disposition`` is required when less than the children\nowe together was received, and refused otherwise; it carries no\ndefault, because carrying and waiving have opposite consequences for\nthe family [BR5.4]. For more than one child a short payment also\nnames who carries it and an over payment names who gets the credit.\nThe server enforces both, because only it knows what is owed.\n\n``correcting`` is the teacher saying \"I know this payment is already\ndecided and I am revising it\" [BR5.7, FR9.2]; without it a second\ndecision is refused, so a concurrent repeat cannot credit twice.\n\n:ivar received_amount: What the teacher received; more than zero,\n    since a payment nothing came in for is rejected rather than\n    approved\n:ivar shortfall_disposition: Carried or waived, when short\n:ivar carried_by_enrollment_id: The child who carries a shortfall\n:ivar credit_to_enrollment_id: The child who gets an excess as credit\n:ivar note: Shown to the family with the decision\n:ivar correcting: True when deliberately revising a decided payment\n:ivar purpose: Apply the payment to the monthly fee or to an extra\n    fee, whatever the family chose; omitted keeps what it is for now.\n    The family is shown both what they chose and what it was applied to\n:ivar extra_fee_id: The fee, when ``purpose`` is ``extra``",
         "properties": {
           "carried_by_enrollment_id": {
             "anyOf": [
@@ -3767,6 +4151,18 @@
             ],
             "title": "Credit To Enrollment Id"
           },
+          "extra_fee_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extra Fee Id"
+          },
           "note": {
             "anyOf": [
               {
@@ -3778,6 +4174,21 @@
               }
             ],
             "title": "Note"
+          },
+          "purpose": {
+            "anyOf": [
+              {
+                "enum": [
+                  "extra",
+                  "monthly"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Purpose"
           },
           "received_amount": {
             "$ref": "#/components/schemas/Money"
@@ -4282,7 +4693,7 @@
       },
       "PaymentReviewResponse": {
         "additionalProperties": false,
-        "description": "One payment as its teacher reviews it (R1, R2, R3).\n\n``method`` is the destination as the family was shown it when they\npaid, so a later edit of the method does not change what the\nteacher checks against.\n\n:ivar submission_id: The submission\n:ivar batch_name: The batch\n:ivar children: The children covered, in child order\n:ivar owed_together: What they owe together now\n:ivar total_amount: What the payer says they sent\n:ivar comparison: ``matches``, ``short`` or ``over``\n:ivar difference: How far from what is owed, never negative\n:ivar method: The destination snapshot\n:ivar transaction_id: The mobile reference, if any\n:ivar from_account: The paying bank account, if any\n:ivar paid_on: The day the money moved\n:ivar submitted_at: When it was reported\n:ivar submitted_by: ``student`` or ``guardian``, or null\n:ivar submitter_phone: The number the teacher holds for them\n:ivar payer_note: The payer's note\n:ivar status: ``pending``, ``approved`` or ``rejected``\n:ivar decision_note: The teacher's note on the decision\n:ivar decided_at: When it was decided, or null\n:ivar duplicate_of: The earlier payment quoting the same reference",
+        "description": "One payment as its teacher reviews it (R1, R2, R3).\n\n``method`` is the destination as the family was shown it when they\npaid, so a later edit of the method does not change what the\nteacher checks against.\n\n:ivar submission_id: The submission\n:ivar batch_name: The batch\n:ivar children: The children covered, in child order\n:ivar owed_together: What they owe together now\n:ivar total_amount: What the payer says they sent\n:ivar comparison: ``matches``, ``short`` or ``over``\n:ivar difference: How far from what is owed, never negative\n:ivar method: The destination snapshot\n:ivar transaction_id: The mobile reference, if any\n:ivar from_account: The paying bank account, if any\n:ivar paid_on: The day the money moved\n:ivar submitted_at: When it was reported\n:ivar submitted_by: ``student`` or ``guardian``, or null\n:ivar submitter_phone: The number the teacher holds for them\n:ivar payer_note: The payer's note\n:ivar status: ``pending``, ``approved`` or ``rejected``\n:ivar decision_note: The teacher's note on the decision\n:ivar decided_at: When it was decided, or null\n:ivar duplicate_of: The earlier payment quoting the same reference\n:ivar purpose: What the payment is applied to\n:ivar extra_fee: The fee it is applied to, when ``extra``\n:ivar requested_purpose: What the family chose\n:ivar requested_extra_fee: The fee the family chose, if any",
         "properties": {
           "batch_name": {
             "title": "Batch Name",
@@ -4340,6 +4751,16 @@
               }
             ]
           },
+          "extra_fee": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExtraFeeRefResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "from_account": {
             "anyOf": [
               {
@@ -4372,6 +4793,34 @@
               }
             ],
             "title": "Payer Note"
+          },
+          "purpose": {
+            "default": "monthly",
+            "enum": [
+              "extra",
+              "monthly"
+            ],
+            "title": "Purpose",
+            "type": "string"
+          },
+          "requested_extra_fee": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExtraFeeRefResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requested_purpose": {
+            "default": "monthly",
+            "enum": [
+              "extra",
+              "monthly"
+            ],
+            "title": "Requested Purpose",
+            "type": "string"
           },
           "status": {
             "enum": [
@@ -4484,6 +4933,19 @@
             "title": "Enrollment Ids",
             "type": "array"
           },
+          "extra_fee_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The fee, when purpose is extra.",
+            "title": "Extra Fee Id"
+          },
           "from_account": {
             "anyOf": [
               {
@@ -4524,6 +4986,22 @@
               }
             ],
             "title": "Payment Method Id"
+          },
+          "purpose": {
+            "anyOf": [
+              {
+                "enum": [
+                  "extra",
+                  "monthly"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What the payment is for. Omitted, as an older app sends it, it pays the monthly fee, which is what every payment did before this field.",
+            "title": "Purpose"
           },
           "transaction_id": {
             "anyOf": [
@@ -4973,6 +5451,18 @@
             ],
             "title": "Client Mutation Id"
           },
+          "extra_fee_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extra Fee Id"
+          },
           "note": {
             "anyOf": [
               {
@@ -4996,6 +5486,22 @@
               }
             ],
             "title": "Paid On"
+          },
+          "purpose": {
+            "anyOf": [
+              {
+                "enum": [
+                  "extra",
+                  "monthly"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What the money was for; omitted means the monthly fee.",
+            "title": "Purpose"
           },
           "reference": {
             "anyOf": [
@@ -5465,6 +5971,103 @@
           "weekday"
         ],
         "title": "ScheduleSlotWire",
+        "type": "object"
+      },
+      "SeatAmountRequest": {
+        "additionalProperties": false,
+        "description": "One student given a different amount; zero waives it.\n\n:ivar enrollment_id: The seat\n:ivar amount: Their amount, zero or more",
+        "properties": {
+          "amount": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "enrollment_id": {
+            "format": "uuid",
+            "title": "Enrollment Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "amount",
+          "enrollment_id"
+        ],
+        "title": "SeatAmountRequest",
+        "type": "object"
+      },
+      "SeatExtraFeeResponse": {
+        "additionalProperties": false,
+        "description": "One fee as a student or guardian sees it.\n\n:ivar extra_fee_id: The fee, which a payment names\n:ivar purpose: ``exam`` or ``other``\n:ivar label: The name\n:ivar due_on: When it is due\n:ivar charged: What was charged\n:ivar paid: What arrived\n:ivar owed: What is still owed\n:ivar status: The server's status",
+        "properties": {
+          "charged": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "due_on": {
+            "format": "date",
+            "title": "Due On",
+            "type": "string"
+          },
+          "extra_fee_id": {
+            "format": "uuid",
+            "title": "Extra Fee Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "owed": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "paid": {
+            "$ref": "#/components/schemas/Money"
+          },
+          "purpose": {
+            "enum": [
+              "exam",
+              "other"
+            ],
+            "title": "Purpose",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "paid",
+              "partly_paid",
+              "unpaid",
+              "waived"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "charged",
+          "due_on",
+          "extra_fee_id",
+          "label",
+          "owed",
+          "paid",
+          "purpose",
+          "status"
+        ],
+        "title": "SeatExtraFeeResponse",
+        "type": "object"
+      },
+      "SeatExtraFeesResponse": {
+        "additionalProperties": false,
+        "description": "Every extra fee one seat was charged, soonest due first.\n\n:ivar fees: The fees",
+        "properties": {
+          "fees": {
+            "items": {
+              "$ref": "#/components/schemas/SeatExtraFeeResponse"
+            },
+            "title": "Fees",
+            "type": "array"
+          }
+        },
+        "required": [
+          "fees"
+        ],
+        "title": "SeatExtraFeesResponse",
         "type": "object"
       },
       "SeatMarkRequest": {
@@ -8025,6 +8628,162 @@
         ]
       }
     },
+    "/v1/batches/{batch_id}/extra-fees": {
+      "get": {
+        "description": "List every fee raised on one of this teacher's batches.\n\n:param batch_id: The batch, from the route path\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: The fees, newest first",
+        "operationId": "read_batch_extra_fees_v1_batches__batch_id__extra_fees_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchExtraFeesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Batch Extra Fees",
+        "tags": [
+          "fees"
+        ]
+      },
+      "post": {
+        "description": "Raise an exam or other fee and charge the batch's students.\n\nA resend under the same ``client_mutation_id`` returns the original\nfee with the same 201 and charges nobody twice.\n\n:param batch_id: The batch, from the route path\n:param body: The fee as the teacher typed it\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: The fee with its totals",
+        "operationId": "raise_fee_v1_batches__batch_id__extra_fees_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExtraFeeRaiseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtraFeeSummaryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request is wrong. Fix and resubmit; never retry as-is."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Valid request; current state forbids it. Refetch and decide."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Raise Fee",
+        "tags": [
+          "fees"
+        ]
+      }
+    },
     "/v1/batches/{batch_id}/fees": {
       "get": {
         "description": "Read one of this teacher's batches in one month.\n\n:param batch_id: The batch, from the route path\n:param session: The request-scoped session\n:param lens: The teacher lens carrying the owner id\n:param period: The month as ``YYYY-MM``; the current month by default\n:return: The month's totals, filter counts and one row per seat",
@@ -9629,6 +10388,70 @@
         ]
       }
     },
+    "/v1/enrollments/{enrollment_id}/extra-fees": {
+      "get": {
+        "description": "List the exam and other fees one seat was charged.\n\n:param enrollment_id: The seat, from the route path\n:param request: The request carrying the lens memo\n:param session: The request-scoped session\n:param lens: The authenticated family lens\n:return: The fees, soonest due first",
+        "operationId": "read_seat_extra_fees_v1_enrollments__enrollment_id__extra_fees_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "enrollment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Enrollment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeatExtraFeesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Seat Extra Fees",
+        "tags": [
+          "fees"
+        ]
+      }
+    },
     "/v1/enrollments/{enrollment_id}/fees": {
       "get": {
         "description": "List one seat's generated periods and last months, for its teacher.\n\n:param enrollment_id: The seat, from the route path\n:param session: The request-scoped session\n:param lens: The teacher lens\n:param months: How many months the strip covers, clamped to 1 to 24\n:return: One row per generated period and the month strip",
@@ -10342,6 +11165,70 @@
         "summary": "Read Exam Results",
         "tags": [
           "marks"
+        ]
+      }
+    },
+    "/v1/extra-fees/{extra_fee_id}": {
+      "get": {
+        "description": "Read one fee with every student charged.\n\n:param extra_fee_id: The fee, from the route path\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: The fee and its students",
+        "operationId": "read_extra_fee_v1_extra_fees__extra_fee_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "extra_fee_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Extra Fee Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtraFeeDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Extra Fee",
+        "tags": [
+          "fees"
         ]
       }
     },
@@ -11907,7 +12794,7 @@
     },
     "/v1/payments/owed": {
       "get": {
-        "description": "Say what the chosen children owe together, for \"Owed for ...\".\n\n:param request: The request carrying the lens memo\n:param session: The request-scoped session\n:param lens: The authenticated family lens\n:param enrollment_id: The children, repeated once per child\n:return: The total and each child's figure, in child order",
+        "description": "Say what the chosen children owe together, for \"Owed for ...\".\n\n:param request: The request carrying the lens memo\n:param session: The request-scoped session\n:param lens: The authenticated family lens\n:param enrollment_id: The children, repeated once per child\n:param extra_fee_id: Ask about one extra fee rather than the months\n:return: The total and each child's figure, in child order",
         "operationId": "read_owed_together_v1_payments_owed_get",
         "parameters": [
           {
@@ -11923,6 +12810,23 @@
               "minItems": 1,
               "title": "Enrollment Id",
               "type": "array"
+            }
+          },
+          {
+            "in": "query",
+            "name": "extra_fee_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Extra Fee Id"
             }
           }
         ],

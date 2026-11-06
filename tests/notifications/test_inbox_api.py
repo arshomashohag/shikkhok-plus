@@ -117,6 +117,7 @@ def _claim(
         status=status,
         approved_amount=None if approved is None else Money(approved),
         rejection_reason=reason,
+        purpose="monthly",
     )
     session.add(claim)
     session.commit()

@@ -262,9 +262,10 @@ def _seed_submission(
             sa.text(
                 "INSERT INTO payment_submission (id, batch_id, destination_snapshot, "
                 "total_amount, paid_on, transaction_id, from_account, "
-                "submitted_by_account_id, submitted_at, status) VALUES "
+                "submitted_by_account_id, submitted_at, status, purpose, "
+                "requested_purpose) VALUES "
                 "(:id, :batch, '{}', :total, :paid_on, :tx, :frm, :by, :now, "
-                "'pending')"
+                "'pending', 'monthly', 'monthly')"
             ),
             {
                 "id": uuid.uuid4(),
@@ -325,8 +326,8 @@ def _insert_claim(
             sa.text(
                 "INSERT INTO payment_claim (id, enrollment_id, period, "
                 "claimed_amount, channel, submitted_at, status, "
-                "payment_submission_id) VALUES (:id, :enr, '2026-11', :amt, "
-                "'bKash', :now, 'pending', :sub)"
+                "payment_submission_id, purpose) VALUES (:id, :enr, '2026-11', "
+                ":amt, 'bKash', :now, 'pending', :sub, 'monthly')"
             ),
             {
                 "id": uuid.uuid4(),
@@ -362,8 +363,9 @@ def test_linked_claim_may_carry_a_zero_share(head: Engine) -> None:
             sa.text(
                 "INSERT INTO payment_submission (id, batch_id, "
                 "destination_snapshot, total_amount, paid_on, "
-                "submitted_by_account_id, submitted_at, status) VALUES "
-                "(:id, :batch, '{}', 50, :paid_on, :by, :now, 'pending')"
+                "submitted_by_account_id, submitted_at, status, purpose, "
+                "requested_purpose) VALUES (:id, :batch, '{}', 50, :paid_on, "
+                ":by, :now, 'pending', 'monthly', 'monthly')"
             ),
             {
                 "id": submission_id,
@@ -444,8 +446,9 @@ def test_0013_downgrade_refuses_with_a_zero_share_claim(head: Engine) -> None:
             sa.text(
                 "INSERT INTO payment_submission (id, batch_id, "
                 "destination_snapshot, total_amount, paid_on, "
-                "submitted_by_account_id, submitted_at, status) VALUES "
-                "(:id, :batch, '{}', 50, :paid_on, :by, :now, 'pending')"
+                "submitted_by_account_id, submitted_at, status, purpose, "
+                "requested_purpose) VALUES (:id, :batch, '{}', 50, :paid_on, "
+                ":by, :now, 'pending', 'monthly', 'monthly')"
             ),
             {
                 "id": submission_id,

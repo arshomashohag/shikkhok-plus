@@ -335,6 +335,37 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
             "while the person's link to it does not."
         ),
     ),
+    "extra_fee": TableGovernance(
+        disposition=Disposition.RETAIN_WITH_BASIS,
+        retention=RetentionClass.LIFE_OF_ACCOUNT,
+        basis=(
+            "An exam or other fee a teacher raised on a batch: its name, "
+            "its due date and the amount each student was asked for. It is "
+            "the teacher's record of what was charged, carries nothing "
+            "about any one person, and is kept with the ledger it indexes."
+        ),
+    ),
+    "extra_fee_charge": TableGovernance(
+        disposition=Disposition.RETAIN_WITH_BASIS,
+        retention=RetentionClass.LIFE_OF_ACCOUNT,
+        basis=(
+            "One student's place under an extra fee, holding no money and "
+            "no name -- only the fee and the enrollment -- so keeping it "
+            "after an erasure discloses nothing about that person while "
+            "leaving the record of what was charged intact."
+        ),
+    ),
+    "extra_fee_entry": TableGovernance(
+        disposition=Disposition.RETAIN_WITH_BASIS,
+        retention=RetentionClass.LIFE_OF_ACCOUNT,
+        basis=(
+            "A financial record of an exam or other fee charged and paid, "
+            "append-only like the monthly ledger, so a correction "
+            "compensates rather than overwrites. It carries no name, no "
+            "phone number and no transaction reference -- only a charge, "
+            "a kind and an amount."
+        ),
+    ),
     "reminder_event": TableGovernance(
         disposition=Disposition.HARD_DELETE,
         retention=RetentionClass.MONTHS_12,

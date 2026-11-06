@@ -190,6 +190,10 @@ def test_the_real_application_needs_the_allowlist() -> None:
     ``credit_to_enrollment_id`` joined them with the payment decision
     (R4): a UUID naming the child who gets an excess as credit.
 
+    ``extra_fee_id``, ``due_on`` and ``paid_count`` joined them with exam
+    and other fees [0020]: a UUID naming a fee, the date one falls due,
+    and a COUNT of students paid.
+
     :return: None
     """
     from app.main import create_app
@@ -205,7 +209,10 @@ def test_the_real_application_needs_the_allowlist() -> None:
         "fee_due_day",
         "days_overdue",
         "due_date",
+        "due_on",
+        "extra_fee_id",
         "overdue_students",
+        "paid_count",
         "paid",
         "paid_on",
         "total",

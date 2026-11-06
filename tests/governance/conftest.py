@@ -256,6 +256,7 @@ def build_populated_seat(owner_session: Session) -> PopulatedSeat:
         approved_amount=Money("1000.00"),
         verified_by_account_id=teacher,
         verified_at=now,
+        purpose="monthly",
     )
     owner_session.add(claim)
     owner_session.commit()

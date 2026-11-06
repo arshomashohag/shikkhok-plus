@@ -137,6 +137,27 @@ _DISPOSITION = PgEnum(
     create_type=False,
 )
 
+#: What a payment is for [0020]: the monthly fee, or one extra fee.
+PAYMENT_PURPOSE_VALUES: tuple[str, ...] = ("monthly", "extra")
+
+_PAYMENT_PURPOSE = PgEnum(
+    *PAYMENT_PURPOSE_VALUES,
+    name="payment_purpose",
+    create_type=False,
+)
+
+#: What kind of extra fee a teacher raised [0020].
+EXTRA_FEE_PURPOSE_VALUES: tuple[str, ...] = ("exam", "other")
+
+_EXTRA_FEE_PURPOSE = PgEnum(
+    *EXTRA_FEE_PURPOSE_VALUES,
+    name="extra_fee_purpose",
+    create_type=False,
+)
+
+#: The only ledger kinds an extra fee's entries take: no carry, no credit.
+EXTRA_FEE_ENTRY_KIND_VALUES: tuple[str, ...] = ("charge", "receipt", "forgiveness")
+
 #: A reminder's delivery outcome [BR7.2]. ``pending`` exists because the
 #: event commits BEFORE the push is dispatched: writing it afterwards
 #: loses the record of a send that happened if the process dies between
@@ -234,8 +255,11 @@ __all__ = [
     "CLAIM_STATUS_VALUES",
     "DECISION_VALUES",
     "DISPOSITION_VALUES",
+    "EXTRA_FEE_ENTRY_KIND_VALUES",
+    "EXTRA_FEE_PURPOSE_VALUES",
     "FEE_GENERATION_JOB",
     "LEDGER_KIND_VALUES",
+    "PAYMENT_PURPOSE_VALUES",
     "REMINDER_OUTCOME_VALUES",
     "RESULT_STATE_VALUES",
     "RETENTION_PURGE_JOB",
@@ -251,6 +275,9 @@ __all__ = [
     "BatchSubject",
     "Enrollment",
     "Exam",
+    "ExtraFee",
+    "ExtraFeeCharge",
+    "ExtraFeeEntry",
     "FeeCycle",
     "HiddenBatchPreference",
     "JobHeartbeat",
@@ -951,8 +978,29 @@ class PaymentSubmission(Base):
     client_mutation_id: Mapped[uuid.UUID | None] = mapped_column(
         PgUUID(as_uuid=True), nullable=True
     )
+    # What the teacher applied the payment to [0020]. No default: every
+    # insert states it, and a missing purpose from an older app build is
+    # turned into ``monthly`` by the service, where it is visible.
+    purpose: Mapped[str] = mapped_column(_PAYMENT_PURPOSE, nullable=False)
+    extra_fee_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("extra_fee.id"), nullable=True
+    )
+    # What the family chose, kept as they chose it, so they can be shown
+    # that the teacher applied it elsewhere.
+    requested_purpose: Mapped[str] = mapped_column(_PAYMENT_PURPOSE, nullable=False)
+    requested_extra_fee_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("extra_fee.id"), nullable=True
+    )
 
     __table_args__ = (
+        CheckConstraint(
+            "(purpose = 'extra') = (extra_fee_id IS NOT NULL)",
+            name="ck_payment_submission_purpose_target",
+        ),
+        CheckConstraint(
+            "(requested_purpose = 'extra') = (requested_extra_fee_id IS NOT NULL)",
+            name="ck_payment_submission_requested_target",
+        ),
         # THE replay guarantee [PA-DB-1]: a retried submit inserts
         # `ON CONFLICT DO NOTHING` against this and reads the winner.
         # Per account, so another account's identical UUID is no
@@ -1220,8 +1268,19 @@ class PaymentClaim(Base):
         ForeignKey("payment_submission.id", ondelete="SET NULL"),
         nullable=True,
     )
+    # What this share was settled under [0020], and for an extra fee the
+    # student's charge it settles. Monthly shares settle months.
+    purpose: Mapped[str] = mapped_column(_PAYMENT_PURPOSE, nullable=False)
+    extra_fee_charge_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("extra_fee_charge.id"), nullable=True
+    )
 
     __table_args__ = (
+        CheckConstraint(
+            "(purpose = 'extra') = (extra_fee_charge_id IS NOT NULL)",
+            name="ck_payment_claim_purpose_target",
+        ),
+        Index("ix_payment_claim_extra_fee_charge_id", "extra_fee_charge_id"),
         CheckConstraint(
             "claimed_amount > 0 OR "
             "(payment_submission_id IS NOT NULL AND claimed_amount = 0)",
@@ -1314,6 +1373,170 @@ class LedgerEntryRow(Base):
         Index("ix_ledger_entry_enrollment_id", "enrollment_id"),
         Index("ix_ledger_entry_enrollment_period", "enrollment_id", "period"),
         Index("ix_ledger_entry_payment_claim_id", "payment_claim_id"),
+    )
+
+
+class ExtraFee(Base):
+    """One exam or other fee a teacher raised on a batch [0020].
+
+    ``amount`` is the per-student default the fee was raised with --
+    configuration, like ``batch.default_fee``. What each student owes is
+    never stored: it is folded from :class:`ExtraFeeEntry` rows.
+
+    :ivar id: Surrogate key
+    :ivar batch_id: The batch it was raised on
+    :ivar purpose: ``exam`` or ``other``
+    :ivar label: The name families see
+    :ivar exam_id: The exam an exam fee is for, if linked
+    :ivar amount: The per-student default
+    :ivar due_on: When it is due
+    :ivar created_by_account_id: Who raised it
+    :ivar client_mutation_id: The app's retry key, if sent
+    :ivar created_at: When it was raised
+    """
+
+    __tablename__ = "extra_fee"
+
+    id: Mapped[uuid.UUID] = _uuid_column()
+    batch_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("batch.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    purpose: Mapped[str] = mapped_column(_EXTRA_FEE_PURPOSE, nullable=False)
+    label: Mapped[str] = mapped_column(String(80), nullable=False)
+    exam_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("exam.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    amount: Mapped[Money] = mapped_column(MoneyColumn, nullable=False)
+    due_on: Mapped[dt.date] = mapped_column(Date, nullable=False)
+    created_by_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("account.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    client_mutation_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), nullable=True
+    )
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+    __table_args__ = (
+        CheckConstraint("amount >= 0", name="ck_extra_fee_amount_non_negative"),
+        CheckConstraint("length(trim(label)) > 0", name="ck_extra_fee_label"),
+        CheckConstraint(
+            "purpose = 'exam' OR exam_id IS NULL", name="ck_extra_fee_exam_only"
+        ),
+        UniqueConstraint(
+            "created_by_account_id",
+            "client_mutation_id",
+            name="uq_extra_fee_account_mutation",
+        ),
+        Index("ix_extra_fee_batch_id", "batch_id"),
+    )
+
+
+class ExtraFeeCharge(Base):
+    """One student's place under one extra fee [0020].
+
+    **No money column**, for :class:`FeeCycle`'s reason: what was charged,
+    paid and is still owed is folded from :class:`ExtraFeeEntry` rows, so
+    a stored figure could only drift from them. The unique constraint is
+    the whole idempotency mechanism for raising a fee.
+
+    :ivar id: Surrogate key
+    :ivar extra_fee_id: The fee
+    :ivar enrollment_id: The student's seat
+    :ivar created_at: When the charge was placed
+    """
+
+    __tablename__ = "extra_fee_charge"
+
+    id: Mapped[uuid.UUID] = _uuid_column()
+    extra_fee_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("extra_fee.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    enrollment_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("enrollment.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "extra_fee_id",
+            "enrollment_id",
+            name="uq_extra_fee_charge_fee_enrollment",
+        ),
+        Index("ix_extra_fee_charge_enrollment_id", "enrollment_id"),
+    )
+
+
+class ExtraFeeEntry(Base):
+    """One append-only movement of money against an extra fee's charge.
+
+    **Its own table, never rows in** :class:`LedgerEntryRow`. Every reader
+    of that table treats a period as a month -- settling the oldest
+    first, measuring lateness, listing months owed -- and would sweep an
+    exam fee into each of those silently. Kept apart, no monthly reader
+    can reach it. Three kinds only, checked by the table: ``charge``,
+    ``receipt`` and ``forgiveness``.
+
+    :ivar id: Surrogate key
+    :ivar extra_fee_charge_id: The student's charge
+    :ivar kind: ``charge``, ``receipt`` or ``forgiveness``
+    :ivar amount: A non-negative amount; the sign lives in the kind
+    :ivar payment_claim_id: The decision that wrote it, if any
+    :ivar superseded_by_id: The compensating entry, on a correction
+    :ivar created_by_account_id: Who caused it
+    :ivar created_at: When it was appended
+    """
+
+    __tablename__ = "extra_fee_entry"
+
+    id: Mapped[uuid.UUID] = _uuid_column()
+    extra_fee_charge_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("extra_fee_charge.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    kind: Mapped[str] = mapped_column(_LEDGER_KIND, nullable=False)
+    amount: Mapped[Money] = mapped_column(MoneyColumn, nullable=False)
+    payment_claim_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("payment_claim.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    superseded_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("extra_fee_entry.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    created_by_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("account.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+    __table_args__ = (
+        CheckConstraint("amount >= 0", name="ck_extra_fee_entry_amount_non_negative"),
+        CheckConstraint(
+            "kind IN ('charge', 'receipt', 'forgiveness')",
+            name="ck_extra_fee_entry_kind",
+        ),
+        Index("ix_extra_fee_entry_charge_id", "extra_fee_charge_id"),
+        Index("ix_extra_fee_entry_payment_claim_id", "payment_claim_id"),
     )
 
 
