@@ -11885,7 +11885,7 @@
                 }
               }
             },
-            "description": "Valid request; the line's state forbids it. Refetch and decide."
+            "description": "Valid request; the line's state forbids it. Refetch, decide."
           },
           "422": {
             "content": {
@@ -11979,7 +11979,7 @@
                 }
               }
             },
-            "description": "Valid request; the line's state forbids it. Refetch and decide."
+            "description": "Valid request; the line's state forbids it. Refetch, decide."
           },
           "422": {
             "content": {
@@ -12063,7 +12063,7 @@
                 }
               }
             },
-            "description": "Valid request; the line's state forbids it. Refetch and decide."
+            "description": "Valid request; the line's state forbids it. Refetch, decide."
           },
           "422": {
             "content": {
@@ -12157,7 +12157,7 @@
                 }
               }
             },
-            "description": "Valid request; the line's state forbids it. Refetch and decide."
+            "description": "Valid request; the line's state forbids it. Refetch, decide."
           },
           "422": {
             "content": {
@@ -12245,7 +12245,7 @@
                 }
               }
             },
-            "description": "Valid request; the line's state forbids it. Refetch and decide."
+            "description": "Valid request; the line's state forbids it. Refetch, decide."
           },
           "422": {
             "content": {
@@ -12333,7 +12333,7 @@
                 }
               }
             },
-            "description": "Valid request; the line's state forbids it. Refetch and decide."
+            "description": "Valid request; the line's state forbids it. Refetch, decide."
           },
           "422": {
             "content": {
@@ -17461,7 +17461,7 @@
                 }
               }
             },
-            "description": "Valid request; the line's state forbids it. Refetch and decide."
+            "description": "Valid request; the line's state forbids it. Refetch, decide."
           }
         },
         "summary": "Read My Pay",

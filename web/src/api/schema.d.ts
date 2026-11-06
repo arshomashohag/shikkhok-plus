@@ -10546,7 +10546,7 @@ export interface operations {
           'application/json': components['schemas']['ErrorEnvelope']
         }
       }
-      /** @description Valid request; the line's state forbids it. Refetch and decide. */
+      /** @description Valid request; the line's state forbids it. Refetch, decide. */
       409: {
         headers: {
           [name: string]: unknown
@@ -10614,7 +10614,7 @@ export interface operations {
           'application/json': components['schemas']['ErrorEnvelope']
         }
       }
-      /** @description Valid request; the line's state forbids it. Refetch and decide. */
+      /** @description Valid request; the line's state forbids it. Refetch, decide. */
       409: {
         headers: {
           [name: string]: unknown
@@ -10681,7 +10681,7 @@ export interface operations {
           'application/json': components['schemas']['ErrorEnvelope']
         }
       }
-      /** @description Valid request; the line's state forbids it. Refetch and decide. */
+      /** @description Valid request; the line's state forbids it. Refetch, decide. */
       409: {
         headers: {
           [name: string]: unknown
@@ -10752,7 +10752,7 @@ export interface operations {
           'application/json': components['schemas']['ErrorEnvelope']
         }
       }
-      /** @description Valid request; the line's state forbids it. Refetch and decide. */
+      /** @description Valid request; the line's state forbids it. Refetch, decide. */
       409: {
         headers: {
           [name: string]: unknown
@@ -10819,7 +10819,7 @@ export interface operations {
           'application/json': components['schemas']['ErrorEnvelope']
         }
       }
-      /** @description Valid request; the line's state forbids it. Refetch and decide. */
+      /** @description Valid request; the line's state forbids it. Refetch, decide. */
       409: {
         headers: {
           [name: string]: unknown
@@ -10886,7 +10886,7 @@ export interface operations {
           'application/json': components['schemas']['ErrorEnvelope']
         }
       }
-      /** @description Valid request; the line's state forbids it. Refetch and decide. */
+      /** @description Valid request; the line's state forbids it. Refetch, decide. */
       409: {
         headers: {
           [name: string]: unknown
@@ -14783,7 +14783,7 @@ export interface operations {
           'application/json': components['schemas']['ErrorEnvelope']
         }
       }
-      /** @description Valid request; the line's state forbids it. Refetch and decide. */
+      /** @description Valid request; the line's state forbids it. Refetch, decide. */
       409: {
         headers: {
           [name: string]: unknown
