@@ -1,5 +1,7 @@
 package com.shikkhokplus.app.core.network
 
+import com.shikkhokplus.app.feature.expenses.ExpenseCategory
+import com.shikkhokplus.app.feature.expenses.ExpenseDraft
 import com.shikkhokplus.app.core.model.PostalAddress
 import com.shikkhokplus.app.core.model.Money
 import com.shikkhokplus.app.core.queue.AttendanceEntry
@@ -209,6 +211,22 @@ class WriteContractTest {
             Write("put", "/v1/batches/{batch_id}/marksheet-visibility") {
                 HttpMarksRepository(it).setMarksheetVisible(ID, visible = true)
             },
+            // Recording an expense, with its retry key, and voiding one.
+            Write("post", "/v1/expenses") {
+                HttpExpensesRepository(it).record(
+                    ExpenseDraft(
+                        category = ExpenseCategory.PRINTING,
+                        what = "Question papers",
+                        amount = Money.of("450.00"),
+                        spentOn = "2026-11-03",
+                        payee = "Nilkhet Press",
+                        note = null,
+                        clientMutationId = ID,
+                    ),
+                )
+            },
+            Write("post", "/v1/expenses/{expense_id}/void") { HttpExpensesRepository(it).void(ID, "Typed twice") },
+            Write("post", "/v1/expenses/{expense_id}/void") { HttpExpensesRepository(it).void(ID, null) },
         )
 
     @Test

@@ -106,6 +106,9 @@ class ContractConformanceTest {
             Contract("/v1/batches/{batch_id}/calendar", MonthViewDto.serializer()),
             Contract("/v1/me/enrollments/{enrollment_id}/exams/{exam_id}", FamilyExamDto.serializer()),
             Contract("/v1/children/{enrollment_id}/exams/{exam_id}", FamilyExamDto.serializer()),
+            // The owner's spending and the month's money in and out.
+            Contract("/v1/expenses", ExpenseMonthDto.serializer()),
+            Contract("/v1/money/summary", MoneySummaryDto.serializer()),
         )
 
     @Test

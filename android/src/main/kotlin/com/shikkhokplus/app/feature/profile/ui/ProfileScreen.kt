@@ -63,6 +63,12 @@ const val TAG_PROFILE_PAYMENT_METHODS: String = "profile_payment_methods"
 /** The money reports row, shown to a teacher. */
 const val TAG_PROFILE_COLLECTIONS: String = "profile_collections"
 
+/** The expenses row, shown to a teacher. */
+const val TAG_PROFILE_EXPENSES: String = "profile_expenses"
+
+/** The monthly summary row, shown to a teacher. */
+const val TAG_PROFILE_MONEY_SUMMARY: String = "profile_money_summary"
+
 /** The switch-role row. Absent for a person with one lens. */
 const val TAG_PROFILE_SWITCH_LENS: String = "profile_switch_lens"
 
@@ -96,6 +102,8 @@ const val TAG_PROFILE_MY_CHILDREN: String = "profile_my_children"
  *   person holds one lens and has nothing to switch to
  * @property onPaymentMethods Opens "Where students pay", or null
  * @property onCollections Opens the money reports (M1), or null
+ * @property onExpenses Opens the expense list, or null
+ * @property onMoneySummary Opens the monthly summary, or null
  * @property onInvitations Opens the invitations list, or null
  * @property onMyChildren Opens the guardian's children, or null
  * @property unsent How many records this phone has not sent yet (T9)
@@ -109,6 +117,8 @@ data class MoreActions(
     val onSwitchLens: (() -> Unit)? = null,
     val onPaymentMethods: (() -> Unit)? = null,
     val onCollections: (() -> Unit)? = null,
+    val onExpenses: (() -> Unit)? = null,
+    val onMoneySummary: (() -> Unit)? = null,
     val onInvitations: (() -> Unit)? = null,
     val onMyChildren: (() -> Unit)? = null,
     val unsent: Int = 0,
@@ -353,6 +363,28 @@ private fun TeacherRows(actions: MoreActions, offline: Boolean) {
                 enabled = !offline,
                 modifier = Modifier.testTag(TAG_PROFILE_COLLECTIONS),
             )
+            actions.onExpenses?.let { expenses ->
+                MenuDivider()
+                MenuRow(
+                    title = stringResource(R.string.expenses_title),
+                    subtitle = stringResource(if (offline) R.string.more_needs_connection else R.string.summary_basis),
+                    icon = MenuIcons.Upload,
+                    onClick = expenses,
+                    enabled = !offline,
+                    modifier = Modifier.testTag(TAG_PROFILE_EXPENSES),
+                )
+            }
+            actions.onMoneySummary?.let { summary ->
+                MenuDivider()
+                MenuRow(
+                    title = stringResource(R.string.summary_title),
+                    subtitle = stringResource(if (offline) R.string.more_needs_connection else R.string.summary_basis),
+                    icon = MenuIcons.Download,
+                    onClick = summary,
+                    enabled = !offline,
+                    modifier = Modifier.testTag(TAG_PROFILE_MONEY_SUMMARY),
+                )
+            }
             // "2 records not sent yet" (T9): what this phone still holds,
             // which logging out would delete. It informs; nothing to tap.
             if (actions.unsent > 0) {
