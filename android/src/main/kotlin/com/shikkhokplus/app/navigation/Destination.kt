@@ -775,6 +775,16 @@ sealed interface Destination {
         override val route: String = "centre/members"
     }
 
+    /** The chosen centre's timetable, for its managers. */
+    data object CentreTimetable : Destination {
+        override val route: String = "centre/timetable"
+    }
+
+    /** The chosen centre's rooms. */
+    data object CentreRooms : Destination {
+        override val route: String = "centre/rooms"
+    }
+
     /** The chosen centre's teachers and staff, for its managers. */
     data object CentreStaff : Destination {
         override val route: String = "centre/staff"

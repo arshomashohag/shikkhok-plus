@@ -392,6 +392,7 @@ private fun ShikkhokGraph(
         extraFeesRoutes(client, navController)
         centresRoutes(client, navController, session.onLensesChanged)
         staffRoutes(client, navController)
+        timetableRoutes(client, navController)
 
         addStudentRoute(client, navController)
 
@@ -863,6 +864,7 @@ internal fun moreActionsFor(
                 onCentreOffers = { navigate(Destination.CentreOffers.route) },
                 onCentreMembers = centreOpener(base, Destination.CentreMembers.route, navigate),
                 onCentreStaff = centreOpener(base, Destination.CentreStaff.route, navigate),
+                onCentreTimetable = centreOpener(base, Destination.CentreTimetable.route, navigate),
             )
         Lens.STUDENT -> base.copy(onInvitations = { navigate(Destination.Invitations.route) })
         Lens.GUARDIAN ->
