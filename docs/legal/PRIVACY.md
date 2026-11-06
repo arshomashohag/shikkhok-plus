@@ -187,7 +187,7 @@ These records are about how the service itself is running, not about any person.
 
 | Data | Removed anyway after |
 |---|---|
-| A coaching centre's names for its rooms | no time limit |
+| A coaching centre's names for the places its classes meet | no time limit |
 | Counters that limit sign-in attempts | 48 hours |
 | When our scheduled jobs last ran; it names nobody | no time limit |
 

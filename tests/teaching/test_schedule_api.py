@@ -34,6 +34,19 @@ MON_WED = [
     {"weekday": 2, "start_time": "16:00", "end_time": "17:30"},
 ]
 
+#: Who teaches a slot and where, as a solo tutor's schedule reports it:
+#: neither, since only a centre assigns them [0024].
+UNASSIGNED = {"teacher_member_id": None, "room_id": None}
+
+
+def _as_stored(slots: list[dict[str, object]]) -> list[dict[str, object]]:
+    """Read slots as the teacher's schedule returns them.
+
+    :param slots: The slots as sent
+    :return: The same slots with the unassigned teacher and room
+    """
+    return [{**slot, **UNASSIGNED} for slot in slots]
+
 
 @pytest.fixture
 def client(
@@ -132,7 +145,7 @@ def test_the_schedule_reads_back(
 
     slots = client.get(f"/v1/batches/{owner.batch_id}/schedule", headers=headers).json()
 
-    assert slots == MON_WED
+    assert slots == _as_stored(MON_WED)
 
 
 def test_setting_a_schedule_replaces_the_old_one(
@@ -152,7 +165,7 @@ def test_setting_a_schedule_replaces_the_old_one(
 
     client.put(url, json={"slots": friday}, headers=headers)
 
-    assert client.get(url, headers=headers).json() == friday
+    assert client.get(url, headers=headers).json() == _as_stored(friday)
 
 
 def test_a_changed_schedule_leaves_generated_sessions_alone(
@@ -271,7 +284,7 @@ def test_a_batch_can_be_created_with_its_schedule(
 
     assert response.status_code == 201, response.text
     body = response.json()
-    assert body["schedule"] == MON_WED
+    assert body["schedule"] == _as_stored(MON_WED)
     assert _sessions(owner_session, uuid.UUID(body["id"])), "no session was generated"
 
 
@@ -298,4 +311,4 @@ def test_the_batch_list_carries_each_schedule(
         if batch["id"] == str(owner.batch_id)
     )
 
-    assert listed["schedule"] == MON_WED
+    assert listed["schedule"] == _as_stored(MON_WED)
