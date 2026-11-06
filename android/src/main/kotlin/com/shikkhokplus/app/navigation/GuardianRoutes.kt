@@ -71,6 +71,7 @@ internal fun NavGraphBuilder.guardianRoutes(
                     onBack = model::back,
                     onBatch = model::chooseBatch,
                     onToggleChild = model::toggleChild,
+                    onChooseFee = model::chooseFee,
                     onType = model::type,
                     onSend = model::send,
                     onRetry = { model.load(seat) },

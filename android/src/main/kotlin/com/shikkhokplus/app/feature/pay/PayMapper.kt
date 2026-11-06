@@ -16,6 +16,9 @@ object PayMapper {
     /** The shortest transaction ID any of the services issues. */
     private const val MIN_TRANSACTION_ID = 6
 
+    /** The purpose a payment for one exam or other fee carries. */
+    private const val PURPOSE_EXTRA = "extra"
+
     /**
      * Group the payer's accepted seats by batch, keeping the server's order.
      *
@@ -76,6 +79,8 @@ object PayMapper {
                     transactionId = reference.takeIf { kind == "mobile" },
                     fromAccount = account.takeIf { kind == "bank" },
                     note = form.note.trim().ifEmpty { null },
+                    purpose = filling.forFee?.let { PURPOSE_EXTRA },
+                    extraFeeId = filling.forFee,
                 ) to null
         }
     }

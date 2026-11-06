@@ -177,6 +177,21 @@ class WriteContractTest {
                     ),
                 )
             },
+            // A payment for one exam or other fee carries its purpose.
+            Write("post", "/v1/payments") {
+                HttpPayRepository(it).submit(
+                    PaymentSubmitDto(
+                        listOf(ID),
+                        null,
+                        true,
+                        Money.of("300.00"),
+                        "2026-11-02",
+                        clientMutationId = ID,
+                        purpose = "extra",
+                        extraFeeId = ID,
+                    ),
+                )
+            },
             Write("post", "/v1/payment-methods") {
                 HttpPaymentMethodsRepository(it).create(MOBILE_DRAFT)
             },

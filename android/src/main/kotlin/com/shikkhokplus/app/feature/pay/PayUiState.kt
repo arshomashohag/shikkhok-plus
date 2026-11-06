@@ -1,6 +1,7 @@
 package com.shikkhokplus.app.feature.pay
 
 import com.shikkhokplus.app.core.model.Money
+import com.shikkhokplus.app.core.network.ExtraFeeRefDto
 import com.shikkhokplus.app.core.network.OwedTogetherDto
 import com.shikkhokplus.app.core.network.PaymentMethodDto
 import com.shikkhokplus.app.core.network.PaymentSubmitDto
@@ -166,6 +167,14 @@ sealed interface PayUiState {
      *   it carried, or null before the first send. Kept after a failure
      *   so that sending the same payment again is a retry of the same
      *   attempt rather than a second payment
+     * @property forFee The exam or other fee the payment is for, or null
+     *   for the monthly fee
+     * @property feeOptions The fees the server says it could be for;
+     *   empty, the question is not asked
+     * @property suggestedAmount The amount the form last filled in from
+     *   the server's owed figure, or null. An amount still equal to it is
+     *   the form's, not the payer's, and is replaced when the owed figure
+     *   is read again; anything else the payer typed is kept
      */
     data class Filling(
         val scope: PayScope,
@@ -176,6 +185,9 @@ sealed interface PayUiState {
         val sending: Boolean = false,
         val failedKey: String? = null,
         val attempt: PaymentAttempt? = null,
+        val forFee: String? = null,
+        val feeOptions: List<ExtraFeeRefDto> = emptyList(),
+        val suggestedAmount: String? = null,
     ) : PayUiState
 
     /**

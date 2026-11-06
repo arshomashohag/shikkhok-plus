@@ -37,9 +37,11 @@ interface PayRepository {
      * Read what the chosen children owe together.
      *
      * @param enrollmentIds The chosen seats
+     * @param extraFeeId The exam or other fee the payment is for, or null
+     *   for the monthly fee
      * @return The server's owed figures
      */
-    suspend fun owed(enrollmentIds: List<String>): AuthResult<OwedTogetherDto>
+    suspend fun owed(enrollmentIds: List<String>, extraFeeId: String? = null): AuthResult<OwedTogetherDto>
 
     /**
      * Record a payment for the teacher to check.
@@ -144,6 +146,21 @@ class PayViewModel(
         viewModelScope.launch { refreshOwed() }
     }
 
+    /**
+     * Say what the payment is for: the monthly fee, or one exam or other
+     * fee the server offered. The owed line is read again for it.
+     *
+     * @param extraFeeId The fee, or null for the monthly fee
+     */
+    fun chooseFee(extraFeeId: String?) {
+        val filling = _state.value as? PayUiState.Filling ?: return
+        if (filling.forFee == extraFeeId) return
+        if (extraFeeId != null && filling.feeOptions.none { it.extraFeeId == extraFeeId }) return
+        val next = filling.copy(forFee = extraFeeId, owed = null)
+        _state.value = next.copy(problem = PayMapper.requestOf(next).second)
+        viewModelScope.launch { refreshOwed() }
+    }
+
     /** Go back to the list of methods, from a form. */
     fun back() {
         (_state.value as? PayUiState.Filling)?.let { _state.value = PayUiState.Methods(it.scope) }
@@ -237,16 +254,23 @@ class PayViewModel(
         }
 
     private suspend fun refreshOwed() {
-        val asked = (_state.value as? PayUiState.Filling)?.scope?.selected ?: return
-        val owed = (repository.owed(asked) as? AuthResult.Ok)?.value ?: return
+        val filling = _state.value as? PayUiState.Filling ?: return
+        val asked = filling.scope.selected
+        val fee = filling.forFee
+        val owed = (repository.owed(asked, fee) as? AuthResult.Ok)?.value ?: return
         _state.update { current ->
-            if (current !is PayUiState.Filling || current.scope.selected != asked) return@update current
-            val previous = current.owed?.owedTogether?.toString()
-            val replace = current.form.amount.isBlank() || current.form.amount == previous
+            if (current !is PayUiState.Filling || current.scope.selected != asked || current.forFee != fee) {
+                return@update current
+            }
+            val replace = current.form.amount.isBlank() || current.form.amount == current.suggestedAmount
             val suggested = owed.owedTogether.takeIf { it.amount.signum() > 0 }?.toString().orEmpty()
             current.copy(
                 owed = owed,
                 form = if (replace) current.form.copy(amount = suggested) else current.form,
+                suggestedAmount = if (replace) suggested else current.suggestedAmount,
+                // The options are the monthly read's: asked for one fee,
+                // the server answers for that fee alone.
+                feeOptions = if (fee == null) owed.extraFeeOptions else current.feeOptions,
             )
         }
     }

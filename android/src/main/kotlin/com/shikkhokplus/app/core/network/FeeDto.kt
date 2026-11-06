@@ -257,3 +257,37 @@ fun HistoryLineDto.toHistoryLine(): HistoryLine =
         decisionNote = decisionNote,
         coveredNames = coveredNames,
     )
+
+/**
+ * One exam or other fee charged to a seat, as the server folded it.
+ *
+ * @property extraFeeId The fee
+ * @property label Its name, as the teacher typed it
+ * @property purpose `exam` or `other`
+ * @property dueOn When it is due, `yyyy-MM-dd`
+ * @property charged What the seat was charged
+ * @property paid What has been approved against it
+ * @property owed What is still owed on it
+ * @property status `paid`, `partly_paid`, `unpaid` or `waived`
+ */
+@Serializable
+data class SeatExtraFeeDto(
+    @SerialName("extra_fee_id") val extraFeeId: String,
+    @SerialName("label") val label: String,
+    @SerialName("purpose") val purpose: String,
+    @SerialName("due_on") val dueOn: String,
+    @SerialName("charged") val charged: Money,
+    @SerialName("paid") val paid: Money,
+    @SerialName("owed") val owed: Money,
+    @SerialName("status") val status: String,
+)
+
+/**
+ * The exam and other fees one seat was charged, soonest due first.
+ *
+ * @property fees One per fee
+ */
+@Serializable
+data class SeatExtraFeesDto(
+    @SerialName("fees") val fees: List<SeatExtraFeeDto> = emptyList(),
+)

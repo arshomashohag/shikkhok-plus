@@ -13,6 +13,10 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Checkbox
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -103,6 +107,17 @@ const val TAG_PAY_SENT: String = "pay_sent"
 /** Why the last send failed. */
 const val TAG_PAY_FAILED: String = "pay_failed"
 
+/** The monthly-fee choice under "What is this payment for?". */
+const val TAG_PAY_FOR_MONTHLY: String = "pay_for_monthly"
+
+/**
+ * Tag for one exam or other fee under "What is this payment for?".
+ *
+ * @param extraFeeId The fee
+ * @return The tag
+ */
+fun payForFeeTag(extraFeeId: String): String = "pay_for_fee_$extraFeeId"
+
 /**
  * What the screen's buttons do.
  *
@@ -111,6 +126,7 @@ const val TAG_PAY_FAILED: String = "pay_failed"
  * @property onBack Back to the list of methods
  * @property onBatch Pick another batch
  * @property onToggleChild Add or drop a child
+ * @property onChooseFee Say the payment is for one fee, or null for monthly
  * @property onType The form changed
  * @property onSend Send for checking
  * @property onRetry Read again after a failed read
@@ -121,6 +137,7 @@ data class PayActions(
     val onBack: () -> Unit = {},
     val onBatch: (String) -> Unit = {},
     val onToggleChild: (String) -> Unit = {},
+    val onChooseFee: (String?) -> Unit = {},
     val onType: (PayForm) -> Unit = {},
     val onSend: () -> Unit = {},
     val onRetry: () -> Unit = {},
@@ -312,6 +329,7 @@ private fun ColumnScope.Filling(state: PayUiState.Filling, actions: PayActions, 
     }
     BatchPicker(state.scope, actions)
     ForField(state, actions)
+    PurposeField(state, actions)
     state.owed?.let { owed ->
         val names = joined(owed.children.map { Numerals.freeText(it.displayName) })
         Text(
@@ -374,6 +392,57 @@ private fun ColumnScope.Filling(state: PayUiState.Filling, actions: PayActions, 
             tone = BannerTone.ERROR,
             modifier = Modifier.testTag(TAG_PAY_FAILED),
         )
+    }
+}
+
+/**
+ * "What is this payment for?": the monthly fee or one exam or other fee,
+ * asked only when the server lists a fee it could be for.
+ *
+ * @param state The form
+ * @param actions What the choices call
+ */
+@Composable
+private fun ColumnScope.PurposeField(state: PayUiState.Filling, actions: PayActions) {
+    if (state.feeOptions.isEmpty()) return
+    Label(stringResource(R.string.pay_for_question))
+    Column(Modifier.selectableGroup()) {
+        PurposeRow(
+            label = stringResource(R.string.payment_for_monthly),
+            selected = state.forFee == null,
+            enabled = !state.sending,
+            tag = TAG_PAY_FOR_MONTHLY,
+        ) { actions.onChooseFee(null) }
+        state.feeOptions.forEach { fee ->
+            PurposeRow(
+                label = Numerals.freeText(fee.label),
+                selected = state.forFee == fee.extraFeeId,
+                enabled = !state.sending,
+                tag = payForFeeTag(fee.extraFeeId),
+            ) { actions.onChooseFee(fee.extraFeeId) }
+        }
+    }
+}
+
+@Composable
+private fun PurposeRow(
+    label: String,
+    selected: Boolean,
+    enabled: Boolean,
+    tag: String,
+    onSelect: () -> Unit,
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .selectable(selected = selected, enabled = enabled, role = Role.RadioButton, onClick = onSelect)
+            .testTag(tag),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        RadioButton(selected = selected, onClick = null, enabled = enabled)
+        Text(label, style = MaterialTheme.typography.bodyLarge)
     }
 }
 

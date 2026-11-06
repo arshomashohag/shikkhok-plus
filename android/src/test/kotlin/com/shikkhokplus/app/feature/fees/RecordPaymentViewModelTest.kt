@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.feature.fees
 
+import com.shikkhokplus.app.core.network.SeatExtraFeesDto
 import com.shikkhokplus.app.core.model.Money
 import com.shikkhokplus.app.core.network.ErrorBody
 import com.shikkhokplus.app.core.network.ErrorEnvelope
@@ -78,6 +79,9 @@ class RecordPaymentViewModelTest {
             teacherReads++
             return AuthResult.Ok(history)
         }
+
+        override suspend fun seatExtraFees(enrollmentId: String): AuthResult<SeatExtraFeesDto> =
+            AuthResult.Ok(SeatExtraFeesDto())
     }
 
     private class Writes(

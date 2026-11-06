@@ -92,15 +92,37 @@ data class OwedChildDto(
 )
 
 /**
+ * An exam or other fee a payment could be for.
+ *
+ * @property extraFeeId The fee
+ * @property label Its name, as the teacher typed it
+ * @property purpose `exam` or `other`
+ * @property dueOn When it is due, `yyyy-MM-dd`
+ */
+@Serializable
+data class ExtraFeeRefDto(
+    @SerialName("extra_fee_id") val extraFeeId: String,
+    @SerialName("label") val label: String,
+    @SerialName("purpose") val purpose: String,
+    @SerialName("due_on") val dueOn: String,
+)
+
+/**
  * What the chosen children owe together, summed by the server.
+ *
+ * Asked with an extra fee, the figures are what is owed on that fee;
+ * asked without one, they are the monthly fees, and [extraFeeOptions]
+ * lists the fees the payment could be for instead.
  *
  * @property owedTogether The server's total; the client never adds
  * @property children Each child, in the server's child order
+ * @property extraFeeOptions The exam and other fees still owed, soonest first
  */
 @Serializable
 data class OwedTogetherDto(
     @SerialName("owed_together") val owedTogether: Money,
     val children: List<OwedChildDto> = emptyList(),
+    @SerialName("extra_fee_options") val extraFeeOptions: List<ExtraFeeRefDto> = emptyList(),
 )
 
 /**
@@ -123,6 +145,9 @@ data class OwedTogetherDto(
  *   answers with the original submission instead of recording a second
  *   claim. Null only where no attempt exists yet; the form always sets it
  *   before sending
+ * @property purpose `extra` when the payment is for one exam or other fee;
+ *   null, and so omitted, for the monthly fee the server assumes
+ * @property extraFeeId The fee it is for, alongside `extra`
  */
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
@@ -136,6 +161,8 @@ data class PaymentSubmitDto(
     @EncodeDefault @SerialName("from_account") val fromAccount: String? = null,
     @EncodeDefault val note: String? = null,
     @SerialName("client_mutation_id") val clientMutationId: String? = null,
+    @SerialName("purpose") val purpose: String? = null,
+    @SerialName("extra_fee_id") val extraFeeId: String? = null,
 )
 
 /**

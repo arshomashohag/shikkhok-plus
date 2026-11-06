@@ -1,5 +1,7 @@
 package com.shikkhokplus.app.feature.pay
 
+import kotlin.test.assertTrue
+import com.shikkhokplus.app.core.network.ExtraFeeRefDto
 import com.shikkhokplus.app.core.model.Money
 import com.shikkhokplus.app.core.network.ErrorBody
 import com.shikkhokplus.app.core.network.ErrorEnvelope
@@ -82,9 +84,16 @@ class PayViewModelTest {
             return methods
         }
 
-        override suspend fun owed(enrollmentIds: List<String>): AuthResult<OwedTogetherDto> {
+        val owedFeeReads = mutableListOf<String?>()
+        var owedForFee: AuthResult<OwedTogetherDto>? = null
+
+        override suspend fun owed(
+            enrollmentIds: List<String>,
+            extraFeeId: String?,
+        ): AuthResult<OwedTogetherDto> {
             owedReads += enrollmentIds
-            return owed
+            owedFeeReads += extraFeeId
+            return if (extraFeeId != null) owedForFee ?: owed else owed
         }
 
         override suspend fun submit(payment: PaymentSubmitDto): AuthResult<PaymentSubmittedDto> {
@@ -549,4 +558,141 @@ class PayViewModelTest {
         // Added by a newer server [D-26]: the reading that claims least.
         assertEquals(SentOutcome.PENDING, PayMapper.outcomeOf("something_new"))
     }
+
+    private val examFee = ExtraFeeRefDto("f-1", "Half-yearly exam", "exam", "2026-11-20")
+
+    private fun withFeeOptions(): Fake {
+        val fake =
+            fake(owed = AuthResult.Ok(owed("1000.00", "e-1" to "Tanvir").copy(extraFeeOptions = listOf(examFee))))
+        fake.owedForFee = AuthResult.Ok(owed("300.00", "e-1" to "Tanvir"))
+        return fake
+    }
+
+    @Test
+    fun `the fees a payment could be for come from the server's owed read`() = runTest(dispatcher) {
+        val form = filling(model(withFeeOptions()))
+
+        assertEquals(listOf(examFee), form.feeOptions)
+        assertNull(form.forFee, "the monthly fee is the default")
+    }
+
+    @Test
+    fun `with no fee to choose the question is not asked and a stray choice is ignored`() = runTest(dispatcher) {
+        val fake = fake()
+        val model = model(fake)
+        filling(model)
+
+        model.chooseFee("f-unknown")
+        advanceUntilIdle()
+
+        val form = assertIs<PayUiState.Filling>(model.state.value)
+        assertTrue(form.feeOptions.isEmpty())
+        assertNull(form.forFee)
+        assertEquals(listOf<String?>(null), fake.owedFeeReads)
+    }
+
+    @Test
+    fun `choosing a fee reads what is owed on it and suggests that amount`() = runTest(dispatcher) {
+        val fake = withFeeOptions()
+        val model = model(fake)
+        filling(model)
+
+        model.chooseFee("f-1")
+        advanceUntilIdle()
+
+        val form = assertIs<PayUiState.Filling>(model.state.value)
+        assertEquals("f-1", form.forFee)
+        assertEquals(listOf(null, "f-1"), fake.owedFeeReads)
+        assertEquals(Money.of("300.00"), form.owed?.owedTogether)
+        assertEquals("300.00", form.form.amount)
+        // The options survive a read for one fee, which lists none.
+        assertEquals(listOf(examFee), form.feeOptions)
+    }
+
+    @Test
+    fun `a payment for a fee says so and one for the monthly fee says nothing`() = runTest(dispatcher) {
+        val fake = withFeeOptions()
+        val model = model(fake)
+        val form = filling(model, PayChoice.Cash)
+
+        model.chooseFee("f-1")
+        advanceUntilIdle()
+        model.send()
+        advanceUntilIdle()
+
+        val forFee = fake.sent.single()
+        assertEquals("extra", forFee.purpose)
+        assertEquals("f-1", forFee.extraFeeId)
+        assertEquals(Money.of("300.00"), forFee.amount)
+
+        val monthly = model(fake)
+        filling(monthly, PayChoice.Cash)
+        monthly.send()
+        advanceUntilIdle()
+        assertNull(fake.sent.last().purpose)
+        assertNull(fake.sent.last().extraFeeId)
+        assertEquals(Money.of("1000.00"), fake.sent.last().amount)
+        assertEquals(form.scope.selected, fake.sent.last().enrollmentIds)
+    }
+
+    @Test
+    fun `changing what a payment is for after a failed send is a new attempt`() = runTest(dispatcher) {
+        val fake = withFeeOptions()
+        fake.submit = AuthResult.TransportFailure
+        val keys = Keys()
+        val model = keyed(fake, keys)
+        filling(model, PayChoice.Cash)
+
+        model.send()
+        advanceUntilIdle()
+        model.chooseFee("f-1")
+        advanceUntilIdle()
+        model.send()
+        advanceUntilIdle()
+
+        assertEquals(listOf("key-1", "key-2"), fake.sent.map { it.clientMutationId })
+    }
+
+    @Test
+    fun `back to the monthly fee reads the monthly figure again`() = runTest(dispatcher) {
+        val fake = withFeeOptions()
+        val model = model(fake)
+        filling(model)
+        model.chooseFee("f-1")
+        advanceUntilIdle()
+
+        model.chooseFee(null)
+        advanceUntilIdle()
+
+        val form = assertIs<PayUiState.Filling>(model.state.value)
+        assertNull(form.forFee)
+        assertEquals("1000.00", form.form.amount)
+        assertEquals(listOf(null, "f-1", null), fake.owedFeeReads)
+    }
+
+
+    @Test
+    fun `dropping a child replaces the suggested amount but keeps a typed one`() = runTest(dispatcher) {
+        val fake =
+            fake(
+                seats = listOf(seat("e-1", "Physics", "Tanvir"), seat("e-2", "Physics", "Tania")),
+                owed = AuthResult.Ok(owed("2000.00", "e-1" to "Tanvir", "e-2" to "Tania")),
+            )
+        val model = model(fake)
+        filling(model)
+        assertEquals("2000.00", assertIs<PayUiState.Filling>(model.state.value).form.amount)
+
+        fake.owed = AuthResult.Ok(owed("1000.00", "e-1" to "Tanvir"))
+        model.toggleChild("e-2")
+        advanceUntilIdle()
+        val dropped = assertIs<PayUiState.Filling>(model.state.value)
+        assertEquals("1000.00", dropped.form.amount)
+
+        model.type(dropped.form.copy(amount = "700"))
+        fake.owed = AuthResult.Ok(owed("2000.00", "e-1" to "Tanvir", "e-2" to "Tania"))
+        model.toggleChild("e-2")
+        advanceUntilIdle()
+        assertEquals("700", assertIs<PayUiState.Filling>(model.state.value).form.amount)
+    }
+
 }

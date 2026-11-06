@@ -1,5 +1,11 @@
 package com.shikkhokplus.app.feature.pay
 
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.assertIsSelected
+import com.shikkhokplus.app.feature.pay.ui.payForFeeTag
+import com.shikkhokplus.app.feature.pay.ui.TAG_PAY_FOR_MONTHLY
+import com.shikkhokplus.app.core.network.ExtraFeeRefDto
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -205,4 +211,42 @@ class PayScreenTest {
         assertTrue(shown(R.string.inbox_outcome_approved).isNotEmpty(), "the approved status")
         assertTrue(shown(R.string.pay_pending).isEmpty(), "nothing says pending")
     }
+
+    @Test
+    fun `the payment-for question lists monthly and each fee and reports the choice`() {
+        val chosen = mutableListOf<String?>()
+        val fee = ExtraFeeRefDto("f-1", "Half-yearly exam", "exam", "2026-11-20")
+        compose.setContent {
+            ShikkhokTheme {
+                PayScreen(
+                    filling(PayChoice.Cash, PayForm("2026-11-02", amount = "2000.00"))
+                        .copy(feeOptions = listOf(fee)),
+                    PayActions(onChooseFee = { chosen += it }),
+                    todayIso = "2026-11-02",
+                )
+            }
+        }
+
+        compose.onNodeWithText("What is this payment for?").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag(TAG_PAY_FOR_MONTHLY).performScrollTo().assertIsSelected()
+        compose.onNodeWithTag(payForFeeTag("f-1")).performScrollTo().performClick()
+
+        assertEquals(listOf<String?>("f-1"), chosen)
+    }
+
+    @Test
+    fun `with no fee to choose the payment-for question is not asked`() {
+        compose.setContent {
+            ShikkhokTheme {
+                PayScreen(
+                    filling(PayChoice.Cash, PayForm("2026-11-02", amount = "2000.00")),
+                    PayActions(),
+                    todayIso = "2026-11-02",
+                )
+            }
+        }
+
+        compose.onNodeWithTag(TAG_PAY_FOR_MONTHLY).assertDoesNotExist()
+    }
+
 }

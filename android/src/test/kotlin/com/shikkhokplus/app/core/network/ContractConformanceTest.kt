@@ -47,6 +47,8 @@ class ContractConformanceTest {
             Contract("/v1/me/fees", FeeHistoryDto.serializer()),
             Contract("/v1/children/{enrollment_id}/fees", FeeHistoryDto.serializer()),
             Contract("/v1/enrollments/{enrollment_id}/fees", FeeHistoryDto.serializer()),
+            // A seat's exam and other fees, read by every lens.
+            Contract("/v1/enrollments/{enrollment_id}/extra-fees", SeatExtraFeesDto.serializer()),
             Contract("/v1/batches", ListSerializer(BatchDto.serializer())),
             Contract("/v1/batches/{batch_id}/schedule", ListSerializer(ScheduleSlotDto.serializer())),
             Contract("/v1/batches/{batch_id}/roster", ListSerializer(RosterRowDto.serializer())),

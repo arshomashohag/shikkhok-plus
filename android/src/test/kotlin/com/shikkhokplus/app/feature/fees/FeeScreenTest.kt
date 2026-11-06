@@ -1,5 +1,8 @@
 package com.shikkhokplus.app.feature.fees
 
+import androidx.compose.ui.test.onNodeWithText
+import com.shikkhokplus.app.feature.fees.ui.extraFeeRowTag
+import com.shikkhokplus.app.feature.fees.ui.TAG_FEES_EXTRA
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -348,4 +351,29 @@ class FeeScreenTest {
 
         compose.onNodeWithTag(TAG_CLAIMS_EMPTY).assertIsDisplayed()
     }
+
+    @Test
+    fun `a seat's exam and other fees are listed with what is owed and their status`() {
+        compose.setContent {
+            FeeHistoryScreen(
+                FeeUiState.Empty,
+                onRetry = {},
+                extraFees =
+                    listOf(ExtraFeeRow("f-1", "Half-yearly exam", Money.of("300.00"), "2026-11-20", "partly_paid")),
+            )
+        }
+
+        compose.onNodeWithTag(TAG_FEES_EXTRA).assertIsDisplayed()
+        compose.onNodeWithTag(extraFeeRowTag("f-1")).assertIsDisplayed()
+        compose.onNodeWithText("Half-yearly exam").assertIsDisplayed()
+        compose.onNodeWithText("Partly paid").assertIsDisplayed()
+    }
+
+    @Test
+    fun `no exam or other fee draws no section`() {
+        compose.setContent { FeeHistoryScreen(FeeUiState.Empty, onRetry = {}) }
+
+        assertEquals(0, compose.onAllNodesWithTag(TAG_FEES_EXTRA).fetchSemanticsNodes().size)
+    }
+
 }
