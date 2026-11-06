@@ -67,6 +67,9 @@ class ContractConformanceTest {
             Contract("/v1/me/exams", ListSerializer(MyExamDto.serializer())),
             Contract("/v1/me/exams/{exam_id}/results", ExaminerResultsDto.serializer()),
             Contract("/v1/exams/{exam_id}", ExamExaminerDto.serializer()),
+            // A centre's payroll, and my own pay.
+            Contract("/v1/centre/payroll/{period}", ListSerializer(SalaryLineDto.serializer())),
+            Contract("/v1/me/pay", ListSerializer(SalaryLineDto.serializer())),
             Contract("/v1/batches", ListSerializer(BatchDto.serializer())),
             Contract("/v1/batches/{batch_id}/schedule", ListSerializer(ScheduleSlotDto.serializer())),
             Contract("/v1/batches/{batch_id}/roster", ListSerializer(RosterRowDto.serializer())),

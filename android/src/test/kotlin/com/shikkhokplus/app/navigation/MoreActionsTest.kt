@@ -38,6 +38,7 @@ class MoreActionsTest {
         assertNull(actions.onCentreMembers)
         assertNull(actions.onCentreStaff)
         assertNull(actions.onCentreTimetable)
+        assertNull(actions.onCentrePayroll)
 
         assertEquals(
             listOf(
@@ -135,8 +136,14 @@ class MoreActionsTest {
         assertNotNull(actions.onCentreMembers).invoke()
         assertNotNull(actions.onCentreStaff).invoke()
         assertNotNull(actions.onCentreTimetable).invoke()
+        assertNotNull(actions.onCentrePayroll).invoke()
         assertEquals(
-            listOf(Destination.CentreMembers.route, Destination.CentreStaff.route, Destination.CentreTimetable.route),
+            listOf(
+                Destination.CentreMembers.route,
+                Destination.CentreStaff.route,
+                Destination.CentreTimetable.route,
+                Destination.CentrePayroll.route,
+            ),
             routes,
         )
     }

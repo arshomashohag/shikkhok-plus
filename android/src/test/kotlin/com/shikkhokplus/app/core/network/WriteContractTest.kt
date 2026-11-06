@@ -286,6 +286,21 @@ class WriteContractTest {
                     ClassAttendanceBodyDto(1, ID, listOf(ClassSeatMarkDto(ID, true))),
                 )
             },
+            // A centre's payroll: draw, adjust, approve and pay.
+            Write("post", "/v1/centre/payroll/{period}/lines") { HttpPayrollRepository(it).draw("2026-10") },
+            Write("post", "/v1/centre/payroll/lines/{line_id}/adjustments") {
+                HttpPayrollRepository(it).adjust(ID, AdjustmentBodyDto("addition", "Bonus", Money.of("500.00")))
+            },
+            Write("delete", "/v1/centre/payroll/lines/{line_id}/adjustments/{adjustment_id}") {
+                HttpPayrollRepository(it).removeAdjustment(ID, ID)
+            },
+            Write("post", "/v1/centre/payroll/lines/{line_id}/approve") { HttpPayrollRepository(it).approve(ID) },
+            Write("post", "/v1/centre/payroll/lines/{line_id}/payments") {
+                HttpPayrollRepository(it).pay(ID, SalaryPaymentBodyDto(Money.of("500.00"), ID))
+            },
+            Write("post", "/v1/centre/payroll/lines/{line_id}/payments") {
+                HttpPayrollRepository(it).pay(ID, SalaryPaymentBodyDto(Money.of("500.00"), ID, "2026-11-01", "Cash"))
+            },
             // An examiner's marks and publish, and naming an exam's examiner.
             Write("post", "/v1/me/exams/{exam_id}/marks") {
                 HttpMyExamsRepository(it).mark(ID, MarkWriteBody(ID, "marked", 18.0))

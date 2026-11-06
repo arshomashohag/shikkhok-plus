@@ -399,6 +399,9 @@ private fun ShikkhokGraph(
         myExamsRoutes(client, navController) {
             LensBar(session.lens, Destination.MyExams.route, navController)
         }
+        payrollRoutes(client, navController) {
+            LensBar(session.lens, Destination.MyPay.route, navController)
+        }
 
         addStudentRoute(client, navController)
 
@@ -871,6 +874,7 @@ internal fun moreActionsFor(
                 onCentreMembers = centreOpener(base, Destination.CentreMembers.route, navigate),
                 onCentreStaff = centreOpener(base, Destination.CentreStaff.route, navigate),
                 onCentreTimetable = centreOpener(base, Destination.CentreTimetable.route, navigate),
+                onCentrePayroll = centreOpener(base, Destination.CentrePayroll.route, navigate),
             )
         // A centre teacher can still accept another centre's offer.
         Lens.CLASS_TEACHER -> base.copy(onCentreOffers = { navigate(Destination.CentreOffers.route) })
@@ -1015,6 +1019,7 @@ internal fun routesFor(lens: Lens?): List<String> =
             listOf(
                 Destination.MyClasses.route,
                 Destination.MyExams.route,
+                Destination.MyPay.route,
                 Destination.Profile.route,
             )
         // **Invitations is a row in More, not a tab** (S4, G4): the
@@ -1067,6 +1072,11 @@ private fun tabsFor(lens: Lens?): List<NavDestination> =
                     label = stringResource(R.string.nav_my_exams),
                     icon = painterResource(R.drawable.ic_nav_today),
                     tag = "nav_tab_my_exams",
+                ),
+                NavDestination(
+                    label = stringResource(R.string.nav_my_pay),
+                    icon = painterResource(R.drawable.ic_nav_dues),
+                    tag = "nav_tab_my_pay",
                 ),
                 NavDestination(
                     label = stringResource(R.string.nav_more),
