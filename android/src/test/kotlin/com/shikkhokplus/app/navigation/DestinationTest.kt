@@ -94,6 +94,9 @@ class DestinationTest {
                 Destination.Progress.of("e-1", "CHILD", "Rafi Ahmed", "Class 9"),
                 Destination.FeeHistory.of("e-1", "GUARDIAN"),
                 Destination.StudentBatch.of("e-1"),
+                Destination.ExtraFees.of("b-1"),
+                Destination.RaiseExtraFee.of("b-1"),
+                Destination.ExtraFeeDetail.of("f-1"),
             )
 
         built.forEach {

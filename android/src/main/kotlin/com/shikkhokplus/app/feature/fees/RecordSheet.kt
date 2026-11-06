@@ -36,6 +36,8 @@ enum class RecordSide {
  * @property clientMutationId One per opened sheet, reused on a resend
  * @property busy Whether the record is being sent
  * @property errorKey A refused or failed send's message key
+ * @property extraFeeId The exam or other fee the money is for, or null
+ *   for the monthly fee
  */
 data class RecordSheet(
     val owed: Money,
@@ -47,6 +49,7 @@ data class RecordSheet(
     val clientMutationId: String,
     val busy: Boolean = false,
     val errorKey: String? = null,
+    val extraFeeId: String? = null,
 ) {
     /** The amount typed, or null while it is not a positive amount. */
     val received: Money?
@@ -86,12 +89,17 @@ data class RecordSheet(
             note = note.trim().take(NOTE_MAX).takeIf { it.isNotEmpty() },
             shortfallDisposition = disposition.takeIf { needsDisposition },
             clientMutationId = clientMutationId,
+            purpose = extraFeeId?.let { EXTRA },
+            extraFeeId = extraFeeId,
         )
     }
 
     companion object {
         /** Money handed over in person: the default channel. */
         const val CASH: String = "cash"
+
+        /** The purpose money recorded against one exam or other fee carries. */
+        const val EXTRA: String = "extra"
 
         /**
          * The services a family may send to the teacher's own number.
@@ -117,10 +125,16 @@ data class RecordSheet(
          *
          * @param owed What the server says the seat owes
          * @param clientMutationId A fresh retry key
+         * @param extraFeeId The exam or other fee it is for, or null
          * @return The sheet
          */
-        fun open(owed: Money, clientMutationId: String): RecordSheet =
+        fun open(
+            owed: Money,
+            clientMutationId: String,
+            extraFeeId: String? = null,
+        ): RecordSheet =
             RecordSheet(
+                extraFeeId = extraFeeId,
                 owed = owed,
                 typed =
                     if (owed.amount.signum() == 0) {

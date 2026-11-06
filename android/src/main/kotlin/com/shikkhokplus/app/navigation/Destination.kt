@@ -204,6 +204,54 @@ sealed interface Destination {
         fun of(id: String): String = "batches/$id/schedule"
     }
 
+    /** A batch's exam and other fees, opened from the batch's header. */
+    data object ExtraFees : Destination {
+        override val route: String = "batches/{batchId}/extra-fees"
+
+        /** The batch argument's name. */
+        const val ARG_BATCH: String = "batchId"
+
+        /**
+         * Build a concrete route for one batch.
+         *
+         * @param batchId The batch
+         * @return The route to navigate to
+         */
+        fun of(batchId: String): String = "batches/$batchId/extra-fees"
+    }
+
+    /** Raising an exam or other fee on a batch. */
+    data object RaiseExtraFee : Destination {
+        override val route: String = "batches/{batchId}/extra-fees/new"
+
+        /** The batch argument's name. */
+        const val ARG_BATCH: String = "batchId"
+
+        /**
+         * Build a concrete route for one batch.
+         *
+         * @param batchId The batch
+         * @return The route to navigate to
+         */
+        fun of(batchId: String): String = "batches/$batchId/extra-fees/new"
+    }
+
+    /** One exam or other fee and its students. */
+    data object ExtraFeeDetail : Destination {
+        override val route: String = "extra-fees/{extraFeeId}"
+
+        /** The fee argument's name. */
+        const val ARG_FEE: String = "extraFeeId"
+
+        /**
+         * Build a concrete route for one fee.
+         *
+         * @param extraFeeId The fee
+         * @return The route to navigate to
+         */
+        fun of(extraFeeId: String): String = "extra-fees/$extraFeeId"
+    }
+
     /** Marking one session's roster [BR3.5]. */
     data object Attendance : Destination {
         override val route: String = "sessions/{sessionId}/attendance"

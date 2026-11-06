@@ -47,6 +47,9 @@ const val TAG_BATCH_FAB: String = "batch_fab"
 /** The link to the batch's schedule. */
 const val TAG_BATCH_SCHEDULE: String = "batch_schedule"
 
+/** The exam and other fees chip in the batch header. */
+const val TAG_BATCH_EXTRA_FEES: String = "batch_extra_fees"
+
 /** The pencil that opens the batch's edit form. */
 const val TAG_BATCH_EDIT: String = "batch_edit"
 
@@ -64,6 +67,8 @@ const val TAG_BATCH_INFO: String = "batch_info"
  * @param onAdd Called by the add button, for the open tab
  * @param onSchedule Called to edit the batch's class days and time
  * @param onEdit Called to edit the batch's name, subjects and fee
+ * @param onExtraFees Called to open the batch's exam and other fees, or
+ *   null where the chip is not drawn
  * @param modifier The layout modifier
  * @param showAdd Whether to draw the add button for the open tab
  * @param content The open tab's contents
@@ -78,6 +83,7 @@ fun BatchDetailScreen(
     onAdd: () -> Unit,
     onSchedule: () -> Unit,
     onEdit: () -> Unit = {},
+    onExtraFees: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     showAdd: Boolean = tab != BatchTab.NOTICES,
     content: @Composable () -> Unit,
@@ -97,7 +103,7 @@ fun BatchDetailScreen(
         },
         modifier = modifier,
         header = {
-            header?.let { InfoTags(it, onSchedule) }
+            header?.let { InfoTags(it, onSchedule, onExtraFees) }
             Tabs(tab, onSelect)
         },
     ) {
@@ -158,10 +164,11 @@ private fun ordinal(day: Int): String {
  *
  * @param header The batch summary
  * @param onSchedule Called to edit the class days and time
+ * @param onExtraFees Called to open the exam and other fees, or null
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun InfoTags(header: BatchHeader, onSchedule: () -> Unit) {
+private fun InfoTags(header: BatchHeader, onSchedule: () -> Unit, onExtraFees: (() -> Unit)?) {
     // **One icon in the bar** (T7): the schedule is edited from its own
     // chip, so the bar keeps only Edit. With no class days yet the chip
     // reads "Schedule", so the way in never disappears.
@@ -197,6 +204,21 @@ private fun InfoTags(header: BatchHeader, onSchedule: () -> Unit) {
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(14.dp),
+            )
+        }
+        onExtraFees?.let { open ->
+            Text(
+                stringResource(R.string.extra_fees_open),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier =
+                    Modifier
+                        .clip(MaterialTheme.shapes.small)
+                        .background(MaterialTheme.colorScheme.surfaceContainer)
+                        .clickable(onClick = open)
+                        .heightIn(min = 28.dp)
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                        .testTag(TAG_BATCH_EXTRA_FEES),
             )
         }
         header.subjects.filter { it.isNotBlank() }.forEach { tag ->
