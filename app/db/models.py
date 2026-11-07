@@ -1547,6 +1547,13 @@ class LedgerEntryRow(Base):
         Index("ix_ledger_entry_enrollment_id", "enrollment_id"),
         Index("ix_ledger_entry_enrollment_period", "enrollment_id", "period"),
         Index("ix_ledger_entry_payment_claim_id", "payment_claim_id"),
+        # Every read hiding corrected entries probes this column per row;
+        # partial, because most entries are never superseded [audit C-04].
+        Index(
+            "ix_ledger_entry_superseded_by_id",
+            "superseded_by_id",
+            postgresql_where=text("superseded_by_id IS NOT NULL"),
+        ),
     )
 
 

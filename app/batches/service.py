@@ -28,7 +28,20 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from app.authz.lenses import GuardianLens, StudentLens, TeacherLens
-from app.db.models import Account, Batch, BatchSubject, Enrollment, Exam, ScheduleSlot
+from app.db.models import (
+    Account,
+    Attendance,
+    Batch,
+    BatchSubject,
+    Enrollment,
+    Exam,
+    ExtraFeeCharge,
+    ExtraFeeEntry,
+    LedgerEntryRow,
+    Mark,
+    PaymentClaim,
+    ScheduleSlot,
+)
 from app.errors import AuthorizationError, ConflictError, ValidationError
 from app.money import Money
 
@@ -542,8 +555,63 @@ def remove_enrollment(
             message_key="enrollment.remove.erased",
         )
 
+    if _has_history(session, enrollment_id=record.id):
+        raise EnrollmentNotRemovable(
+            # The remedy is the claimed seat's remedy -- mark it as left
+            # -- but the reason differs: nobody accepted, yet money moved
+            # or a class was recorded against the seat [audit C-02].
+            code="ENROLLMENT_HAS_HISTORY",
+            message_key="enrollment.remove.has_history",
+        )
+
     session.delete(record)
     session.commit()
+
+
+#: The ledger kinds that record money moving rather than money falling
+#: due. A seat carrying any of them holds someone's cash or credit.
+#: ``0027``'s trigger names the same set; a test exercises both.
+MONEY_MOVEMENT_KINDS: frozenset[str] = frozenset(
+    {"receipt", "carry_forward", "carried_out", "credit_grant", "credit_apply"}
+)
+
+
+def _has_history(session: Session, *, enrollment_id: uuid.UUID) -> bool:
+    """Report whether removing a seat would destroy anyone's record.
+
+    **History is what a person did, not what the clock did.** Generated
+    charges and forgiveness of them fall due and lapse on their own; a
+    seat typed on a wrong number carries both and must stay removable,
+    or removal stops being the recovery path it exists for. Cash and
+    credit, a payment someone reported, an extra-fee payment, an
+    attendance mark and an exam mark are each a record a person made,
+    and the ``ON DELETE CASCADE`` from ``enrollment`` would erase them
+    with no trace [audit C-02].
+
+    The same rule is enforced by the ``enrollment_keeps_history``
+    trigger, so a path that skips this service is refused by the
+    database rather than succeeding silently.
+
+    :param session: The session to read through
+    :param enrollment_id: The seat about to be removed
+    :return: Whether any history row exists
+    """
+    probes = (
+        sa.select(LedgerEntryRow.id).where(
+            LedgerEntryRow.enrollment_id == enrollment_id,
+            LedgerEntryRow.kind.in_(sorted(MONEY_MOVEMENT_KINDS)),
+        ),
+        sa.select(PaymentClaim.id).where(PaymentClaim.enrollment_id == enrollment_id),
+        sa.select(ExtraFeeEntry.id)
+        .join(ExtraFeeCharge, ExtraFeeCharge.id == ExtraFeeEntry.extra_fee_charge_id)
+        .where(
+            ExtraFeeCharge.enrollment_id == enrollment_id,
+            ExtraFeeEntry.kind.in_(sorted(MONEY_MOVEMENT_KINDS)),
+        ),
+        sa.select(Attendance.id).where(Attendance.enrollment_id == enrollment_id),
+        sa.select(Mark.id).where(Mark.enrollment_id == enrollment_id),
+    )
+    return any(session.scalar(sa.select(sa.exists(probe))) for probe in probes)
 
 
 def set_inactive_from(

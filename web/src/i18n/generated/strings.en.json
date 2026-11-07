@@ -341,6 +341,7 @@
   "edit_profile_title": "Edit profile",
   "enrollment_remove_claimed": "This student has accepted their place and has a record. Mark them as left instead of removing them.",
   "enrollment_remove_erased": "This place records someone's request to erase their data. Add the number again to create a new, separate record.",
+  "enrollment_remove_has_history": "This place has payments, credit, attendance or marks recorded. Mark the student as left instead of removing them.",
   "enrollment_student_already_in_batch": "This student is already in this batch.",
   "error_network_unreachable": "Could not reach the server. Check your connection and try again.",
   "error_unexpected": "Something went wrong. Please try again.",

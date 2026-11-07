@@ -47,6 +47,7 @@
     <string name="batch_create_subject_required">অন্তত একটি বিষয় যোগ করুন।</string>
     <string name="enrollment_remove_claimed">এই শিক্ষার্থী তার জায়গা গ্রহণ করেছেন এবং তার রেকর্ড আছে। মুছে ফেলার বদলে তাকে ছেড়ে যাওয়া হিসেবে চিহ্নিত করুন।</string>
     <string name="enrollment_remove_erased">এই জায়গাটিতে কারও তথ্য মুছে ফেলার অনুরোধ রেকর্ড করা আছে। নতুন ও আলাদা রেকর্ড তৈরি করতে নম্বরটি আবার যোগ করুন।</string>
+    <string name="enrollment_remove_has_history">এই জায়গায় পেমেন্ট, ক্রেডিট, উপস্থিতি বা নম্বর রেকর্ড করা আছে। মুছে ফেলার বদলে শিক্ষার্থীকে ছেড়ে যাওয়া হিসেবে চিহ্নিত করুন।</string>
     <string name="authz_lens_not_available">এটি দেখার অনুমতি আপনার নেই।</string>
     <string name="guardian_children_title">আপনার সন্তানরা</string>
     <string name="guardian_children_empty">এখনও কোনো সন্তান যুক্ত হয়নি। প্রথমে একজন শিক্ষককে আপনার নম্বর যোগ করতে হবে।</string>

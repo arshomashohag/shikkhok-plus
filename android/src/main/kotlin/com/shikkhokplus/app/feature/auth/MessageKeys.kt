@@ -51,6 +51,7 @@ object MessageKeys {
             R.string.batch_create_subject_required,
         "enrollment.remove.claimed" to R.string.enrollment_remove_claimed,
         "enrollment.remove.erased" to R.string.enrollment_remove_erased,
+        "enrollment.remove.has_history" to R.string.enrollment_remove_has_history,
         "authz.lens.not_available" to R.string.authz_lens_not_available,
         "roster.status.dormant" to R.string.roster_status_dormant,
         "roster.status.active" to R.string.roster_status_active,
