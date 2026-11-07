@@ -118,7 +118,7 @@ def test_the_schema_is_at_the_head_revision(restricted_session: Session) -> None
     revision = restricted_session.execute(
         sa.text("SELECT version_num FROM alembic_version")
     ).scalar_one()
-    assert revision == "0027"
+    assert revision == "0029"
 
 
 def test_the_restricted_role_exists(restricted_session: Session) -> None:
@@ -157,7 +157,5 @@ def test_the_enrollment_batch_foreign_key_is_scheduled(
         )
     }
 
-    assert "fk_enrollment_batch" not in present, (
-        "the batch foreign key now exists, which is the intended end "
-        "state: invert this assertion and delete the note in 0002."
-    )
+    # Flipped by 0029 [audit C-26]: the deferral finally has its owner.
+    assert "fk_enrollment_batch_id_batch" in present

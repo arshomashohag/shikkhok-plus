@@ -49,11 +49,12 @@ VERSIONS: Final[pathlib.Path] = (
 #: centre's staff records -- once more, and ``0024`` -- rooms, and who
 #: teaches each class where -- again, and ``0025`` -- an exam's examiner
 #: -- once more, and ``0026`` -- payroll -- again, and ``0027`` -- a seat
-#: keeps its history, and the supersession index -- once more.
-EXPECTED_REVISIONS: Final[int] = 27
+#: keeps its history, and the supersession index -- once more, and ``0029`` --
+#: integrity constraints and indexes -- again.
+EXPECTED_REVISIONS: Final[int] = 28
 
-#: The head ``0027`` leaves behind.
-EXPECTED_HEAD: Final[str] = "0027"
+#: The head ``0029`` leaves behind.
+EXPECTED_HEAD: Final[str] = "0029"
 
 
 def _revision_files() -> list[pathlib.Path]:
