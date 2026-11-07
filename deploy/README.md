@@ -114,11 +114,19 @@ code; `infra/modules/seeder/` says why it is built the way it is.
    Lambda; the workload boundary needs Lambda's VPC network-interface
    actions; the deploy role needs `lambda:UpdateFunctionCode` on the
    seeder. Without this the next apply fails at `CreateFunction`.
-2. Settings → Environments → `staging-infra` → add the variable
+2. **Deploy once with the seeder still off**, from a commit that
+   includes it. The infrastructure job runs BEFORE the build, so the
+   function is created from the image staging is already running -- and
+   an image built before the release step set `provenance: false` is an
+   OCI index with an attestation, which Lambda refuses
+   (`CreateFunction`: image manifest media type not supported). This
+   deploy releases a plain-manifest image first.
+3. Settings → Environments → `staging-infra` → add the variable
    `ENABLE_SEEDER` = `true`.
-3. Dispatch `deploy` for staging. The apply creates the function on
-   the image staging is running; every later deploy moves it to the new
-   release after the smoke passes.
+4. Dispatch `deploy` for staging again, same ref. Nothing is rebuilt;
+   the apply creates the function on the image step 2 released, and
+   every later deploy moves it to the new release after the smoke
+   passes.
 
 **Then, any time:** sign up a teacher on staging (or
 `python -m app.db.seed_staging +8801XXXXXXXXX` on the host), and:
