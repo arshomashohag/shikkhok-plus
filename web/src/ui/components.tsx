@@ -94,6 +94,8 @@ export type FeeChipModel =
   | { kind: 'overdue'; days: number; amount: Money | null }
   | { kind: 'verifying'; amount: Money | null }
   | { kind: 'waived' }
+  /** A state this client does not know yet: named as unknown, never guessed. */
+  | { kind: 'unknown' }
 
 export function FeeChip({ chip }: { chip: FeeChipModel }) {
   const { t, lang } = useT()
@@ -144,6 +146,8 @@ export function FeeChip({ chip }: { chip: FeeChipModel }) {
       )
     case 'waived':
       return <span className="chip chip-neutral">{t('fees_status_waived')}</span>
+    case 'unknown':
+      return <span className="chip chip-neutral">{t('web_status_unknown')}</span>
   }
 }
 

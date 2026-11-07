@@ -168,12 +168,14 @@ function Line({ line }: { line: PaymentLine }) {
         ? t('payments_approved', formatShortDate(line.decidedOn, lang), channel)
         : line.state === 'waived'
           ? t('student_chip_waived')
-          : t('student_due_by', formatShortDate(line.dueDate, lang))
+          : line.state === 'unknown'
+            ? null
+            : t('student_due_by', formatShortDate(line.dueDate, lang))
   return (
     <li className="row">
       <div className="grow">
         <div className="title">{line.batchName}</div>
-        <div className="meta">{detail}</div>
+        {detail ? <div className="meta">{detail}</div> : null}
       </div>
       <div className="end">
         <span className="amount">{line.amount.format()}</span>

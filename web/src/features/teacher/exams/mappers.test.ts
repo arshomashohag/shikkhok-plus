@@ -9,10 +9,10 @@ import {
   mapResults,
   progressOf,
   rollLabel,
+  STATE_KEYS,
   topicsOf,
   topicsValid,
   typedMark,
-  UnknownResultState,
 } from './mappers'
 
 function exam(
@@ -78,10 +78,29 @@ describe('mapResults', () => {
     expect(mapResults(dto(false)).rows.every((x) => !x.editable)).toBe(true)
   })
 
-  it('fails loudly on a result state it cannot name', () => {
-    const bad = dto(true)
-    bad.results[0] = { ...bad.results[0]!, result_state: 'exempt' as 'marked' }
-    expect(() => mapResults(bad)).toThrow(UnknownResultState)
+  it('names a result state it does not know as unknown, on that row only, and locks it', () => {
+    const newer = dto(true)
+    newer.results[0] = { ...newer.results[0]!, result_state: 'exempt' as 'marked' }
+    const r = mapResults(newer)
+    expect(r.rows[0]).toMatchObject({ state: 'unknown', editable: false, hasHistory: false })
+    expect(STATE_KEYS[r.rows[0]!.state]).toBe('web_status_unknown')
+    // The other seats are drawn and editable as before.
+    expect(r.rows.slice(1).map((x) => x.editable)).toEqual([true, true, false])
+    expect(progressOf(r.rows)).toEqual({ done: 1, of: 2 })
+  })
+
+  it('names an unknown state in a mark history rather than failing it', () => {
+    expect(
+      mapHistory([
+        {
+          mark_id: 'm1',
+          result_state: 'exempt' as 'marked',
+          marks: null,
+          recorded_at: '2026-11-01T00:00:00Z',
+          superseded: false,
+        },
+      ])[0]?.state,
+    ).toBe('unknown')
   })
 
   it('never reports a negative number still to enter', () => {

@@ -17,7 +17,7 @@ import { useResource } from '../../../core/useResource'
 import { useT } from '../../../i18n/i18n'
 import { ErrorCard, Loading, Snackbar, StaleBanner, TopBar } from '../../../ui/components'
 import { readSeatFees } from './api'
-import { mapFeeHistory, STRIP_GLYPH, STRIP_WORD, type MonthCell } from './fees'
+import { CYCLE_WORD, mapFeeHistory, STRIP_GLYPH, STRIP_WORD, type MonthCell } from './fees'
 import { HistoryLineText } from './HistoryLineText'
 import { moneyPaths } from './paths'
 import { RecordPaymentSheet } from './RecordPaymentSheet'
@@ -103,8 +103,10 @@ export function SeatFees() {
                 <li key={row.period} className="row" style={{ alignItems: 'flex-start' }}>
                   <div className="grow">
                     <div className="title">{formatMonth(row.period, lang)}</div>
-                    <div className={row.settled ? 'meta' : 'meta danger'}>
-                      {t(`fees_status_${row.status}`)}
+                    <div
+                      className={row.settled || row.status === 'unknown' ? 'meta' : 'meta danger'}
+                    >
+                      {t(CYCLE_WORD[row.status])}
                     </div>
                     <div className="meta">
                       {t(

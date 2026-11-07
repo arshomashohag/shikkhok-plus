@@ -13,7 +13,7 @@ import { useT } from '../../../i18n/i18n'
 import { ErrorCard, FeeChip, Loading, StaleBanner, TopBar } from '../../../ui/components'
 import { Money } from '../../../core/money'
 import { chargeChip } from '../../teacher/money/ExtraFees'
-import { mapFeeHistory } from '../../teacher/money/fees'
+import { CYCLE_WORD, mapFeeHistory } from '../../teacher/money/fees'
 import { HistoryLineText } from '../../teacher/money/HistoryLineText'
 import { MonthStrip } from '../../teacher/money/SeatFees'
 import '../../teacher/money/money.css'
@@ -91,8 +91,10 @@ export function FamilyFees({ reader }: { reader: Reader }) {
                 <li key={row.period} className="row" style={{ alignItems: 'flex-start' }}>
                   <div className="grow">
                     <div className="title">{formatMonth(row.period, lang)}</div>
-                    <div className={row.settled ? 'meta' : 'meta danger'}>
-                      {t(`fees_status_${row.status}`)}
+                    <div
+                      className={row.settled || row.status === 'unknown' ? 'meta' : 'meta danger'}
+                    >
+                      {t(CYCLE_WORD[row.status])}
                     </div>
                     <div className="meta">
                       {t(

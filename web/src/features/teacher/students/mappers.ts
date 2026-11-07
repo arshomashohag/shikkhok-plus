@@ -11,10 +11,11 @@ import { Money, toLatinDigits } from '../../../core/money'
 import type { FeeChipModel } from '../../../ui/components'
 import { feeChipFor } from '../mappers'
 
-export type LinkState = 'pending' | 'accepted' | 'declined' | 'absent'
+/** `unknown`: a state this client does not know yet (a newer server). */
+export type LinkState = 'pending' | 'accepted' | 'declined' | 'absent' | 'unknown'
 const LINK_STATES: readonly LinkState[] = ['pending', 'accepted', 'declined', 'absent']
 const STATUSES = ['dormant', 'active', 'inactive'] as const
-export type SeatStatus = (typeof STATUSES)[number]
+export type SeatStatus = (typeof STATUSES)[number] | 'unknown'
 
 /** A response this client does not understand: shown as `error.unexpected`. */
 export class RosterShapeError extends Error {
@@ -43,16 +44,22 @@ export interface Seat {
 }
 
 function linkState(raw: string): LinkState {
-  if ((LINK_STATES as readonly string[]).includes(raw)) return raw as LinkState
-  throw new RosterShapeError(`unknown link state '${raw}'`)
+  return (LINK_STATES as readonly string[]).includes(raw) ? (raw as LinkState) : 'unknown'
 }
 
 /**
  * Map the roster, joining each seat's fee chip by enrollment id.
  *
- * @throws RosterShapeError For a status or link state this client does
- *   not know, or a seat with no student link — the screen then says
- *   something went wrong rather than drawing a row it cannot explain
+ * A seat status or link state this client does not know (a server newer
+ * than this tab) maps to `unknown` and the row is drawn without that
+ * phrase, rather than the whole roster failing. That guesses nothing that
+ * matters: who may be removed is the server's `is_removable`, and every
+ * action is checked again by the server. `unknown` is never read as
+ * declined, pending or inactive.
+ *
+ * @throws RosterShapeError For a seat with no student link — a broken
+ *   response rather than a newer one, so the screen says something went
+ *   wrong rather than drawing a row it cannot explain
  */
 export function mapSeats(
   rows: Schemas['RosterRowResponse'][],
@@ -60,9 +67,9 @@ export function mapSeats(
 ): Seat[] {
   const byId = new Map((fees?.seats ?? []).map((s) => [s.enrollment_id, s]))
   return rows.map((r) => {
-    if (!(STATUSES as readonly string[]).includes(r.status)) {
-      throw new RosterShapeError(`unknown seat status '${r.status}'`)
-    }
+    const status: SeatStatus = (STATUSES as readonly string[]).includes(r.status)
+      ? (r.status as SeatStatus)
+      : 'unknown'
     const studentState = linkState(r.student_state)
     const guardianState = linkState(r.guardian_state)
     if (studentState === 'absent') throw new RosterShapeError('a seat with no student link')
@@ -73,7 +80,7 @@ export function mapSeats(
       customFee: Money.fromWireOrNull(r.fee_amount),
       studentState,
       guardianState,
-      status: r.status as SeatStatus,
+      status,
       inactiveFrom: r.inactive_from ?? null,
       isRemovable: r.is_removable,
       declined: studentState === 'declined' || guardianState === 'declined',
