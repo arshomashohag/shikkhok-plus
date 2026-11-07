@@ -21,6 +21,12 @@ correlation id and never the number. The person sees "code sent" and
 receives nothing, which is the price of the budget not being an
 existence oracle; the operator sees why, from the alert.
 
+**A code whose send was skipped is killed** [C-20]. It used to stay
+live, so whoever had drained the budget still had five guesses at a code
+nobody could receive. Given the code's row, the skip marks it spent in
+the same session; verify then refuses it as a used code, which is what
+it answers for any spent code, so this changes no response either.
+
 **Its own session**, because a deferred task outlives the request's:
 the request-scope middleware has already closed that one by the time
 the response body is written.
@@ -30,7 +36,9 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
+import uuid
 
+import sqlalchemy as sa
 from sqlalchemy import Connection, Engine
 from sqlalchemy.orm import sessionmaker
 
@@ -51,6 +59,7 @@ def send_within_budget(
     *,
     budget: SendBudget,
     now: dt.datetime | None = None,
+    otp_request_id: uuid.UUID | None = None,
 ) -> SendResult | None:
     """Spend one unit of a daily send budget, then send -- or skip.
 
@@ -65,6 +74,8 @@ def send_within_budget(
     :param correlation_id: Ties the log line to the request
     :param budget: Which daily budget this send spends
     :param now: The moment to count against, or None for the clock
+    :param otp_request_id: The code this message carries, killed if the
+        send is skipped; None for a caller that has not adopted it yet
     :return: The gateway's result, or None when the budget refused
     """
     factory = sessionmaker(bind=bind, expire_on_commit=False)
@@ -79,5 +90,15 @@ def send_within_budget(
                     "correlation_id": correlation_id,
                 },
             )
+            if otp_request_id is not None:
+                session.execute(
+                    sa.text(
+                        "UPDATE otp_request "
+                        "SET consumed_at = coalesce(consumed_at, :now) "
+                        "WHERE id = :id"
+                    ),
+                    {"now": now or dt.datetime.now(tz=dt.UTC), "id": otp_request_id},
+                )
+                session.commit()
             return None
     return gateway.send(number, message, correlation_id)

@@ -19,6 +19,8 @@ object MessageKeys {
     private val resources: Map<String, Int> = mapOf(
         "error.network.unreachable" to R.string.error_network_unreachable,
         "error.unexpected" to R.string.error_unexpected,
+        "auth.verify.temporarily_unavailable" to R.string.auth_verify_temporarily_unavailable,
+        "centre.temporarily_unavailable" to R.string.centre_temporarily_unavailable,
         "error.temporarily_unavailable" to R.string.error_temporarily_unavailable,
         // A number that is not a Bangladeshi mobile, refused by the
         // server's canonicalisation on any route that takes a number.

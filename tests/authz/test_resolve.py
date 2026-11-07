@@ -82,7 +82,7 @@ def _enroll(session: Session, account_id: uuid.UUID, role: str) -> uuid.UUID:
         "student_decision": "accepted" if role == "student" else "pending",
         "guardian_decision": "accepted" if role == "guardian" else "pending",
     }
-    # A real batch: 0029 gave enrollment.batch_id its foreign key.
+    # A real batch: 0028 gave enrollment.batch_id its foreign key.
     batch_id = make_teacher(session).batch_id
     record = Enrollment(
         batch_id=batch_id,

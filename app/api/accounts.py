@@ -21,18 +21,24 @@ sees them as lensed and a handler cannot widen to a second seat.
 
 from __future__ import annotations
 
+import datetime as dt
 import os
 import uuid
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Query, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.accounts import decisions, service
-from app.api.auth import APP_HASH_ENV, correlation_of, ip_prefix_of
+from app.api.auth import (
+    APP_HASH_ENV,
+    coarse_prefix_of,
+    correlation_of,
+    ip_prefix_of,
+)
 from app.api.deps import authenticated_account, get_session, invitation_lens
 from app.audit.log import AuthEvent, write_audit
-from app.auth import otp
+from app.auth import otp, pending
 from app.auth.ceilings import CeilingBreach, CeilingChecker, SendBudget
 from app.auth.delivery import send_within_budget
 from app.authz.invitations import (
@@ -74,11 +80,6 @@ _ROLE_NAMES: dict[service.SignupRole, RoleName] = {
     service.SignupRole.TEACHER: "teacher",
     service.SignupRole.STUDENT: "student",
     service.SignupRole.GUARDIAN: "guardian",
-}
-
-_ROLES_BY_NAME: dict[str, service.SignupRole] = {
-    **{name: role for role, name in _ROLE_NAMES.items()},
-    "coaching": service.SignupRole.COACHING,
 }
 
 
@@ -143,38 +144,53 @@ def _as_response(row: InvitationRow) -> InvitationResponse:
 def sign_up(
     body: SignupRequest,
     request: Request,
+    background: BackgroundTasks,
     session: Annotated[Session, Depends(get_session)],
     gateway: Annotated[SmsGateway, Depends(get_gateway)],
 ) -> SignupResponse:
-    """Create an account, then send the verification code [BR4.3].
+    """Hold the signup form, then send the code that completes it [C-07].
 
-    **The ordering is the requirement, not an implementation detail**
-    [AC1.11.4]. The account exists before the code is sent, so a person
-    who verifies always has something to verify into; sending first
-    would mean a code arriving for an account that may never be
-    created.
+    **Verify first, create second.** This used to create the account,
+    profile, owner and centre here and answer an existing number with a
+    409: an existence oracle for any phone number, and a way to squat a
+    stranger's number with a name, address and role the real owner then
+    inherited. Now the form is held as a draft
+    (:mod:`app.auth.pending`) and the account is created only when the
+    code sent to the number is verified at ``POST /v1/auth/verify`` --
+    which is the call both clients already make next, so neither changes.
 
-    The ceiling is consumed **before** the account is created, for the
-    reason the OTP path checks before its gateway call: a ceiling
-    checked afterwards has already spent what it exists to protect.
+    **The same answer for every number.** A number with an account gets
+    the same 201 and the same body shape, and the code sent to it signs
+    the person in to the account they already have; a new number's code
+    creates the account. The ``account_id`` reported is the draft's,
+    fresh on every request, and becomes the account's id if the draft is
+    completed. Both branches write a draft and a code, so the work is
+    the same too [BR2.7].
+
+    The ceiling is consumed **before** anything is written, for the
+    reason the OTP path checks before its gateway call. The SMS goes
+    after the response, from **signup's own** send budget [C-05], for
+    an existing number too: signup can never spend what sign-in needs.
 
     Public by design, and in ``PUBLIC_ROUTES``: there is no session to
     authenticate with before an account exists.
 
     :param body: The signup request
     :param request: The incoming request
+    :param background: Runs the SMS send after the response is written
     :param session: The request-scoped session
     :param gateway: The configured SMS gateway
-    :return: The new account and the number its code went to
+    :return: The draft's id and the number its code went to
     :raises CeilingBreach: A signup ceiling refused this request
-    :raises DuplicateNumber: The number already has an account
     """
     correlation_id = correlation_of(request)
     checker = CeilingChecker(session)
 
     try:
         checker.check_and_consume_signup(
-            number=body.phone, ip_prefix=ip_prefix_of(request)
+            number=body.phone,
+            ip_prefix=ip_prefix_of(request),
+            coarse_prefix=coarse_prefix_of(request),
         )
     except CeilingBreach:
         # Recorded as a NAMED member with no scope value [NFR12.10]:
@@ -184,49 +200,51 @@ def sign_up(
         write_audit(session, None, AuthEvent.SIGNUP_CEILING_BREACHED, correlation_id)
         raise
 
-    created = service.create_account(
+    moment = dt.datetime.now(tz=dt.UTC)
+    draft_id = pending.save_draft(
         session,
         phone=body.phone,
-        role=_ROLES_BY_NAME[body.role],
+        role=body.role,
         self_name=body.self_name,
-        address=service.PostalAddress(
-            house=body.address_house,
-            road=body.address_road,
-            city=body.address_city,
-            postcode=body.address_postcode,
-        ),
+        address_house=body.address_house,
+        address_road=body.address_road,
+        address_city=body.address_city,
+        address_postcode=body.address_postcode,
         centre_name=body.centre_name,
+        now=moment,
     )
-    write_audit(session, created.account_id, AuthEvent.ACCOUNT_CREATED, correlation_id)
+    # Never the account id, known or not: saying which is the oracle.
+    write_audit(
+        session, None, AuthEvent.SIGNUP_REQUESTED, correlation_id, occurred_at=moment
+    )
 
-    # The EXISTING OTP path, unchanged [BR2.2]. Signup does not become
-    # a second authentication route: it triggers the one that carries
-    # the seven abuse controls.
-    issued = otp.issue(session, body.phone, correlation_id, purpose=otp.OTP_PURPOSE)
+    # The EXISTING OTP path [BR2.2]: signup does not become a second
+    # authentication route. `otp.issue` binds the draft just written to
+    # the code it issues and commits both together, so a failure between
+    # them leaves neither.
+    issued = otp.issue(
+        session, body.phone, correlation_id, purpose=otp.OTP_PURPOSE, now=moment
+    )
     message = render_otp_message(issued.code, os.environ.get(APP_HASH_ENV, ""))
-    # Through sign-in's daily send budget, which is what lets signup's
-    # own cascade carry no global scope [PA-SEC-2]. It used to call the
-    # gateway directly, so signup's SMS was bounded by no daily ceiling
-    # at all while `_signup_scopes` said it was.
-    send_within_budget(
+
+    # After the response, so a known and an unknown number return having
+    # done the same work, and from signup's budget whichever it is
+    # [C-05]. A skipped send kills the code [C-20].
+    background.add_task(
+        send_within_budget,
         session.get_bind(),
         gateway,
         body.phone,
         message,
         correlation_id,
-        budget=SendBudget.SIGN_IN,
+        budget=SendBudget.SIGNUP,
+        otp_request_id=issued.request_id,
     )
 
-    # **The staging outbox, which this path was missing.** `/v1/auth/otp`
-    # records here and this endpoint did not, so a person who registered
-    # on a host with no SMS credentials got a 201, an account, and no way
-    # to reach the code -- the outbox exists precisely so that is
-    # possible before real credentials are configured.
-    #
-    # No `account_exists` guard, unlike the auth route. There the guard
-    # stops the outbox becoming an existence oracle for a number with no
-    # account; here the account was just created three statements above,
-    # so it always exists and the condition could only ever be true.
+    # The staging outbox, so a host with no SMS credentials can still
+    # complete a signup. Unconditional, because every signup sends: the
+    # outbox records nothing here that it would not record for any other
+    # number, and production runs it to no effect.
     if outbox_enabled():
         record_outbox(
             session,
@@ -237,7 +255,7 @@ def sign_up(
 
     session.commit()
 
-    return SignupResponse(account_id=created.account_id, code_sent_to=body.phone)
+    return SignupResponse(account_id=draft_id, code_sent_to=body.phone)
 
 
 @router.get("/accounts/already-added", response_model=AlreadyAddedResponse)
@@ -252,7 +270,8 @@ def lookup_already_added(
     [BR2.3, AC1.12.2]. That is its purpose, and it is why BR2.2's
     byte-identical requirement applies to the OTP endpoint and not to
     this one. What is bounded is the WIDTH -- never the teacher, never
-    the batch -- and the rate, through signup's own ceilings.
+    the batch, never the name [C-06] -- and the rate, through signup's
+    own ceilings.
 
     Public, and in ``PUBLIC_ROUTES``: it is called while the signup
     form renders, before any account exists.
@@ -262,17 +281,24 @@ def lookup_already_added(
         both see one spelling
     :param request: The incoming request
     :param session: The request-scoped session
-    :return: Existence, the name to pre-fill and the role to lock
+    :return: Existence and the role to lock; never a name
     :raises CeilingBreach: A signup ceiling refused this request
     """
     CeilingChecker(session).check_and_consume_signup(
-        number=phone, ip_prefix=ip_prefix_of(request)
+        number=phone,
+        ip_prefix=ip_prefix_of(request),
+        coarse_prefix=coarse_prefix_of(request),
     )
 
     found = service.already_added(session, phone)
     return AlreadyAddedResponse(
         already_added=found.exists,
-        display_name=found.display_name,
+        # NEVER the name [C-06]. Empty rather than absent where a seat
+        # exists, because the Android mapper already in the field treats
+        # a seat with a null name as a broken response and shows an
+        # error instead of the role-locked form. Empty locks the role
+        # and pre-fills nothing, which is the behaviour wanted.
+        display_name="" if found.exists else None,
         role=_ROLE_NAMES[found.role] if found.role is not None else None,
     )
 

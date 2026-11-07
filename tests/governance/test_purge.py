@@ -273,8 +273,9 @@ def test_every_finite_retention_class_has_a_window(
         f"these tables carry a finite retention class but no purge "
         f"window: {sorted(finite - set(WINDOWS))}"
     )
-    assert len(finite) == 8, (
-        f"the manifest now carries {len(finite)} finite windows, not 8."
+    # 9 since 0028 added `pending_signup`, a signup draft kept 48 hours.
+    assert len(finite) == 9, (
+        f"the manifest now carries {len(finite)} finite windows, not 9."
     )
 
 
@@ -396,6 +397,18 @@ def _plant(
                 "hash": row_id.hex,
                 "family": uuid.uuid4(),
             },
+        )
+    elif table == "pending_signup":
+        # One draft per number, so each planted row takes its own.
+        session.execute(
+            sa.text(
+                "INSERT INTO pending_signup "
+                "(id, phone, role, self_name, address_house, address_road, "
+                " address_city, address_postcode, created_at, expires_at) "
+                "VALUES (:id, :phone, 'student', 'Aged', 'H', 'R', 'C', "
+                "        '1205', :at, :at)"
+            ),
+            shared | {"phone": f"+88017{row_id.int % 10**8:08d}"},
         )
     else:  # pragma: no cover - guarded by the assertion below
         raise AssertionError(

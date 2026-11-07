@@ -750,6 +750,10 @@ jobs:
           SMS_BASE_URL: ${{ vars.SHIKKHOKPLUS_SMS_BASE_URL }}
           SMS_APP_HASH: ${{ vars.SHIKKHOKPLUS_SMS_APP_HASH }}
           DAILY_SMS: ${{ vars.SHIKKHOKPLUS_GLOBAL_DAILY_SMS }}
+          # Signup's own send budget and the global failed-verify ceiling
+          # [C-05, C-20]; unset means the code's defaults.
+          SIGNUP_SMS: ${{ vars.SHIKKHOKPLUS_GLOBAL_DAILY_SIGNUP_SMS }}
+          VERIFY_FAILURES: ${{ vars.SHIKKHOKPLUS_GLOBAL_HOURLY_VERIFY_FAILURES }}
           STAGING_OUTBOX: ${{ vars.SHIKKHOKPLUS_STAGING_OUTBOX }}
           STAGING_OUTBOX_NUMBERS: ${{ vars.SHIKKHOKPLUS_STAGING_OUTBOX_NUMBERS }}
           SHA: ${{ needs.plan.outputs.sha }}
@@ -781,6 +785,8 @@ jobs:
             echo "SHIKKHOKPLUS_JWT_ACTIVE_KID=k1"
             echo "SHIKKHOKPLUS_SMS_APP_HASH=${SMS_APP_HASH}"
             echo "SHIKKHOKPLUS_GLOBAL_DAILY_SMS=${DAILY_SMS}"
+            echo "SHIKKHOKPLUS_GLOBAL_DAILY_SIGNUP_SMS=${SIGNUP_SMS:-100}"
+            echo "SHIKKHOKPLUS_GLOBAL_HOURLY_VERIFY_FAILURES=${VERIFY_FAILURES:-300}"
             echo "SHIKKHOKPLUS_SMS_ADAPTER=${SMS_API_KEY:+bulksmsbd}"
             echo "SHIKKHOKPLUS_SMS_BASE_URL=${SMS_BASE_URL}"
             echo "SHIKKHOKPLUS_SMS_API_KEY=${SMS_API_KEY}"

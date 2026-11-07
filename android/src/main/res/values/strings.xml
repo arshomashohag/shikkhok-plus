@@ -36,6 +36,8 @@
     <string name="error_temporarily_unavailable">The service is busy right now. Please try again in a moment.</string>
     <string name="auth_otp_not_valid">That code is not valid. Request a new one.</string>
     <string name="auth_otp_temporarily_unavailable">Sign-in is temporarily unavailable. Please try again later.</string>
+    <string name="auth_verify_temporarily_unavailable">Too many attempts right now. Please wait a while and try again.</string>
+    <string name="centre_temporarily_unavailable">You have opened the most centres allowed for today. Please try again tomorrow.</string>
     <string name="auth_token_not_valid">Your session has ended. Please sign in again.</string>
 
     <!-- Roster, batches and guardian children (U4). -->

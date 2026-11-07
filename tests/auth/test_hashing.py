@@ -24,6 +24,7 @@ from app.auth.hashing import (
     generate_refresh_token,
     hash_otp,
     hash_refresh_token,
+    legacy_refresh_token_digest,
     verify_otp,
 )
 
@@ -126,10 +127,18 @@ def test_refresh_tokens_are_stored_hashed() -> None:
     assert hash_refresh_token(token) != token
 
 
-def test_refresh_token_digests_are_also_keyed() -> None:
+def test_refresh_token_digests_no_longer_depend_on_the_otp_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Reversed by L-02: keyed under the OTP HMAC key, rotating that key
+    # logged every device out. A 256-bit random token needs no key to be
+    # unrecoverable from its digest.
     token = generate_refresh_token()
-    unkeyed = hashlib.sha256(token.encode()).hexdigest()
-    assert hash_refresh_token(token) != unkeyed
+    before = hash_refresh_token(token)
+    monkeypatch.setenv(OTP_HMAC_KEY_ENV, "a-rotated-otp-key")
+    assert hash_refresh_token(token) == before
+    assert before == hashlib.sha256(token.encode()).hexdigest()
+    assert legacy_refresh_token_digest(token) != before
 
 
 def test_generated_refresh_tokens_are_unique() -> None:

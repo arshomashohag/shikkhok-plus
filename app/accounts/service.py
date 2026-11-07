@@ -3,16 +3,16 @@
 Two operations with deliberately opposite disclosure properties, which
 is why they sit here together rather than beside the OTP path [BR2.3]:
 
-* :func:`create_account` must not become a second way to ask whether a
-  number is known. It refuses a duplicate, which *is* a disclosure --
-  but the person making it has demonstrated intent to own the number,
-  and the refusal is the uniqueness constraint reporting itself
-  [BR4.4].
+* :func:`complete_signup` creates an account only from a draft whose
+  code was just verified [C-07], so the signup route never has to say
+  whether a number is known. :func:`create_account` still refuses a
+  duplicate, as the uniqueness constraint reporting itself [BR4.4],
+  but no public route reaches that refusal any more.
 * :func:`already_added` discloses that a seat exists **by design**.
   That is its whole purpose, and it is why BR2.2 is a separate rule
   applying only to the OTP endpoint. What is bounded here is the WIDTH
-  of the disclosure -- never the teacher, never the batch -- not its
-  existence.
+  of the disclosure -- never the teacher, never the batch, and since
+  2026-11-07 never the name [C-06] -- not its existence.
 
 **Signing up is not accepting** [BR5.1]. Creating an account on a
 number that already has seats links the account to them and leaves
@@ -32,6 +32,8 @@ from dataclasses import dataclass
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
+from app.audit.log import AuthEvent, write_audit
+from app.auth.pending import discard, take_bound_draft
 from app.authz.rls import set_account_context
 from app.centres.memberships import link_memberships
 from app.centres.service import create_centre
@@ -45,7 +47,9 @@ __all__ = [
     "PostalAddress",
     "SignupRole",
     "already_added",
+    "complete_signup",
     "create_account",
+    "create_account_rows",
 ]
 
 
@@ -106,20 +110,20 @@ class AccountCreated:
 class AlreadyAdded:
     """What the lookup may say about a number, and no more [BR2.3].
 
-    **Three fields, and the absences are the requirement.** No teacher
+    **Two fields, and the absences are the requirement.** No teacher
     name, no teacher id, no batch name, no batch subject, no fee, no
-    enrollment id. With any of those the lookup becomes an oracle for
-    who teaches whom, readable by anyone who can type a phone number.
+    enrollment id -- and no name for the person [C-06]. The name was
+    the child's name as a teacher typed it, returned to anyone who
+    could type a phone number, before they had proved they held it.
+    After sign-in, a guardian reads it from the authenticated
+    invitation (``InvitationResponse.child_name``).
 
     :ivar exists: Whether a teacher has recorded this number
-    :ivar display_name: The teacher-typed name, to pre-fill as
-        correctable, or None when no seat exists
     :ivar role: The role the seat carries, to lock, or None when no
         seat exists
     """
 
     exists: bool
-    display_name: str | None
     role: SignupRole | None
 
 
@@ -132,10 +136,10 @@ class AlreadyAdded:
 #: Guardian [BR4.5]. The student link is preferred when one row carries
 #: both, because a person who is their own guardian is a student first.
 #:
-#: **Returns the display name and the matched link only.** The batch is
-#: not joined at all -- not filtered out afterwards, not selected and
-#: discarded -- so there is no column here that a later edit could
-#: accidentally surface [BR2.3].
+#: **Returns the matched link only.** The batch is not joined at all --
+#: not filtered out afterwards, not selected and discarded -- and the
+#: seat's name is not selected either [C-06], so there is no column here
+#: that a later edit could accidentally surface [BR2.3].
 #: The seat a number was recorded on, preferring a student seat.
 #:
 #: **Matched on the teacher-typed number, not only on a linked
@@ -150,15 +154,15 @@ class AlreadyAdded:
 #: never happens.
 _LOOKUP_QUERY = sa.text(
     """
-    SELECT display_name, is_student
+    SELECT is_student
     FROM (
-        SELECT e.display_name, TRUE AS is_student, e.created_at, e.id
+        SELECT TRUE AS is_student, e.created_at, e.id
         FROM enrollment e
         LEFT JOIN account a ON a.id = e.student_account_id
         WHERE (e.student_phone = :phone OR a.phone = :phone)
           AND e.student_relink_blocked_at IS NULL
         UNION ALL
-        SELECT e.display_name, FALSE AS is_student, e.created_at, e.id
+        SELECT FALSE AS is_student, e.created_at, e.id
         FROM enrollment e
         LEFT JOIN account a ON a.id = e.guardian_account_id
         WHERE (e.guardian_phone = :phone OR a.phone = :phone)
@@ -205,21 +209,20 @@ _LINK_STUDENT_SEATS = sa.text(
 def already_added(session: Session, phone: str) -> AlreadyAdded:
     """Report whether a teacher recorded this number, and nothing more.
 
-    Called before the signup form renders, so the form can pre-fill the
-    teacher-typed name as correctable and lock the role [BR4.5].
+    Called before the signup form renders, so the form can lock the
+    role [BR4.5]. It no longer pre-fills a name [C-06].
 
     :param session: The session to query through
     :param phone: The number typed into the form
-    :return: Existence, the name to pre-fill and the role to lock
+    :return: Existence and the role to lock
     """
     row = session.execute(_LOOKUP_QUERY, {"phone": phone}).one_or_none()
 
     if row is None:
-        return AlreadyAdded(exists=False, display_name=None, role=None)
+        return AlreadyAdded(exists=False, role=None)
 
     return AlreadyAdded(
         exists=True,
-        display_name=row.display_name,
         role=SignupRole.STUDENT if row.is_student else SignupRole.GUARDIAN,
     )
 
@@ -250,7 +253,104 @@ def create_account(
     centre_name: str | None = None,
     now: dt.datetime | None = None,
 ) -> AccountCreated:
+    """Create an account's rows and commit them, as one transaction.
+
+    :func:`create_account_rows` and a commit, for a caller with nothing
+    else to put in the transaction. The signup route does not use it:
+    it creates accounts through :func:`complete_signup`, inside the
+    transaction that consumes the verified code [C-07].
+
+    :param session: The session to write through
+    :param phone: The number this identity is keyed on
+    :param role: The claimed role; nothing verifies it [BR4.2]
+    :param self_name: The name the person chose for themselves
+    :param address: The address, in its four parts, or None
+    :param centre_name: The centre's name, for ``COACHING`` only
+    :param now: The moment of creation, or None for the clock
+    :return: The new account and whether it owns batches
+    :raises DuplicateNumber: The number already has an account
+    """
+    created = create_account_rows(
+        session,
+        phone=phone,
+        role=role,
+        self_name=self_name,
+        address=address,
+        centre_name=centre_name,
+        now=now,
+    )
+    session.commit()
+    return created
+
+
+def complete_signup(
+    session: Session,
+    *,
+    otp_request_id: uuid.UUID,
+    correlation_id: str,
+    now: dt.datetime,
+) -> uuid.UUID | None:
+    """Create the account a just-verified code's signup draft describes.
+
+    **Called inside the verify transaction and never commits** [C-07]:
+    the code is consumed, the account created and the draft removed
+    together, or none of them happen. The account takes the draft's id,
+    which is the ``account_id`` the signup response reported.
+
+    :param session: The session the verify is running in
+    :param otp_request_id: The code just verified
+    :param correlation_id: Ties the audit row to this request
+    :param now: The moment of verification
+    :return: The new account's id, or None when no live draft is bound
+        to the code
+    :raises DuplicateNumber: An account appeared for the number since
+        the verify read found none
+    """
+    draft = take_bound_draft(session, otp_request_id=otp_request_id, now=now)
+    if draft is None:
+        return None
+    created = create_account_rows(
+        session,
+        phone=draft.phone,
+        role=SignupRole(draft.role),
+        self_name=draft.self_name,
+        address=PostalAddress(
+            house=draft.address_house,
+            road=draft.address_road,
+            city=draft.address_city,
+            postcode=draft.address_postcode,
+        ),
+        centre_name=draft.centre_name,
+        now=now,
+        account_id=draft.id,
+    )
+    discard(session, phone=draft.phone)
+    write_audit(
+        session,
+        created.account_id,
+        AuthEvent.ACCOUNT_CREATED,
+        correlation_id,
+        occurred_at=now,
+    )
+    return created.account_id
+
+
+def create_account_rows(
+    session: Session,
+    *,
+    phone: str,
+    role: SignupRole,
+    self_name: str,
+    address: PostalAddress | None = None,
+    centre_name: str | None = None,
+    now: dt.datetime | None = None,
+    account_id: uuid.UUID | None = None,
+) -> AccountCreated:
     """Create an account, its profile, and an ``Owner`` only for Teacher.
+
+    **Adds to the caller's transaction and does not commit**, so the
+    verify path can create the account in the transaction that consumes
+    its code [C-07].
 
     **One transaction** [BR3.3]. ``Profile`` stops being optional the
     moment signup creates one, so an account with no profile row would
@@ -282,6 +382,8 @@ def create_account(
         caller that is not a person signing up
     :param centre_name: The centre's name, for ``COACHING`` only
     :param now: The moment of creation, or None for the clock
+    :param account_id: The id to create the account with, or None for a
+        fresh one
     :return: The new account and whether it owns batches
     :raises DuplicateNumber: The number already has an account
     """
@@ -298,7 +400,7 @@ def create_account(
     if existing is not None:
         raise DuplicateNumber()
 
-    account = Account(phone=phone, created_at=moment)
+    account = Account(id=account_id or uuid.uuid4(), phone=phone, created_at=moment)
     session.add(account)
     session.flush()
 
@@ -358,7 +460,6 @@ def create_account(
     # Linked, never accepted: the person still answers the invitation.
     link_memberships(session, account_id=account.id, phone=phone)
 
-    session.commit()
     return AccountCreated(account_id=account.id, is_teacher=is_teacher)
 
 

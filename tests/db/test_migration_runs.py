@@ -157,5 +157,5 @@ def test_the_enrollment_batch_foreign_key_is_scheduled(
         )
     }
 
-    # Flipped by 0029 [audit C-26]: the deferral finally has its owner.
+    # Flipped by 0028 [audit C-26]: the deferral finally has its owner.
     assert "fk_enrollment_batch_id_batch" in present

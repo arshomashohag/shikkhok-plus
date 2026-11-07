@@ -52,7 +52,7 @@ def student(owner_session: Session) -> uuid.UUID:
     owner_session.add(
         Profile(account_id=account.id, self_name=SELF_CHOSEN_NAME, photo_ref=None)
     )
-    # A real batch: 0029 gave enrollment.batch_id its foreign key.
+    # A real batch: 0028 gave enrollment.batch_id its foreign key.
     batch_id = make_teacher(owner_session).batch_id
     owner_session.add(
         Enrollment(

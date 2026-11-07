@@ -86,7 +86,7 @@ def _seat(
     :param guardian_decision: The guardian link's decision
     :return: The new enrollment's id
     """
-    # A real batch: 0029 gave enrollment.batch_id its foreign key.
+    # A real batch: 0028 gave enrollment.batch_id its foreign key.
     batch_id = make_teacher(session).batch_id
     record = Enrollment(
         batch_id=batch_id,

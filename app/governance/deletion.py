@@ -194,6 +194,15 @@ HARD_DELETE_SCOPES: Final[dict[str, _Target]] = {
             "is not a reason to skip the statement."
         ),
     ),
+    "pending_signup": _Target(
+        scope=Scope.PHONE_COLUMN,
+        column="phone",
+        note=(
+            "A signup form keyed on the NUMBER, like `otp_request`, so no "
+            "account constraint reaches it. Normally gone once the number "
+            "signs in; deleted here for the draft submitted after that."
+        ),
+    ),
     "verify_attempt": _Target(
         scope=Scope.VIA_CASCADE,
         column=None,

@@ -98,28 +98,40 @@ export interface paths {
     put?: never
     /**
      * Sign Up
-     * @description Create an account, then send the verification code [BR4.3].
+     * @description Hold the signup form, then send the code that completes it [C-07].
      *
-     *     **The ordering is the requirement, not an implementation detail**
-     *     [AC1.11.4]. The account exists before the code is sent, so a person
-     *     who verifies always has something to verify into; sending first
-     *     would mean a code arriving for an account that may never be
-     *     created.
+     *     **Verify first, create second.** This used to create the account,
+     *     profile, owner and centre here and answer an existing number with a
+     *     409: an existence oracle for any phone number, and a way to squat a
+     *     stranger's number with a name, address and role the real owner then
+     *     inherited. Now the form is held as a draft
+     *     (:mod:`app.auth.pending`) and the account is created only when the
+     *     code sent to the number is verified at ``POST /v1/auth/verify`` --
+     *     which is the call both clients already make next, so neither changes.
      *
-     *     The ceiling is consumed **before** the account is created, for the
-     *     reason the OTP path checks before its gateway call: a ceiling
-     *     checked afterwards has already spent what it exists to protect.
+     *     **The same answer for every number.** A number with an account gets
+     *     the same 201 and the same body shape, and the code sent to it signs
+     *     the person in to the account they already have; a new number's code
+     *     creates the account. The ``account_id`` reported is the draft's,
+     *     fresh on every request, and becomes the account's id if the draft is
+     *     completed. Both branches write a draft and a code, so the work is
+     *     the same too [BR2.7].
+     *
+     *     The ceiling is consumed **before** anything is written, for the
+     *     reason the OTP path checks before its gateway call. The SMS goes
+     *     after the response, from **signup's own** send budget [C-05], for
+     *     an existing number too: signup can never spend what sign-in needs.
      *
      *     Public by design, and in ``PUBLIC_ROUTES``: there is no session to
      *     authenticate with before an account exists.
      *
      *     :param body: The signup request
      *     :param request: The incoming request
+     *     :param background: Runs the SMS send after the response is written
      *     :param session: The request-scoped session
      *     :param gateway: The configured SMS gateway
-     *     :return: The new account and the number its code went to
+     *     :return: The draft's id and the number its code went to
      *     :raises CeilingBreach: A signup ceiling refused this request
-     *     :raises DuplicateNumber: The number already has an account
      */
     post: operations['sign_up_v1_accounts_post']
     delete?: never
@@ -143,7 +155,8 @@ export interface paths {
      *     [BR2.3, AC1.12.2]. That is its purpose, and it is why BR2.2's
      *     byte-identical requirement applies to the OTP endpoint and not to
      *     this one. What is bounded is the WIDTH -- never the teacher, never
-     *     the batch -- and the rate, through signup's own ceilings.
+     *     the batch, never the name [C-06] -- and the rate, through signup's
+     *     own ceilings.
      *
      *     Public, and in ``PUBLIC_ROUTES``: it is called while the signup
      *     form renders, before any account exists.
@@ -153,7 +166,7 @@ export interface paths {
      *         both see one spelling
      *     :param request: The incoming request
      *     :param session: The request-scoped session
-     *     :return: Existence, the name to pre-fill and the role to lock
+     *     :return: Existence and the role to lock; never a name
      *     :raises CeilingBreach: A signup ceiling refused this request
      */
     get: operations['lookup_already_added_v1_accounts_already_added_get']
@@ -223,6 +236,73 @@ export interface paths {
      *     :return: An empty 204
      */
     delete: operations['remove_announcement_v1_announcements__announcement_id__delete']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/auth/logout': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Log Out
+     * @description End the session a refresh token belongs to [C-21].
+     *
+     *     Takes the **refresh** token, like ``/refresh`` and for the same
+     *     reason, so it sits beside that route in
+     *     ``LENS_EXEMPT_AUTHENTICATED``: a client whose access token has
+     *     already expired must still be able to sign out. The whole family is
+     *     revoked, so a copy of the live token on another device stops too.
+     *
+     *     **Always 204, with no body**, whether the token was live, expired,
+     *     revoked or never existed: logout is not an oracle for which tokens
+     *     are valid, and a client retrying after a lost response is never
+     *     shown an error.
+     *
+     *     :param body: The refresh token to end the session of
+     *     :param request: The incoming request
+     *     :param session: The request-scoped session
+     *     :param authorization: The bearer header, unused, as on ``/refresh``
+     *     :return: An empty 204
+     */
+    post: operations['log_out_v1_auth_logout_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/auth/logout-all': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Log Out Everywhere
+     * @description End every session of the authenticated account [C-21].
+     *
+     *     Lens-exempt on ``DELETE /v1/me``'s reasoning: it acts on the
+     *     authenticated account itself and takes no id from the request, so
+     *     there is no other account's data for a lens to scope, and an account
+     *     holding no lens must still be able to sign out everywhere.
+     *
+     *     :param account_id: The authenticated account
+     *     :param request: The incoming request
+     *     :param session: The request-scoped session
+     *     :return: An empty 204
+     */
+    post: operations['log_out_everywhere_v1_auth_logout_all_post']
+    delete?: never
     options?: never
     head?: never
     patch?: never
@@ -298,10 +378,24 @@ export interface paths {
      * Verify Code
      * @description Verify a code and issue a token pair.
      *
+     *     **Bounded wider than one code** [C-20]. A verify arriving while the
+     *     caller's /64, its /48 or the whole product has failed too often this
+     *     hour is refused before its code is checked, and every failure counts
+     *     against all three. A code guessed to death counts against its
+     *     number's daily cool-off, which stops further codes being issued for
+     *     it. All of it applies to a known and an unknown number alike.
+     *
+     *     **Completes a verify-first signup** [C-07]: a right code for a number
+     *     whose signup draft it was sent for creates the account, then signs
+     *     it in, so both clients' existing "sign up, then type the code" flow
+     *     is unchanged.
+     *
      *     :param body: The request body
      *     :param request: The incoming request
      *     :param session: The request-scoped session
      *     :return: The new token pair
+     *     :raises CeilingBreach: A failed-verify ceiling is full
+     *     :raises CodeRefused: The code was refused
      */
     post: operations['verify_code_v1_auth_verify_post']
     delete?: never
@@ -1181,10 +1275,15 @@ export interface paths {
      * Open Centre
      * @description Open a coaching centre with the caller as its first manager.
      *
+     *     **Bounded per account** [L-06]: opening a centre is a deliberate,
+     *     rare act, so a daily allowance refuses a loop opening many with a
+     *     contentless 409 before anything is written.
+     *
      *     :param body: The centre's name and the caller's name in it
      *     :param account_id: The authenticated account
      *     :param session: The request-scoped session
      *     :return: The new workspace
+     *     :raises CeilingBreach: The account has opened its allowance today
      */
     post: operations['open_centre_v1_centres_post']
     delete?: never
@@ -3649,21 +3748,27 @@ export interface components {
      * AlreadyAddedResponse
      * @description What the lookup may say about a number [BR2.3, BR4.5].
      *
-     *     **Three fields, and the absences are the requirement.** No teacher
-     *     name, no teacher id, no batch name, no batch subject, no fee, no
-     *     enrollment id. With any of those this becomes an oracle for who
-     *     teaches whom, readable by anyone who can type a phone number
-     *     [AC1.12.2].
+     *     **The absences are the requirement.** No teacher name, no teacher
+     *     id, no batch name, no batch subject, no fee, no enrollment id, and
+     *     no name for the person [C-06]. With any of those this becomes an
+     *     oracle readable by anyone who can type a phone number [AC1.12.2].
      *
      *     :ivar already_added: Whether a teacher recorded this number
-     *     :ivar display_name: The teacher-typed name to pre-fill as
-     *         correctable, or None
+     *     :ivar display_name: **Deprecated, and never a name.** Kept so
+     *         clients already installed still parse the response: an empty
+     *         string when ``already_added`` is true, None otherwise. A
+     *         guardian reads the child's name after sign-in, from
+     *         ``InvitationResponse.child_name``
      *     :ivar role: The role to lock the form to, or None
      */
     AlreadyAddedResponse: {
       /** Already Added */
       already_added: boolean
-      /** Display Name */
+      /**
+       * Display Name
+       * @deprecated
+       * @description Deprecated and never a name: an empty string when already_added is true, null otherwise. Kept only so clients already installed still parse the response.
+       */
       display_name?: string | null
       /** Role */
       role?: ('guardian' | 'student' | 'teacher') | null
@@ -9366,6 +9471,93 @@ export interface operations {
         content: {
           'application/json': components['schemas']['ErrorEnvelope']
         }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  log_out_v1_auth_logout_post: {
+    parameters: {
+      query?: never
+      header?: {
+        authorization?: string | null
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['RefreshRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description The request could not be parsed */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  log_out_everywhere_v1_auth_logout_all_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
       }
       /** @description An unexpected failure; not retryable */
       500: {

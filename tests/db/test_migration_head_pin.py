@@ -49,9 +49,10 @@ VERSIONS: Final[pathlib.Path] = (
 #: centre's staff records -- once more, and ``0024`` -- rooms, and who
 #: teaches each class where -- again, and ``0025`` -- an exam's examiner
 #: -- once more, and ``0026`` -- payroll -- again, and ``0027`` -- a seat
-#: keeps its history, and the supersession index -- once more, and ``0029`` --
-#: integrity constraints and indexes -- again.
-EXPECTED_REVISIONS: Final[int] = 28
+#: keeps its history, and the supersession index -- once more, and ``0028`` --
+#: integrity constraints and indexes -- again, and ``0029`` -- verify-first
+#: signup and the end of a session -- once more.
+EXPECTED_REVISIONS: Final[int] = 29
 
 #: The head ``0029`` leaves behind.
 EXPECTED_HEAD: Final[str] = "0029"

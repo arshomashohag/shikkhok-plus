@@ -28,6 +28,7 @@ from sqlalchemy.orm import Session
 from app.db.models import OwnerMember, ScheduleSlot
 from app.db.models import Session as ClassSession
 from app.local_time import bangladesh_today
+from tests.accounts.signup_support import sign_up
 from tests.batches.conftest import make_teacher
 from tests.conftest import bearer
 
@@ -69,9 +70,10 @@ class Centre:
         """
         self.client = client
         self.session = session
-        response = client.post(
-            "/v1/accounts",
-            json={
+        # Form and code: the account is created at verify [C-07].
+        self.manager = sign_up(
+            client,
+            {
                 "phone": _phone(),
                 "role": "coaching",
                 "self_name": "Rina",
@@ -79,8 +81,6 @@ class Centre:
                 **ADDRESS,
             },
         )
-        assert response.status_code == 201, response.text
-        self.manager = uuid.UUID(response.json()["account_id"])
         me = client.get("/v1/me", headers=self.headers()).json()
         self.owner_id = uuid.UUID(me["workspaces"][0]["owner_id"])
 

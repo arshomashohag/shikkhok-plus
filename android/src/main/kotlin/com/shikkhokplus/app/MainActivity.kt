@@ -1,5 +1,7 @@
 package com.shikkhokplus.app
 
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 import com.shikkhokplus.app.core.session.offlineScope
 import com.shikkhokplus.app.core.session.WorkspaceHolder
 import com.shikkhokplus.app.core.session.PreferencesWorkspaceStore
@@ -60,6 +62,7 @@ import com.shikkhokplus.app.core.session.ui.LensPickerScreen
 import com.shikkhokplus.app.core.network.HttpProfileRepository
 import com.shikkhokplus.app.core.network.EncryptedTokenStore
 import com.shikkhokplus.app.core.network.HttpAuthRepository
+import com.shikkhokplus.app.core.network.TokenStore
 import com.shikkhokplus.app.feature.auth.AuthUiState
 import com.shikkhokplus.app.feature.auth.AuthViewModel
 import com.shikkhokplus.app.core.notify.ui.OpenInboxEffect
@@ -263,6 +266,7 @@ private fun AppRoot(openInbox: Boolean, onInboxOpened: () -> Unit, settings: Set
             )
         }
     val repository = remember { HttpAuthRepository(client = client, tokens = tokens) }
+    val signOutScope = rememberCoroutineScope()
 
     val authModel: AuthViewModel = viewModel { AuthViewModel(repository) }
     val authState by authModel.state.collectAsState()
@@ -396,6 +400,9 @@ private fun AppRoot(openInbox: Boolean, onInboxOpened: () -> Unit, settings: Set
     // learns who that is from the tokens; cleared second, it would find
     // nobody signed in and discard nothing.
     val endSession = {
+        // Read before clearing, then revoked on the server without waiting:
+        // sign-out never depends on the network [audit C-21].
+        revokeOnServer(signOutScope, repository, tokens)
         UnreadSchedule.stop(context)
         copies.clear()
         queue.clear()
@@ -456,4 +463,23 @@ private fun AppRoot(openInbox: Boolean, onInboxOpened: () -> Unit, settings: Set
             OpenInboxEffect(navController, openInbox && signedIn, onInboxOpened)
         }
     }
+}
+
+/**
+ * Revoke the session on the server without waiting for it [audit C-21].
+ *
+ * The refresh token is read here, before the caller clears the store,
+ * and the request runs on its own: sign-out never depends on the network.
+ *
+ * @param scope Where the request runs
+ * @param repository The auth repository that sends it
+ * @param tokens The store still holding the session
+ */
+private fun revokeOnServer(
+    scope: kotlinx.coroutines.CoroutineScope,
+    repository: HttpAuthRepository,
+    tokens: TokenStore,
+) {
+    val held = tokens.refreshToken() ?: return
+    scope.launch { repository.logout(held) }
 }

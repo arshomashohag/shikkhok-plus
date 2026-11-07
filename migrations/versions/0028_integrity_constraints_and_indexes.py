@@ -1,6 +1,6 @@
 """Freeze approved salaries in the database; add the missing key, checks and indexes.
 
-Revision ID: 0029
+Revision ID: 0028
 Revises: 0027
 Create Date: 2026-11-07
 
@@ -38,7 +38,7 @@ from collections.abc import Sequence
 
 from alembic import op
 
-revision: str = "0029"
+revision: str = "0028"
 down_revision: str | None = "0027"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
@@ -126,7 +126,6 @@ _INDEXES: tuple[tuple[str, str, str, str | None], ...] = (
         "batch_id, transaction_id",
         "transaction_id IS NOT NULL",
     ),
-    ("ix_refresh_token_account_id", "refresh_token", "account_id", None),
     (
         "ix_ledger_entry_created_by",
         "ledger_entry",

@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.core.network
 
+import com.shikkhokplus.app.feature.auth.AuthResult
 import com.shikkhokplus.app.feature.auth.SessionResume
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -175,5 +176,34 @@ class SessionResumeTest {
                     scope.respond(REFUSED, HttpStatusCode.Unauthorized, json)
                 }
             }
+    }
+
+    @Test
+    fun `signing out revokes the session on the server`() = runTest {
+        // C-21: sign-out used to clear only the phone, leaving a copied
+        // refresh token redeemable for its whole lifetime.
+        val tokens = TokenStore.InMemory().apply { save("access", "r1") }
+        var sent: String? = null
+        var path: String? = null
+        val engine =
+            MockEngine { request ->
+                path = request.url.encodedPath
+                sent = (request.body as TextContent).text
+                respond("", HttpStatusCode.NoContent)
+            }
+
+        val acknowledged = repository(engine, tokens).logout("r1")
+
+        assertEquals(AuthResult.Ok(Unit), acknowledged)
+        assertEquals("/v1/auth/logout", path)
+        assertEquals("""{"refresh_token":"r1"}""", sent)
+    }
+
+    @Test
+    fun `signing out offline never throws`() = runTest {
+        val tokens = TokenStore.InMemory().apply { save("access", "r1") }
+        val engine = MockEngine { throw java.io.IOException("no route") }
+
+        assertEquals(AuthResult.TransportFailure, repository(engine, tokens).logout("r1"))
     }
 }

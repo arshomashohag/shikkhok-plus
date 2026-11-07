@@ -504,6 +504,9 @@ def _external_deletion(
                 message,
                 correlation_id,
                 budget=SendBudget.DELETION,
+                # A code whose send the budget skipped is killed, so it
+                # cannot be guessed while nobody received it [C-20].
+                otp_request_id=issued.request_id,
             )
 
         # Records the message a staging host did NOT text, exactly as

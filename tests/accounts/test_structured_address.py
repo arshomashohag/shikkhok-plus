@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 from app.contract.privacy import OWNER_PRIVATE_FIELDS
 from app.db.models import Account, Profile
 from tests.accounts.conftest import auth_header, make_account
+from tests.accounts.signup_support import submit_signup
 
 #: A complete sign-up body, less the number.
 ADDRESS = {
@@ -51,7 +52,13 @@ def _signup(client: TestClient, **changes: str | None) -> tuple[str, int]:
     for name, value in {**ADDRESS, **changes}.items():
         if value is not None:
             body[name] = value
-    return phone, client.post("/v1/accounts", json=body).status_code
+    # Submitted and, when accepted, verified: the profile is written
+    # when the code is typed, not when the form is sent [C-07].
+    response, code = submit_signup(client, body)
+    if response.status_code == 201 and code is not None:
+        verified = client.post("/v1/auth/verify", json={"phone": phone, "code": code})
+        assert verified.status_code == 200, verified.text
+    return phone, response.status_code
 
 
 def _profile_of(session: Session, phone: str) -> Profile:

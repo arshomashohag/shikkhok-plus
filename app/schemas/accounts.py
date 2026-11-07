@@ -126,22 +126,33 @@ class SignupResponse(BaseModel):
 class AlreadyAddedResponse(BaseModel):
     """What the lookup may say about a number [BR2.3, BR4.5].
 
-    **Three fields, and the absences are the requirement.** No teacher
-    name, no teacher id, no batch name, no batch subject, no fee, no
-    enrollment id. With any of those this becomes an oracle for who
-    teaches whom, readable by anyone who can type a phone number
-    [AC1.12.2].
+    **The absences are the requirement.** No teacher name, no teacher
+    id, no batch name, no batch subject, no fee, no enrollment id, and
+    no name for the person [C-06]. With any of those this becomes an
+    oracle readable by anyone who can type a phone number [AC1.12.2].
 
     :ivar already_added: Whether a teacher recorded this number
-    :ivar display_name: The teacher-typed name to pre-fill as
-        correctable, or None
+    :ivar display_name: **Deprecated, and never a name.** Kept so
+        clients already installed still parse the response: an empty
+        string when ``already_added`` is true, None otherwise. A
+        guardian reads the child's name after sign-in, from
+        ``InvitationResponse.child_name``
     :ivar role: The role to lock the form to, or None
     """
 
     model_config = ConfigDict(extra="forbid")
 
     already_added: bool
-    display_name: str | None = None
+    display_name: str | None = Field(
+        default=None,
+        deprecated=True,
+        max_length=0,
+        description=(
+            "Deprecated and never a name: an empty string when "
+            "already_added is true, null otherwise. Kept only so clients "
+            "already installed still parse the response."
+        ),
+    )
     role: RoleName | None = None
 
 
