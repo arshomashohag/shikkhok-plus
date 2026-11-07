@@ -101,7 +101,7 @@
       },
       "AlreadyAddedResponse": {
         "additionalProperties": false,
-        "description": "What the lookup may say about a number [BR2.3, BR4.5].\n\n**Three fields, and the absences are the requirement.** No teacher\nname, no teacher id, no batch name, no batch subject, no fee, no\nenrollment id. With any of those this becomes an oracle for who\nteaches whom, readable by anyone who can type a phone number\n[AC1.12.2].\n\n:ivar already_added: Whether a teacher recorded this number\n:ivar display_name: The teacher-typed name to pre-fill as\n    correctable, or None\n:ivar role: The role to lock the form to, or None",
+        "description": "What the lookup may say about a number [BR2.3, BR4.5].\n\n**The absences are the requirement.** No teacher name, no teacher\nid, no batch name, no batch subject, no fee, no enrollment id, and\nno name for the person [C-06]. With any of those this becomes an\noracle readable by anyone who can type a phone number [AC1.12.2].\n\n:ivar already_added: Whether a teacher recorded this number\n:ivar display_name: **Deprecated, and never a name.** Kept so\n    clients already installed still parse the response: an empty\n    string when ``already_added`` is true, None otherwise. A\n    guardian reads the child's name after sign-in, from\n    ``InvitationResponse.child_name``\n:ivar role: The role to lock the form to, or None",
         "properties": {
           "already_added": {
             "title": "Already Added",
@@ -110,12 +110,15 @@
           "display_name": {
             "anyOf": [
               {
+                "maxLength": 0,
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
+            "deprecated": true,
+            "description": "Deprecated and never a name: an empty string when already_added is true, null otherwise. Kept only so clients already installed still parse the response.",
             "title": "Display Name"
           },
           "role": {
@@ -9810,7 +9813,7 @@
     },
     "/v1/accounts/already-added": {
       "get": {
-        "description": "Report whether a teacher recorded this number, and nothing more.\n\n**This route discloses that a seat exists, deliberately**\n[BR2.3, AC1.12.2]. That is its purpose, and it is why BR2.2's\nbyte-identical requirement applies to the OTP endpoint and not to\nthis one. What is bounded is the WIDTH -- never the teacher, never\nthe batch -- and the rate, through signup's own ceilings.\n\nPublic, and in ``PUBLIC_ROUTES``: it is called while the signup\nform renders, before any account exists.\n\n:param phone: The number typed into the form, canonicalised on the\n    way in like every other number, so the ceiling and the lookup\n    both see one spelling\n:param request: The incoming request\n:param session: The request-scoped session\n:return: Existence, the name to pre-fill and the role to lock\n:raises CeilingBreach: A signup ceiling refused this request",
+        "description": "Report whether a teacher recorded this number, and nothing more.\n\n**This route discloses that a seat exists, deliberately**\n[BR2.3, AC1.12.2]. That is its purpose, and it is why BR2.2's\nbyte-identical requirement applies to the OTP endpoint and not to\nthis one. What is bounded is the WIDTH -- never the teacher, never\nthe batch, never the name [C-06] -- and the rate, through signup's\nown ceilings.\n\nPublic, and in ``PUBLIC_ROUTES``: it is called while the signup\nform renders, before any account exists.\n\n:param phone: The number typed into the form, canonicalised on the\n    way in like every other number, so the ceiling and the lookup\n    both see one spelling\n:param request: The incoming request\n:param session: The request-scoped session\n:return: Existence and the role to lock; never a name\n:raises CeilingBreach: A signup ceiling refused this request",
         "operationId": "lookup_already_added_v1_accounts_already_added_get",
         "parameters": [
           {

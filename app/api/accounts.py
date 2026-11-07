@@ -252,7 +252,8 @@ def lookup_already_added(
     [BR2.3, AC1.12.2]. That is its purpose, and it is why BR2.2's
     byte-identical requirement applies to the OTP endpoint and not to
     this one. What is bounded is the WIDTH -- never the teacher, never
-    the batch -- and the rate, through signup's own ceilings.
+    the batch, never the name [C-06] -- and the rate, through signup's
+    own ceilings.
 
     Public, and in ``PUBLIC_ROUTES``: it is called while the signup
     form renders, before any account exists.
@@ -262,7 +263,7 @@ def lookup_already_added(
         both see one spelling
     :param request: The incoming request
     :param session: The request-scoped session
-    :return: Existence, the name to pre-fill and the role to lock
+    :return: Existence and the role to lock; never a name
     :raises CeilingBreach: A signup ceiling refused this request
     """
     CeilingChecker(session).check_and_consume_signup(
@@ -272,7 +273,12 @@ def lookup_already_added(
     found = service.already_added(session, phone)
     return AlreadyAddedResponse(
         already_added=found.exists,
-        display_name=found.display_name,
+        # NEVER the name [C-06]. Empty rather than absent where a seat
+        # exists, because the Android mapper already in the field treats
+        # a seat with a null name as a broken response and shows an
+        # error instead of the role-locked form. Empty locks the role
+        # and pre-fills nothing, which is the behaviour wanted.
+        display_name="" if found.exists else None,
         role=_ROLE_NAMES[found.role] if found.role is not None else None,
     )
 
