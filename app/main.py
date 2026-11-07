@@ -84,6 +84,7 @@ def _register_routes(app: FastAPI) -> None:
     """
     from app.api.accounts import router as accounts_router
     from app.api.admin import router as admin_router
+    from app.api.admin_auth import router as admin_auth_router
     from app.api.analytics import router as analytics_router
     from app.api.auth import router as auth_router
     from app.api.batches import router as batches_router
@@ -115,6 +116,7 @@ def _register_routes(app: FastAPI) -> None:
     for router in (
         accounts_router,
         admin_router,
+        admin_auth_router,
         analytics_router,
         auth_router,
         batches_router,

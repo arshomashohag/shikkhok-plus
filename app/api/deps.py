@@ -22,8 +22,14 @@ import sqlalchemy as sa
 from fastapi import Depends, Request
 from sqlalchemy.orm import Session
 
-from app.auth.tokens import verify_access_token
-from app.authz.admin import is_platform_admin
+from app.auth.client_address import client_address
+from app.auth.tokens import ADMIN_AUDIENCE, verify_access_token, verify_scoped_token
+from app.authz.admin import (
+    ADMIN_EDGE_HEADER,
+    admin_edge_ok,
+    admin_network_ok,
+    is_platform_admin,
+)
 from app.authz.classes import resolve_class_lens, resolve_examiner_lens
 from app.authz.invitations import available_invitations
 from app.authz.lenses import (
@@ -40,9 +46,11 @@ from app.authz.lenses import (
 from app.authz.resolve import LensResolver
 from app.centres.memberships import available_memberships
 from app.errors import AuthorizationError
+from app.errors.codes import NOT_AVAILABLE
 
 __all__ = [
     "WORKSPACE_HEADER",
+    "admin_gate",
     "choose_workspace",
     "class_teacher_lens",
     "examiner_lens",
@@ -65,7 +73,11 @@ _SUBJECT_MEMO = "_aidlc_token_subject"
 
 #: Whether the account a token names still exists. Indexed on the key.
 _ACCOUNT_EXISTS = sa.text("SELECT 1 FROM account WHERE id = :account_id")
-_ACCOUNT_PHONE = sa.text("SELECT phone FROM account WHERE id = :account_id")
+_ADMIN_STANDING = sa.text(
+    "SELECT a.phone, EXISTS (SELECT 1 FROM mfa_factor f "
+    "WHERE f.account_id = a.id AND f.confirmed_at IS NOT NULL) AS confirmed "
+    "FROM account a WHERE a.id = :account_id"
+)
 
 
 class _HasState(Protocol):
@@ -435,25 +447,66 @@ def examiner_lens(
     return resolve_examiner_lens(session, account_id=account_id, exam_id=exam_id)
 
 
+def admin_gate(request: Request) -> None:
+    """Refuse any request that did not arrive through the admin hostname.
+
+    Two independent locks, both failing closed: the ``X-Admin-Edge``
+    secret only the admin CloudFront distribution adds, and the client
+    address against the admin network allowlist (which that
+    distribution's edge function also enforces). Either missing answers
+    the same 404 as a route that does not exist, so the public API host
+    does not reveal that an admin surface is behind it.
+
+    :param request: The incoming request
+    :return: None
+    :raises AuthorizationError: 404 when either lock refuses
+    """
+    if not admin_edge_ok(request.headers.get(ADMIN_EDGE_HEADER)) or not (
+        admin_network_ok(client_address(request))
+    ):
+        raise AuthorizationError(
+            code=NOT_AVAILABLE, message_key="authz.lens.not_available", status=404
+        )
+
+
 def platform_admin_lens(
+    request: Request,
     session: Annotated[Session, Depends(get_session)],
-    account_id: Annotated[uuid.UUID, Depends(authenticated_account)],
 ) -> PlatformAdminLens:
     """Resolve the platform administrator lens [TC-14, D-6].
 
-    Checked against the allowlist on every request and never memoized
-    beyond it, so removing a number from the deployment revokes the
-    reach on that account's next request. A non-administrator gets the
-    same 403 any unavailable lens gets, so the response does not say
-    that an administration surface exists.
+    Four checks, each on every request and none memoized beyond it:
 
+    * :func:`admin_gate` -- the request came through the admin hostname,
+      from an allowed network;
+    * an **admin** access token, which only the admin sign-in issues
+      after an SMS code and an authenticator code; an app token is
+      refused here even for an allowlisted number;
+    * the account's number is still on the allowlist, so removing it
+      revokes the reach at once rather than when the token lapses;
+    * the account still has a confirmed authenticator factor, so a
+      factor reset ends any session it began.
+
+    :param request: The incoming request
     :param session: The session to query through
-    :param account_id: The authenticated account
     :return: The administrator's lens
-    :raises AuthorizationError: The account is not on the allowlist
+    :raises AuthorizationError: 404 off the admin hostname, 401 without a
+        valid admin token, 403 when the number or factor no longer qualifies
     """
-    phone = session.execute(_ACCOUNT_PHONE, {"account_id": account_id}).scalar()
-    if phone is None or not is_platform_admin(str(phone)):
+    admin_gate(request)
+    scheme, _, token = request.headers.get("authorization", "").partition(" ")
+    if scheme.lower() != "bearer" or not token:
+        raise AuthorizationError(
+            code="NOT_AUTHENTICATED", message_key="auth.token.not_valid", status=401
+        )
+    claims = verify_scoped_token(token, ADMIN_AUDIENCE)
+    account_id = uuid.UUID(str(claims["sub"]))
+    row = session.execute(_ADMIN_STANDING, {"account_id": account_id}).first()
+    if row is None:
+        raise AuthorizationError(
+            code="NOT_AUTHENTICATED", message_key="auth.token.not_valid", status=401
+        )
+    if not is_platform_admin(str(row.phone)) or not row.confirmed:
         raise AuthorizationError(
             code="NO_PLATFORM_ADMIN_LENS",
             message_key="authz.lens.not_available",

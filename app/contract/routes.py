@@ -34,9 +34,10 @@ __all__ = [
     "unlensed_routes",
 ]
 
-#: Routes reachable with no authentication at all. **Exactly eight**, and
-#: the count IS asserted: a ninth entry is a diff against a stated number
-#: rather than a line appended to a growing list.
+#: Routes reachable with no authentication at all. **Exactly eleven**,
+#: and the count IS asserted: a twelfth entry is a diff against a stated
+#: number rather than a line appended to a growing list. The three admin
+#: sign-in routes moved it from eight [0028].
 #:
 #: The number read "five" over a six-entry set until 2026-10-22 — the two
 #: deletion routes were added without it, so the stated count and the
@@ -81,6 +82,18 @@ PUBLIC_ROUTES: frozenset[tuple[str, str]] = frozenset(
         ("GET", "/health"),
         ("GET", "/account-deletion"),
         ("POST", "/account-deletion"),
+        # Platform administrator sign-in [0028]. Unauthenticated because
+        # a person signing in has nothing to authenticate with yet, but
+        # NOT reachable by anyone: every one of them depends on
+        # `admin_gate`, which refuses a request that did not come
+        # through the admin hostname's distribution (its secret header)
+        # from an allowed network. The SMS step texts only allowlisted
+        # numbers and answers every number identically; the code it
+        # sends reaches only the authenticator step, which grants
+        # nothing until a second factor is typed.
+        ("POST", "/v1/admin/auth/otp"),
+        ("POST", "/v1/admin/auth/verify"),
+        ("POST", "/v1/admin/auth/mfa"),
         # Staging only, and absent entirely in production -- the router
         # is not registered unless the environment permits it. It is
         # public because it must work before anyone can authenticate,

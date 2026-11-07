@@ -15,23 +15,30 @@ import datetime as dt
 import uuid
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.accounts.clients import Platform
 from app.schemas.help import HelpBody, HelpMessageResponse
+from app.schemas.phone import PhoneField
 
 __all__ = [
     "AdminAppVersion",
+    "AdminChallengeResponse",
+    "AdminEnrollment",
+    "AdminMfaRequest",
+    "AdminOtpRequest",
     "AdminOverviewResponse",
     "AdminPlatformUsage",
     "AdminReplyRequest",
     "AdminRequester",
     "AdminRequesterSummary",
     "AdminRequestersResponse",
+    "AdminSessionResponse",
     "AdminTicket",
     "AdminTicketDetailResponse",
     "AdminTicketListResponse",
     "AdminTicketStatusRequest",
+    "AdminVerifyRequest",
     "AdminWorkspace",
     "AdminWorkspacesResponse",
 ]
@@ -269,3 +276,87 @@ class AdminTicketStatusRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     status: Literal["open", "closed"]
+
+
+class AdminOtpRequest(BaseModel):
+    """Ask for an admin sign-in code by SMS.
+
+    :ivar phone: The administrator's number, in any spelling
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    phone: PhoneField
+
+
+class AdminVerifyRequest(BaseModel):
+    """Spend the SMS code.
+
+    :ivar phone: The number the code was sent to
+    :ivar code: The code from the SMS
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    phone: PhoneField
+    code: str = Field(min_length=4, max_length=10)
+
+
+class AdminEnrollment(BaseModel):
+    """A new authenticator secret, shown once at a first sign-in.
+
+    :ivar secret: The base32 secret, for typing into an app by hand
+    :ivar otpauth_uri: The same secret as a URI, for a QR code or a link
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    secret: str
+    otpauth_uri: str
+
+
+class AdminChallengeResponse(BaseModel):
+    """The SMS step passed; now the authenticator step.
+
+    :ivar challenge: Carries the person to the next step; grants nothing
+    :ivar expires_in: Seconds until the challenge lapses
+    :ivar stage: ``enroll`` (set up the app first) or ``verify``
+    :ivar enrollment: The secret to set up, only when ``stage`` is enroll
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    challenge: str
+    expires_in: int
+    stage: Literal["enroll", "verify"]
+    enrollment: AdminEnrollment | None = None
+
+
+class AdminMfaRequest(BaseModel):
+    """Finish signing in: exactly one of the two codes.
+
+    :ivar challenge: From the SMS step
+    :ivar code: Six digits from the authenticator app
+    :ivar recovery_code: A recovery code, only after setup
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    challenge: str = Field(min_length=1, max_length=2048)
+    code: str | None = Field(default=None, min_length=6, max_length=8)
+    recovery_code: str | None = Field(default=None, min_length=10, max_length=16)
+
+
+class AdminSessionResponse(BaseModel):
+    """A signed-in administrator.
+
+    :ivar access_token: Send as ``Authorization: Bearer`` to admin routes
+    :ivar expires_in: Seconds until it lapses; sign in again after
+    :ivar recovery_codes: Ten one-time codes, shown once at setup
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    access_token: str
+    expires_in: int
+    recovery_codes: list[str] | None = None

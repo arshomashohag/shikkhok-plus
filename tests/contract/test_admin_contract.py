@@ -84,8 +84,18 @@ def test_exactly_the_listed_routes_take_the_admin_lens(app: FastAPI) -> None:
     assert platform_admin_routes(app) == PLATFORM_ADMIN_ROUTES
 
 
+#: The admin sign-in routes [0028]: no bearer token yet, so not lensed.
+ADMIN_SIGN_IN_ROUTES = frozenset(
+    {
+        ("POST", "/v1/admin/auth/otp"),
+        ("POST", "/v1/admin/auth/verify"),
+        ("POST", "/v1/admin/auth/mfa"),
+    }
+)
+
+
 def test_every_admin_path_takes_the_admin_lens(app: FastAPI) -> None:
-    """No route under ``/v1/admin`` is reachable without the lens.
+    """Under ``/v1/admin``, only the three sign-in steps lack the lens.
 
     :param app: The application
     :return: None
@@ -96,7 +106,7 @@ def test_every_admin_path_takes_the_admin_lens(app: FastAPI) -> None:
         if route.path.startswith("/v1/admin")
         for method in route.methods or set()
     }
-    assert admin_paths == PLATFORM_ADMIN_ROUTES
+    assert admin_paths == PLATFORM_ADMIN_ROUTES | ADMIN_SIGN_IN_ROUTES
 
 
 def test_no_admin_route_is_public_or_lens_exempt() -> None:
@@ -105,6 +115,36 @@ def test_no_admin_route_is_public_or_lens_exempt() -> None:
     :return: None
     """
     assert not (PLATFORM_ADMIN_ROUTES & (PUBLIC_ROUTES | LENS_EXEMPT_AUTHENTICATED))
+
+
+def test_every_admin_route_sits_behind_the_admin_gate(app: FastAPI) -> None:
+    """Sign-in and lensed routes alike depend on ``admin_gate``.
+
+    The gate is the lock that makes the admin hostname the only way in;
+    a route under ``/v1/admin`` without it would answer on the public
+    API host's origin to anyone who reached it.
+
+    :param app: The application
+    :return: None
+    """
+    from app.api.deps import admin_gate
+
+    def gated(dependant: object) -> bool:
+        call = getattr(dependant, "call", None)
+        if call is admin_gate:
+            return True
+        if call is platform_admin_lens:
+            return True
+        return any(gated(sub) for sub in getattr(dependant, "dependencies", []))
+
+    from app.api.deps import platform_admin_lens
+
+    ungated = sorted(
+        route.path
+        for route in _api_routes(app)
+        if route.path.startswith("/v1/admin") and not gated(route.dependant)
+    )
+    assert ungated == []
 
 
 def _fields(
@@ -166,8 +206,9 @@ def test_no_admin_response_crosses_the_boundary(app: FastAPI) -> None:
     definitions = document["components"]["schemas"]
     walked = 0
     pairs: set[tuple[str, str]] = set()
+    lensed = {path for _, path in PLATFORM_ADMIN_ROUTES}
     for route in _api_routes(app):
-        if not route.path.startswith("/v1/admin"):
+        if route.path not in lensed:
             continue
         model = route.response_model
         assert model is not None, route.path

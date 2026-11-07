@@ -25,6 +25,7 @@ import uuid
 
 from sqlalchemy import (
     JSON,
+    BigInteger,
     Boolean,
     CheckConstraint,
     Date,
@@ -32,6 +33,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     Numeric,
     String,
     Text,
@@ -379,6 +381,8 @@ __all__ = [
     "JobHeartbeat",
     "LedgerEntryRow",
     "Mark",
+    "MfaFactor",
+    "MfaRecoveryCode",
     "OtpRequest",
     "Owner",
     "OwnerMember",
@@ -2866,3 +2870,78 @@ class HelpMessage(Base):
         ),
         Index("ix_help_message_ticket_created", "ticket_id", "created_at"),
     )
+
+
+class MfaFactor(Base):
+    """One account's authenticator-app factor [0028].
+
+    The secret is AES-256-GCM ciphertext under the key ``secret_kid``
+    names, with the account id as associated data; never plaintext.
+
+    :ivar account_id: The account
+    :ivar secret_kid: The key that encrypted the secret
+    :ivar secret_ciphertext: Nonce and ciphertext
+    :ivar created_at: When enrollment began
+    :ivar confirmed_at: When the first code was typed; NULL until then
+    :ivar last_used_step: The newest TOTP step accepted, against replay
+    :ivar failed_attempts: Wrong codes since the last right one
+    :ivar locked_until: Refuse every code until this moment
+    """
+
+    __tablename__ = "mfa_factor"
+
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("account.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    secret_kid: Mapped[str] = mapped_column(String(16), nullable=False)
+    secret_ciphertext: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    confirmed_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    last_used_step: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    failed_attempts: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default=text("0")
+    )
+    locked_until: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    __table_args__ = (
+        CheckConstraint("failed_attempts >= 0", name="ck_mfa_factor_failed_attempts"),
+    )
+
+
+class MfaRecoveryCode(Base):
+    """One single-use recovery code, scrypt-hashed [0028].
+
+    :ivar id: Surrogate key
+    :ivar account_id: The account
+    :ivar code_hash: scrypt of the code
+    :ivar salt: Its salt
+    :ivar created_at: When it was issued
+    :ivar used_at: When it was spent; NULL while unused
+    """
+
+    __tablename__ = "mfa_recovery_code"
+
+    id: Mapped[uuid.UUID] = _uuid_column()
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("account.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    code_hash: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    salt: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    used_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    __table_args__ = (Index("ix_mfa_recovery_code_account", "account_id"),)

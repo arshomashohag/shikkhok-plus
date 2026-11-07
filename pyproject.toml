@@ -36,6 +36,12 @@ api = [
     # app -- every test drove it through TestClient, which is exactly why
     # the device leg stayed unverified for two Bolts.
     "uvicorn[standard]==0.54.0",
+    # AES-256-GCM for platform administrators' authenticator secrets
+    # (app/auth/mfa_crypto.py). A TOTP secret must be readable by the
+    # server to check a code, so it is encrypted rather than hashed, and
+    # the standard library has no AEAD cipher. The package PyJWT's own
+    # `crypto` extra uses, rather than anything hand-rolled.
+    "cryptography==50.0.2",
 ]
 dev = [
     "pytest==9.2.0",
