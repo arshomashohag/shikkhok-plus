@@ -30,6 +30,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -127,9 +129,10 @@ fun SignupScreen(
     onLookup: (String) -> Unit = {},
     onNumberEdited: () -> Unit = {},
 ) {
-    var phone by remember { mutableStateOf("") }
-    var name by remember { mutableStateOf("") }
-    var address by remember { mutableStateOf(PostalAddress()) }
+    // Typed fields survive a rotation or a language change [L-20].
+    var phone by rememberSaveable { mutableStateOf("") }
+    var name by rememberSaveable { mutableStateOf("") }
+    var address by rememberSaveable(stateSaver = PostalAddressSaver) { mutableStateOf(PostalAddress()) }
 
     // **Nothing chosen at first**, as the board draws it: a preselected
     // role is one the person may submit without having chosen.
@@ -586,3 +589,10 @@ private const val LOCKED_ALPHA = 0.45f
 
 /** The refusal of a number that already has an account. */
 private const val ALREADY_REGISTERED_KEY = "signup.number.already_registered"
+
+/** Keeps a half-typed address across recreation, as four strings. */
+private val PostalAddressSaver =
+    listSaver<PostalAddress, String>(
+        save = { listOf(it.house, it.road, it.city, it.postcode) },
+        restore = { PostalAddress(house = it[0], road = it[1], city = it[2], postcode = it[3]) },
+    )
