@@ -260,7 +260,7 @@ def test_a_later_form_replaces_an_earlier_one(
 def test_the_code_sent_again_completes_the_signup(
     client: TestClient, owner_session: Session, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """ "Send the code again" after signup still creates the account.
+    """Sending the code again after signup still creates the account.
 
     Both clients send the person to the code screen after signup, and
     its resend calls ``POST /v1/auth/otp``, which texts only numbers it
