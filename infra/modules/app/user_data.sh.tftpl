@@ -192,6 +192,21 @@ server {
         proxy_set_header X-Forwarded-Proto https;
         proxy_read_timeout 30s;
     }
+
+    # **JSON compressed, because the clients are on 3G** [C-43]. Some
+    # list responses run to hundreds of kilobytes uncompressed.
+    # gzip_proxied any, since every response here is proxied.
+    #
+    # BREACH was considered: it needs a response that reflects
+    # attacker-chosen input beside a secret, observed over many
+    # requests. This API puts no secret in a response body except the
+    # tokens /v1/auth/verify and /refresh return, which echo no request
+    # input, so compressing JSON does not open that channel.
+    gzip            on;
+    gzip_proxied    any;
+    gzip_types      application/json;
+    gzip_min_length 1024;
+    gzip_vary       on;
 }
 NGINX
 
@@ -602,8 +617,15 @@ migrate() {
     docker compose --profile migrate run --rm migrate "$@" \
     >> /var/log/shikkhokplus-provision.log 2>&1
 }
-if ! migrate alembic upgrade head; then
-  echo "FAILED: alembic upgrade head" >> /var/log/shikkhokplus-provision.log
+# **migrate-if-behind, not a bare `alembic upgrade head`** [C-12]. A
+# ROLLBACK boots the previous image against a database the failed
+# release already migrated; that image cannot locate the newer revision,
+# so a bare upgrade failed and the rollback host was abandoned. The
+# command upgrades when the database is at a revision this image knows,
+# skips when it is at a LATER numbered one (forward-only, backward-
+# compatible migrations make that safe), and refuses anything else.
+if ! migrate python -m app.db.commands migrate-if-behind; then
+  echo "FAILED: migrate-if-behind" >> /var/log/shikkhokplus-provision.log
   # **Exit non-zero and serve nothing.** An instance that starts the
   # API against a schema the migration could not apply is worse than
   # an instance that does not start: it answers requests wrongly.
@@ -645,6 +667,7 @@ echo "Installing the generation cron entry..." \
 # cron's local mail, which nobody reads [OPS-1].
 install -o ubuntu -g ubuntu -m 0640 /dev/null /var/log/shikkhokplus-fee-generation.log
 install -o ubuntu -g ubuntu -m 0640 /dev/null /var/log/shikkhokplus-session-generation.log
+install -o ubuntu -g ubuntu -m 0640 /dev/null /var/log/shikkhokplus-retention-purge.log
 cat > /etc/cron.d/shikkhokplus-fee-generation <<'CRON'
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
@@ -680,6 +703,23 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 0 1 * * * ubuntu cd /srv/shikkhokplus && docker compose run --rm api python -m app.teaching.commands generate >> /var/log/shikkhokplus-session-generation.log 2>&1
 CRON
 chmod 0644 /etc/cron.d/shikkhokplus-session-generation
+
+# **The daily retention purge** [BR4.1, C-01]. Built and tested, and
+# until this entry never scheduled: the published retention windows for
+# OTP hashes, refresh tokens, audit rows and notifications were kept by
+# nothing. 03:30 UTC is 09:30 in Dhaka, after both generators; the purge
+# deletes in bounded chunks, so it shares the database without holding
+# long locks. tests/gates/test_scheduled_jobs.py fails a pull request
+# that adds a job heartbeat with no entry here.
+echo "Installing the retention-purge cron entry..." \
+  >> /var/log/shikkhokplus-provision.log
+cat > /etc/cron.d/shikkhokplus-retention-purge <<'CRON'
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# min hour dom mon dow user command
+30 3 * * * ubuntu cd /srv/shikkhokplus && docker compose run --rm api python -m app.governance.commands purge >> /var/log/shikkhokplus-retention-purge.log 2>&1
+CRON
+chmod 0644 /etc/cron.d/shikkhokplus-retention-purge
 
 # **The freshness check is NOT a second cron entry** [§ 1.4].
 #
