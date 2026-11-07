@@ -119,6 +119,21 @@ output "web_bucket" {
   value       = module.cdn.web_bucket
 }
 
+output "site_url" {
+  description = "The public site (site/), at the project zone's apex; www redirects to it."
+  value       = module.site.url
+}
+
+output "site_bucket" {
+  description = "The bucket the built public site is uploaded to."
+  value       = module.site.bucket
+}
+
+output "site_cloudfront_domain" {
+  description = "The site's *.cloudfront.net hostname, usable before DNS propagates."
+  value       = module.site.distribution_domain
+}
+
 output "seeder_function_name" {
   description = "The seeder to invoke (deploy/README.md), or null when enable_seeder is off."
   value       = module.seeder.function_name

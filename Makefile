@@ -10,9 +10,9 @@
 
 PY ?= python3
 
-.PHONY: check format lint typecheck test gates contract openapi install clean android lock audit android-quality web web-dev
+.PHONY: check format lint typecheck test gates contract openapi install clean android lock audit android-quality web web-dev site
 
-check: lint typecheck test android android-quality web
+check: lint typecheck test android android-quality web site
 	@echo ""
 	@echo "All gates passed."
 
@@ -23,6 +23,15 @@ check: lint typecheck test android android-quality web
 ## re-resolves [project: ALWAYS lock dependency resolution].
 web:
 	cd web && npm ci --no-audit --no-fund && npm run check
+
+## The public site (site/): build, then every test against a fresh build
+## -- links resolve, asset names match their content, no script, both
+## languages mirror each other. Zero dependencies, so there is nothing to
+## install and no lockfile to read. The deploy runs this same target with
+## SITE_URL, WEB_APP_URL and API_URL set; locally they default to
+## localhost (preview with `python3 -m http.server 8080 -d site/dist`).
+site:
+	cd site && npm run check
 
 ## Run the web client against a local API on :8000 (`make up` first).
 web-dev:
@@ -192,7 +201,8 @@ test:
 	@# gate exists to prevent, reproduced inside the gate.
 	$(PY) -m pytest tests -q -p no:cacheprovider \
 		--cov=app.money \
-		--cov=app.accounts --cov=app.analytics --cov=app.expenses --cov=app.guardians \
+		--cov=app.accounts --cov=app.admin --cov=app.analytics --cov=app.expenses \
+		--cov=app.guardians --cov=app.help \
 		--cov=app.api --cov=app.audit --cov=app.auth --cov=app.authz \
 		--cov=app.batches --cov=app.centres --cov=app.payroll --cov=app.staff \
 		--cov=app.config --cov=app.contract --cov=app.db --cov=app.errors \

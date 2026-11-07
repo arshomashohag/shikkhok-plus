@@ -143,6 +143,22 @@ never on merge, and never from a branch: the infrastructure role trusts
 no `ref:` subject [OPS-2]. Production's apply additionally waits for a
 human to read the plan.
 
+## The public site
+
+`modules/site` serves `site/` (the marketing pages and FAQ, English and
+Bangla) at the project zone's apex -- `https://shikkhokplus.<apex>` in
+staging, `https://shikkhokplus-prod.<apex>` in production -- with
+`www.` redirecting to it. A private bucket behind its **own**
+distribution and certificate, not the API's: the site calls no API, so
+sharing would buy nothing and would add cached behaviours to the one
+distribution that must cache nothing by default.
+
+The edge caches everything for up to a year (a cache policy that honours
+the origin's `Cache-Control`); the deploy uploads hashed assets as
+`immutable` and pages with `max-age=300, s-maxage=31536000`, then
+invalidates `/*`. `site/README.md` has the details, and the first deploy
+needs `bootstrap/` re-applied (see `bootstrap/README.md`).
+
 ## Reading the outputs
 
 The apply job writes `api_url`, `app_static_ip` and

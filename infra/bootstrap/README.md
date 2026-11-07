@@ -88,7 +88,20 @@ environment (`deploy_role.tf`), and each:
   `api-url`, roll only `shikkhokplus-<env>-*` groups, and snapshot only
   `shikkhokplus-<env>-db` (pruning only its own `-predeploy-*`
   snapshots);
+- uploads the web client to its own `shikkhokplus-<env>-web-*` bucket
+  (under `ui/`) and the public site to its own
+  `shikkhokplus-<env>-site-*` bucket, reads their bucket, distribution and
+  URL parameters (`web-*`, `distribution-id`, `site-*`), and invalidates
+  CloudFront caches;
 - reads **no Terraform state** and **no database credential**.
+
+**The public site (`site/`, `infra/modules/site`) needs this bootstrap
+re-applied once, from a laptop, before its first deploy**: the
+infrastructure role gains `shikkhokplus-*-site-*` buckets and the deploy
+role gains the site upload and the three `site-*` parameters. Until then
+the deploy's `site` job stops at "Cannot read the site's target from
+SSM" (or the infrastructure job at `CreateBucket` with AccessDenied) and
+changes nothing.
 
 Until 2026-11-02 a single role trusted both environments, used
 `shikkhokplus-*` wildcards and could read both state files — so a

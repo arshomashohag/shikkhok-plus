@@ -527,6 +527,7 @@ jobs:
           SMS_APP_HASH: ${{ vars.SHIKKHOKPLUS_SMS_APP_HASH }}
           DAILY_SMS: ${{ vars.SHIKKHOKPLUS_GLOBAL_DAILY_SMS }}
           STAGING_OUTBOX: ${{ vars.SHIKKHOKPLUS_STAGING_OUTBOX }}
+          PLATFORM_ADMIN_PHONES: ${{ secrets.SHIKKHOKPLUS_PLATFORM_ADMIN_PHONES }}
           SHA: ${{ needs.plan.outputs.sha }}
         run: |
           umask 077
@@ -552,6 +553,11 @@ jobs:
             # production requires -- a production process without it
             # refuses to start.
             echo "SHIKKHOKPLUS_TRUSTED_CLIENT_IP_HEADER=X-Client-Address"
+            # Who may open the platform administration surface: a
+            # comma-separated list of phone numbers. A secret rather than
+            # a variable because it is people's numbers. Unset means
+            # nobody -- the routes answer 403 to every account.
+            echo "SHIKKHOKPLUS_PLATFORM_ADMIN_PHONES=${PLATFORM_ADMIN_PHONES}"
           } > runtime.env
 
           aws ssm put-parameter \
@@ -824,3 +830,208 @@ jobs:
               ;;
           esac
           echo "Web client is live at $URL"
+
+  # ---------------------------------------------------------------
+  # 5. The public site: build, upload, invalidate, smoke.
+  # ---------------------------------------------------------------
+  #
+  # **After infrastructure, NOT after the release.** The site is static
+  # HTML that calls no API, so a failed or rolled-back API release has no
+  # bearing on it, and waiting for a 40-minute instance refresh would only
+  # delay a copy change. It needs the infrastructure job because that is
+  # what creates its bucket, distribution and SSM parameters.
+  #
+  # **Served at the project zone's apex by its own distribution**
+  # (infra/modules/site). The bucket, distribution and URLs come from SSM
+  # parameters Terraform publishes, never from state [OPS-3].
+  site:
+    name: public site
+    needs: [plan, infrastructure]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+
+      # No npm cache: the site has no dependencies and no lockfile.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: deploy-site-${{ github.run_id }}
+
+      # The site's own three parameters, plus the web client's and the
+      # API's URLs, which the pages link to (Open the web app, the
+      # account-deletion page).
+      - name: Resolve where it goes
+        id: target
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          base="/shikkhokplus/shikkhokplus-${ENVIRONMENT}"
+          read_param() {
+            aws ssm get-parameter --name "$base/$1" --query 'Parameter.Value' --output text
+          }
+          if ! bucket=$(read_param site-bucket) || ! dist=$(read_param site-distribution-id) \
+             || ! url=$(read_param site-url) || ! web=$(read_param web-url) \
+             || ! api=$(read_param api-url); then
+            echo "::error::Cannot read the site's target from SSM."
+            echo "Either the infrastructure job has not yet applied the site"
+            echo "resources (infra/modules/site), or the deploy role predates"
+            echo "them: re-apply infra/bootstrap once, from a laptop."
+            exit 1
+          fi
+          {
+            echo "bucket=$bucket"
+            echo "distribution=$dist"
+            echo "url=$url"
+            echo "web=$web"
+            echo "api=$api"
+          } >> "$GITHUB_OUTPUT"
+          echo "| public site | $url |" >> "$GITHUB_STEP_SUMMARY"
+
+      # **The build only, not `make site`.** The site's tests ran on the
+      # pull request (check.yml), and a deploy is not the place to discover
+      # a red suite (tests/gates/test_deploy_runs_no_tests.py). The build
+      # still refuses an unknown placeholder or a missing asset, and the
+      # smoke below checks what it produced, through CloudFront.
+      - name: Build with this environment's URLs
+        working-directory: site
+        env:
+          SITE_URL: ${{ steps.target.outputs.url }}
+          WEB_APP_URL: ${{ steps.target.outputs.web }}
+          API_URL: ${{ steps.target.outputs.api }}
+        run: npm run build
+
+      # **Order keeps open pages whole.** Hashed assets first, with
+      # nothing deleted, so a page served a moment ago still finds its
+      # stylesheet and images. Then the pages that name them. Old files
+      # are pruned only after the invalidation below has completed.
+      #
+      # **Content-Type is set per extension, never guessed.** The CLI's
+      # guess depends on the MIME table of whatever Python it bundles, and
+      # a stylesheet served with the wrong type is ignored by the browser
+      # under `X-Content-Type-Options: nosniff`. A file with an extension
+      # this table lacks fails the step instead of uploading untyped.
+      #
+      # Cache-Control is the whole caching scheme (infra/modules/site):
+      #   assets/*  a year, immutable -- a changed file is a new name;
+      #   the rest  five minutes in a browser, a year at the edge
+      #             (s-maxage), which the invalidation empties per release.
+      - name: Upload
+        env:
+          BUCKET: ${{ steps.target.outputs.bucket }}
+        working-directory: site/dist
+        run: |
+          set -euo pipefail
+          immutable="public, max-age=31536000, immutable"
+          page="public, max-age=300, s-maxage=31536000"
+
+          unknown=$(find . -type f ! -name '*.css' ! -name '*.svg' ! -name '*.png' \
+            ! -name '*.webp' ! -name '*.ttf' ! -name '*.html' ! -name '*.xml' \
+            ! -name '*.txt' ! -name '*.ico')
+          if [ -n "$unknown" ]; then
+            echo "::error::No Content-Type for: $unknown (add it to this step and to site/build.mjs)"
+            exit 1
+          fi
+
+          put() { # <dir> <s3 prefix> <glob> <content-type> <cache-control>
+            aws s3 cp "$1" "s3://$BUCKET/$2" --recursive --only-show-errors \
+              --exclude "*" --include "$3" --content-type "$4" --cache-control "$5"
+          }
+          put assets assets/ "*.css"  "text/css; charset=utf-8" "$immutable"
+          put assets assets/ "*.svg"  "image/svg+xml"           "$immutable"
+          put assets assets/ "*.png"  "image/png"               "$immutable"
+          put assets assets/ "*.webp" "image/webp"              "$immutable"
+          put assets assets/ "*.ttf"  "font/ttf"                "$immutable"
+
+          put . "" "*.ico"       "image/x-icon"                      "$page"
+          put . "" "*.txt"       "text/plain; charset=utf-8"         "$page"
+          put . "" "sitemap.xml" "application/xml; charset=utf-8"    "$page"
+          put . "" "*.html"      "text/html; charset=utf-8"          "$page"
+
+      # Every edge drops its year-long copy of every page now, so the smoke
+      # below -- and every visitor -- sees this release. Waiting for it to
+      # complete is also what makes the prune safe.
+      - name: Invalidate
+        env:
+          DISTRIBUTION: ${{ steps.target.outputs.distribution }}
+        run: |
+          id=$(aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION" \
+            --paths "/*" --query 'Invalidation.Id' --output text)
+          echo "Waiting for invalidation $id..."
+          aws cloudfront wait invalidation-completed --distribution-id "$DISTRIBUTION" --id "$id"
+
+      # **Only now are files the new build no longer has removed**: the
+      # edges serve this release's pages, which name only this release's
+      # assets. A browser still holding a previous page (five minutes at
+      # most) holds its assets too -- they were immutable.
+      - name: Prune old files
+        env:
+          BUCKET: ${{ steps.target.outputs.bucket }}
+        working-directory: site/dist
+        run: |
+          set -euo pipefail
+          aws s3api list-objects-v2 --bucket "$BUCKET" --query 'Contents[].Key' --output text \
+            | tr '\t' '\n' | while read -r key; do
+                if [ -z "$key" ] || [ "$key" = "None" ]; then continue; fi
+                if [ ! -f "$key" ]; then
+                  echo "removing $key"
+                  aws s3 rm "s3://$BUCKET/$key" --only-show-errors
+                fi
+              done
+
+      # **Through CloudFront, and for THIS build**: the home page must name
+      # the stylesheet this build produced, so a stale edge copy fails the
+      # smoke instead of passing it. Then both languages, the directory
+      # redirect, the asset caching, the 404 page and the www redirect.
+      #
+      # Retried, because on the first deploy the certificate, the alias
+      # records and the www name can still be propagating.
+      - name: Smoke the site
+        env:
+          URL: ${{ steps.target.outputs.url }}
+        run: |
+          set -euo pipefail
+          css=$(grep -o 'href="/assets/site\.[0-9a-f]*\.css"' site/dist/index.html | head -1 | cut -d'"' -f2)
+          host="${URL#https://}"
+          # Bodies are fetched whole before grep reads them: `curl | grep -q`
+          # under pipefail can fail on curl's SIGPIPE when grep stops early.
+          fetch() { curl -fsS "$1" 2>/dev/null || true; }
+          for attempt in $(seq 1 18); do
+            if grep -qF "$css" <<<"$(fetch "$URL/")"; then break; fi
+            [ "$attempt" = 18 ] && { echo "::error::$URL/ does not serve this build ($css)."; exit 1; }
+            sleep 10
+          done
+          grep -qF '<html lang="bn">' <<<"$(fetch "$URL/bn/")" \
+            || { echo "::error::$URL/bn/ is not the Bangla home page."; exit 1; }
+          grep -qF '<details' <<<"$(fetch "$URL/faq/")" \
+            || { echo "::error::$URL/faq/ is not the FAQ."; exit 1; }
+          grep -qF '<html lang="bn">' <<<"$(fetch "$URL/bn/faq/")" \
+            || { echo "::error::$URL/bn/faq/ is not the Bangla FAQ."; exit 1; }
+
+          code=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$URL/faq")
+          [ "$code" = "301 $URL/faq/" ] \
+            || { echo "::error::/faq answered '$code', not a 301 to /faq/."; exit 1; }
+
+          grep -qi '^cache-control: .*immutable' <<<"$(curl -fsSI "$URL$css" | tr -d '\r')" \
+            || { echo "::error::$css is not served immutable."; exit 1; }
+          grep -qi "^content-security-policy: default-src 'none'" <<<"$(curl -fsSI "$URL/" | tr -d '\r')" \
+            || { echo "::error::The home page has no strict Content-Security-Policy."; exit 1; }
+
+          code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/no-such-page/")
+          [ "$code" = "404" ] || { echo "::error::A missing page answered $code, not 404."; exit 1; }
+
+          for attempt in $(seq 1 18); do
+            code=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "https://www.$host/faq/" || true)
+            if [ "$code" = "301 $URL/faq/" ]; then break; fi
+            [ "$attempt" = 18 ] && { echo "::error::www.$host answered '$code', not a 301 to $URL/faq/."; exit 1; }
+            sleep 10
+          done
+          echo "The site is live at $URL"

@@ -166,13 +166,17 @@ resource "aws_iam_role_policy" "deploy" {
         ]
       },
       {
-        # The public URLs, and the two names the web upload needs, all
-        # published by Terraform so this role never reads state [OPS-3].
+        # The public URLs, and the names the web and site uploads need,
+        # all published by Terraform so this role never reads state
+        # [OPS-3].
         Sid    = "PublicUrl"
         Effect = "Allow"
         Action = ["ssm:GetParameter"]
         Resource = [
-          for name in ["api-url", "web-url", "web-bucket", "distribution-id"] :
+          for name in [
+            "api-url", "web-url", "web-bucket", "distribution-id",
+            "site-url", "site-bucket", "site-distribution-id",
+          ] :
           "arn:aws:ssm:*:${data.aws_caller_identity.current.account_id}:parameter/shikkhokplus/shikkhokplus-${each.key}/${name}"
         ]
       },
@@ -196,9 +200,29 @@ resource "aws_iam_role_policy" "deploy" {
         Resource = "arn:aws:s3:::shikkhokplus-${each.key}-web-*/ui/*"
       },
       {
-        # **Invalidation after the upload**, so a release is visible at
-        # once rather than when edge copies expire. The distribution id
-        # is created by the main module, after this bootstrap, so it is
+        # **The public site upload** (modules/site): this environment's
+        # site bucket, which holds nothing but the site, so the whole
+        # bucket rather than a prefix. List is for pruning files the new
+        # build no longer has; Delete is the pruning.
+        Sid      = "SiteBucketList"
+        Effect   = "Allow"
+        Action   = ["s3:ListBucket"]
+        Resource = "arn:aws:s3:::shikkhokplus-${each.key}-site-*"
+      },
+      {
+        Sid    = "SiteBucketObjects"
+        Effect = "Allow"
+        Action = [
+          "s3:PutObject",
+          "s3:DeleteObject",
+        ]
+        Resource = "arn:aws:s3:::shikkhokplus-${each.key}-site-*/*"
+      },
+      {
+        # **Invalidation after the upload**, for the web client's
+        # distribution and the site's, so a release is visible at once
+        # rather than when edge copies expire. Both distribution ids are
+        # created by the main module, after this bootstrap, so they are
         # not known here: the grant is account-wide for these two
         # actions. An invalidation only empties caches -- the worst this
         # can do is make the next requests go to the origin.
