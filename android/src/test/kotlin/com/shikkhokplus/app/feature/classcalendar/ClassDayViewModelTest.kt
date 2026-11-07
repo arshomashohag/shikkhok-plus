@@ -6,6 +6,7 @@ import com.shikkhokplus.app.core.network.SessionDetailDto
 import com.shikkhokplus.app.core.network.SessionDto
 import com.shikkhokplus.app.core.network.SessionRosterDto
 import com.shikkhokplus.app.core.queue.QueueStore
+import com.shikkhokplus.app.core.queue.TestQueueCipher
 import com.shikkhokplus.app.core.queue.QueueTarget
 import com.shikkhokplus.app.core.queue.QueuedWrite
 import com.shikkhokplus.app.core.queue.SendOutcome
@@ -82,7 +83,7 @@ class ClassDayViewModelTest {
             AuthResult.Ok(SessionRosterDto(emptyList(), 0, writable = true))
     }
 
-    private fun store() = QueueStore(File(folder.root, QueueStore.FILE_NAME))
+    private fun store() = QueueStore(File(folder.root, QueueStore.FILE_NAME), TestQueueCipher)
 
     private fun dayModel(roster: AttendanceViewModel, store: QueueStore) =
         ClassDayViewModel(roster, TopicWriter(store, FakeTopicSender()), store, ClassSubjects(FakeTopicSender()))

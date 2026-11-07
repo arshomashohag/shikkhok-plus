@@ -3,6 +3,7 @@ package com.shikkhokplus.app.feature.classcalendar
 import com.shikkhokplus.app.core.network.SubjectOptionDto
 import com.shikkhokplus.app.core.queue.QueueState
 import com.shikkhokplus.app.core.queue.QueueStore
+import com.shikkhokplus.app.core.queue.TestQueueCipher
 import com.shikkhokplus.app.core.queue.QueueTarget
 import com.shikkhokplus.app.core.queue.SendOutcome
 import com.shikkhokplus.app.feature.record.SaveResult
@@ -42,7 +43,7 @@ class PlanClassViewModelTest {
 
     private val started = SendOutcome.Conflicted(5, envelope(TopicWriter.CLASS_STARTED_KEY, "TOPIC_CLASS_STARTED"))
 
-    private fun store() = QueueStore(File(folder.root, QueueStore.FILE_NAME))
+    private fun store() = QueueStore(File(folder.root, QueueStore.FILE_NAME), TestQueueCipher)
 
     private fun model(fake: FakeTopicSender, store: QueueStore) =
         PlanClassViewModel(TopicWriter(store, fake), store, ClassSubjects(fake))

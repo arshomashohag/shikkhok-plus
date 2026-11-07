@@ -44,6 +44,8 @@ import com.shikkhokplus.app.core.designsystem.FullScreenLoader
 import com.shikkhokplus.app.core.designsystem.ShikkhokTheme
 import com.shikkhokplus.app.core.network.ApiClient
 import com.shikkhokplus.app.core.queue.QueueStore
+import com.shikkhokplus.app.core.queue.QueueKeys
+import com.shikkhokplus.app.core.queue.ui.UnreadableWritesNotice
 import com.shikkhokplus.app.core.network.HttpAttendanceRepository
 import com.shikkhokplus.app.core.queue.keepDraining
 import com.shikkhokplus.app.core.queue.QueueSync
@@ -214,6 +216,10 @@ private fun AppRoot(openInbox: Boolean, onInboxOpened: () -> Unit, settings: Set
         remember {
             QueueStore(
                 java.io.File(context.filesDir, "attendance-queue.json"),
+                // Sealed with a Keystore key, as the tokens and offline
+                // copies are [RC-8]; a failed Keystore falls back to a
+                // key for this run only, never to plain text.
+                QueueKeys.cipher(),
                 currentAccount = tokens::accountId,
                 // The workspace in effect when a write is made, never null
                 // once the server has offered one, so a later switch does
@@ -230,6 +236,9 @@ private fun AppRoot(openInbox: Boolean, onInboxOpened: () -> Unit, settings: Set
                 offlineScope(tokens.accountId(), workspaces.current())
             })
         }
+    // Queued writes that could not be read are said out loud, before
+    // anything else, rather than vanishing with the file they were in.
+    UnreadableWritesNotice(queue)
     // Raised from the network layer, off the main thread, when an
     // expired session could not be renewed; handled below by
     // `endLapsedSession`. A snapshot state is safe to write from any

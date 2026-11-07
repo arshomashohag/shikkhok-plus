@@ -6,6 +6,7 @@ import com.shikkhokplus.app.core.network.TokenStore
 import com.shikkhokplus.app.core.network.WorkspaceDto
 import com.shikkhokplus.app.core.queue.AttendanceEntry
 import com.shikkhokplus.app.core.queue.QueueStore
+import com.shikkhokplus.app.core.queue.TestQueueCipher
 import com.shikkhokplus.app.core.queue.QueueTarget
 import com.shikkhokplus.app.core.queue.QueuedWrite
 import io.ktor.client.engine.mock.MockEngine
@@ -125,7 +126,7 @@ class WorkspaceTest {
     fun `a queued write is stamped with the workspace it was made in and replayed there`() = runTest {
         var chosen = "w-solo"
         val file = File.createTempFile("queue", ".json").apply { deleteOnExit() }
-        val store = QueueStore(file, currentAccount = { "a-1" }, currentWorkspace = { chosen })
+        val store = QueueStore(file, TestQueueCipher, currentAccount = { "a-1" }, currentWorkspace = { chosen })
 
         val queued =
             store.enqueue(
@@ -158,7 +159,7 @@ class WorkspaceTest {
     @Test
     fun `a write already stamped keeps its workspace when queued again`() {
         val file = File.createTempFile("queue", ".json").apply { deleteOnExit() }
-        val store = QueueStore(file, currentAccount = { "a-1" }, currentWorkspace = { "w-centre" })
+        val store = QueueStore(file, TestQueueCipher, currentAccount = { "a-1" }, currentWorkspace = { "w-centre" })
 
         val queued =
             store.enqueue(

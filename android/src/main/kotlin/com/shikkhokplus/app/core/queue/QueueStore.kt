@@ -4,6 +4,9 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.File
 import java.io.FileOutputStream
+import java.io.IOException
+import java.security.GeneralSecurityException
+import java.security.ProviderException
 
 /**
  * The file's contents: a version tag and the items.
@@ -52,13 +55,31 @@ data class QueueFile(
  * durable and the bytes it points at not, which is a complete-looking
  * file full of nothing.
  *
- * **No encryption, as a recorded decision** [security-design § 7.2].
- * The file holds enrollment ids, presence booleans, a version number
- * and UUIDs — no name, no phone number, no profile field, no token. The
- * refresh token is encrypted because it is a 30-day credential readable
- * via adb on a rooted phone; a queued roster is neither a credential
- * nor identifying without the server's enrollment mapping. Flagged for
- * the human in § 7.2 rather than decided here.
+ * **Encrypted at rest, like every other local store** [RC-8, C-46].
+ * This reverses the earlier decision not to [security-design § 7.2],
+ * which rested on the file holding only opaque ids: it also holds the
+ * account and workspace ids, a topic the teacher typed, and which child
+ * was present -- attendance for minors, on a phone a family may share.
+ * The serialized queue is sealed by [cipher] and framed with [MAGIC];
+ * the temp-file-and-rename sequence below is unchanged, which is why
+ * the cipher is applied to bytes here rather than through
+ * `EncryptedFile` (see [AesGcmQueueCipher]).
+ *
+ * **A plaintext file from an earlier build is migrated, not dropped.**
+ * Its items carry client mutation ids the server deduplicates on, so
+ * losing them would lose a roster the teacher believes is on its way.
+ * It is read as before and immediately rewritten sealed, at its own
+ * format version so a pending adoption (see `readAll`) still happens.
+ * If that rewrite fails the plaintext stays and the next read retries.
+ *
+ * **A file that cannot be opened is set aside and reported, never
+ * overwritten in silence.** The key can be lost while the file
+ * survives -- a Keystore reset, or a run whose Keystore failed and
+ * sealed under a key held only in memory (see [QueueKeys.cipher]). The
+ * file is renamed beside the target and [hasUnreadableWrites] stays
+ * true until the teacher has been told and [acknowledgeUnreadableWrites]
+ * is called. Nothing in it can be recovered, but nobody is left
+ * believing it was sent.
  *
  * **Not thread-safe by itself.** Every mutator reads, transforms and
  * writes the whole file, so two concurrent callers can lose one
@@ -80,6 +101,8 @@ data class QueueFile(
  * phone to send under their own token.
  *
  * @property file Where the queue lives
+ * @property cipher Seals the file at rest; required, so no construction
+ *   can forget it
  * @property json How items are serialized
  * @property currentAccount The signed-in account, or null when nobody
  *   is. Read on every call, never cached, so an account change is seen
@@ -89,10 +112,13 @@ data class QueueFile(
  */
 class QueueStore(
     private val file: File,
+    private val cipher: QueueCipher,
     private val json: Json = DEFAULT_JSON,
     val currentAccount: () -> String? = { null },
     val currentWorkspace: () -> String? = { null },
 ) {
+    /** Set when this run found a file it could not read, even if setting it aside failed. */
+    private var unreadableThisRun = false
 
     /**
      * Discard the signed-in account's queued writes, when it signs out
@@ -119,14 +145,13 @@ class QueueStore(
      * **A missing file is an empty queue, not an error.** That is the
      * state on first launch, and after a discard emptied it.
      *
-     * **An unreadable file is also an empty queue**, and this is the
-     * one swallowed failure in the class. The alternative is worse: a
-     * corrupt queue file that throws here would crash the app on launch
-     * with no route to recovery, because the thing that fails is the
-     * thing the teacher would have to open the app to clear. A
-     * truncated file should be unreachable given the rename above; if
-     * one is somehow reached, starting empty is the recoverable
-     * outcome.
+     * **An unreadable file is also an empty queue, and it is reported.**
+     * A corrupt or unopenable queue file that threw here would crash the
+     * app on launch with no route to recovery, because the thing that
+     * fails is the thing the teacher would have to open the app to
+     * clear. So it reads as empty -- but the file is set aside rather
+     * than overwritten, and [hasUnreadableWrites] tells the app to say
+     * that unsent records were lost.
      *
      * @return The current account's items, or an empty list
      */
@@ -192,8 +217,11 @@ class QueueStore(
      * @return Every item, oldest first
      */
     private fun readAll(account: String?): List<QueuedWrite> {
-        val stored = decode() ?: return emptyList()
-        if (stored.version >= FORMAT_VERSION || account == null) return stored.items
+        val (stored, plaintext) = decode() ?: return emptyList()
+        if (stored.version >= FORMAT_VERSION || account == null) {
+            if (plaintext) migrate(stored)
+            return stored.items
+        }
 
         val adopted = stored.items.map { if (it.accountId == null) it.copy(accountId = account) else it }
         persist(adopted)
@@ -201,17 +229,91 @@ class QueueStore(
     }
 
     /**
+     * Rewrite a plaintext file sealed, keeping its format version.
+     *
+     * **A failure leaves the plaintext in place**, and it is retried on
+     * the next read: the items are still returned to the caller, and a
+     * migration that dropped them because the rewrite failed would be
+     * the silent loss this class exists to prevent.
+     *
+     * @param stored The plaintext file's contents
+     */
+    private fun migrate(stored: QueueFile) {
+        try {
+            persist(stored.items, stored.version)
+        } catch (_: IOException) {
+            // Still plaintext; the next read tries again.
+        }
+    }
+
+    /**
      * Decode the file, or null when it is missing or unreadable.
      *
-     * @return The file's contents, or null
+     * An unreadable file is set aside, see [setAside].
+     *
+     * @return The file's contents and whether an earlier build stored
+     *   it in plain text, or null
      */
-    private fun decode(): QueueFile? {
-        if (!file.exists()) return null
+    private fun decode(): Pair<QueueFile, Boolean>? {
+        // Not `exists()`: something that is not a file standing at the
+        // path holds no queue to lose, and moving it aside would hide the
+        // failure the next write must report.
+        if (!file.isFile) return null
         return try {
-            json.decodeFromString(QueueFile.serializer(), file.readText())
-        } catch (_: Exception) {
-            null
+            val bytes = file.readBytes()
+            val sealed = bytes.size >= MAGIC.size && MAGIC.indices.all { bytes[it] == MAGIC[it] }
+            val text =
+                if (sealed) {
+                    cipher.open(bytes.copyOfRange(MAGIC.size, bytes.size)).decodeToString()
+                } else {
+                    bytes.decodeToString()
+                }
+            json.decodeFromString(QueueFile.serializer(), text) to !sealed
+        } catch (_: IOException) {
+            setAside()
+        } catch (_: GeneralSecurityException) {
+            setAside()
+        } catch (_: ProviderException) {
+            setAside()
+        } catch (_: IllegalArgumentException) {
+            // SerializationException is an IllegalArgumentException.
+            setAside()
         }
+    }
+
+    /**
+     * Move an unreadable file out of the way, so no later write
+     * replaces it unnoticed, and remember that it happened.
+     *
+     * @return Null, the empty queue the caller then reads
+     */
+    private fun setAside(): Pair<QueueFile, Boolean>? {
+        unreadableThisRun = true
+        if (!file.renameTo(asideFile())) file.delete()
+        return null
+    }
+
+    /** The file an unreadable queue is moved to. */
+    private fun asideFile(): File = File(file.parentFile, file.name + UNREADABLE_SUFFIX)
+
+    /**
+     * Whether queued writes were found that could not be read, and so
+     * will never be sent.
+     *
+     * Checks the file now as well, so the answer is right on the first
+     * call after launch, before any screen has read the queue.
+     *
+     * @return True until [acknowledgeUnreadableWrites] is called
+     */
+    fun hasUnreadableWrites(): Boolean {
+        decode()
+        return unreadableThisRun || asideFile().exists()
+    }
+
+    /** The teacher has been told; forget the unreadable file. */
+    fun acknowledgeUnreadableWrites() {
+        unreadableThisRun = false
+        asideFile().delete()
     }
 
     /**
@@ -222,21 +324,25 @@ class QueueStore(
      * bytes to storage, then rename over the target.
      *
      * @param items Every account's items, oldest first
-     * @throws java.io.IOException If the rename does not succeed, which
+     * @param version The format version to record: the current one,
+     *   except when migrating an older file
+     * @throws java.io.IOException If sealing or the rename does not
+     *   succeed, which
      *   is surfaced rather than swallowed: a write the caller believes
      *   succeeded while the queue still holds the old roster is the
      *   silent failure this whole class exists to prevent
      */
-    private fun persist(items: List<QueuedWrite>) {
+    private fun persist(items: List<QueuedWrite>, version: Int = FORMAT_VERSION) {
         file.parentFile?.mkdirs()
 
         // Same directory as the target. A cross-filesystem rename is a
         // copy, and a copy is not atomic.
         val temp = File(file.parentFile, file.name + TEMP_SUFFIX)
-        val encoded = json.encodeToString(QueueFile.serializer(), QueueFile(items = items))
+        val encoded = json.encodeToString(QueueFile.serializer(), QueueFile(version = version, items = items))
+        val sealed = seal(encoded)
 
         FileOutputStream(temp).use { stream ->
-            stream.write(encoded.toByteArray(Charsets.UTF_8))
+            stream.write(sealed)
             stream.flush()
             // Orders the CONTENTS. `renameTo` orders only the directory
             // entry, so without this a crash can leave a complete-looking
@@ -252,6 +358,23 @@ class QueueStore(
             )
         }
     }
+
+    /**
+     * Seal the serialized queue and frame it for the file.
+     *
+     * @param encoded The serialized queue
+     * @return [MAGIC] followed by the sealed bytes
+     * @throws IOException If the key cannot be used, so a key failure
+     *   reaches the caller the way a failed rename does
+     */
+    private fun seal(encoded: String): ByteArray =
+        try {
+            MAGIC + cipher.seal(encoded.toByteArray(Charsets.UTF_8))
+        } catch (e: GeneralSecurityException) {
+            throw IOException("could not seal the queue; the previous queue is intact.", e)
+        } catch (e: ProviderException) {
+            throw IOException("could not seal the queue; the previous queue is intact.", e)
+        }
 
     /**
      * Append one item to the queue.
@@ -324,6 +447,17 @@ class QueueStore(
          * target rather than inferring the path.
          */
         const val TEMP_SUFFIX: String = ".tmp"
+
+        /** The suffix of a file set aside because it could not be read. */
+        const val UNREADABLE_SUFFIX: String = ".unreadable"
+
+        /**
+         * The first bytes of a sealed file.
+         *
+         * An earlier build wrote plain JSON, which starts with `{`, so
+         * the two are told apart without guessing.
+         */
+        val MAGIC: ByteArray = "SKQ1".toByteArray(Charsets.US_ASCII)
 
         /**
          * The serializer configuration.

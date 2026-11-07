@@ -290,6 +290,8 @@
     <string name="queue_state_confirmed">পাঠানো হয়েছে</string>
     <string name="queue_state_failed">পাঠানো যায়নি। আবার চেষ্টা করতে পারেন।</string>
     <string name="queue_state_conflicted">কেউ এই ক্লাসের হাজিরা বদলেছেন। সিদ্ধান্ত নেওয়ার আগে দেখে নিন কী বদলেছে।</string>
+    <string name="queue_unreadable_title">পাঠানো হয়নি এমন কিছু রেকর্ড হারিয়ে গেছে</string>
+    <string name="queue_unreadable_body">এই ফোনে রাখা কিছু রেকর্ড পড়া যায়নি, তাই সেগুলো পাঠানো হয়নি। সাম্প্রতিক হাজিরা ও ক্লাসের বিষয় দেখে নিন, কিছু বাদ পড়লে আবার লিখুন।</string>
 
     <!--
       দ্বন্দ্ব মেটানোর স্ক্রিন। এই ইউনিটের সবচেয়ে ঘন বাংলা লেখা

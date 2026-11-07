@@ -336,6 +336,13 @@
     <string name="queue_state_confirmed">Sent</string>
     <string name="queue_state_failed">Could not be sent. You can try again.</string>
     <string name="queue_state_conflicted">Someone changed this class. Look at what changed before deciding.</string>
+    <!--
+      The write queue could not be read (its key lost, or the file
+      damaged), so its records will never be sent. Said until
+      acknowledged, so the loss is never silent [C-46].
+    -->
+    <string name="queue_unreadable_title">Some unsent records were lost</string>
+    <string name="queue_unreadable_body">Records saved on this phone could not be read, so they were not sent. Check recent attendance and class topics, and enter anything missing again.</string>
 
     <!--
       The conflict-resolution screen. The densest Bangla text this

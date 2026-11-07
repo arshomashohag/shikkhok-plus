@@ -24,7 +24,7 @@ class QueueSyncTest {
     @get:Rule
     val folder: TemporaryFolder = TemporaryFolder()
 
-    private fun store(): QueueStore = QueueStore(File(folder.root, QueueStore.FILE_NAME))
+    private fun store(): QueueStore = QueueStore(File(folder.root, QueueStore.FILE_NAME), TestQueueCipher)
 
     private fun roster(sessionId: String = "s-1", baseVersion: Int = 7): QueuedWrite =
         QueuedWrite.attendance(
@@ -390,10 +390,10 @@ class QueueSyncTest {
         // from the text: a hand-built file would test a format the
         // store does not write.
         val file = File(folder.root, QueueStore.FILE_NAME)
-        QueueStore(file).enqueue(roster().copy(state = QueueState.FAILED))
+        QueueStore(file, TestQueueCipher).enqueue(roster().copy(state = QueueState.FAILED))
         file.writeText(file.readText().replace(Regex(""",?\s*"server_retryable"\s*:\s*true"""), ""))
         assertTrue("server_retryable" !in file.readText(), "the fixture must be old-shaped")
-        val queue = QueueStore(file)
+        val queue = QueueStore(file, TestQueueCipher)
         assertEquals(1, queue.read().size, "the old-shaped file must still decode")
 
         val transport = RecordingTransport(mutableListOf())

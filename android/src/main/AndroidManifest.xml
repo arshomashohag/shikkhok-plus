@@ -42,6 +42,11 @@
       children's-adjacent data leaving the controlled store under
       RC-1/RC-2/RC-3 with no disclosure covering it. Turning it off is
       cheaper and more honest than explaining it on the Data Safety form.
+
+      dataExtractionRules is needed AS WELL: from Android 12, at this
+      targetSdk, allowBackup="false" leaves device-to-device transfer on.
+      The rules exclude every domain from both paths; the file says why.
+      fullBackupContent repeats the exclusions for Android 11 and lower.
     -->
     <application
         android:label="@string/app_name"
@@ -49,7 +54,10 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.ShikkhokPlus"
-        android:allowBackup="false">
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        tools:targetApi="31">
 
         <activity
             android:name=".MainActivity"

@@ -14,6 +14,7 @@ import androidx.navigation.compose.rememberNavController
 import com.shikkhokplus.app.core.network.ApiClient
 import com.shikkhokplus.app.core.network.TokenStore
 import com.shikkhokplus.app.core.queue.QueueStore
+import com.shikkhokplus.app.core.queue.TestQueueCipher
 import com.shikkhokplus.app.feature.inbox.ui.TAG_INBOX_BADGE
 import com.shikkhokplus.app.feature.inbox.ui.TAG_INBOX_BELL
 import io.ktor.client.engine.mock.MockEngine
@@ -65,7 +66,8 @@ class TeacherBellTest {
         compose.setContent {
             val nav = rememberNavController()
             NavHost(nav, startDestination = start) {
-                todayRoute(client, QueueStore(File(folder.root, QueueStore.FILE_NAME)), nav, onOpenDues = {}) {}
+                val queue = QueueStore(File(folder.root, QueueStore.FILE_NAME), TestQueueCipher)
+                todayRoute(client, queue, nav, onOpenDues = {}) {}
                 batchesRoute(client, nav) {}
                 composable(Destination.Inbox.route) { Text("inbox opened") }
             }

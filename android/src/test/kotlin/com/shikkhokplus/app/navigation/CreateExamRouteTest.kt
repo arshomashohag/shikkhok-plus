@@ -11,6 +11,7 @@ import com.shikkhokplus.app.core.designsystem.ShikkhokTheme
 import com.shikkhokplus.app.core.network.ApiClient
 import com.shikkhokplus.app.core.network.TokenStore
 import com.shikkhokplus.app.core.queue.QueueStore
+import com.shikkhokplus.app.core.queue.TestQueueCipher
 import com.shikkhokplus.app.core.ui.TAG_FORM_NAME
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -47,7 +48,7 @@ class CreateExamRouteTest {
                 MockEngine { respond("", HttpStatusCode.NotFound) },
                 TokenStore.InMemory(),
             )
-        val queue = QueueStore(File.createTempFile("queue", ".json").apply { deleteOnExit() })
+        val queue = QueueStore(File.createTempFile("queue", ".json").apply { deleteOnExit() }, TestQueueCipher)
         lateinit var nav: NavHostController
 
         compose.setContent {
