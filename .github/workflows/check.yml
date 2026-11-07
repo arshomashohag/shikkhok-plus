@@ -35,8 +35,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: check-${{ github.ref }}
-  cancel-in-progress: true
+  # Per commit on main, so a second merge does not cancel the first
+  # merge's run: deploy.yml needs a completed result for each commit it
+  # deploys [C-10]. Per ref elsewhere, where a new push supersedes the
+  # last and cancelling it saves minutes.
+  group: check-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   backend:
