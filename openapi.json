@@ -9771,7 +9771,7 @@
     },
     "/v1/accounts": {
       "post": {
-        "description": "Create an account, then send the verification code [BR4.3].\n\n**The ordering is the requirement, not an implementation detail**\n[AC1.11.4]. The account exists before the code is sent, so a person\nwho verifies always has something to verify into; sending first\nwould mean a code arriving for an account that may never be\ncreated.\n\nThe ceiling is consumed **before** the account is created, for the\nreason the OTP path checks before its gateway call: a ceiling\nchecked afterwards has already spent what it exists to protect.\n\nPublic by design, and in ``PUBLIC_ROUTES``: there is no session to\nauthenticate with before an account exists.\n\n:param body: The signup request\n:param request: The incoming request\n:param session: The request-scoped session\n:param gateway: The configured SMS gateway\n:return: The new account and the number its code went to\n:raises CeilingBreach: A signup ceiling refused this request\n:raises DuplicateNumber: The number already has an account",
+        "description": "Hold the signup form, then send the code that completes it [C-07].\n\n**Verify first, create second.** This used to create the account,\nprofile, owner and centre here and answer an existing number with a\n409: an existence oracle for any phone number, and a way to squat a\nstranger's number with a name, address and role the real owner then\ninherited. Now the form is held as a draft\n(:mod:`app.auth.pending`) and the account is created only when the\ncode sent to the number is verified at ``POST /v1/auth/verify`` --\nwhich is the call both clients already make next, so neither changes.\n\n**The same answer for every number.** A number with an account gets\nthe same 201 and the same body shape, and the code sent to it signs\nthe person in to the account they already have; a new number's code\ncreates the account. The ``account_id`` reported is the draft's,\nfresh on every request, and becomes the account's id if the draft is\ncompleted. Both branches write a draft and a code, so the work is\nthe same too [BR2.7].\n\nThe ceiling is consumed **before** anything is written, for the\nreason the OTP path checks before its gateway call. The SMS goes\nafter the response, from **signup's own** send budget [C-05], for\nan existing number too: signup can never spend what sign-in needs.\n\nPublic by design, and in ``PUBLIC_ROUTES``: there is no session to\nauthenticate with before an account exists.\n\n:param body: The signup request\n:param request: The incoming request\n:param background: Runs the SMS send after the response is written\n:param session: The request-scoped session\n:param gateway: The configured SMS gateway\n:return: The draft's id and the number its code went to\n:raises CeilingBreach: A signup ceiling refused this request",
         "operationId": "sign_up_v1_accounts_post",
         "requestBody": {
           "content": {
@@ -10109,6 +10109,74 @@
         ]
       }
     },
+    "/v1/auth/logout": {
+      "post": {
+        "description": "End the session a refresh token belongs to [C-21].\n\nTakes the **refresh** token, like ``/refresh`` and for the same\nreason, so it sits beside that route in\n``LENS_EXEMPT_AUTHENTICATED``: a client whose access token has\nalready expired must still be able to sign out. The whole family is\nrevoked, so a copy of the live token on another device stops too.\n\n**Always 204, with no body**, whether the token was live, expired,\nrevoked or never existed: logout is not an oracle for which tokens\nare valid, and a client retrying after a lost response is never\nshown an error.\n\n:param body: The refresh token to end the session of\n:param request: The incoming request\n:param session: The request-scoped session\n:param authorization: The bearer header, unused, as on ``/refresh``\n:return: An empty 204",
+        "operationId": "log_out_v1_auth_logout_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Log Out",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/logout-all": {
+      "post": {
+        "description": "End every session of the authenticated account [C-21].\n\nLens-exempt on ``DELETE /v1/me``'s reasoning: it acts on the\nauthenticated account itself and takes no id from the request, so\nthere is no other account's data for a lens to scope, and an account\nholding no lens must still be able to sign out everywhere.\n\n:param account_id: The authenticated account\n:param request: The incoming request\n:param session: The request-scoped session\n:return: An empty 204",
+        "operationId": "log_out_everywhere_v1_auth_logout_all_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Log Out Everywhere",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/v1/auth/otp": {
       "post": {
         "description": "Issue a code, returning the same response for any number.\n\n:param body: The request body\n:param request: The incoming request\n:param background: Runs the SMS send after the response is written\n:param session: The request-scoped session\n:param gateway: The configured SMS gateway\n:return: The contentless acknowledgement",
@@ -10213,7 +10281,7 @@
     },
     "/v1/auth/verify": {
       "post": {
-        "description": "Verify a code and issue a token pair.\n\n:param body: The request body\n:param request: The incoming request\n:param session: The request-scoped session\n:return: The new token pair",
+        "description": "Verify a code and issue a token pair.\n\n**Bounded wider than one code** [C-20]. A verify arriving while the\ncaller's /64, its /48 or the whole product has failed too often this\nhour is refused before its code is checked, and every failure counts\nagainst all three. A code guessed to death counts against its\nnumber's daily cool-off, which stops further codes being issued for\nit. All of it applies to a known and an unknown number alike.\n\n**Completes a verify-first signup** [C-07]: a right code for a number\nwhose signup draft it was sent for creates the account, then signs\nit in, so both clients' existing \"sign up, then type the code\" flow\nis unchanged.\n\n:param body: The request body\n:param request: The incoming request\n:param session: The request-scoped session\n:return: The new token pair\n:raises CeilingBreach: A failed-verify ceiling is full\n:raises CodeRefused: The code was refused",
         "operationId": "verify_code_v1_auth_verify_post",
         "requestBody": {
           "content": {
@@ -13279,7 +13347,7 @@
     },
     "/v1/centres": {
       "post": {
-        "description": "Open a coaching centre with the caller as its first manager.\n\n:param body: The centre's name and the caller's name in it\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:return: The new workspace",
+        "description": "Open a coaching centre with the caller as its first manager.\n\n**Bounded per account** [L-06]: opening a centre is a deliberate,\nrare act, so a daily allowance refuses a loop opening many with a\ncontentless 409 before anything is written.\n\n:param body: The centre's name and the caller's name in it\n:param account_id: The authenticated account\n:param session: The request-scoped session\n:return: The new workspace\n:raises CeilingBreach: The account has opened its allowance today",
         "operationId": "open_centre_v1_centres_post",
         "requestBody": {
           "content": {

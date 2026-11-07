@@ -32,6 +32,8 @@ from dataclasses import dataclass
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
+from app.audit.log import AuthEvent, write_audit
+from app.auth.pending import discard, take_bound_draft
 from app.authz.rls import set_account_context
 from app.centres.memberships import link_memberships
 from app.centres.service import create_centre
@@ -45,7 +47,9 @@ __all__ = [
     "PostalAddress",
     "SignupRole",
     "already_added",
+    "complete_signup",
     "create_account",
+    "create_account_rows",
 ]
 
 
@@ -249,7 +253,104 @@ def create_account(
     centre_name: str | None = None,
     now: dt.datetime | None = None,
 ) -> AccountCreated:
+    """Create an account's rows and commit them, as one transaction.
+
+    :func:`create_account_rows` and a commit, for a caller with nothing
+    else to put in the transaction. The signup route does not use it:
+    it creates accounts through :func:`complete_signup`, inside the
+    transaction that consumes the verified code [C-07].
+
+    :param session: The session to write through
+    :param phone: The number this identity is keyed on
+    :param role: The claimed role; nothing verifies it [BR4.2]
+    :param self_name: The name the person chose for themselves
+    :param address: The address, in its four parts, or None
+    :param centre_name: The centre's name, for ``COACHING`` only
+    :param now: The moment of creation, or None for the clock
+    :return: The new account and whether it owns batches
+    :raises DuplicateNumber: The number already has an account
+    """
+    created = create_account_rows(
+        session,
+        phone=phone,
+        role=role,
+        self_name=self_name,
+        address=address,
+        centre_name=centre_name,
+        now=now,
+    )
+    session.commit()
+    return created
+
+
+def complete_signup(
+    session: Session,
+    *,
+    otp_request_id: uuid.UUID,
+    correlation_id: str,
+    now: dt.datetime,
+) -> uuid.UUID | None:
+    """Create the account a just-verified code's signup draft describes.
+
+    **Called inside the verify transaction and never commits** [C-07]:
+    the code is consumed, the account created and the draft removed
+    together, or none of them happen. The account takes the draft's id,
+    which is the ``account_id`` the signup response reported.
+
+    :param session: The session the verify is running in
+    :param otp_request_id: The code just verified
+    :param correlation_id: Ties the audit row to this request
+    :param now: The moment of verification
+    :return: The new account's id, or None when no live draft is bound
+        to the code
+    :raises DuplicateNumber: An account appeared for the number since
+        the verify read found none
+    """
+    draft = take_bound_draft(session, otp_request_id=otp_request_id, now=now)
+    if draft is None:
+        return None
+    created = create_account_rows(
+        session,
+        phone=draft.phone,
+        role=SignupRole(draft.role),
+        self_name=draft.self_name,
+        address=PostalAddress(
+            house=draft.address_house,
+            road=draft.address_road,
+            city=draft.address_city,
+            postcode=draft.address_postcode,
+        ),
+        centre_name=draft.centre_name,
+        now=now,
+        account_id=draft.id,
+    )
+    discard(session, phone=draft.phone)
+    write_audit(
+        session,
+        created.account_id,
+        AuthEvent.ACCOUNT_CREATED,
+        correlation_id,
+        occurred_at=now,
+    )
+    return created.account_id
+
+
+def create_account_rows(
+    session: Session,
+    *,
+    phone: str,
+    role: SignupRole,
+    self_name: str,
+    address: PostalAddress | None = None,
+    centre_name: str | None = None,
+    now: dt.datetime | None = None,
+    account_id: uuid.UUID | None = None,
+) -> AccountCreated:
     """Create an account, its profile, and an ``Owner`` only for Teacher.
+
+    **Adds to the caller's transaction and does not commit**, so the
+    verify path can create the account in the transaction that consumes
+    its code [C-07].
 
     **One transaction** [BR3.3]. ``Profile`` stops being optional the
     moment signup creates one, so an account with no profile row would
@@ -281,6 +382,8 @@ def create_account(
         caller that is not a person signing up
     :param centre_name: The centre's name, for ``COACHING`` only
     :param now: The moment of creation, or None for the clock
+    :param account_id: The id to create the account with, or None for a
+        fresh one
     :return: The new account and whether it owns batches
     :raises DuplicateNumber: The number already has an account
     """
@@ -297,7 +400,7 @@ def create_account(
     if existing is not None:
         raise DuplicateNumber()
 
-    account = Account(phone=phone, created_at=moment)
+    account = Account(id=account_id or uuid.uuid4(), phone=phone, created_at=moment)
     session.add(account)
     session.flush()
 
@@ -357,7 +460,6 @@ def create_account(
     # Linked, never accepted: the person still answers the invitation.
     link_memberships(session, account_id=account.id, phone=phone)
 
-    session.commit()
     return AccountCreated(account_id=account.id, is_teacher=is_teacher)
 
 

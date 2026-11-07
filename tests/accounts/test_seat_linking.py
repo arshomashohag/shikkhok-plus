@@ -32,6 +32,7 @@ from app.auth.hashing import OTP_HMAC_KEY_ENV
 from app.auth.tokens import JWT_ACTIVE_KID_ENV, JWT_KEYS_ENV, issue_pair
 from app.db.models import Enrollment
 from tests.accounts.conftest import make_account
+from tests.accounts.signup_support import sign_up
 from tests.batches.conftest import TeacherFixture, make_teacher
 
 
@@ -125,14 +126,17 @@ def _seat(session: Session, seat_id: uuid.UUID) -> Enrollment:
 def _signup(client: TestClient, phone: str, role: str) -> None:
     """Create an account through sign-up, as a new person does.
 
+    Submits the form and types the code, because the account -- and
+    with it every seat link -- is created at verify [C-07].
+
     :param client: The test client
     :param phone: Their number, in any spelling
     :param role: The role they choose
     :return: None
     """
-    response = client.post(
-        "/v1/accounts",
-        json={
+    sign_up(
+        client,
+        {
             "phone": phone,
             "role": role,
             "self_name": "Someone",
@@ -142,7 +146,6 @@ def _signup(client: TestClient, phone: str, role: str) -> None:
             "address_postcode": "1205",
         },
     )
-    assert response.status_code in (200, 201), response.text
 
 
 # --------------------------------------------------------------- at creation

@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import datetime as dt
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Final
 
@@ -37,6 +38,7 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from app.audit.log import AuthEvent, write_audit
+from app.auth import pending
 from app.auth.hashing import generate_code, hash_otp, verify_otp
 from app.errors import ValidationError
 
@@ -45,10 +47,48 @@ __all__ = [
     "CODE_LIFETIME",
     "DELETION_PURPOSE",
     "OTP_PURPOSE",
+    "CodeRefused",
     "IssuedCode",
+    "SignupCompleter",
     "issue",
     "verify",
 ]
+
+#: Turns the signup draft bound to a just-verified code into an account,
+#: returning its id, or None when no live draft is bound to that code.
+#: Passed in by the route rather than imported, so this module -- the
+#: one every code passes through -- depends on nothing about accounts.
+SignupCompleter = Callable[[Session, uuid.UUID, dt.datetime], uuid.UUID | None]
+
+
+class CodeRefused(ValidationError):
+    """A presented code was refused; the 400 every refusal returns.
+
+    A :class:`~app.errors.ValidationError` like every refusal before it,
+    so the response is unchanged. It carries one fact for the CALLER and
+    never for the response: whether this attempt is the one that killed
+    the code at the attempt ceiling, which the per-number dead-code
+    cool-off counts [C-20].
+
+    :ivar code_died: This attempt exhausted the code's attempts
+    """
+
+    def __init__(
+        self,
+        message_key: str,
+        *,
+        code_died: bool = False,
+        details: dict[str, str] | None = None,
+    ) -> None:
+        """Refuse a code.
+
+        :param message_key: The remedy shown to the person
+        :param code_died: This attempt exhausted the code's attempts
+        :param details: Optional payload, such as the tries left
+        """
+        super().__init__(code=REFUSAL_CODE, message_key=message_key, details=details)
+        self.code_died = code_died
+
 
 #: A code expires five minutes after issue [BR2.3].
 CODE_LIFETIME: Final = dt.timedelta(minutes=5)
@@ -80,15 +120,21 @@ class IssuedCode:
     """What :func:`issue` hands back to the caller.
 
     ``code`` is the value to transmit and is **never** persisted or
-    logged. ``account_exists`` is for the caller's audit row only and must
-    not reach the response, or it becomes the oracle in a new place.
+    logged. ``account_exists`` and ``pending_signup`` decide whether the
+    code is SENT, after the response, and must not reach the response,
+    or they become the oracle in a new place.
 
     :ivar code: The transmitted code
     :ivar account_exists: Whether the number had an account
+    :ivar request_id: The code's row, so a skipped send can kill it
+    :ivar pending_signup: Whether a live signup draft is now bound to
+        this code [C-07]
     """
 
     code: str
     account_exists: bool
+    request_id: uuid.UUID
+    pending_signup: bool
 
 
 def issue(
@@ -155,6 +201,14 @@ def issue(
         parameters,
     )
 
+    # A sign-in code adopts this number's signup draft, if one is live
+    # [C-07], so "send the code again" after signup sends a code that
+    # completes it. Run for EVERY number, so both branches execute the
+    # same statement whatever it finds [BR2.7].
+    pending_signup = purpose == OTP_PURPOSE and pending.bind_code(
+        session, phone=phone, otp_request_id=row_id, now=moment
+    )
+
     # account_id is nullable here BY DESIGN: a placeholder would
     # reintroduce the oracle this path exists to close.
     write_audit(
@@ -166,7 +220,12 @@ def issue(
     )
     session.commit()
 
-    return IssuedCode(code=code, account_exists=account_id is not None)
+    return IssuedCode(
+        code=code,
+        account_exists=account_id is not None,
+        request_id=row_id,
+        pending_signup=pending_signup,
+    )
 
 
 def verify(
@@ -177,6 +236,7 @@ def verify(
     *,
     purpose: str,
     now: dt.datetime | None = None,
+    complete_signup: SignupCompleter | None = None,
 ) -> uuid.UUID:
     """Verify a code of one purpose and return the account it authenticates.
 
@@ -186,15 +246,24 @@ def verify(
     check that read it**, so a concurrent second verify cannot slip
     between them [BR2.3].
 
+    **Verify-first signup completes here** [C-07]. A right code for a
+    number with no account creates the account from the signup draft
+    bound to that code, through ``complete_signup``, in the SAME
+    transaction that consumes the code: a failure creating it leaves
+    neither an account nor a spent code. A number that does have an
+    account signs in as before, and any draft for it is discarded.
+
     :param session: The session to work through
     :param phone: The number being verified
     :param code: The presented code
     :param correlation_id: Ties the audit row to this request
     :param purpose: What the presented code must have been issued for
     :param now: The moment of verification, or None for the clock
+    :param complete_signup: Creates the account from a bound draft; None
+        where a code may only authenticate an existing account
     :return: The authenticated account's id
-    :raises ValidationError: The code is wrong, expired, used, dead, or
-        was issued for a different purpose
+    :raises CodeRefused: The code is wrong, expired, used, dead, or was
+        issued for a different purpose
     """
     moment = now or dt.datetime.now(tz=dt.UTC)
 
@@ -226,7 +295,7 @@ def verify(
     ).one_or_none()
 
     if row is None:
-        raise ValidationError(code=REFUSAL_CODE, message_key="auth.otp.not_valid")
+        raise CodeRefused(message_key="auth.otp.not_valid")
 
     attempts = session.execute(
         sa.text("SELECT count(*) FROM verify_attempt WHERE otp_request_id = :id"),
@@ -244,8 +313,8 @@ def verify(
         # Expiry is named because its remedy is specific: the code was
         # right and too slow. A used or dead code is "ask for a new one".
         if expired and not consumed and not exhausted:
-            raise ValidationError(code=REFUSAL_CODE, message_key="auth.otp.expired")
-        raise ValidationError(code=REFUSAL_CODE, message_key="auth.otp.not_valid")
+            raise CodeRefused(message_key="auth.otp.expired")
+        raise CodeRefused(message_key="auth.otp.not_valid")
 
     matched = verify_otp(code, phone, row.otp_hash)
     _record_attempt(session, row.id, moment, succeeded=matched)
@@ -263,11 +332,8 @@ def verify(
         _audit_failure(session, phone, correlation_id, moment)
         session.commit()
         if remaining <= 0:
-            raise ValidationError(
-                code=REFUSAL_CODE, message_key="auth.otp.no_tries_left"
-            )
-        raise ValidationError(
-            code=REFUSAL_CODE,
+            raise CodeRefused(message_key="auth.otp.no_tries_left", code_died=True)
+        raise CodeRefused(
             message_key="auth.otp.wrong",
             details={"attempts_left": str(remaining)},
         )
@@ -285,9 +351,20 @@ def verify(
         {"phone": phone},
     ).scalar_one_or_none()
 
+    if account_id is None and complete_signup is not None:
+        # The draft bound to THIS code, and only that one: a draft
+        # someone else submitted for the number later is bound to a
+        # later code, which shadows this one [C-07].
+        account_id = complete_signup(session, row.id, moment)
+    elif account_id is not None and purpose == OTP_PURPOSE:
+        # Signed in to an account that exists: a draft submitted for
+        # this number is moot, and holds an address, so it goes now
+        # rather than at the purge.
+        pending.discard(session, phone=phone)
+
     if account_id is None:
         session.commit()
-        raise ValidationError(code=REFUSAL_CODE, message_key="auth.otp.not_valid")
+        raise CodeRefused(message_key="auth.otp.not_valid")
 
     # Activate if dormant. This is what lets a student or guardian claim
     # a record a teacher created, without being invited [AC1.2.1].

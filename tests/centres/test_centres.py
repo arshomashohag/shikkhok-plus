@@ -25,6 +25,7 @@ from sqlalchemy.orm import Session
 from app.db.models import Account, Owner, OwnerMember
 from app.governance.deletion import delete_account
 from app.notifications.recipients import teacher_recipients
+from tests.accounts.signup_support import sign_up
 from tests.batches.conftest import make_teacher
 from tests.conftest import bearer
 
@@ -65,9 +66,10 @@ def _sign_up_coaching(client: TestClient, session: Session) -> uuid.UUID:
     :return: The account id
     """
     phone = _phone()
-    response = client.post(
-        "/v1/accounts",
-        json={
+    # Form and code: the account is created at verify [C-07].
+    return sign_up(
+        client,
+        {
             "phone": phone,
             "role": "coaching",
             "self_name": "Rina Manager",
@@ -75,8 +77,6 @@ def _sign_up_coaching(client: TestClient, session: Session) -> uuid.UUID:
             **ADDRESS,
         },
     )
-    assert response.status_code == 201, response.text
-    return uuid.UUID(response.json()["account_id"])
 
 
 def _me(client: TestClient, session: Session, account_id: uuid.UUID) -> dict:
@@ -408,12 +408,10 @@ def test_an_invitation_to_a_new_number_links_at_sign_up_but_stays_pending(
     )
     assert invited.status_code == 201, invited.text
 
-    signed = api_client.post(
-        "/v1/accounts",
-        json={"phone": phone, "role": "teacher", "self_name": "Sumi", **ADDRESS},
+    account_id = sign_up(
+        api_client,
+        {"phone": phone, "role": "teacher", "self_name": "Sumi", **ADDRESS},
     )
-    assert signed.status_code == 201, signed.text
-    account_id = uuid.UUID(signed.json()["account_id"])
 
     member = owner_session.get(OwnerMember, uuid.UUID(invited.json()["member_id"]))
     owner_session.refresh(member)

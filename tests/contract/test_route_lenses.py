@@ -147,6 +147,11 @@ def test_lens_exempt_set_holds_exactly_the_known_routes() -> None:
     assert LENS_EXEMPT_AUTHENTICATED == frozenset(
         {
             ("POST", "/v1/auth/refresh"),
+            # The two ways a session ends server-side [C-21]: logout
+            # presents the refresh token as refresh does; sign out
+            # everywhere acts on the caller itself, as DELETE /v1/me does.
+            ("POST", "/v1/auth/logout"),
+            ("POST", "/v1/auth/logout-all"),
             ("GET", "/v1/me"),
             # The write half of the same row, added 2026-10-27 on
             # exactly GET /v1/me's reasoning: it touches only the

@@ -94,6 +94,17 @@ PUBLIC_ROUTES: frozenset[tuple[str, str]] = frozenset(
 LENS_EXEMPT_AUTHENTICATED: frozenset[tuple[str, str]] = frozenset(
     {
         ("POST", "/v1/auth/refresh"),
+        # Logout presents the refresh token, exactly as refresh does and
+        # for the same reason [C-21]: a client whose access token has
+        # expired must still be able to end its session. Here and not in
+        # PUBLIC_ROUTES on refresh's reasoning -- a refresh token IS a
+        # credential, and this set keeps that recorded.
+        ("POST", "/v1/auth/logout"),
+        # Sign out everywhere, on DELETE /v1/me's reasoning: it acts on
+        # the authenticated account itself, takes no id from the
+        # request, and an account holding no lens must still be able to
+        # end its own sessions [C-21].
+        ("POST", "/v1/auth/logout-all"),
         # The route that REPORTS the lenses, so it cannot require one:
         # an account would have to already know what it was in order to
         # ask what it is. Every value it returns is derived from the
