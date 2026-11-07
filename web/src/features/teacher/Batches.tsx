@@ -195,7 +195,9 @@ export function CreateBatch() {
       refresh()
       navigate(`/batches/${created.id}`, { replace: true })
     } catch (err) {
-      setFormError(err instanceof ApiError ? message(err.messageKey) : t('error_unexpected'))
+      setFormError(
+        err instanceof ApiError ? message(err.messageKey, err.details) : t('error_unexpected'),
+      )
       setBusy(false)
     }
   }

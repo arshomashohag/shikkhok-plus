@@ -305,7 +305,9 @@ function AddClassSheet({
       })
       onAdded(date)
     } catch (err) {
-      setError(err instanceof ApiError ? message(err.messageKey) : t('error_unexpected'))
+      setError(
+        err instanceof ApiError ? message(err.messageKey, err.details) : t('error_unexpected'),
+      )
       setBusy(false)
     }
   }

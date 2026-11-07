@@ -113,7 +113,8 @@ function Entry({
       } catch (e) {
         setRowErrors((all) => ({
           ...all,
-          [row.enrollmentId]: e instanceof ApiError ? message(e.messageKey) : t('error_unexpected'),
+          [row.enrollmentId]:
+            e instanceof ApiError ? message(e.messageKey, e.details) : t('error_unexpected'),
         }))
       } finally {
         inFlight.current.delete(row.enrollmentId)
@@ -362,7 +363,7 @@ function EditExamSheet({
       onSaved()
       onClose()
     } catch (e) {
-      setError(e instanceof ApiError ? message(e.messageKey) : t('error_unexpected'))
+      setError(e instanceof ApiError ? message(e.messageKey, e.details) : t('error_unexpected'))
       setSaving(false)
     }
   }

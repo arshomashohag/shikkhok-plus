@@ -10,7 +10,7 @@
 import { useId, useState, type FormEvent } from 'react'
 import { ApiError } from '../../api/errors'
 import { ago, formatDateTime } from '../../core/format'
-import { useT } from '../../i18n/i18n'
+import { useT, type Translator } from '../../i18n/i18n'
 import { fieldProblem, textLength, type HelpMessage } from './mappers'
 import './help.css'
 
@@ -18,12 +18,12 @@ import './help.css'
 export function writeErrorText(
   e: unknown,
   offlineText: string,
-  message: (key: string) => string,
+  message: Translator['message'],
 ): { text: string; retryable: boolean } {
   if (e instanceof ApiError) {
     return e.offline
       ? { text: offlineText, retryable: true }
-      : { text: message(e.messageKey), retryable: e.retryable }
+      : { text: message(e.messageKey, e.details), retryable: e.retryable }
   }
   return { text: message('error.unexpected'), retryable: true }
 }

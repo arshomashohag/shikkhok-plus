@@ -61,5 +61,6 @@
   "web_roster_col_student": "শিক্ষার্থী",
   "web_roster_col_contact": "ফোন ও আমন্ত্রণ",
   "web_roster_col_fee": "এ মাস",
-  "web_roster_col_actions": "কাজ"
+  "web_roster_col_actions": "কাজ",
+  "web_auth_otp_wrong_no_count": "কোডটি সঠিক নয়।"
 }

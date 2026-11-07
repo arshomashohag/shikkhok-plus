@@ -120,7 +120,9 @@ function EditForm({ batch, fresh }: { batch: Batch; fresh: boolean }) {
       await updateBatch(batch.id, body)
       navigate(paths.batch(batch.id))
     } catch (err) {
-      setFormError(err instanceof ApiError ? message(err.messageKey) : t('error_unexpected'))
+      setFormError(
+        err instanceof ApiError ? message(err.messageKey, err.details) : t('error_unexpected'),
+      )
       setBusy(false)
     }
   }

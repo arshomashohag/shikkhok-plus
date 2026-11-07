@@ -49,7 +49,7 @@ export function SignIn() {
   }, [step])
 
   const failure = (e: unknown) =>
-    setError(e instanceof ApiError ? message(e.messageKey) : t('error_unexpected'))
+    setError(e instanceof ApiError ? message(e.messageKey, e.details) : t('error_unexpected'))
 
   async function requestCode(target: string) {
     setBusy(true)

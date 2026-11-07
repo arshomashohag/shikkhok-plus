@@ -60,3 +60,28 @@ it('shows the string the server named for a wrong code', async () => {
   expect(await screen.findByRole('alert')).toHaveTextContent('This code has expired')
   expect(readTokens()).toBeNull()
 })
+
+it('says how many tries are left after a wrong code', async () => {
+  // The server's real shape for a wrong code: the count arrives in
+  // `details`, and the string has a placeholder for it. This read
+  // "That code isn't right. {1} tries left." until the count was passed.
+  fetchMock.mockImplementation(async (url: string) =>
+    url.endsWith('/v1/auth/otp')
+      ? json(200, { status: 'requested' })
+      : json(400, {
+          error: {
+            code: 'OTP_WRONG',
+            message_key: 'auth.otp.wrong',
+            retryable: false,
+            details: { attempts_left: '2' },
+          },
+        }),
+  )
+  renderScreen(<SignIn />)
+  await userEvent.type(screen.getByLabelText('Mobile number'), '01711234567')
+  await userEvent.click(screen.getByRole('button', { name: 'Send code' }))
+  await userEvent.type(await screen.findByLabelText('Enter the code'), '000000')
+  const alert = await screen.findByRole('alert')
+  expect(alert).toHaveTextContent("That code isn't right. 2 tries left.")
+  expect(alert.textContent).not.toMatch(/\{\d\}/)
+})

@@ -55,3 +55,43 @@ describe('server message keys', () => {
     expect(translateMessage('en', 'not.a.key')).toBe(translate('en', 'error_unexpected'))
   })
 })
+
+describe('server messages with placeholders', () => {
+  it('fills the tries-left count from the details, in both languages', () => {
+    expect(translateMessage('en', 'auth.otp.wrong', { attempts_left: '2' })).toBe(
+      "That code isn't right. 2 tries left.",
+    )
+    expect(translateMessage('bn', 'auth.otp.wrong', { attempts_left: '২' })).toContain('২')
+  })
+
+  it('never shows a raw placeholder when the count is missing', () => {
+    const cases: (Record<string, string> | null | undefined)[] = [
+      undefined,
+      null,
+      {},
+      { attempts_left: '' },
+    ]
+    for (const details of cases) {
+      const text = translateMessage('en', 'auth.otp.wrong', details)
+      expect(text).toBe("That code isn't right.")
+      expect(text).not.toMatch(/\{\d\}/)
+    }
+    expect(translateMessage('bn', 'auth.otp.wrong')).not.toMatch(/\{\d\}/)
+  })
+
+  it('leaves messages without placeholders alone, details or not', () => {
+    expect(translateMessage('en', 'auth.otp.expired', { attempts_left: '2' })).toBe(
+      translateMessage('en', 'auth.otp.expired'),
+    )
+  })
+
+  it('leaves no server message with an unfilled placeholder', () => {
+    // Every message key whose string carries a placeholder must be in
+    // MESSAGE_ARGS; this catches the next one before a person reads it.
+    for (const key of Object.keys(MESSAGE_KEYS)) {
+      for (const lang of ['en', 'bn'] as const) {
+        expect(translateMessage(lang, key), `${lang} ${key}`).not.toMatch(/\{\d\}/)
+      }
+    }
+  })
+})

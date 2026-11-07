@@ -84,7 +84,7 @@ function ConfirmBody({
         e instanceof ApiError
           ? e.offline
             ? t('web_account_delete_offline')
-            : message(e.messageKey)
+            : message(e.messageKey, e.details)
           : t('error_unexpected'),
       )
       setBusy(false)

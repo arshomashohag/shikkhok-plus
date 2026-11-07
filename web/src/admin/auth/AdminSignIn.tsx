@@ -113,7 +113,7 @@ export function AdminSignIn() {
     if (!(e instanceof ApiError)) return t('error_unexpected')
     if (isUnavailable(e)) return t('web_admin_unavailable')
     if (e.status === 403) return t('web_admin_signin_not_admin')
-    return message(e.messageKey)
+    return message(e.messageKey, e.details)
   }
 
   function challengeFrom(r: Schemas['AdminChallengeResponse']): Step {
@@ -153,12 +153,7 @@ export function AdminSignIn() {
           phone={step.phone}
           onVerified={(r) => setStep(challengeFrom(r))}
           onChangeNumber={() => restart(null)}
-          failure={(e) => {
-            // Fill "{1} tries left" from the server's details.
-            if (e instanceof ApiError && e.messageKey === 'auth.otp.wrong' && e.details)
-              return t('auth_otp_wrong', e.details.attempts_left ?? '')
-            return commonFailure(e)
-          }}
+          failure={commonFailure}
         />
       )
       break
