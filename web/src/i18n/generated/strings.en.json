@@ -339,6 +339,8 @@
   "dues_subtitle_updated": "{1} · updated {2}",
   "dues_title": "Dues",
   "edit_profile_title": "Edit profile",
+  "enrollment_inactive_from_before_joined": "The leaving date is before the date this student joined.",
+  "enrollment_joined_on_out_of_range": "The start date is too far from today. Check the year — a start can be up to a year ago or three months ahead.",
   "enrollment_remove_claimed": "This student has accepted their place and has a record. Mark them as left instead of removing them.",
   "enrollment_remove_erased": "This place records someone's request to erase their data. Add the number again to create a new, separate record.",
   "enrollment_remove_has_history": "This place has payments, credit, attendance or marks recorded. Mark the student as left instead of removing them.",

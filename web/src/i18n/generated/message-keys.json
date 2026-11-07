@@ -15,6 +15,8 @@
   "centre.name.required": "centre_name_required",
   "centre.not_a_centre": "centre_not_a_centre",
   "class.reassigned": "class_reassigned",
+  "enrollment.inactive_from.before_joined": "enrollment_inactive_from_before_joined",
+  "enrollment.joined_on.out_of_range": "enrollment_joined_on_out_of_range",
   "enrollment.remove.claimed": "enrollment_remove_claimed",
   "enrollment.remove.erased": "enrollment_remove_erased",
   "enrollment.remove.has_history": "enrollment_remove_has_history",

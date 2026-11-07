@@ -23,6 +23,7 @@ from __future__ import annotations
 import datetime as dt
 import uuid
 from dataclasses import dataclass, field
+from typing import Final
 
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
@@ -43,6 +44,7 @@ from app.db.models import (
     ScheduleSlot,
 )
 from app.errors import AuthorizationError, ConflictError, ValidationError
+from app.local_time import bangladesh_today
 from app.money import Money
 
 __all__ = [
@@ -614,6 +616,36 @@ def _has_history(session: Session, *, enrollment_id: uuid.UUID) -> bool:
     return any(session.scalar(sa.select(sa.exists(probe))) for probe in probes)
 
 
+#: How far back a seat's start may be recorded. Generation bills every
+#: month from the start to today, so this bounds a typo's damage to one
+#: school year of back-billing rather than decades [audit C-24].
+JOINED_ON_MAX_PAST: Final = dt.timedelta(days=366)
+
+#: How far ahead a seat's start may be recorded: enough for a term
+#: booked in advance, not enough for a mistyped year.
+JOINED_ON_MAX_FUTURE: Final = dt.timedelta(days=92)
+
+
+def _check_joined_on(
+    joined_on: dt.date | None, *, today: dt.date | None = None
+) -> None:
+    """Refuse a start date outside the window a real enrollment falls in.
+
+    :param joined_on: The teacher-entered start date, or None
+    :param today: The Bangladesh date to measure from; today by default
+    :return: None
+    :raises ValidationError: The date is too far back or too far ahead
+    """
+    if joined_on is None:
+        return
+    anchor = today or bangladesh_today()
+    if not anchor - JOINED_ON_MAX_PAST <= joined_on <= anchor + JOINED_ON_MAX_FUTURE:
+        raise ValidationError(
+            code="JOINED_ON_OUT_OF_RANGE",
+            message_key="enrollment.joined_on.out_of_range",
+        )
+
+
 def set_inactive_from(
     session: Session,
     *,
@@ -633,9 +665,23 @@ def set_inactive_from(
     :param inactive_from: The date, or None to reactivate the seat
     :return: None
     :raises BatchNotFound: The seat is not this lens's to write
+    :raises ValidationError: The date falls before the seat started
     """
     record = _owned_enrollment(session, lens=lens, enrollment_id=enrollment_id)
 
+    # Against a RECORDED start only: with none, the seat's creation date
+    # is when the teacher typed it, not when the student began, and a
+    # teacher recording a departure after the fact must not be refused.
+    if (
+        inactive_from is not None
+        and record.joined_on is not None
+        and inactive_from < record.joined_on
+    ):
+        # A seat cannot end before it began [audit C-24].
+        raise ValidationError(
+            code="INACTIVE_BEFORE_JOINED",
+            message_key="enrollment.inactive_from.before_joined",
+        )
     record.inactive_from = inactive_from
     session.commit()
 

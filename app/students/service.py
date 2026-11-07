@@ -38,6 +38,7 @@ from app.authz.lenses import TeacherLens
 from app.batches.service import (
     BatchNotFound,
     _account_for,
+    _check_joined_on,
     _owned_batch,
     _refuse_second_seat,
 )
@@ -451,9 +452,12 @@ def seat_for(
     :param joined_on: When the student joined
     :return: The new seat, flushed
     :raises BatchNotFound: The batch is not this lens's
+    :raises ValidationError: The start date is outside the allowed window
     :raises ConflictError: The student already has a seat in the batch
     """
     _owned_batch(session, lens=lens, batch_id=batch_id)
+    # Here because this is the one place a seat is created [audit C-24].
+    _check_joined_on(joined_on)
     siblings = _siblings(session, student.id)
     if any(seat.batch_id == batch_id for seat in siblings):
         raise ConflictError(

@@ -51,6 +51,8 @@
     <string name="enrollment_remove_claimed">This student has accepted their place and has a record. Mark them as left instead of removing them.</string>
     <string name="enrollment_remove_erased">This place records someone\'s request to erase their data. Add the number again to create a new, separate record.</string>
     <string name="enrollment_remove_has_history">This place has payments, credit, attendance or marks recorded. Mark the student as left instead of removing them.</string>
+    <string name="enrollment_joined_on_out_of_range">The start date is too far from today. Check the year — a start can be up to a year ago or three months ahead.</string>
+    <string name="enrollment_inactive_from_before_joined">The leaving date is before the date this student joined.</string>
     <string name="authz_lens_not_available">You do not have access to this.</string>
     <string name="guardian_children_title">Your children</string>
     <string name="guardian_children_empty">No children yet. A teacher needs to record your number first.</string>
