@@ -140,7 +140,11 @@ def test_lens_exempt_set_holds_exactly_the_known_routes() -> None:
       takes no id from the request, and a lens would hide a reminder
       from the guardian it is about;
     - the deletion summary reads only what the caller owns, and must
-      answer zeros, not a refusal, for an account owning nothing.
+      answer zeros, not a refusal, for an account owning nothing;
+    - the help centre's four routes act only on the caller's own
+      tickets, scoped by account id in SQL, and a lens would lock out
+      the account holding none, which is the one most likely to need
+      help.
 
     :return: None
     """
@@ -169,6 +173,11 @@ def test_lens_exempt_set_holds_exactly_the_known_routes() -> None:
             ("GET", "/v1/me/classes"),
             ("GET", "/v1/me/exams"),
             ("GET", "/v1/me/pay"),
+            # The caller's own help-centre tickets [0027].
+            ("GET", "/v1/me/help/tickets"),
+            ("POST", "/v1/me/help/tickets"),
+            ("GET", "/v1/me/help/tickets/{ticket_id}"),
+            ("POST", "/v1/me/help/tickets/{ticket_id}/messages"),
         }
     )
 

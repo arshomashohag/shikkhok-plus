@@ -23,6 +23,7 @@ from fastapi import Depends, Request
 from sqlalchemy.orm import Session
 
 from app.auth.tokens import verify_access_token
+from app.authz.admin import is_platform_admin
 from app.authz.classes import resolve_class_lens, resolve_examiner_lens
 from app.authz.invitations import available_invitations
 from app.authz.lenses import (
@@ -32,6 +33,7 @@ from app.authz.lenses import (
     InvitationLens,
     Lens,
     MembershipLens,
+    PlatformAdminLens,
     StudentLens,
     TeacherLens,
 )
@@ -49,6 +51,7 @@ __all__ = [
     "guardian_lens",
     "invitation_lens",
     "membership_lens",
+    "platform_admin_lens",
     "student_lens",
     "teacher_lens",
 ]
@@ -62,6 +65,7 @@ _SUBJECT_MEMO = "_aidlc_token_subject"
 
 #: Whether the account a token names still exists. Indexed on the key.
 _ACCOUNT_EXISTS = sa.text("SELECT 1 FROM account WHERE id = :account_id")
+_ACCOUNT_PHONE = sa.text("SELECT phone FROM account WHERE id = :account_id")
 
 
 class _HasState(Protocol):
@@ -429,3 +433,30 @@ def examiner_lens(
     :return: The lens for that one exam
     """
     return resolve_examiner_lens(session, account_id=account_id, exam_id=exam_id)
+
+
+def platform_admin_lens(
+    session: Annotated[Session, Depends(get_session)],
+    account_id: Annotated[uuid.UUID, Depends(authenticated_account)],
+) -> PlatformAdminLens:
+    """Resolve the platform administrator lens [TC-14, D-6].
+
+    Checked against the allowlist on every request and never memoized
+    beyond it, so removing a number from the deployment revokes the
+    reach on that account's next request. A non-administrator gets the
+    same 403 any unavailable lens gets, so the response does not say
+    that an administration surface exists.
+
+    :param session: The session to query through
+    :param account_id: The authenticated account
+    :return: The administrator's lens
+    :raises AuthorizationError: The account is not on the allowlist
+    """
+    phone = session.execute(_ACCOUNT_PHONE, {"account_id": account_id}).scalar()
+    if phone is None or not is_platform_admin(str(phone)):
+        raise AuthorizationError(
+            code="NO_PLATFORM_ADMIN_LENS",
+            message_key="authz.lens.not_available",
+            status=403,
+        )
+    return PlatformAdminLens(account_id=account_id)

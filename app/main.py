@@ -83,6 +83,7 @@ def _register_routes(app: FastAPI) -> None:
     :return: None
     """
     from app.api.accounts import router as accounts_router
+    from app.api.admin import router as admin_router
     from app.api.analytics import router as analytics_router
     from app.api.auth import router as auth_router
     from app.api.batches import router as batches_router
@@ -93,6 +94,7 @@ def _register_routes(app: FastAPI) -> None:
     from app.api.fees import router as fees_router
     from app.api.guardian import router as guardian_router
     from app.api.health import router as health_router
+    from app.api.help import router as help_router
     from app.api.marks import router as marks_router
     from app.api.me import router as me_router
     from app.api.my_classes import router as my_classes_router
@@ -112,6 +114,7 @@ def _register_routes(app: FastAPI) -> None:
 
     for router in (
         accounts_router,
+        admin_router,
         analytics_router,
         auth_router,
         batches_router,
@@ -122,6 +125,7 @@ def _register_routes(app: FastAPI) -> None:
         fees_router,
         guardian_router,
         health_router,
+        help_router,
         marks_router,
         me_router,
         my_classes_router,

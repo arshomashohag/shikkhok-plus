@@ -82,11 +82,13 @@ class TokenPair:
     :ivar access_token: The signed, short-lived bearer token
     :ivar refresh_token: The opaque long-lived token, stored hashed
     :ivar family_id: The rotation chain this pair belongs to
+    :ivar account_id: The account the pair was issued to
     """
 
     access_token: str
     refresh_token: str
     family_id: uuid.UUID
+    account_id: uuid.UUID
 
 
 def _keys() -> dict[str, str]:
@@ -157,6 +159,7 @@ def issue_pair(
         access_token=_sign(account_id, moment),
         refresh_token=refresh,
         family_id=chain,
+        account_id=account_id,
     )
 
 

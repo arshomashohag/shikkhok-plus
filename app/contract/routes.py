@@ -26,9 +26,11 @@ from app.authz.annotations import resolve_lens_type
 __all__ = [
     "CLASS_TEACHER_ROUTES",
     "LENS_EXEMPT_AUTHENTICATED",
+    "PLATFORM_ADMIN_ROUTES",
     "PUBLIC_ROUTES",
     "RouteViolation",
     "class_teacher_routes",
+    "platform_admin_routes",
     "unlensed_routes",
 ]
 
@@ -185,6 +187,36 @@ LENS_EXEMPT_AUTHENTICATED: frozenset[tuple[str, str]] = frozenset(
         # salary lines paying the authenticated account, through its own
         # live memberships, in the query that reads them.
         ("GET", "/v1/me/pay"),
+        # The help centre [0027], exempt on the inbox's reasoning above
+        # and no wider. All four act on the authenticated account's own
+        # tickets, each statement scoped by that account id in SQL, so a
+        # ticket id belonging to someone else answers the same 404 as
+        # one that does not exist. Requiring a lens would lock out the
+        # account holding none -- signed up, never enrolled, owning no
+        # batch -- which is the person most likely to need help.
+        ("GET", "/v1/me/help/tickets"),
+        ("POST", "/v1/me/help/tickets"),
+        ("GET", "/v1/me/help/tickets/{ticket_id}"),
+        ("POST", "/v1/me/help/tickets/{ticket_id}/messages"),
+    }
+)
+
+#: Every route a :class:`~app.authz.lenses.PlatformAdminLens` reaches,
+#: and exactly those [TC-14, D-6]. Asserted in both directions by
+#: ``tests/contract/test_admin_routes.py``: a route taking the lens that
+#: is not listed fails, and so does a ``/v1/admin`` route that does not
+#: take it. The administrator boundary is the most consequential privacy
+#: line after the teacher one, so a new route crossing it is a diff
+#: against this set rather than a handler that quietly appeared.
+PLATFORM_ADMIN_ROUTES: frozenset[tuple[str, str]] = frozenset(
+    {
+        ("GET", "/v1/admin/overview"),
+        ("GET", "/v1/admin/teachers"),
+        ("GET", "/v1/admin/help/requesters"),
+        ("GET", "/v1/admin/help/tickets"),
+        ("GET", "/v1/admin/help/tickets/{ticket_id}"),
+        ("POST", "/v1/admin/help/tickets/{ticket_id}/messages"),
+        ("PUT", "/v1/admin/help/tickets/{ticket_id}/status"),
     }
 )
 
@@ -329,6 +361,32 @@ def class_teacher_routes(app: FastAPI) -> set[tuple[str, str]]:
         """
         lens = resolve_lens_type(dependant.call) if dependant.call else None
         if lens is not None and issubclass(lens, ClassTeacherLens | ExaminerLens):
+            return True
+        return any(yields(sub) for sub in dependant.dependencies)
+
+    found: set[tuple[str, str]] = set()
+    for route in _api_routes(app):
+        if yields(route.dependant):
+            found.update((method, route.path) for method in route.methods or set())
+    return found
+
+
+def platform_admin_routes(app: FastAPI) -> set[tuple[str, str]]:
+    """List every route whose dependencies yield a platform admin lens.
+
+    :param app: The application to enumerate
+    :return: ``(method, path)`` per such route
+    """
+    from app.authz.lenses import PlatformAdminLens
+
+    def yields(dependant: Dependant) -> bool:
+        """Report whether this dependency tree yields the admin lens.
+
+        :param dependant: The dependency node
+        :return: True if any node returns a ``PlatformAdminLens``
+        """
+        lens = resolve_lens_type(dependant.call) if dependant.call else None
+        if lens is not None and issubclass(lens, PlatformAdminLens):
             return True
         return any(yields(sub) for sub in dependant.dependencies)
 

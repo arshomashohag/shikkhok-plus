@@ -576,6 +576,35 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
             "process that forced it on."
         ),
     ),
+    "account_client": TableGovernance(
+        disposition=Disposition.HARD_DELETE,
+        retention=RetentionClass.LIFE_OF_ACCOUNT,
+        basis=(
+            "Which app -- Android or web -- an account signs in from, the "
+            "app's version and when it was last seen. No device "
+            "identifier. It describes the account and nothing else, so "
+            "it goes with the account."
+        ),
+    ),
+    "help_ticket": TableGovernance(
+        disposition=Disposition.HARD_DELETE,
+        retention=RetentionClass.LIFE_OF_ACCOUNT,
+        basis=(
+            "A question the account asked ShikkhokPlus support. It is the "
+            "account's own correspondence, nobody else has a claim on "
+            "it, and it evidences no transaction, so it is removed "
+            "outright with the account."
+        ),
+    ),
+    "help_message": TableGovernance(
+        disposition=Disposition.HARD_DELETE,
+        retention=RetentionClass.LIFE_OF_ACCOUNT,
+        basis=(
+            "The messages in a help ticket, the requester's and "
+            "support's replies alike. They belong to the ticket and go "
+            "with it."
+        ),
+    ),
 }
 
 #: The retention half, derived so the two can never disagree.
