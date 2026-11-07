@@ -1034,3 +1034,21 @@ id = "test_an_older_app_sending_no_purpose_pays_the_month"
 file = "tests/fees/test_extra_fees.py"
 criterion = "A payment with no purpose field settles the months exactly as before 0020 and leaves the exam fee untouched"
 rule = "0020"
+
+[[test]]
+id = "test_production_is_refused_before_connecting"
+file = "tests/seed/test_scenario.py"
+criterion = "the test-data seeder refuses SHIKKHOKPLUS_ENVIRONMENT=production before it opens a connection"
+rule = "seed_staging precedent: a script that creates accounts never runs against production"
+
+[[test]]
+id = "test_a_failure_part_way_leaves_the_account_untouched"
+file = "tests/seed/test_scenario.py"
+criterion = "a seed run failing a week in leaves no batch, student, fee, session, exam, payment, expense, notification or family account behind"
+rule = "the seed is one transaction although every service it drives commits"
+
+[[test]]
+id = "test_every_app_module_reads_the_clock_through_a_dt_alias"
+file = "tests/seed/test_clock.py"
+criterion = "no app module imports datetime in a form the seeder's simulated clock cannot reach"
+rule = "a seeded history stamped with the real clock would be silently wrong"

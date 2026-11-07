@@ -53,3 +53,13 @@ output "origin_secret" {
   value       = random_password.origin_secret.result
   sensitive   = true
 }
+
+output "database_url" {
+  description = <<-EOT
+    SHIKKHOKPLUS_DATABASE_URL for the restricted shikkhok_app role, or
+    null without RDS. For the staging seeder, which cannot read SSM from
+    inside the VPC (modules/seeder explains). Sensitive.
+  EOT
+  value       = var.managed_database ? aws_ssm_parameter.database_url[0].value : null
+  sensitive   = true
+}
