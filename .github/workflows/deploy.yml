@@ -229,6 +229,59 @@ jobs:
             -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
             -backend-config="key=${{ inputs.environment }}/terraform.tfstate"
 
+      # **Whether this run may create the staging seeder**
+      # (infra/modules/seeder). Three rules, in order:
+      #
+      #   * Staging only, whatever ENABLE_SEEDER says. A repository-level
+      #     variable reaches every environment, and production's plan
+      #     refuses the seeder -- so passing it through would fail every
+      #     production deploy rather than protect anything.
+      #   * Once the function exists it stays on. Deploys own its image;
+      #     a check below turning it off would DESTROY it.
+      #   * Creating it needs the RUNNING image to be a single manifest.
+      #     This job runs before the build, so the function is created
+      #     from the last release, and an image built before
+      #     `provenance: false` is an OCI index Lambda refuses. Then the
+      #     seeder waits one deploy instead of failing this one, which
+      #     would also stop the release that fixes it.
+      #
+      # `get-function-configuration` prints ONLY the name: its response
+      # carries the function's environment, the database URL.
+      - name: Can the seeder be created on this run?
+        id: seeder
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+          WANTED: ${{ vars.ENABLE_SEEDER }}
+        run: |
+          prefix="shikkhokplus-${ENVIRONMENT}"
+          if [ "$ENVIRONMENT" != "staging" ] || [ "$WANTED" != "true" ]; then
+            echo "Seeder off (staging only, and only with ENABLE_SEEDER=true)."
+            echo "enable=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if aws lambda get-function-configuration --function-name "${prefix}-seeder" \
+               --query FunctionName --output text >/dev/null 2>&1; then
+            echo "Seeder exists; keeping it."
+            echo "enable=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          tag=$(aws ssm get-parameter --name "/shikkhokplus/${prefix}/image-tag" \
+                  --query Parameter.Value --output text)
+          media=none
+          if [ "$tag" != "none" ]; then
+            media=$(aws ecr describe-images --repository-name "${prefix}-backend" \
+                      --image-ids imageTag="$tag" \
+                      --query 'imageDetails[0].imageManifestMediaType' --output text)
+          fi
+          case "$media" in
+            application/vnd.docker.distribution.manifest.v2+json|application/vnd.oci.image.manifest.v1+json)
+              echo "Creating the seeder on ${tag:0:12} (${media})."
+              echo "enable=true" >> "$GITHUB_OUTPUT" ;;
+            *)
+              echo "::notice::The seeder is not created on this run: the running image (${tag:0:12}) is ${media}, which Lambda refuses. This release ships a plain manifest; deploy again and the seeder is created then."
+              echo "enable=false" >> "$GITHUB_OUTPUT" ;;
+          esac
+
       - name: Plan
         working-directory: infra
         env:
@@ -237,10 +290,8 @@ jobs:
           # Where alarms are emailed [OPS-11]. Unset is allowed and
           # reported by the alert_email_status output, not hidden.
           TF_VAR_alert_email: ${{ vars.ALERT_EMAIL }}
-          # The performance-test seeder (infra/modules/seeder). Set the
-          # `staging-infra` environment variable ENABLE_SEEDER to `true`
-          # to create it; unset means off. Production refuses it at plan.
-          TF_VAR_enable_seeder: ${{ vars.ENABLE_SEEDER == 'true' }}
+          # The performance-test seeder: decided by the step above.
+          TF_VAR_enable_seeder: ${{ steps.seeder.outputs.enable }}
         run: terraform plan -input=false -no-color -out=tfplan | tee plan.txt
 
       - name: What is about to be applied
