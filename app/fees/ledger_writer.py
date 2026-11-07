@@ -29,6 +29,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import Enrollment, LedgerEntryRow
 from app.fees.balances import derive_for_enrollment
+from app.fees.seat_locks import lock_seats
 from app.money import Money, apply_credit, carry_forward
 
 __all__ = [
@@ -122,6 +123,9 @@ def append_carry_pair(
     :raises MoneyValidationError: The amount exceeds the origin's
         balance, which would manufacture debt
     """
+    # Locked before deriving, so a concurrent writer on this seat
+    # derives from what this one commits [audit C-03].
+    lock_seats(session, [enrollment_id])
     origin_balance = derive_for_enrollment(session, enrollment_id).per_cycle.get(
         origin, Money.ZERO
     )
@@ -176,6 +180,9 @@ def apply_available_credit(
     :param period: The period to apply against
     :return: The ``credit_apply`` row, or None where nothing applied
     """
+    # Locked before deriving, so a concurrent writer on this seat
+    # derives from what this one commits [audit C-03].
+    lock_seats(session, [enrollment_id])
     derived = derive_for_enrollment(session, enrollment_id)
     available = derived.available_credit
     owed = derived.per_cycle.get(period, Money.ZERO)
@@ -237,6 +244,9 @@ def void_accrued_cycles(
     :param created_by_account_id: Who declined, if a person did
     :return: The forgiveness rows appended, possibly none
     """
+    # Locked before deriving, so a concurrent writer on this seat
+    # derives from what this one commits [audit C-03].
+    lock_seats(session, [enrollment_id])
     decision = session.execute(
         sa.select(Enrollment.student_decision).where(Enrollment.id == enrollment_id)
     ).scalar_one_or_none()

@@ -2,12 +2,19 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { Route, Routes } from 'react-router'
+import { Route, Routes, useLocation, type InitialEntry } from 'react-router'
 import { json, renderScreen } from '../../../test/render'
 import { BatchMonthScreen } from './BatchMonth'
 import { Collections } from './Collections'
 import { EditPaymentMethod, NewPaymentMethod, PaymentMethods } from './PaymentMethods'
+import { readSeatNames, seatState } from './paths'
 import { SeatFees } from './SeatFees'
+
+/** Stands in for the progress screen: shows only the names it was handed. */
+function ProgressNames() {
+  const { name, batch } = readSeatNames(useLocation().state)
+  return <p>{`progress for ${name} · ${batch}`}</p>
+}
 
 const fetchMock = vi.fn()
 beforeEach(() => vi.stubGlobal('fetch', fetchMock))
@@ -22,7 +29,7 @@ const calls = (method: string, suffix: string) =>
       (u as string).split('?')[0]!.endsWith(suffix) && (init as RequestInit).method === method,
   )
 
-function at(path: string, route: string, element: React.ReactElement) {
+function at(path: InitialEntry, route: string, element: React.ReactElement) {
   return renderScreen(
     <Routes>
       <Route path={route} element={element} />
@@ -70,19 +77,48 @@ describe('SeatFees', () => {
         ],
       }),
     )
-    at('/seats/e1/fees?name=Tasnim&batch=Math', '/seats/:enrollmentId/fees', <SeatFees />)
+    at(
+      { pathname: '/seats/e1/fees', state: seatState('Tasnim', 'Math') },
+      '/seats/:enrollmentId/fees',
+      <SeatFees />,
+    )
     expect(await screen.findByText('Outstanding: ৳1,600')).toBeInTheDocument()
     expect(screen.getByText('Tasnim · Math')).toBeInTheDocument()
     expect(screen.getByText('৳800 by bKash on 12 Oct · partly approved')).toBeInTheDocument()
     expect(screen.getByText('Note: Rest next month')).toBeInTheDocument()
+    // The names travel with the link, not in it.
     expect(screen.getByRole('link', { name: 'Progress' })).toHaveAttribute(
       'href',
-      '/seats/e1/progress?name=Tasnim&batch=Math',
+      '/seats/e1/progress',
     )
     // Newest first.
     const months = screen.getAllByText(/^(October|November)$/).map((n) => n.textContent)
     expect(months).toEqual(['November', 'October'])
     expect(screen.getByLabelText('October: Partly paid')).toBeInTheDocument()
+  })
+
+  it('never shows names a URL carries: a crafted link cannot title a seat', async () => {
+    fetchMock.mockResolvedValue(
+      json(200, { cycles: [], total_outstanding: '0.00', month_states: [] }),
+    )
+    at('/seats/e1/fees?name=Someone+else&batch=Fake', '/seats/:enrollmentId/fees', <SeatFees />)
+    expect(await screen.findByText('No fee has been charged yet.')).toBeInTheDocument()
+    expect(screen.queryByText(/Someone else/)).toBeNull()
+  })
+
+  it('carries the names on to the progress screen', async () => {
+    fetchMock.mockResolvedValue(
+      json(200, { cycles: [], total_outstanding: '0.00', month_states: [] }),
+    )
+    renderScreen(
+      <Routes>
+        <Route path="/seats/:enrollmentId/fees" element={<SeatFees />} />
+        <Route path="/seats/:enrollmentId/progress" element={<ProgressNames />} />
+      </Routes>,
+      { pathname: '/seats/e1/fees', state: seatState('Tasnim', 'Math') },
+    )
+    await userEvent.click(await screen.findByRole('link', { name: 'Progress' }))
+    expect(await screen.findByText('progress for Tasnim · Math')).toBeInTheDocument()
   })
 
   it('says nothing has been charged yet', async () => {
@@ -111,7 +147,11 @@ describe('SeatFees', () => {
     fetchMock.mockImplementation(async (_u: string, init: RequestInit) =>
       init.method === 'POST' ? json(201, {}) : json(200, owing),
     )
-    at('/seats/e1/fees?name=Tasnim', '/seats/:enrollmentId/fees', <SeatFees />)
+    at(
+      { pathname: '/seats/e1/fees', state: seatState('Tasnim') },
+      '/seats/:enrollmentId/fees',
+      <SeatFees />,
+    )
     await userEvent.click(await screen.findByRole('button', { name: 'Record payment' }))
 
     const sheet = screen.getByRole('dialog')
@@ -394,10 +434,7 @@ describe('BatchMonth', () => {
     expect(screen.getByText('৳1,200 owed · 25 days late')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Owed 1' }))
     expect(screen.queryByText('Anika')).toBeNull()
-    expect(screen.getByRole('link', { name: /Chandni/ })).toHaveAttribute(
-      'href',
-      '/seats/c/fees?name=Chandni&batch=Physics',
-    )
+    expect(screen.getByRole('link', { name: /Chandni/ })).toHaveAttribute('href', '/seats/c/fees')
   })
 
   it('offers Record payment on a seat that still owes, and only there', async () => {

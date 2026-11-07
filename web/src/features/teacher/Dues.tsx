@@ -47,7 +47,7 @@ const SWATCH: Record<DuesBucket, string> = {
 
 export function Dues() {
   const { t, message } = useT()
-  const { resource, reload } = useResource(() => readDues().then(mapDues), [])
+  const { resource, reload } = useResource((signal) => readDues(signal).then(mapDues), [])
   const [lateOnly, setLateOnly] = useState(false)
   const [notReminded, setNotReminded] = useState(false)
   const online = useOnline()

@@ -4,6 +4,7 @@ import com.shikkhokplus.app.core.network.ErrorBody
 import com.shikkhokplus.app.core.network.ErrorEnvelope
 import com.shikkhokplus.app.core.queue.QueueState
 import com.shikkhokplus.app.core.queue.QueueStore
+import com.shikkhokplus.app.core.queue.TestQueueCipher
 import com.shikkhokplus.app.core.queue.QueuedWrite
 import com.shikkhokplus.app.core.queue.SendOutcome
 import kotlinx.coroutines.test.runTest
@@ -21,7 +22,7 @@ class TopicWriterTest {
     @get:Rule
     val folder = TemporaryFolder()
 
-    private fun store() = QueueStore(File(folder.root, QueueStore.FILE_NAME))
+    private fun store() = QueueStore(File(folder.root, QueueStore.FILE_NAME), TestQueueCipher)
 
     private fun item() = QueuedWrite.topic("s-1", 2, "Optics")
 

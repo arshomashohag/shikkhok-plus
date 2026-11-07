@@ -164,6 +164,16 @@ record changes are **denied for any name not containing
 `shikkhokplus`**, so the role cannot repoint another project's record
 in the shared apex zone.
 
+Lambda is **`lambda:*` on `shikkhokplus-<env>-*` function names
+only**, per environment, for the staging seeder (`modules/seeder`), and
+`iam:PassRole` names two services, EC2 and Lambda -- still only for that
+environment's roles under `/shikkhokplus/`, which all carry that
+environment's boundary. Each boundary includes Lambda's VPC
+network-interface actions; the CI role holds `ec2:*` already, so no
+role it creates can reach further than it does. The plan role reads
+that environment's functions and image metadata, for the deploy's
+seeder-eligibility check.
+
 **It also holds real IAM write permissions**, and an earlier version
 of this document claimed it did not. SSM needs an instance profile,
 which means creating a role and attaching a policy. There is no way

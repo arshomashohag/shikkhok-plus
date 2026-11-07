@@ -248,12 +248,13 @@ private fun ShikkhokGraph(
 
             SignupScreen(
                 state = state,
-                onSubmit = { phone, name, address, role ->
+                onSubmit = { phone, name, address, role, centreName ->
                     model.submit(
                         phone = phone,
                         selfName = name,
                         address = address,
                         role = role,
+                        centreName = centreName,
                     )
                 },
                 // **Back to sign-in, not forward to it.** Signup issues
@@ -390,6 +391,17 @@ private fun ShikkhokGraph(
         expensesRoutes(client, navController)
         extraFeesRoutes(client, navController)
         centresRoutes(client, navController, session.onLensesChanged)
+        staffRoutes(client, navController)
+        timetableRoutes(client, navController)
+        myClassesRoutes(client, navController) {
+            LensBar(session.lens, Destination.MyClasses.route, navController)
+        }
+        myExamsRoutes(client, navController) {
+            LensBar(session.lens, Destination.MyExams.route, navController)
+        }
+        payrollRoutes(client, navController) {
+            LensBar(session.lens, Destination.MyPay.route, navController)
+        }
 
         addStudentRoute(client, navController)
 
@@ -859,8 +871,13 @@ internal fun moreActionsFor(
                 onMoneySummary = { navigate(Destination.MoneySummary.route) },
                 onOpenCentre = { navigate(Destination.OpenCentre.route) },
                 onCentreOffers = { navigate(Destination.CentreOffers.route) },
-                onCentreMembers = centreMembersOpener(base, navigate),
+                onCentreMembers = centreOpener(base, Destination.CentreMembers.route, navigate),
+                onCentreStaff = centreOpener(base, Destination.CentreStaff.route, navigate),
+                onCentreTimetable = centreOpener(base, Destination.CentreTimetable.route, navigate),
+                onCentrePayroll = centreOpener(base, Destination.CentrePayroll.route, navigate),
             )
+        // A centre teacher can still accept another centre's offer.
+        Lens.CLASS_TEACHER -> base.copy(onCentreOffers = { navigate(Destination.CentreOffers.route) })
         Lens.STUDENT -> base.copy(onInvitations = { navigate(Destination.Invitations.route) })
         Lens.GUARDIAN ->
             base.copy(
@@ -943,6 +960,7 @@ internal fun tabIndexOf(lens: Lens?, route: String): Int =
 internal fun homeFor(lens: Lens?): String =
     when (lens) {
         Lens.TEACHER -> Destination.Batches.route
+        Lens.CLASS_TEACHER -> Destination.MyClasses.route
         Lens.GUARDIAN -> Destination.GuardianHome.route
         // A student's own seats are what they came for (S1).
         Lens.STUDENT -> Destination.MyBatches.route
@@ -997,6 +1015,13 @@ internal fun routesFor(lens: Lens?): List<String> =
                 Destination.Dues.route,
                 Destination.Profile.route,
             )
+        Lens.CLASS_TEACHER ->
+            listOf(
+                Destination.MyClasses.route,
+                Destination.MyExams.route,
+                Destination.MyPay.route,
+                Destination.Profile.route,
+            )
         // **Invitations is a row in More, not a tab** (S4, G4): the
         // artboards put it inside More, highlighted, because it is a
         // thing that happens a few times, not a place a person returns to.
@@ -1036,6 +1061,29 @@ internal fun routesFor(lens: Lens?): List<String> =
 private fun tabsFor(lens: Lens?): List<NavDestination> =
     when (lens) {
         Lens.TEACHER -> teacherTabs()
+        Lens.CLASS_TEACHER ->
+            listOf(
+                NavDestination(
+                    label = stringResource(R.string.nav_my_classes),
+                    icon = painterResource(R.drawable.ic_nav_batches),
+                    tag = "nav_tab_my_classes",
+                ),
+                NavDestination(
+                    label = stringResource(R.string.nav_my_exams),
+                    icon = painterResource(R.drawable.ic_nav_today),
+                    tag = "nav_tab_my_exams",
+                ),
+                NavDestination(
+                    label = stringResource(R.string.nav_my_pay),
+                    icon = painterResource(R.drawable.ic_nav_dues),
+                    tag = "nav_tab_my_pay",
+                ),
+                NavDestination(
+                    label = stringResource(R.string.nav_more),
+                    icon = painterResource(R.drawable.ic_nav_more),
+                    tag = "nav_tab_more",
+                ),
+            )
         Lens.GUARDIAN ->
             listOf(
                 NavDestination(

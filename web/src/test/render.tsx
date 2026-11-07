@@ -1,11 +1,14 @@
 import { render } from '@testing-library/react'
 import type { ReactElement } from 'react'
-import { MemoryRouter } from 'react-router'
+import { MemoryRouter, type InitialEntry } from 'react-router'
 import { I18nProvider } from '../i18n/i18n'
 import { SessionProvider } from '../session/session'
 
-/** Render a screen with English strings, a session and a router. */
-export function renderScreen(ui: ReactElement, path = '/') {
+/**
+ * Render a screen with English strings, a session and a router. `path`
+ * may carry navigation `state`, as a Link that opened the screen would.
+ */
+export function renderScreen(ui: ReactElement, path: InitialEntry = '/') {
   return render(
     <I18nProvider lang="en">
       <SessionProvider>

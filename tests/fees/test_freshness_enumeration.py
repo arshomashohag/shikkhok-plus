@@ -32,7 +32,13 @@ import logging
 import pytest
 from sqlalchemy.orm import Session
 
-from app.db.models import FEE_GENERATION_JOB, SESSION_GENERATION_JOB, JobHeartbeat
+from app.db.models import (
+    EXPECTED_JOBS,
+    FEE_GENERATION_JOB,
+    RETENTION_PURGE_JOB,
+    SESSION_GENERATION_JOB,
+    JobHeartbeat,
+)
 from app.fees.commands import (
     STALENESS_THRESHOLD,
     check_all_jobs,
@@ -121,13 +127,31 @@ def test_a_fresh_session_job_is_fresh(
 # ---------------------------------------------------------------------
 
 
-def test_an_empty_registry_is_unhealthy(restricted_session: Session) -> None:
-    # The loop body never runs. A naive implementation returns healthy,
-    # which is the never-wired-scheduler failure arriving by the new
-    # enumeration route.
-    verdicts = check_all_jobs(restricted_session, now=NOW)
+def test_an_empty_registry_reports_every_expected_job_as_never_run(
+    restricted_session: Session,
+) -> None:
+    # The loop must not depend on rows existing [audit C-01]: with no row
+    # at all, every job the host is expected to run is reported, and
+    # reported unhealthy, rather than the check returning nothing.
+    verdicts = dict(check_all_jobs(restricted_session, now=NOW))
 
-    assert verdicts == [], "no rows means no per-job verdicts"
+    assert set(verdicts) == EXPECTED_JOBS
+    assert {verdict.reason for verdict in verdicts.values()} == {"never_ran"}
+
+
+def test_an_expected_job_that_never_ran_is_found_among_fresh_ones(
+    owner_session: Session, restricted_session: Session
+) -> None:
+    # THE audit case [C-01]. The fee and session jobs stamp; the retention
+    # purge was never scheduled, so it has no row. Enumerating rows alone
+    # reported all healthy.
+    _stamp(owner_session, job_name=FEE_GENERATION_JOB, when=FRESH)
+    _stamp(owner_session, job_name=SESSION_GENERATION_JOB, when=FRESH)
+
+    verdicts = dict(check_all_jobs(restricted_session, now=NOW))
+
+    assert verdicts[RETENTION_PURGE_JOB].healthy is False
+    assert verdicts[RETENTION_PURGE_JOB].reason == "never_ran"
 
 
 def test_every_registered_job_gets_its_own_verdict(
@@ -138,7 +162,7 @@ def test_every_registered_job_gets_its_own_verdict(
 
     verdicts = check_all_jobs(restricted_session, now=NOW)
 
-    assert {name for name, _ in verdicts} == {
+    assert {name for name, _ in verdicts} >= {
         FEE_GENERATION_JOB,
         SESSION_GENERATION_JOB,
     }, (
@@ -180,6 +204,7 @@ def test_the_entry_point_names_the_stale_job_in_the_alert(
     # second half of the finding: a stale session job that named the
     # fee job would send whoever read the alert to the wrong place.
     _stamp(owner_session, job_name=FEE_GENERATION_JOB, when=FRESH)
+    _stamp(owner_session, job_name=RETENTION_PURGE_JOB, when=FRESH)
     _stamp(owner_session, job_name=SESSION_GENERATION_JOB, when=STALE)
 
     with caplog.at_level(logging.CRITICAL):
@@ -200,8 +225,8 @@ def test_all_jobs_fresh_reports_nothing_unhealthy(
     restricted_session: Session,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    _stamp(owner_session, job_name=FEE_GENERATION_JOB, when=FRESH)
-    _stamp(owner_session, job_name=SESSION_GENERATION_JOB, when=FRESH)
+    for job_name in EXPECTED_JOBS:
+        _stamp(owner_session, job_name=job_name, when=FRESH)
 
     with caplog.at_level(logging.CRITICAL):
         unhealthy = report_unhealthy_jobs(restricted_session, now=NOW)
@@ -220,7 +245,7 @@ def test_an_empty_registry_reports_unhealthy_at_the_entry_point(
     with caplog.at_level(logging.CRITICAL):
         unhealthy = report_unhealthy_jobs(restricted_session, now=NOW)
 
-    assert unhealthy == 1, (
+    assert unhealthy == len(EXPECTED_JOBS), (
         "zero registered jobs was reported healthy, which reintroduces "
         "the never-wired-scheduler failure through the enumeration path"
     )

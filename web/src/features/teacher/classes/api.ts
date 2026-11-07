@@ -8,22 +8,25 @@ import type { Schemas } from '../../../api/endpoints'
 
 const enc = encodeURIComponent
 
-export const readCalendar = (batchId: string, year: number, month: number) =>
+export const readCalendar = (batchId: string, year: number, month: number, signal?: AbortSignal) =>
   request<Schemas['MonthViewResponse']>('GET', `/v1/batches/${enc(batchId)}/calendar`, {
+    signal,
     query: { year, month },
   })
 
-export const readBatchSessions = (batchId: string) =>
-  request<Schemas['SessionResponse'][]>('GET', `/v1/batches/${enc(batchId)}/sessions`)
+export const readBatchSessions = (batchId: string, signal?: AbortSignal) =>
+  request<Schemas['SessionResponse'][]>('GET', `/v1/batches/${enc(batchId)}/sessions`, { signal })
 
 export const createSession = (batchId: string, body: Schemas['SessionCreateRequest']) =>
   request<Schemas['SessionResponse']>('POST', `/v1/batches/${enc(batchId)}/sessions`, { body })
 
-export const readSession = (sessionId: string) =>
-  request<Schemas['SessionResponse']>('GET', `/v1/sessions/${enc(sessionId)}`)
+export const readSession = (sessionId: string, signal?: AbortSignal) =>
+  request<Schemas['SessionResponse']>('GET', `/v1/sessions/${enc(sessionId)}`, { signal })
 
-export const readAttendance = (sessionId: string) =>
-  request<Schemas['SessionRosterResponse']>('GET', `/v1/sessions/${enc(sessionId)}/attendance`)
+export const readAttendance = (sessionId: string, signal?: AbortSignal) =>
+  request<Schemas['SessionRosterResponse']>('GET', `/v1/sessions/${enc(sessionId)}/attendance`, {
+    signal,
+  })
 
 export const submitAttendance = (sessionId: string, body: Schemas['AttendanceSubmitRequest']) =>
   request<Schemas['AttendanceSubmitResponse']>(
@@ -46,8 +49,8 @@ export const cancelSession = (sessionId: string) =>
 export const rescheduleSession = (sessionId: string, body: Schemas['SessionRescheduleRequest']) =>
   request<Schemas['SessionResponse']>('PUT', `/v1/sessions/${enc(sessionId)}/schedule`, { body })
 
-export const readSchedule = (batchId: string) =>
-  request<Schemas['ScheduleSlotWire'][]>('GET', `/v1/batches/${enc(batchId)}/schedule`)
+export const readSchedule = (batchId: string, signal?: AbortSignal) =>
+  request<Schemas['ScheduleSlotWire'][]>('GET', `/v1/batches/${enc(batchId)}/schedule`, { signal })
 
 export const writeSchedule = (batchId: string, slots: Schemas['ScheduleSlotWire'][]) =>
   request<Schemas['ScheduleSlotWire'][]>('PUT', `/v1/batches/${enc(batchId)}/schedule`, {

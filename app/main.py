@@ -17,19 +17,24 @@ already rendered by the taxonomy handler [PA-ARCH-1].
 
 from __future__ import annotations
 
-import uuid
 from collections.abc import Awaitable, Callable
 from typing import Any
 
 from fastapi import FastAPI, Request, Response
 from sqlalchemy import Engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 from starlette.concurrency import run_in_threadpool
 
 from app.config import check_startup_configuration
 from app.db.session import build_engine
 from app.errors import register_error_handler
 from app.logging_setup import configure_logging
+from app.request_scope import (
+    CORRELATION_HEADER,
+    correlation_id_from,
+    register_infrastructure_errors,
+    render_infrastructure_error,
+)
 from app.web_origins import register_web_origins
 
 __all__ = ["app", "create_app"]
@@ -66,6 +71,7 @@ def create_app() -> FastAPI:
         ),
     )
     register_error_handler(app)
+    register_infrastructure_errors(app)
     _register_request_scope(app)
     # After the request scope, so it wraps it: a CORS preflight is
     # answered without opening a database session. Off unless the web
@@ -171,16 +177,17 @@ def _register_request_scope(app: FastAPI) -> None:
         :param call_next: The rest of the stack
         :return: The response
         """
-        request.state.correlation_id = request.headers.get("X-Correlation-Id") or str(
-            uuid.uuid4()
-        )
+        # Validated, never trusted as sent [audit C-22]: an id longer than
+        # the audit column used to make every audit insert of the request
+        # fail silently.
+        correlation = correlation_id_from(request.headers.get(CORRELATION_HEADER))
+        request.state.correlation_id = correlation
 
-        engine = _engine_for(app)
-        factory = sessionmaker(bind=engine, expire_on_commit=False)
-        session = factory()
+        session = _session_factory_for(app)()
         request.state.session = session
         try:
             response = await call_next(request)
+            response.headers[CORRELATION_HEADER] = correlation
             # Committing is decided by the STATUS, not by whether an
             # exception escaped [PA-ARCH-1]. The taxonomy handler runs
             # inside `call_next` and turns a raised ValidationError or
@@ -192,7 +199,18 @@ def _register_request_scope(app: FastAPI) -> None:
             # family) is committed by its service before it raises,
             # which this does not undo.
             if response.status_code < _FIRST_ERROR_STATUS:
-                await run_in_threadpool(session.commit)
+                try:
+                    await run_in_threadpool(session.commit)
+                except Exception as error:
+                    # The commit runs after the route returned, outside
+                    # every exception handler: a failure here would reach
+                    # the client as plain text [audit C-17].
+                    await run_in_threadpool(session.rollback)
+                    rendered = render_infrastructure_error(error)
+                    if rendered is None:
+                        raise
+                    rendered.headers[CORRELATION_HEADER] = correlation
+                    return rendered
             else:
                 await run_in_threadpool(session.rollback)
             return response
@@ -208,6 +226,24 @@ def _register_request_scope(app: FastAPI) -> None:
             # request transaction, and commit or rollback discards it
             # wherever they run.
             await run_in_threadpool(session.close)
+
+
+def _session_factory_for(app: FastAPI) -> sessionmaker[Session]:
+    """Return the application's session factory, building it once.
+
+    Built per request until now; a factory is configuration, not state,
+    and rebuilding it on every request was pure overhead [audit C-18].
+    Rebuilt only if the engine is swapped, as the tests do.
+
+    :param app: The application
+    :return: The factory bound to the application's engine
+    """
+    engine = _engine_for(app)
+    factory: sessionmaker[Session] | None = getattr(app.state, "session_factory", None)
+    if factory is None or factory.kw.get("bind") is not engine:
+        factory = sessionmaker(bind=engine, expire_on_commit=False)
+        app.state.session_factory = factory
+    return factory
 
 
 def _engine_for(app: FastAPI) -> Engine:
@@ -292,10 +328,50 @@ def _publish_shared_components(app: FastAPI) -> None:
                     ).items()
                     if key != "$defs"
                 }
+            _declare_error_envelopes(document)
             app.openapi_schema = document
         return app.openapi_schema
 
     app.openapi = openapi  # type: ignore[method-assign]
+
+
+def _declare_error_envelopes(document: dict[str, Any]) -> None:
+    """Make every operation document the envelope it can really return.
+
+    **The contract must describe the wire** [audit C-17]. FastAPI
+    documents a 422 as its own ``HTTPValidationError``; since
+    :mod:`app.request_scope` renders that case through the envelope, the
+    generated document would otherwise promise a shape the server no
+    longer sends. Every operation can also fail with a 500 or a
+    retryable 503 whatever its handler declares, so each is listed once,
+    here, rather than remembered route by route.
+
+    :param document: The generated OpenAPI document, edited in place
+    :return: None
+    """
+    envelope = {
+        "content": {
+            "application/json": {
+                "schema": {"$ref": "#/components/schemas/ErrorEnvelope"}
+            }
+        }
+    }
+    described = {
+        "422": "The request could not be parsed",
+        "500": "An unexpected failure; not retryable",
+        "503": "A transient failure; retryable",
+    }
+    for path in document.get("paths", {}).values():
+        for operation in path.values():
+            responses = operation.setdefault("responses", {})
+            for status, description in described.items():
+                if status == "422" and status not in responses:
+                    continue
+                responses[status] = {"description": description, **envelope}
+    schemas = document.get("components", {}).get("schemas", {})
+    for unused in ("HTTPValidationError", "ValidationError"):
+        if unused in schemas and unused not in str(document.get("paths")):
+            del schemas[unused]
 
 
 app = create_app()

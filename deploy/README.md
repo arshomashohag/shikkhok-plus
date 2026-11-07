@@ -96,6 +96,65 @@ later revision [C-12] -- and that is safe only because migrations stay
 backward-compatible. When one was not, the rollback for the schema is
 the pre-deploy snapshot: `infra/RESTORE.md`.
 
+## Seeding test data for performance testing (staging only)
+
+A Lambda function, `shikkhokplus-staging-seeder`, fills one teacher's
+account with a realistic history: three batches (two Math and Physics,
+one Math only) of twenty seats, 48 students with a dozen in two
+batches, every class since the 1st of the month three months back with
+attendance and topics, a weekly test per subject on that week's topics,
+monthly fees paid on time, late, in part, ahead, together, in cash on
+the same class day, one rejected and resent, some still awaiting review
+and some not paid last month, plus an exam fee, expenses, notices,
+reminders, and family accounts with their inboxes. It writes through the
+application's own services as the restricted role, under a simulated
+clock, so every timestamp sits where it would have. `app/seed/` is the
+code; `infra/modules/seeder/` says why it is built the way it is.
+
+**Once, to create it:**
+
+1. Re-apply `infra/bootstrap` from a laptop. The CI role needs
+   `lambda:*` on `shikkhokplus-*` functions and `iam:PassRole` to
+   Lambda; the workload boundary needs Lambda's VPC network-interface
+   actions; the deploy role needs `lambda:UpdateFunctionCode` on the
+   seeder. Without this the next apply fails at `CreateFunction`.
+2. Set the variable `ENABLE_SEEDER` = `true` -- on the `staging-infra`
+   environment, or at repository level: the workflow passes it to
+   staging's plan only, so it cannot reach production.
+3. Dispatch `deploy` for staging. The infrastructure job runs BEFORE the
+   build, so the function is created from the image staging is already
+   running -- and an image built before `provenance: false` is an OCI
+   index Lambda refuses. When that is so, the run says so in a notice,
+   skips the seeder and releases a plain-manifest image; **dispatch the
+   same ref again** and the seeder is created then. From there every
+   deploy moves it to the new release after the smoke passes.
+
+**Then, any time:** sign up a teacher on staging (or
+`python -m app.db.seed_staging +8801XXXXXXXXX` on the host), and:
+
+```bash
+aws lambda invoke --function-name shikkhokplus-staging-seeder --cli-binary-format raw-in-base64-out --cli-read-timeout 900 --payload '{"phone": "+8801711111111"}' seed.json
+```
+
+`seed.json` holds the counts written and six seeded family numbers to
+sign in with (`/staging/last-otp` gives their codes). Optional fields:
+`"months"` (1-12, default 3) and `"seed"` (an integer; the same seed
+gives the same history). A refusal -- production, an unknown number, a
+non-teacher account, an account already seeded -- comes back as a
+`FunctionError` naming the reason, with nothing written. The run is one
+database transaction: it lands whole or not at all. Seed a fresh
+teacher account for each run; the family numbers are derived from the
+account, so two seeded teachers never share a family.
+
+Locally, against `make up`: `python -m app.seed 01711111111`.
+
+**Turn it off after testing** (set `ENABLE_SEEDER` back, deploy). While
+it exists its database URL is readable by anyone with
+`lambda:GetFunctionConfiguration` on it -- the trade-off
+`infra/modules/seeder/main.tf` states. Deleting a VPC function's
+security group can take up to an hour while AWS releases its network
+interfaces; a slow apply there is that, not a hang.
+
 ## What this does not yet have
 
 | Missing | Why it matters |

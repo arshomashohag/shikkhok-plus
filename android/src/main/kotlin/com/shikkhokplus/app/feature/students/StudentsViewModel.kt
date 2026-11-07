@@ -1,11 +1,13 @@
 package com.shikkhokplus.app.feature.students
 
+import java.util.UUID
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.shikkhokplus.app.core.network.StudentSeatBody
 import com.shikkhokplus.app.core.ui.WriteState
 import com.shikkhokplus.app.feature.auth.AuthResult
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,11 +21,18 @@ import kotlinx.coroutines.launch
  * cancels the one in flight, so a quick change of filter cannot be
  * overwritten by the slower answer to the previous one.
  *
+ * **Typing is debounced** [C-14]: the field shows every keystroke at
+ * once, but the server is asked only after [SEARCH_DEBOUNCE_MS] without
+ * another one, so "Rafiq" is one request rather than five, and a phone
+ * number typed digit by digit is not sent eleven times.
+ *
  * @property repository Where the students come from
  */
 class StudentsViewModel(
     private val repository: StudentsRepository,
 ) : ViewModel() {
+    private var createKey: String? = null
+
     private val _state = MutableStateFlow<StudentsUiState>(StudentsUiState.Loading)
 
     /** What the list renders. */
@@ -56,6 +65,8 @@ class StudentsViewModel(
 
     private var loading: Job? = null
 
+    private var searching: Job? = null
+
     /**
      * Load the list with a filter, and the batches beside it.
      *
@@ -63,6 +74,8 @@ class StudentsViewModel(
      */
     fun load(filter: StudentFilter = _filter.value) {
         _filter.value = filter
+        // A load now answers any search still waiting, with its text.
+        searching?.cancel()
         loading?.cancel()
         _state.value = StudentsUiState.Loading
         loading =
@@ -88,13 +101,22 @@ class StudentsViewModel(
     }
 
     /**
-     * Search by name or number, on the server.
+     * Search by name or number, on the server, once typing pauses.
+     *
+     * The query is updated at once, so the field never lags; the load
+     * waits [SEARCH_DEBOUNCE_MS], and each keystroke restarts the wait.
      *
      * @param text What the teacher typed
      */
     fun search(text: String) {
+        if (text == _query.value) return
         _query.value = text
-        load()
+        searching?.cancel()
+        searching =
+            viewModelScope.launch {
+                delay(SEARCH_DEBOUNCE_MS)
+                load()
+            }
     }
 
     /** Repeat the load, only when the teacher asks [TC-8, D-9]. */
@@ -118,10 +140,17 @@ class StudentsViewModel(
     ) {
         if (_writeState.value == WriteState.Saving) return
         _writeState.value = WriteState.Saving
+        // Kept until the server confirms, so a retry after a lost response
+        // resends the same key and gets the first student back rather
+        // than a duplicate [audit C-25].
+        val key = createKey ?: UUID.randomUUID().toString().also { createKey = it }
         viewModelScope.launch {
-            val result = repository.create(name, studentPhone, guardianPhone, seats)
+            val result = repository.create(name, studentPhone, guardianPhone, seats, key)
             _writeState.value = StudentsStateMapper.written(result)
-            if (result is AuthResult.Ok) load()
+            if (result is AuthResult.Ok) {
+                createKey = null
+                load()
+            }
         }
     }
 
@@ -155,3 +184,6 @@ class StudentsViewModel(
         if (_writeState.value != WriteState.Saving) _writeState.value = WriteState.Idle
     }
 }
+
+/** How long typing must pause before the search is sent. */
+const val SEARCH_DEBOUNCE_MS: Long = 300L

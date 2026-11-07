@@ -116,6 +116,9 @@ locals {
     rds              = var.enable_rds ? 17.36 : 0.00
     alarms           = length(local.alarm_names) * 0.10
     logs             = 0.50
+    # Pay per invocation: a three-month seed is about 60 GB-seconds on
+    # arm64, a fraction of a cent, and inside the free tier anyway.
+    seeder = 0.00
   }
 
   monthly_cost = sum(values(local.cost_breakdown))
@@ -330,6 +333,66 @@ module "database" {
   # reference, so "ingress only from the app" could only ever be a
   # CIDR guess or a VPC peering range. Now it is exact.
   app_security_group_id = module.app.security_group_id
+  # The staging seeder, when on: also an exact group reference.
+  client_security_group_ids = compact([module.seeder.security_group_id])
+}
+
+# ---------------------------------------------------------------------
+# The performance-test seeder: staging only, off by default
+# ---------------------------------------------------------------------
+#
+# A Lambda function that writes months of realistic history into one
+# teacher's account through the application's own services, for load
+# and performance testing. modules/seeder carries the design; this is
+# only the two refusals and the wiring.
+
+resource "terraform_data" "seeder_guard" {
+  lifecycle {
+    # Refused in production at plan time; the function refuses again
+    # at run time on SHIKKHOKPLUS_ENVIRONMENT. Two independent checks,
+    # because a seeder creates accounts and money records.
+    precondition {
+      condition     = !var.enable_seeder || var.environment != "production"
+      error_message = "enable_seeder is refused in production: it creates accounts and money records."
+    }
+    # The Phase 1 database listens on the host's 127.0.0.1, which no
+    # Lambda can reach.
+    precondition {
+      condition     = !var.enable_seeder || var.enable_rds
+      error_message = "enable_seeder needs enable_rds = true: the function reaches RDS, not a database on the host."
+    }
+  }
+}
+
+# The tag deployed right now, read where the deploy wrote it. Only at
+# creation: deploy.yml moves the function to each release afterwards.
+data "aws_ssm_parameter" "deployed_image_tag" {
+  count = var.enable_seeder ? 1 : 0
+  name  = module.app.image_tag_parameter
+}
+
+module "seeder" {
+  source = "./modules/seeder"
+
+  enabled     = var.enable_seeder && var.environment != "production" && var.enable_rds
+  name_prefix = local.name_prefix
+  environment = var.environment
+  aws_region  = var.region
+  account_id  = data.aws_caller_identity.current.account_id
+
+  permissions_boundary_arn = local.permissions_boundary_arn
+
+  image_repository = {
+    arn  = module.registry.repository_arn
+    name = module.registry.repository_name
+    url  = module.registry.repository_url
+  }
+  image_tag = var.enable_seeder ? data.aws_ssm_parameter.deployed_image_tag[0].insecure_value : "none"
+
+  vpc_id                     = module.network.vpc_id
+  subnet_ids                 = module.network.public_subnet_ids
+  database_security_group_id = coalesce(module.database.security_group_id, "none")
+  database_url               = coalesce(module.app.database_url, "none")
 }
 
 # ---------------------------------------------------------------------

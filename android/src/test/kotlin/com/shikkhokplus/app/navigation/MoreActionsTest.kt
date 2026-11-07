@@ -5,6 +5,7 @@ import com.shikkhokplus.app.core.session.Lens
 import com.shikkhokplus.app.feature.profile.ui.MoreActions
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -33,8 +34,11 @@ class MoreActionsTest {
         assertNotNull(actions.onMoneySummary).invoke()
         assertNotNull(actions.onOpenCentre).invoke()
         assertNotNull(actions.onCentreOffers).invoke()
-        // Outside a centre there are no members to manage.
+        // Outside a centre there are no members or staff to manage.
         assertNull(actions.onCentreMembers)
+        assertNull(actions.onCentreStaff)
+        assertNull(actions.onCentreTimetable)
+        assertNull(actions.onCentrePayroll)
 
         assertEquals(
             listOf(
@@ -77,6 +81,22 @@ class MoreActionsTest {
     }
 
     @Test
+    fun `a centre teacher gets other centres' offers and nothing of a centre's money`() {
+        val (actions, routes) = opened(Lens.CLASS_TEACHER)
+
+        assertNotNull(actions.onCentreOffers).invoke()
+
+        assertEquals(listOf(Destination.CentreOffers.route), routes)
+        assertNull(actions.onPaymentMethods)
+        assertNull(actions.onCollections)
+        assertNull(actions.onExpenses)
+        assertNull(actions.onMoneySummary)
+        assertNull(actions.onOpenCentre)
+        assertNull(actions.onInvitations)
+        assertFalse(isFamily(Lens.CLASS_TEACHER), "a centre teacher has a bar")
+    }
+
+    @Test
     fun `a lens-free person gets only the account rows`() {
         // Invitations is already their home tab.
         val (actions, _) = opened(null)
@@ -114,6 +134,17 @@ class MoreActionsTest {
             )
 
         assertNotNull(actions.onCentreMembers).invoke()
-        assertEquals(listOf(Destination.CentreMembers.route), routes)
+        assertNotNull(actions.onCentreStaff).invoke()
+        assertNotNull(actions.onCentreTimetable).invoke()
+        assertNotNull(actions.onCentrePayroll).invoke()
+        assertEquals(
+            listOf(
+                Destination.CentreMembers.route,
+                Destination.CentreStaff.route,
+                Destination.CentreTimetable.route,
+                Destination.CentrePayroll.route,
+            ),
+            routes,
+        )
     }
 }

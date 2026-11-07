@@ -43,3 +43,13 @@ variable "app_security_group_id" {
   type        = string
   default     = ""
 }
+
+variable "client_security_group_ids" {
+  description = <<-EOT
+    Further security groups admitted on 5432 beside the app's: today
+    only the staging seeder's, when it is enabled. Each is an exact
+    group reference, never a CIDR, on the app's reasoning.
+  EOT
+  type        = list(string)
+  default     = []
+}

@@ -41,6 +41,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session as DbSession
 
 from app.db.models import Batch, ScheduleSlot, Session
+from app.local_time import bangladesh_today
 
 __all__ = ["GenerationResult", "generate_sessions", "horizon_dates"]
 
@@ -232,7 +233,7 @@ def generate_sessions(
         batch when None, which is the nightly job
     :return: The run's three counts
     """
-    when = today or dt.datetime.now(tz=dt.UTC).date()
+    when = today or bangladesh_today()
     created = skipped = failed = 0
 
     rows = session.execute(

@@ -60,6 +60,7 @@ class SignupViewModelTest {
     ) : SignupRepository {
         var lookupCalls = 0
         var signupCalls = 0
+        val sentRoles = mutableListOf<Pair<String, String?>>()
 
         override suspend fun lookup(phone: String): AuthResult<AlreadyAddedDto> {
             lookupCalls++
@@ -71,8 +72,10 @@ class SignupViewModelTest {
             role: String,
             selfName: String,
             address: PostalAddress,
+            centreName: String?,
         ): AuthResult<SignupResponseDto> {
             signupCalls++
+            sentRoles += role to centreName
             return signupResult
         }
     }
@@ -335,4 +338,27 @@ class SignupViewModelTest {
             advanceUntilIdle()
             assertEquals(2, repo.lookupCalls, "a number edited back to complete is asked again")
         }
+
+    @Test
+    fun `a coaching sign-up sends the centre's name, trimmed`() = runTest(dispatcher) {
+        val repo = FakeRepository()
+        val model = SignupViewModel(repo)
+
+        model.submit("+8801700000000", "Rahima", HOME, SignupRole.COACHING, centreName = "  Udayan Coaching ")
+        advanceUntilIdle()
+
+        assertEquals(listOf<Pair<String, String?>>("coaching" to "Udayan Coaching"), repo.sentRoles)
+    }
+
+    @Test
+    fun `any other role sends no centre name`() = runTest(dispatcher) {
+        val repo = FakeRepository()
+        val model = SignupViewModel(repo)
+
+        model.submit("+8801700000000", "Rahim", HOME, SignupRole.TEACHER, centreName = "Stale")
+        advanceUntilIdle()
+
+        assertEquals(listOf<Pair<String, String?>>("teacher" to null), repo.sentRoles)
+    }
+
 }

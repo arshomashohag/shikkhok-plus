@@ -7,6 +7,12 @@ producer -- notices, payments, exams, marks -- agrees on it.
 
 A guardian of two children is two recipients, one per seat, each
 carrying that child's name, so the inbox can say whose item it is.
+
+**The rule is one SQL query, :func:`_recipient_rows`**, and every path
+uses it: reading recipients for a single seat, re-flagging an edit, and
+the batch fan-out, which turns it into one ``INSERT ... SELECT`` so a
+notice to a thousand seats is a single statement rather than two
+thousand ORM objects and their parameters shipped back to the database.
 """
 
 from __future__ import annotations
@@ -16,11 +22,12 @@ import uuid
 from dataclasses import dataclass
 
 import sqlalchemy as sa
+from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Session
 
-from app.db.models import Batch, Enrollment, Owner, OwnerMember
+from app.db.models import Batch, Enrollment, Notification, Owner, OwnerMember
 from app.local_time import bangladesh_today
-from app.notifications.inbox import deliver, mark_unread_for_source
+from app.notifications.inbox import mark_unread_for_source
 
 __all__ = [
     "Recipient",
@@ -56,18 +63,70 @@ def child_names(recipients: list[Recipient]) -> dict[uuid.UUID, str]:
     return {r.account_id: r.child_name for r in recipients if r.child_name is not None}
 
 
-def _recipients(seat: Enrollment) -> list[Recipient]:
-    """Turn a seat's accepted links into recipients.
+def _recipient_rows(
+    *seat_filter: sa.ColumnElement[bool],
+) -> sa.Select[tuple[uuid.UUID, uuid.UUID, str | None]]:
+    """Select the accepted links of the seats a filter picks, one row each.
 
-    :param seat: The seat
-    :return: The student (unnamed) and guardian (named for the child)
+    The student comes back unnamed and the guardian named for the child.
+    A seat with both yields two rows; a seat with neither accepted yields
+    none.
+
+    :param seat_filter: Conditions on :class:`Enrollment` picking the seats
+    :return: ``(account_id, enrollment_id, child_name)`` rows
     """
-    found: list[Recipient] = []
-    if seat.student_account_id is not None and seat.student_decision == "accepted":
-        found.append(Recipient(seat.student_account_id, seat.id, None))
-    if seat.guardian_account_id is not None and seat.guardian_decision == "accepted":
-        found.append(Recipient(seat.guardian_account_id, seat.id, seat.display_name))
-    return found
+    student = sa.select(
+        Enrollment.student_account_id.label("account_id"),
+        Enrollment.id.label("enrollment_id"),
+        sa.null().cast(sa.Text).label("child_name"),
+    ).where(
+        *seat_filter,
+        Enrollment.student_account_id.is_not(None),
+        Enrollment.student_decision == "accepted",
+    )
+    guardian = sa.select(
+        Enrollment.guardian_account_id.label("account_id"),
+        Enrollment.id.label("enrollment_id"),
+        Enrollment.display_name.label("child_name"),
+    ).where(
+        *seat_filter,
+        Enrollment.guardian_account_id.is_not(None),
+        Enrollment.guardian_decision == "accepted",
+    )
+    union = sa.union_all(student, guardian).subquery()
+    return sa.select(union.c.account_id, union.c.enrollment_id, union.c.child_name)
+
+
+def _active_in_batch(batch_id: uuid.UUID, on: dt.date) -> list[sa.ColumnElement[bool]]:
+    """Pick a batch's seats that have not left by a day.
+
+    :param batch_id: The batch
+    :param on: The day; a seat that left on or before it is excluded
+    :return: The conditions
+    """
+    return [
+        Enrollment.batch_id == batch_id,
+        sa.or_(Enrollment.inactive_from.is_(None), Enrollment.inactive_from > on),
+    ]
+
+
+def _read(
+    session: Session, rows: sa.Select[tuple[uuid.UUID, uuid.UUID, str | None]]
+) -> list[Recipient]:
+    """Run a recipient query, seat by seat with the student first.
+
+    :param session: The session to read through
+    :param rows: A query from :func:`_recipient_rows`
+    :return: The recipients
+    """
+    found = rows.subquery()
+    ordered = sa.select(found).order_by(
+        found.c.enrollment_id, found.c.child_name.is_not(None)
+    )
+    return [
+        Recipient(account_id, enrollment_id, child_name)
+        for account_id, enrollment_id, child_name in session.execute(ordered)
+    ]
 
 
 def family_recipients(
@@ -80,15 +139,7 @@ def family_recipients(
     :param on: The day; a seat that left before it is excluded
     :return: Accepted students and guardians of every seat still active
     """
-    seats = session.scalars(
-        sa.select(Enrollment)
-        .where(
-            Enrollment.batch_id == batch_id,
-            sa.or_(Enrollment.inactive_from.is_(None), Enrollment.inactive_from > on),
-        )
-        .order_by(Enrollment.id)
-    ).all()
-    return [recipient for seat in seats for recipient in _recipients(seat)]
+    return _read(session, _recipient_rows(*_active_in_batch(batch_id, on)))
 
 
 def seat_recipients(session: Session, *, enrollment_id: uuid.UUID) -> list[Recipient]:
@@ -101,8 +152,7 @@ def seat_recipients(session: Session, *, enrollment_id: uuid.UUID) -> list[Recip
     :param enrollment_id: The seat
     :return: Its accepted student and guardian, if any
     """
-    seat = session.get(Enrollment, enrollment_id)
-    return [] if seat is None else _recipients(seat)
+    return _read(session, _recipient_rows(Enrollment.id == enrollment_id))
 
 
 def teacher_recipients(session: Session, *, batch_id: uuid.UUID) -> list[uuid.UUID]:
@@ -151,9 +201,13 @@ def deliver_to_families(
 ) -> None:
     """Put one message in every accepted family member's inbox.
 
-    One call per seat, so a guardian of two children gets two rows,
-    each naming its child. Membership is as of today in Bangladesh.
-    Adds to the caller's transaction and does not commit.
+    One row per ``(account, seat)``, so a guardian of two children gets
+    two rows, each naming its child. Membership is as of today in
+    Bangladesh.
+
+    **One statement whatever the batch size**: an ``INSERT ... SELECT``
+    over :func:`_recipient_rows`, so the rows are built inside the
+    database. Adds to the caller's transaction and does not commit.
 
     :param session: The caller's session
     :param batch: The batch the message is for
@@ -163,28 +217,33 @@ def deliver_to_families(
     :param now: When it is sent
     :return: None
     """
-    by_seat: dict[uuid.UUID, list[uuid.UUID]] = {}
-    names: dict[uuid.UUID, dict[uuid.UUID, str]] = {}
-    for recipient in family_recipients(
-        session, batch_id=batch.id, on=bangladesh_today()
-    ):
-        by_seat.setdefault(recipient.enrollment_id, []).append(recipient.account_id)
-        if recipient.child_name is not None:
-            names.setdefault(recipient.enrollment_id, {})[recipient.account_id] = (
-                recipient.child_name
-            )
-    for enrollment_id, accounts in by_seat.items():
-        deliver(
-            session,
-            account_ids=accounts,
-            kind=kind,
-            batch_name=batch.name,
-            now=now,
-            enrollment_id=enrollment_id,
-            source_id=source_id,
-            preview=preview,
-            child_names=names.get(enrollment_id),
+    found = _recipient_rows(*_active_in_batch(batch.id, bangladesh_today())).subquery()
+    session.execute(
+        sa.insert(Notification).from_select(
+            [
+                "id",
+                "account_id",
+                "enrollment_id",
+                "kind",
+                "batch_name",
+                "created_at",
+                "source_id",
+                "preview",
+                "child_name",
+            ],
+            sa.select(
+                sa.func.gen_random_uuid(),
+                found.c.account_id,
+                found.c.enrollment_id,
+                sa.literal(kind, sa.String),
+                sa.literal(batch.name, sa.Text),
+                sa.literal(now, sa.DateTime(timezone=True)),
+                sa.literal(source_id, PgUUID(as_uuid=True)),
+                sa.literal(preview, sa.Text),
+                found.c.child_name,
+            ),
         )
+    )
 
 
 def mark_unread_for_families(

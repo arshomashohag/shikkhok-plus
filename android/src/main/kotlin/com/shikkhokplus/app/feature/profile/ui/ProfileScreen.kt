@@ -76,6 +76,15 @@ const val TAG_PROFILE_OPEN_CENTRE: String = "profile_open_centre"
 /** The centre's members row, shown to a teacher in a centre. */
 const val TAG_PROFILE_CENTRE_MEMBERS: String = "profile_centre_members"
 
+/** The centre's timetable row, shown to a teacher in a centre. */
+const val TAG_PROFILE_CENTRE_TIMETABLE: String = "profile_centre_timetable"
+
+/** The centre's payroll row, shown to a teacher in a centre. */
+const val TAG_PROFILE_CENTRE_PAYROLL: String = "profile_centre_payroll"
+
+/** The centre's teachers and staff row, shown to a teacher in a centre. */
+const val TAG_PROFILE_CENTRE_STAFF: String = "profile_centre_staff"
+
 /** The centres' offers row, shown to a teacher. */
 const val TAG_PROFILE_CENTRE_OFFERS: String = "profile_centre_offers"
 
@@ -128,6 +137,9 @@ const val TAG_PROFILE_MY_CHILDREN: String = "profile_my_children"
  * @property onSwitchWorkspace Moves into another workspace, or null
  * @property onOpenCentre Opens a coaching centre, or null
  * @property onCentreMembers Opens the centre's members, or null outside a centre
+ * @property onCentreStaff Opens the centre's teachers and staff, or null outside a centre
+ * @property onCentreTimetable Opens the centre's timetable, or null outside a centre
+ * @property onCentrePayroll Opens the centre's payroll, or null outside a centre
  * @property onCentreOffers Opens the centres' offers, or null
  * @property onInvitations Opens the invitations list, or null
  * @property onMyChildren Opens the guardian's children, or null
@@ -149,6 +161,9 @@ data class MoreActions(
     val onSwitchWorkspace: ((String) -> Unit)? = null,
     val onOpenCentre: (() -> Unit)? = null,
     val onCentreMembers: (() -> Unit)? = null,
+    val onCentreStaff: (() -> Unit)? = null,
+    val onCentreTimetable: (() -> Unit)? = null,
+    val onCentrePayroll: (() -> Unit)? = null,
     val onCentreOffers: (() -> Unit)? = null,
     val onInvitations: (() -> Unit)? = null,
     val onMyChildren: (() -> Unit)? = null,
@@ -396,28 +411,7 @@ private fun WorkspaceRows(actions: MoreActions, offline: Boolean) {
                 MenuDivider()
             }
         }
-        actions.onCentreMembers?.let { members ->
-            MenuRow(
-                title = stringResource(R.string.centre_members_title),
-                subtitle = if (offline) needs else stringResource(R.string.centre_members_sub),
-                icon = MenuIcons.Person,
-                onClick = members,
-                enabled = !offline,
-                modifier = Modifier.testTag(TAG_PROFILE_CENTRE_MEMBERS),
-            )
-            MenuDivider()
-        }
-        actions.onCentreOffers?.let { offers ->
-            MenuRow(
-                title = stringResource(R.string.membership_offers_title),
-                subtitle = if (offline) needs else stringResource(R.string.invitations_title),
-                icon = MenuIcons.Envelope,
-                onClick = offers,
-                enabled = !offline,
-                modifier = Modifier.testTag(TAG_PROFILE_CENTRE_OFFERS),
-            )
-            MenuDivider()
-        }
+        CentreRows(actions, offline)
         MenuRow(
             title = stringResource(R.string.centre_open_title),
             subtitle = if (offline) needs else stringResource(R.string.centre_open_sub),
@@ -426,6 +420,73 @@ private fun WorkspaceRows(actions: MoreActions, offline: Boolean) {
             enabled = !offline,
             modifier = Modifier.testTag(TAG_PROFILE_OPEN_CENTRE),
         )
+    }
+}
+
+/**
+ * The rows that belong to a centre or to joining one: members and staff
+ * inside a centre, and centres' offers.
+ *
+ * @param actions Where each row leads
+ * @param offline Whether the rows wait for a connection
+ */
+@Composable
+private fun CentreRows(actions: MoreActions, offline: Boolean) {
+    val needs = stringResource(R.string.more_needs_connection)
+    actions.onCentreMembers?.let { members ->
+        MenuRow(
+            title = stringResource(R.string.centre_members_title),
+            subtitle = if (offline) needs else stringResource(R.string.centre_members_sub),
+            icon = MenuIcons.Person,
+            onClick = members,
+            enabled = !offline,
+            modifier = Modifier.testTag(TAG_PROFILE_CENTRE_MEMBERS),
+        )
+        MenuDivider()
+    }
+    actions.onCentreTimetable?.let { timetable ->
+        MenuRow(
+            title = stringResource(R.string.timetable_title),
+            subtitle = if (offline) needs else stringResource(R.string.timetable_sub),
+            icon = MenuIcons.Settings,
+            onClick = timetable,
+            enabled = !offline,
+            modifier = Modifier.testTag(TAG_PROFILE_CENTRE_TIMETABLE),
+        )
+        MenuDivider()
+    }
+    actions.onCentreStaff?.let { staff ->
+        MenuRow(
+            title = stringResource(R.string.staff_title),
+            subtitle = if (offline) needs else stringResource(R.string.staff_sub),
+            icon = MenuIcons.Person,
+            onClick = staff,
+            enabled = !offline,
+            modifier = Modifier.testTag(TAG_PROFILE_CENTRE_STAFF),
+        )
+        MenuDivider()
+    }
+    actions.onCentrePayroll?.let { payroll ->
+        MenuRow(
+            title = stringResource(R.string.payroll_title),
+            subtitle = if (offline) needs else stringResource(R.string.payroll_sub),
+            icon = MenuIcons.Settings,
+            onClick = payroll,
+            enabled = !offline,
+            modifier = Modifier.testTag(TAG_PROFILE_CENTRE_PAYROLL),
+        )
+        MenuDivider()
+    }
+    actions.onCentreOffers?.let { offers ->
+        MenuRow(
+            title = stringResource(R.string.membership_offers_title),
+            subtitle = if (offline) needs else stringResource(R.string.invitations_title),
+            icon = MenuIcons.Envelope,
+            onClick = offers,
+            enabled = !offline,
+            modifier = Modifier.testTag(TAG_PROFILE_CENTRE_OFFERS),
+        )
+        MenuDivider()
     }
 }
 
@@ -601,6 +662,7 @@ private fun MenuSection(header: String, rows: @Composable () -> Unit) {
 internal fun roleLabel(lens: Lens): Int =
     when (lens) {
         Lens.TEACHER -> R.string.signup_role_teacher
+        Lens.CLASS_TEACHER -> R.string.lens_class_teacher
         Lens.STUDENT -> R.string.signup_role_student
         Lens.GUARDIAN -> R.string.signup_role_guardian
     }

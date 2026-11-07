@@ -284,7 +284,7 @@ def read_overview(
     :param lens: The teacher lens carrying the owner id
     :return: The three blocks, each able to be absent without the others
     """
-    today = dt.datetime.now(tz=dt.UTC).date()
+    today = bangladesh_today()
     period = _current_period(today)
 
     seats = owned_seats(session, lens)

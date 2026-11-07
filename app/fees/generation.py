@@ -45,6 +45,7 @@ from app.fees.balances import derive_for_enrollment
 from app.fees.ledger_writer import append_entry, apply_available_credit
 from app.fees.periods import Period, due_date_for, periods_from_through
 from app.fees.resolution import FeeNotResolvable, resolve_fee
+from app.local_time import bangladesh_today
 from app.money import Money
 
 __all__ = ["GenerationResult", "generate_due_cycles"]
@@ -153,7 +154,9 @@ def seat_start(joined_on: dt.date | None, created_at: dt.datetime) -> dt.date:
     :param created_at: The seat's creation, the fallback start
     :return: The seat's first day
     """
-    return joined_on or created_at.date()
+    # The Bangladesh date: a seat created after Dhaka midnight on the 1st
+    # starts that month, not the UTC date's previous one [audit C-23].
+    return joined_on or bangladesh_today(created_at)
 
 
 def _first_period(candidate: _Candidate) -> Period:
@@ -241,7 +244,7 @@ def generate_due_cycles(
     :param today: The date to generate up to; defaults to the real one
     :return: The three per-run counts
     """
-    current = Period.containing(today or dt.datetime.now(tz=dt.UTC).date())
+    current = Period.containing(today or bangladesh_today())
     created = skipped = failed = 0
 
     for candidate in _candidates(session):

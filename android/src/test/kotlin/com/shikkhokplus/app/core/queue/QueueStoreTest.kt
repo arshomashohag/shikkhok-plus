@@ -31,7 +31,7 @@ class QueueStoreTest {
     @get:Rule
     val folder: TemporaryFolder = TemporaryFolder()
 
-    private fun store(): QueueStore = QueueStore(File(folder.root, QueueStore.FILE_NAME))
+    private fun store(): QueueStore = QueueStore(File(folder.root, QueueStore.FILE_NAME), TestQueueCipher)
 
     private fun roster(
         sessionId: String = "s-1",
@@ -100,14 +100,14 @@ class QueueStoreTest {
         // path rather than a stubbed one.
         val target = File(folder.root, "nested/queue.json")
         val first = roster(sessionId = "s-1")
-        QueueStore(target).enqueue(first)
+        QueueStore(target, TestQueueCipher).enqueue(first)
 
         // Replace the target with a directory, so the rename cannot
         // complete.
         assertTrue(target.delete())
         assertTrue(target.mkdirs())
 
-        val store = QueueStore(target)
+        val store = QueueStore(target, TestQueueCipher)
         assertFailsWith<java.io.IOException> {
             store.write(listOf(roster(sessionId = "s-2")))
         }
@@ -131,7 +131,7 @@ class QueueStoreTest {
         // left outside the target's own directory, and that the temp
         // path the store would use resolves into that directory.
         val target = File(folder.root, "queue-dir/queue.json")
-        QueueStore(target).enqueue(roster())
+        QueueStore(target, TestQueueCipher).enqueue(roster())
 
         val directory = requireNotNull(target.parentFile)
         val temp = File(directory, target.name + QueueStore.TEMP_SUFFIX)
@@ -142,7 +142,7 @@ class QueueStoreTest {
         )
         // And it does not survive a successful write either.
         assertFalse(temp.exists())
-        assertEquals(1, QueueStore(target).read().size)
+        assertEquals(1, QueueStore(target, TestQueueCipher).read().size)
     }
 
     // ------------------------------------------------------------------
@@ -296,7 +296,7 @@ class QueueStoreTest {
     @Test
     fun `a missing file reads as an empty queue, not an error`() {
         // First launch, and the state after a discard emptied it.
-        assertEquals(emptyList(), QueueStore(File(folder.root, "absent.json")).read())
+        assertEquals(emptyList(), QueueStore(File(folder.root, "absent.json"), TestQueueCipher).read())
     }
 
     @Test
@@ -308,7 +308,7 @@ class QueueStoreTest {
         val target = File(folder.root, QueueStore.FILE_NAME)
         target.writeText("{ this is not json")
 
-        assertEquals(emptyList(), QueueStore(target).read())
+        assertEquals(emptyList(), QueueStore(target, TestQueueCipher).read())
     }
 
     @Test
@@ -329,14 +329,14 @@ class QueueStoreTest {
     @Test
     fun `the queue holds no name and no phone number`() {
         // **A security property, asserted rather than described**
-        // [security-design § 7.1]. The file holds enrollment ids,
-        // booleans, a version and UUIDs; the recorded decision not to
-        // encrypt it [§ 7.2] rests on exactly that. A display name
-        // added to QueuedWrite later would turn a roster of opaque ids
-        // into identifying data and reopen that decision -- and this
-        // test is what would notice.
+        // [security-design § 7.1]. The file is now encrypted at rest
+        // (QueueEncryptionTest), and this still holds underneath it: the
+        // serialized queue carries ids, booleans and versions, never a
+        // name or a number, so even the sealed contents minimise what a
+        // lost key or a future bug could expose. Asserted on the
+        // serialized form, through the test cipher that seals nothing.
         val target = File(folder.root, QueueStore.FILE_NAME)
-        QueueStore(target).enqueue(roster())
+        QueueStore(target, TestQueueCipher).enqueue(roster())
 
         val onDisk = target.readText()
 

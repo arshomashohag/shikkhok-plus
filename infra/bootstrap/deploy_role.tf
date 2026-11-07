@@ -138,6 +138,20 @@ resource "aws_iam_role_policy" "deploy" {
         Resource = "arn:aws:ecr:*:${data.aws_caller_identity.current.account_id}:repository/shikkhokplus-${each.key}-backend"
       },
       {
+        # **Moving the staging seeder to the release just shipped**
+        # (modules/seeder), so it never writes against a schema its code
+        # predates. UpdateFunctionCode only: NOT GetFunction or
+        # GetFunctionConfiguration, whose responses carry the function's
+        # environment -- its database URL. UpdateFunctionCode's response
+        # carries it too, which is why deploy.yml prints one field of it.
+        # This is no new reach: the role can already ship any image to a
+        # host holding the same credential.
+        Sid      = "MoveTheSeeder"
+        Effect   = "Allow"
+        Action   = ["lambda:UpdateFunctionCode"]
+        Resource = "arn:aws:lambda:*:${data.aws_caller_identity.current.account_id}:function:shikkhokplus-${each.key}-seeder"
+      },
+      {
         # The deployment state: the image tag and the runtime env,
         # written by the release and read back for the rollback; and
         # the public URL, read by the smoke and the ZAP scan. NOT the

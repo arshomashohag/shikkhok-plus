@@ -245,3 +245,18 @@ variable "ui_subdomain" {
   type        = string
   default     = "app"
 }
+
+variable "enable_seeder" {
+  description = <<-EOT
+    Create the performance-test data seeder, a Lambda function that
+    fills one teacher's account with months of realistic history
+    (modules/seeder, deploy/README.md).
+
+    **Off by default, refused in production, and needs enable_rds.**
+    Turn it on for a staging apply when you want to load-test, and off
+    again after: while it exists, its database URL is readable by
+    anyone with lambda:GetFunctionConfiguration on it.
+  EOT
+  type        = bool
+  default     = false
+}

@@ -23,13 +23,28 @@ from __future__ import annotations
 import datetime as dt
 import uuid
 from dataclasses import dataclass, field
+from typing import Final
 
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from app.authz.lenses import GuardianLens, StudentLens, TeacherLens
-from app.db.models import Account, Batch, BatchSubject, Enrollment, Exam, ScheduleSlot
+from app.db.models import (
+    Account,
+    Attendance,
+    Batch,
+    BatchSubject,
+    Enrollment,
+    Exam,
+    ExtraFeeCharge,
+    ExtraFeeEntry,
+    LedgerEntryRow,
+    Mark,
+    PaymentClaim,
+    ScheduleSlot,
+)
 from app.errors import AuthorizationError, ConflictError, ValidationError
+from app.local_time import bangladesh_today
 from app.money import Money
 
 __all__ = [
@@ -542,8 +557,93 @@ def remove_enrollment(
             message_key="enrollment.remove.erased",
         )
 
+    if _has_history(session, enrollment_id=record.id):
+        raise EnrollmentNotRemovable(
+            # The remedy is the claimed seat's remedy -- mark it as left
+            # -- but the reason differs: nobody accepted, yet money moved
+            # or a class was recorded against the seat [audit C-02].
+            code="ENROLLMENT_HAS_HISTORY",
+            message_key="enrollment.remove.has_history",
+        )
+
     session.delete(record)
     session.commit()
+
+
+#: The ledger kinds that record money moving rather than money falling
+#: due. A seat carrying any of them holds someone's cash or credit.
+#: ``0027``'s trigger names the same set; a test exercises both.
+MONEY_MOVEMENT_KINDS: frozenset[str] = frozenset(
+    {"receipt", "carry_forward", "carried_out", "credit_grant", "credit_apply"}
+)
+
+
+def _has_history(session: Session, *, enrollment_id: uuid.UUID) -> bool:
+    """Report whether removing a seat would destroy anyone's record.
+
+    **History is what a person did, not what the clock did.** Generated
+    charges and forgiveness of them fall due and lapse on their own; a
+    seat typed on a wrong number carries both and must stay removable,
+    or removal stops being the recovery path it exists for. Cash and
+    credit, a payment someone reported, an extra-fee payment, an
+    attendance mark and an exam mark are each a record a person made,
+    and the ``ON DELETE CASCADE`` from ``enrollment`` would erase them
+    with no trace [audit C-02].
+
+    The same rule is enforced by the ``enrollment_keeps_history``
+    trigger, so a path that skips this service is refused by the
+    database rather than succeeding silently.
+
+    :param session: The session to read through
+    :param enrollment_id: The seat about to be removed
+    :return: Whether any history row exists
+    """
+    probes = (
+        sa.select(LedgerEntryRow.id).where(
+            LedgerEntryRow.enrollment_id == enrollment_id,
+            LedgerEntryRow.kind.in_(sorted(MONEY_MOVEMENT_KINDS)),
+        ),
+        sa.select(PaymentClaim.id).where(PaymentClaim.enrollment_id == enrollment_id),
+        sa.select(ExtraFeeEntry.id)
+        .join(ExtraFeeCharge, ExtraFeeCharge.id == ExtraFeeEntry.extra_fee_charge_id)
+        .where(
+            ExtraFeeCharge.enrollment_id == enrollment_id,
+            ExtraFeeEntry.kind.in_(sorted(MONEY_MOVEMENT_KINDS)),
+        ),
+        sa.select(Attendance.id).where(Attendance.enrollment_id == enrollment_id),
+        sa.select(Mark.id).where(Mark.enrollment_id == enrollment_id),
+    )
+    return any(session.scalar(sa.select(sa.exists(probe))) for probe in probes)
+
+
+#: How far back a seat's start may be recorded. Generation bills every
+#: month from the start to today, so this bounds a typo's damage to one
+#: school year of back-billing rather than decades [audit C-24].
+JOINED_ON_MAX_PAST: Final = dt.timedelta(days=366)
+
+#: How far ahead a seat's start may be recorded: enough for a term
+#: booked in advance, not enough for a mistyped year.
+JOINED_ON_MAX_FUTURE: Final = dt.timedelta(days=92)
+
+
+def _check_joined_on(
+    joined_on: dt.date | None, *, today: dt.date | None = None
+) -> None:
+    """Refuse a start date outside the window a real enrollment falls in.
+
+    :param joined_on: The teacher-entered start date, or None
+    :param today: The Bangladesh date to measure from; today by default
+    :return: None
+    :raises ValidationError: The date is too far back or too far ahead
+    """
+    if joined_on is None:
+        return
+    anchor = today or bangladesh_today()
+    if not anchor - JOINED_ON_MAX_PAST <= joined_on <= anchor + JOINED_ON_MAX_FUTURE:
+        raise ValidationError(
+            code="JOINED_ON_OUT_OF_RANGE",
+            message_key="enrollment.joined_on.out_of_range",
+        )
 
 
 def set_inactive_from(
@@ -565,9 +665,23 @@ def set_inactive_from(
     :param inactive_from: The date, or None to reactivate the seat
     :return: None
     :raises BatchNotFound: The seat is not this lens's to write
+    :raises ValidationError: The date falls before the seat started
     """
     record = _owned_enrollment(session, lens=lens, enrollment_id=enrollment_id)
 
+    # Against a RECORDED start only: with none, the seat's creation date
+    # is when the teacher typed it, not when the student began, and a
+    # teacher recording a departure after the fact must not be refused.
+    if (
+        inactive_from is not None
+        and record.joined_on is not None
+        and inactive_from < record.joined_on
+    ):
+        # A seat cannot end before it began [audit C-24].
+        raise ValidationError(
+            code="INACTIVE_BEFORE_JOINED",
+            message_key="enrollment.inactive_from.before_joined",
+        )
     record.inactive_from = inactive_from
     session.commit()
 
@@ -833,6 +947,7 @@ def add_enrollment(
     student_phone: str | None = None,
     fee_amount: Money | None = None,
     joined_on: dt.date | None = None,
+    client_mutation_id: uuid.UUID | None = None,
 ) -> RosterRow:
     """Add a seat to one of this teacher's batches.
 
@@ -853,6 +968,8 @@ def add_enrollment(
     :param student_phone: The teacher-typed student number, canonical
     :param fee_amount: This seat's fee, or None to inherit
     :param joined_on: When the student joined
+    :param client_mutation_id: The retry key; a resend under it returns the
+        seat the first request created [audit C-25]
     :return: The new seat, as the roster describes it
     :raises BatchNotFound: The batch is not this lens's to write
     :raises ConflictError: That student already has a seat in the batch
@@ -865,16 +982,33 @@ def add_enrollment(
     # creating a second record of the same child [D2]. Linking,
     # decisions and erasure markers are copied by `seat_for`, which is
     # the one place a seat is created.
-    from app.students.service import find_or_create_student, seat_for
+    from app.students.service import (
+        find_or_create_student,
+        replayed_student,
+        seat_for,
+    )
+
+    earlier = replayed_student(
+        session, lens=lens, client_mutation_id=client_mutation_id
+    )
+    if earlier is not None:
+        seat = session.scalars(
+            sa.select(Enrollment).where(
+                Enrollment.batch_id == batch_id, Enrollment.student_id == earlier.id
+            )
+        ).one_or_none()
+        if seat is not None:
+            return _roster_row(seat)
 
     try:
-        student = find_or_create_student(
+        student = earlier or find_or_create_student(
             session,
             lens=lens,
             display_name=display_name,
             student_phone=student_phone,
             guardian_phone=guardian_phone,
             reuse_by_phone=True,
+            client_mutation_id=client_mutation_id,
         )
         record = seat_for(
             session,

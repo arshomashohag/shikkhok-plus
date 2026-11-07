@@ -52,6 +52,8 @@ class StudentCreateRequest(BaseModel):
     :ivar student_phone: The student's number; unique per teacher [D2]
     :ivar guardian_phone: The guardian's number, if one is recorded
     :ivar enrollments: The batches to put them in, possibly none
+    :ivar client_mutation_id: The retry key; a resend under it returns the
+        student the first request created
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -60,6 +62,7 @@ class StudentCreateRequest(BaseModel):
     student_phone: PhoneField | None = None
     guardian_phone: PhoneField | None = None
     enrollments: list[StudentSeatRequest] = Field(default_factory=list, max_length=50)
+    client_mutation_id: uuid.UUID | None = None
 
 
 class StudentUpdateRequest(BaseModel):

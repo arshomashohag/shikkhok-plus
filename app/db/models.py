@@ -252,6 +252,16 @@ SESSION_GENERATION_JOB = "session_generation"
 #: write the checker.
 RETENTION_PURGE_JOB = "retention_purge"
 
+#: Every job the host is expected to run [audit C-01]. The freshness check
+#: reports each of these even when it has no heartbeat row: enumerating
+#: rows alone protected only jobs that had already run once, and the
+#: retention purge -- built, registered here, never scheduled -- had never
+#: run, so it never had a row and never alerted. A job added later joins
+#: this set or the freshness check does not know to expect it.
+EXPECTED_JOBS: frozenset[str] = frozenset(
+    {FEE_GENERATION_JOB, SESSION_GENERATION_JOB, RETENTION_PURGE_JOB}
+)
+
 #: A session's three states [FR3.3]. ``cancelled`` forbids attendance
 #: and topic writes [BR1.6] and is the only transition that does.
 #: ``held`` is reached by RECORDING, never by the clock passing: a class
@@ -317,6 +327,7 @@ __all__ = [
     "CLAIM_STATUS_VALUES",
     "DECISION_VALUES",
     "DISPOSITION_VALUES",
+    "EXPECTED_JOBS",
     "EXPENSE_CATEGORY_VALUES",
     "EXTRA_FEE_ENTRY_KIND_VALUES",
     "EXTRA_FEE_PURPOSE_VALUES",
@@ -820,9 +831,21 @@ class Student(Base):
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )
+    # The create request's retry key, so a resend after a lost response
+    # returns this student instead of making a second one [audit C-25].
+    client_mutation_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), nullable=True
+    )
 
     __table_args__ = (
         Index("ix_student_owner_id", "owner_id"),
+        Index(
+            "uq_student_owner_mutation",
+            "owner_id",
+            "client_mutation_id",
+            unique=True,
+            postgresql_where=text("client_mutation_id IS NOT NULL"),
+        ),
         Index(
             "uq_student_owner_phone",
             "owner_id",
@@ -1547,6 +1570,13 @@ class LedgerEntryRow(Base):
         Index("ix_ledger_entry_enrollment_id", "enrollment_id"),
         Index("ix_ledger_entry_enrollment_period", "enrollment_id", "period"),
         Index("ix_ledger_entry_payment_claim_id", "payment_claim_id"),
+        # Every read hiding corrected entries probes this column per row;
+        # partial, because most entries are never superseded [audit C-04].
+        Index(
+            "ix_ledger_entry_superseded_by_id",
+            "superseded_by_id",
+            postgresql_where=text("superseded_by_id IS NOT NULL"),
+        ),
     )
 
 
@@ -2445,7 +2475,7 @@ class Notification(Base):
     :ivar source_id: The notice, exam or claim it points at; no foreign
         key, because the target table depends on ``kind``
     :ivar child_name: The seat's display name, set for guardian recipients
-    :ivar preview: The first 140 characters of a notice, or an exam title
+    :ivar preview: A notice shortened to 60 characters, or an exam title
     :ivar created_at: When it was sent
     :ivar read_at: When its owner opened the inbox after it arrived
     """

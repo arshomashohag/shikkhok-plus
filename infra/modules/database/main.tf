@@ -55,14 +55,14 @@ resource "aws_security_group" "database" {
   vpc_id      = var.vpc_id
 
   ingress {
-    description = "PostgreSQL from the app security group ONLY"
+    description = "PostgreSQL from the app security group, and from the seeder security group when enabled"
     from_port   = 5432
     to_port     = 5432
     protocol    = "tcp"
     # EXACT. Not a CIDR, not a range -- the app's security group. This
     # follows the instance if its address changes and cannot be wider
     # than the hosts in that group.
-    security_groups = [var.app_security_group_id]
+    security_groups = concat([var.app_security_group_id], var.client_security_group_ids)
   }
 
   # No egress rule is declared, so Terraform's default applies: none.

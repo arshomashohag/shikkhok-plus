@@ -19,7 +19,7 @@ export function MyBatches() {
   const wide = useWide()
   const { session } = useReadySession()
   const { resource, reload } = useResource(
-    () => listMyBatches().then((r) => r.map(mapStudentBatch)),
+    (signal) => listMyBatches(signal).then((r) => r.map(mapStudentBatch)),
     [],
   )
   const phone = session.me.phone ? formatPhone(session.me.phone) : null

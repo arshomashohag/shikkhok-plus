@@ -519,10 +519,15 @@ def _exam_titles(session: Session, fees: list[ExtraFee]) -> dict[uuid.UUID, str]
     wanted = {fee.exam_id for fee in fees if fee.exam_id is not None}
     if not wanted:
         return {}
+    # The rows are unpacked explicitly: a Result has a `keys()` method,
+    # so `dict(result)` takes it for a mapping and subscripts it rather
+    # than iterating its rows -- a TypeError on every fee linked to an
+    # exam, which shipped because no test linked one.
     return dict(
-        session.execute(
+        (row.id, row.title)
+        for row in session.execute(
             sa.select(Exam.id, Exam.title).where(Exam.id.in_(wanted))
-        ).tuples()
+        ).all()
     )
 
 

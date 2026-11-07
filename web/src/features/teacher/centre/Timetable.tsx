@@ -25,6 +25,7 @@ import {
   Section,
   Sheet,
   Snackbar,
+  StaleBanner,
   TopBar,
 } from '../../../ui/components'
 import { WarningIcon } from '../../../ui/icons'
@@ -64,8 +65,8 @@ function ClassSheet({
   onSaved: () => void
 }) {
   const { t, message, lang } = useT()
-  const members = useResource(() => listMembers(), [])
-  const rooms = useResource(() => listRooms(), [])
+  const members = useResource((signal) => listMembers(signal), [])
+  const rooms = useResource((signal) => listRooms(signal), [])
   const [teacher, setTeacher] = useState(target.teacher_member_id ?? '')
   const [room, setRoom] = useState(target.room_id ?? '')
   const [swapWith, setSwapWith] = useState('')
@@ -175,7 +176,7 @@ function ClassSheet({
 
 function RoomsSheet({ onClose }: { onClose: () => void }) {
   const { t, message } = useT()
-  const { resource, reload } = useResource(() => listRooms(), [])
+  const { resource, reload } = useResource((signal) => listRooms(signal), [])
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
@@ -267,12 +268,14 @@ export function Timetable() {
   const [start, setStart] = useState(() => isoDay(new Date()))
   const days = weekFrom(start)
   const { resource, reload } = useResource(
-    () => readTimetable(start, weekFrom(start)[6] ?? start),
+    (signal) => readTimetable(start, weekFrom(start)[6] ?? start, signal),
     [start],
   )
   const [editing, setEditing] = useState<TimetableClass | null>(null)
   const [rooms, setRooms] = useState(false)
   const [snack, setSnack] = useState<string | null>(null)
+  // Open a class only from a read the server just confirmed.
+  const fresh = resource.state === 'loaded' && !resource.refreshing && resource.error === null
 
   let body: React.ReactNode
   if (resource.state === 'loading') body = <Loading rows={4} />
@@ -281,49 +284,54 @@ export function Timetable() {
   else if (resource.data.length === 0)
     body = <EmptyState title={t('timetable_title')} body={t('timetable_empty')} />
   else
-    body = byDay(days, resource.data)
-      .filter(([, list]) => list.length > 0)
-      .map(([day, list]) => (
-        <Section key={day} title={formatLongDay(day, lang)}>
-          <ul className="card flush list">
-            {list.map((c) => {
-              const cancelled = c.status === 'cancelled'
-              return (
-                <li key={c.session_id}>
-                  <button
-                    type="button"
-                    className="row"
-                    disabled={cancelled}
-                    style={cancelled ? { opacity: 0.55 } : undefined}
-                    onClick={() => setEditing(c)}
-                  >
-                    <span className="meta" style={{ minWidth: 64 }}>
-                      {formatClock(c.start_time, lang)}
-                    </span>
-                    <span className="grow">
-                      <span className="title">
-                        {c.batch_name}
-                        {c.subject ? ` · ${c.subject}` : ''}
+    body = [
+      resource.error ? (
+        <StaleBanner key="stale" error={resource.error} loadedAt={resource.loadedAt} />
+      ) : null,
+      ...byDay(days, resource.data)
+        .filter(([, list]) => list.length > 0)
+        .map(([day, list]) => (
+          <Section key={day} title={formatLongDay(day, lang)}>
+            <ul className="card flush list">
+              {list.map((c) => {
+                const cancelled = c.status === 'cancelled'
+                return (
+                  <li key={c.session_id}>
+                    <button
+                      type="button"
+                      className="row"
+                      disabled={cancelled || !fresh}
+                      style={cancelled ? { opacity: 0.55 } : undefined}
+                      onClick={() => setEditing(c)}
+                    >
+                      <span className="meta" style={{ minWidth: 64 }}>
+                        {formatClock(c.start_time, lang)}
                       </span>
-                      <br />
-                      <span className="meta">
-                        {[
-                          c.teacher_name ?? t('timetable_unassigned'),
-                          c.room_name,
-                          cancelled ? t('timetable_cancelled') : null,
-                          c.overridden ? t('timetable_overridden') : null,
-                        ]
-                          .filter(Boolean)
-                          .join(' · ')}
+                      <span className="grow">
+                        <span className="title">
+                          {c.batch_name}
+                          {c.subject ? ` · ${c.subject}` : ''}
+                        </span>
+                        <br />
+                        <span className="meta">
+                          {[
+                            c.teacher_name ?? t('timetable_unassigned'),
+                            c.room_name,
+                            cancelled ? t('timetable_cancelled') : null,
+                            c.overridden ? t('timetable_overridden') : null,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </span>
                       </span>
-                    </span>
-                  </button>
-                </li>
-              )
-            })}
-          </ul>
-        </Section>
-      ))
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          </Section>
+        )),
+    ]
 
   return (
     <>

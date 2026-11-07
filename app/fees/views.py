@@ -623,7 +623,7 @@ def _history_line(
                 else claim.claimed_amount
             ),
             channel=claim.channel,
-            paid_on=claim.submitted_at.date(),
+            paid_on=bangladesh_today(claim.submitted_at),
             status=status,
             decision_note=claim.rejection_reason,
         )

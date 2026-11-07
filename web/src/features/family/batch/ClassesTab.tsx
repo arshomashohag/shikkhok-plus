@@ -40,7 +40,8 @@ export function ClassesTab({
   const heading = useHeading()
   const [shown, setShown] = useState<YearMonth>(() => dhakaMonth())
   const { resource, reload } = useResource(
-    () => readFamilyCalendar(reader, seat, shown.year, shown.month).then(mapFamilyMonth),
+    (signal) =>
+      readFamilyCalendar(reader, seat, shown.year, shown.month, signal).then(mapFamilyMonth),
     [reader, seat, shown.year, shown.month],
   )
 

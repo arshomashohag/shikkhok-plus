@@ -15,7 +15,12 @@ import kotlin.test.assertTrue
  */
 class LensRoutingTest {
 
-    private val everyLens = listOf(Lens.TEACHER, Lens.STUDENT, Lens.GUARDIAN, null)
+    private val everyLens = listOf(Lens.TEACHER, Lens.CLASS_TEACHER, Lens.STUDENT, Lens.GUARDIAN, null)
+
+    @Test
+    fun `a centre teacher lands on their assigned classes`() {
+        assertEquals(Destination.MyClasses.route, homeFor(Lens.CLASS_TEACHER))
+    }
 
     @Test
     fun `a teacher lands on their classes`() {
@@ -97,7 +102,7 @@ class LensRoutingTest {
                 Destination.Dues.route,
             )
 
-        listOf(Lens.STUDENT, Lens.GUARDIAN, null).forEach { lens ->
+        listOf(Lens.CLASS_TEACHER, Lens.STUDENT, Lens.GUARDIAN, null).forEach { lens ->
             val offending = routesFor(lens).filter { it in teacherOnly }
             assertEquals(emptyList(), offending, "$lens is offered $offending")
         }

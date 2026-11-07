@@ -37,13 +37,17 @@ interface Loaded {
   rows: BatchRow[]
 }
 
-async function rowFor(batch: { id: string; name: string }, period: string): Promise<BatchRow> {
+async function rowFor(
+  batch: { id: string; name: string },
+  period: string,
+  signal?: AbortSignal,
+): Promise<BatchRow> {
   try {
     return {
       batchId: batch.id,
       name: batch.name,
       ok: true,
-      month: mapBatchMonth(await readBatchMonth(batch.id, period)),
+      month: mapBatchMonth(await readBatchMonth(batch.id, period, signal)),
     }
   } catch (e) {
     const error = e instanceof ApiError ? e : new ApiError(0, 'UNEXPECTED', UNEXPECTED_KEY, true)
@@ -51,14 +55,20 @@ async function rowFor(batch: { id: string; name: string }, period: string): Prom
   }
 }
 
-async function load(selected: string[], chosen: string | null): Promise<Loaded> {
+async function load(
+  selected: string[],
+  chosen: string | null,
+  signal?: AbortSignal,
+): Promise<Loaded> {
   const [all, report] = await Promise.all([
-    listBatches().then((b) => b.map((x) => ({ id: x.id, name: x.name }))),
-    readCollections(selected).then(mapCollections),
+    listBatches(signal).then((b) => b.map((x) => ({ id: x.id, name: x.name }))),
+    readCollections(selected, undefined, signal).then(mapCollections),
   ])
   const headline = headlineMonth(report.months, chosen)
   const inView = all.filter((b) => selected.length === 0 || selected.includes(b.id))
-  const rows = headline ? await Promise.all(inView.map((b) => rowFor(b, headline.period))) : []
+  const rows = headline
+    ? await Promise.all(inView.map((b) => rowFor(b, headline.period, signal)))
+    : []
   return { batches: all, report, headline, rows }
 }
 
@@ -67,10 +77,13 @@ export function Collections() {
   const [selected, setSelected] = useState<string[]>([])
   const [chosen, setChosen] = useState<string | null>(null)
   const [retried, setRetried] = useState<Record<string, BatchRow>>({})
-  const { resource, reload } = useResource(() => {
-    setRetried({})
-    return load(selected, chosen)
-  }, [selected.join(','), chosen])
+  const { resource, reload } = useResource(
+    (signal) => {
+      setRetried({})
+      return load(selected, chosen, signal)
+    },
+    [selected.join(','), chosen],
+  )
 
   const toggle = (id: string) =>
     setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]))

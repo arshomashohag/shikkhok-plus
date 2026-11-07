@@ -613,6 +613,24 @@ resource "aws_iam_policy" "environment_boundary" {
         Resource = "arn:aws:autoscaling:*:${local.account_id}:autoScalingGroup:*:autoScalingGroupName/shikkhokplus-${each.key}-*"
       },
       {
+        # **The staging seeder's network interfaces** (modules/seeder):
+        # what a Lambda function in a VPC calls to attach to it. EC2
+        # does not scope these by resource. A ceiling, not a grant: the
+        # app host's role does not hold them, and the CI role that
+        # creates roles already holds ec2:* itself.
+        Sid    = "LambdaVpcNetworking"
+        Effect = "Allow"
+        Action = [
+          "ec2:CreateNetworkInterface",
+          "ec2:DescribeNetworkInterfaces",
+          "ec2:DescribeSubnets",
+          "ec2:DeleteNetworkInterface",
+          "ec2:AssignPrivateIpAddresses",
+          "ec2:UnassignPrivateIpAddresses",
+        ]
+        Resource = "*"
+      },
+      {
         Sid    = "Logs"
         Effect = "Allow"
         Action = ["logs:CreateLogStream", "logs:PutLogEvents", "logs:DescribeLogStreams"]
@@ -744,6 +762,25 @@ resource "aws_iam_policy" "workload_boundary" {
         Resource = "arn:aws:autoscaling:*:${data.aws_caller_identity.current.account_id}:autoScalingGroup:*:autoScalingGroupName/shikkhokplus-*"
       },
       {
+        # **The staging seeder's network interfaces** (modules/seeder):
+        # what a Lambda function in a VPC calls to attach to it. EC2
+        # does not scope these by resource. A ceiling, not a grant: the
+        # app host's role does not hold them, and the CI role that
+        # creates roles already holds ec2:* itself, so no role it makes
+        # can reach further than the CI role already does.
+        Sid    = "LambdaVpcNetworking"
+        Effect = "Allow"
+        Action = [
+          "ec2:CreateNetworkInterface",
+          "ec2:DescribeNetworkInterfaces",
+          "ec2:DescribeSubnets",
+          "ec2:DeleteNetworkInterface",
+          "ec2:AssignPrivateIpAddresses",
+          "ec2:UnassignPrivateIpAddresses",
+        ]
+        Resource = "*"
+      },
+      {
         Sid      = "Logs"
         Effect   = "Allow"
         Action   = ["logs:CreateLogStream", "logs:PutLogEvents", "logs:DescribeLogStreams"]
@@ -837,6 +874,15 @@ resource "aws_iam_role_policy" "ci_infrastructure" {
         Effect   = "Allow"
         Action   = ["ssm:DescribeParameters"]
         Resource = "*"
+      },
+      {
+        # **The staging seeder** (modules/seeder), by this
+        # environment's function names only. ListVersionsByFunction and
+        # the rest are what aws_lambda_function reads back on every plan.
+        Sid      = "SeederFunction"
+        Effect   = "Allow"
+        Action   = ["lambda:*"]
+        Resource = "arn:aws:lambda:*:${local.account_id}:function:shikkhokplus-${each.key}-*"
       },
       {
         # **Logs, alarms and the alert topic** [OPS-11], each scoped to
@@ -986,12 +1032,18 @@ resource "aws_iam_role_policy" "ci_infrastructure" {
         }
       },
       {
-        Sid      = "PassOnlyToEc2"
+        # Passing a role to EC2 -- the launch template's instance
+        # profile -- and to Lambda, for the staging seeder's execution
+        # role. To nothing else, and only this environment's roles,
+        # every one of which carries this environment's boundary. No
+        # managed policy is attachable at all [C-08]: the seeder's role
+        # lists its grants inline.
+        Sid      = "PassOnlyToEc2AndLambda"
         Effect   = "Allow"
         Action   = ["iam:PassRole"]
         Resource = "arn:aws:iam::${local.account_id}:role/shikkhokplus/shikkhokplus-${each.key}-*"
         Condition = {
-          StringEquals = { "iam:PassedToService" = "ec2.amazonaws.com" }
+          StringEquals = { "iam:PassedToService" = ["ec2.amazonaws.com", "lambda.amazonaws.com"] }
         }
       },
       {
@@ -1148,6 +1200,35 @@ resource "aws_iam_role_policy" "plan" {
           "iam:GetPolicyVersion",
         ]
         Resource = "*"
+      },
+      {
+        # **The staging seeder, read back** (modules/seeder): what
+        # aws_lambda_function's refresh reads, and what the deploy's
+        # "Can the seeder be created on this run?" step asks. This
+        # environment's functions only. GetFunctionConfiguration returns
+        # the function's environment -- the restricted role's database
+        # URL -- which a refresh cannot avoid reading; the deploy step
+        # prints only the function's name.
+        Sid    = "ReadOurFunctions"
+        Effect = "Allow"
+        Action = [
+          "lambda:GetFunction",
+          "lambda:GetFunctionConfiguration",
+          "lambda:GetFunctionCodeSigningConfig",
+          "lambda:GetFunctionConcurrency",
+          "lambda:GetPolicy",
+          "lambda:ListVersionsByFunction",
+          "lambda:ListTags",
+        ]
+        Resource = "arn:aws:lambda:*:${local.account_id}:function:shikkhokplus-${each.key}-*"
+      },
+      {
+        # Whether the running image is a single manifest Lambda accepts,
+        # for the same deploy step. Metadata only; no layer download.
+        Sid      = "ReadOurImages"
+        Effect   = "Allow"
+        Action   = ["ecr:DescribeImages"]
+        Resource = "arn:aws:ecr:*:${local.account_id}:repository/shikkhokplus-${each.key}-backend"
       },
       {
         # This environment's parameters, SecureStrings included: the

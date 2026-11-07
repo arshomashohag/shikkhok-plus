@@ -321,6 +321,7 @@ def add_enrollment(
         student_phone=body.student_phone,
         fee_amount=_from_wire(body.fee_amount),
         joined_on=body.joined_on,
+        client_mutation_id=body.client_mutation_id,
     )
     # **The same mapping the roster uses**, rather than a second one
     # written beside it. A new seat is pending on both links [ADR-013,

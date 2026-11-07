@@ -43,6 +43,8 @@ data class AlreadyAddedDto(
  * @property addressRoad Road or area
  * @property addressCity City or district
  * @property addressPostcode Four digits
+ * @property centreName The coaching centre to open, with the `coaching`
+ *   role only; omitted otherwise
  */
 @Serializable
 data class SignupRequestDto(
@@ -53,6 +55,7 @@ data class SignupRequestDto(
     @SerialName("address_road") val addressRoad: String,
     @SerialName("address_city") val addressCity: String,
     @SerialName("address_postcode") val addressPostcode: String,
+    @SerialName("centre_name") val centreName: String? = null,
 )
 
 /**

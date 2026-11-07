@@ -44,18 +44,35 @@ class PaymentReviewViewModel(
     private var submissionId: String = ""
 
     /**
-     * Load a payment.
+     * Load a payment, unless it is this payment and already loaded.
+     *
+     * **A no-op for the same payment** [L-20]. The route calls this from
+     * a `LaunchedEffect`, which runs again when the screen is recreated
+     * on a rotation or a language change while this ViewModel survives;
+     * re-reading then reset the screen to Loading and threw away a note
+     * the teacher had typed into the open sheet. A failed load still
+     * loads again, since there is nothing on screen to keep.
      *
      * @param id The payment
      */
     fun load(id: String) {
+        if (id == submissionId && _state.value !is ReviewUiState.Failed) return
+        fetch(id)
+    }
+
+    /** Repeat the load, only when asked. */
+    fun retry() = fetch(submissionId)
+
+    /**
+     * Read a payment from the server, replacing what is shown.
+     *
+     * @param id The payment
+     */
+    private fun fetch(id: String) {
         submissionId = id
         _state.value = ReviewUiState.Loading
         viewModelScope.launch { _state.value = read() }
     }
-
-    /** Repeat the load, only when asked. */
-    fun retry() = load(submissionId)
 
     /**
      * Approve as reported when it matches, else open the sheet.

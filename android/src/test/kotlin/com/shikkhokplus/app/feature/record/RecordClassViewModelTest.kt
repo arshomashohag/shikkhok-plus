@@ -5,6 +5,7 @@ import com.shikkhokplus.app.core.network.ErrorEnvelope
 import com.shikkhokplus.app.core.network.SessionDto
 import com.shikkhokplus.app.core.network.SubjectOptionDto
 import com.shikkhokplus.app.core.queue.QueueStore
+import com.shikkhokplus.app.core.queue.TestQueueCipher
 import com.shikkhokplus.app.core.queue.QueueTarget
 import com.shikkhokplus.app.core.queue.QueuedWrite
 import com.shikkhokplus.app.core.queue.SendOutcome
@@ -82,7 +83,7 @@ class RecordClassViewModelTest {
         }
     }
 
-    private fun store() = QueueStore(File(folder.root, QueueStore.FILE_NAME))
+    private fun store() = QueueStore(File(folder.root, QueueStore.FILE_NAME), TestQueueCipher)
 
     @Test
     fun `the suggestion is the batch's most recent logged topic`() = runTest(dispatcher) {

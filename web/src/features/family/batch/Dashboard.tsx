@@ -12,13 +12,18 @@ import { useSeatId, useSeatIdentity } from './seat'
 
 const enc = encodeURIComponent
 
-export const readFamilyDashboard = (reader: Reader, seat: string, range: DashboardRange) =>
+export const readFamilyDashboard = (
+  reader: Reader,
+  seat: string,
+  range: DashboardRange,
+  signal?: AbortSignal,
+) =>
   request<Schemas['DashboardResponse']>(
     'GET',
     reader === 'me'
       ? `/v1/me/enrollments/${enc(seat)}/dashboard`
       : `/v1/children/${enc(seat)}/dashboard`,
-    { query: { range } },
+    { signal, query: { range } },
   )
 
 export function FamilyDashboard({ reader }: { reader: Reader }) {
@@ -33,7 +38,7 @@ export function FamilyDashboard({ reader }: { reader: Reader }) {
           : t('screen_title_progress')
       }
       subtitle={[identity?.childName, identity?.batchName].filter(Boolean).join(' · ') || undefined}
-      load={(range) => readFamilyDashboard(reader, seat, range)}
+      load={(range, signal) => readFamilyDashboard(reader, seat, range, signal)}
       feesLink={familyPaths.fees(reader, seat)}
       cacheKey={`${reader}:${seat}`}
     />

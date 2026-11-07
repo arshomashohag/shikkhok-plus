@@ -24,6 +24,7 @@ the half the server owns.
 from __future__ import annotations
 
 import datetime as dt
+import unicodedata
 import uuid
 from dataclasses import dataclass, field
 from typing import Literal
@@ -62,6 +63,7 @@ __all__ = [
     "family_batch_view",
     "family_exam",
     "list_announcements",
+    "notice_preview",
     "post_announcement",
 ]
 
@@ -255,8 +257,57 @@ def _reachable_announcement(
     return row
 
 
-#: How much of a notice the inbox row carries.
-PREVIEW_LENGTH = 140
+#: The most characters of a notice the inbox row carries, ellipsis
+#: included. One line on a phone; the full text is a tap away.
+PREVIEW_LENGTH = 60
+
+#: Marks a preview that was cut short.
+ELLIPSIS = "\u2026"
+
+#: Bangla's hasanta. A character after it joins it into a conjunct.
+_VIRAMA = "\u09cd"
+
+#: Zero-width joiner and non-joiner, which bind to their neighbours.
+_JOINERS = frozenset({"\u200c", "\u200d"})
+
+
+def _splits_cluster(text: str, cut: int) -> bool:
+    """Say whether cutting before ``text[cut]`` breaks a written letter.
+
+    It does when the next character is a vowel sign or other mark that
+    attaches to the one before, a joiner, or follows a hasanta -- each of
+    which renders broken, often as a dotted circle, once separated.
+
+    :param text: The text being cut
+    :param cut: Index of the first character dropped
+    :return: True when the cut falls inside one letter
+    """
+    following = text[cut]
+    return (
+        unicodedata.category(following) in {"Mn", "Mc", "Me"}
+        or following in _JOINERS
+        or text[cut - 1] == _VIRAMA
+        or text[cut - 1] in _JOINERS
+    )
+
+
+def notice_preview(body: str) -> str:
+    """Shorten a notice to the line its inbox row carries.
+
+    A body within :data:`PREVIEW_LENGTH` is kept whole. A longer one is
+    cut, stepping back so a Bangla conjunct or vowel sign is never split
+    from its letter, and ends with :data:`ELLIPSIS` so it does not read
+    as the whole message.
+
+    :param body: The notice
+    :return: At most :data:`PREVIEW_LENGTH` characters
+    """
+    if len(body) <= PREVIEW_LENGTH:
+        return body
+    cut = PREVIEW_LENGTH - len(ELLIPSIS)
+    while cut > 1 and _splits_cluster(body, cut):
+        cut -= 1
+    return body[:cut].rstrip() + ELLIPSIS
 
 
 def post_announcement(
@@ -294,7 +345,7 @@ def post_announcement(
         batch=batch,
         kind=NOTICE,
         source_id=record.id,
-        preview=record.body[:PREVIEW_LENGTH],
+        preview=notice_preview(record.body),
         now=now,
     )
     session.commit()
@@ -336,7 +387,7 @@ def edit_announcement(
         batch_id=record.batch_id,
         kind=NOTICE,
         source_id=record.id,
-        preview=body[:PREVIEW_LENGTH],
+        preview=notice_preview(body),
     )
     session.commit()
     return _row(record)

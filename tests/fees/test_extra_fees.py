@@ -306,6 +306,56 @@ def test_raising_charges_every_seat_with_its_own_amount(
     ]
 
 
+def test_the_listing_titles_a_fee_linked_to_an_exam(
+    api_client: TestClient,
+    owner_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """A fee raised for an exam lists with that exam's title.
+
+    Regression: titling the linked exams passed a ``Result`` to
+    ``dict()``, which took it for a mapping, so the batch's fee list
+    failed with a 500 for every batch holding an exam-linked fee. Every
+    other test here raises with ``exam_id`` unset, which is how it hid;
+    the performance seeder's model-test fee found it.
+
+    :param api_client: The test client
+    :param owner_session: An arranging session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    _class(owner_session, teacher, account_factory)
+    subject_id, exam_id = uuid.uuid4(), uuid.uuid4()
+    owner_session.execute(
+        sa.text(
+            "INSERT INTO batch_subject (id, batch_id, name) VALUES (:s, :b, 'Math')"
+        ),
+        {"s": subject_id, "b": teacher.batch_id},
+    )
+    owner_session.execute(
+        sa.text(
+            "INSERT INTO exam (id, batch_id, batch_subject_id, title, date, "
+            "total_marks, created_at) VALUES (:e, :b, :s, 'Model Test - Math', "
+            ":d, 50, now())"
+        ),
+        {"e": exam_id, "b": teacher.batch_id, "s": subject_id, "d": DUE},
+    )
+    owner_session.commit()
+
+    _fee_id(_raise(api_client, owner_session, teacher, exam_id=str(exam_id)))
+
+    response = api_client.get(
+        f"/v1/batches/{teacher.batch_id}/extra-fees",
+        headers=bearer(owner_session, teacher.account_id),
+    )
+    assert response.status_code == 200, response.text
+    assert [(f["exam_id"], f["exam_title"]) for f in response.json()["fees"]] == [
+        (str(exam_id), "Model Test - Math")
+    ]
+
+
 def test_raising_touches_no_monthly_balance(
     api_client: TestClient,
     owner_session: Session,

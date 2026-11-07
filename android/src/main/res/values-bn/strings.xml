@@ -31,6 +31,7 @@
     <!-- Error keys, named by the server's message_key. -->
     <string name="error_network_unreachable">সার্ভারে পৌঁছানো যায়নি। আপনার সংযোগ পরীক্ষা করে আবার চেষ্টা করুন।</string>
     <string name="error_unexpected">কিছু একটা সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।</string>
+    <string name="error_temporarily_unavailable">সেবাটি এই মুহূর্তে ব্যস্ত। একটু পরে আবার চেষ্টা করুন।</string>
     <string name="auth_otp_not_valid">এই কোডটি সঠিক নয়। নতুন একটি কোড নিন।</string>
     <string name="auth_otp_temporarily_unavailable">সাইন ইন সাময়িকভাবে বন্ধ আছে। অনুগ্রহ করে পরে আবার চেষ্টা করুন।</string>
     <string name="auth_token_not_valid">আপনার সেশন শেষ হয়েছে। অনুগ্রহ করে আবার সাইন ইন করুন।</string>
@@ -47,6 +48,9 @@
     <string name="batch_create_subject_required">অন্তত একটি বিষয় যোগ করুন।</string>
     <string name="enrollment_remove_claimed">এই শিক্ষার্থী তার জায়গা গ্রহণ করেছেন এবং তার রেকর্ড আছে। মুছে ফেলার বদলে তাকে ছেড়ে যাওয়া হিসেবে চিহ্নিত করুন।</string>
     <string name="enrollment_remove_erased">এই জায়গাটিতে কারও তথ্য মুছে ফেলার অনুরোধ রেকর্ড করা আছে। নতুন ও আলাদা রেকর্ড তৈরি করতে নম্বরটি আবার যোগ করুন।</string>
+    <string name="enrollment_remove_has_history">এই জায়গায় পেমেন্ট, ক্রেডিট, উপস্থিতি বা নম্বর রেকর্ড করা আছে। মুছে ফেলার বদলে শিক্ষার্থীকে ছেড়ে যাওয়া হিসেবে চিহ্নিত করুন।</string>
+    <string name="enrollment_joined_on_out_of_range">শুরুর তারিখটি আজ থেকে অনেক দূরে। বছরটি দেখে নিন — শুরুর তারিখ সর্বোচ্চ এক বছর আগে বা তিন মাস পরে হতে পারে।</string>
+    <string name="enrollment_inactive_from_before_joined">ছেড়ে যাওয়ার তারিখটি এই শিক্ষার্থীর যোগ দেওয়ার তারিখের আগে।</string>
     <string name="authz_lens_not_available">এটি দেখার অনুমতি আপনার নেই।</string>
     <string name="guardian_children_title">আপনার সন্তানরা</string>
     <string name="guardian_children_empty">এখনও কোনো সন্তান যুক্ত হয়নি। প্রথমে একজন শিক্ষককে আপনার নম্বর যোগ করতে হবে।</string>
@@ -290,6 +294,8 @@
     <string name="queue_state_confirmed">পাঠানো হয়েছে</string>
     <string name="queue_state_failed">পাঠানো যায়নি। আবার চেষ্টা করতে পারেন।</string>
     <string name="queue_state_conflicted">কেউ এই ক্লাসের হাজিরা বদলেছেন। সিদ্ধান্ত নেওয়ার আগে দেখে নিন কী বদলেছে।</string>
+    <string name="queue_unreadable_title">পাঠানো হয়নি এমন কিছু রেকর্ড হারিয়ে গেছে</string>
+    <string name="queue_unreadable_body">এই ফোনে রাখা কিছু রেকর্ড পড়া যায়নি, তাই সেগুলো পাঠানো হয়নি। সাম্প্রতিক হাজিরা ও ক্লাসের বিষয় দেখে নিন, কিছু বাদ পড়লে আবার লিখুন।</string>
 
     <!--
       দ্বন্দ্ব মেটানোর স্ক্রিন। এই ইউনিটের সবচেয়ে ঘন বাংলা লেখা
@@ -1237,12 +1243,15 @@
     <string name="settings_theme_light">লাইট</string>
     <string name="settings_theme_dark">ডার্ক</string>
     <string name="settings_same_as_phone">ফোনের মতো</string>
+    <string name="settings_section_language">ভাষা</string>
+    <string name="settings_language_bangla">বাংলা</string>
+    <string name="settings_language_english">English</string>
     <string name="settings_section_text">লেখার আকার</string>
     <string name="settings_text_large">বড়</string>
     <string name="settings_text_largest">সবচেয়ে বড়</string>
     <string name="more_section_app">অ্যাপ</string>
     <string name="more_settings">সেটিংস</string>
-    <string name="more_settings_sub">নোটিফিকেশন, থিম ও লেখার আকার</string>
+    <string name="more_settings_sub">ভাষা, নোটিফিকেশন, থিম ও লেখার আকার</string>
     <!-- Address in four parts (2026-11-05). -->
     <string name="address_house_label">বাসা বা ফ্ল্যাট</string>
     <string name="address_road_label">রোড ও এলাকা</string>

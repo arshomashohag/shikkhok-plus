@@ -55,6 +55,19 @@ class WriteContractTest {
         val send: suspend (HttpClient) -> Any?,
     )
 
+    private val staffBody =
+        StaffBodyDto(
+            displayName = "Karim",
+            email = "karim@example.com",
+            staffHouse = "12",
+            staffRoad = "Road 5",
+            staffCity = "Dhaka",
+            staffPostcode = "1205",
+            payBasis = "monthly",
+            payRate = Money.of("8000.00"),
+            joinedOn = "2026-01-01",
+        )
+
     private val slots = listOf(ScheduleSlotDto(0, "16:00", "17:00"))
 
     private val writes: List<Write> =
@@ -71,6 +84,10 @@ class WriteContractTest {
             },
             Write("post", "/v1/accounts") {
                 HttpSignupRepository(it).signup("01711234567", "student", "Rafi", ADDRESS)
+            },
+            // Signing up as a coaching centre, with its name.
+            Write("post", "/v1/accounts") {
+                HttpSignupRepository(it).signup("01711234567", "coaching", "Rahima", ADDRESS, "Udayan Coaching")
             },
             Write("patch", "/v1/me") { HttpProfileRepository(it).save("Rafi", ADDRESS) },
             Write("post", "/v1/exams/{exam_id}/publish") { HttpMarksRepository(it).publish(ID) },
@@ -243,6 +260,60 @@ class WriteContractTest {
             Write("post", "/v1/centre/members/{member_id}/revoke") { HttpCentresRepository(it).revoke(ID) },
             Write("post", "/v1/memberships/{member_id}/accept") { HttpCentresRepository(it).accept(ID) },
             Write("post", "/v1/memberships/{member_id}/decline") { HttpCentresRepository(it).decline(ID) },
+            // Inviting a teacher, adding other staff, correcting a record
+            // and marking someone as left.
+            Write("post", "/v1/centre/staff/teachers") {
+                HttpStaffRepository(it).inviteTeacher(staffBody.copy(phone = "01811223344"))
+            },
+            Write("post", "/v1/centre/staff") {
+                HttpStaffRepository(it).addOther(staffBody.copy(roleLabel = "Office"))
+            },
+            Write("patch", "/v1/centre/staff/{staff_id}") { HttpStaffRepository(it).update(ID, staffBody) },
+            Write("post", "/v1/centre/staff/{staff_id}/leave") { HttpStaffRepository(it).leave(ID, "2026-11-06") },
+            Write("post", "/v1/centre/staff/{staff_id}/leave") { HttpStaffRepository(it).leave(ID, null) },
+            // One class's teacher and room, a swap, and the rooms.
+            Write("post", "/v1/sessions/{session_id}/assignment") { HttpTimetableRepository(it).assign(ID, ID, ID) },
+            Write("post", "/v1/sessions/{session_id}/assignment") {
+                HttpTimetableRepository(it).assign(ID, null, null)
+            },
+            Write("post", "/v1/centre/sessions/swap") { HttpTimetableRepository(it).swap(ID, ID) },
+            Write("post", "/v1/centre/rooms") { HttpTimetableRepository(it).addRoom("Room A") },
+            Write("patch", "/v1/centre/rooms/{room_id}") { HttpTimetableRepository(it).archiveRoom(ID, true) },
+            // A centre teacher's attendance and topic for one assigned class.
+            Write("post", "/v1/me/classes/{session_id}/attendance") {
+                HttpMyClassesRepository(it).submitAttendance(
+                    ID,
+                    ClassAttendanceBodyDto(1, ID, listOf(ClassSeatMarkDto(ID, true))),
+                )
+            },
+            // A centre's payroll: draw, adjust, approve and pay.
+            Write("post", "/v1/centre/payroll/{period}/lines") { HttpPayrollRepository(it).draw("2026-10") },
+            Write("post", "/v1/centre/payroll/lines/{line_id}/adjustments") {
+                HttpPayrollRepository(it).adjust(ID, AdjustmentBodyDto("addition", "Bonus", Money.of("500.00")))
+            },
+            Write("delete", "/v1/centre/payroll/lines/{line_id}/adjustments/{adjustment_id}") {
+                HttpPayrollRepository(it).removeAdjustment(ID, ID)
+            },
+            Write("post", "/v1/centre/payroll/lines/{line_id}/approve") { HttpPayrollRepository(it).approve(ID) },
+            Write("post", "/v1/centre/payroll/lines/{line_id}/payments") {
+                HttpPayrollRepository(it).pay(ID, SalaryPaymentBodyDto(Money.of("500.00"), ID))
+            },
+            Write("post", "/v1/centre/payroll/lines/{line_id}/payments") {
+                HttpPayrollRepository(it).pay(ID, SalaryPaymentBodyDto(Money.of("500.00"), ID, "2026-11-01", "Cash"))
+            },
+            // An examiner's marks and publish, and naming an exam's examiner.
+            Write("post", "/v1/me/exams/{exam_id}/marks") {
+                HttpMyExamsRepository(it).mark(ID, MarkWriteBody(ID, "marked", 18.0))
+            },
+            Write("post", "/v1/me/exams/{exam_id}/marks") {
+                HttpMyExamsRepository(it).mark(ID, MarkWriteBody(ID, "absent"))
+            },
+            Write("post", "/v1/me/exams/{exam_id}/publish") { HttpMyExamsRepository(it).publish(ID) },
+            Write("put", "/v1/exams/{exam_id}/examiner") { HttpExaminerRepository(it).setExaminer(ID, ID) },
+            Write("put", "/v1/exams/{exam_id}/examiner") { HttpExaminerRepository(it).setExaminer(ID, null) },
+            Write("put", "/v1/me/classes/{session_id}/topic") {
+                HttpMyClassesRepository(it).writeTopic(ID, ClassTopicBodyDto(1, ID, "Vectors", plan = false))
+            },
             Write("post", "/v1/payment-methods") {
                 HttpPaymentMethodsRepository(it).create(MOBILE_DRAFT)
             },

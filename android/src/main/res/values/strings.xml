@@ -33,6 +33,7 @@
     -->
     <string name="error_network_unreachable">Could not reach the server. Check your connection and try again.</string>
     <string name="error_unexpected">Something went wrong. Please try again.</string>
+    <string name="error_temporarily_unavailable">The service is busy right now. Please try again in a moment.</string>
     <string name="auth_otp_not_valid">That code is not valid. Request a new one.</string>
     <string name="auth_otp_temporarily_unavailable">Sign-in is temporarily unavailable. Please try again later.</string>
     <string name="auth_token_not_valid">Your session has ended. Please sign in again.</string>
@@ -49,6 +50,9 @@
     <string name="batch_create_subject_required">Add at least one subject.</string>
     <string name="enrollment_remove_claimed">This student has accepted their place and has a record. Mark them as left instead of removing them.</string>
     <string name="enrollment_remove_erased">This place records someone\'s request to erase their data. Add the number again to create a new, separate record.</string>
+    <string name="enrollment_remove_has_history">This place has payments, credit, attendance or marks recorded. Mark the student as left instead of removing them.</string>
+    <string name="enrollment_joined_on_out_of_range">The start date is too far from today. Check the year — a start can be up to a year ago or three months ahead.</string>
+    <string name="enrollment_inactive_from_before_joined">The leaving date is before the date this student joined.</string>
     <string name="authz_lens_not_available">You do not have access to this.</string>
     <string name="guardian_children_title">Your children</string>
     <string name="guardian_children_empty">No children yet. A teacher needs to record your number first.</string>
@@ -336,6 +340,13 @@
     <string name="queue_state_confirmed">Sent</string>
     <string name="queue_state_failed">Could not be sent. You can try again.</string>
     <string name="queue_state_conflicted">Someone changed this class. Look at what changed before deciding.</string>
+    <!--
+      The write queue could not be read (its key lost, or the file
+      damaged), so its records will never be sent. Said until
+      acknowledged, so the loss is never silent [C-46].
+    -->
+    <string name="queue_unreadable_title">Some unsent records were lost</string>
+    <string name="queue_unreadable_body">Records saved on this phone could not be read, so they were not sent. Check recent attendance and class topics, and enter anything missing again.</string>
 
     <!--
       The conflict-resolution screen. The densest Bangla text this
@@ -1292,12 +1303,20 @@
     <string name="settings_theme_light">Light</string>
     <string name="settings_theme_dark">Dark</string>
     <string name="settings_same_as_phone">Same as phone</string>
+    <!--
+      The language choice [C-39]. Each language is named in itself and
+      identically in both bundles, so it can be found by someone who
+      cannot read the language the app is drawn in now.
+    -->
+    <string name="settings_section_language">LANGUAGE</string>
+    <string name="settings_language_bangla">বাংলা</string>
+    <string name="settings_language_english">English</string>
     <string name="settings_section_text">TEXT SIZE</string>
     <string name="settings_text_large">Larger</string>
     <string name="settings_text_largest">Largest</string>
     <string name="more_section_app">APP</string>
     <string name="more_settings">Settings</string>
-    <string name="more_settings_sub">Notifications, theme and text size</string>
+    <string name="more_settings_sub">Language, notifications, theme and text size</string>
     <!-- Address in four parts (2026-11-05). -->
     <string name="address_house_label">House or flat</string>
     <string name="address_road_label">Road and area</string>

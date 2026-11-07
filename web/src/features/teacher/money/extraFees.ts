@@ -17,11 +17,13 @@ export type ChargeStatus = 'paid' | 'partly_paid' | 'unpaid' | 'waived'
 
 // ------------------------------------------------------------------ calls
 
-export const listExtraFees = (batchId: string) =>
-  request<Schemas['BatchExtraFeesResponse']>('GET', `/v1/batches/${enc(batchId)}/extra-fees`)
+export const listExtraFees = (batchId: string, signal?: AbortSignal) =>
+  request<Schemas['BatchExtraFeesResponse']>('GET', `/v1/batches/${enc(batchId)}/extra-fees`, {
+    signal,
+  })
 
-export const readExtraFee = (feeId: string) =>
-  request<Schemas['ExtraFeeDetailResponse']>('GET', `/v1/extra-fees/${enc(feeId)}`)
+export const readExtraFee = (feeId: string, signal?: AbortSignal) =>
+  request<Schemas['ExtraFeeDetailResponse']>('GET', `/v1/extra-fees/${enc(feeId)}`, { signal })
 
 export const raiseExtraFee = (batchId: string, body: Schemas['ExtraFeeRaiseRequest']) =>
   request<Schemas['ExtraFeeSummaryResponse']>('POST', `/v1/batches/${enc(batchId)}/extra-fees`, {

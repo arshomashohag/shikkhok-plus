@@ -338,6 +338,61 @@ jobs:
             -backend-config="bucket=$BUCKET" \
             -backend-config="key=$ENVIRONMENT/terraform.tfstate"
 
+      # **Whether this run may create the staging seeder**
+      # (infra/modules/seeder). Three rules, in order:
+      #
+      #   * Staging only, whatever ENABLE_SEEDER says. A repository-level
+      #     variable reaches every environment, and production's plan
+      #     refuses the seeder -- so passing it through would fail every
+      #     production deploy rather than protect anything.
+      #   * Once the function exists it stays on. Deploys own its image;
+      #     a check below turning it off would DESTROY it.
+      #   * Creating it needs the RUNNING image to be a single manifest.
+      #     This job runs before the build, so the function is created
+      #     from the last release, and an image built before
+      #     `provenance: false` is an OCI index Lambda refuses. Then the
+      #     seeder waits one deploy instead of failing this one, which
+      #     would also stop the release that fixes it.
+      #
+      # `get-function-configuration` prints ONLY the name: its response
+      # carries the function's environment, the database URL.
+      #
+      # In the plan job, as the read-only plan role, so the decision is
+      # part of the plan the -infra reviewer reads [C-11].
+      - name: Can the seeder be created on this run?
+        id: seeder
+        env:
+          WANTED: ${{ vars.ENABLE_SEEDER }}
+        run: |
+          prefix="shikkhokplus-${ENVIRONMENT}"
+          if [ "$ENVIRONMENT" != "staging" ] || [ "$WANTED" != "true" ]; then
+            echo "Seeder off (staging only, and only with ENABLE_SEEDER=true)."
+            echo "enable=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if aws lambda get-function-configuration --function-name "${prefix}-seeder" \
+               --query FunctionName --output text >/dev/null 2>&1; then
+            echo "Seeder exists; keeping it."
+            echo "enable=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          tag=$(aws ssm get-parameter --name "/shikkhokplus/${prefix}/image-tag" \
+                  --query Parameter.Value --output text)
+          media=none
+          if [ "$tag" != "none" ]; then
+            media=$(aws ecr describe-images --repository-name "${prefix}-backend" \
+                      --image-ids imageTag="$tag" \
+                      --query 'imageDetails[0].imageManifestMediaType' --output text)
+          fi
+          case "$media" in
+            application/vnd.docker.distribution.manifest.v2+json|application/vnd.oci.image.manifest.v1+json)
+              echo "Creating the seeder on ${tag:0:12} (${media})."
+              echo "enable=true" >> "$GITHUB_OUTPUT" ;;
+            *)
+              echo "::notice::The seeder is not created on this run: the running image (${tag:0:12}) is ${media}, which Lambda refuses. This release ships a plain manifest; deploy again and the seeder is created then."
+              echo "enable=false" >> "$GITHUB_OUTPUT" ;;
+          esac
+
       # `-lock=false`: planning takes no lock, so the plan role needs no
       # write on the state. A saved plan records the state it was made
       # against, and Terraform refuses to apply it if the state has moved
@@ -350,6 +405,8 @@ jobs:
           # Where alarms are emailed [OPS-11]. Required for production,
           # by the alert_routing_guard precondition [C-34].
           TF_VAR_alert_email: ${{ vars.ALERT_EMAIL }}
+          # The performance-test seeder: decided by the step above.
+          TF_VAR_enable_seeder: ${{ steps.seeder.outputs.enable }}
         run: |
           terraform plan -input=false -lock=false -no-color -out=tfplan
           terraform show -no-color tfplan > plan.txt
@@ -569,6 +626,14 @@ jobs:
           # redeploy rather than a rebuild.
           tags: ${{ steps.ecr.outputs.repository }}:${{ needs.plan.outputs.sha }}
           push: true
+          # **A plain single-platform manifest, no attestations.** buildx
+          # otherwise pushes an OCI image index carrying a provenance
+          # attestation, which Lambda refuses outright -- and the staging
+          # seeder (infra/modules/seeder) runs this same image. The host's
+          # `docker pull` accepts either shape, so this changes the
+          # manifest the registry holds and not what any host runs.
+          provenance: false
+          sbom: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -840,6 +905,33 @@ jobs:
             deploy/roll.sh "shikkhokplus-${ENVIRONMENT}"
           fi
           echo "::error::Deploy did not complete and was rolled back to ${PREVIOUS_TAG:0:12}."
+
+      # **The staging seeder follows the release** (infra/modules/seeder),
+      # so it never writes against a schema its code predates. After the
+      # rollback step, so it runs only for a release that stands, and
+      # non-blocking: a test tool must not fail a good release or hold
+      # back the web client behind it. A failure is a warning on the run.
+      #
+      # **One field of the response is printed, never the response.**
+      # UpdateFunctionCode answers with the function's configuration,
+      # environment included -- its database URL.
+      - name: Move the seeder to this release
+        continue-on-error: true
+        env:
+          FUNCTION: shikkhokplus-${{ inputs.environment }}-seeder
+          IMAGE: ${{ steps.ecr.outputs.repository }}:${{ needs.plan.outputs.sha }}
+        run: |
+          if status=$(aws lambda update-function-code --function-name "$FUNCTION" \
+                --image-uri "$IMAGE" --query 'LastUpdateStatus' --output text \
+                2>"$RUNNER_TEMP/seeder.err"); then
+            echo "Seeder moved to this release (update ${status})."
+          elif grep -q ResourceNotFoundException "$RUNNER_TEMP/seeder.err"; then
+            echo "No seeder in this environment: enable_seeder is off."
+          else
+            cat "$RUNNER_TEMP/seeder.err"
+            echo "::warning::The seeder was not moved to this release; it runs the previous image until the next deploy."
+            exit 1
+          fi
 
       - name: Forget the previous runtime env
         if: always()

@@ -477,20 +477,28 @@ def pay(
     :param client_mutation_id: The retry key
     :param note: A note, such as a receipt number
     :return: The line, with the payment counted
-    :raises ConflictError: The line is a draft, or the payment exceeds
-        what remains
+    :raises ConflictError: The line is a draft, the payment exceeds what
+        remains, or the retry key already paid something else
     """
     line = _owned_line(session, lens, line_id)
     if line.status != "approved":
         raise ConflictError(
             code="SALARY_NOT_APPROVED", message_key="payroll.not_approved"
         )
-    replay = session.scalar(
-        sa.select(Expense.id).where(
+    replay = session.execute(
+        sa.select(Expense.id, Expense.salary_line_id).where(
             Expense.recorded_by_account_id == lens.account_id,
             Expense.client_mutation_id == client_mutation_id,
         )
-    )
+    ).one_or_none()
+    if replay is not None and replay.salary_line_id != line.id:
+        # The key already paid something else. Returning this line as
+        # though paid would report success for a payment never made
+        # [audit C-30].
+        raise ConflictError(
+            code="MUTATION_ID_ALREADY_USED",
+            message_key="expenses.mutation_id_already_used",
+        )
     if replay is None:
         before = _view(session, line)
         if amount > before.remaining:

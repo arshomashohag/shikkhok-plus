@@ -775,6 +775,99 @@ sealed interface Destination {
         override val route: String = "centre/members"
     }
 
+    /** The chosen centre's timetable, for its managers. */
+    data object CentreTimetable : Destination {
+        override val route: String = "centre/timetable"
+    }
+
+    /** A centre teacher's assigned classes, a week at a time. */
+    data object MyClasses : Destination {
+        override val route: String = "me/classes"
+    }
+
+    /** One assigned class: its roster's attendance and its topic. */
+    data object MyClass : Destination {
+        override val route: String = "me/classes/{sessionId}"
+
+        /** The class argument's name. */
+        const val ARG_SESSION: String = "sessionId"
+
+        /**
+         * Build a concrete route.
+         *
+         * @param sessionId The class
+         * @return The route to navigate to
+         */
+        fun of(sessionId: String): String = "me/classes/$sessionId"
+    }
+
+    /** The exams a centre asked me to mark. */
+    data object MyExams : Destination {
+        override val route: String = "me/exams"
+    }
+
+    /** One exam's marks, as its examiner enters them. */
+    data object MyExamMarks : Destination {
+        override val route: String = "me/exams/{examId}"
+
+        /** The exam argument's name. */
+        const val ARG_EXAM: String = "examId"
+
+        /**
+         * Build a concrete route.
+         *
+         * @param examId The exam
+         * @return The route to navigate to
+         */
+        fun of(examId: String): String = "me/exams/$examId"
+    }
+
+    /** The chosen centre's payroll, for its managers. */
+    data object CentrePayroll : Destination {
+        override val route: String = "centre/payroll"
+    }
+
+    /** My own approved pay, at every centre. */
+    data object MyPay : Destination {
+        override val route: String = "me/pay"
+    }
+
+    /** The chosen centre's rooms. */
+    data object CentreRooms : Destination {
+        override val route: String = "centre/rooms"
+    }
+
+    /** The chosen centre's teachers and staff, for its managers. */
+    data object CentreStaff : Destination {
+        override val route: String = "centre/staff"
+    }
+
+    /** Inviting a teacher to the chosen centre. */
+    data object InviteStaffTeacher : Destination {
+        override val route: String = "centre/staff/teachers/new"
+    }
+
+    /** Adding someone who works at the chosen centre without app access. */
+    data object AddOtherStaff : Destination {
+        override val route: String = "centre/staff/new"
+    }
+
+    /** Correcting one staff record. */
+    data object EditStaff : Destination {
+        override val route: String = "centre/staff/{staffId}/edit"
+
+        /** The record argument's name. */
+        const val ARG_STAFF: String = "staffId"
+
+        /**
+         * Build a concrete route.
+         *
+         * @param staffId The record
+         * @return The route to navigate to
+         */
+        fun of(staffId: String): String = "centre/staff/$staffId/edit"
+    }
+
     /** The coaching centres' offers to this account, from a teacher's More. */
     data object CentreOffers : Destination {
         override val route: String = "centre-offers"

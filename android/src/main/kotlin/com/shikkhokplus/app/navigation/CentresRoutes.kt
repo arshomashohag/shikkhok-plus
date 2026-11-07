@@ -146,11 +146,26 @@ internal fun withWorkspaces(navController: NavHostController, base: MoreActions)
 }
 
 /**
- * The members row's action: only inside a centre.
+ * Whether the workspace in effect is a coaching centre.
+ *
+ * @return True inside a centre
+ */
+@Composable
+internal fun rememberInCentre(): Boolean {
+    val holder = LocalWorkspaces.current ?: return false
+    val offered by holder.offered.collectAsState()
+    val chosen by holder.state.collectAsState()
+    return (offered.firstOrNull { it.ownerId == chosen } ?: offered.firstOrNull())?.isCentre == true
+}
+
+/**
+ * A centre-only row's action: null outside a centre, where the screen
+ * would only be refused.
  *
  * @param base The rows so far, carrying the workspace in effect
+ * @param route Where the row leads
  * @param navigate Opens a route
  * @return The action, or null outside a centre
  */
-internal fun centreMembersOpener(base: MoreActions, navigate: (String) -> Unit): (() -> Unit)? =
-    if (base.currentWorkspace?.isCentre == true) ({ navigate(Destination.CentreMembers.route) }) else null
+internal fun centreOpener(base: MoreActions, route: String, navigate: (String) -> Unit): (() -> Unit)? =
+    if (base.currentWorkspace?.isCentre == true) ({ navigate(route) }) else null

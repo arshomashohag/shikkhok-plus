@@ -46,7 +46,7 @@ export function Inbox() {
   const { t, lang, message: messageText } = useT()
   const navigate = useNavigate()
   const { session } = useReadySession()
-  const { resource, reload } = useResource(() => readInbox().then(mapInbox), [])
+  const { resource, reload } = useResource((signal) => readInbox(signal).then(mapInbox), [])
   const [paymentsOnly, setPaymentsOnly] = useState(false)
   const [busy, setBusy] = useState(false)
   const [writeError, setWriteError] = useState<string | null>(null)
@@ -191,7 +191,7 @@ export function InboxItem() {
   const { notificationId = '' } = useParams()
   const { t } = useT()
   const { resource, reload } = useResource(
-    () => readInboxItem(notificationId).then(mapDetail),
+    (signal) => readInboxItem(notificationId, signal).then(mapDetail),
     [notificationId],
   )
 

@@ -19,6 +19,7 @@ from app.db.models import Enrollment, Notification
 from app.errors import AuthorizationError
 from app.notifications.inbox import NOTICE, inbox, mark_read
 from app.teaching.announcements import (
+    PREVIEW_LENGTH,
     delete_announcement,
     edit_announcement,
     post_announcement,
@@ -73,7 +74,7 @@ def test_posting_a_notice_reaches_every_accepted_family_member(
         assert [(i.kind, i.source_id) for i in items] == [
             (NOTICE, posted.announcement_id)
         ]
-        assert items[0].preview == "x" * 140
+        assert items[0].preview == "x" * 59 + "\u2026"
     assert inbox(restricted_session, account_id=stranger).items == []
 
 
@@ -248,3 +249,55 @@ def test_notice_rows_commit_with_the_notice(
         .where(Notification.kind == NOTICE)
     )
     assert count == 0
+
+
+def test_fan_out_is_one_insert_whatever_the_batch_size(
+    owner_session: DbSession,
+    restricted_session: DbSession,
+    restricted_engine: sa.Engine,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """A notice to many seats writes its inbox rows in one statement.
+
+    Row-by-row ORM inserts cost about ten times as much at a thousand
+    seats; this keeps the fan-out from sliding back to them.
+    """
+    seats = 25
+    for index in range(seats):
+        enroll(
+            owner_session,
+            batch_id=teacher.batch_id,
+            display_name=f"Child {index}",
+            student_account_id=account_factory(),
+            guardian_account_id=account_factory(),
+            student_decision="accepted",
+            guardian_decision="accepted",
+        )
+    inserts: list[str] = []
+
+    def count(*args: object) -> None:
+        statement = str(args[2])
+        if statement.lstrip().upper().startswith("INSERT INTO NOTIFICATION"):
+            inserts.append(statement)
+
+    sa.event.listen(restricted_engine, "before_cursor_execute", count)
+    try:
+        post_announcement(
+            restricted_session,
+            lens=_lens(teacher),
+            batch_id=teacher.batch_id,
+            body="Hi",
+        )
+    finally:
+        sa.event.remove(restricted_engine, "before_cursor_execute", count)
+
+    assert len(inserts) == 1
+    written = restricted_session.scalar(
+        sa.select(sa.func.count()).select_from(Notification)
+    )
+    assert written == seats * 2
+
+
+def test_preview_length_is_the_inbox_line_length() -> None:
+    assert PREVIEW_LENGTH == 60
