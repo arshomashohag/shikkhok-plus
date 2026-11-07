@@ -8,7 +8,8 @@
  */
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router'
-import { readQueue } from '../api/endpoints'
+import { request } from '../api/client'
+import type { components } from '../api/schema'
 import { useT } from '../i18n/i18n'
 import { usePwa } from '../pwa/pwa'
 import { useReadySession } from '../session/session'
@@ -65,6 +66,9 @@ function storeCollapsed(value: boolean): void {
  * again on every navigation, so deciding one on the Verify screen and
  * moving on shows the new number. Null until known or when it fails --
  * the count is a convenience and never blocks the rail.
+ *
+ * Asks the count route, which builds no review: the whole queue was read
+ * on every route change only to take its length.
  */
 function useVerifyCount(enabled: boolean): number | null {
   const { pathname } = useLocation()
@@ -72,9 +76,12 @@ function useVerifyCount(enabled: boolean): number | null {
   useEffect(() => {
     if (!enabled) return
     let live = true
-    readQueue().then(
+    request<components['schemas']['VerificationQueueCountResponse']>(
+      'GET',
+      '/v1/claims/queue/count',
+    ).then(
       (q) => {
-        if (live) setCount(q.pending.length)
+        if (live) setCount(q.pending)
       },
       () => {
         if (live) setCount(null)

@@ -1606,6 +1606,33 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/v1/claims/queue/count': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Read Verification Queue Count
+     * @description Count the payments waiting for this teacher, for the nav badge.
+     *
+     *     One statement, building no review: the badge needs the length of
+     *     ``GET /claims/queue``'s ``pending`` list and nothing else [C-13].
+     *
+     *     :param session: The request-scoped session
+     *     :param lens: The teacher lens
+     *     :return: How many wait to be checked
+     */
+    get: operations['read_verification_queue_count_v1_claims_queue_count_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/v1/claims/{claim_id}': {
     parameters: {
       query?: never
@@ -3582,12 +3609,19 @@ export interface paths {
      * List Students
      * @description List this teacher's students, filtered server-side.
      *
+     *     **Optional keyset pages** [C-14]: ``limit`` and ``after`` page the
+     *     same ordered list. Without them the response is the whole list,
+     *     exactly as before they existed, so a client that sends neither is
+     *     unaffected.
+     *
      *     :param lens: The teacher lens carrying the owner id
      *     :param session: The request-scoped session
      *     :param batch_id: Only students in this batch
      *     :param unassigned: Only students in no batch
      *     :param exclude_batch_id: Only students NOT in this batch
      *     :param q: Only students whose name or number contains this
+     *     :param limit: At most this many students; all when omitted
+     *     :param after: The last student of the previous page
      *     :return: One row per student, by name
      */
     get: operations['list_students_v1_students_get']
@@ -8907,6 +8941,17 @@ export interface components {
       type: string
     }
     /**
+     * VerificationQueueCountResponse
+     * @description How many payments wait for the teacher, for a badge.
+     *
+     *     :ivar pending: Waiting submissions; the length of the queue's
+     *         ``pending`` list
+     */
+    VerificationQueueCountResponse: {
+      /** Pending */
+      pending: number
+    }
+    /**
      * VerificationQueueResponse
      * @description The teacher's payment queue.
      *
@@ -13616,6 +13661,44 @@ export interface operations {
       }
       /** @description A transient failure; retryable */
       503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  read_verification_queue_count_v1_claims_queue_count_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['VerificationQueueCountResponse']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle. */
+      403: {
         headers: {
           [name: string]: unknown
         }
@@ -18921,6 +19004,10 @@ export interface operations {
         unassigned?: boolean
         exclude_batch_id?: string | null
         q?: string | null
+        /** @description Return at most this many students. Omitted, the whole list is returned, as before pagination existed. */
+        limit?: number | null
+        /** @description Keyset cursor: the student_id of the last student of the previous page. The next page starts after it in the list's order (name, case-insensitively, then id). A page shorter than limit is the last one. A student_id that is not this teacher's answers 404. */
+        after?: string | null
       }
       header?: never
       path?: never

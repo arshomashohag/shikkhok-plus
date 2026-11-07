@@ -152,3 +152,32 @@ def test_a_student_cannot_read_the_teachers_queue(
     response = client.get("/v1/claims/queue", headers=_bearer(owner_session, student))
 
     assert response.status_code == 403
+
+
+def test_the_count_route_gives_the_queue_length_to_its_teacher_only(
+    client: TestClient,
+    owner_session: Session,
+    teacher: TeacherFixture,
+    account_factory: Callable[[], uuid.UUID],
+) -> None:
+    """``/claims/queue/count`` is the badge figure, behind the teacher lens.
+
+    :param client: The test client
+    :param owner_session: An arranging session
+    :param teacher: The batch's owner
+    :param account_factory: Makes accounts
+    :return: None
+    """
+    student = account_factory()
+    _pending_payment(owner_session, teacher, student)
+    headers = _bearer(owner_session, teacher.account_id)
+
+    counted = client.get("/v1/claims/queue/count", headers=headers)
+    queue = client.get("/v1/claims/queue", headers=headers).json()
+
+    assert counted.status_code == 200, counted.text
+    assert counted.json() == {"pending": len(queue["pending"])} == {"pending": 1}
+    refused = client.get(
+        "/v1/claims/queue/count", headers=_bearer(owner_session, student)
+    )
+    assert refused.status_code == 403

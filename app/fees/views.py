@@ -55,7 +55,7 @@ from app.db.models import (
 )
 from app.errors import AuthorizationError
 from app.errors.codes import NOT_AVAILABLE
-from app.fees.balances import derive_for_enrollment, entries_for_enrollment
+from app.fees.balances import entries_for_enrollment
 from app.fees.overdue import days_overdue
 from app.fees.status import (
     CLAIM_STATUS_VALUES,
@@ -66,9 +66,9 @@ from app.fees.status import (
     MonthState,
     ShortfallDisposition,
     SubmissionStatus,
-    fee_status,
     month_state,
     status_from_entries,
+    statuses_from_entries,
 )
 from app.fees.submissions import child_order
 from app.local_time import bangladesh_today
@@ -664,7 +664,9 @@ def batch_month(
     seats = batch_fee_overview(
         session, lens=lens, batch_id=batch_id, today=on, period=month
     )
-    facts = facts_for_seats(session, [seat.enrollment_id for seat in seats])
+    facts = facts_for_seats(
+        session, [seat.enrollment_id for seat in seats], across_seats=True
+    )
     states = [seat.state for seat in seats]
     return BatchMonth(
         period=month,
@@ -680,16 +682,27 @@ def batch_month(
 
 
 def month_strip(
-    session: Session, enrollment_id: uuid.UUID, window: list[str]
+    session: Session,
+    enrollment_id: uuid.UUID,
+    window: list[str],
+    *,
+    entries: list[LedgerEntry] | None = None,
 ) -> list[MonthStateRow]:
     """Give one seat's state for each month of a window that has one.
+
+    The seat's ledger is folded ONCE for the whole window, never once
+    per month [C-14].
 
     :param session: The session to read through
     :param enrollment_id: The seat, already authorized
     :param window: Period keys, oldest first
+    :param entries: The seat's entries when the caller already read
+        them, raw or summed per (period, kind); read here otherwise
     :return: The months that have a state, oldest first
     """
-    entries = entries_for_enrollment(session, enrollment_id)
+    if entries is None:
+        entries = entries_for_enrollment(session, enrollment_id)
+    statuses = statuses_from_entries(entries)
     claims = claims_by_month(session, [enrollment_id], window)
     strip: list[MonthStateRow] = []
     for month in window:
@@ -698,6 +711,7 @@ def month_strip(
             entries,
             month,
             checking=month_claims is not None and month_claims.checking,
+            statuses=statuses,
         )
         if state is not None:
             strip.append(
@@ -756,7 +770,14 @@ def enrollment_fee_history(
     """
     _readable_enrollment(session, lens=lens, enrollment_id=enrollment_id)
 
-    derived = derive_for_enrollment(session, enrollment_id)
+    # ONE ledger read and ONE fold for the whole history [C-14]: the
+    # balance, every cycle's status and the strip all come from the same
+    # summed facts, rather than a full ledger read per cycle.
+    facts = facts_for_seats(session, [enrollment_id])
+    entries = [fact.entry for fact in facts]
+    derived = derive(entries)
+    statuses = statuses_from_entries(entries)
+    charged = _charged_by_period(facts)
     cycles = list(
         session.scalars(
             sa.select(FeeCycle)
@@ -765,23 +786,22 @@ def enrollment_fee_history(
         )
     )
 
-    facts = facts_for_seats(session, [enrollment_id])
     rows: list[FeeCycleRow] = []
     for cycle in cycles:
-        charged = _charged_in(facts, cycle.period)
         rows.append(
             FeeCycleRow(
                 period=cycle.period,
                 due_date=cycle.due_date,
-                charged=charged,
+                charged=charged.get(cycle.period, Money.ZERO),
                 outstanding=derived.per_cycle.get(cycle.period, Money.ZERO),
-                status=fee_status(
-                    session, enrollment_id=enrollment_id, period=cycle.period
-                ),
+                # A generated cycle always carries its charge; a cycle
+                # with no entries at all is refused exactly as
+                # ``fee_status`` refused it.
+                status=statuses[cycle.period],
             )
         )
     window = months_ending(today or bangladesh_today(), clamp_months(months))
-    strip = month_strip(session, enrollment_id, window)
+    strip = month_strip(session, enrollment_id, window, entries=entries)
     return FeeHistory(
         cycles=rows,
         total_outstanding=derived.total_outstanding,
@@ -789,8 +809,8 @@ def enrollment_fee_history(
     )
 
 
-def _charged_in(facts: list[LedgerFact], period: str) -> Money:
-    """Total what was charged for one period, after corrections.
+def _charged_by_period(facts: list[LedgerFact]) -> dict[str, Money]:
+    """Total what was charged for each period, after corrections.
 
     ``charge`` and ``carry_forward`` both place an obligation on a
     period, so both count: a period that received a carried balance was
@@ -801,12 +821,13 @@ def _charged_in(facts: list[LedgerFact], period: str) -> Money:
     decision moves neither figure.
 
     :param facts: The seat's rows with their correction flags
-    :param period: The period
-    :return: The total charged for it
+    :return: The total charged per period; periods charged nothing are
+        absent
     """
-    return charged_by_period(facts).get(period, Money.ZERO) + carried_in_by_period(
-        facts
-    ).get(period, Money.ZERO)
+    totals = dict(charged_by_period(facts))
+    for period, carried in carried_in_by_period(facts).items():
+        totals[period] = totals.get(period, Money.ZERO) + carried
+    return totals
 
 
 def claim_detail(

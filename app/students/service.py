@@ -33,7 +33,7 @@ from dataclasses import dataclass
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
-from app.analytics.seats import ledger_for_seats
+from app.analytics.seats import owing_ledger_for_seats
 from app.authz.lenses import TeacherLens
 from app.batches.service import (
     BatchNotFound,
@@ -259,7 +259,9 @@ def _rows(session: Session, students: list[Student]) -> list[StudentRow]:
         .where(Enrollment.student_id.in_(ids))
         .order_by(Batch.name, Enrollment.id)
     ).all()
-    ledger = ledger_for_seats(session, [seat.id for seat, _, _ in seats])
+    # Only what each seat owes is shown, so only months still owing are
+    # folded [C-14].
+    ledger = owing_ledger_for_seats(session, [seat.id for seat, _, _ in seats])
 
     by_student: dict[uuid.UUID, list[tuple[Enrollment, str, Money | None]]] = (
         defaultdict(list)
@@ -311,18 +313,33 @@ def _rows(session: Session, students: list[Student]) -> list[StudentRow]:
 
 
 def list_students(
-    session: Session, *, lens: TeacherLens, where: StudentFilter | None = None
+    session: Session,
+    *,
+    lens: TeacherLens,
+    where: StudentFilter | None = None,
+    limit: int | None = None,
+    after: uuid.UUID | None = None,
 ) -> list[StudentRow]:
     """List this teacher's students, filtered server-side.
 
     The filters run here rather than on the client, because filtering a
     domain list is a decision the server owes the client [TC-9].
 
+    **Keyset pages, when asked for** [C-14]. The order is
+    ``(lower(display_name), id)``, so a page is "the next ``limit``
+    students after this one" and stays correct while students are added
+    between pages, which an offset would not. With neither argument the
+    whole list is returned, as it always was.
+
     :param session: The session to query through
     :param lens: The teacher lens carrying the owner id
     :param where: Which students to list; all of them when None
+    :param limit: At most this many; None for all
+    :param after: Continue after this student, the last of the previous
+        page; None to start from the first
     :return: One row per student, ordered by name
     :raises BatchNotFound: A filter names a batch this lens does not own
+    :raises StudentNotFound: ``after`` is no student of this lens's
     """
     where = where or StudentFilter()
     statement = sa.select(Student).where(
@@ -350,11 +367,20 @@ def list_students(
                 Student.guardian_phone.ilike(pattern, escape="\\"),
             )
         )
-    students = list(
-        session.execute(
-            statement.order_by(sa.func.lower(Student.display_name), Student.id)
-        ).scalars()
-    )
+    key = sa.func.lower(Student.display_name)
+    if after is not None:
+        # Archived or not: a student archived between two pages still
+        # marks where the previous page ended.
+        mark = session.execute(
+            sa.select(key).where(Student.id == after, Student.owner_id == lens.owner_id)
+        ).scalar_one_or_none()
+        if mark is None:
+            raise StudentNotFound
+        statement = statement.where(sa.tuple_(key, Student.id) > (mark, after))
+    statement = statement.order_by(key, Student.id)
+    if limit is not None:
+        statement = statement.limit(limit)
+    students = list(session.execute(statement).scalars())
     return _rows(session, students)
 
 

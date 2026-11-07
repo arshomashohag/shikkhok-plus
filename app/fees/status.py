@@ -15,6 +15,7 @@ module returns and performs no arithmetic of its own.
 from __future__ import annotations
 
 import uuid
+from collections.abc import Mapping
 from typing import Final, Literal
 
 from sqlalchemy.orm import Session
@@ -36,6 +37,7 @@ __all__ = [
     "fee_status",
     "month_state",
     "status_from_entries",
+    "statuses_from_entries",
 ]
 
 #: The four statuses as a TYPE, not only as a tuple of strings.
@@ -145,8 +147,42 @@ def status_from_entries(entries: list[LedgerEntry], period: str) -> FeeStatus:
         raise KeyError(period)
 
     outstanding = derive(entries).per_cycle.get(period, Money.ZERO)
-    kinds = {entry.kind for entry in in_period}
+    return _status(outstanding, {entry.kind for entry in in_period})
 
+
+def statuses_from_entries(entries: list[LedgerEntry]) -> dict[str, FeeStatus]:
+    """Compute every period's status from ONE fold of one seat's entries.
+
+    :func:`status_from_entries` folds the whole ledger to answer one
+    period, so asking it once per cycle is quadratic in the seat's age
+    [C-14]. This folds once and answers every period an entry touches,
+    by the same rule: a period absent from the result is one
+    :func:`status_from_entries` refuses with ``KeyError``.
+
+    Entries summed per (period, kind) give the same answer, because the
+    rule reads only the fold's per-period outstanding and which kinds
+    are present -- ``tests/fees/test_status_single_fold.py``.
+
+    :param entries: Every entry for ONE enrollment, in any order
+    :return: Period to its status, for every period with entries
+    """
+    per_cycle = derive(entries).per_cycle
+    kinds: dict[str, set[LedgerEntryKind]] = {}
+    for entry in entries:
+        kinds.setdefault(entry.period, set()).add(entry.kind)
+    return {
+        period: _status(per_cycle.get(period, Money.ZERO), present)
+        for period, present in kinds.items()
+    }
+
+
+def _status(outstanding: Money, kinds: set[LedgerEntryKind]) -> FeeStatus:
+    """Name a period's status from its balance and the kinds it holds.
+
+    :param outstanding: What the period still owes, floored at zero
+    :param kinds: The kinds of the period's entries; never empty
+    :return: One of :data:`FEE_STATUS_VALUES`
+    """
     if outstanding.is_positive():
         # Something is still owed. Partly paid only if some relief was
         # actually recorded -- otherwise nothing has happened to it.
@@ -180,7 +216,11 @@ def fee_status(
 
 
 def month_state(
-    entries: list[LedgerEntry], period: str, *, checking: bool
+    entries: list[LedgerEntry],
+    period: str,
+    *,
+    checking: bool,
+    statuses: Mapping[str, FeeStatus] | None = None,
 ) -> MonthState | None:
     """Compute one month's state, with a waiting payment taking precedence.
 
@@ -191,11 +231,16 @@ def month_state(
     :param entries: Every entry for ONE enrollment, in any order
     :param period: The period, as ``YYYY-MM``
     :param checking: Whether a claim for this period awaits the teacher
+    :param statuses: Every period's status from
+        :func:`statuses_from_entries`, when the caller asks for several
+        months of one seat; ``entries`` is then not folded again
     :return: The state, or None when the month has neither entries nor a
         waiting payment
     """
     if checking:
         return "checking"
+    if statuses is not None:
+        return statuses.get(period)
     try:
         return status_from_entries(entries, period)
     except KeyError:
