@@ -13706,6 +13706,24 @@ export interface operations {
           'application/json': components['schemas']['ErrorEnvelope']
         }
       }
+      /** @description An unexpected failure; not retryable */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description A transient failure; retryable */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
     }
   }
   read_claim_v1_claims__claim_id__get: {
