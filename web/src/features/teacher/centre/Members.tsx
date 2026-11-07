@@ -11,7 +11,15 @@ import { ApiError } from '../../../api/errors'
 import { formatPhone, normalisePhone } from '../../../core/format'
 import { useResource } from '../../../core/useResource'
 import { useT } from '../../../i18n/i18n'
-import { EmptyState, ErrorCard, Loading, Sheet, Snackbar, TopBar } from '../../../ui/components'
+import {
+  EmptyState,
+  ErrorCard,
+  Loading,
+  Sheet,
+  Snackbar,
+  StaleBanner,
+  TopBar,
+} from '../../../ui/components'
 import { PlusIcon, WarningIcon } from '../../../ui/icons'
 
 type Member = Schemas['MemberResponse']
@@ -177,6 +185,8 @@ export function Members() {
   const [inviting, setInviting] = useState(false)
   const [removing, setRemoving] = useState<Member | null>(null)
   const [snack, setSnack] = useState<string | null>(null)
+  // Remove a member only from a read the server just confirmed.
+  const fresh = resource.state === 'loaded' && !resource.refreshing && resource.error === null
 
   let body: React.ReactNode
   if (resource.state === 'loading') body = <Loading rows={3} />
@@ -185,6 +195,9 @@ export function Members() {
   else
     body = (
       <>
+        {resource.error ? (
+          <StaleBanner error={resource.error} loadedAt={resource.loadedAt} />
+        ) : null}
         {resource.data.length <= 1 ? (
           <EmptyState title={t('centre_members_title')} body={t('centre_members_empty')} />
         ) : null}
@@ -210,6 +223,7 @@ export function Members() {
                   <button
                     type="button"
                     className="btn btn-text btn-small"
+                    disabled={!fresh}
                     onClick={() => setRemoving(m)}
                   >
                     {t('centre_member_remove')}
