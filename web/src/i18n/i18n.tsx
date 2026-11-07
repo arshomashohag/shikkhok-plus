@@ -36,6 +36,16 @@ export const BUNDLES: Record<Lang, Bundle> = {
   bn: { ...(bn as Bundle), ...WEB_BN },
 }
 
+/**
+ * Add a separately built app's own strings — the admin app's
+ * (`src/admin/strings.ts`) — before its first render. Kept out of the
+ * `web/*.json` glob above so the main app's bundle never carries them.
+ */
+export function addStrings(extra: Record<Lang, Record<string, string>>): void {
+  Object.assign(BUNDLES.en, extra.en)
+  Object.assign(BUNDLES.bn, extra.bn)
+}
+
 /** Server `message_key` → string resource name. */
 export const MESSAGE_KEYS: Record<string, string> = messageKeys
 

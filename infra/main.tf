@@ -108,9 +108,19 @@ locals {
     ecr              = 0.10
     cloudfront       = 0.00
     acm              = 0.00
-    rds              = var.enable_rds ? 17.36 : 0.00
-    alarms           = length(local.alarm_names) * 0.10
-    logs             = 0.50
+    # The public site (modules/site): a second distribution, certificate
+    # and CloudFront Function, all inside their free tiers, and a bucket
+    # holding under a megabyte -- a fraction of a cent.
+    site = 0.00
+    # The admin surface (modules/admin): a third distribution, certificate
+    # and CloudFront Function, all inside their free tiers, a bucket of a
+    # few hundred kilobytes, and Standard SSM parameters, which are free.
+    # No WAF: the IP allowlist is a CloudFront Function, which is why it
+    # costs nothing.
+    admin  = 0.00
+    rds    = var.enable_rds ? 17.36 : 0.00
+    alarms = length(local.alarm_names) * 0.10
+    logs   = 0.50
     # Pay per invocation: a three-month seed is about 60 GB-seconds on
     # arm64, a fraction of a cent, and inside the free tier anyway.
     seeder = 0.00
@@ -312,6 +322,107 @@ resource "aws_ssm_parameter" "web_url" {
   type        = "String"
   value       = module.cdn.web_url
   description = "The web client's public URL. Read by deploy.yml's web smoke."
+}
+
+# ---------------------------------------------------------------------
+# The public site: the zone apex and www, on a distribution of its own
+# ---------------------------------------------------------------------
+#
+# modules/site carries the design. The apex of the project zone was free:
+# the zone holds only its NS and SOA there, and every other record is a
+# sub-name (api., app., origin., the ACM validation CNAMEs). Always on --
+# no toggle, since it costs nothing and every environment wants its site.
+module "site" {
+  source = "./modules/site"
+
+  providers = {
+    aws           = aws
+    aws.us_east_1 = aws.us_east_1
+  }
+
+  name_prefix = local.name_prefix
+  domain_name = local.project_domain
+  zone_id     = aws_route53_zone.project.zone_id
+}
+
+# **Where deploy.yml puts the site, on the same terms as the web client**
+# [OPS-3]: three plain String parameters the deploy role reads instead of
+# Terraform state.
+resource "aws_ssm_parameter" "site_bucket" {
+  name        = "/shikkhokplus/${local.name_prefix}/site-bucket"
+  type        = "String"
+  value       = module.site.bucket
+  description = "Bucket deploy.yml uploads the built public site to, at the root."
+}
+
+resource "aws_ssm_parameter" "site_distribution_id" {
+  name        = "/shikkhokplus/${local.name_prefix}/site-distribution-id"
+  type        = "String"
+  value       = module.site.distribution_id
+  description = "The public site's distribution, invalidated by deploy.yml after an upload."
+}
+
+resource "aws_ssm_parameter" "site_url" {
+  name        = "/shikkhokplus/${local.name_prefix}/site-url"
+  type        = "String"
+  value       = module.site.url
+  description = "The public site's origin. deploy.yml builds the site with it as SITE_URL and smokes it."
+}
+
+# ---------------------------------------------------------------------
+# The platform admin surface: its own hostname, behind an IP allowlist
+# ---------------------------------------------------------------------
+#
+# modules/admin carries the design. The admin API (/v1/admin/*) is served
+# only here; the public API distribution answers it 404 (modules/cdn), and
+# the application refuses it without the X-Admin-Edge header this
+# distribution adds. Always on, like the site: it costs nothing, and with
+# admin_allowed_cidrs empty (the default) it lets nobody in, so an
+# environment nobody has allowlisted is closed rather than open.
+module "admin" {
+  source = "./modules/admin"
+
+  providers = {
+    aws           = aws
+    aws.us_east_1 = aws.us_east_1
+  }
+
+  name_prefix     = local.name_prefix
+  domain_name     = local.project_domain
+  zone_id         = aws_route53_zone.project.zone_id
+  admin_subdomain = var.admin_subdomain
+
+  admin_allowed_cidrs = var.admin_allowed_cidrs
+
+  # The same origin and origin secret the API distribution uses: one
+  # nginx, one application, reached by two distributions.
+  origin_fqdn   = module.app.origin_fqdn
+  origin_secret = module.app.origin_secret
+}
+
+# **Where deploy.yml puts the admin UI, on the same terms as the site**
+# [OPS-3]: plain String parameters the deploy role reads instead of
+# Terraform state. The fourth, the edge secret, is a SecureString the
+# module publishes itself (modules/admin), beside the value it generates.
+resource "aws_ssm_parameter" "admin_bucket" {
+  name        = "/shikkhokplus/${local.name_prefix}/admin-bucket"
+  type        = "String"
+  value       = module.admin.bucket
+  description = "Bucket deploy.yml uploads the built admin UI to, at the root."
+}
+
+resource "aws_ssm_parameter" "admin_distribution_id" {
+  name        = "/shikkhokplus/${local.name_prefix}/admin-distribution-id"
+  type        = "String"
+  value       = module.admin.distribution_id
+  description = "The admin distribution, invalidated by deploy.yml after an upload."
+}
+
+resource "aws_ssm_parameter" "admin_url" {
+  name        = "/shikkhokplus/${local.name_prefix}/admin-url"
+  type        = "String"
+  value       = module.admin.url
+  description = "The admin surface's origin. deploy.yml smokes it (403 from off the allowlist)."
 }
 
 module "database" {

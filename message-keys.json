@@ -76,6 +76,8 @@
     "fees.verification.disposition_not_applicable",
     "fees.verification.disposition_required",
     "fees.verification.disposition_unknown",
+    "help.ticket.not_found",
+    "help.ticket.too_many",
     "inbox.not_available",
     "marks.exam.cancelled",
     "marks.exam.published",

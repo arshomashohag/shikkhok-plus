@@ -1,4 +1,5 @@
 dist
+dist-admin
 dev-dist
 node_modules
 coverage

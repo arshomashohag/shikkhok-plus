@@ -21,6 +21,7 @@ import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_MY_CHILDREN
 import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_PAYMENT_METHODS
 import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_SIGN_OUT
 import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_SETTINGS
+import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_HELP
 import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_SWITCH_LENS
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -268,5 +269,24 @@ class ProfileScreenTest {
         compose.onNodeWithTag(TAG_PROFILE_SETTINGS).performScrollTo().assertIsEnabled().performClick()
 
         assertEquals(1, opened)
+    }
+
+    @Test
+    fun `the Help centre is a row under APP and waits for a connection`() {
+        var opened = 0
+        render(actions = MoreActions(onHelp = { opened++ }))
+
+        compose.onNodeWithText("APP").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Help centre").assertExists()
+        compose.onNodeWithTag(TAG_PROFILE_HELP).performScrollTo().assertIsEnabled().performClick()
+        assertEquals(1, opened)
+    }
+
+    @Test
+    fun `offline, the Help centre row stays in place, greyed`() {
+        render(state = viewing.copy(offline = true), actions = MoreActions(onSettings = {}, onHelp = {}))
+
+        compose.onNodeWithTag(TAG_PROFILE_SETTINGS).performScrollTo().assertIsEnabled()
+        compose.onNodeWithTag(TAG_PROFILE_HELP).performScrollTo().assertIsNotEnabled()
     }
 }

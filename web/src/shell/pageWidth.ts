@@ -21,6 +21,7 @@ const FORM: RegExp[] = [
   /^\/payment-methods\/[^/]+$/,
   /^\/profile\/(?:edit|delete)$/,
   /^\/settings$/,
+  /^\/help\/new$/,
   new RegExp(`^/${SEAT}/pay$`),
 ]
 
@@ -28,6 +29,7 @@ const READING: RegExp[] = [
   /^\/more$/,
   /^\/invitations$/,
   /^\/inbox(?:\/[^/]+)?$/,
+  /^\/help(?:\/[^/]+)?$/,
   /^\/profile\/children$/,
   /^\/payment-methods$/,
   /^\/seats\/[^/]+\/(?:fees|progress)$/,

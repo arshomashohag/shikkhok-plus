@@ -143,6 +143,59 @@ never on merge, and never from a branch: the infrastructure role trusts
 no `ref:` subject [OPS-2]. Production's apply additionally waits for a
 human to read the plan.
 
+## The public site
+
+`modules/site` serves `site/` (the marketing pages and FAQ, English and
+Bangla) at the project zone's apex -- `https://shikkhokplus.<apex>` in
+staging, `https://shikkhokplus-prod.<apex>` in production -- with
+`www.` redirecting to it. A private bucket behind its **own**
+distribution and certificate, not the API's: the site calls no API, so
+sharing would buy nothing and would add cached behaviours to the one
+distribution that must cache nothing by default.
+
+The edge caches everything for up to a year (a cache policy that honours
+the origin's `Cache-Control`); the deploy uploads hashed assets as
+`immutable` and pages with `max-age=300, s-maxage=31536000`, then
+invalidates `/*`. `site/README.md` has the details, and the first deploy
+needs `bootstrap/` re-applied (see `bootstrap/README.md`).
+
+## The platform admin surface
+
+`modules/admin` serves the admin UI and the admin API (`/v1/admin/*`) at
+`https://admin.<project zone>` -- its **own** distribution, certificate
+and bucket, because the IP allowlist is a CloudFront Function and a
+function can gate only its own distribution's behaviours. WAF would do
+the same for USD 5/month plus rules; the function costs nothing.
+
+```
+admin.<zone>/            admin-gate: IP check, then SPA rewrite -> admin bucket (OAC)
+admin.<zone>/v1/admin/*  admin-gate: IP check -> origin.<zone>, adding
+                         X-Origin-Secret (nginx) and X-Admin-Edge (the app)
+api.<zone>/v1/admin*     admin-block: 404 at the edge, never forwarded
+anyone off the list      403 "Not available from this network." on every path
+```
+
+- **IPv4 only.** `is_ipv6_enabled = false` and an A record with no AAAA,
+  so every viewer arrives over IPv4 and `admin_allowed_cidrs` holds IPv4
+  CIDRs only (validated).
+- **Empty allowlist = nobody gets in.** The default. In CI the list is the
+  `SHIKKHOKPLUS_ADMIN_ALLOWED_CIDRS` repository secret (a secret, not a variable: the repository and its Actions logs are public) (comma-separated);
+  changing it is a deploy, which republishes the function in seconds.
+- **Three independent locks on the admin API:** the edge allowlist; the
+  `X-Admin-Edge` secret only this distribution sends, which the
+  application requires (`SHIKKHOKPLUS_ADMIN_EDGE_SECRET`, copied from the
+  `admin-edge-secret` SecureString into the runtime env by the deploy);
+  and the application's own check of `X-Client-Address` against the same
+  list (`SHIKKHOKPLUS_ADMIN_ALLOWED_CIDRS`). Then sign-in and the second
+  factor.
+- The deploy's `admin` job smokes it from the GitHub runner, which is not
+  on the list: `https://admin.<zone>/` must answer **403** and
+  `https://api.<zone>/v1/admin/overview` **404**.
+
+The CloudFront Functions are tested without dependencies:
+`make infra-functions` (`node --test`). The first deploy needs
+`bootstrap/` re-applied (see `bootstrap/README.md`).
+
 ## Reading the outputs
 
 The apply job writes `api_url`, `app_static_ip` and

@@ -166,13 +166,28 @@ resource "aws_iam_role_policy" "deploy" {
         ]
       },
       {
-        # The public URLs, and the two names the web upload needs, all
-        # published by Terraform so this role never reads state [OPS-3].
+        # The public URLs, and the names the web, site and admin uploads
+        # need, all published by Terraform so this role never reads state
+        # [OPS-3].
+        #
+        # **One secret among them: `admin-edge-secret`**, a SecureString
+        # (modules/admin). The release copies it into the runtime env as
+        # SHIKKHOKPLUS_ADMIN_EDGE_SECRET, because the application must
+        # know the X-Admin-Edge value the admin distribution sends. That
+        # is no new reach: this role already writes the runtime env, which
+        # holds the JWT and OTP keys. Decryption is the existing
+        # ParameterEncryption grant below, usable only through SSM, and
+        # SSM lets this role read only the parameters named here.
         Sid    = "PublicUrl"
         Effect = "Allow"
         Action = ["ssm:GetParameter"]
         Resource = [
-          for name in ["api-url", "web-url", "web-bucket", "distribution-id"] :
+          for name in [
+            "api-url", "web-url", "web-bucket", "distribution-id",
+            "site-url", "site-bucket", "site-distribution-id",
+            "admin-url", "admin-bucket", "admin-distribution-id",
+            "admin-edge-secret",
+          ] :
           "arn:aws:ssm:*:${data.aws_caller_identity.current.account_id}:parameter/shikkhokplus/shikkhokplus-${each.key}/${name}"
         ]
       },
@@ -196,9 +211,47 @@ resource "aws_iam_role_policy" "deploy" {
         Resource = "arn:aws:s3:::shikkhokplus-${each.key}-web-*/ui/*"
       },
       {
-        # **Invalidation after the upload**, so a release is visible at
-        # once rather than when edge copies expire. The distribution id
-        # is created by the main module, after this bootstrap, so it is
+        # **The public site upload** (modules/site): this environment's
+        # site bucket, which holds nothing but the site, so the whole
+        # bucket rather than a prefix. List is for pruning files the new
+        # build no longer has; Delete is the pruning.
+        Sid      = "SiteBucketList"
+        Effect   = "Allow"
+        Action   = ["s3:ListBucket"]
+        Resource = "arn:aws:s3:::shikkhokplus-${each.key}-site-*"
+      },
+      {
+        Sid    = "SiteBucketObjects"
+        Effect = "Allow"
+        Action = [
+          "s3:PutObject",
+          "s3:DeleteObject",
+        ]
+        Resource = "arn:aws:s3:::shikkhokplus-${each.key}-site-*/*"
+      },
+      {
+        # **The admin UI upload** (modules/admin): this environment's
+        # admin bucket, which holds nothing but the admin UI, so the whole
+        # bucket, on the site bucket's terms.
+        Sid      = "AdminBucketList"
+        Effect   = "Allow"
+        Action   = ["s3:ListBucket"]
+        Resource = "arn:aws:s3:::shikkhokplus-${each.key}-admin-*"
+      },
+      {
+        Sid    = "AdminBucketObjects"
+        Effect = "Allow"
+        Action = [
+          "s3:PutObject",
+          "s3:DeleteObject",
+        ]
+        Resource = "arn:aws:s3:::shikkhokplus-${each.key}-admin-*/*"
+      },
+      {
+        # **Invalidation after the upload**, for the web client's
+        # distribution, the site's and the admin surface's, so a release is visible at once
+        # rather than when edge copies expire. The distribution ids are
+        # created by the main module, after this bootstrap, so they are
         # not known here: the grant is account-wide for these two
         # actions. An invalidation only empties caches -- the worst this
         # can do is make the next requests go to the origin.
@@ -211,9 +264,9 @@ resource "aws_iam_role_policy" "deploy" {
         Resource = "arn:aws:cloudfront::${data.aws_caller_identity.current.account_id}:distribution/*"
       },
       {
-        # Encrypting and decrypting the runtime env SecureString.
-        # Usable only through SSM, and SSM lets this role touch only
-        # the parameters above.
+        # Encrypting and decrypting the runtime env SecureString, and
+        # decrypting the admin edge secret. Usable only through SSM, and
+        # SSM lets this role touch only the parameters above.
         Sid      = "ParameterEncryption"
         Effect   = "Allow"
         Action   = ["kms:Encrypt", "kms:Decrypt", "kms:GenerateDataKey"]

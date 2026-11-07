@@ -61,23 +61,24 @@ def _dual_lens() -> TeacherLens | GuardianLens:
     raise NotImplementedError
 
 
-def test_public_routes_has_exactly_eight_entries() -> None:
-    """``PUBLIC_ROUTES`` is a fixed set of exactly eight.
+def test_public_routes_has_exactly_eleven_entries() -> None:
+    """``PUBLIC_ROUTES`` is a fixed set of exactly eleven.
 
-    The length assertion is the control: a NINTH entry is a diff
+    The length assertion is the control: a TWELFTH entry is a diff
     against a stated number rather than a line appended to a growing
     list. It has already done that job twice -- the staging outbox
     route broke this test on the commit that added it, and D1's two
-    signup routes broke it again, which is exactly what an
-    unauthenticated route deserves.
+    signup routes broke it again, and the three admin sign-in routes a
+    third time [0028], which is exactly what an unauthenticated route
+    deserves.
 
     :return: None
     """
-    assert len(PUBLIC_ROUTES) == 8
+    assert len(PUBLIC_ROUTES) == 11
 
 
 def test_public_routes_contains_the_contracted_entries() -> None:
-    """The eight are the ones the contract fixes.
+    """The eleven are the ones the contract fixes.
 
     :return: None
     """
@@ -91,6 +92,11 @@ def test_public_routes_contains_the_contracted_entries() -> None:
     # ceilings [BR2.1, BR2.3].
     assert ("POST", "/v1/accounts") in PUBLIC_ROUTES
     assert ("GET", "/v1/accounts/already-added") in PUBLIC_ROUTES
+    # Admin sign-in [0028]: unauthenticated, but every one of them is
+    # behind `admin_gate` -- the admin hostname's header and network.
+    assert ("POST", "/v1/admin/auth/otp") in PUBLIC_ROUTES
+    assert ("POST", "/v1/admin/auth/verify") in PUBLIC_ROUTES
+    assert ("POST", "/v1/admin/auth/mfa") in PUBLIC_ROUTES
 
     # **The count, asserted.** The docstring on PUBLIC_ROUTES claimed
     # "exactly five, and the count is asserted" while holding six entries
@@ -101,8 +107,8 @@ def test_public_routes_contains_the_contracted_entries() -> None:
     # present, and only the count catches a SEVENTH being appended. Adding a
     # public route should mean editing this number, which is a reviewable,
     # deliberate act rather than one more line in a growing list.
-    assert len(PUBLIC_ROUTES) == 8, (
-        f"PUBLIC_ROUTES holds {len(PUBLIC_ROUTES)} entries, not 8: "
+    assert len(PUBLIC_ROUTES) == 11, (
+        f"PUBLIC_ROUTES holds {len(PUBLIC_ROUTES)} entries, not 11: "
         f"{sorted(PUBLIC_ROUTES)}. A public route is reachable with no "
         f"authentication at all. If the addition is intended, change the "
         f"number here and in the docstring in the same commit."
@@ -140,7 +146,11 @@ def test_lens_exempt_set_holds_exactly_the_known_routes() -> None:
       takes no id from the request, and a lens would hide a reminder
       from the guardian it is about;
     - the deletion summary reads only what the caller owns, and must
-      answer zeros, not a refusal, for an account owning nothing.
+      answer zeros, not a refusal, for an account owning nothing;
+    - the help centre's four routes act only on the caller's own
+      tickets, scoped by account id in SQL, and a lens would lock out
+      the account holding none, which is the one most likely to need
+      help.
 
     :return: None
     """
@@ -169,6 +179,11 @@ def test_lens_exempt_set_holds_exactly_the_known_routes() -> None:
             ("GET", "/v1/me/classes"),
             ("GET", "/v1/me/exams"),
             ("GET", "/v1/me/pay"),
+            # The caller's own help-centre tickets [0027].
+            ("GET", "/v1/me/help/tickets"),
+            ("POST", "/v1/me/help/tickets"),
+            ("GET", "/v1/me/help/tickets/{ticket_id}"),
+            ("POST", "/v1/me/help/tickets/{ticket_id}/messages"),
         }
     )
 

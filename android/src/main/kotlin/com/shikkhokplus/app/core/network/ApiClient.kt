@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.core.network
 
+import com.shikkhokplus.app.BuildConfig
 import com.shikkhokplus.app.core.session.WORKSPACE_HEADER
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.api.createClientPlugin
@@ -61,6 +62,8 @@ object ApiClient {
      *   renewed because the server refused the stored refresh token
      * @param workspace Supplies the chosen workspace for each request, or
      *   null to send no workspace header and use the server's default
+     * @param appVersion The app's `versionName`, sent with the platform
+     *   on every request; see [ClientPlatform]
      * @return The configured client
      * @throws IllegalArgumentException If [baseUrl] is not https
      */
@@ -70,6 +73,7 @@ object ApiClient {
         tokenStore: TokenStore = TokenStore.InMemory(),
         onSessionEnded: () -> Unit = {},
         workspace: () -> String? = { null },
+        appVersion: String = BuildConfig.VERSION_NAME,
     ): HttpClient {
         val url = io.ktor.http.Url(baseUrl)
         require(url.protocol == URLProtocol.HTTPS || isLoopback(url.host)) {
@@ -78,6 +82,7 @@ object ApiClient {
                 "local development."
         }
 
+        val version = ClientPlatform.version(appVersion)
         val client = HttpClient(engine) {
             // A failed request returns a response rather than throwing,
             // so the repository maps it through the taxonomy instead of
@@ -100,6 +105,15 @@ object ApiClient {
                 },
             )
 
+            // **Which app this is**: the literal `android` and the
+            // version, never anything about the device. See
+            // `ClientPlatform` for why every request carries it.
+            install(
+                createClientPlugin("ClientPlatform") {
+                    onRequest { request, _ -> ClientPlatform.applyTo(request.headers, version) }
+                },
+            )
+
             defaultRequest {
                 url(baseUrl)
                 contentType(ContentType.Application.Json)
@@ -111,7 +125,7 @@ object ApiClient {
 
         // An expired request is renewed and repeated, mid-session, the
         // way a cold start renews: see `SessionRenewal`.
-        SessionRenewal(baseUrl, tokenStore, onSessionEnded).install(client)
+        SessionRenewal(baseUrl, tokenStore, onSessionEnded, version).install(client)
         return client
     }
 

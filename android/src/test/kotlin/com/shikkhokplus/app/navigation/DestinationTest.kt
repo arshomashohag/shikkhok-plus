@@ -100,6 +100,7 @@ class DestinationTest {
                 Destination.EditStaff.of("s-1"),
                 Destination.MyClass.of("c-1"),
                 Destination.MyExamMarks.of("x-1"),
+                Destination.HelpThread.of("t-1"),
             )
 
         built.forEach {

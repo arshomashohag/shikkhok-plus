@@ -88,7 +88,35 @@ environment (`deploy_role.tf`), and each:
   `api-url`, roll only `shikkhokplus-<env>-*` groups, and snapshot only
   `shikkhokplus-<env>-db` (pruning only its own `-predeploy-*`
   snapshots);
+- uploads the web client to its own `shikkhokplus-<env>-web-*` bucket
+  (under `ui/`), the public site to its own `shikkhokplus-<env>-site-*`
+  bucket and the admin UI to its own `shikkhokplus-<env>-admin-*` bucket,
+  reads their bucket, distribution and URL parameters (`web-*`,
+  `distribution-id`, `site-*`, `admin-*`), and invalidates CloudFront
+  caches;
+- reads one Terraform-generated secret, `admin-edge-secret`, to write it
+  into the runtime env it already owns;
 - reads **no Terraform state** and **no database credential**.
+
+**The public site (`site/`, `infra/modules/site`) needs this bootstrap
+re-applied once, from a laptop, before its first deploy**: the
+infrastructure role gains `shikkhokplus-*-site-*` buckets and the deploy
+role gains the site upload and the three `site-*` parameters. Until then
+the deploy's `site` job stops at "Cannot read the site's target from
+SSM" (or the infrastructure job at `CreateBucket` with AccessDenied) and
+changes nothing.
+
+**The platform admin surface (`infra/modules/admin`) needs this bootstrap
+re-applied once more, from a laptop, before its first deploy**: the
+infrastructure role gains `shikkhokplus-*-admin-*` buckets, and each
+deploy role gains the admin UI upload (`shikkhokplus-<env>-admin-*`, list,
+put and delete) and reads of `admin-url`, `admin-bucket`,
+`admin-distribution-id` and `admin-edge-secret`. The last is a
+SecureString; it is decrypted through the deploy role's existing
+SSM-only `kms:Decrypt` grant, which the runtime env already uses. Until
+the re-apply, the infrastructure job stops at `CreateBucket` with
+AccessDenied, or the release stops at "Cannot read the admin edge secret"
+before it records anything, and nothing changes.
 
 Until 2026-11-02 a single role trusted both environments, used
 `shikkhokplus-*` wildcards and could read both state files — so a

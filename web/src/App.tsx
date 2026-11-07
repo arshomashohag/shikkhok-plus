@@ -38,6 +38,7 @@ import { centreRoutes } from './features/teacher/centre'
 import { batchRoutes } from './features/family/batch'
 import { payRoutes } from './features/family/pay'
 import { accountRoutes } from './features/account/area'
+import { helpRoutes } from './features/help'
 import { seatPattern, type Reader } from './features/family/reader'
 
 /** Seat routes the family areas own, mounted once per reader. */
@@ -246,7 +247,8 @@ export function App() {
             )
           }),
         )}
-        {accountRoutes.map((r) => (
+        {/* Every lens: the account area and the help centre. */}
+        {[...accountRoutes, ...helpRoutes].map((r) => (
           <Route key={r.path} path={r.path} element={r.element} />
         ))}
         <Route path="/invitations" element={<Invitations />} />

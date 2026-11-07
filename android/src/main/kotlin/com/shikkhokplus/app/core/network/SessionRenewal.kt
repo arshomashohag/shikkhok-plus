@@ -52,11 +52,14 @@ import kotlinx.serialization.Serializable
  * @property baseUrl The backend's origin
  * @property tokens Where the pair is read and written
  * @property onSessionEnded Called once when a renewal is refused
+ * @property appVersion The sanitised app version the refresh carries,
+ *   or null for none; see [ClientPlatform]
  */
 class SessionRenewal(
     private val baseUrl: String,
     private val tokens: TokenStore,
     private val onSessionEnded: () -> Unit,
+    private val appVersion: String? = null,
 ) {
     /**
      * Attach renewal to a client's send pipeline.
@@ -130,7 +133,10 @@ class SessionRenewal(
      * Built in full here rather than through the client's defaults:
      * this runs inside the send stage, after the request stage that
      * applies the base URL and serialises bodies, so neither happens
-     * for it.
+     * for it -- and nor do the platform headers, which is why they are
+     * written here too. A refresh is where the server records which app
+     * the account uses; leaving them off this one path would record the
+     * renewing half of every session as no app at all.
      *
      * @param refreshToken The stored refresh token
      * @return The new pair, a refusal, or no answer at all
@@ -142,6 +148,7 @@ class SessionRenewal(
                 HttpRequestBuilder().apply {
                     method = HttpMethod.Post
                     url.takeFrom(baseUrl.trimEnd('/') + REFRESH_PATH)
+                    ClientPlatform.applyTo(headers, appVersion)
                     setBody(TextContent(body, ContentType.Application.Json))
                 }
             val response = execute(builder).response

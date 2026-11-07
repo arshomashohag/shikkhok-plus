@@ -108,16 +108,18 @@ def test_the_generated_document_carries_no_collection_rate_field() -> None:
     assert "collectionRate" not in document
 
 
-def test_public_routes_still_holds_exactly_eight() -> None:
+def test_public_routes_still_holds_exactly_eleven() -> None:
     """D5 adds nothing unauthenticated [BR4.4].
 
     The count is asserted in ``tests/contract/test_route_lenses.py``
     too; this is the second of the two places the number is pinned, and
-    it is here so a D5 reader meets the obligation in D5's own file.
+    it is here so a D5 reader meets the obligation in D5's own file. It
+    moved from eight to eleven with the admin sign-in routes [0028], none
+    of which is D5's.
 
     :return: None
     """
-    assert len(PUBLIC_ROUTES) == 8
+    assert len(PUBLIC_ROUTES) == 11
     assert ("GET", "/v1/me/dues") not in PUBLIC_ROUTES
     assert ("GET", "/v1/me/overview") not in PUBLIC_ROUTES
 
@@ -221,8 +223,10 @@ def test_d5_adds_no_migration_and_no_governance_entry() -> None:
     payment tables, 29 since ``0018`` added ``student``, and 32 since
     ``0020`` added the three extra-fee tables, 33 since ``0021`` added
     ``expense``, 34 since ``0022`` added ``owner_member``, and 35 since
-    ``0023`` added ``staff``, 36 since ``0024`` added ``room``, and 38
-    since ``0026`` added the two payroll tables; D5 itself added none.
+    ``0023`` added ``staff``, 36 since ``0024`` added ``room``, 38
+    since ``0026`` added the two payroll tables, and 41 since ``0027``
+    added ``account_client`` and the two help-centre tables, and 43
+    since ``0028`` added the two MFA tables; D5 itself added none.
     Stated as an absence because a
     materialised rollup is the obvious optimisation and it would
     contradict BR1.4 outright.
@@ -231,9 +235,9 @@ def test_d5_adds_no_migration_and_no_governance_entry() -> None:
     """
     from app.governance.dispositions import DISPOSITIONS
 
-    assert len(DISPOSITIONS) == 38, (
+    assert len(DISPOSITIONS) == 43, (
         f"the governance manifest holds {len(DISPOSITIONS)} entries, not "
-        "38. D5 creates no table, so it adds no disposition [BR4.2]."
+        "43. D5 creates no table, so it adds no disposition [BR4.2]."
     )
 
 

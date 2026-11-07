@@ -67,6 +67,14 @@ class AuthEvent(enum.Enum):
     REFRESH_GRACE_REISSUED = "REFRESH_GRACE_REISSUED"
     ACCOUNT_CREATED = "ACCOUNT_CREATED"
     SIGNUP_CEILING_BREACHED = "SIGNUP_CEILING_BREACHED"
+    # Platform administrator sign-in [0028], named members as D1's were.
+    # Every admin session starts with one of these, so who reached the
+    # admin surface, and when, is answerable from this table alone.
+    ADMIN_MFA_ENROLLED = "ADMIN_MFA_ENROLLED"
+    ADMIN_SIGNED_IN = "ADMIN_SIGNED_IN"
+    ADMIN_MFA_FAILED = "ADMIN_MFA_FAILED"
+    ADMIN_MFA_LOCKED = "ADMIN_MFA_LOCKED"
+    ADMIN_RECOVERY_CODE_USED = "ADMIN_RECOVERY_CODE_USED"
 
 
 def write_audit(

@@ -364,6 +364,13 @@ class WriteContractTest {
             },
             Write("post", "/v1/expenses/{expense_id}/void") { HttpExpensesRepository(it).void(ID, "Typed twice") },
             Write("post", "/v1/expenses/{expense_id}/void") { HttpExpensesRepository(it).void(ID, null) },
+            // The help centre: asking a question, and adding to one.
+            Write("post", "/v1/me/help/tickets") {
+                HttpHelpRepository(it).ask("Cannot add a student", "The add button does nothing.")
+            },
+            Write("post", "/v1/me/help/tickets/{ticket_id}/messages") {
+                HttpHelpRepository(it).reply(ID, "It works now, thank you.")
+            },
         )
 
     @Test

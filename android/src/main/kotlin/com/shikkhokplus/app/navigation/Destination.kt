@@ -922,4 +922,38 @@ sealed interface Destination {
     data object MyChildren : Destination {
         override val route: String = "profile/children"
     }
+
+    /**
+     * The help centre: the reader's own questions to support, pushed
+     * over More for every role, a lens-free person included.
+     */
+    data object HelpCentre : Destination {
+        override val route: String = "me/help"
+    }
+
+    /** Ask support a question, pushed over [HelpCentre]. */
+    data object AskQuestion : Destination {
+        override val route: String = "me/help/new"
+    }
+
+    /**
+     * One question opened to its thread.
+     *
+     * Under `ticket/` rather than directly under `me/help/`, so the
+     * literal [AskQuestion] route can never be read as a ticket id.
+     */
+    data object HelpThread : Destination {
+        override val route: String = "me/help/ticket/{ticketId}"
+
+        /** The question argument's name. */
+        const val ARG_ID: String = "ticketId"
+
+        /**
+         * Build a concrete route.
+         *
+         * @param ticketId The question
+         * @return The route to navigate to
+         */
+        fun of(ticketId: String): String = "me/help/ticket/$ticketId"
+    }
 }

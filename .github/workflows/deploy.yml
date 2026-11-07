@@ -139,7 +139,30 @@ jobs:
           APEX: ${{ vars.APEX_DOMAIN }}
           OTP_HMAC_KEY: ${{ secrets.SHIKKHOKPLUS_OTP_HMAC_KEY }}
           JWT_KEYS: ${{ secrets.SHIKKHOKPLUS_JWT_KEYS }}
+          PLATFORM_ADMIN_PHONES: ${{ secrets.SHIKKHOKPLUS_PLATFORM_ADMIN_PHONES }}
+          MFA_KEYS: ${{ secrets.SHIKKHOKPLUS_MFA_KEYS }}
+          ADMIN_ALLOWED_CIDRS: ${{ secrets.SHIKKHOKPLUS_ADMIN_ALLOWED_CIDRS }}
         run: |
+          # **Administrators named without the locks that make the admin
+          # surface usable.** A production process refuses to start with
+          # admin phones set and no MFA keyring or no admin networks
+          # (app/config.py), which would surface 40 minutes from now as a
+          # failed refresh and a rollback. Refused here instead, before
+          # anything changes. Staging runs either way and is told why its
+          # admin surface will be closed.
+          if [ -n "$PLATFORM_ADMIN_PHONES" ]; then
+            admin_gaps=()
+            [ -n "$MFA_KEYS" ]            || admin_gaps+=("secret SHIKKHOKPLUS_MFA_KEYS")
+            [ -n "${ADMIN_ALLOWED_CIDRS// /}" ] || admin_gaps+=("secret SHIKKHOKPLUS_ADMIN_ALLOWED_CIDRS")
+            if [ ${#admin_gaps[@]} -ne 0 ]; then
+              if [ "${{ inputs.environment }}" = "production" ]; then
+                echo "::error::SHIKKHOKPLUS_PLATFORM_ADMIN_PHONES is set but ${admin_gaps[*]} is not; production would refuse to start."
+                exit 1
+              fi
+              echo "::warning::SHIKKHOKPLUS_PLATFORM_ADMIN_PHONES is set but ${admin_gaps[*]} is not; nobody will be able to use the admin surface."
+            fi
+          fi
+
           missing=()
           [ -n "$DEPLOY_ROLE" ]  || missing+=("variable AWS_DEPLOY_ROLE_ARN")
           [ -n "$INFRA_ROLE" ]   || missing+=("variable AWS_ROLE_ARN")
@@ -292,7 +315,29 @@ jobs:
           TF_VAR_alert_email: ${{ vars.ALERT_EMAIL }}
           # The performance-test seeder: decided by the step above.
           TF_VAR_enable_seeder: ${{ steps.seeder.outputs.enable }}
-        run: terraform plan -input=false -no-color -out=tfplan | tee plan.txt
+          # Who may reach the admin hostname (infra/modules/admin): a
+          # comma-separated repository SECRET, not a variable, because this
+          # repository is public and so are its Actions logs -- an admin's
+          # home or office address is not something to publish. The
+          # Terraform variable is `sensitive`, so the plan prints the
+          # function code as (sensitive value), and this step prints only
+          # how many networks there are. One list serves the
+          # edge function here and the application's own check (the
+          # runtime env, below). Turned into the JSON list Terraform reads
+          # from a list-typed TF_VAR_*, blanks trimmed and empty entries
+          # dropped. Unset becomes [] -- which lets nobody in, by design.
+          ADMIN_ALLOWED_CIDRS: ${{ secrets.SHIKKHOKPLUS_ADMIN_ALLOWED_CIDRS }}
+        run: |
+          TF_VAR_admin_allowed_cidrs=$(jq -cn --arg cidrs "$ADMIN_ALLOWED_CIDRS" \
+            '$cidrs | split(",") | map(gsub("^\\s+|\\s+$"; "")) | map(select(length > 0))')
+          export TF_VAR_admin_allowed_cidrs
+          # Mask each entry too: the secret is masked as one string, and a
+          # single CIDR split out of it would otherwise print in clear.
+          for cidr in $(jq -r '.[]' <<<"$TF_VAR_admin_allowed_cidrs"); do
+            echo "::add-mask::$cidr"
+          done
+          echo "Admin allowlist: $(jq 'length' <<<"$TF_VAR_admin_allowed_cidrs") network(s)"
+          terraform plan -input=false -no-color -out=tfplan | tee plan.txt
 
       - name: What is about to be applied
         run: |
@@ -527,9 +572,30 @@ jobs:
           SMS_APP_HASH: ${{ vars.SHIKKHOKPLUS_SMS_APP_HASH }}
           DAILY_SMS: ${{ vars.SHIKKHOKPLUS_GLOBAL_DAILY_SMS }}
           STAGING_OUTBOX: ${{ vars.SHIKKHOKPLUS_STAGING_OUTBOX }}
+          PLATFORM_ADMIN_PHONES: ${{ secrets.SHIKKHOKPLUS_PLATFORM_ADMIN_PHONES }}
+          ADMIN_ALLOWED_CIDRS: ${{ secrets.SHIKKHOKPLUS_ADMIN_ALLOWED_CIDRS }}
+          MFA_KEYS: ${{ secrets.SHIKKHOKPLUS_MFA_KEYS }}
           SHA: ${{ needs.plan.outputs.sha }}
         run: |
           umask 077
+
+          # **The X-Admin-Edge value, read before anything is written.**
+          # Terraform generates it (infra/modules/admin) and the admin
+          # distribution sends it; the application must hold the same
+          # value or every admin route refuses. Read here, not stored as a
+          # GitHub secret, so the two can never disagree. Failing now
+          # leaves the previous image tag and runtime env untouched.
+          if ! ADMIN_EDGE_SECRET=$(aws ssm get-parameter \
+                --name "/shikkhokplus/shikkhokplus-${ENVIRONMENT}/admin-edge-secret" \
+                --with-decryption --query 'Parameter.Value' --output text) \
+             || ! [[ "$ADMIN_EDGE_SECRET" =~ ^[A-Za-z0-9]{32,}$ ]]; then
+            echo "::error::Cannot read the admin edge secret from SSM."
+            echo "Either the infrastructure job has not applied infra/modules/admin,"
+            echo "or the deploy role predates it: re-apply infra/bootstrap once,"
+            echo "from a laptop. Nothing has been recorded or rolled."
+            exit 1
+          fi
+
           {
             echo "SHIKKHOKPLUS_ENVIRONMENT=${ENVIRONMENT}"
             echo "SHIKKHOKPLUS_OTP_HMAC_KEY=${OTP_HMAC_KEY}"
@@ -552,6 +618,26 @@ jobs:
             # production requires -- a production process without it
             # refuses to start.
             echo "SHIKKHOKPLUS_TRUSTED_CLIENT_IP_HEADER=X-Client-Address"
+            # Who may open the platform administration surface: a
+            # comma-separated list of phone numbers. A secret rather than
+            # a variable because it is people's numbers. Unset means
+            # nobody -- the routes answer 403 to every account.
+            echo "SHIKKHOKPLUS_PLATFORM_ADMIN_PHONES=${PLATFORM_ADMIN_PHONES}"
+            # The admin surface's two network locks behind the edge
+            # function (app/authz/admin.py): the secret only the admin
+            # distribution sends, and the same allowlist checked again on
+            # X-Client-Address. Either one empty refuses every admin
+            # route -- fail closed, like the phones above.
+            echo "SHIKKHOKPLUS_ADMIN_EDGE_SECRET=${ADMIN_EDGE_SECRET}"
+            echo "SHIKKHOKPLUS_ADMIN_ALLOWED_CIDRS=${ADMIN_ALLOWED_CIDRS}"
+            # The keyring that encrypts administrators' authenticator
+            # secrets (AES-256-GCM, app/auth/mfa_crypto.py): `k1:<base64
+            # of 32 random bytes>`, made with
+            #   python3 -c "import os,base64;print('k1:'+base64.b64encode(os.urandom(32)).decode())"
+            # Losing it means every administrator re-enrolls; rotating it
+            # means adding k2 beside k1, not replacing k1.
+            echo "SHIKKHOKPLUS_MFA_KEYS=${MFA_KEYS}"
+            echo "SHIKKHOKPLUS_MFA_ACTIVE_KID=k1"
           } > runtime.env
 
           aws ssm put-parameter \
@@ -824,3 +910,385 @@ jobs:
               ;;
           esac
           echo "Web client is live at $URL"
+
+  # ---------------------------------------------------------------
+  # 5. The public site: build, upload, invalidate, smoke.
+  # ---------------------------------------------------------------
+  #
+  # **After infrastructure, NOT after the release.** The site is static
+  # HTML that calls no API, so a failed or rolled-back API release has no
+  # bearing on it, and waiting for a 40-minute instance refresh would only
+  # delay a copy change. It needs the infrastructure job because that is
+  # what creates its bucket, distribution and SSM parameters.
+  #
+  # **Served at the project zone's apex by its own distribution**
+  # (infra/modules/site). The bucket, distribution and URLs come from SSM
+  # parameters Terraform publishes, never from state [OPS-3].
+  site:
+    name: public site
+    needs: [plan, infrastructure]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+
+      # No npm cache: the site has no dependencies and no lockfile.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: deploy-site-${{ github.run_id }}
+
+      # The site's own three parameters, plus the web client's and the
+      # API's URLs, which the pages link to (Open the web app, the
+      # account-deletion page).
+      - name: Resolve where it goes
+        id: target
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          base="/shikkhokplus/shikkhokplus-${ENVIRONMENT}"
+          read_param() {
+            aws ssm get-parameter --name "$base/$1" --query 'Parameter.Value' --output text
+          }
+          if ! bucket=$(read_param site-bucket) || ! dist=$(read_param site-distribution-id) \
+             || ! url=$(read_param site-url) || ! web=$(read_param web-url) \
+             || ! api=$(read_param api-url); then
+            echo "::error::Cannot read the site's target from SSM."
+            echo "Either the infrastructure job has not yet applied the site"
+            echo "resources (infra/modules/site), or the deploy role predates"
+            echo "them: re-apply infra/bootstrap once, from a laptop."
+            exit 1
+          fi
+          {
+            echo "bucket=$bucket"
+            echo "distribution=$dist"
+            echo "url=$url"
+            echo "web=$web"
+            echo "api=$api"
+          } >> "$GITHUB_OUTPUT"
+          echo "| public site | $url |" >> "$GITHUB_STEP_SUMMARY"
+
+      # **The build only, not `make site`.** The site's tests ran on the
+      # pull request (check.yml), and a deploy is not the place to discover
+      # a red suite (tests/gates/test_deploy_runs_no_tests.py). The build
+      # still refuses an unknown placeholder or a missing asset, and the
+      # smoke below checks what it produced, through CloudFront.
+      - name: Build with this environment's URLs
+        working-directory: site
+        env:
+          SITE_URL: ${{ steps.target.outputs.url }}
+          WEB_APP_URL: ${{ steps.target.outputs.web }}
+          API_URL: ${{ steps.target.outputs.api }}
+        run: npm run build
+
+      # **Order keeps open pages whole.** Hashed assets first, with
+      # nothing deleted, so a page served a moment ago still finds its
+      # stylesheet and images. Then the pages that name them. Old files
+      # are pruned only after the invalidation below has completed.
+      #
+      # **Content-Type is set per extension, never guessed.** The CLI's
+      # guess depends on the MIME table of whatever Python it bundles, and
+      # a stylesheet served with the wrong type is ignored by the browser
+      # under `X-Content-Type-Options: nosniff`. A file with an extension
+      # this table lacks fails the step instead of uploading untyped.
+      #
+      # Cache-Control is the whole caching scheme (infra/modules/site):
+      #   assets/*  a year, immutable -- a changed file is a new name;
+      #   the rest  five minutes in a browser, a year at the edge
+      #             (s-maxage), which the invalidation empties per release.
+      - name: Upload
+        env:
+          BUCKET: ${{ steps.target.outputs.bucket }}
+        working-directory: site/dist
+        run: |
+          set -euo pipefail
+          immutable="public, max-age=31536000, immutable"
+          page="public, max-age=300, s-maxage=31536000"
+
+          unknown=$(find . -type f ! -name '*.css' ! -name '*.svg' ! -name '*.png' \
+            ! -name '*.webp' ! -name '*.ttf' ! -name '*.html' ! -name '*.xml' \
+            ! -name '*.txt' ! -name '*.ico')
+          if [ -n "$unknown" ]; then
+            echo "::error::No Content-Type for: $unknown (add it to this step and to site/build.mjs)"
+            exit 1
+          fi
+
+          put() { # <dir> <s3 prefix> <glob> <content-type> <cache-control>
+            aws s3 cp "$1" "s3://$BUCKET/$2" --recursive --only-show-errors \
+              --exclude "*" --include "$3" --content-type "$4" --cache-control "$5"
+          }
+          put assets assets/ "*.css"  "text/css; charset=utf-8" "$immutable"
+          put assets assets/ "*.svg"  "image/svg+xml"           "$immutable"
+          put assets assets/ "*.png"  "image/png"               "$immutable"
+          put assets assets/ "*.webp" "image/webp"              "$immutable"
+          put assets assets/ "*.ttf"  "font/ttf"                "$immutable"
+
+          put . "" "*.ico"       "image/x-icon"                      "$page"
+          put . "" "*.txt"       "text/plain; charset=utf-8"         "$page"
+          put . "" "sitemap.xml" "application/xml; charset=utf-8"    "$page"
+          put . "" "*.html"      "text/html; charset=utf-8"          "$page"
+
+      # Every edge drops its year-long copy of every page now, so the smoke
+      # below -- and every visitor -- sees this release. Waiting for it to
+      # complete is also what makes the prune safe.
+      - name: Invalidate
+        env:
+          DISTRIBUTION: ${{ steps.target.outputs.distribution }}
+        run: |
+          id=$(aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION" \
+            --paths "/*" --query 'Invalidation.Id' --output text)
+          echo "Waiting for invalidation $id..."
+          aws cloudfront wait invalidation-completed --distribution-id "$DISTRIBUTION" --id "$id"
+
+      # **Only now are files the new build no longer has removed**: the
+      # edges serve this release's pages, which name only this release's
+      # assets. A browser still holding a previous page (five minutes at
+      # most) holds its assets too -- they were immutable.
+      - name: Prune old files
+        env:
+          BUCKET: ${{ steps.target.outputs.bucket }}
+        working-directory: site/dist
+        run: |
+          set -euo pipefail
+          aws s3api list-objects-v2 --bucket "$BUCKET" --query 'Contents[].Key' --output text \
+            | tr '\t' '\n' | while read -r key; do
+                if [ -z "$key" ] || [ "$key" = "None" ]; then continue; fi
+                if [ ! -f "$key" ]; then
+                  echo "removing $key"
+                  aws s3 rm "s3://$BUCKET/$key" --only-show-errors
+                fi
+              done
+
+      # **Through CloudFront, and for THIS build**: the home page must name
+      # the stylesheet this build produced, so a stale edge copy fails the
+      # smoke instead of passing it. Then both languages, the directory
+      # redirect, the asset caching, the 404 page and the www redirect.
+      #
+      # Retried, because on the first deploy the certificate, the alias
+      # records and the www name can still be propagating.
+      - name: Smoke the site
+        env:
+          URL: ${{ steps.target.outputs.url }}
+        run: |
+          set -euo pipefail
+          css=$(grep -o 'href="/assets/site\.[0-9a-f]*\.css"' site/dist/index.html | head -1 | cut -d'"' -f2)
+          host="${URL#https://}"
+          # Bodies are fetched whole before grep reads them: `curl | grep -q`
+          # under pipefail can fail on curl's SIGPIPE when grep stops early.
+          fetch() { curl -fsS "$1" 2>/dev/null || true; }
+          for attempt in $(seq 1 18); do
+            if grep -qF "$css" <<<"$(fetch "$URL/")"; then break; fi
+            [ "$attempt" = 18 ] && { echo "::error::$URL/ does not serve this build ($css)."; exit 1; }
+            sleep 10
+          done
+          grep -qF '<html lang="bn">' <<<"$(fetch "$URL/bn/")" \
+            || { echo "::error::$URL/bn/ is not the Bangla home page."; exit 1; }
+          grep -qF '<details' <<<"$(fetch "$URL/faq/")" \
+            || { echo "::error::$URL/faq/ is not the FAQ."; exit 1; }
+          grep -qF '<html lang="bn">' <<<"$(fetch "$URL/bn/faq/")" \
+            || { echo "::error::$URL/bn/faq/ is not the Bangla FAQ."; exit 1; }
+
+          code=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$URL/faq")
+          [ "$code" = "301 $URL/faq/" ] \
+            || { echo "::error::/faq answered '$code', not a 301 to /faq/."; exit 1; }
+
+          grep -qi '^cache-control: .*immutable' <<<"$(curl -fsSI "$URL$css" | tr -d '\r')" \
+            || { echo "::error::$css is not served immutable."; exit 1; }
+          grep -qi "^content-security-policy: default-src 'none'" <<<"$(curl -fsSI "$URL/" | tr -d '\r')" \
+            || { echo "::error::The home page has no strict Content-Security-Policy."; exit 1; }
+
+          code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/no-such-page/")
+          [ "$code" = "404" ] || { echo "::error::A missing page answered $code, not 404."; exit 1; }
+
+          for attempt in $(seq 1 18); do
+            code=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "https://www.$host/faq/" || true)
+            if [ "$code" = "301 $URL/faq/" ]; then break; fi
+            [ "$attempt" = 18 ] && { echo "::error::www.$host answered '$code', not a 301 to $URL/faq/."; exit 1; }
+            sleep 10
+          done
+          echo "The site is live at $URL"
+
+  # ---------------------------------------------------------------
+  # 6. The platform admin UI: build, upload, invalidate, smoke.
+  # ---------------------------------------------------------------
+  #
+  # **After the API release, as the web client is.** The admin UI calls
+  # the admin API this release just shipped, and a UI that reached an
+  # administrator before its API would call routes that do not exist yet.
+  # A release that failed and rolled back ships no admin UI either.
+  #
+  # **Served at admin.<zone> by its own distribution, behind an IPv4
+  # allowlist** (infra/modules/admin). The bucket, distribution and URL
+  # come from SSM parameters Terraform publishes, never from state
+  # [OPS-3].
+  #
+  # **The smoke proves the locks, not the page.** This runner is not on
+  # the allowlist, so it cannot load the UI -- and that is the assertion:
+  # the admin host must answer it 403, and the public API host must answer
+  # /v1/admin/... 404. A smoke that could see the admin UI from GitHub's
+  # network would be reporting an open admin surface as a success.
+  admin:
+    name: admin UI
+    needs: [plan, infrastructure, release]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      # The same gate the web job applies, for the same lockfile: the
+      # blocking half of the two-speed CVE model for what the admin UI
+      # SHIPS, production only.
+      - name: Release gate - web dependency CVEs
+        if: inputs.environment == 'production'
+        working-directory: web
+        run: |
+          npm ci --no-audit --no-fund
+          npm audit --omit=dev --audit-level=high
+
+      # **The build only, not `make web`.** The web client's checks ran on
+      # the pull request (check.yml) and again in the web job above; a
+      # deploy is not the place to discover a red suite
+      # (tests/gates/test_deploy_runs_no_tests.py). The admin build is
+      # served at the admin host's root and writes web/dist-admin/.
+      - name: Build the admin UI
+        working-directory: web
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build:admin
+          test -f dist-admin/index.html \
+            || { echo "::error::npm run build:admin produced no dist-admin/index.html."; exit 1; }
+
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: deploy-admin-${{ github.run_id }}
+
+      - name: Resolve where it goes
+        id: target
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          base="/shikkhokplus/shikkhokplus-${ENVIRONMENT}"
+          read_param() {
+            aws ssm get-parameter --name "$base/$1" --query 'Parameter.Value' --output text
+          }
+          if ! bucket=$(read_param admin-bucket) || ! dist=$(read_param admin-distribution-id) \
+             || ! url=$(read_param admin-url) || ! api=$(read_param api-url); then
+            echo "::error::Cannot read the admin UI's target from SSM."
+            echo "Either the infrastructure job has not yet applied the admin"
+            echo "resources (infra/modules/admin), or the deploy role predates"
+            echo "them: re-apply infra/bootstrap once, from a laptop."
+            exit 1
+          fi
+          {
+            echo "bucket=$bucket"
+            echo "distribution=$dist"
+            echo "url=$url"
+            echo "api=$api"
+          } >> "$GITHUB_OUTPUT"
+          echo "| admin UI | $url (allowlisted networks only) |" >> "$GITHUB_STEP_SUMMARY"
+
+      # **Order keeps an open admin tab working**, as for the web client:
+      # hashed assets first, immutable and nothing deleted, so a page
+      # loaded a moment ago still finds its files; then the entry files
+      # that name them, no-cache. Old assets are pruned only after the
+      # invalidation below. Source maps are not published.
+      - name: Upload
+        env:
+          BUCKET: ${{ steps.target.outputs.bucket }}
+        working-directory: web/dist-admin
+        run: |
+          set -euo pipefail
+          if [ -d assets ]; then
+            aws s3 cp assets "s3://$BUCKET/assets" --recursive --exclude "*.map" \
+              --only-show-errors --cache-control "public, max-age=31536000, immutable"
+          fi
+          aws s3 cp . "s3://$BUCKET" --recursive --exclude "assets/*" --exclude "*.map" \
+            --only-show-errors --cache-control "no-cache"
+          aws s3 cp index.html "s3://$BUCKET/index.html" --only-show-errors \
+            --content-type "text/html; charset=utf-8" --cache-control "no-cache"
+
+      - name: Invalidate
+        env:
+          DISTRIBUTION: ${{ steps.target.outputs.distribution }}
+        run: |
+          id=$(aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION" \
+            --paths "/*" --query 'Invalidation.Id' --output text)
+          echo "Waiting for invalidation $id..."
+          aws cloudfront wait invalidation-completed --distribution-id "$DISTRIBUTION" --id "$id"
+
+      # **Only now are files the new build no longer has removed**: every
+      # edge serves this release's index.html, which names only this
+      # release's assets.
+      - name: Prune old files
+        env:
+          BUCKET: ${{ steps.target.outputs.bucket }}
+        working-directory: web/dist-admin
+        run: |
+          set -euo pipefail
+          aws s3api list-objects-v2 --bucket "$BUCKET" --query 'Contents[].Key' --output text \
+            | tr '\t' '\n' | while read -r key; do
+                if [ -z "$key" ] || [ "$key" = "None" ]; then continue; fi
+                if [ ! -f "$key" ] || [[ "$key" == *.map ]]; then
+                  echo "removing $key"
+                  aws s3 rm "s3://$BUCKET/$key" --only-show-errors
+                fi
+              done
+
+      # **From GitHub's network, which is not on the allowlist.** The admin
+      # host must refuse this runner with the edge function's own 403
+      # body, and the API host must refuse /v1/admin/... with the edge
+      # function's own 404 body -- the bodies prove it was the edge that
+      # answered, not the application behind it (which refuses too, but
+      # is the second lock, not the one this checks).
+      #
+      # Retried, because on the first deploy the certificate and the alias
+      # record can still be propagating (curl then reports 000).
+      - name: Smoke the locks
+        env:
+          URL: ${{ steps.target.outputs.url }}
+          API: ${{ steps.target.outputs.api }}
+        run: |
+          set -euo pipefail
+          probe() { # <url> -> "<status> <body>"
+            local body status
+            body=$(mktemp)
+            status=$(curl -s -o "$body" -w '%{http_code}' "$1" || true)
+            printf '%s %s' "$status" "$(head -c 200 "$body")"
+            rm -f "$body"
+          }
+          for attempt in $(seq 1 18); do
+            got=$(probe "$URL/")
+            if [ "$got" = "403 Not available from this network." ]; then break; fi
+            [ "$attempt" = 18 ] && {
+              echo "::error::$URL/ answered '$got' to an address off the allowlist, not the edge's 403."
+              exit 1
+            }
+            sleep 10
+          done
+          got=$(probe "$URL/v1/admin/overview")
+          [ "$got" = "403 Not available from this network." ] \
+            || { echo "::error::$URL/v1/admin/overview answered '$got' off the allowlist, not 403."; exit 1; }
+
+          got=$(probe "$API/v1/admin/overview")
+          [ "$got" = "404 Not found." ] \
+            || { echo "::error::$API/v1/admin/overview answered '$got', not the edge's 404: the API host serves the admin API."; exit 1; }
+          echo "The admin host refuses this network, and the API host refuses admin routes."

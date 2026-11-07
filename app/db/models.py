@@ -25,6 +25,7 @@ import uuid
 
 from sqlalchemy import (
     JSON,
+    BigInteger,
     Boolean,
     CheckConstraint,
     Date,
@@ -32,6 +33,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     Numeric,
     String,
     Text,
@@ -311,16 +313,40 @@ _RESULT_STATE = PgEnum(
     create_type=False,
 )
 
+#: The two apps an account can sign in from [0027]. Stated by the client
+#: about itself in ``X-Client-Platform``; never derived from a device.
+CLIENT_PLATFORM_VALUES: tuple[str, ...] = ("android", "web")
+
+_CLIENT_PLATFORM = PgEnum(
+    *CLIENT_PLATFORM_VALUES, name="client_platform", create_type=False
+)
+
+#: A help ticket's state [0027]: ``open`` waits on support, ``answered``
+#: waits on the requester, ``closed`` waits on nobody.
+HELP_TICKET_STATUS_VALUES: tuple[str, ...] = ("open", "answered", "closed")
+
+_HELP_TICKET_STATUS = PgEnum(
+    *HELP_TICKET_STATUS_VALUES, name="help_ticket_status", create_type=False
+)
+
+#: Who wrote a help message [0027].
+HELP_AUTHOR_VALUES: tuple[str, ...] = ("requester", "support")
+
+_HELP_AUTHOR = PgEnum(*HELP_AUTHOR_VALUES, name="help_author", create_type=False)
+
 __all__ = [
     "ADJUSTMENT_KIND_VALUES",
     "ASSIGNMENT_SOURCE_VALUES",
     "CLAIM_STATUS_VALUES",
+    "CLIENT_PLATFORM_VALUES",
     "DECISION_VALUES",
     "DISPOSITION_VALUES",
     "EXPENSE_CATEGORY_VALUES",
     "EXTRA_FEE_ENTRY_KIND_VALUES",
     "EXTRA_FEE_PURPOSE_VALUES",
     "FEE_GENERATION_JOB",
+    "HELP_AUTHOR_VALUES",
+    "HELP_TICKET_STATUS_VALUES",
     "LEDGER_KIND_VALUES",
     "MEMBER_ROLE_VALUES",
     "OWNER_KIND_VALUES",
@@ -336,6 +362,7 @@ __all__ = [
     "STAFF_KIND_VALUES",
     "SUBMISSION_KIND_VALUES",
     "Account",
+    "AccountClient",
     "Announcement",
     "Attendance",
     "AuthAuditLog",
@@ -348,10 +375,14 @@ __all__ = [
     "ExtraFeeCharge",
     "ExtraFeeEntry",
     "FeeCycle",
+    "HelpMessage",
+    "HelpTicket",
     "HiddenBatchPreference",
     "JobHeartbeat",
     "LedgerEntryRow",
     "Mark",
+    "MfaFactor",
+    "MfaRecoveryCode",
     "OtpRequest",
     "Owner",
     "OwnerMember",
@@ -2700,3 +2731,217 @@ class SalaryAdjustment(Base):
         CheckConstraint("length(trim(label)) > 0", name="ck_salary_adjustment_label"),
         Index("ix_salary_adjustment_line", "salary_line_id"),
     )
+
+
+class AccountClient(Base):
+    """Which app an account signs in from, and when it was last seen [0027].
+
+    One row per account per platform, upserted at sign-in and at token
+    refresh. **No device identifier** [TC-3, D-37]: the platform is what
+    the client states about itself, and the version is the app's own.
+
+    :ivar account_id: The account
+    :ivar platform: ``android`` or ``web``
+    :ivar app_version: The version string the app reported, if any
+    :ivar first_seen_at: First sign-in or refresh from this platform
+    :ivar last_seen_at: Most recent sign-in or refresh from it
+    """
+
+    __tablename__ = "account_client"
+
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("account.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    platform: Mapped[str] = mapped_column(_CLIENT_PLATFORM, primary_key=True)
+    app_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    first_seen_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    last_seen_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "last_seen_at >= first_seen_at", name="ck_account_client_seen_order"
+        ),
+        Index("ix_account_client_platform_seen", "platform", "last_seen_at"),
+    )
+
+
+class HelpTicket(Base):
+    """A question one account asked ShikkhokPlus support [0027].
+
+    ``requester_ref`` is the opaque label a platform administrator groups
+    tickets by: stable per account, and not reversible to it, so a
+    student's or guardian's tickets can be read together without the
+    administrator learning who they are [TC-14, D-6].
+
+    :ivar id: Surrogate key
+    :ivar requester_account_id: Who asked
+    :ivar requester_ref: The opaque, stable label for that account
+    :ivar subject: A one-line summary the requester wrote
+    :ivar status: ``open``, ``answered`` or ``closed``
+    :ivar platform: The app it was asked from, if the client said
+    :ivar created_at: When it was asked
+    :ivar updated_at: The latest message or status change
+    :ivar support_replied_at: The latest support reply, if any
+    :ivar requester_seen_at: When the requester last opened the thread
+    :ivar closed_at: Set exactly while the status is ``closed``
+    """
+
+    __tablename__ = "help_ticket"
+
+    id: Mapped[uuid.UUID] = _uuid_column()
+    requester_account_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("account.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    requester_ref: Mapped[str] = mapped_column(String(16), nullable=False)
+    subject: Mapped[str] = mapped_column(String(120), nullable=False)
+    status: Mapped[str] = mapped_column(_HELP_TICKET_STATUS, nullable=False)
+    platform: Mapped[str | None] = mapped_column(_CLIENT_PLATFORM, nullable=True)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    updated_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    support_replied_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    requester_seen_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    closed_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    __table_args__ = (
+        CheckConstraint("length(trim(subject)) > 0", name="ck_help_ticket_subject"),
+        CheckConstraint(
+            "(status = 'closed') = (closed_at IS NOT NULL)",
+            name="ck_help_ticket_closed_at",
+        ),
+        Index("ix_help_ticket_requester_updated", "requester_account_id", "updated_at"),
+        Index("ix_help_ticket_status_updated", "status", "updated_at"),
+        Index("ix_help_ticket_requester_ref", "requester_ref"),
+    )
+
+
+class HelpMessage(Base):
+    """One message in a help ticket's thread [0027].
+
+    :ivar id: Surrogate key
+    :ivar ticket_id: The ticket
+    :ivar author: ``requester`` or ``support``
+    :ivar author_account_id: The administrator who wrote a support reply,
+        for the record; never shown to the requester
+    :ivar body: What was written, at most 4000 characters
+    :ivar created_at: When it was written
+    """
+
+    __tablename__ = "help_message"
+
+    id: Mapped[uuid.UUID] = _uuid_column()
+    ticket_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("help_ticket.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    author: Mapped[str] = mapped_column(_HELP_AUTHOR, nullable=False)
+    author_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("account.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "length(trim(body)) > 0 AND length(body) <= 4000",
+            name="ck_help_message_body",
+        ),
+        Index("ix_help_message_ticket_created", "ticket_id", "created_at"),
+    )
+
+
+class MfaFactor(Base):
+    """One account's authenticator-app factor [0028].
+
+    The secret is AES-256-GCM ciphertext under the key ``secret_kid``
+    names, with the account id as associated data; never plaintext.
+
+    :ivar account_id: The account
+    :ivar secret_kid: The key that encrypted the secret
+    :ivar secret_ciphertext: Nonce and ciphertext
+    :ivar created_at: When enrollment began
+    :ivar confirmed_at: When the first code was typed; NULL until then
+    :ivar last_used_step: The newest TOTP step accepted, against replay
+    :ivar failed_attempts: Wrong codes since the last right one
+    :ivar locked_until: Refuse every code until this moment
+    """
+
+    __tablename__ = "mfa_factor"
+
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("account.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    secret_kid: Mapped[str] = mapped_column(String(16), nullable=False)
+    secret_ciphertext: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    confirmed_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    last_used_step: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    failed_attempts: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default=text("0")
+    )
+    locked_until: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    __table_args__ = (
+        CheckConstraint("failed_attempts >= 0", name="ck_mfa_factor_failed_attempts"),
+    )
+
+
+class MfaRecoveryCode(Base):
+    """One single-use recovery code, scrypt-hashed [0028].
+
+    :ivar id: Surrogate key
+    :ivar account_id: The account
+    :ivar code_hash: scrypt of the code
+    :ivar salt: Its salt
+    :ivar created_at: When it was issued
+    :ivar used_at: When it was spent; NULL while unused
+    """
+
+    __tablename__ = "mfa_recovery_code"
+
+    id: Mapped[uuid.UUID] = _uuid_column()
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("account.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    code_hash: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    salt: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    used_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    __table_args__ = (Index("ix_mfa_recovery_code_account", "account_id"),)

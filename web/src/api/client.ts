@@ -3,11 +3,13 @@
  *
  * Every request carries the access token when there is one, renews it
  * first when it is about to lapse, and renews-and-repeats once on a 401 —
- * the web counterpart of `SessionRenewal.kt`. Failures come back as
- * {@link ApiError}, so a screen switches on `messageKey` and `retryable`
- * and never on an HTTP status.
+ * the web counterpart of `SessionRenewal.kt`. Every request, renewal
+ * included, says which app it comes from (`platform.ts`). Failures come
+ * back as {@link ApiError}, so a screen switches on `messageKey` and
+ * `retryable` and never on an HTTP status.
  */
 import { ApiError, errorFrom, networkError } from './errors'
+import { CLIENT_HEADERS } from './platform'
 import { isFresh, readTokens, renew } from './tokens'
 import { currentWorkspace, WORKSPACE_HEADER } from './workspace'
 
@@ -39,7 +41,7 @@ async function send(
   options: RequestOptions,
   token: string | null,
 ): Promise<Response> {
-  const headers: Record<string, string> = { Accept: 'application/json' }
+  const headers: Record<string, string> = { Accept: 'application/json', ...CLIENT_HEADERS }
   if (options.body !== undefined) headers['Content-Type'] = 'application/json'
   if (token) {
     headers.Authorization = `Bearer ${token}`

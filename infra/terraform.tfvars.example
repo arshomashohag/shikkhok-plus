@@ -22,6 +22,18 @@ api_subdomain = "api"
 # distribution under /ui/. "" to serve it only at api.<zone>/ui/.
 ui_subdomain = "app"
 
+# The platform admin surface: admin.<zone>, its own distribution, serving
+# the admin UI and the admin API (/v1/admin/*), which the API host refuses.
+admin_subdomain = "admin"
+
+# Who may reach it at all: IPv4 CIDRs, checked at the edge and again by the
+# application. EMPTY LETS NOBODY IN -- fail closed. IPv4 only: the admin
+# distribution serves no IPv6. Find your address with
+#   curl -4 https://checkip.amazonaws.com
+# and allowlist it as a /32. In CI: the SHIKKHOKPLUS_ADMIN_ALLOWED_CIDRS
+# repository secret, comma-separated.
+# admin_allowed_cidrs = ["203.0.113.7/32"]
+
 # **No SSH key and no operator IP.** Access is SSM Session Manager:
 #   aws ssm start-session --target $(terraform output -raw app_instance_id)
 

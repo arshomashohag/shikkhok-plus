@@ -26,6 +26,11 @@ from typing import Annotated
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, Request
 from sqlalchemy.orm import Session
 
+from app.accounts.clients import (
+    CLIENT_PLATFORM_HEADER,
+    CLIENT_VERSION_HEADER,
+    record_client,
+)
 from app.auth import otp
 from app.auth.ceilings import CeilingChecker, SendBudget
 from app.auth.client_address import client_prefix
@@ -198,6 +203,12 @@ def verify_code(
         session, body.phone, body.code, correlation_id, purpose=otp.OTP_PURPOSE
     )
     pair = issue_pair(session, account_id, correlation_id)
+    record_client(
+        session,
+        account_id,
+        request.headers.get(CLIENT_PLATFORM_HEADER),
+        request.headers.get(CLIENT_VERSION_HEADER),
+    )
     session.commit()
     return TokenResponse(
         access_token=pair.access_token,
@@ -227,6 +238,17 @@ def refresh_tokens(
     """
     correlation_id = correlation_of(request)
     pair = rotate(session, body.refresh_token, correlation_id)
+    # After the rotation has committed, in its own small transaction: the
+    # new pair is already the account's, so a failure here must not be
+    # able to undo it, and recording which app renewed is worth far less
+    # than the renewal itself.
+    if record_client(
+        session,
+        pair.account_id,
+        request.headers.get(CLIENT_PLATFORM_HEADER),
+        request.headers.get(CLIENT_VERSION_HEADER),
+    ):
+        session.commit()
     return TokenResponse(
         access_token=pair.access_token,
         refresh_token=pair.refresh_token,
