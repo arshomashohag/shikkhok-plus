@@ -2445,7 +2445,7 @@ class Notification(Base):
     :ivar source_id: The notice, exam or claim it points at; no foreign
         key, because the target table depends on ``kind``
     :ivar child_name: The seat's display name, set for guardian recipients
-    :ivar preview: The first 140 characters of a notice, or an exam title
+    :ivar preview: A notice shortened to 60 characters, or an exam title
     :ivar created_at: When it was sent
     :ivar read_at: When its owner opened the inbox after it arrived
     """
