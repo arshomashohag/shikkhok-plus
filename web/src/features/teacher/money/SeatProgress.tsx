@@ -32,7 +32,7 @@ export function SeatProgress() {
     <DashboardView
       title={t('screen_title_progress')}
       subtitle={[name, batch].filter(Boolean).join(' · ') || undefined}
-      load={(range) => readSeatDashboard(enrollmentId, range)}
+      load={(range, signal) => readSeatDashboard(enrollmentId, range, signal)}
       feesLink={moneyPaths.seatFees(enrollmentId, name, batch)}
       cacheKey={enrollmentId}
     />
@@ -53,14 +53,17 @@ export function DashboardView({
 }: {
   title: string
   subtitle?: string
-  load: (range: DashboardRange) => Promise<Schemas['DashboardResponse']>
+  load: (range: DashboardRange, signal: AbortSignal) => Promise<Schemas['DashboardResponse']>
   feesLink: string
   /** Re-read when this changes (the seat). */
   cacheKey: string
 }) {
   const { t } = useT()
   const [range, setRange] = useState<DashboardRange>('6m')
-  const { resource, reload } = useResource(() => load(range).then(mapDashboard), [cacheKey, range])
+  const { resource, reload } = useResource(
+    (signal) => load(range, signal).then(mapDashboard),
+    [cacheKey, range],
+  )
 
   return (
     <>

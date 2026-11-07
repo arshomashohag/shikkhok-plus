@@ -31,10 +31,10 @@ interface Loaded {
   next: NextPayable | null
 }
 
-async function load(seat: string): Promise<Loaded> {
-  const payments = mapPayments(await readChildPayments(seat))
+async function load(seat: string, signal?: AbortSignal): Promise<Loaded> {
+  const payments = mapPayments(await readChildPayments(seat, signal))
   // The headline is a convenience: the payments still show if payables fail.
-  const next = await readPayables('child', seat).then(nextPayable, () => null)
+  const next = await readPayables('child', seat, signal).then(nextPayable, () => null)
   return { payments, next }
 }
 
@@ -47,7 +47,7 @@ export function PaymentsScreen({ reader }: { reader: Reader }) {
 function ChildPayments({ seat }: { seat: string }) {
   const { t, lang } = useT()
   const online = useOnline()
-  const { resource, reload } = useResource(() => load(seat), [seat])
+  const { resource, reload } = useResource((signal) => load(seat, signal), [seat])
 
   if (resource.state === 'loading') {
     return (

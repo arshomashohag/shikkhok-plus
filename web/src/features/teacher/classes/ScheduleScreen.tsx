@@ -30,7 +30,8 @@ export function ScheduleScreen() {
   const { batchId = '' } = useParams()
   const { t } = useT()
   const { resource, reload } = useResource(
-    () => readSchedule(batchId).then((slots) => ({ draft: draftFromSlots(slots), slots })),
+    (signal) =>
+      readSchedule(batchId, signal).then((slots) => ({ draft: draftFromSlots(slots), slots })),
     [batchId],
   )
   const back = paths.batch(batchId, 'classes')
@@ -63,8 +64,8 @@ function AssignmentPickers({
   onChange: (next: SlotAssignment) => void
 }) {
   const { t } = useT()
-  const members = useResource(() => listMembers(), [])
-  const rooms = useResource(() => listRooms(), [])
+  const members = useResource((signal) => listMembers(signal), [])
+  const rooms = useResource((signal) => listRooms(signal), [])
   if (members.resource.state !== 'loaded' || rooms.resource.state !== 'loaded') return null
   return (
     <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>

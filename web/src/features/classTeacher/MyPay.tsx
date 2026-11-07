@@ -12,7 +12,7 @@ import { SalaryCard } from '../teacher/centre/Payroll'
 
 export function MyPay() {
   const { t, lang } = useT()
-  const { resource, reload } = useResource(() => readMyPay(), [])
+  const { resource, reload } = useResource((signal) => readMyPay(signal), [])
   let body: React.ReactNode
   if (resource.state === 'loading') body = <Loading rows={2} />
   else if (resource.state === 'failed')

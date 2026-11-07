@@ -19,7 +19,10 @@ import './account.css'
 export function MyChildren() {
   const { t } = useT()
   const { session } = useReadySession()
-  const { resource, reload } = useResource(() => readGuardianHome().then(mapChildren), [])
+  const { resource, reload } = useResource(
+    (signal) => readGuardianHome(signal).then(mapChildren),
+    [],
+  )
   const phone = session.me.phone ? formatPhone(session.me.phone) : null
 
   let body: React.ReactNode

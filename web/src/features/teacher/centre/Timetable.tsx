@@ -64,8 +64,8 @@ function ClassSheet({
   onSaved: () => void
 }) {
   const { t, message, lang } = useT()
-  const members = useResource(() => listMembers(), [])
-  const rooms = useResource(() => listRooms(), [])
+  const members = useResource((signal) => listMembers(signal), [])
+  const rooms = useResource((signal) => listRooms(signal), [])
   const [teacher, setTeacher] = useState(target.teacher_member_id ?? '')
   const [room, setRoom] = useState(target.room_id ?? '')
   const [swapWith, setSwapWith] = useState('')
@@ -175,7 +175,7 @@ function ClassSheet({
 
 function RoomsSheet({ onClose }: { onClose: () => void }) {
   const { t, message } = useT()
-  const { resource, reload } = useResource(() => listRooms(), [])
+  const { resource, reload } = useResource((signal) => listRooms(signal), [])
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
@@ -267,7 +267,7 @@ export function Timetable() {
   const [start, setStart] = useState(() => isoDay(new Date()))
   const days = weekFrom(start)
   const { resource, reload } = useResource(
-    () => readTimetable(start, weekFrom(start)[6] ?? start),
+    (signal) => readTimetable(start, weekFrom(start)[6] ?? start, signal),
     [start],
   )
   const [editing, setEditing] = useState<TimetableClass | null>(null)

@@ -39,10 +39,10 @@ interface Loaded {
   feesError: ApiError | null
 }
 
-async function load(batchId: string): Promise<Loaded> {
+async function load(batchId: string, signal?: AbortSignal): Promise<Loaded> {
   const [roster, fees] = await Promise.all([
-    readRoster(batchId),
-    readBatchFees(batchId).then(
+    readRoster(batchId, signal),
+    readBatchFees(batchId, signal).then(
       (f) => ({ ok: true as const, f }),
       (e: unknown) => ({ ok: false as const, e }),
     ),
@@ -63,7 +63,7 @@ type Dialog =
 export function StudentsTab({ batchId, batch }: BatchTabProps) {
   const { t, message } = useT()
   const online = useOnline()
-  const { resource, reload } = useResource(() => load(batchId), [batchId])
+  const { resource, reload } = useResource((signal) => load(batchId, signal), [batchId])
   const wide = useWide()
   const [open, setOpen] = useState<string | null>(null)
   const [dialog, setDialog] = useState<Dialog>(null)

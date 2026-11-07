@@ -39,7 +39,7 @@ export function markBody(enrollmentId: string, typed: string): Schemas['MarkWrit
 
 export function MyExams() {
   const { t, lang } = useT()
-  const { resource, reload } = useResource(() => listMyExams(), [])
+  const { resource, reload } = useResource((signal) => listMyExams(signal), [])
   let body: React.ReactNode
   if (resource.state === 'loading') body = <Loading rows={3} />
   else if (resource.state === 'failed')
@@ -179,7 +179,7 @@ function MarkRow({
 export function MyExamMarks() {
   const { examId = '' } = useParams()
   const { t, message } = useT()
-  const { resource, reload } = useResource(() => readMyExamResults(examId), [examId])
+  const { resource, reload } = useResource((signal) => readMyExamResults(examId, signal), [examId])
   const [snack, setSnack] = useState<string | null>(null)
   const [failure, setFailure] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)

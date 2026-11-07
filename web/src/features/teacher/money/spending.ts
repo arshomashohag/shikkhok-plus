@@ -23,8 +23,8 @@ export const EXPENSE_CATEGORIES: readonly ExpenseCategory[] = [
 
 export const EXPENSE_WHAT_MAX = 120
 
-export const listExpenses = (month: string) =>
-  request<Schemas['ExpenseMonthResponse']>('GET', '/v1/expenses', { query: { month } })
+export const listExpenses = (month: string, signal?: AbortSignal) =>
+  request<Schemas['ExpenseMonthResponse']>('GET', '/v1/expenses', { signal, query: { month } })
 
 export const recordExpense = (body: Schemas['ExpenseRequest']) =>
   request<Schemas['ExpenseResponse']>('POST', '/v1/expenses', { body })
@@ -36,8 +36,8 @@ export const voidExpense = (expenseId: string, reason: string | null) =>
     { body: { reason } },
   )
 
-export const readMoneySummary = (month: string) =>
-  request<Schemas['MoneySummaryResponse']>('GET', '/v1/money/summary', { query: { month } })
+export const readMoneySummary = (month: string, signal?: AbortSignal) =>
+  request<Schemas['MoneySummaryResponse']>('GET', '/v1/money/summary', { signal, query: { month } })
 
 export interface ExpenseRow {
   id: string

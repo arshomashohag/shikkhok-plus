@@ -32,7 +32,7 @@ export function SeatFees() {
   const batch = search.get('batch') ?? undefined
   const { t, lang } = useT()
   const { resource, reload } = useResource(
-    () => readSeatFees(enrollmentId).then(mapFeeHistory),
+    (signal) => readSeatFees(enrollmentId, undefined, signal).then(mapFeeHistory),
     [enrollmentId],
   )
   const subtitle = [name, batch].filter(Boolean).join(' · ') || undefined

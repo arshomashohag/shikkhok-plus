@@ -26,14 +26,14 @@ export function FamilyFees({ reader }: { reader: Reader }) {
   const { t, lang } = useT()
   const online = useOnline()
   const { resource, reload } = useResource(
-    () => readFamilyFees(reader, seat).then(mapFeeHistory),
+    (signal) => readFamilyFees(reader, seat, signal).then(mapFeeHistory),
     [reader, seat],
   )
   // Exam and other fees sit beside the months. A failure here hides only
   // this section: the months above are still the server's whole answer.
   const { resource: extra } = useResource(
-    () =>
-      readSeatExtraFees(seat).then((r) =>
+    (signal) =>
+      readSeatExtraFees(seat, signal).then((r) =>
         r.fees.map((f) => ({
           id: f.extra_fee_id,
           label: f.label,

@@ -230,7 +230,7 @@ type Open =
 
 export function Staff() {
   const { t, lang } = useT()
-  const { resource, reload } = useResource(() => listStaff(), [])
+  const { resource, reload } = useResource((signal) => listStaff(signal), [])
   const [open, setOpen] = useState<Open>(null)
   const [snack, setSnack] = useState<string | null>(null)
 

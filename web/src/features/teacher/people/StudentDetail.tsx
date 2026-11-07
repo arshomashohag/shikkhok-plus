@@ -31,8 +31,8 @@ export function StudentDetail() {
   const { t, message } = useT()
   const navigate = useNavigate()
   const { resource, reload } = useResource(
-    () =>
-      Promise.all([readStudent(studentId), listBatches()]).then(([s, b]) => ({
+    (signal) =>
+      Promise.all([readStudent(studentId, signal), listBatches(signal)]).then(([s, b]) => ({
         student: mapStudent(s),
         batches: b.map(mapBatch),
       })),

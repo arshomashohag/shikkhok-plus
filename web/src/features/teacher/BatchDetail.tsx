@@ -29,7 +29,8 @@ export function BatchDetail() {
   const requested = search.get('tab') as BatchTab | null
   const tab: BatchTab = requested && TABS.includes(requested) ? requested : 'students'
   const { resource, reload } = useResource(
-    () => listBatches().then((all) => all.map(mapBatch).find((b) => b.id === batchId) ?? null),
+    (signal) =>
+      listBatches(signal).then((all) => all.map(mapBatch).find((b) => b.id === batchId) ?? null),
     [batchId],
   )
 

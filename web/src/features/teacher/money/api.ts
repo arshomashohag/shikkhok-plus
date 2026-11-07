@@ -15,8 +15,13 @@ const enc = encodeURIComponent
  * (`'monthly'`) or one extra fee (its id) instead of what it is applied
  * to now; the server writes nothing for a preview.
  */
-export const readPayment = (submissionId: string, preview: string | null = null) =>
+export const readPayment = (
+  submissionId: string,
+  preview: string | null = null,
+  signal?: AbortSignal,
+) =>
   request<Schemas['PaymentReviewResponse']>('GET', `/v1/payments/${enc(submissionId)}`, {
+    signal,
     query:
       preview === null
         ? {}
@@ -48,22 +53,28 @@ export const recordPayment = (enrollmentId: string, body: Schemas['ReceivedPayme
 
 // -------------------------------------------------------------- one seat
 
-export const readSeatFees = (enrollmentId: string, months = 6) =>
+export const readSeatFees = (enrollmentId: string, months = 6, signal?: AbortSignal) =>
   request<Schemas['FeeHistoryResponse']>('GET', `/v1/enrollments/${enc(enrollmentId)}/fees`, {
+    signal,
     query: { months },
   })
 
 export type DashboardRange = '6m' | 'year' | 'all'
 
-export const readSeatDashboard = (enrollmentId: string, range: DashboardRange) =>
+export const readSeatDashboard = (
+  enrollmentId: string,
+  range: DashboardRange,
+  signal?: AbortSignal,
+) =>
   request<Schemas['DashboardResponse']>('GET', `/v1/enrollments/${enc(enrollmentId)}/dashboard`, {
+    signal,
     query: { range },
   })
 
 // ---------------------------------------------------------- payment methods
 
-export const listPaymentMethods = () =>
-  request<Schemas['PaymentMethodResponse'][]>('GET', '/v1/payment-methods')
+export const listPaymentMethods = (signal?: AbortSignal) =>
+  request<Schemas['PaymentMethodResponse'][]>('GET', '/v1/payment-methods', { signal })
 
 export const createPaymentMethod = (body: Schemas['PaymentMethodRequest']) =>
   request<Schemas['PaymentMethodResponse']>('POST', '/v1/payment-methods', { body })
@@ -83,14 +94,17 @@ export const retirePaymentMethod = (methodId: string) =>
  * the client's scalar `query` option cannot say, so the query string is
  * built here. No batch means every batch.
  */
-export const readCollections = (batchIds: readonly string[], months = 6) => {
+export const readCollections = (batchIds: readonly string[], months = 6, signal?: AbortSignal) => {
   const params = new URLSearchParams({ months: String(months) })
   for (const id of batchIds) params.append('batch_id', id)
-  return request<Schemas['CollectionsResponse']>('GET', `/v1/analytics/collections?${params}`)
+  return request<Schemas['CollectionsResponse']>('GET', `/v1/analytics/collections?${params}`, {
+    signal,
+  })
 }
 
 /** One batch's month; no period means the server's current one. */
-export const readBatchMonth = (batchId: string, period?: string) =>
+export const readBatchMonth = (batchId: string, period?: string, signal?: AbortSignal) =>
   request<Schemas['BatchFeesResponse']>('GET', `/v1/batches/${enc(batchId)}/fees`, {
+    signal,
     query: { period },
   })

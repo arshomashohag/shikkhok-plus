@@ -22,10 +22,10 @@ export function useSeatId(): string {
 /** Null while loading or when the seat is not the reader's. */
 export function useSeatIdentity(reader: Reader, seat: string): SeatIdentity | null {
   const { resource } = useResource(
-    () =>
+    (signal) =>
       reader === 'me'
-        ? listMySeats().then((rows) => identityFromMine(rows, seat))
-        : listChildSeats().then((rows) => identityFromChildren(rows, seat)),
+        ? listMySeats(signal).then((rows) => identityFromMine(rows, seat))
+        : listChildSeats(signal).then((rows) => identityFromChildren(rows, seat)),
     [reader, seat],
   )
   return resource.state === 'loaded' ? resource.data : null

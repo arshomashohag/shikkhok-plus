@@ -29,8 +29,11 @@ interface Context {
   names: string[]
 }
 
-async function loadContext(): Promise<Context> {
-  const [batches, students] = await Promise.all([listBatches(), listStudents({ kind: 'all' })])
+async function loadContext(signal?: AbortSignal): Promise<Context> {
+  const [batches, students] = await Promise.all([
+    listBatches(signal),
+    listStudents({ kind: 'all' }, '', signal),
+  ])
   return { batches: batches.map(mapBatch), names: students.map((s) => s.display_name) }
 }
 

@@ -49,10 +49,10 @@ export function BatchMonthScreen() {
   const [snack, setSnack] = useState<string | null>(null)
   const dismissSnack = useCallback(() => setSnack(null), [])
   const { resource, reload } = useResource(
-    () =>
+    (signal) =>
       Promise.all([
-        readBatchMonth(batchId, period).then(mapBatchMonth),
-        listBatches().then((b) => b.find((x) => x.id === batchId)?.name ?? null),
+        readBatchMonth(batchId, period, signal).then(mapBatchMonth),
+        listBatches(signal).then((b) => b.find((x) => x.id === batchId)?.name ?? null),
       ]).then(([month, name]) => ({ month, name })),
     [batchId, period],
   )

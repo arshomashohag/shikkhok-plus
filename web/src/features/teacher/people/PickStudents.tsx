@@ -7,7 +7,7 @@ import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { listBatches } from '../../../api/endpoints'
 import { ApiError } from '../../../api/errors'
-import { useResource } from '../../../core/useResource'
+import { useDebounced, useResource } from '../../../core/useResource'
 import { useT } from '../../../i18n/i18n'
 import { EmptyState, ErrorCard, Loading, TopBar } from '../../../ui/components'
 import { paths } from '../paths'
@@ -22,15 +22,20 @@ export function PickStudents() {
   const [picked, setPicked] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // One request per pause in typing; the batch name is read once, not
+  // again with every search.
+  const searched = useDebounced(query)
   const { resource, reload } = useResource(
-    () =>
-      Promise.all([listStudents({ kind: 'not-in-batch', batchId }, query), listBatches()]).then(
-        ([students, batches]) => ({
-          students: students.map(mapStudent),
-          batchName: batches.find((b) => b.id === batchId)?.name ?? '',
-        }),
+    (signal) =>
+      listStudents({ kind: 'not-in-batch', batchId }, searched, signal).then((students) =>
+        students.map(mapStudent),
       ),
-    [batchId, query],
+    [batchId, searched],
+    { keepPreviousOnKeyChange: true },
+  )
+  const batch = useResource(
+    (signal) => listBatches(signal).then((all) => all.find((b) => b.id === batchId)?.name ?? ''),
+    [batchId],
   )
 
   const toggle = (id: string) =>
@@ -49,17 +54,16 @@ export function PickStudents() {
     }
   }
 
-  const batchName = resource.state === 'loaded' ? resource.data.batchName : ''
+  const batchName = batch.resource.state === 'loaded' ? batch.resource.data : ''
   let body: React.ReactNode
   if (resource.state === 'loading') body = <Loading rows={4} />
   else if (resource.state === 'failed')
     body = <ErrorCard title={t('students_error_title')} error={resource.error} onRetry={reload} />
-  else if (resource.data.students.length === 0)
-    body = <EmptyState title={t('pick_students_empty')} />
+  else if (resource.data.length === 0) body = <EmptyState title={t('pick_students_empty')} />
   else
     body = (
       <ul className="list card" style={{ padding: 0 }}>
-        {resource.data.students.map((s) => (
+        {resource.data.map((s) => (
           <li key={s.id}>
             <label className="row" style={{ cursor: 'pointer' }}>
               <input

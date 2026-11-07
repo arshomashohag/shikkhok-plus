@@ -58,7 +58,7 @@ export function PaymentReviewScreen() {
   // the server measures the payment against it and writes nothing.
   const [preview, setPreview] = useState<string | null>(null)
   const { resource, reload } = useResource(
-    () => readPayment(submissionId, preview).then(mapPaymentDetail),
+    (signal) => readPayment(submissionId, preview, signal).then(mapPaymentDetail),
     [submissionId, preview],
   )
   // The payment as the last write returned it, until the next read.

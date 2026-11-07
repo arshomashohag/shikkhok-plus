@@ -173,7 +173,7 @@ function RemoveSheet({
 
 export function Members() {
   const { t } = useT()
-  const { resource, reload } = useResource(() => listMembers(), [])
+  const { resource, reload } = useResource((signal) => listMembers(signal), [])
   const [inviting, setInviting] = useState(false)
   const [removing, setRemoving] = useState<Member | null>(null)
   const [snack, setSnack] = useState<string | null>(null)

@@ -255,7 +255,7 @@ type Open = { sheet: 'adjust' | 'pay'; line: SalaryLine } | null
 export function Payroll() {
   const { t, lang, message } = useT()
   const [month, setMonth] = useState(currentMonth)
-  const { resource, reload } = useResource(() => readPayroll(month), [month])
+  const { resource, reload } = useResource((signal) => readPayroll(month, signal), [month])
   const [open, setOpen] = useState<Open>(null)
   const [snack, setSnack] = useState<string | null>(null)
 

@@ -8,7 +8,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { listBatches } from '../../../api/endpoints'
-import { useResource } from '../../../core/useResource'
+import { useDebounced, useResource } from '../../../core/useResource'
 import { useWide } from '../../../core/useWide'
 import { useT } from '../../../i18n/i18n'
 import { formatPhone, initial } from '../../../core/format'
@@ -99,12 +99,16 @@ export function StudentsList() {
   const wide = useWide()
   const [filter, setFilter] = useState<StudentFilter>({ kind: 'all' })
   const [query, setQuery] = useState('')
+  // One request per pause in typing, not per keystroke; the list stays up
+  // while the next answer comes, since its rows are valid either way.
+  const searched = useDebounced(query)
   const filterKey = filter.kind === 'in-batch' ? filter.batchId : filter.kind
   const { resource, reload } = useResource(
-    () => listStudents(filter, query).then((rows) => rows.map(mapStudent)),
-    [filterKey, query],
+    (signal) => listStudents(filter, searched, signal).then((rows) => rows.map(mapStudent)),
+    [filterKey, searched],
+    { keepPreviousOnKeyChange: true },
   )
-  const batches = useResource(() => listBatches(), [])
+  const batches = useResource((signal) => listBatches(signal), [])
   const batchList = batches.resource.state === 'loaded' ? batches.resource.data : []
 
   const chip = (label: string, next: StudentFilter, pressed: boolean, key: string) => (
@@ -125,7 +129,7 @@ export function StudentsList() {
   } else if (resource.state === 'failed') {
     body = <ErrorCard title={t('students_error_title')} error={resource.error} onRetry={reload} />
   } else if (resource.data.length === 0) {
-    const narrowed = filter.kind !== 'all' || query.trim() !== ''
+    const narrowed = filter.kind !== 'all' || searched.trim() !== ''
     body = narrowed ? (
       <EmptyState title={t('students_empty_filtered')} />
     ) : (
