@@ -59,6 +59,13 @@ __all__ = ["accept_seat", "decline_seat"]
 #: ``id =`` stays beside the student match so a seat with no student
 #: (``0018``'s one NULL case) still records its own decision.
 #:
+#: **A decline never moves an ACCEPTED sibling** [audit C-31]. The
+#: rewrite assumed every seat of a student already shares each link's
+#: decision; where seats diverged, declining a pending seat turned an
+#: accepted sibling to declined and the nightly void forgave its arrears.
+#: Only the seat being declined moves from accepted; acceptance itself
+#: is unguarded, since accepting covers every seat of the student.
+#:
 #: The erasure markers are not tested here. A link whose holder erased
 #: resolves no invitation lens [BR6.2, invitations.py], so this
 #: statement is never reached for one -- and adding the condition would
@@ -69,11 +76,17 @@ _SET_DECISION = sa.text(
     UPDATE enrollment
     SET student_decision = CASE
             WHEN student_account_id = :account_id
+             AND (:decision <> 'declined'
+                  OR student_decision <> 'accepted'
+                  OR id = :enrollment_id)
             THEN CAST(:decision AS enrollment_decision)
             ELSE student_decision
         END,
         guardian_decision = CASE
             WHEN guardian_account_id = :account_id
+             AND (:decision <> 'declined'
+                  OR guardian_decision <> 'accepted'
+                  OR id = :enrollment_id)
             THEN CAST(:decision AS enrollment_decision)
             ELSE guardian_decision
         END

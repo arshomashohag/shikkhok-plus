@@ -75,6 +75,13 @@ def run_migrations_online() -> None:
     with connectable.connect() as connection:
         context.configure(connection=connection, target_metadata=target_metadata)
         with context.begin_transaction():
+            # Inside Alembic's own transaction: issued before it, the SET
+            # would open the connection's transaction first, and Alembic
+            # then leaves that transaction -- and every migration -- to
+            # roll back on close. A migration queued behind live traffic
+            # for an exclusive lock would block every query on the table
+            # while it waits; this makes it fail instead [audit C-18].
+            connection.exec_driver_sql("SET LOCAL lock_timeout = '10s'")
             context.run_migrations()
 
 

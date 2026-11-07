@@ -87,13 +87,56 @@ resource "aws_iam_role" "instance" {
   })
 }
 
-# The AWS-managed policy, not a hand-rolled one. SSM's required action
-# set changes with the agent, and a hand-maintained copy drifts into
-# "Session Manager stopped working after an agent update" with no
-# obvious cause.
-resource "aws_iam_role_policy_attachment" "ssm" {
-  role       = aws_iam_role.instance.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+# **The SSM agent's actions, inline, WITHOUT ssm:GetParameter(s)**
+# [C-08]. This was the AWS-managed AmazonSSMManagedInstanceCore, which
+# grants ssm:GetParameter and GetParameters on `*` -- so, under a
+# boundary allowing every /shikkhokplus/ parameter, a staging host could
+# read production's runtime env, owner database URL and origin secret.
+# The only parameter reads this host now holds are its own boot
+# parameters (self_registration, below).
+#
+# The managed policy was preferred so an agent update could not silently
+# outgrow a hand copy. That argument no longer held: the workload
+# boundary already pins this list, so anything AWS added to the managed
+# policy was denied by the boundary regardless. The list is the
+# boundary's SsmAgent statement less the two parameter reads; when the
+# agent needs more, both change together in infra/bootstrap.
+resource "aws_iam_role_policy" "ssm_agent" {
+  name = "ssm-agent"
+  role = aws_iam_role.instance.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "ssm:DescribeAssociation",
+        "ssm:GetDeployablePatchSnapshotForInstance",
+        "ssm:GetDocument",
+        "ssm:DescribeDocument",
+        "ssm:GetManifest",
+        "ssm:ListAssociations",
+        "ssm:ListInstanceAssociations",
+        "ssm:PutInventory",
+        "ssm:PutComplianceItems",
+        "ssm:PutConfigurePackageResult",
+        "ssm:UpdateAssociationStatus",
+        "ssm:UpdateInstanceAssociationStatus",
+        "ssm:UpdateInstanceInformation",
+        "ssmmessages:CreateControlChannel",
+        "ssmmessages:CreateDataChannel",
+        "ssmmessages:OpenControlChannel",
+        "ssmmessages:OpenDataChannel",
+        "ec2messages:AcknowledgeMessage",
+        "ec2messages:DeleteMessage",
+        "ec2messages:FailMessage",
+        "ec2messages:GetEndpoint",
+        "ec2messages:GetMessages",
+        "ec2messages:SendReply",
+      ]
+      Resource = "*"
+    }]
+  })
 }
 
 # Pulling the application image. **Two statements, because ECR's
@@ -446,7 +489,9 @@ data "aws_instances" "app" {
 }
 
 # Reading the deployment state at boot, and writing the instance's own
-# DNS record. Both are scoped: one parameter, one zone.
+# DNS record. Scoped to this host's own boot parameters and its own
+# names in one zone; with the managed SSM policy gone [C-08], these are
+# the only parameters the host can read.
 resource "aws_iam_role_policy" "self_registration" {
   name = "self-registration"
   role = aws_iam_role.instance.id

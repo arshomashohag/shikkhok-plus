@@ -38,7 +38,12 @@ locals {
   # (its state is local to whoever ran it), so the ARN is derived from
   # the fixed name and path rather than looked up. A mismatch fails the
   # apply at CreateRole with AccessDenied, not silently.
-  permissions_boundary_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/shikkhokplus/shikkhokplus-workload-boundary"
+  #
+  # **This environment's boundary** [C-08]: it allows reading only this
+  # environment's parameters, so a staging host cannot read
+  # production's signing keys, and this environment's infrastructure
+  # role may create roles under no other.
+  permissions_boundary_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/shikkhokplus/shikkhokplus-workload-boundary-${var.environment}"
 
   # **The zone label is per ENVIRONMENT** [OPS-10]. It was one label
   # for every environment, so a production apply would have created a

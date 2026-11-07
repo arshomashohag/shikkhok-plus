@@ -41,7 +41,10 @@ export function Batches() {
   const { t, plural } = useT()
   const scheduleLine = useScheduleLine()
   const wide = useWide()
-  const { resource, reload } = useResource(() => listBatches().then((b) => b.map(mapBatch)), [])
+  const { resource, reload } = useResource(
+    (signal) => listBatches(signal).then((b) => b.map(mapBatch)),
+    [],
+  )
 
   // A phone reaches "New batch" from the floating button; a wide window
   // from the page header, as the web boards put it.

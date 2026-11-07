@@ -563,10 +563,13 @@ def test_an_app_sms_code_cannot_start_an_admin_sign_in(
     assert crossed.status_code != 200
 
 
-def test_an_app_token_carries_no_audience(
+def test_an_app_token_carries_only_the_app_audience(
     api_client: TestClient, owner_session: Session, people: People
 ) -> None:
-    """Guard the distinction itself: app tokens stay audience-free.
+    """Guard the distinction itself: an app token is never a scoped one.
+
+    App tokens carry the app's own audience [audit L-03], never the admin
+    surface's or the MFA step's, and the scoped verifier refuses them.
 
     :param api_client: Configures the signing environment
     :param owner_session: An arranging session
@@ -575,9 +578,22 @@ def test_an_app_token_carries_no_audience(
     """
     import jwt
 
+    from app.auth.tokens import (
+        ADMIN_AUDIENCE,
+        APP_MFA_CHALLENGE_AUDIENCE,
+        JWT_AUDIENCE,
+        MFA_CHALLENGE_AUDIENCE,
+    )
+
     token = bearer(owner_session, people.stranger)["Authorization"].split()[1]
     owner_session.commit()
-    assert "aud" not in jwt.decode(token, options={"verify_signature": False})
+    audience = jwt.decode(token, options={"verify_signature": False}).get("aud")
+    assert audience == JWT_AUDIENCE
+    assert audience not in {
+        ADMIN_AUDIENCE,
+        APP_MFA_CHALLENGE_AUDIENCE,
+        MFA_CHALLENGE_AUDIENCE,
+    }
 
 
 def test_the_sign_in_routes_need_no_lens_but_record_who_signed_in(

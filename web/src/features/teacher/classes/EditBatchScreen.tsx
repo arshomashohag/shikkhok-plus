@@ -63,7 +63,7 @@ export function EditBatchScreen() {
   const { batchId = '' } = useParams()
   const { t } = useT()
   const { resource, reload } = useResource(
-    () => listBatches().then((all) => all.find((b) => b.id === batchId) ?? null),
+    (signal) => listBatches(signal).then((all) => all.find((b) => b.id === batchId) ?? null),
     [batchId],
   )
   const back = paths.batch(batchId)

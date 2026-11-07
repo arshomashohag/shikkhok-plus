@@ -91,3 +91,25 @@ export async function request<T>(
     throw new ApiError(response.status, 'UNEXPECTED', 'error.unexpected', false)
   }
 }
+
+/**
+ * End this session on the server: the refresh token's whole family is
+ * revoked, so a copy taken before sign-out stops working [audit C-21].
+ *
+ * Best-effort by design. Signing out must work offline, so local state
+ * is cleared whatever happens here, and any failure is swallowed.
+ */
+export async function revokeSession(refreshToken: string): Promise<void> {
+  try {
+    await fetch(urlFor('/v1/auth/logout'), {
+      method: 'POST',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+      credentials: 'omit',
+      cache: 'no-store',
+      keepalive: true,
+    })
+  } catch {
+    // Offline or refused: the local sign-out still stands.
+  }
+}

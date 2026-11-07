@@ -39,6 +39,8 @@ interface StudentsRepository {
      * @param studentPhone The typed student number, or null
      * @param guardianPhone The typed guardian number, or null
      * @param seats The batches to put them in, possibly none
+     * @param clientMutationId The retry key; a resend under it returns the
+     *   student the first one created
      * @return The new student, a refusal, or a transport failure
      */
     suspend fun create(
@@ -46,6 +48,7 @@ interface StudentsRepository {
         studentPhone: String?,
         guardianPhone: String?,
         seats: List<StudentSeatBody>,
+        clientMutationId: String? = null,
     ): AuthResult<TeacherStudentDto>
 
     /**

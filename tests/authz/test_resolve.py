@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 from app.authz.lenses import GuardianLens, StudentLens, TeacherLens
 from app.authz.resolve import LensResolver, available_lenses
 from app.db.models import Account, Enrollment, Owner
+from tests.batches.conftest import make_teacher
 from tests.students_support import student_for
 
 
@@ -81,9 +82,11 @@ def _enroll(session: Session, account_id: uuid.UUID, role: str) -> uuid.UUID:
         "student_decision": "accepted" if role == "student" else "pending",
         "guardian_decision": "accepted" if role == "guardian" else "pending",
     }
+    # A real batch: 0030 gave enrollment.batch_id its foreign key.
+    batch_id = make_teacher(session).batch_id
     record = Enrollment(
-        batch_id=uuid.uuid4(),
-        student_id=student_for(session, uuid.uuid4()),
+        batch_id=batch_id,
+        student_id=student_for(session, batch_id),
         display_name="Teacher Typed Name",
         created_at=dt.datetime.now(tz=dt.UTC),
         **decisions,

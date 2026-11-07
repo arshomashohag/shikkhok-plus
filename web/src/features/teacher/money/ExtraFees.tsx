@@ -99,7 +99,7 @@ export function BatchExtraFees() {
   const { batchId = '' } = useParams()
   const { t } = useT()
   const { resource, reload } = useResource(
-    () => listExtraFees(batchId).then((r) => r.fees.map(mapFeeSummary)),
+    (signal) => listExtraFees(batchId, signal).then((r) => r.fees.map(mapFeeSummary)),
     [batchId],
   )
   const raise = (
@@ -146,11 +146,13 @@ export function RaiseExtraFee() {
   const navigate = useNavigate()
   const { t, message } = useT()
   const { resource, reload } = useResource(
-    () =>
-      Promise.all([listExtraFees(batchId), listExams(batchId)]).then(([fees, exams]) => ({
-        students: fees.chargeable_students ?? [],
-        exams: exams.filter((e) => !e.cancelled && !e.published),
-      })),
+    (signal) =>
+      Promise.all([listExtraFees(batchId, signal), listExams(batchId, signal)]).then(
+        ([fees, exams]) => ({
+          students: fees.chargeable_students ?? [],
+          exams: exams.filter((e) => !e.cancelled && !e.published),
+        }),
+      ),
     [batchId],
   )
   const [input, setInput] = useState<RaiseInput>(() => openRaise(mutationId(), todayPlus(7)))
@@ -317,7 +319,10 @@ export function RaiseExtraFee() {
 export function ExtraFeeDetail() {
   const { feeId = '' } = useParams()
   const { t, lang } = useT()
-  const { resource, reload } = useResource(() => readExtraFee(feeId).then(mapFeeDetail), [feeId])
+  const { resource, reload } = useResource(
+    (signal) => readExtraFee(feeId, signal).then(mapFeeDetail),
+    [feeId],
+  )
   const [recording, setRecording] = useState<FeeStudent | null>(null)
   // The raise form hands its "raised" message over on navigation.
   const raised = (useLocation().state as { snack?: string } | null)?.snack ?? null

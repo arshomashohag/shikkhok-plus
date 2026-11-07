@@ -12,7 +12,9 @@ import com.shikkhokplus.app.feature.auth.AuthResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -77,6 +79,7 @@ class StudentsViewModelTest {
     ) : StudentsRepository {
         val filters = mutableListOf<Pair<StudentFilter, String>>()
         var createdSeats: List<StudentSeatBody>? = null
+        val createKeys = mutableListOf<String?>()
         var addedToBatch: Pair<String, List<String>>? = null
 
         override suspend fun students(
@@ -97,8 +100,10 @@ class StudentsViewModelTest {
             studentPhone: String?,
             guardianPhone: String?,
             seats: List<StudentSeatBody>,
+            clientMutationId: String?,
         ): AuthResult<TeacherStudentDto> {
             createdSeats = seats
+            createKeys += clientMutationId
             return created ?: AuthResult.TransportFailure
         }
 
@@ -162,6 +167,56 @@ class StudentsViewModelTest {
     }
 
     @Test
+    fun `typing sends one search, with the final text, once typing pauses`() = runTest(dispatcher) {
+        // C-14: a request per keystroke was the defect. The field shows
+        // each keystroke at once; the server is asked once.
+        val repository = Fake()
+        val model = StudentsViewModel(repository)
+        model.load()
+        advanceUntilIdle()
+        val before = repository.filters.size
+
+        for (text in listOf("R", "Ra", "Raf", "Rafi", "Rafiq")) {
+            model.search(text)
+            advanceTimeBy(SEARCH_DEBOUNCE_MS / 3)
+        }
+        assertEquals("Rafiq", model.query.value, "the field never lags")
+        assertEquals(before, repository.filters.size, "nothing is sent while typing continues")
+
+        advanceUntilIdle()
+
+        assertEquals(listOf<Pair<StudentFilter, String>>(StudentFilter.All to "Rafiq"), repository.filters.drop(before))
+    }
+
+    @Test
+    fun `a search is not sent before the pause has passed`() = runTest(dispatcher) {
+        val repository = Fake()
+        val model = StudentsViewModel(repository)
+
+        model.search("01711")
+        advanceTimeBy(SEARCH_DEBOUNCE_MS - 1)
+        runCurrent()
+        assertTrue(repository.filters.isEmpty())
+
+        advanceTimeBy(2)
+        runCurrent()
+        assertEquals(listOf<Pair<StudentFilter, String>>(StudentFilter.All to "01711"), repository.filters)
+    }
+
+    @Test
+    fun `a filter chosen while a search waits sends it once, not twice`() = runTest(dispatcher) {
+        val repository = Fake()
+        val model = StudentsViewModel(repository)
+
+        model.search("raf")
+        model.load(StudentFilter.InBatch("b-Physics"))
+        advanceUntilIdle()
+
+        val expected: List<Pair<StudentFilter, String>> = listOf(StudentFilter.InBatch("b-Physics") to "raf")
+        assertEquals(expected, repository.filters)
+    }
+
+    @Test
     fun `nothing matching a filter is Empty and says it was filtered`() = runTest(dispatcher) {
         val model = StudentsViewModel(Fake())
 
@@ -217,6 +272,27 @@ class StudentsViewModelTest {
         assertEquals(WriteState.Saved, model.writeState.value)
         assertEquals(seats, repository.createdSeats)
     }
+
+    @Test
+    fun `a retry after a lost response resends the same key, a new student a new one`() =
+        runTest(dispatcher) {
+            // C-25: a key that changed on retry would let the server make a
+            // second student for one tap the teacher repeated.
+            val repository = Fake(created = AuthResult.TransportFailure)
+            val model = StudentsViewModel(repository)
+
+            model.create("Rafiq", null, null, emptyList())
+            advanceUntilIdle()
+            repository.created = AuthResult.Ok(dto("Rafiq"))
+            model.create("Rafiq", null, null, emptyList())
+            advanceUntilIdle()
+            model.create("Mehedi", null, null, emptyList())
+            advanceUntilIdle()
+
+            val (first, retry, next) = repository.createKeys
+            assertEquals(first, retry)
+            assertTrue(first != null && next != null && next != first)
+        }
 
     @Test
     fun `the picker sends exactly the chosen students and then clears`() = runTest(dispatcher) {

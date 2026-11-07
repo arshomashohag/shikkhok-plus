@@ -268,7 +268,11 @@ def record_expense(
         .returning(Expense.id)
     ).scalar_one_or_none()
     if inserted is None:
-        session.rollback()
+        # No rollback: the conflicting insert waited for the winner, and
+        # under READ COMMITTED the next statement already sees its row.
+        # A rollback here ended the CALLER's transaction too -- releasing
+        # the salary line ``pay`` holds locked and discarding anything it
+        # had written [audit C-16].
         winner = _prior(
             session, account_id=lens.account_id, key=draft.client_mutation_id
         )

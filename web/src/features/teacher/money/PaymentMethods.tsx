@@ -43,7 +43,10 @@ import {
 
 export function PaymentMethods() {
   const { t, message } = useT()
-  const { resource, reload } = useResource(() => listPaymentMethods().then((m) => m.map(rowOf)), [])
+  const { resource, reload } = useResource(
+    (signal) => listPaymentMethods(signal).then((m) => m.map(rowOf)),
+    [],
+  )
   const [removing, setRemoving] = useState<MethodRow | null>(null)
   const [busy, setBusy] = useState(false)
   const [snack, setSnack] = useState<string | null>(null)
@@ -182,7 +185,8 @@ export function EditPaymentMethod() {
   const { methodId = '' } = useParams()
   const { t } = useT()
   const { resource, reload } = useResource(
-    () => listPaymentMethods().then((all) => all.find((m) => m.method_id === methodId) ?? null),
+    (signal) =>
+      listPaymentMethods(signal).then((all) => all.find((m) => m.method_id === methodId) ?? null),
     [methodId],
   )
   if (resource.state === 'loading') {

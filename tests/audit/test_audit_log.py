@@ -111,6 +111,13 @@ def test_the_event_vocabulary_is_closed() -> None:
         # still open [NFR12.7, NFR12.9, NFR12.10].
         "ACCOUNT_CREATED",
         "SIGNUP_CEILING_BREACHED",
+        # The 2026-11-07 security pass's four, NAMED MEMBERS on the same
+        # reasoning: verify-first signup [C-07], the two ways a session
+        # ends server-side [C-21], and the failed-verify ceiling [C-20].
+        "SIGNUP_REQUESTED",
+        "LOGGED_OUT",
+        "LOGGED_OUT_EVERYWHERE",
+        "VERIFY_CEILING_BREACHED",
         # Platform administrator sign-in [0028].
         "ADMIN_MFA_ENROLLED",
         "ADMIN_SIGNED_IN",

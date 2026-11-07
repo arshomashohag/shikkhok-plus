@@ -151,6 +151,21 @@ DISPOSITIONS: Final[dict[str, TableGovernance]] = {
         retention=RetentionClass.DAYS_7,
         basis="Tied to an OTP that is itself purged after seven days.",
     ),
+    # A signup form held until its number is proved [C-07]. Personal
+    # data -- a name, an address and a phone number -- written before
+    # any account exists, so it is keyed on the number and deleted by
+    # it, and kept no longer than the shortest finite class allows.
+    "pending_signup": TableGovernance(
+        disposition=Disposition.HARD_DELETE,
+        retention=RetentionClass.HOURS_48,
+        basis=(
+            "A signup form waiting for its phone number to be verified. "
+            "It is removed when the account is created from it, when the "
+            "number signs in to an account it already has, or when the "
+            "number's owner deletes their account, and otherwise expires "
+            "unused within two days."
+        ),
+    ),
     "refresh_token": TableGovernance(
         disposition=Disposition.HARD_DELETE,
         retention=RetentionClass.UNTIL_EXPIRY_PLUS_30_DAYS,

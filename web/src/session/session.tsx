@@ -18,6 +18,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import { revokeSession } from '../api/client'
 import { readMe, type Schemas } from '../api/endpoints'
 import { ApiError, UNEXPECTED_KEY } from '../api/errors'
 import {
@@ -169,7 +170,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const signOut = useCallback(() => {
+    const held = readTokens()
     clearTokens()
+    if (held) void revokeSession(held.refresh)
     storeLens(null)
     storeWorkspace(null)
   }, [])

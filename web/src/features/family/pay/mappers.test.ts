@@ -9,6 +9,7 @@ import {
   initialBatch,
   initialSelection,
   joinNames,
+  lineChip,
   mapPayments,
   myPayBatches,
   nextPayable,
@@ -241,10 +242,16 @@ describe('payments (G2)', () => {
     })
   })
 
-  it('refuses a line state it does not know, and a number where money belongs', () => {
+  it('names a line state it does not know as unknown, with a neutral chip', () => {
     const odd = structuredClone(dto)
     odd.months![0]!.lines[0]!.state = 'refunded' as 'paid'
-    expect(() => mapPayments(odd)).toThrow(MoneyFormatError)
+    const line = mapPayments(odd).months[0]?.lines[0]
+    expect(line).toMatchObject({ state: 'unknown' })
+    expect(line?.amount.format()).toBe('৳1,200')
+    expect(lineChip('unknown')).toEqual({ kind: 'unknown' })
+  })
+
+  it('refuses a number where money belongs', () => {
     const number = { ...dto, paid_this_year: 26400 as unknown as string }
     expect(() => mapPayments(number)).toThrow(MoneyFormatError)
   })

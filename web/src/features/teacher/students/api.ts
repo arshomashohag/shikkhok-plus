@@ -20,8 +20,10 @@ export const setInactiveFrom = (enrollmentId: string, inactiveFrom: string) =>
     body: { inactive_from: inactiveFrom },
   })
 
-export const listAnnouncements = (batchId: string) =>
-  request<Schemas['AnnouncementResponse'][]>('GET', `/v1/batches/${enc(batchId)}/announcements`)
+export const listAnnouncements = (batchId: string, signal?: AbortSignal) =>
+  request<Schemas['AnnouncementResponse'][]>('GET', `/v1/batches/${enc(batchId)}/announcements`, {
+    signal,
+  })
 
 export const postAnnouncement = (batchId: string, body: string) =>
   request<Schemas['AnnouncementResponse']>('POST', `/v1/batches/${enc(batchId)}/announcements`, {

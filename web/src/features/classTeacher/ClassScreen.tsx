@@ -176,7 +176,10 @@ function TopicForm({
 export function ClassScreen() {
   const { sessionId = '' } = useParams()
   const { t } = useT()
-  const { resource, reload } = useResource(() => readClassRoster(sessionId), [sessionId])
+  const { resource, reload } = useResource(
+    (signal) => readClassRoster(sessionId, signal),
+    [sessionId],
+  )
   const [snack, setSnack] = useState<string | null>(null)
   const saved = () => {
     setSnack(t('my_class_saved'))

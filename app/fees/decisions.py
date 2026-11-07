@@ -41,6 +41,7 @@ from app.db.models import Batch, Enrollment, PaymentClaim, PaymentSubmission
 from app.errors import ConflictError, ValidationError
 from app.fees.purposes import owed_for_claim, point_claim, resolve_target
 from app.fees.queue import covered_children
+from app.fees.seat_locks import lock_seats
 from app.fees.verification import (
     reject_claim_in_transaction,
     settle_claim_in_transaction,
@@ -334,6 +335,10 @@ def approve_submission(
             message_key="fees.payment.approval_zero",
         )
     covered = _covered(session, submission)
+    # Every child's seat, in id order, before the decision is claimed or
+    # any balance derived: a family payment split across siblings must
+    # not interleave with another writer on one of them [audit C-03].
+    lock_seats(session, [seat.id for _claim, seat in covered])
     bearer_index = _index_of(covered, carried_by_enrollment_id)
     credit_index = _index_of(covered, credit_to_enrollment_id)
     previous = _previous(submission)
@@ -419,6 +424,10 @@ def reject_submission(
     """
     submission = owned_submission(session, lens=lens, submission_id=submission_id)
     covered = _covered(session, submission)
+    # Every child's seat, in id order, before the decision is claimed or
+    # any balance derived: a family payment split across siblings must
+    # not interleave with another writer on one of them [audit C-03].
+    lock_seats(session, [seat.id for _claim, seat in covered])
     previous = _previous(submission)
     _claim_the_decision(session, submission, decision="rejected", correcting=correcting)
 

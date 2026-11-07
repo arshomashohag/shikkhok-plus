@@ -9,6 +9,7 @@ import com.shikkhokplus.app.core.network.SessionDetailDto
 import com.shikkhokplus.app.core.network.SessionDto
 import com.shikkhokplus.app.core.queue.QueueState
 import com.shikkhokplus.app.core.queue.QueueStore
+import com.shikkhokplus.app.core.queue.TestQueueCipher
 import com.shikkhokplus.app.core.queue.QueuedWrite
 import com.shikkhokplus.app.core.queue.SendOutcome
 import com.shikkhokplus.app.feature.auth.AuthResult
@@ -57,7 +58,7 @@ class AttendanceViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun store(): QueueStore = QueueStore(File(folder.root, QueueStore.FILE_NAME))
+    private fun store(): QueueStore = QueueStore(File(folder.root, QueueStore.FILE_NAME), TestQueueCipher)
 
     private fun detail(version: Int = 7): SessionDetailDto =
         SessionDetailDto(

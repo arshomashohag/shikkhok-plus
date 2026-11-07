@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.feature.roster
 
+import java.util.UUID
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.shikkhokplus.app.core.format.todayIso
@@ -75,6 +76,8 @@ interface RosterRepository {
      * @param guardianPhone The guardian's number, or null
      * @param feeAmount This seat's fee as a canonical string, or null
      *   to inherit the batch default
+     * @param clientMutationId The retry key; a resend under it returns the
+     *   seat the first one created
      * @return Nothing on success, or why the server refused
      */
     suspend fun addEnrollment(
@@ -83,6 +86,7 @@ interface RosterRepository {
         studentPhone: String?,
         guardianPhone: String?,
         feeAmount: String?,
+        clientMutationId: String? = null,
     ): AuthResult<Unit>
 }
 
@@ -103,6 +107,8 @@ class RosterViewModel(
     private val repository: RosterRepository,
     private val today: () -> String = ::todayIso,
 ) : ViewModel() {
+    private var addKey: String? = null
+
 
     private val _state = MutableStateFlow<RosterUiState>(RosterUiState.Idle)
 
@@ -277,6 +283,9 @@ class RosterViewModel(
         val batchId = lastBatchId ?: return
         if (_writeState.value == WriteState.Saving) return
         _writeState.value = WriteState.Saving
+        // Kept until the server confirms, so a retry after a lost response
+        // resends the same key and gets the first seat back [audit C-25].
+        val key = addKey ?: UUID.randomUUID().toString().also { addKey = it }
         viewModelScope.launch {
             _writeState.value =
                 when (
@@ -287,9 +296,11 @@ class RosterViewModel(
                             studentPhone = studentPhone,
                             guardianPhone = guardianPhone,
                             feeAmount = feeAmount,
+                            clientMutationId = key,
                         )
                 ) {
                     is AuthResult.Ok -> {
+                        addKey = null
                         load(batchId, lastBatchName)
                         WriteState.Saved
                     }

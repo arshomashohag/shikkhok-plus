@@ -89,6 +89,10 @@ class WriteContractTest {
                 val tokens = TokenStore.InMemory().apply { save("access", "refresh") }
                 HttpAuthRepository(it, tokens).refresh()
             },
+            // Ending the session on the server at sign-out [C-21].
+            Write("post", "/v1/auth/logout") {
+                HttpAuthRepository(it, TokenStore.InMemory()).logout("refresh")
+            },
             Write("post", "/v1/accounts") {
                 HttpSignupRepository(it).signup("01711234567", "student", "Rafi", ADDRESS)
             },

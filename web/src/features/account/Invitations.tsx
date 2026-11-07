@@ -26,7 +26,7 @@ import { EmptyState, ErrorCard, Loading, Section, Snackbar, TopBar } from '../..
 function CentreOffers({ onSnack }: { onSnack: (text: string) => void }) {
   const { t, message } = useT()
   const { refresh } = useSession()
-  const { resource, reload } = useResource(() => listMemberships(), [])
+  const { resource, reload } = useResource((signal) => listMemberships(signal), [])
   const [busy, setBusy] = useState<string | null>(null)
 
   if (resource.state !== 'loaded' || resource.data.length === 0) return null
@@ -87,7 +87,7 @@ function CentreOffers({ onSnack }: { onSnack: (text: string) => void }) {
 export function Invitations() {
   const { t, message } = useT()
   const { refresh } = useSession()
-  const { resource, reload } = useResource(() => listInvitations(), [])
+  const { resource, reload } = useResource((signal) => listInvitations(signal), [])
   const [busy, setBusy] = useState<string | null>(null)
   const [snack, setSnack] = useState<string | null>(null)
 

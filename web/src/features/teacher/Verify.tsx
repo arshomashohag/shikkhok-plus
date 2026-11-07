@@ -45,7 +45,7 @@ export function oneTap(review: PaymentReview): boolean {
 
 export function Verify() {
   const { t, message } = useT()
-  const { resource, reload } = useResource(() => readQueue().then(mapQueue), [])
+  const { resource, reload } = useResource((signal) => readQueue(signal).then(mapQueue), [])
   const [busy, setBusy] = useState<string | null>(null)
   const [snack, setSnack] = useState<{ text: string; retry?: () => void } | null>(null)
   const dismissSnack = useCallback(() => setSnack(null), [])

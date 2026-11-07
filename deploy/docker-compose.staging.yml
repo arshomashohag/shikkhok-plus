@@ -21,18 +21,31 @@ name: shikkhokplus
 
 # Settings both services share. A YAML anchor rather than a second
 # copy, so a variable added to one cannot be forgotten in the other.
+#
+# **No fallback for the environment name, the app hash or the SMS
+# ceiling** [C-19]. Each used to default here (`staging`, the
+# placeholder hash, 50), so a runtime env missing them started a process
+# that passed its own startup checks with values nobody chose -- and a
+# missing name made a production host call itself staging. The deploy
+# writes all three for every environment; their absence now stops the
+# container instead.
 x-app-environment: &app-environment
-  SHIKKHOKPLUS_ENVIRONMENT: ${SHIKKHOKPLUS_ENVIRONMENT:-staging}
+  SHIKKHOKPLUS_ENVIRONMENT: ${SHIKKHOKPLUS_ENVIRONMENT:?SHIKKHOKPLUS_ENVIRONMENT is required}
   SHIKKHOKPLUS_OTP_HMAC_KEY: ${SHIKKHOKPLUS_OTP_HMAC_KEY:?required}
   SHIKKHOKPLUS_JWT_KEYS: ${SHIKKHOKPLUS_JWT_KEYS:?required}
   SHIKKHOKPLUS_JWT_ACTIVE_KID: ${SHIKKHOKPLUS_JWT_ACTIVE_KID:-k1}
-  SHIKKHOKPLUS_SMS_APP_HASH: ${SHIKKHOKPLUS_SMS_APP_HASH:-AAAAAAAAAAA}
-  SHIKKHOKPLUS_GLOBAL_DAILY_SMS: ${SHIKKHOKPLUS_GLOBAL_DAILY_SMS:-50}
+  SHIKKHOKPLUS_SMS_APP_HASH: ${SHIKKHOKPLUS_SMS_APP_HASH:?SHIKKHOKPLUS_SMS_APP_HASH is required}
+  SHIKKHOKPLUS_GLOBAL_DAILY_SMS: ${SHIKKHOKPLUS_GLOBAL_DAILY_SMS:?SHIKKHOKPLUS_GLOBAL_DAILY_SMS is required}
+  SHIKKHOKPLUS_GLOBAL_DAILY_SIGNUP_SMS: ${SHIKKHOKPLUS_GLOBAL_DAILY_SIGNUP_SMS:-100}
+  SHIKKHOKPLUS_GLOBAL_HOURLY_VERIFY_FAILURES: ${SHIKKHOKPLUS_GLOBAL_HOURLY_VERIFY_FAILURES:-300}
   SHIKKHOKPLUS_SMS_API_KEY: ${SHIKKHOKPLUS_SMS_API_KEY:-}
   SHIKKHOKPLUS_SMS_SENDER_ID: ${SHIKKHOKPLUS_SMS_SENDER_ID:-}
   SHIKKHOKPLUS_SMS_ADAPTER: ${SHIKKHOKPLUS_SMS_ADAPTER:-null}
   SHIKKHOKPLUS_SMS_BASE_URL: ${SHIKKHOKPLUS_SMS_BASE_URL:-}
   SHIKKHOKPLUS_STAGING_OUTBOX: ${SHIKKHOKPLUS_STAGING_OUTBOX:-0}
+  # The operator numbers the outbox may serve. Required on staging for
+  # the outbox to exist at all (app/gateway/outbox.py).
+  SHIKKHOKPLUS_STAGING_OUTBOX_NUMBERS: ${SHIKKHOKPLUS_STAGING_OUTBOX_NUMBERS:-}
   # nginx always overwrites this header from CloudFront's
   # CloudFront-Viewer-Address, so it is the only client address the
   # application may trust for the per-IP OTP ceiling. uvicorn trusts no

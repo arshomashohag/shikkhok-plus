@@ -39,6 +39,9 @@ EXPECTED_MUTATION_ID_BODIES: frozenset[tuple[str, str]] = frozenset(
         # A salary payment is an expense with the expense's own retry key,
         # so a resend after a lost response pays once [P1].
         ("POST", "/v1/centre/payroll/lines/{line_id}/payments"),
+        # A resent "add student" returns the first student [audit C-25].
+        ("POST", "/v1/students"),
+        ("POST", "/v1/batches/{batch_id}/enrollments"),
     }
 )
 

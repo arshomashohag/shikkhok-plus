@@ -25,6 +25,7 @@ from sqlalchemy.orm import Session
 from app.db.models import Account, Owner, OwnerMember
 from app.governance.deletion import delete_account
 from app.notifications.recipients import teacher_recipients
+from tests.accounts.signup_support import sign_up
 from tests.batches.conftest import make_teacher
 from tests.conftest import bearer
 
@@ -65,9 +66,10 @@ def _sign_up_coaching(client: TestClient, session: Session) -> uuid.UUID:
     :return: The account id
     """
     phone = _phone()
-    response = client.post(
-        "/v1/accounts",
-        json={
+    # Form and code: the account is created at verify [C-07].
+    return sign_up(
+        client,
+        {
             "phone": phone,
             "role": "coaching",
             "self_name": "Rina Manager",
@@ -75,8 +77,6 @@ def _sign_up_coaching(client: TestClient, session: Session) -> uuid.UUID:
             **ADDRESS,
         },
     )
-    assert response.status_code == 201, response.text
-    return uuid.UUID(response.json()["account_id"])
 
 
 def _me(client: TestClient, session: Session, account_id: uuid.UUID) -> dict:
@@ -408,12 +408,10 @@ def test_an_invitation_to_a_new_number_links_at_sign_up_but_stays_pending(
     )
     assert invited.status_code == 201, invited.text
 
-    signed = api_client.post(
-        "/v1/accounts",
-        json={"phone": phone, "role": "teacher", "self_name": "Sumi", **ADDRESS},
+    account_id = sign_up(
+        api_client,
+        {"phone": phone, "role": "teacher", "self_name": "Sumi", **ADDRESS},
     )
-    assert signed.status_code == 201, signed.text
-    account_id = uuid.UUID(signed.json()["account_id"])
 
     member = owner_session.get(OwnerMember, uuid.UUID(invited.json()["member_id"]))
     owner_session.refresh(member)
@@ -578,3 +576,41 @@ def test_deleting_an_account_ends_its_memberships(
     assert signed.status_code == 201, signed.text
     owner_session.refresh(member)
     assert member.account_id is None
+
+
+def test_two_invitations_of_one_number_at_once_get_one_member(
+    api_client: TestClient, owner_session: Session
+) -> None:
+    """A double tap is one 201 and one 409, never a 500 [audit C-47].
+
+    Both requests pass the "already invited?" read before either writes;
+    the partial unique index refuses the second insert, which must be
+    reported as the same conflict a sequential duplicate gets.
+    """
+    import threading
+
+    manager = _sign_up_coaching(api_client, owner_session)
+    body = {"phone": _phone(), "display_name": "Sumi", "role": "teacher"}
+    headers = [bearer(owner_session, manager) for _ in range(2)]
+    barrier = threading.Barrier(2)
+    outcomes: list[tuple[int, str | None]] = []
+    guard = threading.Lock()
+
+    def invite(header: dict[str, str]) -> None:
+        barrier.wait(timeout=30)
+        response = api_client.post("/v1/centre/members", json=body, headers=header)
+        code = None if response.status_code == 201 else response.json()["error"]["code"]
+        with guard:
+            outcomes.append((response.status_code, code))
+
+    threads = [threading.Thread(target=invite, args=(h,)) for h in headers]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=120)
+    assert not any(thread.is_alive() for thread in threads)
+
+    assert sorted(outcomes, key=lambda o: o[0]) == [
+        (201, None),
+        (409, "MEMBER_ALREADY_INVITED"),
+    ]

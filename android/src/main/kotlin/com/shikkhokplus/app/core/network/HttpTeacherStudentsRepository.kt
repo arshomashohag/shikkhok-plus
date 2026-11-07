@@ -47,6 +47,7 @@ class HttpTeacherStudentsRepository(
         studentPhone: String?,
         guardianPhone: String?,
         seats: List<StudentSeatBody>,
+        clientMutationId: String?,
     ): AuthResult<TeacherStudentDto> =
         call {
             client.post("/v1/students") {
@@ -56,6 +57,7 @@ class HttpTeacherStudentsRepository(
                         studentPhone = studentPhone?.ifBlank { null },
                         guardianPhone = guardianPhone?.ifBlank { null },
                         enrollments = seats,
+                        clientMutationId = clientMutationId,
                     ),
                 )
             }

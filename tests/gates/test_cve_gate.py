@@ -129,3 +129,122 @@ def test_the_highest_severity_among_aliases_wins() -> None:
     by_id = {"PYSEC-2026-1": "MODERATE", "GHSA-aaaa-bbbb-cccc": "CRITICAL"}
 
     assert gate.severity_of(finding, by_id.__getitem__) == "CRITICAL"
+
+
+# ---------------------------------------------------------------------------
+# The other two report shapes [C-32]: osv-scanner for the Gradle
+# lockfiles, ECR's scan for the image's operating-system packages.
+# ---------------------------------------------------------------------------
+
+OSV_REPORT = {
+    "results": [
+        {
+            "source": {"path": "android/gradle.lockfile", "type": "lockfile"},
+            "packages": [
+                {
+                    "package": {"name": "com.squareup.okio:okio", "version": "3.0.0"},
+                    "vulnerabilities": [
+                        {
+                            "id": "GHSA-dddd-eeee-ffff",
+                            "aliases": ["CVE-2026-0001"],
+                            "database_specific": {"severity": "HIGH"},
+                        }
+                    ],
+                },
+                {
+                    "package": {"name": "androidx.core:core", "version": "1.0.0"},
+                    "vulnerabilities": [
+                        {
+                            "id": "GHSA-gggg-hhhh-iiii",
+                            "database_specific": {"severity": "LOW"},
+                        }
+                    ],
+                },
+            ],
+        }
+    ]
+}
+
+ECR_REPORT = {
+    "imageScanStatus": {"status": "COMPLETE"},
+    "imageScanFindings": {
+        "findings": [
+            {
+                "name": "CVE-2026-1111",
+                "severity": "CRITICAL",
+                "attributes": [
+                    {"key": "package_name", "value": "openssl"},
+                    {"key": "package_version", "value": "3.0.15-1"},
+                ],
+            },
+            {"name": "CVE-2026-2222", "severity": "UNDEFINED", "attributes": []},
+        ]
+    },
+}
+
+
+def _no_lookup(advisory: str) -> str:
+    raise AssertionError(f"looked up {advisory} although the scanner rated it")
+
+
+def test_osv_scanner_findings_use_the_stated_severity() -> None:
+    findings = gate.parse_report(OSV_REPORT)
+    problems = gate.decide(findings, [], TODAY, _no_lookup)
+
+    assert len(findings) == 2
+    assert len(problems) == 1
+    assert "okio" in problems[0]
+    assert "HIGH" in problems[0]
+
+
+def test_an_osv_scanner_finding_is_excepted_by_its_alias() -> None:
+    exceptions = gate.parse_exceptions(_entry("CVE-2026-0001", "2026-12-01"))
+
+    findings = gate.parse_report(OSV_REPORT)
+
+    assert gate.decide(findings, exceptions, TODAY, _no_lookup) == []
+
+
+def test_ecr_findings_block_on_critical_and_not_on_undefined() -> None:
+    findings = gate.parse_report(ECR_REPORT)
+    problems = gate.decide(findings, [], TODAY, _no_lookup)
+
+    assert len(problems) == 1
+    assert "openssl" in problems[0]
+    assert "CRITICAL" in problems[0]
+
+
+def test_enhanced_scanning_findings_are_read_too() -> None:
+    # A registry on Inspector leaves `findings` empty; reading only that
+    # list would pass every image.
+    report = {
+        "imageScanStatus": {"status": "COMPLETE"},
+        "imageScanFindings": {
+            "enhancedFindings": [
+                {
+                    "severity": "HIGH",
+                    "packageVulnerabilityDetails": {
+                        "vulnerabilityId": "CVE-2026-3333",
+                        "vulnerablePackages": [{"name": "zlib", "version": "1.2"}],
+                    },
+                }
+            ]
+        },
+    }
+
+    problems = gate.decide(gate.parse_report(report), [], TODAY, _no_lookup)
+
+    assert len(problems) == 1
+    assert "zlib" in problems[0]
+
+
+def test_an_incomplete_ecr_scan_is_refused_rather_than_read_as_clean() -> None:
+    report = {**ECR_REPORT, "imageScanStatus": {"status": "IN_PROGRESS"}}
+
+    with pytest.raises(ValueError, match="IN_PROGRESS"):
+        gate.parse_report(report)
+
+
+def test_an_unrecognised_report_is_refused_rather_than_read_as_empty() -> None:
+    with pytest.raises(ValueError, match="unrecognised"):
+        gate.parse_report({"vulnerabilities": []})

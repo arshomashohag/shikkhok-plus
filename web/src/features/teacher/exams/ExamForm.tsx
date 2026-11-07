@@ -191,7 +191,7 @@ export function CreateExam() {
   const { t, message } = useT()
   const navigate = useNavigate()
   const back = paths.batch(batchId, 'exams')
-  const { resource, reload } = useResource(() => readBatch(batchId), [batchId])
+  const { resource, reload } = useResource((signal) => readBatch(batchId, signal), [batchId])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const inCentre = useInCentre()

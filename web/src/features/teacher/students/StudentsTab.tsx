@@ -23,7 +23,7 @@ import { useT } from '../../../i18n/i18n'
 import { EmptyState, ErrorCard, FeeChip, Loading, Sheet, Snackbar } from '../../../ui/components'
 import { PlusIcon } from '../../../ui/icons'
 import type { BatchTabProps } from '../area'
-import { paths } from '../paths'
+import { paths, seatState } from '../paths'
 import { removeEnrollment, setInactiveFrom } from './api'
 import {
   bangladeshToday,
@@ -39,10 +39,10 @@ interface Loaded {
   feesError: ApiError | null
 }
 
-async function load(batchId: string): Promise<Loaded> {
+async function load(batchId: string, signal?: AbortSignal): Promise<Loaded> {
   const [roster, fees] = await Promise.all([
-    readRoster(batchId),
-    readBatchFees(batchId).then(
+    readRoster(batchId, signal),
+    readBatchFees(batchId, signal).then(
       (f) => ({ ok: true as const, f }),
       (e: unknown) => ({ ok: false as const, e }),
     ),
@@ -63,7 +63,7 @@ type Dialog =
 export function StudentsTab({ batchId, batch }: BatchTabProps) {
   const { t, message } = useT()
   const online = useOnline()
-  const { resource, reload } = useResource(() => load(batchId), [batchId])
+  const { resource, reload } = useResource((signal) => load(batchId, signal), [batchId])
   const wide = useWide()
   const [open, setOpen] = useState<string | null>(null)
   const [dialog, setDialog] = useState<Dialog>(null)
@@ -207,11 +207,8 @@ export function StudentsTab({ batchId, batch }: BatchTabProps) {
                             {!seat.declined ? (
                               <Link
                                 className="btn btn-text btn-small"
-                                to={paths.seatFees(
-                                  seat.enrollmentId,
-                                  seat.displayName,
-                                  batch?.name,
-                                )}
+                                to={paths.seatFees(seat.enrollmentId)}
+                                state={seatState(seat.displayName, batch?.name)}
                               >
                                 {t('batch_fee_history')}
                               </Link>
@@ -282,7 +279,8 @@ export function StudentsTab({ batchId, batch }: BatchTabProps) {
                       {!seat.declined ? (
                         <Link
                           className="btn btn-text btn-small"
-                          to={paths.seatFees(seat.enrollmentId, seat.displayName, batch?.name)}
+                          to={paths.seatFees(seat.enrollmentId)}
+                          state={seatState(seat.displayName, batch?.name)}
                         >
                           {t('batch_fee_history')}
                         </Link>

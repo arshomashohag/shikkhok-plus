@@ -21,8 +21,18 @@ misconfigured deployment fails on the deploy instead of on a teacher's
 first sign-in attempt. That follows the same reasoning as the gateway's
 https assertion, which raises in the constructor.
 
-**Production only.** Tests and local development set what they need and
-should not have to set what they do not.
+**Production, and anything that is not KNOWN not to be production**
+[C-19]. Tests and local development set what they need and should not
+have to set what they do not, so ``development``, ``test`` and
+``staging`` are exempt -- and every other value is checked as
+production. The checks used to run only for the exact string
+``production``, so a mistyped ``prod`` or ``Production`` skipped every
+one of them and also permitted the staging outbox and the seeders: the
+check failed open on precisely the mistake it exists to catch.
+
+An UNSET name still means ``development``, because the test suite and a
+fresh clone rely on it; a deployed host never runs with it unset, since
+the host's compose file refuses to start without one.
 """
 
 from __future__ import annotations
@@ -40,13 +50,30 @@ from app.authz.admin import (
 )
 from app.gateway.null import ADAPTER_ENV, REAL_ADAPTER_SENTINEL
 
-__all__ = ["ConfigurationError", "check_startup_configuration"]
+__all__ = [
+    "NON_PRODUCTION_ENVIRONMENTS",
+    "ConfigurationError",
+    "check_startup_configuration",
+    "is_production",
+    "resolve_environment",
+]
 
 #: Names the variable that selects production behaviour.
 ENVIRONMENT_ENV: Final = "SHIKKHOKPLUS_ENVIRONMENT"
 
+#: The only names that are NOT checked as production. Exact strings: a
+#: capitalised or space-padded name is not in this set, so it is checked.
+NON_PRODUCTION_ENVIRONMENTS: Final[frozenset[str]] = frozenset(
+    {"development", "test", "staging"}
+)
+
 #: The SMS Retriever app hash is exactly 11 characters.
 APP_HASH_LENGTH: Final = 11
+
+#: The local-development placeholder hash. It has the right length, so a
+#: length check alone passes it -- which is how a deploy fallback of this
+#: value would have reached production with autofill silently broken.
+PLACEHOLDER_APP_HASH: Final = "AAAAAAAAAAA"
 
 
 class ConfigurationError(RuntimeError):
@@ -58,6 +85,24 @@ class ConfigurationError(RuntimeError):
     """
 
 
+def resolve_environment(environment: str | None = None) -> str:
+    """Return the environment name in force.
+
+    :param environment: An explicit name, or None (or empty) to read it
+    :return: The name, ``development`` when the variable is unset
+    """
+    return environment or os.environ.get(ENVIRONMENT_ENV, "development")
+
+
+def is_production(environment: str | None = None) -> bool:
+    """Report whether the production checks apply.
+
+    :param environment: An explicit name, or None to read it
+    :return: True for every name not known to be non-production
+    """
+    return resolve_environment(environment) not in NON_PRODUCTION_ENVIRONMENTS
+
+
 def check_startup_configuration(environment: str | None = None) -> None:
     """Refuse to start a production process that is misconfigured.
 
@@ -65,8 +110,7 @@ def check_startup_configuration(environment: str | None = None) -> None:
     :return: None
     :raises ConfigurationError: A required production value is missing
     """
-    resolved = environment or os.environ.get(ENVIRONMENT_ENV, "development")
-    if resolved != "production":
+    if not is_production(environment):
         return
 
     problems: list[str] = []
@@ -99,6 +143,12 @@ def check_startup_configuration(environment: str | None = None) -> None:
             f"not {APP_HASH_LENGTH}. A wrong or empty hash renders a "
             "valid SMS that never triggers SMS Retriever, so autofill "
             "silently never fires and nothing reports it."
+        )
+    elif app_hash == PLACEHOLDER_APP_HASH:
+        problems.append(
+            "SHIKKHOKPLUS_SMS_APP_HASH is the local-development "
+            "placeholder. It has the right length and matches no signed "
+            "build, so autofill silently never fires."
         )
 
     if not os.environ.get(OTP_HMAC_KEY_ENV):

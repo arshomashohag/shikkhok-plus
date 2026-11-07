@@ -25,6 +25,7 @@ import uuid
 from dataclasses import dataclass
 
 import sqlalchemy as sa
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.authz.lenses import TeacherLens
@@ -232,7 +233,8 @@ def add_invitation(
     :param role: ``manager`` or ``teacher``
     :param now: The moment, or None for the clock
     :return: The new membership
-    :raises ConflictError: The number already holds a live membership here
+    :raises ConflictError: The number already holds a live membership here,
+        including one written concurrently
     """
     live = session.scalar(
         sa.select(OwnerMember.id).where(
@@ -256,8 +258,18 @@ def add_invitation(
         invited_by_account_id=invited_by,
         created_at=_now(now),
     )
-    session.add(member)
-    session.flush()
+    # In a savepoint: two invitations of one number at once both pass the
+    # check above, and the partial unique index refuses the second. The
+    # savepoint keeps the caller's transaction usable, and the refusal is
+    # the same one a sequential duplicate gets [audit C-47].
+    try:
+        with session.begin_nested():
+            session.add(member)
+            session.flush()
+    except IntegrityError:
+        raise ConflictError(
+            code="MEMBER_ALREADY_INVITED", message_key="centre.member.already_invited"
+        ) from None
     return member
 
 

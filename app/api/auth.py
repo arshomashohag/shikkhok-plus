@@ -1,10 +1,10 @@
-"""The three auth endpoints, wired to the taxonomy U2 shipped.
+"""The auth endpoints, wired to the taxonomy U2 shipped.
 
-Two of the eight ``PUBLIC_ROUTES`` are opened here -- the issue and
-verify endpoints. The deletion pair lives in :mod:`app.api.deletion`,
+Two of the ``PUBLIC_ROUTES`` are opened here -- the issue and verify
+endpoints. The deletion pair lives in :mod:`app.api.deletion`,
 signup's two in :mod:`app.api.accounts`, ``/health`` in
 :mod:`app.api.health`, and the staging outbox in :mod:`app.api.staging`.
-The refresh route goes in
+The refresh route and the two logout routes [C-21] go in
 ``LENS_EXEMPT_AUTHENTICATED``, which is why U2 kept that set separate --
 with one combined allowlist, whoever first hits a failing refresh route
 takes the cheapest green edit and moves it to ``PUBLIC_ROUTES``, after
@@ -19,11 +19,20 @@ real SMS spends it (:mod:`app.auth.delivery`, [PA-SEC-2]).
 
 from __future__ import annotations
 
+import datetime as dt
 import os
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Header, Request
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    Header,
+    Request,
+    Response,
+    status,
+)
 from sqlalchemy.orm import Session
 
 from app.accounts.clients import (
@@ -32,14 +41,19 @@ from app.accounts.clients import (
     record_client,
 )
 from app.accounts.mfa import challenge_for, finish_sign_in, has_confirmed_factor
+from app.accounts.service import complete_signup
+from app.api.deps import authenticated_account
+from app.audit.log import AuthEvent, write_audit
 from app.auth import otp
-from app.auth.ceilings import CeilingChecker, SendBudget
-from app.auth.client_address import client_prefix
+from app.auth.ceilings import CeilingBreach, CeilingChecker, SendBudget
+from app.auth.client_address import client_coarse_prefix, client_prefix
 from app.auth.delivery import send_within_budget
 from app.auth.tokens import (
     ACCESS_TOKEN_LIFETIME,
     MFA_CHALLENGE_LIFETIME,
     issue_pair,
+    revoke_all_families,
+    revoke_family,
     rotate,
 )
 from app.gateway.null import build_gateway
@@ -107,6 +121,33 @@ def ip_prefix_of(request: Request) -> str:
     return client_prefix(request)
 
 
+def coarse_prefix_of(request: Request) -> str:
+    """Return the coarse per-IP bucket the /48 scopes count against [C-05].
+
+    :param request: The incoming request
+    :return: The IPv6 /48, or the IPv4 /24
+    """
+    return client_coarse_prefix(request)
+
+
+def send_budget_for(issued: otp.IssuedCode) -> SendBudget | None:
+    """Decide which daily budget a sign-in code's SMS spends, if any.
+
+    A number with an account spends sign-in's budget; a number with only
+    a signup draft spends SIGNUP's, so a stranger signing up numbers can
+    never spend what existing accounts need [C-05]. A number with
+    neither is not texted at all.
+
+    :param issued: The code just issued
+    :return: The budget to spend, or None when nothing is sent
+    """
+    if issued.account_exists:
+        return SendBudget.SIGN_IN
+    if issued.pending_signup:
+        return SendBudget.SIGNUP
+    return None
+
+
 @router.post("/otp", response_model=IssueResponse)
 def issue_code(
     body: IssueRequest,
@@ -132,19 +173,24 @@ def issue_code(
     # The daily send budget is NOT spent here -- an unknown number sends
     # nothing, so it must cost nothing [PA-SEC-2].
     CeilingChecker(session).check_and_consume(
-        number=body.phone, ip_prefix=ip_prefix_of(request)
+        number=body.phone,
+        ip_prefix=ip_prefix_of(request),
+        coarse_prefix=coarse_prefix_of(request),
     )
 
     issued = otp.issue(session, body.phone, correlation_id, purpose=otp.OTP_PURPOSE)
 
     message = render_otp_message(issued.code, os.environ.get(APP_HASH_ENV, ""))
+    budget = send_budget_for(issued)
 
-    # **Only a number with an account is texted.** The unknown branch
-    # keeps its OTP row (see `otp.issue`), but no account can ever be
-    # signed in through it -- `verify` refuses a number with no account
-    # -- so a code sent to it could only fail: reported from a device, a
-    # student a teacher had added pressed Sign in rather than Sign up
-    # and had every correct code refused.
+    # **Only a number with an account, or a signup draft, is texted.**
+    # The unknown branch keeps its OTP row (see `otp.issue`), but no
+    # account can ever be signed in through it -- `verify` refuses a
+    # number with no account and no draft -- so a code sent to it could
+    # only fail: reported from a device, a student a teacher had added
+    # pressed Sign in rather than Sign up and had every correct code
+    # refused. A draft's number IS texted [C-07]: this is "send the code
+    # again" after signup, and the code completes the draft.
     #
     # **After the response, not before it**, and that placement is what
     # keeps this branch from becoming a timing oracle [BR2.7]. Sending
@@ -153,7 +199,7 @@ def issue_code(
     # The daily send budget is spent INSIDE the deferred task, so it is
     # spent only by a real send and its exhaustion cannot change the
     # response either [PA-SEC-2].
-    if issued.account_exists:
+    if budget is not None:
         background.add_task(
             send_within_budget,
             session.get_bind(),
@@ -161,7 +207,8 @@ def issue_code(
             body.phone,
             message,
             correlation_id,
-            budget=SendBudget.SIGN_IN,
+            budget=budget,
+            otp_request_id=issued.request_id,
         )
 
     # Records the message a staging host did NOT text, so a person can
@@ -179,8 +226,9 @@ def issue_code(
     #
     # Found by running it, not by reading it: the outbox returned a
     # perfectly ordinary-looking code for an unknown number, and that
-    # code could never verify.
-    if issued.account_exists:
+    # code could never verify. A draft's number is recorded on the same
+    # condition that texts it, since its code can verify.
+    if budget is not None:
         record_outbox(
             session,
             phone=body.phone,
@@ -205,15 +253,70 @@ def verify_code(
     tokens, and the SMS code is spent either way: a second request with
     the same code cannot skip the authenticator step.
 
+    **Bounded wider than one code** [C-20]. A verify arriving while the
+    caller's /64, its /48 or the whole product has failed too often this
+    hour is refused before its code is checked, and every failure counts
+    against all three. A code guessed to death counts against its
+    number's daily cool-off, which stops further codes being issued for
+    it. All of it applies to a known and an unknown number alike.
+
+    **Completes a verify-first signup** [C-07]: a right code for a number
+    whose signup draft it was sent for creates the account, then signs
+    it in, so both clients' existing "sign up, then type the code" flow
+    is unchanged.
+
     :param body: The request body
     :param request: The incoming request
     :param session: The request-scoped session
     :return: The token pair, or the authenticator challenge
+    :raises CeilingBreach: A failed-verify ceiling is full
+    :raises CodeRefused: The code was refused
     """
     correlation_id = correlation_of(request)
-    account_id = otp.verify(
-        session, body.phone, body.code, correlation_id, purpose=otp.OTP_PURPOSE
-    )
+    checker = CeilingChecker(session)
+    ip_prefix = ip_prefix_of(request)
+    coarse_prefix = coarse_prefix_of(request)
+
+    try:
+        checker.check_verify_allowed(ip_prefix, coarse_prefix)
+    except CeilingBreach:
+        write_audit(session, None, AuthEvent.VERIFY_CEILING_BREACHED, correlation_id)
+        session.commit()
+        raise
+
+    def complete(
+        verifying: Session, otp_request_id: uuid.UUID, moment: dt.datetime
+    ) -> uuid.UUID | None:
+        """Create the account a signup draft bound to this code describes.
+
+        :param verifying: The verify's own session
+        :param otp_request_id: The code just verified
+        :param moment: The moment of verification
+        :return: The new account, or None when no draft is bound
+        """
+        return complete_signup(
+            verifying,
+            otp_request_id=otp_request_id,
+            correlation_id=correlation_id,
+            now=moment,
+        )
+
+    try:
+        account_id = otp.verify(
+            session,
+            body.phone,
+            body.code,
+            correlation_id,
+            purpose=otp.OTP_PURPOSE,
+            complete_signup=complete,
+        )
+    except otp.CodeRefused as refusal:
+        checker.record_verify_failure(ip_prefix, coarse_prefix)
+        if refusal.code_died:
+            checker.record_dead_code(body.phone)
+        raise
+    # The second step [0028], after the code and any signup it completes:
+    # an account with an authenticator factor gets a challenge, not tokens.
     if has_confirmed_factor(session, account_id):
         session.commit()
         return VerifyResponse(
@@ -309,3 +412,55 @@ def refresh_tokens(
         refresh_token=pair.refresh_token,
         expires_in=int(ACCESS_TOKEN_LIFETIME.total_seconds()),
     )
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+def log_out(
+    body: RefreshRequest,
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    authorization: Annotated[str | None, Header()] = None,
+) -> Response:
+    """End the session a refresh token belongs to [C-21].
+
+    Takes the **refresh** token, like ``/refresh`` and for the same
+    reason, so it sits beside that route in
+    ``LENS_EXEMPT_AUTHENTICATED``: a client whose access token has
+    already expired must still be able to sign out. The whole family is
+    revoked, so a copy of the live token on another device stops too.
+
+    **Always 204, with no body**, whether the token was live, expired,
+    revoked or never existed: logout is not an oracle for which tokens
+    are valid, and a client retrying after a lost response is never
+    shown an error.
+
+    :param body: The refresh token to end the session of
+    :param request: The incoming request
+    :param session: The request-scoped session
+    :param authorization: The bearer header, unused, as on ``/refresh``
+    :return: An empty 204
+    """
+    revoke_family(session, body.refresh_token, correlation_of(request))
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/logout-all", status_code=status.HTTP_204_NO_CONTENT)
+def log_out_everywhere(
+    account_id: Annotated[uuid.UUID, Depends(authenticated_account)],
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+) -> Response:
+    """End every session of the authenticated account [C-21].
+
+    Lens-exempt on ``DELETE /v1/me``'s reasoning: it acts on the
+    authenticated account itself and takes no id from the request, so
+    there is no other account's data for a lens to scope, and an account
+    holding no lens must still be able to sign out everywhere.
+
+    :param account_id: The authenticated account
+    :param request: The incoming request
+    :param session: The request-scoped session
+    :return: An empty 204
+    """
+    revoke_all_families(session, account_id, correlation_of(request))
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

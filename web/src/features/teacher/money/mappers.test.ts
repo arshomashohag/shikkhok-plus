@@ -11,7 +11,7 @@ import {
   visibleSeats,
 } from './collections'
 import { mapDashboard } from './dashboard'
-import { mapFeeHistory } from './fees'
+import { CYCLE_WORD, HISTORY_FORMAT, mapFeeHistory, STRIP_WORD } from './fees'
 import { dhakaPeriod, isPeriod, shiftPeriod } from './format'
 import {
   canSave,
@@ -79,9 +79,32 @@ describe('fee history', () => {
     expect(mapFeeHistory({ cycles: [], total_outstanding: '0.00' })).toEqual({ kind: 'empty' })
   })
 
-  it('refuses an unknown status or a numeric amount', () => {
-    const unknown = { ...dto, cycles: [{ ...dto.cycles[0]!, status: 'forgiven' as 'paid' }] }
-    expect(() => mapFeeHistory(unknown)).toThrow(MoneyFormatError)
+  it('names a status it does not know as unknown, never settled, keeping the server’s figures', () => {
+    const newer = {
+      ...dto,
+      cycles: [{ ...dto.cycles[0]!, status: 'forgiven' as 'paid' }, ...dto.cycles.slice(1)],
+      month_states: [
+        {
+          ...dto.month_states![0]!,
+          state: 'disputed' as 'paid',
+          history_line: { ...dto.month_states![0]!.history_line!, status: 'held' as 'pending' },
+        },
+      ],
+    }
+    const h = mapFeeHistory(newer)
+    if (h.kind !== 'loaded') throw new Error('expected loaded')
+    const sept = h.rows.find((r) => r.period === '2026-09')
+    expect(sept).toMatchObject({ status: 'unknown', settled: false })
+    expect(sept?.outstanding.format()).toBe('৳0')
+    expect(CYCLE_WORD[sept!.status]).toBe('web_status_unknown')
+    expect(h.months[0]).toMatchObject({ kind: 'unknown', line: { outcome: 'unknown' } })
+    expect(STRIP_WORD.unknown).toBe('web_status_unknown')
+    expect(HISTORY_FORMAT.unknown).toBe('web_history_line_unknown')
+    // The other rows are unaffected.
+    expect(h.rows.filter((r) => r.status !== 'unknown')).toHaveLength(2)
+  })
+
+  it('still refuses a numeric amount: a broken contract, not a newer vocabulary', () => {
     const numeric = { ...dto, total_outstanding: 1600 as unknown as string }
     expect(() => mapFeeHistory(numeric)).toThrow(MoneyFormatError)
   })

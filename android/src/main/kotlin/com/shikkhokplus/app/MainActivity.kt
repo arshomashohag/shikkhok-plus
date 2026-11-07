@@ -1,5 +1,7 @@
 package com.shikkhokplus.app
 
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 import com.shikkhokplus.app.core.session.offlineScope
 import com.shikkhokplus.app.core.session.WorkspaceHolder
 import com.shikkhokplus.app.core.session.PreferencesWorkspaceStore
@@ -12,6 +14,7 @@ import com.shikkhokplus.app.core.offline.OfflineCopies
 import androidx.compose.foundation.isSystemInDarkTheme
 import com.shikkhokplus.app.core.designsystem.TextScale
 import com.shikkhokplus.app.core.settings.SettingsHolder
+import com.shikkhokplus.app.core.settings.AppLanguage
 import com.shikkhokplus.app.core.settings.PreferencesSettingsStore
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -44,6 +47,8 @@ import com.shikkhokplus.app.core.designsystem.FullScreenLoader
 import com.shikkhokplus.app.core.designsystem.ShikkhokTheme
 import com.shikkhokplus.app.core.network.ApiClient
 import com.shikkhokplus.app.core.queue.QueueStore
+import com.shikkhokplus.app.core.queue.QueueKeys
+import com.shikkhokplus.app.core.queue.ui.UnreadableWritesNotice
 import com.shikkhokplus.app.core.network.HttpAttendanceRepository
 import com.shikkhokplus.app.core.queue.keepDraining
 import com.shikkhokplus.app.core.queue.QueueSync
@@ -57,6 +62,7 @@ import com.shikkhokplus.app.core.session.ui.LensPickerScreen
 import com.shikkhokplus.app.core.network.HttpProfileRepository
 import com.shikkhokplus.app.core.network.EncryptedTokenStore
 import com.shikkhokplus.app.core.network.HttpAuthRepository
+import com.shikkhokplus.app.core.network.TokenStore
 import com.shikkhokplus.app.feature.mfa.MfaStatusHolder
 import com.shikkhokplus.app.feature.mfa.PreferencesMfaPromptStore
 import com.shikkhokplus.app.navigation.MfaOffer
@@ -110,8 +116,16 @@ class MainActivity : ComponentActivity() {
         if (UnreadNotifier.wantsInbox(intent)) openInbox = true
     }
 
+    // **The chosen language, before Android 13** [C-39]. From 13 on the
+    // platform applies the per-app language itself and this is a no-op.
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLanguage.wrap(newBase))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // A fresh install opens in Bangla, once; see LanguageChoice.
+        AppLanguage.applyFirstLaunchDefault(this)
         openInbox = UnreadNotifier.opensInboxOnCreate(intent, savedInstanceState)
         // This phone's own preferences (Settings): theme, text size and
         // the tray notifications. Read before the first frame so the app
@@ -220,6 +234,10 @@ private fun AppRoot(openInbox: Boolean, onInboxOpened: () -> Unit, settings: Set
         remember {
             QueueStore(
                 java.io.File(context.filesDir, "attendance-queue.json"),
+                // Sealed with a Keystore key, as the tokens and offline
+                // copies are [RC-8]; a failed Keystore falls back to a
+                // key for this run only, never to plain text.
+                QueueKeys.cipher(),
                 currentAccount = tokens::accountId,
                 // The workspace in effect when a write is made, never null
                 // once the server has offered one, so a later switch does
@@ -236,6 +254,9 @@ private fun AppRoot(openInbox: Boolean, onInboxOpened: () -> Unit, settings: Set
                 offlineScope(tokens.accountId(), workspaces.current())
             })
         }
+    // Queued writes that could not be read are said out loud, before
+    // anything else, rather than vanishing with the file they were in.
+    UnreadableWritesNotice(queue)
     // Raised from the network layer, off the main thread, when an
     // expired session could not be renewed; handled below by
     // `endLapsedSession`. A snapshot state is safe to write from any
@@ -251,6 +272,7 @@ private fun AppRoot(openInbox: Boolean, onInboxOpened: () -> Unit, settings: Set
             )
         }
     val repository = remember { HttpAuthRepository(client = client, tokens = tokens) }
+    val signOutScope = rememberCoroutineScope()
     // Which accounts on this phone answered the two-step offer, kept in
     // a plain preferences file of its own, as Settings keeps its own.
     val mfaOffers =
@@ -390,6 +412,9 @@ private fun AppRoot(openInbox: Boolean, onInboxOpened: () -> Unit, settings: Set
     // learns who that is from the tokens; cleared second, it would find
     // nobody signed in and discard nothing.
     val endSession = {
+        // Read before clearing, then revoked on the server without waiting:
+        // sign-out never depends on the network [audit C-21].
+        revokeOnServer(signOutScope, repository, tokens)
         UnreadSchedule.stop(context)
         copies.clear()
         queue.clear()
@@ -459,4 +484,23 @@ private fun AppRoot(openInbox: Boolean, onInboxOpened: () -> Unit, settings: Set
             MfaOffer(signedIn, client, navController, mfaStatus, mfaOffers, tokens::accountId)
         }
     }
+}
+
+/**
+ * Revoke the session on the server without waiting for it [audit C-21].
+ *
+ * The refresh token is read here, before the caller clears the store,
+ * and the request runs on its own: sign-out never depends on the network.
+ *
+ * @param scope Where the request runs
+ * @param repository The auth repository that sends it
+ * @param tokens The store still holding the session
+ */
+private fun revokeOnServer(
+    scope: kotlinx.coroutines.CoroutineScope,
+    repository: HttpAuthRepository,
+    tokens: TokenStore,
+) {
+    val held = tokens.refreshToken() ?: return
+    scope.launch { repository.logout(held) }
 }

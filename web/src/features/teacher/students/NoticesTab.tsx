@@ -26,7 +26,7 @@ export function NoticesTab({ batchId }: BatchTabProps) {
   const { t, message } = useT()
   const online = useOnline()
   const { resource, reload } = useResource(
-    () => listAnnouncements(batchId).then(mapNotices),
+    (signal) => listAnnouncements(batchId, signal).then(mapNotices),
     [batchId],
   )
   const [draft, setDraft] = useState('')

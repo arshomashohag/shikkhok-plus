@@ -32,6 +32,7 @@ from typing import Final, Literal
 from app.analytics.seats import OwnedSeat
 from app.fees.overdue import days_overdue
 from app.fees.reminders import REMIND_AGAIN_AFTER
+from app.local_time import bangladesh_today
 from app.money import LedgerEntry, Money, derive
 
 __all__ = [
@@ -171,7 +172,7 @@ def dues_rows(
     :param now: The current time, which "reminded today" is measured on
     :return: One row per owing seat, possibly empty [BR1.5]
     """
-    on = today or dt.datetime.now(tz=dt.UTC).date()
+    on = today or bangladesh_today()
     at = now or dt.datetime.now(tz=dt.UTC)
     due = due_by_seat or {}
     reminded = last_reminded or {}

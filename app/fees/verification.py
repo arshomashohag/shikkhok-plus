@@ -48,6 +48,7 @@ from app.fees.extra_ledger import (
     reverse_extra_entries,
 )
 from app.fees.ledger_writer import append_entry, supersede
+from app.fees.seat_locks import lock_seats
 from app.money import Money, apply_credit, settle_oldest_first
 from app.notifications.inbox import (
     CLAIM_TO_VERIFY,
@@ -376,6 +377,9 @@ def withdraw_decision(
     previous = _previous_decision(claim)
     if previous is None:
         return None
+    # Locked before deriving, so a concurrent writer on this seat
+    # derives from what this one commits [audit C-03].
+    lock_seats(session, [claim.enrollment_id])
     # Reversed in the ledger the decision was WRITTEN to [0020]. A
     # correction that changes what the payment is for re-points the
     # claim only after this, so the old decision is undone where it is.
@@ -434,6 +438,9 @@ def verify_claim_in_transaction(
         )
 
     period = claim.period
+    # Locked before deriving, so a concurrent writer on this seat
+    # derives from what this one commits [audit C-03].
+    lock_seats(session, [claim.enrollment_id])
     derived = derive_for_enrollment(session, claim.enrollment_id)
     charged = derived.per_cycle.get(period, Money.ZERO)
 
@@ -615,6 +622,9 @@ def settle_claim_in_transaction(
             verified_by_account_id=verified_by_account_id,
         )
 
+    # Locked before deriving, so a concurrent writer on this seat
+    # derives from what this one commits [audit C-03].
+    lock_seats(session, [claim.enrollment_id])
     per_cycle = derive_for_enrollment(session, claim.enrollment_id).per_cycle
     periods = sorted(p for p, owed in per_cycle.items() if owed.is_positive())
     settlement = settle_oldest_first(approved_amount, [per_cycle[p] for p in periods])
@@ -796,6 +806,9 @@ def verify_claim(
         )
 
     claim = _load(session, claim_id)
+    # The seat before the claim, the order every other writer takes them
+    # in, so the two locks are never taken in opposite orders [C-03].
+    lock_seats(session, [claim.enrollment_id])
     _claim_the_decision(session, claim, correcting=correcting)
     previous = withdraw_decision(
         session, claim, verified_by_account_id=verified_by_account_id
@@ -844,6 +857,9 @@ def reject_claim(
     :raises ConflictError: Already decided and not a declared correction
     """
     claim = _load(session, claim_id)
+    # The seat before the claim, the order every other writer takes them
+    # in, so the two locks are never taken in opposite orders [C-03].
+    lock_seats(session, [claim.enrollment_id])
     _claim_the_decision(session, claim, correcting=correcting)
     previous = withdraw_decision(
         session, claim, verified_by_account_id=verified_by_account_id

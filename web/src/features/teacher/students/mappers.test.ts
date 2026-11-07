@@ -60,13 +60,22 @@ describe('mapSeats', () => {
     expect(mapSeats([row({ student_state: 'declined' })], null)[0]?.declined).toBe(true)
   })
 
+  it('refuses a seat with no student link: a broken response, not a newer one', () => {
+    expect(() => mapSeats([row({ student_state: 'absent' })], null)).toThrow(RosterShapeError)
+  })
+
   it.each([
-    [{ status: 'archived' }],
-    [{ student_state: 'maybe' }],
-    [{ guardian_state: 'gone' }],
-    [{ student_state: 'absent' }],
-  ])('refuses a shape it cannot explain: %o', (patch) => {
-    expect(() => mapSeats([row(patch)], null)).toThrow(RosterShapeError)
+    [{ status: 'archived' }, 'status'],
+    [{ student_state: 'maybe' }, 'studentState'],
+    [{ guardian_state: 'gone' }, 'guardianState'],
+  ] as const)('draws a seat with a state it does not know as unknown: %o', (patch, field) => {
+    const rows = mapSeats([row(patch), row({ enrollment_id: 'e9' })], null)
+    expect(rows).toHaveLength(2)
+    expect(rows[0]?.[field]).toBe('unknown')
+    // Unknown is never read as declined, pending or inactive.
+    expect(rows[0]?.declined).toBe(false)
+    expect(seatLine(rows[0]!, (p) => p).map(([k]) => k)).not.toContain('batch_not_answered')
+    expect(seatLine(rows[0]!, (p) => p).map(([k]) => k)).not.toContain('roster_status_inactive')
   })
 
   it('refuses a custom fee sent as a number', () => {

@@ -73,7 +73,8 @@ export function groupExams(exams: ExamItem[]): { titleKey: string; exams: ExamIt
   ].filter((g) => g.exams.length > 0)
 }
 
-export type ResultState = 'marked' | 'absent' | 'not_entered' | 'joined_after'
+/** `unknown`: a state this client does not know yet (a newer server). */
+export type ResultState = 'marked' | 'absent' | 'not_entered' | 'joined_after' | 'unknown'
 
 /** The string for each state the server may report. */
 export const STATE_KEYS: Record<ResultState, string> = {
@@ -81,17 +82,20 @@ export const STATE_KEYS: Record<ResultState, string> = {
   absent: 'mark_state_absent',
   not_entered: 'mark_state_not_entered',
   joined_after: 'mark_state_joined_after',
+  unknown: 'web_status_unknown',
 }
 
-export class UnknownResultState extends Error {
-  override name = 'UnknownResultState'
-}
+const KNOWN: readonly ResultState[] = ['marked', 'absent', 'not_entered', 'joined_after']
 
+/**
+ * A state this client cannot name is shown as "Unknown status" on its own
+ * row rather than failing the whole results screen, and that row is never
+ * editable: typing a mark over a state the client does not understand
+ * could overwrite something it cannot see. Failing closed stays, but only
+ * for the row.
+ */
 function knownState(raw: string): ResultState {
-  if (raw in STATE_KEYS) return raw as ResultState
-  // As MarksStateMapper: a state this client cannot name fails the screen
-  // rather than rendering a guess.
-  throw new UnknownResultState(raw)
+  return (KNOWN as readonly string[]).includes(raw) ? (raw as ResultState) : 'unknown'
 }
 
 export interface ResultRow {
@@ -126,7 +130,7 @@ export function mapResults(dto: Schemas['ExamResultsResponse']): ExamResults {
         displayName: r.display_name,
         state,
         marks: r.marks ?? null,
-        editable: dto.writable && state !== 'joined_after',
+        editable: dto.writable && state !== 'joined_after' && state !== 'unknown',
         hasHistory: state === 'marked' || state === 'absent',
       }
     }),

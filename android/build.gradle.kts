@@ -182,6 +182,19 @@ android {
         }
     }
 
+    // **Every language ships in every install** [C-39]. By default Play
+    // splits an App Bundle by language and installs only the phone's
+    // system languages, so an English-system phone would get no Bangla
+    // resources and the in-app language choice would draw English. The
+    // alternative is downloading language splits on demand through Play
+    // Core, a new SDK to admit; the Bangla bundle is a strings file, so
+    // shipping it to everyone costs kilobytes.
+    bundle {
+        language {
+            enableSplit = false
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

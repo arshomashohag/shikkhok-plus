@@ -137,6 +137,26 @@ class HttpAuthRepository(
         }
 
     /**
+     * End a session on the server, revoking its whole token family, so a
+     * copy of the refresh token taken before sign-out stops working
+     * [audit C-21].
+     *
+     * **Best-effort, and never throws.** Signing out must work offline:
+     * the caller clears local state whatever this returns.
+     *
+     * @param refreshToken The session's refresh token, read before clearing
+     * @return Ok when the server acknowledged it; a transport failure for
+     *   anything else, which the caller ignores
+     */
+    suspend fun logout(refreshToken: String): AuthResult<Unit> =
+        try {
+            val response = client.post("/v1/auth/logout") { setBody(RefreshBody(refreshToken)) }
+            if (response.status.isSuccess()) AuthResult.Ok(Unit) else AuthResult.TransportFailure
+        } catch (_: Exception) {
+            AuthResult.TransportFailure
+        }
+
+    /**
      * Redeem the stored session at a cold start, and say what came of it.
      *
      * **The store is the witness, not the HTTP result.** After [refresh]

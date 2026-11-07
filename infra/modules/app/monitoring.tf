@@ -56,6 +56,7 @@ resource "aws_cloudwatch_metric_alarm" "critical" {
   comparison_operator = "GreaterThanOrEqualToThreshold"
   treat_missing_data  = "notBreaching"
   alarm_actions       = local.alarm_actions
+  ok_actions          = local.alarm_actions
 }
 
 # **No host in service.** The group is desired-one; zero in service for
@@ -77,6 +78,7 @@ resource "aws_cloudwatch_metric_alarm" "no_host" {
   # itself the condition this alarm is for.
   treat_missing_data = "breaching"
   alarm_actions      = local.alarm_actions
+  ok_actions         = local.alarm_actions
 }
 
 resource "aws_cloudwatch_metric_alarm" "status_check" {
@@ -94,6 +96,7 @@ resource "aws_cloudwatch_metric_alarm" "status_check" {
   # that is present and impaired.
   treat_missing_data = "notBreaching"
   alarm_actions      = local.alarm_actions
+  ok_actions         = local.alarm_actions
 }
 
 # **The origin certificate's remaining life**, published daily by the
@@ -113,6 +116,7 @@ resource "aws_cloudwatch_metric_alarm" "certificate" {
   comparison_operator = "LessThanThreshold"
   treat_missing_data  = "breaching"
   alarm_actions       = local.alarm_actions
+  ok_actions          = local.alarm_actions
 }
 
 # Every alarm this module creates. main.tf prices the alarms from the

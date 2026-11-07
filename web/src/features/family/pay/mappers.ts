@@ -9,7 +9,7 @@
  * and the server decides everything else and says so by `message_key`.
  */
 import type { Schemas } from '../../../api/endpoints'
-import { Money, MoneyFormatError } from '../../../core/money'
+import { Money } from '../../../core/money'
 import type { FeeChipModel } from '../../../ui/components'
 
 // ------------------------------------------------------------ the seats
@@ -219,7 +219,7 @@ export function dhakaToday(now: Date = new Date()): string {
 
 // -------------------------------------------------------- payments (G2)
 
-export type LineState = 'paid' | 'partly_paid' | 'waived' | 'verifying' | 'due'
+export type LineState = 'paid' | 'partly_paid' | 'waived' | 'verifying' | 'due' | 'unknown'
 
 export interface PaymentLine {
   enrollmentId: string
@@ -243,8 +243,10 @@ const LINE_STATES: readonly LineState[] = ['paid', 'partly_paid', 'waived', 'ver
 
 /**
  * A child's payments (`PaymentsMapper.afterLoad`). A line state the client
- * does not know fails the whole mapping, rather than being shown as
- * something it is not.
+ * does not know (a server newer than this tab) is `unknown`, worded as
+ * such: never guessed at as paid or due, and never failing the other
+ * lines. The amount is still the server's, and nothing here offers a
+ * payment, so the unknown word decides nothing.
  */
 export function mapPayments(dto: Schemas['PaymentsResponse']): PaymentsModel {
   return {
@@ -254,14 +256,14 @@ export function mapPayments(dto: Schemas['PaymentsResponse']): PaymentsModel {
     months: (dto.months ?? []).map((m) => ({
       period: m.period,
       lines: m.lines.map((l) => {
-        if (!LINE_STATES.includes(l.state as LineState)) {
-          throw new MoneyFormatError(`Unknown payment line state '${l.state}'`)
-        }
+        const state: LineState = LINE_STATES.includes(l.state as LineState)
+          ? (l.state as LineState)
+          : 'unknown'
         return {
           enrollmentId: l.enrollment_id,
           batchName: l.batch_name,
           amount: Money.fromWire(l.amount),
-          state: l.state as LineState,
+          state,
           dueDate: l.due_date,
           sentOn: l.sent_on ?? null,
           decidedOn: l.decided_on ?? null,
@@ -285,6 +287,8 @@ export function lineChip(state: LineState): FeeChipModel {
       return { kind: 'verifying', amount: null }
     case 'due':
       return { kind: 'due', dueDate: null }
+    case 'unknown':
+      return { kind: 'unknown' }
   }
 }
 

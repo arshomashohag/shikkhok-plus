@@ -144,6 +144,7 @@ actually does, and our build fails if the two stop matching.
 |---|---|
 | A place a teacher accepts payment, such as a number | no time limit |
 | A record that a teacher sent a fee reminder | 12 months |
+| A sign-up form you submitted, kept until you enter the code we sent | 48 hours |
 | Failed and successful sign-in attempts | 7 days |
 | Messages in your in-app inbox, such as a fee reminder | 12 months |
 | One-time sign-in codes, stored only as hashes | 7 days |
@@ -202,7 +203,7 @@ These records are about how the service itself is running, not about any person.
 
 **A teacher's classes stay with their students.** If you are a teacher and delete your account, your sign-in, your own name and address are removed, and so are your name and payment number on each of your classes. The classes themselves stay as read-only history for your students and their guardians: their record of who came to each class, their results and fee records are theirs too. No new fees fall due on those classes, and amounts already recorded as owed stay on the records, where nobody can collect them.
 
-<!-- governance manifest digest: 32ee48d4ed4e39d4e10a96f51065706c73b06d12e813a05e0fb1500e6586ac84
+<!-- governance manifest digest: f2ffbdc91301a58594dbad00e066c48a6fd36718b4568667cc0910f4cfc030a5
      Covers every disposition, retention class and basis, so a
      change to any of them fails the drift gate even when it
      does not alter the text above. Regenerate; do not edit. -->

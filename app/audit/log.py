@@ -67,6 +67,20 @@ class AuthEvent(enum.Enum):
     REFRESH_GRACE_REISSUED = "REFRESH_GRACE_REISSUED"
     ACCOUNT_CREATED = "ACCOUNT_CREATED"
     SIGNUP_CEILING_BREACHED = "SIGNUP_CEILING_BREACHED"
+    #: A signup form was held as a draft and its code issued [C-07].
+    #: Always written with no account -- one exists, or does not, and
+    #: saying which here would be the oracle signup no longer is.
+    #: ``ACCOUNT_CREATED`` follows only when the code is verified.
+    SIGNUP_REQUESTED = "SIGNUP_REQUESTED"
+    #: A refresh family was ended by its holder [C-21]. Its own member,
+    #: not a reuse: a signed-out device is not an attack.
+    LOGGED_OUT = "LOGGED_OUT"
+    #: Every family of one account was ended at its holder's request.
+    LOGGED_OUT_EVERYWHERE = "LOGGED_OUT_EVERYWHERE"
+    #: A verify was refused because a failed-verify ceiling was full
+    #: [C-20]. No scope value, on ``SIGNUP_CEILING_BREACHED``'s
+    #: reasoning: the value is an IP prefix.
+    VERIFY_CEILING_BREACHED = "VERIFY_CEILING_BREACHED"
     # Platform administrator sign-in [0028], named members as D1's were.
     # Every admin session starts with one of these, so who reached the
     # admin surface, and when, is answerable from this table alone.

@@ -192,12 +192,15 @@ record changes are **denied for any name not containing
 `shikkhokplus`**, so the role cannot repoint another project's record
 in the shared apex zone.
 
-Lambda is **`lambda:*` on `shikkhokplus-*` function names only**, for
-the staging seeder (`modules/seeder`), and `iam:PassRole` names two
-services, EC2 and Lambda -- still only for roles under `/shikkhokplus/`,
-which all carry the workload boundary. The boundary itself gained
-Lambda's six VPC network-interface actions; the CI role holds `ec2:*`
-already, so no role it creates can reach further than it does.
+Lambda is **`lambda:*` on `shikkhokplus-<env>-*` function names
+only**, per environment, for the staging seeder (`modules/seeder`), and
+`iam:PassRole` names two services, EC2 and Lambda -- still only for that
+environment's roles under `/shikkhokplus/`, which all carry that
+environment's boundary. Each boundary includes Lambda's VPC
+network-interface actions; the CI role holds `ec2:*` already, so no
+role it creates can reach further than it does. The plan role reads
+that environment's functions and image metadata, for the deploy's
+seeder-eligibility check.
 
 **It also holds real IAM write permissions**, and an earlier version
 of this document claimed it did not. SSM needs an instance profile,
@@ -206,24 +209,34 @@ around that, and pretending otherwise would only mean the apply fails.
 
 What bounds it [OPS-2]:
 
-- **A permissions boundary on every role it creates.** Bootstrap
-  creates `shikkhokplus-workload-boundary` (path `/shikkhokplus/`), a
-  ceiling listing only what an app host does. `CreateRole`,
-  `PutRolePolicy`, `AttachRolePolicy` and `PutRolePermissionsBoundary`
-  are allowed only with `iam:PermissionsBoundary` equal to it, and
-  `DeleteRolePermissionsBoundary` is denied. Attaching
-  `AdministratorAccess` to such a role would grant nothing beyond the
-  boundary.
-- **`AttachRolePolicy` only for the policies the app module attaches**
-  (`iam:PolicyARN`: `AmazonSSMManagedInstanceCore`). Adding one is a
-  change to `local.attachable_policy_arns` here.
-- **`PassRole` only to EC2** (`iam:PassedToService`).
-- The IAM actions are restricted **by path** to `/shikkhokplus/*`, so the
-  CI role cannot touch an unrelated role and **cannot modify itself**,
-  nor the boundary: it lives at the IAM root path and has no
-  policy-level write action.
-- It is assumable only through the `staging-infra` or `production-infra`
-  environment.
+- **One infrastructure role per environment** [C-09]. Each trusts only
+  its own `<env>-infra` environment, reads and writes only `<env>/` in
+  the state bucket, and is explicitly denied the other environment's
+  database, repository, group and every resource tagged with the other
+  environment's name. CloudFront distributions and hosted zones carry
+  generated ids and no tag condition, so those stay account-wide; a
+  separate production account is the fix for that remainder.
+- **A permissions boundary per environment on every role it creates.**
+  Bootstrap creates `shikkhokplus-workload-boundary-<env>` (path
+  `/shikkhokplus/`), a ceiling listing only what that environment's app
+  host does -- its own parameters, repository, buckets and logs [C-08].
+  `CreateRole`, `PutRolePolicy` and `PutRolePermissionsBoundary` are
+  allowed only with `iam:PermissionsBoundary` equal to the role's own
+  environment's boundary, and `DeleteRolePermissionsBoundary` is
+  denied.
+- **No managed policy may be attached.** The only one it could attach,
+  `AmazonSSMManagedInstanceCore`, grants `ssm:GetParameter` on `*`; the
+  host now carries the agent's actions inline instead.
+- **`PassRole` only to EC2** (`iam:PassedToService`), for its own
+  environment's roles.
+- The IAM actions are restricted **by path and name** to
+  `/shikkhokplus/shikkhokplus-<env>-*`, so the CI role cannot touch an
+  unrelated role and **cannot modify itself**, nor the boundary: it
+  lives at the IAM root path and has no policy-level write action.
+- **A read-only plan role per environment** [C-11], assumable from the
+  `<env>` deploy environment, renders the plan the `<env>-infra`
+  reviewer reads before approving, and stores the plan file the apply
+  then applies.
 
 **Order of applies.** The main module now sets `permissions_boundary`
 on the instance role, and the CI role can only create or extend a role
@@ -263,13 +276,28 @@ Then do what the `next_steps` output says:
 GitHub → Settings → Secrets and variables → Actions
 
 Repository variables:
-  AWS_ROLE_ARN      ci_role_arn (from the output)
   TF_STATE_BUCKET   state_bucket (from the output)
   APEX_DOMAIN       the PARENT zone, e.g. nirmatabd.com
 
 Per-environment variables (staging, production):
   AWS_DEPLOY_ROLE_ARN   deploy_role_arns[<env>] -- see the table above
+  AWS_PLAN_ROLE_ARN     plan_role_arns[<env>]
+
+Per-environment variables (staging-infra, production-infra):
+  AWS_ROLE_ARN          infra_role_arns[<env>]
 ```
+
+**Delete any repository-level `AWS_ROLE_ARN`.** A repository variable
+is what an environment falls back to, so production-infra would
+silently receive the staging role -- and then fail at role assumption,
+because that role trusts only staging-infra.
+
+**Order of applies for C-08/C-09.** Apply this bootstrap first: it
+creates the per-environment boundaries and roles and KEEPS the retired
+single boundary, which roles still carry. Then deploy each environment
+once, which moves its instance role onto its own boundary and drops the
+managed SSM policy. Then remove `aws_iam_policy.workload_boundary` from
+main.tf and apply the bootstrap again.
 
 **`APEX_DOMAIN` is the parent, not the hostname the API answers on.**
 The main module creates its own zone beneath it and delegates it, so
@@ -301,10 +329,16 @@ Both in Settings → Environments:
 
 | Environment | Reviewers | Role it can assume |
 |---|---|---|
-| `staging` | none | the staging deploy role |
-| `staging-infra` | none | the infrastructure role |
-| `production` | **you, required** | the production deploy role |
-| `production-infra` | **you, required** | the infrastructure role |
+| `staging` | none | the staging deploy role and the staging plan role |
+| `staging-infra` | none | the staging infrastructure role |
+| `production` | **you, required** | the production deploy role and the production plan role |
+| `production-infra` | **you, required** | the production infrastructure role |
+
+**Restrict `production` and `production-infra` to the `main` branch**
+(Settings -> Environments -> Deployment branches and tags). deploy.yml
+also refuses a production commit that is not on `main`, but the
+environment's own branch policy is what stops a modified workflow on
+another branch from reaching the role at all.
 
 **`production-infra`'s required reviewer is the gate on production
 infrastructure**, and since 2026-11-02 there is no way around it: the
@@ -316,10 +350,11 @@ therefore no approval [OPS-2].
 
 You never run Terraform locally again. Infrastructure changes go:
 
-1. Edit `infra/**` on a branch, open a PR
-2. The plan appears as a PR comment
-3. Merge
-4. Actions → terraform → Run workflow → **apply** → approve
+1. Edit `infra/**` on a branch, open a PR, merge
+2. Actions -> deploy -> Run workflow, choosing the environment
+3. The `plan` job prints the Terraform plan to its summary
+4. For production, read it, then approve `production-infra`; that job
+   applies exactly the saved plan file and nothing else [C-11]
 
 ## Recovering lost state
 

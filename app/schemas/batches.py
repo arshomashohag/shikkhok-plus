@@ -205,6 +205,8 @@ class EnrollmentCreateRequest(BaseModel):
     :ivar guardian_phone: The guardian's number, if one is recorded
     :ivar fee_amount: This seat's fee, or null to inherit
     :ivar joined_on: When the student joined
+    :ivar client_mutation_id: The retry key; a resend under it returns the
+        seat the first request created
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -214,6 +216,7 @@ class EnrollmentCreateRequest(BaseModel):
     guardian_phone: PhoneField | None = None
     fee_amount: MoneyField | None = None
     joined_on: dt.date | None = None
+    client_mutation_id: uuid.UUID | None = None
 
 
 class InactiveFromRequest(BaseModel):

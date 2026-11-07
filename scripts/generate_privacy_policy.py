@@ -130,6 +130,9 @@ _TABLE_DESCRIPTION: Final[dict[str, str]] = {
     "profile": "Your own name, photo and address",
     "otp_request": "One-time sign-in codes, stored only as hashes",
     "verify_attempt": "Failed and successful sign-in attempts",
+    "pending_signup": (
+        "A sign-up form you submitted, kept until you enter the code we sent"
+    ),
     "refresh_token": "Session tokens, stored only as hashes",
     "rate_limit_counter": "Counters that limit sign-in attempts",
     "auth_audit_log": "A sign-in audit record carrying no name or code",

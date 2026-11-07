@@ -5,7 +5,7 @@
  * device.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { request } from './client'
+import { request, revokeSession } from './client'
 import { ApiError } from './errors'
 import { clearTokens, readTokens, saveTokens } from './tokens'
 import { clientVersion } from './platform'
@@ -155,6 +155,24 @@ describe('request', () => {
       messageKey: 'error.unexpected',
       retryable: true,
     })
+  })
+})
+
+describe('revokeSession [audit C-21]', () => {
+  it('sends the refresh token to the logout route', async () => {
+    mockFetch(() => new Response(null, { status: 204 }))
+    await revokeSession('the-refresh-token')
+    expect(calls.map((c) => c.url)).toEqual(['/v1/auth/logout'])
+    expect(JSON.parse(calls[0]!.init.body as string)).toEqual({
+      refresh_token: 'the-refresh-token',
+    })
+  })
+
+  it('never throws when offline, so signing out still works', async () => {
+    mockFetch(() => {
+      throw new TypeError('Failed to fetch')
+    })
+    await expect(revokeSession('t')).resolves.toBeUndefined()
   })
 })
 

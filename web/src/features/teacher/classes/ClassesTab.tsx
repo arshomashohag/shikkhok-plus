@@ -58,7 +58,7 @@ export function ClassesTab({ batchId, batch }: BatchTabProps) {
   const [adding, setAdding] = useState(false)
   const [snack, setSnack] = useState<string | null>(null)
   const { resource, reload } = useResource(
-    () => readCalendar(batchId, ym.year, ym.month).then(mapMonth),
+    (signal) => readCalendar(batchId, ym.year, ym.month, signal).then(mapMonth),
     [batchId, ym.year, ym.month],
   )
 

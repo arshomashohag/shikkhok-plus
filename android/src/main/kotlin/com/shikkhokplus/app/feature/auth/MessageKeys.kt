@@ -19,6 +19,9 @@ object MessageKeys {
     private val resources: Map<String, Int> = mapOf(
         "error.network.unreachable" to R.string.error_network_unreachable,
         "error.unexpected" to R.string.error_unexpected,
+        "auth.verify.temporarily_unavailable" to R.string.auth_verify_temporarily_unavailable,
+        "centre.temporarily_unavailable" to R.string.centre_temporarily_unavailable,
+        "error.temporarily_unavailable" to R.string.error_temporarily_unavailable,
         // A number that is not a Bangladeshi mobile, refused by the
         // server's canonicalisation on any route that takes a number.
         "phone.invalid" to R.string.phone_invalid,
@@ -51,6 +54,9 @@ object MessageKeys {
             R.string.batch_create_subject_required,
         "enrollment.remove.claimed" to R.string.enrollment_remove_claimed,
         "enrollment.remove.erased" to R.string.enrollment_remove_erased,
+        "enrollment.remove.has_history" to R.string.enrollment_remove_has_history,
+        "enrollment.joined_on.out_of_range" to R.string.enrollment_joined_on_out_of_range,
+        "enrollment.inactive_from.before_joined" to R.string.enrollment_inactive_from_before_joined,
         "authz.lens.not_available" to R.string.authz_lens_not_available,
         "roster.status.dormant" to R.string.roster_status_dormant,
         "roster.status.active" to R.string.roster_status_active,

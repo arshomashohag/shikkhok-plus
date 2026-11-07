@@ -33,11 +33,12 @@ from dataclasses import dataclass
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
-from app.analytics.seats import ledger_for_seats
+from app.analytics.seats import owing_ledger_for_seats
 from app.authz.lenses import TeacherLens
 from app.batches.service import (
     BatchNotFound,
     _account_for,
+    _check_joined_on,
     _owned_batch,
     _refuse_second_seat,
 )
@@ -258,7 +259,9 @@ def _rows(session: Session, students: list[Student]) -> list[StudentRow]:
         .where(Enrollment.student_id.in_(ids))
         .order_by(Batch.name, Enrollment.id)
     ).all()
-    ledger = ledger_for_seats(session, [seat.id for seat, _, _ in seats])
+    # Only what each seat owes is shown, so only months still owing are
+    # folded [C-14].
+    ledger = owing_ledger_for_seats(session, [seat.id for seat, _, _ in seats])
 
     by_student: dict[uuid.UUID, list[tuple[Enrollment, str, Money | None]]] = (
         defaultdict(list)
@@ -310,18 +313,33 @@ def _rows(session: Session, students: list[Student]) -> list[StudentRow]:
 
 
 def list_students(
-    session: Session, *, lens: TeacherLens, where: StudentFilter | None = None
+    session: Session,
+    *,
+    lens: TeacherLens,
+    where: StudentFilter | None = None,
+    limit: int | None = None,
+    after: uuid.UUID | None = None,
 ) -> list[StudentRow]:
     """List this teacher's students, filtered server-side.
 
     The filters run here rather than on the client, because filtering a
     domain list is a decision the server owes the client [TC-9].
 
+    **Keyset pages, when asked for** [C-14]. The order is
+    ``(lower(display_name), id)``, so a page is "the next ``limit``
+    students after this one" and stays correct while students are added
+    between pages, which an offset would not. With neither argument the
+    whole list is returned, as it always was.
+
     :param session: The session to query through
     :param lens: The teacher lens carrying the owner id
     :param where: Which students to list; all of them when None
+    :param limit: At most this many; None for all
+    :param after: Continue after this student, the last of the previous
+        page; None to start from the first
     :return: One row per student, ordered by name
     :raises BatchNotFound: A filter names a batch this lens does not own
+    :raises StudentNotFound: ``after`` is no student of this lens's
     """
     where = where or StudentFilter()
     statement = sa.select(Student).where(
@@ -349,11 +367,20 @@ def list_students(
                 Student.guardian_phone.ilike(pattern, escape="\\"),
             )
         )
-    students = list(
-        session.execute(
-            statement.order_by(sa.func.lower(Student.display_name), Student.id)
-        ).scalars()
-    )
+    key = sa.func.lower(Student.display_name)
+    if after is not None:
+        # Archived or not: a student archived between two pages still
+        # marks where the previous page ended.
+        mark = session.execute(
+            sa.select(key).where(Student.id == after, Student.owner_id == lens.owner_id)
+        ).scalar_one_or_none()
+        if mark is None:
+            raise StudentNotFound
+        statement = statement.where(sa.tuple_(key, Student.id) > (mark, after))
+    statement = statement.order_by(key, Student.id)
+    if limit is not None:
+        statement = statement.limit(limit)
+    students = list(session.execute(statement).scalars())
     return _rows(session, students)
 
 
@@ -451,9 +478,12 @@ def seat_for(
     :param joined_on: When the student joined
     :return: The new seat, flushed
     :raises BatchNotFound: The batch is not this lens's
+    :raises ValidationError: The start date is outside the allowed window
     :raises ConflictError: The student already has a seat in the batch
     """
     _owned_batch(session, lens=lens, batch_id=batch_id)
+    # Here because this is the one place a seat is created [audit C-24].
+    _check_joined_on(joined_on)
     siblings = _siblings(session, student.id)
     if any(seat.batch_id == batch_id for seat in siblings):
         raise ConflictError(
@@ -563,6 +593,7 @@ def find_or_create_student(
     student_phone: str | None,
     guardian_phone: str | None,
     reuse_by_phone: bool,
+    client_mutation_id: uuid.UUID | None = None,
 ) -> Student:
     """Return the student to seat, creating one when needed. No commit.
 
@@ -577,6 +608,8 @@ def find_or_create_student(
     :param reuse_by_phone: Whether an ACTIVE student with this number is
         reused (the add-to-batch path) rather than refused (the
         add-student path)
+    :param client_mutation_id: The create's retry key, stored on a new
+        student so a resend finds it
     :return: The student
     :raises ConflictError: The number is taken and reuse was not asked for
     """
@@ -602,10 +635,47 @@ def find_or_create_student(
         student_phone=student_phone,
         guardian_phone=guardian_phone,
         created_at=dt.datetime.now(tz=dt.UTC),
+        client_mutation_id=client_mutation_id,
     )
     session.add(student)
     session.flush()
     return student
+
+
+def replayed_student(
+    session: Session, *, lens: TeacherLens, client_mutation_id: uuid.UUID | None
+) -> Student | None:
+    """Return the student an earlier create under this key made, if any.
+
+    **Serialized, not just looked up** [audit C-25]. Two resends of one
+    create arrive together on a slow network; both would find nothing and
+    both create. A transaction-scoped advisory lock on the teacher and the
+    key makes the second wait for the first to commit, after which it
+    finds the first's student. The unique index on the key is the
+    backstop. No key, no lock: old clients keep today's behaviour.
+
+    :param session: The session to read through
+    :param lens: The teacher lens carrying the owner id
+    :param client_mutation_id: The request's retry key, or None
+    :return: The earlier student, or None to create one
+    """
+    if client_mutation_id is None:
+        return None
+    session.execute(
+        sa.select(
+            sa.func.pg_advisory_xact_lock(
+                sa.func.hashtextextended(
+                    f"student:{lens.owner_id}:{client_mutation_id}", 0
+                )
+            )
+        )
+    )
+    return session.scalars(
+        sa.select(Student).where(
+            Student.owner_id == lens.owner_id,
+            Student.client_mutation_id == client_mutation_id,
+        )
+    ).one_or_none()
 
 
 def create_student(
@@ -616,6 +686,7 @@ def create_student(
     student_phone: str | None = None,
     guardian_phone: str | None = None,
     seats: list[SeatRequest] | None = None,
+    client_mutation_id: uuid.UUID | None = None,
 ) -> StudentRow:
     """Record a student and, optionally, seat them in batches [D3].
 
@@ -632,6 +703,11 @@ def create_student(
         batch is listed twice
     :raises BatchNotFound: A batch is not this lens's
     """
+    earlier = replayed_student(
+        session, lens=lens, client_mutation_id=client_mutation_id
+    )
+    if earlier is not None:
+        return get_student(session, lens=lens, student_id=earlier.id)
     requested = seats or []
     if len({seat.batch_id for seat in requested}) != len(requested):
         raise ConflictError(
@@ -646,6 +722,7 @@ def create_student(
             student_phone=student_phone,
             guardian_phone=guardian_phone,
             reuse_by_phone=False,
+            client_mutation_id=client_mutation_id,
         )
         for seat in requested:
             seat_for(

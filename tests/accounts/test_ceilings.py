@@ -30,6 +30,7 @@ from app.auth.ceilings import (
     ScopeKind,
 )
 from app.db.models import Account, RateLimitCounter
+from tests.accounts.signup_support import sign_up
 
 
 def _phone() -> str:
@@ -297,10 +298,9 @@ def test_signup_is_refused_through_the_endpoint(
     first = client.post("/v1/accounts", json=body)
     assert first.status_code == 201
 
-    # The number now has an account, so further attempts refuse as a
-    # duplicate -- which is itself a 409. The ceiling is asserted on
-    # the LOOKUP instead, which is unauthenticated, repeatable and
-    # bounded by the same cascade.
+    # The ceiling is asserted on the LOOKUP, which is unauthenticated,
+    # repeatable and bounded by the same cascade, so one signup and the
+    # lookups after it spend one shared per-number allowance.
     for _ in range(SIGNUP_PER_NUMBER_DAILY - 1):
         assert (
             client.get(
@@ -317,10 +317,15 @@ def test_signup_is_refused_through_the_endpoint(
     assert body["retryable"] is False
 
 
-def test_a_duplicate_number_is_refused_through_the_endpoint(
+def test_a_repeated_signup_is_not_refused_as_a_duplicate(
     client: TestClient, owner_session: Session
 ) -> None:
-    """The person is directed to log in [BR4.4, AC1.12.4].
+    """Signup no longer says whether a number has an account [C-07].
+
+    This asserted a 409 ``ACCOUNT_EXISTS`` for a second signup, which
+    is the existence oracle the 2026-11-07 audit found: anyone could ask
+    whether any number had an account. A second signup is answered like
+    the first, and its code signs the owner in to what they have.
 
     :param client: A client against the restricted engine
     :param owner_session: A session able to arrange fixture data
@@ -337,44 +342,37 @@ def test_a_duplicate_number_is_refused_through_the_endpoint(
         "address_postcode": "1205",
     }
 
-    assert client.post("/v1/accounts", json=body).status_code == 201
+    sign_up(client, body)
 
-    duplicate = client.post("/v1/accounts", json=body)
+    again = client.post("/v1/accounts", json=body)
 
-    assert duplicate.status_code == 409
-    body = duplicate.json()["error"]
-    assert body["code"] == "ACCOUNT_EXISTS"
-    # Retryability is read off the CLASS in exactly one place; a 409
-    # that advertised itself as retryable would invite a client to
-    # hammer a duplicate [team: Error handling].
-    assert body["retryable"] is False
-    # `message_key`, never `message`: a server-sent English string
-    # cannot be localized in a Bangla-first UI.
-    assert body["message_key"] == "signup.number.already_registered"
+    assert again.status_code == 201
+    assert "ACCOUNT_EXISTS" not in again.text
 
 
-def test_the_account_exists_before_the_code_is_sent(
+def test_the_draft_exists_before_the_code_is_sent_and_the_account_does_not(
     client: TestClient, owner_session: Session
 ) -> None:
-    """The ordering claim, asserted at the gateway call [AC1.11.4].
+    """The ordering claim, asserted at the gateway call [AC1.11.4, C-07].
 
-    **No response body reveals this.** A handler that sent the code
-    first and created the account afterwards returns the same 201, so
-    the only place the ordering is observable is inside the gateway, at
-    the moment it is asked to send.
+    **No response body reveals this.** The ordering the person relies on
+    is that typing the code always has something to complete: so when
+    the gateway is asked to send, the draft the code completes is
+    already committed. What must NOT exist yet is the account -- it is
+    created only when the code is verified.
 
     :param client: A client against the restricted engine
     :param owner_session: A session able to arrange fixture data
     :return: None
     """
     phone = _phone()
-    seen: list[uuid.UUID | None] = []
+    seen: list[tuple[uuid.UUID | None, uuid.UUID | None]] = []
 
     class _RecordingGateway:
-        """A gateway that records whether the account existed yet."""
+        """A gateway that records what existed at the moment of the send."""
 
         def send(self, number: str, message: str, correlation_id: str) -> None:
-            """Look the account up at the moment of the send.
+            """Look the draft and the account up at the moment of the send.
 
             :param number: The destination number
             :param message: The rendered message
@@ -383,9 +381,15 @@ def test_the_account_exists_before_the_code_is_sent(
             """
             owner_session.expire_all()
             seen.append(
-                owner_session.execute(
-                    sa.select(Account.id).where(Account.phone == number)
-                ).scalar_one_or_none()
+                (
+                    owner_session.execute(
+                        sa.text("SELECT id FROM pending_signup WHERE phone = :p"),
+                        {"p": number},
+                    ).scalar_one_or_none(),
+                    owner_session.execute(
+                        sa.select(Account.id).where(Account.phone == number)
+                    ).scalar_one_or_none(),
+                )
             )
 
     app = client.app
@@ -407,6 +411,6 @@ def test_the_account_exists_before_the_code_is_sent(
         app.dependency_overrides.pop(get_gateway, None)
 
     assert response.status_code == 201
-    assert seen == [uuid.UUID(response.json()["account_id"])], (
-        "the code was sent before the account existed"
+    assert seen == [(uuid.UUID(response.json()["account_id"]), None)], (
+        "the code was sent before its draft existed, or after an account did"
     )

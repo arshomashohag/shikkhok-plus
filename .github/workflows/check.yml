@@ -10,20 +10,21 @@ name: check
 # packaging Bolt's bytecode scan, which needs a signing keystore — and it
 # belongs in the release gate rather than here, for this reason.
 
-# **No `push` trigger: nothing runs on merge.**
+# **A push to main runs too** [C-10]. The post-merge run was removed on
+# 2026-10-19 ("don't run actions on merge"), and that left the commit
+# that actually lands on main -- a squash commit no pull request ever
+# ran against -- with no check result at all. deploy.yml now refuses
+# any commit whose check.yml jobs did not pass, so without this trigger
+# nothing on main could be deployed; with it, the deployed commit is
+# the tested commit, and a stale-base merge that breaks main is found by
+# a run of its own rather than by the next pull request. "Require
+# branches to be up to date before merging" remains the cheaper control
+# that stops such a merge happening at all.
 #
-# This drops the post-merge run on main, and team.md calls that run
-# "the only thing that catches a stale-base merge" -- a PR green
-# against an older main can merge and break it. That risk is real and
-# is accepted here, with one cheaper control available in its place:
-# GitHub's "Require branches to be up to date before merging", under
-# branch protection, forces the rebase BEFORE the merge rather than
-# detecting the breakage after it. Turning that on closes the same
-# hole at the gate.
-#
-# Without it, a broken main is found by the next PR's run rather than
-# by a run of its own.
+# Only main: a feature branch is tested through its pull request.
 on:
+  push:
+    branches: [main]
   pull_request:
   # Manual, for re-running the gate against a branch without pushing an
   # empty commit to trigger it -- which is what people do otherwise, and
@@ -34,8 +35,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: check-${{ github.ref }}
-  cancel-in-progress: true
+  # Per commit on main, so a second merge does not cancel the first
+  # merge's run: deploy.yml needs a completed result for each commit it
+  # deploys [C-10]. Per ref elsewhere, where a new push supersedes the
+  # last and cancelling it saves minutes.
+  group: check-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   backend:
@@ -56,8 +61,11 @@ jobs:
     # it still holds; the suite grew through D4-D6, the cap did not.
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # No job in this workflow pushes, so the token is not left in
+          # .git/config for a later step or action to find [C-32].
+          persist-credentials: false
           # **Full history, for Gitleaks.** The default is a shallow
           # clone of depth 1, and Gitleaks scans the range
           # `<before>^..<after>` for a push -- so it asks for a parent
@@ -93,11 +101,11 @@ jobs:
           echo "$count commits available to scan."
 
       - name: Secrets scan
-        uses: gitleaks/gitleaks-action@v3
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
           cache: pip
@@ -194,8 +202,10 @@ jobs:
       # 24 of 28 tests skipped, zero failures, exit 0.
       #
       # This asserts the precondition rather than trusting it. The
-      # second half -- that the suite actually RAN -- is the exit code
-      # of `make check` itself once Docker is known present.
+      # second half -- that the suite actually RAN -- is NOT the exit
+      # code, which a skip leaves at zero [C-37]: it is the step after
+      # `make check` below, which reads the JUnit report, and
+      # tests/conftest.py, which fails rather than skips under CI.
       - name: Docker is available for the integration suite
         run: |
           if ! docker info >/dev/null 2>&1; then
@@ -233,6 +243,44 @@ jobs:
       - name: make check (python half)
         run: make lint typecheck test
 
+      # **The suite ran: nothing was skipped** [C-37]. A skipped test
+      # exits 0 exactly like a passing one, so the exit code above
+      # cannot tell a green suite from one that quietly ran its unit
+      # half. No test in this suite skips on a correctly provisioned
+      # runner, so ANY skip here is a test that did not run, and fails.
+      - name: Every test ran
+        run: |
+          python3 - build/pytest-junit.xml <<'PY'
+          import sys
+          import xml.etree.ElementTree as ET
+
+          root = ET.parse(sys.argv[1]).getroot()
+          cases = list(root.iter("testcase"))
+          skipped = [
+              f"{case.get('classname')}::{case.get('name')}: "
+              f"{case.find('skipped').get('message', '')}"
+              for case in cases
+              if case.find("skipped") is not None
+          ]
+          if not cases:
+              print("::error::The JUnit report lists no tests at all.")
+              raise SystemExit(1)
+          if skipped:
+              print(f"::error::{len(skipped)} of {len(cases)} tests were skipped:")
+              for line in skipped[:50]:
+                  print(f"  {line}")
+              raise SystemExit(1)
+          print(f"{len(cases)} tests ran; none skipped.")
+          PY
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: backend-junit
+          path: build/pytest-junit.xml
+          if-no-files-found: warn
+
   # **The image that ships, built and started on every pull request.**
   #
   # Until 2026-11-02 nothing built the Dockerfile before a deploy did, so
@@ -253,7 +301,9 @@ jobs:
       IMAGE: shikkhokplus-backend:ci
       DB_URL: postgresql+psycopg://shikkhok:ci-only@db:5432/shikkhokplus
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Build the image
         run: docker build --target runtime -t "$IMAGE" .
@@ -308,14 +358,16 @@ jobs:
     # Split from the backend job so a Kotlin build never gates a backend
     # change, and so the minute budget stays attributable per surface.
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-java@v6
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
           java-version: "17"
 
-      - uses: gradle/actions/setup-gradle@v6
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
 
       # Step 11. Compiles core/model inside the :app module and runs the
       # money serialization test as a LOCAL JVM unit test.
@@ -365,9 +417,30 @@ jobs:
       - name: Kotlin coverage ratchet
         run: ./gradlew :android:verifyCoverageRatchet --no-daemon
 
+      # **Android dependency CVEs, annotating** [C-32]. The Python and
+      # web sides had this; the Gradle lockfiles the release ships had
+      # nothing. Non-blocking, as the affirmed two-speed model requires:
+      # release-android.yml is where the same scan blocks.
+      #
+      # osv-scanner is a pinned release, checksum-verified, never a
+      # moving install script.
+      - name: Android dependency CVEs (annotating, non-blocking)
+        continue-on-error: true
+        env:
+          OSV_SCANNER_VERSION: "2.6.0"
+          OSV_SCANNER_SHA256: "ca69b3d3cd08f889a49dc0a383122f71cc528b83803671df5fd874d97485b108"
+        run: |
+          bin="$RUNNER_TEMP/osv-scanner"
+          curl -fsSL -o "$bin" \
+            "https://github.com/google/osv-scanner/releases/download/v${OSV_SCANNER_VERSION}/osv-scanner_linux_amd64"
+          echo "${OSV_SCANNER_SHA256}  $bin" | sha256sum -c -
+          chmod +x "$bin"
+          "$bin" scan -L android/gradle.lockfile -L gradle.lockfile:settings-gradle.lockfile \
+            || echo "::warning::osv-scanner reported findings in the Android lockfiles. These do not block this push; they block the Android release."
+
       - name: Upload lint and coverage reports
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: android-quality-reports
           path: |
@@ -378,7 +451,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: android-unit-results
           path: android/build/test-results/testDebugUnitTest/
@@ -392,9 +465,11 @@ jobs:
     # other: a web change never waits on a Kotlin build, and the minutes
     # stay attributable per surface.
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "22"
           cache: npm
@@ -429,9 +504,11 @@ jobs:
     # npm cache and no audit step -- it has no dependencies to fetch or
     # audit.
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "22"
 

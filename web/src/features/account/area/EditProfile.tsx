@@ -19,7 +19,7 @@ import './account.css'
 
 export function EditProfile() {
   const { t } = useT()
-  const { resource, reload } = useResource(() => readProfile(), [])
+  const { resource, reload } = useResource((signal) => readProfile(signal), [])
 
   let body: React.ReactNode
   if (resource.state === 'loading') body = <Loading rows={4} />

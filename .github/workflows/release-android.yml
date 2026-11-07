@@ -33,8 +33,12 @@ on:
         required: true
         type: string
 
+# **Read-only by default** [C-32]. Only the `publish` job, which creates
+# the draft GitHub release, is granted `contents: write` -- the build
+# job holds the upload keystore and runs third-party tooling, and has no
+# reason to be able to write to the repository.
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: release-android-${{ github.ref }}
@@ -48,13 +52,19 @@ jobs:
     # The keystore lives here. Without the environment's protection a
     # workflow edit on any branch could exfiltrate the upload key.
     environment: android-release
+    outputs:
+      name: ${{ steps.version.outputs.name }}
+      dry: ${{ steps.version.outputs.dry }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Full history: the release notes are generated from the
           # commits since the previous tag, and a shallow clone has
           # neither the tags nor the commits.
           fetch-depth: 0
+          # Nothing in this job pushes; the token is not left behind in
+          # .git/config beside the keystore [C-32].
+          persist-credentials: false
 
       - name: Resolve the version
         id: version
@@ -143,12 +153,48 @@ jobs:
             echo "| backend | \`$API_BASE_URL\` |"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - uses: actions/setup-java@v6
+      # **The release gate for Android dependency CVEs, BLOCKING**
+      # [C-32]. check.yml annotates the same scan on every push; here
+      # each Critical or High finding in the Gradle lockfiles fails the
+      # release unless .security-exceptions.md carries an unexpired row
+      # for it -- the gate and the file the backend release uses. Before
+      # the keystore exists, so a blocked release never decoded it.
+      #
+      # osv-scanner exits 0 for no findings and 1 for findings; anything
+      # else is a scan that did not complete, which blocks rather than
+      # passes.
+      - name: Release gate - Android dependency CVEs
+        env:
+          OSV_SCANNER_VERSION: "2.6.0"
+          OSV_SCANNER_SHA256: "ca69b3d3cd08f889a49dc0a383122f71cc528b83803671df5fd874d97485b108"
+        run: |
+          set -euo pipefail
+          bin="$RUNNER_TEMP/osv-scanner"
+          curl -fsSL -o "$bin" \
+            "https://github.com/google/osv-scanner/releases/download/v${OSV_SCANNER_VERSION}/osv-scanner_linux_amd64"
+          echo "${OSV_SCANNER_SHA256}  $bin" | sha256sum -c -
+          chmod +x "$bin"
+          set +e
+          "$bin" scan -L android/gradle.lockfile -L gradle.lockfile:settings-gradle.lockfile \
+            --format json --output-file "$RUNNER_TEMP/osv.json"
+          code=$?
+          set -e
+          if [ "$code" -ne 0 ] && [ "$code" -ne 1 ]; then
+            echo "::error::osv-scanner exited $code; the scan did not complete."
+            exit 1
+          fi
+          if [ ! -s "$RUNNER_TEMP/osv.json" ]; then
+            echo "::error::osv-scanner produced no report; the gate cannot decide."
+            exit 1
+          fi
+          python3 deploy/cve_gate.py "$RUNNER_TEMP/osv.json" .security-exceptions.md
+
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
           java-version: "17"
 
-      - uses: gradle/actions/setup-gradle@v6
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
 
       # **No test suite here, by decision.** The tests belong on the
       # pull request, where a red result blocks the merge; re-running
@@ -392,9 +438,22 @@ jobs:
         # team.md: one per release build, so "is this CVE in the AAB on
         # the store" is answerable in a minute rather than a day. Not a
         # merge gate.
+        #
+        # **A pinned, checksum-verified release** [C-32], as bundletool
+        # is above. This was `curl .../syft/main/install.sh | sh`: a
+        # script from a moving branch, executed in the job that holds
+        # the upload keystore.
+        env:
+          SYFT_VERSION: "1.56.0"
+          SYFT_SHA256: "1c2493cfcf52d3367d6cb25780d9190c111c2219c34c820574c43e8bae15c528"
         run: |
-          curl -fsSL https://raw.githubusercontent.com/anchore/syft/main/install.sh \
-            | sh -s -- -b "$RUNNER_TEMP/bin"
+          set -euo pipefail
+          archive="$RUNNER_TEMP/syft.tar.gz"
+          curl -fsSL -o "$archive" \
+            "https://github.com/anchore/syft/releases/download/v${SYFT_VERSION}/syft_${SYFT_VERSION}_linux_amd64.tar.gz"
+          echo "${SYFT_SHA256}  $archive" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/bin"
+          tar -xzf "$archive" -C "$RUNNER_TEMP/bin" syft
           "$RUNNER_TEMP/bin/syft" scan \
             "android/build/outputs/bundle/release/android-release.aab" \
             -o spdx-json > "android-sbom-${{ steps.version.outputs.name }}.json" \
@@ -433,7 +492,7 @@ jobs:
           cp "$src" "shikkhokplus-${{ steps.version.outputs.name }}.apk"
           ls -lh "shikkhokplus-${{ steps.version.outputs.name }}.apk"
 
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-${{ steps.version.outputs.name }}
           path: |
@@ -445,31 +504,6 @@ jobs:
             android-sbom-*.json
           if-no-files-found: error
           retention-days: 90
-
-      # A GitHub Release, for the real thing only. A dry run that
-      # created one would make a rehearsal look like a shipped version.
-      - name: GitHub release
-        if: steps.version.outputs.dry == 'false'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          python3 scripts/release_notes.py \
-            --version "${{ steps.version.outputs.name }}" --print-only \
-            > release-body.md
-
-          # The APK ships as a release asset alongside the AAB: the AAB
-          # is what Play ingests, the APK is what a closed-testing
-          # participant can sideload without waiting for a Play review.
-          # Both came from one build and both passed the same gates.
-          gh release create "${{ github.ref_name }}" \
-            --title "${{ steps.version.outputs.name }}" \
-            --notes-file release-body.md \
-            --draft \
-            android/build/outputs/bundle/release/android-release.aab \
-            "shikkhokplus-${{ steps.version.outputs.name }}.apk" \
-            play-release-notes.txt
-
-          echo "Draft release created. Review and publish it."
 
       - name: What to do next
         run: |
@@ -487,3 +521,56 @@ jobs:
             echo "build. The manifest and DEX gates passed, so no device"
             echo "or advertising identifier is present."
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # **The draft GitHub release, in its own job** [C-32]. The only step
+  # that writes to the repository, so the only job granted
+  # `contents: write`; it never sees the keystore, and it runs no
+  # third-party tool. A dry run creates none, because a rehearsal that
+  # created one would look like a shipped version.
+  publish:
+    name: draft the GitHub release
+    needs: release
+    if: needs.release.outputs.dry == 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The release notes read the commits since the previous tag.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: release-${{ needs.release.outputs.name }}
+          path: release
+
+      # The APK ships as a release asset alongside the AAB: the AAB is
+      # what Play ingests, the APK is what a closed-testing participant
+      # can sideload without waiting for a Play review. Both came from
+      # one build and both passed the same gates.
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.release.outputs.name }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          python3 scripts/release_notes.py --version "$VERSION" --print-only \
+            > release-body.md
+
+          aab=$(find release -name android-release.aab | head -1)
+          apk=$(find release -name "shikkhokplus-$VERSION.apk" | head -1)
+          notes=$(find release -name play-release-notes.txt | head -1)
+          for f in "$aab" "$apk" "$notes"; do
+            [ -n "$f" ] || { echo "::error::The release artifact is missing a file."; exit 1; }
+          done
+
+          gh release create "$TAG" \
+            --title "$VERSION" \
+            --notes-file release-body.md \
+            --draft \
+            "$aab" "$apk" "$notes"
+
+          echo "Draft release created. Review and publish it."

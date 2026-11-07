@@ -19,7 +19,7 @@ import { groupExams, mapExam, type ExamItem } from './mappers'
 export function ExamsTab({ batchId }: BatchTabProps) {
   const { t } = useT()
   const { resource, reload } = useResource(
-    () => listExams(batchId).then((rows) => rows.map(mapExam)),
+    (signal) => listExams(batchId, signal).then((rows) => rows.map(mapExam)),
     [batchId],
   )
 

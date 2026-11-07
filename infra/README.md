@@ -128,8 +128,10 @@ environments to configure afterwards.
 
 1. Edit `infra/**` on a branch, open a PR, merge
 2. Actions → deploy → Run workflow → choose the environment
-3. The infrastructure job prints the plan and applies it; in
-   `production-infra` it waits for the required reviewer first
+3. The `plan` job renders the plan, read-only, into its summary; the
+   `infrastructure` job then applies exactly that saved plan. In
+   production, read the plan BEFORE approving `production-infra` -- the
+   approval is for that plan and nothing else [C-11]
 
 **ACM validation takes 5–30 minutes** on the first apply, and
 CloudFront another 10–15. The job's 45-minute timeout exists for that.

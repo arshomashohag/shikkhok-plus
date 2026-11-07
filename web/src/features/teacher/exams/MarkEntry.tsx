@@ -42,7 +42,10 @@ import { CancelExam, HistorySheet, PUBLISH_INCOMPLETE_KEY, PublishBar } from './
 export function MarkEntry() {
   const { examId = '' } = useParams()
   const { t } = useT()
-  const { resource, reload } = useResource(() => readResults(examId).then(mapResults), [examId])
+  const { resource, reload } = useResource(
+    (signal) => readResults(examId, signal).then(mapResults),
+    [examId],
+  )
 
   if (resource.state === 'loading') {
     return (

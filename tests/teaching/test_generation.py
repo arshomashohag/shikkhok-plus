@@ -169,10 +169,11 @@ def test_a_schedule_change_never_alters_an_existing_session(
         for row in _sessions(restricted_session, teacher.batch_id)
     ]
 
-    # Move the slot to Tuesday 18:00.
+    # Move the slot to Tuesday 18:00, ending after it starts (0030's check).
     owner_session.execute(
         sa.text(
-            "UPDATE schedule_slot SET weekday = 1, start_time = '18:00' WHERE id = :id"
+            "UPDATE schedule_slot SET weekday = 1, start_time = '18:00', "
+            "end_time = '19:00' WHERE id = :id"
         ),
         {"id": monday_slot},
     )

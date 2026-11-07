@@ -31,10 +31,10 @@ interface Loaded {
   next: NextPayable | null
 }
 
-async function load(seat: string): Promise<Loaded> {
-  const payments = mapPayments(await readChildPayments(seat))
+async function load(seat: string, signal?: AbortSignal): Promise<Loaded> {
+  const payments = mapPayments(await readChildPayments(seat, signal))
   // The headline is a convenience: the payments still show if payables fail.
-  const next = await readPayables('child', seat).then(nextPayable, () => null)
+  const next = await readPayables('child', seat, signal).then(nextPayable, () => null)
   return { payments, next }
 }
 
@@ -47,7 +47,7 @@ export function PaymentsScreen({ reader }: { reader: Reader }) {
 function ChildPayments({ seat }: { seat: string }) {
   const { t, lang } = useT()
   const online = useOnline()
-  const { resource, reload } = useResource(() => load(seat), [seat])
+  const { resource, reload } = useResource((signal) => load(seat, signal), [seat])
 
   if (resource.state === 'loading') {
     return (
@@ -168,12 +168,14 @@ function Line({ line }: { line: PaymentLine }) {
         ? t('payments_approved', formatShortDate(line.decidedOn, lang), channel)
         : line.state === 'waived'
           ? t('student_chip_waived')
-          : t('student_due_by', formatShortDate(line.dueDate, lang))
+          : line.state === 'unknown'
+            ? null
+            : t('student_due_by', formatShortDate(line.dueDate, lang))
   return (
     <li className="row">
       <div className="grow">
         <div className="title">{line.batchName}</div>
-        <div className="meta">{detail}</div>
+        {detail ? <div className="meta">{detail}</div> : null}
       </div>
       <div className="end">
         <span className="amount">{line.amount.format()}</span>

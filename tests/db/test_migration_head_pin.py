@@ -50,11 +50,14 @@ VERSIONS: Final[pathlib.Path] = (
 #: teaches each class where -- again, and ``0025`` -- an exam's examiner
 #: -- once more, and ``0026`` -- payroll -- again, and ``0027`` -- the help
 #: centre and which app each account uses -- once more, and ``0028`` --
-#: authenticator-app MFA -- again.
-EXPECTED_REVISIONS: Final[int] = 28
+#: authenticator-app MFA -- again, and ``0029`` -- a seat keeps its history,
+#: and the supersession index -- once more, and ``0030`` -- integrity
+#: constraints and indexes -- again, and ``0031`` -- verify-first signup and
+#: the end of a session -- once more.
+EXPECTED_REVISIONS: Final[int] = 31
 
-#: The head ``0028`` leaves behind.
-EXPECTED_HEAD: Final[str] = "0028"
+#: The head ``0031`` leaves behind.
+EXPECTED_HEAD: Final[str] = "0031"
 
 
 def _revision_files() -> list[pathlib.Path]:

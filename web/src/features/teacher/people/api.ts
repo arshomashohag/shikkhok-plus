@@ -24,11 +24,11 @@ export function studentsQuery(filter: StudentFilter, query: string): string {
   return s ? `/v1/students?${s}` : '/v1/students'
 }
 
-export const listStudents = (filter: StudentFilter, query = '') =>
-  request<Schemas['StudentResponse'][]>('GET', studentsQuery(filter, query))
+export const listStudents = (filter: StudentFilter, query = '', signal?: AbortSignal) =>
+  request<Schemas['StudentResponse'][]>('GET', studentsQuery(filter, query), { signal })
 
-export const readStudent = (studentId: string) =>
-  request<Schemas['StudentResponse']>('GET', `/v1/students/${enc(studentId)}`)
+export const readStudent = (studentId: string, signal?: AbortSignal) =>
+  request<Schemas['StudentResponse']>('GET', `/v1/students/${enc(studentId)}`, { signal })
 
 export const createStudent = (body: Schemas['StudentCreateRequest']) =>
   request<Schemas['StudentResponse']>('POST', '/v1/students', { body })

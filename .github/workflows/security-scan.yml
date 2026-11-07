@@ -70,9 +70,11 @@ jobs:
     timeout-minutes: 30
     environment: ${{ inputs.environment }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - uses: aws-actions/configure-aws-credentials@v6
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           # **This environment's deploy role, which reads ONE parameter
           # here: the public URL.** The infrastructure role
@@ -159,6 +161,19 @@ jobs:
           # "Total of N URLs", which the next step asserts against. See
           # that step for why the JSON report cannot supply it.
           #
+          # **`-O` names the target** [C-38]. The committed schema has no
+          # `servers` entry, so imported from a file it gave ZAP no host
+          # to send anything to; the Host-header replacer that stood here
+          # rewrote a header on requests that had no destination. `-O`
+          # is the script's own option for the URL the schema's paths
+          # are served under.
+          #
+          # **The image is pinned by digest** [C-32]: `:stable` moved
+          # under every run, so two scans of one host could disagree for
+          # reasons nothing recorded. Dependabot's docker ecosystem does
+          # not see an image named in a workflow, so moving this pin is
+          # a deliberate edit.
+          #
           # `|| true` so the exit code is captured rather than ending
           # the job here: the threshold decision is made below, after
           # the import assertion, because a scan that imported nothing
@@ -166,19 +181,14 @@ jobs:
           set +e
           docker run --rm \
             -v "$GITHUB_WORKSPACE/zap-out:/zap/wrk:rw" \
-            -t ghcr.io/zaproxy/zaproxy:stable \
+            -t ghcr.io/zaproxy/zaproxy:2.16.1@sha256:7840969c7c9fead565bf9734b12f49f6886db90b1d35b1f74d79710bbd081dab \
             zap-api-scan.py \
               -t /zap/wrk/openapi.json \
               -f openapi \
+              -O "$URL" \
               -d \
               -J zap-report.json \
               -w zap-report.md \
-              -z "-config replacer.full_list\\(0\\).description=host \
-                  -config replacer.full_list\\(0\\).enabled=true \
-                  -config replacer.full_list\\(0\\).matchtype=REQ_HEADER \
-                  -config replacer.full_list\\(0\\).matchstr=Host \
-                  -config replacer.full_list\\(0\\).regex=false \
-                  -config replacer.full_list\\(0\\).replacement=${URL#https://}" \
             2>&1 | tee "$GITHUB_WORKSPACE/zap-out/scan.log"
           code=${PIPESTATUS[0]}
           set -e
@@ -317,7 +327,7 @@ jobs:
       # what was scanned.
       - name: Keep the report
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: zap-report-${{ inputs.environment }}-${{ github.run_id }}
           path: zap-out/

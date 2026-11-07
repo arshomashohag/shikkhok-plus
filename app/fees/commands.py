@@ -37,7 +37,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
-from app.db.models import FEE_GENERATION_JOB, JobHeartbeat
+from app.db.models import EXPECTED_JOBS, FEE_GENERATION_JOB, JobHeartbeat
 from app.db.session import build_engine, session_scope
 from app.fees.generation import (
     GenerationResult,
@@ -206,7 +206,7 @@ def check_all_jobs(
     *,
     now: dt.datetime | None = None,
 ) -> list[tuple[str, FreshnessVerdict]]:
-    """Check every registered job, one verdict per heartbeat row.
+    """Check every expected or registered job, one verdict per job.
 
     **This is option B, chosen by the human on 2026-10-25**
     [infrastructure-specification § 3.3]. The alternatives each required
@@ -229,14 +229,17 @@ def check_all_jobs(
 
     :param session: The session to read through
     :param now: The comparison time; the real clock by default
-    :return: One ``(job_name, verdict)`` pair per registered job
+    :return: One ``(job_name, verdict)`` pair per expected or registered
+        job, sorted by name
     """
     moment = now or dt.datetime.now(tz=dt.UTC)
-    names = list(
-        session.scalars(
-            sa.select(JobHeartbeat.job_name).order_by(JobHeartbeat.job_name)
-        ).all()
-    )
+    registered = set(session.scalars(sa.select(JobHeartbeat.job_name)).all())
+    # The registry AND the expected set [audit C-01]. Rows alone protect
+    # only jobs that have run once: a job never wired to a scheduler has
+    # no row, so it was never checked -- exactly how the retention purge
+    # went unscheduled with nothing alerting. An expected job with no row
+    # now reports ``never_ran``.
+    names = sorted(registered | EXPECTED_JOBS)
     return [
         (name, check_generation_freshness(session, job_name=name, now=moment))
         for name in names

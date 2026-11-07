@@ -65,7 +65,7 @@ variable "recover_existing" {
     terraform.tfstate.
 
     Normally false. Set it true ONLY to recover, read the plan (it
-    must say 3 to import and nothing to add or destroy), apply, then
+    must import only what import.tf names and add or destroy nothing), apply, then
     set it back.
   EOT
   type        = bool
@@ -135,4 +135,29 @@ variable "monthly_budget_usd" {
   description = "The ceiling [OC-4: keep infrastructure spend under USD 50/month]."
   type        = number
   default     = 50
+}
+
+variable "record_name_patterns" {
+  description = <<-EOT
+    Per environment, the Route53 record names that environment's
+    infrastructure role and hosts may change, as IAM StringLike patterns
+    over the NORMALISED name (lowercase, no trailing dot) [C-09].
+
+    They follow the main module's zone labels: staging's zone is
+    shikkhokplus.<apex> and production's shikkhokplus-prod.<apex>, so
+    `*shikkhokplus.*` cannot match a production name and
+    `*shikkhokplus-prod.*` cannot match a staging one. Change both here
+    and the main module's `project_subdomain` together, or the apply
+    that follows fails at ChangeResourceRecordSets.
+  EOT
+  type        = map(list(string))
+  default = {
+    staging    = ["*shikkhokplus.*"]
+    production = ["*shikkhokplus-prod.*"]
+  }
+
+  validation {
+    condition     = alltrue([for env in ["staging", "production"] : contains(keys(var.record_name_patterns), env)])
+    error_message = "record_name_patterns needs an entry for staging and for production."
+  }
 }

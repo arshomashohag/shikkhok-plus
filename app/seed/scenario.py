@@ -670,6 +670,12 @@ class _Simulation:
         for index in (8, 22):
             kids[index].app_user, kids[index].pending_guardian = None, True
         kids[40].app_user, kids[40].declined_guardian = "student", True
+        # One family always pays part of a month through the app. Left to
+        # the draw, a partial payer who also uses the app is rare enough
+        # that some accounts got no partially approved payment at all --
+        # and the seeded history's own test, which expects one, failed on
+        # those runs.
+        kids[6].payer, kids[6].app_user = "partial", "guardian"
         kids[40].student_phone = kids[40].student_phone or self._phone(1, 40)
         for kid in kids:
             if kid.app_user == "student" and kid.student_phone is None:

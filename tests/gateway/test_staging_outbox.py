@@ -18,10 +18,16 @@ from sqlalchemy.orm import Session
 from app.config import ENVIRONMENT_ENV, ConfigurationError, check_startup_configuration
 from app.gateway.outbox import (
     OUTBOX_FORCE_ENV,
+    OUTBOX_NUMBERS_ENV,
     outbox_enabled,
     read_outbox,
     record_outbox,
 )
+
+#: The operator numbers these tests sign in with. Staging requires an
+#: allowlist [C-19]; tests/gateway/test_outbox_allowlist.py covers what
+#: happens without one and to a number outside it.
+OPERATOR_NUMBERS = "+8801711111111,+8801799999999"
 
 # ---------------------------------------------------------------------------
 # MECHANISM 1 -- the predicate.
@@ -61,6 +67,7 @@ def test_the_predicate_permits_only_an_explicit_opt_in(
     """
     monkeypatch.setenv(ENVIRONMENT_ENV, environment)
     monkeypatch.setenv(OUTBOX_FORCE_ENV, flag)
+    monkeypatch.setenv(OUTBOX_NUMBERS_ENV, OPERATOR_NUMBERS)
 
     assert outbox_enabled() is expected
 
@@ -78,6 +85,7 @@ def test_the_predicate_is_read_fresh_not_captured_at_import(
     :return: None
     """
     monkeypatch.setenv(ENVIRONMENT_ENV, "staging")
+    monkeypatch.setenv(OUTBOX_NUMBERS_ENV, OPERATOR_NUMBERS)
     monkeypatch.setenv(OUTBOX_FORCE_ENV, "1")
     assert outbox_enabled() is True
 
@@ -104,7 +112,7 @@ def test_the_route_is_not_registered_in_production(
     monkeypatch.setenv(ENVIRONMENT_ENV, "production")
     monkeypatch.setenv(OUTBOX_FORCE_ENV, "1")
     monkeypatch.setenv("SHIKKHOKPLUS_GLOBAL_DAILY_SMS", "50")
-    monkeypatch.setenv("SHIKKHOKPLUS_SMS_APP_HASH", "AAAAAAAAAAA")
+    monkeypatch.setenv("SHIKKHOKPLUS_SMS_APP_HASH", "ABCDEFGHIJK")
     monkeypatch.setenv("SHIKKHOKPLUS_OTP_HMAC_KEY", "k")
     monkeypatch.setenv("SHIKKHOKPLUS_SMS_ADAPTER", "bulksmsbd")
     monkeypatch.setenv("SHIKKHOKPLUS_TRUSTED_CLIENT_IP_HEADER", "X-Client-Address")
@@ -134,6 +142,7 @@ def test_the_route_is_registered_when_permitted(
     :return: None
     """
     monkeypatch.setenv(ENVIRONMENT_ENV, "staging")
+    monkeypatch.setenv(OUTBOX_NUMBERS_ENV, OPERATOR_NUMBERS)
     monkeypatch.setenv(OUTBOX_FORCE_ENV, "1")
 
     from app.contract.routes import _api_routes
@@ -159,7 +168,7 @@ def test_a_production_process_refuses_to_start_with_the_outbox_on(
     """
     monkeypatch.setenv(OUTBOX_FORCE_ENV, "1")
     monkeypatch.setenv("SHIKKHOKPLUS_GLOBAL_DAILY_SMS", "50")
-    monkeypatch.setenv("SHIKKHOKPLUS_SMS_APP_HASH", "AAAAAAAAAAA")
+    monkeypatch.setenv("SHIKKHOKPLUS_SMS_APP_HASH", "ABCDEFGHIJK")
     monkeypatch.setenv("SHIKKHOKPLUS_OTP_HMAC_KEY", "k")
     monkeypatch.setenv("SHIKKHOKPLUS_SMS_ADAPTER", "bulksmsbd")
     monkeypatch.setenv("SHIKKHOKPLUS_TRUSTED_CLIENT_IP_HEADER", "X-Client-Address")
@@ -186,7 +195,7 @@ def test_an_otherwise_valid_production_process_starts(
     """
     monkeypatch.setenv(OUTBOX_FORCE_ENV, "")
     monkeypatch.setenv("SHIKKHOKPLUS_GLOBAL_DAILY_SMS", "50")
-    monkeypatch.setenv("SHIKKHOKPLUS_SMS_APP_HASH", "AAAAAAAAAAA")
+    monkeypatch.setenv("SHIKKHOKPLUS_SMS_APP_HASH", "ABCDEFGHIJK")
     monkeypatch.setenv("SHIKKHOKPLUS_OTP_HMAC_KEY", "k")
     monkeypatch.setenv("SHIKKHOKPLUS_SMS_ADAPTER", "bulksmsbd")
     monkeypatch.setenv("SHIKKHOKPLUS_TRUSTED_CLIENT_IP_HEADER", "X-Client-Address")
@@ -238,6 +247,7 @@ def test_a_recorded_message_reads_back(
     :return: None
     """
     monkeypatch.setenv(ENVIRONMENT_ENV, "staging")
+    monkeypatch.setenv(OUTBOX_NUMBERS_ENV, OPERATOR_NUMBERS)
     monkeypatch.setenv(OUTBOX_FORCE_ENV, "1")
 
     record_outbox(
@@ -267,6 +277,7 @@ def test_an_expired_entry_is_not_returned(
     :return: None
     """
     monkeypatch.setenv(ENVIRONMENT_ENV, "staging")
+    monkeypatch.setenv(OUTBOX_NUMBERS_ENV, OPERATOR_NUMBERS)
     monkeypatch.setenv(OUTBOX_FORCE_ENV, "1")
 
     restricted_session.execute(
@@ -328,6 +339,7 @@ def test_an_unknown_number_records_nothing(
     from fastapi.testclient import TestClient
 
     monkeypatch.setenv(ENVIRONMENT_ENV, "staging")
+    monkeypatch.setenv(OUTBOX_NUMBERS_ENV, OPERATOR_NUMBERS)
     monkeypatch.setenv(OUTBOX_FORCE_ENV, "1")
     monkeypatch.setenv("SHIKKHOKPLUS_OTP_HMAC_KEY", "test-only-hmac-key")
     monkeypatch.setenv("SHIKKHOKPLUS_SMS_APP_HASH", "AAAAAAAAAAA")

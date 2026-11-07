@@ -14,6 +14,7 @@ from __future__ import annotations
 import os
 from collections.abc import Iterator
 from contextlib import contextmanager
+from typing import Final
 from urllib.parse import urlsplit, urlunsplit
 
 from sqlalchemy import Engine, create_engine
@@ -78,7 +79,56 @@ def build_engine(url: str | None = None) -> Engine:
             f"no database URL: pass one or set {DATABASE_URL_ENV}. "
             "It is never hardcoded."
         )
-    return create_engine(resolved, pool_pre_ping=True, future=True)
+    return create_engine(
+        resolved,
+        pool_pre_ping=True,
+        future=True,
+        # Sized, not defaulted [audit C-18]. Each uvicorn worker owns one
+        # pool; a request waiting longer than ``pool_timeout`` for a
+        # connection fails fast as a retryable 503 rather than hanging.
+        pool_size=_int_env(POOL_SIZE_ENV, 8),
+        max_overflow=_int_env(POOL_OVERFLOW_ENV, 4),
+        pool_timeout=_int_env(POOL_TIMEOUT_ENV, 10),
+        pool_recycle=1800,
+        connect_args={
+            "connect_timeout": 10,
+            # Server-side bounds, so a runaway statement, a queued lock or
+            # an abandoned transaction ends in the database rather than
+            # outliving the proxy's timeout while holding a connection.
+            "options": (
+                f"-c statement_timeout={_int_env(STATEMENT_TIMEOUT_ENV, 15000)} "
+                f"-c lock_timeout={_int_env(LOCK_TIMEOUT_ENV, 5000)} "
+                "-c idle_in_transaction_session_timeout="
+                f"{_int_env(IDLE_TIMEOUT_ENV, 60000)} "
+                "-c TimeZone=UTC"
+            ),
+        },
+    )
+
+
+#: Pool and timeout settings, each overridable for one deployment.
+POOL_SIZE_ENV: Final = "SHIKKHOKPLUS_DB_POOL_SIZE"
+POOL_OVERFLOW_ENV: Final = "SHIKKHOKPLUS_DB_POOL_OVERFLOW"
+POOL_TIMEOUT_ENV: Final = "SHIKKHOKPLUS_DB_POOL_TIMEOUT_S"
+STATEMENT_TIMEOUT_ENV: Final = "SHIKKHOKPLUS_DB_STATEMENT_TIMEOUT_MS"
+LOCK_TIMEOUT_ENV: Final = "SHIKKHOKPLUS_DB_LOCK_TIMEOUT_MS"
+IDLE_TIMEOUT_ENV: Final = "SHIKKHOKPLUS_DB_IDLE_IN_TRANSACTION_TIMEOUT_MS"
+
+
+def _int_env(name: str, default: int) -> int:
+    """Read a positive integer setting, or use the default.
+
+    :param name: The environment variable
+    :param default: The value when it is unset or empty
+    :return: The setting
+    :raises RuntimeError: It is set but not a positive integer
+    """
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    if not raw.isdigit() or int(raw) <= 0:
+        raise RuntimeError(f"{name} must be a positive integer")
+    return int(raw)
 
 
 @contextmanager

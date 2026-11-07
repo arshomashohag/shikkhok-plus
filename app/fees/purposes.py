@@ -18,12 +18,14 @@ from __future__ import annotations
 
 import datetime as dt
 import uuid
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Final, Literal
 
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
+from app.analytics.seats import any_of
 from app.db.models import ExtraFee, ExtraFeeCharge, PaymentClaim
 from app.errors import ValidationError
 from app.fees.balances import derive_for_enrollment, oldest_unpaid_period
@@ -40,6 +42,7 @@ __all__ = [
     "charge_for",
     "fee_refs",
     "fees_charging_all",
+    "fees_charging_each",
     "owed_for_claim",
     "owed_for_target",
     "point_claim",
@@ -94,7 +97,9 @@ def fee_refs(
         fee.id: FeeRef(
             extra_fee_id=fee.id, purpose=fee.purpose, label=fee.label, due_on=fee.due_on
         )
-        for fee in session.scalars(sa.select(ExtraFee).where(ExtraFee.id.in_(wanted)))
+        for fee in session.scalars(
+            sa.select(ExtraFee).where(ExtraFee.id == any_of(wanted))
+        )
     }
 
 
@@ -112,30 +117,58 @@ def fees_charging_all(
     :param enrollment_ids: The seats a payment covers
     :return: The fees
     """
-    wanted = set(enrollment_ids)
-    if not wanted:
-        return []
+    return fees_charging_each(session, {None: (batch_id, enrollment_ids)})[None]
+
+
+def fees_charging_each[K](
+    session: Session, wanted: Mapping[K, tuple[uuid.UUID, Sequence[uuid.UUID]]]
+) -> dict[K, list[FeeRef]]:
+    """Answer :func:`fees_charging_all` for several payments in ONE statement.
+
+    The verification queue asks this once per waiting payment; asked
+    one payment at a time it was a statement each [C-13]. Each key's
+    answer is exactly :func:`fees_charging_all`'s for its batch and
+    seats: the fees of that batch, soonest first, that every one of its
+    seats was charged.
+
+    :param session: The session to read through
+    :param wanted: Key to the batch and the seats one payment covers
+    :return: Key to its fees; every key is present
+    """
+    found: dict[K, list[FeeRef]] = {key: [] for key in wanted}
+    seats_wanted = {seat for _batch, seats in wanted.values() for seat in seats}
+    if not seats_wanted:
+        return found
     rows = session.execute(
         sa.select(ExtraFee, ExtraFeeCharge.enrollment_id)
         .join(ExtraFeeCharge, ExtraFeeCharge.extra_fee_id == ExtraFee.id)
         .where(
-            ExtraFee.batch_id == batch_id,
-            ExtraFeeCharge.enrollment_id.in_(wanted),
+            ExtraFee.batch_id == any_of({batch for batch, _seats in wanted.values()}),
+            ExtraFeeCharge.enrollment_id == any_of(seats_wanted),
         )
         .order_by(ExtraFee.due_on, ExtraFee.created_at, ExtraFee.id)
     ).all()
-    seats: dict[uuid.UUID, set[uuid.UUID]] = {}
-    fees: dict[uuid.UUID, ExtraFee] = {}
-    for fee, seat in rows:
-        fees[fee.id] = fee
-        seats.setdefault(fee.id, set()).add(seat)
-    return [
-        FeeRef(
-            extra_fee_id=fee.id, purpose=fee.purpose, label=fee.label, due_on=fee.due_on
-        )
-        for fee_id, fee in fees.items()
-        if seats[fee_id] == wanted
-    ]
+    for key, (batch_id, enrollment_ids) in wanted.items():
+        mine = set(enrollment_ids)
+        if not mine:
+            continue
+        seats: dict[uuid.UUID, set[uuid.UUID]] = {}
+        fees: dict[uuid.UUID, ExtraFee] = {}
+        for fee, seat in rows:
+            if fee.batch_id == batch_id and seat in mine:
+                fees[fee.id] = fee
+                seats.setdefault(fee.id, set()).add(seat)
+        found[key] = [
+            FeeRef(
+                extra_fee_id=fee.id,
+                purpose=fee.purpose,
+                label=fee.label,
+                due_on=fee.due_on,
+            )
+            for fee_id, fee in fees.items()
+            if seats[fee_id] == mine
+        ]
+    return found
 
 
 #: The months, which is what a payment naming nothing is for.

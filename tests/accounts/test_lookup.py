@@ -2,12 +2,14 @@
 
 Two obligations, and they pull in opposite directions:
 
-* The lookup **must** say that a seat exists, with the teacher-typed
-  name and the role, or the already-added path cannot pre-fill and lock
-  its form [BR4.5, AC1.12.1].
-* It must say **nothing else** -- no teacher, no batch -- or it becomes
-  an oracle for who teaches whom, readable by anyone who can type a
-  phone number [BR2.3, AC1.12.2].
+* The lookup **must** say that a seat exists, with the role, or the
+  already-added path cannot lock its form [BR4.5, AC1.12.1].
+* It must say **nothing else** -- no teacher, no batch and **no name**
+  -- or it becomes an oracle for who teaches whom, readable by anyone
+  who can type a phone number [BR2.3, AC1.12.2]. The name was dropped
+  on 2026-11-07 (audit C-06): it is the child's name as a teacher typed
+  it, and the route is public, so it tied a child's name to a phone
+  number before anyone had proved they held that number.
 
 And the one that no diff shows: **signing up does not accept**
 [BR5.1, AC1.12.3]. Linking an account to a seat leaves its decision
@@ -21,6 +23,7 @@ import dataclasses
 import datetime as dt
 import uuid
 
+from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.accounts import service
@@ -81,14 +84,13 @@ def test_an_unknown_number_reports_no_seat(
     found = already_added(restricted_session, _phone())
 
     assert found.exists is False
-    assert found.display_name is None
     assert found.role is None
 
 
-def test_a_recorded_number_reports_the_name_and_the_role(
+def test_a_recorded_number_reports_the_role_and_no_name(
     restricted_session: Session, owner_session: Session
 ) -> None:
-    """Pre-fill as correctable, role locked [BR4.5, AC1.12.1].
+    """Role locked, nothing pre-filled [BR4.5, AC1.12.1, C-06].
 
     The number was recorded as a GUARDIAN contact, so the role the form
     locks to is Guardian -- derived from which link matched rather than
@@ -113,8 +115,8 @@ def test_a_recorded_number_reports_the_name_and_the_role(
     found = already_added(restricted_session, phone)
 
     assert found.exists is True
-    assert found.display_name == "Rahim Uddin"
     assert found.role is SignupRole.GUARDIAN
+    assert "Rahim" not in repr(found)
 
 
 def test_a_guardian_contact_is_found_before_any_account_exists(
@@ -138,8 +140,8 @@ def test_a_guardian_contact_is_found_before_any_account_exists(
     found = already_added(restricted_session, phone)
 
     assert found.exists is True
-    assert found.display_name == "Rahim Uddin"
     assert found.role is SignupRole.GUARDIAN
+    assert "Rahim" not in repr(found)
 
 
 def test_a_student_number_is_found_before_any_account_exists(
@@ -169,8 +171,8 @@ def test_a_student_number_is_found_before_any_account_exists(
     found = already_added(restricted_session, phone)
 
     assert found.exists is True
-    assert found.display_name == "Karim Hossain"
     assert found.role is SignupRole.STUDENT
+    assert "Karim" not in repr(found)
 
 
 def test_a_relink_blocked_seat_is_not_reported(
@@ -235,14 +237,15 @@ def test_the_lookup_response_names_neither_teacher_nor_batch(
     service_fields = {field.name for field in dataclasses.fields(found)}
     wire_fields = set(AlreadyAddedResponse.model_fields)
 
-    assert service_fields == {"exists", "display_name", "role"}
+    # **No name on the service type at all** [C-06]: a field nobody
+    # fills today is the field a later edit fills. The wire keeps its
+    # `display_name` key for clients already in the field, and
+    # `test_the_public_lookup_never_returns_a_name` asserts it never
+    # carries one.
+    assert service_fields == {"exists", "role"}
     assert wire_fields == {"already_added", "display_name", "role"}
-
-    # And the value it does carry is the SEAT's name, never the
-    # batch's: a teacher who names a batch after themselves would
-    # otherwise leak their own identity through the pre-fill.
-    assert found.display_name == "Rahim Uddin"
-    assert "Karim" not in str(found.display_name)
+    assert "Rahim" not in repr(found)
+    assert "Karim" not in repr(found)
 
 
 def test_signing_up_leaves_an_existing_seat_pending(
@@ -353,3 +356,44 @@ def test_the_lookup_does_not_join_a_batch_at_all() -> None:
 
     assert "batch" not in statement
     assert "owner" not in statement
+    # And, since C-06, no name either: the statement selects no column
+    # that could carry one, so no handler edit can surface it.
+    assert "display_name" not in statement
+
+
+def test_the_public_lookup_never_returns_a_name(
+    client: TestClient, owner_session: Session
+) -> None:
+    """The child's name never crosses the public route [C-06].
+
+    Asserted on the BYTES at the boundary an attacker observes, not on
+    the service value: the route is unauthenticated, so the only thing
+    between a typed phone number and a child's name is what this
+    response contains. ``display_name`` stays on the wire for clients
+    already installed -- an empty string where a seat exists, because
+    the Android mapper refuses a seat whose name is null -- and never
+    carries the name a teacher typed.
+
+    :param client: A client against the restricted engine
+    :param owner_session: A session able to arrange fixture data
+    :return: None
+    """
+    teacher = make_teacher(owner_session, name="Physics")
+    guardian = _phone()
+    _guardian_seat(owner_session, teacher=teacher, guardian_phone=guardian)
+
+    found = client.get("/v1/accounts/already-added", params={"phone": guardian})
+    absent = client.get("/v1/accounts/already-added", params={"phone": _phone()})
+
+    assert found.status_code == 200, found.text
+    assert found.json() == {
+        "already_added": True,
+        "display_name": "",
+        "role": "guardian",
+    }
+    assert "Rahim" not in found.text
+    assert absent.json() == {
+        "already_added": False,
+        "display_name": None,
+        "role": None,
+    }

@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import Account, OwnerMember, Staff
 from app.local_time import bangladesh_today
+from tests.accounts.signup_support import sign_up
 from tests.batches.conftest import make_teacher
 from tests.conftest import bearer
 
@@ -49,9 +50,10 @@ def _manager(client: TestClient) -> uuid.UUID:
     :param client: The test client
     :return: The account id
     """
-    response = client.post(
-        "/v1/accounts",
-        json={
+    # Form and code: the account is created at verify [C-07].
+    return sign_up(
+        client,
+        {
             "phone": _phone(),
             "role": "coaching",
             "self_name": "Rina",
@@ -59,8 +61,6 @@ def _manager(client: TestClient) -> uuid.UUID:
             **ADDRESS,
         },
     )
-    assert response.status_code == 201, response.text
-    return uuid.UUID(response.json()["account_id"])
 
 
 def _invite_teacher(

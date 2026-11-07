@@ -20,6 +20,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -82,7 +83,11 @@ fun AuthScreen(
     onSubmitSecondStep: (String) -> Unit = {},
     onToggleRecoveryCode: () -> Unit = {},
 ) {
-    var phone by remember { mutableStateOf("") }
+    // **The number survives a rotation; the code does not** [L-20]. A
+    // number retyped after turning the phone is an annoyance; a one-time
+    // code kept in saved instance state is a code the platform may write
+    // to disk, which this app never does with an OTP [D-33].
+    var phone by rememberSaveable { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
 
     // Set when "Send code" is pressed on a malformed number, which is

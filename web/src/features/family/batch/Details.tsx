@@ -46,8 +46,8 @@ export function ClassDetail({ reader }: { reader: Reader }) {
   const { t, lang } = useT()
   const { who } = seatTitles(useSeatIdentity(reader, seat))
   const { resource, reload } = useResource(
-    () =>
-      readFamilyCalendar(reader, seat, month.year, month.month).then(
+    (signal) =>
+      readFamilyCalendar(reader, seat, month.year, month.month, signal).then(
         (m) => mapFamilyMonth(m).classes.find((c) => c.sessionId === sessionId) ?? null,
       ),
     [reader, seat, sessionId, month.year, month.month],
@@ -111,7 +111,7 @@ export function ExamDetail({ reader }: { reader: Reader }) {
   const { t, lang } = useT()
   const { who } = seatTitles(useSeatIdentity(reader, seat))
   const { resource, reload } = useResource(
-    () => readFamilyExam(reader, seat, examId).then(mapExam),
+    (signal) => readFamilyExam(reader, seat, examId, signal).then(mapExam),
     [reader, seat, examId],
   )
   const title = t('family_exam_title')
@@ -161,8 +161,8 @@ export function NoticeDetail({ reader }: { reader: Reader }) {
   const { t } = useT()
   const { batch, who } = seatTitles(useSeatIdentity(reader, seat))
   const { resource, reload } = useResource(
-    () =>
-      readTeaching(reader, seat).then(
+    (signal) =>
+      readTeaching(reader, seat, signal).then(
         (v) => mapTeaching(v).notices.find((n) => n.id === noticeId) ?? null,
       ),
     [reader, seat, noticeId],
@@ -198,7 +198,7 @@ export function MarksheetScreen({ reader }: { reader: Reader }) {
   const { t } = useT()
   const { who } = seatTitles(useSeatIdentity(reader, seat))
   const { resource, reload } = useResource(
-    () => readMarksheet(reader, seat, examId).then(mapMarksheet),
+    (signal) => readMarksheet(reader, seat, examId, signal).then(mapMarksheet),
     [reader, seat, examId],
   )
   const title = t('screen_title_marksheet')

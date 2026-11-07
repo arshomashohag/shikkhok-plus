@@ -25,12 +25,16 @@ from dataclasses import dataclass
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
-from app.analytics.seats import ledger_for_seats, owned_seats
+from app.analytics.seats import (
+    due_dates_for_seats,
+    owing_ledger_for_seats,
+    owned_seats,
+)
 from app.authz.lenses import TeacherLens
-from app.db.models import Batch, BatchSubject, Exam, FeeCycle
+from app.db.models import Batch, BatchSubject, Exam
 from app.db.models import Session as ClassSession
 from app.fees.overdue import overdue_balance
-from app.fees.queue import PaymentReview, verification_queue
+from app.fees.queue import PaymentReview, pending_count, pending_preview
 from app.local_time import bangladesh_now
 from app.money import Money, derive
 
@@ -120,27 +124,6 @@ class TodayView:
     has_batches: bool
 
 
-def _due_dates(
-    session: Session, seat_ids: list[uuid.UUID]
-) -> dict[uuid.UUID, dict[str, dt.date]]:
-    """Read every fee period's due date for these seats, in one statement.
-
-    :param session: The session to read through
-    :param seat_ids: The seats
-    :return: Seat to its periods' due dates
-    """
-    by_seat: dict[uuid.UUID, dict[str, dt.date]] = {}
-    if not seat_ids:
-        return by_seat
-    for seat_id, period, due_date in session.execute(
-        sa.select(FeeCycle.enrollment_id, FeeCycle.period, FeeCycle.due_date).where(
-            FeeCycle.enrollment_id.in_(seat_ids)
-        )
-    ).all():
-        by_seat.setdefault(seat_id, {})[period] = due_date
-    return by_seat
-
-
 def _outstanding(session: Session, lens: TeacherLens, today: dt.date) -> Outstanding:
     """Total what is owed and what of it is past due.
 
@@ -151,8 +134,9 @@ def _outstanding(session: Session, lens: TeacherLens, today: dt.date) -> Outstan
     """
     seats = owned_seats(session, lens)
     ids = [seat.enrollment_id for seat in seats]
-    ledger = ledger_for_seats(session, ids)
-    due = _due_dates(session, ids)
+    # What is owed, and its due dates, from the months still owing only.
+    ledger = owing_ledger_for_seats(session, ids)
+    due = due_dates_for_seats(session, ids, periods=ledger)
 
     owed: list[Money] = []
     late: list[Money] = []
@@ -263,13 +247,14 @@ def today_view(
     :return: The view
     """
     local = bangladesh_now(now)
-    queue = verification_queue(session, lens=lens, now=local.astimezone(dt.UTC))
     return TodayView(
         date=local.date(),
         outstanding=_outstanding(session, lens, local.date()),
         classes=_classes(session, lens, local),
-        to_verify_count=len(queue.pending),
-        to_verify=queue.pending[:VERIFY_PREVIEW],
+        # A count and the first few, never a review of every waiting
+        # payment to show two of them [C-13].
+        to_verify_count=pending_count(session, lens=lens),
+        to_verify=pending_preview(session, lens=lens, limit=VERIFY_PREVIEW),
         has_batches=session.execute(
             sa.select(sa.exists().where(Batch.owner_id == lens.owner_id))
         ).scalar_one(),

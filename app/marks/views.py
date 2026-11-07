@@ -242,18 +242,27 @@ def _announce_held_results(session: DbSession, *, batch_id: uuid.UUID) -> None:
         )
         .order_by(Exam.id, Mark.enrollment_id)
     ).all()
-    for exam, enrollment_id in pairs:
-        already = session.scalar(
-            sa.select(sa.func.count())
-            .select_from(Notification)
-            .where(
-                Notification.kind == MARKS_AVAILABLE,
-                Notification.source_id == exam.id,
-                Notification.enrollment_id == enrollment_id,
-            )
+    # Which (exam, seat) pairs were already told, in ONE read rather
+    # than a count per pair [audit L-26].
+    exam_ids = sorted({exam.id for exam, _seat in pairs})
+    told = (
+        set(
+            session.execute(
+                sa.select(Notification.source_id, Notification.enrollment_id)
+                .where(
+                    Notification.kind == MARKS_AVAILABLE,
+                    Notification.source_id.in_(exam_ids),
+                )
+                .distinct()
+            ).tuples()
         )
-        if not already:
+        if exam_ids
+        else set()
+    )
+    for exam, enrollment_id in pairs:
+        if (exam.id, enrollment_id) not in told:
             announce_result(session, exam=exam, enrollment_id=enrollment_id, now=now)
+            told.add((exam.id, enrollment_id))
 
 
 def guardian_progress(

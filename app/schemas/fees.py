@@ -57,6 +57,7 @@ __all__ = [
     "ReviewChildResponse",
     "RosterFeeRowResponse",
     "SubmittedClaimResponse",
+    "VerificationQueueCountResponse",
     "VerificationQueueResponse",
     "WaitingPaymentResponse",
 ]
@@ -505,6 +506,18 @@ class VerificationQueueResponse(BaseModel):
 
     pending: list[PaymentReviewResponse]
     decided_recently: list[RecentDecisionResponse]
+
+
+class VerificationQueueCountResponse(BaseModel):
+    """How many payments wait for the teacher, for a badge.
+
+    :ivar pending: Waiting submissions; the length of the queue's
+        ``pending`` list
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    pending: int = Field(ge=0)
 
 
 class ReminderRequest(BaseModel):

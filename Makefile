@@ -9,6 +9,8 @@
 # one.
 
 PY ?= python3
+## Where `make test` writes its JUnit report; CI reads it for skips.
+PYTEST_JUNIT ?= build/pytest-junit.xml
 
 .PHONY: check format lint typecheck test gates contract openapi install clean android lock audit android-quality web web-dev site infra-functions
 
@@ -207,7 +209,13 @@ test:
 	@# version globbed only */__init__.py, so app/config.py arrived
 	@# outside the floor and the gate passed -- the very failure the
 	@# gate exists to prevent, reproduced inside the gate.
+	@#
+	@# **A JUnit report, because an exit code cannot say what RAN**
+	@# [C-37]. A skipped test exits 0 exactly like a passing one, so CI
+	@# reads this file and fails on any skip: a suite that silently
+	@# skipped is never evidence that it passed.
 	$(PY) -m pytest tests -q -p no:cacheprovider \
+		--junitxml=$(PYTEST_JUNIT) \
 		--cov=app.money \
 		--cov=app.accounts --cov=app.admin --cov=app.analytics --cov=app.expenses \
 		--cov=app.guardians --cov=app.help \
@@ -217,6 +225,7 @@ test:
 		--cov=app.fees \
 		--cov=app.gateway --cov=app.governance \
 		--cov=app.local_time --cov=app.logging_setup --cov=app.main \
+		--cov=app.request_scope \
 		--cov=app.marks \
 		--cov=app.notifications \
 		--cov=app.schemas --cov=app.seed \
