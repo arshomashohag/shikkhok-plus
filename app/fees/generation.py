@@ -296,9 +296,8 @@ def _missing_cycles(
                 )
             )
         )
-    # A read, not a write: end its transaction so each generated period
-    # below starts and commits its own [NFR19.8].
-    session.commit()
+    # No commit here: a read ends no unit of work, and the caller's
+    # transaction is left exactly as the per-pair loop always found it.
     return missing
 
 
