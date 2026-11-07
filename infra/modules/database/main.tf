@@ -120,6 +120,26 @@ resource "aws_db_instance" "main" {
   final_snapshot_identifier = "${var.name_prefix}-db-final"
   deletion_protection       = true
 
+  # **The automated backups outlive the instance** [C-33]. The provider
+  # default is true: deleting the instance deletes every automated
+  # backup with it, so the point-in-time window disappears at exactly
+  # the moment it is needed -- a mistaken or malicious delete. Kept,
+  # they expire on their own retention period and cost only storage.
+  delete_automated_backups = false
+
+  # Snapshots carry the instance's tags (Project, Environment,
+  # CostCenter), so a snapshot is attributable on the bill and falls
+  # under the same tag-scoped denies as the instance it came from.
+  copy_tags_to_snapshot = true
+
+  # **Not done here, deliberately: a copy outside this account and
+  # region.** Every backup lives beside the database it protects, so an
+  # account compromise or a region loss loses both. A weekly
+  # cross-region snapshot copy (or an AWS Backup vault with vault lock)
+  # is the fix; it is left as a recorded follow-up because it needs a
+  # KMS key in the second region and a decision on which region, and
+  # neither should be made inside a finding fix.
+
   # Minor versions apply themselves in the maintenance window; major
   # ones never do, because a major Postgres upgrade is a migration.
   auto_minor_version_upgrade  = true
