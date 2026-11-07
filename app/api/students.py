@@ -143,6 +143,7 @@ def create_student(
             )
             for seat in body.enrollments
         ],
+        client_mutation_id=body.client_mutation_id,
     )
     return _response(row)
 

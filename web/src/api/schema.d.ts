@@ -4763,8 +4763,12 @@ export interface components {
      *     :ivar guardian_phone: The guardian's number, if one is recorded
      *     :ivar fee_amount: This seat's fee, or null to inherit
      *     :ivar joined_on: When the student joined
+     *     :ivar client_mutation_id: The retry key; a resend under it returns the
+     *         seat the first request created
      */
     EnrollmentCreateRequest: {
+      /** Client Mutation Id */
+      client_mutation_id?: string | null
       /** Display Name */
       display_name: string
       fee_amount?: components['schemas']['Money'] | null
@@ -8274,8 +8278,12 @@ export interface components {
      *     :ivar student_phone: The student's number; unique per teacher [D2]
      *     :ivar guardian_phone: The guardian's number, if one is recorded
      *     :ivar enrollments: The batches to put them in, possibly none
+     *     :ivar client_mutation_id: The retry key; a resend under it returns the
+     *         student the first request created
      */
     StudentCreateRequest: {
+      /** Client Mutation Id */
+      client_mutation_id?: string | null
       /** Display Name */
       display_name: string
       /** Enrollments */

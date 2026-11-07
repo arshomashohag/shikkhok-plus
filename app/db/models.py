@@ -831,9 +831,21 @@ class Student(Base):
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )
+    # The create request's retry key, so a resend after a lost response
+    # returns this student instead of making a second one [audit C-25].
+    client_mutation_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), nullable=True
+    )
 
     __table_args__ = (
         Index("ix_student_owner_id", "owner_id"),
+        Index(
+            "uq_student_owner_mutation",
+            "owner_id",
+            "client_mutation_id",
+            unique=True,
+            postgresql_where=text("client_mutation_id IS NOT NULL"),
+        ),
         Index(
             "uq_student_owner_phone",
             "owner_id",

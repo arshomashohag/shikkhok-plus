@@ -107,6 +107,7 @@ describe('Add student (T8)', () => {
       student_phone: '01711845220',
       guardian_phone: '01913554108',
       fee_amount: null,
+      client_mutation_id: expect.any(String),
     })
   })
 

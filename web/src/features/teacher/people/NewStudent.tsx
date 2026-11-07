@@ -22,6 +22,7 @@ import { useT } from '../../../i18n/i18n'
 import { ErrorCard, Loading, TopBar } from '../../../ui/components'
 import { mapBatch, type BatchSummary } from '../mappers'
 import { sameNameMatch } from '../students/mappers'
+import { mutationId } from '../classes/api'
 import { createStudent, listStudents } from './api'
 
 interface Context {
@@ -108,6 +109,10 @@ function StudentForm({
     )
   }
 
+  // One key per form, kept across retries: a resend after a lost
+  // response returns the student the first one made [audit C-25].
+  const [retryKey] = useState(mutationId)
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
     if (!ready) return
@@ -115,6 +120,7 @@ function StudentForm({
     setError(null)
     try {
       await createStudent({
+        client_mutation_id: retryKey,
         display_name: name.trim(),
         student_phone: studentPhone,
         guardian_phone: guardianPhone,

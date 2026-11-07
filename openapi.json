@@ -2047,8 +2047,20 @@
       },
       "EnrollmentCreateRequest": {
         "additionalProperties": false,
-        "description": "Add a student to a batch [AC2.2.2, AC2.2.5].\n\n``fee_amount`` is nullable and null means **inherit** the batch\ndefault. Zero is a real fee of zero, which is a waiver -- a\nnon-nullable column defaulting to zero would make the two\nindistinguishable and silently charge nothing.\n\n:ivar display_name: The teacher-typed name for this seat\n:ivar student_phone: The student's number, typed by the teacher\n:ivar guardian_phone: The guardian's number, if one is recorded\n:ivar fee_amount: This seat's fee, or null to inherit\n:ivar joined_on: When the student joined",
+        "description": "Add a student to a batch [AC2.2.2, AC2.2.5].\n\n``fee_amount`` is nullable and null means **inherit** the batch\ndefault. Zero is a real fee of zero, which is a waiver -- a\nnon-nullable column defaulting to zero would make the two\nindistinguishable and silently charge nothing.\n\n:ivar display_name: The teacher-typed name for this seat\n:ivar student_phone: The student's number, typed by the teacher\n:ivar guardian_phone: The guardian's number, if one is recorded\n:ivar fee_amount: This seat's fee, or null to inherit\n:ivar joined_on: When the student joined\n:ivar client_mutation_id: The retry key; a resend under it returns the\n    seat the first request created",
         "properties": {
+          "client_mutation_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Mutation Id"
+          },
           "display_name": {
             "maxLength": 120,
             "minLength": 1,
@@ -8503,8 +8515,20 @@
       },
       "StudentCreateRequest": {
         "additionalProperties": false,
-        "description": "Record a student, and optionally seat them in batches [D3].\n\n:ivar display_name: The teacher-typed name\n:ivar student_phone: The student's number; unique per teacher [D2]\n:ivar guardian_phone: The guardian's number, if one is recorded\n:ivar enrollments: The batches to put them in, possibly none",
+        "description": "Record a student, and optionally seat them in batches [D3].\n\n:ivar display_name: The teacher-typed name\n:ivar student_phone: The student's number; unique per teacher [D2]\n:ivar guardian_phone: The guardian's number, if one is recorded\n:ivar enrollments: The batches to put them in, possibly none\n:ivar client_mutation_id: The retry key; a resend under it returns the\n    student the first request created",
         "properties": {
+          "client_mutation_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Mutation Id"
+          },
           "display_name": {
             "maxLength": 120,
             "minLength": 1,

@@ -79,6 +79,7 @@ class StudentsViewModelTest {
     ) : StudentsRepository {
         val filters = mutableListOf<Pair<StudentFilter, String>>()
         var createdSeats: List<StudentSeatBody>? = null
+        val createKeys = mutableListOf<String?>()
         var addedToBatch: Pair<String, List<String>>? = null
 
         override suspend fun students(
@@ -99,8 +100,10 @@ class StudentsViewModelTest {
             studentPhone: String?,
             guardianPhone: String?,
             seats: List<StudentSeatBody>,
+            clientMutationId: String?,
         ): AuthResult<TeacherStudentDto> {
             createdSeats = seats
+            createKeys += clientMutationId
             return created ?: AuthResult.TransportFailure
         }
 
@@ -269,6 +272,27 @@ class StudentsViewModelTest {
         assertEquals(WriteState.Saved, model.writeState.value)
         assertEquals(seats, repository.createdSeats)
     }
+
+    @Test
+    fun `a retry after a lost response resends the same key, a new student a new one`() =
+        runTest(dispatcher) {
+            // C-25: a key that changed on retry would let the server make a
+            // second student for one tap the teacher repeated.
+            val repository = Fake(created = AuthResult.TransportFailure)
+            val model = StudentsViewModel(repository)
+
+            model.create("Rafiq", null, null, emptyList())
+            advanceUntilIdle()
+            repository.created = AuthResult.Ok(dto("Rafiq"))
+            model.create("Rafiq", null, null, emptyList())
+            advanceUntilIdle()
+            model.create("Mehedi", null, null, emptyList())
+            advanceUntilIdle()
+
+            val (first, retry, next) = repository.createKeys
+            assertEquals(first, retry)
+            assertTrue(first != null && next != null && next != first)
+        }
 
     @Test
     fun `the picker sends exactly the chosen students and then clears`() = runTest(dispatcher) {

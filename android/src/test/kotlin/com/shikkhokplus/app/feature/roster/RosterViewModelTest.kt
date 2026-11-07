@@ -114,6 +114,7 @@ class RosterViewModelTest {
             studentPhone: String?,
             guardianPhone: String?,
             feeAmount: String?,
+            clientMutationId: String?,
         ): AuthResult<Unit> {
             addedFee = feeAmount
             return addResult

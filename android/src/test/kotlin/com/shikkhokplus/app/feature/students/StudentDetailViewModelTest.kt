@@ -95,6 +95,7 @@ class StudentDetailViewModelTest {
             studentPhone: String?,
             guardianPhone: String?,
             seats: List<StudentSeatBody>,
+            clientMutationId: String?,
         ): AuthResult<TeacherStudentDto> = read
 
         override suspend fun rename(

@@ -22,6 +22,9 @@ Create Date: 2026-11-07
   way: a period is ``YYYY-MM`` (the balance fold sorts periods as text and
   relies on the fixed width), a fee is never negative, a timetable slot
   ends after it starts.
+* **``student.client_mutation_id``** [audit C-25], unique per teacher where
+  set: the retry key that lets a resent "add student" return the student
+  the first request created instead of making a duplicate.
 * **Indexes** [audit C-27] on the columns hot reads filter by -- the
   signup link by guardian number, a batch's timetable, the unread count,
   duplicate payment references -- and on the foreign keys an account or
@@ -240,12 +243,20 @@ def upgrade() -> None:
         predicate = f" WHERE {where}" if where else ""
         op.execute(f"CREATE INDEX IF NOT EXISTS {name} ON {table} ({columns}){predicate}")
 
+    op.execute("ALTER TABLE student ADD COLUMN client_mutation_id uuid")
+    op.execute(
+        "CREATE UNIQUE INDEX uq_student_owner_mutation ON student "
+        "(owner_id, client_mutation_id) WHERE client_mutation_id IS NOT NULL"
+    )
+
 
 def downgrade() -> None:
     """Remove everything this revision added.
 
     :return: None
     """
+    op.execute("DROP INDEX uq_student_owner_mutation")
+    op.execute("ALTER TABLE student DROP COLUMN client_mutation_id")
     for name, table, _columns, _where in _INDEXES:
         op.execute(f"DROP INDEX IF EXISTS {name}")
     for name, table, _condition in _CHECKS:

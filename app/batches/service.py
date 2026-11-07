@@ -947,6 +947,7 @@ def add_enrollment(
     student_phone: str | None = None,
     fee_amount: Money | None = None,
     joined_on: dt.date | None = None,
+    client_mutation_id: uuid.UUID | None = None,
 ) -> RosterRow:
     """Add a seat to one of this teacher's batches.
 
@@ -967,6 +968,8 @@ def add_enrollment(
     :param student_phone: The teacher-typed student number, canonical
     :param fee_amount: This seat's fee, or None to inherit
     :param joined_on: When the student joined
+    :param client_mutation_id: The retry key; a resend under it returns the
+        seat the first request created [audit C-25]
     :return: The new seat, as the roster describes it
     :raises BatchNotFound: The batch is not this lens's to write
     :raises ConflictError: That student already has a seat in the batch
@@ -979,16 +982,33 @@ def add_enrollment(
     # creating a second record of the same child [D2]. Linking,
     # decisions and erasure markers are copied by `seat_for`, which is
     # the one place a seat is created.
-    from app.students.service import find_or_create_student, seat_for
+    from app.students.service import (
+        find_or_create_student,
+        replayed_student,
+        seat_for,
+    )
+
+    earlier = replayed_student(
+        session, lens=lens, client_mutation_id=client_mutation_id
+    )
+    if earlier is not None:
+        seat = session.scalars(
+            sa.select(Enrollment).where(
+                Enrollment.batch_id == batch_id, Enrollment.student_id == earlier.id
+            )
+        ).one_or_none()
+        if seat is not None:
+            return _roster_row(seat)
 
     try:
-        student = find_or_create_student(
+        student = earlier or find_or_create_student(
             session,
             lens=lens,
             display_name=display_name,
             student_phone=student_phone,
             guardian_phone=guardian_phone,
             reuse_by_phone=True,
+            client_mutation_id=client_mutation_id,
         )
         record = seat_for(
             session,

@@ -567,6 +567,7 @@ def find_or_create_student(
     student_phone: str | None,
     guardian_phone: str | None,
     reuse_by_phone: bool,
+    client_mutation_id: uuid.UUID | None = None,
 ) -> Student:
     """Return the student to seat, creating one when needed. No commit.
 
@@ -581,6 +582,8 @@ def find_or_create_student(
     :param reuse_by_phone: Whether an ACTIVE student with this number is
         reused (the add-to-batch path) rather than refused (the
         add-student path)
+    :param client_mutation_id: The create's retry key, stored on a new
+        student so a resend finds it
     :return: The student
     :raises ConflictError: The number is taken and reuse was not asked for
     """
@@ -606,10 +609,47 @@ def find_or_create_student(
         student_phone=student_phone,
         guardian_phone=guardian_phone,
         created_at=dt.datetime.now(tz=dt.UTC),
+        client_mutation_id=client_mutation_id,
     )
     session.add(student)
     session.flush()
     return student
+
+
+def replayed_student(
+    session: Session, *, lens: TeacherLens, client_mutation_id: uuid.UUID | None
+) -> Student | None:
+    """Return the student an earlier create under this key made, if any.
+
+    **Serialized, not just looked up** [audit C-25]. Two resends of one
+    create arrive together on a slow network; both would find nothing and
+    both create. A transaction-scoped advisory lock on the teacher and the
+    key makes the second wait for the first to commit, after which it
+    finds the first's student. The unique index on the key is the
+    backstop. No key, no lock: old clients keep today's behaviour.
+
+    :param session: The session to read through
+    :param lens: The teacher lens carrying the owner id
+    :param client_mutation_id: The request's retry key, or None
+    :return: The earlier student, or None to create one
+    """
+    if client_mutation_id is None:
+        return None
+    session.execute(
+        sa.select(
+            sa.func.pg_advisory_xact_lock(
+                sa.func.hashtextextended(
+                    f"student:{lens.owner_id}:{client_mutation_id}", 0
+                )
+            )
+        )
+    )
+    return session.scalars(
+        sa.select(Student).where(
+            Student.owner_id == lens.owner_id,
+            Student.client_mutation_id == client_mutation_id,
+        )
+    ).one_or_none()
 
 
 def create_student(
@@ -620,6 +660,7 @@ def create_student(
     student_phone: str | None = None,
     guardian_phone: str | None = None,
     seats: list[SeatRequest] | None = None,
+    client_mutation_id: uuid.UUID | None = None,
 ) -> StudentRow:
     """Record a student and, optionally, seat them in batches [D3].
 
@@ -636,6 +677,11 @@ def create_student(
         batch is listed twice
     :raises BatchNotFound: A batch is not this lens's
     """
+    earlier = replayed_student(
+        session, lens=lens, client_mutation_id=client_mutation_id
+    )
+    if earlier is not None:
+        return get_student(session, lens=lens, student_id=earlier.id)
     requested = seats or []
     if len({seat.batch_id for seat in requested}) != len(requested):
         raise ConflictError(
@@ -650,6 +696,7 @@ def create_student(
             student_phone=student_phone,
             guardian_phone=guardian_phone,
             reuse_by_phone=False,
+            client_mutation_id=client_mutation_id,
         )
         for seat in requested:
             seat_for(

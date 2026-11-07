@@ -61,6 +61,7 @@ private data class EnrollmentCreateBody(
     @SerialName("student_phone") val studentPhone: String? = null,
     @SerialName("guardian_phone") val guardianPhone: String? = null,
     @SerialName("fee_amount") val feeAmount: String? = null,
+    @SerialName("client_mutation_id") val clientMutationId: String? = null,
 )
 
 /**
@@ -113,6 +114,7 @@ class HttpRosterRepository(
         studentPhone: String?,
         guardianPhone: String?,
         feeAmount: String?,
+        clientMutationId: String?,
     ): AuthResult<Unit> =
         try {
             val response =
@@ -128,6 +130,7 @@ class HttpRosterRepository(
                             // field would silently waive every fee
                             // [AC2.2.5].
                             feeAmount = feeAmount?.ifBlank { null },
+                            clientMutationId = clientMutationId,
                         ),
                     )
                 }

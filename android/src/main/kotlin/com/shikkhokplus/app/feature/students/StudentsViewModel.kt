@@ -1,5 +1,6 @@
 package com.shikkhokplus.app.feature.students
 
+import java.util.UUID
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.shikkhokplus.app.core.network.StudentSeatBody
@@ -30,6 +31,8 @@ import kotlinx.coroutines.launch
 class StudentsViewModel(
     private val repository: StudentsRepository,
 ) : ViewModel() {
+    private var createKey: String? = null
+
     private val _state = MutableStateFlow<StudentsUiState>(StudentsUiState.Loading)
 
     /** What the list renders. */
@@ -137,10 +140,17 @@ class StudentsViewModel(
     ) {
         if (_writeState.value == WriteState.Saving) return
         _writeState.value = WriteState.Saving
+        // Kept until the server confirms, so a retry after a lost response
+        // resends the same key and gets the first student back rather
+        // than a duplicate [audit C-25].
+        val key = createKey ?: UUID.randomUUID().toString().also { createKey = it }
         viewModelScope.launch {
-            val result = repository.create(name, studentPhone, guardianPhone, seats)
+            val result = repository.create(name, studentPhone, guardianPhone, seats, key)
             _writeState.value = StudentsStateMapper.written(result)
-            if (result is AuthResult.Ok) load()
+            if (result is AuthResult.Ok) {
+                createKey = null
+                load()
+            }
         }
     }
 

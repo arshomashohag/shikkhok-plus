@@ -32,6 +32,7 @@ import { ErrorCard, Loading, Snackbar, TopBar } from '../../../ui/components'
 import { mapBatch } from '../mappers'
 import { paths } from '../paths'
 import { addEnrollment } from './api'
+import { mutationId } from '../classes/api'
 import { phoneProblem, sameNameMatch, type Phrase } from './mappers'
 
 interface Context {
@@ -168,12 +169,17 @@ function StudentForm({
     feeOk
   const sameName = sameNameMatch(name, existingNames)
 
+  // One key per form, kept across retries: a resend after a lost
+  // response returns the student the first one made [audit C-25].
+  const [retryKey] = useState(mutationId)
+
   async function save(next: boolean) {
     if (!ready || !studentPhone) return
     setBusy(true)
     setError(null)
     try {
       await addEnrollment(batchId, {
+        client_mutation_id: retryKey,
         display_name: name.trim(),
         student_phone: studentPhone,
         guardian_phone: guardianPhone,

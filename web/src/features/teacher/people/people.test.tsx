@@ -168,6 +168,7 @@ describe('Add student', () => {
       student_phone: null,
       guardian_phone: null,
       enrollments: [],
+      client_mutation_id: expect.any(String),
     })
   })
 

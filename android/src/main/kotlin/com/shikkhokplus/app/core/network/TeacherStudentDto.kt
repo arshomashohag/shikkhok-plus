@@ -83,6 +83,7 @@ internal data class StudentCreateBody(
     @SerialName("student_phone") val studentPhone: String? = null,
     @SerialName("guardian_phone") val guardianPhone: String? = null,
     val enrollments: List<StudentSeatBody> = emptyList(),
+    @SerialName("client_mutation_id") val clientMutationId: String? = null,
 )
 
 /**
