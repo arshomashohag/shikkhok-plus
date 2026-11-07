@@ -32,6 +32,7 @@ from app.authz.lenses import GuardianLens, StudentLens
 from app.authz.resolve import available_lenses
 from app.authz.summary import lens_summary
 from app.db.models import Account, Enrollment
+from tests.batches.conftest import make_teacher
 from tests.students_support import student_for
 
 
@@ -73,9 +74,11 @@ def _seat(
     :param guardian_decision: The guardian link's decision
     :return: The new enrollment's id
     """
+    # A real batch: 0029 gave enrollment.batch_id its foreign key.
+    batch_id = make_teacher(session).batch_id
     record = Enrollment(
-        batch_id=uuid.uuid4(),
-        student_id=student_for(session, uuid.uuid4()),
+        batch_id=batch_id,
+        student_id=student_for(session, batch_id),
         student_account_id=student_account_id,
         guardian_account_id=guardian_account_id,
         student_decision=student_decision,

@@ -25,6 +25,7 @@ from sqlalchemy.orm import Session
 
 from app.authz.rls import clear_account_context, set_account_context
 from app.db.models import Account, Enrollment, Profile
+from tests.batches.conftest import make_teacher
 from tests.students_support import student_for
 
 TEACHER_TYPED_NAME = "Rahim (class 8)"
@@ -51,10 +52,12 @@ def student(owner_session: Session) -> uuid.UUID:
     owner_session.add(
         Profile(account_id=account.id, self_name=SELF_CHOSEN_NAME, photo_ref=None)
     )
+    # A real batch: 0029 gave enrollment.batch_id its foreign key.
+    batch_id = make_teacher(owner_session).batch_id
     owner_session.add(
         Enrollment(
-            batch_id=uuid.uuid4(),
-            student_id=student_for(owner_session, uuid.uuid4()),
+            batch_id=batch_id,
+            student_id=student_for(owner_session, batch_id),
             student_account_id=account.id,
             display_name=TEACHER_TYPED_NAME,
             # Stated, never defaulted [ADR-013]. Accepted, because this

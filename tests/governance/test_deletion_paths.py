@@ -451,7 +451,11 @@ def test_a_json_body_with_a_bad_field_is_still_a_422(client: TestClient) -> None
     )
 
     assert response.status_code == 422
-    assert response.json()["detail"][0]["loc"] == ["body", "code"]
+    # The error envelope now carries request-validation failures too,
+    # naming the field and echoing no input [audit C-17].
+    error = response.json()["error"]
+    assert error["code"] == "REQUEST_INVALID"
+    assert error["details"]["fields"] == "body.code"
 
 
 # ---------------------------------------------------------------------------
