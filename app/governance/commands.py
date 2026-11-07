@@ -114,6 +114,7 @@ _AGE_COLUMN: Final[dict[str, str]] = {
     "reminder_event": "sent_at",
     "notification": "created_at",
     "refresh_token": "expires_at",
+    "pending_signup": "created_at",
 }
 
 

@@ -26,6 +26,16 @@ Rotating this key **invalidates every in-flight code**, because stored
 digests were computed under the old one. With a five-minute expiry that is
 five minutes of sign-ins, which makes rotation deliberate rather than
 routine -- and is why the JWT key needs ``kid`` and this one does not.
+
+**Refresh tokens no longer depend on this key** [L-02]. They were stored
+under the same HMAC, so rotating the OTP key also invalidated every
+refresh token and logged every device out -- a cost the paragraph above
+did not state. A refresh token is 256 bits from ``secrets``, so the key
+added nothing: unlike a six-digit code, there is no space small enough
+to exhaust offline. New tokens are stored as a
+plain SHA-256 (:func:`hash_refresh_token`); a token issued before the
+change is still found by :func:`legacy_refresh_token_digest` until its
+family ages out, so nobody is logged out by the change itself.
 """
 
 from __future__ import annotations
@@ -42,6 +52,7 @@ __all__ = [
     "generate_refresh_token",
     "hash_otp",
     "hash_refresh_token",
+    "legacy_refresh_token_digest",
     "verify_otp",
 ]
 
@@ -118,10 +129,25 @@ def verify_otp(code: str, phone: str, stored: str) -> bool:
 def hash_refresh_token(token: str) -> str:
     """Hash a refresh token for storage.
 
-    Same shape as the OTP: a leaked table yields no usable session
-    [BR4.2].
+    A leaked table still yields no usable session [BR4.2]: the token is
+    256 random bits, so its SHA-256 cannot be inverted, keyed or not.
+    Keyless so that rotating the OTP key does not end every session
+    [L-02].
 
     :param token: The opaque token handed to the client
     :return: The hex digest to store
+    """
+    return sha256(token.encode()).hexdigest()
+
+
+def legacy_refresh_token_digest(token: str) -> str:
+    """Recompute the digest refresh tokens were stored under before L-02.
+
+    Looked up beside :func:`hash_refresh_token` so a token issued before
+    the change keeps working until its family ends; nothing new is ever
+    stored under it.
+
+    :param token: The opaque token handed to the client
+    :return: The HMAC digest an older row may carry
     """
     return hmac.new(_key(), token.encode(), sha256).hexdigest()

@@ -21,6 +21,22 @@ fifteen minutes -- which is exactly what BR1.2 and BR1.3 forbid.
 mass-logout incident to retrofit later: rotating the signing key without
 them force-logs-out every holder of a 30-day refresh token, at exactly
 the moment rotation is needed [BR4.3].
+
+**A session can end** [C-21]. Before, sign-out cleared the client only and
+a family that kept rotating lived forever, so a token copied from a
+shared phone kept its access indefinitely. Now :func:`revoke_family`
+(logout) and :func:`revoke_all_families` (sign out everywhere) end
+families server-side, and :data:`FAMILY_LIFETIME` caps how long any
+family lives from its first token however often it rotates. An access
+token already issued still lives out its fifteen minutes: it is
+stateless by design, and that bound is the price.
+
+**The access token names its issuer and audience** [L-03]: ``iss`` is
+bound to the environment, so a staging token does not open production
+even if a key were ever shared between them, and ``aud`` to this API.
+Tokens signed before the claims existed carry neither and are still
+accepted -- they expire within one access lifetime of the deploy -- but
+a token carrying a WRONG value is refused.
 """
 
 from __future__ import annotations
@@ -36,16 +52,25 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from app.audit.log import AuthEvent, write_audit
-from app.auth.hashing import generate_refresh_token, hash_refresh_token
+from app.auth.hashing import (
+    generate_refresh_token,
+    hash_refresh_token,
+    legacy_refresh_token_digest,
+)
 from app.errors import AuthorizationError
 
 __all__ = [
     "ACCESS_TOKEN_LIFETIME",
+    "FAMILY_LIFETIME",
     "JWT_ACTIVE_KID_ENV",
+    "JWT_AUDIENCE",
+    "MIN_KEY_BYTES",
     "REFRESH_GRACE_WINDOW",
     "REFRESH_TOKEN_LIFETIME",
     "TokenPair",
     "issue_pair",
+    "revoke_all_families",
+    "revoke_family",
     "rotate",
     "verify_access_token",
 ]
@@ -71,6 +96,23 @@ JWT_ACTIVE_KID_ENV: Final = "SHIKKHOKPLUS_JWT_ACTIVE_KID"
 
 #: Names the variable holding the key map, as ``kid:secret`` pairs.
 JWT_KEYS_ENV: Final = "SHIKKHOKPLUS_JWT_KEYS"
+
+#: How long a refresh family may live from its first token, however
+#: often it rotates [C-21]. A rotation inside it issues a token whose
+#: expiry is clamped to the family's end, and a token presented at or
+#: after that end is refused like any expired one.
+FAMILY_LIFETIME: Final = dt.timedelta(days=90)
+
+#: The ``aud`` every access token carries [L-03].
+JWT_AUDIENCE: Final = "shikkhokplus-api"
+
+#: The shortest HS256 key accepted, in bytes: RFC 7518 section 3.2 sets
+#: the key at no shorter than the hash output [L-03].
+MIN_KEY_BYTES: Final = 32
+
+#: The variable naming the deployment environment, read for ``iss``.
+#: The same name and default :mod:`app.config` reads.
+_ENVIRONMENT_ENV: Final = "SHIKKHOKPLUS_ENVIRONMENT"
 
 _ALGORITHM: Final = "HS256"
 
@@ -101,7 +143,27 @@ def _keys() -> dict[str, str]:
             f"{JWT_KEYS_ENV} is unset. Signing keys are never hardcoded."
         )
     pairs = [entry.split(":", 1) for entry in raw.split(",") if entry]
-    return {kid.strip(): secret.strip() for kid, secret in pairs}
+    keys = {kid.strip(): secret.strip() for kid, secret in pairs}
+    short = sorted(
+        kid for kid, secret in keys.items() if len(secret.encode()) < MIN_KEY_BYTES
+    )
+    if short:
+        # The key ids only, never a secret, and refused rather than
+        # warned about: a short HS256 key is brute-forceable offline from
+        # any one token a client ever held [L-03].
+        raise RuntimeError(
+            f"{JWT_KEYS_ENV} holds keys shorter than {MIN_KEY_BYTES} bytes: "
+            f"{short}. Generate each with at least {MIN_KEY_BYTES} random bytes."
+        )
+    return keys
+
+
+def _issuer() -> str:
+    """Return the ``iss`` this environment signs and accepts.
+
+    :return: The issuer, bound to the deployment environment
+    """
+    return f"shikkhokplus-{os.environ.get(_ENVIRONMENT_ENV, 'development')}"
 
 
 def _active_kid() -> str:
@@ -122,6 +184,7 @@ def issue_pair(
     correlation_id: str,
     family_id: uuid.UUID | None = None,
     now: dt.datetime | None = None,
+    family_started_at: dt.datetime | None = None,
 ) -> TokenPair:
     """Issue an access token and a refresh token.
 
@@ -130,18 +193,24 @@ def issue_pair(
     :param correlation_id: Ties any audit row to this request
     :param family_id: Continue an existing chain, or None to start one
     :param now: The moment of issue, or None for the clock
+    :param family_started_at: When the continued chain began; ignored
+        for a new chain, which begins now
     :return: The new pair
     """
     moment = now or dt.datetime.now(tz=dt.UTC)
     chain = family_id or uuid.uuid4()
+    started = family_started_at if family_id and family_started_at else moment
+    # Clamped, so rotation can never carry a family past its end [C-21].
+    expires = min(moment + REFRESH_TOKEN_LIFETIME, started + FAMILY_LIFETIME)
 
     refresh = generate_refresh_token()
     session.execute(
         sa.text(
             "INSERT INTO refresh_token "
-            "(id, account_id, token_hash, family_id, issued_at, expires_at) "
+            "(id, account_id, token_hash, family_id, issued_at, expires_at, "
+            "family_started_at) "
             "VALUES (:id, :account_id, :token_hash, :family_id, "
-            ":issued_at, :expires_at)"
+            ":issued_at, :expires_at, :family_started_at)"
         ),
         {
             "id": uuid.uuid4(),
@@ -149,7 +218,8 @@ def issue_pair(
             "token_hash": hash_refresh_token(refresh),
             "family_id": chain,
             "issued_at": moment,
-            "expires_at": moment + REFRESH_TOKEN_LIFETIME,
+            "expires_at": expires,
+            "family_started_at": started,
         },
     )
 
@@ -174,6 +244,8 @@ def _sign(account_id: uuid.UUID, moment: dt.datetime) -> str:
     return jwt.encode(
         {
             "sub": str(account_id),
+            "iss": _issuer(),
+            "aud": JWT_AUDIENCE,
             "iat": int(moment.timestamp()),
             "exp": int((moment + ACCESS_TOKEN_LIFETIME).timestamp()),
         },
@@ -206,10 +278,19 @@ def verify_access_token(token: str, now: dt.datetime | None = None) -> uuid.UUID
             token,
             secret,
             algorithms=[_ALGORITHM],
-            options={"verify_exp": False},
+            options={"verify_exp": False, "verify_aud": False},
         )
     except jwt.PyJWTError as error:
         raise _unauthenticated("TOKEN_MISSING") from error
+
+    # Checked here rather than by the library, because the library
+    # either requires the claims (refusing every token signed before they
+    # existed) or ignores them. Absent is accepted for that transition;
+    # present and wrong is refused [L-03].
+    if claims.get("iss", _issuer()) != _issuer():
+        raise _unauthenticated("TOKEN_MISSING")
+    if claims.get("aud", JWT_AUDIENCE) != JWT_AUDIENCE:
+        raise _unauthenticated("TOKEN_MISSING")
 
     # Expiry is compared SERVER-SIDE against our own clock rather than
     # trusted from the library's default, so the one assertion the rule
@@ -244,28 +325,30 @@ def rotate(
     :raises AuthorizationError: The token is unknown, expired or replayed
     """
     moment = now or dt.datetime.now(tz=dt.UTC)
-    digest = hash_refresh_token(presented)
 
     # FOR UPDATE on the presented row serializes every rotation, grace
     # or replay of one token: two concurrent retries cannot both read
     # its successor unused and each open a live branch.
-    row = session.execute(
-        sa.text(
-            "SELECT id, account_id, family_id, expires_at, rotated_at, "
-            "reuse_detected_at "
-            "FROM refresh_token WHERE token_hash = :digest FOR UPDATE"
-        ),
-        {"digest": digest},
-    ).one_or_none()
+    row = _locked_row(session, presented)
 
     if row is None:
+        raise _unauthenticated("TOKEN_MISSING")
+
+    # A family ended by logout is refused, and is NOT reuse: a signed-out
+    # device presenting its old token is not an attack, and reporting it
+    # as one would page the operator every time a phone woke up [C-21].
+    if row.revoked_at is not None:
+        raise _unauthenticated("TOKEN_MISSING")
+
+    started = _family_started_at(session, row)
+    if moment >= started + FAMILY_LIFETIME:
         raise _unauthenticated("TOKEN_MISSING")
 
     if row.rotated_at is not None:
         successor_id = _unused_successor_within_grace(session, row, moment)
         if successor_id is not None:
             return _reissue_within_grace(
-                session, row, successor_id, correlation_id, moment
+                session, row, successor_id, correlation_id, moment, started
             )
         # REUSE: an older token, outside the window, a spent successor,
         # or a family already revoked. The whole family dies, not just
@@ -302,6 +385,7 @@ def rotate(
         correlation_id=correlation_id,
         family_id=row.family_id,
         now=moment,
+        family_started_at=started,
     )
     write_audit(
         session,
@@ -373,6 +457,7 @@ def _reissue_within_grace(
     successor_id: uuid.UUID,
     correlation_id: str,
     moment: dt.datetime,
+    started: dt.datetime,
 ) -> TokenPair:
     """Revoke the unreceived successor and issue a fresh pair in its place.
 
@@ -391,6 +476,7 @@ def _reissue_within_grace(
     :param successor_id: The unreceived successor to revoke
     :param correlation_id: Ties the audit row to this request
     :param moment: The moment of this request
+    :param started: When the family began, so the reissue stays capped
     :return: The replacement pair
     """
     session.execute(
@@ -406,6 +492,7 @@ def _reissue_within_grace(
         correlation_id=correlation_id,
         family_id=row.family_id,
         now=moment,
+        family_started_at=started,
     )
     write_audit(
         session,
@@ -416,6 +503,140 @@ def _reissue_within_grace(
     )
     session.commit()
     return pair
+
+
+def revoke_family(
+    session: Session,
+    presented: str,
+    correlation_id: str,
+    now: dt.datetime | None = None,
+) -> None:
+    """End the session a refresh token belongs to: logout [C-21].
+
+    **The whole family, not the token**, for the reason reuse detection
+    gives: revoking only the presented token would leave a copy of its
+    live successor working. Any token of the family ends it, so a client
+    holding an older token after a lost rotation can still sign out.
+
+    **Says nothing about the token.** An unknown, expired or already
+    revoked token returns exactly as a live one does, and the route
+    answers 204 either way, so logout is not an oracle for which tokens
+    are live. Idempotent: revoking a revoked family changes nothing.
+
+    :param session: The session to work through
+    :param presented: The refresh token the client sent
+    :param correlation_id: Ties the audit row to this request
+    :param now: The moment of revocation, or None for the clock
+    :return: None
+    """
+    moment = now or dt.datetime.now(tz=dt.UTC)
+    row = _locked_row(session, presented)
+    if row is None or row.revoked_at is not None:
+        session.commit()
+        return
+    session.execute(
+        sa.text(
+            "UPDATE refresh_token SET revoked_at = :now "
+            "WHERE family_id = :family_id AND revoked_at IS NULL"
+        ),
+        {"now": moment, "family_id": row.family_id},
+    )
+    write_audit(
+        session,
+        account_id=row.account_id,
+        event=AuthEvent.LOGGED_OUT,
+        correlation_id=correlation_id,
+        occurred_at=moment,
+    )
+    session.commit()
+
+
+def revoke_all_families(
+    session: Session,
+    account_id: uuid.UUID,
+    correlation_id: str,
+    now: dt.datetime | None = None,
+) -> None:
+    """End every session of one account: sign out everywhere [C-21].
+
+    Scoped to the authenticated account id and nothing the request
+    supplies, so it can reach no other account's sessions.
+
+    :param session: The session to work through
+    :param account_id: The authenticated account
+    :param correlation_id: Ties the audit row to this request
+    :param now: The moment of revocation, or None for the clock
+    :return: None
+    """
+    moment = now or dt.datetime.now(tz=dt.UTC)
+    session.execute(
+        sa.text(
+            "UPDATE refresh_token SET revoked_at = :now "
+            "WHERE account_id = :account_id AND revoked_at IS NULL"
+        ),
+        {"now": moment, "account_id": account_id},
+    )
+    write_audit(
+        session,
+        account_id=account_id,
+        event=AuthEvent.LOGGED_OUT_EVERYWHERE,
+        correlation_id=correlation_id,
+        occurred_at=moment,
+    )
+    session.commit()
+
+
+def _locked_row(session: Session, presented: str) -> sa.Row[Any] | None:
+    """Find and lock the row a presented refresh token is stored as.
+
+    Looked up under BOTH digests [L-02]: the current keyless one, and
+    the OTP-keyed one tokens issued before the change were stored under,
+    so the change logs nobody out. The two cannot collide on one row:
+    each is a 256-bit digest of the same token under different
+    functions.
+
+    :param session: The session to read through
+    :param presented: The refresh token the client sent
+    :return: The row, or None when no row carries either digest
+    """
+    found: sa.Row[Any] | None = session.execute(
+        sa.text(
+            "SELECT id, account_id, family_id, expires_at, rotated_at, "
+            "reuse_detected_at, revoked_at, family_started_at "
+            "FROM refresh_token WHERE token_hash IN (:digest, :legacy) "
+            "LIMIT 1 FOR UPDATE"
+        ),
+        {
+            "digest": hash_refresh_token(presented),
+            "legacy": legacy_refresh_token_digest(presented),
+        },
+    ).one_or_none()
+    return found
+
+
+def _family_started_at(session: Session, row: sa.Row[Any]) -> dt.datetime:
+    """Return when the presented token's family began.
+
+    A row written before ``family_started_at`` existed carries NULL, and
+    the oldest surviving row of its family stands in -- which can only
+    be later than the true start, so the fallback never ends a session
+    early.
+
+    :param session: The session to read through
+    :param row: The presented token's row
+    :return: The family's start
+    """
+    if row.family_started_at is not None:
+        started: dt.datetime = row.family_started_at
+        return started
+    oldest: dt.datetime = session.execute(
+        sa.text(
+            "SELECT min(coalesce(family_started_at, issued_at)) "
+            "FROM refresh_token WHERE family_id = :family_id"
+        ),
+        {"family_id": row.family_id},
+    ).scalar_one()
+    return oldest
 
 
 def _unauthenticated(code: str) -> AuthorizationError:

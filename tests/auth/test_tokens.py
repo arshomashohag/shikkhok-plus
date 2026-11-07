@@ -33,6 +33,7 @@ from app.auth.hashing import OTP_HMAC_KEY_ENV
 from app.auth.tokens import (
     ACCESS_TOKEN_LIFETIME,
     JWT_ACTIVE_KID_ENV,
+    JWT_AUDIENCE,
     JWT_KEYS_ENV,
     REFRESH_GRACE_WINDOW,
     TokenPair,
@@ -594,16 +595,28 @@ def test_the_access_token_carries_no_role_claim(
     # another name, surviving an ownership change for its lifetime --
     # which is exactly what BR1.2 and BR1.3 forbid.
     pair = issue_pair(restricted_session, account, CORRELATION)
-    claims = jwt.decode(pair.access_token, SECOND_SECRET, algorithms=["HS256"])
+    claims = jwt.decode(
+        pair.access_token,
+        SECOND_SECRET,
+        algorithms=["HS256"],
+        audience=JWT_AUDIENCE,
+    )
     assert not {"role", "lens", "lenses", "is_teacher"} & set(claims)
 
 
-def test_the_access_token_carries_only_the_subject_and_times(
+def test_the_access_token_carries_only_the_subject_times_and_binding(
     restricted_session: Session, account: uuid.UUID
 ) -> None:
+    # `iss` and `aud` since L-03: they bind the token to an environment
+    # and to this API, and say nothing about what the subject may do.
     pair = issue_pair(restricted_session, account, CORRELATION)
-    claims = jwt.decode(pair.access_token, SECOND_SECRET, algorithms=["HS256"])
-    assert set(claims) == {"sub", "iat", "exp"}
+    claims = jwt.decode(
+        pair.access_token,
+        SECOND_SECRET,
+        algorithms=["HS256"],
+        audience=JWT_AUDIENCE,
+    )
+    assert set(claims) == {"sub", "iat", "exp", "iss", "aud"}
 
 
 def test_a_tampered_token_is_refused(
