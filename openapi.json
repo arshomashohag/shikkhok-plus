@@ -5125,6 +5125,180 @@
         "title": "MembershipResponse",
         "type": "object"
       },
+      "MfaCodeRequest": {
+        "additionalProperties": false,
+        "description": "An authenticator code.\n\n:ivar code: Six digits from the app",
+        "properties": {
+          "code": {
+            "maxLength": 8,
+            "minLength": 6,
+            "title": "Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "MfaCodeRequest",
+        "type": "object"
+      },
+      "MfaProofRequest": {
+        "additionalProperties": false,
+        "description": "Proof of the factor: exactly one of the two codes.\n\n:ivar code: Six digits from the app\n:ivar recovery_code: Or a recovery code",
+        "properties": {
+          "code": {
+            "anyOf": [
+              {
+                "maxLength": 8,
+                "minLength": 6,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "recovery_code": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "minLength": 10,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recovery Code"
+          }
+        },
+        "title": "MfaProofRequest",
+        "type": "object"
+      },
+      "MfaRecoveryCodesResponse": {
+        "additionalProperties": false,
+        "description": "Ten single-use recovery codes, shown once.\n\n:ivar recovery_codes: The codes",
+        "properties": {
+          "recovery_codes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Recovery Codes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "recovery_codes"
+        ],
+        "title": "MfaRecoveryCodesResponse",
+        "type": "object"
+      },
+      "MfaSetupResponse": {
+        "additionalProperties": false,
+        "description": "A new secret to add to an authenticator app.\n\n:ivar secret: The base32 secret, for typing in by hand\n:ivar otpauth_uri: The same secret as a link or a QR code",
+        "properties": {
+          "otpauth_uri": {
+            "title": "Otpauth Uri",
+            "type": "string"
+          },
+          "secret": {
+            "title": "Secret",
+            "type": "string"
+          }
+        },
+        "required": [
+          "otpauth_uri",
+          "secret"
+        ],
+        "title": "MfaSetupResponse",
+        "type": "object"
+      },
+      "MfaSignInRequest": {
+        "additionalProperties": false,
+        "description": "The second step of signing in: exactly one of the two codes.\n\n:ivar challenge: From ``POST /v1/auth/verify``\n:ivar code: Six digits from the authenticator app\n:ivar recovery_code: A recovery code, if the phone with the app is lost",
+        "properties": {
+          "challenge": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Challenge",
+            "type": "string"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "maxLength": 8,
+                "minLength": 6,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "recovery_code": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "minLength": 10,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recovery Code"
+          }
+        },
+        "required": [
+          "challenge"
+        ],
+        "title": "MfaSignInRequest",
+        "type": "object"
+      },
+      "MfaStatusResponse": {
+        "additionalProperties": false,
+        "description": "Whether two-step verification is on, and what to suggest.\n\n:ivar enabled: An authenticator app is set up\n:ivar enabled_at: When it was turned on\n:ivar recovery_codes_left: Unused recovery codes\n:ivar recommended: Suggest it: the account teaches or runs a centre\n:ivar required: It cannot be turned off: a platform administrator",
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "enabled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled At"
+          },
+          "recommended": {
+            "title": "Recommended",
+            "type": "boolean"
+          },
+          "recovery_codes_left": {
+            "title": "Recovery Codes Left",
+            "type": "integer"
+          },
+          "required": {
+            "title": "Required",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled",
+          "recommended",
+          "recovery_codes_left",
+          "required"
+        ],
+        "title": "MfaStatusResponse",
+        "type": "object"
+      },
       "Money": {
         "description": "A BDT amount in canonical form: exactly two decimal places, no thousands separator, no currency symbol, no sign. Always a JSON string, never a JSON number.",
         "pattern": "^[0-9]+\\.[0-9]{2}$",
@@ -10372,6 +10546,74 @@
         "title": "VerifyRequest",
         "type": "object"
       },
+      "VerifyResponse": {
+        "additionalProperties": false,
+        "description": "What a verified SMS code yields: tokens, or the authenticator step.\n\n**For an account without two-step verification this is exactly the\ntoken pair it always was**, so clients built before the authenticator\nstep keep working for everyone who has not turned it on. For an\naccount with it on, the token fields are absent and ``mfa_challenge``\ncarries the person to ``POST /v1/auth/mfa``.\n\n:ivar access_token: The bearer token, when no second step is needed\n:ivar refresh_token: The rotation token, likewise\n:ivar expires_in: Access-token lifetime in seconds, likewise\n:ivar mfa_required: True when an authenticator code must follow\n:ivar mfa_challenge: Carries the sign-in to that step; grants nothing\n:ivar mfa_expires_in: Seconds until the challenge lapses",
+        "properties": {
+          "access_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Access Token"
+          },
+          "expires_in": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires In"
+          },
+          "mfa_challenge": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mfa Challenge"
+          },
+          "mfa_expires_in": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mfa Expires In"
+          },
+          "mfa_required": {
+            "default": false,
+            "title": "Mfa Required",
+            "type": "boolean"
+          },
+          "refresh_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refresh Token"
+          }
+        },
+        "title": "VerifyResponse",
+        "type": "object"
+      },
       "WaitingPaymentResponse": {
         "additionalProperties": false,
         "description": "A seat not offered because its payment is being checked.\n\n:ivar batch_name: The batch\n:ivar period: The month the waiting payment is for\n:ivar amount: What was claimed\n:ivar channel: Which app it moved through\n:ivar submitted_at: When it was sent",
@@ -10516,8 +10758,21 @@
             "application/json": {
               "schema": {
                 "additionalProperties": false,
-                "description": "Ask for a deletion code, or confirm with one.\n\n**``code`` is optional and that is what selects the step.** The\nexternal route is one route with two steps rather than two routes,\nbecause ``PUBLIC_ROUTES`` declares exactly two external deletion\nentries and asserts its own count -- a separate code endpoint would\nbe a ninth public route [BR3.2].\n\n:ivar phone: The number whose account is to be deleted\n:ivar code: The deletion code, or None to be sent one",
+                "description": "Ask for a deletion code, or confirm with one.\n\n**``code`` is optional and that is what selects the step.** The\nexternal route is one route with two steps rather than two routes,\nbecause ``PUBLIC_ROUTES`` declares exactly two external deletion\nentries and asserts its own count -- a separate code endpoint would\nbe a ninth public route [BR3.2].\n\n:ivar phone: The number whose account is to be deleted\n:ivar code: The deletion code, or None to be sent one\n:ivar authenticator_code: For an account with two-step verification\n    on, six digits from the authenticator app or a recovery code.\n    Optional for everyone and asked of everyone alike, so the form\n    does not reveal which accounts have it [0028]",
                 "properties": {
+                  "authenticator_code": {
+                    "anyOf": [
+                      {
+                        "maxLength": 16,
+                        "minLength": 6,
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Authenticator Code"
+                  },
                   "code": {
                     "anyOf": [
                       {
@@ -10547,8 +10802,21 @@
             "application/x-www-form-urlencoded": {
               "schema": {
                 "additionalProperties": false,
-                "description": "Ask for a deletion code, or confirm with one.\n\n**``code`` is optional and that is what selects the step.** The\nexternal route is one route with two steps rather than two routes,\nbecause ``PUBLIC_ROUTES`` declares exactly two external deletion\nentries and asserts its own count -- a separate code endpoint would\nbe a ninth public route [BR3.2].\n\n:ivar phone: The number whose account is to be deleted\n:ivar code: The deletion code, or None to be sent one",
+                "description": "Ask for a deletion code, or confirm with one.\n\n**``code`` is optional and that is what selects the step.** The\nexternal route is one route with two steps rather than two routes,\nbecause ``PUBLIC_ROUTES`` declares exactly two external deletion\nentries and asserts its own count -- a separate code endpoint would\nbe a ninth public route [BR3.2].\n\n:ivar phone: The number whose account is to be deleted\n:ivar code: The deletion code, or None to be sent one\n:ivar authenticator_code: For an account with two-step verification\n    on, six digits from the authenticator app or a recovery code.\n    Optional for everyone and asked of everyone alike, so the form\n    does not reveal which accounts have it [0028]",
                 "properties": {
+                  "authenticator_code": {
+                    "anyOf": [
+                      {
+                        "maxLength": 16,
+                        "minLength": 6,
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "title": "Authenticator Code"
+                  },
                   "code": {
                     "anyOf": [
                       {
@@ -11396,6 +11664,48 @@
         ]
       }
     },
+    "/v1/auth/mfa": {
+      "post": {
+        "description": "Finish signing in with an authenticator code or a recovery code.\n\nPublic, like ``/verify``: the person has no token yet. What bounds it\nis the challenge, which only a verified SMS code yields, and the\nshared factor's lock after five wrong codes.\n\n:param body: The challenge and one code\n:param request: The incoming request\n:param session: The request-scoped session\n:return: The token pair",
+        "operationId": "verify_second_step_v1_auth_mfa_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaSignInRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Verify Second Step",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/v1/auth/otp": {
       "post": {
         "description": "Issue a code, returning the same response for any number.\n\n:param body: The request body\n:param request: The incoming request\n:param background: Runs the SMS send after the response is written\n:param session: The request-scoped session\n:param gateway: The configured SMS gateway\n:return: The contentless acknowledgement",
@@ -11500,7 +11810,7 @@
     },
     "/v1/auth/verify": {
       "post": {
-        "description": "Verify a code and issue a token pair.\n\n:param body: The request body\n:param request: The incoming request\n:param session: The request-scoped session\n:return: The new token pair",
+        "description": "Verify a code and issue a token pair, or ask for the second step.\n\nAn account with two-step verification on gets a challenge instead of\ntokens, and the SMS code is spent either way: a second request with\nthe same code cannot skip the authenticator step.\n\n:param body: The request body\n:param request: The incoming request\n:param session: The request-scoped session\n:return: The token pair, or the authenticator challenge",
         "operationId": "verify_code_v1_auth_verify_post",
         "requestBody": {
           "content": {
@@ -11517,7 +11827,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TokenResponse"
+                  "$ref": "#/components/schemas/VerifyResponse"
                 }
               }
             },
@@ -18691,6 +19001,176 @@
         "summary": "Reply",
         "tags": [
           "help"
+        ]
+      }
+    },
+    "/v1/me/mfa": {
+      "get": {
+        "description": "Say whether two-step verification is on, and whether to suggest it.\n\n:param session: The request-scoped session\n:param account_id: The authenticated account\n:return: The status",
+        "operationId": "read_status_v1_me_mfa_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Read Status",
+        "tags": [
+          "mfa"
+        ]
+      }
+    },
+    "/v1/me/mfa/confirm": {
+      "post": {
+        "description": "Turn it on with the first code the app shows.\n\n:param body: The code\n:param request: The incoming request\n:param session: The request-scoped session\n:param account_id: The authenticated account\n:return: Ten recovery codes, shown once",
+        "operationId": "finish_setup_v1_me_mfa_confirm_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaCodeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaRecoveryCodesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Finish Setup",
+        "tags": [
+          "mfa"
+        ]
+      }
+    },
+    "/v1/me/mfa/disable": {
+      "post": {
+        "description": "Turn it off, proven with an authenticator or recovery code.\n\n:param body: One of the two codes\n:param request: The incoming request\n:param session: The request-scoped session\n:param account_id: The authenticated account\n:return: The new status",
+        "operationId": "turn_off_v1_me_mfa_disable_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaProofRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Turn Off",
+        "tags": [
+          "mfa"
+        ]
+      }
+    },
+    "/v1/me/mfa/recovery-codes": {
+      "post": {
+        "description": "Replace the recovery codes, proven with an authenticator code.\n\n:param body: The code\n:param request: The incoming request\n:param session: The request-scoped session\n:param account_id: The authenticated account\n:return: Ten new codes; the old ones stop working",
+        "operationId": "renew_codes_v1_me_mfa_recovery_codes_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaCodeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaRecoveryCodesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Renew Codes",
+        "tags": [
+          "mfa"
+        ]
+      }
+    },
+    "/v1/me/mfa/setup": {
+      "post": {
+        "description": "Start turning it on: a new secret for an authenticator app.\n\n:param session: The request-scoped session\n:param account_id: The authenticated account\n:return: The secret and its ``otpauth://`` URI",
+        "operationId": "begin_setup_v1_me_mfa_setup_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaSetupResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Begin Setup",
+        "tags": [
+          "mfa"
         ]
       }
     },

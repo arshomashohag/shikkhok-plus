@@ -75,6 +75,16 @@ class AuthEvent(enum.Enum):
     ADMIN_MFA_FAILED = "ADMIN_MFA_FAILED"
     ADMIN_MFA_LOCKED = "ADMIN_MFA_LOCKED"
     ADMIN_RECOVERY_CODE_USED = "ADMIN_RECOVERY_CODE_USED"
+    # The same factor at the app's own door [0028]: turned on, turned
+    # off, a code passed or failed at sign-in, a lock, a recovery code
+    # spent, and a fresh set of recovery codes.
+    MFA_ENROLLED = "MFA_ENROLLED"
+    MFA_DISABLED = "MFA_DISABLED"
+    MFA_VERIFIED = "MFA_VERIFIED"
+    MFA_FAILED = "MFA_FAILED"
+    MFA_LOCKED = "MFA_LOCKED"
+    MFA_RECOVERY_CODE_USED = "MFA_RECOVERY_CODE_USED"
+    MFA_RECOVERY_CODES_RENEWED = "MFA_RECOVERY_CODES_RENEWED"
 
 
 def write_audit(

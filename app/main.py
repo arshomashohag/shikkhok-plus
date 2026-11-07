@@ -98,6 +98,7 @@ def _register_routes(app: FastAPI) -> None:
     from app.api.help import router as help_router
     from app.api.marks import router as marks_router
     from app.api.me import router as me_router
+    from app.api.mfa import router as mfa_router
     from app.api.my_classes import router as my_classes_router
     from app.api.my_exams import router as my_exams_router
     from app.api.notifications import router as notifications_router
@@ -130,6 +131,7 @@ def _register_routes(app: FastAPI) -> None:
         help_router,
         marks_router,
         me_router,
+        mfa_router,
         my_classes_router,
         my_exams_router,
         notifications_router,

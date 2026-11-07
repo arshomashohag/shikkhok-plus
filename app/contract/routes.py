@@ -34,10 +34,11 @@ __all__ = [
     "unlensed_routes",
 ]
 
-#: Routes reachable with no authentication at all. **Exactly eleven**,
-#: and the count IS asserted: a twelfth entry is a diff against a stated
-#: number rather than a line appended to a growing list. The three admin
-#: sign-in routes moved it from eight [0028].
+#: Routes reachable with no authentication at all. **Exactly twelve**,
+#: and the count IS asserted: a thirteenth entry is a diff against a
+#: stated number rather than a line appended to a growing list. The three
+#: admin sign-in routes moved it from eight, and the app sign-in's second
+#: step to twelve [0028].
 #:
 #: The number read "five" over a six-entry set until 2026-10-22 — the two
 #: deletion routes were added without it, so the stated count and the
@@ -94,6 +95,11 @@ PUBLIC_ROUTES: frozenset[tuple[str, str]] = frozenset(
         ("POST", "/v1/admin/auth/otp"),
         ("POST", "/v1/admin/auth/verify"),
         ("POST", "/v1/admin/auth/mfa"),
+        # The app sign-in's second step [0028], public on `/verify`'s
+        # reasoning: the person has no token yet. It is bounded by its
+        # challenge, which only a verified SMS code yields, and by the
+        # shared factor's lock after five wrong codes.
+        ("POST", "/v1/auth/mfa"),
         # Staging only, and absent entirely in production -- the router
         # is not registered unless the environment permits it. It is
         # public because it must work before anyone can authenticate,
@@ -211,6 +217,17 @@ LENS_EXEMPT_AUTHENTICATED: frozenset[tuple[str, str]] = frozenset(
         ("POST", "/v1/me/help/tickets"),
         ("GET", "/v1/me/help/tickets/{ticket_id}"),
         ("POST", "/v1/me/help/tickets/{ticket_id}/messages"),
+        # Two-step verification settings [0028], exempt on GET /v1/me's
+        # reasoning: each acts on the authenticated account's own factor
+        # and reads nothing another account owns, and requiring a lens
+        # would stop a person who holds none from protecting themselves.
+        # Turning it off and renewing recovery codes each also demand a
+        # code from the factor itself, not just the session.
+        ("GET", "/v1/me/mfa"),
+        ("POST", "/v1/me/mfa/setup"),
+        ("POST", "/v1/me/mfa/confirm"),
+        ("POST", "/v1/me/mfa/disable"),
+        ("POST", "/v1/me/mfa/recovery-codes"),
     }
 )
 

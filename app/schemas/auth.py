@@ -15,9 +15,11 @@ from app.schemas.phone import PhoneField
 __all__ = [
     "IssueRequest",
     "IssueResponse",
+    "MfaSignInRequest",
     "RefreshRequest",
     "TokenResponse",
     "VerifyRequest",
+    "VerifyResponse",
 ]
 
 
@@ -91,3 +93,45 @@ class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
     expires_in: int
+
+
+class VerifyResponse(BaseModel):
+    """What a verified SMS code yields: tokens, or the authenticator step.
+
+    **For an account without two-step verification this is exactly the
+    token pair it always was**, so clients built before the authenticator
+    step keep working for everyone who has not turned it on. For an
+    account with it on, the token fields are absent and ``mfa_challenge``
+    carries the person to ``POST /v1/auth/mfa``.
+
+    :ivar access_token: The bearer token, when no second step is needed
+    :ivar refresh_token: The rotation token, likewise
+    :ivar expires_in: Access-token lifetime in seconds, likewise
+    :ivar mfa_required: True when an authenticator code must follow
+    :ivar mfa_challenge: Carries the sign-in to that step; grants nothing
+    :ivar mfa_expires_in: Seconds until the challenge lapses
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    access_token: str | None = None
+    refresh_token: str | None = None
+    expires_in: int | None = None
+    mfa_required: bool = False
+    mfa_challenge: str | None = None
+    mfa_expires_in: int | None = None
+
+
+class MfaSignInRequest(BaseModel):
+    """The second step of signing in: exactly one of the two codes.
+
+    :ivar challenge: From ``POST /v1/auth/verify``
+    :ivar code: Six digits from the authenticator app
+    :ivar recovery_code: A recovery code, if the phone with the app is lost
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    challenge: str = Field(min_length=1, max_length=2048)
+    code: str | None = Field(default=None, min_length=6, max_length=8)
+    recovery_code: str | None = Field(default=None, min_length=10, max_length=16)

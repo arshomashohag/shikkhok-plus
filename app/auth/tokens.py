@@ -43,6 +43,7 @@ __all__ = [
     "ACCESS_TOKEN_LIFETIME",
     "ADMIN_AUDIENCE",
     "ADMIN_TOKEN_LIFETIME",
+    "APP_MFA_CHALLENGE_AUDIENCE",
     "JWT_ACTIVE_KID_ENV",
     "MFA_CHALLENGE_AUDIENCE",
     "MFA_CHALLENGE_LIFETIME",
@@ -98,6 +99,11 @@ MFA_CHALLENGE_AUDIENCE: Final = "shikkhokplus-admin-mfa"
 
 #: Long enough to open an authenticator app, or to scan a QR code.
 MFA_CHALLENGE_LIFETIME: Final = dt.timedelta(minutes=5)
+
+#: The audience of the token that carries an app user from the SMS step
+#: to the authenticator step, once they have turned the factor on. Not
+#: the admin challenge's audience, so neither can finish the other's sign-in.
+APP_MFA_CHALLENGE_AUDIENCE: Final = "shikkhokplus-mfa"
 
 
 @dataclass(frozen=True, slots=True)
