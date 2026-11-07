@@ -78,6 +78,13 @@ class WriteContractTest {
             Write("post", "/v1/auth/verify") {
                 HttpAuthRepository(it, TokenStore.InMemory()).verify("01711234567", "123456")
             },
+            // The sign-in's second step [0028], with each kind of code.
+            Write("post", "/v1/auth/mfa") {
+                HttpAuthRepository(it, TokenStore.InMemory()).verifySecondStep("challenge", "123456", null)
+            },
+            Write("post", "/v1/auth/mfa") {
+                HttpAuthRepository(it, TokenStore.InMemory()).verifySecondStep("challenge", null, "ABCDE-FGHJK")
+            },
             Write("post", "/v1/auth/refresh") {
                 val tokens = TokenStore.InMemory().apply { save("access", "refresh") }
                 HttpAuthRepository(it, tokens).refresh()
@@ -364,6 +371,12 @@ class WriteContractTest {
             },
             Write("post", "/v1/expenses/{expense_id}/void") { HttpExpensesRepository(it).void(ID, "Typed twice") },
             Write("post", "/v1/expenses/{expense_id}/void") { HttpExpensesRepository(it).void(ID, null) },
+            // Two-step verification: turning it on, off, and new codes.
+            Write("post", "/v1/me/mfa/setup") { HttpMfaRepository(it).setup() },
+            Write("post", "/v1/me/mfa/confirm") { HttpMfaRepository(it).confirm("123456") },
+            Write("post", "/v1/me/mfa/disable") { HttpMfaRepository(it).disable("123456", null) },
+            Write("post", "/v1/me/mfa/disable") { HttpMfaRepository(it).disable(null, "ABCDE-FGHJK") },
+            Write("post", "/v1/me/mfa/recovery-codes") { HttpMfaRepository(it).renewRecoveryCodes("123456") },
             // The help centre: asking a question, and adding to one.
             Write("post", "/v1/me/help/tickets") {
                 HttpHelpRepository(it).ask("Cannot add a student", "The add button does nothing.")

@@ -121,6 +121,12 @@ rather than editing the old one.
 | Help centre | My questions (status labels, new-reply mark, empty state with Ask a question) and the More row | — | *not yet checked* | `help_empty_body` (88) / `help_status_answered` (19) beside `help_new_reply` (10) | |
 | Help centre | Ask a question (privacy hint, subject and question with counters, failed-send banner) | — | *not yet checked* | `help_ticket_too_many` (95) / `help_privacy_hint` (72) | |
 | Help centre | Question thread (bubbles signed `help_from_support`, closed notice, reply box) | — | *not yet checked* | `help_closed_notice` (56) / `help_from_support` (19) | |
+| Two-step verification | Sign-in second step: authenticator code boxes, "Use a recovery code instead", recovery-code field with Continue, wrong-code and lock messages | `O3` | *not yet checked* | `two_step_signin_recovery_body` (110) / `mfa_challenge_expired` (66) / `two_step_use_app` (37) | |
+| Two-step verification | More row with the "Recommended" badge, and the status page (on/off card, required or recommended line, codes left, few-codes warning, Turn on / New recovery codes / Turn off) | `T9`, `S4`, `G4` | *not yet checked* | `two_step_intro` (149) / `two_step_codes_low_body` (82) / `more_two_step_sub` (35) beside `two_step_recommended` (10) | |
+| Two-step verification | Turn on: "Open authenticator app", the no-app message, setup key in groups of four with Copy, first-code boxes | — | *not yet checked* | `two_step_no_app` (138) / `two_step_setup_step1` (71) | |
+| Two-step verification | Recovery codes shown once (ten codes, "won't be shown again", Copy all, "I've saved them"; new-codes variant with the old-codes notice) | — | *not yet checked* | `two_step_codes_body` (125) / `two_step_codes_old_stopped` (36) | |
+| Two-step verification | Turn off (app code or recovery code) and New recovery codes | — | *not yet checked* | `two_step_renew_body` (87) / `two_step_off_body` (84) | |
+| Two-step verification | The one-time offer sheet after sign-in (teachers and centre members only) | — | *not yet checked* | `two_step_offer_body` (107) / `two_step_offer_title` (52) | |
 
 **The three help-centre rows (2026-11-07) are open on the same terms**:
 nothing automated discharges them; the Robolectric screen tests assert
@@ -132,6 +138,20 @@ font scale. On Ask a question, `help_ticket_too_many` (95) lands as an
 error banner between the question field and Send, so check it does not
 push Send below the fold with the keyboard open. Lengths computed from
 `values-bn/strings.xml` with the snippet above.
+
+**The six two-step verification rows (2026-11-07) are open on the same
+terms**: nothing automated discharges them. The Robolectric tests in
+`TwoStepScreenTest` and `AuthSecondStepScreenTest` assert what each state
+renders in English, and that the recovery-code screen sets `FLAG_SECURE`;
+they say nothing about Bangla layout. Rows to watch: on the More row the
+"Recommended" badge (`two_step_recommended`, 10) sits at the row's end
+beside a two-line title and sub-label, and must not squeeze the sub-label
+to one word per line at a large font scale; on Turn on, the setup key is
+monospace and must wrap by group rather than mid-group on a narrow phone,
+with `two_step_no_app` (138) pushing the code boxes down; on the recovery
+codes screen, check that "I've saved them" is reachable by scrolling with
+all ten codes shown. Lengths computed from `values-bn/strings.xml` with
+the snippet above.
 
 **D4's seven rows are open, and nothing automated discharges them.**
 The obligation is a check on a device in Bangla locale [team: Testing

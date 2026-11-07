@@ -913,6 +913,14 @@ sealed interface Destination {
         override val route: String = "settings"
     }
 
+    /**
+     * Two-step verification [0028]: the account's own setting, pushed
+     * over More for every role, a lens-free person included.
+     */
+    data object TwoStep : Destination {
+        override val route: String = "me/two-step"
+    }
+
     /** Edit profile (S4), pushed over More. */
     data object EditProfile : Destination {
         override val route: String = "profile/edit"

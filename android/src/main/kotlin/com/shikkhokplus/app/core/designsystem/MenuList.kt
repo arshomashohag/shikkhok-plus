@@ -111,6 +111,15 @@ object MenuIcons {
             "M12 17.5h.01",
         )
 
+    /** A padlock: two-step verification. */
+    val Lock: ImageVector =
+        outline(
+            "Lock",
+            "M6 11h12a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-12a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1z",
+            "M8 11V8a4 4 0 0 1 8 0v3",
+            "M12 15v2",
+        )
+
     /** An X: closes a pushed form (Edit profile). */
     val Close: ImageVector = outline("Close", "M6 6l12 12M18 6L6 18")
 

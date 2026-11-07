@@ -22,6 +22,7 @@ import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_PAYMENT_METHODS
 import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_SIGN_OUT
 import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_SETTINGS
 import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_HELP
+import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_TWO_STEP
 import com.shikkhokplus.app.feature.profile.ui.TAG_PROFILE_SWITCH_LENS
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -288,5 +289,38 @@ class ProfileScreenTest {
 
         compose.onNodeWithTag(TAG_PROFILE_SETTINGS).performScrollTo().assertIsEnabled()
         compose.onNodeWithTag(TAG_PROFILE_HELP).performScrollTo().assertIsNotEnabled()
+    }
+
+    @Test
+    fun `two-step verification is an account row, marked Recommended while it is off`() {
+        var opened = 0
+        render(actions = MoreActions(onTwoStep = { opened++ }, twoStepRecommended = true))
+
+        compose.onNodeWithText("Two-step verification").assertExists()
+        compose.onNodeWithText("Recommended", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag(TAG_PROFILE_TWO_STEP).performScrollTo().assertIsEnabled().performClick()
+        assertEquals(1, opened)
+    }
+
+    @Test
+    fun `without the server's recommendation the row carries no mark`() {
+        render(actions = MoreActions(onTwoStep = {}))
+
+        compose.onNodeWithTag(TAG_PROFILE_TWO_STEP).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Recommended", useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `offline, the two-step row stays in place, greyed`() {
+        render(state = viewing.copy(offline = true), actions = MoreActions(onTwoStep = {}))
+
+        compose.onNodeWithTag(TAG_PROFILE_TWO_STEP).performScrollTo().assertIsNotEnabled()
+    }
+
+    @Test
+    fun `no destination, no two-step row`() {
+        render(actions = MoreActions())
+
+        compose.onNodeWithTag(TAG_PROFILE_TWO_STEP).assertDoesNotExist()
     }
 }
