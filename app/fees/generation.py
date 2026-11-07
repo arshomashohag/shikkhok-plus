@@ -26,7 +26,9 @@ precisely so it does not roll back with the 2,901st.
 the enrollment's first generating one through the current one is
 considered, and only those with no existing cycle are inserted -- which
 is what makes the job safe to run any number of times on any number of
-days.
+days. Which ones have no cycle is found set-based, by an anti-join, so
+the considering costs a few statements rather than one insert per
+seat-month [C-28]; the inserting still goes through the constraint.
 """
 
 from __future__ import annotations
@@ -37,6 +39,8 @@ import uuid
 from dataclasses import dataclass
 
 import sqlalchemy as sa
+from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
@@ -226,6 +230,78 @@ def _insert_cycle(
     return session.execute(statement).scalar_one_or_none() is not None
 
 
+#: Seats per anti-join statement, so one run's parameters stay bounded.
+_SEATS_PER_LOOKUP = 2000
+
+
+def _wanted_periods(candidate: _Candidate, current: Period) -> list[Period]:
+    """List every period this seat should have a cycle for, oldest first.
+
+    :param candidate: The seat
+    :param current: The period containing today
+    :return: The generating periods from the seat's first through today's
+    """
+    return [
+        period
+        for period in periods_from_through(_first_period(candidate), current)
+        if _generates(candidate, period)
+    ]
+
+
+def _missing_cycles(
+    session: Session, wanted: dict[uuid.UUID, list[Period]]
+) -> set[tuple[uuid.UUID, str]]:
+    """Find which wanted (seat, period) pairs have no cycle yet, set-based.
+
+    **One anti-join per chunk of seats, not one insert per pair** [C-28]:
+    the pairs travel as two arrays, and only those with no ``fee_cycle``
+    row come back. On a normal day that is nothing at all, or one new
+    month per seat on the 1st.
+
+    This is a READ, and only decides which pairs are worth attempting.
+    The guarantee is still the unique constraint and ``ON CONFLICT DO
+    NOTHING`` in :func:`_insert_cycle`: a pair a concurrent run inserts
+    after this read conflicts there, does nothing, and is counted skipped.
+
+    :param session: The session to read through
+    :param wanted: Each seat's generating periods
+    :return: The pairs with no cycle, as (seat, period key)
+    """
+    missing: set[tuple[uuid.UUID, str]] = set()
+    seats = [seat for seat, periods in wanted.items() if periods]
+    for start in range(0, len(seats), _SEATS_PER_LOOKUP):
+        pairs = [
+            (seat, str(period))
+            for seat in seats[start : start + _SEATS_PER_LOOKUP]
+            for period in wanted[seat]
+        ]
+        pair = (
+            sa.func.unnest(
+                sa.bindparam(
+                    None, [p[0] for p in pairs], type_=ARRAY(PgUUID(as_uuid=True))
+                ),
+                sa.bindparam(None, [p[1] for p in pairs], type_=ARRAY(sa.Text())),
+            )
+            .table_valued("enrollment_id", "period")
+            .render_derived()
+        )
+        missing.update(
+            (row[0], row[1])
+            for row in session.execute(
+                sa.select(pair.c.enrollment_id, pair.c.period).where(
+                    ~sa.exists().where(
+                        FeeCycle.enrollment_id == pair.c.enrollment_id,
+                        FeeCycle.period == pair.c.period,
+                    )
+                )
+            )
+        )
+    # A read, not a write: end its transaction so each generated period
+    # below starts and commits its own [NFR19.8].
+    session.commit()
+    return missing
+
+
 def generate_due_cycles(
     session: Session,
     *,
@@ -238,6 +314,18 @@ def generate_due_cycles(
     different day, and a patched global is both wider than the caller
     and invisible at the call site.
 
+    **Set-based, then one transaction per created cycle** [C-28]. The
+    wanted (seat, period) pairs are computed here, the ones that already
+    have a cycle are found by one anti-join per chunk of seats, and only
+    the rest are attempted -- each, as before, its own insert, charge
+    and credit application committed together. A run on a day with
+    nothing new issues a handful of statements, not one per seat-month.
+
+    The counts mean what they meant when every pair was attempted: a
+    pair whose cycle already exists is ``skipped`` whether this run saw
+    it in the anti-join or a concurrent run won its insert, and a seat
+    with no fee anywhere fails once per wanted period, logged each time.
+
     Safe to run any number of times on any number of days.
 
     :param session: The session to work through
@@ -245,13 +333,36 @@ def generate_due_cycles(
     :return: The three per-run counts
     """
     current = Period.containing(today or bangladesh_today())
+    candidates = _candidates(session)
+    wanted = {
+        candidate.enrollment_id: _wanted_periods(candidate, current)
+        for candidate in candidates
+    }
+    missing = _missing_cycles(session, wanted)
     created = skipped = failed = 0
 
-    for candidate in _candidates(session):
-        for period in periods_from_through(_first_period(candidate), current):
-            if not _generates(candidate, period):
+    for candidate in candidates:
+        periods = wanted[candidate.enrollment_id]
+        if not periods:
+            continue
+        try:
+            fee = resolve_fee(
+                enrollment_fee=candidate.fee_amount,
+                batch_default=candidate.batch_default,
+            )
+        except FeeNotResolvable:
+            # Every wanted period fails, existing cycle or not, exactly as
+            # when each was attempted: the fee is resolved before anything
+            # else is looked at.
+            for period in periods:
+                _log_unresolvable(candidate, period)
+            failed += len(periods)
+            continue
+        for period in periods:
+            if (candidate.enrollment_id, str(period)) not in missing:
+                skipped += 1
                 continue
-            outcome = _generate_one(session, candidate, period)
+            outcome = _generate_one(session, candidate, period, fee)
             created += outcome[0]
             skipped += outcome[1]
             failed += outcome[2]
@@ -263,10 +374,27 @@ def generate_due_cycles(
     )
 
 
+def _log_unresolvable(candidate: _Candidate, period: Period) -> None:
+    """Log one enrollment-period skipped for want of a fee.
+
+    :param candidate: The seat
+    :param period: The period
+    :return: None
+    """
+    log.warning(
+        "fee not resolvable; skipping enrollment-period",
+        extra={
+            "enrollment_id": str(candidate.enrollment_id),
+            "period": str(period),
+        },
+    )
+
+
 def _generate_one(
     session: Session,
     candidate: _Candidate,
     period: Period,
+    fee: Money,
 ) -> tuple[int, int, int]:
     """Generate one enrollment-period, committing it alone.
 
@@ -276,21 +404,18 @@ def _generate_one(
     application after a crash.
 
     A failure is **logged, counted and swallowed** so the run continues
-    [NFR19.8] -- one seat with no fee set anywhere must not cost every
-    other seat its cycle. Nothing identifying reaches the log line: an
+    [NFR19.8] -- one seat whose write fails must not cost every other
+    seat its cycle. Nothing identifying reaches the log line: an
     enrollment id and a period, never a name, a number or an amount
     [NFR24.6].
 
     :param session: The session to work through
     :param candidate: The seat
     :param period: The period
+    :param fee: The seat's resolved fee
     :return: The created, skipped and failed counts for this one
     """
     try:
-        fee = resolve_fee(
-            enrollment_fee=candidate.fee_amount,
-            batch_default=candidate.batch_default,
-        )
         due_date = due_date_for(period, anchor_day=candidate.anchor_day)
 
         if not _insert_cycle(
@@ -300,7 +425,7 @@ def _generate_one(
             due_date=due_date,
         ):
             # The conflict path appends NOTHING. This is the branch
-            # that makes a second run free [BR1.3].
+            # that makes a concurrent run free [BR1.3].
             session.commit()
             return (0, 1, 0)
 
@@ -319,16 +444,6 @@ def _generate_one(
             period=str(period),
         )
         session.commit()
-    except FeeNotResolvable:
-        session.rollback()
-        log.warning(
-            "fee not resolvable; skipping enrollment-period",
-            extra={
-                "enrollment_id": str(candidate.enrollment_id),
-                "period": str(period),
-            },
-        )
-        return (0, 0, 1)
     except sa.exc.SQLAlchemyError:
         session.rollback()
         log.exception(
