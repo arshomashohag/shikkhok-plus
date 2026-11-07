@@ -1507,6 +1507,33 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/v1/claims/queue/count': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Read Verification Queue Count
+     * @description Count the payments waiting for this teacher, for the nav badge.
+     *
+     *     One statement, building no review: the badge needs the length of
+     *     ``GET /claims/queue``'s ``pending`` list and nothing else [C-13].
+     *
+     *     :param session: The request-scoped session
+     *     :param lens: The teacher lens
+     *     :return: How many wait to be checked
+     */
+    get: operations['read_verification_queue_count_v1_claims_queue_count_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/v1/claims/{claim_id}': {
     parameters: {
       query?: never
@@ -8806,6 +8833,17 @@ export interface components {
       type: string
     }
     /**
+     * VerificationQueueCountResponse
+     * @description How many payments wait for the teacher, for a badge.
+     *
+     *     :ivar pending: Waiting submissions; the length of the queue's
+     *         ``pending`` list
+     */
+    VerificationQueueCountResponse: {
+      /** Pending */
+      pending: number
+    }
+    /**
      * VerificationQueueResponse
      * @description The teacher's payment queue.
      *
@@ -12282,6 +12320,44 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['VerificationQueueResponse']
+        }
+      }
+      /** @description No credential, or an expired one. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+    }
+  }
+  read_verification_queue_count_v1_claims_queue_count_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['VerificationQueueCountResponse']
         }
       }
       /** @description No credential, or an expired one. */

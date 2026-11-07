@@ -9451,6 +9451,22 @@
         "title": "ValidationError",
         "type": "object"
       },
+      "VerificationQueueCountResponse": {
+        "additionalProperties": false,
+        "description": "How many payments wait for the teacher, for a badge.\n\n:ivar pending: Waiting submissions; the length of the queue's\n    ``pending`` list",
+        "properties": {
+          "pending": {
+            "minimum": 0.0,
+            "title": "Pending",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "pending"
+        ],
+        "title": "VerificationQueueCountResponse",
+        "type": "object"
+      },
       "VerificationQueueResponse": {
         "additionalProperties": false,
         "description": "The teacher's payment queue.\n\n:ivar pending: Waiting payments, oldest first\n:ivar decided_recently: Payments decided in the last day, newest first",
@@ -14174,6 +14190,48 @@
           }
         },
         "summary": "Read Verification Queue",
+        "tags": [
+          "fees"
+        ]
+      }
+    },
+    "/v1/claims/queue/count": {
+      "get": {
+        "description": "Count the payments waiting for this teacher, for the nav badge.\n\nOne statement, building no review: the badge needs the length of\n``GET /claims/queue``'s ``pending`` list and nothing else [C-13].\n\n:param session: The request-scoped session\n:param lens: The teacher lens\n:return: How many wait to be checked",
+        "operationId": "read_verification_queue_count_v1_claims_queue_count_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerificationQueueCountResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No credential, or an expired one."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "No lens reaches this. Deliberately indistinguishable from absence: one code covers both, because a pair would be an existence oracle."
+          }
+        },
+        "summary": "Read Verification Queue Count",
         "tags": [
           "fees"
         ]

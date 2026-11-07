@@ -42,7 +42,12 @@ from app.fees import views
 from app.fees.decisions import approve_submission, reject_submission
 from app.fees.payables import Payables, payables
 from app.fees.purposes import FeeRef, Target, fees_charging_all, owed_for_target
-from app.fees.queue import PaymentReview, payment_review, verification_queue
+from app.fees.queue import (
+    PaymentReview,
+    payment_review,
+    pending_count,
+    verification_queue,
+)
 from app.fees.received import ReceivedPayment, record_received_payment
 from app.fees.reminders import remind
 from app.fees.submissions import (
@@ -80,6 +85,7 @@ from app.schemas.fees import (
     ReviewChildResponse,
     RosterFeeRowResponse,
     SubmittedClaimResponse,
+    VerificationQueueCountResponse,
     VerificationQueueResponse,
     WaitingPaymentResponse,
 )
@@ -806,6 +812,27 @@ def read_verification_queue(
             for decision in queue.decided_recently
         ],
     )
+
+
+@router.get(
+    "/claims/queue/count",
+    response_model=VerificationQueueCountResponse,
+    responses=_AUTH_ERRORS,
+)
+def read_verification_queue_count(
+    session: Annotated[Session, Depends(get_session)],
+    lens: Annotated[TeacherLens, Depends(teacher_lens)],
+) -> VerificationQueueCountResponse:
+    """Count the payments waiting for this teacher, for the nav badge.
+
+    One statement, building no review: the badge needs the length of
+    ``GET /claims/queue``'s ``pending`` list and nothing else [C-13].
+
+    :param session: The request-scoped session
+    :param lens: The teacher lens
+    :return: How many wait to be checked
+    """
+    return VerificationQueueCountResponse(pending=pending_count(session, lens=lens))
 
 
 @router.get(
