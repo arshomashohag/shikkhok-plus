@@ -7,10 +7,13 @@ it ever reaches production — it hands an OTP to anyone who asks.
 So production impossibility is enforced three ways, each of which alone
 would be a convention someone could overlook:
 
-1. :func:`outbox_enabled` is **false unless the environment is exactly
-   ``staging`` or ``development``**, read fresh on every call rather
-   than captured at import. A process promoted to production by its
-   environment variable loses the route immediately, with no rebuild.
+1. :func:`outbox_enabled` is **false unless the environment is
+   explicitly and exactly ``staging``, ``development`` or ``test``**,
+   read fresh on every call rather than captured at import. A process
+   promoted to production by its environment variable loses the route
+   immediately, with no rebuild. An UNSET name permits nothing: unlike
+   the startup checks, which read unset as development, the outbox
+   requires the name to be stated [C-19].
 2. The route is **not registered at all** when disabled, so there is no
    endpoint to reach — not a 404 handler, an absent route.
 3. The startup check **refuses to start a production process** that has
@@ -20,6 +23,16 @@ would be a convention someone could overlook:
 A test asserts each of the three independently, because this is the one
 control where "it is obviously fine" is the most expensive possible
 assumption.
+
+**And on staging it serves only the operator's own numbers** [C-19].
+Staging is reachable from the internet through CloudFront, so an outbox
+that answered for ANY number let anyone who knew a real person's phone
+number sign in as them there. On ``staging`` the outbox is therefore off
+unless ``SHIKKHOKPLUS_STAGING_OUTBOX_NUMBERS`` names the numbers it may
+record and read back, and every other number is neither recorded nor
+readable -- the reader answers exactly as for a number with no message,
+so the allowlist is not an oracle either. In ``development`` and
+``test`` the list is optional and, when set, enforced the same way.
 
 **Why a table rather than the null gateway's in-memory list.** The
 container runs two Uvicorn workers [team.md], so a code recorded by
@@ -43,8 +56,10 @@ from app.config import ENVIRONMENT_ENV
 
 __all__ = [
     "OUTBOX_FORCE_ENV",
+    "OUTBOX_NUMBERS_ENV",
     "OutboxEntry",
     "outbox_enabled",
+    "outbox_number_permitted",
     "read_outbox",
     "record_outbox",
 ]
@@ -58,6 +73,14 @@ PERMITTED_ENVIRONMENTS: Final[frozenset[str]] = frozenset(
 #: Set to "1" to enable the outbox in a permitted environment. Having to
 #: opt in means a staging host that does not need it does not carry it.
 OUTBOX_FORCE_ENV: Final = "SHIKKHOKPLUS_STAGING_OUTBOX"
+
+#: The numbers the outbox may record and read back: E.164, separated by
+#: commas or whitespace. Required on staging; optional elsewhere.
+OUTBOX_NUMBERS_ENV: Final = "SHIKKHOKPLUS_STAGING_OUTBOX_NUMBERS"
+
+#: The one permitted environment that is reachable from the internet,
+#: and so the one where the allowlist is mandatory.
+ALLOWLIST_REQUIRED_ENVIRONMENTS: Final[frozenset[str]] = frozenset({"staging"})
 
 #: How long an entry is readable. Shorter than the OTP's own five-minute
 #: expiry, so the outbox never outlives the thing it exposes.
@@ -86,6 +109,15 @@ class OutboxEntry:
         self.recorded_at = recorded_at
 
 
+def _allowlist() -> frozenset[str]:
+    """Read the operator numbers the outbox may serve.
+
+    :return: The numbers, empty when the variable is unset or blank
+    """
+    raw = os.environ.get(OUTBOX_NUMBERS_ENV, "")
+    return frozenset(raw.replace(",", " ").split())
+
+
 def outbox_enabled(environment: str | None = None) -> bool:
     """Report whether the outbox may be used at all.
 
@@ -94,12 +126,25 @@ def outbox_enabled(environment: str | None = None) -> bool:
     module-level constant would hold the value the process started with.
 
     :param environment: The environment name, or None to read it
-    :return: True only in a permitted environment with the flag set
+    :return: True only in an explicitly named permitted environment with
+        the flag set and, on staging, an allowlist of operator numbers
     """
-    resolved = environment or os.environ.get(ENVIRONMENT_ENV, "development")
+    resolved = environment or os.environ.get(ENVIRONMENT_ENV, "")
     if resolved not in PERMITTED_ENVIRONMENTS:
         return False
-    return os.environ.get(OUTBOX_FORCE_ENV, "") == "1"
+    if os.environ.get(OUTBOX_FORCE_ENV, "") != "1":
+        return False
+    return resolved not in ALLOWLIST_REQUIRED_ENVIRONMENTS or bool(_allowlist())
+
+
+def outbox_number_permitted(phone: str) -> bool:
+    """Report whether the outbox may record or read back this number.
+
+    :param phone: The number, as the request carried it
+    :return: True when no allowlist applies or the number is on it
+    """
+    allowed = _allowlist()
+    return not allowed or phone in allowed
 
 
 def record_outbox(
@@ -120,7 +165,7 @@ def record_outbox(
     :param correlation_id: Ties the entry to the issuing request
     :return: None
     """
-    if not outbox_enabled():
+    if not outbox_enabled() or not outbox_number_permitted(phone):
         return
 
     session.execute(
@@ -152,6 +197,10 @@ def read_outbox(session: Session, *, phone: str) -> OutboxEntry | None:
         # so reaching this is already a programming error -- raising
         # makes it one that stops rather than one that serves a code.
         raise RuntimeError("the staging outbox is not enabled in this environment")
+    if not outbox_number_permitted(phone):
+        # The same answer as a number with no message, so the allowlist
+        # does not say which numbers are on it.
+        return None
 
     cutoff = dt.datetime.now(tz=dt.UTC) - RETENTION
     row = session.execute(
