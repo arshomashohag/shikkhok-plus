@@ -156,7 +156,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ steps.commit.outputs.sha }}
-          REQUIRED: "backend image android-unit web"
+          REQUIRED: "backend image android-unit web site"
         run: |
           deadline=$((SECONDS + 1200))
           while :; do
@@ -1204,16 +1204,17 @@ jobs:
     timeout-minutes: 20
     environment: ${{ inputs.environment }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           ref: ${{ needs.plan.outputs.sha }}
 
       # No npm cache: the site has no dependencies and no lockfile.
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "22"
 
-      - uses: aws-actions/configure-aws-credentials@v6
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
@@ -1415,11 +1416,12 @@ jobs:
     timeout-minutes: 20
     environment: ${{ inputs.environment }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           ref: ${{ needs.plan.outputs.sha }}
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "22"
           cache: npm
@@ -1448,7 +1450,7 @@ jobs:
           test -f dist-admin/index.html \
             || { echo "::error::npm run build:admin produced no dist-admin/index.html."; exit 1; }
 
-      - uses: aws-actions/configure-aws-credentials@v6
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
