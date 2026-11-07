@@ -1175,9 +1175,17 @@ resource "aws_iam_role_policy" "plan" {
         Action = ["s3:Get*", "s3:List*"]
         Resource = [
           "arn:aws:s3:::shikkhokplus-${each.key}-*config-*",
-          "arn:aws:s3:::shikkhokplus-${each.key}-*config-*/*",
           "arn:aws:s3:::shikkhokplus-${each.key}-web-*",
         ]
+      },
+      {
+        # The one object Terraform manages in the config bucket. NOT the
+        # rest of it: tls/ holds the origin certificate's private key,
+        # which no plan needs to read.
+        Sid      = "ReadTheComposeFile"
+        Effect   = "Allow"
+        Action   = ["s3:GetObject", "s3:GetObjectTagging"]
+        Resource = "arn:aws:s3:::shikkhokplus-${each.key}-*config-*/docker-compose.yml"
       },
       {
         Sid    = "ReadOurRoles"
