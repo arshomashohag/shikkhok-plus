@@ -199,6 +199,7 @@ test:
 		--cov=app.fees \
 		--cov=app.gateway --cov=app.governance \
 		--cov=app.local_time --cov=app.logging_setup --cov=app.main \
+		--cov=app.request_scope \
 		--cov=app.marks \
 		--cov=app.notifications \
 		--cov=app.schemas --cov=app.seed \

@@ -31,6 +31,7 @@
     <!-- Error keys, named by the server's message_key. -->
     <string name="error_network_unreachable">সার্ভারে পৌঁছানো যায়নি। আপনার সংযোগ পরীক্ষা করে আবার চেষ্টা করুন।</string>
     <string name="error_unexpected">কিছু একটা সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।</string>
+    <string name="error_temporarily_unavailable">সেবাটি এই মুহূর্তে ব্যস্ত। একটু পরে আবার চেষ্টা করুন।</string>
     <string name="auth_otp_not_valid">এই কোডটি সঠিক নয়। নতুন একটি কোড নিন।</string>
     <string name="auth_otp_temporarily_unavailable">সাইন ইন সাময়িকভাবে বন্ধ আছে। অনুগ্রহ করে পরে আবার চেষ্টা করুন।</string>
     <string name="auth_token_not_valid">আপনার সেশন শেষ হয়েছে। অনুগ্রহ করে আবার সাইন ইন করুন।</string>

@@ -344,6 +344,7 @@
   "enrollment_remove_has_history": "This place has payments, credit, attendance or marks recorded. Mark the student as left instead of removing them.",
   "enrollment_student_already_in_batch": "This student is already in this batch.",
   "error_network_unreachable": "Could not reach the server. Check your connection and try again.",
+  "error_temporarily_unavailable": "The service is busy right now. Please try again in a moment.",
   "error_unexpected": "Something went wrong. Please try again.",
   "exam_cancel_action": "Cancel exam",
   "exam_cancel_confirm_body": "Every student and guardian in the batch will be told. No marks can be entered or published for it afterwards.",

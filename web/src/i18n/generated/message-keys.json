@@ -21,6 +21,7 @@
   "enrollment.student_already_in_batch": "enrollment_student_already_in_batch",
   "error.attendance_version_conflict": "attendance_version_conflict",
   "error.network.unreachable": "error_network_unreachable",
+  "error.temporarily_unavailable": "error_temporarily_unavailable",
   "error.topic_version_conflict": "topic_version_conflict",
   "error.unexpected": "error_unexpected",
   "exam.reassigned": "exam_reassigned",
