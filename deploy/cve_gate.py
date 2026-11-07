@@ -5,6 +5,16 @@ Usage::
     pip-audit -r requirements.txt --format json -o audit.json || true
     python3 deploy/cve_gate.py audit.json .security-exceptions.md
 
+The report may be any of three shapes, recognised by their top-level
+key [C-32]:
+
+* ``dependencies`` -- pip-audit's ``--format json``, for the Python
+  lockfile;
+* ``results`` -- osv-scanner's ``--format json``, for the Gradle
+  lockfiles the Android release ships;
+* ``imageScanFindings`` -- ``aws ecr describe-image-scan-findings``,
+  for the operating-system packages in the backend image.
+
 This is the BLOCKING half of the two-speed model team.md affirms: every
 push annotates dependency CVEs at every severity without blocking
 (check.yml), and the production release blocks on each Critical or High
@@ -19,6 +29,12 @@ resolved through the OSV API, preferring the GitHub advisory's
 ``database_specific.severity``. **A finding whose severity cannot be
 established blocks** as if it were High: a lookup that fails open would
 turn an OSV outage into a silent pass.
+
+Where the scanner states a severity itself -- an osv-scanner advisory's
+``database_specific.severity``, or ECR's ``severity`` -- that is used and
+no lookup is made. ECR's ``UNDEFINED`` and ``INFORMATIONAL`` are the
+vendor's own rating, not a failed lookup, so they do not block; they are
+counted in the summary line.
 
 Standard library only, so it runs on a bare runner.
 """
@@ -37,6 +53,8 @@ from dataclasses import dataclass
 
 BLOCKING = frozenset({"CRITICAL", "HIGH"})
 UNKNOWN = "UNKNOWN"
+#: ECR's own "no rating" values: a vendor verdict, not a failed lookup.
+VENDOR_UNRATED = frozenset({"UNDEFINED", "INFORMATIONAL"})
 OSV_URL = "https://api.osv.dev/v1/vulns/{}"
 
 #: An exception in ``.security-exceptions.md`` is a level-3 heading
@@ -55,11 +73,14 @@ class Finding:
     :ivar package: The distribution name
     :ivar version: The installed version
     :ivar ids: The advisory id and its aliases
+    :ivar severity: The severity the scanner itself reported, or None
+        when it reported none and the gate must look it up
     """
 
     package: str
     version: str
     ids: frozenset[str]
+    severity: str | None = None
 
 
 @dataclass(frozen=True)
@@ -91,6 +112,79 @@ def parse_audit(report: dict[str, object]) -> list[Finding]:
                 Finding(dependency["name"], dependency["version"], frozenset(ids))
             )
     return findings
+
+
+def parse_osv_scanner(report: dict[str, object]) -> list[Finding]:
+    """Extract findings from osv-scanner's JSON report.
+
+    :param report: The decoded ``--format json`` output
+    :return: One finding per vulnerability per package
+    :raises ValueError: The report has no result list
+    """
+    results = report.get("results")
+    if not isinstance(results, list):
+        raise ValueError("osv-scanner report has no result list")
+    findings: list[Finding] = []
+    for result in results:
+        for entry in result.get("packages", []):
+            package = entry.get("package", {})
+            for vuln in entry.get("vulnerabilities", []):
+                ids = {vuln["id"], *vuln.get("aliases", [])}
+                stated = vuln.get("database_specific", {}).get("severity")
+                findings.append(
+                    Finding(
+                        package.get("name", "?"),
+                        package.get("version", "?"),
+                        frozenset(ids),
+                        str(stated).upper() if stated else None,
+                    )
+                )
+    return findings
+
+
+def parse_ecr_findings(report: dict[str, object]) -> list[Finding]:
+    """Extract findings from ``aws ecr describe-image-scan-findings``.
+
+    :param report: The decoded CLI output
+    :return: One finding per reported vulnerability
+    :raises ValueError: The scan did not complete, so there is nothing to
+        decide on
+    """
+    status = report.get("imageScanStatus", {})
+    if isinstance(status, dict) and status.get("status") not in (None, "COMPLETE"):
+        raise ValueError(f"the image scan is {status.get('status')}, not COMPLETE")
+    scan = report.get("imageScanFindings")
+    if not isinstance(scan, dict):
+        raise ValueError("ECR report has no imageScanFindings")
+    findings: list[Finding] = []
+    for item in scan.get("findings", []):
+        attributes = {a["key"]: a.get("value", "") for a in item.get("attributes", [])}
+        findings.append(
+            Finding(
+                attributes.get("package_name", "?"),
+                attributes.get("package_version", "?"),
+                frozenset({item["name"]}),
+                str(item.get("severity", UNKNOWN)).upper(),
+            )
+        )
+    return findings
+
+
+def parse_report(report: dict[str, object]) -> list[Finding]:
+    """Extract findings from whichever scanner wrote the report.
+
+    :param report: The decoded JSON report
+    :return: The findings
+    :raises ValueError: The shape is none the gate knows -- refused,
+        because an unrecognised report read as empty would pass
+    """
+    if "dependencies" in report:
+        return parse_audit(report)
+    if "results" in report:
+        return parse_osv_scanner(report)
+    if "imageScanFindings" in report:
+        return parse_ecr_findings(report)
+    raise ValueError(f"unrecognised report; top-level keys {sorted(report)}")
 
 
 def parse_exceptions(text: str) -> list[Exception_]:
@@ -143,6 +237,8 @@ def severity_of(finding: Finding, lookup: Callable[[str], str]) -> str:
     :param lookup: Resolves one advisory id to a severity
     :return: A severity, UNKNOWN when no id resolves
     """
+    if finding.severity is not None:
+        return finding.severity
     order = ["LOW", "MODERATE", "MEDIUM", "HIGH", "CRITICAL"]
     known = [s for s in (lookup(i) for i in sorted(finding.ids)) if s in order]
     return max(known, key=order.index) if known else UNKNOWN
@@ -185,16 +281,20 @@ def decide(
 def main(argv: list[str]) -> int:
     """Run the gate.
 
-    :param argv: ``[audit.json, exceptions.md]``
+    :param argv: ``[report.json, exceptions.md]``
     :return: The process exit code
     """
     report = json.loads(pathlib.Path(argv[0]).read_text())
     exceptions = parse_exceptions(pathlib.Path(argv[1]).read_text())
-    findings = parse_audit(report)
+    findings = parse_report(report)
     problems = decide(
         findings, exceptions, dt.datetime.now(dt.UTC).date(), osv_severity
     )
-    print(f"{len(findings)} finding(s), {len(exceptions)} exception row(s).")
+    unrated = sum(1 for f in findings if f.severity in VENDOR_UNRATED)
+    print(
+        f"{len(findings)} finding(s), {len(exceptions)} exception row(s), "
+        f"{unrated} rated UNDEFINED or INFORMATIONAL by the scanner."
+    )
     for problem in problems:
         print(f"::error::{problem}")
     if problems:
