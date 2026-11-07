@@ -17,7 +17,10 @@ export function MyClasses() {
   const { t, lang } = useT()
   const [start, setStart] = useState(() => isoDay(new Date()))
   const days = weekFrom(start)
-  const { resource, reload } = useResource(() => listMyClasses(start, days[6] ?? start), [start])
+  const { resource, reload } = useResource(
+    (signal) => listMyClasses(start, days[6] ?? start, signal),
+    [start],
+  )
 
   let body: React.ReactNode
   if (resource.state === 'loading') body = <Loading rows={3} />

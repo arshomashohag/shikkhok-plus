@@ -4,7 +4,7 @@
  * payments. Every figure is the server's — the base from the classes held,
  * what is owed, paid and left — and every refusal is its message.
  */
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import {
   addSalaryAdjustment,
   approveSalary,
@@ -18,7 +18,15 @@ import { formatMonth } from '../../../core/format'
 import { Money } from '../../../core/money'
 import { useResource } from '../../../core/useResource'
 import { useT } from '../../../i18n/i18n'
-import { EmptyState, ErrorCard, Loading, Sheet, Snackbar, TopBar } from '../../../ui/components'
+import {
+  EmptyState,
+  ErrorCard,
+  Loading,
+  Sheet,
+  Snackbar,
+  StaleBanner,
+  TopBar,
+} from '../../../ui/components'
 import { WarningIcon } from '../../../ui/icons'
 import { mutationId } from '../classes/api'
 import { currentMonth, shiftMonth } from '../money/spending'
@@ -209,10 +217,13 @@ export function SalaryCard({
   line,
   actions,
   onRemoveAdjustment,
+  disabled = false,
 }: {
   line: SalaryLine
   actions?: React.ReactNode
   onRemoveAdjustment?: (adjustmentId: string) => void
+  /** While a write is on its way or the line is not confirmed fresh. */
+  disabled?: boolean
 }) {
   const { t } = useT()
   return (
@@ -236,6 +247,7 @@ export function SalaryCard({
                 <button
                   type="button"
                   className="btn btn-text btn-small"
+                  disabled={disabled}
                   onClick={() => onRemoveAdjustment(a.adjustment_id)}
                 >
                   {t('payroll_remove')}
@@ -255,17 +267,33 @@ type Open = { sheet: 'adjust' | 'pay'; line: SalaryLine } | null
 export function Payroll() {
   const { t, lang, message } = useT()
   const [month, setMonth] = useState(currentMonth)
-  const { resource, reload } = useResource(() => readPayroll(month), [month])
+  // A month switch starts from loading (useResource drops the old key's
+  // lines), so last month's line ids never sit under this month's heading.
+  const { resource, reload } = useResource((signal) => readPayroll(month, signal), [month])
   const [open, setOpen] = useState<Open>(null)
   const [snack, setSnack] = useState<string | null>(null)
+  // One write at a time: a double click must not send a second money POST.
+  const [busy, setBusy] = useState(false)
+  const writing = useRef(false)
+
+  // Decide only on lines the last read confirmed: not while a re-read is
+  // on its way, and not over lines a failed re-read could not confirm.
+  const fresh = resource.state === 'loaded' && !resource.refreshing && resource.error === null
+  const canAct = fresh && !busy
 
   async function act(work: () => Promise<unknown>) {
+    if (writing.current) return
+    writing.current = true
+    setBusy(true)
     try {
       await work()
       setSnack(t('staff_saved'))
       reload()
     } catch (e) {
       setSnack(failureText(e, t, message))
+    } finally {
+      writing.current = false
+      setBusy(false)
     }
   }
 
@@ -277,47 +305,56 @@ export function Payroll() {
     body = <EmptyState title={t('payroll_title')} body={t('payroll_empty')} />
   else
     body = (
-      <div className="grid-2">
-        {resource.data.map((line) => (
-          <SalaryCard
-            key={line.line_id}
-            line={line}
-            onRemoveAdjustment={
-              line.status === 'draft'
-                ? (id) => void act(() => removeSalaryAdjustment(line.line_id, id))
-                : undefined
-            }
-            actions={
-              line.status === 'draft' ? (
-                <>
-                  <button
-                    type="button"
-                    className="btn btn-outline"
-                    onClick={() => setOpen({ sheet: 'adjust', line })}
-                  >
-                    {t('payroll_adjust')}
-                  </button>
+      <>
+        {resource.error ? (
+          <StaleBanner error={resource.error} loadedAt={resource.loadedAt} />
+        ) : null}
+        <div className="grid-2">
+          {resource.data.map((line) => (
+            <SalaryCard
+              key={line.line_id}
+              line={line}
+              disabled={!canAct}
+              onRemoveAdjustment={
+                line.status === 'draft'
+                  ? (id) => void act(() => removeSalaryAdjustment(line.line_id, id))
+                  : undefined
+              }
+              actions={
+                line.status === 'draft' ? (
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn-outline"
+                      disabled={!canAct}
+                      onClick={() => setOpen({ sheet: 'adjust', line })}
+                    >
+                      {t('payroll_adjust')}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary grow"
+                      disabled={!canAct}
+                      onClick={() => void act(() => approveSalary(line.line_id))}
+                    >
+                      {t('payroll_approve')}
+                    </button>
+                  </>
+                ) : !Money.fromWire(line.remaining).isZero() ? (
                   <button
                     type="button"
                     className="btn btn-primary grow"
-                    onClick={() => void act(() => approveSalary(line.line_id))}
+                    disabled={!canAct}
+                    onClick={() => setOpen({ sheet: 'pay', line })}
                   >
-                    {t('payroll_approve')}
+                    {t('payroll_pay')}
                   </button>
-                </>
-              ) : !Money.fromWire(line.remaining).isZero() ? (
-                <button
-                  type="button"
-                  className="btn btn-primary grow"
-                  onClick={() => setOpen({ sheet: 'pay', line })}
-                >
-                  {t('payroll_pay')}
-                </button>
-              ) : null
-            }
-          />
-        ))}
-      </div>
+                ) : null
+              }
+            />
+          ))}
+        </div>
+      </>
     )
 
   return (
@@ -329,6 +366,7 @@ export function Payroll() {
           <button
             type="button"
             className="btn btn-primary btn-small"
+            disabled={busy}
             onClick={() => void act(() => drawPayroll(month))}
           >
             {t('payroll_draw')}
@@ -339,17 +377,20 @@ export function Payroll() {
         <button
           type="button"
           className="btn btn-text btn-small"
+          aria-label={t('calendar_prev_month')}
+          disabled={busy}
           onClick={() => setMonth(shiftMonth(month, -1))}
         >
           ‹
         </button>
-        <span className="grow" style={{ textAlign: 'center' }}>
+        <span className="grow" style={{ textAlign: 'center' }} aria-live="polite">
           {formatMonth(month, lang)}
         </span>
         <button
           type="button"
           className="btn btn-text btn-small"
-          disabled={month >= currentMonth()}
+          aria-label={t('calendar_next_month')}
+          disabled={busy || month >= currentMonth()}
           onClick={() => setMonth(shiftMonth(month, 1))}
         >
           ›

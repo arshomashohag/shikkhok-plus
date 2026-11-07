@@ -30,7 +30,10 @@ export function DeleteAccount() {
   const { t } = useT()
   const { session } = useSession()
   const [deleted, setDeleted] = useState(false)
-  const { resource, reload } = useResource(() => readDeletionSummary().then(footprintOf), [])
+  const { resource, reload } = useResource(
+    (signal) => readDeletionSummary(signal).then(footprintOf),
+    [],
+  )
 
   if (deleted) return <DeletedBody />
 

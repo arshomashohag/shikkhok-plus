@@ -40,8 +40,8 @@ interface Context {
   existingNames: string[]
 }
 
-async function loadContext(batchId: string): Promise<Context> {
-  const [batches, roster] = await Promise.all([listBatches(), readRoster(batchId)])
+async function loadContext(batchId: string, signal?: AbortSignal): Promise<Context> {
+  const [batches, roster] = await Promise.all([listBatches(signal), readRoster(batchId, signal)])
   const batch = batches.map(mapBatch).find((b) => b.id === batchId) ?? null
   return {
     batchName: batch?.name ?? null,
@@ -53,7 +53,7 @@ async function loadContext(batchId: string): Promise<Context> {
 export function AddStudent() {
   const { batchId = '' } = useParams()
   const { t, plural } = useT()
-  const { resource, reload } = useResource(() => loadContext(batchId), [batchId])
+  const { resource, reload } = useResource((signal) => loadContext(batchId, signal), [batchId])
   const [added, setAdded] = useState(0)
   const [names, setNames] = useState<string[]>([])
   const back = paths.batch(batchId)

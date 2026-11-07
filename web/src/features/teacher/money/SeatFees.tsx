@@ -10,16 +10,16 @@
  * server says is owed; once the server accepts it the history re-reads.
  */
 import { useCallback, useState } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router'
+import { Link, useLocation, useParams } from 'react-router'
 import { formatMonth, formatShortDate, formatShortMonth } from '../../../core/format'
 import { Money } from '../../../core/money'
 import { useResource } from '../../../core/useResource'
 import { useT } from '../../../i18n/i18n'
 import { ErrorCard, Loading, Snackbar, StaleBanner, TopBar } from '../../../ui/components'
 import { readSeatFees } from './api'
-import { mapFeeHistory, STRIP_GLYPH, STRIP_WORD, type MonthCell } from './fees'
+import { CYCLE_WORD, mapFeeHistory, STRIP_GLYPH, STRIP_WORD, type MonthCell } from './fees'
 import { HistoryLineText } from './HistoryLineText'
-import { moneyPaths } from './paths'
+import { moneyPaths, readSeatNames, seatState } from './paths'
 import { RecordPaymentSheet } from './RecordPaymentSheet'
 
 /** What a seat with nothing charged yet owes: the server's zero. */
@@ -27,12 +27,11 @@ const NOTHING_OWED = Money.fromWire('0.00')
 
 export function SeatFees() {
   const { enrollmentId = '' } = useParams()
-  const [search] = useSearchParams()
-  const name = search.get('name') ?? undefined
-  const batch = search.get('batch') ?? undefined
+  // From the link that opened this, never from the URL [C-35].
+  const { name, batch } = readSeatNames(useLocation().state)
   const { t, lang } = useT()
   const { resource, reload } = useResource(
-    () => readSeatFees(enrollmentId).then(mapFeeHistory),
+    (signal) => readSeatFees(enrollmentId, undefined, signal).then(mapFeeHistory),
     [enrollmentId],
   )
   const subtitle = [name, batch].filter(Boolean).join(' · ') || undefined
@@ -42,7 +41,8 @@ export function SeatFees() {
   const progress = (
     <Link
       className="btn btn-text btn-small"
-      to={moneyPaths.seatProgress(enrollmentId, name, batch)}
+      to={moneyPaths.seatProgress(enrollmentId)}
+      state={seatState(name, batch)}
     >
       {t('dashboard_open_progress')}
     </Link>
@@ -103,8 +103,10 @@ export function SeatFees() {
                 <li key={row.period} className="row" style={{ alignItems: 'flex-start' }}>
                   <div className="grow">
                     <div className="title">{formatMonth(row.period, lang)}</div>
-                    <div className={row.settled ? 'meta' : 'meta danger'}>
-                      {t(`fees_status_${row.status}`)}
+                    <div
+                      className={row.settled || row.status === 'unknown' ? 'meta' : 'meta danger'}
+                    >
+                      {t(CYCLE_WORD[row.status])}
                     </div>
                     <div className="meta">
                       {t(

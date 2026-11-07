@@ -122,6 +122,11 @@
   color: var(--on-verifying-container);
   border: 1px dashed var(--verifying-outline);
 }
+.strip-unknown .money-strip-glyph {
+  background: var(--surface);
+  color: var(--on-surface-variant);
+  border: 1px dashed var(--outline);
+}
 
 /* Tiles. */
 .money-tiles {

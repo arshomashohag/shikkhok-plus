@@ -127,6 +127,19 @@ describe('Students tab', () => {
     expect(await screen.findByText('Mehedi')).toBeInTheDocument()
     expect(calls('GET', 'unassigned=true')).toHaveLength(1)
   })
+
+  it('searches once per pause in typing, not once per keystroke', async () => {
+    api((_m, u) => {
+      if (u.endsWith('/v1/batches')) return json(200, batches)
+      if (u.includes('/v1/students')) return json(200, [student('s1', 'Rafiq', [])])
+    })
+    renderScreen(<StudentsList />)
+    await screen.findByText('Rafiq')
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Search name or phone' }), 'Rafiq')
+    await waitFor(() => expect(calls('GET', 'q=Rafiq')).toHaveLength(1))
+    // Only the settled text went to the server: no request for "R", "Ra"…
+    expect(calls('GET', 'q=')).toHaveLength(1)
+  })
 })
 
 describe('Add student', () => {
@@ -259,5 +272,25 @@ describe('Roster picker', () => {
     await screen.findByText('batch screen')
     expect(bodyOf(calls('POST', '/v1/batches/b1/students')[0]!)).toEqual({ student_ids: ['s2'] })
     expect(screen.queryByText('Tanvir')).toBeNull()
+  })
+
+  it('reads the batch list once while the teacher searches', async () => {
+    api((_m, u) => {
+      if (u.endsWith('/v1/batches')) return json(200, batches)
+      if (u.includes('exclude_batch_id=b1')) return json(200, [student('s2', 'Sadia', [])])
+    })
+    renderScreen(
+      <Routes>
+        <Route path="/batches/:batchId/students/pick" element={<PickStudents />} />
+      </Routes>,
+      '/batches/b1/students/pick',
+    )
+    await screen.findByText('Sadia')
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Search name or phone' }), 'Sad')
+    await waitFor(() => expect(calls('GET', 'q=Sad')).toHaveLength(1))
+    expect(calls('GET', 'q=')).toHaveLength(1)
+    expect(
+      fetchMock.mock.calls.filter(([u]) => (u as string).endsWith('/v1/batches')),
+    ).toHaveLength(1)
   })
 })

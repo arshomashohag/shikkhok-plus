@@ -59,10 +59,10 @@ interface Loaded {
   results: Map<string, ProgressRow> | null
 }
 
-async function load(reader: Reader, seat: string): Promise<Loaded> {
+async function load(reader: Reader, seat: string, signal?: AbortSignal): Promise<Loaded> {
   const [teaching, progress] = await Promise.all([
-    readTeaching(reader, seat),
-    readProgress(reader, seat).then(
+    readTeaching(reader, seat, signal),
+    readProgress(reader, seat, signal).then(
       (rows) => rows,
       () => null,
     ),
@@ -82,7 +82,7 @@ export function SeatBatch({ reader }: { reader: Reader }) {
   const [search, setSearch] = useSearchParams()
   const requested = search.get('tab') as Tab | null
   const tab: Tab = requested && TABS.includes(requested) ? requested : 'classes'
-  const { resource, reload } = useResource(() => load(reader, seat), [reader, seat])
+  const { resource, reload } = useResource((signal) => load(reader, seat, signal), [reader, seat])
 
   if (resource.state === 'loading') {
     return (

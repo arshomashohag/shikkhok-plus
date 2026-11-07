@@ -26,7 +26,10 @@ export function ExamResults() {
   const { examId = '' } = useParams()
   const inCentre = useInCentre()
   const { t, lang } = useT()
-  const { resource, reload } = useResource(() => readResults(examId).then(mapResults), [examId])
+  const { resource, reload } = useResource(
+    (signal) => readResults(examId, signal).then(mapResults),
+    [examId],
+  )
   const [historyFor, setHistoryFor] = useState<ResultRow | null>(null)
 
   if (resource.state === 'loading') {

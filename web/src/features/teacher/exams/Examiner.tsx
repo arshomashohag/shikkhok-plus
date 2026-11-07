@@ -23,7 +23,7 @@ export function ExaminerPicker({
   onChange: (next: string) => void
 }) {
   const { t } = useT()
-  const members = useResource(() => listMembers(), [])
+  const members = useResource((signal) => listMembers(signal), [])
   if (members.resource.state !== 'loaded') return null
   return (
     <div className="field">
@@ -44,8 +44,8 @@ export function ExaminerPicker({
 /** The control on an existing exam: shows the examiner and changes it. */
 export function ExaminerControl({ examId }: { examId: string }) {
   const { t, message } = useT()
-  const exam = useResource(() => readExam(examId), [examId])
-  const members = useResource(() => listMembers(), [])
+  const exam = useResource((signal) => readExam(examId, signal), [examId])
+  const members = useResource((signal) => listMembers(signal), [])
   const [note, setNote] = useState<string | null>(null)
   if (exam.resource.state !== 'loaded' || members.resource.state !== 'loaded') return null
 

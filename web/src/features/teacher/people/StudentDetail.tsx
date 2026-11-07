@@ -16,7 +16,7 @@ import { useResource } from '../../../core/useResource'
 import { useT } from '../../../i18n/i18n'
 import { ErrorCard, Loading, Sheet, Snackbar, TopBar } from '../../../ui/components'
 import { mapBatch } from '../mappers'
-import { paths } from '../paths'
+import { paths, seatState } from '../paths'
 import { removeEnrollment, setInactiveFrom } from '../students/api'
 import { RecordPaymentSheet } from '../money/RecordPaymentSheet'
 import { bangladeshToday } from '../students/mappers'
@@ -31,8 +31,8 @@ export function StudentDetail() {
   const { t, message } = useT()
   const navigate = useNavigate()
   const { resource, reload } = useResource(
-    () =>
-      Promise.all([readStudent(studentId), listBatches()]).then(([s, b]) => ({
+    (signal) =>
+      Promise.all([readStudent(studentId, signal), listBatches(signal)]).then(([s, b]) => ({
         student: mapStudent(s),
         batches: b.map(mapBatch),
       })),
@@ -118,7 +118,8 @@ export function StudentDetail() {
                 <Link
                   className="grow"
                   style={{ color: 'inherit', textDecoration: 'none' }}
-                  to={paths.seatFees(seat.enrollmentId, student.name, seat.batchName)}
+                  to={paths.seatFees(seat.enrollmentId)}
+                  state={seatState(student.name, seat.batchName)}
                 >
                   <span className="title" style={{ display: 'block' }}>
                     {seat.batchName}

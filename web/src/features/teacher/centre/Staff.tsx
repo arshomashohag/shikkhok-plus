@@ -20,7 +20,15 @@ import { formatPhone, formatShortDate } from '../../../core/format'
 import { Money } from '../../../core/money'
 import { useResource } from '../../../core/useResource'
 import { useT } from '../../../i18n/i18n'
-import { EmptyState, ErrorCard, Loading, Sheet, Snackbar, TopBar } from '../../../ui/components'
+import {
+  EmptyState,
+  ErrorCard,
+  Loading,
+  Sheet,
+  Snackbar,
+  StaleBanner,
+  TopBar,
+} from '../../../ui/components'
 import { PlusIcon, WarningIcon } from '../../../ui/icons'
 import {
   accessKey,
@@ -230,7 +238,7 @@ type Open =
 
 export function Staff() {
   const { t, lang } = useT()
-  const { resource, reload } = useResource(() => listStaff(), [])
+  const { resource, reload } = useResource((signal) => listStaff(signal), [])
   const [open, setOpen] = useState<Open>(null)
   const [snack, setSnack] = useState<string | null>(null)
 
@@ -239,6 +247,8 @@ export function Staff() {
     setSnack(text)
     reload()
   }
+  // Edit or mark left only from a read the server just confirmed.
+  const fresh = resource.state === 'loaded' && !resource.refreshing && resource.error === null
 
   let body: React.ReactNode
   if (resource.state === 'loading') body = <Loading rows={3} />
@@ -248,56 +258,63 @@ export function Staff() {
     body = <EmptyState title={t('staff_title')} body={t('staff_empty')} />
   else
     body = (
-      <ul className="card flush list">
-        {resource.data.map((row) => {
-          const left = row.status === 'left'
-          return (
-            <li key={row.staff_id}>
-              <div className="row" style={left ? { opacity: 0.6 } : undefined}>
-                <span className="grow">
-                  <span className="title">{row.display_name}</span>
-                  <br />
-                  <span className="meta">
-                    {[
-                      row.kind === 'other'
-                        ? (row.role_label ?? t('staff_kind_other'))
-                        : t('staff_kind_teacher'),
-                      row.phone ? formatPhone(row.phone) : null,
-                      payLine(row, t),
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
+      <>
+        {resource.error ? (
+          <StaleBanner error={resource.error} loadedAt={resource.loadedAt} />
+        ) : null}
+        <ul className="card flush list">
+          {resource.data.map((row) => {
+            const left = row.status === 'left'
+            return (
+              <li key={row.staff_id}>
+                <div className="row" style={left ? { opacity: 0.6 } : undefined}>
+                  <span className="grow">
+                    <span className="title">{row.display_name}</span>
+                    <br />
+                    <span className="meta">
+                      {[
+                        row.kind === 'other'
+                          ? (row.role_label ?? t('staff_kind_other'))
+                          : t('staff_kind_teacher'),
+                        row.phone ? formatPhone(row.phone) : null,
+                        payLine(row, t),
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </span>
+                    <br />
+                    <span className="meta">
+                      {left && row.left_on
+                        ? t('staff_status_left', formatShortDate(row.left_on, lang))
+                        : t(accessKey(row))}
+                    </span>
                   </span>
-                  <br />
-                  <span className="meta">
-                    {left && row.left_on
-                      ? t('staff_status_left', formatShortDate(row.left_on, lang))
-                      : t(accessKey(row))}
-                  </span>
-                </span>
-                {left ? null : (
-                  <>
-                    <button
-                      type="button"
-                      className="btn btn-text btn-small"
-                      onClick={() => setOpen({ sheet: 'edit', row })}
-                    >
-                      {t('staff_edit')}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-text btn-small"
-                      onClick={() => setOpen({ sheet: 'leave', row })}
-                    >
-                      {t('staff_leave')}
-                    </button>
-                  </>
-                )}
-              </div>
-            </li>
-          )
-        })}
-      </ul>
+                  {left ? null : (
+                    <>
+                      <button
+                        type="button"
+                        className="btn btn-text btn-small"
+                        disabled={!fresh}
+                        onClick={() => setOpen({ sheet: 'edit', row })}
+                      >
+                        {t('staff_edit')}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-text btn-small"
+                        disabled={!fresh}
+                        onClick={() => setOpen({ sheet: 'leave', row })}
+                      >
+                        {t('staff_leave')}
+                      </button>
+                    </>
+                  )}
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      </>
     )
 
   return (

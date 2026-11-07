@@ -78,12 +78,12 @@ function stateFromStatus(s: Schemas['SessionResponse']): ClassState {
   return 'upcoming'
 }
 
-async function load(batchId: string, sessionId: string): Promise<Loaded> {
-  const session = await readSession(sessionId)
+async function load(batchId: string, sessionId: string, signal?: AbortSignal): Promise<Loaded> {
+  const session = await readSession(sessionId, signal)
   const ym = monthOf(session.date)
   const [calendar, batches] = await Promise.all([
-    readCalendar(batchId, ym.year, ym.month),
-    listBatches(),
+    readCalendar(batchId, ym.year, ym.month, signal),
+    listBatches(signal),
   ])
   const batch = batches.find((b) => b.id === batchId)
   // The calendar carries the flags (recordable, plannable) and the notes
@@ -126,7 +126,10 @@ export function SessionScreen() {
   const { t, lang } = useT()
   const [generation, setGeneration] = useState(0)
   const [snack, setSnack] = useState<string | null>(null)
-  const { resource, reload } = useResource(() => load(batchId, sessionId), [batchId, sessionId])
+  const { resource, reload } = useResource(
+    (signal) => load(batchId, sessionId, signal),
+    [batchId, sessionId],
+  )
   const back = paths.batch(batchId, 'classes')
   const done = useCallback(
     (text: string) => {

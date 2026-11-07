@@ -175,7 +175,7 @@ export function HistorySheet({
 }) {
   const { t } = useT()
   const { resource } = useResource(
-    () => readMarkHistory(examId, row.enrollmentId).then(mapHistory),
+    (signal) => readMarkHistory(examId, row.enrollmentId, signal).then(mapHistory),
     [examId, row.enrollmentId],
   )
   return (

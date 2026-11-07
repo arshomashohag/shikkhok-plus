@@ -26,11 +26,11 @@ import {
 } from './mappers'
 import { useSeatId, useSeatIdentity } from './seat'
 
-async function load(reader: Reader, seat: string) {
+async function load(reader: Reader, seat: string, signal?: AbortSignal) {
   const [rows, summary] = await Promise.all([
-    readProgress(reader, seat).then(mapProgress),
+    readProgress(reader, seat, signal).then(mapProgress),
     reader === 'child'
-      ? readProgressSummary(seat).then(mapSummary, () => null)
+      ? readProgressSummary(seat, signal).then(mapSummary, () => null)
       : Promise.resolve(null),
   ])
   return { rows, summary }
@@ -45,7 +45,7 @@ export function ProgressScreen({ reader }: { reader: Reader }) {
     : t('screen_title_progress')
   const subtitle =
     [identity?.childName, identity?.batchName].filter(Boolean).join(' · ') || undefined
-  const { resource, reload } = useResource(() => load(reader, seat), [reader, seat])
+  const { resource, reload } = useResource((signal) => load(reader, seat, signal), [reader, seat])
 
   return (
     <>

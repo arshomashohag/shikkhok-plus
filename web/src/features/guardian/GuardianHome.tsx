@@ -34,7 +34,7 @@ type Child = Schemas['ChildSummaryResponse']
 export function GuardianHome() {
   const { t } = useT()
   const { session } = useReadySession()
-  const { resource, reload } = useResource(() => readGuardianHome(), [])
+  const { resource, reload } = useResource((signal) => readGuardianHome(signal), [])
   const [selected, setSelected] = useState<string | null>(null)
 
   if (resource.state === 'loading') {

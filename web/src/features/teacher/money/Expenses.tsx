@@ -41,13 +41,13 @@ import {
 } from './spending'
 
 function MonthPicker({ month, onMonth }: { month: string; onMonth: (m: string) => void }) {
-  const { t, lang } = useT()
+  const { lang } = useT()
   return (
     <div className="button-row" style={{ alignItems: 'center', marginBottom: 12 }}>
       <button
         type="button"
         className="btn btn-text btn-small"
-        aria-label={t('action_back')}
+        aria-label={formatMonth(shiftMonth(month, -1), lang)}
         onClick={() => onMonth(shiftMonth(month, -1))}
       >
         ‹
@@ -240,7 +240,10 @@ function VoidSheet({
 export function Expenses() {
   const { t, lang } = useT()
   const [month, setMonth] = useState(currentMonth)
-  const { resource, reload } = useResource(() => listExpenses(month).then(mapExpenseMonth), [month])
+  const { resource, reload } = useResource(
+    (signal) => listExpenses(month, signal).then(mapExpenseMonth),
+    [month],
+  )
   const [recording, setRecording] = useState(false)
   const [voiding, setVoiding] = useState<ExpenseRow | null>(null)
   const [snack, setSnack] = useState<string | null>(null)
@@ -367,7 +370,10 @@ export function Expenses() {
 export function MoneySummaryScreen() {
   const { t, lang } = useT()
   const [month, setMonth] = useState(currentMonth)
-  const { resource, reload } = useResource(() => readMoneySummary(month).then(mapSummary), [month])
+  const { resource, reload } = useResource(
+    (signal) => readMoneySummary(month, signal).then(mapSummary),
+    [month],
+  )
   return (
     <>
       <TopBar

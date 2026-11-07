@@ -22,7 +22,7 @@ import { mapToday, reviewName, type TodayClass, type TodayModel } from './mapper
 
 export function Today() {
   const { t } = useT()
-  const { resource, reload } = useResource(() => readToday().then(mapToday), [])
+  const { resource, reload } = useResource((signal) => readToday(signal).then(mapToday), [])
 
   if (resource.state === 'loading') {
     return (
