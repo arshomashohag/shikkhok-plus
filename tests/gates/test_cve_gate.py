@@ -214,6 +214,30 @@ def test_ecr_findings_block_on_critical_and_not_on_undefined() -> None:
     assert "CRITICAL" in problems[0]
 
 
+def test_enhanced_scanning_findings_are_read_too() -> None:
+    # A registry on Inspector leaves `findings` empty; reading only that
+    # list would pass every image.
+    report = {
+        "imageScanStatus": {"status": "COMPLETE"},
+        "imageScanFindings": {
+            "enhancedFindings": [
+                {
+                    "severity": "HIGH",
+                    "packageVulnerabilityDetails": {
+                        "vulnerabilityId": "CVE-2026-3333",
+                        "vulnerablePackages": [{"name": "zlib", "version": "1.2"}],
+                    },
+                }
+            ]
+        },
+    }
+
+    problems = gate.decide(gate.parse_report(report), [], TODAY, _no_lookup)
+
+    assert len(problems) == 1
+    assert "zlib" in problems[0]
+
+
 def test_an_incomplete_ecr_scan_is_refused_rather_than_read_as_clean() -> None:
     report = {**ECR_REPORT, "imageScanStatus": {"status": "IN_PROGRESS"}}
 

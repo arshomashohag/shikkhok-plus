@@ -157,6 +157,20 @@ def parse_ecr_findings(report: dict[str, object]) -> list[Finding]:
     if not isinstance(scan, dict):
         raise ValueError("ECR report has no imageScanFindings")
     findings: list[Finding] = []
+    # **Enhanced scanning reports elsewhere in the same document.** A
+    # registry switched to Inspector leaves `findings` empty and fills
+    # `enhancedFindings`; reading only the first would pass every image.
+    for item in scan.get("enhancedFindings", []):
+        details = item.get("packageVulnerabilityDetails", {})
+        packages = details.get("vulnerablePackages") or [{}]
+        findings.append(
+            Finding(
+                packages[0].get("name", "?"),
+                packages[0].get("version", "?"),
+                frozenset({details.get("vulnerabilityId") or item.get("title", "?")}),
+                str(item.get("severity", UNKNOWN)).upper(),
+            )
+        )
     for item in scan.get("findings", []):
         attributes = {a["key"]: a.get("value", "") for a in item.get("attributes", [])}
         findings.append(
