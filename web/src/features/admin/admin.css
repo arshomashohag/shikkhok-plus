@@ -1,0 +1,205 @@
+/* Platform admin: overview tiles, the platform bars, the lists. */
+
+@media (max-width: 899px) {
+  /* Three tabs fit a phone when a long Bangla label may wrap. */
+  .admin-tabs a {
+    padding: 4px var(--s2);
+    white-space: normal;
+    text-align: center;
+    line-height: 1.3;
+  }
+}
+.admin-tabs a[aria-current='page'] {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+.admin-note {
+  margin: 0 0 var(--s2);
+}
+
+.admin-stats {
+  display: grid;
+  /* auto-fit, so a row of three or five tiles shares the width evenly. */
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--s3);
+}
+.admin-stats > .card {
+  margin-top: 0;
+}
+@media (min-width: 900px) {
+  .admin-stats {
+    gap: 20px;
+  }
+}
+.admin-stat {
+  min-width: 0;
+}
+.admin-stat .label,
+.admin-stat .meta {
+  overflow-wrap: anywhere;
+}
+.admin-stat .figure {
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-platform {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: var(--s4);
+  margin-bottom: var(--s4);
+  border-bottom: 1px solid var(--divider);
+}
+.admin-platform-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--s1) var(--s3);
+}
+.admin-bar {
+  height: 12px;
+  border-radius: var(--r-pill);
+  background: var(--surface-container-high);
+  overflow: hidden;
+}
+.admin-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary);
+}
+.admin-bar.web > span {
+  background: var(--on-verifying-container);
+}
+.admin-kv {
+  margin-top: 0;
+}
+.admin-kv .help {
+  margin-top: 2px;
+}
+
+.admin-pair > .section {
+  margin-top: 0;
+}
+@media (max-width: 899px) {
+  .admin-pair {
+    margin-top: var(--s4);
+  }
+  .admin-pair > .section + .section {
+    margin-top: var(--s4);
+  }
+}
+.admin-empty-line {
+  margin: 0;
+  padding: var(--s4);
+}
+
+.admin-toolbar {
+  padding: var(--s3) var(--s4);
+  border-bottom: 1px solid var(--outline-variant);
+}
+.admin-toolbar .search {
+  min-width: 0;
+}
+.admin-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.unnamed {
+  font-style: italic;
+  color: var(--on-surface-variant);
+}
+.admin-nowrap {
+  white-space: nowrap;
+}
+.admin-chips {
+  gap: var(--s1);
+}
+.admin-when {
+  display: inline-flex;
+  flex-direction: column;
+}
+.admin-workspace {
+  align-items: flex-start;
+}
+.admin-workspace .title,
+.admin-workspace .meta {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.admin-workspace-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2) var(--s4);
+  margin-top: var(--s2);
+}
+.admin-inline-link {
+  margin: var(--s1) 0 0 calc(-1 * var(--s3));
+}
+
+.admin-views {
+  margin-bottom: var(--s3);
+}
+.admin-views a {
+  text-decoration: none;
+}
+.chip-filter[aria-current='page'] {
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+  border-color: var(--primary);
+}
+.admin-filters {
+  margin: 0 0 var(--s3);
+}
+.admin-person {
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: var(--s3);
+}
+.admin-person .grow {
+  flex: 1 1 200px;
+  overflow-wrap: anywhere;
+}
+.admin-requester {
+  font-weight: 600;
+}
+
+.admin-ticket-head {
+  margin-bottom: var(--s4);
+}
+.admin-ticket-head .kv {
+  margin-top: 0;
+}
+.admin-block {
+  display: block;
+}
+
+.admin-denied {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s2);
+  padding: var(--s8) var(--s4);
+  text-align: center;
+}
+.admin-denied h2 {
+  margin: var(--s2) 0 0;
+  font-size: 1.25rem;
+  line-height: 1.4;
+}
+.admin-denied p {
+  max-width: 480px;
+  margin: 0 0 var(--s4);
+}
+.admin-denied-icon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+}

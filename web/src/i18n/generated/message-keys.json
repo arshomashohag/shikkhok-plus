@@ -91,6 +91,8 @@
   "fees.verification.disposition_not_applicable": "fees_verification_disposition_not_applicable",
   "fees.verification.disposition_required": "fees_verification_disposition_required",
   "fees.verification.disposition_unknown": "fees_verification_disposition_unknown",
+  "help.ticket.not_found": "help_ticket_not_found",
+  "help.ticket.too_many": "help_ticket_too_many",
   "inbox.not_available": "inbox_not_available",
   "mark.state.absent": "mark_state_absent",
   "mark.state.joined_after": "mark_state_joined_after",

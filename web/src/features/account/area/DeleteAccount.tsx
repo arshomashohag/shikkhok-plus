@@ -24,6 +24,7 @@ import { ErrorCard, Loading, TopBar } from '../../../ui/components'
 import { deleteMyAccount, readDeletionSummary } from './api'
 import { footprintOf, numberMatches, type TeacherFootprint } from './mappers'
 import { resetUnreadCount } from './unread'
+import { resetNewReplies } from '../../help/newReplies'
 import './account.css'
 
 export function DeleteAccount() {
@@ -209,6 +210,7 @@ function DeletedBody() {
       pendingEnd.current = null
     }
     resetUnreadCount()
+    resetNewReplies()
     const end = () => signOut()
     window.addEventListener('pagehide', end)
     return () => {

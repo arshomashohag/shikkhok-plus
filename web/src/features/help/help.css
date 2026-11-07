@@ -1,0 +1,142 @@
+/* Help centre: the list, the question form and the thread (also support's). */
+
+.help-row {
+  align-items: flex-start;
+}
+.help-row .title,
+.help-row .meta {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.help-preview {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.help-row-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s1) var(--s2);
+  margin-top: var(--s1);
+}
+.help-dot {
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--primary);
+}
+.help-new {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--primary);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+.help-ask {
+  margin-bottom: var(--s3);
+}
+
+.help-field-foot {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s3);
+}
+.help-field-foot .grow {
+  flex: 1;
+  min-width: 0;
+}
+.help-field-foot .help {
+  margin-top: 0;
+}
+.help-count {
+  flex-shrink: 0;
+  font-size: 0.8125rem;
+  color: var(--on-surface-variant);
+  font-variant-numeric: tabular-nums;
+}
+.help-count.over {
+  color: var(--error);
+  font-weight: 700;
+}
+.help-field input,
+.help-field textarea {
+  width: 100%;
+  min-width: 0;
+}
+.help-error {
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: var(--s4);
+}
+.help-error .grow {
+  flex: 1 1 200px;
+}
+.help-actions {
+  justify-content: flex-end;
+}
+
+.help-thread {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  margin: 0 0 var(--s4);
+  padding: 0;
+  list-style: none;
+}
+.help-bubble {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  max-width: min(85%, 640px);
+  padding: var(--s3) var(--s4);
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--r-card) var(--r-card) var(--r-card) 4px;
+  background: var(--surface);
+}
+.help-bubble.own {
+  align-self: flex-end;
+  border-color: transparent;
+  border-radius: var(--r-card) var(--r-card) 4px var(--r-card);
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+}
+.help-bubble.own .meta {
+  color: inherit;
+  opacity: 0.85;
+}
+.help-author {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.help-author.support {
+  color: var(--primary);
+}
+.help-bubble.own .help-author.support {
+  color: inherit;
+}
+.help-body {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.help-head {
+  margin-bottom: var(--s4);
+}
+.help-head .chips {
+  align-items: center;
+}
+.help-closed {
+  margin-bottom: var(--s3);
+}
+.help-reply .field:first-child {
+  margin-top: 0;
+}
+/* The reply box spans the thread's column, not the narrower form column. */
+.shell-main > form.help-reply {
+  max-width: none;
+}

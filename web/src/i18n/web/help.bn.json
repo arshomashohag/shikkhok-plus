@@ -1,0 +1,12 @@
+{
+  "web_help_new_replies": "{1}টি নতুন উত্তর",
+  "web_help_updated": "হালনাগাদ {1}",
+  "web_help_body_help": "কী হয়েছে, আর কোন স্ক্রিনে",
+  "web_help_required": "এখানে কিছু লিখুন",
+  "web_help_too_long": "বেশি লম্বা: সর্বোচ্চ {1}টি অক্ষর",
+  "web_help_send_offline": "সংযোগ নেই। কিছুই পাঠানো হয়নি।",
+  "web_help_sent": "পাঠানো হয়েছে। উত্তর এখানেই আসবে।",
+  "web_help_asked_on": "জিজ্ঞেস করেছেন {1}",
+  "web_help_reply_send": "উত্তর পাঠান",
+  "web_help_messages": "বার্তা"
+}

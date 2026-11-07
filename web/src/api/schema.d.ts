@@ -165,6 +165,181 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/v1/admin/help/requesters': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List Requesters
+     * @description List everyone who has asked support, with their ticket counts.
+     *
+     *     :param lens: The administrator's lens
+     *     :param session: The request-scoped session
+     *     :return: One row per person, latest activity first
+     */
+    get: operations['list_requesters_v1_admin_help_requesters_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/admin/help/tickets': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List Tickets
+     * @description List tickets, optionally one status or one person's.
+     *
+     *     :param lens: The administrator's lens
+     *     :param session: The request-scoped session
+     *     :param status: Only this status
+     *     :param ref: Only this person's tickets, by their opaque label
+     *     :return: The tickets, waiting-on-support first
+     */
+    get: operations['list_tickets_v1_admin_help_tickets_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/admin/help/tickets/{ticket_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Get Ticket
+     * @description Open any ticket.
+     *
+     *     :param ticket_id: The ticket
+     *     :param lens: The administrator's lens
+     *     :param session: The request-scoped session
+     *     :return: The ticket and its thread
+     */
+    get: operations['get_ticket_v1_admin_help_tickets__ticket_id__get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/admin/help/tickets/{ticket_id}/messages': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Reply
+     * @description Answer a ticket as ShikkhokPlus support.
+     *
+     *     :param ticket_id: The ticket
+     *     :param body: The reply
+     *     :param lens: The administrator's lens
+     *     :param session: The request-scoped session
+     *     :return: The ticket and its thread
+     */
+    post: operations['reply_v1_admin_help_tickets__ticket_id__messages_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/admin/help/tickets/{ticket_id}/status': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    /**
+     * Change Status
+     * @description Close or reopen a ticket.
+     *
+     *     :param ticket_id: The ticket
+     *     :param body: The new status
+     *     :param lens: The administrator's lens
+     *     :param session: The request-scoped session
+     *     :return: The ticket and its thread
+     */
+    put: operations['change_status_v1_admin_help_tickets__ticket_id__status_put']
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/admin/overview': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Get Overview
+     * @description Read the platform's aggregate figures.
+     *
+     *     :param lens: The administrator's lens
+     *     :param session: The request-scoped session
+     *     :return: The figures
+     */
+    get: operations['get_overview_v1_admin_overview_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/admin/teachers': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List Teachers
+     * @description List teachers and coaching centres by name.
+     *
+     *     :param lens: The administrator's lens
+     *     :param session: The request-scoped session
+     *     :return: The workspaces, most recently seen first
+     */
+    get: operations['list_teachers_v1_admin_teachers_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/v1/analytics/collections': {
     parameters: {
       query?: never
@@ -2718,6 +2893,91 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/v1/me/help/tickets': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List Tickets
+     * @description List the caller's own tickets, most recently active first.
+     *
+     *     :param session: The request-scoped session
+     *     :param account_id: The authenticated account
+     *     :return: The tickets and how many carry an unseen reply
+     */
+    get: operations['list_tickets_v1_me_help_tickets_get']
+    put?: never
+    /**
+     * Create Ticket
+     * @description Ask ShikkhokPlus support a question.
+     *
+     *     :param body: The subject and the question
+     *     :param request: The incoming request, for the app it came from
+     *     :param session: The request-scoped session
+     *     :param account_id: The authenticated account
+     *     :return: The new ticket and its thread
+     */
+    post: operations['create_ticket_v1_me_help_tickets_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/me/help/tickets/{ticket_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Get Ticket
+     * @description Open one of the caller's tickets, marking support's replies seen.
+     *
+     *     :param ticket_id: The ticket
+     *     :param session: The request-scoped session
+     *     :param account_id: The authenticated account
+     *     :return: The ticket and its thread
+     */
+    get: operations['get_ticket_v1_me_help_tickets__ticket_id__get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/me/help/tickets/{ticket_id}/messages': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Reply
+     * @description Add a message to one of the caller's tickets, reopening it.
+     *
+     *     :param ticket_id: The ticket
+     *     :param body: The message
+     *     :param session: The request-scoped session
+     *     :param account_id: The authenticated account
+     *     :return: The ticket and its thread
+     */
+    post: operations['reply_v1_me_help_tickets__ticket_id__messages_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/v1/me/notifications': {
     parameters: {
       query?: never
@@ -3644,6 +3904,305 @@ export interface components {
       kind: 'addition' | 'deduction'
       /** Label */
       label: string
+    }
+    /**
+     * AdminAppVersion
+     * @description How many accounts reported one app version in the last 30 days.
+     *
+     *     :ivar platform: ``android`` or ``web``
+     *     :ivar version: The version string
+     *     :ivar accounts: Accounts on it
+     */
+    AdminAppVersion: {
+      /** Accounts */
+      accounts: number
+      /**
+       * Platform
+       * @enum {string}
+       */
+      platform: 'android' | 'web'
+      /** Version */
+      version: string
+    }
+    /**
+     * AdminOverviewResponse
+     * @description The platform at a glance. Every figure is an aggregate.
+     *
+     *     :ivar generated_at: When these figures were read
+     *     :ivar accounts: Accounts that have signed in at least once
+     *     :ivar new_7_days: First signed in during the last 7 days
+     *     :ivar new_30_days: First signed in during the last 30 days
+     *     :ivar active_7_days: Seen on any app in the last 7 days
+     *     :ivar active_30_days: Seen on any app in the last 30 days
+     *     :ivar teachers: Accounts owning a solo-tutor workspace
+     *     :ivar centres: Coaching centres
+     *     :ivar centre_members: Accounts holding a live centre membership
+     *     :ivar students: Accounts holding an accepted student seat
+     *     :ivar guardians: Accounts holding an accepted guardian seat
+     *     :ivar batches: Active batches
+     *     :ivar seats: Accepted student seats in active batches
+     *     :ivar platforms: Usage per app
+     *     :ivar both_platforms: Accounts seen on both apps
+     *     :ivar no_platform: Signed-in accounts no app has reported yet, such
+     *         as those last seen on an app build that predates reporting
+     *     :ivar versions: App versions seen in the last 30 days
+     *     :ivar help_open: Tickets waiting on support
+     *     :ivar help_answered: Tickets waiting on the requester
+     *     :ivar help_closed: Closed tickets
+     */
+    AdminOverviewResponse: {
+      /** Accounts */
+      accounts: number
+      /** Active 30 Days */
+      active_30_days: number
+      /** Active 7 Days */
+      active_7_days: number
+      /** Batches */
+      batches: number
+      /** Both Platforms */
+      both_platforms: number
+      /** Centre Members */
+      centre_members: number
+      /** Centres */
+      centres: number
+      /**
+       * Generated At
+       * Format: date-time
+       */
+      generated_at: string
+      /** Guardians */
+      guardians: number
+      /** Help Answered */
+      help_answered: number
+      /** Help Closed */
+      help_closed: number
+      /** Help Open */
+      help_open: number
+      /** New 30 Days */
+      new_30_days: number
+      /** New 7 Days */
+      new_7_days: number
+      /** No Platform */
+      no_platform: number
+      /** Platforms */
+      platforms: components['schemas']['AdminPlatformUsage'][]
+      /** Seats */
+      seats: number
+      /** Students */
+      students: number
+      /** Teachers */
+      teachers: number
+      /** Versions */
+      versions: components['schemas']['AdminAppVersion'][]
+    }
+    /**
+     * AdminPlatformUsage
+     * @description How many accounts use one app.
+     *
+     *     :ivar platform: ``android`` or ``web``
+     *     :ivar accounts: Accounts ever seen on it
+     *     :ivar active_7_days: Seen on it in the last seven days
+     *     :ivar active_30_days: Seen on it in the last thirty days
+     */
+    AdminPlatformUsage: {
+      /** Accounts */
+      accounts: number
+      /** Active 30 Days */
+      active_30_days: number
+      /** Active 7 Days */
+      active_7_days: number
+      /**
+       * Platform
+       * @enum {string}
+       */
+      platform: 'android' | 'web'
+    }
+    /**
+     * AdminReplyRequest
+     * @description Answer a ticket as ShikkhokPlus support.
+     *
+     *     :ivar body: The reply
+     */
+    AdminReplyRequest: {
+      /** Body */
+      body: string
+    }
+    /**
+     * AdminRequester
+     * @description Who asked, within the administrator boundary.
+     *
+     *     :ivar ref: An opaque label, stable per person
+     *     :ivar roles: The roles the account holds now
+     *     :ivar name: Set only when a role is ``teacher`` or ``centre_member``
+     *     :ivar centre: The centre's name, set only for a centre member
+     */
+    AdminRequester: {
+      /** Centre */
+      centre?: string | null
+      /** Name */
+      name?: string | null
+      /** Ref */
+      ref: string
+      /** Roles */
+      roles: ('centre_member' | 'guardian' | 'student' | 'teacher')[]
+    }
+    /**
+     * AdminRequesterSummary
+     * @description One person's tickets.
+     *
+     *     :ivar requester: Who
+     *     :ivar tickets: How many tickets they have opened
+     *     :ivar open: How many wait on support
+     *     :ivar last_activity: Their latest ticket activity
+     */
+    AdminRequesterSummary: {
+      /**
+       * Last Activity
+       * Format: date-time
+       */
+      last_activity: string
+      /** Open */
+      open: number
+      requester: components['schemas']['AdminRequester']
+      /** Tickets */
+      tickets: number
+    }
+    /**
+     * AdminRequestersResponse
+     * @description Everyone who has asked, latest activity first.
+     *
+     *     :ivar requesters: One row per person
+     */
+    AdminRequestersResponse: {
+      /** Requesters */
+      requesters: components['schemas']['AdminRequesterSummary'][]
+    }
+    /**
+     * AdminTicket
+     * @description A ticket in an administrator's list.
+     *
+     *     :ivar ticket_id: The ticket
+     *     :ivar subject: The one-line summary
+     *     :ivar status: ``open``, ``answered`` or ``closed``
+     *     :ivar platform: The app it was asked from, if known
+     *     :ivar created_at: When it was asked
+     *     :ivar updated_at: The latest activity
+     *     :ivar message_count: Messages in the thread
+     *     :ivar preview: The start of the latest message
+     *     :ivar requester: Who asked
+     */
+    AdminTicket: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string
+      /** Message Count */
+      message_count: number
+      /** Platform */
+      platform?: ('android' | 'web') | null
+      /** Preview */
+      preview: string
+      requester: components['schemas']['AdminRequester']
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: 'answered' | 'closed' | 'open'
+      /** Subject */
+      subject: string
+      /**
+       * Ticket Id
+       * Format: uuid
+       */
+      ticket_id: string
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string
+    }
+    /**
+     * AdminTicketDetailResponse
+     * @description A ticket and its thread.
+     *
+     *     :ivar ticket: The ticket
+     *     :ivar messages: Its messages, oldest first
+     */
+    AdminTicketDetailResponse: {
+      /** Messages */
+      messages: components['schemas']['HelpMessageResponse'][]
+      ticket: components['schemas']['AdminTicket']
+    }
+    /**
+     * AdminTicketListResponse
+     * @description Tickets, waiting-on-support first.
+     *
+     *     :ivar tickets: The tickets
+     */
+    AdminTicketListResponse: {
+      /** Tickets */
+      tickets: components['schemas']['AdminTicket'][]
+    }
+    /**
+     * AdminTicketStatusRequest
+     * @description Close or reopen a ticket.
+     *
+     *     :ivar status: ``closed`` or ``open``
+     */
+    AdminTicketStatusRequest: {
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: 'closed' | 'open'
+    }
+    /**
+     * AdminWorkspace
+     * @description One teacher or coaching centre.
+     *
+     *     :ivar workspace_id: The workspace
+     *     :ivar kind: ``teacher`` for a solo tutor, ``centre`` for a centre
+     *     :ivar name: The name shown to its students, if one has been given
+     *     :ivar platforms: The apps its people use
+     *     :ivar joined_at: When the workspace was created
+     *     :ivar last_seen_at: The latest sign-in or refresh, if any
+     *     :ivar ref: A solo tutor's help-centre label, to find their tickets
+     */
+    AdminWorkspace: {
+      /**
+       * Joined At
+       * Format: date-time
+       */
+      joined_at: string
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: 'centre' | 'teacher'
+      /** Last Seen At */
+      last_seen_at?: string | null
+      /** Name */
+      name?: string | null
+      /** Platforms */
+      platforms: ('android' | 'web')[]
+      /** Ref */
+      ref?: string | null
+      /**
+       * Workspace Id
+       * Format: uuid
+       */
+      workspace_id: string
+    }
+    /**
+     * AdminWorkspacesResponse
+     * @description Teachers and centres, most recently seen first.
+     *
+     *     :ivar workspaces: The workspaces
+     */
+    AdminWorkspacesResponse: {
+      /** Workspaces */
+      workspaces: components['schemas']['AdminWorkspace'][]
     }
     /**
      * AlreadyAddedResponse
@@ -5676,6 +6235,123 @@ export interface components {
        * @constant
        */
       status: 'ok'
+    }
+    /**
+     * HelpMessageResponse
+     * @description One message in a thread.
+     *
+     *     :ivar message_id: The message
+     *     :ivar author: ``requester`` for the asker, ``support`` for ShikkhokPlus
+     *     :ivar body: What was written
+     *     :ivar created_at: When
+     */
+    HelpMessageResponse: {
+      /**
+       * Author
+       * @enum {string}
+       */
+      author: 'requester' | 'support'
+      /** Body */
+      body: string
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string
+      /**
+       * Message Id
+       * Format: uuid
+       */
+      message_id: string
+    }
+    /**
+     * HelpReplyRequest
+     * @description Add a message to a thread.
+     *
+     *     :ivar body: The message
+     */
+    HelpReplyRequest: {
+      /** Body */
+      body: string
+    }
+    /**
+     * HelpTicketDetailResponse
+     * @description A ticket and its whole thread.
+     *
+     *     :ivar ticket: The ticket
+     *     :ivar messages: Its messages, oldest first
+     */
+    HelpTicketDetailResponse: {
+      /** Messages */
+      messages: components['schemas']['HelpMessageResponse'][]
+      ticket: components['schemas']['HelpTicketResponse']
+    }
+    /**
+     * HelpTicketListResponse
+     * @description The requester's tickets, most recently active first.
+     *
+     *     :ivar tickets: The tickets
+     *     :ivar new_replies: How many carry a reply not yet seen
+     */
+    HelpTicketListResponse: {
+      /** New Replies */
+      new_replies: number
+      /** Tickets */
+      tickets: components['schemas']['HelpTicketResponse'][]
+    }
+    /**
+     * HelpTicketRequest
+     * @description Ask support a question.
+     *
+     *     :ivar subject: A one-line summary
+     *     :ivar body: The question
+     */
+    HelpTicketRequest: {
+      /** Body */
+      body: string
+      /** Subject */
+      subject: string
+    }
+    /**
+     * HelpTicketResponse
+     * @description One of the requester's tickets.
+     *
+     *     :ivar ticket_id: The ticket
+     *     :ivar subject: The one-line summary
+     *     :ivar status: ``open`` (with support), ``answered`` (support replied),
+     *         or ``closed``
+     *     :ivar created_at: When it was asked
+     *     :ivar updated_at: The latest activity
+     *     :ivar has_new_reply: Support replied since the requester last opened it
+     *     :ivar preview: The start of the latest message
+     */
+    HelpTicketResponse: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string
+      /** Has New Reply */
+      has_new_reply: boolean
+      /** Preview */
+      preview: string
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: 'answered' | 'closed' | 'open'
+      /** Subject */
+      subject: string
+      /**
+       * Ticket Id
+       * Format: uuid
+       */
+      ticket_id: string
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string
     }
     /**
      * HistoryLineResponse
@@ -9051,6 +9727,199 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  list_requesters_v1_admin_help_requesters_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AdminRequestersResponse']
+        }
+      }
+    }
+  }
+  list_tickets_v1_admin_help_tickets_get: {
+    parameters: {
+      query?: {
+        status?: ('answered' | 'closed' | 'open') | null
+        ref?: string | null
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AdminTicketListResponse']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  get_ticket_v1_admin_help_tickets__ticket_id__get: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        ticket_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AdminTicketDetailResponse']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  reply_v1_admin_help_tickets__ticket_id__messages_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        ticket_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AdminReplyRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AdminTicketDetailResponse']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  change_status_v1_admin_help_tickets__ticket_id__status_put: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        ticket_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AdminTicketStatusRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AdminTicketDetailResponse']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  get_overview_v1_admin_overview_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AdminOverviewResponse']
+        }
+      }
+    }
+  }
+  list_teachers_v1_admin_teachers_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AdminWorkspacesResponse']
         }
       }
     }
@@ -14589,6 +15458,125 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['ErrorEnvelope']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  list_tickets_v1_me_help_tickets_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HelpTicketListResponse']
+        }
+      }
+    }
+  }
+  create_ticket_v1_me_help_tickets_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['HelpTicketRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HelpTicketDetailResponse']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  get_ticket_v1_me_help_tickets__ticket_id__get: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        ticket_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HelpTicketDetailResponse']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  reply_v1_me_help_tickets__ticket_id__messages_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        ticket_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['HelpReplyRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HelpTicketDetailResponse']
         }
       }
       /** @description Validation Error */

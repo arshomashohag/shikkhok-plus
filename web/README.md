@@ -101,14 +101,34 @@ Every screen the Android app has, for every role.
 
 | Role     | Screens                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Everyone | Sign in, create account, role picker, invitations, inbox (unread count on More), edit profile, delete account, More, Settings (language, theme, text size), install and update prompts                                                                                                                                                                                                                                                                                                                         |
+| Everyone | Sign in, create account, role picker, invitations, inbox (unread count on More), help centre (my questions, ask a question, the thread; new replies counted on More), edit profile, delete account, More, Settings (language, theme, text size), install and update prompts                                                                                                                                                                                                                                    |
 | Teacher  | Today (T1); batches, new batch, edit batch, schedule; a batch's Students (T7), Classes, Exams and Notices tabs; add student (T8), mark inactive, remove; record a class (T2) with attendance, plan, move and cancel; new and edit exam, marks entry (T3), publish, results and corrections; Dues (T5) with reminders; verify payments (T4) and the payment itself, including split payments and changing a decision; a student's fee history and progress; where students pay; collections and a batch's month |
 | Student  | My batches (S1); a batch (S2) with classes, exams, notices and teacher; a class, an exam, its marksheet, a notice; progress and dashboard; fee history; send money (S3)                                                                                                                                                                                                                                                                                                                                        |
 | Guardian | Children (G1); each child's batch and everything a student sees about it; progress (G3) with the trend; payments (G2); send money for one or several children; my children                                                                                                                                                                                                                                                                                                                                     |
+| Admin    | Overview (accounts, roles as counts, Android and web usage, app versions, batches and seats, help-centre counts); teachers and centres; help centre by person and all tickets, a ticket with support reply, close and reopen                                                                                                                                                                                                                                                                                   |
+
+**The admin area** (`features/admin`, one chunk) is at `/ui/admin` and is
+linked from nowhere: an administrator bookmarks it. It is mounted for
+every signed-in account because who is an administrator is the server's
+allowlist (`PlatformAdminLens`); anyone else gets a 403 and sees "This
+area is for ShikkhokPlus administrators". It shows only what the server
+sends inside the administrator boundary [TC-14] [D-6]: teacher and centre
+names, but students and guardians only as counts or as role plus an
+opaque reference (`Student · #A1B2C3D4E5`). `admin/mappers.ts` drops a
+name that arrives for anyone who is not a teacher or centre member, and
+a test holds it to that.
+
+**Every request says which app it is** (`api/platform.ts`):
+`X-Client-Platform: web` and `X-Client-Version: <package.json version>`
+(injected as `__APP_VERSION__`, trimmed to `[0-9A-Za-z.+-]{1,32}`), token
+renewal included. The server records them at sign-in and refresh for the
+admin overview's Android-versus-web figures. They name the build, not the
+person or the browser.
 
 **How it is organised.** Each area owns a directory and its own string
 files: `features/teacher/{classes,exams,students,money}`,
-`features/family/{batch,pay}` and `features/account/area`. Every teacher
+`features/family/{batch,pay}`, `features/account/area`, `features/help`
+and `features/admin`. Every teacher
 URL is in `features/teacher/paths.ts`; student and guardian screens are
 written once with a reader (`'me'` or `'child'`, `features/family/reader.ts`)
 and mounted under `/my/:seat` and `/child/:seat`. Every area screen loads

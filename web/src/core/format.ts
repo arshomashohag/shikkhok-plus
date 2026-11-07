@@ -53,6 +53,23 @@ function formatter(lang: Lang, options: Intl.DateTimeFormatOptions): Intl.DateTi
   return f
 }
 
+/**
+ * "17 Oct, 4:52 pm" in Dhaka time, Western digits in both languages;
+ * "17 Oct 2026, 4:52 pm" with `withYear`, for dates that may be old.
+ */
+export function formatDateTime(iso: string, lang: Lang, withYear = false): string {
+  return formatter(lang, {
+    day: 'numeric',
+    month: 'short',
+    ...(withYear ? { year: 'numeric' } : {}),
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })
+    .format(new Date(iso))
+    .replace(/\s?([AP]M)$/i, (_, m: string) => ` ${m.toLowerCase()}`)
+}
+
 /** Parse a server `YYYY-MM-DD` as a calendar date (noon UTC, so no TZ drift). */
 export function parseDate(isoDate: string): Date {
   return new Date(`${isoDate.slice(0, 10)}T12:00:00Z`)
