@@ -624,12 +624,25 @@ migrate() {
 # command upgrades when the database is at a revision this image knows,
 # skips when it is at a LATER numbered one (forward-only, backward-
 # compatible migrations make that safe), and refuses anything else.
-if ! migrate python -m app.db.commands migrate-if-behind; then
-  echo "FAILED: migrate-if-behind" >> /var/log/shikkhokplus-provision.log
-  # **Exit non-zero and serve nothing.** An instance that starts the
-  # API against a schema the migration could not apply is worse than
-  # an instance that does not start: it answers requests wrongly.
-  exit 1
+#
+# **An image built before the verb existed answers it with a usage
+# error, exit 2**, and this template boots whatever image the tag names
+# -- including a rollback to one of those. That image gets the upgrade it
+# was built with; any other failure is final.
+if migrate python -m app.db.commands migrate-if-behind; then
+  :
+else
+  status=$?
+  if [ "$status" -eq 2 ] && migrate alembic upgrade head; then
+    echo "migrated with alembic: this image predates migrate-if-behind" \
+      >> /var/log/shikkhokplus-provision.log
+  else
+    echo "FAILED: migrate-if-behind (exit $status)" >> /var/log/shikkhokplus-provision.log
+    # **Exit non-zero and serve nothing.** An instance that starts the
+    # API against a schema the migration could not apply is worse than
+    # an instance that does not start: it answers requests wrongly.
+    exit 1
+  fi
 fi
 if ! migrate python -m app.db.commands set-app-role-password; then
   echo "FAILED: could not set the shikkhok_app password" \
