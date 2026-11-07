@@ -32,7 +32,12 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Session, aliased
 
 from app.analytics.earnings import period_totals
-from app.analytics.seats import OwnedSeat, owned_seats
+from app.analytics.seats import (
+    OwnedSeat,
+    any_of,
+    owing_ledger_for_seats,
+    owned_seats,
+)
 from app.authz.lenses import TeacherLens
 from app.db.models import Batch, LedgerEntryRow
 from app.errors import AuthorizationError
@@ -61,10 +66,13 @@ MAX_MONTHS: Final[int] = 24
 
 @dataclass(frozen=True, slots=True)
 class LedgerFact:
-    """One stored ledger row with what a correction did to it.
+    """Stored ledger rows with what a correction did to them.
 
-    :ivar enrollment_id: The seat
-    :ivar entry: The row as the money module's value shape
+    One fact stands for every row of one seat sharing a period, a kind
+    and all three flags, its amount their sum (:func:`facts_for_seats`).
+
+    :ivar enrollment_id: The seat; None when summed across seats
+    :ivar entry: The rows as the money module's value shape, summed
     :ivar superseded: A later entry compensates this one
     :ivar compensation: This row is a compensation or was written to
         undo a prior decision, not a bill or a receipt
@@ -72,7 +80,7 @@ class LedgerFact:
         this row is the compensation that cancels it
     """
 
-    enrollment_id: uuid.UUID
+    enrollment_id: uuid.UUID | None
     entry: LedgerEntry
     superseded: bool
     compensation: bool
@@ -137,40 +145,71 @@ def months_ending(today: dt.date, count: int) -> list[str]:
 
 
 def facts_for_seats(
-    session: Session, seat_ids: Sequence[uuid.UUID]
+    session: Session, seat_ids: Sequence[uuid.UUID], *, across_seats: bool = False
 ) -> list[LedgerFact]:
-    """Read every row of these seats, with its correction flags, in one statement.
+    """Read these seats' rows, summed per correction flags, in one statement.
+
+    Rows are flagged first and then summed per (seat, period, kind,
+    flags), so one fact stands for every row sharing all of those
+    [C-14]. Every consumer here sums facts selected by kind, period and
+    flags, or folds a seat's facts through :func:`app.money.derive`,
+    which is linear per (period, kind)
+    (``tests/money/test_ledger_presum_property.py``) -- so the summed
+    facts answer exactly what the rows did, with one value built per
+    group instead of per row. A fact must therefore never be counted.
+
+    With ``across_seats`` the seat is dropped from the grouping too, for
+    figures summed per period over many seats -- a month's charged and
+    collected -- so a centre's month costs one fact per kind and flags
+    rather than one per seat. Such facts carry no seat and must never be
+    folded as one seat's ledger, whose floor is per seat.
 
     :param session: The session to read through
     :param seat_ids: The seats
-    :return: The rows, oldest first
+    :param across_seats: Sum over the seats as well; facts then carry
+        ``enrollment_id=None``
+    :return: The summed facts, in no particular order
     """
     if not seat_ids:
         return []
     compensating = aliased(LedgerEntryRow)
     targeted = sa.exists().where(compensating.superseded_by_id == LedgerEntryRow.id)
-    rows = session.execute(
+    flagged = (
         sa.select(
             LedgerEntryRow.enrollment_id,
             LedgerEntryRow.kind,
             LedgerEntryRow.period,
             LedgerEntryRow.amount,
-            LedgerEntryRow.superseded_by_id.is_not(None),
-            sa.or_(targeted, LedgerEntryRow.payment_claim_id.is_not(None)),
-            targeted,
+            LedgerEntryRow.superseded_by_id.is_not(None).label("superseded"),
+            sa.or_(targeted, LedgerEntryRow.payment_claim_id.is_not(None)).label(
+                "compensation"
+            ),
+            targeted.label("reverses"),
         )
-        .where(LedgerEntryRow.enrollment_id.in_(list(seat_ids)))
-        .order_by(LedgerEntryRow.period, LedgerEntryRow.created_at)
+        .where(LedgerEntryRow.enrollment_id == any_of(seat_ids))
+        .subquery()
+    )
+    seat = sa.null() if across_seats else flagged.c.enrollment_id
+    keys = (
+        flagged.c.kind,
+        flagged.c.period,
+        flagged.c.superseded,
+        flagged.c.compensation,
+        flagged.c.reverses,
+    )
+    grouping = keys if across_seats else (flagged.c.enrollment_id, *keys)
+    rows = session.execute(
+        sa.select(seat, *keys, sa.func.sum(flagged.c.amount)).group_by(*grouping)
     ).all()
     return [
         LedgerFact(
             enrollment_id=row[0],
             entry=LedgerEntry(
-                kind=LedgerEntryKind(row[1]), period=row[2], amount=row[3]
+                kind=LedgerEntryKind(row[1]), period=row[2], amount=row[6]
             ),
-            superseded=bool(row[4]),
-            compensation=bool(row[5]),
-            reverses=bool(row[6]),
+            superseded=bool(row[3]),
+            compensation=bool(row[4]),
+            reverses=bool(row[5]),
         )
         for row in rows
     ]
@@ -278,7 +317,8 @@ def collections(
     """
     on = today or bangladesh_today()
     seats = _selected_seats(session, lens, batch_ids)
-    facts = facts_for_seats(session, [seat.enrollment_id for seat in seats])
+    seat_ids = [seat.enrollment_id for seat in seats]
+    facts = facts_for_seats(session, seat_ids, across_seats=True)
 
     charged = charged_by_period(facts)
     collected = collected_by_period(facts)
@@ -287,10 +327,9 @@ def collections(
         (charged.get(period, Money.ZERO) for period in periods), default=Money.ZERO
     )
 
-    by_seat: defaultdict[uuid.UUID, list[LedgerEntry]] = defaultdict(list)
-    for fact in facts:
-        by_seat[fact.enrollment_id].append(fact.entry)
-    owed = [derive(by_seat[seat.enrollment_id]).total_outstanding for seat in seats]
+    # What each seat owes needs only its months still owing [C-14].
+    ledger = owing_ledger_for_seats(session, seat_ids)
+    owed = [derive(ledger[seat]).total_outstanding for seat in seat_ids]
 
     current = months_ending(on, 1)[0]
     rows: list[MonthCollection] = []

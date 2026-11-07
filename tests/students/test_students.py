@@ -561,3 +561,53 @@ def test_money_crosses_as_strings(
     assert body["total_outstanding"] == "0.00"
     assert body["enrollments"][0]["fee_amount"] == "900.00"
     assert body["enrollments"][0]["outstanding"] == "0.00"
+
+
+def test_keyset_pages_walk_the_same_list_the_unpaged_read_returns(
+    client: TestClient, owner_session: Session, teacher: TeacherFixture
+) -> None:
+    """``limit`` and ``after`` page the list; no parameters, the whole list.
+
+    Names that differ only in case sort case-insensitively, so the cursor
+    is the server's ``(lower(name), id)`` and never a client comparison.
+    A cursor naming another teacher's student is a 404 [C-14].
+
+    :param client: The test client
+    :param owner_session: An arranging session
+    :param teacher: The teacher
+    :return: None
+    """
+    headers = bearer(owner_session, teacher.account_id)
+    for name in ("delwar", "Ayesha", "Babul", "chandni", "Esha"):
+        _create(client, headers, batches=[], phone=None, name=name)
+
+    whole = client.get("/v1/students", headers=headers).json()
+    assert [row["display_name"] for row in whole] == [
+        "Ayesha",
+        "Babul",
+        "chandni",
+        "delwar",
+        "Esha",
+    ]
+
+    pages: list[list[dict[str, object]]] = []
+    after: object = None
+    while True:
+        query = "?limit=2" + ("" if after is None else f"&after={after}")
+        page = client.get(f"/v1/students{query}", headers=headers).json()
+        pages.append(page)
+        if len(page) < 2:
+            break
+        after = page[-1]["student_id"]
+    assert [len(page) for page in pages] == [2, 2, 1]
+    assert [row for page in pages for row in page] == whole
+
+    other = make_teacher(owner_session, name="Maths")
+    foreign = _create(
+        client, bearer(owner_session, other.account_id), batches=[], phone=None
+    )
+    refused = client.get(
+        f"/v1/students?limit=2&after={foreign['student_id']}", headers=headers
+    )
+    assert refused.status_code == 404
+    assert client.get("/v1/students?limit=0", headers=headers).status_code == 422

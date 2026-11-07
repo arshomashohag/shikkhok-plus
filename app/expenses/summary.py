@@ -24,7 +24,7 @@ from typing import Literal
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
-from app.analytics.seats import ledger_for_seats, owned_seats
+from app.analytics.seats import owing_ledger_for_seats, owned_seats
 from app.authz.lenses import TeacherLens
 from app.db.models import (
     Batch,
@@ -141,7 +141,7 @@ def _owed_monthly(session: Session, lens: TeacherLens) -> Money:
     :return: The total
     """
     seats = [seat.enrollment_id for seat in owned_seats(session, lens)]
-    ledger = ledger_for_seats(session, seats)
+    ledger = owing_ledger_for_seats(session, seats)
     return Money.sum([derive(ledger.get(seat, [])).total_outstanding for seat in seats])
 
 

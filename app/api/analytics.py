@@ -37,7 +37,8 @@ from app.analytics.earnings import MonthlyEarnings, period_totals, trend
 from app.analytics.seats import (
     due_dates_for_seats,
     last_reminders_for_seats,
-    ledger_for_seats,
+    ledger_by_period,
+    owing_ledger_for_seats,
     owned_seats,
 )
 from app.analytics.today import today_view
@@ -168,10 +169,13 @@ def read_dues(
     """
     seats = owned_seats(session, lens)
     seat_ids = [seat.enrollment_id for seat in seats]
+    # Only the months still owing reach the fold, and only their due
+    # dates are read [C-14]: dues reads what is owed, never what was paid.
+    ledger = owing_ledger_for_seats(session, seat_ids)
     rows = dues_rows(
         seats,
-        ledger_for_seats(session, seat_ids),
-        due_by_seat=due_dates_for_seats(session, seat_ids),
+        ledger,
+        due_by_seat=due_dates_for_seats(session, seat_ids, periods=ledger),
         last_reminded=last_reminders_for_seats(session, seat_ids),
         today=bangladesh_today(),
     )
@@ -288,8 +292,9 @@ def read_overview(
     period = _current_period(today)
 
     seats = owned_seats(session, lens)
-    ledger = ledger_for_seats(session, [seat.enrollment_id for seat in seats])
-    entries = [entry for rows in ledger.values() for entry in rows]
+    # Received per month is a sum over every seat, so the database sums
+    # across seats too: one value per month and kind [C-14].
+    entries = ledger_by_period(session, [seat.enrollment_id for seat in seats])
 
     totals = period_totals(entries)
     series = trend(totals)

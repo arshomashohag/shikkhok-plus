@@ -16,10 +16,13 @@ view has no session date to compare against.
 from __future__ import annotations
 
 import datetime as dt
+import random
 
 from sqlalchemy.orm import Session
 
-from app.analytics.seats import owned_seats
+from app.analytics.seats import ledger_for_seats, owned_seats
+from app.fees.balances import entries_for_enrollment
+from app.money import derive
 from tests.analytics.conftest import add_batch, lens_for, seat_with_ledger
 from tests.batches.conftest import TeacherFixture
 
@@ -234,3 +237,67 @@ def test_the_seat_set_carries_the_teacher_recorded_name(
     }
 
     assert rows[seat].display_name == "Teacher-typed name"
+
+
+def test_ledger_for_seats_folds_exactly_as_the_raw_ledger(
+    owner_session: Session,
+    restricted_session: Session,
+    teacher: TeacherFixture,
+) -> None:
+    """The summed read derives what the row-by-row read derives [C-14].
+
+    ``ledger_for_seats`` returns one entry per (seat, period, kind)
+    carrying the database's ``SUM``, not every row. Seeded random
+    histories -- several receipts in one month, over-relieved months,
+    credit, carries -- must fold to the same quantities as
+    ``entries_for_enrollment``, which still reads every row; a seat with
+    no entries is present and folds to nothing.
+
+    :param owner_session: A session able to arrange fixture data
+    :param restricted_session: The session under test
+    :param teacher: The teacher
+    :return: None
+    """
+    rng = random.Random(20261107)  # noqa: S311  test data, not security
+    kinds = [
+        "charge",
+        "receipt",
+        "forgiveness",
+        "credit_grant",
+        "credit_apply",
+        "carry_forward",
+        "carried_out",
+    ]
+    periods = ["2026-08", "2026-09", "2026-10"]
+    seats = [
+        seat_with_ledger(
+            owner_session,
+            restricted_session,
+            batch_id=teacher.batch_id,
+            display_name=f"Seat {index}",
+            entries=[
+                (
+                    rng.choice(kinds),
+                    rng.choice(periods),
+                    f"{rng.randint(0, 150000) / 100:.2f}",
+                )
+                for _ in range(rng.randint(0, 25))
+            ],
+        )
+        for index in range(12)
+    ]
+    empty = seat_with_ledger(
+        owner_session,
+        restricted_session,
+        batch_id=teacher.batch_id,
+        display_name="Nobody",
+        entries=[],
+    )
+
+    summed = ledger_for_seats(restricted_session, [*seats, empty])
+
+    for seat in seats:
+        raw = entries_for_enrollment(restricted_session, seat)
+        assert derive(summed[seat]) == derive(raw)
+        assert len(summed[seat]) <= len(raw)
+    assert summed[empty] == []

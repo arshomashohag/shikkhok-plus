@@ -32,6 +32,9 @@ __all__ = ["router"]
 
 router = APIRouter(prefix="/v1", tags=["students"])
 
+#: The largest page ``GET /v1/students`` serves when one is asked for.
+MAX_PAGE = 200
+
 
 def _to_wire(amount: DomainMoney) -> WireMoney:
     """Render an amount as the wire component.
@@ -92,8 +95,36 @@ def list_students(
     unassigned: Annotated[bool, Query()] = False,
     exclude_batch_id: Annotated[uuid.UUID | None, Query()] = None,
     q: Annotated[str | None, Query(max_length=60)] = None,
+    limit: Annotated[
+        int | None,
+        Query(
+            ge=1,
+            le=MAX_PAGE,
+            description=(
+                "Return at most this many students. Omitted, the whole list "
+                "is returned, as before pagination existed."
+            ),
+        ),
+    ] = None,
+    after: Annotated[
+        uuid.UUID | None,
+        Query(
+            description=(
+                "Keyset cursor: the student_id of the last student of the "
+                "previous page. The next page starts after it in the list's "
+                "order (name, case-insensitively, then id). A page shorter "
+                "than limit is the last one. A student_id that is not this "
+                "teacher's answers 404."
+            ),
+        ),
+    ] = None,
 ) -> list[StudentResponse]:
     """List this teacher's students, filtered server-side.
+
+    **Optional keyset pages** [C-14]: ``limit`` and ``after`` page the
+    same ordered list. Without them the response is the whole list,
+    exactly as before they existed, so a client that sends neither is
+    unaffected.
 
     :param lens: The teacher lens carrying the owner id
     :param session: The request-scoped session
@@ -101,6 +132,8 @@ def list_students(
     :param unassigned: Only students in no batch
     :param exclude_batch_id: Only students NOT in this batch
     :param q: Only students whose name or number contains this
+    :param limit: At most this many students; all when omitted
+    :param after: The last student of the previous page
     :return: One row per student, by name
     """
     rows = service.list_students(
@@ -112,6 +145,8 @@ def list_students(
             exclude_batch_id=exclude_batch_id,
             query=q or None,
         ),
+        limit=limit,
+        after=after,
     )
     return [_response(row) for row in rows]
 

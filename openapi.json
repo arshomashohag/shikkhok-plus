@@ -19321,7 +19321,7 @@
     },
     "/v1/students": {
       "get": {
-        "description": "List this teacher's students, filtered server-side.\n\n:param lens: The teacher lens carrying the owner id\n:param session: The request-scoped session\n:param batch_id: Only students in this batch\n:param unassigned: Only students in no batch\n:param exclude_batch_id: Only students NOT in this batch\n:param q: Only students whose name or number contains this\n:return: One row per student, by name",
+        "description": "List this teacher's students, filtered server-side.\n\n**Optional keyset pages** [C-14]: ``limit`` and ``after`` page the\nsame ordered list. Without them the response is the whole list,\nexactly as before they existed, so a client that sends neither is\nunaffected.\n\n:param lens: The teacher lens carrying the owner id\n:param session: The request-scoped session\n:param batch_id: Only students in this batch\n:param unassigned: Only students in no batch\n:param exclude_batch_id: Only students NOT in this batch\n:param q: Only students whose name or number contains this\n:param limit: At most this many students; all when omitted\n:param after: The last student of the previous page\n:return: One row per student, by name",
         "operationId": "list_students_v1_students_get",
         "parameters": [
           {
@@ -19383,6 +19383,45 @@
                 }
               ],
               "title": "Q"
+            }
+          },
+          {
+            "description": "Return at most this many students. Omitted, the whole list is returned, as before pagination existed.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 200,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Return at most this many students. Omitted, the whole list is returned, as before pagination existed.",
+              "title": "Limit"
+            }
+          },
+          {
+            "description": "Keyset cursor: the student_id of the last student of the previous page. The next page starts after it in the list's order (name, case-insensitively, then id). A page shorter than limit is the last one. A student_id that is not this teacher's answers 404.",
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Keyset cursor: the student_id of the last student of the previous page. The next page starts after it in the list's order (name, case-insensitively, then id). A page shorter than limit is the last one. A student_id that is not this teacher's answers 404.",
+              "title": "After"
             }
           }
         ],
