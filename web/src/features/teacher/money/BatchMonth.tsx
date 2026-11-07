@@ -36,7 +36,7 @@ import {
 } from './collections'
 import { dhakaPeriod, isPeriod, shiftPeriod } from './format'
 import { HistoryLineText } from './HistoryLineText'
-import { moneyPaths } from './paths'
+import { moneyPaths, seatState } from './paths'
 import { RecordPaymentSheet } from './RecordPaymentSheet'
 
 export function BatchMonthScreen() {
@@ -129,7 +129,8 @@ export function BatchMonthScreen() {
                 <Link
                   className="row"
                   style={{ alignItems: 'flex-start' }}
-                  to={moneyPaths.seatFees(s.enrollmentId, s.displayName, batchName)}
+                  to={moneyPaths.seatFees(s.enrollmentId)}
+                  state={seatState(s.displayName, batchName)}
                 >
                   <div className="grow">
                     <div className="title">{s.displayName}</div>

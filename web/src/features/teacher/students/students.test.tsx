@@ -172,9 +172,10 @@ describe('Students tab', () => {
     expect(await screen.findByText('1 of 2 accepted.')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Actions for Rafsan' }))
     expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull()
+    // No child's name in the URL [C-35]: it travels as navigation state.
     expect(screen.getByRole('link', { name: 'Fee history' })).toHaveAttribute(
       'href',
-      '/seats/e2/fees?name=Rafsan&batch=Physics+%C2%B7+Batch+A',
+      '/seats/e2/fees',
     )
     await userEvent.click(screen.getByRole('button', { name: 'Actions for Tasnim' }))
     expect(screen.getByRole('button', { name: 'Remove' })).toBeInTheDocument()

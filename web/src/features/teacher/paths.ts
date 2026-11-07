@@ -8,17 +8,39 @@ export type BatchTab = 'students' | 'classes' | 'exams' | 'notices'
 
 const id = (s: string) => encodeURIComponent(s)
 
+/** The names a seat screen shows under its title. */
+export interface SeatNames {
+  name?: string
+  batch?: string
+}
+
 /**
- * Seat screens take the student's and batch's names as query parameters,
- * because no seat response carries them (Android passes them as route
- * arguments for the same reason). Optional: an id alone still opens it.
+ * Seat screens are handed the student's and batch's names, because no
+ * seat response carries them (Android passes them as route arguments for
+ * the same reason). They travel in navigation state, never in the URL: a
+ * child's name in a query string lands in browser history, in server and
+ * CDN access logs and in anything the link is pasted into, and a crafted
+ * link could put any text under a seat's real figures. Pass this as a
+ * Link's or navigate's `state`.
  */
-function withNames(base: string, name?: string, batch?: string): string {
-  const q = new URLSearchParams()
-  if (name) q.set('name', name)
-  if (batch) q.set('batch', batch)
-  const s = q.toString()
-  return s ? `${base}?${s}` : base
+export function seatState(name?: string, batch?: string): { seatNames: SeatNames } {
+  return { seatNames: { name: name || undefined, batch: batch || undefined } }
+}
+
+/**
+ * The names from navigation state, if this screen was opened from a link
+ * that sent them. Opened any other way (a pasted link, a bookmark) there
+ * are none and the screen shows its plain title: nothing is read from the
+ * URL for display.
+ */
+export function readSeatNames(state: unknown): SeatNames {
+  const names = (state as { seatNames?: unknown } | null)?.seatNames
+  if (typeof names !== 'object' || names === null) return {}
+  const { name, batch } = names as Record<string, unknown>
+  return {
+    name: typeof name === 'string' && name ? name : undefined,
+    batch: typeof batch === 'string' && batch ? batch : undefined,
+  }
 }
 
 export const paths = {
@@ -51,10 +73,9 @@ export const paths = {
 
   // money/
   payment: (submissionId: string) => `/verify/${id(submissionId)}`,
-  seatFees: (enrollmentId: string, name?: string, batch?: string) =>
-    withNames(`/seats/${id(enrollmentId)}/fees`, name, batch),
-  seatProgress: (enrollmentId: string, name?: string, batch?: string) =>
-    withNames(`/seats/${id(enrollmentId)}/progress`, name, batch),
+  // With seatState(name, batch) as the link's state; see above.
+  seatFees: (enrollmentId: string) => `/seats/${id(enrollmentId)}/fees`,
+  seatProgress: (enrollmentId: string) => `/seats/${id(enrollmentId)}/progress`,
   paymentMethods: () => '/payment-methods',
   extraFees: (batchId: string) => `/batches/${id(batchId)}/fees`,
   extraFeeNew: (batchId: string) => `/batches/${id(batchId)}/fees/new`,

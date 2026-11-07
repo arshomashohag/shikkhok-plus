@@ -23,7 +23,7 @@ import { useT } from '../../../i18n/i18n'
 import { EmptyState, ErrorCard, FeeChip, Loading, Sheet, Snackbar } from '../../../ui/components'
 import { PlusIcon } from '../../../ui/icons'
 import type { BatchTabProps } from '../area'
-import { paths } from '../paths'
+import { paths, seatState } from '../paths'
 import { removeEnrollment, setInactiveFrom } from './api'
 import {
   bangladeshToday,
@@ -207,11 +207,8 @@ export function StudentsTab({ batchId, batch }: BatchTabProps) {
                             {!seat.declined ? (
                               <Link
                                 className="btn btn-text btn-small"
-                                to={paths.seatFees(
-                                  seat.enrollmentId,
-                                  seat.displayName,
-                                  batch?.name,
-                                )}
+                                to={paths.seatFees(seat.enrollmentId)}
+                                state={seatState(seat.displayName, batch?.name)}
                               >
                                 {t('batch_fee_history')}
                               </Link>
@@ -282,7 +279,8 @@ export function StudentsTab({ batchId, batch }: BatchTabProps) {
                       {!seat.declined ? (
                         <Link
                           className="btn btn-text btn-small"
-                          to={paths.seatFees(seat.enrollmentId, seat.displayName, batch?.name)}
+                          to={paths.seatFees(seat.enrollmentId)}
+                          state={seatState(seat.displayName, batch?.name)}
                         >
                           {t('batch_fee_history')}
                         </Link>

@@ -5,7 +5,7 @@
  * months with a link back to the fee history.
  */
 import { useState } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router'
+import { Link, useLocation, useParams } from 'react-router'
 import { formatMark, formatShortDate, formatShortMonth } from '../../../core/format'
 import { useResource } from '../../../core/useResource'
 import type { Schemas } from '../../../api/endpoints'
@@ -13,7 +13,7 @@ import { useT } from '../../../i18n/i18n'
 import { ErrorCard, Loading, Section, StaleBanner, TopBar } from '../../../ui/components'
 import { readSeatDashboard, type DashboardRange } from './api'
 import { ARROW, mapDashboard, type Dashboard } from './dashboard'
-import { moneyPaths } from './paths'
+import { moneyPaths, readSeatNames, seatState } from './paths'
 import { MonthStrip } from './SeatFees'
 
 const RANGES: [DashboardRange, string][] = [
@@ -24,16 +24,16 @@ const RANGES: [DashboardRange, string][] = [
 
 export function SeatProgress() {
   const { enrollmentId = '' } = useParams()
-  const [search] = useSearchParams()
-  const name = search.get('name') ?? undefined
-  const batch = search.get('batch') ?? undefined
+  // From the link that opened this, never from the URL [C-35].
+  const { name, batch } = readSeatNames(useLocation().state)
   const { t } = useT()
   return (
     <DashboardView
       title={t('screen_title_progress')}
       subtitle={[name, batch].filter(Boolean).join(' · ') || undefined}
       load={(range, signal) => readSeatDashboard(enrollmentId, range, signal)}
-      feesLink={moneyPaths.seatFees(enrollmentId, name, batch)}
+      feesLink={moneyPaths.seatFees(enrollmentId)}
+      feesLinkState={seatState(name, batch)}
       cacheKey={enrollmentId}
     />
   )
@@ -49,12 +49,15 @@ export function DashboardView({
   subtitle,
   load,
   feesLink,
+  feesLinkState,
   cacheKey,
 }: {
   title: string
   subtitle?: string
   load: (range: DashboardRange, signal: AbortSignal) => Promise<Schemas['DashboardResponse']>
   feesLink: string
+  /** Navigation state for the fees link (the seat's names, for a teacher). */
+  feesLinkState?: unknown
   /** Re-read when this changes (the seat). */
   cacheKey: string
 }) {
@@ -91,7 +94,7 @@ export function DashboardView({
             {resource.error ? (
               <StaleBanner error={resource.error} loadedAt={resource.loadedAt} />
             ) : null}
-            <Body d={resource.data} feesLink={feesLink} />
+            <Body d={resource.data} feesLink={feesLink} feesLinkState={feesLinkState} />
           </>
         )}
       </div>
@@ -99,7 +102,15 @@ export function DashboardView({
   )
 }
 
-function Body({ d, feesLink }: { d: Dashboard; feesLink: string }) {
+function Body({
+  d,
+  feesLink,
+  feesLinkState,
+}: {
+  d: Dashboard
+  feesLink: string
+  feesLinkState?: unknown
+}) {
   const { t, lang } = useT()
   const latest = d.exams[d.exams.length - 1] ?? null
   return (
@@ -205,7 +216,7 @@ function Body({ d, feesLink }: { d: Dashboard; feesLink: string }) {
       <Section
         title={t('dashboard_fees_title')}
         aside={
-          <Link className="btn btn-text btn-small" to={feesLink}>
+          <Link className="btn btn-text btn-small" to={feesLink} state={feesLinkState}>
             {t('dashboard_fees_history')}
           </Link>
         }
