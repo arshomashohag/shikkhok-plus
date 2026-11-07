@@ -13,7 +13,7 @@ import { json } from '../../test/render'
 import '../strings'
 import { peekAdminSession, resetAdminSessionForTests, SESSION_KEY } from '../session'
 import { renderAdmin, serveAdmin, type Call, type Handler } from '../test/renderAdmin'
-import { groupSecret } from './AdminSignIn'
+import { groupSecret } from '../../core/codes'
 
 const en = (key: string, ...args: (string | number)[]) => translate('en', key, ...args)
 

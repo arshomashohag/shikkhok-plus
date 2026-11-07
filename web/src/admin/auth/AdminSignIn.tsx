@@ -20,13 +20,18 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import type { Schemas } from '../../api/endpoints'
 import { ApiError } from '../../api/errors'
 import { formatPhone, normalisePhone } from '../../core/format'
-import { toLatinDigits } from '../../core/money'
 import { useT } from '../../i18n/i18n'
 import { AdminAuthFrame } from '../AdminChrome'
 import { lastEndReason, saveAdminSession } from '../session'
 import { finishAdminSignIn, sendAdminCode, verifyAdminCode } from './api'
 import { isUnavailable } from '../errors'
-import { QrCode } from './QrCode'
+import {
+  AuthenticatorSetup,
+  RecoveryCodeList,
+  useWarnBeforeUnload,
+  type CopyLabels,
+} from '../../ui/authenticator'
+import { sixDigits } from '../../core/codes'
 
 const RESEND_AFTER_S = 60
 
@@ -45,27 +50,6 @@ type Step =
 
 /** Why the phone step is showing a notice. */
 type Notice = 'session-ended' | 'signed-out' | 'challenge-expired' | null
-
-/** `JBSWY3DPEHPK3PXP` → `JBSW Y3DP EHPK 3PXP`, for typing by hand. */
-export function groupSecret(secret: string): string {
-  return (secret.replace(/\s+/g, '').match(/.{1,4}/g) ?? []).join(' ')
-}
-
-/** Six Western digits at most, from whatever was typed or pasted. */
-function sixDigits(value: string): string {
-  return toLatinDigits(value).replace(/\D/g, '').slice(0, 6)
-}
-
-/** Copy to the clipboard; false when the browser refuses. */
-export async function copyText(text: string): Promise<boolean> {
-  try {
-    if (!navigator.clipboard) return false
-    await navigator.clipboard.writeText(text)
-    return true
-  } catch {
-    return false
-  }
-}
 
 function initialNotice(): Notice {
   const reason = lastEndReason()
@@ -474,7 +458,7 @@ function MfaStep({
               ref={recoveryRef}
               id="admin-recovery"
               name="recovery_code"
-              className="mono admin-recovery-input"
+              className="mono recovery-input"
               autoComplete="off"
               autoCapitalize="characters"
               spellCheck={false}
@@ -546,53 +530,26 @@ function MfaStep({
   )
 }
 
-function CopyButton({ text, label }: { text: string; label: string }) {
+function useCopyLabels(copy: string): CopyLabels {
   const { t } = useT()
-  const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle')
-  return (
-    <>
-      <button
-        type="button"
-        className="btn btn-tonal btn-small"
-        onClick={() => void copyText(text).then((ok) => setState(ok ? 'copied' : 'failed'))}
-      >
-        {state === 'copied' ? t('web_admin_copied') : label}
-      </button>
-      {state === 'failed' ? (
-        <span className="field-error admin-copy-failed" role="alert">
-          {t('web_admin_copy_failed')}
-        </span>
-      ) : null}
-      {state === 'copied' ? (
-        <span className="visually-hidden" role="status">
-          {t('web_admin_copied')}
-        </span>
-      ) : null}
-    </>
-  )
+  return { copy, copied: t('web_admin_copied'), failed: t('web_admin_copy_failed') }
 }
 
 function Enrollment({ secret, uri }: { secret: string; uri: string }) {
   const { t } = useT()
-  const grouped = groupSecret(secret)
+  const copy = useCopyLabels(t('web_admin_copy'))
   return (
-    <div className="admin-enroll">
-      <div className="admin-qr-frame">
-        <QrCode text={uri} label={t('web_admin_enroll_qr_label')} />
-      </div>
-      <a className="btn btn-tonal mobile-only admin-open-app" href={uri}>
-        {t('web_admin_enroll_open_app')}
-      </a>
-      <div className="admin-key">
-        <span className="help">{t('web_admin_enroll_key_label')}</span>
-        <div className="admin-key-row">
-          <code className="admin-secret" data-testid="admin-secret">
-            {grouped}
-          </code>
-          <CopyButton text={secret} label={t('web_admin_copy')} />
-        </div>
-      </div>
-    </div>
+    <AuthenticatorSetup
+      secret={secret}
+      uri={uri}
+      secretTestId="admin-secret"
+      labels={{
+        ...copy,
+        qr: t('web_admin_enroll_qr_label'),
+        openApp: t('web_admin_enroll_open_app'),
+        keyLabel: t('web_admin_enroll_key_label'),
+      }}
+    />
   )
 }
 
@@ -600,15 +557,9 @@ function Enrollment({ secret, uri }: { secret: string; uri: string }) {
 
 function RecoveryCodes({ codes, onSaved }: { codes: string[]; onSaved: () => void }) {
   const { t } = useT()
-
+  const copy = useCopyLabels(t('web_admin_copy_all'))
   // Shown once: warn before a reload or a closed tab loses them.
-  useEffect(() => {
-    const warn = (e: BeforeUnloadEvent) => {
-      e.preventDefault()
-    }
-    window.addEventListener('beforeunload', warn)
-    return () => window.removeEventListener('beforeunload', warn)
-  }, [])
+  useWarnBeforeUnload(true)
 
   return (
     <div>
@@ -617,16 +568,7 @@ function RecoveryCodes({ codes, onSaved }: { codes: string[]; onSaved: () => voi
         {t('web_admin_codes_warning')}
       </div>
       <p className="meta">{t('web_admin_codes_where')}</p>
-      <ol className="admin-codes" aria-label={t('web_admin_codes_label')}>
-        {codes.map((c) => (
-          <li key={c} className="mono">
-            {c}
-          </li>
-        ))}
-      </ol>
-      <div className="button-row admin-codes-actions">
-        <CopyButton text={codes.join('\n')} label={t('web_admin_copy_all')} />
-      </div>
+      <RecoveryCodeList codes={codes} label={t('web_admin_codes_label')} copy={copy} />
       <div className="button-row">
         <button type="button" className="btn btn-primary btn-money" onClick={onSaved}>
           {t('web_admin_codes_saved')}

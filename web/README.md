@@ -118,9 +118,14 @@ for anyone who is not a teacher or centre member, and a test holds it to
 that. Screens are one lazy chunk, fetched after log-in.
 
 **The QR code** is drawn by `qrcode-generator` **2.0.4** (MIT, no
-dependencies, published 2025-08-07; about 21 kB minified, 8 kB gzipped,
-imported only by the admin app), as an SVG, black on white with a four-module quiet
-zone in every theme, at a whole number of pixels per module.
+dependencies, published 2025-08-07; about 21 kB minified, 8 kB gzipped), as
+an SVG, black on white with a four-module quiet zone in every theme, at a
+whole number of pixels per module. The component (`src/ui/QrCode.tsx`) and
+the rest of the setup screen's pieces (`src/ui/authenticator.tsx`: the key
+in groups of four with Copy, "Open in authenticator app", the recovery-code
+list with Copy all) are shared with the main app's two-step verification,
+each app passing its own strings. In the main app the encoder loads only
+with the settings screen's lazy chunk, which `check:bundles` asserts.
 
 **Running it locally.** The API refuses admin routes without the edge
 header and from a network not on its list, so run the API with both set,
@@ -140,6 +145,47 @@ proxies `/v1/admin` to `http://localhost:8000` (or `SHIKKHOKPLUS_API`),
 adding `X-Admin-Edge` from `SHIKKHOKPLUS_ADMIN_EDGE_SECRET`, as the admin
 CloudFront distribution does in a deployment. It warns at start-up when
 the variable is unset. `npm run preview:admin` serves `dist-admin/`.
+
+## Two-step verification
+
+Optional for every account; the server says when to suggest it
+(`recommended`: teachers and centre members) and when it cannot be turned
+off (`required`). The client decides neither.
+
+**Signing in.** `POST /v1/auth/verify` answers exactly as before for an
+account without it. With it on, the answer carries no tokens but
+`mfa_required`, a five-minute `mfa_challenge` and `mfa_expires_in`, and
+the sign-in screen asks for the authenticator code (`features/auth/MfaStep.tsx`:
+six digits, `inputmode="numeric"`, `autocomplete="one-time-code"`, checks
+by itself after the sixth, as the SMS step does), or a recovery code
+instead. `POST /v1/auth/mfa` returns the token pair, and **only then is
+anything stored**. A wrong code is said inline (`mfa.code_wrong`; a wrong
+recovery code in its own words); `mfa.locked` replaces the field with the
+message and Start again; the challenge lapsing, on screen or as the
+server's 401 `mfa.challenge_expired`, goes back to the number with a
+notice. Both calls are anonymous, so that 401 never reaches token renewal
+or sign-out: there is no session yet.
+
+**Settings → Two-step verification** (`/settings/security`, lazy; entry
+rows on More and Settings, with a "Recommended" label while it is
+suggested and off): the status, "On since", recovery codes left (a
+warning at two or fewer). **Turn on**: the QR code and the key with Copy,
+"Open in authenticator app" on a phone, then the app's first code, then
+ten recovery codes **shown once** with Copy all until "I've saved them"
+(a reload or closing the tab asks first). **Turn off** with an
+authenticator or recovery code, not offered when required. **New
+recovery codes** with an authenticator code, shown once the same way.
+Nothing is stored: the secret and the codes live in the screen's state.
+
+**The home prompt.** For `recommended` and not `enabled`, the home screen
+(Batches, Today, My classes) shows "Protect your account with two-step
+verification" with Turn on, which opens the setup directly, and Not now.
+Not now is a per-viewer convenience kept in `localStorage`
+(`sp.mfa.prompt.dismissed`, a flag and nothing from the API); the
+Settings label stays. Students and guardians are never prompted. The
+status behind the label and the prompt is read once per session into a
+small in-memory store (`features/account/security/status.ts`) and
+forgotten at sign-out.
 
 ## Decisions worth knowing
 
@@ -177,7 +223,7 @@ Every screen the Android app has, for every role.
 
 | Role     | Screens                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Everyone | Sign in, create account, role picker, invitations, inbox (unread count on More), help centre (my questions, ask a question, the thread; new replies counted on More), edit profile, delete account, More, Settings (language, theme, text size), install and update prompts                                                                                                                                                                                                                                    |
+| Everyone | Sign in (with the authenticator step for accounts that have it), create account, two-step verification settings, role picker, invitations, inbox (unread count on More), help centre (my questions, ask a question, the thread; new replies counted on More), edit profile, delete account, More, Settings (language, theme, text size), install and update prompts                                                                                                                                            |
 | Teacher  | Today (T1); batches, new batch, edit batch, schedule; a batch's Students (T7), Classes, Exams and Notices tabs; add student (T8), mark inactive, remove; record a class (T2) with attendance, plan, move and cancel; new and edit exam, marks entry (T3), publish, results and corrections; Dues (T5) with reminders; verify payments (T4) and the payment itself, including split payments and changing a decision; a student's fee history and progress; where students pay; collections and a batch's month |
 | Student  | My batches (S1); a batch (S2) with classes, exams, notices and teacher; a class, an exam, its marksheet, a notice; progress and dashboard; fee history; send money (S3)                                                                                                                                                                                                                                                                                                                                        |
 | Guardian | Children (G1); each child's batch and everything a student sees about it; progress (G3) with the trend; payments (G2); send money for one or several children; my children                                                                                                                                                                                                                                                                                                                                     |
