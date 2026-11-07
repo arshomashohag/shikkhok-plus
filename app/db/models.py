@@ -252,6 +252,16 @@ SESSION_GENERATION_JOB = "session_generation"
 #: write the checker.
 RETENTION_PURGE_JOB = "retention_purge"
 
+#: Every job the host is expected to run [audit C-01]. The freshness check
+#: reports each of these even when it has no heartbeat row: enumerating
+#: rows alone protected only jobs that had already run once, and the
+#: retention purge -- built, registered here, never scheduled -- had never
+#: run, so it never had a row and never alerted. A job added later joins
+#: this set or the freshness check does not know to expect it.
+EXPECTED_JOBS: frozenset[str] = frozenset(
+    {FEE_GENERATION_JOB, SESSION_GENERATION_JOB, RETENTION_PURGE_JOB}
+)
+
 #: A session's three states [FR3.3]. ``cancelled`` forbids attendance
 #: and topic writes [BR1.6] and is the only transition that does.
 #: ``held`` is reached by RECORDING, never by the clock passing: a class
@@ -317,6 +327,7 @@ __all__ = [
     "CLAIM_STATUS_VALUES",
     "DECISION_VALUES",
     "DISPOSITION_VALUES",
+    "EXPECTED_JOBS",
     "EXPENSE_CATEGORY_VALUES",
     "EXTRA_FEE_ENTRY_KIND_VALUES",
     "EXTRA_FEE_PURPOSE_VALUES",
