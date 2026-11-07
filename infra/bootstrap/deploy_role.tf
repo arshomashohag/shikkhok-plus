@@ -127,6 +127,9 @@ resource "aws_iam_role_policy" "deploy" {
           # redeploy skips the push rather than failing against
           # the IMMUTABLE tag.
           "ecr:DescribeImages",
+          # Reading the push-time scan of the image being released, for
+          # the production release gate's OS-package check [C-32].
+          "ecr:DescribeImageScanFindings",
           "ecr:GetDownloadUrlForLayer",
           "ecr:InitiateLayerUpload",
           "ecr:PutImage",

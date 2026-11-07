@@ -36,20 +36,37 @@ RESTRICTED_PASSWORD = "test-only-restricted"  # noqa: S105
 def _require_docker() -> None:
     """Skip the integration suite when no Docker daemon is reachable.
 
+    **Except in CI, where it fails instead** [C-37]. A skip exits 0
+    exactly as a pass does, so a runner that lost Docker would report the
+    suite green having run none of the row-level-security probes. GitHub
+    Actions sets ``CI=true`` on every runner; locally the skip stays, so
+    the unit half still runs on a machine without Docker.
+
     :return: None
     """
     import shutil
     import subprocess
 
+    def unavailable() -> None:
+        """Skip, or fail under CI.
+
+        :return: None
+        """
+        reason = "integration tests need a Docker daemon"
+        if os.environ.get("CI", "").lower() == "true":
+            pytest.fail(f"{reason}, and CI must run them", pytrace=False)
+        pytest.skip(reason, allow_module_level=True)
+
     if shutil.which("docker") is None:
-        pytest.skip("integration tests need a Docker daemon", allow_module_level=True)
+        unavailable()
+        return
     probe = subprocess.run(
         ["docker", "info"],  # noqa: S607
         capture_output=True,
         check=False,
     )
     if probe.returncode != 0:
-        pytest.skip("integration tests need a Docker daemon", allow_module_level=True)
+        unavailable()
 
 
 @pytest.fixture(scope="session")

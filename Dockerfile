@@ -23,8 +23,11 @@
 # Dependabot base-image PR, so production ran an interpreter no test
 # had ever run on [OPS-13]. The digest is the multi-arch index for
 # `3.12-slim-bookworm` (read from the registry 2026-11-02), so arm64 and
-# amd64 builds resolve the same release; Dependabot refreshes it weekly
-# and `.github/dependabot.yml` refuses minor and major Python bumps.
+# amd64 builds resolve the same release. **Nothing refreshes it
+# automatically**: Dependabot version updates were switched off on
+# 2026-11-04, so moving this digest -- to pick up Debian security
+# fixes -- is a deliberate edit, and the production release gate's ECR
+# scan is what reports that one is due.
 FROM python:3.12-slim-bookworm@sha256:e697c81897302a4c4333bade000d98038fbb21eb064f8ee1fd42d02ebcd9d337 AS build
 
 # Fail the build on a non-zero exit anywhere in a pipeline, not just the
@@ -114,8 +117,18 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 # X-Client-Address, which nginx always OVERWRITES from CloudFront's
 # CloudFront-Viewer-Address, and the application reads it only when
 # SHIKKHOKPLUS_TRUSTED_CLIENT_IP_HEADER names it.
+#
+# **No access log** [C-35]. uvicorn's default access log writes every
+# request's full path AND query string to stdout, which the host ships
+# to CloudWatch -- so `?phone=` lookups put phone numbers into a log
+# outside the retention and deletion model the Data Safety form
+# describes. With it off, nothing records every request: the
+# application logs the events that matter with their correlation id,
+# and nginx's local access log stays on the host's root volume, which
+# no log driver ships and every replacement deletes.
 CMD ["uvicorn", "app.main:app", \
      "--host", "0.0.0.0", \
      "--port", "8000", \
      "--workers", "2", \
-     "--no-proxy-headers"]
+     "--no-proxy-headers", \
+     "--no-access-log"]
