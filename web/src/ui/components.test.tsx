@@ -1,10 +1,11 @@
-/** The shared Sheet: focus that stays where the person is typing. */
+/** Shared pieces: a Sheet that keeps focus where the person types, a TopBar that takes it on navigation. */
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
+import { Link, MemoryRouter, Route, Routes } from 'react-router'
 import { describe, expect, it, vi } from 'vitest'
 import { I18nProvider } from '../i18n/i18n'
-import { Sheet } from './components'
+import { Sheet, TopBar } from './components'
 
 /** A caller as the screens write one: an inline onClose, a field in parent state. */
 function MoveClass({ onClose }: { onClose: () => void }) {
@@ -85,5 +86,32 @@ describe('Sheet', () => {
     expect(screen.queryByLabelText('field')).toBeNull()
     expect(opener).not.toHaveAttribute('inert')
     expect(opener).toHaveFocus()
+  })
+})
+
+describe('TopBar', () => {
+  function app() {
+    render(
+      <I18nProvider lang="en">
+        <MemoryRouter initialEntries={['/a']}>
+          <nav>
+            <Link to="/b">to b</Link>
+          </nav>
+          <main>
+            <Routes>
+              <Route path="/a" element={<TopBar title="Screen A" />} />
+              <Route path="/b" element={<TopBar title="Screen B" />} />
+            </Routes>
+          </main>
+        </MemoryRouter>
+      </I18nProvider>,
+    )
+  }
+
+  it('leaves focus alone on the first load, and moves it to the new heading on navigation', async () => {
+    app()
+    expect(screen.getByRole('heading', { name: 'Screen A' })).not.toHaveFocus()
+    await userEvent.click(screen.getByRole('link', { name: 'to b' }))
+    expect(screen.getByRole('heading', { name: 'Screen B' })).toHaveFocus()
   })
 })

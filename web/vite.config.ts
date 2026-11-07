@@ -153,7 +153,10 @@ export default defineConfig(({ mode, command }) => {
     },
     build: {
       target: 'es2022',
-      sourcemap: true,
+      // Maps are built for local debugging and error triage but carry no
+      // sourceMappingURL comment, and deploy.yml never uploads them, so the
+      // published bundle does not point browsers at the source. [L-07]
+      sourcemap: 'hidden',
       rollupOptions: {
         output: {
           // React and the router change far less often than the app, so

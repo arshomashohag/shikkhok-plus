@@ -23,4 +23,14 @@ describe('markBody', () => {
     expect(markBody('e', '-1')).toBeNull()
     expect(markBody('e', 'abc')).toBeNull()
   })
+
+  it('reads Bangla digits, and refuses what Number() would quietly accept', () => {
+    expect(markBody('e', '৭২.৫')).toMatchObject({ marks: 72.5 })
+    expect(markBody('e', '0x10')).toBeNull()
+    expect(markBody('e', '1e2')).toBeNull()
+    expect(markBody('e', 'Infinity')).toBeNull()
+    expect(markBody('e', '1.2.3')).toBeNull()
+    expect(markBody('e', '.5')).toMatchObject({ marks: 0.5 })
+    expect(markBody('e', '7.')).toMatchObject({ marks: 7 })
+  })
 })

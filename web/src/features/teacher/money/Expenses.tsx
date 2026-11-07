@@ -41,13 +41,13 @@ import {
 } from './spending'
 
 function MonthPicker({ month, onMonth }: { month: string; onMonth: (m: string) => void }) {
-  const { t, lang } = useT()
+  const { lang } = useT()
   return (
     <div className="button-row" style={{ alignItems: 'center', marginBottom: 12 }}>
       <button
         type="button"
         className="btn btn-text btn-small"
-        aria-label={t('action_back')}
+        aria-label={formatMonth(shiftMonth(month, -1), lang)}
         onClick={() => onMonth(shiftMonth(month, -1))}
       >
         ‹

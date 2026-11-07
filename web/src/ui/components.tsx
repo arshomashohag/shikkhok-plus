@@ -6,7 +6,7 @@
  * [TC-9] — nothing here compares an amount or a date.
  */
 import { useEffect, useId, useRef, type ReactNode } from 'react'
-import { useNavigate } from 'react-router'
+import { useLocation, useNavigate } from 'react-router'
 import type { ApiError } from '../api/errors'
 import { useT } from '../i18n/i18n'
 import type { Money } from '../core/money'
@@ -36,9 +36,24 @@ export function TopBar({
 }) {
   const navigate = useNavigate()
   const { t } = useT()
+  const { key, pathname } = useLocation()
+  const heading = useRef<HTMLHeadingElement>(null)
   useEffect(() => {
     if (typeof title === 'string') document.title = `${title} · ShikkhokPlus`
   }, [title])
+  // After a navigation (not the first load), a screen reader or keyboard
+  // user starts at the new screen's heading, not on the nav link they used
+  // or lost on <body>. Not when the new screen already put focus inside
+  // itself on purpose, such as a code field.
+  useEffect(() => {
+    if (key === 'default') return
+    const h1 = heading.current
+    const active = document.activeElement
+    const screen = h1?.closest('main') ?? document.body
+    if (active && active !== document.body && screen.contains(active)) return
+    h1?.focus({ preventScroll: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname])
   return (
     <header className="top-bar">
       {back ? (
@@ -52,7 +67,9 @@ export function TopBar({
         </button>
       ) : null}
       <div className="titles">
-        <h1>{title}</h1>
+        <h1 ref={heading} tabIndex={-1}>
+          {title}
+        </h1>
         {subtitle ? <p className="subtitle">{subtitle}</p> : null}
       </div>
       {actions ? <div className="actions">{actions}</div> : null}

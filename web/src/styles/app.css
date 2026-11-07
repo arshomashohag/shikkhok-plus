@@ -406,6 +406,10 @@ a {
   padding-top: calc(var(--s4) + env(titlebar-area-height, 0px));
   background: var(--background);
 }
+/* Focused by script on navigation, as a starting point; not a control. */
+.top-bar h1:focus {
+  outline: none;
+}
 .top-bar h1 {
   margin: 0;
   font-size: 1.375rem;

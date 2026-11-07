@@ -15,6 +15,7 @@ import {
 } from '../../api/endpoints'
 import { ApiError } from '../../api/errors'
 import { formatLongDay, formatMark } from '../../core/format'
+import { toLatinDigits } from '../../core/money'
 import { useResource } from '../../core/useResource'
 import { useT } from '../../i18n/i18n'
 import { EmptyState, ErrorCard, Loading, Snackbar, TopBar } from '../../ui/components'
@@ -30,11 +31,19 @@ export function resultKey(row: Examinee): string | null {
   return null
 }
 
-/** The mark to send for a typed number, or null while it is not one. */
+/** Digits with at most one point: what a mark may be typed as. */
+const MARK_SHAPE = /^(\d+(\.\d*)?|\.\d+)$/
+
+/**
+ * The mark to send for a typed number, or null while it is not one.
+ * Bangla digits are read as Latin; anything but plain decimal digits
+ * (`0x10`, `1e2`, `Infinity`) is not a mark. Format only: whether it is
+ * within the exam's total is the server's answer.
+ */
 export function markBody(enrollmentId: string, typed: string): Schemas['MarkWriteRequest'] | null {
-  const value = Number(typed.trim())
-  if (typed.trim() === '' || !Number.isFinite(value) || value < 0) return null
-  return { enrollment_id: enrollmentId, result_state: 'marked', marks: value }
+  const latin = toLatinDigits(typed).trim()
+  if (!MARK_SHAPE.test(latin)) return null
+  return { enrollment_id: enrollmentId, result_state: 'marked', marks: Number(latin) }
 }
 
 export function MyExams() {
