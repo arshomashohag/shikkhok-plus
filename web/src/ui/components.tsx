@@ -269,7 +269,43 @@ export function Snackbar({
   )
 }
 
-/** A bottom sheet on a phone, a centred dialog on a desktop window. */
+const FOCUSABLE =
+  'input:not([disabled]), select:not([disabled]), textarea:not([disabled]), ' +
+  'button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
+
+/**
+ * Make everything outside `inside` inert: each sibling of each of its
+ * ancestors up to <body>. Returns the undo, which touches only what this
+ * call changed, so a sheet opened over a sheet leaves the outer one's
+ * background as it found it.
+ */
+function inertOutside(inside: HTMLElement): () => void {
+  const changed: Element[] = []
+  let node: Element = inside
+  while (node.parentElement && node !== document.body) {
+    const parent: HTMLElement = node.parentElement
+    for (const sibling of Array.from(parent.children)) {
+      if (sibling === node || sibling.hasAttribute('inert')) continue
+      if (sibling.tagName === 'SCRIPT' || sibling.tagName === 'STYLE') continue
+      sibling.setAttribute('inert', '')
+      changed.push(sibling)
+    }
+    node = parent
+  }
+  return () => {
+    for (const el of changed) el.removeAttribute('inert')
+  }
+}
+
+/**
+ * A bottom sheet on a phone, a centred dialog on a desktop window.
+ *
+ * Modal in fact, not only in `aria-modal`: while it is open the rest of
+ * the page is inert and Tab cycles inside the sheet. Focus moves to the
+ * first field once, when it opens — never again on a parent's re-render,
+ * which would pull the cursor out of the field being typed in — and goes
+ * back where it was when it closes.
+ */
 export function Sheet({
   title,
   subtitle,
@@ -282,27 +318,67 @@ export function Sheet({
   children: ReactNode
 }) {
   const ref = useRef<HTMLDivElement>(null)
+  const backdrop = useRef<HTMLDivElement>(null)
   const titleId = useId()
+  // Callers pass an inline arrow, a new function every render: read the
+  // latest through a ref so the opening effect never re-runs because of it.
+  const onCloseRef = useRef(onClose)
   useEffect(() => {
-    const previous = document.activeElement as HTMLElement | null
-    ref.current?.querySelector<HTMLElement>('input, button, textarea')?.focus()
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', onKey)
+    onCloseRef.current = onClose
+  })
+  useEffect(() => {
+    const sheet = ref.current
+    const outer = backdrop.current
+    if (!sheet || !outer) return
+    const active = document.activeElement
+    const previous = active instanceof HTMLElement ? active : null
+    const restore = inertOutside(outer)
+    ;(sheet.querySelector<HTMLElement>(FOCUSABLE) ?? sheet).focus()
     return () => {
-      document.removeEventListener('keydown', onKey)
-      previous?.focus()
+      restore()
+      if (previous?.isConnected) previous.focus()
     }
-  }, [onClose])
+  }, [])
+
+  function onKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.key === 'Escape') {
+      // The innermost sheet answers: one Escape closes one sheet.
+      e.stopPropagation()
+      onCloseRef.current()
+      return
+    }
+    if (e.key !== 'Tab' || !ref.current) return
+    const items = Array.from(ref.current.querySelectorAll<HTMLElement>(FOCUSABLE))
+    const first = items[0]
+    const last = items[items.length - 1]
+    if (!first || !last) {
+      e.preventDefault()
+    } else if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault()
+      last.focus()
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault()
+      first.focus()
+    }
+  }
+
   return (
     <div
       className="sheet-backdrop"
+      ref={backdrop}
+      onKeyDown={onKeyDown}
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose()
+        if (e.target === e.currentTarget) onCloseRef.current()
       }}
     >
-      <div className="sheet" role="dialog" aria-modal="true" aria-labelledby={titleId} ref={ref}>
+      <div
+        className="sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        ref={ref}
+        tabIndex={-1}
+      >
         <div className="sheet-handle" />
         <h2 id={titleId}>{title}</h2>
         {subtitle ? (
