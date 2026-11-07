@@ -30,6 +30,7 @@ import { tabsFor, homeFor, type Tab } from './nav'
 import { pageWidth } from './pageWidth'
 import { useUnreadCount } from '../features/account/area'
 import { formatPhone, initial } from '../core/format'
+import { MfaPrompt } from '../features/account/security'
 
 const ICONS = {
   home: HomeIcon,
@@ -152,7 +153,10 @@ export function AppShell() {
   const name = session.me.self_name ?? phone
   const role = session.lens ? t(`lens_${session.lens}`) : t('web_role_none')
   const counts = { '/verify': verifyCount ?? 0 }
-  const width = pageWidth(useLocation().pathname)
+  const { pathname } = useLocation()
+  const width = pageWidth(pathname)
+  // The two-step verification suggestion sits on the home screen only.
+  const home = pathname === homeFor(session.lens) || pathname === '/today'
 
   const toggle = () => {
     setCollapsed((c) => {
@@ -222,6 +226,7 @@ export function AppShell() {
             <span>{t('web_offline_banner')}</span>
           </div>
         ) : null}
+        {home ? <MfaPrompt /> : null}
         <Outlet />
       </main>
       <nav className="bottom-nav" aria-label="ShikkhokPlus">

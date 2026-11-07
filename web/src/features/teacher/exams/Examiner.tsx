@@ -56,7 +56,7 @@ export function ExaminerControl({ examId }: { examId: string }) {
       setNote(t('examiner_changed'))
       exam.reload()
     } catch (e) {
-      setNote(e instanceof ApiError ? message(e.messageKey) : t('error_unexpected'))
+      setNote(e instanceof ApiError ? message(e.messageKey, e.details) : t('error_unexpected'))
     }
   }
 

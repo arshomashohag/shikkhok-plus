@@ -337,6 +337,16 @@ object MessageKeys {
         // found, and the daily limit on new questions is a 409.
         "help.ticket.not_found" to R.string.help_ticket_not_found,
         "help.ticket.too_many" to R.string.help_ticket_too_many,
+        // Two-step verification [0028]: the authenticator step at sign-in,
+        // the settings that turn it on and off, and the deletion page.
+        "mfa.code_wrong" to R.string.mfa_code_wrong,
+        "mfa.locked" to R.string.mfa_locked,
+        "mfa.challenge_expired" to R.string.mfa_challenge_expired,
+        "mfa.already_enabled" to R.string.mfa_already_enabled,
+        "mfa.not_enabled" to R.string.mfa_not_enabled,
+        "mfa.required_for_admin" to R.string.mfa_required_for_admin,
+        "mfa.setup_not_started" to R.string.mfa_setup_not_started,
+        "mfa.code_required" to R.string.mfa_code_required,
         // D6: the one deletion refusal that is NOT contentless. Every
         // other refusal on the deletion path discloses nothing, because
         // a stranger could be asking; this one is reached only after

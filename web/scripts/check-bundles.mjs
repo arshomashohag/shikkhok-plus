@@ -16,6 +16,9 @@ import { fileURLToPath } from 'node:url'
 const web = join(dirname(fileURLToPath(import.meta.url)), '..')
 const problems = []
 
+/** A name only the QR encoder (`qrcode-generator`) carries through minification. */
+const QR_ENCODER = 'getModuleCount'
+
 /** Every shipped text file under `dir` (source maps excluded), as [path, text]. */
 function shipped(dir) {
   const out = []
@@ -38,7 +41,8 @@ function scan(label, dir, { absent, present }) {
   }
   const files = shipped(dir)
   for (const [needle, why] of absent) {
-    const hits = files.filter(([, text]) => text.includes(needle)).map(([f]) => f)
+    const found = (text) => (typeof needle === 'string' ? text.includes(needle) : needle.test(text))
+    const hits = files.filter(([, text]) => found(text)).map(([f]) => f)
     if (hits.length) problems.push(`${label}: "${needle}" (${why}) found in ${hits.join(', ')}`)
   }
   for (const needle of present) {
@@ -49,18 +53,33 @@ function scan(label, dir, { absent, present }) {
 }
 
 // ------------------------------------------------------------- main app
+// The main app has its own two-step verification since the authenticator
+// sign-in step and settings were added, so `otpauth` and the QR encoder
+// are expected in it now; what stays forbidden is everything admin-only.
 const main = scan('dist', join(web, 'dist'), {
   absent: [
     ['/v1/admin', 'an admin API path'],
     ['web_admin_', 'an admin string key'],
-    ['ShikkhokPlus admin', 'admin copy'],
-    ['otpauth', 'the authenticator setup'],
+    // Not "administrator": the server's `mfa.required_for_admin` message,
+    // which the main app shows, names a ShikkhokPlus administrator's number.
+    [/ShikkhokPlus admin(?!istrator)/, 'admin copy'],
+    ['ShikkhokPlus%20Admin', "the admin authenticator's issuer"],
   ],
-  present: ['/v1/me/today', '/v1/auth/verify'],
+  present: ['/v1/me/today', '/v1/auth/verify', '/v1/auth/mfa', '/v1/me/mfa/setup', QR_ENCODER],
 })
 for (const [file] of main) {
   if (/admin/i.test(file)) problems.push(`dist: ${file} looks like an admin chunk`)
 }
+// The QR encoder is only for the settings screen: it must load with that
+// lazy chunk, never in the entry chunk every visitor downloads.
+const entry = main
+  .find(([f]) => f === 'index.html')?.[1]
+  ?.match(/src="[^"]*?(assets\/index-[^"]+\.js)"/)?.[1]
+if (!entry) problems.push('dist: index.html names no entry chunk')
+else if (main.find(([f]) => f === entry)?.[1]?.includes(QR_ENCODER))
+  problems.push(
+    `dist: the QR encoder is in the entry chunk ${entry}; load it with the settings screen`,
+  )
 
 // ------------------------------------------------------------ admin app
 const adminDir = join(web, 'dist-admin')
@@ -72,7 +91,7 @@ const admin = scan('dist-admin', adminDir, {
     ['registerSW', 'the service worker'],
     ['workbox', 'the service worker'],
   ],
-  present: ['/v1/admin/auth/mfa', '/v1/admin/overview', 'web_admin_'],
+  present: ['/v1/admin/auth/mfa', '/v1/admin/overview', 'web_admin_', QR_ENCODER],
 })
 if (existsSync(adminDir)) {
   for (const name of ['sw.js', 'manifest.webmanifest', 'registerSW.js', 'admin.html']) {

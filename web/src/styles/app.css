@@ -1823,6 +1823,165 @@ a.tile:hover {
   }
 }
 
+/* ------------------------------------------------ authenticator setup */
+/* Shared with the admin app's log-in (ui/authenticator.tsx). */
+
+.enroll {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s4);
+  margin: var(--s4) 0 var(--s2);
+}
+/* Black on white whatever the theme: what a camera reads reliably. */
+.qr-frame {
+  padding: var(--s2);
+  border-radius: var(--r-card);
+  border: 1px solid var(--outline-variant);
+  background: #ffffff;
+  line-height: 0;
+}
+.qr-code {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+.open-app {
+  width: 100%;
+}
+.secret {
+  width: 100%;
+}
+.secret-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2) var(--s3);
+  margin-top: var(--s1);
+}
+.secret-key {
+  flex: 1 1 220px;
+  min-width: 0;
+  padding: var(--s2) var(--s3);
+  border-radius: var(--r-field);
+  background: var(--surface-container-high);
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  letter-spacing: 0.06em;
+  word-spacing: 0.2em;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+.copy-failed {
+  flex-basis: 100%;
+}
+.recovery-input {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.recovery-codes {
+  display: grid;
+  /* As many columns as fit "10. ABCDE-FGHJK": two on a log-in card, one
+     inside a settings card on a phone. Numbers sit inside each cell, so a
+     second column's numbers never run into the first column's codes. */
+  grid-template-columns: repeat(auto-fill, minmax(16ch, 1fr));
+  gap: var(--s2) var(--s4);
+  margin: var(--s4) 0;
+  padding: var(--s4);
+  list-style-position: inside;
+  border-radius: var(--r-card);
+  border: 1px solid var(--outline-variant);
+  background: var(--surface-container-high);
+  font-size: 1rem;
+}
+.recovery-codes li {
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.recovery-codes li::marker {
+  color: var(--on-surface-variant);
+  font-size: 0.8125rem;
+}
+.recovery-codes-actions {
+  margin-top: 0;
+}
+
+/* ------------------------------------------- two-step verification */
+
+.chip-recommended {
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+}
+.row .chip-recommended {
+  flex-shrink: 0;
+}
+.mfa-prompt {
+  display: flex;
+  gap: var(--s3);
+  align-items: flex-start;
+  margin: var(--s4) 0 0;
+}
+@media (min-width: 900px) {
+  .mfa-prompt {
+    margin: 0 0 var(--s6);
+  }
+}
+.mfa-prompt-icon,
+.mfa-badge {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+}
+.mfa-prompt-text {
+  flex: 1;
+  min-width: 0;
+}
+.mfa-prompt-text h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+.mfa-prompt-text .meta {
+  margin: var(--s1) 0 0;
+}
+.mfa-prompt-text .button-row {
+  margin-top: var(--s3);
+}
+.mfa-status-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s3);
+}
+.mfa-status-head .grow {
+  flex: 1;
+  min-width: 0;
+}
+.mfa-status-head .title {
+  font-size: 1.25rem;
+}
+.mfa-badge {
+  background: var(--surface-container-high);
+  color: var(--on-surface-variant);
+}
+.mfa-badge.on {
+  background: var(--paid-container);
+  color: var(--on-paid-container);
+}
+.mfa-status .banner {
+  margin-top: var(--s3);
+}
+.mfa-step-title {
+  margin: 0 0 var(--s1);
+  font-size: 1.125rem;
+}
+
 /* Page widths by route (shell/pageWidth.ts); 80px is the side padding. */
 @media (min-width: 900px) {
   .shell-main.width-form {

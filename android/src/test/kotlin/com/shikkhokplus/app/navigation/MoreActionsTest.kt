@@ -160,4 +160,17 @@ class MoreActionsTest {
             assertEquals(listOf(Destination.HelpCentre.route), routes, "$lens")
         }
     }
+
+    @Test
+    fun `every lens, and a person with none, gets two-step verification`() {
+        // Protecting one's own sign-in needs no role: the server reads the
+        // account's own setting with no lens and no workspace [0028].
+        listOf(Lens.TEACHER, Lens.CLASS_TEACHER, Lens.STUDENT, Lens.GUARDIAN, null).forEach { lens ->
+            val (actions, routes) = opened(lens)
+
+            assertNotNull(actions.onTwoStep, "$lens has no two-step verification").invoke()
+
+            assertEquals(listOf(Destination.TwoStep.route), routes, "$lens")
+        }
+    }
 }

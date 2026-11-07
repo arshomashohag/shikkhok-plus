@@ -20,7 +20,7 @@ const FORM: RegExp[] = [
   /^\/students\/new$/,
   /^\/payment-methods\/[^/]+$/,
   /^\/profile\/(?:edit|delete)$/,
-  /^\/settings$/,
+  /^\/settings(?:\/security)?$/,
   /^\/help\/new$/,
   new RegExp(`^/${SEAT}/pay$`),
 ]

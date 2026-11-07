@@ -17,9 +17,27 @@ export type Schemas = components['schemas']
 export const issueCode = (phone: string) =>
   request<Schemas['IssueResponse']>('POST', '/v1/auth/otp', { body: { phone }, anonymous: true })
 
+/**
+ * Spend the SMS code. For an account without two-step verification the
+ * answer is the token pair; with it, a challenge for {@link finishSignIn}.
+ */
 export const verifyCode = (phone: string, code: string) =>
-  request<Schemas['TokenResponse']>('POST', '/v1/auth/verify', {
+  request<Schemas['VerifyResponse']>('POST', '/v1/auth/verify', {
     body: { phone, code },
+    anonymous: true,
+  })
+
+/**
+ * The second step: the challenge and one authenticator or recovery code.
+ * Anonymous, like `/verify`: there is no session yet, so a 401 here (the
+ * challenge lapsed) never reaches token renewal or sign-out.
+ */
+export const finishSignIn = (
+  challenge: string,
+  proof: { code: string } | { recovery_code: string },
+) =>
+  request<Schemas['TokenResponse']>('POST', '/v1/auth/mfa', {
+    body: { challenge, ...proof },
     anonymous: true,
   })
 

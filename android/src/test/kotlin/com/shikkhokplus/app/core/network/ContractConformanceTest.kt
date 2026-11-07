@@ -135,6 +135,8 @@ class ContractConformanceTest {
             // The reader's own help-centre questions, any role.
             Contract("/v1/me/help/tickets", HelpTicketListDto.serializer()),
             Contract("/v1/me/help/tickets/{ticket_id}", HelpTicketDetailDto.serializer()),
+            // The account's own two-step verification, any role [0028].
+            Contract("/v1/me/mfa", MfaStatusDto.serializer()),
         )
 
     @Test

@@ -625,7 +625,7 @@ function FormStep({
                 <strong>{t('pay_offline_title')}</strong> {t('pay_offline_body')}
               </>
             ) : (
-              message(failed.messageKey)
+              message(failed.messageKey, failed.details)
             )}
           </div>
         </div>

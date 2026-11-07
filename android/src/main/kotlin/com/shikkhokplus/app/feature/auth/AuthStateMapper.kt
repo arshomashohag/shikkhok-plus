@@ -3,6 +3,7 @@ package com.shikkhokplus.app.feature.auth
 import com.shikkhokplus.app.core.network.ErrorEnvelope
 import com.shikkhokplus.app.core.network.IssueResponse
 import com.shikkhokplus.app.core.network.TokenResponse
+import com.shikkhokplus.app.core.network.VerifyResponse
 
 /**
  * Maps a server response to a [AuthUiState].
@@ -70,6 +71,67 @@ object AuthStateMapper {
         } else {
             AuthUiState.SignedIn
         }
+
+    /**
+     * Map a successful verify response, which is either the token pair
+     * or the authenticator step [0028].
+     *
+     * The server decides which: `mfa_required` with a challenge goes to
+     * the second step, a complete pair is signed in, and anything else
+     * — a pair with a half missing, or a second step with no challenge
+     * to carry it — is a response this client cannot act on.
+     *
+     * @param response The server's reply
+     * @return Signed in, the second step, or a failure
+     */
+    fun afterVerify(response: VerifyResponse): AuthUiState {
+        val access = response.accessToken
+        val refresh = response.refreshToken
+        return when {
+            response.mfaRequired && !response.mfaChallenge.isNullOrEmpty() -> AuthUiState.SecondStep()
+            response.mfaRequired -> AuthUiState.Failed(UNEXPECTED_KEY, retryable = false)
+            access != null && refresh != null -> afterVerify(TokenResponse(access, refresh, response.expiresIn ?: 0))
+            else -> AuthUiState.Failed(UNEXPECTED_KEY, retryable = false)
+        }
+    }
+
+    /**
+     * Map what the second step came to.
+     *
+     * **A lapsed challenge goes back to the number.** The challenge is
+     * spent, so neither the code boxes nor a retry can help: the way on
+     * is a new SMS code, from the step where it is asked for. It is the
+     * one refusal here that leaves the second step, and it is shown as
+     * not retryable because the retry the server means is the whole
+     * sign-in, which the number step already offers.
+     *
+     * Every other refusal — a wrong code, the fifteen-minute lock — stays
+     * on the second step with the server's key and retryability, and a
+     * lost connection stays there with an explicit retry.
+     *
+     * @param result The repository's answer
+     * @param useRecovery Whether a recovery code was sent
+     * @return Signed in, the second step with a refusal, or the number step
+     */
+    fun afterSecondStep(result: AuthResult<TokenResponse>, useRecovery: Boolean): AuthUiState =
+        when (result) {
+            is AuthResult.Ok -> afterVerify(result.value)
+            is AuthResult.Refused ->
+                if (result.envelope.error.messageKey == CHALLENGE_EXPIRED_KEY) {
+                    AuthUiState.Failed(CHALLENGE_EXPIRED_KEY, retryable = false)
+                } else {
+                    AuthUiState.SecondStep(
+                        useRecovery = useRecovery,
+                        messageKey = result.envelope.error.messageKey,
+                        retryable = result.envelope.error.retryable,
+                    )
+                }
+            AuthResult.TransportFailure ->
+                AuthUiState.SecondStep(useRecovery = useRecovery, messageKey = OFFLINE_KEY, retryable = true)
+        }
+
+    /** The refusal of a second step whose challenge has lapsed. */
+    const val CHALLENGE_EXPIRED_KEY: String = "mfa.challenge_expired"
 
     /**
      * Map a server error envelope.

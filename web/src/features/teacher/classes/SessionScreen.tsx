@@ -21,7 +21,7 @@ import { listBatches, type Schemas } from '../../../api/endpoints'
 import { ApiError } from '../../../api/errors'
 import { formatClock, formatLongDay } from '../../../core/format'
 import { useResource } from '../../../core/useResource'
-import { useT } from '../../../i18n/i18n'
+import { useT, type Translator } from '../../../i18n/i18n'
 import {
   ErrorCard,
   Loading,
@@ -264,8 +264,8 @@ function TextArea({
   )
 }
 
-function errorText(e: unknown, message: (k: string) => string, t: (k: string) => string): string {
-  return e instanceof ApiError ? message(e.messageKey) : t('error_unexpected')
+function errorText(e: unknown, message: Translator['message'], t: (k: string) => string): string {
+  return e instanceof ApiError ? message(e.messageKey, e.details) : t('error_unexpected')
 }
 
 function RecordForm({

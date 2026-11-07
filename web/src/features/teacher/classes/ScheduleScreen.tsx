@@ -137,7 +137,9 @@ function ScheduleForm({
       await writeSchedule(batchId, inCentre ? withAssignment(slots, assignment) : slots)
       navigate(paths.batch(batchId, 'classes'))
     } catch (err) {
-      setError(err instanceof ApiError ? message(err.messageKey) : t('error_unexpected'))
+      setError(
+        err instanceof ApiError ? message(err.messageKey, err.details) : t('error_unexpected'),
+      )
       setBusy(false)
     }
   }

@@ -79,16 +79,40 @@ export function translatePlural(
 }
 
 /** The text for a server error's `message_key`. */
-export function translateMessage(lang: Lang, messageKey: string): string {
+/**
+ * Server messages whose string has placeholders, and the `details` that
+ * fill them, in placeholder order. The server names the string and sends
+ * the values; this is the one place that joins the two, so no screen has
+ * to remember that "{1} tries left" needs `attempts_left`.
+ *
+ * `fallback` is shown when a value is missing (an older server, or a
+ * path that sends no details), so a person never reads a raw `{1}`.
+ */
+const MESSAGE_ARGS: Record<string, { details: readonly string[]; fallback: string }> = {
+  'auth.otp.wrong': { details: ['attempts_left'], fallback: 'web_auth_otp_wrong_no_count' },
+}
+
+export function translateMessage(
+  lang: Lang,
+  messageKey: string,
+  details?: Readonly<Record<string, string>> | null,
+): string {
   const resource = MESSAGE_KEYS[messageKey]
-  return resource ? translate(lang, resource) : translate(lang, 'error_unexpected')
+  if (!resource) return translate(lang, 'error_unexpected')
+  const wanted = MESSAGE_ARGS[messageKey]
+  if (!wanted) return translate(lang, resource)
+  const args = wanted.details.map((name) => details?.[name])
+  if (args.some((value) => value === undefined || value === '')) {
+    return translate(lang, wanted.fallback)
+  }
+  return translate(lang, resource, ...(args as string[]))
 }
 
 export interface Translator {
   lang: Lang
   t: (key: string, ...args: (string | number)[]) => string
   plural: (key: string, count: number, ...args: (string | number)[]) => string
-  message: (messageKey: string) => string
+  message: (messageKey: string, details?: Readonly<Record<string, string>> | null) => string
 }
 
 const I18nContext = createContext<Translator | null>(null)
@@ -103,7 +127,11 @@ export function I18nProvider({ lang, children }: { lang: Lang; children: ReactNo
       translatePlural(lang, key, count, ...args),
     [lang],
   )
-  const message = useCallback((k: string) => translateMessage(lang, k), [lang])
+  const message = useCallback(
+    (k: string, details?: Readonly<Record<string, string>> | null) =>
+      translateMessage(lang, k, details),
+    [lang],
+  )
   const value = useMemo(() => ({ lang, t, plural, message }), [lang, t, plural, message])
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>
 }

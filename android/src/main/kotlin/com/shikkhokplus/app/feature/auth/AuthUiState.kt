@@ -62,6 +62,29 @@ sealed interface AuthUiState {
         val attemptsLeft: String? = null,
     ) : AuthUiState
 
+    /**
+     * The SMS code was right and the account has two-step verification
+     * on [0028]: the code from the authenticator app is asked for, or a
+     * recovery code when the person switched to one.
+     *
+     * **No session exists yet.** Nothing was stored, and leaving this
+     * step goes back to the number, not forward.
+     *
+     * @property useRecovery True while a recovery code is asked for
+     *   instead of the authenticator code
+     * @property checking The code is with the server
+     * @property messageKey Why the last code was refused, as the
+     *   server's key, or null when nothing was refused
+     * @property retryable Read from the server's envelope; true only for
+     *   a refusal a second attempt with the same code can fix
+     */
+    data class SecondStep(
+        val useRecovery: Boolean = false,
+        val checking: Boolean = false,
+        val messageKey: String? = null,
+        val retryable: Boolean = false,
+    ) : AuthUiState
+
     /** The code was accepted and a session exists. */
     data object SignedIn : AuthUiState
 

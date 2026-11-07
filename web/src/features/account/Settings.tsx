@@ -1,11 +1,17 @@
-/** Settings kept in this browser: theme, text size and language. */
+/**
+ * Settings kept in this browser: theme, text size and language; and the
+ * account's two-step verification, which is the server's.
+ */
 import { usePrefs, type TextScale, type ThemePref } from '../../core/prefs'
 import { useT } from '../../i18n/i18n'
 import { Section, TopBar } from '../../ui/components'
+import { useOnline } from '../../core/useResource'
+import { MfaEntry } from './security'
 
 export function Settings() {
   const { t } = useT()
   const prefs = usePrefs()
+  const online = useOnline()
   const themes: [ThemePref, string][] = [
     ['system', 'settings_same_as_phone'],
     ['light', 'settings_theme_light'],
@@ -66,6 +72,11 @@ export function Settings() {
             </button>
           ))}
         </div>
+      </Section>
+      <Section title={t('more_section_account')}>
+        <ul className="card flush list">
+          <MfaEntry offline={online ? null : t('more_needs_connection')} />
+        </ul>
       </Section>
     </>
   )

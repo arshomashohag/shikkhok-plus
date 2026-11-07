@@ -108,18 +108,18 @@ def test_the_generated_document_carries_no_collection_rate_field() -> None:
     assert "collectionRate" not in document
 
 
-def test_public_routes_still_holds_exactly_eleven() -> None:
+def test_public_routes_still_holds_exactly_twelve() -> None:
     """D5 adds nothing unauthenticated [BR4.4].
 
     The count is asserted in ``tests/contract/test_route_lenses.py``
     too; this is the second of the two places the number is pinned, and
     it is here so a D5 reader meets the obligation in D5's own file. It
-    moved from eight to eleven with the admin sign-in routes [0028], none
-    of which is D5's.
+    moved from eight to twelve with the admin and app MFA sign-in routes
+    [0028], none of which is D5's.
 
     :return: None
     """
-    assert len(PUBLIC_ROUTES) == 11
+    assert len(PUBLIC_ROUTES) == 12
     assert ("GET", "/v1/me/dues") not in PUBLIC_ROUTES
     assert ("GET", "/v1/me/overview") not in PUBLIC_ROUTES
 

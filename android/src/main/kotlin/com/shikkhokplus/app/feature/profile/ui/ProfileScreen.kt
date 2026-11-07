@@ -99,6 +99,9 @@ const val TAG_PROFILE_CENTRE_OFFERS: String = "profile_centre_offers"
  */
 fun workspaceRowTag(ownerId: String): String = "profile_workspace_$ownerId"
 
+/** The two-step verification row, offered to every lens. */
+const val TAG_PROFILE_TWO_STEP: String = "profile_two_step"
+
 /** The switch-role row. Absent for a person with one lens. */
 const val TAG_PROFILE_SWITCH_LENS: String = "profile_switch_lens"
 
@@ -148,6 +151,9 @@ const val TAG_PROFILE_MY_CHILDREN: String = "profile_my_children"
  * @property unsent How many records this phone has not sent yet (T9)
  * @property onSettings Opens Settings, or null where none are kept
  * @property onHelp Opens the Help centre, or null
+ * @property onTwoStep Opens two-step verification, or null
+ * @property twoStepRecommended Marks that row "Recommended": the server
+ *   recommends it for this account and it is off
  */
 data class MoreActions(
     val onEdit: () -> Unit = {},
@@ -173,6 +179,8 @@ data class MoreActions(
     val unsent: Int = 0,
     val onSettings: (() -> Unit)? = null,
     val onHelp: (() -> Unit)? = null,
+    val onTwoStep: (() -> Unit)? = null,
+    val twoStepRecommended: Boolean = false,
 )
 
 /**
@@ -591,6 +599,26 @@ private fun TeacherRows(actions: MoreActions, offline: Boolean) {
 @Composable
 private fun AccountRows(actions: MoreActions, offline: Boolean) {
     MenuSection(stringResource(R.string.more_section_account)) {
+        // Two-step verification needs the server to read or change it;
+        // offline it waits, greyed, like the Help centre.
+        actions.onTwoStep?.let { open ->
+            MenuRow(
+                title = stringResource(R.string.more_two_step),
+                subtitle =
+                    stringResource(if (offline) R.string.more_needs_connection else R.string.more_two_step_sub),
+                icon = MenuIcons.Lock,
+                trailing =
+                    if (actions.twoStepRecommended) {
+                        MenuTrailing.Badge(stringResource(R.string.two_step_recommended))
+                    } else {
+                        MenuTrailing.Chevron
+                    },
+                onClick = open,
+                enabled = !offline,
+                modifier = Modifier.testTag(TAG_PROFILE_TWO_STEP),
+            )
+            MenuDivider()
+        }
         actions.onSwitchLens?.let { switch ->
             MenuRow(
                 title = stringResource(R.string.lens_switch),

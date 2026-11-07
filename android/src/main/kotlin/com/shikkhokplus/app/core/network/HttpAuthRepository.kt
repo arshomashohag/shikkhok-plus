@@ -43,12 +43,43 @@ class HttpAuthRepository(
     override suspend fun issue(phone: String): AuthResult<IssueResponse> =
         call { client.post("/v1/auth/otp") { setBody(IssueBody(phone)) } }
 
+    /**
+     * Present the SMS code.
+     *
+     * **A pair is saved only when the server sent one.** An account with
+     * two-step verification gets a challenge instead, and there is no
+     * session until [verifySecondStep] succeeds; saving nothing here is
+     * what keeps a half-finished sign-in from looking signed in.
+     */
     override suspend fun verify(
         phone: String,
         code: String,
+    ): AuthResult<VerifyResponse> {
+        val result: AuthResult<VerifyResponse> =
+            call { client.post("/v1/auth/verify") { setBody(VerifyBody(phone, code)) } }
+        val pair = (result as? AuthResult.Ok)?.value?.takeUnless { it.mfaRequired }
+        val access = pair?.accessToken
+        val refresh = pair?.refreshToken
+        if (access != null && refresh != null) tokens.save(access, refresh)
+        return result
+    }
+
+    /**
+     * Finish signing in with the authenticator code or a recovery code.
+     *
+     * **Never renewed, and its 401 ends no session.** A lapsed challenge
+     * is answered `401 mfa.challenge_expired`, and nobody is signed in
+     * yet: the request carries no bearer token, and [SessionRenewal]
+     * leaves every `/v1/auth/` route alone besides, so the refusal comes
+     * back to the sign-in screen as an ordinary envelope.
+     */
+    override suspend fun verifySecondStep(
+        challenge: String,
+        code: String?,
+        recoveryCode: String?,
     ): AuthResult<TokenResponse> {
         val result: AuthResult<TokenResponse> =
-            call { client.post("/v1/auth/verify") { setBody(VerifyBody(phone, code)) } }
+            call { client.post("/v1/auth/mfa") { setBody(MfaSignInRequest(challenge, code, recoveryCode)) } }
         if (result is AuthResult.Ok) {
             tokens.save(result.value.accessToken, result.value.refreshToken)
         }

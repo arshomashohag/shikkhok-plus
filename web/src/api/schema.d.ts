@@ -484,6 +484,35 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/v1/auth/mfa': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Verify Second Step
+     * @description Finish signing in with an authenticator code or a recovery code.
+     *
+     *     Public, like ``/verify``: the person has no token yet. What bounds it
+     *     is the challenge, which only a verified SMS code yields, and the
+     *     shared factor's lock after five wrong codes.
+     *
+     *     :param body: The challenge and one code
+     *     :param request: The incoming request
+     *     :param session: The request-scoped session
+     *     :return: The token pair
+     */
+    post: operations['verify_second_step_v1_auth_mfa_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/v1/auth/otp': {
     parameters: {
       query?: never
@@ -552,12 +581,16 @@ export interface paths {
     put?: never
     /**
      * Verify Code
-     * @description Verify a code and issue a token pair.
+     * @description Verify a code and issue a token pair, or ask for the second step.
+     *
+     *     An account with two-step verification on gets a challenge instead of
+     *     tokens, and the SMS code is spent either way: a second request with
+     *     the same code cannot skip the authenticator step.
      *
      *     :param body: The request body
      *     :param request: The incoming request
      *     :param session: The request-scoped session
-     *     :return: The new token pair
+     *     :return: The token pair, or the authenticator challenge
      */
     post: operations['verify_code_v1_auth_verify_post']
     delete?: never
@@ -3053,6 +3086,132 @@ export interface paths {
      *     :return: The ticket and its thread
      */
     post: operations['reply_v1_me_help_tickets__ticket_id__messages_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/me/mfa': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Read Status
+     * @description Say whether two-step verification is on, and whether to suggest it.
+     *
+     *     :param session: The request-scoped session
+     *     :param account_id: The authenticated account
+     *     :return: The status
+     */
+    get: operations['read_status_v1_me_mfa_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/me/mfa/confirm': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Finish Setup
+     * @description Turn it on with the first code the app shows.
+     *
+     *     :param body: The code
+     *     :param request: The incoming request
+     *     :param session: The request-scoped session
+     *     :param account_id: The authenticated account
+     *     :return: Ten recovery codes, shown once
+     */
+    post: operations['finish_setup_v1_me_mfa_confirm_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/me/mfa/disable': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Turn Off
+     * @description Turn it off, proven with an authenticator or recovery code.
+     *
+     *     :param body: One of the two codes
+     *     :param request: The incoming request
+     *     :param session: The request-scoped session
+     *     :param account_id: The authenticated account
+     *     :return: The new status
+     */
+    post: operations['turn_off_v1_me_mfa_disable_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/me/mfa/recovery-codes': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Renew Codes
+     * @description Replace the recovery codes, proven with an authenticator code.
+     *
+     *     :param body: The code
+     *     :param request: The incoming request
+     *     :param session: The request-scoped session
+     *     :param account_id: The authenticated account
+     *     :return: Ten new codes; the old ones stop working
+     */
+    post: operations['renew_codes_v1_me_mfa_recovery_codes_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/v1/me/mfa/setup': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Begin Setup
+     * @description Start turning it on: a new secret for an authenticator app.
+     *
+     *     :param session: The request-scoped session
+     *     :param account_id: The authenticated account
+     *     :return: The secret and its ``otpauth://`` URI
+     */
+    post: operations['begin_setup_v1_me_mfa_setup_post']
     delete?: never
     options?: never
     head?: never
@@ -6918,6 +7077,90 @@ export interface components {
       role: 'manager' | 'teacher'
     }
     /**
+     * MfaCodeRequest
+     * @description An authenticator code.
+     *
+     *     :ivar code: Six digits from the app
+     */
+    MfaCodeRequest: {
+      /** Code */
+      code: string
+    }
+    /**
+     * MfaProofRequest
+     * @description Proof of the factor: exactly one of the two codes.
+     *
+     *     :ivar code: Six digits from the app
+     *     :ivar recovery_code: Or a recovery code
+     */
+    MfaProofRequest: {
+      /** Code */
+      code?: string | null
+      /** Recovery Code */
+      recovery_code?: string | null
+    }
+    /**
+     * MfaRecoveryCodesResponse
+     * @description Ten single-use recovery codes, shown once.
+     *
+     *     :ivar recovery_codes: The codes
+     */
+    MfaRecoveryCodesResponse: {
+      /** Recovery Codes */
+      recovery_codes: string[]
+    }
+    /**
+     * MfaSetupResponse
+     * @description A new secret to add to an authenticator app.
+     *
+     *     :ivar secret: The base32 secret, for typing in by hand
+     *     :ivar otpauth_uri: The same secret as a link or a QR code
+     */
+    MfaSetupResponse: {
+      /** Otpauth Uri */
+      otpauth_uri: string
+      /** Secret */
+      secret: string
+    }
+    /**
+     * MfaSignInRequest
+     * @description The second step of signing in: exactly one of the two codes.
+     *
+     *     :ivar challenge: From ``POST /v1/auth/verify``
+     *     :ivar code: Six digits from the authenticator app
+     *     :ivar recovery_code: A recovery code, if the phone with the app is lost
+     */
+    MfaSignInRequest: {
+      /** Challenge */
+      challenge: string
+      /** Code */
+      code?: string | null
+      /** Recovery Code */
+      recovery_code?: string | null
+    }
+    /**
+     * MfaStatusResponse
+     * @description Whether two-step verification is on, and what to suggest.
+     *
+     *     :ivar enabled: An authenticator app is set up
+     *     :ivar enabled_at: When it was turned on
+     *     :ivar recovery_codes_left: Unused recovery codes
+     *     :ivar recommended: Suggest it: the account teaches or runs a centre
+     *     :ivar required: It cannot be turned off: a platform administrator
+     */
+    MfaStatusResponse: {
+      /** Enabled */
+      enabled: boolean
+      /** Enabled At */
+      enabled_at?: string | null
+      /** Recommended */
+      recommended: boolean
+      /** Recovery Codes Left */
+      recovery_codes_left: number
+      /** Required */
+      required: boolean
+    }
+    /**
      * Money
      * @description A BDT amount in canonical form: exactly two decimal places, no thousands separator, no currency symbol, no sign. Always a JSON string, never a JSON number.
      */
@@ -9680,6 +9923,40 @@ export interface components {
       phone: string
     }
     /**
+     * VerifyResponse
+     * @description What a verified SMS code yields: tokens, or the authenticator step.
+     *
+     *     **For an account without two-step verification this is exactly the
+     *     token pair it always was**, so clients built before the authenticator
+     *     step keep working for everyone who has not turned it on. For an
+     *     account with it on, the token fields are absent and ``mfa_challenge``
+     *     carries the person to ``POST /v1/auth/mfa``.
+     *
+     *     :ivar access_token: The bearer token, when no second step is needed
+     *     :ivar refresh_token: The rotation token, likewise
+     *     :ivar expires_in: Access-token lifetime in seconds, likewise
+     *     :ivar mfa_required: True when an authenticator code must follow
+     *     :ivar mfa_challenge: Carries the sign-in to that step; grants nothing
+     *     :ivar mfa_expires_in: Seconds until the challenge lapses
+     */
+    VerifyResponse: {
+      /** Access Token */
+      access_token?: string | null
+      /** Expires In */
+      expires_in?: number | null
+      /** Mfa Challenge */
+      mfa_challenge?: string | null
+      /** Mfa Expires In */
+      mfa_expires_in?: number | null
+      /**
+       * Mfa Required
+       * @default false
+       */
+      mfa_required: boolean
+      /** Refresh Token */
+      refresh_token?: string | null
+    }
+    /**
      * WaitingPaymentResponse
      * @description A seat not offered because its payment is being checked.
      *
@@ -9780,6 +10057,8 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** Authenticator Code */
+          authenticator_code?: string | null
           /** Code */
           code?: string | null
           /**
@@ -9789,6 +10068,8 @@ export interface operations {
           phone: string
         }
         'application/x-www-form-urlencoded': {
+          /** Authenticator Code */
+          authenticator_code?: string | null
           /** Code */
           code?: string | null
           /**
@@ -10385,6 +10666,39 @@ export interface operations {
       }
     }
   }
+  verify_second_step_v1_auth_mfa_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['MfaSignInRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['TokenResponse']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
   issue_code_v1_auth_otp_post: {
     parameters: {
       query?: never
@@ -10472,7 +10786,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          'application/json': components['schemas']['TokenResponse']
+          'application/json': components['schemas']['VerifyResponse']
         }
       }
       /** @description Validation Error */
@@ -15861,6 +16175,145 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  read_status_v1_me_mfa_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MfaStatusResponse']
+        }
+      }
+    }
+  }
+  finish_setup_v1_me_mfa_confirm_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['MfaCodeRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MfaRecoveryCodesResponse']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  turn_off_v1_me_mfa_disable_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['MfaProofRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MfaStatusResponse']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  renew_codes_v1_me_mfa_recovery_codes_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['MfaCodeRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MfaRecoveryCodesResponse']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  begin_setup_v1_me_mfa_setup_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MfaSetupResponse']
         }
       }
     }

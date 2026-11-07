@@ -206,7 +206,7 @@ export function ErrorCard({
     <div className="card error" role="alert">
       <div className="title">{title}</div>
       <p className="meta" style={{ margin: '8px 0 16px' }}>
-        {error.offline ? t('web_offline_shell') : message(error.messageKey)}
+        {error.offline ? t('web_offline_shell') : message(error.messageKey, error.details)}
       </p>
       {error.retryable ? (
         <button type="button" className="btn btn-outline" onClick={onRetry}>
@@ -233,7 +233,7 @@ export function StaleBanner({ error, loadedAt }: { error: ApiError; loadedAt: Da
             <strong>{t('offline_title')}</strong> {t('offline_figures_from', time)}
           </>
         ) : (
-          message(error.messageKey)
+          message(error.messageKey, error.details)
         )}
       </div>
     </div>

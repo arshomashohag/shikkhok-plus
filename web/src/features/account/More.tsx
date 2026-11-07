@@ -1,7 +1,8 @@
 /**
  * More: who is signed in, with Edit; the inbox; invitations and children
  * for a student or guardian; the help centre, with its new replies; the teacher's Getting paid and Your records;
- * settings and install; switching role, log out and delete account.
+ * settings and install; two-step verification, switching role, log out and
+ * delete account.
  * Grouped as Android's profile screen groups them.
  *
  * Rows that change the account need a connection and say so offline,
@@ -34,6 +35,7 @@ import { accountPaths } from '../family/reader'
 import { useUnreadCount } from './area/unread'
 import { helpPaths, useNewReplies } from '../help'
 import { WorkspaceSection } from './Workspaces'
+import { MfaEntry } from './security'
 
 /** One More row: a link when there is somewhere to go, else greyed. */
 function Row({
@@ -273,6 +275,7 @@ export function More() {
 
       <Section title={t('more_section_account')}>
         <ul className="card flush list">
+          <MfaEntry offline={needsConnection} />
           {others.map((o) => (
             <li key={o.lens}>
               <button type="button" className="row" onClick={() => chooseLens(o.lens)}>

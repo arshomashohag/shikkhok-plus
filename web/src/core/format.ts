@@ -70,6 +70,11 @@ export function formatDateTime(iso: string, lang: Lang, withYear = false): strin
     .replace(/\s?([AP]M)$/i, (_, m: string) => ` ${m.toLowerCase()}`)
 }
 
+/** "17 Oct 2026": the Dhaka calendar day of a timestamp. */
+export function formatDayOf(iso: string, lang: Lang): string {
+  return formatter(lang, { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(iso))
+}
+
 /** Parse a server `YYYY-MM-DD` as a calendar date (noon UTC, so no TZ drift). */
 export function parseDate(isoDate: string): Date {
   return new Date(`${isoDate.slice(0, 10)}T12:00:00Z`)

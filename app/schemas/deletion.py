@@ -40,12 +40,17 @@ class DeletionRequest(BaseModel):
 
     :ivar phone: The number whose account is to be deleted
     :ivar code: The deletion code, or None to be sent one
+    :ivar authenticator_code: For an account with two-step verification
+        on, six digits from the authenticator app or a recovery code.
+        Optional for everyone and asked of everyone alike, so the form
+        does not reveal which accounts have it [0028]
     """
 
     model_config = ConfigDict(extra="forbid")
 
     phone: PhoneField
     code: str | None = Field(default=None, min_length=4, max_length=10)
+    authenticator_code: str | None = Field(default=None, min_length=6, max_length=16)
 
 
 class DeletionOutcome(BaseModel):

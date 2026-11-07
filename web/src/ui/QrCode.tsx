@@ -1,11 +1,13 @@
 /**
  * A QR code for the authenticator setup, drawn as an SVG.
  *
- * The encoder is `qrcode-generator` (MIT, no dependencies), imported only
- * by the admin app. It is drawn **black on white with a four-module quiet
- * zone in every theme**: a phone camera reads dark modules on a light
- * ground, and a dark-mode inversion or a missing margin is the usual
- * reason a code on a screen will not scan.
+ * The encoder is `qrcode-generator` (MIT, no dependencies). Both apps use
+ * it: the admin app's log-in and the main app's two-step verification
+ * setup, which loads it with that screen's lazy chunk. It is drawn
+ * **black on white with a four-module quiet zone in every theme**: a phone
+ * camera reads dark modules on a light ground, and a dark-mode inversion
+ * or a missing margin is the usual reason a code on a screen will not
+ * scan.
  */
 import qrcode from 'qrcode-generator'
 import { useMemo } from 'react'
@@ -54,7 +56,7 @@ export function QrCode({
   }, [text])
   return (
     <svg
-      className="admin-qr"
+      className="qr-code"
       role="img"
       aria-label={label}
       width={extent * moduleSize}
