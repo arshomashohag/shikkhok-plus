@@ -162,3 +162,202 @@ def test_production_is_gated_on_dependency_cves_before_anything_changes() -> Non
     assert "production" in str(gate[0].get("if", ""))
     assert not gate[0].get("continue-on-error")
     assert ".security-exceptions.md" in str(gate[0]["run"])
+
+
+# ---------------------------------------------------------------------------
+# C-10: nothing is deployed that CI did not pass.
+# ---------------------------------------------------------------------------
+
+CHECK = ROOT / ".github" / "workflows" / "check.yml"
+WORKFLOWS = ROOT / ".github" / "workflows"
+
+
+def _first_index(steps: list[dict[str, object]], predicate: object) -> int:
+    """Return the index of the first step a predicate accepts.
+
+    :param steps: The steps
+    :param predicate: A callable taking one step
+    :return: The index
+    """
+    for index, step in enumerate(steps):
+        if predicate(step):  # type: ignore[operator]
+            return index
+    raise AssertionError("no step matched")
+
+
+def test_the_deploy_requires_every_check_job_to_have_passed() -> None:
+    # The required names are compared with check.yml's real job names,
+    # so a job renamed or added there cannot leave this asserting a
+    # list nobody runs.
+    check_jobs = yaml.safe_load(CHECK.read_text())["jobs"]
+    names = {str(job.get("name", key)) for key, job in check_jobs.items()}
+
+    steps = _steps("plan")
+    evidence = [s for s in steps if "check-runs" in str(s.get("run", ""))]
+    assert len(evidence) == 1
+    required = set(str(evidence[0]["env"]["REQUIRED"]).split())  # type: ignore[index]
+    assert required == names
+    assert '"success"' in str(evidence[0]["run"])
+    assert not evidence[0].get("continue-on-error")
+
+    # Before any credential exists, so an unpassed commit touches nothing.
+    first_credential = _first_index(
+        steps,
+        lambda s: "configure-aws-credentials" in str(s.get("uses", "")),
+    )
+    assert steps.index(evidence[0]) < first_credential
+
+
+def test_production_deploys_only_a_commit_on_main() -> None:
+    steps = _steps("plan")
+    on_main = [s for s in steps if "compare/main..." in str(s.get("run", ""))]
+
+    assert len(on_main) == 1
+    assert "production" in str(on_main[0].get("if", ""))
+
+
+def test_the_ref_never_reaches_a_shell_by_interpolation() -> None:
+    workflow = yaml.safe_load(DEPLOY.read_text())
+    for name, job in workflow["jobs"].items():
+        for step in job.get("steps", []):
+            assert "inputs.ref" not in str(step.get("run", "")), (
+                name,
+                step.get("name"),
+            )
+
+
+def test_check_runs_on_the_commit_that_lands_on_main() -> None:
+    # Without it a squash commit on main has no check result, and the
+    # deploy would refuse every commit on main.
+    triggers = yaml.safe_load(CHECK.read_text())[True]  # YAML 1.1 reads `on` as True
+
+    assert triggers["push"]["branches"] == ["main"]
+
+
+# ---------------------------------------------------------------------------
+# C-11: the plan exists, and is shown, before the approval that applies it.
+# ---------------------------------------------------------------------------
+
+
+def test_the_plan_is_made_before_the_infra_approval_and_applied_verbatim() -> None:
+    workflow = yaml.safe_load(DEPLOY.read_text())
+    assert workflow["defaults"]["run"]["shell"] == "bash", "pipefail is off"
+
+    plan_runs = " ".join(str(s.get("run", "")) for s in _steps("plan"))
+    assert "terraform plan" in plan_runs
+    assert "-out=tfplan" in plan_runs
+    assert "terraform apply" not in plan_runs
+
+    infra = workflow["jobs"]["infrastructure"]
+    assert infra["environment"] == "${{ inputs.environment }}-infra"
+    infra_runs = " ".join(str(s.get("run", "")) for s in infra["steps"])
+    assert "terraform plan" not in infra_runs
+    assert "terraform apply -input=false tfplan" in infra_runs
+    assert "sha256sum tfplan" in infra_runs
+    assert "plan_sha256" in str(infra["steps"])
+
+
+def test_the_state_region_matches_the_backend() -> None:
+    versions = (ROOT / "infra" / "versions.tf").read_text()
+    backend = re.search(r'backend "s3" \{(.*?)\n  \}', versions, re.DOTALL)
+    assert backend is not None
+    region = re.search(r'region\s*=\s*"([^"]+)"', backend.group(1))
+    assert region is not None
+
+    env = yaml.safe_load(DEPLOY.read_text())["env"]
+    assert env["TF_STATE_REGION"] == region.group(1)
+
+
+# ---------------------------------------------------------------------------
+# C-12: an interrupted deploy is rolled back too, and the tag is written last.
+# ---------------------------------------------------------------------------
+
+
+def test_a_cancelled_release_is_rolled_back() -> None:
+    rollback = [s for s in _steps("release") if "Roll back" in str(s.get("name", ""))]
+
+    assert "cancelled()" in str(rollback[0]["if"])
+
+
+def test_the_image_tag_is_written_after_the_runtime_env() -> None:
+    record = [s for s in _steps("release") if s.get("id") == "record"]
+    run = str(record[0]["run"])
+
+    assert run.index("/runtime-env") < run.index("/image-tag")
+
+
+def test_production_has_no_sms_fallbacks() -> None:
+    # A placeholder hash passes the app's length check and a ceiling of
+    # 50 passes its presence check, so a production fallback defeated
+    # both [C-19]. The staging defaults sit in the branch after `else`.
+    record = [s for s in _steps("release") if s.get("id") == "record"]
+    run = str(record[0]["run"])
+    production, _, staging = run.partition("else")
+
+    assert ":-AAAAAAAAAAA" not in production
+    assert ":-50" not in production
+    assert ":-AAAAAAAAAAA" in staging
+
+
+# ---------------------------------------------------------------------------
+# C-32: every action is pinned, and no checkout leaves its token behind.
+# ---------------------------------------------------------------------------
+
+
+def _all_steps() -> list[tuple[str, dict[str, object]]]:
+    """Every step of every workflow, with where it came from.
+
+    :return: ``(workflow/job, step)`` pairs
+    """
+    found: list[tuple[str, dict[str, object]]] = []
+    for path in sorted(WORKFLOWS.glob("*.yml")):
+        workflow = yaml.safe_load(path.read_text())
+        for name, job in workflow["jobs"].items():
+            found.extend((f"{path.name}/{name}", step) for step in job.get("steps", []))
+    return found
+
+
+def test_every_action_is_pinned_to_a_commit() -> None:
+    steps = _all_steps()
+    uses = [(where, str(s["uses"])) for where, s in steps if "uses" in s]
+    assert len(uses) > 10, "the parser found almost no actions"
+
+    loose = [
+        (where, use)
+        for where, use in uses
+        if not re.fullmatch(r"[\w.-]+/[\w./-]+@[0-9a-f]{40}", use)
+    ]
+    assert loose == [], (
+        f"{loose}: a tag can be re-pointed at new code; a commit cannot. "
+        "Pin the full SHA with the version in a trailing comment."
+    )
+
+
+def test_every_version_comment_names_a_version() -> None:
+    lines = [
+        line
+        for path in WORKFLOWS.glob("*.yml")
+        for line in path.read_text().splitlines()
+        if re.search(r"uses:\s*\S+@[0-9a-f]{40}", line)
+    ]
+
+    assert lines
+    assert all(re.search(r"# v\d+\.\d+\.\d+\s*$", line) for line in lines), [
+        line for line in lines if not re.search(r"# v\d+\.\d+\.\d+\s*$", line)
+    ]
+
+
+def test_no_checkout_persists_its_credentials() -> None:
+    checkouts = [
+        (where, step)
+        for where, step in _all_steps()
+        if str(step.get("uses", "")).startswith("actions/checkout@")
+    ]
+    assert checkouts
+
+    persisted = [
+        where
+        for where, step in checkouts
+        if (step.get("with") or {}).get("persist-credentials") is not False  # type: ignore[union-attr]
+    ]
+    assert persisted == [], f"{persisted}: no job here pushes with git"

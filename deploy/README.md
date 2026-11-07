@@ -66,8 +66,9 @@ GitHub environment's secrets and variables.
 | `SHIKKHOKPLUS_ENVIRONMENT` | the dispatch input | `staging` or `production` |
 | `SHIKKHOKPLUS_OTP_HMAC_KEY` | secret | not recoverable; keep a copy |
 | `SHIKKHOKPLUS_JWT_KEYS`, `SHIKKHOKPLUS_JWT_ACTIVE_KID` | secret, `k1` | losing the key logs everyone out |
-| `SHIKKHOKPLUS_SMS_*`, `SHIKKHOKPLUS_GLOBAL_DAILY_SMS` | secrets and variables | no API key selects the null gateway |
+| `SHIKKHOKPLUS_SMS_*`, `SHIKKHOKPLUS_GLOBAL_DAILY_SMS` | secrets and variables | no API key selects the null gateway; **production has no fallback** for the app hash or the ceiling, and the deploy fails without them [C-19] |
 | `SHIKKHOKPLUS_STAGING_OUTBOX` | variable, default `0` | a production process with it set refuses to start |
+| `SHIKKHOKPLUS_STAGING_OUTBOX_NUMBERS` | variable, staging only | the operator numbers the outbox serves; on staging the outbox is off without it [C-19] |
 | `SHIKKHOKPLUS_TRUSTED_CLIENT_IP_HEADER` | fixed: `X-Client-Address` | **every environment**; production refuses to start without it |
 | `SHIKKHOKPLUS_DATABASE_URL` | SSM `database-url`, by the boot script | the `shikkhok_app` role |
 | `SHIKKHOKPLUS_MIGRATION_DATABASE_URL`, `SHIKKHOKPLUS_APP_DB_PASSWORD` | SSM, by the boot script | `migrate` service only, never written to `.env` |
@@ -89,12 +90,15 @@ and rolls the host, and the ECR tag is the exact artifact that ran
 before.
 
 **Not `alembic downgrade`.** Migration `0002` raises on downgrade. The
-rollback for a schema change is the pre-deploy snapshot:
-`infra/RESTORE.md`.
+earlier image boots against the newer schema -- its boot runs
+`migrate-if-behind`, which skips the upgrade when the database is at a
+later revision [C-12] -- and that is safe only because migrations stay
+backward-compatible. When one was not, the rollback for the schema is
+the pre-deploy snapshot: `infra/RESTORE.md`.
 
 ## What this does not yet have
 
 | Missing | Why it matters |
 |---|---|
-| A smoke of OTP, lens resolution and a fee read | `deploy/smoke.py` proves serving, database and schema head only; team.md's smoke set asks for more |
+| A smoke of a fee read, and any sign-in smoke in production | on staging, with the outbox on and `SHIKKHOKPLUS_SMOKE_PHONE` set to an allowlisted number that has an account, `deploy/smoke.py` signs in and resolves `/v1/me` [C-38]; production smokes `/health` only |
 | An exercised restore | `infra/RESTORE.md` is written and has never been run |

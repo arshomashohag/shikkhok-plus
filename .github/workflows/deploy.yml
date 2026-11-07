@@ -14,14 +14,25 @@ name: deploy
 # group in the console, or an AMI data source resolving a newer image,
 # is drift that a path check calls "unchanged" and a plan catches.
 #
-# So the apply always runs and Terraform decides whether anything
-# needs doing. A no-op apply costs about thirty seconds.
+# **The plan is made, and shown, BEFORE anyone approves applying it**
+# [C-11]. Plan and apply used to be steps of one `<env>-infra` job, and
+# environment protection gates the START of a job, so the production
+# reviewer approved a plan that did not exist yet and the apply followed
+# with no pause. The plan now runs in the first job, as a read-only role,
+# and prints to that job's summary; the `<env>-infra` job applies
+# exactly that saved plan file, verified by its digest, and nothing else.
 #
 # **The ASG refreshes on every deploy**, replacing the instance so it
 # re-runs user_data: pull the image, migrate, serve. That is only safe
 # because the database is RDS -- a containerised Postgres lived on a
 # root volume with delete_on_termination = true, so this design would
 # have wiped the database on every run.
+#
+# **Nothing is deployed that CI has not passed** [C-10]. The first job
+# fails unless every job of check.yml concluded `success` on the exact
+# commit being deployed, and, for production, unless that commit is on
+# `main`. This reads check-run results; it runs no test
+# (tests/gates/test_deploy_runs_no_tests.py).
 
 on:
   workflow_dispatch:
@@ -37,16 +48,10 @@ on:
         required: false
         type: string
       # `skip_migrations` was removed on 2026-10-25. It was declared here
-      # and referenced nowhere else in this file -- no `if:`, no
-      # expression -- so it skipped nothing in either position while
-      # reading as a deliberate control. Migrations run in
+      # and referenced nowhere else in this file, so it skipped nothing
+      # while reading as a deliberate control. Migrations run in
       # `user_data.sh.tftpl` as a distinct logged step that fails closed,
       # and this workflow has no Alembic step to skip.
-      #
-      # Removed rather than wired up: an input that suppressed the boot
-      # migration would let an instance serve against a schema it was not
-      # built for, which is the failure that step exits non-zero to
-      # prevent.
 
 permissions:
   contents: read
@@ -59,39 +64,79 @@ concurrency:
   group: deploy-${{ inputs.environment }}
   cancel-in-progress: false
 
+# **bash, so every `run:` has pipefail** [C-11]. GitHub's default shell
+# runs `bash -e {0}` without pipefail, so `terraform plan | tee` reported
+# tee's success when the plan failed.
+defaults:
+  run:
+    shell: bash
+
 env:
   AWS_REGION: us-east-1
+  # Inputs reach scripts through the environment, never by expression
+  # interpolation into a `run:` body, where a crafted value becomes
+  # shell [C-10].
+  ENVIRONMENT: ${{ inputs.environment }}
+  # The state bucket's region, which infra/versions.tf's backend block
+  # also names. tests/gates/test_deploy_workflow.py asserts the two agree.
+  TF_STATE_REGION: ap-south-1
 
 jobs:
   # ---------------------------------------------------------------
-  # 1. Is this environment configured, and where does the image go?
+  # 1. Is this commit releasable, what will Terraform change, and
+  #    where does the image go?
   # ---------------------------------------------------------------
   plan:
     name: plan
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # The CI-evidence wait is bounded at 20 minutes; the plan after it
+    # takes a few.
+    timeout-minutes: 40
     environment: ${{ inputs.environment }}
+    permissions:
+      contents: read
+      id-token: write
+      # Reading check-run results for the commit [C-10].
+      checks: read
     outputs:
       repository: ${{ steps.resolve.outputs.repository }}
       asg: ${{ steps.resolve.outputs.asg }}
       sha: ${{ steps.commit.outputs.sha }}
+      plan_key: ${{ steps.store.outputs.key }}
+      plan_sha256: ${{ steps.store.outputs.sha256 }}
     steps:
-      - uses: actions/checkout@v7
+      # **The ref is a name, not a script** [C-10]. It is passed to
+      # checkout as an input, never interpolated into shell, and is
+      # refused here unless it is the shape a branch or tag name takes.
+      - name: The inputs are plain names
+        env:
+          REF: ${{ inputs.ref }}
+        run: |
+          case "$ENVIRONMENT" in
+            staging|production) ;;
+            *) echo "::error::Unknown environment '$ENVIRONMENT'."; exit 1 ;;
+          esac
+          if [ -n "$REF" ]; then
+            if ! [[ "$REF" =~ ^[A-Za-z0-9._/-]+$ ]] || [[ "$REF" == -* ]] || [[ "$REF" == *..* ]]; then
+              echo "::error::The ref must be a branch or tag name ([A-Za-z0-9._/-], no leading '-', no '..')."
+              exit 1
+            fi
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.ref || github.ref }}
+          persist-credentials: false
 
-      # **The commit being deployed is the one CHECKED OUT, not
-      # `github.sha`.** `github.sha` is the commit the workflow was
-      # dispatched FROM -- main's head, usually -- while `inputs.ref`
-      # selects what is built. Tagging by `github.sha` meant a rollback
-      # to an older ref either redeployed main's image (the tag already
-      # existed, so the build was skipped) or pushed the old code under
+      # **The commit being deployed is the one CHECKED OUT, not the one
+      # the workflow was dispatched from.** The dispatching commit is
+      # main's head, usually, while `inputs.ref` selects what is built.
+      # Tagging by the dispatching commit meant a rollback to an older
+      # ref either redeployed main's image or pushed the old code under
       # main's SHA, permanently, into an IMMUTABLE repository [OPS-9].
       #
       # Resolved ONCE, here, and every later job checks out this exact
-      # SHA rather than re-resolving the ref: a branch that moves
-      # between jobs would otherwise apply one commit's Terraform and
-      # ship another commit's image.
+      # SHA rather than re-resolving the ref.
       - name: Resolve the commit
         id: commit
         run: |
@@ -99,19 +144,90 @@ jobs:
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
           echo "Deploying $sha"
 
+      # **CI passed on THIS commit** [C-10]. Every job of check.yml must
+      # have concluded `success` on the resolved SHA -- the most recent
+      # run of each, so a re-run that failed is not hidden by an earlier
+      # pass. Only check runs from GitHub Actions count: any app can post
+      # a check run with any name.
+      #
+      # A commit just merged to main has its check.yml push run in
+      # progress, so pending checks are waited for, up to 20 minutes.
+      - name: CI passed on this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ steps.commit.outputs.sha }}
+          REQUIRED: "backend image android-unit web"
+        run: |
+          deadline=$((SECONDS + 1200))
+          while :; do
+            gh api --paginate \
+              "repos/$GITHUB_REPOSITORY/commits/$SHA/check-runs?per_page=100" \
+              --jq '.check_runs[] | select(.app.slug == "github-actions")
+                    | [.name, .status, (.conclusion // "none"), (.id | tostring)] | @tsv' \
+              > "$RUNNER_TEMP/runs.tsv"
+            pending=(); failed=()
+            for name in $REQUIRED; do
+              latest=$(awk -F'\t' -v n="$name" '$1 == n' "$RUNNER_TEMP/runs.tsv" \
+                | sort -t$'\t' -k4,4n | tail -1)
+              if [ -z "$latest" ]; then
+                pending+=("$name (not started)")
+                continue
+              fi
+              status=$(cut -f2 <<<"$latest")
+              conclusion=$(cut -f3 <<<"$latest")
+              if [ "$status" != "completed" ]; then
+                pending+=("$name ($status)")
+              elif [ "$conclusion" != "success" ]; then
+                failed+=("$name ($conclusion)")
+              fi
+            done
+            if [ ${#failed[@]} -ne 0 ]; then
+              echo "::error::check.yml did not pass on ${SHA:0:12}: ${failed[*]}"
+              exit 1
+            fi
+            if [ ${#pending[@]} -eq 0 ]; then
+              echo "check.yml passed on ${SHA:0:12}: $REQUIRED"
+              break
+            fi
+            if [ "$SECONDS" -ge "$deadline" ]; then
+              echo "::error::check.yml has no passing result on ${SHA:0:12} after 20 minutes: ${pending[*]}"
+              echo "Run the check workflow on this commit (Actions -> check -> Run workflow), then deploy again."
+              exit 1
+            fi
+            echo "Waiting for: ${pending[*]}"
+            sleep 30
+          done
+
+      # **Production deploys only what is on main** [C-10]. A branch, or
+      # a tag on a commit never merged, has not been through review.
+      # "behind" or "identical" means the commit is an ancestor of main.
+      - name: Production deploys a commit on main
+        if: inputs.environment == 'production'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ steps.commit.outputs.sha }}
+        run: |
+          status=$(gh api "repos/$GITHUB_REPOSITORY/compare/main...$SHA" --jq .status)
+          case "$status" in
+            identical|behind) echo "${SHA:0:12} is on main ($status)." ;;
+            *)
+              echo "::error::${SHA:0:12} is not on main (compare status: $status)."
+              echo "Production deploys only commits merged to main."
+              exit 1 ;;
+          esac
+
       # **The release gate's CVE check: production only, and BLOCKING**
       # [OPS-19]. The per-push scan in check.yml annotates at every
-      # severity and never blocks -- the affirmed two-speed model -- and
-      # until 2026-11-02 nothing read its results at release, so the
-      # blocking half did not exist. Here, before infrastructure or the
-      # image changes, each Critical or High finding in the commit being
-      # deployed fails the run unless .security-exceptions.md carries an
-      # unexpired entry for it; an expired entry fails it on its own; a
-      # finding whose severity cannot be looked up counts as High.
+      # severity and never blocks -- the affirmed two-speed model. Here,
+      # before infrastructure or the image changes, each Critical or High
+      # finding in the commit being deployed fails the run unless
+      # .security-exceptions.md carries an unexpired entry for it; an
+      # expired entry fails it on its own; a finding whose severity
+      # cannot be looked up counts as High.
       #
       # Staging is not gated: it is where a fix is rehearsed, and
       # blocking it would block the fix.
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         if: inputs.environment == 'production'
         with:
           python-version: "3.12"
@@ -134,30 +250,44 @@ jobs:
       - name: Fail early when the environment is not configured
         env:
           DEPLOY_ROLE: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
-          INFRA_ROLE: ${{ vars.AWS_ROLE_ARN }}
+          PLAN_ROLE: ${{ vars.AWS_PLAN_ROLE_ARN }}
           BUCKET: ${{ vars.TF_STATE_BUCKET }}
           APEX: ${{ vars.APEX_DOMAIN }}
           OTP_HMAC_KEY: ${{ secrets.SHIKKHOKPLUS_OTP_HMAC_KEY }}
           JWT_KEYS: ${{ secrets.SHIKKHOKPLUS_JWT_KEYS }}
+          ALERT_EMAIL: ${{ vars.ALERT_EMAIL }}
+          SMS_APP_HASH: ${{ vars.SHIKKHOKPLUS_SMS_APP_HASH }}
+          DAILY_SMS: ${{ vars.SHIKKHOKPLUS_GLOBAL_DAILY_SMS }}
         run: |
           missing=()
           [ -n "$DEPLOY_ROLE" ]  || missing+=("variable AWS_DEPLOY_ROLE_ARN")
-          [ -n "$INFRA_ROLE" ]   || missing+=("variable AWS_ROLE_ARN")
+          [ -n "$PLAN_ROLE" ]    || missing+=("variable AWS_PLAN_ROLE_ARN")
           [ -n "$BUCKET" ]       || missing+=("variable TF_STATE_BUCKET")
           [ -n "$APEX" ]         || missing+=("variable APEX_DOMAIN")
           [ -n "$OTP_HMAC_KEY" ] || missing+=("secret SHIKKHOKPLUS_OTP_HMAC_KEY")
           [ -n "$JWT_KEYS" ]     || missing+=("secret SHIKKHOKPLUS_JWT_KEYS")
 
+          # **No fallbacks for production** [C-19, C-34]. Staging may
+          # run on defaults; production runs on decisions.
+          if [ "$ENVIRONMENT" = "production" ]; then
+            [ -n "$ALERT_EMAIL" ] || missing+=("variable ALERT_EMAIL (alarms would reach nobody)")
+            [ -n "$DAILY_SMS" ]   || missing+=("variable SHIKKHOKPLUS_GLOBAL_DAILY_SMS")
+            if [ -z "$SMS_APP_HASH" ] || [ "$SMS_APP_HASH" = "AAAAAAAAAAA" ]; then
+              missing+=("variable SHIKKHOKPLUS_SMS_APP_HASH (the release build's real hash)")
+            fi
+          fi
+
           if [ ${#missing[@]} -ne 0 ]; then
-            echo "::error::Not configured for '${{ inputs.environment }}': ${missing[*]}"
-            echo "Set these under Settings -> Environments -> ${{ inputs.environment }}."
-            echo "The two role ARNs come from the infra/bootstrap output and"
-            echo "are NOT the same role: AWS_ROLE_ARN applies infrastructure,"
+            echo "::error::Not configured for '$ENVIRONMENT': ${missing[*]}"
+            echo "Set these under Settings -> Environments -> $ENVIRONMENT."
+            echo "The role ARNs come from the infra/bootstrap outputs and are"
+            echo "three different roles: AWS_PLAN_ROLE_ARN renders the plan,"
+            echo "AWS_ROLE_ARN (on $ENVIRONMENT-infra) applies it, and"
             echo "AWS_DEPLOY_ROLE_ARN pushes images and refreshes the ASG."
             exit 1
           fi
 
-      - uses: aws-actions/configure-aws-credentials@v6
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
@@ -165,8 +295,10 @@ jobs:
 
       - name: Resolve the registry and the group
         id: resolve
+        env:
+          REF_NAME: ${{ inputs.ref || github.ref_name }}
         run: |
-          prefix="shikkhokplus-${{ inputs.environment }}"
+          prefix="shikkhokplus-$ENVIRONMENT"
           repo=$(aws ecr describe-repositories \
             --repository-names "$prefix-backend" \
             --query 'repositories[0].repositoryUri' --output text 2>/dev/null) || repo=""
@@ -175,17 +307,91 @@ jobs:
           echo "asg=$prefix" >> "$GITHUB_OUTPUT"
 
           {
-            echo "### Deploying to ${{ inputs.environment }}"
+            echo "### Deploying to $ENVIRONMENT"
             echo ""
             echo "| | |"
             echo "|---|---|"
-            echo "| ref | \`${{ inputs.ref || github.ref_name }}\` |"
+            echo "| ref | \`$REF_NAME\` |"
             echo "| commit | \`$(git rev-parse --short=12 HEAD)\` |"
             echo "| registry | \`${repo:-(not created yet)}\` |"
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # **The PLAN role: read-only** [C-11]. It reads this environment's
+      # state and resources and can write nothing but the saved plan.
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_PLAN_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: deploy-tfplan-${{ github.run_id }}
+
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: "1.10.5"
+          terraform_wrapper: false
+
+      - name: Terraform init
+        working-directory: infra
+        env:
+          BUCKET: ${{ vars.TF_STATE_BUCKET }}
+        run: |
+          terraform init -input=false \
+            -backend-config="bucket=$BUCKET" \
+            -backend-config="key=$ENVIRONMENT/terraform.tfstate"
+
+      # `-lock=false`: planning takes no lock, so the plan role needs no
+      # write on the state. A saved plan records the state it was made
+      # against, and Terraform refuses to apply it if the state has moved
+      # since -- so an unlocked plan cannot be applied stale.
+      - name: Terraform plan
+        working-directory: infra
+        env:
+          TF_VAR_apex_domain: ${{ vars.APEX_DOMAIN }}
+          TF_VAR_environment: ${{ inputs.environment }}
+          # Where alarms are emailed [OPS-11]. Required for production,
+          # by the alert_routing_guard precondition [C-34].
+          TF_VAR_alert_email: ${{ vars.ALERT_EMAIL }}
+        run: |
+          terraform plan -input=false -lock=false -no-color -out=tfplan
+          terraform show -no-color tfplan > plan.txt
+
+      - name: What the -infra approval will apply
+        run: |
+          {
+            echo "### Terraform plan for $ENVIRONMENT"
+            echo ""
+            echo "Approving \`$ENVIRONMENT-infra\` applies exactly this plan."
+            echo ""
+            echo '```terraform'
+            head -c 60000 infra/plan.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # **The saved plan goes beside the state, not into an artifact.** A
+      # plan file carries the same secrets the state does (the database
+      # passwords, the origin secret) and artifacts are readable by
+      # anyone who can read the repository. Its digest travels as a job
+      # output, so the apply can prove it applies this file.
+      - name: Store the plan for the apply
+        id: store
+        env:
+          BUCKET: ${{ vars.TF_STATE_BUCKET }}
+        run: |
+          key="plans/$ENVIRONMENT/$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT.tfplan"
+          aws s3 cp infra/tfplan "s3://$BUCKET/$key" --region "$TF_STATE_REGION" --only-show-errors
+          echo "key=$key" >> "$GITHUB_OUTPUT"
+          echo "sha256=$(sha256sum infra/tfplan | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          rm -f infra/tfplan
+
+      - name: Keep the readable plan
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: terraform-plan-${{ inputs.environment }}-${{ github.run_id }}
+          path: infra/plan.txt
+          if-no-files-found: error
+          retention-days: 30
+
   # ---------------------------------------------------------------
-  # 2. Infrastructure. Always runs; Terraform decides what to do.
+  # 2. Infrastructure: apply the plan the first job printed.
   # ---------------------------------------------------------------
   infrastructure:
     name: infrastructure
@@ -194,67 +400,80 @@ jobs:
     timeout-minutes: 45
     # **`<env>-infra`, and the reviewer differs by environment.**
     #
-    # Terraform now runs on every deploy, so a required reviewer here
-    # would stop every deploy -- and an approval clicked on every
-    # staging deploy becomes a reflex, which is when it stops
-    # catching the one that mattered.
-    #
-    # So: `staging-infra` has NO reviewer and staging runs end to
-    # end; `production-infra` has a required reviewer and a
-    # production apply always stops for a human to read the plan
-    # printed in the step before it. Same workflow, different
-    # ceremony, set in Settings -> Environments rather than in YAML.
+    # `staging-infra` has NO reviewer and staging runs end to end;
+    # `production-infra` has a required reviewer, who now reads the plan
+    # in the `plan` job's summary BEFORE approving -- the job approved is
+    # the one that applies that plan and only that plan [C-11].
     environment: ${{ inputs.environment }}-infra
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.plan.outputs.sha }}
+          persist-credentials: false
 
-      - uses: aws-actions/configure-aws-credentials@v6
+      - name: The infrastructure role is configured
+        env:
+          INFRA_ROLE: ${{ vars.AWS_ROLE_ARN }}
+        run: |
+          if [ -z "$INFRA_ROLE" ]; then
+            echo "::error::AWS_ROLE_ARN is not set on the $ENVIRONMENT-infra environment."
+            echo "It is infra_role_arns[\"$ENVIRONMENT\"] from the infra/bootstrap output."
+            exit 1
+          fi
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
-          # The INFRASTRUCTURE role, which can create and destroy.
+          # THIS environment's INFRASTRUCTURE role, which can create and
+          # destroy -- its own environment's resources only [C-09].
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: deploy-infra-${{ github.run_id }}
 
-      - uses: hashicorp/setup-terraform@v4
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
           terraform_version: "1.10.5"
           terraform_wrapper: false
 
       - name: Init
         working-directory: infra
+        env:
+          BUCKET: ${{ vars.TF_STATE_BUCKET }}
         run: |
           terraform init -input=false \
-            -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
-            -backend-config="key=${{ inputs.environment }}/terraform.tfstate"
+            -backend-config="bucket=$BUCKET" \
+            -backend-config="key=$ENVIRONMENT/terraform.tfstate"
 
-      - name: Plan
+      - name: Fetch the plan that was shown
         working-directory: infra
         env:
-          TF_VAR_apex_domain: ${{ vars.APEX_DOMAIN }}
-          TF_VAR_environment: ${{ inputs.environment }}
-          # Where alarms are emailed [OPS-11]. Unset is allowed and
-          # reported by the alert_email_status output, not hidden.
-          TF_VAR_alert_email: ${{ vars.ALERT_EMAIL }}
-        run: terraform plan -input=false -no-color -out=tfplan | tee plan.txt
-
-      - name: What is about to be applied
+          BUCKET: ${{ vars.TF_STATE_BUCKET }}
+          KEY: ${{ needs.plan.outputs.plan_key }}
+          EXPECTED: ${{ needs.plan.outputs.plan_sha256 }}
         run: |
-          {
-            echo "### Terraform plan"
-            echo ""
-            echo '```terraform'
-            head -c 60000 infra/plan.txt
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+          aws s3 cp "s3://$BUCKET/$KEY" tfplan --region "$TF_STATE_REGION" --only-show-errors
+          actual=$(sha256sum tfplan | cut -d' ' -f1)
+          if [ -z "$EXPECTED" ] || [ "$actual" != "$EXPECTED" ]; then
+            echo "::error::The stored plan is not the one the plan job made and printed."
+            echo "expected ${EXPECTED:-(none)}, got $actual. Not applying."
+            exit 1
+          fi
+          echo "Plan $KEY verified (sha256 ${actual:0:16}...)."
 
       - name: Apply
         working-directory: infra
-        # The saved plan, so what is applied is exactly what printed
-        # above. A saved plan carries its own variables and rejects
-        # -var, so none are passed here.
+        # The saved plan, so what is applied is exactly what was printed.
+        # A saved plan carries its own variables and rejects -var, and
+        # Terraform refuses it if the state moved after it was made.
         run: terraform apply -input=false tfplan
+
+      - name: Remove the stored plan
+        if: always()
+        env:
+          BUCKET: ${{ vars.TF_STATE_BUCKET }}
+          KEY: ${{ needs.plan.outputs.plan_key }}
+        run: |
+          rm -f infra/tfplan
+          [ -z "$KEY" ] || aws s3 rm "s3://$BUCKET/$KEY" --region "$TF_STATE_REGION" --only-show-errors || true
 
   # ---------------------------------------------------------------
   # 3. Build, push, and roll the instance. Every deploy.
@@ -262,13 +481,6 @@ jobs:
   release:
     name: build and release
     needs: [plan, infrastructure]
-    # No `always()` and no result checks: `needs` alone now expresses
-    # it, because infrastructure runs on every deploy and a failed
-    # dependency skips this job by default.
-    #
-    # The earlier version tolerated a SKIPPED infrastructure job,
-    # which it no longer can be -- and that tolerance was load-bearing
-    # only for the change-detection this replaced.
     runs-on: ubuntu-latest
     # A refresh can take 40 minutes (the readiness hook's own timeout
     # plus one retry), a rollback is a second refresh, and the snapshot
@@ -276,9 +488,10 @@ jobs:
     timeout-minutes: 130
     environment: ${{ inputs.environment }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.plan.outputs.sha }}
+          persist-credentials: false
 
       - name: What identity is being presented
         run: |
@@ -295,31 +508,30 @@ jobs:
               print(f'  {k:12} {d.get(k, \"(absent)\")}')
           " "$payload"
 
-      - uses: aws-actions/configure-aws-credentials@v6
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: deploy-release-${{ github.run_id }}
 
-      - uses: aws-actions/amazon-ecr-login@v2
+      - uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
 
-      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
         with:
           platforms: arm64
 
-      - uses: docker/setup-buildx-action@v4
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Resolve the registry
         id: ecr
         run: |
           repo=$(aws ecr describe-repositories \
-            --repository-names "shikkhokplus-${{ inputs.environment }}-backend" \
+            --repository-names "shikkhokplus-$ENVIRONMENT-backend" \
             --query 'repositories[0].repositoryUri' --output text 2>/dev/null) || {
-            echo "::error::No ECR repository for ${{ inputs.environment }}."
+            echo "::error::No ECR repository for $ENVIRONMENT."
             echo "It is created by the infrastructure job. If that job was"
             echo "skipped, infrastructure has never been applied for this"
-            echo "environment -- change something under infra/ or apply once"
-            echo "manually."
+            echo "environment -- apply once from the bootstrap laptop."
             exit 1
           }
           echo "repository=$repo" >> "$GITHUB_OUTPUT"
@@ -328,26 +540,16 @@ jobs:
       #
       # The tag is the commit SHA and the repository is IMMUTABLE, so
       # re-deploying a commit -- which is what every retry after a
-      # later failure is -- tried to push a tag that already exists
-      # and failed with "cannot be overwritten".
-      #
-      # That is the repository behaving correctly: a SHA tag IS the
-      # artifact, which is what makes a rollback a redeploy rather
-      # than a rebuild. The bug was the pipeline assuming every run
-      # pushes something new.
-      #
-      # Skipping the push is also the RIGHT answer rather than a
-      # workaround: the image for this commit already exists and is
-      # byte-identical to what another build would produce, so
-      # rebuilding it would spend five minutes to arrive at the same
-      # digest.
+      # later failure is -- would push a tag that already exists. The
+      # image for this commit already exists and is the artifact, so the
+      # push is skipped rather than failed.
       - name: Is this commit already built?
         id: exists
         env:
           SHA: ${{ needs.plan.outputs.sha }}
         run: |
           if aws ecr describe-images \
-               --repository-name "shikkhokplus-${{ inputs.environment }}-backend" \
+               --repository-name "shikkhokplus-$ENVIRONMENT-backend" \
                --image-ids imageTag="$SHA" >/dev/null 2>&1; then
             echo "Image for ${SHA:0:12} already in the registry."
             echo "Skipping the build; the existing image is the artifact."
@@ -358,7 +560,7 @@ jobs:
 
       - name: Build and push
         if: steps.exists.outputs.skip != 'true'
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           platforms: linux/arm64
@@ -370,6 +572,27 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # **The image's operating-system packages, gated at release**
+      # [C-32]. pip-audit sees the Python lockfile and nothing of the
+      # Debian layer the image ships. ECR scans every push (the
+      # registry's scan_on_push); this waits for that scan of THIS image
+      # and blocks on any Critical or High finding without an unexpired
+      # row in .security-exceptions.md -- the same file, the same rule.
+      # Read from ECR rather than by running a scanner here, so no
+      # third-party tool runs in a job holding the deploy role.
+      - name: Release gate - image CVEs
+        if: inputs.environment == 'production'
+        env:
+          SHA: ${{ needs.plan.outputs.sha }}
+        run: |
+          repo="shikkhokplus-$ENVIRONMENT-backend"
+          aws ecr wait image-scan-complete \
+            --repository-name "$repo" --image-id imageTag="$SHA"
+          aws ecr describe-image-scan-findings \
+            --repository-name "$repo" --image-id imageTag="$SHA" \
+            --output json > "$RUNNER_TEMP/image-findings.json"
+          python3 deploy/cve_gate.py "$RUNNER_TEMP/image-findings.json" .security-exceptions.md
+
       # **What is running now, kept so a failed release can be undone.**
       # The rollback below restores exactly these two parameters; with
       # them back, any replacement host boots the previous release.
@@ -377,11 +600,9 @@ jobs:
       # runner's temp directory, never to an output or the log.
       - name: Remember the running release
         id: previous
-        env:
-          ENVIRONMENT: ${{ inputs.environment }}
         run: |
           umask 077
-          base="/shikkhokplus/shikkhokplus-${ENVIRONMENT}"
+          base="/shikkhokplus/shikkhokplus-$ENVIRONMENT"
           tag=$(aws ssm get-parameter --name "$base/image-tag" \
             --query 'Parameter.Value' --output text)
           aws ssm get-parameter --name "$base/runtime-env" --with-decryption \
@@ -391,12 +612,9 @@ jobs:
 
       # **A named restore point before anything can migrate** [OPS-7].
       #
-      # The new host runs `alembic upgrade head` at boot. RDS's
-      # automated backups give point-in-time recovery to about five
-      # minutes, but no named point that says "the database as it was
-      # before release X" -- and under pressure the difference between
-      # "restore snapshot predeploy-<sha>" and "work out the right
-      # second" is the difference between a runbook and a guess.
+      # The new host migrates at boot. RDS's automated backups give
+      # point-in-time recovery to about five minutes, but no named point
+      # that says "the database as it was before release X".
       #
       # **Fails the deploy rather than proceeding without one**, and
       # BEFORE the deployment state is written, so a failure here
@@ -411,10 +629,9 @@ jobs:
       - name: Snapshot the database
         id: snapshot
         env:
-          ENVIRONMENT: ${{ inputs.environment }}
           SHA: ${{ needs.plan.outputs.sha }}
         run: |
-          db="shikkhokplus-${ENVIRONMENT}-db"
+          db="shikkhokplus-$ENVIRONMENT-db"
           if ! found=$(aws rds describe-db-instances \
                 --db-instance-identifier "$db" \
                 --query 'DBInstances[0].DBInstanceStatus' --output text 2>&1); then
@@ -426,7 +643,7 @@ jobs:
           fi
           echo "$db is $found"
 
-          prefix="shikkhokplus-${ENVIRONMENT}-predeploy-"
+          prefix="shikkhokplus-$ENVIRONMENT-predeploy-"
           snap="${prefix}${SHA:0:12}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           aws rds create-db-snapshot \
             --db-instance-identifier "$db" \
@@ -452,10 +669,15 @@ jobs:
       # **Written BEFORE the refresh.** A replaced instance reads
       # these at boot. Writing them after would leave a window in
       # which a replacement comes back on the PREVIOUS image.
+      #
+      # **The runtime env first, then the image tag** [C-12]. The image
+      # tag is what makes a booting host run the new release; written
+      # last, an interruption between the two leaves the previous image
+      # with a runtime env it can also run, never the new image with the
+      # previous configuration.
       - name: Record the deployment state
         id: record
         env:
-          ENVIRONMENT: ${{ inputs.environment }}
           OTP_HMAC_KEY: ${{ secrets.SHIKKHOKPLUS_OTP_HMAC_KEY }}
           JWT_KEYS: ${{ secrets.SHIKKHOKPLUS_JWT_KEYS }}
           SMS_API_KEY: ${{ secrets.SHIKKHOKPLUS_SMS_API_KEY }}
@@ -464,25 +686,46 @@ jobs:
           SMS_APP_HASH: ${{ vars.SHIKKHOKPLUS_SMS_APP_HASH }}
           DAILY_SMS: ${{ vars.SHIKKHOKPLUS_GLOBAL_DAILY_SMS }}
           STAGING_OUTBOX: ${{ vars.SHIKKHOKPLUS_STAGING_OUTBOX }}
+          STAGING_OUTBOX_NUMBERS: ${{ vars.SHIKKHOKPLUS_STAGING_OUTBOX_NUMBERS }}
           SHA: ${{ needs.plan.outputs.sha }}
         run: |
           umask 077
+
+          # **No defaults in production** [C-19]. A placeholder hash
+          # passes the app's length check and a ceiling of 50 passes its
+          # presence check, so a fallback here defeated both startup
+          # checks. Staging keeps them, and it never runs the outbox
+          # without an operator allowlist.
+          if [ "$ENVIRONMENT" = "production" ]; then
+            if [ -z "$SMS_APP_HASH" ] || [ "$SMS_APP_HASH" = "AAAAAAAAAAA" ] || [ -z "$DAILY_SMS" ]; then
+              echo "::error::Production needs SHIKKHOKPLUS_SMS_APP_HASH and SHIKKHOKPLUS_GLOBAL_DAILY_SMS."
+              exit 1
+            fi
+            STAGING_OUTBOX=0
+            STAGING_OUTBOX_NUMBERS=""
+          else
+            SMS_APP_HASH="${SMS_APP_HASH:-AAAAAAAAAAA}"
+            DAILY_SMS="${DAILY_SMS:-50}"
+            STAGING_OUTBOX="${STAGING_OUTBOX:-0}"
+          fi
+
           {
             echo "SHIKKHOKPLUS_ENVIRONMENT=${ENVIRONMENT}"
             echo "SHIKKHOKPLUS_OTP_HMAC_KEY=${OTP_HMAC_KEY}"
             echo "SHIKKHOKPLUS_JWT_KEYS=${JWT_KEYS}"
             echo "SHIKKHOKPLUS_JWT_ACTIVE_KID=k1"
-            echo "SHIKKHOKPLUS_SMS_APP_HASH=${SMS_APP_HASH:-AAAAAAAAAAA}"
-            echo "SHIKKHOKPLUS_GLOBAL_DAILY_SMS=${DAILY_SMS:-50}"
+            echo "SHIKKHOKPLUS_SMS_APP_HASH=${SMS_APP_HASH}"
+            echo "SHIKKHOKPLUS_GLOBAL_DAILY_SMS=${DAILY_SMS}"
             echo "SHIKKHOKPLUS_SMS_ADAPTER=${SMS_API_KEY:+bulksmsbd}"
             echo "SHIKKHOKPLUS_SMS_BASE_URL=${SMS_BASE_URL}"
             echo "SHIKKHOKPLUS_SMS_API_KEY=${SMS_API_KEY}"
             echo "SHIKKHOKPLUS_SMS_SENDER_ID=${SMS_SENDER_ID}"
-            # Exposes the most recent OTP to an UNAUTHENTICATED
-            # caller, so anyone who can reach the API can sign in as
-            # anyone. Off unless explicitly enabled, and a production
-            # process with it set refuses to start.
-            echo "SHIKKHOKPLUS_STAGING_OUTBOX=${STAGING_OUTBOX:-0}"
+            # Exposes the most recent OTP for the allowlisted operator
+            # numbers to an unauthenticated caller. Off unless explicitly
+            # enabled; on staging it also needs the allowlist; a
+            # production process with it set refuses to start.
+            echo "SHIKKHOKPLUS_STAGING_OUTBOX=${STAGING_OUTBOX}"
+            echo "SHIKKHOKPLUS_STAGING_OUTBOX_NUMBERS=${STAGING_OUTBOX_NUMBERS}"
             # The ONLY client address the API may trust for the per-IP
             # OTP ceiling: nginx always overwrites it with CloudFront's
             # viewer IP. Every environment, so staging exercises what
@@ -492,12 +735,12 @@ jobs:
           } > runtime.env
 
           aws ssm put-parameter \
-            --name "/shikkhokplus/shikkhokplus-${ENVIRONMENT}/image-tag" \
-            --value "$SHA" --type String --overwrite >/dev/null
-
-          aws ssm put-parameter \
             --name "/shikkhokplus/shikkhokplus-${ENVIRONMENT}/runtime-env" \
             --value "file://runtime.env" --type SecureString --overwrite >/dev/null
+
+          aws ssm put-parameter \
+            --name "/shikkhokplus/shikkhokplus-${ENVIRONMENT}/image-tag" \
+            --value "$SHA" --type String --overwrite >/dev/null
 
           rm -f runtime.env
           echo "Deployment state recorded for ${ENVIRONMENT}."
@@ -509,56 +752,67 @@ jobs:
       # self-healing boot is tested on every deploy rather than only
       # on the day it matters.
       #
-      # **Launch before terminate, gated on readiness** [OPS-6]. This
-      # was MinHealthyPercentage 0 with an EC2 health check, so every
-      # deploy terminated the only host first and counted a booted-but-
-      # broken replacement as healthy. deploy/roll.sh documents the
-      # replacement's lifecycle; in short, the old host serves until the
-      # new one has proved it answers /health through nginx over
-      # verified TLS.
+      # **Launch before terminate, gated on readiness** [OPS-6].
+      # deploy/roll.sh documents the replacement's lifecycle; in short,
+      # the old host serves until the new one has proved it answers
+      # /health through nginx over verified TLS.
       - name: Roll the instance
         id: roll
-        run: deploy/roll.sh "shikkhokplus-${{ inputs.environment }}"
+        run: deploy/roll.sh "shikkhokplus-$ENVIRONMENT"
 
       # **The deploy is not done until the PUBLIC URL answers** [OPS-6].
-      # This was a curl to 127.0.0.1 over SSM on the instance, which
-      # proved the container answered and nothing about CloudFront, the
-      # origin certificate, nginx's origin-secret check or DNS -- every
-      # one of which has failed on this project with a healthy
-      # container behind it. Through CloudFront, and at the migration
-      # head this commit declares.
+      # Through CloudFront, and at the migration head this commit
+      # declares. On staging, with the outbox on and an operator number
+      # named for it, also through sign-in: issue, outbox, verify, and
+      # GET /v1/me with the issued token [C-38].
       - name: Smoke through CloudFront
         id: smoke
         env:
-          ENVIRONMENT: ${{ inputs.environment }}
+          STAGING_OUTBOX: ${{ vars.SHIKKHOKPLUS_STAGING_OUTBOX }}
+          SMOKE_PHONE: ${{ vars.SHIKKHOKPLUS_SMOKE_PHONE }}
         run: |
           url=$(aws ssm get-parameter \
             --name "/shikkhokplus/shikkhokplus-${ENVIRONMENT}/api-url" \
             --query 'Parameter.Value' --output text)
           echo "Smoke: $url"
-          python3 deploy/smoke.py "$url" --attempts 18 --interval 10
+          sign_in=()
+          if [ "$ENVIRONMENT" = "staging" ] && [ "$STAGING_OUTBOX" = "1" ] && [ -n "$SMOKE_PHONE" ]; then
+            sign_in=(--sign-in-phone "$SMOKE_PHONE")
+          else
+            echo "Health only: the sign-in smoke needs staging, the outbox and SHIKKHOKPLUS_SMOKE_PHONE."
+          fi
+          python3 deploy/smoke.py "$url" --attempts 18 --interval 10 "${sign_in[@]}"
 
-      # **The rollback, automatic.** Any failure after the deployment
-      # state was recorded puts the previous image tag and runtime env
-      # back, so no future replacement boots the failed release.
+      # **The rollback, automatic -- on failure AND on cancellation**
+      # [C-12]. A cancelled or timed-out job does not satisfy failure(),
+      # so it used to skip this and could leave SSM pointing at a release
+      # nobody verified. Any outcome of the record step other than
+      # "never ran" means SSM may hold the new release, so the previous
+      # image tag and runtime env go back.
       #
       # Whether the host itself must be rolled again depends on where
-      # it failed. A failed REFRESH never put the new host in service --
+      # it stopped. A failed REFRESH never put the new host in service --
       # the previous host is still serving -- so restoring SSM is the
       # whole rollback. A failed SMOKE means the new host is the one
-      # serving, so a second launch-before-terminate refresh boots the
-      # previous release beside it and replaces it.
+      # serving. An INTERRUPTED refresh may have got that far or not, so
+      # it is cancelled and the previous release rolled out over
+      # whatever it left.
       #
       # The schema is NOT rolled back. Migrations are forward-only and
       # must stay compatible with the previous release [team.md
-      # Deployment]; the pre-deploy snapshot above is the recovery path
-      # when one was not, and infra/RESTORE.md is how to use it.
+      # Deployment]; the previous image boots against the newer schema
+      # because the boot migrates only when behind (C-12), and the
+      # pre-deploy snapshot above is the recovery path when compatibility
+      # did not hold. infra/RESTORE.md is how to use it.
       - name: Roll back to the previous release
-        if: failure() && steps.record.outcome == 'success'
+        if: >-
+          (failure() || cancelled())
+          && contains(fromJSON('["success","failure","cancelled"]'), steps.record.outcome)
         env:
-          ENVIRONMENT: ${{ inputs.environment }}
           PREVIOUS_TAG: ${{ steps.previous.outputs.tag }}
           SMOKE: ${{ steps.smoke.outcome }}
+          ROLL: ${{ steps.roll.outcome }}
+          ASG: ${{ steps.roll.outputs.asg }}
         run: |
           base="/shikkhokplus/shikkhokplus-${ENVIRONMENT}"
           aws ssm put-parameter --name "$base/image-tag" \
@@ -567,11 +821,25 @@ jobs:
             --value "file://$RUNNER_TEMP/previous-runtime.env" \
             --type SecureString --overwrite >/dev/null
           echo "Restored the previous release (${PREVIOUS_TAG:0:12}) in SSM."
-          if [ "$SMOKE" = "failure" ]; then
-            echo "The failed release is serving; rolling the host back."
+
+          if [ "$ROLL" = "cancelled" ] && [ -n "$ASG" ]; then
+            echo "The refresh was interrupted; cancelling it before rolling back."
+            aws autoscaling cancel-instance-refresh --auto-scaling-group-name "$ASG" || true
+            for _ in $(seq 1 30); do
+              active=$(aws autoscaling describe-instance-refreshes \
+                --auto-scaling-group-name "$ASG" \
+                --query "length(InstanceRefreshes[?Status=='Pending' || Status=='InProgress' || Status=='Cancelling'])" \
+                --output text)
+              [ "$active" = "0" ] && break
+              sleep 10
+            done
+          fi
+
+          if [ "$SMOKE" = "failure" ] || [ "$ROLL" = "cancelled" ]; then
+            echo "The failed or unverified release may be serving; rolling the host back."
             deploy/roll.sh "shikkhokplus-${ENVIRONMENT}"
           fi
-          echo "::error::Deploy failed and was rolled back to ${PREVIOUS_TAG:0:12}."
+          echo "::error::Deploy did not complete and was rolled back to ${PREVIOUS_TAG:0:12}."
 
       - name: Forget the previous runtime env
         if: always()
@@ -598,11 +866,12 @@ jobs:
     timeout-minutes: 25
     environment: ${{ inputs.environment }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.plan.outputs.sha }}
+          persist-credentials: false
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "22"
           cache: npm
@@ -627,7 +896,7 @@ jobs:
           WEB_BASE: /ui/
         run: make web
 
-      - uses: aws-actions/configure-aws-credentials@v6
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
@@ -635,8 +904,6 @@ jobs:
 
       - name: Resolve where it goes
         id: target
-        env:
-          ENVIRONMENT: ${{ inputs.environment }}
         run: |
           base="/shikkhokplus/shikkhokplus-${ENVIRONMENT}"
           read_param() {
